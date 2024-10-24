@@ -35,6 +35,11 @@ flags.DEFINE_string(
     "Path to the _toc.yaml file that contains the table of contents for the versions menu.",
 )
 flags.DEFINE_string(
+    "buttons_path",
+    None,
+    "Path to the _buttons.html file that contains the version indicator.",
+)
+flags.DEFINE_string(
     "narrative_docs_path",
     None,
     "Path of the archive (zip or tar) that contains the narrative documentation.",
@@ -70,14 +75,17 @@ def validate_flag(name):
   exit(1)
 
 
-def create_docs_tree(version, toc_path, narrative_docs_path,
-                     reference_docs_path):
+def create_docs_tree(
+    version, toc_path, buttons_path, narrative_docs_path, reference_docs_path
+):
   """Creates a directory tree containing the docs for the Bazel version.
 
   Args:
     version: Version of this Bazel release.
     toc_path: Absolute path to the _toc.yaml file that lists the most recent
       Bazel versions.
+    buttons_path: Absolute path of the _buttons.html file that contains the
+      version indicator.
     narrative_docs_path: Absolute path of an archive that contains the narrative
       documentation (can be .zip or .tar).
     reference_docs_path: Absolute path of an archive that contains the reference
@@ -101,7 +109,11 @@ def create_docs_tree(version, toc_path, narrative_docs_path,
   try_extract(narrative_docs_path, release_dir)
   try_extract(reference_docs_path, release_dir)
 
-  return root_dir, toc_dest_path
+  buttons_dest_path = os.path.join(release_dir, "_buttons.html")
+  os.remove(buttons_dest_path)
+  shutil.copyfile(buttons_path, buttons_dest_path)
+
+  return root_dir, toc_dest_path, release_dir
 
 
 def try_extract(archive_path, output_dir):
@@ -128,7 +140,7 @@ def try_extract(archive_path, output_dir):
     archive.extractall(output_dir)
 
 
-def build_archive(version, root_dir, toc_path, output_path):
+def build_archive(version, root_dir, toc_path, output_path, release_dir):
   """Builds a documentation archive for the given Bazel release.
 
   This function reads all documentation files from the tree rooted in root_dir,
@@ -141,24 +153,27 @@ def build_archive(version, root_dir, toc_path, output_path):
       tree.
     toc_path: Absolute path of the _toc.yaml file.
     output_path: Absolute path where the archive should be written to.
+    release_dir: Absolute path of the root directory for this version.
   """
   with zipfile.ZipFile(output_path, "w") as archive:
     for root, _, files in os.walk(root_dir):
       for f in files:
         src = os.path.join(root, f)
         dest = src[len(root_dir) + 1:]
+        rel_path = os.path.relpath(src, release_dir)
 
         if src != toc_path and rewriter.can_rewrite(src):
-          archive.writestr(dest, get_versioned_content(src, version))
+          archive.writestr(dest, get_versioned_content(src, rel_path, version))
         else:
           archive.write(src, dest)
 
 
-def get_versioned_content(path, version):
+def get_versioned_content(path, rel_path, version):
   """Rewrites links in the given file to point at versioned docs.
 
   Args:
     path: Absolute path of the file that should be rewritten.
+    rel_path: Relative path of the file that should be rewritten.
     version: Version of the Bazel release whose documentation is being built.
 
   Returns:
@@ -167,15 +182,16 @@ def get_versioned_content(path, version):
   with open(path, "rt", encoding="utf-8") as f:
     content = f.read()
 
-  return rewriter.rewrite_links(path, content, version)
+  return rewriter.rewrite_links(path, content, rel_path, version)
 
 
 def main(unused_argv):
   version = validate_flag("version")
   output_path = validate_flag("output_path")
-  root_dir, toc_path = create_docs_tree(
+  root_dir, toc_path, release_dir = create_docs_tree(
       version=version,
       toc_path=validate_flag("toc_path"),
+      buttons_path=validate_flag("buttons_path"),
       narrative_docs_path=validate_flag("narrative_docs_path"),
       reference_docs_path=validate_flag("reference_docs_path"),
   )
@@ -185,6 +201,7 @@ def main(unused_argv):
       root_dir=root_dir,
       toc_path=toc_path,
       output_path=output_path,
+      release_dir=release_dir,
   )
 
 

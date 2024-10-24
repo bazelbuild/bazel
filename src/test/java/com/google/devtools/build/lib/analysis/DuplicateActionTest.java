@@ -32,10 +32,28 @@ public class DuplicateActionTest extends AnalysisTestCase {
     scratch.file("a/stamp.cc",
         "// Empty."
     );
-    scratch.file("a/BUILD",
-        "cc_binary(name = 'a', srcs = ['a.cc'], deps = [':c'], stamp = 1)",
-        "cc_binary(name = 'b', srcs = ['b.cc'], deps = [':c'], stamp = 1)",
-        "cc_library(name = 'c', linkstamp = 'stamp.cc')");
+    scratch.file(
+        "a/BUILD",
+        """
+        cc_binary(
+            name = "a",
+            srcs = ["a.cc"],
+            stamp = 1,
+            deps = [":c"],
+        )
+
+        cc_binary(
+            name = "b",
+            srcs = ["b.cc"],
+            stamp = 1,
+            deps = [":c"],
+        )
+
+        cc_library(
+            name = "c",
+            linkstamp = "stamp.cc",
+        )
+        """);
     update("//a:a", "//a:b");
     assertThat(hasErrors(getConfiguredTarget("//a:a"))).isFalse();
     assertThat(hasErrors(getConfiguredTarget("//a:b"))).isFalse();

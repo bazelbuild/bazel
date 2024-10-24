@@ -59,6 +59,12 @@ public class RepositoryMappingFunction implements SkyFunction {
     boolean enableBzlmod = starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD);
     boolean enableWorkspace = starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_WORKSPACE);
 
+    if (!enableBzlmod && !enableWorkspace) {
+      throw new RepositoryMappingFunctionException(
+          "Both --enable_bzlmod and --enable_workspace are disabled, but one of them must be"
+              + " enabled to fetch external dependencies.");
+    }
+
     if (enableBzlmod) {
       if (StarlarkBuiltinsValue.isBuiltinsRepo(repositoryName)) {
         // If tools repo is not set, repo mapping for @_builtins should be always fallback.
@@ -154,8 +160,8 @@ public class RepositoryMappingFunction implements SkyFunction {
         }
         return RepositoryMappingValue.createForBzlmodRepo(
             RepositoryMapping.create(repoMappingEntriesValue.getEntries(), repositoryName),
-            repoMappingEntriesValue.getModuleKey().getName(),
-            repoMappingEntriesValue.getModuleKey().getVersion());
+            repoMappingEntriesValue.getModuleKey().name(),
+            repoMappingEntriesValue.getModuleKey().version());
       }
     }
 
@@ -214,11 +220,11 @@ public class RepositoryMappingFunction implements SkyFunction {
       throws RepositoryMappingFunctionException {
     Package externalPackage = externalPackageValue.getPackage();
     if (externalPackage.containsErrors()) {
-      throw new RepositoryMappingFunctionException();
+      throw new RepositoryMappingFunctionException("error evaluating WORKSPACE");
     }
     RepositoryMapping workspaceMapping =
         RepositoryMapping.createAllowingFallback(
-            externalPackage.getRepositoryMapping(repositoryName));
+            externalPackage.getExternalPackageRepositoryMapping(repositoryName));
     if (rootModuleRepoMapping == null) {
       // This means Bzlmod is disabled.
       return RepositoryMappingValue.createForWorkspaceRepo(workspaceMapping);
@@ -233,15 +239,15 @@ public class RepositoryMappingFunction implements SkyFunction {
   private static Optional<ModuleExtensionId> maybeGetModuleExtensionForRepo(
       RepositoryName repositoryName, BazelDepGraphValue bazelDepGraphValue) {
     return bazelDepGraphValue.getExtensionUniqueNames().entrySet().stream()
-        .filter(e -> repositoryName.getName().startsWith(e.getValue() + "~"))
+        .filter(e -> repositoryName.getName().startsWith(e.getValue() + "+"))
         .map(Entry::getKey)
         .findFirst();
   }
 
   private static class RepositoryMappingFunctionException extends SkyFunctionException {
-    RepositoryMappingFunctionException() {
+    RepositoryMappingFunctionException(String message) {
       super(
-          new BuildFileContainsErrorsException(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER),
+          new BuildFileContainsErrorsException(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER, message),
           Transience.PERSISTENT);
     }
   }

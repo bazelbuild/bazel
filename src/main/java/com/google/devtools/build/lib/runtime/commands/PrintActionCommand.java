@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
+import static com.google.devtools.build.lib.runtime.Command.BuildPhase.ANALYZES;
+
 import com.google.common.base.Predicate;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
@@ -65,19 +67,16 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
-/**
- * Implements 'blaze print_action' by finding the Configured target[s] for the file[s] listed.
- *
- */
-@Command(name = "print_action",
-         builds = true,
-         inherits = {BuildCommand.class},
-         options = {PrintActionCommand.PrintActionOptions.class},
-         help = "resource:print_action.txt",
-         shortDescription = "Prints the command line args for compiling a file.",
-         completion = "label",
-         allowResidue = true,
-         canRunInOutputDirectory = true)
+/** Implements 'blaze print_action' by finding the Configured target[s] for the file[s] listed. */
+@Command(
+    name = "print_action",
+    buildPhase = ANALYZES,
+    inheritsOptionsFrom = {BuildCommand.class},
+    options = {PrintActionCommand.PrintActionOptions.class},
+    help = "resource:print_action.txt",
+    shortDescription = "Prints the command line args for compiling a file.",
+    completion = "label",
+    allowResidue = true)
 public final class PrintActionCommand implements BlazeCommand {
 
   /**

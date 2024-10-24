@@ -167,8 +167,6 @@ class StartupOptions {
 
   bool autodetect_server_javabase;
 
-  std::string host_jvm_profile;
-
   std::vector<std::string> host_jvm_args;
 
   bool batch;
@@ -244,6 +242,9 @@ class StartupOptions {
   // Invocation policy can only be specified once.
   bool have_invocation_policy_;
 
+  // Whether to emit as little output as possible.
+  bool quiet;
+
   // Whether to output addition debugging information in the client.
   bool client_debug;
 
@@ -253,8 +254,6 @@ class StartupOptions {
 
   // Value of the java.util.logging.FileHandler.formatter Java property.
   std::string java_logging_formatter;
-
-  bool expand_configs_in_place;
 
   // The hash function to use when computing file digests.
   std::string digest_function;
@@ -274,6 +273,10 @@ class StartupOptions {
 
   // Whether to raise the soft coredump limit to the hard one or not.
   bool unlimit_coredumps;
+
+#ifdef __linux__
+  std::string cgroup_parent;
+#endif
 
   // Whether to create symbolic links on Windows for files. Requires
   // developer mode to be enabled.

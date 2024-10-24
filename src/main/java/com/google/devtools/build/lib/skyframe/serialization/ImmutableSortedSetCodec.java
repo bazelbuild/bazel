@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
-import static com.google.devtools.build.lib.skyframe.serialization.ArrayProcessor.deserializeObjectArrayFully;
+import static com.google.devtools.build.lib.skyframe.serialization.ArrayProcessor.deserializeObjectArray;
 import static com.google.devtools.build.lib.unsafe.UnsafeProvider.getFieldOffset;
 
 import com.google.common.collect.ImmutableSortedSet;
@@ -24,7 +24,6 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.SortedSet;
-import java.util.function.Supplier;
 
 /**
  * {@link ObjectCodec} for {@link ImmutableSortedSet}. Comparator must be serializable, ideally a
@@ -49,14 +48,14 @@ class ImmutableSortedSetCodec<E> extends DeferredObjectCodec<ImmutableSortedSet<
   }
 
   @Override
-  public Supplier<ImmutableSortedSet<E>> deserializeDeferred(
+  public DeferredValue<ImmutableSortedSet<E>> deserializeDeferred(
       AsyncDeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
     int size = codedIn.readInt32();
     SortedSetShimForEfficientDeserialization<E> sortedSetShim =
         new SortedSetShimForEfficientDeserialization<>(size);
-    context.deserializeFully(codedIn, sortedSetShim, COMPARATOR_OFFSET);
-    deserializeObjectArrayFully(context, codedIn, sortedSetShim.sortedElementsArray, size);
+    context.deserialize(codedIn, sortedSetShim, COMPARATOR_OFFSET);
+    deserializeObjectArray(context, codedIn, sortedSetShim.sortedElementsArray, size);
     return sortedSetShim;
   }
 
@@ -77,7 +76,7 @@ class ImmutableSortedSetCodec<E> extends DeferredObjectCodec<ImmutableSortedSet<
    */
   @SuppressWarnings("JdkObsolete") // SortedSet required for ImmutableSortedSet.copyOfSorted
   private static class SortedSetShimForEfficientDeserialization<E>
-      implements SortedSet<E>, Supplier<ImmutableSortedSet<E>> {
+      implements SortedSet<E>, DeferredValue<ImmutableSortedSet<E>> {
     private Comparator<E> comparator;
     private final Object[] sortedElementsArray;
 
@@ -86,7 +85,7 @@ class ImmutableSortedSetCodec<E> extends DeferredObjectCodec<ImmutableSortedSet<
     }
 
     @Override
-    public ImmutableSortedSet<E> get() {
+    public ImmutableSortedSet<E> call() {
       return ImmutableSortedSet.copyOfSorted(this);
     }
 

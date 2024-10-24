@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -76,6 +75,9 @@ public final class AspectDefinition {
    */
   @Nullable private final ImmutableSet<String> restrictToAttributes;
 
+  /** Toolchain types for which the aspect will propagate to matching resolved toolchains. */
+  private final ImmutableSet<Label> propagateToToolchainsTypes;
+
   @Nullable private final ConfigurationFragmentPolicy configurationFragmentPolicy;
   private final boolean applyToFiles;
   private final boolean applyToGeneratingRules;
@@ -98,6 +100,7 @@ public final class AspectDefinition {
       ImmutableMap<String, Attribute> attributes,
       ImmutableSet<ToolchainTypeRequirement> toolchainTypes,
       @Nullable ImmutableSet<String> restrictToAttributes,
+      ImmutableSet<Label> propagateToToolchainsTypes,
       @Nullable ConfigurationFragmentPolicy configurationFragmentPolicy,
       boolean applyToFiles,
       boolean applyToGeneratingRules,
@@ -112,6 +115,7 @@ public final class AspectDefinition {
     this.attributes = attributes;
     this.toolchainTypes = toolchainTypes;
     this.restrictToAttributes = restrictToAttributes;
+    this.propagateToToolchainsTypes = propagateToToolchainsTypes;
     this.configurationFragmentPolicy = configurationFragmentPolicy;
     this.applyToFiles = applyToFiles;
     this.applyToGeneratingRules = applyToGeneratingRules;
@@ -181,6 +185,16 @@ public final class AspectDefinition {
       return restrictToAttributes.contains(attributeName);
     }
     return true;
+  }
+
+  /** Returns whether the aspect propagates to toolchains of the given {@code toolchainType}. */
+  public boolean canPropagateToToolchainType(Label toolchainType) {
+    return propagateToToolchainsTypes.contains(toolchainType);
+  }
+
+  /** Returns whether the aspect propagates to toolchains. */
+  public boolean propagatesToToolchains() {
+    return !propagateToToolchainsTypes.isEmpty();
   }
 
   /** Returns the set of configuration fragments required by this Aspect. */
@@ -263,6 +277,7 @@ public final class AspectDefinition {
     private final RequiredProviders.Builder requiredAspectProviders =
         RequiredProviders.acceptNoneBuilder();
     @Nullable private LinkedHashSet<String> propagateAlongAttributes = new LinkedHashSet<>();
+    private ImmutableSet<Label> propagateToToolchainsTypes = ImmutableSet.of();
     private final ConfigurationFragmentPolicy.Builder configurationFragmentPolicy =
         new ConfigurationFragmentPolicy.Builder();
     private boolean applyToFiles = false;
@@ -277,37 +292,9 @@ public final class AspectDefinition {
       this.aspectClass = aspectClass;
     }
 
-    /**
-     * Asserts that this aspect can only be evaluated for rules that supply all of the providers
-     * from at least one set of required providers.
-     */
-    @CanIgnoreReturnValue
-    public Builder requireProviderSets(
-        Iterable<ImmutableSet<Class<? extends TransitiveInfoProvider>>> providerSets) {
-      for (ImmutableSet<Class<? extends TransitiveInfoProvider>> providerSet : providerSets) {
-        requiredProviders.addBuiltinSet(providerSet);
-      }
-      return this;
-    }
-
-    /**
-     * Asserts that this aspect can only be evaluated for rules that supply all of the specified
-     * providers.
-     */
-    @CanIgnoreReturnValue
-    public Builder requireProviders(Class<? extends TransitiveInfoProvider>... providers) {
-      requiredProviders.addBuiltinSet(ImmutableSet.copyOf(providers));
-      return this;
-    }
-
-    /**
-     * Same as the equivalent calls to {@link #requireProviderSets} and {@link
-     * #requireStarlarkProviderSets} for specifying the required providers conveyed by {@code
-     * requiredProviders}.
-     */
     @CanIgnoreReturnValue
     public Builder requireProviders(RequiredProviders requiredProviders) {
-      requiredProviders.addToAspectDefinitionBuilder(this);
+      this.requireStarlarkProviderSets(requiredProviders.getStarlarkProviders());
       return this;
     }
 
@@ -353,22 +340,6 @@ public final class AspectDefinition {
         if (!providerSet.isEmpty()) {
           requiredAspectProviders.addStarlarkSet(providerSet);
         }
-      }
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder requireAspectsWithBuiltinProviders(
-        Class<? extends TransitiveInfoProvider>... providers) {
-      requiredAspectProviders.addBuiltinSet(ImmutableSet.copyOf(providers));
-      return this;
-    }
-
-    /** State that the aspect being built provides given providers. */
-    @CanIgnoreReturnValue
-    public Builder advertiseProvider(Class<?>... providers) {
-      for (Class<?> provider : providers) {
-        advertisedProviders.addBuiltin(provider);
       }
       return this;
     }
@@ -419,6 +390,13 @@ public final class AspectDefinition {
           this.propagateAlongAttributes.isEmpty(),
           "Specify either aspects for all attributes, or for specific attributes, not both");
       this.propagateAlongAttributes = null;
+      return this;
+    }
+
+    /** Declares that this aspect propagates to toolchains of the given types. */
+    @CanIgnoreReturnValue
+    public Builder propagateToToolchainsTypes(ImmutableSet<Label> toolchainsTypes) {
+      this.propagateToToolchainsTypes = toolchainsTypes;
       return this;
     }
 
@@ -598,6 +576,7 @@ public final class AspectDefinition {
           ImmutableMap.copyOf(attributes),
           ImmutableSet.copyOf(toolchainTypes),
           propagateAlongAttributes == null ? null : ImmutableSet.copyOf(propagateAlongAttributes),
+          propagateToToolchainsTypes,
           configurationFragmentPolicy.build(),
           applyToFiles,
           applyToGeneratingRules,

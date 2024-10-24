@@ -27,9 +27,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
-import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.ObjcConfigurationApi;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -37,8 +35,8 @@ import net.starlark.java.eval.StarlarkThread;
 
 /** A compiler configuration containing flags required for Objective-C compilation. */
 @Immutable
-@RequiresOptions(options = {CppOptions.class, ObjcCommandLineOptions.class})
-public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<PlatformType> {
+@RequiresOptions(options = {ObjcCommandLineOptions.class})
+public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi {
   @VisibleForTesting
   static final ImmutableList<String> DBG_COPTS =
       ImmutableList.of("-O0", "-DDEBUG=1", "-fstack-protector", "-fstack-protector-all", "-g");
@@ -55,15 +53,9 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
 
   private final DottedVersion iosSimulatorVersion;
   private final String iosSimulatorDevice;
-  // TODO(b/236152224): Delete after Starlark uses are migrated to CppConfiguration.
-  private final boolean generateLinkmap;
   private final boolean runMemleaks;
-  // TODO(b/236152224): Delete after Starlark uses are migrated to CppConfiguration.
-  private final ImmutableList<String> copts;
   private final CompilationMode compilationMode;
   private final ImmutableList<String> fastbuildOptions;
-  // TODO(b/236152224): Delete after Starlark uses are migrated to CppConfiguration.
-  private final boolean enableBinaryStripping;
   @Nullable private final String signingCertName;
   private final boolean debugWithGlibcxx;
   private final boolean deviceDebugEntitlements;
@@ -75,16 +67,12 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   public ObjcConfiguration(BuildOptions buildOptions) {
     CoreOptions options = buildOptions.get(CoreOptions.class);
     ObjcCommandLineOptions objcOptions = buildOptions.get(ObjcCommandLineOptions.class);
-    CppOptions cppOptions = buildOptions.get(CppOptions.class);
 
     this.iosSimulatorDevice = objcOptions.iosSimulatorDevice;
     this.iosSimulatorVersion = DottedVersion.maybeUnwrap(objcOptions.iosSimulatorVersion);
-    this.generateLinkmap = cppOptions.objcGenerateLinkmap;
     this.runMemleaks = objcOptions.runMemleaks;
-    this.copts = ImmutableList.copyOf(cppOptions.objcoptList);
     this.compilationMode = Preconditions.checkNotNull(options.compilationMode, "compilationMode");
     this.fastbuildOptions = ImmutableList.copyOf(objcOptions.fastbuildOptions);
-    this.enableBinaryStripping = cppOptions.objcEnableBinaryStripping;
     this.signingCertName = objcOptions.iosSigningCertName;
     this.debugWithGlibcxx = objcOptions.debugWithGlibcxx;
     this.deviceDebugEntitlements = objcOptions.deviceDebugEntitlements;
@@ -108,14 +96,6 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   public DottedVersion getIosSimulatorVersion() {
     // TODO(bazel-team): Deprecate in favor of getSimulatorVersionForPlatformType(IOS).
     return iosSimulatorVersion;
-  }
-
-  /**
-   * Returns whether linkmap generation is enabled.
-   */
-  @Override
-  public boolean generateLinkmap() {
-    return generateLinkmap;
   }
 
   @Override
@@ -152,24 +132,6 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
       default:
         throw new AssertionError();
     }
-  }
-
-  /**
-   * Returns options passed to (Apple) clang when compiling Objective C. These options should be
-   * applied after any default options but before options specified in the attributes of the rule.
-   */
-  @Override
-  public ImmutableList<String> getCopts() {
-    return copts;
-  }
-
-  /**
-   * Returns whether to perform symbol and dead-code strippings on linked binaries. The strippings
-   * are performed iff --compilation_mode=opt and --objc_enable_binary_stripping are specified.
-   */
-  @Override
-  public boolean shouldStripBinary() {
-    return this.enableBinaryStripping && getCompilationMode() == CompilationMode.OPT;
   }
 
   /**
@@ -211,7 +173,7 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   @Override
   public boolean targetShouldAlwayslink(StarlarkRuleContext ruleContext, StarlarkThread thread)
       throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
+    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
 
     AttributeMap attributes = ruleContext.getRuleContext().attributes();
     if (attributes.isAttributeValueExplicitlySpecified("alwayslink")) {

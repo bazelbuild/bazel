@@ -40,13 +40,19 @@ filegroup(
         "//src/main/protobuf:desugar_deps_filegroup",
         "//third_party/zlib:embedded_tools",
     ],
-    visibility = ["//src:__pkg__"],
+    visibility = [
+        "//src:__pkg__",
+        "//src/tools/one_version:__pkg__",
+    ],
 )
 
 release_archive(
     name = "singlejar_transitive_zip",
     package_dir = "java_tools",
-    visibility = ["//src:__pkg__"],
+    visibility = [
+        "//src:__pkg__",
+        "//src/tools/one_version:__pkg__",
+    ],
     deps = [
         ":singlejar_zip",
         "//src:zlib_zip",

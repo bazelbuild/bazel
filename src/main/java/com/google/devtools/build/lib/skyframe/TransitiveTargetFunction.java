@@ -82,7 +82,7 @@ final class TransitiveTargetFunction
         continue;
       }
       if (transitiveTargetValue == null) {
-        BugReport.sendBugReport(
+        BugReport.sendNonFatalBugReport(
             new IllegalStateException(
                 "TransitiveTargetValue " + skyKey + " was missing, this should never happen"));
         continue;
@@ -141,16 +141,14 @@ final class TransitiveTargetFunction
 
   private static void maybeReportErrorAboutMissingEdge(
       Target target, Label depLabel, NoSuchThingException e, EventHandler eventHandler) {
-    if (e instanceof NoSuchTargetException) {
-      NoSuchTargetException nste = (NoSuchTargetException) e;
+    if (e instanceof NoSuchTargetException nste) {
       if (depLabel.equals(nste.getLabel())) {
         eventHandler.handle(
             Event.error(
                 TargetUtils.getLocationMaybe(target),
                 TargetUtils.formatMissingEdge(target, depLabel, e)));
       }
-    } else if (e instanceof NoSuchPackageException) {
-      NoSuchPackageException nspe = (NoSuchPackageException) e;
+    } else if (e instanceof NoSuchPackageException nspe) {
       if (nspe.getPackageId().equals(depLabel.getPackageIdentifier())) {
         eventHandler.handle(
             Event.error(

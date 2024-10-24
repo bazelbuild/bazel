@@ -41,13 +41,14 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/metrics:event",
-        "//src/main/java/com/google/devtools/build/lib/metrics:memory-use-recorder",
         "//src/main/java/com/google/devtools/build/lib/metrics:metrics_module",
         "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_process_metrics",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_process_status",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
@@ -55,11 +56,34 @@ java_test(
 )
 
 java_test(
+    name = "CgroupsInfoCollectorTest",
+    size = "small",
+    srcs = [
+        "CgroupsInfoCollectorTest.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/clock",
+        "//src/main/java/com/google/devtools/build/lib/metrics:resource_collector",
+        "//src/main/java/com/google/devtools/build/lib/sandbox:cgroups_info",
+        "//src/main/java/com/google/devtools/build/lib/sandbox/cgroups",
+        "//src/main/java/com/google/devtools/build/lib/sandbox/cgroups/controller:v2",
+        "//src/test/java/com/google/devtools/build/lib/vfs/util",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:mockito",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "PsInfoCollectorTest",
     size = "small",
-    srcs = ["PsInfoCollectorTest.java"],
+    srcs = [
+        "PsInfoCollectorTest.java",
+    ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/metrics:ps_info_collector",
+        "//src/main/java/com/google/devtools/build/lib/clock",
+        "//src/main/java/com/google/devtools/build/lib/metrics:resource_collector",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:mockito",

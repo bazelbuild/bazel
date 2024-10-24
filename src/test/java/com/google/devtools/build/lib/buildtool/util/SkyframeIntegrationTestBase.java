@@ -72,15 +72,6 @@ public abstract class SkyframeIntegrationTestBase extends BuildIntegrationTestCa
     assertThat(new String(actualChars).trim()).isEqualTo(new String(expectedChars).trim());
   }
 
-  protected void assertContents(String expectedContents, String target) throws Exception {
-    assertContents(expectedContents, Iterables.getOnlyElement(getArtifacts(target)).getPath());
-  }
-
-  protected void assertContents(String expectedContents, Path path) throws Exception {
-    String actualContents = new String(FileSystemUtils.readContentAsLatin1(path));
-    assertThat(actualContents.trim()).isEqualTo(expectedContents);
-  }
-
   protected ImmutableList<String> getOnlyOutputContentAsLines(String target) throws Exception {
     return FileSystemUtils.readLines(
         Iterables.getOnlyElement(getArtifacts(target)).getPath(), UTF_8);

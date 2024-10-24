@@ -59,15 +59,20 @@ public abstract class QueryTest extends AbstractQueryTest<Target> {
   public void testFindsAllTargets_nativeRuleMacro() throws Exception {
     writeFile(
         "test/starlark/extension.bzl",
-        "def macro(name):",
-        "  native.genrule(name = name, outs = [name + '.txt'], cmd = 'echo hi >$@')");
+        """
+        def macro(name):
+            native.genrule(name = name, outs = [name + ".txt"], cmd = "echo hi >$@")
+        """);
 
     writeFile(
         "test//starlark/BUILD",
-        "load('//test/starlark:extension.bzl', 'macro')",
-        "",
-        "macro(name = 'rule1')",
-        "macro(name = 'rule2')");
+        """
+        load("//test/starlark:extension.bzl", "macro")
+
+        macro(name = "rule1")
+
+        macro(name = "rule2")
+        """);
 
     assertThat(targetLabels(eval("//test/starlark:*")))
         .containsExactly(
@@ -82,20 +87,25 @@ public abstract class QueryTest extends AbstractQueryTest<Target> {
   public void testFindsAllTargets_starlarkRuleMacro() throws Exception {
     writeFile(
         "test//starlark/extension.bzl",
-        "def impl(ctx):",
-        "  return None",
-        "",
-        "starlark_rule = rule(implementation = impl)",
-        "",
-        "def macro(name):",
-        "  starlark_rule(name = name)");
+        """
+        def impl(ctx):
+            return None
+
+        starlark_rule = rule(implementation = impl)
+
+        def macro(name):
+            starlark_rule(name = name)
+        """);
 
     writeFile(
         "test//starlark/BUILD",
-        "load('//test/starlark:extension.bzl', 'macro')",
-        "",
-        "macro(name = 'rule1')",
-        "macro(name = 'rule2')");
+        """
+        load("//test/starlark:extension.bzl", "macro")
+
+        macro(name = "rule1")
+
+        macro(name = "rule2")
+        """);
 
     assertThat(targetLabels(eval("//test/starlark:*")))
         .containsExactly("//test/starlark:rule1", "//test/starlark:rule2", "//test/starlark:BUILD");
@@ -105,14 +115,18 @@ public abstract class QueryTest extends AbstractQueryTest<Target> {
   public void testBuildfiles_starlarkDep() throws Exception {
     writeFile(
         "test//starlark/extension.bzl",
-        "def macro(name):",
-        "  native.genrule(name = name, outs = [name + '.txt'], cmd = 'echo hi >$@')");
+        """
+        def macro(name):
+            native.genrule(name = name, outs = [name + ".txt"], cmd = "echo hi >$@")
+        """);
 
     writeFile(
         "test//starlark/BUILD",
-        "load('//test/starlark:extension.bzl', 'macro')",
-        "",
-        "macro(name = 'rule1')");
+        """
+        load("//test/starlark:extension.bzl", "macro")
+
+        macro(name = "rule1")
+        """);
 
     assertThat(targetLabels(eval("buildfiles(//test/starlark:BUILD)")))
         .containsExactly("//test/starlark:extension.bzl", "//test/starlark:BUILD");
@@ -122,14 +136,18 @@ public abstract class QueryTest extends AbstractQueryTest<Target> {
   public void testLoadfiles_starlarkDep() throws Exception {
     writeFile(
         "test//starlark/extension.bzl",
-        "def macro(name):",
-        "  native.genrule(name = name, outs = [name + '.txt'], cmd = 'echo hi >$@')");
+        """
+        def macro(name):
+            native.genrule(name = name, outs = [name + ".txt"], cmd = "echo hi >$@")
+        """);
 
     writeFile(
         "test//starlark/BUILD",
-        "load('//test/starlark:extension.bzl', 'macro')",
-        "",
-        "macro(name = 'rule1')");
+        """
+        load("//test/starlark:extension.bzl", "macro")
+
+        macro(name = "rule1")
+        """);
 
     assertThat(targetLabels(eval("loadfiles(//test/starlark:BUILD)")))
         .containsExactly("//test/starlark:extension.bzl");
@@ -147,20 +165,33 @@ public abstract class QueryTest extends AbstractQueryTest<Target> {
   public void testDeps_labelKeyedStringDictDeps() throws Exception {
     writeFile(
         "test//starlark/rule.bzl",
-        "def _impl(ctx):",
-        "  return",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'value_dict': attr.label_keyed_string_dict(allow_files=True),",
-        "  }",
-        ")");
+        """
+        def _impl(ctx):
+            return
+
+        my_rule = rule(
+            implementation = _impl,
+            attrs = {
+                "value_dict": attr.label_keyed_string_dict(allow_files = True),
+            },
+        )
+        """);
     writeFile("test//starlark/dep.cc");
     writeFile(
         "test//starlark/BUILD",
-        "load('//test/starlark:rule.bzl', 'my_rule')",
-        "filegroup(name='group', srcs=['dep.cc'])",
-        "my_rule(name='rule', value_dict={':group': 'queried'})");
+        """
+        load("//test/starlark:rule.bzl", "my_rule")
+
+        filegroup(
+            name = "group",
+            srcs = ["dep.cc"],
+        )
+
+        my_rule(
+            name = "rule",
+            value_dict = {":group": "queried"},
+        )
+        """);
 
     assertThat(targetLabels(eval("deps(//test/starlark:rule)")))
         .containsExactly("//test/starlark:rule", "//test/starlark:group", "//test/starlark:dep.cc");
@@ -170,20 +201,27 @@ public abstract class QueryTest extends AbstractQueryTest<Target> {
   public void testBuildfiles_transitiveStarlarkDeps() throws Exception {
     writeFile(
         "test//starlark/extension1.bzl",
-        "def macro(name):",
-        "  native.genrule(name = name, outs = [name + '.txt'], cmd = 'echo hi >$@')");
+        """
+        def macro(name):
+            native.genrule(name = name, outs = [name + ".txt"], cmd = "echo hi >$@")
+        """);
 
     writeFile(
         "test//starlark/extension2.bzl",
-        "load('//test/starlark:extension1.bzl', 'macro')",
-        "def func(name):",
-        "  macro(name)");
+        """
+        load("//test/starlark:extension1.bzl", "macro")
+
+        def func(name):
+            macro(name)
+        """);
 
     writeFile(
         "test//starlark/BUILD",
-        "load('//test/starlark:extension2.bzl', 'func')",
-        "",
-        "func(name = 'rule1')");
+        """
+        load("//test/starlark:extension2.bzl", "func")
+
+        func(name = "rule1")
+        """);
 
     assertThat(targetLabels(eval("buildfiles(//test/starlark:BUILD)")))
         .containsExactly(
@@ -196,35 +234,48 @@ public abstract class QueryTest extends AbstractQueryTest<Target> {
   public void testBuildfiles_diamondStarlarkDeps() throws Exception {
     writeFile(
         "test//starlark/extension1.bzl",
-        "my_constant = 'rule1'",
-        "def macro(name):",
-        "  native.genrule(name = name, outs = [name + '.txt'], cmd = 'echo hi >$@')");
+        """
+        my_constant = "rule1"
+
+        def macro(name):
+            native.genrule(name = name, outs = [name + ".txt"], cmd = "echo hi >$@")
+        """);
 
     writeFile(
         "test//starlark/extension2.bzl",
-        "load('//test/starlark:extension1.bzl', 'macro')",
-        "def func(name):",
-        "  macro(name)");
+        """
+        load("//test/starlark:extension1.bzl", "macro")
+
+        def func(name):
+            macro(name)
+        """);
 
     writeFile(
         "test//starlark/extension3.bzl",
-        "load('//test/starlark:extension1.bzl', 'my_constant')",
-        "my_rule_name = my_constant");
+        """
+        load("//test/starlark:extension1.bzl", "my_constant")
+
+        my_rule_name = my_constant
+        """);
 
     writeFile(
         "test//starlark/extension4.bzl",
-        "load('//test/starlark:extension2.bzl', 'func')",
-        "load('//test/starlark:extension3.bzl', 'my_rule_name')",
-        "",
-        "my_dummy_name = my_rule_name");
+        """
+        load("//test/starlark:extension2.bzl", "func")
+        load("//test/starlark:extension3.bzl", "my_rule_name")
+
+        my_dummy_name = my_rule_name
+        """);
 
     writeFile(
         "test//starlark/BUILD",
-        "load('//test/starlark:extension2.bzl', 'func')",
-        "load('//test/starlark:extension3.bzl', 'my_rule_name')",
-        "load('//test/starlark:extension4.bzl', 'my_dummy_name')",
-        "",
-        "func(name = my_rule_name + '-' + my_dummy_name)");
+        """
+        load("//test/starlark:extension2.bzl", "func")
+        load("//test/starlark:extension3.bzl", "my_rule_name")
+        load("//test/starlark:extension4.bzl", "my_dummy_name")
+
+        func(name = my_rule_name + "-" + my_dummy_name)
+        """);
 
     assertThat(targetLabels(eval("buildfiles(//test/starlark:BUILD)")))
         .containsExactly(
@@ -243,15 +294,20 @@ public abstract class QueryTest extends AbstractQueryTest<Target> {
     writeFile("test//starlark1/BUILD");
     writeFile(
         "test//starlark1/extension.bzl",
-        "load('//test/starlark2:extension.bzl', 'file_ext')",
-        "def macro(name):",
-        "  native.genrule(name = name, outs = [name + file_ext], cmd = 'echo hi >$@')");
+        """
+        load("//test/starlark2:extension.bzl", "file_ext")
+
+        def macro(name):
+            native.genrule(name = name, outs = [name + file_ext], cmd = "echo hi >$@")
+        """);
 
     writeFile(
         "test/pkg/BUILD",
-        "load('//test/starlark1:extension.bzl', 'macro')",
-        "",
-        "macro(name = 'rule1')");
+        """
+        load("//test/starlark1:extension.bzl", "macro")
+
+        macro(name = "rule1")
+        """);
 
     assertThat(targetLabels(eval("buildfiles(//test/pkg:BUILD)")))
         .containsExactly(
@@ -317,6 +373,7 @@ public abstract class QueryTest extends AbstractQueryTest<Target> {
 
   @Test
   public void testIgnoredPackagePrefixes() throws Exception {
+    useReducedSetOfRules();
     writeFile(helper.getIgnoredPackagePrefixesFile().getPathString(), "a/b", "a/c");
     writeFile("a/BUILD", "filegroup(name = 'a')");
     writeFile("b/BUILD", "filegroup(name = 'b')");
@@ -338,18 +395,26 @@ public abstract class QueryTest extends AbstractQueryTest<Target> {
   private void writeStarlarkDefinedRuleClassBzlFile() throws java.io.IOException {
     writeFile(
         "test//starlark/extension.bzl",
-        "def custom_rule_impl(ctx):",
-        "  ftb = depset(ctx.attr._secret_labels)",
-        "  return struct(runfiles = ctx.runfiles(), files = ftb)",
-        "",
-        "def secret_labels_func(prefix, suffix):",
-        "  return [Label('//test/starlark:' + prefix + '01' + suffix),",
-        "          Label('//test/starlark:' + prefix + '02' + suffix)]",
-        "",
-        "custom_rule = rule(implementation = custom_rule_impl,",
-        "  attrs = {'prefix': attr.string(default='default_prefix'),",
-        "           'suffix': attr.string(default='default_suffix'),",
-        "          '_secret_labels': attr.label_list(default=secret_labels_func)})");
+        """
+        def custom_rule_impl(ctx):
+            ftb = depset(ctx.attr._secret_labels)
+            return DefaultInfo(runfiles = ctx.runfiles(), files = ftb)
+
+        def secret_labels_func(prefix, suffix):
+            return [
+                Label("//test/starlark:" + prefix + "01" + suffix),
+                Label("//test/starlark:" + prefix + "02" + suffix),
+            ]
+
+        custom_rule = rule(
+            implementation = custom_rule_impl,
+            attrs = {
+                "prefix": attr.string(default = "default_prefix"),
+                "suffix": attr.string(default = "default_suffix"),
+                "_secret_labels": attr.label_list(default = secret_labels_func),
+            },
+        )
+        """);
   }
 
   @Test
@@ -357,12 +422,15 @@ public abstract class QueryTest extends AbstractQueryTest<Target> {
     writeStarlarkDefinedRuleClassBzlFile();
     writeFile(
         "test//starlark/BUILD",
-        "load('//test/starlark:extension.bzl', 'custom_rule')",
-        "",
-        "custom_rule(",
-        "    name = 'custom',",
-        "    prefix = 'a',",
-        "    suffix = 'b')");
+        """
+        load("//test/starlark:extension.bzl", "custom_rule")
+
+        custom_rule(
+            name = "custom",
+            prefix = "a",
+            suffix = "b",
+        )
+        """);
 
     Set<Target> targets = eval("//test/starlark:*");
     assertThat(targetLabels(targets))
@@ -533,12 +601,21 @@ public abstract class QueryTest extends AbstractQueryTest<Target> {
   public void testLoadfilesWithDuplicates() throws Exception {
     writeFile(
         "foo/BUILD",
-        "load('//bar:bar.bzl', 'B')",
-        "sh_library(name = 'foo', deps = ['//bar'])");
+        """
+        load("//bar:bar.bzl", "B")
+
+        sh_library(
+            name = "foo",
+            deps = ["//bar"],
+        )
+        """);
     writeFile(
         "bar/BUILD",
-        "load('//bar:bar.bzl', 'B')",
-        "sh_library(name = 'bar')");
+        """
+        load("//bar:bar.bzl", "B")
+
+        sh_library(name = "bar")
+        """);
     writeFile(
         "bar/bar.bzl",
         "B = []");
@@ -549,15 +626,32 @@ public abstract class QueryTest extends AbstractQueryTest<Target> {
       throws Exception {
     writeFile(
         "foo/BUILD",
-        "genrule(",
-        "  name = 'gen',",
-        "  tools = [':a'],",
-        "  srcs = ['doesntmatter.txt'],",
-        "  outs = ['out.txt'],",
-        "  cmd = 'blah')",
-        "sh_binary(name = 'a', srcs = ['doesntmatter.sh'])",
-        "sh_binary(name = 'b', srcs = ['doesntmatter.sh'], data = [':a'])",
-        "sh_binary(name = 'c', srcs = ['doesntmatter.sh'], data = [':out.txt'])");
+        """
+        genrule(
+            name = "gen",
+            srcs = ["doesntmatter.txt"],
+            outs = ["out.txt"],
+            cmd = "blah",
+            tools = [":a"],
+        )
+
+        sh_binary(
+            name = "a",
+            srcs = ["doesntmatter.sh"],
+        )
+
+        sh_binary(
+            name = "b",
+            srcs = ["doesntmatter.sh"],
+            data = [":a"],
+        )
+
+        sh_binary(
+            name = "c",
+            srcs = ["doesntmatter.sh"],
+            data = [":out.txt"],
+        )
+        """);
     helper.setQuerySettings(Setting.ONLY_TARGET_DEPS);
     assertThat(evalToString(query)).isEqualTo(expected);
   }
@@ -570,6 +664,54 @@ public abstract class QueryTest extends AbstractQueryTest<Target> {
   @Test
   public void testRdepsBoundedWithNonDefaultDependencyFilter() throws Exception {
     runTestRdepsWithNonDefaultDependencyFilter("rdeps(//foo:all, //foo:a, 1)", "//foo:a //foo:b");
+  }
+
+  // Regression test for default visibility of output file targets being traversed even with
+  // --noimplicit_deps is set.
+  @Test
+  public void testDefaultVisibilityOfOutputTarget_noImplicitDeps() throws Exception {
+    writeFile(
+        "foo/BUILD",
+        """
+        package(default_visibility = [':pg'])
+        genrule(name = 'gen', srcs = ['in'], outs = ['out'], cmd = 'doesntmatter')
+        package_group(name = 'pg', includes = [':other-pg'])
+        package_group(name = 'other-pg')
+        """);
+    assertEqualsFiltered(
+        "deps(//foo:gen) + //foo:out + //foo:pg + //foo:other-pg"
+            + getDependencyCorrectionWithGen(),
+        "deps(//foo:out)" + getDependencyCorrectionWithGen(),
+        Setting.NO_IMPLICIT_DEPS);
+  }
+
+  @Test
+  public void testDormantDepsAreReturned() throws Exception {
+    writeFile(
+        "a/a.bzl",
+        """
+        def _impl(*args):
+          fail("should not be called")
+
+        r = rule(
+          implementation = _impl,
+          dependency_resolution_rule = True,
+          attrs = { "dormant": attr.dormant_label(), "dormant_list": attr.dormant_label_list() })
+        """);
+
+    writeFile(
+        "a/BUILD",
+        """
+        load(":a.bzl", "r")
+        filegroup(name="a")
+        filegroup(name="b1")
+        filegroup(name="b2")
+
+        r(name="r", dormant=":a", dormant_list=[":b1", ":b2"])
+        """);
+
+    assertThat(evalToListOfStrings("deps('//a:r')"))
+        .containsAtLeast("//a:r", "//a:a", "//a:b1", "//a:b2");
   }
 
   protected Iterable<String> targetLabels(Set<Target> targets) {

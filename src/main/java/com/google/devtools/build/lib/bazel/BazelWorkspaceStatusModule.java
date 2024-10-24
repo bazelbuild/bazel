@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
-import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -32,8 +31,6 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildInfo;
 import com.google.devtools.build.lib.analysis.BuildInfoEvent;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
-import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Key;
-import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.KeyType;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -53,7 +50,6 @@ import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
 import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.NetUtil;
 import com.google.devtools.build.lib.vfs.BulkDeleter;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -146,7 +142,7 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
       for (String line : input.trim().split("\n")) {
         String[] splitLine = line.split(" ", 2);
         if (splitLine.length >= 2) {
-          result.put(splitLine[0], splitLine[1]);
+          result.put(splitLine[0], splitLine[1].trim());
         }
       }
 
@@ -254,22 +250,6 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
     }
 
     @Override
-    protected void computeKey(
-        ActionKeyContext actionKeyContext,
-        @Nullable Artifact.ArtifactExpander artifactExpander,
-        Fingerprint fp) {}
-
-    @Override
-    public boolean executeUnconditionally() {
-      return true;
-    }
-
-    @Override
-    public boolean isVolatile() {
-      return true;
-    }
-
-    @Override
     public Artifact getVolatileStatus() {
       return volatileStatus;
     }
@@ -312,29 +292,6 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
 
     private BazelWorkspaceStatusActionContext(CommandEnvironment env) {
       this.env = env;
-    }
-
-    @Override
-    public ImmutableMap<String, Key> getStableKeys() {
-      WorkspaceStatusAction.Options options =
-          env.getOptions().getOptions(WorkspaceStatusAction.Options.class);
-      ImmutableMap.Builder<String, Key> builder = ImmutableMap.builder();
-      builder.put(
-          BuildInfo.BUILD_EMBED_LABEL, Key.of(KeyType.STRING, options.embedLabel, "redacted"));
-      builder.put(BuildInfo.BUILD_HOST, Key.of(KeyType.STRING, "hostname", "redacted"));
-      builder.put(BuildInfo.BUILD_USER, Key.of(KeyType.STRING, "username", "redacted"));
-      return builder.buildOrThrow();
-    }
-
-    @Override
-    public ImmutableMap<String, Key> getVolatileKeys() {
-      return ImmutableMap.of(
-          BuildInfo.BUILD_TIMESTAMP,
-          Key.of(KeyType.INTEGER, "0", "0"),
-          BuildInfo.BUILD_SCM_REVISION,
-          Key.of(KeyType.STRING, "0", "0"),
-          BuildInfo.BUILD_SCM_STATUS,
-          Key.of(KeyType.STRING, "", "redacted"));
     }
 
     @Override

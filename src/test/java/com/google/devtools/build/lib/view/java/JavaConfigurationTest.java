@@ -38,7 +38,13 @@ public class JavaConfigurationTest extends ConfigurationTestCase {
     assertThat(cfg.getJavaLauncherLabel()).isNull();
 
     // Explicitly enabled launcher as default
-    scratch.file("foo/BUILD", "filegroup(name='bar')", "filegroup(name='baz')");
+    scratch.file(
+        "foo/BUILD",
+        """
+        filegroup(name = "bar")
+
+        filegroup(name = "baz")
+        """);
     config = create("--java_launcher=//foo:bar");
     cfg = config.getFragment(JavaConfiguration.class);
     assertThat(Label.parseCanonicalUnchecked("//foo:bar")).isEqualTo(cfg.getJavaLauncherLabel());

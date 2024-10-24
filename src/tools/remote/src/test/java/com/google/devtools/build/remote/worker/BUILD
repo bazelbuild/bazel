@@ -7,6 +7,8 @@ package(
 filegroup(
     name = "srcs",
     testonly = 0,
-    srcs = glob(["**"]),
+    srcs = glob(["**"]) + [
+        "//src/tools/remote/src/test/java/com/google/devtools/build/remote/worker/http:srcs",
+    ],
     visibility = ["//src:__subpackages__"],
 )

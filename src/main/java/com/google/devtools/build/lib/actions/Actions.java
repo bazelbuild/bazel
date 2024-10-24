@@ -23,7 +23,6 @@ import com.google.common.collect.Iterators;
 import com.google.common.escape.Escaper;
 import com.google.common.escape.Escapers;
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.SkyframeAwareAction;
 import com.google.devtools.build.lib.vfs.OsPathPolicy;
@@ -41,12 +40,14 @@ import java.util.Optional;
 public final class Actions {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  private static final Escaper PATH_ESCAPER = Escapers.builder()
-      .addEscape('_', "_U")
-      .addEscape('/', "_S")
-      .addEscape('\\', "_B")
-      .addEscape(':', "_C")
-      .build();
+  private static final Escaper PATH_ESCAPER =
+      Escapers.builder()
+          .addEscape('_', "_U")
+          .addEscape('/', "_S")
+          .addEscape('\\', "_B")
+          .addEscape(':', "_C")
+          .addEscape('@', "_A")
+          .build();
 
   private Actions() {}
 
@@ -298,6 +299,25 @@ public final class Actions {
       };
 
   /**
+   * Check whether two artifacts are a runfiles middleman - runfiles output manifest pair.
+   *
+   * <p>This is necessary because these are exempt from the "path of one artifact cannot be a prefix
+   * of another" rule. This is like this for historical reasons.
+   */
+  public static boolean isRunfilesArtifactPair(Artifact runfilesTree, Artifact runfilesManifest) {
+    if (!runfilesTree.isMiddlemanArtifact()) {
+      // The outside artifact is not a middleman. No go.
+      return false;
+    }
+
+    // Now check whether the path of the inner artifact matches the expected path of a runfiles
+    // output manifest.
+    return runfilesManifest
+        .getExecPathString()
+        .equals(runfilesTree.getExecPath().getRelative("MANIFEST").getPathString());
+  }
+
+  /**
    * Finds Artifact prefix conflicts between generated artifacts. An artifact prefix conflict
    * happens if one action generates an artifact whose path is a strict prefix of another artifact's
    * path. Those two artifacts cannot exist simultaneously in the output tree.
@@ -305,9 +325,9 @@ public final class Actions {
    * @param actionGraph the {@link ActionGraph} to query for artifact conflicts
    * @param artifacts all generated artifacts in the build
    * @return An immutable map between actions that generated the conflicting artifacts and their
-   *     associated {@link ArtifactPrefixConflictException}
+   *     associated {@link ActionConflictException}
    */
-  public static ImmutableMap<ActionAnalysisMetadata, ArtifactPrefixConflictException>
+  public static ImmutableMap<ActionAnalysisMetadata, ActionConflictException>
       findArtifactPrefixConflicts(ActionGraph actionGraph, Collection<Artifact> artifacts) {
     // No actions in graph -- currently happens only in tests. Special-cased because .next() call
     // below is unconditional.
@@ -319,7 +339,7 @@ public final class Actions {
     Arrays.parallelSort(artifactArray, EXEC_PATH_PREFIX_COMPARATOR);
 
     // Keep deterministic ordering of bad actions.
-    Map<ActionAnalysisMetadata, ArtifactPrefixConflictException> badActions = new LinkedHashMap<>();
+    Map<ActionAnalysisMetadata, ActionConflictException> badActions = new LinkedHashMap<>();
     Iterator<Artifact> iter = Iterators.forArray(artifactArray);
 
     // Report an error for every derived artifact which is a strict prefix of another.
@@ -340,14 +360,14 @@ public final class Actions {
         // Check length first so that we only detect strict prefix conflicts. Equal exec paths are
         // possible from shared actions.
         if (pathJ.getPathString().length() > pathI.getPathString().length()
-            && pathJ.startsWith(pathI)) {
+            && pathJ.startsWith(pathI)
+            && !isRunfilesArtifactPair(artifactI, artifactJ)) {
           ActionAnalysisMetadata actionI =
               Preconditions.checkNotNull(actionGraph.getGeneratingAction(artifactI), artifactI);
           ActionAnalysisMetadata actionJ =
               Preconditions.checkNotNull(actionGraph.getGeneratingAction(artifactJ), artifactJ);
-          ArtifactPrefixConflictException exception =
-              new ArtifactPrefixConflictException(
-                  pathI, pathJ, actionI.getOwner().getLabel(), actionJ.getOwner().getLabel());
+          ActionConflictException exception =
+              ActionConflictException.createPrefix(artifactI, artifactJ, actionI, actionJ);
           badActions.put(actionI, exception);
           badActions.put(actionJ, exception);
         } else { // pathJ didn't have prefix pathI, so no conflict possible for pathI.
@@ -373,7 +393,11 @@ public final class Actions {
    * that no other label maps to this string.
    */
   public static String escapeLabel(Label label) {
-    return PATH_ESCAPER.escape(label.getPackageName() + ":" + label.getName());
+    String path = label.getPackageName() + ":" + label.getName();
+    if (!label.getRepository().isMain()) {
+      path = label.getRepository().getName() + "@" + path;
+    }
+    return PATH_ESCAPER.escape(path);
   }
 
   /**

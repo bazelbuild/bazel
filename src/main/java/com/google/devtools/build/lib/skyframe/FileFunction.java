@@ -48,6 +48,15 @@ import javax.annotation.Nullable;
  *
  * <p>Most of the complexity in the implementation results from wanting incremental correctness in
  * the presence of symlinks, esp. ancestor directory symlinks.
+ *
+ * <p>For an overview of the problem space and our approach, see the https://youtu.be/EoYdWmMcqDs
+ * talk from BazelCon 2019 (slides:
+ * https://docs.google.com/presentation/d/e/2PACX-1vQWq1DUhl92dDs_okNxM7Qy9zX72tp7hMsGosGxmjhBLZ5e02IJf9dySK_6lEU2j6u_NOEaUCQGxEFh/pub).
+ * [2024] N.B. The general idea of that talk is still right, but as of cl/334982640 aka commit
+ * 7598bc6 on GitHub (Oct 2020), we no longer unconditionally error out when encountering an
+ * unbounded ancestor expansion and instead leave it to consumers to decide what to do. A consumer
+ * that wants to do a recursive directory traversal starting from the path will probably want to
+ * error out, while a consumer that just wants metadata from the path probably doesn't care.
  */
 public class FileFunction implements SkyFunction {
   private final AtomicReference<PathPackageLocator> pkgLocator;
@@ -192,14 +201,19 @@ public class FileFunction implements SkyFunction {
     }
 
     RootedPath rootedPathFromAncestors =
-        getChild(parentFileValue.realRootedPath(), baseName, parentRootedPath, rootedPath);
+        getChild(
+            parentFileValue.realRootedPath(parentRootedPath),
+            baseName,
+            parentRootedPath,
+            rootedPath);
 
     if (!parentFileValue.exists() || !parentFileValue.isDirectory()) {
       return new PartialResolutionResult(
           rootedPathFromAncestors, FileStateValue.NONEXISTENT_FILE_STATE_NODE);
     }
 
-    for (RootedPath parentPartialRootedPath : parentFileValue.logicalChainDuringResolution()) {
+    for (RootedPath parentPartialRootedPath :
+        parentFileValue.logicalChainDuringResolution(parentRootedPath)) {
       checkAndNotePathSeenDuringPartialResolution(
           getChild(parentPartialRootedPath, baseName, parentRootedPath, rootedPath),
           symlinkResolutionState,
@@ -302,14 +316,17 @@ public class FileFunction implements SkyFunction {
     // chain of paths we've considered so far, and 'rootedPath' / 'path' is the proposed next path
     // we consider.
     //
-    // Before we proceed with 'rootedPath', we need to ensure there won't be a problem. There are
-    // three sorts of issues, all stemming from symlinks:
+    // There are three interesting cases to consider, all stemming from symlinks:
     //   (i) Symlink cycle:
     //     p -> p1 -> p2 -> p1
+    //     This means `p` has no real path, so we error out.
     //   (ii) Unbounded expansion caused by a symlink to a descendant of a member of the chain:
     //     p -> a/b -> c/d -> a/b/e
+    //     This means `p` has no real path, so we error out.
     //   (iii) Unbounded expansion caused by a symlink to an ancestor of a member of the chain:
     //     p -> a/b -> c/d -> a
+    //     This is not necessarily a problem (the real path of `p` in this example is simply `a`),
+    //     so we just note the unbounded ancestor expansion and let consumers decide what to do.
     //
     // We can detect all three of these symlink issues via inspection of the proposed new element.
     // Here is our incremental algorithm:

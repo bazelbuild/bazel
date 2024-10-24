@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.devtools.build.lib.cmdline.Label.labelCodec;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
@@ -23,14 +24,22 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BzlVisibility;
+import com.google.devtools.build.lib.skyframe.serialization.LeafDeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.LeafObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.LeafSerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyKey.SkyKeyInterner;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.Objects;
+import com.google.errorprone.annotations.Keep;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
 import net.starlark.java.eval.Module;
 
 /**
@@ -93,7 +102,8 @@ public class BzlLoadValue implements SkyValue {
   private static final SkyKeyInterner<Key> keyInterner = SkyKey.newInterner();
 
   /** SkyKey for a Starlark load. */
-  public abstract static class Key implements SkyKey {
+  public abstract static sealed class Key implements SkyKey
+      permits KeyForBuild, KeyForWorkspace, KeyForBuiltins, KeyForBzlmod {
     // Closed, for class-based equals()/hashCode().
     private Key() {}
 
@@ -104,7 +114,7 @@ public class BzlLoadValue implements SkyValue {
      * other keys to use {@code @_builtins}, but since no real repo by that name may be defined,
      * they won't evaluate to a successful result.)
      */
-    abstract Label getLabel();
+    public abstract Label getLabel();
 
     /** Returns true if this is a request for the special BUILD prelude file. */
     boolean isBuildPrelude() {
@@ -180,7 +190,10 @@ public class BzlLoadValue implements SkyValue {
 
     @Override
     public int hashCode() {
-      return Objects.hash(getClass(), getLabel(), isBuildPrelude(), isBuiltins());
+      int result = HashCodes.hashObjects(getClass(), getLabel());
+      result = 31 * result + Boolean.hashCode(isBuildPrelude());
+      result = 31 * result + Boolean.hashCode(isBuiltins());
+      return result;
     }
 
     protected final MoreObjects.ToStringHelper toStringHelper() {
@@ -218,7 +231,7 @@ public class BzlLoadValue implements SkyValue {
     }
 
     @Override
-    Label getLabel() {
+    public Label getLabel() {
       return label;
     }
 
@@ -273,7 +286,7 @@ public class BzlLoadValue implements SkyValue {
     }
 
     @Override
-    Label getLabel() {
+    public Label getLabel() {
       return label;
     }
 
@@ -306,7 +319,10 @@ public class BzlLoadValue implements SkyValue {
 
     @Override
     public int hashCode() {
-      return Objects.hash(super.hashCode(), workspaceChunk, workspacePath);
+      int result = super.hashCode();
+      result = 31 * result + Integer.hashCode(workspaceChunk);
+      result = 31 * result + workspacePath.hashCode();
+      return result;
     }
   }
 
@@ -334,7 +350,7 @@ public class BzlLoadValue implements SkyValue {
     }
 
     @Override
-    Label getLabel() {
+    public Label getLabel() {
       return label;
     }
 
@@ -357,7 +373,7 @@ public class BzlLoadValue implements SkyValue {
   /** A key for loading a .bzl to get the repo rule required by Bzlmod generated repositories. */
   @Immutable
   @VisibleForSerialization
-  static class KeyForBzlmod extends Key {
+  static sealed class KeyForBzlmod extends Key permits KeyForBzlmodBootstrap {
     private final Label label;
 
     private KeyForBzlmod(Label label) {
@@ -365,7 +381,7 @@ public class BzlLoadValue implements SkyValue {
     }
 
     @Override
-    Label getLabel() {
+    public Label getLabel() {
       return label;
     }
 
@@ -382,7 +398,7 @@ public class BzlLoadValue implements SkyValue {
 
   @Immutable
   @VisibleForSerialization
-  static class KeyForBzlmodBootstrap extends KeyForBzlmod {
+  static final class KeyForBzlmodBootstrap extends KeyForBzlmod {
     private KeyForBzlmodBootstrap(Label label) {
       super(label);
     }
@@ -430,5 +446,53 @@ public class BzlLoadValue implements SkyValue {
         label.getRepository().equals(RepositoryName.BAZEL_TOOLS),
         "keyForBzlmodBootstrap must be called with a label in the bazel_tools repository");
     return keyInterner.intern(new KeyForBzlmodBootstrap(label));
+  }
+
+  public static KeyCodec bzlLoadKeyCodec() {
+    return KeyCodec.INSTANCE;
+  }
+
+  @Keep
+  private static final class KeyCodec extends LeafObjectCodec<Key> {
+    private static final KeyCodec INSTANCE = new KeyCodec();
+
+    @Override
+    public boolean autoRegister() {
+      return false; // used via BzlLoadValue.bzlLoadKeyCodec only
+    }
+
+    @Override
+    public Class<Key> getEncodedClass() {
+      return Key.class;
+    }
+
+    @Override
+    public void serialize(LeafSerializationContext context, Key obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      switch (obj) {
+        case KeyForBuild forBuild -> {
+          context.serializeLeaf(obj.getLabel(), labelCodec(), codedOut);
+          codedOut.writeBoolNoTag(false);
+        }
+        case KeyForBuiltins forBuiltins -> {
+          context.serializeLeaf(obj.getLabel(), labelCodec(), codedOut);
+          codedOut.writeBoolNoTag(true);
+        }
+          // This codec is only used serialize global Starlark symbols which isn't expected for the
+          // following types.
+        case KeyForWorkspace forWorkspace ->
+            throw new UnsupportedOperationException(
+                "KeyForWorkspace not expected " + obj.toString());
+        case KeyForBzlmod forBzlmod ->
+            throw new UnsupportedOperationException("KeyForBzlmod not expected " + obj.toString());
+      }
+    }
+
+    @Override
+    public Key deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      Label label = context.deserializeLeaf(codedIn, labelCodec());
+      return codedIn.readBool() ? keyForBuiltins(label) : keyForBuild(label);
+    }
   }
 }

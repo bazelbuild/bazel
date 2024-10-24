@@ -20,6 +20,7 @@ import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -27,7 +28,10 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg.SimpleVectorArg;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -126,7 +130,8 @@ public final class CustomCommandLineTest {
         .containsExactly("prefix-foo");
     assertThat(
             builder()
-                .addPrefixedLabel("prefix-", Label.parseCanonical("//a:b"))
+                .addPrefixedLabel(
+                    "prefix-", Label.parseCanonical("//a:b"), /* mainRepoMapping= */ null)
                 .build()
                 .arguments())
         .containsExactly("prefix-//a:b");
@@ -135,6 +140,22 @@ public final class CustomCommandLineTest {
         .containsExactly("prefix-path");
     assertThat(builder().addPrefixedExecPath("prefix-", artifact1).build().arguments())
         .containsExactly("prefix-dir/file1.txt");
+  }
+
+  @Test
+  public void addPrefixedLabel_emitsExternalLabelInDisplayForm() throws Exception {
+    assertThat(
+            builder()
+                .addPrefixedLabel(
+                    "prefix-",
+                    Label.parseCanonical("@@canonical_name//a:b"),
+                    RepositoryMapping.create(
+                        ImmutableMap.of(
+                            "apparent_name", RepositoryName.createUnvalidated("canonical_name")),
+                        RepositoryName.MAIN))
+                .build()
+                .arguments())
+        .containsExactly("prefix-@apparent_name//a:b");
   }
 
   @Test
@@ -527,7 +548,7 @@ public final class CustomCommandLineTest {
             .addExecPath("foo", null)
             .addLazyString("foo", null)
             .addPrefixed("prefix", null)
-            .addPrefixedLabel("prefix", null)
+            .addPrefixedLabel("prefix", null, /* mainRepoMapping= */ null)
             .addPrefixedPath("prefix", null)
             .addPrefixedExecPath("prefix", null)
             .addAll((ImmutableList<String>) null)
@@ -663,7 +684,11 @@ public final class CustomCommandLineTest {
     Map<String, CustomCommandLine> digests = new HashMap<>();
     for (CustomCommandLine commandLine : commandLines) {
       Fingerprint fingerprint = new Fingerprint();
-      commandLine.addToFingerprint(actionKeyContext, /* artifactExpander= */ null, fingerprint);
+      commandLine.addToFingerprint(
+          actionKeyContext,
+          /* artifactExpander= */ null,
+          CoreOptions.OutputPathsMode.OFF,
+          fingerprint);
       String digest = fingerprint.hexDigestAndReset();
       CustomCommandLine previous = digests.putIfAbsent(digest, commandLine);
       if (previous != null) {

@@ -82,7 +82,11 @@ public class BazelModuleInspectorFunction implements SkyFunction {
                         AugmentedModule::getName,
                         Collectors.mapping(AugmentedModule::getKey, toImmutableSet()))));
 
-    return BazelModuleInspectorValue.create(depGraph, modulesIndex, extensionToRepoInternalNames);
+    return BazelModuleInspectorValue.create(
+        depGraph,
+        modulesIndex,
+        extensionToRepoInternalNames,
+        depGraphValue.getCanonicalRepoNameLookup().inverse());
   }
 
   public static ImmutableMap<ModuleKey, AugmentedModule> computeAugmentedGraph(
@@ -141,8 +145,8 @@ public class BazelModuleInspectorFunction implements SkyFunction {
         }
 
         ResolutionReason reason = ResolutionReason.ORIGINAL;
-        if (!key.getVersion().equals(originalKey.getVersion())) {
-          ModuleOverride override = overrides.get(key.getName());
+        if (!key.version().equals(originalKey.version())) {
+          ModuleOverride override = overrides.get(key.name());
           if (override != null) {
             if (override instanceof SingleVersionOverride) {
               reason = ResolutionReason.SINGLE_VERSION_OVERRIDE;
@@ -175,20 +179,20 @@ public class BazelModuleInspectorFunction implements SkyFunction {
       BazelDepGraphValue depGraphValue, Environment env) throws InterruptedException {
     ImmutableSet<ModuleExtensionId> extensionEvalKeys =
         depGraphValue.getExtensionUsagesTable().rowKeySet();
-    ImmutableList<SingleExtensionEvalValue.Key> singleEvalKeys =
-        extensionEvalKeys.stream().map(SingleExtensionEvalValue::key).collect(toImmutableList());
-    SkyframeLookupResult singleEvalValues = env.getValuesAndExceptions(singleEvalKeys);
+    ImmutableList<SingleExtensionValue.Key> singleExtensionKeys =
+        extensionEvalKeys.stream().map(SingleExtensionValue::key).collect(toImmutableList());
+    SkyframeLookupResult singleExtensionValues = env.getValuesAndExceptions(singleExtensionKeys);
 
     ImmutableSetMultimap.Builder<ModuleExtensionId, String> extensionToRepoInternalNames =
         ImmutableSetMultimap.builder();
-    for (SingleExtensionEvalValue.Key singleEvalKey : singleEvalKeys) {
-      SingleExtensionEvalValue singleEvalValue =
-          (SingleExtensionEvalValue) singleEvalValues.get(singleEvalKey);
-      if (singleEvalValue == null) {
+    for (SingleExtensionValue.Key singleExtensionKey : singleExtensionKeys) {
+      SingleExtensionValue singleExtensionValue =
+          (SingleExtensionValue) singleExtensionValues.get(singleExtensionKey);
+      if (singleExtensionValue == null) {
         return null;
       }
       extensionToRepoInternalNames.putAll(
-          singleEvalKey.argument(), singleEvalValue.getGeneratedRepoSpecs().keySet());
+          singleExtensionKey.argument(), singleExtensionValue.getGeneratedRepoSpecs().keySet());
     }
     return extensionToRepoInternalNames.build();
   }

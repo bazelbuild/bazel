@@ -43,14 +43,10 @@ public class ErrnoFileStatus extends FileStatus {
     ENODATA = constants.errnoENODATA;
   }
 
-  /**
-   * Constructs a ErrnoFileSatus instance.  (Called only from JNI code.)
-   */
-  private ErrnoFileStatus(int st_mode, int st_atime, int st_atimensec, int st_mtime,
-                          int st_mtimensec, int st_ctime, int st_ctimensec, long st_size,
-                          int st_dev, long st_ino) {
-    super(st_mode, st_atime, st_atimensec, st_mtime, st_mtimensec, st_ctime, st_ctimensec, st_size,
-          st_dev, st_ino);
+  /** Constructs a ErrnoFileSatus instance. (Called only from JNI code.) */
+  private ErrnoFileStatus(
+      int mode, long atime, long mtime, long ctime, long size, int dev, long ino) {
+    super(mode, atime, mtime, ctime, size, dev, ino);
     this.errno = 0;
   }
 
@@ -58,7 +54,7 @@ public class ErrnoFileStatus extends FileStatus {
    * Constructs a ErrnoFileSatus instance.  (Called only from JNI code.)
    */
   private ErrnoFileStatus(int errno) {
-    super(0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+    super(0, 0, 0, 0, 0, 0, 0);
     this.errno = errno;
   }
 

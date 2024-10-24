@@ -16,13 +16,13 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.skyframe.NotComparableSkyValue;
 import java.io.IOException;
 import java.util.Optional;
 
 /** A database where module metadata is stored. */
-public interface Registry {
+public interface Registry extends NotComparableSkyValue {
 
   /** The URL that uniquely identifies the registry. */
   String getUrl();
@@ -36,9 +36,9 @@ public interface Registry {
 
   /**
    * Retrieves the {@link RepoSpec} object that indicates how the contents of the module identified
-   * by {@code key} should be materialized as a repo (with name {@code repoName}).
+   * by {@code key} should be materialized as a repo.
    */
-  RepoSpec getRepoSpec(ModuleKey key, RepositoryName repoName, ExtendedEventHandler eventHandler)
+  RepoSpec getRepoSpec(ModuleKey key, ExtendedEventHandler eventHandler)
       throws IOException, InterruptedException;
 
   /**
@@ -48,4 +48,10 @@ public interface Registry {
   Optional<ImmutableMap<Version, String>> getYankedVersions(
       String moduleName, ExtendedEventHandler eventHandler)
       throws IOException, InterruptedException;
+
+  /**
+   * Returns the yanked versions information, limited to the given selected module version, purely
+   * based on the lockfile (if possible).
+   */
+  Optional<YankedVersionsValue> tryGetYankedVersionsFromLockfile(ModuleKey selectedModuleKey);
 }

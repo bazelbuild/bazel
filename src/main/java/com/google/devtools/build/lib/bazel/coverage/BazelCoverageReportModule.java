@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.coverage;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
+import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -24,7 +25,8 @@ import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory.CoverageReportActionsWrapper;
+import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
@@ -56,7 +58,7 @@ public class BazelCoverageReportModule extends BlazeModule {
   }
 
   /** Possible values for the --combined_report option. */
-  public static enum ReportType {
+  public enum ReportType {
     NONE,
     LCOV,
   }
@@ -69,15 +71,13 @@ public class BazelCoverageReportModule extends BlazeModule {
   }
 
   @Override
-  public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
-    return "build".equals(command.name())
-        ? ImmutableList.<Class<? extends OptionsBase>>of(Options.class)
-        : ImmutableList.<Class<? extends OptionsBase>>of();
+  public ImmutableList<Class<? extends OptionsBase>> getCommandOptions(Command command) {
+    return command.name().equals("build") ? ImmutableList.of(Options.class) : ImmutableList.of();
   }
 
   @Override
   public CoverageReportActionFactory getCoverageReportFactory(OptionsProvider commandOptions) {
-    final Options options = commandOptions.getOptions(Options.class);
+    Options options = commandOptions.getOptions(Options.class);
     return new CoverageReportActionFactory() {
       @Override
       @Nullable
@@ -86,7 +86,7 @@ public class BazelCoverageReportModule extends BlazeModule {
           EventBus eventBus,
           BlazeDirectories directories,
           Collection<ConfiguredTarget> targetsToTest,
-          NestedSet<Artifact> baselineCoverageArtifacts,
+          ImmutableList<Artifact> baselineCoverageArtifacts,
           ArtifactFactory artifactFactory,
           ActionKeyContext actionKeyContext,
           ActionLookupKey actionLookupKey,
@@ -97,18 +97,21 @@ public class BazelCoverageReportModule extends BlazeModule {
         }
         Preconditions.checkArgument(options.combinedReport == ReportType.LCOV);
         CoverageReportActionBuilder builder = new CoverageReportActionBuilder();
-        return builder.createCoverageActionsWrapper(
-            eventHandler,
-            directories,
-            targetsToTest,
-            baselineCoverageArtifacts,
-            artifactFactory,
-            actionKeyContext,
-            actionLookupKey,
-            workspaceName,
-            this::getArgs,
-            this::getLocationMessage,
-            /*htmlReport=*/ false);
+        CoverageReportActionsWrapper wrapper =
+            builder.createCoverageActionsWrapper(
+                eventHandler,
+                directories,
+                targetsToTest,
+                baselineCoverageArtifacts,
+                artifactFactory,
+                actionKeyContext,
+                actionLookupKey,
+                workspaceName,
+                this::getArgs,
+                this::getLocationMessage,
+                /* htmlReport= */ false);
+        eventBus.register(new CoverageReportCollector(wrapper));
+        return wrapper;
       }
 
       private ImmutableList<String> getArgs(CoverageArgs args) {
@@ -129,5 +132,15 @@ public class BazelCoverageReportModule extends BlazeModule {
             + args.lcovOutput().getExecPathString();
       }
     };
+  }
+
+  private record CoverageReportCollector(CoverageReportActionsWrapper wrapper) {
+    @Subscribe
+    public void buildComplete(BuildCompleteEvent event) {
+      event
+          .getResult()
+          .getBuildToolLogCollection()
+          .addLocalFile("coverage_report.lcov", wrapper.getCoverageReportArtifact().getPath());
+    }
   }
 }

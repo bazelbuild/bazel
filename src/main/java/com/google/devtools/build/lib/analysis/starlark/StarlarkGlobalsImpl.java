@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RunEnvironmentInfo;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileGlobals;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.BuildGlobals;
 import com.google.devtools.build.lib.packages.Proto;
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.packages.SelectorList;
 import com.google.devtools.build.lib.packages.StarlarkGlobals;
 import com.google.devtools.build.lib.packages.StarlarkNativeModule;
 import com.google.devtools.build.lib.packages.StructProvider;
+import com.google.devtools.build.lib.packages.VendorFileGlobals;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.lib.json.Json;
 
@@ -122,9 +124,23 @@ public final class StarlarkGlobalsImpl implements StarlarkGlobals {
   }
 
   @Override
+  public ImmutableMap<String, Object> getModuleToplevels() {
+    var env = ImmutableMap.<String, Object>builder();
+    Starlark.addMethods(env, new ModuleFileGlobals());
+    return env.buildOrThrow();
+  }
+
+  @Override
   public ImmutableMap<String, Object> getRepoToplevels() {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
     Starlark.addMethods(env, RepoCallable.INSTANCE);
+    return env.buildOrThrow();
+  }
+
+  @Override
+  public ImmutableMap<String, Object> getVendorToplevels() {
+    ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
+    Starlark.addMethods(env, VendorFileGlobals.INSTANCE);
     return env.buildOrThrow();
   }
 }

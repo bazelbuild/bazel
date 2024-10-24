@@ -50,7 +50,7 @@ EOF
 function test_cc_library_include_prefix_external_repository() {
   r="$TEST_TMPDIR/r"
   mkdir -p "$TEST_TMPDIR/r/foo/v1"
-  create_workspace_with_default_repos "$TEST_TMPDIR/r/WORKSPACE"
+  touch "$TEST_TMPDIR/r/REPO.bazel"
   echo "#define FOO 42" > "$TEST_TMPDIR/r/foo/v1/foo.h"
   cat > "$TEST_TMPDIR/r/foo/BUILD" <<EOF
 cc_library(
@@ -61,7 +61,8 @@ cc_library(
   visibility = ["//visibility:public"],
 )
 EOF
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+  cat >> MODULE.bazel <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
   name = "foo",
   path = "$TEST_TMPDIR/r",
@@ -108,7 +109,7 @@ function test_include_validation_sandbox_disabled() {
   local workspace="${FUNCNAME[0]}"
   mkdir -p "${workspace}"/lib
 
-  create_workspace_with_default_repos "${workspace}/WORKSPACE"
+  setup_module_dot_bazel "${workspace}/MODULE.bazel"
   cat >> "${workspace}/BUILD" << EOF
 cc_library(
     name = "foo",
@@ -257,7 +258,7 @@ EOF
 function setup_cc_starlark_api_test() {
   local pkg="$1"
 
-  create_workspace_with_default_repos "$pkg"/WORKSPACE
+  touch "$pkg"/MODULE.bazel
 
   mkdir "$pkg"/include_dir
   touch "$pkg"/include_dir/include.h
@@ -629,14 +630,11 @@ tree_art_rule = rule(implementation = _tree_art_impl,
             default = "//${package}:write.sh")})
 
 def _actions_test_impl(target, ctx):
-    action = target.actions[1]
+    action = target.actions[0]
     if action.mnemonic != "CppArchive":
-      fail("Expected the second action to be CppArchive.")
+      fail("Expected the first action to be CppArchive.")
     aspect_out = ctx.actions.declare_file('aspect_out')
-    ctx.actions.run_shell(inputs = action.inputs,
-                          outputs = [aspect_out],
-                          command = "echo \$@ > " + aspect_out.path,
-                          arguments = action.args)
+    ctx.actions.write(aspect_out, action.args[1])
     return [OutputGroupInfo(out=[aspect_out])]
 
 actions_test_aspect = aspect(implementation = _actions_test_impl)
@@ -660,7 +658,9 @@ EOF
   cat "bazel-bin/${package}/aspect_out" | grep "\(ar\|libtool\)" \
       || fail "args didn't contain the tool path"
 
-  cat "bazel-bin/${package}/aspect_out" | grep "a.*o .*b.*o .*c.*o" \
+  cat "bazel-bin/${package}/aspect_out" | grep "/a.*o" \
+      || fail "args didn't contain tree artifact paths"
+  cat "bazel-bin/${package}/aspect_out" | grep "/b.*o" \
       || fail "args didn't contain tree artifact paths"
 }
 
@@ -813,56 +813,36 @@ def _actions_test_impl(target, ctx):
         ),
     )
 
-    archive_args = ctx.actions.declare_file("archive_args")
-    ctx.actions.run_shell(
-        outputs = [archive_args],
-        command = "echo \$@ > " + archive_args.path,
-        arguments = archive_action.args,
-    )
-
     archive_out = ctx.actions.declare_file("archive_out.a")
-    archive_param_file = None
-    for i in archive_action.inputs.to_list():
-        if i.path.endswith("params"):
-            archive_param_file = i
     ctx.actions.run_shell(
-        inputs = depset(direct = [archive_args], transitive = [archive_action.inputs]),
+        inputs = archive_action.inputs,
         mnemonic = "RecreatedCppArchive",
         outputs = [archive_out],
         env = archive_action.env,
-        command = "\$(cat %s) && cp %s %s" % (
-            archive_args.path,
+        command = "\$@ && cp %s %s" % (
             archive_action.outputs.to_list()[0].path,
             archive_out.path,
         ),
-    )
-
-    link_args = ctx.actions.declare_file("link_args")
-    ctx.actions.run_shell(
-        outputs = [link_args],
-        command = "echo \$@ > " + link_args.path,
-        arguments = link_action.args,
+        arguments = archive_action.args,
     )
 
     link_out = ctx.actions.declare_file("link_out.so")
     ctx.actions.run_shell(
-        inputs = depset(direct = [link_args], transitive = [link_action.inputs]),
+        inputs = link_action.inputs,
         mnemonic = "RecreatedCppLink",
         outputs = [link_out],
         env = link_action.env,
-        command = "\$(cat %s) && cp %s %s" % (
-            link_args.path,
+        command = "\$@ && cp %s %s" % (
             link_action.outputs.to_list()[0].path,
             link_out.path,
         ),
+        arguments = link_action.args,
     )
 
     return [OutputGroupInfo(out = [
         compile_args,
         compile_out,
-        archive_args,
         archive_out,
-        link_args,
         link_out,
     ])]
 
@@ -903,6 +883,12 @@ EOF
 }
 
 function test_disable_cc_toolchain_detection() {
+  add_rules_cc "MODULE.bazel"
+  cat >> MODULE.bazel <<'EOF'
+cc_configure = use_extension("@rules_cc//cc:extensions.bzl", "cc_configure_extension")
+use_repo(cc_configure, "local_config_cc")
+EOF
+
   cat > ok.cc <<EOF
 #include <stdio.h>
 int main() {
@@ -921,12 +907,9 @@ EOF
   BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1 bazel build '@local_config_cc//:toolchain' &>/dev/null || \
     fail "Fake toolchain target causes analysis errors"
 
-  # This only shows reliably for query due to ordering issues in how Bazel shows
-  # errors.
-  BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1 bazel query 'deps(//:ok)' &>"$TEST_log" || \
-    fail "Should pass with fake toolchain"
-  expect_not_log "An error occurred during the fetch of repository 'local_config_cc'"
-  expect_log "@@bazel_tools~cc_configure_extension~local_config_cc//:empty"
+  BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1 bazel build  '//:ok' --toolchain_resolution_debug=@bazel_tools//tools/cpp:toolchain_type &>"$TEST_log" && \
+    fail "Toolchains shouldn't be found"
+  expect_log "ToolchainResolution: No @@bazel_tools//tools/cpp:toolchain_type toolchain found for target platform @@platforms//host:host."
 }
 
 function setup_workspace_layout_with_external_directory() {
@@ -1133,7 +1116,7 @@ EOF
 function test_include_external_genrule_header() {
   REPO_PATH=$TEST_TMPDIR/repo
   mkdir -p "$REPO_PATH"
-  create_workspace_with_default_repos "$REPO_PATH/WORKSPACE"
+  touch "$REPO_PATH/REPO.bazel"
   mkdir "$REPO_PATH/foo"
   cat > "$REPO_PATH/foo/BUILD" <<'EOF'
 cc_library(
@@ -1166,7 +1149,8 @@ void sayhello() {
 }
 EOF
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+  cat >> MODULE.bazel <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name = 'repo', path='$REPO_PATH')
 EOF
 
@@ -1221,30 +1205,21 @@ def _actions_test_impl(target, ctx):
         ),
     )
 
-    archive_args = ctx.actions.declare_file("archive_args")
-    ctx.actions.run_shell(
-        outputs = [archive_args],
-        command = "echo \$@ > " + archive_args.path,
-        arguments = archive_action.args,
-    )
-
     archive_out = ctx.actions.declare_file("archive_out.a")
     ctx.actions.run_shell(
-        inputs = [archive_args],
         shadowed_action = archive_action,
         mnemonic = "RecreatedCppArchive",
         outputs = [archive_out],
-        command = "\$(cat %s | sed 's|%s|%s|g')" % (
-            archive_args.path,
+        command = "\$@ && cp %s %s" % (
             archive_action.outputs.to_list()[0].path,
             archive_out.path,
         ),
+        arguments = archive_action.args,
     )
 
     return [OutputGroupInfo(out = [
         compile_args,
         compile_out,
-        archive_args,
         archive_out,
     ])]
 
@@ -1373,7 +1348,8 @@ EOF
 }
 
 function external_cc_test_setup() {
-  cat >> WORKSPACE <<'EOF'
+  cat >> MODULE.bazel <<'EOF'
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
   name = "other_repo",
   path = "other_repo",
@@ -1381,7 +1357,7 @@ local_repository(
 EOF
 
   mkdir -p other_repo
-  touch other_repo/WORKSPACE
+  touch other_repo/REPO.bazel
 
   mkdir -p other_repo/lib
   cat > other_repo/lib/BUILD <<'EOF'
@@ -1468,11 +1444,12 @@ function test_external_cc_test_local_sibling_repository_layout() {
       --strategy=local \
       --experimental_sibling_repository_layout \
       @other_repo//test >& $TEST_log || fail "Test should pass"
-  expect_log "1 process: 1 internal"
+  expect_log "1 process: .*1 internal"
 }
 
 function test_bazel_current_repository_define() {
-  cat >> WORKSPACE <<'EOF'
+  cat >> MODULE.bazel <<'EOF'
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
   name = "other_repo",
   path = "other_repo",
@@ -1539,7 +1516,7 @@ int main() {
 EOF
 
   mkdir -p other_repo
-  touch other_repo/WORKSPACE
+  touch other_repo/REPO.bazel
 
   mkdir -p other_repo/pkg
   cat > other_repo/pkg/BUILD.bazel <<'EOF'
@@ -1589,12 +1566,12 @@ EOF
   expect_log "in pkg/library.cpp: ''"
 
   bazel run @other_repo//pkg:binary &>"$TEST_log" || fail "Run should succeed"
-  expect_log "in external/other_repo/pkg/binary.cpp: 'other_repo'"
+  expect_log "in external/+_repo_rules+other_repo/pkg/binary.cpp: '+_repo_rules+other_repo'"
   expect_log "in pkg/library.cpp: ''"
 
   bazel test --test_output=streamed \
     @other_repo//pkg:test &>"$TEST_log" || fail "Test should succeed"
-  expect_log "in external/other_repo/pkg/test.cpp: 'other_repo'"
+  expect_log "in external/+_repo_rules+other_repo/pkg/test.cpp: '+_repo_rules+other_repo'"
   expect_log "in pkg/library.cpp: ''"
 }
 
@@ -1708,6 +1685,11 @@ EOF
 
 function test_cc_test_no_target_coverage_dep() {
   # Regression test for https://github.com/bazelbuild/bazel/issues/16961
+  cat >> MODULE.bazel <<'EOF'
+remote_coverage_tools_extension = use_extension("@bazel_tools//tools/test:extensions.bzl", "remote_coverage_tools_extension")
+use_repo(remote_coverage_tools_extension, "remote_coverage_tools")
+EOF
+
   local package="${FUNCNAME[0]}"
   mkdir -p "${package}"
 
@@ -1727,6 +1709,12 @@ EOF
 }
 
 function test_cc_test_no_coverage_tools_dep_without_coverage() {
+
+  cat >> MODULE.bazel <<'EOF'
+remote_coverage_tools_extension = use_extension("@bazel_tools//tools/test:extensions.bzl", "remote_coverage_tools_extension")
+use_repo(remote_coverage_tools_extension, "remote_coverage_tools")
+EOF
+
   # Regression test for https://github.com/bazelbuild/bazel/issues/16961 and
   # https://github.com/bazelbuild/bazel/issues/15088.
   local package="${FUNCNAME[0]}"
@@ -1852,6 +1840,9 @@ EOF
 }
 
 function setup_find_optional_cpp_toolchain() {
+
+  add_platforms "MODULE.bazel"
+
   mkdir -p pkg
 
   cat > pkg/BUILD <<'EOF'
@@ -1940,6 +1931,152 @@ EOF
     expect_log 'libc'
     expect_not_log 'libstdc\+\+'
   fi
+}
+
+function test_parse_headers_unclean() {
+  mkdir pkg
+  cat > pkg/BUILD <<'EOF'
+cc_library(name = "lib", hdrs = ["lib.h"])
+EOF
+  cat > pkg/lib.h <<'EOF'
+// Missing include of cstdint, which defines uint8_t.
+uint8_t foo();
+EOF
+
+  bazel build -s --process_headers_in_dependencies --features parse_headers \
+    //pkg:lib &> "$TEST_log" && fail "Build should have failed due to unclean headers"
+  expect_log "Compiling pkg/lib.h"
+  expect_log "error:.*'uint8_t'"
+
+  bazel build -s --process_headers_in_dependencies \
+    //pkg:lib &> "$TEST_log" || fail "Build should have passed"
+}
+
+function test_parse_headers_clean() {
+  mkdir pkg
+  cat > pkg/BUILD <<'EOF'
+package(features = ["parse_headers"])
+cc_library(name = "lib", hdrs = ["lib.h"])
+EOF
+  cat > pkg/lib.h <<'EOF'
+#include <cstdint>
+uint8_t foo();
+EOF
+
+  bazel build -s --process_headers_in_dependencies \
+    //pkg:lib &> "$TEST_log" || fail "Build should have passed"
+  expect_log "Compiling pkg/lib.h"
+}
+
+# Test for a very obscure case that is sadly used by protobuf: when the
+# WORKSPACE file contains a local_repository with the same name as the main
+# one. See HeaderDiscovery.runDiscovery() for more details.
+function test_inclusion_validation_with_overlapping_external_repo() {
+  cat >> WORKSPACE<<EOF
+local_repository(name="$WORKSPACE_NAME", path=".")
+EOF
+
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+cc_library(name="a", srcs=["a.cc"])
+EOF
+
+  cat > a/a.cc <<'EOF'
+int a() {
+  return 3;
+}
+EOF
+
+  bazel build \
+    --noenable_bzlmod \
+    --enable_workspace \
+    --experimental_sibling_repository_layout \
+    "@@$WORKSPACE_NAME//a:a" || fail "build failed"
+}
+
+function test_tree_artifact_sources_in_no_deps_library() {
+  mkdir -p pkg
+  cat > pkg/BUILD <<'EOF'
+load("generate.bzl", "generate_source")
+sh_binary(
+    name = "generate_tool",
+    srcs = ["generate.sh"],
+)
+
+generate_source(
+    name = "generated_source",
+    tool = ":generate_tool",
+    output_dir = "generated",
+)
+
+cc_library(
+    name = "hello_world",
+    srcs = [":generated_source"],
+    hdrs = [":generated_source"],
+)
+
+cc_test(
+    name = "testCodegen",
+    srcs = ["testCodegen.cpp"],
+    deps = [":hello_world"],
+)
+EOF
+  cat > pkg/generate.bzl <<'EOF'
+def _generate_source_impl(ctx):
+    output_dir = ctx.attr.output_dir
+    files = ctx.actions.declare_directory(output_dir)
+
+    ctx.actions.run(
+        inputs = [],
+        outputs = [files],
+        arguments = [files.path],
+        executable = ctx.executable.tool
+    )
+
+    return [
+        DefaultInfo(files = depset([files]))
+    ]
+
+
+generate_source = rule(
+    implementation = _generate_source_impl,
+    attrs = {
+        "output_dir": attr.string(),
+        "tool": attr.label(executable = True, cfg = "exec")
+    }
+)
+EOF
+  cat > pkg/generate.sh <<'EOF2'
+#!/bin/bash
+
+OUTPUT_DIR=$1
+
+cat << EOF > $OUTPUT_DIR/test.hpp
+#pragma once
+void hello_world();
+EOF
+
+
+cat << EOF > $OUTPUT_DIR/test.cpp
+#include "test.hpp"
+#include <cstdio>
+void hello_world()
+{
+    puts("Hello World!");
+}
+EOF
+EOF2
+  chmod +x pkg/generate.sh
+  cat > pkg/testCodegen.cpp <<'EOF'
+#include "pkg/generated/test.hpp"
+
+int main() {
+    hello_world();
+    return 0;
+}
+EOF
+
+  bazel build //pkg:testCodegen &> "$TEST_log" || fail "Build failed"
 }
 
 run_suite "cc_integration_test"

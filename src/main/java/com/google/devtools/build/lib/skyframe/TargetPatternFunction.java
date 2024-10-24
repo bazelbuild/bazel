@@ -35,6 +35,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
@@ -58,7 +59,6 @@ public class TargetPatternFunction implements SkyFunction {
     if (ignoredPackagePrefixes == null) {
       return null;
     }
-    ImmutableSet<PathFragment> ignoredPatterns = ignoredPackagePrefixes.getPatterns();
 
     ResolvedTargets<Target> resolvedTargets;
     EnvironmentBackedRecursivePackageProvider provider =
@@ -70,6 +70,7 @@ public class TargetPatternFunction implements SkyFunction {
               env.getListener(),
               patternKey.getPolicy(),
               MultisetSemaphore.unbounded(),
+              /* maxConcurrentGetTargetsTasks= */ Optional.empty(),
               SimplePackageIdentifierBatchingCallback::new);
       ImmutableSet<PathFragment> excludedSubdirectories = patternKey.getExcludedSubdirectories();
       ResolvedTargets.Builder<Target> resolvedTargetsBuilder = ResolvedTargets.builder();
@@ -81,11 +82,8 @@ public class TargetPatternFunction implements SkyFunction {
               //  won't be listed when doing somepackage:* for the handful of cases still on the
               //  allowlist. This is only a Google-internal problem and the scale of it is
               //  acceptable in the short term while cleaning up the allowlist.
-              if (target instanceof OutputFile
-                  && ((OutputFile) target)
-                      .getGeneratingRule()
-                      .getRuleClass()
-                      .equals("cc_library")) {
+              if (target instanceof OutputFile outputFile
+                  && outputFile.getGeneratingRule().getRuleClass().equals("cc_library")) {
                 continue;
               }
               resolvedTargetsBuilder.add(target);
@@ -94,7 +92,7 @@ public class TargetPatternFunction implements SkyFunction {
       try {
         parsedPattern.eval(
             resolver,
-            () -> ignoredPatterns,
+            () -> ignoredPackagePrefixes.asIgnoredSubdirectories(),
             excludedSubdirectories,
             callback,
             QueryExceptionMarkerInterface.MarkerRuntimeException.class);
@@ -121,12 +119,12 @@ public class TargetPatternFunction implements SkyFunction {
       // implementations that are unconcerned with MissingDepExceptions.
       return null;
     } catch (InterruptedException e) {
-      if (env.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors()) {
+      if (env.inErrorBubbling()) {
         maybeThrowEncounteredException(parsedPattern, provider);
       }
       throw e;
     }
-    if (env.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors()) {
+    if (env.inErrorBubbling()) {
       maybeThrowEncounteredException(parsedPattern, provider);
     }
     Preconditions.checkNotNull(resolvedTargets, key);

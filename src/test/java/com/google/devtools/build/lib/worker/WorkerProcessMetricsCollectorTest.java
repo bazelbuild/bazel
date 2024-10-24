@@ -18,14 +18,20 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics.WorkerStatus;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.metrics.CgroupsInfoCollector;
 import com.google.devtools.build.lib.metrics.PsInfoCollector;
+import com.google.devtools.build.lib.metrics.ResourceSnapshot;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector.WorkerMetricsPublishComparator;
 import com.google.devtools.build.lib.worker.WorkerProcessStatus.Status;
 import java.time.Instant;
@@ -38,12 +44,17 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class WorkerProcessMetricsCollectorTest {
 
-  private final WorkerProcessMetricsCollector spyCollector =
-      spy(WorkerProcessMetricsCollector.instance());
+  private PsInfoCollector psInfoCollector;
+  private CgroupsInfoCollector cgroupsInfoCollector;
+
+  private WorkerProcessMetricsCollector spyCollector;
   ManualClock clock = new ManualClock();
 
   @Before
   public void setUp() {
+    psInfoCollector = mock(PsInfoCollector.class);
+    cgroupsInfoCollector = mock(CgroupsInfoCollector.class);
+    spyCollector = spy(new WorkerProcessMetricsCollector(psInfoCollector, cgroupsInfoCollector));
     spyCollector.clear();
     spyCollector.setClock(clock);
   }
@@ -106,9 +117,9 @@ public class WorkerProcessMetricsCollectorTest {
         JAVAC_MNEMONIC,
         /* isMultiplex= */ true,
         /* isSandboxed= */ false,
-        WORKER_KEY_HASH_1);
-    assertThat(spyCollector.getProcessIdToWorkerProcessMetrics().keySet())
-        .containsExactly(PROCESS_ID_1);
+        WORKER_KEY_HASH_1,
+        /* cgroup= */ null);
+    assertThat(spyCollector.getPidToWorkerProcessMetrics().keySet()).containsExactly(PROCESS_ID_1);
     spyCollector.registerWorker(
         WORKER_ID_2,
         PROCESS_ID_2,
@@ -116,11 +127,12 @@ public class WorkerProcessMetricsCollectorTest {
         CPP_COMPILE_MNEMONIC,
         /* isMultiplex= */ false,
         /* isSandboxed= */ true,
-        WORKER_KEY_HASH_2);
-    assertThat(spyCollector.getProcessIdToWorkerProcessMetrics().keySet())
+        WORKER_KEY_HASH_2,
+        /* cgroup= */ null);
+    assertThat(spyCollector.getPidToWorkerProcessMetrics().keySet())
         .containsExactly(PROCESS_ID_1, PROCESS_ID_2);
     assertWorkerMetricContains(
-        spyCollector.getProcessIdToWorkerProcessMetrics().get(PROCESS_ID_1),
+        spyCollector.getPidToWorkerProcessMetrics().get(PROCESS_ID_1),
         ImmutableList.of(WORKER_ID_1),
         PROCESS_ID_1,
         JAVAC_MNEMONIC,
@@ -132,7 +144,7 @@ public class WorkerProcessMetricsCollectorTest {
         /* expectedLastCallTime= */ DEFAULT_CLOCK_START_INSTANT,
         /* expectedCollectedTime= */ null);
     assertWorkerMetricContains(
-        spyCollector.getProcessIdToWorkerProcessMetrics().get(PROCESS_ID_2),
+        spyCollector.getPidToWorkerProcessMetrics().get(PROCESS_ID_2),
         ImmutableList.of(WORKER_ID_2),
         PROCESS_ID_2,
         CPP_COMPILE_MNEMONIC,
@@ -154,11 +166,11 @@ public class WorkerProcessMetricsCollectorTest {
         JAVAC_MNEMONIC,
         /* isMultiplex= */ true,
         /* isSandboxed= */ true,
-        WORKER_KEY_HASH_1);
-    assertThat(spyCollector.getProcessIdToWorkerProcessMetrics().keySet())
-        .containsExactly(PROCESS_ID_1);
+        WORKER_KEY_HASH_1,
+        /* cgroup= */ null);
+    assertThat(spyCollector.getPidToWorkerProcessMetrics().keySet()).containsExactly(PROCESS_ID_1);
     assertWorkerMetricContains(
-        spyCollector.getProcessIdToWorkerProcessMetrics().get(PROCESS_ID_1),
+        spyCollector.getPidToWorkerProcessMetrics().get(PROCESS_ID_1),
         ImmutableList.of(WORKER_ID_1),
         PROCESS_ID_1,
         JAVAC_MNEMONIC,
@@ -180,11 +192,11 @@ public class WorkerProcessMetricsCollectorTest {
         JAVAC_MNEMONIC,
         /* isMultiplex= */ true,
         /* isSandboxed= */ true,
-        WORKER_KEY_HASH_1);
-    assertThat(spyCollector.getProcessIdToWorkerProcessMetrics().keySet())
-        .containsExactly(PROCESS_ID_1);
+        WORKER_KEY_HASH_1,
+        /* cgroup= */ null);
+    assertThat(spyCollector.getPidToWorkerProcessMetrics().keySet()).containsExactly(PROCESS_ID_1);
     assertWorkerMetricContains(
-        spyCollector.getProcessIdToWorkerProcessMetrics().get(PROCESS_ID_1),
+        spyCollector.getPidToWorkerProcessMetrics().get(PROCESS_ID_1),
         ImmutableList.of(WORKER_ID_1, WORKER_ID_2),
         PROCESS_ID_1,
         JAVAC_MNEMONIC,
@@ -206,11 +218,11 @@ public class WorkerProcessMetricsCollectorTest {
         JAVAC_MNEMONIC,
         /* isMultiplex= */ true,
         /* isSandboxed= */ true,
-        WORKER_KEY_HASH_1);
-    assertThat(spyCollector.getProcessIdToWorkerProcessMetrics().keySet())
-        .containsExactly(PROCESS_ID_1);
+        WORKER_KEY_HASH_1,
+        /* cgroup= */ null);
+    assertThat(spyCollector.getPidToWorkerProcessMetrics().keySet()).containsExactly(PROCESS_ID_1);
     assertWorkerMetricContains(
-        spyCollector.getProcessIdToWorkerProcessMetrics().get(PROCESS_ID_1),
+        spyCollector.getPidToWorkerProcessMetrics().get(PROCESS_ID_1),
         ImmutableList.of(WORKER_ID_1),
         PROCESS_ID_1,
         JAVAC_MNEMONIC,
@@ -233,11 +245,11 @@ public class WorkerProcessMetricsCollectorTest {
         JAVAC_MNEMONIC,
         /* isMultiplex= */ true,
         /* isSandboxed= */ true,
-        WORKER_KEY_HASH_1);
-    assertThat(spyCollector.getProcessIdToWorkerProcessMetrics().keySet())
-        .containsExactly(PROCESS_ID_1);
+        WORKER_KEY_HASH_1,
+        /* cgroup= */ null);
+    assertThat(spyCollector.getPidToWorkerProcessMetrics().keySet()).containsExactly(PROCESS_ID_1);
     assertWorkerMetricContains(
-        spyCollector.getProcessIdToWorkerProcessMetrics().get(PROCESS_ID_1),
+        spyCollector.getPidToWorkerProcessMetrics().get(PROCESS_ID_1),
         ImmutableList.of(WORKER_ID_1),
         PROCESS_ID_1,
         JAVAC_MNEMONIC,
@@ -260,8 +272,9 @@ public class WorkerProcessMetricsCollectorTest {
         JAVAC_MNEMONIC,
         /* isMultiplex= */ true,
         /* isSandboxed= */ false,
-        WORKER_KEY_HASH_1);
-    WorkerProcessMetricsCollector.instance().onWorkerFinishExecution(PROCESS_ID_1);
+        WORKER_KEY_HASH_1,
+        /* cgroup= */ null);
+    spyCollector.onWorkerFinishExecution(PROCESS_ID_1);
     // Worker 2 simulates a measurable worker process that has not yet completed execution of any
     // actions.
     spyCollector.registerWorker(
@@ -271,7 +284,8 @@ public class WorkerProcessMetricsCollectorTest {
         CPP_COMPILE_MNEMONIC,
         /* isMultiplex= */ false,
         /* isSandboxed= */ true,
-        WORKER_KEY_HASH_2);
+        WORKER_KEY_HASH_2,
+        /* cgroup= */ null);
     // Worker 3 simulates a non-measurable worker that has not executed any actions.
     spyCollector.registerWorker(
         WORKER_ID_3,
@@ -280,7 +294,8 @@ public class WorkerProcessMetricsCollectorTest {
         PROTO_MNEMONIC,
         /* isMultiplex= */ true,
         /* isSandboxed= */ true,
-        WORKER_KEY_HASH_3);
+        WORKER_KEY_HASH_3,
+        /* cgroup= */ null);
     // Worker 4 simulates a non-measurable worker that has executed an action and was killed.
     WorkerProcessStatus s4 = new WorkerProcessStatus();
     spyCollector.registerWorker(
@@ -290,8 +305,9 @@ public class WorkerProcessMetricsCollectorTest {
         PROTO_MNEMONIC,
         /* isMultiplex= */ true,
         /* isSandboxed= */ true,
-        WORKER_KEY_HASH_4);
-    WorkerProcessMetricsCollector.instance().onWorkerFinishExecution(PROCESS_ID_4);
+        WORKER_KEY_HASH_4,
+        /* cgroup= */ null);
+    spyCollector.onWorkerFinishExecution(PROCESS_ID_4);
     s4.maybeUpdateStatus(Status.KILLED_DUE_TO_MEMORY_PRESSURE);
     // Worker 5 simulates a non-measurable worker that has executed an action, but was not killed.
     WorkerProcessStatus s5 = new WorkerProcessStatus();
@@ -302,17 +318,17 @@ public class WorkerProcessMetricsCollectorTest {
         PROTO_MNEMONIC,
         /* isMultiplex= */ true,
         /* isSandboxed= */ true,
-        WORKER_KEY_HASH_5);
-    WorkerProcessMetricsCollector.instance().onWorkerFinishExecution(PROCESS_ID_5);
+        WORKER_KEY_HASH_5,
+        /* cgroup= */ null);
+    spyCollector.onWorkerFinishExecution(PROCESS_ID_5);
 
     ImmutableMap<Long, Integer> memoryUsageMap =
         ImmutableMap.of(
             PROCESS_ID_1, 1234,
             PROCESS_ID_2, 2345);
     Instant collectionTime = DEFAULT_CLOCK_START_INSTANT.plusSeconds(10);
-    PsInfoCollector.ResourceSnapshot resourceSnapshot =
-        PsInfoCollector.ResourceSnapshot.create(memoryUsageMap, collectionTime);
-    doReturn(resourceSnapshot).when(spyCollector).collectMemoryUsageByPid(any(), any());
+    ResourceSnapshot resourceSnapshot = ResourceSnapshot.create(memoryUsageMap, collectionTime);
+    doReturn(resourceSnapshot).when(spyCollector).collectResourceUsage();
     clock.setTime(collectionTime.toEpochMilli());
 
     ImmutableList<WorkerProcessMetrics> metrics = spyCollector.collectMetrics();
@@ -321,7 +337,7 @@ public class WorkerProcessMetricsCollectorTest {
     assertThat(metrics.stream().flatMap(m -> m.getWorkerIds().stream()).collect(toImmutableSet()))
         .containsExactly(WORKER_ID_1, WORKER_ID_2, WORKER_ID_3, WORKER_ID_4, WORKER_ID_5);
     assertWorkerMetricContains(
-        metrics.stream().filter(wm -> wm.getWorkerIds().contains(WORKER_ID_1)).findFirst().get(),
+        getWorkerProcessMetricsFromList(WORKER_ID_1, metrics),
         ImmutableList.of(WORKER_ID_1),
         PROCESS_ID_1,
         JAVAC_MNEMONIC,
@@ -333,7 +349,7 @@ public class WorkerProcessMetricsCollectorTest {
         /* expectedLastCallTime= */ DEFAULT_CLOCK_START_INSTANT,
         /* expectedCollectedTime= */ collectionTime);
     assertWorkerMetricContains(
-        metrics.stream().filter(wm -> wm.getWorkerIds().contains(WORKER_ID_2)).findFirst().get(),
+        getWorkerProcessMetricsFromList(WORKER_ID_2, metrics),
         ImmutableList.of(WORKER_ID_2),
         PROCESS_ID_2,
         CPP_COMPILE_MNEMONIC,
@@ -345,9 +361,9 @@ public class WorkerProcessMetricsCollectorTest {
         /* expectedLastCallTime= */ DEFAULT_CLOCK_START_INSTANT,
         /* expectedCollectedTime= */ collectionTime);
     // Worker 3's metrics should not be included since it is both non-measurable and did not execute
-    // any actions. It's status shouldn't be unknown because it is possible that
+    // any actions. Its status shouldn't be unknown because it is possible that
     assertWorkerMetricContains(
-        metrics.stream().filter(wm -> wm.getWorkerIds().contains(WORKER_ID_3)).findFirst().get(),
+        getWorkerProcessMetricsFromList(WORKER_ID_3, metrics),
         ImmutableList.of(WORKER_ID_3),
         PROCESS_ID_3,
         PROTO_MNEMONIC,
@@ -359,7 +375,7 @@ public class WorkerProcessMetricsCollectorTest {
         /* expectedLastCallTime= */ DEFAULT_CLOCK_START_INSTANT,
         /* expectedCollectedTime= */ null);
     assertWorkerMetricContains(
-        metrics.stream().filter(wm -> wm.getWorkerIds().contains(WORKER_ID_4)).findFirst().get(),
+        getWorkerProcessMetricsFromList(WORKER_ID_4, metrics),
         ImmutableList.of(WORKER_ID_4),
         PROCESS_ID_4,
         PROTO_MNEMONIC,
@@ -371,7 +387,7 @@ public class WorkerProcessMetricsCollectorTest {
         /* expectedLastCallTime= */ DEFAULT_CLOCK_START_INSTANT,
         /* expectedCollectedTime= */ null);
     assertWorkerMetricContains(
-        metrics.stream().filter(wm -> wm.getWorkerIds().contains(WORKER_ID_5)).findFirst().get(),
+        getWorkerProcessMetricsFromList(WORKER_ID_5, metrics),
         ImmutableList.of(WORKER_ID_5),
         PROCESS_ID_5,
         PROTO_MNEMONIC,
@@ -385,6 +401,76 @@ public class WorkerProcessMetricsCollectorTest {
     // Worker 5's status should have been updated to killed_unknown, because it had executed actions
     // but is now non-measurable.
     assertThat(s5.get()).isEqualTo(Status.KILLED_UNKNOWN);
+  }
+
+  @Test
+  public void testCollectResourceUsage_windows() {
+    Instant collectionTime = DEFAULT_CLOCK_START_INSTANT.plusSeconds(10);
+    clock.setTime(collectionTime.toEpochMilli());
+    when(psInfoCollector.collectResourceUsage(any(), any()))
+        .thenReturn(ResourceSnapshot.create(ImmutableMap.of(PROCESS_ID_1, 1000), collectionTime));
+    when(cgroupsInfoCollector.collectResourceUsage(any(), any()))
+        .thenReturn(ResourceSnapshot.create(ImmutableMap.of(PROCESS_ID_1, 2000), collectionTime));
+
+    ResourceSnapshot snapshot =
+        spyCollector.collectResourceUsage(OS.WINDOWS, ImmutableSet.of(PROCESS_ID_1));
+
+    // On non-linux and non-darwin, it should always return an empty snapshot.
+    assertThat(snapshot).isEqualTo(ResourceSnapshot.create(ImmutableMap.of(), collectionTime));
+  }
+
+  @Test
+  public void testCollectResourceUsage_darwin_usingPs() {
+    Instant collectionTime = DEFAULT_CLOCK_START_INSTANT.plusSeconds(10);
+    clock.setTime(collectionTime.toEpochMilli());
+    when(psInfoCollector.collectResourceUsage(any(), any()))
+        .thenReturn(ResourceSnapshot.create(ImmutableMap.of(PROCESS_ID_1, 1000), collectionTime));
+    when(cgroupsInfoCollector.collectResourceUsage(any(), any()))
+        .thenReturn(ResourceSnapshot.create(ImmutableMap.of(PROCESS_ID_1, 2000), collectionTime));
+
+    ResourceSnapshot snapshot =
+        spyCollector.collectResourceUsage(OS.DARWIN, ImmutableSet.of(PROCESS_ID_1));
+
+    // Should return the cgroup information rather than the ps information.
+    assertThat(snapshot)
+        .isEqualTo(ResourceSnapshot.create(ImmutableMap.of(PROCESS_ID_1, 1000), collectionTime));
+  }
+
+  @Test
+  public void testCollectResourceUsage_linux_usingPs() {
+    spyCollector.setUseCgroupsOnLinux(/* useCgroupsOnLinux= */ false);
+    Instant collectionTime = DEFAULT_CLOCK_START_INSTANT.plusSeconds(10);
+    clock.setTime(collectionTime.toEpochMilli());
+    when(psInfoCollector.collectResourceUsage(any(), any()))
+        .thenReturn(ResourceSnapshot.create(ImmutableMap.of(PROCESS_ID_1, 1000), collectionTime));
+    when(cgroupsInfoCollector.collectResourceUsage(any(), any()))
+        .thenReturn(ResourceSnapshot.create(ImmutableMap.of(PROCESS_ID_1, 2000), collectionTime));
+
+    ResourceSnapshot snapshot =
+        spyCollector.collectResourceUsage(OS.LINUX, ImmutableSet.of(PROCESS_ID_1));
+
+    // Should return the ps information rather than the cgroup information.
+    assertThat(snapshot)
+        .isEqualTo(ResourceSnapshot.create(ImmutableMap.of(PROCESS_ID_1, 1000), collectionTime));
+  }
+
+  @Test
+  public void testCollectResourceUsage_linux_usingCgroups() {
+
+    spyCollector.setUseCgroupsOnLinux(/* useCgroupsOnLinux= */ true);
+    Instant collectionTime = DEFAULT_CLOCK_START_INSTANT.plusSeconds(10);
+    clock.setTime(collectionTime.toEpochMilli());
+    when(psInfoCollector.collectResourceUsage(any(), any()))
+        .thenReturn(ResourceSnapshot.create(ImmutableMap.of(PROCESS_ID_1, 1000), collectionTime));
+    when(cgroupsInfoCollector.collectResourceUsage(any(), any()))
+        .thenReturn(ResourceSnapshot.create(ImmutableMap.of(PROCESS_ID_1, 2000), collectionTime));
+
+    ResourceSnapshot snapshot =
+        spyCollector.collectResourceUsage(OS.LINUX, ImmutableSet.of(PROCESS_ID_1));
+
+    // Should return the cgroup information rather than the ps information.
+    assertThat(snapshot)
+        .isEqualTo(ResourceSnapshot.create(ImmutableMap.of(PROCESS_ID_1, 2000), collectionTime));
   }
 
   @Test
@@ -444,6 +530,11 @@ public class WorkerProcessMetricsCollectorTest {
         .addWorkerStats(
             WorkerMetrics.WorkerStats.newBuilder().setWorkerMemoryInKb(memoryInKb).build())
         .build();
+  }
+
+  private WorkerProcessMetrics getWorkerProcessMetricsFromList(
+      int workerId, ImmutableList<WorkerProcessMetrics> metrics) {
+    return metrics.stream().filter(wm -> wm.getWorkerIds().contains(workerId)).findFirst().get();
   }
 
   private static final long DEFAULT_CLOCK_START_TIME = 0L;

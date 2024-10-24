@@ -32,18 +32,18 @@ public class DocLinkMap {
 
   // For SourceUrlMapper
   final String sourceUrlRoot;
-  final Map<String, String> labelRewrites; // Gson#fromJson ensures the map is of an ordered type
+  final Map<String, String> repoPathRewrites; // Gson#fromJson ensures the map is of an ordered type
 
   @VisibleForTesting
   DocLinkMap(
       String beRoot,
       Map<String, String> beReferences,
       String sourceUrlRoot,
-      Map<String, String> labelRewrites) {
+      Map<String, String> repoPathRewrites) {
     this.beRoot = beRoot;
     this.beReferences = beReferences;
     this.sourceUrlRoot = sourceUrlRoot;
-    this.labelRewrites = labelRewrites;
+    this.repoPathRewrites = repoPathRewrites;
   }
 
   public static DocLinkMap createFromFile(String filePath) {

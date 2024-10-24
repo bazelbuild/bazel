@@ -19,9 +19,9 @@ import java.io.IOException;
 import java.io.OutputStream;
 
 /**
- * Creates an {@link OutputStream} that isn't actually opened until the first data is written. This
- * is useful to only have as many open file descriptors as necessary at a time to avoid running into
- * system limits.
+ * Creates an {@link OutputStream} backed by a file that isn't actually opened until the first data
+ * is written. This is useful to only have as many open file descriptors as necessary at a time to
+ * avoid running into system limits.
  */
 public class LazyFileOutputStream extends OutputStream {
 
@@ -68,8 +68,8 @@ public class LazyFileOutputStream extends OutputStream {
    */
   public void syncIfPossible() throws IOException {
     ensureOpen();
-    if (out instanceof FileOutputStream) {
-      ((FileOutputStream) out).getFD().sync();
+    if (out instanceof FileOutputStream fileOutputStream) {
+      fileOutputStream.getFD().sync();
     }
   }
 

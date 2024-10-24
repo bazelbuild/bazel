@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -37,6 +38,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkInt;
 
 /** Information about the Java runtime used by the <code>java_*</code> rules. */
 @Immutable
@@ -122,14 +124,15 @@ public final class JavaRuntimeInfo extends StarlarkInfoWrapper {
   }
 
   public int version() throws RuleErrorException {
-    return getUnderlyingValue("version", Integer.class);
+    return getUnderlyingValue("version", StarlarkInt.class).toIntUnchecked();
   }
 
   private static class Provider extends StarlarkProviderWrapper<JavaRuntimeInfo> {
 
     private Provider() {
       super(
-          Label.parseCanonicalUnchecked("@_builtins//:common/java/java_runtime.bzl"),
+          keyForBuiltins(
+              Label.parseCanonicalUnchecked("@_builtins//:common/java/java_runtime.bzl")),
           "JavaRuntimeInfo");
     }
 

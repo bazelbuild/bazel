@@ -22,7 +22,6 @@ import com.google.common.collect.Table.Cell;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
-import java.util.function.Supplier;
 
 /** Codec for {@link ImmutableTable}. */
 @SuppressWarnings({"rawtypes", "unchecked"})
@@ -47,7 +46,7 @@ public class ImmutableTableCodec extends DeferredObjectCodec<ImmutableTable> {
   }
 
   @Override
-  public Supplier<ImmutableTable> deserializeDeferred(
+  public DeferredValue<ImmutableTable> deserializeDeferred(
       AsyncDeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
     int size = codedIn.readInt32();
@@ -61,15 +60,15 @@ public class ImmutableTableCodec extends DeferredObjectCodec<ImmutableTable> {
     EntryBuffer buffer = new EntryBuffer(size);
     long offset = ARRAY_OBJECT_BASE_OFFSET;
     for (int i = 0; i < size; i++) {
-      context.deserializeFully(codedIn, buffer.rowKeys, offset);
-      context.deserializeFully(codedIn, buffer.columnKeys, offset);
+      context.deserialize(codedIn, buffer.rowKeys, offset);
+      context.deserialize(codedIn, buffer.columnKeys, offset);
       context.deserialize(codedIn, buffer.values, offset);
       offset += ARRAY_OBJECT_INDEX_SCALE;
     }
     return buffer;
   }
 
-  private static final class EntryBuffer implements Supplier<ImmutableTable> {
+  private static final class EntryBuffer implements DeferredValue<ImmutableTable> {
     private final Object[] rowKeys;
     private final Object[] columnKeys;
     private final Object[] values;
@@ -81,7 +80,7 @@ public class ImmutableTableCodec extends DeferredObjectCodec<ImmutableTable> {
     }
 
     @Override
-    public ImmutableTable get() {
+    public ImmutableTable call() {
       ImmutableTable.Builder builder = ImmutableTable.builder();
       for (int i = 0; i < size(); i++) {
         builder.put(

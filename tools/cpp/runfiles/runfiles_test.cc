@@ -226,8 +226,16 @@ TEST_F(RunfilesTest, CannotCreateManifestBasedRunfilesDueToBadManifest) {
 }
 
 TEST_F(RunfilesTest, ManifestBasedRunfilesRlocationAndEnvVars) {
-  unique_ptr<MockFile> mf(MockFile::Create(
-      "foo" LINE_AS_STRING() ".runfiles_manifest", {"a/b c/d"}));
+  unique_ptr<MockFile> mf(
+      MockFile::Create("foo" LINE_AS_STRING() ".runfiles_manifest",
+                       {
+                           "a/b c/d",
+                           "e/f target path with spaces",
+                           " h/\\si j k",
+                           " dir\\swith\\sspaces l/m",
+                           " h/\\n\\s\\bi j k \\n\\b",
+                           "not_escaped with\\backslash and spaces",
+                       }));
   ASSERT_TRUE(mf != nullptr);
 
   string error;
@@ -256,6 +264,15 @@ TEST_F(RunfilesTest, ManifestBasedRunfilesRlocationAndEnvVars) {
   EXPECT_EQ(r->Rlocation("c:\\Foo"), "c:\\Foo");
   EXPECT_EQ(r->Rlocation("a/b/file"), "c/d/file");
   EXPECT_EQ(r->Rlocation("a/b/deeply/nested/file"), "c/d/deeply/nested/file");
+  EXPECT_EQ(r->Rlocation("a/b/deeply/nested/file with spaces"),
+            "c/d/deeply/nested/file with spaces");
+  EXPECT_EQ(r->Rlocation("e/f"), "target path with spaces");
+  EXPECT_EQ(r->Rlocation("e/f/file"), "target path with spaces/file");
+  EXPECT_EQ(r->Rlocation("h/ i"), "j k");
+  EXPECT_EQ(r->Rlocation("h/\n \\i"), "j k \n\\");
+  EXPECT_EQ(r->Rlocation("dir with spaces"), "l/m");
+  EXPECT_EQ(r->Rlocation("dir with spaces/file"), "l/m/file");
+  EXPECT_EQ(r->Rlocation("not_escaped"), "with\\backslash and spaces");
 }
 
 TEST_F(RunfilesTest, DirectoryBasedRunfilesRlocationAndEnvVars) {
@@ -588,17 +605,17 @@ TEST_F(RunfilesTest, ManifestBasedRlocationWithRepoMapping_fromMain) {
   string uid = LINE_AS_STRING();
   unique_ptr<MockFile> rm(
       MockFile::Create("foo" + uid + ".repo_mapping",
-                       {",config.json,config.json~1.2.3", ",my_module,_main",
-                        ",my_protobuf,protobuf~3.19.2", ",my_workspace,_main",
-                        "protobuf~3.19.2,config.json,config.json~1.2.3",
-                        "protobuf~3.19.2,protobuf,protobuf~3.19.2"}));
+                       {",config.json,config.json+1.2.3", ",my_module,_main",
+                        ",my_protobuf,protobuf+3.19.2", ",my_workspace,_main",
+                        "protobuf+3.19.2,config.json,config.json+1.2.3",
+                        "protobuf+3.19.2,protobuf,protobuf+3.19.2"}));
   ASSERT_TRUE(rm != nullptr);
   unique_ptr<MockFile> mf(MockFile::Create(
       "foo" + uid + ".runfiles_manifest",
       {"_repo_mapping " + rm->Path(), "config.json /etc/config.json",
-       "protobuf~3.19.2/foo/runfile C:/Actual Path\\protobuf\\runfile",
+       "protobuf+3.19.2/foo/runfile C:/Actual Path\\protobuf\\runfile",
        "_main/bar/runfile /the/path/./to/other//other runfile.txt",
-       "protobuf~3.19.2/bar/dir E:\\Actual Path\\Directory"}));
+       "protobuf+3.19.2/bar/dir E:\\Actual Path\\Directory"}));
   ASSERT_TRUE(mf != nullptr);
   string argv0(mf->Path().substr(
       0, mf->Path().size() - string(".runfiles_manifest").size()));
@@ -619,24 +636,24 @@ TEST_F(RunfilesTest, ManifestBasedRlocationWithRepoMapping_fromMain) {
   EXPECT_EQ(r->Rlocation("my_protobuf/bar/dir"), "E:\\Actual Path\\Directory");
   EXPECT_EQ(r->Rlocation("my_protobuf/bar/dir/file"),
             "E:\\Actual Path\\Directory/file");
-  EXPECT_EQ(r->Rlocation("my_protobuf/bar/dir/de eply/nes ted/fi~le"),
-            "E:\\Actual Path\\Directory/de eply/nes ted/fi~le");
+  EXPECT_EQ(r->Rlocation("my_protobuf/bar/dir/de eply/nes ted/fi+le"),
+            "E:\\Actual Path\\Directory/de eply/nes ted/fi+le");
 
   EXPECT_EQ(r->Rlocation("protobuf/foo/runfile"), "");
   EXPECT_EQ(r->Rlocation("protobuf/bar/dir"), "");
   EXPECT_EQ(r->Rlocation("protobuf/bar/dir/file"), "");
-  EXPECT_EQ(r->Rlocation("protobuf/bar/dir/dir/de eply/nes ted/fi~le"), "");
+  EXPECT_EQ(r->Rlocation("protobuf/bar/dir/dir/de eply/nes ted/fi+le"), "");
 
   EXPECT_EQ(r->Rlocation("_main/bar/runfile"),
             "/the/path/./to/other//other runfile.txt");
-  EXPECT_EQ(r->Rlocation("protobuf~3.19.2/foo/runfile"),
+  EXPECT_EQ(r->Rlocation("protobuf+3.19.2/foo/runfile"),
             "C:/Actual Path\\protobuf\\runfile");
-  EXPECT_EQ(r->Rlocation("protobuf~3.19.2/bar/dir"),
+  EXPECT_EQ(r->Rlocation("protobuf+3.19.2/bar/dir"),
             "E:\\Actual Path\\Directory");
-  EXPECT_EQ(r->Rlocation("protobuf~3.19.2/bar/dir/file"),
+  EXPECT_EQ(r->Rlocation("protobuf+3.19.2/bar/dir/file"),
             "E:\\Actual Path\\Directory/file");
-  EXPECT_EQ(r->Rlocation("protobuf~3.19.2/bar/dir/de eply/nes  ted/fi~le"),
-            "E:\\Actual Path\\Directory/de eply/nes  ted/fi~le");
+  EXPECT_EQ(r->Rlocation("protobuf+3.19.2/bar/dir/de eply/nes  ted/fi+le"),
+            "E:\\Actual Path\\Directory/de eply/nes  ted/fi+le");
 
   EXPECT_EQ(r->Rlocation("config.json"), "/etc/config.json");
   EXPECT_EQ(r->Rlocation("_main"), "");
@@ -648,17 +665,17 @@ TEST_F(RunfilesTest, ManifestBasedRlocationWithRepoMapping_fromOtherRepo) {
   string uid = LINE_AS_STRING();
   unique_ptr<MockFile> rm(
       MockFile::Create("foo" + uid + ".repo_mapping",
-                       {",config.json,config.json~1.2.3", ",my_module,_main",
-                        ",my_protobuf,protobuf~3.19.2", ",my_workspace,_main",
-                        "protobuf~3.19.2,config.json,config.json~1.2.3",
-                        "protobuf~3.19.2,protobuf,protobuf~3.19.2"}));
+                       {",config.json,config.json+1.2.3", ",my_module,_main",
+                        ",my_protobuf,protobuf+3.19.2", ",my_workspace,_main",
+                        "protobuf+3.19.2,config.json,config.json+1.2.3",
+                        "protobuf+3.19.2,protobuf,protobuf+3.19.2"}));
   ASSERT_TRUE(rm != nullptr);
   unique_ptr<MockFile> mf(MockFile::Create(
       "foo" + uid + ".runfiles_manifest",
       {"_repo_mapping " + rm->Path(), "config.json /etc/config.json",
-       "protobuf~3.19.2/foo/runfile C:/Actual Path\\protobuf\\runfile",
+       "protobuf+3.19.2/foo/runfile C:/Actual Path\\protobuf\\runfile",
        "_main/bar/runfile /the/path/./to/other//other runfile.txt",
-       "protobuf~3.19.2/bar/dir E:\\Actual Path\\Directory"}));
+       "protobuf+3.19.2/bar/dir E:\\Actual Path\\Directory"}));
   ASSERT_TRUE(mf != nullptr);
   string argv0(mf->Path().substr(
       0, mf->Path().size() - string(".runfiles_manifest").size()));
@@ -666,7 +683,7 @@ TEST_F(RunfilesTest, ManifestBasedRlocationWithRepoMapping_fromOtherRepo) {
   string error;
   unique_ptr<Runfiles> r(Runfiles::Create(argv0, /*runfiles_manifest_file=*/"",
                                           /*runfiles_dir=*/"",
-                                          "protobuf~3.19.2", &error));
+                                          "protobuf+3.19.2", &error));
   ASSERT_TRUE(r != nullptr);
   EXPECT_TRUE(error.empty());
 
@@ -675,25 +692,25 @@ TEST_F(RunfilesTest, ManifestBasedRlocationWithRepoMapping_fromOtherRepo) {
   EXPECT_EQ(r->Rlocation("protobuf/bar/dir"), "E:\\Actual Path\\Directory");
   EXPECT_EQ(r->Rlocation("protobuf/bar/dir/file"),
             "E:\\Actual Path\\Directory/file");
-  EXPECT_EQ(r->Rlocation("protobuf/bar/dir/de eply/nes  ted/fi~le"),
-            "E:\\Actual Path\\Directory/de eply/nes  ted/fi~le");
+  EXPECT_EQ(r->Rlocation("protobuf/bar/dir/de eply/nes  ted/fi+le"),
+            "E:\\Actual Path\\Directory/de eply/nes  ted/fi+le");
 
   EXPECT_EQ(r->Rlocation("my_module/bar/runfile"), "");
   EXPECT_EQ(r->Rlocation("my_protobuf/foo/runfile"), "");
   EXPECT_EQ(r->Rlocation("my_protobuf/bar/dir"), "");
   EXPECT_EQ(r->Rlocation("my_protobuf/bar/dir/file"), "");
-  EXPECT_EQ(r->Rlocation("my_protobuf/bar/dir/de eply/nes  ted/fi~le"), "");
+  EXPECT_EQ(r->Rlocation("my_protobuf/bar/dir/de eply/nes  ted/fi+le"), "");
 
   EXPECT_EQ(r->Rlocation("_main/bar/runfile"),
             "/the/path/./to/other//other runfile.txt");
-  EXPECT_EQ(r->Rlocation("protobuf~3.19.2/foo/runfile"),
+  EXPECT_EQ(r->Rlocation("protobuf+3.19.2/foo/runfile"),
             "C:/Actual Path\\protobuf\\runfile");
-  EXPECT_EQ(r->Rlocation("protobuf~3.19.2/bar/dir"),
+  EXPECT_EQ(r->Rlocation("protobuf+3.19.2/bar/dir"),
             "E:\\Actual Path\\Directory");
-  EXPECT_EQ(r->Rlocation("protobuf~3.19.2/bar/dir/file"),
+  EXPECT_EQ(r->Rlocation("protobuf+3.19.2/bar/dir/file"),
             "E:\\Actual Path\\Directory/file");
-  EXPECT_EQ(r->Rlocation("protobuf~3.19.2/bar/dir/de eply/nes  ted/fi~le"),
-            "E:\\Actual Path\\Directory/de eply/nes  ted/fi~le");
+  EXPECT_EQ(r->Rlocation("protobuf+3.19.2/bar/dir/de eply/nes  ted/fi+le"),
+            "E:\\Actual Path\\Directory/de eply/nes  ted/fi+le");
 
   EXPECT_EQ(r->Rlocation("config.json"), "/etc/config.json");
   EXPECT_EQ(r->Rlocation("_main"), "");
@@ -705,10 +722,10 @@ TEST_F(RunfilesTest, DirectoryBasedRlocationWithRepoMapping_fromMain) {
   string uid = LINE_AS_STRING();
   unique_ptr<MockFile> rm(
       MockFile::Create("foo" + uid + ".runfiles/_repo_mapping",
-                       {",config.json,config.json~1.2.3", ",my_module,_main",
-                        ",my_protobuf,protobuf~3.19.2", ",my_workspace,_main",
-                        "protobuf~3.19.2,config.json,config.json~1.2.3",
-                        "protobuf~3.19.2,protobuf,protobuf~3.19.2"}));
+                       {",config.json,config.json+1.2.3", ",my_module,_main",
+                        ",my_protobuf,protobuf+3.19.2", ",my_workspace,_main",
+                        "protobuf+3.19.2,config.json,config.json+1.2.3",
+                        "protobuf+3.19.2,protobuf,protobuf+3.19.2"}));
   ASSERT_TRUE(rm != nullptr);
   string dir = rm->DirName();
   string argv0(dir.substr(0, dir.size() - string(".runfiles").size()));
@@ -724,28 +741,28 @@ TEST_F(RunfilesTest, DirectoryBasedRlocationWithRepoMapping_fromMain) {
   EXPECT_EQ(r->Rlocation("my_workspace/bar/runfile"),
             dir + "/_main/bar/runfile");
   EXPECT_EQ(r->Rlocation("my_protobuf/foo/runfile"),
-            dir + "/protobuf~3.19.2/foo/runfile");
+            dir + "/protobuf+3.19.2/foo/runfile");
   EXPECT_EQ(r->Rlocation("my_protobuf/bar/dir"),
-            dir + "/protobuf~3.19.2/bar/dir");
+            dir + "/protobuf+3.19.2/bar/dir");
   EXPECT_EQ(r->Rlocation("my_protobuf/bar/dir/file"),
-            dir + "/protobuf~3.19.2/bar/dir/file");
-  EXPECT_EQ(r->Rlocation("my_protobuf/bar/dir/de eply/nes ted/fi~le"),
-            dir + "/protobuf~3.19.2/bar/dir/de eply/nes ted/fi~le");
+            dir + "/protobuf+3.19.2/bar/dir/file");
+  EXPECT_EQ(r->Rlocation("my_protobuf/bar/dir/de eply/nes ted/fi+le"),
+            dir + "/protobuf+3.19.2/bar/dir/de eply/nes ted/fi+le");
 
   EXPECT_EQ(r->Rlocation("protobuf/foo/runfile"),
             dir + "/protobuf/foo/runfile");
-  EXPECT_EQ(r->Rlocation("protobuf/bar/dir/dir/de eply/nes ted/fi~le"),
-            dir + "/protobuf/bar/dir/dir/de eply/nes ted/fi~le");
+  EXPECT_EQ(r->Rlocation("protobuf/bar/dir/dir/de eply/nes ted/fi+le"),
+            dir + "/protobuf/bar/dir/dir/de eply/nes ted/fi+le");
 
   EXPECT_EQ(r->Rlocation("_main/bar/runfile"), dir + "/_main/bar/runfile");
-  EXPECT_EQ(r->Rlocation("protobuf~3.19.2/foo/runfile"),
-            dir + "/protobuf~3.19.2/foo/runfile");
-  EXPECT_EQ(r->Rlocation("protobuf~3.19.2/bar/dir"),
-            dir + "/protobuf~3.19.2/bar/dir");
-  EXPECT_EQ(r->Rlocation("protobuf~3.19.2/bar/dir/file"),
-            dir + "/protobuf~3.19.2/bar/dir/file");
-  EXPECT_EQ(r->Rlocation("protobuf~3.19.2/bar/dir/de eply/nes  ted/fi~le"),
-            dir + "/protobuf~3.19.2/bar/dir/de eply/nes  ted/fi~le");
+  EXPECT_EQ(r->Rlocation("protobuf+3.19.2/foo/runfile"),
+            dir + "/protobuf+3.19.2/foo/runfile");
+  EXPECT_EQ(r->Rlocation("protobuf+3.19.2/bar/dir"),
+            dir + "/protobuf+3.19.2/bar/dir");
+  EXPECT_EQ(r->Rlocation("protobuf+3.19.2/bar/dir/file"),
+            dir + "/protobuf+3.19.2/bar/dir/file");
+  EXPECT_EQ(r->Rlocation("protobuf+3.19.2/bar/dir/de eply/nes  ted/fi+le"),
+            dir + "/protobuf+3.19.2/bar/dir/de eply/nes  ted/fi+le");
 
   EXPECT_EQ(r->Rlocation("config.json"), dir + "/config.json");
 }
@@ -754,10 +771,10 @@ TEST_F(RunfilesTest, DirectoryBasedRlocationWithRepoMapping_fromOtherRepo) {
   string uid = LINE_AS_STRING();
   unique_ptr<MockFile> rm(
       MockFile::Create("foo" + uid + ".runfiles/_repo_mapping",
-                       {",config.json,config.json~1.2.3", ",my_module,_main",
-                        ",my_protobuf,protobuf~3.19.2", ",my_workspace,_main",
-                        "protobuf~3.19.2,config.json,config.json~1.2.3",
-                        "protobuf~3.19.2,protobuf,protobuf~3.19.2"}));
+                       {",config.json,config.json+1.2.3", ",my_module,_main",
+                        ",my_protobuf,protobuf+3.19.2", ",my_workspace,_main",
+                        "protobuf+3.19.2,config.json,config.json+1.2.3",
+                        "protobuf+3.19.2,protobuf,protobuf+3.19.2"}));
   ASSERT_TRUE(rm != nullptr);
   string dir = rm->DirName();
   string argv0(dir.substr(0, dir.size() - string(".runfiles").size()));
@@ -765,32 +782,32 @@ TEST_F(RunfilesTest, DirectoryBasedRlocationWithRepoMapping_fromOtherRepo) {
   string error;
   unique_ptr<Runfiles> r(Runfiles::Create(argv0, /*runfiles_manifest_file=*/"",
                                           /*runfiles_dir=*/"",
-                                          "protobuf~3.19.2", &error));
+                                          "protobuf+3.19.2", &error));
   ASSERT_TRUE(r != nullptr);
   EXPECT_TRUE(error.empty());
 
   EXPECT_EQ(r->Rlocation("protobuf/foo/runfile"),
-            dir + "/protobuf~3.19.2/foo/runfile");
-  EXPECT_EQ(r->Rlocation("protobuf/bar/dir"), dir + "/protobuf~3.19.2/bar/dir");
+            dir + "/protobuf+3.19.2/foo/runfile");
+  EXPECT_EQ(r->Rlocation("protobuf/bar/dir"), dir + "/protobuf+3.19.2/bar/dir");
   EXPECT_EQ(r->Rlocation("protobuf/bar/dir/file"),
-            dir + "/protobuf~3.19.2/bar/dir/file");
-  EXPECT_EQ(r->Rlocation("protobuf/bar/dir/de eply/nes  ted/fi~le"),
-            dir + "/protobuf~3.19.2/bar/dir/de eply/nes  ted/fi~le");
+            dir + "/protobuf+3.19.2/bar/dir/file");
+  EXPECT_EQ(r->Rlocation("protobuf/bar/dir/de eply/nes  ted/fi+le"),
+            dir + "/protobuf+3.19.2/bar/dir/de eply/nes  ted/fi+le");
 
   EXPECT_EQ(r->Rlocation("my_module/bar/runfile"),
             dir + "/my_module/bar/runfile");
-  EXPECT_EQ(r->Rlocation("my_protobuf/bar/dir/de eply/nes  ted/fi~le"),
-            dir + "/my_protobuf/bar/dir/de eply/nes  ted/fi~le");
+  EXPECT_EQ(r->Rlocation("my_protobuf/bar/dir/de eply/nes  ted/fi+le"),
+            dir + "/my_protobuf/bar/dir/de eply/nes  ted/fi+le");
 
   EXPECT_EQ(r->Rlocation("_main/bar/runfile"), dir + "/_main/bar/runfile");
-  EXPECT_EQ(r->Rlocation("protobuf~3.19.2/foo/runfile"),
-            dir + "/protobuf~3.19.2/foo/runfile");
-  EXPECT_EQ(r->Rlocation("protobuf~3.19.2/bar/dir"),
-            dir + "/protobuf~3.19.2/bar/dir");
-  EXPECT_EQ(r->Rlocation("protobuf~3.19.2/bar/dir/file"),
-            dir + "/protobuf~3.19.2/bar/dir/file");
-  EXPECT_EQ(r->Rlocation("protobuf~3.19.2/bar/dir/de eply/nes  ted/fi~le"),
-            dir + "/protobuf~3.19.2/bar/dir/de eply/nes  ted/fi~le");
+  EXPECT_EQ(r->Rlocation("protobuf+3.19.2/foo/runfile"),
+            dir + "/protobuf+3.19.2/foo/runfile");
+  EXPECT_EQ(r->Rlocation("protobuf+3.19.2/bar/dir"),
+            dir + "/protobuf+3.19.2/bar/dir");
+  EXPECT_EQ(r->Rlocation("protobuf+3.19.2/bar/dir/file"),
+            dir + "/protobuf+3.19.2/bar/dir/file");
+  EXPECT_EQ(r->Rlocation("protobuf+3.19.2/bar/dir/de eply/nes  ted/fi+le"),
+            dir + "/protobuf+3.19.2/bar/dir/de eply/nes  ted/fi+le");
 
   EXPECT_EQ(r->Rlocation("config.json"), dir + "/config.json");
 }
@@ -800,10 +817,10 @@ TEST_F(RunfilesTest,
   string uid = LINE_AS_STRING();
   unique_ptr<MockFile> rm(
       MockFile::Create("foo" + uid + ".runfiles/_repo_mapping",
-                       {",config.json,config.json~1.2.3", ",my_module,_main",
-                        ",my_protobuf,protobuf~3.19.2", ",my_workspace,_main",
-                        "protobuf~3.19.2,config.json,config.json~1.2.3",
-                        "protobuf~3.19.2,protobuf,protobuf~3.19.2"}));
+                       {",config.json,config.json+1.2.3", ",my_module,_main",
+                        ",my_protobuf,protobuf+3.19.2", ",my_workspace,_main",
+                        "protobuf+3.19.2,config.json,config.json+1.2.3",
+                        "protobuf+3.19.2,protobuf,protobuf+3.19.2"}));
   ASSERT_TRUE(rm != nullptr);
   string dir = rm->DirName();
   string argv0(dir.substr(0, dir.size() - string(".runfiles").size()));
@@ -812,32 +829,32 @@ TEST_F(RunfilesTest,
   unique_ptr<Runfiles> r(Runfiles::Create(argv0, /*runfiles_manifest_file=*/"",
                                           /*runfiles_dir=*/"",
                                           /*source_repository=*/"", &error));
-  r = r->WithSourceRepository("protobuf~3.19.2");
+  r = r->WithSourceRepository("protobuf+3.19.2");
   ASSERT_TRUE(r != nullptr);
   EXPECT_TRUE(error.empty());
 
   EXPECT_EQ(r->Rlocation("protobuf/foo/runfile"),
-            dir + "/protobuf~3.19.2/foo/runfile");
-  EXPECT_EQ(r->Rlocation("protobuf/bar/dir"), dir + "/protobuf~3.19.2/bar/dir");
+            dir + "/protobuf+3.19.2/foo/runfile");
+  EXPECT_EQ(r->Rlocation("protobuf/bar/dir"), dir + "/protobuf+3.19.2/bar/dir");
   EXPECT_EQ(r->Rlocation("protobuf/bar/dir/file"),
-            dir + "/protobuf~3.19.2/bar/dir/file");
-  EXPECT_EQ(r->Rlocation("protobuf/bar/dir/de eply/nes  ted/fi~le"),
-            dir + "/protobuf~3.19.2/bar/dir/de eply/nes  ted/fi~le");
+            dir + "/protobuf+3.19.2/bar/dir/file");
+  EXPECT_EQ(r->Rlocation("protobuf/bar/dir/de eply/nes  ted/fi+le"),
+            dir + "/protobuf+3.19.2/bar/dir/de eply/nes  ted/fi+le");
 
   EXPECT_EQ(r->Rlocation("my_module/bar/runfile"),
             dir + "/my_module/bar/runfile");
-  EXPECT_EQ(r->Rlocation("my_protobuf/bar/dir/de eply/nes  ted/fi~le"),
-            dir + "/my_protobuf/bar/dir/de eply/nes  ted/fi~le");
+  EXPECT_EQ(r->Rlocation("my_protobuf/bar/dir/de eply/nes  ted/fi+le"),
+            dir + "/my_protobuf/bar/dir/de eply/nes  ted/fi+le");
 
   EXPECT_EQ(r->Rlocation("_main/bar/runfile"), dir + "/_main/bar/runfile");
-  EXPECT_EQ(r->Rlocation("protobuf~3.19.2/foo/runfile"),
-            dir + "/protobuf~3.19.2/foo/runfile");
-  EXPECT_EQ(r->Rlocation("protobuf~3.19.2/bar/dir"),
-            dir + "/protobuf~3.19.2/bar/dir");
-  EXPECT_EQ(r->Rlocation("protobuf~3.19.2/bar/dir/file"),
-            dir + "/protobuf~3.19.2/bar/dir/file");
-  EXPECT_EQ(r->Rlocation("protobuf~3.19.2/bar/dir/de eply/nes  ted/fi~le"),
-            dir + "/protobuf~3.19.2/bar/dir/de eply/nes  ted/fi~le");
+  EXPECT_EQ(r->Rlocation("protobuf+3.19.2/foo/runfile"),
+            dir + "/protobuf+3.19.2/foo/runfile");
+  EXPECT_EQ(r->Rlocation("protobuf+3.19.2/bar/dir"),
+            dir + "/protobuf+3.19.2/bar/dir");
+  EXPECT_EQ(r->Rlocation("protobuf+3.19.2/bar/dir/file"),
+            dir + "/protobuf+3.19.2/bar/dir/file");
+  EXPECT_EQ(r->Rlocation("protobuf+3.19.2/bar/dir/de eply/nes  ted/fi+le"),
+            dir + "/protobuf+3.19.2/bar/dir/de eply/nes  ted/fi+le");
 
   EXPECT_EQ(r->Rlocation("config.json"), dir + "/config.json");
 }

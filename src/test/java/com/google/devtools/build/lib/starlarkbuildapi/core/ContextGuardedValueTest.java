@@ -57,18 +57,18 @@ public final class ContextGuardedValueTest {
 
   @Test
   public void bzlmodRepo_matchesStart() throws Exception {
-    assertAllowed("@rules_foo~override//tools/lang", "@rules_foo//");
-    assertAllowed("@rules_foo~1.2.3//tools/lang", "@rules_foo//");
+    assertAllowed("@rules_foo+override//tools/lang", "@rules_foo//");
+    assertAllowed("@rules_foo+1.2.3//tools/lang", "@rules_foo//");
   }
 
   @Test
   public void bzlmodRepo_matchesWithin() throws Exception {
-    assertAllowed("@rules_lang~override~ext~foo_helper//tools/lang", "@foo_helper//");
+    assertAllowed("@rules_lang+override+ext+foo_helper//tools/lang", "@foo_helper//");
   }
 
   @Test
   public void bzlmodRepo_doesntMatchCommonSubstr() throws Exception {
-    assertNotAllowed("@rules_lang~override~ext~my_foo_helper_lib//tools/lang", "@foo_helper//");
+    assertNotAllowed("@rules_lang+override+ext+my_foo_helper_lib//tools/lang", "@foo_helper//");
   }
 
   @Test
@@ -84,14 +84,14 @@ public final class ContextGuardedValueTest {
 
     // Python with bzlmod
     assertAllowed(
-        "@rules_python~override~internal_deps~rules_python_internal//private", "@rules_python//");
+        "@rules_python+override+internal_deps+rules_python_internal//private", "@rules_python//");
 
     // CC with workspace
     assertAllowed("@//tools/build_defs/cc", "@//tools/build_defs/cc");
     assertNotAllowed("@rules_cc_helper//tools/build_defs/cc", "@rules_cc//");
 
     // CC with Bzlmod
-    assertAllowed("@rules_cc~1.2.3~ext_name~local_cc_config//foo", "@local_cc_config//");
+    assertAllowed("@rules_cc+1.2.3+ext_name+local_cc_config//foo", "@local_cc_config//");
   }
 
   private Object createClientData(String callerLabelStr) {

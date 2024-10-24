@@ -14,12 +14,10 @@
 package com.google.devtools.build.docgen.starlark;
 
 import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import net.starlark.java.annot.Param;
-import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Starlark;
 
@@ -27,36 +25,17 @@ import net.starlark.java.eval.Starlark;
 public final class StarlarkJavaMethodDoc extends StarlarkMethodDoc {
   private final String moduleName;
   private final String name;
-  private final Method method;
-  private final StarlarkMethod callable;
-  private final ImmutableList<StarlarkParamDoc> params;
 
   private boolean isOverloaded;
 
   public StarlarkJavaMethodDoc(
-      String moduleName, Method method, StarlarkMethod callable, StarlarkDocExpander expander) {
-    super(expander);
+      String moduleName,
+      Method javaMethod,
+      StarlarkMethod annotation,
+      StarlarkDocExpander expander) {
+    super(javaMethod, annotation, expander);
     this.moduleName = moduleName;
-    this.name = callable.name();
-    this.method = method;
-    this.callable = callable;
-    this.params =
-        StarlarkDocUtils.determineParams(
-            this,
-            withoutSelfParam(callable, method),
-            callable.extraPositionals(),
-            callable.extraKeywords(),
-            expander);
-  }
-
-  @Override
-  public Method getMethod() {
-    return method;
-  }
-
-  @Override
-  public boolean documented() {
-    return callable.documented();
+    this.name = annotation.name();
   }
 
   @Override
@@ -73,12 +52,12 @@ public final class StarlarkJavaMethodDoc extends StarlarkMethodDoc {
   }
 
   /**
-   * Returns the full name of the method, consisting of
-   * <method name>(<name of first param>, <name of second param>, ...).
+   * Returns the full name of the method, consisting of <method name>(<name of first param>, <name
+   * of second param>, ...).
    */
   private String getFullName() {
     List<String> paramNames = new ArrayList<>();
-    for (Param param : callable.parameters()) {
+    for (Param param : annotation.parameters()) {
       paramNames.add(param.name());
     }
     return String.format("%s(%s)", name, Joiner.on(", ").join(paramNames));
@@ -92,54 +71,38 @@ public final class StarlarkJavaMethodDoc extends StarlarkMethodDoc {
   @Override
   public String getRawDocumentation() {
     String prefixWarning = "";
-    if (!callable.enableOnlyWithFlag().isEmpty()) {
+    if (!annotation.enableOnlyWithFlag().isEmpty()) {
       prefixWarning =
           "<b>Experimental</b>. This API is experimental and may change at any time. "
               + "Please do not depend on it. It may be enabled on an experimental basis by setting "
               + "<code>--"
-              + callable.enableOnlyWithFlag()
+              + annotation.enableOnlyWithFlag()
               + "</code> <br>";
-    } else if (!callable.disableWithFlag().isEmpty()) {
+    } else if (!annotation.disableWithFlag().isEmpty()) {
       prefixWarning =
           "<b>Deprecated</b>. This API is deprecated and will be removed soon. "
               + "Please do not depend on it. It is <i>disabled</i> with "
               + "<code>--"
-              + callable.disableWithFlag()
+              + annotation.disableWithFlag()
               + "</code>. Use this flag "
               + "to verify your code is compatible with its imminent removal. <br>";
     }
-    return prefixWarning + callable.doc();
+    return prefixWarning + annotation.doc();
   }
 
   @Override
   public String getSignature() {
-    return getSignature(moduleName, name, method);
-  }
+    String objectDotExpressionPrefix = moduleName.isEmpty() ? "" : moduleName + ".";
 
-  @Override
-  public String getReturnTypeExtraMessage() {
-    if (callable.allowReturnNones()) {
-      return " May return <code>None</code>.\n";
-    }
-    return "";
+    return getSignature(objectDotExpressionPrefix + name);
   }
 
   @Override
   public String getReturnType() {
-    return Starlark.classTypeFromJava(method.getReturnType());
-  }
-
-  @Override
-  public List<StarlarkParamDoc> getParams() {
-    return params;
+    return Starlark.classTypeFromJava(javaMethod.getReturnType());
   }
 
   public void setOverloaded(boolean isOverloaded) {
     this.isOverloaded = isOverloaded;
-  }
-
-  @Override
-  public Boolean isCallable() {
-    return !StarlarkAnnotations.getStarlarkMethod(this.method).structField();
   }
 }

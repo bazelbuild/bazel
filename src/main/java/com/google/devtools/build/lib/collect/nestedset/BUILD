@@ -16,7 +16,9 @@ filegroup(
 java_library(
     name = "nestedset",
     srcs = [
+        "DeferredNestedSetCodec.java",
         "Depset.java",
+        "NestedArrayCodec.java",
         "NestedSet.java",
         "NestedSetBuilder.java",
         "NestedSetCodecWithStore.java",
@@ -46,7 +48,7 @@ java_library(
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/protobuf:protobuf_java",
+        "@protobuf//:protobuf_java",
     ],
 )
 

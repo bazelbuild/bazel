@@ -40,7 +40,7 @@ import org.junit.Before;
 /** Helper base class for testing the use of Starlark-style flags. */
 public class StarlarkOptionsTestCase extends BuildViewTestCase {
 
-  private static final List<Class<? extends OptionsBase>> requiredOptionsClasses =
+  private static final ImmutableList<Class<? extends OptionsBase>> REQUIRED_OPTIONS_CLASSES =
       ImmutableList.of(
           PackageOptions.class,
           BuildLanguageOptions.class,
@@ -49,6 +49,8 @@ public class StarlarkOptionsTestCase extends BuildViewTestCase {
           ClientOptions.class,
           UiOptions.class,
           CommonCommandOptions.class);
+
+  protected OptionsParser optionsParser;
   private StarlarkOptionsParser starlarkOptionsParser;
 
   @Before
@@ -57,15 +59,17 @@ public class StarlarkOptionsTestCase extends BuildViewTestCase {
         OptionsParser.builder()
             .optionsClasses(
                 Iterables.concat(
-                    requiredOptionsClasses,
+                    REQUIRED_OPTIONS_CLASSES,
                     ruleClassProvider.getFragmentRegistry().getOptionsClasses()))
             .skipStarlarkOptionPrefixes()
             .build();
     starlarkOptionsParser =
-        StarlarkOptionsParser.newStarlarkOptionsParser(
-            new BlazeOptionHandler.SkyframeExecutorTargetLoader(
-                skyframeExecutor, PathFragment.EMPTY_FRAGMENT, reporter),
-            optionsParser);
+        StarlarkOptionsParser.builder()
+            .buildSettingLoader(
+                new BlazeOptionHandler.SkyframeExecutorTargetLoader(
+                    skyframeExecutor, PathFragment.EMPTY_FRAGMENT, reporter))
+            .nativeOptionsParser(optionsParser)
+            .build();
   }
 
   protected OptionsParsingResult parseStarlarkOptions(String options) throws Exception {
@@ -79,7 +83,7 @@ public class StarlarkOptionsTestCase extends BuildViewTestCase {
       optionsParser.parse(asList);
     }
     assertThat(starlarkOptionsParser.parseGivenArgs(asList)).isTrue();
-    return starlarkOptionsParser.getNativeOptionsParserFortesting();
+    return optionsParser;
   }
 
   protected OptionsParsingResult parseStarlarkOptions(
@@ -95,7 +99,7 @@ public class StarlarkOptionsTestCase extends BuildViewTestCase {
                     .addAll(bazelrcOptionsList)
                     .build()))
         .isTrue();
-    return starlarkOptionsParser.getNativeOptionsParserFortesting();
+    return optionsParser;
   }
 
   private void writeBuildSetting(String type, String defaultValue, boolean isFlag)

@@ -409,6 +409,12 @@ int ExecuteDaemon(const blaze_util::Path& exe,
   if (daemon_output_append) {
     daemonize_args.push_back("-a");
   }
+#ifdef __linux__
+  if (!options.cgroup_parent.empty()) {
+    daemonize_args.push_back("-c");
+    daemonize_args.push_back(options.cgroup_parent);
+  }
+#endif
   daemonize_args.push_back("--");
   daemonize_args.push_back(exe.AsNativePath());
   std::copy(args_vector.begin(), args_vector.end(),
@@ -422,17 +428,17 @@ int ExecuteDaemon(const blaze_util::Path& exe,
   }
 
   posix_spawn_file_actions_t file_actions;
-  if (posix_spawn_file_actions_init(&file_actions) == -1) {
+  if (posix_spawn_file_actions_init(&file_actions) != 0) {
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
       << "Failed to create posix_spawn_file_actions: " << GetLastErrorString();
   }
-  if (posix_spawn_file_actions_addclose(&file_actions, fds[0]) == -1) {
+  if (posix_spawn_file_actions_addclose(&file_actions, fds[0]) != 0) {
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
       << "Failed to modify posix_spawn_file_actions: "<< GetLastErrorString();
   }
 
   posix_spawnattr_t attrp;
-  if (posix_spawnattr_init(&attrp) == -1) {
+  if (posix_spawnattr_init(&attrp) != 0) {
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
         << "Failed to create posix_spawnattr: " << GetLastErrorString();
   }
@@ -443,7 +449,7 @@ int ExecuteDaemon(const blaze_util::Path& exe,
 
   pid_t transient_pid;
   if (posix_spawn(&transient_pid, daemonize.c_str(), &file_actions, &attrp,
-                  CharPP(daemonize_args).get(), CharPP(env).get()) == -1) {
+                  CharPP(daemonize_args).get(), CharPP(env).get()) != 0) {
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
       << "Failed to execute JVM via " << daemonize
       << ": " << GetLastErrorString();

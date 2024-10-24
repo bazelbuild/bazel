@@ -13,11 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -488,7 +490,7 @@ public final class BuildTypeTest {
    */
   @SuppressWarnings({"unchecked", "TruthIncompatibleType"})
   @Test
-  public void testSelectableConvert() throws Exception {
+  public void selectableConvert_basicUsage() throws Exception {
     Object nativeInput = Arrays.asList("//a:a1", "//a:a2");
     Object selectableInput =
         SelectorList.of(new SelectorValue(ImmutableMap.of(
@@ -499,13 +501,23 @@ public final class BuildTypeTest {
 
     // Conversion to direct type:
     Object converted =
-        BuildType.selectableConvert(BuildType.LABEL_LIST, nativeInput, null, labelConverter);
+        BuildType.selectableConvert(
+            BuildType.LABEL_LIST,
+            nativeInput,
+            null,
+            labelConverter,
+            /* simplifyUnconditionalSelects= */ false);
     assertThat(converted instanceof List<?>).isTrue();
     assertThat((List<Label>) converted).containsExactlyElementsIn(expectedLabels);
 
     // Conversion to selectable type:
     converted =
-        BuildType.selectableConvert(BuildType.LABEL_LIST, selectableInput, null, labelConverter);
+        BuildType.selectableConvert(
+            BuildType.LABEL_LIST,
+            selectableInput,
+            null,
+            labelConverter,
+            /* simplifyUnconditionalSelects= */ false);
     BuildType.SelectorList<?> selectorList = (BuildType.SelectorList<?>) converted;
     assertThat(((Selector<Label>) selectorList.getSelectors().get(0)).mapCopy())
         .containsExactly(
@@ -513,6 +525,147 @@ public final class BuildTypeTest {
             expectedLabels,
             Label.parseCanonical(Selector.DEFAULT_CONDITION_KEY),
             expectedLabels);
+  }
+
+  /**
+   * Tests that {@link BuildType#selectableConvert} with {@code simplifyUnconditionalSelects=true}
+   * returns either the native type or a simplified selector on that type, in accordance with the
+   * provided input.
+   */
+  @Test
+  public void selectableConvert_simplifyingUnconditionals() throws Exception {
+    ImmutableList<String> valueA = ImmutableList.of("//a");
+    SelectorValue unconditionalSelectorX =
+        new SelectorValue(
+            ImmutableMap.of(BuildType.Selector.DEFAULT_CONDITION_KEY, ImmutableList.of("//x")), "");
+    SelectorValue conditionalSelectorYz =
+        new SelectorValue(
+            ImmutableMap.of(
+                "//conditions:a",
+                ImmutableList.of("//y"),
+                BuildType.Selector.DEFAULT_CONDITION_KEY,
+                ImmutableList.of("//z")),
+            "");
+    Label labelA = Label.create("@//a", "a");
+    Label labelX = Label.create("@//x", "x");
+
+    // select({"//conditions:default": ["//x"]}) simplified to ["//x"]
+    assertThat(
+            BuildType.selectableConvert(
+                BuildType.LABEL_LIST,
+                SelectorList.of(unconditionalSelectorX),
+                null,
+                labelConverter,
+                /* simplifyUnconditionalSelects= */ true))
+        .isEqualTo(ImmutableList.of(labelX));
+
+    // ["//a"] + select({"//conditions:default": ["//x"]}) simplified to ["//a", "//x"]
+    assertThat(
+            BuildType.selectableConvert(
+                BuildType.LABEL_LIST,
+                SelectorList.of(ImmutableList.of(valueA, unconditionalSelectorX)),
+                null,
+                labelConverter,
+                /* simplifyUnconditionalSelects= */ true))
+        .isEqualTo(ImmutableList.of(labelA, labelX));
+
+    // ["//a"] + select({"//conditions:a": ["//y"], "//conditions:default": ["//z"]}) cannot be
+    // simplified
+    Object unsimplified =
+        BuildType.selectableConvert(
+            BuildType.LABEL_LIST,
+            SelectorList.of(ImmutableList.of(valueA, conditionalSelectorYz)),
+            null,
+            labelConverter,
+            /* simplifyUnconditionalSelects= */ true);
+    assertThat(unsimplified).isInstanceOf(BuildType.SelectorList.class);
+    assertThat(
+            ((BuildType.SelectorList<?>) unsimplified)
+                .getSelectors().stream().map(Selector::mapCopy).collect(toImmutableList()))
+        .containsExactlyElementsIn(
+            ((BuildType.SelectorList<?>)
+                    BuildType.selectableConvert(
+                        BuildType.LABEL_LIST,
+                        SelectorList.of(ImmutableList.of(valueA, conditionalSelectorYz)),
+                        null,
+                        labelConverter,
+                        /* simplifyUnconditionalSelects= */ false))
+                .getSelectors().stream().map(Selector::mapCopy).collect(toImmutableList()))
+        .inOrder();
+  }
+
+  @Test
+  public void selectableConvert_simplifyingUnconditionals_handlesUnconditionalNone()
+      throws Exception {
+    SelectorValue unconditionalSelectorNone =
+        new SelectorValue(
+            ImmutableMap.of(BuildType.Selector.DEFAULT_CONDITION_KEY, Starlark.NONE), "");
+
+    ImmutableList<Type<?>> allBuildTypes =
+        BuildTypeTestHelper.getAllBuildTypes(/* publicOnly= */ false);
+    // Verify that we really collected both scalar and non-scalar types from all classes.
+    assertThat(allBuildTypes)
+        .containsAtLeast(Type.STRING, Types.STRING_LIST, BuildType.LABEL, BuildType.LABEL_LIST);
+    for (Type<?> type : allBuildTypes) {
+      // select({"//conditions:default": None}) simplifies to the type's default value.
+      assertThat(
+              BuildType.selectableConvert(
+                  type,
+                  SelectorList.of(unconditionalSelectorNone),
+                  null,
+                  labelConverter,
+                  /* simplifyUnconditionalSelects= */ true))
+          .isEqualTo(type.getDefaultValue());
+
+      // select({"//conditions:default": None}) + select({"//conditions:default": None}) either
+      // simplifies to the type's non-null default value, or cleanly fails to concat.
+      if (type.concat(ImmutableList.of()) != null) {
+        Object concatenation =
+            BuildType.selectableConvert(
+                type,
+                SelectorList.of(
+                    ImmutableList.of(unconditionalSelectorNone, unconditionalSelectorNone)),
+                null,
+                labelConverter,
+                /* simplifyUnconditionalSelects= */ true);
+        assertThat(concatenation).isEqualTo(type.getDefaultValue());
+        assertThat(concatenation).isNotNull();
+      } else {
+        ConversionException exception =
+            assertThrows(
+                ConversionException.class,
+                () ->
+                    BuildType.selectableConvert(
+                        type,
+                        SelectorList.of(
+                            ImmutableList.of(unconditionalSelectorNone, unconditionalSelectorNone)),
+                        null,
+                        labelConverter,
+                        /* simplifyUnconditionalSelects= */ true));
+        assertThat(exception).hasMessageThat().contains("doesn't support select concatenation");
+      }
+    }
+  }
+
+  @Test
+  public void selectableConvert_simplifyingUnconditionals_failsCleanlyOnInvalidConcatenation()
+      throws Exception {
+    ConversionException exception =
+        assertThrows(
+            ConversionException.class,
+            () ->
+                BuildType.selectableConvert(
+                    BuildType.LABEL,
+                    SelectorList.of(
+                        ImmutableList.of(
+                            "//a",
+                            new SelectorValue(ImmutableMap.of("//conditions:default", "//b"), ""))),
+                    null,
+                    labelConverter,
+                    /* simplifyUnconditionalSelects= */ true));
+    assertThat(exception)
+        .hasMessageThat()
+        .contains("type 'label' doesn't support select concatenation");
   }
 
   @Test
@@ -540,7 +693,7 @@ public final class BuildTypeTest {
     Object converted =
         BuildType.copyAndLiftStarlarkValue(
             "ruleClass",
-            Attribute.attr("attrName", Type.STRING_DICT).build(),
+            Attribute.attr("attrName", Types.STRING_DICT).build(),
             inputDict,
             labelConverter);
 
@@ -639,6 +792,18 @@ public final class BuildTypeTest {
                     BuildType.LABEL)
                 .isUnconditional())
         .isTrue();
+  }
+
+  @Test
+  public void testSelectorValue_equals() {
+    new EqualsTester()
+        .addEqualityGroup(
+            new SelectorValue(ImmutableMap.of("a", 1, "b", 2), ""),
+            new SelectorValue(ImmutableMap.of("b", 2, "a", 1), ""))
+        .addEqualityGroup(new SelectorValue(ImmutableMap.of("a", 1, "b", 2), "Match failed"))
+        .addEqualityGroup(new SelectorValue(ImmutableMap.of("a", 1, "c", 2), ""))
+        .addEqualityGroup(new SelectorValue(ImmutableMap.of("a", 1, "b", 3), ""))
+        .testEquals();
   }
 
   private static <T> ImmutableList<Label> collectLabels(Type<T> type, T value) {

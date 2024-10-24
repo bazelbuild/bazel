@@ -54,7 +54,12 @@ public interface ErrorInfoManager {
     @Nullable
     public ErrorInfo getErrorInfoToUse(
         SkyKey skyKey, boolean hasValue, Set<ErrorInfo> childErrorInfos) {
-      return !childErrorInfos.isEmpty() ? ErrorInfo.fromChildErrors(skyKey, childErrorInfos) : null;
+      if (childErrorInfos.isEmpty()) {
+        return null;
+      }
+      var errorInfo = ErrorInfo.fromChildErrors(skyKey, childErrorInfos);
+
+      return hasValue ? ErrorInfo.withValue(errorInfo) : errorInfo;
     }
   }
 }

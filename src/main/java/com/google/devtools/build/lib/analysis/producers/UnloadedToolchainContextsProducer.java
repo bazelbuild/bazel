@@ -17,6 +17,7 @@ import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROU
 
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.packages.ExecGroup;
+import com.google.devtools.build.lib.skyframe.BaseTargetPrerequisitesSupplier;
 import com.google.devtools.build.lib.skyframe.toolchains.NoMatchingPlatformException;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainContextKey;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainException;
@@ -26,8 +27,13 @@ import com.google.devtools.build.skyframe.state.StateMachine;
 import java.util.Map;
 import javax.annotation.Nullable;
 
-final class UnloadedToolchainContextsProducer implements StateMachine {
-  interface ResultSink {
+/**
+ * Determines {@code ToolchainCollection<UnloadedToolchainContext>} from {@link
+ * UnloadedToolchainContextsInputs}.
+ */
+public final class UnloadedToolchainContextsProducer implements StateMachine {
+  /** Interface for accepting values produced by this class. */
+  public interface ResultSink {
     void acceptUnloadedToolchainContexts(
         @Nullable ToolchainCollection<UnloadedToolchainContext> unloadedToolchainContexts);
 
@@ -36,6 +42,13 @@ final class UnloadedToolchainContextsProducer implements StateMachine {
 
   // -------------------- Input --------------------
   private final UnloadedToolchainContextsInputs unloadedToolchainContextsInputs;
+
+  /**
+   * Cache for {@link UnloadedToolchainContext}. Not null only for aspects evaluation.
+   *
+   * <p>Check {@link AspectFunction#baseTargetPrerequisitesSupplier} for more details
+   */
+  @Nullable private final BaseTargetPrerequisitesSupplier baseTargetPrerequisitesSupplier;
 
   // -------------------- Output --------------------
   private final ResultSink sink;
@@ -54,13 +67,32 @@ final class UnloadedToolchainContextsProducer implements StateMachine {
     this.unloadedToolchainContextsInputs = unloadedToolchainContextsInputs;
     this.sink = sink;
     this.runAfter = runAfter;
+    this.baseTargetPrerequisitesSupplier = null;
+  }
+
+  /**
+   * Constructor for {@link UnloadedToolchainContextsProducer} with {@code
+   * baseTargetPrerequisitesSupplier} used by {@link AspectFunction}.
+   */
+  public UnloadedToolchainContextsProducer(
+      UnloadedToolchainContextsInputs unloadedToolchainContextsInputs,
+      BaseTargetPrerequisitesSupplier baseTargetPrerequisitesSupplier,
+      ResultSink sink,
+      StateMachine runAfter) {
+    this.unloadedToolchainContextsInputs = unloadedToolchainContextsInputs;
+    this.baseTargetPrerequisitesSupplier = baseTargetPrerequisitesSupplier;
+    this.sink = sink;
+    this.runAfter = runAfter;
   }
 
   @Override
-  public StateMachine step(Tasks tasks) {
+  public StateMachine step(Tasks tasks) throws InterruptedException {
     var defaultToolchainContextKey = unloadedToolchainContextsInputs.targetToolchainContextKey();
     if (defaultToolchainContextKey == null) {
       // Doesn't use toolchain resolution and short-circuits.
+      // TODO(bazel-team): return empty {@link ToolchainCollection} instead of {@code null} to help
+      // consumers distinguish between not yet evaluated collections and collections evaluated to be
+      // empty.
       sink.acceptUnloadedToolchainContexts(null);
       return runAfter;
     }
@@ -69,10 +101,11 @@ final class UnloadedToolchainContextsProducer implements StateMachine {
         ToolchainCollection.builderWithExpectedSize(
             unloadedToolchainContextsInputs.execGroups().size() + 1);
 
-    tasks.lookUp(
+    lookupToolchainContext(
+        baseTargetPrerequisitesSupplier,
         defaultToolchainContextKey,
-        ToolchainException.class,
-        new ToolchainContextLookupCallback(DEFAULT_EXEC_GROUP_NAME));
+        DEFAULT_EXEC_GROUP_NAME,
+        tasks);
 
     var keyBuilder =
         ToolchainContextKey.key()
@@ -82,16 +115,35 @@ final class UnloadedToolchainContextsProducer implements StateMachine {
     for (Map.Entry<String, ExecGroup> entry :
         unloadedToolchainContextsInputs.execGroups().entrySet()) {
       var execGroup = entry.getValue();
-      tasks.lookUp(
+      var key =
           keyBuilder
               .toolchainTypes(execGroup.toolchainTypes())
               .execConstraintLabels(execGroup.execCompatibleWith())
-              .build(),
-          ToolchainException.class,
-          new ToolchainContextLookupCallback(entry.getKey()));
+              .build();
+      lookupToolchainContext(baseTargetPrerequisitesSupplier, key, entry.getKey(), tasks);
     }
 
     return this::buildToolchainContexts;
+  }
+
+  private void lookupToolchainContext(
+      @Nullable BaseTargetPrerequisitesSupplier baseTargetPrerequisitesSupplier,
+      ToolchainContextKey key,
+      String execGroupName,
+      Tasks tasks)
+      throws InterruptedException {
+    var toolchainContext =
+        baseTargetPrerequisitesSupplier == null
+            ? null
+            : baseTargetPrerequisitesSupplier.getUnloadedToolchainContext(key);
+
+    if (toolchainContext != null) {
+      new ToolchainContextLookupCallback(execGroupName)
+          .acceptValueOrException(toolchainContext, null);
+    } else {
+      tasks.lookUp(
+          key, ToolchainException.class, new ToolchainContextLookupCallback(execGroupName));
+    }
   }
 
   private class ToolchainContextLookupCallback

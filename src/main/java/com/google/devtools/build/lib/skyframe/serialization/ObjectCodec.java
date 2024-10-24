@@ -14,11 +14,11 @@
 
 package com.google.devtools.build.lib.skyframe.serialization;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
-import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * Generic object serialization/deserialization. Implementations should serialize values
@@ -47,13 +47,16 @@ public interface ObjectCodec<T> {
    * dispatcher may choose to use this codec for the subtype, rather than raise {@link
    * SerializationException.NoCodecException}.
    *
+   * <p>If the additional subtype already has an existing codec registered with {@link
+   * ObjectCodec#getEncodedClass()}, this codec will take precedence and overwrite the other codec.
+   *
    * <p>This method should not be used if the codec's serialization and deserialization methods
    * perform their own dispatching to other codecs for subtypes of {@code T}.
    *
    * <p>{@code T} itself should not be included in the returned list.
    */
-  default List<Class<? extends T>> additionalEncodedClasses() {
-    return ImmutableList.of();
+  default ImmutableSet<Class<? extends T>> additionalEncodedClasses() {
+    return ImmutableSet.of();
   }
 
   /**
@@ -131,5 +134,39 @@ public interface ObjectCodec<T> {
      * initial value.
      */
     MEMOIZE_AFTER
+  }
+
+  /**
+   * Checks that {@code obj} is assignable to either {@link #getEncodedClass} or one of the {@link
+   * #additionalEncodedClasses}.
+   */
+  @SuppressWarnings("unchecked")
+  default T safeCast(@Nullable Object obj) throws SerializationException {
+    if (obj == null) {
+      return null;
+    }
+    Class<?> type = obj.getClass();
+    if (getEncodedClass().isAssignableFrom(type)) {
+      return (T) obj;
+    }
+    ImmutableSet<Class<? extends T>> additionalTypes = additionalEncodedClasses();
+    if (additionalTypes.contains(obj)) {
+      return (T) obj;
+    }
+    for (Class<?> expectedType : additionalTypes) {
+      if (expectedType.isAssignableFrom(type)) {
+        return (T) obj;
+      }
+    }
+    throw new SerializationException(
+        "Object "
+            + obj
+            + ") has type "
+            + type.getName()
+            + " but expected type one of "
+            + ImmutableSet.builder()
+                .add(getEncodedClass())
+                .addAll(additionalEncodedClasses())
+                .build());
   }
 }

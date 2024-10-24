@@ -17,11 +17,10 @@ import com.google.devtools.build.docgen.annot.GlobalMethods;
 import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.packages.License.DistributionType;
+import com.google.devtools.build.lib.packages.TargetRecorder.NameConflictException;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import java.util.List;
-import java.util.Set;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkMethod;
@@ -75,8 +74,8 @@ public class BuildGlobals {
       Sequence<?> defaultsList, // <Label>
       StarlarkThread thread)
       throws EvalException {
-    BazelStarlarkContext.checkLoadingPhase(thread, "environment_group");
-    Package.Builder pkgBuilder = PackageFactory.getContext(thread);
+    Package.Builder pkgBuilder =
+        Package.Builder.fromOrFailAllowBuildOnly(thread, "environment_group()");
     List<Label> environments =
         BuildType.LABEL_LIST.convert(
             environmentsList, "'environment_group argument'", pkgBuilder.getLabelConverter());
@@ -94,7 +93,7 @@ public class BuildGlobals {
       return Starlark.NONE;
     } catch (LabelSyntaxException e) {
       throw Starlark.errorf("environment group has invalid name: %s: %s", name, e.getMessage());
-    } catch (Package.NameConflictException e) {
+    } catch (NameConflictException e) {
       throw Starlark.errorf("%s", e.getMessage());
     }
   }
@@ -116,8 +115,7 @@ public class BuildGlobals {
       Sequence<?> licensesList, // list of license strings
       StarlarkThread thread)
       throws EvalException {
-    BazelStarlarkContext.checkLoadingPhase(thread, "licenses");
-    Package.Builder pkgBuilder = PackageFactory.getContext(thread);
+    Package.Builder pkgBuilder = Package.Builder.fromOrFailAllowBuildOnly(thread, "licenses()");
     try {
       License license = BuildType.LICENSE.convert(licensesList, "'licenses' operand");
       pkgBuilder.mergePackageArgsFrom(PackageArgs.builder().setLicense(license));
@@ -127,33 +125,6 @@ public class BuildGlobals {
           .handle(
               Package.error(
                   thread.getCallerLocation(), e.getMessage(), Code.LICENSE_PARSE_FAILURE));
-      pkgBuilder.setContainsErrors();
-    }
-    return Starlark.NONE;
-  }
-
-  @StarlarkMethod(
-      name = "distribs",
-      doc = "Declare the distribution(s) for the code in the current package.",
-      parameters = {@Param(name = "distribution_strings", doc = "The distributions.")},
-      // Not documented by docgen, as this is only available in BUILD files.
-      // TODO(cparsons): Devise a solution to document BUILD functions.
-      documented = false,
-      useStarlarkThread = true)
-  public NoneType distribs(Object object, StarlarkThread thread) throws EvalException {
-    BazelStarlarkContext.checkLoadingPhase(thread, "distribs");
-    Package.Builder pkgBuilder = PackageFactory.getContext(thread);
-
-    try {
-      Set<DistributionType> distribs =
-          BuildType.DISTRIBUTIONS.convert(object, "'distribs' operand");
-      pkgBuilder.mergePackageArgsFrom(PackageArgs.builder().setDistribs(distribs));
-    } catch (ConversionException e) {
-      pkgBuilder
-          .getLocalEventHandler()
-          .handle(
-              Package.error(
-                  thread.getCallerLocation(), e.getMessage(), Code.DISTRIBUTIONS_PARSE_FAILURE));
       pkgBuilder.setContainsErrors();
     }
     return Starlark.NONE;

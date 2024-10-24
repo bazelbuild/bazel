@@ -15,7 +15,6 @@
 package com.google.devtools.common.options;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth8.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
@@ -23,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
+import com.google.devtools.common.options.OptionsParser.ArgAndFallbackData;
 import com.google.devtools.common.options.OptionsParser.ConstructionException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -370,8 +370,9 @@ public final class OptionsParserTest {
                 parser.parseArgsAsExpansionOfOption(
                     optionToExpand,
                     "source",
-                    ImmutableList.of("--underlying=direct_value", "residue", "in", "expansion"),
-                    /* fallbackData= */ null));
+                    ArgAndFallbackData.wrapWithFallbackData(
+                        ImmutableList.of("--underlying=direct_value", "residue", "in", "expansion"),
+                        /* fallbackData= */ null)));
     assertThat(parser.getResidue()).isNotEmpty();
     assertThat(e).hasMessageThat().isEqualTo("Unrecognized arguments: residue in expansion");
   }
@@ -2414,7 +2415,7 @@ public final class OptionsParserTest {
             /*implicitDependent=*/ null,
             /*expandedFrom=*/ null);
     OptionDefinition optionDefinition =
-        OptionDefinition.extractOptionDefinition(ExampleFoo.class.getField("foo"));
+        FieldOptionDefinition.extractOptionDefinition(ExampleFoo.class.getField("foo"));
 
     parser.setOptionValueAtSpecificPriorityWithoutExpansion(origin, optionDefinition, "hello");
 
@@ -2436,7 +2437,7 @@ public final class OptionsParserTest {
             /*implicitDependent=*/ null,
             /*expandedFrom=*/ null);
     OptionDefinition optionDefinition =
-        OptionDefinition.extractOptionDefinition(ExampleFoo.class.getField("foo"));
+        FieldOptionDefinition.extractOptionDefinition(ExampleFoo.class.getField("foo"));
 
     parser.setOptionValueAtSpecificPriorityWithoutExpansion(origin, optionDefinition, "hi=bar");
     parser.parse("--hi=123");
@@ -2457,7 +2458,8 @@ public final class OptionsParserTest {
         OptionsParser.builder().optionsClasses(ImplicitDependencyOptions.class).build();
     OptionInstanceOrigin origin = createInvocationPolicyOrigin();
     OptionDefinition optionDefinition =
-        OptionDefinition.extractOptionDefinition(ImplicitDependencyOptions.class.getField("first"));
+        FieldOptionDefinition.extractOptionDefinition(
+            ImplicitDependencyOptions.class.getField("first"));
 
     parser.setOptionValueAtSpecificPriorityWithoutExpansion(origin, optionDefinition, "hello");
 
@@ -2478,15 +2480,15 @@ public final class OptionsParserTest {
         OptionsParser.builder().optionsClasses(ImplicitDependencyOptions.class).build();
     ParsedOptionDescription first =
         ParsedOptionDescription.newDummyInstance(
-            OptionDefinition.extractOptionDefinition(
+            FieldOptionDefinition.extractOptionDefinition(
                 ImplicitDependencyOptions.class.getField("first")),
             createInvocationPolicyOrigin(),
-            /*conversionContext=*/ null);
+            /* conversionContext= */ null);
     OptionInstanceOrigin origin =
         createInvocationPolicyOrigin(/*implicitDependent=*/ first, /*expandedFrom=*/ null);
 
     OptionDefinition optionDefinition =
-        OptionDefinition.extractOptionDefinition(
+        FieldOptionDefinition.extractOptionDefinition(
             ImplicitDependencyOptions.class.getField("second"));
 
     parser.setOptionValueAtSpecificPriorityWithoutExpansion(origin, optionDefinition, "hello");
@@ -2507,15 +2509,15 @@ public final class OptionsParserTest {
         OptionsParser.builder().optionsClasses(ImplicitDependencyOptions.class).build();
     ParsedOptionDescription first =
         ParsedOptionDescription.newDummyInstance(
-            OptionDefinition.extractOptionDefinition(
+            FieldOptionDefinition.extractOptionDefinition(
                 ImplicitDependencyOptions.class.getField("first")),
             createInvocationPolicyOrigin(),
-            /*conversionContext=*/ null);
+            /* conversionContext= */ null);
     OptionInstanceOrigin origin =
         createInvocationPolicyOrigin(/*implicitDependent=*/ null, /*expandedFrom=*/ first);
 
     OptionDefinition optionDefinition =
-        OptionDefinition.extractOptionDefinition(
+        FieldOptionDefinition.extractOptionDefinition(
             ImplicitDependencyOptions.class.getField("second"));
 
     parser.setOptionValueAtSpecificPriorityWithoutExpansion(origin, optionDefinition, "hello");
@@ -2621,6 +2623,38 @@ public final class OptionsParserTest {
 
     assertThat(parser.getOptions(ExpandingOptions.class)).isNotNull();
     assertThat(parser.getOptions(ExpandingOptionsFallback.class)).isNull();
+  }
+
+  @Test
+  public void testOptionsParser_getUserOptions_excludesClientOptions() throws Exception {
+    OptionsParser parser =
+        OptionsParser.builder()
+            .optionsClasses(ExpandingOptions.class, ExpandingOptionsFallback.class)
+            .build();
+    parser.parseWithSourceFunction(
+        PriorityCategory.RC_FILE, o -> "client", ImmutableList.of("--foo"), null);
+    assertThat(parser.getUserOptions()).isEmpty();
+
+    parser.parseWithSourceFunction(
+        PriorityCategory.RC_FILE, o -> ".bazelrc", ImmutableList.of("--foo"), null);
+
+    assertThat(parser.getUserOptions()).containsExactly("--foo");
+  }
+
+  @Test
+  public void testOptionsParser_getUserOptions_excludesInvocationPolicy() throws Exception {
+    OptionsParser parser =
+        OptionsParser.builder()
+            .optionsClasses(ExpandingOptions.class, ExpandingOptionsFallback.class)
+            .build();
+    parser.parseWithSourceFunction(
+        PriorityCategory.RC_FILE, o -> "Invocation policy", ImmutableList.of("--foo"), null);
+    assertThat(parser.getUserOptions()).isEmpty();
+
+    parser.parseWithSourceFunction(
+        PriorityCategory.RC_FILE, o -> ".bazelrc", ImmutableList.of("--foo"), null);
+
+    assertThat(parser.getUserOptions()).containsExactly("--foo");
   }
 
   private static OptionInstanceOrigin createInvocationPolicyOrigin() {

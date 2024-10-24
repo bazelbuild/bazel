@@ -69,7 +69,6 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       QuiescingExecutor executor,
       CycleDetector cycleDetector,
-      boolean mergingSkyframeAnalysisExecutionPhases,
       UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver) {
     super(
         graph,
@@ -84,8 +83,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
         progressReceiver,
         graphInconsistencyReceiver,
         executor,
-        cycleDetector,
-        mergingSkyframeAnalysisExecutionPhases);
+        cycleDetector);
     this.unnecessaryTemporaryStateDropperReceiver = unnecessaryTemporaryStateDropperReceiver;
   }
 

@@ -21,11 +21,17 @@ import java.time.Instant;
 /** This event is fired during the build, when a subprocess is executed. */
 public final class SpawnExecutedEvent implements ExtendedEventHandler.Postable {
   private final Spawn spawn;
+  private final InputMetadataProvider inputMetadataProvider;
   private final SpawnResult result;
   private final Instant startTimeInstant;
 
-  public SpawnExecutedEvent(Spawn spawn, SpawnResult result, Instant startTimeInstant) {
+  public SpawnExecutedEvent(
+      Spawn spawn,
+      InputMetadataProvider inputMetadataProvider,
+      SpawnResult result,
+      Instant startTimeInstant) {
     this.spawn = Preconditions.checkNotNull(spawn);
+    this.inputMetadataProvider = inputMetadataProvider;
     this.result = Preconditions.checkNotNull(result);
     this.startTimeInstant = startTimeInstant;
   }
@@ -33,6 +39,11 @@ public final class SpawnExecutedEvent implements ExtendedEventHandler.Postable {
   /** Returns the Spawn. */
   public Spawn getSpawn() {
     return spawn;
+  }
+
+  /** Returns the input metadata provider containing information about the inputs of the Spawn. */
+  public InputMetadataProvider getInputMetadataProvider() {
+    return inputMetadataProvider;
   }
 
   /** Returns the action. */

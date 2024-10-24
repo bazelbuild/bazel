@@ -85,4 +85,11 @@ function test_metrics_with_load_average() {
   expect_log 'System load average.*"load":[0-9.]\+'
 }
 
+function test_collect_skyframe_counts() {
+  helper "" "--experimental_collect_skyframe_counts_in_profiler"
+  expect_log 'SkyFunction (ACTION_EXECUTION).*"action execution (total)":[0-9.]\+,"action execution (done)":[0-9.]\+}'
+  expect_log 'SkyFunction (CONFIGURED_TARGET).*"configured target (total)":[0-9.]\+,"configured target (done)":[0-9.]\+}'
+  expect_log 'SkyFunction (PACKAGE).*"package (total)":[0-9.]\+,"package (done)":[0-9.]\+}'
+}
+
 run_suite "Integration tests for profiler data."

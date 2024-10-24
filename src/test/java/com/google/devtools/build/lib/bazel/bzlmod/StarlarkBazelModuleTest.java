@@ -23,13 +23,12 @@ import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createTa
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.Optional;
 import net.starlark.java.eval.StarlarkList;
@@ -48,12 +47,7 @@ public class StarlarkBazelModuleTest {
         .setExtensionBzlFile("//:rje.bzl")
         .setExtensionName("maven")
         .setIsolationKey(Optional.empty())
-        .setUsingModule(ModuleKey.ROOT)
-        .setLocation(Location.BUILTIN)
-        .setImports(ImmutableBiMap.of())
-        .setDevImports(ImmutableSet.of())
-        .setHasDevUseExtension(false)
-        .setHasNonDevUseExtension(true);
+        .setRepoOverrides(ImmutableMap.of());
   }
 
   /** A builder for ModuleExtension that sets all the mandatory but irrelevant fields. */
@@ -84,23 +78,27 @@ public class StarlarkBazelModuleTest {
             .setTagClasses(
                 ImmutableMap.of(
                     "dep", createTagClass(attr("coord", Type.STRING).build()),
-                    "repos", createTagClass(attr("repos", Type.STRING_LIST).build()),
+                    "repos", createTagClass(attr("repos", Types.STRING_LIST).build()),
                     "pom",
                         createTagClass(
                             attr("pom_xmls", BuildType.LABEL_LIST)
                                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                                 .build())))
             .build();
-    Module module =
-        buildModule("foo", "1.0")
-            .setKey(createModuleKey("foo", ""))
-            .addDep("bar", createModuleKey("bar", "2.0"))
-            .build();
+    ModuleKey fooKey = createModuleKey("foo", "");
+    ModuleKey barKey = createModuleKey("bar", "2.0");
+    Module module = buildModule("foo", "1.0").setKey(fooKey).addDep("bar", barKey).build();
     AbridgedModule abridgedModule = AbridgedModule.from(module);
 
     StarlarkBazelModule moduleProxy =
         StarlarkBazelModule.create(
-            abridgedModule, extension, module.getRepoMappingWithBazelDepsOnly(), usage);
+            abridgedModule,
+            extension,
+            module.getRepoMappingWithBazelDepsOnly(
+                ImmutableMap.of(
+                    fooKey, fooKey.getCanonicalRepoNameWithoutVersion(),
+                    barKey, barKey.getCanonicalRepoNameWithoutVersion())),
+            usage);
 
     assertThat(moduleProxy.getName()).isEqualTo("foo");
     assertThat(moduleProxy.getVersion()).isEqualTo("1.0");
@@ -125,8 +123,8 @@ public class StarlarkBazelModuleTest {
     assertThat(pomTags.get(0).getValue("pom_xmls"))
         .isEqualTo(
             StarlarkList.immutableOf(
-                Label.parseCanonical("@@foo~override//:pom.xml"),
-                Label.parseCanonical("@@bar~2.0//:pom.xml")));
+                Label.parseCanonical("@@foo+//:pom.xml"),
+                Label.parseCanonical("@@bar+//:pom.xml")));
   }
 
   @Test
@@ -134,7 +132,8 @@ public class StarlarkBazelModuleTest {
     ModuleExtensionUsage usage = getBaseUsageBuilder().addTag(buildTag("blep").build()).build();
     ModuleExtension extension =
         getBaseExtensionBuilder().setTagClasses(ImmutableMap.of("dep", createTagClass())).build();
-    Module module = buildModule("foo", "1.0").setKey(createModuleKey("foo", "")).build();
+    ModuleKey fooKey = createModuleKey("foo", "");
+    Module module = buildModule("foo", "1.0").setKey(fooKey).build();
     AbridgedModule abridgedModule = AbridgedModule.from(module);
 
     ExternalDepsException e =
@@ -142,7 +141,11 @@ public class StarlarkBazelModuleTest {
             ExternalDepsException.class,
             () ->
                 StarlarkBazelModule.create(
-                    abridgedModule, extension, module.getRepoMappingWithBazelDepsOnly(), usage));
+                    abridgedModule,
+                    extension,
+                    module.getRepoMappingWithBazelDepsOnly(
+                        ImmutableMap.of(fooKey, fooKey.getCanonicalRepoNameWithoutVersion())),
+                    usage));
     assertThat(e).hasMessageThat().contains("does not have a tag class named blep");
   }
 }

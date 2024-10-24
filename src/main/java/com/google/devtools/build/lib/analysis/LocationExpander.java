@@ -348,22 +348,21 @@ public final class LocationExpander {
     }
 
     private PathFragment getPath(Artifact artifact, String workspaceRunfilesDirectory) {
-      switch (pathType) {
-        case LOCATION:
-          return legacyExternalRunfiles
-              ? artifact.getPathForLocationExpansion()
-              : artifact.getRunfilesPath();
-        case EXEC:
-          return artifact.getExecPath();
-        case RLOCATION:
+      return switch (pathType) {
+        case LOCATION ->
+            legacyExternalRunfiles
+                ? artifact.getPathForLocationExpansion()
+                : artifact.getRunfilesPath();
+        case EXEC -> artifact.getExecPath();
+        case RLOCATION -> {
           PathFragment runfilesPath = artifact.getRunfilesPath();
           if (runfilesPath.startsWith(LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX)) {
-            return runfilesPath.relativeTo(LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX);
+            yield runfilesPath.relativeTo(LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX);
           } else {
-            return PathFragment.create(workspaceRunfilesDirectory).getRelative(runfilesPath);
+            yield PathFragment.create(workspaceRunfilesDirectory).getRelative(runfilesPath);
           }
-      }
-      throw new IllegalStateException("Unexpected PathType: " + pathType);
+        }
+      };
     }
 
     private String joinPaths(Collection<String> paths) {
@@ -456,7 +455,9 @@ public final class LocationExpander {
 
     if (collectSrcs && ruleContext.getRule().isAttrDefined("srcs", BuildType.LABEL_LIST)) {
       for (TransitiveInfoCollection src :
-          ruleContext.getPrerequisitesIf("srcs", FileProvider.class)) {
+          ruleContext
+              .getRulePrerequisitesCollection()
+              .getPrerequisitesIf("srcs", FileProvider.class)) {
         for (Label label : AliasProvider.getDependencyLabels(src)) {
           mapGet(locationMap, label)
               .addAll(src.getProvider(FileProvider.class).getFilesToBuild().toList());
@@ -468,21 +469,32 @@ public final class LocationExpander {
     List<TransitiveInfoCollection> depsDataAndTools = new ArrayList<>();
     if (ruleContext.getRule().isAttrDefined("deps", BuildType.LABEL_LIST)) {
       Iterables.addAll(
-          depsDataAndTools, ruleContext.getPrerequisitesIf("deps", FilesToRunProvider.class));
+          depsDataAndTools,
+          ruleContext
+              .getRulePrerequisitesCollection()
+              .getPrerequisitesIf("deps", FilesToRunProvider.class));
     }
     if (ruleContext.getRule().isAttrDefined("implementation_deps", BuildType.LABEL_LIST)) {
       Iterables.addAll(
           depsDataAndTools,
-          ruleContext.getPrerequisitesIf("implementation_deps", FilesToRunProvider.class));
+          ruleContext
+              .getRulePrerequisitesCollection()
+              .getPrerequisitesIf("implementation_deps", FilesToRunProvider.class));
     }
     if (allowDataAttributeEntriesInLabel
         && ruleContext.getRule().isAttrDefined("data", BuildType.LABEL_LIST)) {
       Iterables.addAll(
-          depsDataAndTools, ruleContext.getPrerequisitesIf("data", FilesToRunProvider.class));
+          depsDataAndTools,
+          ruleContext
+              .getRulePrerequisitesCollection()
+              .getPrerequisitesIf("data", FilesToRunProvider.class));
     }
     if (ruleContext.getRule().isAttrDefined("tools", BuildType.LABEL_LIST)) {
       Iterables.addAll(
-          depsDataAndTools, ruleContext.getPrerequisitesIf("tools", FilesToRunProvider.class));
+          depsDataAndTools,
+          ruleContext
+              .getRulePrerequisitesCollection()
+              .getPrerequisitesIf("tools", FilesToRunProvider.class));
     }
 
     for (TransitiveInfoCollection dep : depsDataAndTools) {

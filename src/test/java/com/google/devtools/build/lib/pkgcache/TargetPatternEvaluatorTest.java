@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
-import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
+import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -59,28 +59,59 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     // TODO(ulfjack): Also disable the implicit C++ outputs in Google's internal version.
     boolean hasImplicitCcOutputs =
         ruleClassProvider.getRuleClassMap().get("cc_library").getDefaultImplicitOutputsFunction()
-            != ImplicitOutputsFunction.NONE;
+            != SafeImplicitOutputsFunction.NONE;
 
     scratch.file("BUILD", "filegroup(name = 'fg', srcs = glob(['*.cc']))");
     scratch.file("foo.cc");
 
     scratch.file(
         "foo/BUILD",
-        "cc_library(name = 'foo1', srcs = [ 'foo1.cc' ], hdrs = [ 'foo1.h' ])",
-        "exports_files(['baz/bang'])");
+        """
+        cc_library(
+            name = "foo1",
+            srcs = ["foo1.cc"],
+            hdrs = ["foo1.h"],
+        )
+
+        exports_files(["baz/bang"])
+        """);
     scratch.file(
         "foo/bar/BUILD",
-        "cc_library(name = 'bar1', alwayslink = 1)",
-        "cc_library(name = 'bar2')",
-        "exports_files(['wiz/bang', 'wiz/all', 'baz', 'baz/bang', 'undeclared.h'])");
+        """
+        cc_library(
+            name = "bar1",
+            alwayslink = 1,
+        )
+
+        cc_library(name = "bar2")
+
+        exports_files([
+            "wiz/bang",
+            "wiz/all",
+            "baz",
+            "baz/bang",
+            "undeclared.h",
+        ])
+        """);
 
     // 'filegroup' and 'test_suite' are rules, but 'exports_files' is not.
     scratch.file(
         "otherrules/BUILD",
-        "test_suite(name = 'suite1')",
-        "filegroup(name='group', srcs=['suite/somefile'])",
-        "exports_files(['suite/somefile'])",
-        "cc_library(name = 'wiz', linkstatic = 1)");
+        """
+        test_suite(name = "suite1")
+
+        filegroup(
+            name = "group",
+            srcs = ["suite/somefile"],
+        )
+
+        exports_files(["suite/somefile"])
+
+        cc_library(
+            name = "wiz",
+            linkstatic = 1,
+        )
+        """);
     scratch.file("nosuchpkg/subdir/empty", "");
 
     Path foo = scratch.dir("foo");
@@ -207,8 +238,19 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
 
     scratch.overwriteFile(
         "foo/BUILD",
-        "cc_library(name = 'foo1', srcs = [ 'foo1.cc' ], hdrs = [ 'foo1.h' ])",
-        "cc_library(name = 'foo2', srcs = [ 'foo1.cc' ], hdrs = [ 'foo1.h' ])");
+        """
+        cc_library(
+            name = "foo1",
+            srcs = ["foo1.cc"],
+            hdrs = ["foo1.h"],
+        )
+
+        cc_library(
+            name = "foo2",
+            srcs = ["foo1.cc"],
+            hdrs = ["foo1.h"],
+        )
+        """);
     invalidate("foo/BUILD");
     assertThat(parseList("foo:all")).containsExactlyElementsIn(labels("//foo:foo1", "//foo:foo2"));
   }
@@ -309,9 +351,14 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
   public void testKeepGoingPartiallyBadPackage() throws Exception {
     scratch.file(
         "x/y/BUILD",
-        "filegroup(name = 'a')",
-        "x = 1 // 0", // dynamic error
-        "filegroup(name = 'b')");
+        """
+        filegroup(name = "a")
+
+        # dynamic error
+        x = 1 // 0
+
+        filegroup(name = "b")
+        """);
 
     reporter.removeHandler(failFastHandler);
     Pair<Set<Label>, Boolean> result = parseListKeepGoing("//x/...");
@@ -465,10 +512,27 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "loading/BUILD",
-        "cc_library(name='y', deps=['a'])",
-        "cc_library(name='a', deps=['b'])",
-        "cc_library(name='b', deps=['c'])",
-        "genrule(name='c', cmd='')");
+        """
+        cc_library(
+            name = "y",
+            deps = ["a"],
+        )
+
+        cc_library(
+            name = "a",
+            deps = ["b"],
+        )
+
+        cc_library(
+            name = "b",
+            deps = ["c"],
+        )
+
+        genrule(
+            name = "c",
+            cmd = "",
+        )
+        """);
 
     Pair<Set<Label>, Boolean> result = parseListKeepGoing("//loading:y");
     assertThat(result.first).containsExactly(Label.parseCanonical("//loading:y"));
@@ -606,6 +670,7 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
 
   @Test
   public void testExternalPackage() throws Exception {
+    setBuildLanguageOptions("--enable_workspace");
     parseList("external:all");
   }
 

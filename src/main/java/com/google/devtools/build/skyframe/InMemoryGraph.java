@@ -80,7 +80,7 @@ public interface InMemoryGraph extends ProcessableGraph {
    */
   Map<SkyKey, SkyValue> getDoneValues();
 
-  /** Returns an unmodifiable, live view of all nodes in the graph. */
+  /** Returns an unmodifiable collection of all nodes in the graph. */
   Collection<InMemoryNodeEntry> getAllNodeEntries();
 
   /** Applies the given consumer to each node in the graph, potentially in parallel. */
@@ -105,4 +105,17 @@ public interface InMemoryGraph extends ProcessableGraph {
    */
   @Nullable
   InMemoryNodeEntry getIfPresent(SkyKey key);
+
+  /**
+   * Minimizes the size of the data structure backing the graph. May be costly to run (O(n)).
+   *
+   * <p>Must NOT be called concurrently with any other methods.
+   *
+   * <p>Useful after removing large numbers of nodes from the in-memory graph, and the data
+   * structure used doesn't have automatic resizing (e.g. ConcurrentHashMap).
+   *
+   * <p>WARNING: Implementations have to take care of existing references into the data structure if
+   * replaced by a new one (e.g. functions that close over the data structure).
+   */
+  void shrinkNodeMap();
 }

@@ -426,7 +426,8 @@ if [[ -n "$TEST_UNDECLARED_OUTPUTS_ZIP" ]] && cd "$TEST_UNDECLARED_OUTPUTS_DIR";
   UNDECLARED_OUTPUTS=(*)
   if [[ "${#UNDECLARED_OUTPUTS[@]}" != 0 ]]; then
     if ! zip_output="$(zip -qr "$TEST_UNDECLARED_OUTPUTS_ZIP" -- "${UNDECLARED_OUTPUTS[@]}")" ; then
-        echo >&2 "Could not create \"$TEST_UNDECLARED_OUTPUTS_ZIP\": $zip_output"
+      echo >&2 "Could not create \"$TEST_UNDECLARED_OUTPUTS_ZIP\": $zip_output"
+      exit 1
     fi
     # Use 'rm' instead of 'zip -m' so that we don't follow symlinks when deleting the
     # contents.

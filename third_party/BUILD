@@ -10,8 +10,8 @@ filegroup(
     srcs = glob(["**"]) + [
         "//third_party/allocation_instrumenter:srcs",
         "//third_party/android_dex:srcs",
-        "//third_party/cncf_udpa:srcs",
         "//third_party/def_parser:srcs",
+        "//third_party/googleapis:srcs",
         "//third_party/grpc:srcs",
         "//third_party/grpc-java:srcs",
         "//third_party/ijar:srcs",
@@ -26,16 +26,13 @@ filegroup(
         "//third_party/java/proguard:srcs",
         "//third_party/pprof:srcs",
         "//third_party/protobuf:srcs",
-        "//third_party/protoc_gen_validate:srcs",
         "//third_party/py/abseil:srcs",
         "//third_party/py/concurrent:srcs",
         "//third_party/py/dataclasses:srcs",
         "//third_party/py/frozendict:srcs",
         "//third_party/py/mock:srcs",
-        "//third_party/py/six:srcs",
+        "//third_party/remoteapis:srcs",
         "//third_party/zlib:srcs",
-        "@googleapis//:srcs",
-        "@remoteapis//:srcs",
     ],
 )
 
@@ -45,11 +42,6 @@ filegroup(
 filegroup(
     name = "gpl-srcs",
     srcs = [],
-)
-
-alias(
-    name = "android-annotations",
-    actual = "@maven_android//:com_android_tools_annotations",
 )
 
 alias(
@@ -93,35 +85,35 @@ java_library(
 distrib_java_import(
     name = "asm",
     enable_distributions = ["debian"],
-    jars = ["asm/asm-9.4.jar"],
-    srcjar = "asm/asm-9.4-sources.jar",
+    jars = ["asm/asm-9.6.jar"],
+    srcjar = "asm/asm-9.6-sources.jar",
 )
 
 java_import(
     name = "asm-analysis",
-    jars = ["asm/asm-analysis-9.4.jar"],
-    srcjar = "asm/asm-analysis-9.4-sources.jar",
+    jars = ["asm/asm-analysis-9.6.jar"],
+    srcjar = "asm/asm-analysis-9.6-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-commons",
-    jars = ["asm/asm-commons-9.4.jar"],
-    srcjar = "asm/asm-commons-9.4-sources.jar",
+    jars = ["asm/asm-commons-9.6.jar"],
+    srcjar = "asm/asm-commons-9.6-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-tree",
-    jars = ["asm/asm-tree-9.4.jar"],
-    srcjar = "asm/asm-tree-9.4-sources.jar",
+    jars = ["asm/asm-tree-9.6.jar"],
+    srcjar = "asm/asm-tree-9.6-sources.jar",
     runtime_deps = [":asm"],
 )
 
 java_import(
     name = "asm-util",
-    jars = ["asm/asm-util-9.4.jar"],
-    srcjar = "asm/asm-util-9.4-sources.jar",
+    jars = ["asm/asm-util-9.6.jar"],
+    srcjar = "asm/asm-util-9.6-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
@@ -145,7 +137,7 @@ java_plugin(
         ":apache_velocity",
         ":auto_common",
         ":auto_service_lib",
-        ":auto_value_value",
+        ":auto_value_lib",
         ":guava",
         ":jsr305",
         ":tomcat_annotations_api",
@@ -163,7 +155,7 @@ java_library(
         ":auto_service_plugin",
     ],
     exports = [
-        ":auto_service_lib",
+        ":auto_service_api",
     ],
 )
 
@@ -174,6 +166,13 @@ java_plugin(
         ":auto_common",
         ":auto_service_lib",
         ":guava",
+    ],
+)
+
+java_library(
+    name = "auto_service_api",
+    exports = [
+        "@maven//:com_google_auto_service_auto_service_annotations",
     ],
 )
 
@@ -193,7 +192,7 @@ java_plugin(
         ":apache_velocity",
         ":auto_common",
         ":auto_service_lib",
-        ":auto_value_value",
+        ":auto_value_lib",
         ":guava",
         ":tomcat_annotations_api",
     ],
@@ -207,7 +206,21 @@ java_plugin(
         ":apache_velocity",
         ":auto_common",
         ":auto_service_lib",
-        ":auto_value_value",
+        ":auto_value_lib",
+        ":guava",
+        ":tomcat_annotations_api",
+    ],
+)
+
+java_plugin(
+    name = "auto_builder_plugin",
+    processor_class = "com.google.auto.value.processor.AutoBuilderProcessor",
+    deps = [
+        ":apache_commons_collections",
+        ":apache_velocity",
+        ":auto_common",
+        ":auto_service_lib",
+        ":auto_value_lib",
         ":guava",
         ":tomcat_annotations_api",
     ],
@@ -226,19 +239,27 @@ java_library(
     name = "auto_value",
     exported_plugins = [
         ":auto_annotation_plugin",
+        ":auto_builder_plugin",
         ":auto_oneof_plugin",
         ":auto_value_plugin",
         ":auto_value_gson_plugin",
     ],
     exports = [
-        ":auto_value_value",
+        ":auto_value_api",
         ":tomcat_annotations_api",
         "@maven//:com_ryanharter_auto_value_auto_value_gson_runtime",
     ],
 )
 
 java_library(
-    name = "auto_value_value",
+    name = "auto_value_api",
+    exports = [
+        "@maven//:com_google_auto_value_auto_value_annotations",
+    ],
+)
+
+java_library(
+    name = "auto_value_lib",
     exports = [
         "@maven//:com_google_auto_value_auto_value",
         "@maven//:com_google_auto_value_auto_value_annotations",
@@ -253,14 +274,6 @@ distrib_jar_filegroup(
         "@maven//:com_google_auto_value_auto_value_file",
     ],
     enable_distributions = ["debian"],
-)
-
-java_library(
-    name = "byte_buddy",
-    exports = [
-        "@maven//:net_bytebuddy_byte_buddy",
-        "@maven//:net_bytebuddy_byte_buddy_agent",
-    ],
 )
 
 alias(
@@ -278,19 +291,45 @@ alias(
     actual = "@maven//:com_github_ben_manes_caffeine_caffeine",
 )
 
-alias(
+# When using new classes from this dependency, make sure to update fastutil.proguard.
+java_import(
     name = "fastutil",
-    actual = "@maven//:it_unimi_dsi_fastutil",
+    jars = [":fastutil_stripped_jar"],
 )
 
-alias(
-    name = "hungarian_algorithm",
-    actual = "@maven//:com_github_kevinstern_software_and_algorithms",
+genrule(
+    name = "fastutil_stripped_jar",
+    srcs = [
+        "@maven//:it_unimi_dsi_fastutil_file",
+        "@rules_java//toolchains:platformclasspath",
+    ],
+    outs = ["fastutil-stripped.jar"],
+    cmd = """
+    $(location :proguard) \
+        -injars $(execpath @maven//:it_unimi_dsi_fastutil_file) \
+        -outjars $@ \
+        -libraryjars $(execpath @rules_java//toolchains:platformclasspath) \
+        @$(location //tools:fastutil.proguard) \
+      | tail -n +2 # Skip the "ProGuard, version X" line
+    # Null out the file times stored in the jar to make the output reproducible.
+    TMPDIR=$$(mktemp -d)
+    trap 'rm -rf $$TMPDIR' EXIT
+    unzip -q $@ -d $$TMPDIR
+    rm $@
+    find $$TMPDIR -type f -print0 | xargs -0 touch -t 198001010000.00
+    OUTPUT="$$(pwd)/$@"
+    (cd $$TMPDIR && find . -type f | LC_ALL=C sort | zip -qDX0r@ "$$OUTPUT")
+    """,
+    tools = [
+        ":proguard",
+        "//tools:fastutil.proguard",
+    ],
 )
 
-alias(
-    name = "threeten",
-    actual = "@maven//:org_threeten_threeten_extra",
+java_binary(
+    name = "proguard",
+    main_class = "proguard.ProGuard",
+    runtime_deps = ["@maven//:com_guardsquare_proguard_base"],
 )
 
 java_library(
@@ -349,19 +388,14 @@ filegroup(
     ],
 )
 
-# TODO(https://github.com/bazelbuild/bazel/issues/18214): After fixing Guava leak
-# in test-runner, the guava target can be reverted back to java_library
-java_import(
+java_library(
     name = "guava",
     applicable_licenses = [":guava_license"],
-    jars = [
-        "@maven//:com_google_guava_guava_file",
-        "@maven//:com_google_guava_failureaccess_file",
-    ],
     exports = [
         ":error_prone_annotations",
         ":jcip_annotations",
         ":jsr305",
+        "@maven//:com_google_guava_guava",
     ],
 )
 

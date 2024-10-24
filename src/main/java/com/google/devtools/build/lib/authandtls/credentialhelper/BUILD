@@ -18,6 +18,7 @@ java_library(
         "SystemMillisTicker.java",
     ],
     deps = [
+        ":credentialhelper",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/authandtls",
         "//src/main/java/com/google/devtools/common/options",

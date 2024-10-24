@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.docgen.annot.GlobalMethods;
 import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
@@ -135,6 +136,14 @@ public final class SelectorList implements StarlarkValue, HasBinary {
   }
 
   /**
+   * Wraps a single value in a {@code select()} where the default condition maps to the given value
+   */
+  public static SelectorList wrapSingleValue(Object obj) {
+    return SelectorList.of(
+        new SelectorValue(ImmutableMap.of(BuildType.Selector.DEFAULT_CONDITION_KEY, obj), ""));
+  }
+
+  /**
    * Creates a list that concatenates two values, where each value may be a native type, a select
    * over that type, or a selector list over that type.
    *
@@ -144,14 +153,14 @@ public final class SelectorList implements StarlarkValue, HasBinary {
     return of(Arrays.asList(x, y));
   }
 
+  private static TokenKind binaryOpToken(Object value) {
+    return getNativeType(value).equals(Dict.class) ? TokenKind.PIPE : TokenKind.PLUS;
+  }
+
   @Override
   @Nullable
   public SelectorList binaryOp(TokenKind op, Object that, boolean thisLeft) throws EvalException {
-    if (getNativeType(that).equals(Dict.class)) {
-      if (op == TokenKind.PIPE) {
-        return thisLeft ? concat(this, that) : concat(that, this);
-      }
-    } else if (op == TokenKind.PLUS) {
+    if (op == binaryOpToken(that)) {
       return thisLeft ? concat(this, that) : concat(that, this);
     }
     return null;
@@ -197,7 +206,7 @@ public final class SelectorList implements StarlarkValue, HasBinary {
 
   @Override
   public void repr(Printer printer) {
-    printer.printList(elements, "", " + ", "");
+    printer.printList(elements, "", String.format(" %s ", binaryOpToken(this)), "");
   }
 
   @Override

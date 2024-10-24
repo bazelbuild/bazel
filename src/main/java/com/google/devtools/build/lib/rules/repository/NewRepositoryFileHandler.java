@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -60,10 +61,11 @@ public class NewRepositoryFileHandler {
     return true;
   }
 
-  public void finishFile(Rule rule, Path outputDirectory, Map<String, String> markerData)
+  public void finishFile(
+      Rule rule, Path outputDirectory, Map<RepoRecordedInput, String> recordedInputValues)
       throws RepositoryFunctionException {
-    this.workspaceFileHandler.finishFile(rule, outputDirectory, markerData);
-    this.buildFileHandler.finishFile(rule, outputDirectory, markerData);
+    this.workspaceFileHandler.finishFile(rule, outputDirectory, recordedInputValues);
+    this.buildFileHandler.finishFile(rule, outputDirectory, recordedInputValues);
   }
 
   /**
@@ -73,6 +75,7 @@ public class NewRepositoryFileHandler {
   private abstract static class BaseFileHandler {
 
     private final String filename;
+    private RootedPath rootedPath;
     private FileValue fileValue;
     private String fileContent;
 
@@ -111,10 +114,12 @@ public class NewRepositoryFileHandler {
             Transience.PERSISTENT);
       } else if (hasFile) {
 
-        fileValue = getFileValue(rule, env);
+        Pair<RootedPath, FileValue> rootedPathAndFileValue = getFileValue(rule, env);
         if (env.valuesMissing()) {
           return false;
         }
+        rootedPath = rootedPathAndFileValue.getFirst();
+        fileValue = rootedPathAndFileValue.getSecond();
 
       } else if (hasFileContent) {
 
@@ -139,14 +144,19 @@ public class NewRepositoryFileHandler {
      * @throws IllegalStateException if {@link #prepareFile} was not called before this, or if
      *     {@link #prepareFile} failed and this was called.
      */
-    public void finishFile(Rule rule, Path outputDirectory, Map<String, String> markerData)
+    public void finishFile(
+        Rule rule, Path outputDirectory, Map<RepoRecordedInput, String> recordedInputValues)
         throws RepositoryFunctionException {
       if (fileValue != null) {
         // Link x/FILENAME to <build_root>/x.FILENAME.
-        symlinkFile(fileValue, filename, outputDirectory);
-        String fileKey = getFileAttributeAsLabel(rule).toString();
+        symlinkFile(rootedPath, fileValue, filename, outputDirectory);
         try {
-          markerData.put("FILE:" + fileKey, RepositoryFunction.fileValueToMarkerValue(fileValue));
+          Label label = getFileAttributeAsLabel(rule);
+          recordedInputValues.put(
+              new RepoRecordedInput.File(
+                  RepoRecordedInput.RepoCacheFriendlyPath.createInsideWorkspace(
+                      label.getRepository(), label.toPathFragment())),
+              RepoRecordedInput.File.fileValueToMarkerValue(rootedPath, fileValue));
         } catch (IOException e) {
           throw new RepositoryFunctionException(e, Transience.TRANSIENT);
         }
@@ -166,7 +176,7 @@ public class NewRepositoryFileHandler {
     }
 
     @Nullable
-    private FileValue getFileValue(Rule rule, Environment env)
+    private Pair<RootedPath, FileValue> getFileValue(Rule rule, Environment env)
         throws RepositoryFunctionException, InterruptedException {
       Label label = getFileAttributeAsLabel(rule);
       SkyKey pkgSkyKey = PackageLookupValue.key(label.getPackageIdentifier());
@@ -217,20 +227,23 @@ public class NewRepositoryFileHandler {
             Transience.PERSISTENT);
       }
 
-      return fileValue;
+      return Pair.of(rootedFile, fileValue);
     }
 
     /**
      * Symlinks a file from the local filesystem into the external repository's root.
      *
+     * @param rootedPath {@link RootedPath} of the file to be linked in
      * @param fileValue {@link FileValue} representing the file to be linked in
      * @param outputDirectory the directory of the remote repository
      * @throws RepositoryFunctionException if the file specified does not exist or cannot be linked.
      */
-    private static void symlinkFile(FileValue fileValue, String filename, Path outputDirectory)
+    private static void symlinkFile(
+        RootedPath rootedPath, FileValue fileValue, String filename, Path outputDirectory)
         throws RepositoryFunctionException {
       Path filePath = outputDirectory.getRelative(filename);
-      RepositoryFunction.createSymbolicLink(filePath, fileValue.realRootedPath().asPath());
+      RepositoryFunction.createSymbolicLink(
+          filePath, fileValue.realRootedPath(rootedPath).asPath());
     }
   }
 

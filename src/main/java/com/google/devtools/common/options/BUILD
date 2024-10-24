@@ -1,5 +1,5 @@
-load("//src:build_defs.bzl", "java_11_library")
 load("@rules_java//java:defs.bzl", "java_library")
+load("//src:build_defs.bzl", "java_11_library")
 
 # Description:
 #   A devtools-common options parser.
@@ -30,7 +30,7 @@ java_library(
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/protobuf:protobuf_java",
+        "@protobuf//:protobuf_java",
     ],
 )
 
@@ -51,6 +51,7 @@ java_11_library(
     ),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/util:pair",
+        "//src/main/java/net/starlark/java/spelling",
         "//third_party:auto_value",
         "//third_party:caffeine",
         "//third_party:guava",

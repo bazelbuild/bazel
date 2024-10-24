@@ -14,6 +14,7 @@
 
 """Implementation for the java_package_configuration rule"""
 
+load(":common/java/boot_class_path_info.bzl", "BootClassPathInfo")
 load(":common/java/java_helper.bzl", "helper")
 
 _java_common_internal = _builtins.internal.java_common_internal_do_not_use
@@ -25,9 +26,9 @@ JavaPackageConfigurationInfo = provider(
     fields = [
         "data",
         "javac_opts",
-        "javac_opts_list",
         "matches",
         "package_specs",
+        "system",
     ],
 )
 
@@ -41,14 +42,15 @@ def _rule_impl(ctx):
     javacopts = _java_common_internal.expand_java_opts(ctx, "javacopts", tokenize = True)
     javacopts_depset = helper.detokenize_javacopts(javacopts)
     package_specs = [package[PackageSpecificationInfo] for package in ctx.attr.packages]
+    system = ctx.attr.system[BootClassPathInfo] if ctx.attr.system else None
     return [
         DefaultInfo(),
         JavaPackageConfigurationInfo(
             data = depset(ctx.files.data),
-            javac_opts = lambda as_depset: javacopts_depset if as_depset else javacopts,
-            javac_opts_list = javacopts,
+            javac_opts = javacopts_depset,
             matches = lambda label: _matches(package_specs, label),
             package_specs = package_specs,
+            system = system,
         ),
     ]
 
@@ -105,10 +107,17 @@ Java compiler flags.
             """,
         ),
         "data": attr.label_list(
+            cfg = "exec",
             allow_files = True,
             doc = """
 The list of files needed by this configuration at runtime.
             """,
+        ),
+        "system": attr.label(
+            providers = [BootClassPathInfo],
+            doc = """
+Corresponds to javac's --system flag.
+""",
         ),
         "output_licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
     },

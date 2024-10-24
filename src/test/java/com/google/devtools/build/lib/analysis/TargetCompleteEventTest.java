@@ -14,14 +14,13 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.CompletionContext.FAILED_COMPLETION_CTX;
 import static com.google.devtools.build.lib.analysis.TargetCompleteEvent.newFileFromArtifact;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.common.collect.ImmutableCollection;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionInputMap;
@@ -34,18 +33,22 @@ import com.google.devtools.build.lib.actions.EventReportingArtifacts.ReportedArt
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsToBuild;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
+import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions.OutputGroupFileModes;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.File;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Map;
+import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -74,8 +77,7 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
             /* announceTargetSummary= */ false);
 
     assertThat(event.referencedLocalFiles())
-        .containsExactly(
-            new LocalFile(artifact.getPath(), LocalFileType.OUTPUT_FILE, artifact, metadata));
+        .containsExactly(new LocalFile(artifact.getPath(), LocalFileType.OUTPUT_FILE, metadata));
   }
 
   @Test
@@ -98,18 +100,21 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
 
     assertThat(event.referencedLocalFiles())
         .containsExactly(
-            new LocalFile(artifact.getPath(), LocalFileType.OUTPUT_DIRECTORY, artifact, metadata));
+            new LocalFile(artifact.getPath(), LocalFileType.OUTPUT_DIRECTORY, metadata));
   }
 
   @Test
   public void testReferencedTreeArtifact() throws Exception {
     scratch.file(
         "defs.bzl",
-        "def _impl(ctx):",
-        "  d = ctx.actions.declare_directory(ctx.label.name)",
-        "  ctx.actions.run_shell(outputs = [d], command = 'does not matter')",
-        "  return DefaultInfo(files = depset([d]))",
-        "dir = rule(_impl)");
+        """
+        def _impl(ctx):
+            d = ctx.actions.declare_directory(ctx.label.name)
+            ctx.actions.run_shell(outputs = [d], command = "does not matter")
+            return DefaultInfo(files = depset([d]))
+
+        dir = rule(_impl)
+        """);
     scratch.file(
         "BUILD",
         "load(':defs.bzl', 'dir')",
@@ -144,20 +149,22 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
 
     assertThat(event.referencedLocalFiles())
         .containsExactly(
-            new LocalFile(fileChild.getPath(), LocalFileType.OUTPUT_FILE, fileChild, fileMetadata),
-            new LocalFile(
-                dirChild.getPath(), LocalFileType.OUTPUT_DIRECTORY, dirChild, dirMetadata));
+            new LocalFile(fileChild.getPath(), LocalFileType.OUTPUT_FILE, fileMetadata),
+            new LocalFile(dirChild.getPath(), LocalFileType.OUTPUT_DIRECTORY, dirMetadata));
   }
 
   @Test
   public void testReferencedUnresolvedSymlink() throws Exception {
     scratch.file(
         "defs.bzl",
-        "def _impl(ctx):",
-        "  s = ctx.actions.declare_symlink(ctx.label.name)",
-        "  ctx.actions.symlink(output = s, target_path = 'does not matter')",
-        "  return DefaultInfo(files = depset([s]))",
-        "sym = rule(_impl)");
+        """
+        def _impl(ctx):
+            s = ctx.actions.declare_symlink(ctx.label.name)
+            ctx.actions.symlink(output = s, target_path = "does not matter")
+            return DefaultInfo(files = depset([s]))
+
+        sym = rule(_impl)
+        """);
     scratch.file(
         "BUILD",
         "load(':defs.bzl', 'sym')",
@@ -180,8 +187,7 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
             /* announceTargetSummary= */ false);
 
     assertThat(event.referencedLocalFiles())
-        .containsExactly(
-            new LocalFile(artifact.getPath(), LocalFileType.OUTPUT_SYMLINK, artifact, metadata));
+        .containsExactly(new LocalFile(artifact.getPath(), LocalFileType.OUTPUT_SYMLINK, metadata));
   }
 
   /** Regression test for b/165671166. */
@@ -210,7 +216,7 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
             /*announceTargetSummary=*/ false);
 
     ArrayList<File> fileProtos = new ArrayList<>();
-    ReportedArtifacts reportedArtifacts = event.reportedArtifacts();
+    ReportedArtifacts reportedArtifacts = event.reportedArtifacts(OutputGroupFileModes.DEFAULT);
     for (NestedSet<Artifact> artifactSet : reportedArtifacts.artifacts) {
       for (Artifact a : artifactSet.toListInterruptibly()) {
         fileProtos.add(
@@ -228,6 +234,45 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
     assertThat(fileProtos.get(0).getName()).isEqualTo(utf8FileName);
   }
 
+  @Test
+  public void baselineCoverage_referencedWithMetadata() throws Exception {
+    scratch.file("foo/BUILD", "sh_test(name = 'test', srcs = ['test.sh'])");
+    Path testSh = scratch.file("foo/test.sh");
+    useConfiguration("--collect_code_coverage");
+    ConfiguredTargetAndData ctAndData = getCtAndData("//foo:test");
+
+    ArtifactsToBuild artifactsToBuild = getArtifactsToBuild(ctAndData);
+    FileArtifactValue testShMetadata = FileArtifactValue.createForTesting(testSh);
+    Artifact baselineCoverageArtifact =
+        ctAndData
+            .getConfiguredTarget()
+            .get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR)
+            .getBaselineCoverageArtifact();
+    FileArtifactValue baselineCoverageMetadata =
+        FileArtifactValue.createForNormalFile(new byte[] {1, 2, 3}, null, 10);
+    CompletionContext completionContext =
+        getCompletionContext(
+            artifactsToBuild.getAllArtifacts().toList().stream()
+                .filter(a -> !a.isMiddlemanArtifact())
+                .collect(toImmutableMap(a -> a, a -> testShMetadata)),
+            ImmutableMap.of(),
+            baselineCoverageMetadata);
+
+    TargetCompleteEvent event =
+        TargetCompleteEvent.successfulBuild(
+            ctAndData,
+            completionContext,
+            artifactsToBuild.getAllArtifactsByOutputGroup(),
+            /* announceTargetSummary= */ false);
+
+    assertThat(event.referencedLocalFiles())
+        .contains(
+            new LocalFile(
+                baselineCoverageArtifact.getPath(),
+                LocalFileType.COVERAGE_OUTPUT,
+                baselineCoverageMetadata));
+  }
+
   private ConfiguredTargetAndData getCtAndData(String target) throws Exception {
     AnalysisResult result = update(target);
     ConfiguredTarget ct = Iterables.getOnlyElement(result.getTargetsToBuild());
@@ -238,7 +283,7 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
     return new ConfiguredTargetAndData(ct, tac.getTarget(), configuredTargetConfiguration, null);
   }
 
-  private ArtifactsToBuild getArtifactsToBuild(ConfiguredTargetAndData ctAndData) {
+  private static ArtifactsToBuild getArtifactsToBuild(ConfiguredTargetAndData ctAndData) {
     TopLevelArtifactContext context =
         new TopLevelArtifactContext(false, false, false, OutputGroupInfo.DEFAULT_GROUPS);
     return TopLevelArtifactHelper.getAllArtifactsToBuild(ctAndData.getConfiguredTarget(), context);
@@ -247,24 +292,28 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
   private CompletionContext getCompletionContext(
       Map<Artifact, FileArtifactValue> metadata,
       Map<SpecialArtifact, TreeArtifactValue> treeMetadata) {
-    ImmutableMap.Builder<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts =
-        ImmutableMap.builder();
+    return getCompletionContext(metadata, treeMetadata, /* baselineCoverageValue= */ null);
+  }
+
+  private CompletionContext getCompletionContext(
+      Map<Artifact, FileArtifactValue> metadata,
+      Map<SpecialArtifact, TreeArtifactValue> treeMetadata,
+      @Nullable FileArtifactValue baselineCoverageValue) {
     ActionInputMap inputMap = new ActionInputMap(0);
 
     for (Map.Entry<Artifact, FileArtifactValue> entry : metadata.entrySet()) {
-      expandedArtifacts.put(entry.getKey(), ImmutableList.of(entry.getKey()));
       inputMap.put(entry.getKey(), entry.getValue(), /* depOwner= */ null);
     }
 
     for (Map.Entry<SpecialArtifact, TreeArtifactValue> entry : treeMetadata.entrySet()) {
-      expandedArtifacts.put(entry.getKey(), entry.getValue().getChildren());
       inputMap.putTreeArtifact(entry.getKey(), entry.getValue(), /* depOwner= */ null);
     }
 
     return new CompletionContext(
         directories.getExecRoot(TestConstants.WORKSPACE_NAME),
-        expandedArtifacts.buildOrThrow(),
-        /* expandedFilesets= */ ImmutableMap.of(),
+        ImmutableMap.copyOf(treeMetadata),
+        /* filesets= */ ImmutableMap.of(),
+        baselineCoverageValue,
         ArtifactPathResolver.IDENTITY,
         inputMap,
         /* expandFilesets= */ false,

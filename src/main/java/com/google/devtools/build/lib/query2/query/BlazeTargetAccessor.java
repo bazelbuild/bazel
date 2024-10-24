@@ -140,6 +140,8 @@ public final class BlazeTargetAccessor implements TargetAccessor<Target> {
   }
 
   // CAUTION: keep in sync with ConfiguredTargetFactory#convertVisibility()
+  // TODO: #19922 - And... it's not in sync with Macro-Aware Visibility for symbolic macros. Fix
+  // this. Also mind the samePackage logic in getVisibility above.
   private void convertVisibility(
       QueryExpression caller,
       ImmutableSet.Builder<QueryVisibility<Target>> packageSpecifications,
@@ -151,9 +153,7 @@ public final class BlazeTargetAccessor implements TargetAccessor<Target> {
     }
     if (ruleVisibility.equals(RuleVisibility.PUBLIC)) {
       packageSpecifications.add(QueryVisibility.everything());
-    } else if (ruleVisibility instanceof PackageGroupsRuleVisibility) {
-      PackageGroupsRuleVisibility packageGroupsVisibility =
-          (PackageGroupsRuleVisibility) ruleVisibility;
+    } else if (ruleVisibility instanceof PackageGroupsRuleVisibility packageGroupsVisibility) {
       for (Label groupLabel : packageGroupsVisibility.getPackageGroups()) {
         try {
           maybeConvertGroupVisibility(groupLabel, packageSpecifications);

@@ -16,8 +16,10 @@ package com.google.devtools.build.lib.starlark.util;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkConfig;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkGlobalsImpl;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -29,7 +31,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.packages.BzlInitThreadContext;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
-import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.config.ConfigGlobalLibrary;
 import com.google.devtools.build.lib.rules.config.ConfigStarlarkCommon;
@@ -48,6 +49,7 @@ import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.Program;
@@ -73,6 +75,10 @@ public final class BazelEvaluationTestCase {
   private StarlarkSemantics semantics = StarlarkSemantics.DEFAULT;
   private StarlarkThread thread = null; // created lazily by getStarlarkThread
   private Module module = null; // created lazily by getModule
+
+  private ImmutableMap<String, Class<?>> fragmentNameToClass = ImmutableMap.of();
+
+  private Object threadOwner = "test";
 
   public BazelEvaluationTestCase() {
     this(DEFAULT_LABEL);
@@ -147,7 +153,7 @@ public final class BazelEvaluationTestCase {
     execAndExport(this.label, lines);
   }
 
-  private static void newThread(StarlarkThread thread) {
+  private void newThread(StarlarkThread thread) {
     // This StarlarkThread has no PackageContext, so attempts to create a rule will fail.
     // Rule creation is tested by StarlarkIntegrationTest.
 
@@ -156,19 +162,30 @@ public final class BazelEvaluationTestCase {
     // TODO(adonovan): stop creating threads in tests. This is the responsibility of the
     // production code. Tests should provide only files and commands.
     new BzlInitThreadContext(
-            Label.parseCanonicalUnchecked("//:dummy.bzl"),
+            label,
             /* transitiveDigest= */ new byte[0], // dummy value for tests
             TestConstants.TOOLS_REPOSITORY,
             /* networkAllowlistForTests= */ Optional.empty(),
-            /* fragmentNameToClass= */ ImmutableMap.of(),
-            new SymbolGenerator<>(new Object()))
+            fragmentNameToClass,
+            /* mainRepoMapping= */ null)
         .storeInThread(thread);
+  }
+
+  /**
+   * Allows for subclasses to inject custom fragments into the environment.
+   *
+   * <p>Must be called prior to any evaluation calls.
+   */
+  public void setFragmentNameToClass(ImmutableMap<String, Class<?>> fragmentNameToClass) {
+    Preconditions.checkState(this.thread == null, "Call this method before getStarlarkThread()");
+    this.fragmentNameToClass = fragmentNameToClass;
   }
 
   private Object newModule(ImmutableMap.Builder<String, Object> predeclared) {
     predeclared.putAll(StarlarkGlobalsImpl.INSTANCE.getFixedBzlToplevels());
     predeclared.put("platform_common", new PlatformCommon());
     predeclared.put("config_common", new ConfigStarlarkCommon());
+    predeclared.put("config", new StarlarkConfig());
     Starlark.addMethods(predeclared, new ConfigGlobalLibrary());
 
     // Return the module's client data. (This one uses dummy values for tests.)
@@ -180,10 +197,16 @@ public final class BazelEvaluationTestCase {
         /* bzlTransitiveDigest= */ new byte[0]);
   }
 
+  /** Sets a thread owner, for cases where the default value of {@code "test"} doesn't work. */
+  public void setThreadOwner(Object owner) {
+    this.threadOwner = owner;
+  }
+
   public StarlarkThread getStarlarkThread() {
     if (this.thread == null) {
       Mutability mu = Mutability.create("test");
-      StarlarkThread thread = new StarlarkThread(mu, semantics);
+      StarlarkThread thread =
+          StarlarkThread.create(mu, semantics, "test", SymbolGenerator.create(threadOwner));
       thread.setPrintHandler(Event.makeDebugPrintHandler(getEventHandler()));
       newThread(thread);
       this.thread = thread;

@@ -13,17 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Streams.stream;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.GccParamFileEscaper;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.util.StringUtil;
+import com.google.devtools.build.lib.util.WindowsParamFileEscaper;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
@@ -71,7 +70,13 @@ public class ParameterFile {
      * A parameter file where each parameter is correctly quoted for gcc or clang use, and separated
      * by white space (space, tab, newline).
      */
-    GCC_QUOTED
+    GCC_QUOTED,
+
+    /**
+     * A parameter file where each parameter is correctly quoted for windows use. Double-quotes are
+     * escaped, and each parameter that contains whitespace is surrounded in double-quotes.
+     */
+    WINDOWS,
   }
 
   public static final FileType PARAMETER_FILE = FileType.of(".params");
@@ -101,15 +106,12 @@ public class ParameterFile {
       throws IOException {
     OutputStream bufferedOut = new BufferedOutputStream(out);
     switch (type) {
-      case SHELL_QUOTED:
-        writeContent(bufferedOut, ShellEscaper.escapeAll(arguments), charset);
-        break;
-      case GCC_QUOTED:
-        writeContent(bufferedOut, GccParamFileEscaper.escapeAll(arguments), charset);
-        break;
-      case UNQUOTED:
-        writeContent(bufferedOut, arguments, charset);
-        break;
+      case SHELL_QUOTED -> writeContent(bufferedOut, ShellEscaper.escapeAll(arguments), charset);
+      case GCC_QUOTED ->
+          writeContent(bufferedOut, GccParamFileEscaper.escapeAll(arguments), charset);
+      case UNQUOTED -> writeContent(bufferedOut, arguments, charset);
+      case WINDOWS ->
+          writeContent(bufferedOut, WindowsParamFileEscaper.escapeAll(arguments), charset);
     }
   }
 
@@ -169,7 +171,7 @@ public class ParameterFile {
       byte[] bytes = stringUnsafe.getByteArray(line);
       if (stringUnsafe.getCoder(line) == StringUnsafe.LATIN1 && isAscii(bytes)) {
         outputStream.write(bytes);
-      } else if (!StringUtil.decodeBytestringUtf8(line).equals(line)) {
+      } else if (!StringUtil.reencodeInternalToExternal(line).equals(line)) {
         // We successfully decoded line from utf8 - meaning it was already encoded as utf8.
         // We do not want to double-encode.
         outputStream.write(bytes);
@@ -200,20 +202,22 @@ public class ParameterFile {
   }
 
   /**
-   * Extracts the args from the given list that are flags (i.e. start with "--"). Note, this makes
-   * sense only if flags with values have previously been joined, e.g."--foo=bar" rather than
-   * "--foo", "bar".
+   * Filters the given args to only flags (i.e. start with "--").
+   *
+   * <p>Note, this makes sense only if flags with values have previously been joined,
+   * e.g."--foo=bar" rather than "--foo", "bar".
    */
-  public static ImmutableList<String> flagsOnly(Iterable<String> args) {
-    return stream(args).filter(ParameterFile::isFlag).collect(toImmutableList());
+  public static Iterable<String> flagsOnly(Iterable<String> args) {
+    return Iterables.filter(args, ParameterFile::isFlag);
   }
 
   /**
-   * Extracts the args from the given list that are not flags (i.e. do not start with "--"). Note,
-   * this makes sense only if flags with values have previously been joined, e.g."--foo=bar" rather
-   * than "--foo", "bar".
+   * * Filters the given args to only non-flags (i.e. do not start with "--").
+   *
+   * <p>Note, this makes sense only if flags with values have previously been joined,
+   * e.g."--foo=bar" rather than "--foo", "bar".
    */
-  public static ImmutableList<String> nonFlags(Iterable<String> args) {
-    return stream(args).filter(arg -> !isFlag(arg)).collect(toImmutableList());
+  public static Iterable<String> nonFlags(Iterable<String> args) {
+    return Iterables.filter(args, arg -> !isFlag(arg));
   }
 }

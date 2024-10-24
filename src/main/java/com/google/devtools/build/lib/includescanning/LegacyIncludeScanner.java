@@ -93,10 +93,9 @@ public class LegacyIncludeScanner implements IncludeScanner {
       if (this == obj) {
         return true;
       }
-      if (!(obj instanceof ArtifactWithInclusionContext)) {
+      if (!(obj instanceof ArtifactWithInclusionContext that)) {
         return false;
       }
-      ArtifactWithInclusionContext that = (ArtifactWithInclusionContext) obj;
       return this.contextKind == that.contextKind
           && this.contextPathPos == that.contextPathPos
           && this.artifact.equals(that.artifact);

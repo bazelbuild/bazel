@@ -16,13 +16,9 @@ package com.google.devtools.build.docgen.starlark;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.StarlarkDocumentationProcessor.Category;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import java.lang.reflect.Method;
-import java.util.Arrays;
 import java.util.Map;
-import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
@@ -31,15 +27,13 @@ import net.starlark.java.eval.Tuple;
 
 /** Abstract class for containing documentation for a Starlark syntactic entity. */
 public abstract class StarlarkDoc {
-  private final StarlarkDocExpander expander;
+  protected final StarlarkDocExpander expander;
 
   protected StarlarkDoc(StarlarkDocExpander expander) {
     this.expander = expander;
   }
 
-  /**
-   * Returns a string containing the name of the entity being documented.
-   */
+  /** Returns a string containing the name of the entity being documented. */
   public abstract String getName();
 
   /**
@@ -88,19 +82,5 @@ public abstract class StarlarkDoc {
       }
     }
     return Starlark.classType(type);
-  }
-
-  // Omit self parameter from parameters in class methods.
-  protected static Param[] withoutSelfParam(StarlarkMethod annotation, Method method) {
-    Param[] params = annotation.parameters();
-    if (params.length > 0) {
-      StarlarkBuiltin module = method.getDeclaringClass().getAnnotation(StarlarkBuiltin.class);
-      if (module != null && module.name().equals("string")) {
-        // Skip the self parameter, which is the first mandatory
-        // positional parameter in each method of the "string" module.
-        return Arrays.copyOfRange(params, 1, params.length);
-      }
-    }
-    return params;
   }
 }

@@ -61,13 +61,6 @@ msys*)
   ;;
 esac
 
-if "$is_windows"; then
-  # Disable MSYS path conversion that converts path-looking command arguments to
-  # Windows paths (even if they arguments are not in fact paths).
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 function expect_symlink() {
   local file=$1
 
@@ -784,6 +777,28 @@ function test_unresolved_symlink_as_input_local() {
   bazel build //pkg:c || fail "symlink should resolve"
 }
 
+function test_unresolved_symlink_as_input_local_inprocess() {
+  if "$is_windows"; then
+    # TODO(#10298): Support unresolved symlinks on Windows.
+    return 0
+  fi
+
+  setup_unresolved_symlink_as_input
+  add_to_bazelrc build --spawn_strategy=local
+  add_to_bazelrc build --experimental_inprocess_symlink_creation
+
+  bazel build //pkg:b && fail "symlink should not resolve"
+
+  bazel clean
+  bazel build  //pkg:file
+  # Since the build isn't sandboxed, the symlink to //:a resolves even though
+  # the action does not declare it as an input.
+  bazel build  //pkg:b || fail "symlink expected to resolve non-hermetically"
+
+  bazel clean
+  bazel build  //pkg:c || fail "symlink should resolve"
+}
+
 function test_unresolved_symlink_as_input_sandbox() {
   if "$is_windows"; then
     # TODO(#10298): Support unresolved symlinks on Windows.
@@ -797,7 +812,7 @@ function test_unresolved_symlink_as_input_sandbox() {
 
   bazel clean
   bazel build //pkg:a
-  # Since the build isn't sandboxed, the symlink to //:a does not resolves even
+  # Since the build is sandboxed, the symlink to //:a does not resolves even
   # though it would in the unsandboxed exec root due to //:a having been built
   # before.
   bazel build //pkg:b && fail "sandboxed build is not hermetic"
@@ -878,6 +893,23 @@ function test_unresolved_symlink_as_runfile_local() {
 
   setup_unresolved_symlink_as_runfile
   add_to_bazelrc build --spawn_strategy=local
+
+  bazel build //pkg:use_tool || fail "local build failed"
+  # Keep the implicitly built //pkg:a around to make the symlink resolve
+  # outside the runfiles tree. The build should still fail as the relative
+  # symlink is staged as is and doesn't resolve outside the runfiles tree.
+  bazel build //pkg:use_tool_non_hermetically && fail "symlink in runfiles resolved outside the runfiles tree" || true
+}
+
+function test_unresolved_symlink_as_runfile_local_inprocess() {
+  if "$is_windows"; then
+    # TODO(#10298): Support unresolved symlinks on Windows.
+    return 0
+  fi
+
+  setup_unresolved_symlink_as_runfile
+  add_to_bazelrc build --spawn_strategy=local
+  add_to_bazelrc build --experimental_inprocess_symlink_creation
 
   bazel build //pkg:use_tool || fail "local build failed"
   # Keep the implicitly built //pkg:a around to make the symlink resolve

@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.python;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
 
-import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import org.junit.Before;
 import org.junit.Test;
@@ -31,25 +30,6 @@ public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
   @Before
   public final void setUpPython() throws Exception {
     analysisMock.pySupport().setup(mockToolsConfig);
-  }
-
-  @Test
-  public void hermeticRuntime() throws Exception {
-    scratch.file(
-        "pkg/BUILD",
-        getPyLoad("py_runtime"),
-        "py_runtime(",
-        "    name = 'myruntime',",
-        "    files = [':myfile'],",
-        "    interpreter = ':myinterpreter',",
-        "    python_version = 'PY3',",
-        ")");
-    PyRuntimeInfo info = PyRuntimeInfo.fromTarget(getConfiguredTarget("//pkg:myruntime"));
-
-    assertThat(info.getInterpreterPathString()).isNull();
-    assertThat(info.getInterpreter().getExecPathString()).isEqualTo("pkg/myinterpreter");
-    assertThat(ActionsTestUtil.baseArtifactNames(info.getFiles())).containsExactly("myfile");
-    assertThat(info.getPythonVersion()).isEqualTo(PythonVersion.PY3);
   }
 
   @Test
@@ -176,21 +156,5 @@ public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
     getConfiguredTarget("//pkg:myruntime");
 
     assertContainsEvent("invalid value in 'python_version' attribute");
-  }
-
-  @Test
-  public void versionAttributeMandatoryWhenUsingToolchains() throws Exception {
-    reporter.removeHandler(failFastHandler);
-    useConfiguration("--incompatible_use_python_toolchains=true");
-    scratch.file(
-        "pkg/BUILD",
-        getPyLoad("py_runtime"),
-        "py_runtime(",
-        "    name = 'myruntime',",
-        "    interpreter_path = '/system/interpreter',",
-        ")");
-    getConfiguredTarget("//pkg:myruntime");
-
-    assertContainsEvent("must be set explicitly to either 'PY2' or 'PY3'");
   }
 }

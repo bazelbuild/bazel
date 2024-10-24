@@ -15,11 +15,12 @@
 package com.google.devtools.build.lib.starlarkbuildapi.apple;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /** An interface for a configuration type containing info for Apple platforms and tools. */
@@ -27,8 +28,7 @@ import net.starlark.java.eval.StarlarkValue;
     name = "apple",
     doc = "A configuration fragment for Apple platforms.",
     category = DocCategory.CONFIGURATION_FRAGMENT)
-public interface AppleConfigurationApi<ApplePlatformTypeApiT extends ApplePlatformTypeApi>
-    extends StarlarkValue {
+public interface AppleConfigurationApi extends StarlarkValue {
 
   @StarlarkMethod(
       name = "single_arch_cpu",
@@ -62,8 +62,89 @@ public interface AppleConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfo
             named = false,
             doc = "The apple platform type.")
       })
-  ApplePlatformApi getMultiArchPlatform(ApplePlatformTypeApiT platformType);
+  ApplePlatformApi getMultiArchPlatform(String platformType);
 
-  @StarlarkMethod(name = "cpu", documented = false, useStarlarkThread = true)
-  String getCpuForStarlark(StarlarkThread thread) throws EvalException;
+  @StarlarkMethod(name = "apple_cpus", documented = false, structField = true)
+  StructApi getAppleCpusForStarlark() throws EvalException;
+
+  @StarlarkMethod(name = "apple_platform_type", documented = false, structField = true)
+  String getApplePlatformType();
+
+  @Nullable
+  @StarlarkMethod(
+      name = "xcode_version_flag",
+      documented = false,
+      structField = true,
+      allowReturnNones = true)
+  String getXcodeVersionFlag() throws EvalException;
+
+  @StarlarkMethod(
+      name = "ios_sdk_version_flag",
+      documented = false,
+      structField = true,
+      allowReturnNones = true)
+  @Nullable
+  DottedVersionApi<?> iosSdkVersionFlag() throws EvalException;
+
+  @StarlarkMethod(
+      name = "macos_sdk_version_flag",
+      documented = false,
+      structField = true,
+      allowReturnNones = true)
+  @Nullable
+  DottedVersionApi<?> macOsSdkVersionFlag() throws EvalException;
+
+  @StarlarkMethod(
+      name = "tvos_sdk_version_flag",
+      documented = false,
+      structField = true,
+      allowReturnNones = true)
+  @Nullable
+  DottedVersionApi<?> tvOsSdkVersionFlag() throws EvalException;
+
+  @StarlarkMethod(
+      name = "watchos_sdk_version_flag",
+      documented = false,
+      structField = true,
+      allowReturnNones = true)
+  @Nullable
+  DottedVersionApi<?> watchOsSdkVersionFlag() throws EvalException;
+
+  @StarlarkMethod(
+      name = "ios_minimum_os_flag",
+      documented = false,
+      structField = true,
+      allowReturnNones = true)
+  @Nullable
+  DottedVersionApi<?> iosMinimumOsFlag() throws EvalException;
+
+  @StarlarkMethod(
+      name = "macos_minimum_os_flag",
+      documented = false,
+      structField = true,
+      allowReturnNones = true)
+  @Nullable
+  DottedVersionApi<?> macOsMinimumOsFlag() throws EvalException;
+
+  @StarlarkMethod(
+      name = "tvos_minimum_os_flag",
+      documented = false,
+      structField = true,
+      allowReturnNones = true)
+  @Nullable
+  DottedVersionApi<?> tvOsMinimumOsFlag() throws EvalException;
+
+  @StarlarkMethod(
+      name = "watchos_minimum_os_flag",
+      documented = false,
+      structField = true,
+      allowReturnNones = true)
+  @Nullable
+  DottedVersionApi<?> watchOsMinimumOsFlag() throws EvalException;
+
+  @StarlarkMethod(name = "prefer_mutual_xcode", documented = false, structField = true)
+  public boolean shouldPreferMutualXcode() throws EvalException;
+
+  @StarlarkMethod(name = "include_xcode_exec_requirements", documented = false, structField = true)
+  public boolean includeXcodeExecRequirementsFlag() throws EvalException;
 }

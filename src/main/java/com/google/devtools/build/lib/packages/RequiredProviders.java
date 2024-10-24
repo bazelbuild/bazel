@@ -343,18 +343,6 @@ public final class RequiredProviders {
   }
 
   /**
-   * Mutates the given {@link AspectDefinition.Builder}, adding in the required providers specified
-   * by this {@link RequiredProviders}.
-   *
-   * <p>We use this indirection for the sake of encapsulating the internal representation of {@link
-   * RequiredProviders}.
-   */
-  void addToAspectDefinitionBuilder(AspectDefinition.Builder aspectDefinitionBuilder) {
-    aspectDefinitionBuilder.requireProviderSets(builtinProviders);
-    aspectDefinitionBuilder.requireStarlarkProviderSets(starlarkProviders);
-  }
-
-  /**
    * A builder for {@link RequiredProviders} that accepts no dependency
    * unless restriction provider sets are added.
    */

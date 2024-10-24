@@ -21,5 +21,7 @@ toc:
       path: /rules/lib/repo/git
     - title: http
       path: /rules/lib/repo/http
+    - title: local
+      path: /rules/lib/repo/local
     - title: utils
       path: /rules/lib/repo/utils

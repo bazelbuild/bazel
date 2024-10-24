@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
-import static com.google.common.truth.Truth8.assertThat;
+import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;

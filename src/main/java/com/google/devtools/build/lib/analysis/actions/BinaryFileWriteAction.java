@@ -22,14 +22,13 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import javax.annotation.Nullable;
 
 /**
@@ -41,6 +40,7 @@ public final class BinaryFileWriteAction extends AbstractFileWriteAction {
   private static final String GUID = "eeee07fe-4b40-11e4-82d6-eba0b4f713e2";
 
   private final ByteSource source;
+  private final boolean makeExecutable;
 
   /**
    * Creates a new BinaryFileWriteAction instance without inputs.
@@ -52,8 +52,14 @@ public final class BinaryFileWriteAction extends AbstractFileWriteAction {
    */
   public BinaryFileWriteAction(
       ActionOwner owner, Artifact output, ByteSource source, boolean makeExecutable) {
-    super(owner, /*inputs=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER), output, makeExecutable);
+    super(owner, /* inputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER), output);
     this.source = Preconditions.checkNotNull(source);
+    this.makeExecutable = makeExecutable;
+  }
+
+  @Override
+  public boolean makeExecutable() {
+    return makeExecutable;
   }
 
   @VisibleForTesting
@@ -63,14 +69,11 @@ public final class BinaryFileWriteAction extends AbstractFileWriteAction {
 
   @Override
   public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx) {
-    return new DeterministicWriter() {
-      @Override
-      public void writeOutputFile(OutputStream out) throws IOException {
-        try (InputStream in = source.openStream()) {
-          ByteStreams.copy(in, out);
-        }
-        out.flush();
+    return out -> {
+      try (InputStream in = source.openStream()) {
+        ByteStreams.copy(in, out);
       }
+      out.flush();
     };
   }
 
@@ -80,7 +83,7 @@ public final class BinaryFileWriteAction extends AbstractFileWriteAction {
       @Nullable ArtifactExpander artifactExpander,
       Fingerprint fp) {
     fp.addString(GUID);
-    fp.addString(String.valueOf(makeExecutable));
+    fp.addBoolean(makeExecutable());
 
     try (InputStream in = source.openStream()) {
       byte[] buffer = new byte[512];

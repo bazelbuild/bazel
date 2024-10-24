@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec.local;
 
+import com.google.common.base.Ascii;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
@@ -39,10 +40,6 @@ import java.util.concurrent.ConcurrentMap;
  *
  * <p>Admittedly, hermeticity is "best effort" in such cases; these environment values should be as
  * tied to configuration parameters as possible.
- *
- * <p>For example, underlying iOS toolchains require that SDKROOT resolve to an absolute system
- * path, but, when selecting which SDK to resolve, the version number comes from build
- * configuration.
  */
 public final class XcodeLocalEnvProvider implements LocalEnvProvider {
 
@@ -70,8 +67,8 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
       throws IOException, InterruptedException {
     boolean containsDeveloperDir = env.containsKey(AppleConfiguration.DEVELOPER_DIR_ENV_NAME);
     boolean containsXcodeVersion = env.containsKey(AppleConfiguration.XCODE_VERSION_ENV_NAME);
-    boolean containsAppleSdkVersion =
-        env.containsKey(AppleConfiguration.APPLE_SDK_VERSION_ENV_NAME);
+    boolean containsAppleSdkPlatform =
+        env.containsKey(AppleConfiguration.APPLE_SDK_PLATFORM_ENV_NAME);
 
     ImmutableMap.Builder<String, String> newEnvBuilder = ImmutableMap.builder();
     newEnvBuilder.putAll(Maps.filterKeys(env, k -> !k.equals("TMPDIR")));
@@ -85,12 +82,12 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
     }
     newEnvBuilder.put("TMPDIR", p);
 
-    if (!containsXcodeVersion && !containsAppleSdkVersion) {
+    if (!containsXcodeVersion && !containsAppleSdkPlatform) {
       return newEnvBuilder.buildOrThrow();
     }
 
     // Empty developer dir indicates to use the system default.
-    // TODO(bazel-team): Bazel's view of the xcode version and developer dir should be explicitly
+    // TODO(bazel-team): Bazel's view of the Xcode version and developer dir should be explicitly
     // set for build hermeticity.
     String developerDir = "";
     if (containsXcodeVersion && !containsDeveloperDir) {
@@ -98,14 +95,9 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
       developerDir = getDeveloperDir(binTools, DottedVersion.fromStringUnchecked(version));
       newEnvBuilder.put("DEVELOPER_DIR", developerDir);
     }
-    if (containsAppleSdkVersion) {
-      // The Apple platform is needed to select the appropriate SDK.
-      if (!env.containsKey(AppleConfiguration.APPLE_SDK_PLATFORM_ENV_NAME)) {
-        throw new IOException("Could not resolve apple platform for determining SDK");
-      }
-      String iosSdkVersion = env.get(AppleConfiguration.APPLE_SDK_VERSION_ENV_NAME);
+    if (containsAppleSdkPlatform) {
       String appleSdkPlatform = env.get(AppleConfiguration.APPLE_SDK_PLATFORM_ENV_NAME);
-      newEnvBuilder.put("SDKROOT", getSdkRoot(developerDir, iosSdkVersion, appleSdkPlatform));
+      newEnvBuilder.put("SDKROOT", getSdkRoot(developerDir, appleSdkPlatform));
     }
 
     return newEnvBuilder.buildOrThrow();
@@ -115,31 +107,27 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
    * Queries the path to the target Apple SDK on the host system for a given version of Xcode.
    *
    * <p>This spawns a subprocess to run the {@code /usr/bin/xcrun} binary to locate the target SDK.
-   * As this is a costly operation, always call {@link #getSdkRoot(String, String, String)} instead,
-   * which does caching.
+   * As this is a costly operation, always call {@link #getSdkRoot(String, String)} instead, which
+   * does caching.
    *
-   * @param developerDir the value of {@code DEVELOPER_DIR} for the target version of xcode
-   * @param sdkVersion the sdk version; for example, {@code 9.1}
-   * @param appleSdkPlatform the sdk platform; for example, {@code iPhoneOS}
+   * @param developerDir the value of {@code DEVELOPER_DIR} for the target version of Xcode
+   * @param appleSdkPlatform the SDK platform; for example, {@code iPhoneOS}
    * @return an absolute path to the root of the target Apple SDK
    * @throws IOException if there is an issue with obtaining the root from the spawned process,
    *     either because the SDK platform/version pair doesn't exist, or there was an unexpected
    *     issue finding or running the tool
    */
-  private static String querySdkRoot(
-      String developerDir, String sdkVersion, String appleSdkPlatform)
+  private static String querySdkRoot(String developerDir, String appleSdkPlatform)
       throws IOException, InterruptedException {
     try {
-      String sdkString = appleSdkPlatform.toLowerCase() + sdkVersion;
+      String sdkString = Ascii.toLowerCase(appleSdkPlatform);
       Map<String, String> env =
           Strings.isNullOrEmpty(developerDir)
               ? ImmutableMap.<String, String>of()
               : ImmutableMap.of("DEVELOPER_DIR", developerDir);
       CommandResult xcrunResult =
           new Command(
-              new String[] {"/usr/bin/xcrun", "--sdk", sdkString, "--show-sdk-path"},
-              env,
-              null)
+                  new String[] {"/usr/bin/xcrun", "--sdk", sdkString, "--show-sdk-path"}, env, null)
               .execute();
 
       return new String(xcrunResult.getStdout(), StandardCharsets.UTF_8).trim();
@@ -150,15 +138,14 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
         throw new IOException(
             String.format(
                 "xcrun failed with code %s.\n"
-                    + "This most likely indicates that SDK version [%s] for platform [%s] is "
-                    + "unsupported for the target version of xcode.\n"
+                    + "This most likely indicates that the SDK platform [%s] is "
+                    + "unsupported for the target version of Xcode.\n"
                     + "%s\n"
                     + "stdout: %s"
                     + "stderr: %s",
                 terminationStatus.getExitCode(),
-                sdkVersion,
                 appleSdkPlatform,
-                terminationStatus.toString(),
+                terminationStatus,
                 new String(e.getResult().getStdout(), StandardCharsets.UTF_8),
                 new String(e.getResult().getStderr(), StandardCharsets.UTF_8)));
       }
@@ -177,26 +164,24 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
   /**
    * Returns the path to the target Apple SDK on the host system for a given version of Xcode.
    *
-   * <p>This may delegate to {@link #querySdkRoot(String, String, String)} to obtain the path from
-   * external sources in the system. Values are cached in-memory throughout the lifetime of the
-   * Bazel server.
+   * <p>This may delegate to {@link #querySdkRoot(String, String)} to obtain the path from external
+   * sources in the system. Values are cached in-memory throughout the lifetime of the Bazel server.
    *
-   * @param developerDir the value of {@code DEVELOPER_DIR} for the target version of xcode
-   * @param sdkVersion the sdk version; for example, {@code 9.1}
-   * @param appleSdkPlatform the sdk platform; for example, {@code iPhoneOS}
+   * @param developerDir the value of {@code DEVELOPER_DIR} for the target version of Xcode
+   * @param appleSdkPlatform the SDK platform; for example, {@code iPhoneOS}
    * @return an absolute path to the root of the target Apple SDK
    * @throws IOException if there is an issue with obtaining the root from the spawned process,
    *     either because the SDK platform/version pair doesn't exist, or there was an unexpected
    *     issue finding or running the tool
    */
-  private static String getSdkRoot(String developerDir, String sdkVersion, String appleSdkPlatform)
+  private static String getSdkRoot(String developerDir, String appleSdkPlatform)
       throws IOException, InterruptedException {
     try {
       return sdkRootCache.computeIfAbsent(
-          developerDir + ":" + appleSdkPlatform.toLowerCase() + ":" + sdkVersion,
+          developerDir + ":" + Ascii.toLowerCase(appleSdkPlatform),
           (key) -> {
             try {
-              String sdkRoot = querySdkRoot(developerDir, sdkVersion, appleSdkPlatform);
+              String sdkRoot = querySdkRoot(developerDir, appleSdkPlatform);
               logger.atInfo().log("Queried Xcode SDK root with key %s and got %s", key, sdkRoot);
               return sdkRoot;
             } catch (IOException e) {
@@ -232,10 +217,10 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
    * caching.
    *
    * @param binTools the {@link BinTools}, used to locate the cache file
-   * @param version the xcode version number to look up
+   * @param version the Xcode version number to look up
    * @return an absolute path to the root of the Xcode developer directory
    * @throws IOException if there is an issue with obtaining the path from the spawned process,
-   *     either because there is no installed xcode with the given version, or there was an
+   *     either because there is no installed Xcode with the given version, or there was an
    *     unexpected issue finding or running the tool
    */
   private static String queryDeveloperDir(BinTools binTools, DottedVersion version)
@@ -254,7 +239,7 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
         message =
             String.format(
                 "Running '%s %s' failed with code %s.\n"
-                    + "This most likely indicates that xcode version %s is not available on the "
+                    + "This most likely indicates that Xcode version %s is not available on the "
                     + "host machine.\n"
                     + "%s\n"
                     + "stdout: %s\n"
@@ -283,7 +268,7 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
   }
 
   /**
-   * Returns the absolute root path of the xcode developer directory on the host system for the
+   * Returns the absolute root path of the Xcode developer directory on the host system for the
    * given Xcode version.
    *
    * <p>This may delegate to {@link #queryDeveloperDir(Path, DottedVersion)} to obtain the path from
@@ -291,10 +276,10 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
    * Bazel server.
    *
    * @param binTools the {@link BinTools} path, used to locate the cache file
-   * @param version the xcode version number to look up
+   * @param version the Xcode version number to look up
    * @return an absolute path to the root of the Xcode developer directory
    * @throws IOException if there is an issue with obtaining the path from the spawned process,
-   *     either because there is no installed xcode with the given version, or there was an
+   *     either because there is no installed Xcode with the given version, or there was an
    *     unexpected issue finding or running the tool
    */
   private static String getDeveloperDir(BinTools binTools, DottedVersion version)

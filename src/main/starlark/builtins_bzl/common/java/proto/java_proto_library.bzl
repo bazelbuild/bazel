@@ -18,7 +18,6 @@ load(
     ":common/java/java_common_internal_for_builtins.bzl",
     _compile_private_for_builtins = "compile",
 )
-load(":common/java/java_helper.bzl", "helper")
 load(":common/java/java_info.bzl", "JavaInfo", _merge_private_for_builtins = "merge")
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/proto/proto_common.bzl", "toolchains", proto_common = "proto_common_do_not_use")
@@ -119,7 +118,7 @@ def java_compile_for_protos(ctx, output_jar_suffix, source_jar = None, deps = []
             exports = exports,
             output_source_jar = source_jar,
             injecting_rule_kind = injecting_rule_kind,
-            javac_opts = helper.tokenize_javacopts(ctx, java_toolchain._compatible_javacopts.get("proto", depset())),
+            javac_opts = java_toolchain._compatible_javacopts.get("proto", depset()),
             enable_jspecify = False,
             include_compilation_info = False,
         )
@@ -190,7 +189,7 @@ Example:
 <code class="lang-starlark">
 java_library(
     name = "lib",
-    deps = [":foo_java_proto"],
+    runtime_deps = [":foo_java_proto"],
 )
 
 java_proto_library(
@@ -214,7 +213,6 @@ rules to generate Java code for.
             """,
         ),
         "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
-        "distribs": attr.string_list(),
     } | toolchains.if_legacy_toolchain({
         "_aspect_java_proto_toolchain": attr.label(
             default = configuration_field(fragment = "proto", name = "proto_toolchain_for_java"),

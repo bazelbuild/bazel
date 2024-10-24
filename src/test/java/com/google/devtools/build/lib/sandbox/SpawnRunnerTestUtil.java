@@ -17,12 +17,12 @@ import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static org.mockito.Mockito.mock;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.io.Files;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.exec.Protos.Digest;
@@ -39,7 +39,6 @@ import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -65,14 +64,7 @@ public final class SpawnRunnerTestUtil {
     private final Duration timeout;
     private final FileOutErr fileOutErr;
 
-    /** An object that can expand middleman artifacts. */
-    private final ArtifactExpander artifactExpander =
-        new ArtifactExpander() {
-          @Override
-          public void expand(Artifact artifact, Collection<? super Artifact> output) {
-            // Do nothing.
-          }
-        };
+    private final ArtifactExpander artifactExpander = treeArtifact -> ImmutableSortedSet.of();
 
     /**
      * Creates a new spawn execution policy for testing purposes.

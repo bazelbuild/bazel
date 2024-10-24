@@ -1,4 +1,5 @@
 load("@rules_java//java:defs.bzl", "java_binary", "java_library")
+load("//tools:build_defs.bzl", "transition_java_language_8_filegroup")
 
 package(
     default_visibility = [
@@ -221,6 +222,16 @@ filegroup(
         ":coverage_empty_workspace",
         ":coverage_lcov_merge_tools",
         ":rename_build_tools",
+    ],
+    visibility = ["//src/test/shell/bazel:__pkg__"],
+)
+
+transition_java_language_8_filegroup(
+    name = "coverage_output_generator_repo_java8",
+    files = [
+        ":coverage/BUILD",
+        ":coverage/WORKSPACE",
+        ":coverage/all_lcov_merger_tools_deploy.jar",
     ],
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )

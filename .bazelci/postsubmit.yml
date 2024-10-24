@@ -1,11 +1,8 @@
 ---
 
 tasks:
-  centos7_java11_devtoolset10:
+  centos7:
     shell_commands:
-      - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
-        android_ndk_repository/android_ndk_repository/' WORKSPACE.bzlmod
-      - rm -f WORKSPACE.bzlmod.bak
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
     build_flags:
@@ -18,6 +15,8 @@ tasks:
       - "//src:bazel_jdk_minimal"
       - "//src:test_repos"
       - "//src/main/java/..."
+      - "//src/tools/diskcache/..."
+      - "//src/tools/execlog/..."
     test_flags:
       - "--config=ci-linux"
       # Override REMOTE_NETWORK_ADDRESS since bazel_sandboxing_networking_test doesn't work on this platform
@@ -28,35 +27,26 @@ tasks:
       - "//src/main/starlark/tests/builtins_bzl/..."
       - "//src/test/..."
       - "//src/tools/execlog/..."
+      - "//src/tools/one_version/..."
       - "//src/tools/singlejar/..."
       - "//src/tools/workspacelog/..."
       - "//third_party/ijar/..."
-      - "//tools/android/..."
       - "//tools/aquery_differ/..."
       - "//tools/compliance/..."
       - "//tools/python/..."
       - "//tools/bash/..."
-      # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
-      - "-//src/java_tools/buildjar/..."
-      - "-//src/java_tools/import_deps_checker/..."
       # These tests are not compatible with the gcov version of CentOS 7.
       - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
       - "-//src/test/shell/bazel:bazel_coverage_cc_released_test_gcc"
       - "-//src/test/shell/bazel:bazel_coverage_cc_head_test_gcc"
       - "-//src/test/shell/bazel:bazel_coverage_sh_test"
-      # Centos7 uses python 2 by default, so these fail: https://github.com/bazelbuild/bazel/issues/18776
-      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test"
-      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_head_android_tools"
-      - "-//src/test/shell/bazel/android:aapt_integration_test"
-      - "-//src/test/shell/bazel/android:aapt_integration_test_with_head_android_tools"
+      # Disable some Android tests since we are moving Android rules out of the Bazel repo.
+      - "-//src/test/shell/bazel:bazel_android_tools_test"
     include_json_profile:
       - build
       - test
   fedora39:
     shell_commands:
-      - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
-        android_ndk_repository/android_ndk_repository/' WORKSPACE.bzlmod
-      - rm -f WORKSPACE.bzlmod.bak
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
     build_flags:
@@ -70,9 +60,6 @@ tasks:
       - test
   ubuntu2204:
     shell_commands:
-      - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
-        android_ndk_repository/android_ndk_repository/' WORKSPACE.bzlmod
-      - rm -f WORKSPACE.bzlmod.bak
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
     build_flags:
@@ -90,15 +77,15 @@ tasks:
       - "//src/main/starlark/tests/builtins_bzl/..."
       - "//src/test/..."
       - "//src/tools/execlog/..."
+      - "//src/tools/one_version/..."
       - "//src/tools/singlejar/..."
       - "//src/tools/workspacelog/..."
       - "//third_party/ijar/..."
-      - "//tools/android/..."
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
-      # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
-      - "-//src/java_tools/import_deps_checker/..."
+      # Disable some Android tests since we are moving Android rules out of the Bazel repo.
+      - "-//src/test/shell/bazel:bazel_android_tools_test"
     include_json_profile:
       - build
       - test
@@ -109,9 +96,6 @@ tasks:
       CC_CONFIGURE_DEBUG: 1
     name: "Clang"
     shell_commands:
-      - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
-        android_ndk_repository/android_ndk_repository/' WORKSPACE.bzlmod
-      - rm -f WORKSPACE.bzlmod.bak
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
     build_flags:
@@ -130,9 +114,6 @@ tasks:
       - test
   ubuntu2004:
     shell_commands:
-      - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
-        android_ndk_repository/android_ndk_repository/' WORKSPACE.bzlmod
-      - rm -f WORKSPACE.bzlmod.bak
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
     build_flags:
@@ -150,23 +131,21 @@ tasks:
       - "//src/main/starlark/tests/builtins_bzl/..."
       - "//src/test/..."
       - "//src/tools/execlog/..."
+      - "//src/tools/one_version/..."
       - "//src/tools/singlejar/..."
       - "//src/tools/workspacelog/..."
       - "//third_party/ijar/..."
-      - "//tools/android/..."
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
-      # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
-      - "-//src/java_tools/import_deps_checker/..."
+      # Disable some Android tests since we are moving Android rules out of the Bazel repo.
+      - "-//src/test/shell/bazel:bazel_android_tools_test"
     include_json_profile:
       - build
       - test
   macos:
+    shards: 5
     shell_commands:
-      - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
-        android_ndk_repository/android_ndk_repository/' WORKSPACE.bzlmod
-      - rm -f WORKSPACE.bzlmod.bak
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
       - ln -sf $OUTPUT_BASE/external $HOME/bazeltest/external
@@ -176,60 +155,40 @@ tasks:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
       - "//src:test_repos"
-      - "//src/main/java/..."
     test_flags:
       - "--config=ci-macos"
       # Fine tune the number of test jobs running in parallel to avoid timeout
-      - "--local_test_jobs=8"
+      - "--local_test_jobs=2"
     test_targets:
       - "//scripts/..."
       - "//src/main/starlark/tests/builtins_bzl/..."
       - "//src/test/..."
       - "//src/tools/execlog/..."
+      - "//src/tools/one_version/..."
       - "//src/tools/singlejar/..."
       - "//src/tools/workspacelog/..."
       - "//third_party/ijar/..."
-      - "//tools/android/..."
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
-      # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
-      - "-//src/java_tools/buildjar/..."
-      - "-//src/java_tools/import_deps_checker/..."
-      # C++ coverage is not supported on macOS yet.
-      - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
-      # MacOS does not have cgroups so it can't support hardened sandbox
-      - "-//src/test/shell/integration:bazel_hardened_sandboxed_worker_test"
-      # https://github.com/bazelbuild/bazel/issues/16526
-      - "-//src/test/shell/bazel:starlark_repository_test"
-      # https://github.com/bazelbuild/bazel/issues/17407
-      - "-//src/test/shell/bazel/apple:bazel_apple_test"
-      # https://github.com/bazelbuild/bazel/issues/17408
-      - "-//src/test/shell/bazel/apple:bazel_objc_test"
+      # Disable python and shell integration tests on Intel Macs
+      - "-//src/test/shell/..."
+      - "-//src/test/py/..."
       # https://github.com/bazelbuild/bazel/issues/17410
       - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
-      # https://github.com/bazelbuild/bazel/issues/17411
-      - "-//src/test/java/com/google/devtools/build/lib/blackbox/tests/workspace:PatchApiBlackBoxTest"
-      # https://github.com/bazelbuild/bazel/issues/17447
-      - "-//src/test/java/com/google/devtools/build/lib/blackbox/tests/workspace:GitRepositoryBlackBoxTest"
-      # https://github.com/bazelbuild/bazel/issues/17456
-      - "-//src/test/shell/bazel:bazel_determinism_test"
-      # https://github.com/bazelbuild/bazel/issues/17457
-      - "-//src/test/shell/bazel:jdeps_test"
-      # Macs can't find python, so these fail: https://github.com/bazelbuild/bazel/issues/18776
-      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test"
-      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_head_android_tools"
-      - "-//src/test/shell/bazel/android:aapt_integration_test"
-      - "-//src/test/shell/bazel/android:aapt_integration_test_with_head_android_tools"
+      # Disable android tests since we are moving Android rules out of the Bazel repo.
+      # ServerTests frequently runs into deadlocks on Intel Macs
+      - "-//src/test/java/com/google/devtools/build/lib/server:ServerTests"
+      # Add back a few Apple specific tests
+      - "+//src/test/shell/bazel/apple/..."
+      # Add back one bootstrap test for Intel Mac
+      - "+//src/test/shell/bazel:bazel_bootstrap_distfile_test"
     include_json_profile:
       - build
       - test
   macos_arm64:
-    xcode_version: "15.1"
+    shards: 5
     shell_commands:
-      - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
-        android_ndk_repository/android_ndk_repository/' WORKSPACE.bzlmod
-      - rm -f WORKSPACE.bzlmod.bak
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
       - ln -sf $OUTPUT_BASE/external $HOME/bazeltest/external
@@ -239,52 +198,25 @@ tasks:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
       - "//src:test_repos"
-      - "//src/main/java/..."
     test_flags:
       - "--config=ci-macos"
+      - "--noremote_accept_cached"
     test_targets:
       - "//scripts/..."
       - "//src/main/starlark/tests/builtins_bzl/..."
       - "//src/test/..."
       - "//src/tools/execlog/..."
+      - "//src/tools/one_version/..."
       - "//src/tools/singlejar/..."
       - "//src/tools/workspacelog/..."
       - "//third_party/ijar/..."
-      - "//tools/android/..."
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
-      # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
-      - "-//src/java_tools/buildjar/..."
-      - "-//src/java_tools/import_deps_checker/..."
-      # C++ coverage is not supported on macOS yet.
-      - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
-      # MacOS does not have cgroups so it can't support hardened sandbox
-      - "-//src/test/shell/integration:bazel_hardened_sandboxed_worker_test"
-      # https://github.com/bazelbuild/bazel/issues/16525
-      - "-//src/test/java/com/google/devtools/build/lib/buildtool:KeepGoingTest"
-      - "-//src/test/java/com/google/devtools/build/lib/buildtool:DanglingSymlinkTest"
-      - "-//src/test/java/com/google/devtools/build/lib/buildtool:CompileOneDependencyIntegrationTest"
-      - "-//src/test/java/com/google/devtools/build/lib/buildtool:SkymeldBuildIntegrationTest"
-      - "-//src/test/java/com/google/devtools/build/lib/rules/objc:BazelJ2ObjcLibraryTest"
-      - "-//src/test/java/com/google/devtools/build/lib/skyframe/rewinding:RewindingTest"
-      - "-//src/test/java/com/google/devtools/build/lib/buildtool:MiscAnalysisTest"
-      - "-//src/test/java/com/google/devtools/build/lib/rules/objc:ObjcRulesTests"
-      # https://github.com/bazelbuild/bazel/issues/17007
+      # https://github.com/bazelbuild/bazel/issues/17410
       - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
-      # https://github.com/bazelbuild/bazel/issues/16521 & https://github.com/bazelbuild/bazel/issues/18776
-      - "-//src/test/shell/bazel/android/..."
-      - "-//src/tools/android/java/com/google/devtools/build/android/..."
-      - "-//src/test/java/com/google/devtools/build/android/dexer:AllTests"
-      # Macs can't find python, so these fail: https://github.com/bazelbuild/bazel/issues/18776
-      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test"
-      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_head_android_tools"
-      - "-//src/test/shell/bazel/android:aapt_integration_test"
-      - "-//src/test/shell/bazel/android:aapt_integration_test_with_head_android_tools"
-      # https://github.com/bazelbuild/bazel/issues/17411
-      - "-//src/test/java/com/google/devtools/build/lib/blackbox/tests/workspace:PatchApiBlackBoxTest"
-      # https://github.com/bazelbuild/bazel/issues/17447
-      - "-//src/test/java/com/google/devtools/build/lib/blackbox/tests/workspace:GitRepositoryBlackBoxTest"
+      # Disable android tests since we are moving Android rules out of Bazel repo.
+      - "-//src/test/shell/bazel:bazel_android_tools_test"
     include_json_profile:
       - build
       - test
@@ -292,8 +224,6 @@ tasks:
     setup:
       - mkdir C:\b
       - mklink /J C:\b\bazeltest_external %OUTPUT_BASE:/=\%\external
-    batch_commands:
-      - powershell -Command "(Get-Content WORKSPACE.bzlmod) -Replace '# android_', 'android_' | Set-Content WORKSPACE.bzlmod"
     build_flags:
       - "--config=ci-windows"
     build_targets:
@@ -307,7 +237,6 @@ tasks:
       - "//src:embedded_tools_size_test"
       - "//src/main/starlark/tests/builtins_bzl/..."
       - "//src/test/cpp/..."
-      - "//src/test/java/com/google/devtools/build/android/..."
       - "//src/test/java/com/google/devtools/build/lib/..."
       - "//src/test/java/com/google/devtools/build/skyframe/..."
       - "//src/test/java/com/google/devtools/common/options/..."
@@ -316,9 +245,9 @@ tasks:
       - "//src/test/res/..."
       - "//src/test/shell/..."
       - "//src/tools/launcher/..."
+      - "//src/tools/one_version/..."
       - "//src/tools/singlejar/..."
       - "//third_party/def_parser/..."
-      - "//tools/android/..."
       - "//tools/aquery_differ/..."
       - "//tools/bash/..."
       - "//tools/build_defs/..."
@@ -329,7 +258,6 @@ tasks:
       - "//tools/test/..."
       # Re-enable the following tests on Windows:
       # https://github.com/bazelbuild/bazel/issues/4292
-      - "-//src/test/java/com/google/devtools/build/android/r8/..."
       - "-//src/test/java/com/google/devtools/build/lib/query2/cquery/..."
       - "-//src/test/java/com/google/devtools/build/lib/query2/engine/..."
       - "-//src/test/java/com/google/devtools/build/lib/versioning/..."
@@ -346,8 +274,6 @@ tasks:
     setup:
       - mkdir C:\b
       - mklink /J C:\b\bazeltest_external %OUTPUT_BASE:/=\%\external
-    batch_commands:
-      - powershell -Command "(Get-Content WORKSPACE.bzlmod) -Replace '# android_', 'android_' | Set-Content WORKSPACE.bzlmod"
     build_flags:
       - "--config=ci-windows"
       - "--config=windows_arm64"
@@ -359,51 +285,45 @@ tasks:
   rbe_ubuntu2004:
     platform: ubuntu2004
     name: "RBE"
-    shell_commands:
-      - sed -i.bak
-        -e 's/^# android_sdk_repository/android_sdk_repository/'
-        -e 's/^# android_ndk_repository/android_ndk_repository/' WORKSPACE.bzlmod
-      - rm -f WORKSPACE.bzlmod.bak
     build_flags:
-      - "--config=ubuntu2004_java11"
+      - "--config=remote"
       - "--remote_executor=grpcs://remotebuildexecution.googleapis.com"
       - "--jobs=200"
       - "--experimental_remote_cache_async"
       - "--experimental_remote_merkle_tree_cache"
       - "--remote_download_minimal"
+      - "--experimental_output_paths=strip"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
       - "//src/main/java/..."
     test_flags:
-      - "--config=ubuntu2004_java11"
+      - "--config=remote"
       - "--remote_executor=grpcs://remotebuildexecution.googleapis.com"
       - "--jobs=200"
       - "--experimental_remote_cache_async"
       - "--experimental_remote_merkle_tree_cache"
       - "--remote_download_minimal"
+      - "--experimental_output_paths=strip"
     test_targets:
       - "//scripts/..."
       - "//src/java_tools/..."
       - "//src/main/starlark/tests/builtins_bzl/..."
       - "//src/test/..."
       - "//src/tools/execlog/..."
+      - "//src/tools/one_version/..."
       - "//src/tools/singlejar/..."
       - "//src/tools/workspacelog/..."
       - "//third_party/ijar/..."
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
-      - "//tools/android/..."
       # See https://github.com/bazelbuild/bazel/issues/8033
       - "-//src/tools/singlejar:output_jar_simple_test"
       - "-//src/test/shell/bazel:external_integration_test"
       - "-//src/test/shell/bazel:bazel_repository_cache_test"
       - "-//src/test/shell/integration:java_integration_test"
       - "-//src/test/java/com/google/devtools/build/lib/sandbox/..."
-      # See https://github.com/bazelbuild/bazel/issues/8162 (also disabled for local exec)
-      - "-//src/java_tools/buildjar/..."
-      - "-//src/java_tools/import_deps_checker/..."
       # We hit connection timeout error when downloading multiple URLs on RBE, see b/217865760
       - "-//src/test/py/bazel:bazel_module_test"
       - "-//src/test/py/bazel:bazel_lockfile_test"
@@ -411,15 +331,25 @@ tasks:
       - "-//src/test/py/bazel:bazel_repo_mapping_test"
       - "-//src/test/py/bazel:bazel_yanked_versions_test"
       - "-//src/test/py/bazel:bzlmod_query_test"
+      - "-//src/test/py/bazel:mod_command_test"
+      - "-//src/test/shell/bazel:starlark_repository_test"
       - "-//src/test/shell/bazel:verify_workspace"
+      # Disable some Android tests since we are moving Android rules out of the Bazel repo.
+      - "-//src/test/shell/bazel:bazel_android_tools_test"
     include_json_profile:
       - build
       - test
-  kythe_ubuntu2004:
+  kythe_ubuntu2204:
     shell_commands:
-    - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/'
-      -e 's/^# android_ndk_repository/android_ndk_repository/' WORKSPACE.bzlmod
-    - rm -f WORKSPACE.bzlmod.bak
+    # Replace @com_google_protobuf with @protobuf because Bazel has renamed @com_google_protobuf to @protobuf. See b/371908235.
+    # TODO(chiwang): Remove this once kythe is updated to use @protobuf.
+    - sed -i -e 's/@com_google_protobuf/@protobuf/' /usr/local/kythe/BUILD
+    # Disable custom proto_toolchain_for_cc from kythe because it doesn't work with protobuf 29. See b/371908235.
+    # TODO(chiwang): Remove this once kythe resolves the issue.
+    - sed -i -e 's/build --proto_toolchain_for_cc=@kythe_release\/\/:cc_native_proto_toolchain//' /usr/local/kythe/extractors.bazelrc
+    # Remove _nowkt suffix because it's only available in newer protobuf releases. See b/329055020.
+    # TODO(chiwang): Remove this once we have upgraded to protobuf 25+.
+    - sed -i -e 's/protobuf_nowkt/protobuf/' /usr/local/kythe/BUILD
     index_flags:
     - "--define=kythe_corpus=github.com/bazelbuild/bazel"
     index_targets_query: "kind(\"cc_(binary|library|test|proto_library) rule\", ...) union kind(\"java_(binary|import|library|plugin|test|proto_library) rule\", ...) union kind(\"proto_library rule\", ...)"

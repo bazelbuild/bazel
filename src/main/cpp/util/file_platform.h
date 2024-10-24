@@ -17,7 +17,6 @@
 
 #include <time.h>
 
-#include <cinttypes>
 #include <string>
 #include <vector>
 
@@ -29,40 +28,26 @@ class IPipe;
 
 IPipe* CreatePipe();
 
-// Class to query/manipulate the last modification time (mtime) of files.
-class IFileMtime {
- public:
-  virtual ~IFileMtime() {}
+// Checks if `path` is a file/directory in the embedded tools directory that
+// was not tampered with.
+// Returns true if `path` is a directory or directory symlink, or if `path` is
+// a file with an mtime in the distant future.
+// Returns false otherwise, or if querying the information failed.
+bool IsUntampered(const Path &path);
 
-  // Checks if `path` is a file/directory in the embedded tools directory that
-  // was not tampered with.
-  // Returns true if `path` is a directory or directory symlink, or if `path` is
-  // a file with an mtime in the distant future.
-  // Returns false otherwise, or if querying the information failed.
-  // TODO(laszlocsomor): move this function, and with it the whole IFileMtime
-  // class into blaze_util_<platform>.cc, because it is Bazel-specific logic,
-  // not generic file-handling logic.
-  virtual bool IsUntampered(const Path &path) = 0;
+// Sets the mtime of file under `path` to the current time.
+// Returns true if the mtime was changed successfully.
+bool SetMtimeToNow(const Path &path);
 
-  // Sets the mtime of file under `path` to the current time.
-  // Returns true if the mtime was changed successfully.
-  virtual bool SetToNow(const Path &path) = 0;
+// Attempt to set the mtime of file under `path` to the current time.
+// Returns true if the mtime was changed successfully OR if setting the mtime
+// failed due to permissions errors.
+bool SetMtimeToNowIfPossible(const Path &path);
 
-  // Attempt to set the mtime of file under `path` to the current time.
-  //
-  // Returns true if the mtime was changed successfully OR if setting the mtime
-  // failed due to permissions errors.
-  virtual bool SetToNowIfPossible(const Path &path) = 0;
-
-  // Sets the mtime of file under `path` to the distant future.
-  // "Distant future" should be on the order of some years into the future, like
-  // a decade.
-  // Returns true if the mtime was changed successfully.
-  virtual bool SetToDistantFuture(const Path &path) = 0;
-};
-
-// Creates a platform-specific implementation of `IFileMtime`.
-IFileMtime *CreateFileMtime();
+// Sets the mtime of file under `path` to the distant future, which should be
+// on the order of a decade.
+// Returns true if the mtime was changed successfully.
+bool SetMtimeToDistantFuture(const Path &path);
 
 #if defined(_WIN32) || defined(__CYGWIN__)
 // We cannot include <windows.h> because it #defines many symbols that conflict
@@ -131,6 +116,11 @@ struct WriteResult {
     BROKEN_PIPE = 2,  // EPIPE (reading end of the pipe is closed)
   };
 };
+
+// Initializes stdout and stderr for writing UTF-8 (best effort).
+//
+// This should be called once during startup.
+void InitializeStdOutErrForUtf8();
 
 // Writes `size` bytes from `data` into stdout/stderr.
 // Writes to stdout if `to_stdout` is true, writes to stderr otherwise.

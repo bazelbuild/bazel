@@ -18,11 +18,14 @@ import static com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil.co
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
+import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions.OutputGroupFileModes;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
@@ -53,9 +56,9 @@ public final class AspectCompleteEvent
       ImmutableMap<String, ArtifactsInOutputGroup> artifactOutputGroups) {
     this.aspectKey = aspectKey;
     this.rootCauses =
-        (rootCauses == null) ? NestedSetBuilder.<Cause>emptySet(Order.STABLE_ORDER) : rootCauses;
+        (rootCauses == null) ? NestedSetBuilder.emptySet(Order.STABLE_ORDER) : rootCauses;
     ImmutableList.Builder<BuildEventId> postedAfterBuilder = ImmutableList.builder();
-    for (Cause cause : getRootCauses().toList()) {
+    for (Cause cause : this.rootCauses.toList()) {
       postedAfterBuilder.add(cause.getIdProto());
     }
     this.postedAfter = postedAfterBuilder.build();
@@ -117,6 +120,17 @@ public final class AspectCompleteEvent
     return completionContext;
   }
 
+  public Iterable<Artifact> getLegacyFilteredImportantArtifacts() {
+    NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
+    for (ArtifactsInOutputGroup artifactsInOutputGroup : artifactOutputGroups.values()) {
+      if (artifactsInOutputGroup.areImportant()) {
+        builder.addTransitive(artifactsInOutputGroup.getArtifacts());
+      }
+    }
+    // An aspect could potentially return a source artifact if it added it to its provider.
+    return Iterables.filter(builder.build().toList(), (artifact) -> !artifact.isSourceArtifact());
+  }
+
   @Override
   public BuildEventId getEventId() {
     return BuildEventIdUtil.aspectCompleted(
@@ -136,9 +150,12 @@ public final class AspectCompleteEvent
   }
 
   @Override
-  public ReportedArtifacts reportedArtifacts() {
+  public ReportedArtifacts reportedArtifacts(OutputGroupFileModes outputGroupFileModes) {
     return TargetCompleteEvent.toReportedArtifacts(
-        artifactOutputGroups, completionContext, /*baselineCoverageArtifacts=*/ null);
+        artifactOutputGroups,
+        completionContext,
+        /* baselineCoverageArtifact= */ null,
+        outputGroupFileModes);
   }
 
   @Override
@@ -149,8 +166,9 @@ public final class AspectCompleteEvent
     builder.addAllOutputGroup(
         TargetCompleteEvent.toOutputGroupProtos(
             artifactOutputGroups,
-            converters.artifactGroupNamer(),
-            /*baselineCoverageArtifacts=*/ null));
+            /* baselineCoverageArtifact= */ null,
+            completionContext,
+            converters));
     return GenericBuildEvent.protoChaining(this).setCompleted(builder.build()).build();
   }
 

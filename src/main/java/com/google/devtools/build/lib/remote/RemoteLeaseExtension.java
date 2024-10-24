@@ -71,7 +71,7 @@ public class RemoteLeaseExtension implements LeaseExtension {
 
   private final MemoizingEvaluator memoizingEvaluator;
   @Nullable private final ActionCache actionCache;
-  private final RemoteCache remoteCache;
+  private final CombinedCache combinedCache;
   private final Duration remoteCacheTtl;
   private final RemoteActionExecutionContext context;
 
@@ -80,11 +80,11 @@ public class RemoteLeaseExtension implements LeaseExtension {
       @Nullable ActionCache actionCache,
       String buildRequestId,
       String commandId,
-      RemoteCache remoteCache,
+      CombinedCache combinedCache,
       Duration remoteCacheTtl) {
     this.memoizingEvaluator = memoizingEvaluator;
     this.actionCache = actionCache;
-    this.remoteCache = remoteCache;
+    this.combinedCache = combinedCache;
     this.remoteCacheTtl = remoteCacheTtl;
     RequestMetadata requestMetadata =
         TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "lease-extension", null);
@@ -187,7 +187,7 @@ public class RemoteLeaseExtension implements LeaseExtension {
       // FindMissingBlobs call.
       missingDigests =
           getFromFuture(
-              remoteCache.findMissingDigests(
+              combinedCache.findMissingDigests(
                   context,
                   Iterables.transform(
                       remoteFiles, remoteFile -> buildDigest(remoteFile.getValue()))));
@@ -201,8 +201,8 @@ public class RemoteLeaseExtension implements LeaseExtension {
       if (!missingDigests.contains(buildDigest(metadata))) {
         metadata.extendExpireAtEpochMilli(expireAtEpochMilli);
         if (token != null) {
-          if (artifact instanceof TreeFileArtifact) {
-            token.extendOutputTreeFile((TreeFileArtifact) artifact, expireAtEpochMilli);
+          if (artifact instanceof TreeFileArtifact treeFileArtifact) {
+            token.extendOutputTreeFile(treeFileArtifact, expireAtEpochMilli);
           } else {
             token.extendOutputFile(artifact, expireAtEpochMilli);
           }

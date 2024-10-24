@@ -138,7 +138,6 @@ projects:
 
     *   [`java_annotation_processing`](/rules/lib/builtins/java_annotation_processing)
     *   [`java_compilation_info`](/rules/lib/providers/java_compilation_info)
-    *   [`java_output`](/rules/lib/builtins/java_output)
     *   [`java_output_jars`](/rules/lib/providers/java_output_jars)
     *   [`JavaRuntimeInfo`](/rules/lib/providers/JavaRuntimeInfo)
     *   [`JavaToolchainInfo`](/rules/lib/providers/JavaToolchainInfo)
@@ -157,8 +156,8 @@ Execution toolchain is the JVM, either local or from a repository, with some
 additional information about its version, operating system, and CPU
 architecture.
 
-Java execution toolchains may added using `local_java_repository` or
-`remote_java_repository` rules in the `WORKSPACE` file. Adding the rule makes
+Java execution toolchains may added using the `local_java_repository` or
+`remote_java_repository` repo rules in a module extension. Adding the rule makes
 the JVM available using a flag. When multiple definitions for the same operating
 system and CPU architecture are given, the first one is used.
 
@@ -235,7 +234,7 @@ The `TestRunner` tool executes JUnit 4 tests in a controlled environment.
 
 You can reconfigure the compilation by adding `default_java_toolchain` macro to
 a `BUILD` file and registering it either by adding `register_toolchains` rule to
-the `WORKSPACE` file or by using
+the `MODULE.bazel` file or by using
 [`--extra_toolchains`](/docs/user-manual#extra-toolchains) flag.
 
 The toolchain is only used when the `source_version` attribute matches the

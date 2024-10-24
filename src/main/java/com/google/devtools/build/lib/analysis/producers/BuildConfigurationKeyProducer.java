@@ -1,4 +1,4 @@
-// Copyright 2023 The Bazel Authors. All rights reserved.
+// Copyright 2024 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,106 +13,164 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.producers;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.platform.PlatformValue;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.config.ParsedFlagsValue;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingException;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingValue;
-import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.state.StateMachine;
 import com.google.devtools.build.skyframe.state.StateMachine.ValueOrExceptionSink;
 import com.google.devtools.common.options.OptionsParsingException;
-import java.util.Map;
+import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
- * Creates the needed {@link BuildConfigurationKey} instances for the given options.
+ * Creates the needed {@link BuildConfigurationKey} instance for a single {@link BuildOptions},
+ * including merging in any platform-based flags or a platform mapping.
  *
- * <p>This includes merging in platform mappings.
+ * <p>Platform-based flags and platform mappings are mutually exclusive: only one will be applied if
+ * they are present. Trying to mix and match would be possible but confusing, especially if they try
+ * to change the same flag. The logic is:
  *
- * <p>The output preserves the iteration order of the input.
+ * <ul>
+ *   <li>If {@link PlatformOptions#platforms} specifies a target platform, look up the {@link
+ *       PlatformValue}. If it specifies {@linkplain PlatformValue#parsedFlags flags}, use {@link
+ *       ParsedFlagsValue#mergeWith}.
+ *   <li>If {@link PlatformOptions#platforms} does not specify a target platform, or if the target
+ *       platform does not specify {@linkplain PlatformValue#parsedFlags flags}, look up the {@link
+ *       PlatformMappingValue} and use {@link PlatformMappingValue#map}.
+ * </ul>
+ *
+ * @param <C> The type of the context variable that the producer will pass via the {@link
+ *     ResultSink} so that consumers can identify which options are which.
  */
-// Logic here must be kept in sync with SkyframeExecutor.createBuildConfigurationKey.
-public class BuildConfigurationKeyProducer
-    implements StateMachine, ValueOrExceptionSink<PlatformMappingException> {
+public final class BuildConfigurationKeyProducer<C>
+    implements StateMachine,
+        ValueOrExceptionSink<PlatformMappingException>,
+        PlatformProducer.ResultSink {
 
   /** Interface for clients to accept results of this computation. */
-  public interface ResultSink {
+  public interface ResultSink<C> {
 
-    void acceptTransitionError(OptionsParsingException e);
+    void acceptOptionsParsingError(OptionsParsingException e);
 
     void acceptPlatformMappingError(PlatformMappingException e);
 
-    void acceptTransitionedConfigurations(
-        ImmutableMap<String, BuildConfigurationKey> transitionedOptions);
+    void acceptPlatformFlagsError(InvalidPlatformException error);
+
+    void acceptTransitionedConfiguration(C context, BuildConfigurationKey transitionedOptionKey);
   }
 
   // -------------------- Input --------------------
-  private final ResultSink sink;
+  private final ResultSink<C> sink;
   private final StateMachine runAfter;
-  private final Map<String, BuildOptions> options;
+  private final C context;
+  private final BuildOptions options;
 
   // -------------------- Internal State --------------------
-  // There is only ever a single PlatformMappingValue in use, as the `--platform_mappings` flag
-  // can not be changed in a transition.
+  private PlatformValue targetPlatformValue;
   private PlatformMappingValue platformMappingValue;
 
-  public BuildConfigurationKeyProducer(
-      ResultSink sink, StateMachine runAfter, Map<String, BuildOptions> options) {
+  BuildConfigurationKeyProducer(
+      ResultSink<C> sink, StateMachine runAfter, C context, BuildOptions options) {
     this.sink = sink;
     this.runAfter = runAfter;
+    this.context = context;
     this.options = options;
   }
 
   @Override
-  public StateMachine step(Tasks tasks) {
-    // Use any configuration, since all configurations will have the same platform mapping.
-    Optional<PathFragment> platformMappingsPath =
-        options.values().stream()
-            .filter(opts -> opts.contains(PlatformOptions.class))
-            .filter(opts -> opts.get(PlatformOptions.class).platformMappings != null)
-            .map(opts -> opts.get(PlatformOptions.class).platformMappings)
-            .findAny();
-    PlatformMappingValue.Key platformMappingValueKey =
-        PlatformMappingValue.Key.create(platformMappingsPath.orElse(null));
-    tasks.lookUp(platformMappingValueKey, PlatformMappingException.class, this);
-    return this::applyMappings;
+  public StateMachine step(Tasks tasks) throws InterruptedException {
+    // Short-circuit if there are no platform options.
+    var platformOptions = options.get(PlatformOptions.class);
+    if (platformOptions == null) {
+      return finishConfigurationKeyProcessing(BuildConfigurationKey.create(options));
+    }
+
+    List<Label> targetPlatforms = platformOptions.platforms;
+    if (targetPlatforms.size() == 1) {
+      // TODO: https://github.com/bazelbuild/bazel/issues/19807 - We define this flag to only use
+      //  the first value and ignore any subsequent ones. Remove this check as part of cleanup.
+      tasks.enqueue(
+          new PlatformProducer(targetPlatforms.getFirst(), this, this::checkTargetPlatformFlags));
+      return runAfter;
+    } else {
+      return mergeFromPlatformMapping(tasks, platformOptions);
+    }
   }
 
+  private StateMachine checkTargetPlatformFlags(Tasks tasks) {
+    if (targetPlatformValue == null) {
+      return DONE; // Error.
+    }
+    Optional<ParsedFlagsValue> parsedFlags = targetPlatformValue.parsedFlags();
+    if (parsedFlags.isPresent()) {
+      BuildConfigurationKey updatedKey = parsedFlags.get().mergeWith(options);
+      return finishConfigurationKeyProcessing(updatedKey);
+    } else {
+      return mergeFromPlatformMapping(tasks, options.get(PlatformOptions.class));
+    }
+  }
+
+  private StateMachine mergeFromPlatformMapping(Tasks tasks, PlatformOptions platformOptions) {
+    tasks.lookUp(platformOptions.platformMappingKey, PlatformMappingException.class, this);
+    return this::applyPlatformMapping;
+  }
+
+  private StateMachine applyPlatformMapping(Tasks tasks) {
+    if (platformMappingValue == null) {
+      return DONE; // Error.
+    }
+    try {
+      BuildConfigurationKey updatedKey = platformMappingValue.map(options);
+      return finishConfigurationKeyProcessing(updatedKey);
+    } catch (OptionsParsingException e) {
+      sink.acceptOptionsParsingError(e);
+      return runAfter;
+    }
+  }
+
+  // Handles results from the PlatformMappingValueKey lookup.
   @Override
   public void acceptValueOrException(
       @Nullable SkyValue value, @Nullable PlatformMappingException exception) {
+    if (value == null && exception == null) {
+      throw new IllegalStateException("No value or exception was provided");
+    }
+    if (value != null && exception != null) {
+      throw new IllegalStateException("Both value and exception were provided");
+    }
+
     if (exception != null) {
       sink.acceptPlatformMappingError(exception);
-      return;
-    }
-    if (value instanceof PlatformMappingValue) {
+    } else {
       this.platformMappingValue = (PlatformMappingValue) value;
-      return;
     }
-
-    throw new IllegalStateException("No value or exception was provided");
   }
 
-  private StateMachine applyMappings(Tasks tasks) {
-    var result =
-        ImmutableMap.<String, BuildConfigurationKey>builderWithExpectedSize(options.size());
-    for (Map.Entry<String, BuildOptions> entry : options.entrySet()) {
-      String transitionKey = entry.getKey();
-      BuildConfigurationKey newConfigurationKey;
-      try {
-        BuildOptions mappedOptions = this.platformMappingValue.map(entry.getValue());
-        newConfigurationKey = BuildConfigurationKey.create(mappedOptions);
-      } catch (OptionsParsingException e) {
-        sink.acceptTransitionError(e);
-        return runAfter;
-      }
-      result.put(transitionKey, newConfigurationKey);
-    }
-    sink.acceptTransitionedConfigurations(result.buildOrThrow());
+  @Override
+  public void acceptPlatformValue(PlatformValue value) {
+    this.targetPlatformValue = value;
+  }
+
+  @Override
+  public void acceptPlatformInfoError(InvalidPlatformException error) {
+    sink.acceptPlatformFlagsError(error);
+  }
+
+  @Override
+  public void acceptOptionsParsingError(OptionsParsingException error) {
+    sink.acceptOptionsParsingError(error);
+  }
+
+  private StateMachine finishConfigurationKeyProcessing(BuildConfigurationKey newConfigurationKey) {
+    sink.acceptTransitionedConfiguration(context, newConfigurationKey);
     return runAfter;
   }
 }

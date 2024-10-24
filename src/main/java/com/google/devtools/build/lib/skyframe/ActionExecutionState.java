@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue.ActionTransformException;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.errorprone.annotations.DoNotCall;
 import java.util.concurrent.ConcurrentMap;
 import javax.annotation.Nullable;
@@ -201,48 +202,46 @@ final class ActionExecutionState {
    * with a reference to this state will restart, and signals to coalesced shared actions that they
    * should re-evaluate.
    */
-  void obsolete(
-      ActionLookupData requester,
+  synchronized void obsolete(
+      SkyKey requester,
       ConcurrentMap<OwnerlessArtifactWrapper, ActionExecutionState> buildActionMap,
       OwnerlessArtifactWrapper ownerlessArtifactWrapper) {
-    synchronized (this) {
-      if (actionLookupData.equals(requester)) {
-        // An action state's owner only obsoletes it when rewinding. The lost inputs exception
-        // thrown from ActionStepOrResult#run left its state undone.
-        Preconditions.checkState(
-            !state.isDone(), "owner unexpectedly obsoleted done state: %s", actionLookupData);
-        ActionExecutionState removedState = buildActionMap.remove(ownerlessArtifactWrapper);
-        Preconditions.checkState(
-            removedState == this,
-            "owner removed unexpected state from buildActionMap; owner: %s, removed: %s",
-            actionLookupData,
-            removedState.actionLookupData);
-        state = Obsolete.INSTANCE;
-        if (completionFuture != null) {
-          completionFuture.set(null);
-          completionFuture = null;
-        }
-        return;
-      }
-      if (!state.isDone()) {
-        // An action obsoletes other actions' states when rewinding its dependencies. It may race
-        // with other actions to do so. Removing the buildActionMap entry must only be done by the
-        // race's winner, to ensure the removal only happens once and removes this state.
-        //
-        // An action may also attempt to obsolete a dependency's not-done state, if it lost the race
-        // with another rewinding action, and the dep started evaluating. If so, then do nothing,
-        // because that dep is already doing what it needs to.
-        return;
-      }
+    if (actionLookupData.equals(requester)) {
+      // An action state's owner only obsoletes it when rewinding. The lost inputs exception thrown
+      // from ActionStepOrResult#run left its state undone.
+      Preconditions.checkState(
+          !state.isDone(), "owner unexpectedly obsoleted done state: %s", actionLookupData);
       ActionExecutionState removedState = buildActionMap.remove(ownerlessArtifactWrapper);
       Preconditions.checkState(
           removedState == this,
-          "removed unexpected state from buildActionMap; requester: %s, this: %s, removed: %s",
-          requester,
+          "owner removed unexpected state from buildActionMap; owner: %s, removed: %s",
           actionLookupData,
           removedState.actionLookupData);
       state = Obsolete.INSTANCE;
+      if (completionFuture != null) {
+        completionFuture.set(null);
+        completionFuture = null;
+      }
+      return;
     }
+    if (!state.isDone()) {
+      // An action obsoletes other actions' states when rewinding its dependencies. It may race with
+      // other actions to do so. Removing the buildActionMap entry must only be done by the race's
+      // winner, to ensure the removal only happens once and removes this state.
+      //
+      // An action may also attempt to obsolete a dependency's not-done state, if it lost the race
+      // with another rewinding action, and the dep started evaluating. If so, then do nothing,
+      // because that dep is already doing what it needs to.
+      return;
+    }
+    ActionExecutionState removedState = buildActionMap.remove(ownerlessArtifactWrapper);
+    Preconditions.checkState(
+        removedState == this,
+        "removed unexpected state from buildActionMap; requester: %s, this: %s, removed: %s",
+        requester,
+        actionLookupData,
+        removedState.actionLookupData);
+    state = Obsolete.INSTANCE;
   }
 
   /** A callback to receive events for shared actions that are not executed. */
@@ -269,7 +268,7 @@ final class ActionExecutionState {
    * {@link ActionStep}, and implement {@link #run}. In order to represent a result, use {@link
    * #of}.
    */
-  interface ActionStepOrResult {
+  sealed interface ActionStepOrResult permits ActionStep, Finished, Exceptional, Obsolete {
     static ActionStepOrResult of(ActionExecutionValue value) {
       return new Finished(value);
     }
@@ -325,7 +324,7 @@ final class ActionExecutionState {
    * without having to lock. Note that there may be multiple calls to {@link #run} from different
    * threads, as long as they do not overlap in time.
    */
-  abstract static class ActionStep implements ActionStepOrResult {
+  abstract static non-sealed class ActionStep implements ActionStepOrResult {
     @Override
     public final boolean isDone() {
       return false;
@@ -391,8 +390,8 @@ final class ActionExecutionState {
 
     @Override
     public ActionExecutionValue get() throws ActionExecutionException, InterruptedException {
-      if (e instanceof InterruptedException) {
-        throw (InterruptedException) e;
+      if (e instanceof InterruptedException interruptedException) {
+        throw interruptedException;
       }
       throw (ActionExecutionException) e;
     }

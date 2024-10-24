@@ -17,20 +17,19 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.Optional;
 
 /**
  * The result of the selection process, containing both the pruned and the un-pruned dependency
  * graphs.
  */
 @AutoValue
-abstract class BazelModuleResolutionValue implements SkyValue {
-  /* TODO(andreisolo): Also load the modules overridden by {@code single_version_override} or
-      NonRegistryOverride if we need to detect changes in the dependency graph caused by them.
-  */
+public abstract class BazelModuleResolutionValue implements SkyValue {
 
   @SerializationConstant
   public static final SkyKey KEY = () -> SkyFunctions.BAZEL_MODULE_RESOLUTION;
@@ -46,9 +45,23 @@ abstract class BazelModuleResolutionValue implements SkyValue {
    */
   abstract ImmutableMap<ModuleKey, InterimModule> getUnprunedDepGraph();
 
+  /**
+   * Hashes of files obtained (or known to be missing) from registries while performing resolution.
+   */
+  public abstract ImmutableMap<String, Optional<Checksum>> getRegistryFileHashes();
+
+  /**
+   * Selected module versions that are known to be yanked (and hence must have been explicitly
+   * allowed by the user).
+   */
+  abstract ImmutableMap<ModuleKey, String> getSelectedYankedVersions();
+
   static BazelModuleResolutionValue create(
       ImmutableMap<ModuleKey, Module> resolvedDepGraph,
-      ImmutableMap<ModuleKey, InterimModule> unprunedDepGraph) {
-    return new AutoValue_BazelModuleResolutionValue(resolvedDepGraph, unprunedDepGraph);
+      ImmutableMap<ModuleKey, InterimModule> unprunedDepGraph,
+      ImmutableMap<String, Optional<Checksum>> registryFileHashes,
+      ImmutableMap<ModuleKey, String> selectedYankedVersions) {
+    return new AutoValue_BazelModuleResolutionValue(
+        resolvedDepGraph, unprunedDepGraph, registryFileHashes, selectedYankedVersions);
   }
 }

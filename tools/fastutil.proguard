@@ -1,0 +1,8 @@
+-dontobfuscate
+-dontoptimize
+-keep ,includedescriptorclasses class it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap { *; }
+-keep ,includedescriptorclasses class it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap { *; }
+-keep ,includedescriptorclasses class it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap { *; }
+# These classes access a `getChannel()` on InputStream subclasses via reflection.
+-dontnote it.unimi.dsi.fastutil.io.FastBufferedInputStream
+-dontnote it.unimi.dsi.fastutil.io.FastBufferedOutputStream

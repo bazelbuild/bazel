@@ -18,24 +18,37 @@ import javax.annotation.Nullable;
 
 /** A Bazel invocation requested a {@link BuildConfigurationValue}. */
 public class ConfigRequestedEvent implements Postable {
-  private final BuildConfigurationValue config;
+  private final BuildConfigurationValue topLevelConfig;
 
   @Nullable private final String parentChecksum;
+
+  private final String testTrimmedTopLevelConfigurationChecksum;
 
   /**
    * Requested configuration event.
    *
-   * @param config the configuration
+   * @param topLevelConfig the configuration
    * @param parentChecksum the configuration that produces this one from a transition. If null, the
    *     current configuration is top-level.
+   * @param testTrimmedTopLevelConfigurationChecksum the checksum of the top level configuration
+   *     trimmed of its {@link
+   *     com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions}.
    */
-  public ConfigRequestedEvent(BuildConfigurationValue config, @Nullable String parentChecksum) {
-    this.config = config;
+  public ConfigRequestedEvent(
+      BuildConfigurationValue topLevelConfig,
+      @Nullable String parentChecksum,
+      String testTrimmedTopLevelConfigurationChecksum) {
+    this.topLevelConfig = topLevelConfig;
     this.parentChecksum = parentChecksum;
+    this.testTrimmedTopLevelConfigurationChecksum = testTrimmedTopLevelConfigurationChecksum;
   }
 
-  public BuildConfigurationValue getConfig() {
-    return config;
+  public BuildConfigurationValue getTopLevelConfig() {
+    return topLevelConfig;
+  }
+
+  public String getTestTrimmedTopLevelConfigurationChecksum() {
+    return testTrimmedTopLevelConfigurationChecksum;
   }
 
   @Nullable

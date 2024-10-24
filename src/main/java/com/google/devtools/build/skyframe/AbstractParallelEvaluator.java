@@ -15,11 +15,12 @@ package com.google.devtools.build.skyframe;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.RemovalCause;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -30,7 +31,6 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.common.graph.ImmutableGraph;
 import com.google.common.graph.Traverser;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.events.Event;
@@ -53,7 +53,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctio
 import com.google.devtools.build.skyframe.proto.GraphInconsistency.Inconsistency;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
-import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -120,8 +119,7 @@ abstract class AbstractParallelEvaluator {
       InflightTrackingProgressReceiver progressReceiver,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       QuiescingExecutor executor,
-      CycleDetector cycleDetector,
-      boolean mergingSkyframeAnalysisExecutionPhases) {
+      CycleDetector cycleDetector) {
     this.graph = graph;
     this.cycleDetector = cycleDetector;
     this.evaluatorContext =
@@ -137,8 +135,8 @@ abstract class AbstractParallelEvaluator {
             storedEventFilter,
             errorInfoManager,
             graphInconsistencyReceiver,
+            executor,
             () -> new NodeEntryVisitor(executor, progressReceiver, Evaluate::new, stateCache),
-            /* mergingSkyframeAnalysisExecutionPhases= */ mergingSkyframeAnalysisExecutionPhases,
             stateCache);
   }
 
@@ -438,7 +436,11 @@ abstract class AbstractParallelEvaluator {
               .stateStarting(skyKey, NodeState.INITIALIZING_ENVIRONMENT);
           env =
               SkyFunctionEnvironment.create(
-                  skyKey, nodeEntry.getTemporaryDirectDeps(), oldDeps, evaluatorContext);
+                  skyKey,
+                  nodeEntry.getTemporaryDirectDeps(),
+                  oldDeps,
+                  nodeEntry.getMaxTransitiveSourceVersion(),
+                  evaluatorContext);
         } catch (UndonePreviouslyRequestedDeps undonePreviouslyRequestedDeps) {
           handleUndonePreviouslyRequestedDep(nodeEntry);
           return;
@@ -457,22 +459,14 @@ abstract class AbstractParallelEvaluator {
                 nodeEntry);
 
         SkyValue value = null;
-        long startTimeNanos = BlazeClock.instance().nanoTime();
-        try {
+        try (var s =
+            Profiler.instance()
+                .profile(ProfilerTask.SKYFUNCTION, skyKey.functionName().getName())) {
           try {
             evaluatorContext.getProgressReceiver().stateStarting(skyKey, NodeState.COMPUTE);
             value = skyFunction.compute(skyKey, env);
           } finally {
             evaluatorContext.getProgressReceiver().stateEnding(skyKey, NodeState.COMPUTE);
-            long elapsedTimeNanos = BlazeClock.instance().nanoTime() - startTimeNanos;
-            if (elapsedTimeNanos > 0) {
-              Profiler.instance()
-                  .logSimpleTaskDuration(
-                      startTimeNanos,
-                      Duration.ofNanos(elapsedTimeNanos),
-                      ProfilerTask.SKYFUNCTION,
-                      skyKey.functionName().getName());
-            }
           }
         } catch (SkyFunctionException builderException) {
           // TODO(b/261604460): invalidating the state cache here appears to be load-bearing for
@@ -556,6 +550,16 @@ abstract class AbstractParallelEvaluator {
         } finally {
           env.doneBuilding();
         }
+
+        // For any `SkyKey`s, regardless of partially evaluated or not, the node's Max Transitive
+        // Source Version so far is always tracked at the end of a Skyframe restart.
+        // This effort makes it meaningless to fetch MTSV of all deps during
+        // INITIALIZE_ENVIRONMENT's batch prefetch, and resolves a blocker to remove batch prefetch
+        // from INITIALIZE_ENVIRONMENT. Also, `SkyFunctionEnvironment#PartialEvaluation` subclass
+        // starts to support `getMaxTransitiveSourceVersionSoFar()` method.
+        // TODO(b/324948927): This comment should be rephrased when batch prefetch is removed from
+        // INITIALIZE_ENVIRONMENT PHASE.
+        nodeEntry.setTemporaryMaxTransitiveSourceVersion(env.getMaxTransitiveSourceVersionSoFar());
 
         if (value instanceof Reset) {
           if (nodeEntry.hasUnsignaledDeps()) {
@@ -924,7 +928,10 @@ abstract class AbstractParallelEvaluator {
 
   static void propagateInterruption(SchedulerException e) throws InterruptedException {
     boolean mustThrowInterrupt = Thread.interrupted();
-    Throwables.propagateIfPossible(e.getCause(), InterruptedException.class);
+    if (e.getCause() != null) {
+      throwIfInstanceOf(e.getCause(), InterruptedException.class);
+      throwIfUnchecked(e.getCause());
+    }
     if (mustThrowInterrupt) {
       // As per the contract of AbstractQueueVisitor#work, if an unchecked exception is thrown and
       // the build is interrupted, the thrown exception is what will be rethrown. Since the user

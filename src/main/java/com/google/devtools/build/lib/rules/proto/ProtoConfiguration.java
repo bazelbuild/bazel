@@ -56,15 +56,6 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     public List<String> protocOpts;
 
     @Option(
-        name = "experimental_proto_extra_actions",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-        help = "Run extra actions for alternative Java api versions in a proto_library.")
-    public boolean experimentalProtoExtraActions;
-
-    @Option(
         name = "experimental_proto_descriptor_sets_include_source_info",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
@@ -177,10 +168,6 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
 
   @StarlarkMethod(name = "experimental_protoc_opts", structField = true, documented = false)
   public ImmutableList<String> protocOptsForStarlark() throws EvalException {
-    return protocOpts();
-  }
-
-  public ImmutableList<String> protocOpts() {
     return protocOpts;
   }
 
@@ -190,21 +177,12 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
       documented = false)
   public boolean experimentalProtoDescriptorSetsIncludeSourceInfoForStarlark(StarlarkThread thread)
       throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
+    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
     return experimentalProtoDescriptorSetsIncludeSourceInfo();
   }
 
   public boolean experimentalProtoDescriptorSetsIncludeSourceInfo() {
     return options.experimentalProtoDescriptorSetsIncludeSourceInfo;
-  }
-
-  /**
-   * Returns true if we will run extra actions for actions that are not run by default. If this is
-   * enabled, e.g. all extra_actions for alternative api-versions or language-flavours of a
-   * proto_library target are run.
-   */
-  public boolean runExperimentalProtoExtraActions() {
-    return options.experimentalProtoExtraActions;
   }
 
   @StarlarkConfigurationField(
@@ -254,45 +232,23 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
 
   @StarlarkMethod(name = "strict_proto_deps", useStarlarkThread = true, documented = false)
   public String strictProtoDepsForStarlark(StarlarkThread thread) throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
-    return strictProtoDeps().toString();
+    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
+    return options.strictProtoDeps.toString();
   }
 
   @StarlarkMethod(name = "strict_public_imports", useStarlarkThread = true, documented = false)
   public String strictPublicImportsForStarlark(StarlarkThread thread) throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
+    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
     return options.strictPublicImports.toString();
   }
 
-  public StrictDepsMode strictProtoDeps() {
-    return options.strictProtoDeps;
-  }
-
-  @StarlarkMethod(
-      name = "cc_proto_library_header_suffixes",
-      useStarlarkThread = true,
-      documented = false)
-  public List<String> ccProtoLibraryHeaderSuffixesForStarlark(StarlarkThread thread)
-      throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
-    return ccProtoLibraryHeaderSuffixes();
-  }
-
-  public List<String> ccProtoLibraryHeaderSuffixes() {
+  @StarlarkMethod(name = "cc_proto_library_header_suffixes", structField = true, documented = false)
+  public List<String> ccProtoLibraryHeaderSuffixesForStarlark() {
     return ccProtoLibraryHeaderSuffixes;
   }
 
-  @StarlarkMethod(
-      name = "cc_proto_library_source_suffixes",
-      useStarlarkThread = true,
-      documented = false)
-  public List<String> ccProtoLibrarySourceSuffixesForStarlark(StarlarkThread thread)
-      throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
-    return ccProtoLibrarySourceSuffixes();
-  }
-
-  public List<String> ccProtoLibrarySourceSuffixes() {
+  @StarlarkMethod(name = "cc_proto_library_source_suffixes", structField = true, documented = false)
+  public List<String> ccProtoLibrarySourceSuffixesForStarlark() {
     return ccProtoLibrarySourceSuffixes;
   }
 }

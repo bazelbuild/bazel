@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.query2.aquery;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.Futures;
@@ -23,6 +24,7 @@ import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
@@ -45,6 +47,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.ThreadSafeMutableKeyExtractorBackedSetImpl;
+import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler;
@@ -79,6 +82,7 @@ public class ActionGraphQueryEnvironment
       ExtendedEventHandler eventHandler,
       Iterable<QueryFunction> extraFunctions,
       TopLevelConfigurations topLevelConfigurations,
+      ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations,
       TargetPattern.Parser mainRepoTargetParser,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
@@ -89,6 +93,7 @@ public class ActionGraphQueryEnvironment
         eventHandler,
         extraFunctions,
         topLevelConfigurations,
+        transitiveConfigurations,
         mainRepoTargetParser,
         pkgPath,
         walkableGraphSupplier,
@@ -105,6 +110,7 @@ public class ActionGraphQueryEnvironment
       ExtendedEventHandler eventHandler,
       Iterable<QueryFunction> extraFunctions,
       TopLevelConfigurations topLevelConfigurations,
+      ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations,
       TargetPattern.Parser mainRepoTargetParser,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
@@ -115,6 +121,7 @@ public class ActionGraphQueryEnvironment
         eventHandler,
         extraFunctions,
         topLevelConfigurations,
+        transitiveConfigurations,
         mainRepoTargetParser,
         pkgPath,
         walkableGraphSupplier,
@@ -258,10 +265,26 @@ public class ActionGraphQueryEnvironment
   protected RuleConfiguredTarget getRuleConfiguredTarget(
       ConfiguredTargetValue configuredTargetValue) {
     ConfiguredTarget configuredTarget = configuredTargetValue.getConfiguredTarget();
-    if (configuredTarget instanceof RuleConfiguredTarget) {
-      return (RuleConfiguredTarget) configuredTarget;
+    if (configuredTarget instanceof RuleConfiguredTarget ruleConfiguredTarget) {
+      return ruleConfiguredTarget;
     }
     return null;
+  }
+
+  @Nullable
+  @Override
+  protected RuleConfiguredTarget getOwningRuleforOutputConfiguredTarget(
+      ConfiguredTargetValue configuredTargetValue) {
+    ConfiguredTarget configuredTarget = configuredTargetValue.getConfiguredTarget();
+    if (configuredTarget instanceof OutputFileConfiguredTarget outputFileTarget) {
+      return outputFileTarget.getGeneratingRule();
+    }
+    return null;
+  }
+
+  @Override
+  protected boolean isAliasConfiguredTarget(ConfiguredTargetValue configuredTargetValue) {
+    return configuredTargetValue.getConfiguredTarget() instanceof AliasConfiguredTarget;
   }
 
   @Nullable
@@ -307,17 +330,13 @@ public class ActionGraphQueryEnvironment
         Futures.catchingAsync(
             patternToEval.evalAdaptedForAsync(
                 resolver,
-                getIgnoredPackagePrefixesPathFragments(),
+                getIgnoredPackagePrefixesPathFragments(patternToEval.getRepository()),
                 /* excludedSubdirectories= */ ImmutableSet.of(),
                 (Callback<Target>)
                     partialResult -> {
                       List<ConfiguredTargetValue> transformedResult = new ArrayList<>();
                       for (Target target : partialResult) {
-                        ConfiguredTargetValue configuredTargetValue =
-                            getConfiguredTargetValue(target.getLabel());
-                        if (configuredTargetValue != null) {
-                          transformedResult.add(configuredTargetValue);
-                        }
+                        transformedResult.addAll(getConfiguredTargetsForLabel(target.getLabel()));
                       }
                       callback.process(transformedResult);
                     },
@@ -327,14 +346,27 @@ public class ActionGraphQueryEnvironment
             MoreExecutors.directExecutor()));
   }
 
-  private ConfiguredTargetValue getConfiguredTargetValue(Label label) throws InterruptedException {
-    // Try with target configuration.
-    ConfiguredTargetValue configuredTargetValue = getTargetConfiguredTarget(label);
-    if (configuredTargetValue != null) {
-      return configuredTargetValue;
+  /**
+   * Returns all configured targets in Skyframe with the given label.
+   *
+   * <p>If there are no matches, returns an empty list.
+   */
+  private ImmutableList<ConfiguredTargetValue> getConfiguredTargetsForLabel(Label label)
+      throws InterruptedException {
+    ImmutableList.Builder<ConfiguredTargetValue> ans = ImmutableList.builder();
+    for (BuildConfigurationValue config : transitiveConfigurations.values()) {
+      ConfiguredTargetValue configuredTargetValue =
+          createConfiguredTargetValueFromKey(
+              ConfiguredTargetKey.builder().setLabel(label).setConfiguration(config).build());
+      if (configuredTargetValue != null) {
+        ans.add(configuredTargetValue);
+      }
     }
-    // Last chance: source file.
-    return getNullConfiguredTarget(label);
+    ConfiguredTargetValue nullConfiguredTarget = getNullConfiguredTarget(label);
+    if (nullConfiguredTarget != null) {
+      ans.add(nullConfiguredTarget);
+    }
+    return ans.build();
   }
 
   @Override

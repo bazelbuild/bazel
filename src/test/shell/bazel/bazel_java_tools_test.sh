@@ -56,13 +56,6 @@ msys*)
   ;;
 esac
 
-if "$is_windows"; then
-  # Disable MSYS path conversion that converts path-looking command arguments to
-  # Windows paths (even if they arguments are not in fact paths).
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 function set_up() {
   local java_tools_rlocation=$(rlocation io_bazel/src/java_tools.zip)
   local java_tools_zip_file_url="file://${java_tools_rlocation}"
@@ -74,11 +67,8 @@ function set_up() {
   if "$is_windows"; then
         java_tools_prebuilt_zip_file_url="file:///${java_tools_prebuilt_rlocation}"
   fi
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-EOF
-  cat $(rlocation io_bazel/src/tests/shell/bazel/rules_license_stanza.txt) >> WORKSPACE
-  cat >> WORKSPACE <<EOF
+  cat >> $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "local_java_tools",
     urls = ["${java_tools_zip_file_url}"]
@@ -87,8 +77,14 @@ http_archive(
     name = "local_java_tools_prebuilt",
     urls = ["${java_tools_prebuilt_zip_file_url}"]
 )
+bazel_dep(name = "abseil-cpp", version = "20230802.1", repo_name = "com_google_absl")
 EOF
-  cat $(rlocation io_bazel/src/tests/shell/bazel/rules_license_stanza.txt) >> WORKSPACE
+  # Dependencies of java_tools
+  add_platforms "MODULE.bazel"
+  add_rules_cc "MODULE.bazel"
+  add_rules_java "MODULE.bazel"
+  add_protobuf "MODULE.bazel"
+  add_rules_license "MODULE.bazel"
 }
 
 function expect_path_in_java_tools() {
@@ -150,6 +146,12 @@ function test_java_tools_has_JavaBuilder() {
 
 function test_java_tools_has_turbine_direct() {
   expect_path_in_java_tools "java_tools/turbine_direct_binary_deploy.jar"
+  expect_path_in_java_tools_prebuilt "java_tools/turbine_direct_graal"
+}
+
+function test_java_tools_has_one_version() {
+  expect_path_in_java_tools "java_tools/src/tools/one_version"
+  expect_path_in_java_tools_prebuilt "java_tools/src/tools/one_version"
 }
 
 function test_java_tools_has_Runner() {
@@ -212,6 +214,19 @@ function test_java_tools_ijar_builds_with_layering_check() {
 
   bazel build --repo_env=CC=clang --features=layering_check \
     @local_java_tools//:ijar_cc_binary || fail "ijar failed to build with layering check"
+}
+
+function test_java_tools_one_version_builds() {
+  bazel build @local_java_tools//:one_version_cc_bin || fail "one_version failed to build"
+}
+
+function test_java_tools_one_version_builds_with_layering_check() {
+  if [[ ! $(type -P clang) ]]; then
+    return
+  fi
+
+  bazel build --repo_env=CC=clang --features=layering_check \
+    @local_java_tools//:one_version_cc_bin || fail "one_version failed to build with layering check"
 }
 
 run_suite "Java tools archive tests"

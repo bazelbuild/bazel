@@ -21,6 +21,7 @@ import com.google.common.graph.GraphBuilder;
 import com.google.common.graph.ImmutableGraph;
 import com.google.common.graph.MutableGraph;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reportable;
@@ -163,7 +164,7 @@ public interface SkyFunction {
       this.rewindGraph = rewindGraph;
     }
 
-    ImmutableGraph<SkyKey> rewindGraph() {
+    public ImmutableGraph<SkyKey> rewindGraph() {
       return rewindGraph;
     }
   }
@@ -376,18 +377,29 @@ public interface SkyFunction {
     void registerDependencies(Iterable<SkyKey> keys);
 
     /**
-     * Returns whether we are currently in error bubbling. Should only be used by SkyFunctions that
-     * can fully recover from a dependency's throwing an exception in --keep_going mode, returning a
-     * value instead of transforming the exception. {@link
-     * com.google.devtools.build.lib.skyframe.TargetPatternFunction} is the classic example of such
-     * a SkyFunction, since it can encounter errors while processing target patterns like
-     * '//foo/...' but still return the list of all found targets.
+     * Returns whether we are currently in error bubbling, which only happens in {@code
+     * --nokeep_going} mode when a dependency is in error.
      *
-     * <p>Such a SkyFunction cannot unconditionally return a value, since in --nokeep_going mode it
-     * may be called upon to transform a lower-level exception. This method can tell it whether to
-     * transform a dependency's exception or ignore it and return a value as usual.
+     * <p>This method should not be needed by a typical {@link SkyFunction}. Examples where it may
+     * be needed:
+     *
+     * <ul>
+     *   <li>A {@link SkyFunction} that can fully recover from a dependency's error in {@code
+     *       --keep_going mode}, returning a value instead of transforming the exception. {@link
+     *       com.google.devtools.build.lib.skyframe.TargetPatternFunction} is the classic example of
+     *       such a function, since it can encounter errors while processing target patterns like
+     *       {@code //foo/...} but still return the list of all found targets. Such a {@link
+     *       SkyFunction} cannot unconditionally return a value, since in {@code --nokeep_going}
+     *       mode it may be called upon to transform a lower-level exception. This method can tell
+     *       it whether to transform a dependency's exception or ignore it and return a value as
+     *       usual.
+     *   <li>A {@link SkyFunction} that needs to perform important side effects such as posting
+     *       events unless interrupted by the user. This method can be used to attempt to
+     *       distinguish user-initiated interrupts from Skyframe-initiated interrupts, which may
+     *       occur during error bubbling.
+     * </ul>
      */
-    boolean inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors();
+    boolean inErrorBubbling();
 
     /**
      * Adds a dependency on a Skyframe-external event. If the given future is already complete, this
@@ -404,6 +416,72 @@ public interface SkyFunction {
      * thread pool without blocking the current Skyframe thread.
      */
     void dependOnFuture(ListenableFuture<?> future);
+
+    /**
+     * Returns a {@link QuiescingExecutor} object so that {@link SkyFunction#compute} can dispatch
+     * some work to other parallel threads.
+     *
+     * <p>If some {@link SkyFunction} intends to take advantage of this executor, user should first
+     * judge between using the existing "skyframe-evaluator" thread pool and introducing a new type
+     * of parallelism.
+     *
+     * <p>Using the existing "skyframe-evaluator" one carries significant risks. It is possible that
+     * the extra computation added to the existing executor will slow down or even block existing
+     * computation, causing performance regression. In order to mitigate this risk, users should
+     * also schedule work on the {@link SkyFunction#compute} thread along with the external ones.
+     * For example,
+     *
+     * <pre>{@code
+     * class MyFunction implements SkyFunction {
+     *   public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
+     *     CountDownLatch countDownLatch = new CountDownLatch(expectRunnableCount);
+     *     BlockingQueue<Runnable> runnablesQueue = new LinkedBlockingQueue<>();
+     *
+     *     for (int i = 0; i < expectRunnableCount; ++i) {
+     *       runnablesQueue.put(() -> {
+     *         try {
+     *           // ...
+     *         } finally {
+     *           countDownLatch.countDown();
+     *         }
+     *       });
+     *     }
+     *
+     *     Runnable drainQueue = () -> {
+     *           Runnable next;
+     *           while ((next = runnablesQueue.poll()) != null) {
+     *             next.run();
+     *           }
+     *         };
+     *
+     *     // Dispatch the work to external threads
+     *     QuiescingExecutor executor = env.getParallelEvaluationExecutor();
+     *     for (int i = 0; i < PARALLELISM; ++i) {
+     *       executor.execute(drainQueue);
+     *     }
+     *
+     *     // Current thread should also help to execute some Runnables in the queue.
+     *     drainQueue.run();
+     *
+     *     // Wait for all runnables in the queue to complete before returning.
+     *     countDownLatch.await();
+     *     return new MySkyValue();
+     *   }
+     * }
+     * }</pre>
+     *
+     * <p>On the other hand, abusively creating new parallelism is also strongly discouraged unless
+     * the benefits can be reasonably justified. {@link
+     * SkyFunctionEnvironment#getParallelEvaluationExecutor()} discusses an approach to introduce
+     * new parallelism.
+     *
+     * <p>In summary, it is generally discouraged to use this method to introduce either existing or
+     * new parallelism to SkyFunction computation, unless comprehensive research has been conducted.
+     */
+    @Nullable
+    default QuiescingExecutor getParallelEvaluationExecutor() {
+      return null;
+    }
 
     /**
      * Container for data stored in between calls to {@link #compute} for the same {@link SkyKey}.
@@ -423,8 +501,8 @@ public interface SkyFunction {
        *
        * <p>Implementations <strong>MUST</strong> be idempotent.
        *
-       * <p>Note also that this method should not perform any heavy work (especially blocking
-       * operations).
+       * <p>Note also that this method could be invoked from arbitrary threads, so avoid heavy
+       * operations if possible.
        */
       @Override
       default void close() {}

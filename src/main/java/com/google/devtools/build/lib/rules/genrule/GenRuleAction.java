@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineLimits;
 import com.google.devtools.build.lib.actions.CommandLines;
-import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -43,7 +42,6 @@ public final class GenRuleAction extends SpawnAction {
       CommandLines commandLines,
       ActionEnvironment env,
       ImmutableMap<String, String> executionInfo,
-      RunfilesSupplier runfilesSupplier,
       CharSequence progressMessage) {
     super(
         owner,
@@ -55,7 +53,6 @@ public final class GenRuleAction extends SpawnAction {
         env,
         executionInfo,
         progressMessage,
-        runfilesSupplier,
         MNEMONIC,
         OutputPathsMode.OFF);
   }

@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLo
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -112,68 +111,5 @@ public class PythonStarlarkApiTest extends BuildViewTestCase {
         .containsExactly("loweruserlib_path", "upperuserlib_path");
     assertThat(info.getHasPy2OnlySources()).isTrue();
     assertThat(info.getHasPy3OnlySources()).isTrue();
-  }
-
-  @Test
-  public void runtimeSandwich() throws Exception {
-    scratch.file(
-        "pkg/rules.bzl",
-        getPyLoad("PyRuntimeInfo"),
-        "def _userruntime_impl(ctx):",
-        "    info = ctx.attr.runtime[PyRuntimeInfo]",
-        "    return [PyRuntimeInfo(",
-        "        interpreter = ctx.file.interpreter,",
-        "        files = depset(direct = ctx.files.files, transitive=[info.files]),",
-        "        python_version = info.python_version,",
-        "        bootstrap_template = ctx.file.bootstrap_template)]",
-        "",
-        "userruntime = rule(",
-        "    implementation = _userruntime_impl,",
-        "    attrs = {",
-        "        'runtime': attr.label(),",
-        "        'interpreter': attr.label(allow_single_file=True),",
-        "        'files': attr.label_list(allow_files=True),",
-        "        'bootstrap_template': attr.label(allow_single_file=True),",
-        "    },",
-        ")");
-    scratch.file(
-        "pkg/BUILD",
-        getPyLoad("py_binary"),
-        getPyLoad("py_runtime"),
-        getPyLoad("py_runtime_pair"),
-        "load(':rules.bzl', 'userruntime')",
-        "py_runtime(",
-        "    name = 'pyruntime',",
-        "    interpreter = ':intr',",
-        "    files = ['data.txt'],",
-        "    python_version = 'PY3',",
-        ")",
-        "userruntime(",
-        "    name = 'userruntime',",
-        "    runtime = ':pyruntime',",
-        "    interpreter = ':userintr',",
-        "    files = ['userdata.txt'],",
-        "    bootstrap_template = 'bootstrap.txt',",
-        ")",
-        "py_runtime_pair(",
-        "    name = 'userruntime_pair',",
-        "    py3_runtime = 'userruntime',",
-        ")",
-        "toolchain(",
-        "    name = 'usertoolchain',",
-        "    toolchain = ':userruntime_pair',",
-        "    toolchain_type = '"
-            + TestConstants.TOOLS_REPOSITORY
-            + "//tools/python:toolchain_type',",
-        ")",
-        "py_binary(",
-        "    name = 'pybin',",
-        "    srcs = ['pybin.py'],",
-        ")");
-    useConfiguration(
-        "--extra_toolchains=//pkg:usertoolchain", "--incompatible_use_python_toolchains=true");
-    ConfiguredTarget target = getConfiguredTarget("//pkg:pybin");
-    assertThat(collectRunfiles(target).toList())
-        .containsAtLeast(getSourceArtifact("pkg/data.txt"), getSourceArtifact("pkg/userdata.txt"));
   }
 }

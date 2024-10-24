@@ -112,6 +112,9 @@ For instructions for Windows, see [Build Bazel on Windows](#build-bazel-on-windo
     Alternatively you can run `bazel build //src:bazel --compilation_mode=opt`
     to yield a smaller binary but it's slower to build.
 
+    You can build with `--stamp --embed_label=X.Y.Z` flag to embed a Bazel
+    version for the binary so that `bazel --version` outputs the given version.
+
 4.  The output will be at `bazel-bin/src/bazel-dev` (or `bazel-bin/src/bazel`).
 
 ### Step 4b: Build Bazel on Windows {:#build-bazel-on-windows}
@@ -134,10 +137,13 @@ For instructions for Unix-like systems, see
 
 3.  Build Bazel from source:
 
-        bazel build //src:bazel-dev.exe
+    bazel build //src:bazel-dev.exe
 
     Alternatively you can run `bazel build //src:bazel.exe
     --compilation_mode=opt` to yield a smaller binary but it's slower to build.
+
+    You can build with `--stamp --embed_label=X.Y.Z` flag to embed a Bazel
+    version for the binary so that `bazel --version` outputs the given version.
 
 4.  The output will be at `bazel-bin\src\bazel-dev.exe` (or
     `bazel-bin\src\bazel.exe`).
@@ -191,7 +197,7 @@ For instructions for Windows, see [Bootstrap Bazel on Windows](#bootstrap-window
 
 *   **C++ build toolchain**
 
-*   **JDK.** Version 11 is required.
+*   **JDK.** Version 21 is required.
 
 *   **Python**. Versions 2 and 3 are supported, installing one of them is
     enough.
@@ -200,7 +206,7 @@ For example on Ubuntu Linux you can install these requirements using the
 following command:
 
 ```sh
-sudo apt-get install build-essential openjdk-11-jdk python zip unzip
+sudo apt-get install build-essential openjdk-21-jdk python zip unzip
 ```
 
 #### 2.2. Bootstrap Bazel on Unix {:#bootstrap-unix}
@@ -239,11 +245,11 @@ For instructions for Unix-like systems, see
     of Visual Studio 2015 or newer, or by installing the latest [Build Tools
     for Visual Studio 2017](https://aka.ms/BuildTools).
 
-*   **JDK.** Version 11 is required.
+*   **JDK.** Version 21 is required.
 
 *   **Python**. Versions 2 and 3 are supported, installing one of them is
     enough. You need the Windows-native version (downloadable from
-    [https://www.python.org](https://www.python.org)).  Versions installed via
+    [https://www.python.org](https://www.python.org)). Versions installed via
     pacman in MSYS2 will not work.
 
 #### 2.2. Bootstrap Bazel on Windows {:#bootstrap-windows}
@@ -268,14 +274,14 @@ For instructions for Unix-like systems, see
         export BAZEL_VS="C:/Program Files (x86)/Microsoft Visual Studio/2017/BuildTools"
         export BAZEL_SH="$(cygpath -m $(realpath $(which bash)))"
         export PATH="/c/python27:$PATH"
-        export JAVA_HOME="C:/Program Files/Java/jdk1.8.0_112"
+        export JAVA_HOME="C:/Program Files/Java/jdk-21"
 
     or (using BAZEL\_V<b>C</b>):
 
         export BAZEL_VC="C:/Program Files (x86)/Microsoft Visual Studio/2017/BuildTools/VC"
         export BAZEL_SH="$(cygpath -m $(realpath $(which bash)))"
         export PATH="/c/python27:$PATH"
-        export JAVA_HOME="C:/Program Files/Java/jdk1.8.0_112"
+        export JAVA_HOME="C:/Program Files/Java/jdk-21"
 
 3.  `cd` to the directory where you unpacked the distribution archive.
 

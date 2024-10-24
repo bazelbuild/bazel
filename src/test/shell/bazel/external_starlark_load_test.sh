@@ -47,7 +47,8 @@ function run_external_starlark_load_test() {
   create_new_workspace
   external_repo=${new_workspace_dir}
 
-  cat > ${WORKSPACE_DIR}/WORKSPACE <<EOF
+  cat > ${WORKSPACE_DIR}/MODULE.bazel <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name = "external_repo", path = "${external_repo}")
 EOF
 
@@ -115,7 +116,7 @@ function test_load_starlark_from_external_repo_with_repo_relative_label_load() {
 function test_starlark_repository_relative_label() {
   repo2=$TEST_TMPDIR/repo2
   mkdir -p $repo2
-  touch $repo2/WORKSPACE $repo2/BUILD
+  touch $repo2/REPO.bazel $repo2/BUILD
   cat > $repo2/remote.bzl <<EOF
 def _impl(ctx):
   print(Label("//foo:bar"))
@@ -125,7 +126,8 @@ remote_rule = rule(
 )
 EOF
 
-  cat > WORKSPACE <<EOF
+  cat > MODULE.bazel <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "r",
     path = "$repo2",
@@ -157,7 +159,8 @@ function test_starlark_repository_nested_relative_label() {
   mkdir -p $repo1 $repo2
 
   # local
-  cat > WORKSPACE <<EOF
+  cat > MODULE.bazel <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "r1",
     path = "$repo1",
@@ -177,7 +180,7 @@ genrule(
 EOF
 
   # r1
-  touch $repo1/WORKSPACE
+  touch $repo1/REPO.bazel
   cat > $repo1/BUILD <<EOF
 load('@r2//:remote.bzl', 'remote_rule')
 
@@ -188,7 +191,7 @@ remote_rule(
 EOF
 
   # r2
-  touch $repo2/WORKSPACE $repo2/BUILD
+  touch $repo2/REPO.bazel $repo2/BUILD
   cat > $repo2/remote.bzl <<EOF
 def _impl(ctx):
   print(Label("//foo:bar"))
@@ -227,7 +230,7 @@ EOF
 
 cat > rule.bzl <<EOF
 def test_aspect_impl(target, ctx):
-  return struct()
+  return []
 
 test_aspect = aspect(
     attrs = {
@@ -240,7 +243,7 @@ test_aspect = aspect(
 )
 
 def test_rule_impl(ctx):
-  return struct()
+  return []
 
 test_rule = rule(
     attrs = {
@@ -256,7 +259,7 @@ test_rule = rule(
 )
 EOF
 
-  bazel build //:tr || fail "build failed"
+  bazel build --enable_workspace //:tr || fail "build failed"
 }
 
 run_suite "Test Starlark loads from/in external repositories"

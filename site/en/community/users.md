@@ -39,11 +39,18 @@ In their own words:
 > Bazel has increased reliability, stability, and speed for all of builds/tests
 at Asana. We no longer need to clean because of incorrect caches.
 
-
 ### [Ascend.io](https://ascend.io)
 
 Ascend is a Palo Alto startup that offers solutions for large data sets
 analysis. Their motto is _Big data is hard. We make it easy_.
+
+### [ASML](https://asml.com){: .external}
+
+<img src="https://upload.wikimedia.org/wikipedia/en/6/6c/ASML_Holding_N.V._logo.svg" width="150" align=right>
+
+ASML is an innovation leader in the semiconductor industry. We provide chipmakers
+with everything they need – hardware, software and services – to mass produce
+patterns on silicon through lithography.
 
 ### [Beeswax](https://www.beeswax.com/){: .external}
 
@@ -62,7 +69,7 @@ even posted a
 [nice piece about how their switch to Bazel went](https://www.pgrs.net/2015/09/01/migrating-from-gradle-to-bazel/).
 
 ### [Canva](https://www.canva.com/){: .external}
-<img src="https://upload.wikimedia.org/wikipedia/en/3/3b/Canva_Logo.png" width="90" align="right">
+<img src="https://upload.wikimedia.org/wikipedia/commons/b/bb/Canva_Logo.svg" width="90" align="right">
 
 Canva leverages Bazel to manage its large polyglot codebase, which includes
 Java, TypeScript, Scala, Python, and more. Migration to Bazel has delivered
@@ -163,6 +170,21 @@ Java/JavaScript services and client libraries and to generate Java and Ruby
 code from protobuf definitions.
 [Read about how we run individual JUnit 5 tests in isolation with Bazel.](https://flexport.engineering/connecting-bazel-and-junit5-by-transforming-arguments-46440c6ea068)
 
+### [Foursquare](https://foursquare.com){: .external}
+<img src="https://upload.wikimedia.org/wikipedia/commons/9/99/FSQ_logo.png" width="150" align="right">
+
+Foursquare's mission is to create technology that constructs meaningful
+bridges between digital spaces and physical places. We manage millions of
+lines of primarily Scala and Python code powering data-intensive
+applications, including complex codegen and container build processes, with
+Bazel.
+
+### [GermanTechJobs](https://germantechjobs.de){: .external}
+<img src="https://upload.wikimedia.org/wikipedia/commons/9/98/GermanTechJobs_Logo.png" width="150" align="right">
+
+Bazel has simplified our workflows 10-fold and enabled shipping features at
+scale.
+
 ### [Google](https://google.com){: .external}
 <img src="https://upload.wikimedia.org/wikipedia/commons/2/2f/Google_2015_logo.svg" width="150" align="right">
 
@@ -170,16 +192,6 @@ Bazel was designed to be able to scale to Google's needs and meet Google's
 requirements of reproducibility and platform/language support. All software at
 Google is built using Bazel. Google uses Bazel and its rules for millions of
 builds every day.
-
-### [GRAKN.AI](https://grakn.ai){: .external}
-<img src="/community/images/grakn.jpeg" alt="GRAKN AI Logo" width="150" align="right">
-
-Grakn is a database technology that serves as the knowledge-base foundation to
-intelligent systems. Grakn allows intelligent systems to interpret complex
-datasets as a single body of knowledge that can be logically reasoned over.
-Bazel enables the @graknlabs team to build a highly-orchestrated CI and
-distribution pipeline that manages multiple repositories of multiple languages,
-and deploys to numerous platforms seamlessly.
 
 ### [Huawei](http://www.huawei.com/){: .external}
 
@@ -219,11 +231,6 @@ to JVM binaries, using remote caching.
 Just is an enterprise financial technology company, headquartered in Norway,
 creating software solutions to transform how global corporate treasurers manage
 risk and liquidity. Their entire application stack is built with Bazel.
-
-### [Kitty Hawk Corporation](https://kittyhawk.aero/){: .external}
-
-The Kitty Hawk Corporation is an American aircraft manufacturer producing
-electric aircraft. They use Bazel with Haskell and Scala rules.
 
 ### [Line](https://line.me/)
 
@@ -271,12 +278,6 @@ unlocked further growth.
 
 Lyft is using Bazel for their iOS ([source](https://twitter.com/SmileyKeith/status/1116486751806033920)) and Android Apps.
 
-### [Makani](https://www.google.com/makani){: .external}
-Makani, now a Google subsidiary, develops energy kites and uses Bazel to build
-their software (including their embedded C++ software).
-
-<img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/Meetup_Logo.png" width="100" align="right">
-
 ### [Meetup](http://www.meetup.com/){: .external}
 
 Meetup is an online social networking portal that facilitates offline group
@@ -301,6 +302,22 @@ Peloton Technology is an automated vehicle technology company that tackles truck
 accidents and fuel use. They use Bazel to _enable reliable builds for automotive
 safety systems_.
 
+### [Pigweed](https://pigweed.dev){: .external}
+
+<img src="https://pigweed.dev/_static/pw_logo.svg" width="100" align="right">
+
+Pigweed is an open-source solution for sustained, robust, and rapid embedded
+product development for large teams. Pigweed has shipped in millions of
+devices, including Google's suite of Pixel devices, Nest thermostats,
+[satellites](https://www.spinlaunch.com/), and [autonomous aerial
+drones](https://www.flyzipline.com/).
+
+Pigweed [uses Bazel as its primary build
+system](https://pigweed.dev/seed/0111-build-systems.html). The [Bazel for
+Embedded][pw-bazel-great] blog post discusses why we think it's a great build
+system for embedded projects!
+
+[pw-bazel-great]: https://blog.bazel.build/2024/08/08/bazel-for-embedded.html#why-bazel-for-embedded
 
 ### [Pinterest](https://www.pinterest.com/){: .external}
 
@@ -356,8 +373,7 @@ details about their process, see their [engineering blog](https://eng.snap.com/b
 ### [Stripe](https://stripe.com){: .external}
 <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/ba/Stripe_Logo%2C_revised_2016.svg/320px-Stripe_Logo%2C_revised_2016.svg.png" width="150" align="right">
 
-Stripe provides mobile payment solutions.  They are the main maintainers of the
-[Bazel Scala rules](https://github.com/bazelbuild/rules_scala){: .external}.
+Stripe provides mobile payment solutions. They use Bazel in their build and test pipelines, as detailed in their [engineering blog](https://stripe.com/blog/fast-secure-builds-choose-two){: .external}.
 
 ### [Tinder](https://tinder.com){: .external}
 <img src="https://policies.tinder.com/static/b0327365f4c0a31c4337157c10e9fadf/c1b63/tinder_full_color_watermark.png" width="150" align="right">
@@ -387,6 +403,13 @@ where they explain how Bazel sped up their builds. The build duration went from
 55 minutes to 10 minutes by using Bazel, and down to 5 minutes with remote
 caching.
 
+### [Trunk.io](https://trunk.io/merge/trunk-merge-and-bazel){: .external}
+<img src="/community/images/trunk-logo-dark.svg" width="150" align="right">
+
+Trunk is a San Francisco-based company backed by Andreessen Horowitz and Initialized Capital. Trunk offers a powerful pull request merge service with first-class support for the Bazel build system. By leveraging Bazel's understanding of dependencies within a codebase, Trunk's merge service intelligently creates parallel merge lanes, allowing independent changes to be tested and merged simultaneously.
+
+> Trunk’s internal monorepo builds modern C++ 20 and typescript all while leveraging bazel graph knowledge to selectively test and merge code.
+
 ### [Twitter](https://twitter.com/){: .external}
 
 Twitter has made the decision to migrate from Pants to Bazel as their primary
@@ -398,6 +421,19 @@ build tool
 
 Two Sigma is a New York-headquartered technology company dedicated to finding
 value in the world’s data.
+
+### [TypeDB](https://typedb.com){: .external}
+<img src="/community/images/typedb.png" alt="TypeDB Logo" width="150" align="right">
+
+TypeDB is a database technology that can be used to intuitively model
+interconnected data. Through its type-theoretic and polymorphic query language,
+TypeQL, the data can be accessed with simple, human-readable queries that run at
+lightspeed.
+
+Bazel enables the TypeDB team to build a highly-orchestrated CI and distribution
+pipeline that manages many repositories in a wide variety of languages, and
+deploys to numerous platforms seamlessly. The TypeDB team has also released
+Bazel rules for assembling and deploying software distributions.
 
 ### [Uber](https://www.uber.com){: .external}
 
@@ -566,6 +602,14 @@ seamlessly from normal Java code.
 
 Heron is a realtime, distributed, fault-tolerant stream processing engine from
 Twitter.
+
+### [Internet Computer Protocol](https://internetcomputer.org/){: .external}
+
+<img src="https://internetcomputer.org/img/IC_logo_horizontal_white.svg" width="120" align="right">
+
+The Internet Computer Protocol is a publicly available blockchain network that
+enables replicated execution of general-purpose computation, serving hundreds
+of thousands of applications and their users.
 
 ### [Jazzer](https://github.com/CodeIntelligenceTesting/jazzer){: .external}
 

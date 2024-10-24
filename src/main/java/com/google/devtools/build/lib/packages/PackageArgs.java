@@ -21,10 +21,8 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.analysis.config.FeatureSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.CollectionUtils;
-import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
-import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
@@ -45,7 +43,6 @@ public abstract class PackageArgs {
           .setDefaultTestOnly(false)
           .setFeatures(FeatureSet.EMPTY)
           .setLicense(License.NO_LICENSE)
-          .setDistribs(License.DEFAULT_DISTRIB)
           .setDefaultCompatibleWith(ImmutableSet.of())
           .setDefaultRestrictedTo(ImmutableSet.of())
           .setDefaultPackageMetadata(ImmutableList.of())
@@ -74,10 +71,6 @@ public abstract class PackageArgs {
   /** The default license value for the package. */
   @Nullable
   public abstract License license();
-
-  /** The default distributions value for the package. */
-  @Nullable
-  public abstract ImmutableSet<DistributionType> distribs();
 
   /** The default {@link RuleClass#COMPATIBLE_ENVIRONMENT_ATTR} value for the package. */
   @Nullable
@@ -133,8 +126,6 @@ public abstract class PackageArgs {
 
     public abstract Builder setLicense(License x);
 
-    public abstract Builder setDistribs(Set<DistributionType> x);
-
     /** Note that we don't check dupes in this method. Check beforehand! */
     public abstract Builder setDefaultCompatibleWith(Iterable<Label> x);
 
@@ -168,33 +159,25 @@ public abstract class PackageArgs {
       String name, Object rawValue, String what, LabelConverter labelConverter, Builder builder)
       throws EvalException {
     switch (name) {
-      case "default_visibility":
-        builder.setDefaultVisibility(
-            RuleVisibility.parse(BuildType.LABEL_LIST.convert(rawValue, what, labelConverter)));
-        break;
-      case "default_testonly":
-        builder.setDefaultTestOnly(Type.BOOLEAN.convert(rawValue, what, labelConverter));
-        break;
-      case "default_deprecation":
-        builder.setDefaultDeprecation(Type.STRING.convert(rawValue, what, labelConverter));
-        break;
-      case "features":
-        builder.mergeFeatures(
-            FeatureSet.parse(Type.STRING_LIST.convert(rawValue, what, labelConverter)));
-        break;
-      case "licenses":
-        builder.setLicense(BuildType.LICENSE.convert(rawValue, what, labelConverter));
-        break;
-      case "default_compatible_with":
-        builder.setDefaultCompatibleWith(
-            throwIfHasDupes(BuildType.LABEL_LIST.convert(rawValue, what, labelConverter), name));
-        break;
-      case "default_restricted_to":
-        builder.setDefaultRestrictedTo(
-            throwIfHasDupes(BuildType.LABEL_LIST.convert(rawValue, what, labelConverter), name));
-        break;
-      case "default_applicable_licenses":
-      case "default_package_metadata":
+      case "default_visibility" ->
+          builder.setDefaultVisibility(
+              RuleVisibility.parse(BuildType.LABEL_LIST.convert(rawValue, what, labelConverter)));
+      case "default_testonly" ->
+          builder.setDefaultTestOnly(Type.BOOLEAN.convert(rawValue, what, labelConverter));
+      case "default_deprecation" ->
+          builder.setDefaultDeprecation(Type.STRING.convert(rawValue, what, labelConverter));
+      case "features" ->
+          builder.mergeFeatures(
+              FeatureSet.parse(Types.STRING_LIST.convert(rawValue, what, labelConverter)));
+      case "licenses" ->
+          builder.setLicense(BuildType.LICENSE.convert(rawValue, what, labelConverter));
+      case "default_compatible_with" ->
+          builder.setDefaultCompatibleWith(
+              throwIfHasDupes(BuildType.LABEL_LIST.convert(rawValue, what, labelConverter), name));
+      case "default_restricted_to" ->
+          builder.setDefaultRestrictedTo(
+              throwIfHasDupes(BuildType.LABEL_LIST.convert(rawValue, what, labelConverter), name));
+      case "default_applicable_licenses", "default_package_metadata" -> {
         if (builder.defaultPackageMetadata() != null) {
           throw Starlark.errorf(
               "Can not set both default_package_metadata and default_applicable_licenses."
@@ -202,12 +185,10 @@ public abstract class PackageArgs {
         }
         builder.setDefaultPackageMetadata(
             throwIfHasDupes(BuildType.LABEL_LIST.convert(rawValue, what, labelConverter), name));
-        break;
-      case "default_hdrs_check":
-        builder.setDefaultHdrsCheck(Type.STRING.convert(rawValue, what, labelConverter));
-        break;
-      default:
-        throw Starlark.errorf("unexpected keyword argument: %s", name);
+      }
+      case "default_hdrs_check" ->
+          builder.setDefaultHdrsCheck(Type.STRING.convert(rawValue, what, labelConverter));
+      default -> throw Starlark.errorf("unexpected keyword argument: %s", name);
     }
   }
 
@@ -231,9 +212,6 @@ public abstract class PackageArgs {
     }
     if (other.license() != null) {
       builder.setLicense(other.license());
-    }
-    if (other.distribs() != null) {
-      builder.setDistribs(other.distribs());
     }
     if (other.defaultCompatibleWith() != null) {
       builder.setDefaultCompatibleWith(other.defaultCompatibleWith());

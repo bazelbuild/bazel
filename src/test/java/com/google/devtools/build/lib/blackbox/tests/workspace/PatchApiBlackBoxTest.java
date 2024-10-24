@@ -46,40 +46,41 @@ public class PatchApiBlackBoxTest extends AbstractBlackBoxTest {
     context()
         .write(
             "patched_repo.bzl",
-            "load(",
-            "    \"@bazel_tools//tools/build_defs/repo:utils.bzl\",",
-            "    \"workspace_and_buildfile\",",
-            "    \"patch\",",
-            ")",
-            "",
-            "_common_attrs = {",
-            "    \"files\": attr.string_dict(default = {}),",
-            "    \"patches\": attr.label_list(default = []),",
-            "    \"patch_tool\": attr.string(default = \"\"),",
-            "    \"patch_args\": attr.string_list(default = []),",
-            "    \"patch_cmds\": attr.string_list(default = []),",
-            "    \"patch_cmds_win\": attr.string_list(default = []),",
-            "    \"build_file\": attr.label(allow_single_file = True),",
-            "    \"build_file_content\": attr.string(),",
-            "    \"workspace_file\": attr.label(),",
-            "    \"workspace_file_content\": attr.string(),",
-            "}",
-            "",
-            "def _patched_repo_implementation(ctx):",
-            "    for file_name, label in ctx.attr.files.items():",
-            "      ctx.template(file_name, ctx.path(Label(label)))",
-            "    workspace_and_buildfile(ctx)",
-            "    patch(ctx)",
-            "",
-            "",
-            "patched_repo = repository_rule(",
-            "    implementation = _patched_repo_implementation,",
-            "    attrs = _common_attrs,",
-            ")");
+            """
+            load(
+                "@bazel_tools//tools/build_defs/repo:utils.bzl",
+                "patch",
+                "workspace_and_buildfile",
+            )
+
+            _common_attrs = {
+                "files": attr.string_dict(default = {}),
+                "patches": attr.label_list(default = []),
+                "patch_tool": attr.string(default = ""),
+                "patch_args": attr.string_list(default = []),
+                "patch_cmds": attr.string_list(default = []),
+                "patch_cmds_win": attr.string_list(default = []),
+                "build_file": attr.label(allow_single_file = True),
+                "build_file_content": attr.string(),
+                "workspace_file": attr.label(),
+                "workspace_file_content": attr.string(),
+            }
+
+            def _patched_repo_implementation(ctx):
+                for file_name, label in ctx.attr.files.items():
+                    ctx.template(file_name, ctx.path(Label(label)))
+                workspace_and_buildfile(ctx)
+                patch(ctx)
+
+            patched_repo = repository_rule(
+                implementation = _patched_repo_implementation,
+                attrs = _common_attrs,
+            )
+            """);
     context()
         .write(
-            WORKSPACE,
-            "load(\":patched_repo.bzl\", \"patched_repo\")",
+            MODULE_DOT_BAZEL,
+            "patched_repo = use_repo_rule(\"//:patched_repo.bzl\", \"patched_repo\")",
             "",
             "patched_repo(",
             "    name = \"test\",",
@@ -113,7 +114,7 @@ public class PatchApiBlackBoxTest extends AbstractBlackBoxTest {
             "index 1f4c41e..9d548ff 100644",
             "--- a/foo.sh",
             "+++ b/foo.sh",
-            "@@ -1,3 +1,3 @@",
+            "@@ -1,4 +1,4 @@",
             " #!/usr/bin/env sh",
             "",
             "-echo Here be dragons...",
@@ -156,7 +157,7 @@ public class PatchApiBlackBoxTest extends AbstractBlackBoxTest {
     } else {
       assertFooIsPatched(bazel);
       // foo.sh.orig should be generated due to "-b" argument.
-      Path fooOrig = context().resolveExecRootPath(bazel, "external/test/foo.sh.orig");
+      Path fooOrig = context().resolveExecRootPath(bazel, "external/+_repo_rules+test/foo.sh.orig");
       assertThat(fooOrig.toFile().exists()).isTrue();
     }
   }
@@ -199,7 +200,7 @@ public class PatchApiBlackBoxTest extends AbstractBlackBoxTest {
   }
 
   private void assertFooIsPatched(BuilderRunner bazel) throws Exception {
-    Path foo = context().resolveExecRootPath(bazel, "external/test/foo.sh");
+    Path foo = context().resolveExecRootPath(bazel, "external/+_repo_rules+test/foo.sh");
     assertThat(foo.toFile().exists()).isTrue();
     ImmutableList<String> patchedFoo =
         ImmutableList.of(

@@ -49,13 +49,6 @@ msys*)
   ;;
 esac
 
-if "$is_windows"; then
-  # Disable MSYS path conversion that converts path-looking command arguments to
-  # Windows paths (even if they arguments are not in fact paths).
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 function _create_pkg() {
   # Define dummy CPU and OS constraints (cpu1 and cpu2, and os1 and os2).
   # Also define platforms for each combination.
@@ -85,7 +78,7 @@ eof
 package(default_visibility = ["//visibility:public"])
 
 load(
-    "@io_bazel//src/main/res:winsdk_toolchain.bzl",
+    "//src/main/res:winsdk_toolchain.bzl",
     "windows_resource_compiler_toolchain",
     "WINDOWS_RESOURCE_COMPILER_TOOLCHAIN_TYPE",
 )
@@ -157,7 +150,7 @@ eof
   # Define a windows_resources rule we'll try to build with various exec and
   # target platform combinations.
   cat > "BUILD" <<'eof'
-load("@io_bazel//src/main/res:win_res.bzl", "windows_resources")
+load("//src/main/res:win_res.bzl", "windows_resources")
 
 windows_resources(
     name = "res",
@@ -197,7 +190,8 @@ function _assert_no_outputs() {
 }
 
 function test_toolchain_selection() {
-  echo 'workspace(name = "io_bazel")' > WORKSPACE
+  echo "module(name = 'io_bazel')" > MODULE.bazel
+  add_platforms "MODULE.bazel"
   _symlink_res_toolchain_files
   _create_pkg
 

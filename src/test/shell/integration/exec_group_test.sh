@@ -680,7 +680,7 @@ platform(
 )
 EOF
 
-  cat >> WORKSPACE <<EOF
+  cat >> ${TOOLCHAIN_REGISTRAION_FILE} <<EOF
 register_toolchains('//${pkg}/platform:all')
 register_execution_platforms('//${pkg}/platform:all')
 EOF
@@ -774,7 +774,7 @@ toolchain(
 )
 EOF
 
-  cat >> WORKSPACE <<EOF
+  cat >> ${TOOLCHAIN_REGISTRAION_FILE} <<EOF
 register_toolchains('//${pkg}/other:all')
 EOF
 

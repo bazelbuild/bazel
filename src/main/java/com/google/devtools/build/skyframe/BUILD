@@ -1,5 +1,5 @@
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
 load("@rules_java//java:defs.bzl", "java_library")
-load("@rules_proto//proto:defs.bzl", "proto_library")
 load("//tools/build_rules:utilities.bzl", "java_library_srcs")
 
 # Description:
@@ -14,6 +14,9 @@ SKYFRAME_OBJECT_SRCS = [
     "GroupedDeps.java",
     "NodeVersion.java",
     "NotComparableSkyValue.java",
+    "SkyframeLookupResult.java",
+    "SkyFunction.java",
+    "SkyFunctionException.java",
     "SkyFunctionName.java",
     "SkyKey.java",
     "SkyValue.java",
@@ -28,7 +31,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/util:TestType",
         "//third_party:auto_value",
@@ -64,6 +67,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/supplier",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:TestType",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/common/options",
@@ -79,7 +83,9 @@ java_library(
     name = "skyframe_graph_stats_event",
     srcs = ["SkyframeGraphStatsEvent.java"],
     deps = [
+        ":skyframe-objects",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//third_party:guava",
     ],
 )
 

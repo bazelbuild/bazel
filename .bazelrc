@@ -1,4 +1,9 @@
 common --enable_platform_specific_config
+common --incompatible_use_plus_in_repo_names
+common --experimental_google_legacy_api # needed by protobuf
+
+# @rules_java
+common --experimental_rule_extension_api
 
 # Shared configuration flags to build and test Bazel on RBE.
 build:remote_shared --remote_instance_name=projects/bazel-untrusted/instances/default_instance
@@ -10,39 +15,31 @@ build:remote_shared --jobs=100
 build:remote_shared --action_env=PATH=/bin:/usr/bin:/usr/local/bin
 build:remote_shared --java_runtime_version=rbe_jdk
 build:remote_shared --tool_java_runtime_version=rbe_jdk
-# Workaround for singlejar incompatibility with RBE
-build:remote_shared --noexperimental_check_desugar_deps
 
 # Configuration to build and test Bazel on RBE on Ubuntu 18.04 with Java 11
-build:ubuntu2004_java11 --extra_toolchains=@rbe_ubuntu2004_java11//java:all
-build:ubuntu2004_java11 --crosstool_top=@rbe_ubuntu2004_java11//cc:toolchain
-build:ubuntu2004_java11 --extra_toolchains=@rbe_ubuntu2004_java11//config:cc-toolchain
-build:ubuntu2004_java11 --extra_execution_platforms=//:rbe_ubuntu2004_java11_platform,//:rbe_ubuntu2004_java11_highcpu_platform
-build:ubuntu2004_java11 --host_platform=//:rbe_ubuntu2004_java11_platform
-build:ubuntu2004_java11 --platforms=//:rbe_ubuntu2004_java11_platform
-build:ubuntu2004_java11 --config=remote_shared
+build:ubuntu2004 --extra_toolchains=@rbe_ubuntu2004//java:all
+build:ubuntu2004 --crosstool_top=@rbe_ubuntu2004//cc:toolchain
+build:ubuntu2004 --extra_toolchains=@rbe_ubuntu2004//config:cc-toolchain
+build:ubuntu2004 --extra_execution_platforms=//:rbe_ubuntu2004_platform,//:rbe_ubuntu2004_highcpu_platform
+build:ubuntu2004 --host_platform=//:rbe_ubuntu2004_platform
+build:ubuntu2004 --platforms=//:rbe_ubuntu2004_platform
+build:ubuntu2004 --config=remote_shared
 
 # Alias
-build:remote --config=ubuntu2004_java11
+build:remote --config=ubuntu2004
 
-build:macos --macos_minimum_os=10.11
-
-# On Windows, we need pywin32 pip package, which doesn't work with the Python hermetic toolchain.
-# See https://github.com/bazelbuild/rules_python/issues/1356
-# Therefore, use the local detected Python toolchain on Windows.
-build:windows --extra_toolchains=@bazel_tools//tools/python:autodetecting_toolchain
+build:macos --macos_minimum_os=10.13
 
 build:windows_arm64 --platforms=//:windows_arm64
 build:windows_arm64 --extra_toolchains=@local_config_cc//:cc-toolchain-arm64_windows
-# When cross-compiling, the local Java runtime, which is used by default, will not be compatible
-# with the target.
-build:windows_arm64 --java_runtime_version=remotejdk_11
 
 # Check direct Bazel module dependencies are up-to-date
 common --check_direct_dependencies=error
 
 # Add mirrors for certain download URLs
 common --experimental_downloader_config=bazel_downloader.cfg
+
+common --noenable_workspace
 
 # Enable modern C++ features
 build:linux --cxxopt=-std=c++17
@@ -52,18 +49,14 @@ build:macos --host_cxxopt=-std=c++17
 build:windows --cxxopt=/std:c++17
 build:windows --host_cxxopt=/std:c++17
 
-# Enable Java 11 language features (https://github.com/bazelbuild/bazel/issues/14592)
-build --java_language_version=11
-build --tool_java_language_version=11
+# Enable Java 21 language features
+build --java_runtime_version=21
+build --java_language_version=21
+build --tool_java_language_version=21
+build --tool_java_runtime_version=21
 
 # Fail if a glob doesn't match anything (https://github.com/bazelbuild/bazel/issues/8195)
-build --incompatible_disallow_empty_glob
-
-# Manually enable cc toolchain resolution before it is flipped. https://github.com/bazelbuild/bazel/issues/7260
-build --incompatible_enable_cc_toolchain_resolution
-
-# Fix non-deterministic Java compilation failures (https://github.com/bazelbuild/bazel/issues/3236)
-build --incompatible_sandbox_hermetic_tmp
+common --incompatible_disallow_empty_glob
 
 # User-specific .bazelrc
 try-import %workspace%/user.bazelrc
@@ -86,11 +79,14 @@ test:ci-linux --sandbox_default_allow_network=false
 ## For macOS
 common:ci-macos --config=ci-common
 build:ci-macos --repository_cache=/Users/buildkite/bazeltest/repo_cache
+build:ci-macos --experimental_collect_system_network_usage
 test:ci-macos --test_env=TEST_INSTALL_BASE=/Users/buildkite/bazeltest/install_base
 test:ci-macos --test_env=REPOSITORY_CACHE=/Users/buildkite/bazeltest/repo_cache
 test:ci-macos --test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80
 test:ci-macos --sandbox_writable_path=/Users/buildkite/bazeltest
-test:ci-macos --sandbox_default_allow_network=false
+# TODO(pcloudy): Revert to false once https://github.com/bazelbuild/bazel/issues/23726 is resolved.
+test:ci-macos --sandbox_default_allow_network=true
+test:ci-macos --test_tag_filters=-no_macos
 
 ## For Windows
 common:ci-windows --config=ci-common

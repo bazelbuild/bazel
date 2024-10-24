@@ -50,11 +50,6 @@ msys*|mingw*|cygwin*)
   ;;
 esac
 
-if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 function set_up() {
   mkdir -p subrule_testing
   cat > subrule_testing/rule.bzl <<EOF
@@ -142,7 +137,8 @@ load(":helper.bzl", "print_rules")
 my_rule(name = 'foo')
 print_rules()
 EOF
-  bazel build --nobuild //subrule_testing:foo &> $TEST_log || fail "analysis failed"
+  bazel shutdown # Google-internal testing hook assumes --experimental_rule_extension_api never changes
+  bazel build --experimental_rule_extension_api --nobuild //subrule_testing:foo &> $TEST_log || fail "analysis failed"
   expect_log 'rule: foo, attr: kind, value: my_rule'
   expect_not_log '_foo'
 }

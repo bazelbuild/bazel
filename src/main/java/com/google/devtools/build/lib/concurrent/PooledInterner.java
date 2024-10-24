@@ -14,10 +14,14 @@
 package com.google.devtools.build.lib.concurrent;
 
 import com.google.common.collect.Interner;
+import com.google.common.collect.MapMaker;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.ForOverride;
 import java.lang.reflect.Field;
+import java.util.Collections;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -43,21 +47,19 @@ import javax.annotation.Nullable;
  * {@link #getPool()} method.
  */
 public abstract class PooledInterner<T> implements Interner<T> {
-  private final Interner<T> weakInterner = BlazeInterners.newWeakInterner();
-  private final Map<?, ?> internerAsMap = getMapReflectively(weakInterner);
+  private Interner<T> weakInterner = BlazeInterners.newWeakInterner();
+  private Map<?, ?> internerAsMap = getMapReflectively(weakInterner);
 
-  protected PooledInterner() {}
+  /**
+   * Holds all PooledInterner instances registered in the lifetime of this Blaze server as a weak
+   * collection to prevent memory leaks. This is also thread-safe to handle multiple PooledInterners
+   * from being instantiated concurrently, for instance during class initializations.
+   */
+  private static final Set<PooledInterner<?>> instances =
+      Collections.newSetFromMap(new MapMaker().weakKeys().makeMap());
 
-  // There was a Guava API review to include the feature of removing from an interner, and the
-  // outcome was that we should just get the map reflectively.
-  private static Map<?, ?> getMapReflectively(Interner<?> interner) {
-    try {
-      Field field = interner.getClass().getDeclaredField("map");
-      field.setAccessible(true);
-      return (Map<?, ?>) field.get(interner);
-    } catch (ReflectiveOperationException e) {
-      throw new IllegalStateException(e);
-    }
+  protected PooledInterner() {
+    instances.add(this);
   }
 
   /**
@@ -93,6 +95,65 @@ public abstract class PooledInterner<T> implements Interner<T> {
   @ForOverride
   @Nullable
   protected abstract Pool<T> getPool();
+
+  public final int size() {
+    return internerAsMap.size();
+  }
+
+  /**
+   * Shrinks all interner instances' backing map to reclaim memory.
+   *
+   * <p>This needs a prior GC to be effective.
+   *
+   * <p>WARNING: This must not be called concurrently with any interning operations, because it
+   * provides unsynchronized access to multiple mutable static interners.
+   */
+  @ThreadHostile
+  public static final void shrinkAll() {
+    instances.forEach(PooledInterner::shrink);
+  }
+
+  /** Shrinks the weak interner and obtain a new reference to the newly shrunk map. */
+  private void shrink() {
+    this.weakInterner = shrinkAsNewWeakInterner(weakInterner);
+    this.internerAsMap = getMapReflectively(weakInterner);
+  }
+
+  /**
+   * Shrink an interner by rebuilding a new weak interner and backing map/array. Use this if you
+   * expect a GC to clear references into an interner's backing map.
+   *
+   * <p>If there are references to the backing map, use {@code getMapReflectively} to update them.
+   *
+   * <p>This is created because backing maps do not automatically resize after removing entries.
+   */
+  private static <T> Interner<T> shrinkAsNewWeakInterner(Interner<T> fromInterner) {
+    Interner<T> toInterner = BlazeInterners.newWeakInterner();
+    Map<T, ?> map = getMapReflectively(fromInterner);
+    map.keySet().parallelStream()
+        .forEach(
+            k -> {
+              T unused = toInterner.intern(k);
+            });
+    return toInterner;
+  }
+
+  // Returns the backing map of an interner.
+  //
+  // There was a Guava API review to include the feature of removing from an interner, and the
+  // outcome was that we should just get and manipulate the map reflectively.
+  //
+  // See the description for cl/623798951 for additional context.
+  @SuppressWarnings("unchecked")
+  private static <T> Map<T, ?> getMapReflectively(Interner<?> interner) {
+    try {
+      Field field = interner.getClass().getDeclaredField("map");
+      field.setAccessible(true);
+      return (Map<T, ?>) field.get(interner);
+    } catch (ReflectiveOperationException e) {
+      throw new IllegalStateException(e);
+    }
+  }
 
   /**
    * An alternative container to the weak interner for storing type T instance.

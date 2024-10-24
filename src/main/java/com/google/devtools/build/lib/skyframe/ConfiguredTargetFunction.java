@@ -15,12 +15,14 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.configurationIdMessage;
 import static com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil.configurationIdMessage;
+import static com.google.devtools.build.lib.skyframe.SkyValueRetrieverUtils.maybeFetchSkyValueRemotely;
+import static com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.INITIAL_STATE;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.analysis.AnalysisRootCauseEvent;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment.MissingDepException;
@@ -32,6 +34,7 @@ import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolutionHelpers;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection.InvalidExecGroupException;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
@@ -62,6 +65,11 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptio
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.ReportedException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.UnreportedException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializationState;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializationStateProvider;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainException;
 import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -180,7 +188,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
   }
 
   private static class State
-      implements SkyKeyComputeState, TargetAndConfigurationProducer.ResultSink {
+      implements SkyKeyComputeState,
+          TargetAndConfigurationProducer.ResultSink,
+          SerializationStateProvider {
     /**
      * Drives a {@link TargetAndConfigurationProducer} that sets the {@link
      * #targetAndConfigurationResult} when complete.
@@ -203,6 +213,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
     final DependencyResolver.State computeDependenciesState;
 
+    private SerializationState serializationState = INITIAL_STATE;
+
     State(boolean storeTransitivePackages, PrerequisitePackageFunction prerequisitePackages) {
       this.computeDependenciesState =
           new DependencyResolver.State(storeTransitivePackages, prerequisitePackages);
@@ -224,6 +236,16 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     public void acceptTargetAndConfigurationError(TargetAndConfigurationError error) {
       this.targetAndConfigurationResult = error;
     }
+
+    @Override
+    public SerializationState getSerializationState() {
+      return serializationState;
+    }
+
+    @Override
+    public void setSerializationState(SerializationState state) {
+      this.serializationState = state;
+    }
   }
 
   @Nullable
@@ -243,6 +265,22 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               env,
               /* preFetch= */ this::maybeReleaseSemaphore,
               /* postFetch= */ () -> maybeAcquireSemaphoreWithLogging(key));
+    }
+
+    RemoteAnalysisCachingDependenciesProvider analysisCachingDeps =
+        view.getRemoteAnalysisCachingDependenciesProvider();
+    if (analysisCachingDeps.enabled()) {
+      RetrievalResult retrievalResult =
+          maybeFetchSkyValueRemotely(configuredTargetKey, env, analysisCachingDeps, state);
+      switch (retrievalResult) {
+        case SkyValueRetriever.Restart unused:
+          return null;
+        case SkyValueRetriever.RetrievedValue v:
+          configuredTargetProgress.doneFetchedTarget();
+          return v.value();
+        case SkyValueRetriever.NoCachedData unused:
+          break;
+      }
     }
 
     var computeDependenciesState = state.computeDependenciesState;
@@ -285,6 +323,26 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               computeDependenciesState.transitiveState);
       if (incompatibleTarget.isPresent()) {
         return incompatibleTarget.get();
+      }
+
+      // IF this build has a --run_under target, check it's an executable. We have to check this at
+      // the parent: --run_under targets are configured in the exec configuration, but the
+      // --run_under build option doesn't pass to the exec config.
+      BuildConfigurationValue config = prereqs.getTargetAndConfiguration().getConfiguration();
+      if (config != null
+          && config.getRunUnder() != null
+          && config.getRunUnder().getLabel() != null) {
+        Optional<ConfiguredTarget> runUnderTarget =
+            prereqs.getDepValueMap().values().stream()
+                .map(ConfiguredTargetAndData::getConfiguredTarget)
+                .filter(d -> d.getLabel().equals(config.getRunUnder().getLabel()))
+                .findAny();
+        if (runUnderTarget.isPresent()
+            && runUnderTarget.get().getProvider(FilesToRunProvider.class).getExecutable() == null) {
+          throw new ConfiguredValueCreationException(
+              prereqs.getTargetAndConfiguration().getTarget(),
+              "run_under target " + config.getRunUnder().getLabel() + " is not executable");
+        }
       }
 
       // Load the requested toolchains into the ToolchainContext, now that we have dependencies.
@@ -341,6 +399,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                   prereqs.getTargetAndConfiguration().getTarget().getLocation(),
                   cvce.getMessage()));
       throw new ReportedException(cvce);
+    } catch (ActionConflictException e) {
+      // The reporting will be done when going through errors in the build.
+      throw new UnreportedException(e);
     } finally {
       maybeReleaseSemaphore();
     }
@@ -363,7 +424,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       ExecGroupCollection.Builder execGroupCollectionBuilder,
       @Nullable NestedSet<Package> transitivePackages)
-      throws ConfiguredValueCreationException, InterruptedException {
+      throws ConfiguredValueCreationException, InterruptedException, ActionConflictException {
     Target target = ctgValue.getTarget();
     BuildConfigurationValue configuration = ctgValue.getConfiguration();
 
@@ -396,9 +457,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     } catch (MissingDepException e) {
       Preconditions.checkState(env.valuesMissing(), e.getMessage());
       return null;
-    } catch (ActionConflictException e) {
-      e.reportTo(env.getListener());
-      throw new ConfiguredValueCreationException(ctgValue.getTarget(), e.getMessage());
     } catch (InvalidExecGroupException | StarlarkExecTransitionLoadingException e) {
       throw new ConfiguredValueCreationException(ctgValue.getTarget(), e.getMessage());
     } catch (AnalysisFailurePropagationException e) {
@@ -441,8 +499,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     analysisEnvironment.disable(target);
     Preconditions.checkNotNull(configuredTarget, target);
 
-    if (configuredTarget instanceof RuleConfiguredTarget) {
-      RuleConfiguredTarget ruleConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
+    if (configuredTarget instanceof RuleConfiguredTarget ruleConfiguredTarget) {
       return new RuleConfiguredTargetValue(ruleConfiguredTarget, transitivePackages);
     } else {
       // Expected 4 args, but got 3.
@@ -481,8 +538,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
         state.targetAndConfigurationProducer = null;
       }
       result = state.targetAndConfigurationResult;
-      if (result instanceof TargetAndConfigurationError) {
-        var error = (TargetAndConfigurationError) result;
+      if (result instanceof TargetAndConfigurationError error) {
         switch (error.kind()) {
           case CONFIGURED_VALUE_CREATION:
             ConfiguredValueCreationException e = error.configuredValueCreation();

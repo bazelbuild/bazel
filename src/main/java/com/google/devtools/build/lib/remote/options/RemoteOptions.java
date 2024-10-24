@@ -29,6 +29,8 @@ import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.AssignmentConverter;
 import com.google.devtools.common.options.Converters.BooleanConverter;
+import com.google.devtools.common.options.Converters.ByteSizeConverter;
+import com.google.devtools.common.options.Converters.DurationConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -102,13 +104,16 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public PathFragment remoteCaptureCorruptedOutputs;
 
   @Option(
-      name = "experimental_remote_cache_async",
-      defaultValue = "false",
+      name = "remote_cache_async",
+      oldName = "experimental_remote_cache_async",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "If true, remote cache I/O will happen in the background instead of taking place as the"
-              + " part of a spawn.")
+          "If true, uploading of action results to a disk or remote cache will happen in the"
+              + " background instead of blocking the completion of an action. Some actions are"
+              + " incompatible with background uploads, and may still block even when this flag is"
+              + " set.")
   public boolean remoteCacheAsync;
 
   @Option(
@@ -143,6 +148,19 @@ public final class RemoteOptions extends CommonRemoteOptions {
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Whether to fall back to the local downloader if remote downloader fails.")
   public boolean remoteDownloaderLocalFallback;
+
+  @Option(
+      name = "experimental_remote_downloader_propagate_credentials",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Whether to propagate credentials from netrc and credential helper to the remote"
+              + " downloader server. The server implementation needs to support the new"
+              + " `http_header_url:<url-index>:<header-key>` qualifier where the `<url-index>` is a"
+              + " 0-based position of the URL inside the FetchBlobRequest's `uris` field. The"
+              + " URL-specific headers should take precedence over the global headers.")
+  public boolean remoteDownloaderPropagateCredentials;
 
   @Option(
       name = "remote_header",
@@ -260,7 +278,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
       defaultValue = "local",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "No-op, deprecated. See https://github.com/bazelbuild/bazel/issues/7480 for details.")
+      help = "Deprecated. See https://github.com/bazelbuild/bazel/issues/7480 for details.")
   public String remoteLocalFallbackStrategy;
 
   @Option(
@@ -272,18 +290,6 @@ public final class RemoteOptions extends CommonRemoteOptions {
           "Whether to upload locally executed action results to the remote cache if the remote "
               + "cache supports it and the user is authorized to do so.")
   public boolean remoteUploadLocalResults;
-
-  @Deprecated
-  @Option(
-      name = "incompatible_remote_build_event_upload_respect_no_cache",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.REMOTE,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      deprecationWarning =
-          "--incompatible_remote_build_event_upload_respect_no_cache has been deprecated in favor"
-              + " of --remote_build_event_upload=minimal.",
-      help = "Deprecated. No-op. Use --remote_build_event_upload=minimal instead.")
-  public boolean incompatibleRemoteBuildEventUploadRespectNoCache;
 
   @Option(
       name = "remote_build_event_upload",
@@ -308,26 +314,6 @@ public final class RemoteOptions extends CommonRemoteOptions {
       super(RemoteBuildEventUploadMode.class, "remote build event upload");
     }
   }
-
-  @Option(
-      name = "incompatible_remote_results_ignore_disk",
-      defaultValue = "true",
-      category = "remote",
-      documentationCategory = OptionDocumentationCategory.REMOTE,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "No-op")
-  public boolean incompatibleRemoteResultsIgnoreDisk;
-
-  @Option(
-      name = "incompatible_remote_output_paths_relative_to_input_root",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.REMOTE,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If set to true, output paths are relative to input root instead of working directory.")
-  public boolean incompatibleRemoteOutputPathsRelativeToInputRoot;
 
   @Option(
       name = "remote_instance_name",
@@ -372,6 +358,47 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public PathFragment diskCache;
 
   @Option(
+      name = "experimental_disk_cache_gc_idle_delay",
+      defaultValue = "5m",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = DurationConverter.class,
+      help =
+          "How long the server must remain idle before a garbage collection of the disk cache"
+              + " occurs. To specify the garbage collection policy, set"
+              + " --experimental_disk_cache_gc_max_size and/or"
+              + " --experimental_disk_cache_gc_max_age.")
+  public Duration diskCacheGcIdleDelay;
+
+  @Option(
+      name = "experimental_disk_cache_gc_max_size",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = ByteSizeConverter.class,
+      help =
+          "If set to a positive value, the disk cache will be periodically garbage collected to"
+              + " stay under this size. If set in conjunction with"
+              + " --experimental_disk_cache_gc_max_age, both criteria are applied. Garbage"
+              + " collection occurrs in the background once the server has become idle, as"
+              + " determined by the --experimental_disk_cache_gc_idle_delay flag.")
+  public long diskCacheGcMaxSize;
+
+  @Option(
+      name = "experimental_disk_cache_gc_max_age",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = DurationConverter.class,
+      help =
+          "If set to a positive value, the disk cache will be periodically garbage collected to"
+              + " remove entries older than this age. If set in conjunction with"
+              + " --experimental_disk_cache_gc_max_size, both criteria are applied. Garbage"
+              + " collection occurrs in the background once the server has become idle, as"
+              + " determined by the --experimental_disk_cache_gc_idle_delay flag.")
+  public Duration diskCacheGcMaxAge;
+
+  @Option(
       name = "experimental_guard_against_concurrent_changes",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.REMOTE,
@@ -400,46 +427,27 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public PathFragment remoteGrpcLog;
 
   @Option(
-      name = "incompatible_remote_symlinks",
-      defaultValue = "true",
-      category = "remote",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.EXECUTION},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If set to true, Bazel will represent symlinks in action outputs in the remote"
-              + " caching/execution protocol as such. Otherwise, symlinks will be followed and"
-              + " represented as files or directories. See #6631 for details.")
-  public boolean incompatibleRemoteSymlinks;
-
-  @Option(
-      name = "incompatible_remote_dangling_symlinks",
-      defaultValue = "true",
-      category = "remote",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.EXECUTION},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If set to true and --incompatible_remote_symlinks is also true, symlinks in action"
-              + " outputs are allowed to dangle.")
-  public boolean incompatibleRemoteDanglingSymlinks;
-
-  @Option(
       name = "remote_cache_compression",
       oldName = "experimental_remote_cache_compression",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "If enabled, compress/decompress cache blobs with zstd.")
+      help =
+          "If enabled, compress/decompress cache blobs with zstd when their size is at least"
+              + " --experimental_remote_cache_compression_threshold.")
   public boolean cacheCompression;
 
   @Option(
-      name = "build_event_upload_max_threads",
+      name = "experimental_remote_cache_compression_threshold",
+      // Based on discussions in #18997, `~100` is the break even point where the compression
+      // actually helps the builds.
       defaultValue = "100",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "The number of threads used to do build event uploads. Capped at 1000.")
-  public int buildEventUploadMaxThreads;
+      help =
+          "The minimum blob size required to compress/decompress with zstd. Ineffectual unless"
+              + " --remote_cache_compression is set.")
+  public int cacheCompressionThreshold;
 
   @Option(
       name = "remote_download_outputs",
@@ -621,17 +629,6 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public ExecutionMessagePrintMode remotePrintExecutionMessages;
 
   @Option(
-      name = "incompatible_remote_downloader_send_all_headers",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.REMOTE,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "Whether to send all values of a multi-valued header to the remote downloader instead of"
-              + " just the first.")
-  public boolean remoteDownloaderSendAllHeaders;
-
-  @Option(
       name = "experimental_remote_mark_tool_inputs",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.REMOTE,
@@ -718,9 +715,11 @@ public final class RemoteOptions extends CommonRemoteOptions {
               + " cache entries and result in incorrect builds.\n\n"
               + "Scrubbing does not affect how an action is executed, only how its remote/disk"
               + " cache key is computed for the purpose of retrieving or storing an action result."
-              + " It cannot be used in conjunction with remote execution. Modifying the scrubbing"
-              + " configuration does not invalidate outputs present in the local filesystem or"
-              + " internal caches; a clean build is required to reexecute affected actions.\n\n"
+              + " Scrubbed actions are incompatible with remote execution, and will always be"
+              + " executed locally instead.\n\n"
+              + "Modifying the scrubbing configuration does not invalidate outputs present in the"
+              + " local filesystem or internal caches; a clean build is required to reexecute"
+              + " affected actions.\n\n"
               + "In order to successfully use this feature, you likely want to set a custom"
               + " --host_platform together with --experimental_platform_in_output_dir (to normalize"
               + " output prefixes) and --incompatible_strict_action_env (to normalize environment"
@@ -739,6 +738,30 @@ public final class RemoteOptions extends CommonRemoteOptions {
               + "This is a temporary flag to allow users switch off the behaviour. Once Bazel is"
               + " smart enough about the RAM/CPU usages, this flag will be removed.")
   public boolean throttleRemoteActionBuilding;
+
+  @Option(
+      name = "experimental_remote_output_service",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "HOST or HOST:PORT of a remote output service endpoint. The supported schemas are grpc, "
+              + "grpcs (grpc with TLS enabled) and unix (local UNIX sockets). If no schema is "
+              + "provided Bazel will default to grpcs. Specify grpc:// or unix: schema to "
+              + "disable TLS.")
+  public String remoteOutputService;
+
+  @Option(
+      name = "experimental_remote_output_service_output_path_prefix",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "The path under which the contents of output directories managed by the"
+              + " --experimental_remote_output_service are placed. The actual output directory used"
+              + " by a build will be a descendant of this path and determined by the output"
+              + " service.")
+  public String remoteOutputServiceOutputPathPrefix;
 
   private static final class ScrubberConverter extends Converter.Contextless<Scrubber> {
 

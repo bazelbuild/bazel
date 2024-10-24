@@ -28,11 +28,9 @@ import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLineLimits;
 import com.google.devtools.build.lib.actions.CommandLines;
-import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.PathMapper;
-import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -61,7 +59,6 @@ public final class ExtraAction extends SpawnAction {
   ExtraAction(
       ActionOwner owner,
       NestedSet<Artifact> extraActionInputs,
-      RunfilesSupplier runfilesSupplier,
       Collection<Artifact.DerivedArtifact> outputs,
       Action shadowedAction,
       boolean createDummyOutput,
@@ -83,7 +80,6 @@ public final class ExtraAction extends SpawnAction {
         env,
         ImmutableMap.copyOf(executionInfo),
         progressMessage,
-        CompositeRunfilesSupplier.of(shadowedAction.getRunfilesSupplier(), runfilesSupplier),
         mnemonic,
         OutputPathsMode.OFF);
     this.shadowedAction = shadowedAction;
@@ -141,6 +137,11 @@ public final class ExtraAction extends SpawnAction {
   }
 
   @Override
+  public NestedSet<Artifact> getOriginalInputs() {
+    return shadowedAction.getOriginalInputs();
+  }
+
+  @Override
   public NestedSet<Artifact> getSchedulingDependencies() {
     return shadowedAction.getSchedulingDependencies();
   }
@@ -168,11 +169,10 @@ public final class ExtraAction extends SpawnAction {
       return super.getSpawn(actionExecutionContext);
     }
     return getSpawn(
-        actionExecutionContext.getArtifactExpander(),
+        actionExecutionContext,
         actionExecutionContext.getClientEnv(),
-        /*envResolved=*/ false,
-        actionExecutionContext.getTopLevelFilesets(),
-        /*reportOutputs=*/ false);
+        /* envResolved= */ false,
+        /* reportOutputs= */ false);
   }
 
   @Override

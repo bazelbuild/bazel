@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupData;
@@ -36,14 +37,13 @@ import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
-import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MiddlemanType;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.InjectedActionLookupKey;
 import com.google.devtools.build.lib.actions.util.TestAction.DummyAction;
@@ -200,13 +200,15 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
             .setOutputPathMapper(mapper)
             .build(ActionsTestUtil.NULL_ACTION_OWNER);
 
-    ArtifactPrefixConflictException e =
-        assertThrows(ArtifactPrefixConflictException.class, () -> evaluate(spawnActionTemplate));
+    ActionConflictException e =
+        assertThrows(ActionConflictException.class, () -> evaluate(spawnActionTemplate));
     assertThat(bugReporter.getExceptions()).hasSize(1);
     assertThat(bugReporter.getFirstCause()).isSameInstanceAs(e);
-    assertThat(bugReporter.getExceptions().get(0))
+    assertThat(e).hasMessageThat().contains("is a prefix of the other");
+    var exception = bugReporter.getExceptions().get(0);
+    assertThat(exception)
         .hasMessageThat()
-        .contains("Unexpected artifact prefix conflict for ActionTemplateExpansionKey{");
+        .contains("Unexpected action conflict for ActionTemplateExpansionKey{");
     bugReporter.clear();
   }
 
@@ -477,7 +479,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
 
     @Override
     public String getKey(
-        ActionKeyContext actionKeyContext, @Nullable Artifact.ArtifactExpander artifactExpander) {
+        ActionKeyContext actionKeyContext, @Nullable ArtifactExpander artifactExpander) {
       Fingerprint fp = new Fingerprint();
       fp.addPath(inputTreeArtifact.getPath());
       fp.addPath(outputTreeArtifact.getPath());
@@ -502,6 +504,11 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     @Override
     public NestedSet<Artifact> getInputs() {
       return NestedSetBuilder.create(Order.STABLE_ORDER, inputTreeArtifact);
+    }
+
+    @Override
+    public NestedSet<Artifact> getOriginalInputs() {
+      return getInputs();
     }
 
     @Override

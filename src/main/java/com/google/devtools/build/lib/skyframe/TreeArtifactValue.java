@@ -19,11 +19,11 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerializat
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.IORuntimeException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -233,10 +234,9 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
       if (this == o) {
         return true;
       }
-      if (!(o instanceof TreeArtifactCompositeFileArtifactValue)) {
+      if (!(o instanceof TreeArtifactCompositeFileArtifactValue that)) {
         return false;
       }
-      TreeArtifactCompositeFileArtifactValue that = (TreeArtifactCompositeFileArtifactValue) o;
       return Arrays.equals(digest, that.digest)
           && Objects.equals(materializationExecPath, that.materializationExecPath);
     }
@@ -332,7 +332,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     return digest.clone();
   }
 
-  public ImmutableSet<TreeFileArtifact> getChildren() {
+  public ImmutableSortedSet<TreeFileArtifact> getChildren() {
     return childData.keySet();
   }
 
@@ -350,9 +350,8 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     return Optional.ofNullable(materializationExecPath);
   }
 
-  @VisibleForTesting
   @Nullable
-  public ArchivedTreeArtifact getArchivedArtifactForTesting() {
+  public ArchivedTreeArtifact getArchivedArtifact() {
     return archivedRepresentation != null
         ? archivedRepresentation.archivedTreeFileArtifact()
         : null;
@@ -394,11 +393,10 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
       return true;
     }
 
-    if (!(other instanceof TreeArtifactValue)) {
+    if (!(other instanceof TreeArtifactValue that)) {
       return false;
     }
 
-    TreeArtifactValue that = (TreeArtifactValue) other;
     return Arrays.equals(digest, that.digest)
         && childData.equals(that.childData)
         && Objects.equals(archivedRepresentation, that.archivedRepresentation)
@@ -434,11 +432,11 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
         null,
         EMPTY_MAP,
         0L,
-        /*archivedRepresentation=*/ null,
-        /*materializationExecPath=*/ null,
-        /*entirelyRemote=*/ false) {
+        /* archivedRepresentation= */ null,
+        /* materializationExecPath= */ null,
+        /* entirelyRemote= */ false) {
       @Override
-      public ImmutableSet<TreeFileArtifact> getChildren() {
+      public ImmutableSortedSet<TreeFileArtifact> getChildren() {
         throw new UnsupportedOperationException(toString());
       }
 
@@ -484,22 +482,37 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
   @FunctionalInterface
   public interface TreeArtifactVisitor {
     /**
-     * Called for every directory entry encountered during tree traversal.
+     * Called for every directory entry encountered during tree traversal, in a nondeterministic
+     * order.
      *
-     * <p>Symlinks are not followed during traversal and are simply reported as {@link
-     * Dirent.Type#SYMLINK} regardless of whether they point to a file, directory, or are dangling.
+     * <p>Regular files and directories are reported as {@link Dirent.Type.FILE} or {@link
+     * Dirent.Type.DIRECTORY}, respectively. Directories are traversed recursively.
      *
-     * <p>{@code type} is guaranteed never to be {@link Dirent.Type#UNKNOWN}, since if this type is
-     * encountered, {@link IOException} is immediately thrown without invoking the visitor.
+     * <p>Symlinks that resolve to an existing file or directory are followed and reported as the
+     * regular files or directories they point to, recursively for directories. Symlinks that fail
+     * to resolve to an existing path cause an {@link IOException} to be immediately thrown without
+     * invoking the visitor. Thus, the visitor is never called with a {@link Dirent.Type.SYMLINK}
+     * type.
      *
-     * <p>If the implementation throws {@link IOException}, traversal is immediately halted and the
+     * <p>Special files or files whose type could not be determined, regardless of whether they are
+     * encountered directly or indirectly through symlinks, cause an {@link IOException} to be
+     * immediately thrown without invoking the visitor. Thus, the visitor is never called with a
+     * {@link Dirent.Type.UNKNOWN} type.
+     *
+     * <p>The {@code parentRelativePath} argument is always set to the apparent path relative to the
+     * tree directory root, without resolving any intervening symlinks. The {@code traversedSymlink}
+     * argument is true if at least one symlink was traversed on the way to the entry being
+     * reported.
+     *
+     * <p>If the visitor throws {@link IOException}, traversal is immediately halted and the
      * exception is propagated.
      *
      * <p>This method can be called from multiple threads in parallel during a single call of {@link
      * TreeArtifactVisitor#visitTree(Path, TreeArtifactVisitor)}.
      */
     @ThreadSafe
-    void visit(PathFragment parentRelativePath, Dirent.Type type) throws IOException;
+    void visit(PathFragment parentRelativePath, Dirent.Type type, boolean traversedSymlink)
+        throws IOException;
   }
 
   /** An {@link AbstractQueueVisitor} that visits every file in the tree artifact. */
@@ -518,7 +531,12 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     }
 
     void run() throws IOException, InterruptedException {
-      execute(() -> visitTree(PathFragment.EMPTY_FRAGMENT));
+      execute(
+          () ->
+              visit(
+                  PathFragment.EMPTY_FRAGMENT,
+                  Dirent.Type.DIRECTORY,
+                  /* traversedSymlink= */ false));
       try {
         awaitQuiescence(true);
       } catch (IORuntimeException e) {
@@ -526,30 +544,43 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
       }
     }
 
-    // IOExceptions are wrapped in IORuntimeException so that it can be propagated to the main
-    // thread
-    private void visitTree(PathFragment subdir) {
+    private void visit(
+        PathFragment parentRelativePath, Dirent.Type type, boolean traversedSymlink) {
       try {
-        for (Dirent dirent : parentDir.getRelative(subdir).readdir(Symlinks.NOFOLLOW)) {
-          PathFragment parentRelativePath = subdir.getChild(dirent.getName());
-          Dirent.Type type = dirent.getType();
+        Path path = parentDir.getRelative(parentRelativePath);
 
-          if (type == Dirent.Type.UNKNOWN) {
+        if (type == Dirent.Type.SYMLINK) {
+          traversedSymlink = true;
+
+          FileStatus statFollow = path.statIfFound(Symlinks.FOLLOW);
+
+          if (statFollow == null) {
             throw new IOException(
-                "Could not determine type of file for "
-                    + parentRelativePath
-                    + " under "
-                    + parentDir);
+                String.format("child %s is a dangling symbolic link", parentRelativePath));
           }
 
-          if (type == Dirent.Type.SYMLINK) {
-            checkSymlink(subdir, parentDir.getRelative(parentRelativePath));
+          if (statFollow.isFile() && !statFollow.isSpecialFile()) {
+            type = Dirent.Type.FILE;
+          } else if (statFollow.isDirectory()) {
+            type = Dirent.Type.DIRECTORY;
+          } else {
+            type = Dirent.Type.UNKNOWN;
           }
+        }
 
-          visitor.visit(parentRelativePath, type);
+        if (type == Dirent.Type.UNKNOWN) {
+          throw new IOException(
+              String.format("child %s has an unsupported type", parentRelativePath));
+        }
 
-          if (type == Dirent.Type.DIRECTORY) {
-            execute(() -> visitTree(parentRelativePath));
+        visitor.visit(parentRelativePath, type, traversedSymlink);
+
+        if (type == Dirent.Type.DIRECTORY) {
+          for (Dirent dirent : path.readdir(Symlinks.NOFOLLOW)) {
+            PathFragment childPath = parentRelativePath.getChild(dirent.getName());
+            Dirent.Type childType = dirent.getType();
+            boolean finalTraversedSymlink = traversedSymlink;
+            execute(() -> visit(childPath, childType, finalTraversedSymlink));
           }
         }
       } catch (IOException e) {
@@ -563,7 +594,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
    * Recursively visits all descendants under a directory.
    *
    * <p>{@link TreeArtifactVisitor#visit} is invoked on {@code visitor} for each directory, file,
-   * and symlink under the given {@code parentDir}.
+   * and symlink under the given {@code parentDir}, including {@code parentDir} itself.
    *
    * <p>This method is intended to provide uniform semantics for constructing a tree artifact,
    * including special logic that validates directory entries. Invalid directory entries include a
@@ -580,33 +611,6 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
       throws IOException, InterruptedException {
     Visitor visitor = new Visitor(parentDir, treeArtifactVisitor);
     visitor.run();
-  }
-
-  private static void checkSymlink(PathFragment subDir, Path path) throws IOException {
-    PathFragment linkTarget = path.readSymbolicLinkUnchecked();
-    if (linkTarget.isAbsolute()) {
-      // We tolerate absolute symlinks here. They will probably be dangling if any downstream
-      // consumer tries to read them, but let that be downstream's problem.
-      return;
-    }
-
-    // Visit each path segment of the link target to catch any path traversal outside of the
-    // TreeArtifact root directory. For example, for TreeArtifact a/b/c, it is possible to have a
-    // symlink, a/b/c/sym_link that points to ../outside_dir/../c/link_target. Although this symlink
-    // points to a file under the TreeArtifact, the link target traverses outside of the
-    // TreeArtifact into a/b/outside_dir.
-    PathFragment intermediatePath = subDir;
-    for (String pathSegment : linkTarget.segments()) {
-      intermediatePath = intermediatePath.getRelative(pathSegment);
-      if (intermediatePath.containsUplevelReferences()) {
-        String errorMessage =
-            String.format(
-                "A TreeArtifact may not contain relative symlinks whose target paths traverse "
-                    + "outside of the TreeArtifact, found %s pointing to %s.",
-                path, linkTarget);
-        throw new IOException(errorMessage);
-      }
-    }
   }
 
   /** Builder for a {@link TreeArtifactValue}. */

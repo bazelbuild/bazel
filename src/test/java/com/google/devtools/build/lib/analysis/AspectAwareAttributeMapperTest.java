@@ -46,10 +46,22 @@ public class AspectAwareAttributeMapperTest extends BuildViewTestCase {
         scratchConfiguredTargetAndData(
             "foo",
             "myrule",
-            "cc_binary(",
-            "    name = 'myrule',",
-            "    srcs = [':a.cc'],",
-            "    linkstatic = select({'//conditions:default': 1}))");
+            """
+            # Needed to avoid select() being eliminated as trivial.
+            config_setting(
+                name = "config",
+                values = {"define": "pi=3"},
+            )
+
+            cc_binary(
+                name = "myrule",
+                srcs = [":a.cc"],
+                linkstatic = select({
+                    ":config": 1,
+                    "//conditions:default": 1,
+                }),
+            )
+            """);
 
     RuleConfiguredTarget ct = (RuleConfiguredTarget) ctad.getConfiguredTarget();
     rule = (Rule) ctad.getTargetForTesting();

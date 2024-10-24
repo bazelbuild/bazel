@@ -17,15 +17,14 @@ package com.google.devtools.build.lib.analysis.test;
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
-import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.CoverageReportValue;
 import java.util.Collection;
@@ -55,14 +54,9 @@ public interface CoverageReportActionFactory {
       try {
         Actions.assignOwnersAndThrowIfConflict(
             actionKeyContext, actions, CoverageReportValue.COVERAGE_REPORT_KEY);
-      } catch (MutableActionGraph.ActionConflictException
-          | Actions.ArtifactGeneratedByOtherRuleException e) {
+      } catch (ActionConflictException | Actions.ArtifactGeneratedByOtherRuleException e) {
         throw new IllegalStateException(e);
       }
-    }
-
-    public ActionAnalysisMetadata getCoverageReportAction() {
-      return coverageReportAction;
     }
 
     public ImmutableList<ActionAnalysisMetadata> getActions() {
@@ -71,6 +65,10 @@ public interface CoverageReportActionFactory {
 
     public Collection<Artifact> getCoverageOutputs() {
       return coverageReportAction.getOutputs();
+    }
+
+    public Artifact getCoverageReportArtifact() {
+      return coverageReportAction.getPrimaryOutput();
     }
   }
 
@@ -85,7 +83,7 @@ public interface CoverageReportActionFactory {
       EventBus eventBus,
       BlazeDirectories directories,
       Collection<ConfiguredTarget> targetsToTest,
-      NestedSet<Artifact> baselineCoverageArtifacts,
+      ImmutableList<Artifact> baselineCoverageArtifacts,
       ArtifactFactory artifactFactory,
       ActionKeyContext actionKeyContext,
       ActionLookupKey actionLookupKey,

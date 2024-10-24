@@ -19,6 +19,8 @@ This is a quick and dirty rule to make Bazel compile itself. It's not production
 ready.
 """
 
+load("@rules_java//java/common:java_common.bzl", "java_common")
+
 _JarsInfo = provider(fields = ["compile_time_jars", "runtime_jars"])
 
 def _join_paths(separator, files):
@@ -216,6 +218,7 @@ java_library_attrs = {
     "_jdk": attr.label(
         default = Label("@bazel_tools//tools/jdk:current_java_runtime"),
         providers = [java_common.JavaRuntimeInfo],
+        cfg = "exec",
     ),
     "data": attr.label_list(allow_files = True),
     "resources": attr.label_list(allow_files = True),

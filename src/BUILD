@@ -1,14 +1,19 @@
 # Packaging
 
+load("@bazel_pip_dev_deps//:requirements.bzl", "requirement")
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("@rules_python//python:defs.bzl", "py_binary", "py_library")
+load("//src:build_defs.bzl", "transition_java_language_8_archive")
 load("//src:release_archive.bzl", "release_archive")
 load(":embedded_tools.bzl", "srcsfile")
 load(":rule_size_test.bzl", "rule_size_test")
 
 package(default_applicable_licenses = ["@io_bazel//:license"])
 
-exports_files(["jdeps_modules.golden"])
+exports_files([
+    "jdeps_modules.golden",
+    "MODULE.tools",
+])
 
 md5_cmd = "set -e -o pipefail && %s $(SRCS) | %s | %s > $@"
 
@@ -25,7 +30,6 @@ md5_cmd = "set -e -o pipefail && %s $(SRCS) | %s | %s > $@"
         "//src/main/tools:linux-sandbox",
         "//tools/osx:xcode-locator",
         "//:platforms-srcs",
-        "//:rules_java-srcs",
     ] + select({
         "//src/conditions:windows": [],
         "//conditions:default": [
@@ -96,7 +100,6 @@ JAVA_TOOLS = [
                "//src/main/cpp/util:embedded_tools",
                "//src/main/native:embedded_tools",
                "//src/main/protobuf:srcs",
-               "//src/tools/android/java/com/google/devtools/build/android:embedded_tools",
                "//src/tools/launcher:srcs",
                "//third_party:gpl-srcs",
                "//third_party/def_parser:srcs",
@@ -106,7 +109,6 @@ JAVA_TOOLS = [
                "//third_party/ijar:zipper",
                "//third_party/java/j2objc:embedded_tools_srcs",
                "//third_party/py/abseil:srcs",
-               "//third_party/py/six:srcs",
                "//third_party/zlib:embedded_tools",
                "//tools:embedded_tools_srcs",
            ] + select({
@@ -142,7 +144,7 @@ rule_size_test(
     # WARNING: Only adjust the number in `expect` if you are intentionally
     # adding or removing embedded tools. Know that the more embedded tools there
     # are in Bazel, the bigger the binary becomes and the slower Bazel starts.
-    expect = 465,
+    expect = 389,
     margin = 5,  # percentage
 )
 
@@ -246,7 +248,6 @@ genrule(
         "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
         "install_base_key" + suffix,
         "//:platforms-srcs",
-        "//:rules_java-srcs",
         # Non-ordered items follow:
         "//src/main/java/net/starlark/java/eval:cpu_profiler",
         "//src/main/tools:build-runfiles",
@@ -293,6 +294,7 @@ genrule(
     executable = 1,
     output_to_bindir = 1,
     visibility = [
+        "//:__pkg__",  # For distribution archive lockfile generation
         "//scripts:__pkg__",  # For bash completion generation
         "//scripts/packages:__pkg__",  # For installer generation
         "//src/java:__subpackages__",  # For command line reference generation
@@ -345,7 +347,6 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/includescanning:srcs",
         "//src/main/java/com/google/devtools/build/lib/network:srcs",
         "//src/main/java/com/google/devtools/build/lib/outputfilter:srcs",
-        "//src/main/java/com/google/devtools/build/skydoc:srcs",
         "//src/main/java/com/google/devtools/build/skyframe:srcs",
         "//src/main/java/com/google/devtools/common/options:srcs",
         "//src/main/java/net/starlark/java/cmd:srcs",
@@ -358,11 +359,9 @@ filegroup(
         "//src/main/tools:srcs",
         "//src/test/cpp:srcs",
         "//src/test/gen:srcs",
-        "//src/test/java/com/google/devtools/build/android:srcs",
         "//src/test/java/com/google/devtools/build/docgen:srcs",
         "//src/test/java/com/google/devtools/build/lib:srcs",
         "//src/test/java/com/google/devtools/build/lib/shell:srcs",
-        "//src/test/java/com/google/devtools/build/skydoc:srcs",
         "//src/test/java/com/google/devtools/build/skyframe:srcs",
         "//src/test/java/com/google/devtools/common/options:srcs",
         "//src/test/java/net/starlark/java/eval:srcs",
@@ -374,11 +373,11 @@ filegroup(
         "//src/test/testdata/test_tls_certificate",
         "//src/test/tools:srcs",
         "//src/test/tools/bzlmod:srcs",
-        "//src/tools/android:srcs",
-        "//src/tools/android/java/com/google/devtools/build/android:srcs",
         "//src/tools/bzlmod:srcs",
+        "//src/tools/diskcache:srcs",
         "//src/tools/execlog:srcs",
         "//src/tools/launcher:srcs",
+        "//src/tools/one_version:srcs",
         "//src/tools/remote:srcs",
         "//src/tools/singlejar:srcs",
         "//src/tools/starlark/java/com/google/devtools/starlark/common:srcs",
@@ -397,9 +396,7 @@ genrule(
         "//src/main/java/com/google/devtools/build/lib/packages/metrics:dist_jars",
         "//src/main/java/com/google/devtools/build/lib/skyframe/proto:dist_jars",
         "//src/main/java/com/google/devtools/build/lib/starlarkdebug/proto:dist_jars",
-        "//src/main/java/com/google/devtools/build/skydoc/rendering/proto:dist_jars",
         "//src/main/java/com/google/devtools/build/skyframe:dist_jars",
-        "@googleapis//:dist_jars",
         "@remoteapis//:dist_jars",
     ],
     outs = ["derived_java_srcs.zip"],
@@ -444,6 +441,7 @@ genrule(
         "//src/java_tools/buildjar:srcs",
         "//src/java_tools/junitrunner:srcs",
         "//src/java_tools/singlejar:srcs",
+        "//src/tools/one_version:embedded_java_tools",
         "//src/tools/singlejar:embedded_java_tools",
         "//third_party/ijar:transitive_sources",
         "//third_party/java/jacoco:transitive_sources",
@@ -480,11 +478,18 @@ release_archive(
     visibility = ["//src/test/shell/bazel:__pkg__"],
     deps = [
         ":jars_java_tools_zip",
+        "//src/tools/one_version:one_version_transitive_zip",
         "//src/tools/singlejar:singlejar_transitive_zip",
         "//third_party/ijar:ijar_transitive_srcs_zip",
         "//third_party/java/jacoco:jacoco_jars_zip",
         "//third_party/java/proguard:proguard_zip",
     ],
+)
+
+transition_java_language_8_archive(
+    name = "java_tools_java8.zip",
+    archive_zip = ":java_tools.zip",
+    visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
 release_archive(
@@ -503,9 +508,16 @@ release_archive(
     visibility = ["//src/test/shell/bazel:__pkg__"],
     deps = [
         ":turbine_direct_graal_zip",
+        "//src/tools/one_version:one_version_deploy_zip",
         "//src/tools/singlejar:singlejar_deploy_zip",
         "//third_party/ijar:ijar_deploy_zip",
     ],
+)
+
+transition_java_language_8_archive(
+    name = "java_tools_prebuilt_java8.zip",
+    archive_zip = ":java_tools_prebuilt.zip",
+    visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
 # Following targets used by the java_tools_binaries Buildkite pipeline to upload
@@ -567,36 +579,37 @@ release_archive(
     ],
 )
 
+JDK_VERSIONS = [
+    "11",
+    "17",
+    "21",
+]
+
 filegroup(
     name = "test_repos",
     srcs = [
-        "@android_gmaven_r8//jar:file",
-        "@android_tools//:all_android_tools_deploy.jar",
+        requirement("bazel-runfiles"),  # Fetching the hermetic Python toolchain.
         "@bazel_skylib//:WORKSPACE",
-        "@com_google_protobuf//:LICENSE",
+        "@protobuf//:LICENSE",
         "@remote_coverage_tools//:all_lcov_merger_lib",
         "@remote_java_tools//:GenClass",
         "@remote_java_tools_darwin_arm64//:java_tools/src/tools/singlejar/singlejar_local",
         "@remote_java_tools_darwin_x86_64//:java_tools/src/tools/singlejar/singlejar_local",
         "@remote_java_tools_linux//:java_tools/src/tools/singlejar/singlejar_local",
         "@remote_java_tools_windows//:java_tools/src/tools/singlejar/singlejar_local.exe",
-        "@remotejdk11_linux//:WORKSPACE",
-        "@remotejdk11_linux_aarch64//:WORKSPACE",
-        "@remotejdk11_macos//:WORKSPACE",
-        "@remotejdk11_macos_aarch64//:WORKSPACE",
-        "@remotejdk11_win//:WORKSPACE",
         "@rules_cc//:LICENSE",
         "@rules_java//:WORKSPACE",
         "@rules_license//:WORKSPACE",
         "@rules_pkg//:WORKSPACE",
-        "@rules_proto//proto:defs",
         "@rules_python//:WORKSPACE",
         "@rules_testing//:LICENSE",
-    ] + [
-        "@remotejdk%s_%s//:WORKSPACE" % (version, os)
-        for version in ("17", "21")
-        for os in ("macos", "macos_aarch64", "linux", "win")
-    ] + [
+    ] + select({
+        "//src/conditions:linux_x86_64": ["@remotejdk%s_linux//:WORKSPACE" % v for v in JDK_VERSIONS],
+        "//src/conditions:darwin_x86_64": ["@remotejdk%s_macos//:WORKSPACE" % v for v in JDK_VERSIONS],
+        "//src/conditions:darwin_arm64": ["@remotejdk%s_macos_aarch64//:WORKSPACE" % v for v in JDK_VERSIONS],
+        "//src/conditions:windows_x86_64": ["@remotejdk%s_win//:WORKSPACE" % v for v in JDK_VERSIONS],
+        "//conditions:default": [],
+    }) + [
         "@bazel_tools_repo_cache//:files",
         "@workspace_repo_cache//:files",
     ],

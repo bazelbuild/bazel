@@ -18,7 +18,9 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
 import java.nio.file.ClosedWatchServiceException;
@@ -53,9 +55,9 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
   /** Every directory is registered under this watch service. */
   private WatchService watchService;
 
-  private final ImmutableSet<Path> ignoredPaths;
+  private final IgnoredSubdirectories ignoredPaths;
 
-  WatchServiceDiffAwareness(String watchRoot, ImmutableSet<Path> ignoredPaths) {
+  WatchServiceDiffAwareness(String watchRoot, IgnoredSubdirectories ignoredPaths) {
     super(watchRoot);
     this.ignoredPaths = ignoredPaths;
   }
@@ -283,14 +285,14 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
   private class WatcherFileVisitor extends SimpleFileVisitor<Path> {
 
     private final Set<Path> visitedAbsolutePaths;
-    private final Set<Path> ignoredPaths;
+    private final IgnoredSubdirectories ignoredPaths;
 
-    private WatcherFileVisitor(Set<Path> visitedPaths, Set<Path> ignoredPaths) {
+    private WatcherFileVisitor(Set<Path> visitedPaths, IgnoredSubdirectories ignoredPaths) {
       this.visitedAbsolutePaths = visitedPaths;
       this.ignoredPaths = ignoredPaths;
     }
 
-    private WatcherFileVisitor(Set<Path> ignoredPaths) {
+    private WatcherFileVisitor(IgnoredSubdirectories ignoredPaths) {
       this.visitedAbsolutePaths = new HashSet<>();
       this.ignoredPaths = ignoredPaths;
     }
@@ -305,7 +307,9 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
     @Override
     public FileVisitResult preVisitDirectory(Path path, BasicFileAttributes attrs)
         throws IOException {
-      if (ignoredPaths.contains(path)) {
+      PathFragment pathFragment =
+          PathFragment.create(path.toAbsolutePath().toString()).toRelative();
+      if (ignoredPaths.matchingEntry(pathFragment) != null) {
         return FileVisitResult.SKIP_SUBTREE;
       }
 

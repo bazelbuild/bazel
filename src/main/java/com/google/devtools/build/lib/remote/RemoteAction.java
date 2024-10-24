@@ -26,11 +26,15 @@ import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.IOException;
 import java.util.SortedMap;
 import javax.annotation.Nullable;
 
-/** A value class representing an action which can be executed remotely. */
+/**
+ * A value class representing an action which can be executed remotely.
+ *
+ * <p>Terminology note: "action" is used here in the remote execution protocol sense, which is
+ * equivalent to a Bazel "spawn" (a Bazel "action" being a higher-level concept).
+ */
 public class RemoteAction {
 
   private final Spawn spawn;
@@ -131,7 +135,7 @@ public class RemoteAction {
    * ActionInput}.
    */
   public SortedMap<PathFragment, ActionInput> getInputMap(boolean willAccessRepeatedly)
-      throws IOException, ForbiddenActionInputException {
+      throws ForbiddenActionInputException {
     return remotePathResolver.getInputMapping(spawnExecutionContext, willAccessRepeatedly);
   }
 

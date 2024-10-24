@@ -15,8 +15,9 @@ package com.google.devtools.build.lib.skyframe.serialization.strings;
 
 import static com.google.devtools.build.lib.skyframe.serialization.strings.UnsafeStringCodec.stringCodec;
 
+import com.google.devtools.build.lib.skyframe.serialization.LeafDeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.LeafObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationDependencyProvider;
+import com.google.devtools.build.lib.skyframe.serialization.LeafSerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -32,14 +33,14 @@ class CharsetCodec extends LeafObjectCodec<Charset> {
 
   @Override
   public void serialize(
-      SerializationDependencyProvider dependencies, Charset charset, CodedOutputStream codedOut)
+      LeafSerializationContext context, Charset charset, CodedOutputStream codedOut)
       throws SerializationException, IOException {
-    stringCodec().serialize(dependencies, charset.name(), codedOut);
+    context.serializeLeaf(charset.name(), stringCodec(), codedOut);
   }
 
   @Override
-  public Charset deserialize(SerializationDependencyProvider dependencies, CodedInputStream codedIn)
+  public Charset deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
-    return Charset.forName(stringCodec().deserialize(dependencies, codedIn));
+    return Charset.forName(context.deserializeLeaf(codedIn, stringCodec()));
   }
 }

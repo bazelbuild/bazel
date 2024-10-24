@@ -23,10 +23,8 @@ else
   ADDITIONAL_JARS="$(grep -o '".*\.jar"' tools/distributions/${DISTRIBUTION}/${DISTRIBUTION}_java.BUILD | sed 's/"//g' | sed 's|^|/usr/share/|g')"
 fi
 
-# Parse third_party/googleapis/BUILD.bazel to find the proto files we need to compile from googleapis
-GOOGLE_API_PROTOS="$(grep -o '".*\.proto"' third_party/googleapis/BUILD.bazel | sed 's/"//g' | sed 's|^|third_party/googleapis/|g')"
-PROTO_FILES=$(find third_party/remoteapis ${GOOGLE_API_PROTOS} third_party/pprof src/main/protobuf src/main/java/com/google/devtools/build/lib/buildeventstream/proto src/main/java/com/google/devtools/build/skyframe src/main/java/com/google/devtools/build/lib/skyframe/proto src/main/java/com/google/devtools/build/lib/bazel/debug src/main/java/com/google/devtools/build/lib/starlarkdebug/proto src/main/java/com/google/devtools/build/lib/packages/metrics/package_load_metrics.proto -name "*.proto")
-# For protobuf jars, derived/jars/com_google_protobuf/java/core/libcore.jar must be in front of derived/jars/com_google_protobuf/java/core/liblite.jar, so we sort jars here
+PROTO_FILES=$(find third_party/remoteapis third_party/pprof src/main/protobuf src/main/java/com/google/devtools/build/lib/buildeventstream/proto src/main/java/com/google/devtools/build/skyframe src/main/java/com/google/devtools/build/lib/skyframe/proto src/main/java/com/google/devtools/build/lib/bazel/debug src/main/java/com/google/devtools/build/lib/starlarkdebug/proto src/main/java/com/google/devtools/build/lib/packages/metrics/package_load_metrics.proto -name "*.proto")
+# For protobuf jars, derived/jars/protobuf+/java/core/libcore.jar must be in front of derived/jars/protobuf+/java/core/liblite.jar, so we sort jars here
 LIBRARY_JARS=$(find $ADDITIONAL_JARS -name '*.jar' | sort | grep -Fv JavaBuilder | tr "\n" " ")
 MAVEN_JARS=$(find "derived/maven" -name '*.jar' | grep -Fv netty-tcnative | tr "\n" " ")
 LIBRARY_JARS="${LIBRARY_JARS} ${MAVEN_JARS}"
@@ -36,7 +34,7 @@ DIRS=$(echo src/{java_tools/singlejar/java/com/google/devtools/build/zip,main/ja
 EXCLUDE_FILES="src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/testing/* src/main/java/com/google/devtools/build/lib/collect/nestedset/NestedSetCodecTestUtils.java"
 # Exclude whole directories under the bazel src tree that bazel itself
 # doesn't depend on.
-EXCLUDE_DIRS="src/main/java/com/google/devtools/build/skydoc src/main/java/com/google/devtools/build/docgen tools/java/runfiles/testing src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils src/main/java/com/google/devtools/common/options/testing src/main/java/com/google/devtools/build/lib/testing"
+EXCLUDE_DIRS="src/main/java/com/google/devtools/build/docgen tools/java/runfiles/testing src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils src/main/java/com/google/devtools/common/options/testing src/main/java/com/google/devtools/build/lib/testing"
 for d in $EXCLUDE_DIRS ; do
   for f in $(find $d -type f) ; do
     EXCLUDE_FILES+=" $f"
@@ -139,7 +137,8 @@ function java_compilation() {
   # additional arguments to be passed to javac.
   run "${JAVAC}" -classpath "${classpath}" -sourcepath "${sourcepath}" \
       -d "${output}/classes" -source "$JAVA_VERSION" -target "$JAVA_VERSION" \
-      -encoding UTF-8 ${BAZEL_JAVAC_OPTS} "@${paramfile}"
+      -encoding UTF-8 --add-exports=java.base/jdk.internal.misc=ALL-UNNAMED \
+      ${BAZEL_JAVAC_OPTS} "@${paramfile}"
 
   log "Extracting helper classes for $name..."
   for f in ${library_jars} ; do
@@ -154,11 +153,16 @@ function create_deploy_jar() {
   local output=$3
   shift 3
   local packages=""
+  # Only keep the services subdirectory of META-INF (needed for AutoService).
+  for i in $output/classes/META-INF/*; do
+    local package=$(basename $i)
+    if [[ "$package" != "services" ]]; then
+      rm -r "$i"
+    fi
+  done
   for i in $output/classes/*; do
     local package=$(basename $i)
-    if [[ "$package" != "META-INF" ]]; then
-      packages="$packages -C $output/classes $package"
-    fi
+    packages="$packages -C $output/classes $package"
   done
 
   log "Creating $name.jar..."
@@ -221,7 +225,6 @@ if [ -z "${BAZEL_SKIP_JAVA_COMPILATION}" ]; then
                 -Isrc/main/java/com/google/devtools/build/lib/bazel/debug/ \
                 -Isrc/main/java/com/google/devtools/build/lib/starlarkdebug/proto/ \
                 -Ithird_party/remoteapis/ \
-                -Ithird_party/googleapis/ \
                 -Ithird_party/pprof/ \
                 --java_out=${OUTPUT_DIR}/src \
                 --plugin=protoc-gen-grpc="${GRPC_JAVA_PLUGIN-}" \
@@ -250,11 +253,8 @@ if [ -z "${BAZEL_SKIP_JAVA_COMPILATION}" ]; then
 workspace(name = 'bazel_tools')
 EOF
 
-  # Set up the MODULE.bazel file for `bazel_tools` and update the hash in the lockfile.
+  # Set up the MODULE.bazel file for `bazel_tools`
   link_file "${PWD}/src/MODULE.tools" "${BAZEL_TOOLS_REPO}/MODULE.bazel"
-  new_hash=$(shasum -a 256 "${BAZEL_TOOLS_REPO}/MODULE.bazel" | awk '{print $1}')
-  sed -i.bak "/\"bazel_tools\":/s/\"[a-f0-9]*\"/\"$new_hash\"/" MODULE.bazel.lock
-  rm MODULE.bazel.lock.bak
 
   mkdir -p "${BAZEL_TOOLS_REPO}/src/conditions"
   link_file "${PWD}/src/conditions/BUILD.tools" \
@@ -278,6 +278,10 @@ EOF
   link_file "${PWD}/tools/cpp/runfiles/BUILD.tools" \
       "${BAZEL_TOOLS_REPO}/tools/cpp/runfiles/BUILD"
 
+  # Create @bazel_tools//tools/cpp/modules_tools
+  mkdir -p ${BAZEL_TOOLS_REPO}/tools/cpp/modules_tools
+  link_file "${PWD}/tools/cpp/modules_tools/BUILD.tools" "${BAZEL_TOOLS_REPO}/tools/cpp/modules_tools/BUILD"
+
   # Create @bazel_tools//tools/sh
   mkdir -p ${BAZEL_TOOLS_REPO}/tools/sh
   link_file "${PWD}/tools/sh/sh_configure.bzl" "${BAZEL_TOOLS_REPO}/tools/sh/sh_configure.bzl"
@@ -298,11 +302,6 @@ EOF
   # Create @bazel_tools/tools/python/BUILD
   mkdir -p ${BAZEL_TOOLS_REPO}/tools/python
   link_file "${PWD}/tools/python/BUILD.tools" "${BAZEL_TOOLS_REPO}/tools/python/BUILD"
-
-  # Create @bazel_tools/tools/android/BUILD
-  mkdir -p ${BAZEL_TOOLS_REPO}/tools/android
-  link_file "${PWD}/tools/android/BUILD.tools" "${BAZEL_TOOLS_REPO}/tools/android/BUILD"
-  link_children "${PWD}" tools/android "${BAZEL_TOOLS_REPO}"
 
   # Create the rest of @bazel_tools//tools/...
   link_children "${PWD}" tools/cpp "${BAZEL_TOOLS_REPO}"

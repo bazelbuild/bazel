@@ -1,5 +1,5 @@
-load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_library")
 load("@rules_java//java:defs.bzl", "java_library")
+load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_library")
 
 package(default_visibility = ["//src:__subpackages__"])
 

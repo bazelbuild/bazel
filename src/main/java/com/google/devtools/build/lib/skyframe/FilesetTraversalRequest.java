@@ -19,7 +19,6 @@ import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversal;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversalRoot;
-import com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 
 /** A {@link TraversalRequest} for a Fileset, backed by {@link FilesetTraversalParams}. */
@@ -50,18 +49,13 @@ public class FilesetTraversalRequest extends TraversalRequest {
   }
 
   @Override
-  protected final PackageBoundaryMode crossPkgBoundaries() {
-    return directTraversal().getPackageBoundaryMode();
-  }
-
-  @Override
   protected final boolean strictOutputFiles() {
     return directTraversal().isStrictFilesetOutput();
   }
 
   @Override
   protected boolean skipTestingForSubpackage() {
-    return directTraversal().isPackage();
+    return false;
   }
 
   @Override
@@ -72,9 +66,8 @@ public class FilesetTraversalRequest extends TraversalRequest {
   @Override
   protected final String errorInfo() {
     return String.format(
-        "Fileset '%s' traversing %s '%s'",
+        "Fileset '%s' traversing file (or directory) '%s'",
         params.getOwnerLabelForErrorMessages(),
-        directTraversal().isPackage() ? "package" : "file (or directory)",
         directTraversal().getRoot().getRelativePart().getPathString());
   }
 
@@ -93,7 +86,6 @@ public class FilesetTraversalRequest extends TraversalRequest {
   public final int hashCode() {
     int result = root().hashCode();
     result = 31 * result + Boolean.hashCode(isRootGenerated());
-    result = 31 * result + crossPkgBoundaries().hashCode();
     result = 31 * result + Boolean.hashCode(strictOutputFiles());
     result = 31 * result + Boolean.hashCode(skipTestingForSubpackage());
     return result;
@@ -104,13 +96,11 @@ public class FilesetTraversalRequest extends TraversalRequest {
     if (this == o) {
       return true;
     }
-    if (!(o instanceof FilesetTraversalRequest)) {
+    if (!(o instanceof FilesetTraversalRequest other)) {
       return false;
     }
-    FilesetTraversalRequest other = (FilesetTraversalRequest) o;
     return root().equals(other.root())
         && isRootGenerated() == other.isRootGenerated()
-        && crossPkgBoundaries() == other.crossPkgBoundaries()
         && strictOutputFiles() == other.strictOutputFiles()
         && skipTestingForSubpackage() == other.skipTestingForSubpackage();
   }

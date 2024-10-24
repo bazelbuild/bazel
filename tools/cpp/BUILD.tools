@@ -22,47 +22,32 @@ toolchain_type(name = "toolchain_type")
 # The toolchain_type used for cc test runners.
 toolchain_type(name = "test_runner_toolchain_type")
 
-# It is frequently necessary to constrain platforms based on the cc compiler type.
-constraint_setting(name = "cc_compiler")
-
-constraint_value(
-    name = "clang",
-    constraint_setting = ":cc_compiler",
-)
-
-constraint_value(
-    name = "gcc",
-    constraint_setting = ":cc_compiler",
-)
-
-constraint_value(
-    name = "msvc",
-    constraint_setting = ":cc_compiler",
-)
-
-constraint_value(
-    name = "clang-cl",
-    constraint_setting = ":cc_compiler",
-)
-
-constraint_value(
-    name = "mingw",
-    constraint_setting = ":cc_compiler",
-)
-
-constraint_value(
-    name = "msys",
-    constraint_setting = ":cc_compiler",
-)
-
-cc_toolchain_alias(name = "current_cc_toolchain")
-
-cc_toolchain_alias(
-    name = "optional_current_cc_toolchain",
-    mandatory = False,
-)
-
-cc_libc_top_alias(name = "current_libc_top")
+# Aliases to @rules_cc
+[
+    alias(
+        name = target,
+        actual = actual,
+        deprecation = "Please use %s instead." % actual,
+    )
+    for target, actual in {
+        "cc_compiler": "@rules_cc//cc/private/toolchain:cc_compiler",
+        "clang": "@rules_cc//cc/private/toolchain:clang",
+        "gcc": "@rules_cc//cc/private/toolchain:gcc",
+        "msvc": "@rules_cc//cc/private/toolchain:msvc",
+        "clang-cl": "@rules_cc//cc/private/toolchain:clang-cl",
+        "mingw": "@rules_cc//cc/private/toolchain:mingw",
+        "msys": "@rules_cc//cc/private/toolchain:msys",
+        "grep-includes": "@rules_cc//cc/private/toolchain:grep-includes",
+        "interface_library_builder": "@rules_cc//cc/private/toolchain:interface_library_builder",
+        "link_dynamic_library": "@rules_cc//cc/private/toolchain:link_dynamic_library",
+        "lib_cc_configure": "@rules_cc//cc/private/toolchain:lib_cc_configure",
+        "compiler": "@rules_cc//cc/private/toolchain:compiler",
+        "cc_flags": "@rules_cc//cc/private/toolchain:cc_flags",
+        "current_cc_toolchain": "@rules_cc//cc:current_cc_toolchain",
+        "optional_current_cc_toolchain": "@rules_cc//cc:optional_current_cc_toolchain",
+        "current_libc_top": "@rules_cc//cc:current_libc_top",
+    }.items()
+]
 
 cc_library(
     name = "empty_lib",
@@ -92,13 +77,24 @@ cc_library(
 )
 
 filegroup(
-    name = "grep-includes",
-    srcs = ["grep-includes.sh"],
+    name = "aggregate-ddi",
+    srcs = ["//tools/cpp/modules_tools:aggregate-ddi-bin"],
+)
+
+filegroup(
+    name = "generate-modmap",
+    srcs = ["//tools/cpp/modules_tools:generate-modmap-bin"],
 )
 
 filegroup(
     name = "empty",
     srcs = [],
+)
+
+filegroup(
+    name = "bzl_srcs",
+    srcs = glob(["*.bzl"]),
+    visibility = ["//tools:__pkg__"],
 )
 
 config_setting(
@@ -126,64 +122,3 @@ alias(
     name = "host_xcodes",
     actual = "@local_config_xcode//:host_xcodes",
 )
-
-filegroup(
-    name = "srcs",
-    srcs = glob(["**"]) + [
-        "//tools/cpp/runfiles:srcs",
-    ],
-)
-
-filegroup(
-    name = "embedded_tools",
-    srcs = glob(["**"]) + [
-        "//tools/cpp/runfiles:embedded_tools",
-    ],
-)
-
-filegroup(
-    name = "interface_library_builder",
-    srcs = ["build_interface_so"],
-)
-
-filegroup(
-    name = "link_dynamic_library",
-    srcs = ["link_dynamic_library.sh"],
-)
-
-filegroup(
-    name = "lib_cc_configure",
-    srcs = ["lib_cc_configure.bzl"],
-)
-
-filegroup(
-    name = "bzl_srcs",
-    srcs = glob(["*.bzl"]),
-    visibility = ["//tools:__pkg__"],
-)
-
-cc_library(
-    name = "build_info_translation_helper",
-    srcs = [":build_info_translation_helper.cc"],
-    hdrs = [":build_info_translation_helper.h"],
-    deps = [
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings"],
-)
-
-cc_library(
-    name = "bazel_build_info_translation_helper",
-    srcs = [":bazel_build_info_translation_helper.cc"],
-    hdrs = [":bazel_build_info_translation_helper.h"],
-    deps = [":build_info_translation_helper"],
-)
-
-load(":compiler_flag.bzl", "compiler_flag")
-
-compiler_flag(name = "compiler")
-
-# Target that can provide the CC_FLAGS variable based on the current
-# cc_toolchain.
-load("@bazel_tools//tools/cpp:cc_flags_supplier.bzl", "cc_flags_supplier")
-
-cc_flags_supplier(name = "cc_flags")

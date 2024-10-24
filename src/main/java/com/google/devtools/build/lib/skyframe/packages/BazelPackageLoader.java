@@ -22,8 +22,10 @@ import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
-import com.google.devtools.build.lib.bazel.bzlmod.RegistryFactory;
 import com.google.devtools.build.lib.bazel.bzlmod.RegistryFactoryImpl;
+import com.google.devtools.build.lib.bazel.bzlmod.RegistryFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.RepoSpecFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
@@ -51,6 +53,7 @@ import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -111,8 +114,11 @@ public class BazelPackageLoader extends AbstractPackageLoader {
           PrecomputedValue.injected(
               RepositoryDelegatorFunction.FORCE_FETCH_CONFIGURE,
               RepositoryDelegatorFunction.FORCE_FETCH_DISABLED),
-          PrecomputedValue.injected(ModuleFileFunction.REGISTRIES, ImmutableList.of()),
+          PrecomputedValue.injected(RepositoryDelegatorFunction.VENDOR_DIRECTORY, Optional.empty()),
+          PrecomputedValue.injected(
+              ModuleFileFunction.REGISTRIES, BazelRepositoryModule.DEFAULT_REGISTRIES),
           PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
+          PrecomputedValue.injected(RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES, false),
           PrecomputedValue.injected(
               BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES,
               RepositoryOptions.CheckDirectDepsMode.OFF),
@@ -130,19 +136,36 @@ public class BazelPackageLoader extends AbstractPackageLoader {
       // Set up SkyFunctions and PrecomputedValues needed to make local repositories work correctly.
       RepositoryCache repositoryCache = new RepositoryCache();
       HttpDownloader httpDownloader = new HttpDownloader();
-      DownloadManager downloadManager = new DownloadManager(repositoryCache, httpDownloader);
-      RegistryFactory registryFactory =
-          new RegistryFactoryImpl(
-              directories.getWorkspace(), downloadManager, Suppliers.ofInstance(ImmutableMap.of()));
+      DownloadManager downloadManager =
+          new DownloadManager(repositoryCache, httpDownloader, httpDownloader);
+      RegistryFactoryImpl registryFactory =
+          new RegistryFactoryImpl(Suppliers.ofInstance(ImmutableMap.of()));
+      registryFactory.setDownloadManager(downloadManager);
 
-      // Allow tests to override SkyFunctions.MODULE_FILE to use fake registry
+      // Allow tests to override the following functions to use fake registry or custom built-in
+      // modules
       if (!this.extraSkyFunctions.containsKey(SkyFunctions.MODULE_FILE)) {
         addExtraSkyFunctions(
             ImmutableMap.of(
                 SkyFunctions.MODULE_FILE,
                 new ModuleFileFunction(
-                    registryFactory, directories.getWorkspace(), ImmutableMap.of())));
+                    ruleClassProvider.getBazelStarlarkEnvironment(),
+                    directories.getWorkspace(),
+                    ModuleFileFunction.getBuiltinModules(directories.getEmbeddedBinariesRoot())
+                        .entrySet()
+                        .stream()
+                        .filter(e -> e.getKey().equals("bazel_tools"))
+                        .collect(
+                            ImmutableMap.toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)))));
       }
+      if (!this.extraSkyFunctions.containsKey(SkyFunctions.REGISTRY)) {
+        addExtraSkyFunctions(
+            ImmutableMap.of(
+                SkyFunctions.REGISTRY,
+                new RegistryFunction(registryFactory, directories.getWorkspace())));
+      }
+      StarlarkRepositoryFunction starlarkRepositoryFunction = new StarlarkRepositoryFunction();
+      starlarkRepositoryFunction.setDownloadManager(downloadManager);
 
       addExtraSkyFunctions(
           ImmutableMap.<SkyFunctionName, SkyFunction>builder()
@@ -161,13 +184,18 @@ public class BazelPackageLoader extends AbstractPackageLoader {
                   SkyFunctions.REPOSITORY_DIRECTORY,
                   new RepositoryDelegatorFunction(
                       BazelRepositoryModule.repositoryRules(),
-                      new StarlarkRepositoryFunction(downloadManager),
+                      starlarkRepositoryFunction,
                       isFetch,
                       ImmutableMap::of,
                       directories,
                       EXTERNAL_PACKAGE_HELPER))
+              .put(
+                  SkyFunctions.BAZEL_LOCK_FILE,
+                  new BazelLockFileFunction(directories.getWorkspace()))
               .put(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction())
               .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
+              .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction())
+              .put(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction())
               .buildOrThrow());
 
       return new BazelPackageLoader(this);

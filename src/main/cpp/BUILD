@@ -60,6 +60,9 @@ cc_library(
         "//src/main/cpp/util",
         "//src/main/cpp/util:blaze_exit_code",
         "//src/main/cpp/util:logging",
+        "@abseil-cpp//absl/base:log_severity",
+        "@abseil-cpp//absl/log:globals",
+        "@abseil-cpp//absl/log:initialize",
     ] + select({
         "//src/conditions:windows": [
             "//src/main/native/windows:lib-file",
@@ -239,6 +242,14 @@ cc_library(
         ":workspace_layout",
         "//src/main/cpp/util",
         "//src/main/cpp/util:logging",
+        "@abseil-cpp//absl/algorithm:container",
+        "@abseil-cpp//absl/container:flat_hash_map",
+        "@abseil-cpp//absl/functional:function_ref",
+        "@abseil-cpp//absl/memory",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:str_format",
+        "@abseil-cpp//absl/strings:string_view",
+        "@abseil-cpp//absl/types:span",
     ],
 )
 

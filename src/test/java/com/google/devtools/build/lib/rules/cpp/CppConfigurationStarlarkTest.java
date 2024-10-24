@@ -33,7 +33,7 @@ public final class CppConfigurationStarlarkTest extends BuildViewTestCase {
     useConfiguration("--minimum_os_version=-wololoo");
     writeRuleReturning("ctx.fragments.cpp.minimum_os_version()");
 
-    String result = (String) getConfiguredTarget("//foo:bar").get("result");
+    String result = getResult(String.class);
     assertThat(result).isEqualTo("-wololoo");
   }
 
@@ -41,7 +41,7 @@ public final class CppConfigurationStarlarkTest extends BuildViewTestCase {
   public void testNullMinimumOsVersion() throws Exception {
     writeRuleReturning("ctx.fragments.cpp.minimum_os_version()");
 
-    Object result = getConfiguredTarget("//foo:bar").get("result");
+    Object result = getResult(Object.class);
     assertThat(result).isInstanceOf(NoneType.class);
   }
 
@@ -51,7 +51,7 @@ public final class CppConfigurationStarlarkTest extends BuildViewTestCase {
     useConfiguration("--copt=-wololoo");
 
     @SuppressWarnings("unchecked")
-    Sequence<String> result = (Sequence<String>) getConfiguredTarget("//foo:bar").get("result");
+    Sequence<String> result = getResult(Sequence.class);
     assertThat(result).containsExactly("-wololoo");
   }
 
@@ -61,7 +61,7 @@ public final class CppConfigurationStarlarkTest extends BuildViewTestCase {
     useConfiguration("--cxxopt=-wololoo");
 
     @SuppressWarnings("unchecked")
-    Sequence<String> result = (Sequence<String>) getConfiguredTarget("//foo:bar").get("result");
+    Sequence<String> result = getResult(Sequence.class);
     assertThat(result).containsExactly("-wololoo");
   }
 
@@ -71,7 +71,7 @@ public final class CppConfigurationStarlarkTest extends BuildViewTestCase {
     useConfiguration("--conlyopt=-wololoo");
 
     @SuppressWarnings("unchecked")
-    Sequence<String> result = (Sequence<String>) getConfiguredTarget("//foo:bar").get("result");
+    Sequence<String> result = getResult(Sequence.class);
     assertThat(result).containsExactly("-wololoo");
   }
 
@@ -81,7 +81,7 @@ public final class CppConfigurationStarlarkTest extends BuildViewTestCase {
     useConfiguration("--objccopt=-wololoo");
 
     @SuppressWarnings("unchecked")
-    Sequence<String> result = (Sequence<String>) getConfiguredTarget("//foo:bar").get("result");
+    Sequence<String> result = getResult(Sequence.class);
     assertThat(result).containsExactly("-wololoo");
   }
 
@@ -91,7 +91,7 @@ public final class CppConfigurationStarlarkTest extends BuildViewTestCase {
     useConfiguration("--linkopt=-wololoo");
 
     @SuppressWarnings("unchecked")
-    Sequence<String> result = (Sequence<String>) getConfiguredTarget("//foo:bar").get("result");
+    Sequence<String> result = getResult(Sequence.class);
     assertThat(result).containsExactly("-wololoo");
   }
 
@@ -99,8 +99,7 @@ public final class CppConfigurationStarlarkTest extends BuildViewTestCase {
     assertThat(e)
         .hasMessageThat()
         .contains(
-            String.format(
-                "cannot use private @_builtins API (feature '%s' in CppConfiguration)", feature));
+            String.format("cannot use private API (feature '%s' in CppConfiguration)", feature));
   }
 
   @Test
@@ -139,12 +138,17 @@ public final class CppConfigurationStarlarkTest extends BuildViewTestCase {
       throws IOException {
     scratch.file(
         path + "/" + lib,
+        "Info = provider()",
         "def _impl(ctx):",
-        "  return struct(",
+        "  return Info(",
         "    result = " + returns,
         "  )",
         "foo = rule(implementation=_impl, fragments = ['cpp'])");
     scratch.appendFile(
         path + "/BUILD", "load(':" + lib + "', 'foo')", "foo(name='" + target + "')");
+  }
+
+  private <T> T getResult(Class<T> type) throws Exception {
+    return getStarlarkProvider(getConfiguredTarget("//foo:bar"), "Info").getValue("result", type);
   }
 }

@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
-import java.util.function.Supplier;
 
 /**
  * Encodes an {@link ImmutableClassToInstanceMap}. The iteration order of the deserialized map is
@@ -56,7 +55,7 @@ class ImmutableClassToInstanceMapCodec extends DeferredObjectCodec<ImmutableClas
   }
 
   @Override
-  public Supplier<ImmutableClassToInstanceMap> deserializeDeferred(
+  public DeferredValue<ImmutableClassToInstanceMap> deserializeDeferred(
       AsyncDeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
     int size = codedIn.readInt32();
@@ -71,13 +70,12 @@ class ImmutableClassToInstanceMapCodec extends DeferredObjectCodec<ImmutableClas
     deserializeMapEntries(
         context,
         codedIn,
-        /* requiresFullValueDeserialization= */ false,
         buffer.keys,
         buffer.values);
     return buffer;
   }
 
-  private static class EntryBuffer implements Supplier<ImmutableClassToInstanceMap> {
+  private static class EntryBuffer implements DeferredValue<ImmutableClassToInstanceMap> {
     final Object[] keys;
     final Object[] values;
 
@@ -87,7 +85,7 @@ class ImmutableClassToInstanceMapCodec extends DeferredObjectCodec<ImmutableClas
     }
 
     @Override
-    public ImmutableClassToInstanceMap get() {
+    public ImmutableClassToInstanceMap call() {
       ImmutableClassToInstanceMap.Builder builder = ImmutableClassToInstanceMap.builder();
       for (int i = 0; i < size(); i++) {
         builder.put((Class) keys[i], values[i]);

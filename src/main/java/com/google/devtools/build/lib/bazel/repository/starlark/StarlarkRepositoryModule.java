@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.bazel.repository.starlark;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.STRING;
-import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
+import static com.google.devtools.build.lib.packages.Types.STRING_LIST;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -33,16 +33,14 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
-import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BzlInitThreadContext;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.Package.NameConflictException;
-import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.packages.RuleFunction;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
+import com.google.devtools.build.lib.packages.TargetRecorder.NameConflictException;
 import com.google.devtools.build.lib.packages.WorkspaceFactoryHelper;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryModuleApi;
@@ -76,7 +74,6 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
       Object doc, // <String> or Starlark.NONE
       StarlarkThread thread)
       throws EvalException {
-    BazelStarlarkContext.checkLoadingOrWorkspacePhase(thread, "repository_rule");
     // We'll set the name later, pass the empty string for now.
     RuleClass.Builder builder = new RuleClass.Builder("", RuleClassType.WORKSPACE, true);
 
@@ -107,11 +104,24 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
       }
     }
     builder.setConfiguredTargetFunction(implementation);
-    // TODO(b/291752414): If we care about the digest of repository rules, we should be using the
-    // transitive bzl digest of the module of the outermost stack frame, not the innermost.
-    BazelModuleContext moduleContext = BazelModuleContext.ofInnermostBzlOrThrow(thread);
-    builder.setRuleDefinitionEnvironmentLabelAndDigest(
-        moduleContext.label(), moduleContext.bzlTransitiveDigest());
+    BzlInitThreadContext bzlInitContext = BzlInitThreadContext.fromOrNull(thread);
+    if (bzlInitContext != null) {
+      builder.setRuleDefinitionEnvironmentLabelAndDigest(
+          bzlInitContext.getBzlFile(), bzlInitContext.getTransitiveDigest());
+    } else {
+      // TODO: this branch is wrong, but cannot be removed until we deprecate WORKSPACE because
+      //   WORKSPACE can currently call unexported repo rules (so there's potentially no
+      //   BzlInitThreadContext. See
+      //   https://github.com/bazelbuild/bazel/pull/21131#discussion_r1471924084 for more details.
+      BazelModuleContext moduleContext = BazelModuleContext.ofInnermostBzlOrThrow(thread);
+      builder.setRuleDefinitionEnvironmentLabelAndDigest(
+          moduleContext.label(), moduleContext.bzlTransitiveDigest());
+    }
+    Label.RepoMappingRecorder repoMappingRecorder =
+        thread.getThreadLocal(Label.RepoMappingRecorder.class);
+    if (repoMappingRecorder != null) {
+      builder.setRuleDefinitionEnvironmentRepoMappingEntries(repoMappingRecorder.recordedEntries());
+    }
     builder.setWorkspaceOnly();
     return new RepositoryRuleFunction(
         builder,
@@ -127,9 +137,12 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
       name = "repository_rule",
       category = DocCategory.BUILTIN,
       doc =
-          "A callable value that may be invoked during evaluation of the WORKSPACE file or within"
-              + " the implementation function of a module extension to instantiate and return a"
-              + " repository rule.")
+          """
+A callable value that may be invoked during evaluation of the WORKSPACE file or within \
+the implementation function of a module extension to instantiate and return a repository \
+rule. Created by \
+<a href="../globals/bzl.html#repository_rule"><code>repository_rule()</code></a>.
+""")
   public static final class RepositoryRuleFunction
       implements StarlarkCallable, StarlarkExportable, RuleFunction {
     private final RuleClass.Builder builder;
@@ -203,14 +216,14 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
       // Decide whether we're operating in the new mode (during module extension evaluation) or in
       // legacy mode (during workspace evaluation).
       ModuleExtensionEvalStarlarkThreadContext extensionEvalContext =
-          ModuleExtensionEvalStarlarkThreadContext.from(thread);
+          ModuleExtensionEvalStarlarkThreadContext.fromOrNull(thread);
       if (extensionEvalContext == null) {
         return createRuleLegacy(thread, kwargs);
       }
       if (!isExported()) {
         throw new EvalException("attempting to instantiate a non-exported repository rule");
       }
-      extensionEvalContext.createRepo(thread, kwargs, getRuleClass());
+      extensionEvalContext.lazilyCreateRepo(thread, kwargs, getRuleClass());
       return Starlark.NONE;
     }
 
@@ -239,11 +252,11 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
 
     private Object createRuleLegacy(StarlarkThread thread, Dict<String, Object> kwargs)
         throws EvalException, InterruptedException {
-      BazelStarlarkContext.checkWorkspacePhase(thread, "repository rule " + exportedName);
       String ruleClassName = getRuleClassName();
       try {
-        RuleClass ruleClass = builder.build(ruleClassName, ruleClassName);
-        Package.Builder pkgBuilder = PackageFactory.getContext(thread);
+        RuleClass ruleClass = builder.buildStarlark(ruleClassName, extensionLabel);
+        Package.Builder pkgBuilder =
+            Package.Builder.fromOrFailAllowWorkspaceOnly(thread, "repository rules");
 
         // TODO(adonovan): is this cast safe? Check.
         String name = (String) kwargs.get("name");
@@ -252,10 +265,10 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
         }
         WorkspaceFactoryHelper.addMainRepoEntry(pkgBuilder, name);
         WorkspaceFactoryHelper.addRepoMappings(pkgBuilder, kwargs, name);
+        // Note that RuleFactory#createAndAddRule checks that the package is a repo rule package.
         return WorkspaceFactoryHelper.createAndAddRepositoryRule(
             pkgBuilder,
             ruleClass,
-            /* bindRuleClass= */ null,
             WorkspaceFactoryHelper.getFinalKwargs(kwargs),
             thread.getCallStack());
       } catch (InvalidRuleException | NameConflictException | LabelSyntaxException e) {
@@ -266,7 +279,7 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
     @Override
     public RuleClass getRuleClass() {
       String name = getRuleClassName();
-      return builder.build(name, name);
+      return builder.buildStarlark(name, extensionLabel);
     }
   }
 
@@ -312,9 +325,8 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
   @Override
   public TagClass tagClass(
       Dict<?, ?> attrs, // Dict<String, StarlarkAttrModule.Descriptor>
-      Object doc, // <String> or Starlark.NONE
-      StarlarkThread thread)
-      throws EvalException {
+      Object doc // <String> or Starlark.NONE
+      ) throws EvalException {
     ImmutableList.Builder<Attribute> attrBuilder = ImmutableList.builder();
     for (Map.Entry<String, Descriptor> attr :
         Dict.cast(attrs, String.class, Descriptor.class, "attrs").entrySet()) {
@@ -327,7 +339,6 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
     }
     return TagClass.create(
         attrBuilder.build(),
-        Starlark.toJavaOptional(doc, String.class).map(Starlark::trimDocString),
-        thread.getCallerLocation());
+        Starlark.toJavaOptional(doc, String.class).map(Starlark::trimDocString));
   }
 }

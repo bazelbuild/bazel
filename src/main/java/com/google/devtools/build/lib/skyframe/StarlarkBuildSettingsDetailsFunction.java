@@ -224,8 +224,8 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
       if (buildSettingTarget.getAssociatedRule().getRuleClass().equals(ALIAS_RULE_NAME)) {
         Object actualValue =
             buildSettingTarget.getAssociatedRule().getAttr(ALIAS_ACTUAL_ATTRIBUTE_NAME);
-        if (actualValue instanceof Label) {
-          actualSettingBuilder.add((Label) actualValue);
+        if (actualValue instanceof Label label) {
+          actualSettingBuilder.add(label);
           continue;
         } else if (actualValue instanceof SelectorList) {
           // configured "actual" value

@@ -38,8 +38,8 @@ public interface HasDigest extends Serializable {
 
     @Override
     public boolean equals(Object other) {
-      if (other instanceof ByteStringDigest) {
-        return bytes.equals(((ByteStringDigest) other).bytes);
+      if (other instanceof ByteStringDigest byteStringDigest) {
+        return bytes.equals(byteStringDigest.bytes);
       }
       return false;
     }

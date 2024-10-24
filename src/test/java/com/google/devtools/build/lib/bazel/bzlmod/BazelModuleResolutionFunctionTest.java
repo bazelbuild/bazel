@@ -21,18 +21,26 @@ import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createMo
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.FileValue;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
+import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryFunction;
+import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
+import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
+import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
+import com.google.devtools.build.lib.skyframe.BzlmodRepoRuleFunction;
 import com.google.devtools.build.lib.skyframe.ClientEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
@@ -41,7 +49,9 @@ import com.google.devtools.build.lib.skyframe.FileStateFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.Root;
@@ -56,6 +66,8 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import java.io.IOException;
 import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
@@ -96,11 +108,22 @@ public class BazelModuleResolutionFunctionTest extends FoundationTestCase {
             packageLocator,
             ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
             directories);
+    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
+    TestRuleClassProvider.addStandardRules(builder);
+    builder
+        .clearWorkspaceFilePrefixForTesting()
+        .clearWorkspaceFileSuffixForTesting()
+        .addStarlarkBootstrap(new RepositoryBootstrap(new StarlarkRepositoryModule()));
+
+    ConfiguredRuleClassProvider ruleClassProvider = builder.build();
+    ImmutableMap<String, RepositoryFunction> repositoryHandlers =
+        ImmutableMap.of(LocalRepositoryRule.NAME, new LocalRepositoryFunction());
+    StarlarkRepositoryFunction starlarkRepositoryFunction = new StarlarkRepositoryFunction();
 
     evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
-                .put(FileValue.FILE, new FileFunction(packageLocator, directories))
+                .put(SkyFunctions.FILE, new FileFunction(packageLocator, directories))
                 .put(
                     FileStateKey.FILE_STATE,
                     new FileStateFunction(
@@ -110,18 +133,37 @@ public class BazelModuleResolutionFunctionTest extends FoundationTestCase {
                         externalFilesHelper))
                 .put(
                     SkyFunctions.MODULE_FILE,
-                    new ModuleFileFunction(registryFactory, rootDirectory, ImmutableMap.of()))
+                    new ModuleFileFunction(
+                        TestRuleClassProvider.getRuleClassProvider().getBazelStarlarkEnvironment(),
+                        rootDirectory,
+                        ImmutableMap.of()))
                 .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
                 .put(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction())
                 .put(SkyFunctions.BAZEL_LOCK_FILE, new BazelLockFileFunction(rootDirectory))
                 .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
-                .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction(registryFactory))
+                .put(
+                    SkyFunctions.REGISTRY,
+                    new RegistryFunction(registryFactory, directories.getWorkspace()))
+                .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction())
+                .put(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction())
                 .put(
                     SkyFunctions.MODULE_EXTENSION_REPO_MAPPING_ENTRIES,
                     new ModuleExtensionRepoMappingEntriesFunction())
                 .put(
                     SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE,
                     new ClientEnvironmentFunction(new AtomicReference<>(ImmutableMap.of())))
+                .put(
+                    SkyFunctions.REPOSITORY_DIRECTORY,
+                    new RepositoryDelegatorFunction(
+                        repositoryHandlers,
+                        starlarkRepositoryFunction,
+                        new AtomicBoolean(true),
+                        ImmutableMap::of,
+                        directories,
+                        BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
+                .put(
+                    BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
+                    new BzlmodRepoRuleFunction(ruleClassProvider, directories))
                 .buildOrThrow(),
             differencer);
 
@@ -136,6 +178,10 @@ public class BazelModuleResolutionFunctionTest extends FoundationTestCase {
         differencer, BazelCompatibilityMode.ERROR);
     BazelLockFileFunction.LOCKFILE_MODE.set(differencer, LockfileMode.UPDATE);
     YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
+    RepositoryDelegatorFunction.FORCE_FETCH.set(
+        differencer, RepositoryDelegatorFunction.FORCE_FETCH_DISABLED);
+    RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
+    RepositoryDelegatorFunction.VENDOR_DIRECTORY.set(differencer, Optional.empty());
   }
 
   @Test
@@ -296,7 +342,7 @@ public class BazelModuleResolutionFunctionTest extends FoundationTestCase {
             .addModule(
                 createModuleKey("b", "1.0"),
                 "module(name='b', version='1.0', bazel_compatibility=['<=5.1.4', '-5.1.2']);");
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
   }
 
   @Test
@@ -334,13 +380,13 @@ public class BazelModuleResolutionFunctionTest extends FoundationTestCase {
   @Test
   public void testBadYankedVersionFormat() throws Exception {
     setupModulesForYankedVersion();
-    YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of("b~1.0"));
+    YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of("b+1.0"));
     EvaluationResult<BazelModuleResolutionValue> result =
         evaluator.evaluate(ImmutableList.of(BazelModuleResolutionValue.KEY), evaluationContext);
     assertThat(result.hasError()).isTrue();
     assertThat(result.getError().toString())
         .contains(
-            "Parsing command line flag --allow_yanked_versions=b~1.0 failed, module versions must"
+            "Parsing command line flag --allow_yanked_versions=b+1.0 failed, module versions must"
                 + " be of the form '<module name>@<version>'");
   }
 
@@ -359,89 +405,7 @@ public class BazelModuleResolutionFunctionTest extends FoundationTestCase {
                 "bazel_dep(name='b', version='1.0')")
             .addModule(createModuleKey("b", "1.0"), "module(name='b', version='1.0');")
             .addYankedVersion("b", ImmutableMap.of(Version.parse("1.0"), "1.0 is a bad version!"));
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
-  }
-
-  @Test
-  public void testYankedVersionSideEffects_equalCompatibilityLevel() throws Exception {
-    scratch.overwriteFile(
-        rootDirectory.getRelative("MODULE.bazel").getPathString(),
-        "module(name='mod', version='1.0')",
-        "bazel_dep(name = 'a', version = '1.0')",
-        "bazel_dep(name = 'b', version = '1.1')");
-
-    FakeRegistry registry =
-        registryFactory
-            .newFakeRegistry("/bar")
-            .addModule(
-                createModuleKey("a", "1.0"),
-                "module(name='a', version='1.0')",
-                "bazel_dep(name='b', version='1.0')")
-            .addModule(createModuleKey("c", "1.0"), "module(name='c', version='1.0')")
-            .addModule(createModuleKey("c", "1.1"), "module(name='c', version='1.1')")
-            .addModule(
-                createModuleKey("b", "1.0"),
-                "module(name='b', version='1.0', compatibility_level = 2)",
-                "bazel_dep(name='c', version='1.1')",
-                "print('hello from yanked version')")
-            .addModule(
-                createModuleKey("b", "1.1"),
-                "module(name='b', version='1.1', compatibility_level = 2)",
-                "bazel_dep(name='c', version='1.0')")
-            .addYankedVersion("b", ImmutableMap.of(Version.parse("1.0"), "1.0 is a bad version!"));
-
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
-    EvaluationResult<BazelModuleResolutionValue> result =
-        evaluator.evaluate(ImmutableList.of(BazelModuleResolutionValue.KEY), evaluationContext);
-
-    assertThat(result.hasError()).isFalse();
-    assertThat(result.get(BazelModuleResolutionValue.KEY).getResolvedDepGraph().keySet())
-        .containsExactly(
-            ModuleKey.ROOT,
-            createModuleKey("a", "1.0"),
-            createModuleKey("b", "1.1"),
-            createModuleKey("c", "1.0"));
-    assertDoesNotContainEvent("hello from yanked version");
-  }
-
-  @Test
-  public void testYankedVersionSideEffects_differentCompatibilityLevel() throws Exception {
-    scratch.overwriteFile(
-        rootDirectory.getRelative("MODULE.bazel").getPathString(),
-        "module(name='mod', version='1.0')",
-        "bazel_dep(name = 'a', version = '1.0')",
-        "bazel_dep(name = 'b', version = '1.1')");
-
-    FakeRegistry registry =
-        registryFactory
-            .newFakeRegistry("/bar")
-            .addModule(
-                createModuleKey("a", "1.0"),
-                "module(name='a', version='1.0')",
-                "bazel_dep(name='b', version='1.0')")
-            .addModule(createModuleKey("c", "1.0"), "module(name='c', version='1.0')")
-            .addModule(createModuleKey("c", "1.1"), "module(name='c', version='1.1')")
-            .addModule(
-                createModuleKey("b", "1.0"),
-                "module(name='b', version='1.0', compatibility_level = 2)",
-                "bazel_dep(name='c', version='1.1')",
-                "print('hello from yanked version')")
-            .addModule(
-                createModuleKey("b", "1.1"),
-                "module(name='b', version='1.1', compatibility_level = 3)",
-                "bazel_dep(name='c', version='1.0')")
-            .addYankedVersion("b", ImmutableMap.of(Version.parse("1.0"), "1.0 is a bad version!"));
-
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
-    EvaluationResult<BazelModuleResolutionValue> result =
-        evaluator.evaluate(ImmutableList.of(BazelModuleResolutionValue.KEY), evaluationContext);
-
-    assertThat(result.hasError()).isTrue();
-    assertThat(result.getError().toString())
-        .contains(
-            "a@1.0 depends on b@1.0 with compatibility level 2, but <root> depends on b@1.1 with"
-                + " compatibility level 3 which is different");
-    assertDoesNotContainEvent("hello from yanked version");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
   }
 
   @Test
@@ -471,12 +435,59 @@ public class BazelModuleResolutionFunctionTest extends FoundationTestCase {
                 "module(name='b', version='1.1')",
                 "bazel_dep(name='c', version='1.0')");
 
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
     EvaluationResult<BazelModuleResolutionValue> result =
         evaluator.evaluate(ImmutableList.of(BazelModuleResolutionValue.KEY), evaluationContext);
 
     assertThat(result.hasError()).isTrue();
     assertThat(result.getError().toString())
         .contains("the root module specifies overrides on nonexistent module(s): d");
+  }
+
+  @Test
+  public void testPrintBehavior() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='mod', version='1.0')",
+        "print('hello from root module')",
+        "bazel_dep(name = 'a', version = '1.0')",
+        "bazel_dep(name = 'b', version = '1.1')",
+        "single_version_override(module_name = 'b', version = '1.1')",
+        "local_path_override(module_name='a', path='a')");
+    scratch.file(
+        "a/MODULE.bazel",
+        "module(name='a', version='1.0')",
+        "print('hello from overridden a')",
+        "bazel_dep(name='b', version='1.0')");
+
+    FakeRegistry registry =
+        registryFactory
+            .newFakeRegistry("/bar")
+            .addModule(
+                createModuleKey("a", "1.0"),
+                "module(name='a', version='1.0')",
+                "print('hello from a@1.0')",
+                "bazel_dep(name='b', version='1.0')")
+            .addModule(createModuleKey("c", "1.0"), "module(name='c', version='1.0')")
+            .addModule(createModuleKey("c", "1.1"), "module(name='c', version='1.1')")
+            .addModule(
+                createModuleKey("b", "1.0"),
+                "module(name='b', version='1.0', compatibility_level = 2)",
+                "bazel_dep(name='c', version='1.1')",
+                "print('hello from b@1.0')")
+            .addModule(
+                createModuleKey("b", "1.1"),
+                "module(name='b', version='1.1', compatibility_level = 3)",
+                "bazel_dep(name='c', version='1.0')",
+                "print('hello from b@1.1')");
+
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+    evaluator.evaluate(ImmutableList.of(BazelModuleResolutionValue.KEY), evaluationContext);
+
+    assertContainsEvent("hello from root module");
+    assertContainsEvent("hello from overridden a");
+    assertDoesNotContainEvent("hello from a@1.0");
+    assertDoesNotContainEvent("hello from b@1.0");
+    assertDoesNotContainEvent("hello from b@1.1");
   }
 }

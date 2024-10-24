@@ -27,7 +27,7 @@ java_test(
     name = "StarlarkDebugServerTest",
     size = "medium",
     srcs = ["StarlarkDebugServerTest.java"],
-    jvm_flags = ["-Djava.net.preferIPv6Addresses=true"],  # https://github.com/bazelbuild/bazel/issues/5206
+    tags = ["requires-network"],  # https://github.com/bazelbuild/bazel/issues/20743
     deps = [
         ":utils",
         "//src/main/java/com/google/devtools/build/lib/events",
@@ -46,6 +46,7 @@ java_test(
 java_test(
     name = "DebugServerTransportTest",
     srcs = ["DebugServerTransportTest.java"],
+    tags = ["requires-network"],  # https://github.com/bazelbuild/bazel/issues/20743
     deps = [
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/starlarkdebug/proto:starlark_debugging_java_proto",
@@ -79,14 +80,14 @@ java_test(
     deps = [
         ":utils",
         "//src/main/java/com/google/devtools/build/lib:runtime",
-        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/starlarkdebug/module",
         "//src/main/java/com/google/devtools/build/lib/starlarkdebug/proto:starlark_debugging_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/starlarkdebug/server",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
-        "//src/test/java/com/google/devtools/build/lib/remote/util:integration_test_utils",
         "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//third_party:guava",
         "//third_party:junit4",

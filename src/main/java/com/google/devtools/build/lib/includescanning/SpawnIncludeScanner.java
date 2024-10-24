@@ -18,7 +18,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
@@ -27,13 +26,12 @@ import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.MiddlemanType;
 import com.google.devtools.build.lib.actions.ResourceSet;
-import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -51,6 +49,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Collection;
@@ -118,10 +117,13 @@ public class SpawnIncludeScanner {
     if (file.getRoot().getRoot().isAbsolute()) {
       return false;
     }
+    // Enable include scanning remotely when explicitly directed to via a flag.
+    if (remoteExtractionThreshold == 0) {
+      return true;
+    }
     // Files written remotely that are not locally available should be scanned remotely to avoid the
-    // bandwidth and disk space penalty of bringing them across. Also, enable include scanning
-    // remotely when explicitly directed to via a flag.
-    if (remoteExtractionThreshold == 0 || (outputService != null && !file.isSourceArtifact())) {
+    // bandwidth and disk space penalty of bringing them across.
+    if (!outputService.isLocalOnly() && !file.isSourceArtifact()) {
       return true;
     }
     Path path = file.getPath();
@@ -201,12 +203,12 @@ public class SpawnIncludeScanner {
     }
 
     @Override
-    public NestedSet<Artifact> getSchedulingDependencies() {
-      throw new UnsupportedOperationException();
+    public NestedSet<Artifact> getOriginalInputs() {
+      return actionExecutionMetadata.getInputs();
     }
 
     @Override
-    public RunfilesSupplier getRunfilesSupplier() {
+    public NestedSet<Artifact> getSchedulingDependencies() {
       throw new UnsupportedOperationException();
     }
 
@@ -345,6 +347,7 @@ public class SpawnIncludeScanner {
    *     Otherwise "null"
    * @throws ExecException if scanning fails
    */
+  @Nullable
   private static InputStream spawnGrep(
       Artifact input,
       PathFragment outputExecPath,
@@ -405,8 +408,12 @@ public class SpawnIncludeScanner {
       throw e;
     }
 
-    SpawnResult result = Iterables.getLast(results);
-    return result.getInMemoryOutput(output);
+    SpawnResult result = results.getFirst();
+    ByteString includesContent = result.getInMemoryOutput(output);
+    if (includesContent != null) {
+      return includesContent.newInput();
+    }
+    return null;
   }
 
   private static void dump(ActionExecutionContext fromContext, ActionExecutionContext toContext) {

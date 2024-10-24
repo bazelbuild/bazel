@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis.test;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
@@ -31,10 +32,8 @@ import com.google.devtools.build.lib.starlarkbuildapi.test.CoverageCommonApi;
 import com.google.devtools.build.lib.starlarkbuildapi.test.InstrumentedFilesInfoApi;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import com.google.devtools.build.lib.util.Pair;
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -66,25 +65,20 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
         reportedToActualSourcesObject == Starlark.NONE
             ? NestedSetBuilder.create(Order.STABLE_ORDER)
             : Depset.cast(reportedToActualSourcesObject, Tuple.class, "reported_to_actual_sources");
-    List<Pair<String, String>> environmentPairs =
-        Dict.cast(environment, String.class, String.class, "coverage_environment")
-            .entrySet()
-            .stream()
-            .map(entry -> new Pair<>(entry.getKey(), entry.getValue()))
-            .collect(Collectors.toList());
+    Dict<String, String> environmentDict =
+        Dict.cast(environment, String.class, String.class, "coverage_environment");
     NestedSetBuilder<Artifact> supportFilesBuilder = NestedSetBuilder.stableOrder();
     if (supportFiles instanceof Depset) {
       supportFilesBuilder.addTransitive(
           Depset.cast(supportFiles, Artifact.class, "coverage_support_files"));
-    } else if (supportFiles instanceof Sequence) {
-      Sequence<?> supportFilesSequence = (Sequence<?>) supportFiles;
+    } else if (supportFiles instanceof Sequence<?> supportFilesSequence) {
       for (int i = 0; i < supportFilesSequence.size(); i++) {
         Object supportFilesElement = supportFilesSequence.get(i);
         if (supportFilesElement instanceof Depset) {
           supportFilesBuilder.addTransitive(
               Depset.cast(supportFilesElement, Artifact.class, "coverage_support_files"));
-        } else if (supportFilesElement instanceof Artifact) {
-          supportFilesBuilder.add((Artifact) supportFilesElement);
+        } else if (supportFilesElement instanceof Artifact artifact) {
+          supportFilesBuilder.add(artifact);
         } else {
           throw Starlark.errorf(
               "at index %d of coverage_support_files, got element of type %s, want one of depset,"
@@ -98,15 +92,15 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
     }
     if (!supportFilesBuilder.isEmpty()
         || !reportedToActualSources.isEmpty()
-        || !environmentPairs.isEmpty()) {
-      BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
+        || !environmentDict.isEmpty()) {
+      BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
     }
     return createInstrumentedFilesInfo(
         starlarkRuleContext.getRuleContext(),
         Sequence.cast(sourceAttributes, String.class, "source_attributes"),
         Sequence.cast(dependencyAttributes, String.class, "dependency_attributes"),
         supportFilesBuilder.build(),
-        NestedSetBuilder.wrap(Order.COMPILE_ORDER, environmentPairs),
+        ImmutableMap.copyOf(environmentDict),
         extensionsList,
         Sequence.cast(metadataFiles, Artifact.class, "metadata_files"),
         reportedToActualSources);
@@ -136,7 +130,7 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
         sourceAttributes,
         dependencyAttributes,
         NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        ImmutableMap.of(),
         extensions,
         null,
         NestedSetBuilder.emptySet(Order.STABLE_ORDER));
@@ -147,7 +141,7 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
       List<String> sourceAttributes,
       List<String> dependencyAttributes,
       NestedSet<Artifact> supportFiles,
-      NestedSet<Pair<String, String>> environment,
+      ImmutableMap<String, String> environment,
       @Nullable List<String> extensions,
       @Nullable List<Artifact> metadataFiles,
       NestedSet<Tuple> reportedToActualSources) {

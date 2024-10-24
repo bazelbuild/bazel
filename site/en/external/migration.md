@@ -8,9 +8,10 @@ keywords: bzlmod
 
 Due to the [shortcomings of
 WORKSPACE](/external/overview#workspace-shortcomings), Bzlmod is going to
-replace the legacy WORKSPACE system in future Bazel releases. This guide helps
-you migrate your project to Bzlmod and drop WORKSPACE for fetching external
-dependencies.
+replace the legacy WORKSPACE system. The WORKSPACE file will be disabled by
+default in Bazel 8 (late 2024) and will be removed in Bazel 9 (late 2025).
+This guide helps you migrate your project to Bzlmod and drop WORKSPACE for
+fetching external dependencies.
 
 ## WORKSPACE vs Bzlmod {:#workspace-vs-bzlmod}
 
@@ -120,7 +121,7 @@ Bazel module when it also adopts Bzlmod.
 
 *   **Bzlmod**
 
-    With Bzlmod, as long as the your dependency is available in [Bazel Central
+    With Bzlmod, as long as your dependency is available in [Bazel Central
     Registry](https://registry.bazel.build) or your custom [Bazel
     registry](/external/registry), you can simply depend on it with a
     [`bazel_dep`](/rules/lib/globals/module#bazel_dep) directive.
@@ -562,13 +563,33 @@ away from this by:
         ```python
         ## third_party/BUILD
         alias(
-            name = "openssl,
+            name = "openssl",
             actual = "@my-ssl//src:openssl-lib",
         )
         ```
 
-    *   Replace all usages of `//external:openssl` with
-        `//third_party:openssl-lib`.
+    *   Replace all usages of `//external:openssl` with `//third_party:openssl`.
+
+### Fetch versus Sync {:#fetch-sync}
+
+Fetch and sync commands are used to download external repos locally and keep
+them updated. Sometimes also to allow building offline using the `--nofetch`
+flag after fetching all repos needed for a build.
+
+*   **WORKSPACE**
+
+    Sync performs a force fetch for all repositories, or for a specific
+    configured set of repos, while fetch is _only_ used to fetch for a specific
+    target.
+
+*   **Bzlmod**
+
+    The sync command is no longer applicable, but fetch offers
+    [various options](/reference/command-line-reference#fetch-options).
+    You can fetch a target, a repository, a set of configured repos or all
+    repositories involved in your dependency resolution and module extensions.
+    The fetch result is cached and to force a fetch you must include the
+    `--force` option during the fetch process.
 
 ## Migration {:#migration}
 
@@ -653,6 +674,10 @@ Bazel module.
 Bzlmod and WORKSPACE can work side by side, which allows migrating dependencies
 from the WORKSPACE file to Bzlmod to be a gradual process.
 
+Note: In practice, loading "*_deps" macros in WORKSPACE often causes confusions
+with Bzlmod dependencies, therefore we recommend starting with a
+WORKSPACE.bzlmod file and avoid loading transitive dependencies with macros.
+
 #### WORKSPACE.bzlmod {:#workspace.bzlmod}
 
 During the migration, Bazel users may need to switch between builds with and
@@ -672,10 +697,6 @@ Using the WORKSPACE.bzlmod file can make the migration easier because:
     original WORKSPACE file.
 *   When Bzlmod is enabled, you can better track what dependencies are left to
     migrate with WORKSPACE.bzlmod.
-
-Note: WORKSPACE.bzlmod does NOT replace the functionality of WORKSPACE for
-identifying the workspace root, therefore you still need a WORKSPACE file at
-your workspace root.
 
 #### Repository visibility {:#repository-visibility}
 
@@ -814,7 +835,7 @@ managing your external dependencies.
 
 Check [#12835](https://github.com/bazelbuild/bazel/issues/12835), where dev
 dependencies for tests are forced to be fetched unnecessarily for building
-targets that don't need them. This is not actually not Bzlmod specific, but
+targets that don't need them. This is actually not Bzlmod specific, but
 following this practices makes it easier to specify dev dependencies correctly.
 
 #### Specify dev dependencies
@@ -824,7 +845,7 @@ You can set the `dev_dependency` attribute to true for
 [`use_extension`](/rules/lib/globals/module#use_extension) directives so that
 they don't propagate to dependent projects. As the root module, you can use the
 [`--ignore_dev_dependency`][ignore_dev_dep_flag] flag to verify if your targets
-still build without dev dependencies.
+still build without dev dependencies and overrides.
 
 [ignore_dev_dep_flag]: /reference/command-line-reference#flag--ignore_dev_dependency
 

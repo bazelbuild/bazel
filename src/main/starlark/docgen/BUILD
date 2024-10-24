@@ -12,6 +12,10 @@ starlark_doc_extract(
 starlark_doc_extract(
     name = "gen_be_java_stardoc_proto",
     src = "java.bzl",
+    deps = [
+        "@protobuf//bazel/common:proto_info_bzl",
+        "@rules_java//java/bazel/rules",
+    ],
 )
 
 starlark_doc_extract(
@@ -27,4 +31,13 @@ starlark_doc_extract(
 starlark_doc_extract(
     name = "gen_be_python_stardoc_proto",
     src = "python.bzl",
+    deps = [
+        "@protobuf//bazel:cc_proto_library_bzl",  # Because rules_python are using @rules_cc//cc:defs.bzl
+        "@rules_cc//cc/common",
+        "@rules_cc//cc/toolchains:toolchain_rules",
+        "@rules_python//python:py_binary_bzl",
+        "@rules_python//python:py_library_bzl",
+        "@rules_python//python:py_runtime_bzl",
+        "@rules_python//python:py_test_bzl",
+    ],
 )

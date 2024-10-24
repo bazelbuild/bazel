@@ -128,12 +128,14 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
       throws Exception {
     write(
         "a/BUILD",
-        "genrule(",
-        "  name = 'fail',",
-        "  srcs = [],",
-        "  outs = ['fail.txt'],",
-        "  cmd = 'echo foo > $@ && exit 1',",
-        ")");
+        """
+        genrule(
+            name = "fail",
+            srcs = [],
+            outs = ["fail.txt"],
+            cmd = "echo foo > $@ && exit 1",
+        )
+        """);
 
     assertThrows(BuildFailedException.class, () -> buildTarget("//a:fail"));
 
@@ -147,41 +149,46 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     // (ctx.actions.expand_template) is staged lazily for action execution.
     write(
         "a/substitute_username.bzl",
-        "def _substitute_username_impl(ctx):",
-        "    ctx.actions.expand_template(",
-        "        template = ctx.file.template,",
-        "        output = ctx.outputs.out,",
-        "        substitutions = {",
-        "            '{USERNAME}': ctx.attr.username,",
-        "        },",
-        "    )",
-        "",
-        "substitute_username = rule(",
-        "    implementation = _substitute_username_impl,",
-        "    attrs = {",
-        "        'username': attr.string(mandatory = True),",
-        "        'template': attr.label(",
-        "            allow_single_file = True,",
-        "            mandatory = True,",
-        "        ),",
-        "    },",
-        "    outputs = {'out': '%{name}.txt'},",
-        ")");
+        """
+        def _substitute_username_impl(ctx):
+            ctx.actions.expand_template(
+                template = ctx.file.template,
+                output = ctx.outputs.out,
+                substitutions = {
+                    "{USERNAME}": ctx.attr.username,
+                },
+            )
+
+        substitute_username = rule(
+            implementation = _substitute_username_impl,
+            attrs = {
+                "username": attr.string(mandatory = True),
+                "template": attr.label(
+                    allow_single_file = True,
+                    mandatory = True,
+                ),
+            },
+            outputs = {"out": "%{name}.txt"},
+        )
+        """);
     write(
         "a/BUILD",
-        "load(':substitute_username.bzl', 'substitute_username')",
-        "genrule(",
-        "    name = 'generate-template',",
-        "    cmd = 'echo -n \"Hello {USERNAME}!\" > $@',",
-        "    outs = ['template.txt'],",
-        "    srcs = [],",
-        ")",
-        "",
-        "substitute_username(",
-        "    name = 'substitute-buchgr',",
-        "    username = 'buchgr',",
-        "    template = ':generate-template',",
-        ")");
+        """
+        load(":substitute_username.bzl", "substitute_username")
+
+        genrule(
+            name = "generate-template",
+            srcs = [],
+            outs = ["template.txt"],
+            cmd = 'echo -n "Hello {USERNAME}!" > $@',
+        )
+
+        substitute_username(
+            name = "substitute-buchgr",
+            template = ":generate-template",
+            username = "buchgr",
+        )
+        """);
 
     buildTarget("//a:substitute-buchgr");
 
@@ -197,19 +204,21 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   public void changeOutputMode_notInvalidateActions() throws Exception {
     write(
         "a/BUILD",
-        "genrule(",
-        "  name = 'foo',",
-        "  srcs = [],",
-        "  outs = ['foo.txt'],",
-        "  cmd = 'echo foo > $@',",
-        ")",
-        "",
-        "genrule(",
-        "  name = 'foobar',",
-        "  srcs = [':foo'],",
-        "  outs = ['foobar.txt'],",
-        "  cmd = 'cat $(location :foo) > $@ && echo bar > $@',",
-        ")");
+        """
+        genrule(
+            name = "foo",
+            srcs = [],
+            outs = ["foo.txt"],
+            cmd = "echo foo > $@",
+        )
+
+        genrule(
+            name = "foobar",
+            srcs = [":foo"],
+            outs = ["foobar.txt"],
+            cmd = "cat $(location :foo) > $@ && echo bar > $@",
+        )
+        """);
     // Download all outputs with regex so in the next build with ALL mode, the actions are not
     // invalidated because of missing outputs.
     addOptions("--remote_download_regex=.*");
@@ -223,7 +232,6 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     // 3 = workspace status action + //:foo + //:foobar
     assertThat(actionEventCollector.getNumActionNodesEvaluated()).isEqualTo(3);
     actionEventCollector.clear();
-    events.clear();
 
     buildTarget("//a:foobar");
 
@@ -239,21 +247,29 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
 
     write(
         "a/defs.bzl",
-        "def _impl(ctx):",
-        "  out = ctx.actions.declare_symlink(ctx.label.name)",
-        "  ctx.actions.run_shell(",
-        "    inputs = [],",
-        "    outputs = [out],",
-        "    command = 'ln -s hello $1',",
-        "    arguments = [out.path],",
-        "  )",
-        "  return DefaultInfo(files = depset([out]))",
-        "",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        ")");
+        """
+        def _impl(ctx):
+            out = ctx.actions.declare_symlink(ctx.label.name)
+            ctx.actions.run_shell(
+                inputs = [],
+                outputs = [out],
+                command = "ln -s hello $1",
+                arguments = [out.path],
+            )
+            return DefaultInfo(files = depset([out]))
 
-    write("a/BUILD", "load(':defs.bzl', 'my_rule')", "", "my_rule(name = 'hello')");
+        my_rule = rule(
+            implementation = _impl,
+        )
+        """);
+
+    write(
+        "a/BUILD",
+        """
+        load(":defs.bzl", "my_rule")
+
+        my_rule(name = "hello")
+        """);
 
     buildTarget("//a:hello");
 
@@ -265,19 +281,27 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   public void replaceOutputDirectoryWithFile() throws Exception {
     write(
         "a/defs.bzl",
-        "def _impl(ctx):",
-        "  dir = ctx.actions.declare_directory(ctx.label.name + '.dir')",
-        "  ctx.actions.run_shell(",
-        "    outputs = [dir],",
-        "    command = 'touch $1/hello',",
-        "    arguments = [dir.path],",
-        "  )",
-        "  return DefaultInfo(files = depset([dir]))",
-        "",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        ")");
-    write("a/BUILD", "load(':defs.bzl', 'my_rule')", "", "my_rule(name = 'hello')");
+        """
+        def _impl(ctx):
+            dir = ctx.actions.declare_directory(ctx.label.name + ".dir")
+            ctx.actions.run_shell(
+                outputs = [dir],
+                command = "touch $1/hello",
+                arguments = [dir.path],
+            )
+            return DefaultInfo(files = depset([dir]))
+
+        my_rule = rule(
+            implementation = _impl,
+        )
+        """);
+    write(
+        "a/BUILD",
+        """
+        load(":defs.bzl", "my_rule")
+
+        my_rule(name = "hello")
+        """);
 
     setDownloadToplevel();
     buildTarget("//a:hello");
@@ -297,19 +321,25 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     // Arrange: Prepare workspace and populate remote cache
     write(
         "a/BUILD",
-        "genrule(",
-        "  name = 'foo',",
-        "  srcs = ['foo.in'],",
-        "  outs = ['foo.out'],",
-        "  cmd = 'cat $(SRCS) > $@',",
-        ")",
-        "genrule(",
-        "  name = 'bar',",
-        "  srcs = ['foo.out', 'bar.in'],",
-        "  outs = ['bar.out'],",
-        "  cmd = 'cat $(SRCS) > $@',",
-        "  tags = ['no-remote-exec'],",
-        ")");
+        """
+        genrule(
+            name = "foo",
+            srcs = ["foo.in"],
+            outs = ["foo.out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+
+        genrule(
+            name = "bar",
+            srcs = [
+                "foo.out",
+                "bar.in",
+            ],
+            outs = ["bar.out"],
+            cmd = "cat $(SRCS) > $@",
+            tags = ["no-remote-exec"],
+        )
+        """);
     write("a/foo.in", "foo");
     write("a/bar.in", "bar");
 
@@ -344,18 +374,24 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     // Arrange: Prepare workspace and populate remote cache
     write(
         "a/BUILD",
-        "genrule(",
-        "  name = 'foo',",
-        "  srcs = ['foo.in'],",
-        "  outs = ['foo.out'],",
-        "  cmd = 'cat $(SRCS) > $@',",
-        ")",
-        "genrule(",
-        "  name = 'bar',",
-        "  srcs = ['foo.out', 'bar.in'],",
-        "  outs = ['bar.out'],",
-        "  cmd = 'cat $(SRCS) > $@',",
-        ")");
+        """
+        genrule(
+            name = "foo",
+            srcs = ["foo.in"],
+            outs = ["foo.out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+
+        genrule(
+            name = "bar",
+            srcs = [
+                "foo.out",
+                "bar.in",
+            ],
+            outs = ["bar.out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
     write("a/foo.in", "foo");
     write("a/bar.in", "bar");
 
@@ -390,18 +426,24 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     // Arrange: Prepare workspace and populate remote cache
     write(
         "a/BUILD",
-        "genrule(",
-        "  name = 'foo',",
-        "  srcs = ['foo.in'],",
-        "  outs = ['foo.out'],",
-        "  cmd = 'cat $(SRCS) > $@',",
-        ")",
-        "genrule(",
-        "  name = 'bar',",
-        "  srcs = ['foo.out', 'bar.in'],",
-        "  outs = ['bar.out'],",
-        "  cmd = 'cat $(SRCS) > $@',",
-        ")");
+        """
+        genrule(
+            name = "foo",
+            srcs = ["foo.in"],
+            outs = ["foo.out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+
+        genrule(
+            name = "bar",
+            srcs = [
+                "foo.out",
+                "bar.in",
+            ],
+            outs = ["bar.out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
     write("a/foo.in", "foo");
     write("a/bar.in", "bar");
 
@@ -441,17 +483,24 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     writeOutputDirRule();
     write(
         "a/BUILD",
-        "load('//:output_dir.bzl', 'output_dir')",
-        "output_dir(",
-        "  name = 'foo.out',",
-        "  content_map = {'file-inside': 'hello world'},",
-        ")",
-        "genrule(",
-        "  name = 'bar',",
-        "  srcs = ['foo.out', 'bar.in'],",
-        "  outs = ['bar.out'],",
-        "  cmd = '( ls $(location :foo.out); cat $(location :bar.in) ) > $@',",
-        ")");
+        """
+        load("//:output_dir.bzl", "output_dir")
+
+        output_dir(
+            name = "foo.out",
+            content_map = {"file-inside": "hello world"},
+        )
+
+        genrule(
+            name = "bar",
+            srcs = [
+                "foo.out",
+                "bar.in",
+            ],
+            outs = ["bar.out"],
+            cmd = "( ls $(location :foo.out); cat $(location :bar.in) ) > $@",
+        )
+        """);
     write("a/bar.in", "bar");
 
     // Populate remote cache
@@ -462,6 +511,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     restartServer();
 
     // Clean build, foo.out isn't downloaded
+    setDownloadToplevel();
     buildTarget("//a:bar");
     assertOutputDoesNotExist("a/foo.out/file-inside");
 
@@ -469,7 +519,6 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     evictAllBlobs();
 
     // trigger build error
-    setDownloadToplevel();
     write("a/bar.in", "updated bar");
     // Build failed because of remote cache eviction
     assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
@@ -544,23 +593,25 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     setDownloadToplevel();
     write(
         "defs.bzl",
-        "def _impl(ctx):",
-        "  file = ctx.actions.declare_file(ctx.label.name + '.file')",
-        "  ctx.actions.run_shell(",
-        "    outputs = [file],",
-        "    command = 'echo -n hello > $1',",
-        "    arguments = [file.path],",
-        "  )",
-        "",
-        "  shallow = ctx.actions.declare_file(ctx.label.name + '.shallow')",
-        "  ctx.actions.symlink(output = shallow, target_file = file)",
-        "",
-        "  deep = ctx.actions.declare_file(ctx.label.name + '.deep')",
-        "  ctx.actions.symlink(output = deep, target_file = shallow)",
-        "",
-        "  return DefaultInfo(files = depset([deep]))",
-        "",
-        "symlink = rule(_impl)");
+        """
+        def _impl(ctx):
+            file = ctx.actions.declare_file(ctx.label.name + ".file")
+            ctx.actions.run_shell(
+                outputs = [file],
+                command = "echo -n hello > $1",
+                arguments = [file.path],
+            )
+
+            shallow = ctx.actions.declare_file(ctx.label.name + ".shallow")
+            ctx.actions.symlink(output = shallow, target_file = file)
+
+            deep = ctx.actions.declare_file(ctx.label.name + ".deep")
+            ctx.actions.symlink(output = deep, target_file = shallow)
+
+            return DefaultInfo(files = depset([deep]))
+
+        symlink = rule(_impl)
+        """);
     write("BUILD", "load(':defs.bzl', 'symlink')", "symlink(name = 'foo')");
 
     buildTarget("//:foo");
@@ -575,23 +626,25 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     setDownloadToplevel();
     write(
         "defs.bzl",
-        "def _impl(ctx):",
-        "  dir = ctx.actions.declare_directory(ctx.label.name + '.dir')",
-        "  ctx.actions.run_shell(",
-        "    outputs = [dir],",
-        "    command = 'echo -n hello > $1/file.txt',",
-        "    arguments = [dir.path],",
-        "  )",
-        "",
-        "  shallow = ctx.actions.declare_directory(ctx.label.name + '.shallow')",
-        "  ctx.actions.symlink(output = shallow, target_file = dir)",
-        "",
-        "  deep = ctx.actions.declare_directory(ctx.label.name + '.deep')",
-        "  ctx.actions.symlink(output = deep, target_file = shallow)",
-        "",
-        "  return DefaultInfo(files = depset([deep]))",
-        "",
-        "symlink = rule(_impl)");
+        """
+        def _impl(ctx):
+            dir = ctx.actions.declare_directory(ctx.label.name + ".dir")
+            ctx.actions.run_shell(
+                outputs = [dir],
+                command = "echo -n hello > $1/file.txt",
+                arguments = [dir.path],
+            )
+
+            shallow = ctx.actions.declare_directory(ctx.label.name + ".shallow")
+            ctx.actions.symlink(output = shallow, target_file = dir)
+
+            deep = ctx.actions.declare_directory(ctx.label.name + ".deep")
+            ctx.actions.symlink(output = deep, target_file = shallow)
+
+            return DefaultInfo(files = depset([deep]))
+
+        symlink = rule(_impl)
+        """);
     write("BUILD", "load(':defs.bzl', 'symlink')", "symlink(name = 'foo')");
 
     buildTarget("//:foo");
@@ -675,5 +728,35 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
 
     assertSymlink("foo-link", PathFragment.create("foo"));
     assertValidOutputFile("foo-link", "hello\n");
+  }
+
+  @Test
+  public void remoteAction_inputTreeWithSymlinks() throws Exception {
+    setDownloadToplevel();
+    write(
+        "tree.bzl",
+        "def _impl(ctx):",
+        "  d = ctx.actions.declare_directory(ctx.label.name)",
+        "  ctx.actions.run_shell(",
+        "    outputs = [d],",
+        "    command = 'mkdir $1/dir && touch $1/file $1/dir/file && ln -s file $1/filesym && ln"
+            + " -s dir $1/dirsym',",
+        "    arguments = [d.path],",
+        "  )",
+        "  return DefaultInfo(files = depset([d]))",
+        "tree = rule(_impl)");
+    write(
+        "BUILD",
+        "load(':tree.bzl', 'tree')",
+        "tree(name = 'tree')",
+        "genrule(name = 'gen', srcs = [':tree'], outs = ['out'], cmd = 'touch $@')");
+
+    // Populate cache
+    buildTarget("//:gen");
+
+    // Delete output, replay from cache
+    getOutputPath("tree").deleteTree();
+    getOutputPath("out").delete();
+    buildTarget("//:gen");
   }
 }

@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.collect.ImmutableList;
 
+// LINT.IfChange
 /**
  * A category of artifacts that are candidate input/output to an action, for which the toolchain can
  * select a single artifact.
@@ -31,6 +32,12 @@ public enum ArtifactCategory {
   OBJECT_FILE("", ".o", ".obj"),
   PIC_OBJECT_FILE("", ".pic.o"),
   CPP_MODULE("", ".pcm"),
+  CPP_MODULE_GCM("", ".gcm"),
+  CPP_MODULE_IFC("", ".ifc"),
+  CPP_MODULES_INFO("", ".CXXModules.json"),
+  CPP_MODULES_DDI("", ".ddi"),
+  CPP_MODULES_MODMAP("", ".modmap"),
+  CPP_MODULES_MODMAP_INPUT("", ".modmap.input"),
   GENERATED_ASSEMBLY("", ".s", ".asm"),
   PROCESSED_HEADER("", ".processed"),
   GENERATED_HEADER("", ".h"),
@@ -80,3 +87,4 @@ public enum ArtifactCategory {
     return allowedExtensions;
   }
 }
+// LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/cc_helper_internal.bzl)

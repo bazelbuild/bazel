@@ -138,17 +138,17 @@ public final class NetworkMetricsCollector {
   private boolean isLocalLoopback(List<NetIfAddr> addresses) {
     for (NetIfAddr addr : addresses) {
       switch (addr.family()) {
-        case AF_INET:
+        case AF_INET -> {
           if (addr.ipAddr().equals("127.0.0.1")) {
             return true;
           }
-          break;
-        case AF_INET6:
+        }
+        case AF_INET6 -> {
           if (addr.ipAddr().equals("::1")) {
             return true;
           }
-          break;
-        case UNKNOWN:
+        }
+        case UNKNOWN -> {}
       }
     }
     return false;

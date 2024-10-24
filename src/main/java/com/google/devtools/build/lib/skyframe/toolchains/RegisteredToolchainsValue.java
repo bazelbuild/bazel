@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.skyframe.toolchains;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableTable;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
@@ -25,6 +27,7 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Objects;
+import javax.annotation.Nullable;
 
 /**
  * A value which represents every toolchain known to Bazel and available for toolchain resolution.
@@ -33,8 +36,8 @@ import java.util.Objects;
 public abstract class RegisteredToolchainsValue implements SkyValue {
 
   /** Returns the {@link SkyKey} for {@link RegisteredToolchainsValue}s. */
-  public static Key key(BuildConfigurationKey configurationKey) {
-    return Key.of(configurationKey);
+  public static Key key(BuildConfigurationKey configurationKey, boolean debug) {
+    return Key.of(configurationKey, debug);
   }
 
   /** A {@link SkyKey} for {@code RegisteredToolchainsValue}. */
@@ -43,15 +46,21 @@ public abstract class RegisteredToolchainsValue implements SkyValue {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
     private final BuildConfigurationKey configurationKey;
+    private final boolean debug;
 
-    private Key(BuildConfigurationKey configurationKey) {
+    private Key(BuildConfigurationKey configurationKey, boolean debug) {
       this.configurationKey = configurationKey;
+      this.debug = debug;
     }
 
-    @AutoCodec.Instantiator
+    private static Key of(BuildConfigurationKey configurationKey, boolean debug) {
+      return interner.intern(new Key(configurationKey, debug));
+    }
+
     @VisibleForSerialization
-    static Key of(BuildConfigurationKey configurationKey) {
-      return interner.intern(new Key(configurationKey));
+    @AutoCodec.Interner
+    static Key intern(Key key) {
+      return interner.intern(key);
     }
 
     @Override
@@ -63,28 +72,32 @@ public abstract class RegisteredToolchainsValue implements SkyValue {
       return configurationKey;
     }
 
+    boolean debug() {
+      return debug;
+    }
+
     @Override
     public String toString() {
-      return new StringBuilder()
-          .append("RegisteredToolchainsValue.Key{")
-          .append("configurationKey: ")
-          .append(configurationKey)
-          .append("}")
-          .toString();
+      return "RegisteredToolchainsValue.Key{"
+          + "configurationKey: "
+          + configurationKey
+          + ", debug: "
+          + debug
+          + "}";
     }
 
     @Override
     public boolean equals(Object obj) {
-      if (!(obj instanceof Key)) {
+      if (!(obj instanceof Key that)) {
         return false;
       }
-      Key that = (Key) obj;
-      return Objects.equals(this.configurationKey, that.configurationKey);
+      return Objects.equals(this.configurationKey, that.configurationKey)
+          && this.debug == that.debug;
     }
 
     @Override
     public int hashCode() {
-      return configurationKey.hashCode();
+      return Objects.hash(configurationKey, debug);
     }
 
     @Override
@@ -94,9 +107,18 @@ public abstract class RegisteredToolchainsValue implements SkyValue {
   }
 
   public static RegisteredToolchainsValue create(
-      ImmutableList<DeclaredToolchainInfo> registeredToolchains) {
-    return new AutoValue_RegisteredToolchainsValue(registeredToolchains);
+      ImmutableList<DeclaredToolchainInfo> registeredToolchains,
+      @Nullable ImmutableTable<Label, Label, String> rejectedToolchains) {
+    return new AutoValue_RegisteredToolchainsValue(registeredToolchains, rejectedToolchains);
   }
 
   public abstract ImmutableList<DeclaredToolchainInfo> registeredToolchains();
+
+  /**
+   * Any toolchains that were rejected, along with a reason. The row keys are the toolchain type
+   * labels, column keys are toolchain implementation labels, and cells are the reason. Only
+   * non-null if {@link RegisteredToolchainsValue.Key#debug} is {@code true}.
+   */
+  @Nullable
+  public abstract ImmutableTable<Label, Label, String> rejectedToolchains();
 }

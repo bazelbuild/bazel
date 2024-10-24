@@ -26,6 +26,9 @@ import static com.google.devtools.build.skyframe.GraphTester.nonHermeticKey;
 import static com.google.devtools.build.skyframe.GraphTester.skyKey;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
@@ -51,10 +54,12 @@ import com.google.devtools.build.skyframe.GraphTester.NotComparableStringValue;
 import com.google.devtools.build.skyframe.GraphTester.StringValue;
 import com.google.devtools.build.skyframe.GraphTester.TestFunction;
 import com.google.devtools.build.skyframe.GraphTester.ValueComputer;
+import com.google.devtools.build.skyframe.MemoizingEvaluator.GraphTransformerForTesting;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.NotifyingHelper.EventType;
 import com.google.devtools.build.skyframe.NotifyingHelper.Listener;
 import com.google.devtools.build.skyframe.NotifyingHelper.Order;
+import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.SkyFunction.Reset;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.proto.GraphInconsistency.Inconsistency;
@@ -78,6 +83,7 @@ import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.InOrder;
 
 /** Tests for a {@link MemoizingEvaluator}. */
 public abstract class MemoizingEvaluatorTest {
@@ -174,6 +180,64 @@ public abstract class MemoizingEvaluatorTest {
   public void evaluateEmptySet() throws InterruptedException {
     tester.eval(false, new SkyKey[0]);
     tester.eval(true, new SkyKey[0]);
+  }
+
+  @Test
+  public void injectGraphTransformer_transformedGraphUsedForInMemoryGraph() {
+    assume().that(tester.evaluator).isInstanceOf(AbstractInMemoryMemoizingEvaluator.class);
+    InMemoryGraph realGraph = tester.evaluator.getInMemoryGraph();
+    InMemoryGraph mockGraph = mock(InMemoryGraph.class);
+
+    tester.evaluator.injectGraphTransformerForTesting(
+        new GraphTransformerForTesting() {
+          @Override
+          public InMemoryGraph transform(InMemoryGraph graph) {
+            assertThat(graph).isSameInstanceAs(realGraph);
+            return mockGraph;
+          }
+
+          @Override
+          public ProcessableGraph transform(ProcessableGraph graph) {
+            throw new AssertionError(graph);
+          }
+        });
+
+    assertThat(tester.evaluator.getInMemoryGraph()).isSameInstanceAs(mockGraph);
+  }
+
+  @Test
+  public void injectGraphTransformer_transformedGraphUsedForEvaluation() throws Exception {
+    Listener listener = mock(Listener.class);
+    tester.evaluator.injectGraphTransformerForTesting(
+        NotifyingHelper.makeNotifyingTransformer(listener));
+    SkyKey key = skyKey("key");
+    SkyValue val = new StringValue("val");
+    tester.getOrCreate(key).setConstantValue(val);
+
+    assertThat(tester.evalAndGet(/* keepGoing= */ false, key)).isEqualTo(val);
+
+    verify(listener).accept(key, EventType.GET_BATCH, Order.BEFORE, Reason.PRE_OR_POST_EVALUATION);
+  }
+
+  @Test
+  public void injectGraphTransformer_multipleTransformersAppliedInOrder() throws Exception {
+    Listener inner = mock(Listener.class);
+    Listener outer = mock(Listener.class);
+    tester.evaluator.injectGraphTransformerForTesting(
+        NotifyingHelper.makeNotifyingTransformer(inner));
+    tester.evaluator.injectGraphTransformerForTesting(
+        NotifyingHelper.makeNotifyingTransformer(outer));
+    SkyKey key = skyKey("key");
+    SkyValue val = new StringValue("val");
+    tester.getOrCreate(key).setConstantValue(val);
+
+    assertThat(tester.evalAndGet(/* keepGoing= */ false, key)).isEqualTo(val);
+
+    InOrder inOrder = inOrder(inner, outer);
+    inOrder.verify(outer).accept(key, EventType.SET_VALUE, Order.BEFORE, val);
+    inOrder.verify(inner).accept(key, EventType.SET_VALUE, Order.BEFORE, val);
+    inOrder.verify(inner).accept(key, EventType.SET_VALUE, Order.AFTER, val);
+    inOrder.verify(outer).accept(key, EventType.SET_VALUE, Order.AFTER, val);
   }
 
   @Test

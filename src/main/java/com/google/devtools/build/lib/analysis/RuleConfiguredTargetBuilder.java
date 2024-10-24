@@ -20,9 +20,9 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
@@ -42,12 +42,14 @@ import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
 import com.google.devtools.build.lib.analysis.test.TestTagsProvider;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AllowlistChecker;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildSetting;
+import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -258,6 +260,12 @@ public final class RuleConfiguredTargetBuilder {
       ruleContext.ruleError(e.getMessage());
       return null;
     }
+
+    if (ruleContext.getConflictFinder() != null) {
+      for (ActionAnalysisMetadata action : actions) {
+        ruleContext.getConflictFinder().conflictCheckPerAction(action);
+      }
+    }
     return new RuleConfiguredTarget(ruleContext, providers, actions);
   }
 
@@ -273,22 +281,17 @@ public final class RuleConfiguredTargetBuilder {
             .isAttributeValueExplicitlySpecified(allowlistChecker.attributeSetTrigger())) {
       return;
     }
-    boolean passing = false;
-    switch (allowlistChecker.locationCheck()) {
-      case INSTANCE:
-        passing = Allowlist.isAvailable(ruleContext, allowlistChecker.allowlistAttr());
-        break;
-      case DEFINITION:
-        passing =
-            Allowlist.isAvailableBasedOnRuleLocation(ruleContext, allowlistChecker.allowlistAttr());
-        break;
-      case INSTANCE_OR_DEFINITION:
-        passing =
-            Allowlist.isAvailable(ruleContext, allowlistChecker.allowlistAttr())
-                || Allowlist.isAvailableBasedOnRuleLocation(
-                    ruleContext, allowlistChecker.allowlistAttr());
-        break;
-    }
+    boolean passing =
+        switch (allowlistChecker.locationCheck()) {
+          case INSTANCE -> Allowlist.isAvailable(ruleContext, allowlistChecker.allowlistAttr());
+          case DEFINITION ->
+              Allowlist.isAvailableBasedOnRuleLocation(
+                  ruleContext, allowlistChecker.allowlistAttr());
+          case INSTANCE_OR_DEFINITION ->
+              Allowlist.isAvailable(ruleContext, allowlistChecker.allowlistAttr())
+                  || Allowlist.isAvailableBasedOnRuleLocation(
+                      ruleContext, allowlistChecker.allowlistAttr());
+        };
     if (!passing) {
       ruleContext.ruleError(allowlistChecker.errorMessage());
     }
@@ -343,7 +346,11 @@ public final class RuleConfiguredTargetBuilder {
       Label rdeLabel =
           ruleContext.getRule().getRuleClassObject().getRuleDefinitionEnvironmentLabel();
       // only allow native and builtins to override transitive validation propagation
-      if (rdeLabel != null && !rdeLabel.getRepository().getName().equals("_builtins")) {
+      if (rdeLabel != null
+          && BuiltinRestriction.isNotAllowed(
+              rdeLabel,
+              RepositoryMapping.ALWAYS_FALLBACK,
+              BuiltinRestriction.INTERNAL_STARLARK_API_ALLOWLIST)) {
         ruleContext.ruleError(rdeLabel + " cannot access the _transitive_validation private API");
         return;
       }
@@ -378,7 +385,8 @@ public final class RuleConfiguredTargetBuilder {
       // not fail the overall build, since those dependencies should have their own builds
       // and tests that should surface any failing validations.
       Attribute attribute = ruleContext.attributes().getAttributeDefinition(attributeName);
-      if (!attribute.isToolDependency()
+      if (!attribute.skipValidations()
+          && !attribute.isToolDependency()
           && !attribute.isImplicit()
           && attribute.getType().getLabelClass() == LabelClass.DEPENDENCY) {
 
@@ -469,7 +477,6 @@ public final class RuleConfiguredTargetBuilder {
             .addTools(additionalTestActionTools.build())
             .setExecutionRequirements(
                 (ExecutionInfo) providersBuilder.getProvider(ExecutionInfo.PROVIDER.getKey()))
-            .setShardCount(explicitShardCount)
             .build();
     return new TestProvider(testParams);
   }

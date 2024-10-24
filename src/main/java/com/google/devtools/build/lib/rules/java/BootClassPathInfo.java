@@ -13,12 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
+
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -27,12 +25,10 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkInfoWithSchema;
-import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Optional;
-import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 
 /** Information about the system APIs for a Java compilation. */
@@ -74,29 +70,6 @@ public class BootClassPathInfo extends StarlarkInfoWrapper {
     return EMPTY;
   }
 
-  public static BootClassPathInfo create(RuleContext ruleContext, NestedSet<Artifact> bootclasspath)
-      throws RuleErrorException, InterruptedException {
-    if (bootclasspath.isEmpty()) {
-      return empty();
-    }
-    ruleContext.initStarlarkRuleContext();
-    StructImpl javaCommon = (StructImpl) ruleContext.getStarlarkDefinedBuiltin("java_common");
-    try {
-      StarlarkProvider starlarkProvider =
-          javaCommon.getValue("BootClassPathInfo", StarlarkProvider.class);
-      StarlarkInfo starlarkBootClassPathInfo =
-          (StarlarkInfo)
-              Starlark.call(
-                  ruleContext.getStarlarkThread(),
-                  starlarkProvider.createRawConstructor(),
-                  ImmutableList.of(),
-                  ImmutableMap.of("bootclasspath", Depset.of(Artifact.class, bootclasspath)));
-      return PROVIDER.wrap(starlarkBootClassPathInfo);
-    } catch (EvalException e) {
-      throw new RuleErrorException(e);
-    }
-  }
-
   private BootClassPathInfo(StructImpl underlying) {
     super(underlying);
   }
@@ -135,7 +108,8 @@ public class BootClassPathInfo extends StarlarkInfoWrapper {
   private static class Provider extends StarlarkProviderWrapper<BootClassPathInfo> {
     private Provider() {
       super(
-          Label.parseCanonicalUnchecked("@_builtins//:common/java/boot_class_path_info.bzl"),
+          keyForBuiltins(
+              Label.parseCanonicalUnchecked("@_builtins//:common/java/boot_class_path_info.bzl")),
           "BootClassPathInfo");
     }
 

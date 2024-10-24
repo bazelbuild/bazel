@@ -150,10 +150,9 @@ public class StarlarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundD
     public boolean equals(Object object) {
       if (object == this) {
         return true;
-      } else if (!(object instanceof CacheKey)) {
+      } else if (!(object instanceof CacheKey cacheKey)) {
         return false;
       } else {
-        CacheKey cacheKey = (CacheKey) object;
         return fragmentClass.equals(cacheKey.fragmentClass)
             && toolsRepository.equals(cacheKey.toolsRepository);
       }

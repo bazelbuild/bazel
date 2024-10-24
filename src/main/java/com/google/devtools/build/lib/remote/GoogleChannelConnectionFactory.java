@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -29,16 +30,17 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.remote.RemoteServerCapabilities.ServerCapabilitiesRequirement;
+import com.google.devtools.build.lib.remote.common.RemoteExecutionCapabilitiesException;
 import com.google.devtools.build.lib.remote.grpc.ChannelConnectionFactory;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.RxFutures;
-import com.google.devtools.build.lib.remote.util.Utils;
 import io.grpc.ClientInterceptor;
 import io.grpc.ManagedChannel;
 import io.reactivex.rxjava3.core.Single;
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.annotation.Nullable;
 
 /**
  * A {@link ChannelConnectionFactory} which creates {@link ChannelConnection} using {@link
@@ -57,7 +59,7 @@ public class GoogleChannelConnectionFactory
   private final int maxConcurrency;
   private final boolean verboseFailures;
   private final Reporter reporter;
-  private final RemoteServerCapabilities remoteServerCapabilities;
+  @Nullable private final RemoteServerCapabilities remoteServerCapabilities;
   private final RemoteOptions remoteOptions;
   private final DigestFunction.Value digestFunction;
   private final ServerCapabilitiesRequirement requirement;
@@ -72,9 +74,13 @@ public class GoogleChannelConnectionFactory
       int maxConcurrency,
       boolean verboseFailures,
       Reporter reporter,
-      RemoteServerCapabilities remoteServerCapabilities,
+      @Nullable RemoteServerCapabilities remoteServerCapabilities,
       Value digestFunction,
       ServerCapabilitiesRequirement requirement) {
+    if (requirement != ServerCapabilitiesRequirement.NONE) {
+      checkNotNull(remoteServerCapabilities);
+    }
+
     this.channelFactory = channelFactory;
     this.target = target;
     this.proxy = proxy;
@@ -117,7 +123,7 @@ public class GoogleChannelConnectionFactory
       var s = Profiler.instance().profile("getAndVerifyServerCapabilities");
       var future =
           Futures.transformAsync(
-              remoteServerCapabilities.get(channel),
+              checkNotNull(remoteServerCapabilities).get(channel),
               serverCapabilities -> {
                 var result =
                     RemoteServerCapabilities.checkClientServerCompatibility(
@@ -147,18 +153,14 @@ public class GoogleChannelConnectionFactory
 
             @Override
             public void onFailure(Throwable error) {
-              String message =
-                  "Failed to query remote execution capabilities: "
-                      + Utils.grpcAwareErrorMessage(error, verboseFailures);
-              reporter.handle(Event.error(message));
-
-              IOException exception;
-              if (error instanceof IOException) {
-                exception = (IOException) error;
+              Throwable cause;
+              if (!(error instanceof IOException)
+                  && error.getCause() instanceof IOException ioException) {
+                cause = ioException;
               } else {
-                exception = new IOException(error);
+                cause = error;
               }
-              serverCapabilities.setException(exception);
+              serverCapabilities.setException(new RemoteExecutionCapabilitiesException(cause));
             }
           },
           directExecutor());

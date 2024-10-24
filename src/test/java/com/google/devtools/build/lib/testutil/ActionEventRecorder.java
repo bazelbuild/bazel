@@ -17,7 +17,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
@@ -28,7 +27,6 @@ import com.google.devtools.build.lib.actions.ActionMiddlemanEvent;
 import com.google.devtools.build.lib.actions.ActionResultReceivedEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
-import com.google.devtools.build.lib.skyframe.proto.ActionRewind.ActionRewindEvent;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindingStats;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewoundEvent;
 import java.util.ArrayList;
@@ -177,9 +175,8 @@ public final class ActionEventRecorder {
         completedRewound,
         failedRewound,
         exactlyOneMiddlemanEventChecks,
-        /*expectResultReceivedForFailedRewound=*/ true,
-        actionRewindingPostLostInputCounts,
-        /*lostInputAndActionsPosts=*/ ImmutableList.of());
+        /* expectResultReceivedForFailedRewound= */ true,
+        actionRewindingPostLostInputCounts);
   }
 
   /**
@@ -197,18 +194,17 @@ public final class ActionEventRecorder {
       ImmutableList<String> failedRewound,
       ImmutableList<Predicate<ActionMiddlemanEvent>> exactlyOneMiddlemanEventChecks,
       boolean expectResultReceivedForFailedRewound,
-      ImmutableList<Integer> actionRewindingPostLostInputCounts,
-      ImmutableList<ImmutableList<ActionRewindEventAsserter>> lostInputAndActionsPosts) {
+      ImmutableList<Integer> actionRewindingPostLostInputCounts) {
     EventCountAsserter eventCountAsserter =
         new EventCountAsserter(runOnce, completedRewound, failedRewound);
 
     eventCountAsserter.assertEventCounts(
-        /*events=*/ actionStartedEvents,
-        /*eventsName=*/ "actionStartedEvents",
-        /*converter=*/ e -> progressMessageOrPrettyPrint(e.getAction()),
-        /*expectedRunOnceEventCount=*/ 1,
-        /*expectedCompletedRewoundEventCount=*/ 1,
-        /*expectedFailedRewoundEventCount=*/ 2);
+        /* events= */ actionStartedEvents,
+        /* eventsName= */ "actionStartedEvents",
+        /* converter= */ e -> progressMessageOrPrettyPrint(e.getAction()),
+        /* expectedRunOnceEventCount= */ 1,
+        /* expectedCompletedRewoundEventCount= */ 1,
+        /* expectedFailedRewoundEventCount= */ 2);
 
     eventCountAsserter.assertEventCounts(
         /*events=*/ actionCompletionEvents,
@@ -242,75 +238,44 @@ public final class ActionEventRecorder {
         /*expectedCompletedRewoundEventCount=*/ 0,
         /*expectedFailedRewoundEventCount=*/ 1);
 
-    assertRewindActionStats(actionRewindingPostLostInputCounts, lostInputAndActionsPosts);
+    assertTotalLostInputCountsFromStats(actionRewindingPostLostInputCounts);
 
-    // No middlemen, no worries
-    // for (Predicate<ActionMiddlemanEvent> check : exactlyOneMiddlemanEventChecks) {
-    //   assertThat(actionMiddlemanEvents.stream().filter(check).count()).isEqualTo(1);
-    // }
+    for (Predicate<ActionMiddlemanEvent> check : exactlyOneMiddlemanEventChecks) {
+      assertThat(actionMiddlemanEvents.stream().filter(check)).hasSize(1);
+    }
     assertThat(cachedActionEvents).isEmpty();
   }
 
   /**
-   * Assert that the contents of the {@link ActionRewindingStats} event matches expected results.
+   * Asserts that the total lost input counts from posted {@link ActionRewindingStats} matches
+   * expected results.
    *
-   * @param totalLostInputCounts - The list of the counts of all lost inputs logged with each
-   *     ActionRewindingStats post.
-   * @param lostInputAndActionsPosts - The list of all expected values in all ActionRewindingStats
-   *     posts. The outer list represents the ActionRewindingStats posts, the inner list contains
-   *     {@link ActionRewindEventAsserter} that has the expected values of each action rewind event
-   *     within each corresponding post.
+   * @param totalLostInputCounts - The list of the counts of all lost inputs logged with each {@link
+   *     ActionRewindingStats} post.
    */
-  public void assertRewindActionStats(
-      ImmutableList<Integer> totalLostInputCounts,
-      ImmutableList<ImmutableList<ActionRewindEventAsserter>> lostInputAndActionsPosts) {
+  public void assertTotalLostInputCountsFromStats(ImmutableList<Integer> totalLostInputCounts) {
     assertThat(actionRewindingStatsPosts).hasSize(totalLostInputCounts.size());
-    for (int postIndex = 0; postIndex < lostInputAndActionsPosts.size(); postIndex++) {
+    for (int postIndex = 0; postIndex < totalLostInputCounts.size(); postIndex++) {
       ActionRewindingStats actionRewindingStats = actionRewindingStatsPosts.get(postIndex);
       assertThat(actionRewindingStats.lostInputsCount())
           .isEqualTo(totalLostInputCounts.get(postIndex));
-      ImmutableList<ActionRewindEventAsserter> expectedLostInputPost =
-          lostInputAndActionsPosts.get(postIndex);
-
-      for (int r = 0; r < actionRewindingStats.actionRewindEvents().size(); r++) {
-        ActionRewindEvent actualActionRewind = actionRewindingStats.actionRewindEvents().get(r);
-        expectedLostInputPost.get(r).assertActionRewindEvent(actualActionRewind);
-      }
     }
   }
 
-  @AutoValue
-  public abstract static class ActionRewindEventAsserter {
-
-    public static ActionRewindEventAsserter create(
-        String expectedActionMnemonic,
-        String expectedActionOwnerLabel,
-        int expectedLostInputsCount,
-        int expectedInvalidatedNodesCount) {
-      return new AutoValue_ActionEventRecorder_ActionRewindEventAsserter(
-          expectedActionMnemonic,
-          expectedActionOwnerLabel,
-          expectedLostInputsCount,
-          expectedInvalidatedNodesCount);
+  /**
+   * Asserts that the total lost output counts from posted {@link ActionRewindingStats} matches
+   * expected results.
+   *
+   * @param totalLostOutputCounts - The list of the counts of all lost outputs logged with each
+   *     {@link ActionRewindingStats} post.
+   */
+  public void assertTotalLostOutputCountsFromStats(ImmutableList<Integer> totalLostOutputCounts) {
+    assertThat(actionRewindingStatsPosts).hasSize(totalLostOutputCounts.size());
+    for (int postIndex = 0; postIndex < totalLostOutputCounts.size(); postIndex++) {
+      ActionRewindingStats actionRewindingStats = actionRewindingStatsPosts.get(postIndex);
+      assertThat(actionRewindingStats.lostOutputsCount())
+          .isEqualTo(totalLostOutputCounts.get(postIndex));
     }
-
-    ActionRewindEventAsserter() {}
-
-    private void assertActionRewindEvent(ActionRewindEvent actualEvent) {
-      assertThat(actualEvent.getActionDescription().getType()).isEqualTo(expectedActionMnemonic());
-      assertThat(actualEvent.getActionDescription().getRuleLabel())
-          .isEqualTo(expectedActionOwnerLabel());
-      assertThat(actualEvent.getTotalLostInputsCount()).isEqualTo(expectedLostInputsCount());
-      assertThat(actualEvent.getInvalidatedNodesCount()).isEqualTo(expectedInvalidatedNodesCount());
-    }
-
-    abstract String expectedActionMnemonic();
-
-    abstract String expectedActionOwnerLabel();
-
-    abstract int expectedLostInputsCount();
-
-    abstract int expectedInvalidatedNodesCount();
   }
 
   private static final class EventCountAsserter {

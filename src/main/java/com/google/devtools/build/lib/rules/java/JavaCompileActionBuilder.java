@@ -22,8 +22,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.JavaCompileInfo;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -51,10 +51,7 @@ import javax.annotation.Nullable;
 public final class JavaCompileActionBuilder {
 
   private static final String JACOCO_INSTRUMENTATION_PROCESSOR = "jacoco";
-
-  /** Environment variable that sets the UTF-8 charset. */
-  static final ImmutableMap<String, String> UTF8_ENVIRONMENT =
-      ImmutableMap.of("LC_CTYPE", "en_US.UTF-8");
+  private static final String PROGRESS_MESSAGE_PREFIX = "Building";
 
   static final String MNEMONIC = "Javac";
 
@@ -148,6 +145,7 @@ public final class JavaCompileActionBuilder {
   private NestedSet<Artifact> compileTimeDependencyArtifacts =
       NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   private ImmutableList<String> javacOpts = ImmutableList.of();
+  private ImmutableMap<String, String> utf8Environment = null;
   private ImmutableMap<String, String> executionInfo = ImmutableMap.of();
   private boolean compressJar;
   private NestedSet<Artifact> classpathEntries = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
@@ -172,7 +170,9 @@ public final class JavaCompileActionBuilder {
     this.execGroup = execGroup;
   }
 
-  public JavaCompileAction build() throws RuleErrorException {
+  public JavaCompileAction build() throws RuleErrorException, InterruptedException {
+    checkNotNull(utf8Environment, "utf8Environment must not be null");
+
     // TODO(bazel-team): all the params should be calculated before getting here, and the various
     // aggregation code below should go away.
 
@@ -230,32 +230,23 @@ public final class JavaCompileActionBuilder {
       classpathMode = JavaClasspathMode.OFF;
     }
 
-    if (outputs.depsProto() != null) {
-      JavaConfiguration javaConfiguration =
-          ruleContext.getConfiguration().getFragment(JavaConfiguration.class);
-      if (javaConfiguration.inmemoryJdepsFiles()) {
-        executionInfo =
-            ImmutableMap.<String, String>builderWithExpectedSize(this.executionInfo.size() + 1)
-                .putAll(this.executionInfo)
-                .put(
-                    ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS,
-                    outputs.depsProto().getExecPathString())
-                .buildOrThrow();
-      }
-    }
-
     NestedSet<Artifact> tools = toolsBuilder.build();
     mandatoryInputsBuilder.addTransitive(tools);
     NestedSet<Artifact> mandatoryInputs = mandatoryInputsBuilder.build();
 
     CustomCommandLine executableLine = javaBuilder.getCommandLine(toolchain);
 
+    ActionEnvironment actionEnvironment =
+        ruleContext
+            .getConfiguration()
+            .getActionEnvironment()
+            .withAdditionalFixedVariables(utf8Environment);
+
     return new JavaCompileAction(
         /* compilationType= */ JavaCompileAction.CompilationType.JAVAC,
         /* owner= */ ruleContext.getActionOwner(execGroup),
         /* tools= */ tools,
-        /* progressMessage= */ new ProgressMessage(
-            /* prefix= */ "Building",
+        /* progressMessage= */ new JavaCompileProgressMessage(
             /* output= */ outputs.output(),
             /* sourceFiles= */ sourceFiles,
             /* sourceJars= */ sourceJars,
@@ -264,6 +255,7 @@ public final class JavaCompileActionBuilder {
         /* transitiveInputs= */ classpathEntries,
         /* directJars= */ directJars,
         /* outputs= */ allOutputs(),
+        /* env= */ actionEnvironment,
         /* executionInfo= */ executionInfo,
         /* extraActionInfoSupplier= */ extraActionInfoSupplier,
         /* executableLine= */ executableLine,
@@ -286,7 +278,7 @@ public final class JavaCompileActionBuilder {
   }
 
   private CustomCommandLine buildParamFileContents(ImmutableList<String> javacOpts)
-      throws RuleErrorException {
+      throws RuleErrorException, InterruptedException {
 
     CustomCommandLine.Builder result = CustomCommandLine.builder();
 
@@ -319,7 +311,8 @@ public final class JavaCompileActionBuilder {
       } else {
         // @-prefixed strings will be assumed to be filenames and expanded by
         // {@link JavaLibraryBuildRequest}, so add an extra &at; to escape it.
-        result.addPrefixedLabel("@", targetLabel);
+        result.addPrefixedLabel(
+            "@", targetLabel, ruleContext.getAnalysisEnvironment().getMainRepoMapping());
       }
     }
     result.add("--injecting_rule_kind", injectingRuleKind);
@@ -393,6 +386,12 @@ public final class JavaCompileActionBuilder {
   @CanIgnoreReturnValue
   public JavaCompileActionBuilder setJavacOpts(ImmutableList<String> copts) {
     this.javacOpts = Preconditions.checkNotNull(copts);
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public JavaCompileActionBuilder setUtf8Environment(ImmutableMap<String, String> utf8Environment) {
+    this.utf8Environment = Preconditions.checkNotNull(utf8Environment);
     return this;
   }
 
@@ -494,5 +493,21 @@ public final class JavaCompileActionBuilder {
 
   public void setManifestOutput(Artifact manifestOutput) {
     this.manifestOutput = manifestOutput;
+  }
+
+  private static class JavaCompileProgressMessage extends ProgressMessage {
+
+    public JavaCompileProgressMessage(
+        Artifact output,
+        ImmutableSet<Artifact> sourceFiles,
+        ImmutableList<Artifact> sourceJars,
+        JavaPluginData plugins) {
+      super(output, sourceFiles, sourceJars, plugins);
+    }
+
+    @Override
+    String prefix() {
+      return PROGRESS_MESSAGE_PREFIX;
+    }
   }
 }

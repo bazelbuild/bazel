@@ -280,17 +280,20 @@ public class ExecutionRequirements {
   /** Use this to request eager fetching of a single remote output into local memory. */
   public static final String REMOTE_EXECUTION_INLINE_OUTPUTS = "internal-inline-outputs";
 
+  /** Tag for Google internal use. Indicates a memory estimate in bytes. */
+  public static final String MEMORY_ESTIMATE = "internal-memory-estimate";
+
   /**
    * Request graceful termination of subprocesses on interrupt (that is, an initial {@code SIGTERM}
    * followed by a {@code SIGKILL} after a grace period).
    */
   public static final String GRACEFUL_TERMINATION = "supports-graceful-termination";
 
-  /** Requires the execution service to support a given xcode version e.g. "xcode_version:1.0". */
+  /** Requires the execution service to support a given Xcode version e.g. "xcode_version:1.0". */
   public static final String REQUIRES_XCODE = "requires-xcode";
 
   /**
-   * Requires the execution service to support a "label" in addition to the xcode version. The user
+   * Requires the execution service to support a "label" in addition to the Xcode version. The user
    * specifies the label as a hyphenated extension to their requested version. For example, if the
    * user requests "--xcode_version=1.0-unstable", the action request will include
    * "requires-xcode-label:unstable" and "requires-xcode:1.0".

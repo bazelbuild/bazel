@@ -406,12 +406,22 @@ static void MakeFilesystemMostlyReadOnly() {
   endmntent(mounts);
 }
 
-static void MountProc() {
+static void MountProcAndSys() {
   // Mount a new proc on top of the old one, because the old one still refers to
   // our parent PID namespace.
   if (mount("/proc", "/proc", "proc", MS_NODEV | MS_NOEXEC | MS_NOSUID,
             nullptr) < 0) {
-    DIE("mount");
+    DIE("mount /proc");
+  }
+
+  if (opt.create_netns == NO_NETNS) {
+    return;
+  }
+
+  // Same for sys, but only if a separate network namespace was requested.
+  if (mount("none", "/sys", "sysfs",
+            MS_NOEXEC | MS_NOSUID | MS_NODEV | MS_RDONLY, nullptr) < 0) {
+    DIE("mount /sys");
   }
 }
 
@@ -442,6 +452,14 @@ static void SetupNetworking() {
     if (close(fd) < 0) {
       DIE("close");
     }
+  }
+
+  if (opt.create_netns != NO_NETNS && opt.fake_root) {
+    // Allow IPPROTO_ICMP sockets when already allowed outside of the namespace.
+    // In a namespace, /proc/sys/net/ipv4/ping_group_range is reset to the
+    // default of 1 0, which does not match any groups. However, it can only be
+    // overridden when the namespace has a fake root. This may be a kernel bug.
+    WriteFile("/proc/sys/net/ipv4/ping_group_range", "0 0");
   }
 }
 
@@ -688,13 +706,13 @@ int Pid1Main(void *args) {
     MountSandboxAndGoThere();
     CreateEmptyFile();
     MountDev();
-    MountProc();
+    MountProcAndSys();
     MountAllMounts();
     ChangeRoot();
   } else {
     MountFilesystems();
     MakeFilesystemMostlyReadOnly();
-    MountProc();
+    MountProcAndSys();
   }
   SetupNetworking();
   EnterWorkingDirectory();

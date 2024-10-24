@@ -77,6 +77,10 @@ of packages, use a `package_group` instead of repeating the list in each
 target's `visibility` attribute. This increases readability and prevents the
 lists from getting out of sync.
 
+**Best practice:** When granting visibility to another team's project, prefer
+`__subpackages__` over `__pkg__` to avoid needless visibility churn as that
+project evolves and adds new subpackages.
+
 Note: The `visibility` attribute may not specify non-`package_group` targets.
 Doing so triggers a "Label does not refer to a package group" or "Cycle in
 dependency graph" error.
@@ -240,13 +244,6 @@ our example, the C++ compiler could be private so long as it lives in the same
 package as the definition of the `cc_library` rule. As a fallback, if the
 implicit dependency is not visible from the definition, it is checked with
 respect to the `cc_library` target.
-
-You can change this behavior by disabling
-[`--incompatible_visibility_private_attributes_at_definition`](https://github.com/bazelbuild/proposals/blob/master/designs/2019-10-15-tool-visibility.md){: .external}.
-When disabled, implicit dependencies are treated like any other dependency.
-This means that the target being depended on (such as our C++ compiler) must be
-visible to every instance of the rule. In practice this usually means the target
-must have public visibility.
 
 If you want to restrict the usage of a rule to certain packages, use
 [load visibility](#load-visibility) instead.

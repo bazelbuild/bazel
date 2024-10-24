@@ -14,10 +14,15 @@
 
 package com.google.devtools.build.lib.skyframe.toolchains;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -29,6 +34,7 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /** Helper class that looks up {@link ToolchainTypeInfo} data. */
@@ -36,18 +42,40 @@ public class ToolchainTypeLookupUtil {
 
   @Nullable
   public static ImmutableMap<Label, ToolchainTypeInfo> resolveToolchainTypes(
-      Environment env, Iterable<ConfiguredTargetKey> toolchainTypeKeys)
+      Environment env,
+      ImmutableSet<ToolchainTypeRequirement> toolchainTypes,
+      BuildConfigurationValue configuration)
       throws InterruptedException, InvalidToolchainTypeException {
-    SkyframeLookupResult values = env.getValuesAndExceptions(toolchainTypeKeys);
+
+    ImmutableMap<ConfiguredTargetKey, ToolchainTypeRequirement> toolchainTypesByKey =
+        toolchainTypes.stream()
+            .collect(
+                toImmutableMap(
+                    toolchainTypeRequirement ->
+                        ConfiguredTargetKey.builder()
+                            .setLabel(toolchainTypeRequirement.toolchainType())
+                            .setConfiguration(configuration)
+                            .build(),
+                    toolchainTypeRequirement -> toolchainTypeRequirement));
+
+    SkyframeLookupResult values = env.getValuesAndExceptions(toolchainTypesByKey.keySet());
     boolean valuesMissing = env.valuesMissing();
     Map<Label, ToolchainTypeInfo> results = valuesMissing ? null : new HashMap<>();
-    for (ConfiguredTargetKey key : toolchainTypeKeys) {
+    for (Map.Entry<ConfiguredTargetKey, ToolchainTypeRequirement> entry :
+        toolchainTypesByKey.entrySet()) {
+      ConfiguredTargetKey key = entry.getKey();
+      ToolchainTypeRequirement toolchainTypeRequirement = entry.getValue();
+
       Label originalLabel = key.getLabel();
-      ToolchainTypeInfo toolchainTypeInfo = findToolchainTypeInfo(key, values);
-      if (!valuesMissing && toolchainTypeInfo != null) {
-        // These are only different if the toolchain type was aliased.
-        results.put(originalLabel, toolchainTypeInfo);
-        results.put(toolchainTypeInfo.typeLabel(), toolchainTypeInfo);
+      Optional<ToolchainTypeInfo> toolchainTypeInfo =
+          findToolchainTypeInfo(toolchainTypeRequirement, key, values);
+      if (!valuesMissing) {
+        toolchainTypeInfo.ifPresent(
+            info -> {
+              // These are only different if the toolchain type was aliased.
+              results.put(originalLabel, info);
+              results.put(info.typeLabel(), info);
+            });
       }
     }
     if (valuesMissing) {
@@ -57,9 +85,17 @@ public class ToolchainTypeLookupUtil {
     return ImmutableMap.copyOf(results);
   }
 
+  /**
+   * Returns {@code null} to signal a Skyframe restart, an {@code Optional.empty} if the toolchain
+   * type is invalid but ignored, and a populated {@link Optional} with the toolchain type info
+   * otherwise.
+   */
   @Nullable
-  private static ToolchainTypeInfo findToolchainTypeInfo(
-      ConfiguredTargetKey key, SkyframeLookupResult values) throws InvalidToolchainTypeException {
+  private static Optional<ToolchainTypeInfo> findToolchainTypeInfo(
+      ToolchainTypeRequirement toolchainTypeRequirement,
+      ConfiguredTargetKey key,
+      SkyframeLookupResult values)
+      throws InvalidToolchainTypeException {
     try {
       ConfiguredTargetValue ctv =
           (ConfiguredTargetValue)
@@ -74,7 +110,7 @@ public class ToolchainTypeLookupUtil {
 
       ConfiguredTarget configuredTarget = ctv.getConfiguredTarget();
       ToolchainTypeInfo toolchainTypeInfo = PlatformProviderUtils.toolchainType(configuredTarget);
-      if (toolchainTypeInfo == null) {
+      if (toolchainTypeInfo == null && !toolchainTypeRequirement.ignoreIfInvalid()) {
         if (PlatformProviderUtils.declaredToolchainInfo(configuredTarget) != null) {
           throw new InvalidToolchainTypeException(
               configuredTarget.getLabel(),
@@ -85,7 +121,10 @@ public class ToolchainTypeLookupUtil {
         throw new InvalidToolchainTypeException(configuredTarget.getLabel());
       }
 
-      return toolchainTypeInfo;
+      if (toolchainTypeInfo == null) {
+        return Optional.empty();
+      }
+      return Optional.of(toolchainTypeInfo);
     } catch (ConfiguredValueCreationException e) {
       throw new InvalidToolchainTypeException(e);
     } catch (NoSuchThingException e) {

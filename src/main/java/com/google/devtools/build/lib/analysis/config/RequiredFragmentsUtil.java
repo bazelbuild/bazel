@@ -235,13 +235,11 @@ public final class RequiredFragmentsUtil {
       ConfiguredAttributeMapper attributeMap,
       BuildOptionDetails optionDetails,
       @Nullable StarlarkAttributeTransitionProvider starlarkExecTransition) {
-    if (target.getRuleClassObject().getTransitionFactory() != null) {
-      target
-          .getRuleClassObject()
-          .getTransitionFactory()
-          .create(RuleTransitionData.create(target, configConditions.asProviders(), configHash))
-          .addRequiredFragments(requiredFragments, optionDetails);
-    }
+    target
+        .getRuleClassObject()
+        .getTransitionFactory()
+        .create(RuleTransitionData.create(target, configConditions.asProviders(), configHash))
+        .addRequiredFragments(requiredFragments, optionDetails);
     // We don't set the execution platform in this data because a) that doesn't affect which
     // fragments are required and b) it's one less parameter we have to pass to
     // RequiredFragmenstUtil's public interface.

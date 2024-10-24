@@ -21,7 +21,7 @@ rely on this. Pass the flag --experimental_starlark_cc_import
 load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/cc_info.bzl", "CcInfo")
-load(":common/objc/semantics.bzl", "semantics")
+load(":common/cc/semantics.bzl", "semantics")
 
 CPP_LINK_STATIC_LIBRARY_ACTION_NAME = "c++-link-static-library"
 
@@ -133,7 +133,7 @@ def _cc_import_impl(ctx):
         library_to_link = cc_common.create_library_to_link(
             actions = ctx.actions,
             feature_configuration = feature_configuration,
-            cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo],
+            cc_toolchain = cc_toolchain,
             static_library = static_library,
             pic_static_library = pic_static_library,
             interface_library = ctx.file.interface_library,
@@ -153,10 +153,15 @@ def _cc_import_impl(ctx):
             linker_inputs = depset([linker_input]),
         )
 
+    runtimes_deps = semantics.get_cc_runtimes(ctx, True)
+    runtimes_copts = semantics.get_cc_runtimes_copts(ctx)
+    compilation_contexts = cc_helper.get_compilation_contexts_from_deps(runtimes_deps)
     (compilation_context, _) = cc_common.compile(
         actions = ctx.actions,
         feature_configuration = feature_configuration,
+        user_compile_flags = runtimes_copts,
         cc_toolchain = cc_toolchain,
+        compilation_contexts = compilation_contexts,
         public_hdrs = ctx.files.hdrs,
         includes = ctx.attr.includes,
         name = ctx.label.name,
@@ -189,7 +194,7 @@ cc_import(
   static_library = "libmylib.a",
   # If alwayslink is turned on,
   # libmylib.a will be forcely linked into any binary that depends on it.
-  # alwayslink = 1,
+  # alwayslink = True,
 )
 </code></pre>
 
@@ -238,7 +243,7 @@ cc_import(
   interface_library = "libmylib.ifso", # Or we can also use libmylib.so as its own interface library
   # libmylib.so is provided by system environment, for example it can be found in LD_LIBRARY_PATH.
   # This indicates that Bazel is not responsible for making libmylib.so available.
-  system_provided = 1,
+  system_provided = True,
 )
 </code></pre>
 
@@ -251,7 +256,7 @@ cc_import(
   interface_library = "mylib.lib",
   # mylib.dll is provided by system environment, for example it can be found in PATH.
   # This indicates that Bazel is not responsible for making mylib.dll available.
-  system_provided = 1,
+  system_provided = True,
 )
 </code></pre>
 
@@ -265,6 +270,7 @@ cc_import(
   static_library = "libmylib.a",
   shared_library = "libmylib.so",
 )
+</code></pre>
 
 <p>On Windows:
 <pre><code class="lang-starlark">
@@ -284,7 +290,7 @@ cc_binary(
   name = "first",
   srcs = ["first.cc"],
   deps = [":mylib"],
-  linkstatic = 1, # default value
+  linkstatic = True, # default value
 )
 
 # second will link to libmylib.so (or libmylib.lib)
@@ -292,7 +298,7 @@ cc_binary(
   name = "second",
   srcs = ["second.cc"],
   deps = [":mylib"],
-  linkstatic = 0,
+  linkstatic = False,
 )
 </code></pre>
 
@@ -410,10 +416,11 @@ most build rules</a>."""),
             allow_files = True,
             flags = ["SKIP_CONSTRAINTS_OVERRIDE"],
         ),
+        # TODO(b/288421584): necessary because IDE aspect can't see toolchains
         "_cc_toolchain": attr.label(default = "@" + semantics.get_repo() + "//tools/cpp:current_cc_toolchain"),
         "_use_auto_exec_groups": attr.bool(default = True),
     },
     provides = [CcInfo],
-    toolchains = cc_helper.use_cpp_toolchain(),
+    toolchains = cc_helper.use_cpp_toolchain() + semantics.get_runtimes_toolchain(),
     fragments = ["cpp"],
 )

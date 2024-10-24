@@ -33,7 +33,6 @@ class TestWrapperTest(test_base.TestBase):
     self.fail('FAIL:\n | %s\n---' % '\n | '.join(output))
 
   def _CreateMockWorkspace(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile(
         'foo/BUILD',
         [
@@ -530,6 +529,7 @@ class TestWrapperTest(test_base.TestBase):
             '//foo:undecl_test',
             '-t-',
             '--test_output=errors',
+            '--zip_undeclared_test_outputs',
         ]
         + flags
     )
@@ -676,13 +676,16 @@ class TestWrapperTest(test_base.TestBase):
   # See https://github.com/bazelbuild/bazel/issues/8088
   def testRunningTestFromExternalRepo(self):
     rule_definition = [
-        'load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")',
-        'local_repository(name = "a", path = "a")'
+        (
+            'local_repository ='
+            ' use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl",'
+            ' "local_repository")'
+        ),
+        'local_repository(name = "a", path = "a")',
     ]
-    rule_definition.extend(self.GetDefaultRepoRules())
-    self.ScratchFile('WORKSPACE', rule_definition)
-    self.CreateWorkspaceWithDefaultRepos('a/WORKSPACE')
+    self.ScratchFile('MODULE.bazel', rule_definition)
     self.ScratchFile('BUILD', ['py_test(name = "x", srcs = ["x.py"])'])
+    self.ScratchFile('a/REPO.bazel')
     self.ScratchFile('a/BUILD', ['py_test(name = "x", srcs = ["x.py"])'])
     self.ScratchFile('x.py')
     self.ScratchFile('a/x.py')

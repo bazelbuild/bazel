@@ -449,7 +449,12 @@ function assert_equals() {
     local expected=$1 actual=$2
     [[ "$expected" == "$actual" ]] && return 0
 
-    fail "Expected '$expected', was '$actual'"
+    local context=""
+    if [[ "$#" -eq "3" ]]
+    then
+      context="${3}: "
+    fi
+    fail "${context}Expected '$expected', was '$actual'"
     return 1
 }
 
@@ -511,6 +516,62 @@ function assert_contains_n() {
     (( count == expectednum )) && return 0
 
     fail "$message" $(__copy_to_undeclared_outputs "$2")
+    return 1
+}
+
+# Usage: assert_exists <file> [error-message]
+# Asserts that the file exists.
+function assert_exists() {
+    local file=$1
+    local message=${2:-"Expected '$file' to exist"}
+    if [[ -f "$file" ]]; then
+        return 0
+    fi
+
+    fail "$message"
+    return 1
+}
+
+# Usage: assert_not_exists <file> [error-message]
+# Asserts that the file does not exist.
+function assert_not_exists() {
+    local file=$1
+    local message=${2:-"Expected '$file' to not exist"}
+    if ! [[ -f "$file" ]]; then
+        return 0
+    fi
+
+    fail "$message"
+    return 1
+}
+
+# Usage: assert_empty_file <file> [error-message]
+# Asserts that the file exists and is empty. On failure copies the file to
+# undeclared outputs, prints the specified (optional) error message, and returns
+# non-zero.
+function assert_empty_file() {
+    local file=$1
+    local message=${2:-"Expected '$file' to exist and be empty"}
+    if [[ -f "$file" && ! -s "$file" ]]; then
+        return 0
+    fi
+
+    fail "$message" $(__copy_to_undeclared_outputs "$1")
+    return 1
+}
+
+# Usage: assert_nonempty_file <file> [error-message]
+# Asserts that the file exists and is nonempty. On failure copies the file to
+# undeclared outputs, prints the specified (optional) error message, and returns
+# non-zero.
+function assert_nonempty_file() {
+    local file=$1
+    local message=${2:-"Expected '$file' to exist and be nonempty"}
+    if [[ -f "$file" && -s "$file" ]]; then
+        return 0
+    fi
+
+    fail "$message" $(__copy_to_undeclared_outputs "$1")
     return 1
 }
 

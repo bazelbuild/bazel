@@ -50,7 +50,7 @@ public class CommandFailureUtilsTest {
             env,
             cwd,
             "cfg12345",
-            target,
+            "target " + target,
             executionPlatform.label());
     assertThat(message)
         .isEqualTo(
@@ -79,7 +79,7 @@ public class CommandFailureUtilsTest {
             env,
             cwd,
             "cfg12345",
-            target,
+            "target " + target,
             executionPlatform.label());
     assertThat(message)
         .isEqualTo(
@@ -116,7 +116,7 @@ public class CommandFailureUtilsTest {
             env,
             cwd,
             "cfg12345",
-            target,
+            "target " + target,
             executionPlatform.label());
     assertThat(message)
         .isEqualTo(
@@ -152,7 +152,7 @@ public class CommandFailureUtilsTest {
             env,
             cwd,
             "cfg12345",
-            target,
+            "target " + target,
             executionPlatform.label());
     assertThat(message)
         .isEqualTo(
@@ -190,7 +190,7 @@ public class CommandFailureUtilsTest {
             env,
             cwd,
             "cfg12345",
-            target,
+            "target " + target,
             executionPlatform.label());
     assertThat(message)
         .isEqualTo(

@@ -14,17 +14,11 @@
 
 package com.google.devtools.build.lib.bazel.rules.cpp;
 
-import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL;
-import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
-
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainRule;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses.CcIncludeScanningRule;
 
@@ -37,13 +31,6 @@ public class BazelCppRuleClasses {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          .add(
-              attr(CcToolchainRule.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, LABEL)
-                  .mandatoryProviders(CcToolchainProvider.PROVIDER.id())
-                  .value(CppRuleClasses.ccToolchainAttribute(env)))
-          .add(
-              attr(CcToolchainRule.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL)
-                  .value(CppRuleClasses.ccToolchainTypeAttribute(env)))
           .requiresConfigurationFragments(PlatformConfiguration.class)
           .addToolchainTypes(CppRuleClasses.ccToolchainTypeRequirement(env))
           .build();

@@ -83,6 +83,8 @@ def sh_configure():
     sh_config(name = "local_config_sh")
     native.register_toolchains("@local_config_sh//:local_sh_toolchain")
 
-sh_configure_extension = module_extension(
-    implementation = lambda ctx: sh_config(name = "local_config_sh"),
-)
+def _sh_configure_extension_impl(module_ctx):
+    sh_config(name = "local_config_sh")
+    return module_ctx.extension_metadata(reproducible = True)
+
+sh_configure_extension = module_extension(implementation = _sh_configure_extension_impl)

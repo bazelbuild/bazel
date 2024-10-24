@@ -37,9 +37,9 @@ public class EvalException extends Exception {
   // built-in function has no stack until it is thrown out of a function call.
   @Nullable private ImmutableList<StarlarkThread.CallStackEntry> callstack;
 
-  /** Constructs an EvalException. Use {@link Starlak#errorf} if you want string formatting. */
+  /** Constructs an EvalException. Use {@link Starlark#errorf} if you want string formatting. */
   public EvalException(String message) {
-    this(message, /*cause=*/ null);
+    this(message, /* cause= */ (Throwable) null);
   }
 
   /**
@@ -55,6 +55,15 @@ public class EvalException extends Exception {
   /** Constructs an EvalException using the same message as the cause exception. */
   public EvalException(Throwable cause) {
     super(getCauseMessage(cause), cause);
+  }
+
+  /** Fills in the callstack if it hasn't been set yet. */
+  @CanIgnoreReturnValue
+  public EvalException withCallStack(List<StarlarkThread.CallStackEntry> callstack) {
+    if (this.callstack == null) {
+      this.callstack = ImmutableList.copyOf(callstack);
+    }
+    return this;
   }
 
   private static String getCauseMessage(Throwable cause) {
@@ -86,6 +95,19 @@ public class EvalException extends Exception {
    */
   public final ImmutableList<StarlarkThread.CallStackEntry> getCallStack() {
     return callstack != null ? callstack : ImmutableList.of();
+  }
+
+  /** Returns the innermost non-builtin location in the call stack, or null if there is none. */
+  @Nullable
+  public Location getInnermostLocation() {
+    if (callstack == null) {
+      return null;
+    }
+    return callstack.reverse().stream()
+        .map(entry -> entry.location)
+        .filter(location -> location != Location.BUILTIN)
+        .findFirst()
+        .orElse(null);
   }
 
   /** Returns the error message along with its call stack. May be overridden by subclasses. */

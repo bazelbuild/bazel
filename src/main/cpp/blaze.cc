@@ -26,10 +26,8 @@
 #include "src/main/cpp/blaze.h"
 
 #include <assert.h>
-#include <ctype.h>
 #include <fcntl.h>
 #include <grpc/grpc.h>
-#include <grpc/support/log.h>
 #include <grpcpp/channel.h>
 #include <grpcpp/client_context.h>
 #include <grpcpp/create_channel.h>
@@ -69,6 +67,7 @@
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/numbers.h"
 #include "src/main/cpp/util/path.h"
@@ -259,6 +258,7 @@ class BlazeServer final {
   const int connect_timeout_secs_;
   const bool batch_;
   const bool block_for_lock_;
+  const bool quiet_;
   const bool preemptible_;
   const blaze_util::Path output_base_;
 };
@@ -424,11 +424,6 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
         startup_options.failure_detail_out.AsCommandLineArgument());
   }
 
-  if (startup_options.expand_configs_in_place) {
-    result.push_back("--expand_configs_in_place");
-  } else {
-    result.push_back("--noexpand_configs_in_place");
-  }
   if (!startup_options.digest_function.empty()) {
     // Only include this if a value is requested - we rely on the empty case
     // being "null" to set the programmatic default in the server.
@@ -488,9 +483,6 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
   if (startup_options.host_jvm_debug) {
     result.push_back("--host_jvm_debug");
   }
-  if (!startup_options.host_jvm_profile.empty()) {
-    result.push_back("--host_jvm_profile=" + startup_options.host_jvm_profile);
-  }
   if (!startup_options.host_jvm_args.empty()) {
     for (const auto &arg : startup_options.host_jvm_args) {
       result.push_back("--host_jvm_args=" + arg);
@@ -504,6 +496,13 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
   }
 
   result.push_back("--product_name=" + startup_options.product_name);
+
+#ifdef __linux__
+  if (!startup_options.cgroup_parent.empty()) {
+    result.push_back("--experimental_cgroup_parent=" +
+                     startup_options.cgroup_parent);
+  }
+#endif
 
   startup_options.AddExtraOptions(&result);
 
@@ -1008,11 +1007,9 @@ static void EnsureCorrectRunningVersion(const StartupOptions &startup_options,
     }
 
     // Update the mtime of the install base so that cleanup tools can
-    // find install bases that haven't been used for a long time
-    std::unique_ptr<blaze_util::IFileMtime> mtime(
-        blaze_util::CreateFileMtime());
-    // Ignore permissions errors (i.e. if the install base is not writable):
-    if (!mtime->SetToNowIfPossible(
+    // find install bases that haven't been used for a long time.
+    // Ignore permissions errors (i.e. if the install base is not writable).
+    if (!SetMtimeToNowIfPossible(
             blaze_util::Path(startup_options.install_base))) {
       string err = GetLastErrorString();
       BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
@@ -1454,6 +1451,8 @@ static void RunLauncher(const string &self_path,
 
 int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
          OptionProcessor *option_processor, uint64_t start_time) {
+  blaze_util::InitializeStdOutErrForUtf8();
+
   // Logging must be set first to assure no log statements are missed.
   std::unique_ptr<blaze_util::BazelLogHandler> default_handler(
       new blaze_util::BazelLogHandler());
@@ -1501,7 +1500,14 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
   StartupOptions *startup_options = option_processor->GetParsedStartupOptions();
   startup_options->MaybeLogStartupOptionWarnings();
 
-  SetDebugLog(startup_options->client_debug);
+  if (startup_options->client_debug) {
+    SetDebugLog(blaze_util::LOGGINGDETAIL_DEBUG);
+  } else if (startup_options->quiet) {
+    SetDebugLog(blaze_util::LOGGINGDETAIL_QUIET);
+  } else {
+    SetDebugLog(blaze_util::LOGGINGDETAIL_USER);
+  }
+
   // If client_debug was false, this is ignored, so it's accurate.
   BAZEL_LOG(INFO) << "Debug logging requested, sending all client log "
                      "statements to stderr";
@@ -1519,8 +1525,8 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
     startup_options->batch = true;
     BAZEL_LOG(WARNING) << "Invoking " << startup_options->product_name
                        << " in batch mode since it is not invoked from within"
-                       << " a workspace (below a directory having a WORKSPACE"
-                       << " file).";
+                       << " a workspace (below a directory having a"
+                       << " MODULE.bazel file).";
   }
 
   vector<string> archive_contents;
@@ -1535,8 +1541,6 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
               *option_processor, *workspace_layout, workspace, &logging_info);
   return 0;
 }
-
-static void null_grpc_log_function(gpr_log_func_args *args) {}
 
 // There might be a mismatch between std::string and the string type returned
 // from protos. This function is the safe way to compare such strings.
@@ -1557,12 +1561,9 @@ BlazeServer::BlazeServer(const StartupOptions &startup_options)
       connect_timeout_secs_(startup_options.connect_timeout_secs),
       batch_(startup_options.batch),
       block_for_lock_(startup_options.block_for_lock),
+      quiet_(startup_options.quiet),
       preemptible_(startup_options.preemptible),
       output_base_(startup_options.output_base) {
-  if (!startup_options.client_debug) {
-    gpr_set_log_function(null_grpc_log_function);
-  }
-
   pipe_.reset(blaze_util::CreatePipe());
   if (!pipe_) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
@@ -1830,6 +1831,7 @@ unsigned int BlazeServer::Communicate(
   command_server::RunRequest request;
   request.set_cookie(request_cookie_);
   request.set_block_for_lock(block_for_lock_);
+  request.set_quiet(quiet_);
   request.set_preemptible(preemptible_);
   request.set_client_description("pid=" + blaze::GetProcessIdAsString());
   for (const string &arg : arg_vector) {

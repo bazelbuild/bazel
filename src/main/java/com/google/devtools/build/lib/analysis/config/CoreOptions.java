@@ -19,7 +19,6 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelListConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelToStringEntryConverter;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -27,13 +26,12 @@ import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.BooleanConverter;
+import com.google.devtools.common.options.Converters.CommaSeparatedOptionSetConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
-import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
 import java.util.AbstractMap.SimpleEntry;
@@ -63,8 +61,17 @@ import java.util.TreeSet;
  * string.
  */
 public class CoreOptions extends FragmentOptions implements Cloneable {
-  public static final OptionDefinition CPU =
-      OptionsParser.getOptionDefinitionByName(CoreOptions.class, "cpu");
+
+  @Option(
+      name = "scl_config",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Name of the scl config defined in PROJECT.scl. Note that this feature is still under"
+              + " development b/324119879.")
+  public String sclConfig;
 
   @Option(
       name = "incompatible_merge_genfiles_directory",
@@ -178,6 +185,16 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + " In case of multiple values for a variable, the last one wins.")
   public List<Map.Entry<String, String>> commandLineBuildVariables;
 
+  // TODO: blaze-configurability-team - Remove this when --cpu is fully deprecated.
+  @Option(
+      name = "allowed_cpu_values",
+      defaultValue = "",
+      converter = CommaSeparatedOptionSetConverter.class,
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Allowed values for the --cpu flag.")
+  public ImmutableList<String> allowedCpuValues;
+
   @Option(
       name = "cpu",
       defaultValue = "",
@@ -236,6 +253,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           "If this option is enabled, filesets will treat all output artifacts as regular files. "
               + "They will not traverse directories or be sensitive to symlinks.")
@@ -471,6 +489,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       name = "experimental_collect_code_coverage_for_generated_files",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
           "If specified, Bazel will also generate collect coverage information for generated"
@@ -499,7 +518,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "legacy_external_runfiles",
-      defaultValue = "true",
+      defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
@@ -628,14 +647,10 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public OutputDirectoryNamingScheme outputDirectoryNamingScheme;
 
   public boolean useBaselineForOutputDirectoryNamingScheme() {
-    switch (outputDirectoryNamingScheme) {
-      case DIFF_AGAINST_BASELINE:
-      case DIFF_AGAINST_DYNAMIC_BASELINE:
-        return true;
-      case LEGACY:
-        return false;
-    }
-    throw new IllegalStateException("unreachable");
+    return switch (outputDirectoryNamingScheme) {
+      case DIFF_AGAINST_BASELINE, DIFF_AGAINST_DYNAMIC_BASELINE -> true;
+      case LEGACY -> false;
+    };
   }
 
   @Option(
@@ -710,17 +725,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public List<String> hostFeatures;
 
   @Option(
-      name = "incompatible_use_host_features",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If true, use --features only for the target configuration and --host_features for the"
-              + " exec configuration.")
-  public boolean incompatibleUseHostFeatures;
-
-  @Option(
       name = "target_environment",
       converter = LabelListConverter.class,
       allowMultiple = true,
@@ -732,18 +736,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + "\"environment\" rule. If specified, all top-level targets must be "
               + "compatible with this environment.")
   public List<Label> targetEnvironments;
-
-  @Option(
-      name = "auto_cpu_environment_group",
-      converter = EmptyToNullLabelConverter.class,
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
-      effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "Declare the environment_group to use for automatically mapping cpu values to "
-              + "target_environment values.")
-  public Label autoCpuEnvironmentGroup;
 
   @Option(
       name = "allow_unresolved_symlinks",
@@ -821,14 +813,15 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "modify_execution_info",
+      allowMultiple = true,
       converter = ExecutionInfoModifier.Converter.class,
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {
         OptionEffectTag.EXECUTION,
         OptionEffectTag.AFFECTS_OUTPUTS,
         OptionEffectTag.LOADING_AND_ANALYSIS,
       },
-      defaultValue = "",
       help =
           "Add or remove keys from an action's execution info based on action mnemonic.  "
               + "Applies only to actions which support execution info. Many common actions "
@@ -843,7 +836,38 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + "all Genrule actions.\n"
               + "  '(?!Genrule).*=-requires-x' removes 'requires-x' from the execution info for "
               + "all non-Genrule actions.\n")
-  public ExecutionInfoModifier executionInfoModifier;
+  public List<ExecutionInfoModifier> executionInfoModifier;
+
+  @Option(
+      name = "incompatible_modify_execution_info_additive",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {
+        OptionEffectTag.EXECUTION,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "When enabled, passing multiple --modify_execution_info flags is additive."
+              + " When disabled, only the last flag is taken into account.")
+  public boolean additiveModifyExecutionInfo;
+
+  @Option(
+      name = "incompatible_bazel_test_exec_run_under",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {
+        OptionEffectTag.AFFECTS_OUTPUTS,
+      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If enabled, \"bazel test --run_under=//:runner\" builds \"//:runner\" in the exec"
+              + " configuration. If disabled, it builds \"//:runner\" in the target configuration."
+              + " Bazel executes tests on exec machines, so the former is more correct. This"
+              + " doesn't affect \"bazel run\", which always builds \"`--run_under=//foo\" in the"
+              + " target configuration.")
+  public boolean bazelTestExecRunUnder;
 
   @Option(
       name = "include_config_fragments_provider",
@@ -869,12 +893,14 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "experimental_inprocess_symlink_creation",
-      defaultValue = "false",
+      defaultValue = "true",
       converter = BooleanConverter.class,
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
-      help = "Whether to make direct file system calls to create symlink trees")
+      help =
+          "Whether to make direct filesystem calls to create symlink trees instead of delegating"
+              + " to a helper process.")
   public boolean inProcessSymlinkCreation;
 
   @Option(
@@ -916,6 +942,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           "When set, select functions with no matching clause will return an empty value, instead"
               + " of failing. This is to help use cquery diagnose failures in select.")
@@ -1021,6 +1048,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   @Override
   public CoreOptions getNormalized() {
     CoreOptions result = (CoreOptions) clone();
+    result.allowedCpuValues = dedupAndSort(allowedCpuValues);
     result.commandLineBuildVariables = sortEntries(normalizeEntries(commandLineBuildVariables));
 
     // Normalize features.

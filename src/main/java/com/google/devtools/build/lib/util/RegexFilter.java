@@ -55,6 +55,14 @@ public final class RegexFilter implements Predicate<String> {
 
     @Override
     public RegexFilter convert(String input) throws OptionsParsingException {
+
+      if (input.startsWith("--")) {
+        throw new OptionsParsingException(
+            String.format(
+                "Failed to build filter: value looks like another flag (%s). Either"
+                    + " escape the value with \"\\-\\-\", or pass an explicit value to the flag.",
+                input));
+      }
       List<String> inclusionList = new ArrayList<>();
       List<String> exclusionList = new ArrayList<>();
 
@@ -178,11 +186,10 @@ public final class RegexFilter implements Predicate<String> {
     if (this == other) {
       return true;
     }
-    if (!(other instanceof RegexFilter)) {
+    if (!(other instanceof RegexFilter otherFilter)) {
       return false;
     }
 
-    RegexFilter otherFilter = (RegexFilter) other;
     if (this.exclusionPattern == null ^ otherFilter.exclusionPattern == null) {
       return false;
     }

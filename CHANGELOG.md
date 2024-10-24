@@ -1,10 +1,616 @@
-## Release 8.0.0-pre.20240101.1 (2024-01-17)
+## Release 9.0.0-pre.20241016.1 (2024-10-22)
 
 ```
-Baseline: 40271d7642fb6b76d68289d73b73a1eb4acb80bd
+Baseline: 253fedc5d5adbb6015735b31103be584e2125d5b
+```
+
+Incompatible changes:
+
+  - With the default Unix toolchain on macOS, binaries now use
+    `@rpath` to find their `.dylib` dependencies. This is required to
+    fix issues where tools run during the build couldn't find their
+    dynamic dependencies.
+  - The flag `--incompatible_disallow_empty_glob` now defaults to
+    true.
+
+Important changes:
+
+  - Native android_sdk is no longer available within Bazel. Use
+    https://github.com/bazelbuild/rules_android
+  - Add the
+    --incompatible_simplify_unconditional_selects_in_rule_attrs
+    option to simplify configurable rule attributes which contain
+    only unconditional selects; for example, if ["a"] +
+    select("//conditions:default", ["b"]) is assigned to a rule
+    attribute, it is stored as ["a", "b"].
+  - `--incompatible_disallow_unsound_directory_outputs` is deleted.
+  - `--incompatible_remote_symlinks` and
+    `--incompatible_remote_dangling_symlinks` are deleted.
+  - The default value of
+    `--experimental_remote_cache_eviction_retries` is changed to `5`.
+  - If --proto:rule_classes flag is enabled, query proto output will
+    contain rule class definitions in Stardoc proto format.
+  - Non-singleton target visibility lists can now contain
+    "//visibility:public" and "//visibility:private" elements; the
+    result is appropriately simplified when assigned to an attribute:
+    ["//foo:__subpackages__", "//visibility:public"] is saved as
+    ["//visibility:public"], ["//foo:__subpackages__",
+    "//visibility:private"] is saved as ["//foo:__subpackages__"],
+    and for consistency's sake, an empty target visibility list [] is
+    saved as ["//visibility:private"].
+  - Symbolic Macros -- and with them, Finalizers and the new
+    Macro-Aware Visibility model -- are now generally available
+    (`--experimental_enable_first_class_macros` now defaults to
+    true). Trivial `select()` values are automatically unwrapped
+    (`--incompatible_simplify_unconditional_selects_in_rule_attrs`
+    now defaults to true).
+  - Moved all Bazel Android tool and action code to rules_android.
+  - Add conlyopts and cxxopts attributes to cc rules
+  - `@bazel_tools//tools/android` no longer exists. Use
+    https://github.com/bazelbuild/rules_android instead.
+  - Bazel now supports all characters in the rlocation and target
+    paths of runfiles and can be run from workspaces with a space in
+    their full path.
+  - The Python six library is no longer part of @external_tools.
+
+This release contains contributions from many people at Google, as well as Alessandro Patti, Benjamin Peterson, CaerusKaru, Dennis van den Berg, dependabot[bot], Fabian Meumertzheim, Fredrik Medley, hvd, Keith Smiley, Maria, Mislav Mandaric, Tomasz Pasternak, Xavier Bonaventura, Xdng Yng, Xùdōng Yáng.
+
+## Release 8.0.0-pre.20240925.4 (2024-10-03)
+
+```
+Baseline: f4d92d45be3617b72c21ad5ce8912fa548472e50
+
+Cherry picks:
+
+   + 99434b16ba41677b92f7eb79d5d8dcb1130d7c47:
+     Automated rollback of commit
+     4607ad439fe8869c8e8951d953e2d3adb613e6d6.
+```
+
+Incompatible changes:
+
+  - `ctx.resolve_tools` is no longer available by default, in
+    preparation for complete removal. See
+    https://github.com/bazelbuild/bazel/issues/22249 for migration
+    instructions. Use `--noincompatible_disallow_ctx_resolve_tools`
+    to temporarily make it available again.
+  - The `aquery` command now reports all potential inputs of actions
+    that support input discovery, including the input headers of C++
+    compilation actions and those explicitly marked as unused through
+    the `unused_inputs_list` argument to `ctx.actions.run`. Set
+    `--noinclude_pruned_inputs` to omit pruned inputs from `aquery`
+    output when running it after action execution.
+    RELNOTES[INC]: This is not a release note, but a reminder to
+    remove the note for `--include_scheduling_dependencies`, which
+    was introduced in the 8.x tree but won't make it into the final
+    release.
+  - `--zip_undeclared_test_outputs` now defaults to false, causing
+    undeclared test outputs (i.e., files written to
+    `$TEST_UNDECLARED_OUTPUTS_DIR` by a test) to be produced as a
+    directory instead of a zip file.
+  - --legacy_important_outputs is flipped to false. See #14353 for
+    details
+
+New features:
+
+  - Bazel can now parse .scl files, a dialect of Starlark without
+    Bazel-specific symbols.
+  - Dormant dependencies and materializer functions are now available
+    with the --experimental_dormant_deps flag.
+
+Important changes:
+
+  - Deleted native Android mobile-install
+  - Repository rules instantiated in the same module extensions can
+    now refer to each other by their extension-specified names in
+    label attributes.
+  - A new experimental flag,
+    `--experimental_build_event_output_group_mode`, allows users to
+    change how a given output group's files are reported in BEP. The
+    current behavior is `FILESET` which populates
+    `OutputGroup.file_sets`. Users may now specify `INLINE` to
+    instead report files directly in the
+    `TargetComplete`/`AspectComplete` event under
+    `OutputGroup.inline_files`. Users may also specify `BOTH` to
+    populate `OutputGroup.file_sets` and `OutputGroup.inline_files`.
+  - Bazel no longer has the android_binary, android_library,
+    android_device_script_fixture and android_host_service_fixture
+    rules. Use https://github.com/bazelbuild/rules_android instead.
+    See https://github.com/bazelbuild/bazel/issues/23199
+  - Bazel no longer has the android_sdk_repository rule. Use
+    https://github.com/bazelbuild/rules_android instead.
+  - Uploading local action results to a disk or remote cache now
+    occurs in the background whenever possible, potentially
+    unblocking the execution of followup actions. Set
+    `--noremote_cache_async` to revert to the previous behavior.
+  - `--incompatible_remote_downloader_send_all_headers` is removed.
+  - `--build_event_upload_max_threads` is removed.
+  - `incompatible_remote_output_paths_relative_to_input_root` is
+    removed.
+  - The default value of
+    `--experimental_remote_cache_compression_threshold` is changed to
+    `100`.
+  - Build without the Bytes is disabled when using HTTP cache.
+  - Build without the Bytes is disabled when using HTTP cache.
+  - Symlink trees are now created through direct filesystem calls by
+    default, instead of delegated to a helper process. On Windows,
+    this entails respecting the `--windows_enable_symlinks` flag,
+    falling back to a copy when the flag is unset (the helper process
+    always attempts to create symlinks, irrespective of the flag).
+    Set `--noexperimental_inprocess_symlink_creation` to temporarily
+    revert to the previous behavior, which will be removed in a
+    future release.
+  - By default, coverage artifacts will be reported inline in the
+    `TargetComplete` event. To disable this behavior, pass
+    `--experimental_build_event_output_group_mode=baseline.lcov=named_
+    set_of_files_only`.
+  - Uploading local action results to a disk or remote cache now
+    occurs in the background whenever possible, potentially
+    unblocking the execution of followup actions. Set
+    `--noremote_cache_async` to revert to the previous behavior.
+  - Overrides in the root MODULE.bazel file are now ignored with
+    `--ignore_dev_dependency`. (Overrides in non-root modules are
+    already ignored.)
+  - Added support for using a remote cache that evicts blobs and
+    doesn't have AC integrity check (e.g. HTTP cache).
+  - Undeclared test outputs are now reported individually in the BEP,
+    unless zipping is enabled via `--zip_undeclared_test_outputs`.
+  - The native version of android_tools_defaults_jar is no longer in
+    Bazel. Use https://github.com/bazelbuild/rules_android instead.
+  - Bazel fetch and vendor command now supports --target_pattern_file
+    for specifying target patterns.
+  - The compact execution log now stores runfiles in a more compact
+    representation that should reduce the memory overhead and log
+    output size, in particular for test spawns. This change required
+    breaking changes to the (experimental) log format.
+  - `override_repo` and `inject_repo` can be used to override and
+    inject repos in module extensions.
+  - Patches to the module file in `single_version_override` are now
+    effective as long as the patch file lies in the root module.
+  - If `--allowed_cpu_values` is set, the `--cpu` flag value is
+    validated against it.
+
+This release contains contributions from many people at Google, as well as Adam Azarchs, Alessandro Patti, Benjamin Peterson, Cornelius Riemenschneider, dependabot[bot], Fabian Meumertzheim, Fil-Den, George Gensure, hvd, Jacob Van De Weert, James Sharpe, Javier Maestro, Jay Conrod, John Millikin, Jordan Mele, Jordan Mele, Keith Smiley, Lior Gorelik, Luis Padron, Michael Siegrist, Nils Wireklint, PikachuHy, Sangita.Nalkar, Son Luong Ngoc, Thi Doan, Xdng Yng, xinyu.wang.
+
+## Release 7.3.2 (2024-10-01)
+
+```
+
+Release Notes:
+
+```
+
+## Release 7.3.1 (2024-08-19)
+
+```
+
+Release Notes:
+
+```
+
+## Release 8.0.0-pre.20240812.1 (2024-08-15)
+
+```
+Baseline: 133eb60925496e3153bcc7903968b4eeb6d16068
+```
+
+New features:
+
+  - aspects can now return DefaultInfo, which will then be merged
+    with that of the configured target they are applied to.
+    Currently, only the files= field is supported.
+
+Important changes:
+
+  - BEP will include correct \`TestResult\` and \`TargetSummary\`
+    events when special test inputs like \`$test_runtime\` fail to
+    build.
+  - Improve progress message in case there are no actions in flight,
+    and display explicitly "no actions running" in that case.
+  - The new `cc_static_library` rule produces a static library that
+    bundles given targets and all their transitive dependencies. It
+    has to be enabled via `--experimental_cc_static_library`.
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, FaBrand, Jiawen (Kevin) Chen, Son Luong Ngoc, Victor Hiairrassary.
+
+## Release 8.0.0-pre.20240807.1 (2024-08-13)
+
+```
+Baseline: 300c5867b7d2da1ba32abc20e95662096c2a7a08
+```
+
+Important changes:
+
+  - Bazel no longer has the android_ndk_repository rule. Use
+    https://github.com/bazelbuild/rules_android_ndk instead. See
+    https://github.com/bazelbuild/bazel/issues/23199
+  - Bazel no longer has the android_local_test rule. Use
+    https://github.com/bazelbuild/rules_android instead. See
+    https://github.com/bazelbuild/bazel/issues/23199
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, JKutscha, Xdng Yng.
+
+## Release 7.3.0 (2024-08-12)
+
+```
+
+Release Notes:
+
+```
+
+## Release 8.0.0-pre.20240805.3 (2024-08-12)
+
+```
+Baseline: 914db36648ef734b9b534d2a37907b9505534399
+
+Cherry picks:
+
+   + 7e689a55ccdcd752c102d25fe9acb257bd7d881c:
+     Be resilient to outdated exec paths in action cache entries
+```
+
+Important changes:
+
+  - The format of canonical repo names has changed to use plus (`+`)
+    instead of tilde (`~`). Effectively, this flips the flag
+    `--incompatible_use_plus_in_repo_names` to true, and the flag is
+    now a no-op (i.e. cannot be "unflipped").
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Jordan Mele, Laurent Le Brun, Xdng Yng.
+
+## Release 8.0.0-pre.20240730.1 (2024-08-06)
+
+```
+Baseline: c75124148e025945b96b5b7c165c37d2975e865d
+```
+
+This release contains contributions from many people at Google, as well as Cornelius Riemenschneider, Fabian Meumertzheim, Laurent Le Brun, Xdng Yng.
+
+## Release 8.0.0-pre.20240729.1 (2024-08-01)
+
+```
+Baseline: d08bb13369d840af35a26b5e38b3d0adb896fd29
+```
+
+Important changes:
+
+  - `--compile_one_dependency` selects header-only `cc_library`s in
+    more cases
+
+This release contains contributions from many people at Google, as well as Cornelius Riemenschneider, Fabian Meumertzheim, Keith Smiley, M. Taimoor Zaeem.
+
+## Release 8.0.0-pre.20240724.1 (2024-07-30)
+
+```
+Baseline: 0803ad3770155be411a703950502dc71743017bd
+```
+
+Important changes:
+
+  - Added `--experimental_collect_skyframe_counts_in_profiler` to
+    collect Skyframe node counts in the JSON profile over time.
+    Currently, the following SkyFunctions are measured: `BZL_LOAD`,
+    `GLOB`, `GLOBS`, `PACKAGE`, `CONFIGURED_TARGET`, `ASPECT`,
+    `ACTION_EXECUTION`.
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Jamison Lahman, Jordan Mele, Son Luong Ngoc.
+
+## Release 8.0.0-pre.20240718.2 (2024-07-26)
+
+```
+Baseline: a36c09f61eb0a10727b13ddd62987a8caf7af45c
+
+Cherry picks:
+
+   + 0803ad3770155be411a703950502dc71743017bd:
+     No public description
+```
+
+Important changes:
+
+  - Stop exposing the AndroidPlatformsTransition to Starlark.
+
+This release contains contributions from many people at Google, as well as eantpil.
+
+## Release 8.0.0-pre.20240710.4 (2024-07-19)
+
+```
+Baseline: 34b926bceba798820b369a47d1a7b7ff1634d277
+```
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, dependabot[bot], Fabian Meumertzheim, Jordan Mele, Laurent Le Brun, Marc Redemske, Son Luong Ngoc.
+
+## Release 8.0.0-pre.20240701.1 (2024-07-12)
+
+```
+Baseline: 3f93d377d036d773fd505a18e084425a00fb94ea
+```
+
+Important changes:
+
+  - Experimental support for path mapping `CppCompile` actions can be
+    enabled via
+    `--modify_execution_info=CppCompile=+supports-path-mapping`.
+
+This release contains contributions from many people at Google, as well as detailyang, Fabian Meumertzheim, Greg Roodt, hvd, Jason Schroeder, Laurent Le Brun, Simon Mavi Stewart, Xdng Yng.
+
+## Release 8.0.0-pre.20240618.2 (2024-07-02)
+
+```
+Baseline: 0c2ed165335327a2c5b534312324baa9ae6b6ebd
+
+Cherry picks:
+
+   + 8d625289052b7d67fedbd50b1eb611deda4ea14a:
+     Automated rollback of commit
+     17f6894346d2e200030dc08d131bf79a31a7c70c.
 ```
 
 Initial release.
+
+## Release 7.2.1 (2024-06-25)
+
+```
+
+Release Notes:
+
+```
+
+## Release 7.1.2 (2024-05-08)
+
+```
+Baseline:  d798ebde6c6394203a87b5f1a6b62ecfc3880991
+
+Release Notes:
+
++ Consider MODULE.bazel for workspace detection in bazel.sh (#20594)
++ Auto-create deploy jars for Bazel `java_test` targets if requested (#20602)
++ `java_binary` wrapper should forward `restricted_to` (#20611)
++ Mount user-specified bind mounts before Bazel's own magic. (#20609)
++ Fix bootstrapped Bazel binary (#20612)
++ Modify the error message that occurs when a requested target does not… (#20636)
++ Cherry-pick all presubmit.yml changes (#20736)
++ Accept labels of aliases in config_setting. (#20649)
++ Improve `use_repo_rule` error when not referencing a `repository_rule` (#20732)
++ Attempt to make main repo mapping inverse more efficient (#20633)
++ Retry binding to ipv6 localhost (#20755)
++ Print interactive sandboxed shell command with `--sandbox_debug` (#20769)
++ Fix two issues with --incompatible_sandbox_hermetic_tmp that manifested themselves when the output base was under /tmp (#20766)
++ Optimize prefetchInputs. (#20719)
++ Fix crash on `bazel mod` error containing `%` (#20651)
++ Cover missing cases during module extension label normalization (#20630)
++ Do not print errors when repository rules are interrupted (#20662)
++ Restart at most once when prepopulating repository rule environment (#20643)
++ Add profiles to the call sites of `updateRunfiles` (#20803)
++ Fixes for Bazel's own integration tests fail locally on Linux (#20822)
++ Remove unnecessary `cc_test` coverage handling (#20641)
++ Fix NPE in BzlmodRepoRuleFunction (#20829)
++ Return labels instead of strings from DescribableExecutionUnit methods. (#20788)
++ Introduce a SpawnLogContext interface. (#20842)
++ Fix `common` `.bazelrc` behavior for flag expansions (#20844)
++ Add a profiler span for fetching repositories. (#20852)
++ Make Bazel's RAM estimate container aware (#20644)
++ Auto-create deploy jars for Bazel `java_test` targets if requested (#20762)
++ Ignore read-only errors when updating the `mtime` of the `install_base` (#20648)
++ Add profiling to `remoteActionBuildingSemaphore.acquire()` (#20645)
++ DigestUtils: avoid throwing on invalid digest function name (#20650)
++ Use a larger buffer size for `java.util.zip.*Stream` classes (#20642)
++ Flip flag `--experimental_use_semaphore_for_jobs`. (#20646)
++ RemoteSpawnRunner: record inbetween phases in timing profile (#20647)
++ Add fastutil 7.2.1 dependency (#20854)
++ Allow repo rules to download multiple things in parallel. (#20856)
++ Add support for tmpfs mounts under `/tmp` with hermetic tmp (#20859)
++ Add new flag `--enable_workspace` that allows us to disable WORKSPACE… (#20855)
++ Add support for bind mounts under `/tmp` with hermetic tmp (#20772)
++ Document `--digest_function` startup flag (#20864)
++ Add flag `experimental_throttle_remote_action_building` (#20858)
++ Remove suffix from fastutil alias. (#20872)
++ Move StableSort into the exec package.
++ Test that missing spawn outputs are logged correctly.
++ Simplify computeDigest.
++ Add SpawnBuilder#with{Inputs,Tools} overloads accepting a NestedSet.
++ Correctly log paths for runfiles and filesets.
++ Report empty files in the spawn log.
++ Propagate the tool bit to logged directory inputs.
++ Move some more common logic into SpawnLogContext.
++ Introduce a new compact execution log format.
++ Apply zstd compression to the compact execution log.
++ Avoid unnecessary overhead when determining whether an action input is a directory.
++ Offer Shell completion for top-level packages without subpackages (#20879)
++ Increase maximal length of profile span for repository function calls (#20907)
++ Still generate a WORKSPACE file in repo rules if --enable_workspace is set (#20914)
++ Read authentication information from .netrc (#20915)
++ deps: rules_python 0.4.0 -> 0.22.0 (#20916)
++ Avoid emitting canonical labels into generated repos (#20917)
++ python: make incompatible_python_disallow_native_rules work for top-level external repo targets (#20923)
++ Remove flag guarding for the AndroidIdeInfo provider (#20932)
++ Point _virtual_includes to stable locations so IDE integrations survive builds (#20946)
++ [rfc] Allow repository rules to lazily declare environment variable deps (#20944)
++ Replaced usage of rev with awk in bash runfiles (#20934)
++ Cherry pick a few changes to address flaky tests (#20956)
++ Cherry-pick the change to reduce repository invalidations to Bazel 7.1 (#20949)
++ The label API shakeup & docs cleanup (#20977)
++ New docs for labels, repos, etc (#20978)
++ Add support for arbitrary headers to rctx.download[_and_extract] (#20979)
++ Show a warning message when the credential helper invocation fails (#20992)
++ Fix singlejar resource mapping for external repositories (#20989)
++ Remove user specific path from the lockfile (Fixes #19621) (#21009)
++ Also report cycles involving WORKSPACE from BzlmodRepoCycleReporter (#21013)
++ Fix -fatal_warnings on macOS (#21018)
++ Cherry-picks for module extension repo mapping usage tracking (#21033)
++ bzlmod: support git repos in source.json (#21036)
++ Add `bazel mod dump_repo_mapping` (#21023)
++ Cherry-picks for elimination of repo rule restarts (#21082)
++ Fix inconsistent dep graph stubs in Bzlmod tests (#21085)
++ Distinguish the disk and remote caches in the action progress status. (#21084)
++ Clarify where to find the definition of the --experimental_remote_scrubbing_config configuration format. (#21089)
++ Disable `--legacy_external_runfiles` in Bazel tests (#21086)
++ Follow directory symlink in RemoteActionFileSystem#getDirectoryEntries(). (#21088)
++ Treat the inability to load the Windows filesystem JNI as an error. (#21090)
++ Fix up permissions error in getInputStream, like we already do for getOutputStream. (#21087)
++ Force output checking for incremental run commands without the bytes. (#20988)
++ Remove visionos_x86_64 CPUs (#21022)
++ Close test.err before deleteing it (#21020)
++ Fix linker feature detection being performed on wrong linker (#20990)
++ Add an option to set a minimum size threshold for zstd blob compression. (#21124)
++ Publish RCs to GitHub (#21127)
++ Avoid using `InputStream.available()` to detect EOF while reading delimited protos. (#21143)
++ Starlark: reuse positional array in native calls where possible (#21144)
++ Harmonize BUILD files. (#21145)
++ Add bash completion for external targets (#21149)
++ Make some minor adjustments to the compact execution log format and document it better. (#21146)
++ Optimize the execution log sorter by using reference equality. (#21147)
++ Update to Turbine 0.4.0 (#21161)
++ Split StableSort into a separate target. (#21152)
++ Document that the compact execution log isn't guaranteed to be serialized in increasing ID order. (#21165)
++ Fix the comment for MessageOutputStream#write(). (#21166)
++ Make repo marker files sensitive to repo mapping changes (#21172)
++ Include the digest hash function in the compact execution log. (#21174)
++ Report unresolved symlinks as such in the execution log. (#21177)
++ Correctly handle unresolved symlinks when they appear in the inputs. (#21181)
++ Add missing close(). (#21183)
++ Add a profile span for building the upload manifest. (#21184)
++ Remove obsolete comments and dividers. (#21185)
++ Implement a new execution log conversion tool. (#21187)
++ Implement a new execution log conversion tool. (#21192)
++ Introduce a MessageInputStream abstraction, mirroring MessageOutputStream. (#21207)
++ Upgrade to use Bazel 7.0.2 (#21208)
++ Do not store the repository name in `RepoSpec` (#21209)
++ Make sure we build as well as test //src/tools/execlog/... on CI. (#21216)
++ Teach ExecLogConverter to read the compact format. (#21223)
++ Switch macOS minimum version flag to gcc compatible version (#21219)
++ Update default visionOS CPU to sim_arm64 (#21240)
++ Avoid exception-based control flow in RemoteActionFileSystem#stat. (#21236)
++ Cherry-pick: linker_param_file only added to command line if it starts with "@" (#21235)
++ Fixes for experimental extend rule and subrule functionality (#21237)
++ Fix NPE in ResourceManager when collecting local resource estimation in the profiler. (#21229)
++ Optimize RemoteActionFileSystem#readdir for the tree artifact input case. (#21251)
++ Document --incompatible_disallow_unsound_directory_outputs. (#21252)
++ Also path map transitive header jar paths with direct classpath optimization (#21227)
++ Error on invalid path characters in `.bazelignore` (#21259)
++ Mark gcc-<version> as `gcc` instead of `compiler` in Unix CC toolchain (#21224)
++ Avoid exception-based control flow in RAFS#getDigest and RAFS#getFastDigest. (#21264)
++ Add `add_exports/add_opens` to bazel java_binary deploy jars (#21270)
++ Manipulate the local filesystem directly in the writeLocalFile test helper. (#21272)
++ Improve the documentation for PathFragment methods dealing with segments. (#21275)
++ Canonicalize the parent path in RemoteActionFileSystem#delete. (#21282)
++ Revert "Also path map transitive header jar paths with direct classpath optimization" (#21281)
++ Make it possible to toggle cache key scrubbing by rule kind (#21276)
++ Fix a hanging issue with skymeld & `--combined_report=lcov`. (#21271)
++ Canonicalize the parent path in RemoteActionFileSystem#renameTo. (#21285)
++ Exclude `//src/test/py/bazel:mod_command_test` from RBE tests due to frequent flaky timeouts.
++ Add `bazel mod tidy` (#21265)
++ Don't use worker threads for repo fetching during Skyframe er… (#21305)
++ Fix flakiness in //src/test/shell/bazel:starlark_repository_test (#21309)
++ Document best practice of avoiding extensions directly specifying repository names (#21300)
++ Allow `@repo_name` labels in override attributes (#21313)
++ Reproducible extension (#21306)
++ Omit unique module versions from canonical repo names (#21316)
++ Add `Label.to_display_form()` (#21312)
++ Clarify the purpose and overall behavior of RemoteActionFileSystem. (#21294)
++ Make SpawnLogConvert an abstract class instead of an interface. (#21325)
++ Add support for additional command profiler event types. (#21327)
++ Remove the fileSize parameter from DigestUtils. (#21328)
++ Optimize RemoteActionFileSystem#resolveSymbolicLinks by caching intermediate results in a trie. (#21333)
++ Mark `use_repo_rule` extension as reproducible (#21335)
++ Make SpawnLogContext interruptible. (#21337)
++ Document --cache_computed_file_digests. (#21326)
++ Generate a lockfile for the distribution archive on the fly (#21338)
++ Introduce --local_resources flag (#21331)
++ Cherry-pick recent changes to fix CI flakiness and breakages (#21349)
++ Clear the file digests cache on clean. (#21346)
++ Parallelize TreeArtifactValue.visitTree across files instead of subdirectories. (#21347)
++ Temporarily hardcode rules_java repository name (#21356)
++ Remove unnecessary test assertions to fix flakiness. (#21354)
++ Make it possible to avoid an extra stat() when obtaining a digest from the cache. (#21353)
++ Collect directory contents in parallel in CompactSpawnLogContext. (#21361)
++ Introduce --default_test_resources flag (#21311)
++ python: rules_python 0.22.0 -> 0.22.1 soas to register Python toolchain by default (#21369)
++ Add vendor mode (#21366)
++ Clarify the behavior of --incompatible_remote_symlinks in the presence of a dangling symlink. (#21363)
++ Handle symlinks in a more consistent manner in UploadManifest. (#21371)
++ Set the executable bit on files in output directories uploaded to a disk or remote cache. (#21376)
++ Call out that TreeArtifactVisitor.visit is called in a nondeterministic order. (#21377)
++ Optimize out a stat call. (#21388)
++ Compute output directories in parallel when building the upload manifest. (#21386)
++ Fix rule definition environment for repo rules (#21397)
++ Share classpath `NestedSet` between full and header compile actions (#21389)
++ Emit labels in display form in Java rules (#21395)
++ Fetch refactor and mod command fix (#21385)
++ Implement `describeKey` for more actions (#21421)
++ Let scrubbed actions fall back to local execution when remote execution is enabled. (#21384)
++ Publish the new execution log format to the build event protocol. (#21417)
++ Ensure that the mtime of an AC entry is smaller, not larger, than the CAS blobs it references. (#21416)
++ Pass the name of the classpath manifest jar to JacocoCoverageRunner (#21413)
++ Traverse symlinks to directories while collecting a TreeArtifactValue. (#21418)
++ Correctly handle file inputs/outputs with directory contents in the execution log. (#21427)
++ Upgrade to async-profiler v3.0. (#21428)
++ Avoid a superfluous stat() in DigestUtil. (#21400)
++ [credentialhelper] Respect `expires` field from helper (#21429)
++ Improve performance of --reuse_sandbox_directories (#21433)
++ [credentialhelper] Update flag doc to point to more convenient usage instructions (#21441)
++ Repo file/dir watching API (#21435)
++ Clarify the meaning of Dirent.Type.UNKNOWN. (#21434)
++ Add a native image of turbine to the prebuilt Java tools (#21426)
++ Update java_tools v13.4 / rules_java 7.4.0 (#21359)
++ Automated rollback of commit b11fa7a7c7fdb37012c7a442b16f6fdcf90b9177. (#21448)
++ Remove the restriction that relative symlinks in a tree artifact may not point outside the tree. (#21449)
++ Revert "Add `Label.to_display_form()`" (#21454)
++ Do not record any repo mapping entries in the RepoMappingRecorder for WORKSPACE repo rules (#21457)
++ Reland "Also path map transitive header jar paths with direct classpath optimization" (#21458)
++ Backport CI test configs (#21456)
++ Use execution info instead of hard-coded mnemonics for Java path mapping (#21461)
++ Always decide whether to scrub an input by its effective path. (#21472)
++ Set RC branch when creating GitHub releases (#21477)
++ Fix vendor existing repo (#21487)
++ [test][windows] Export BAZEL_TEST=1 on windows (#21494)
++ Enable aar_import JNI libs to work with --android_platforms. (#21502)
++ Fix stale trash dir not cleaned up on worker creation (#21510)
++ Fix genrule autostamping in bazel (#21512)
++ Remove --host_jvm_args=-Djava.net.preferIPv6Addresses=true (#21546)
++ Passthrough HTTP headers to remote downloader service (#21503)
++ [credentialhelper] Support paths relative to `%install_base%` (#21532)
++ Update LibrariesToLinkCollector.java for .dll suffix stripping (#21524)
++ Backport changes for updating default lockfile used in integration tests. (#21547)
++ Fix a flaky test by avoiding leaking the eager capability RPC thread. (#21550)
++ Add a profiler span for the findMissingDigests call associated with an upload. (#21552)
++ Move the disk cache reads and writes into a thread pool. (#21551)
++ Lazily open files to be uploaded to an HTTP cache. (#21549)
++ Exclude convenience symlinks after changing the output base (#21505)
++ StarlarkBaseExternalContext.java: propagate error message when deleting temporary directory failed (#21555)
++ Fix `bazel fetch` by replacing query with cquery for underlying implementation (#21567)
++ Fix watching paths in undefined repos in repo rules (#21575)
++ Implicit dependencies should be visible to rule/aspect definitions in `.bzl` files in the same package (#21577)
++ Disable some tests because of JDK21 (#21595)
++ Expose the ApkInfo provider constructor to Starlark. (#21588)
++ Add multiplex sandboxing support to JavaBuilder (#21598)
++ Attempt to fix cancellation crash in repo fetching w/ worker thread (#21599)
++ Move compile StarlarkMethod back to CcModuleAPI (#21605)
++ Expose AndroidIdeInfo in android_common (#21607)
++ Release 7.1.0 (2024-03-11)
++ Update centos7 platform in build_bazel_binaries.yml (#21644)
++ Fix `bazel mod tidy` failure with no changes (#21662)
++ Update .bazelversion to 7.1.0 (#21664)
++ Let native Turbine image find `ct.sym` with non-hermetic `java_runtime` (#21670)
++ Actually use shouldPublish() to determine whether to publish the execution log to the BEP. (#21671)
++ Also inject a failure for createWritableDirectory when testing that ActionOutputDirectoryHelper propagates exceptions. (#21683)
++ Fix race condition and add more logging for null entry error message (#21692)
++ Allow any canonical repo name to be used with `bazel mod show_repo` (#21694)
++ Fix two `bazel mod tidy` crashes (#21700)
++ Cherry-pick Java execution info improvements (#21703)
++ Disable //src/test/shell/bazel:srcs_test on Intel macOS (#21707)
++ Fix sandbox cleanup crashing after server restart (#21733)
++ Revert "Fix `bazel fetch` by replacing query with cquery for … (#21735)
++ Release 7.1.1 (2024-03-21)
++ Implement RemoteActionFileSystem#statIfFound correctly when the path cannot be canonicalized (#21889)
++ Don't upload remote input to remote cache (#21941)
++ Do not watch `.netrc` in `read_netrc` (#22186)
++ Set public visibility for R8 desugar binary (#22176)
+
+Acknowledgements:
+
+This release contains contributions from many people at Google, as well as Alessandro Patti, Artem V. Navrotskiy, bazel.build machine account, Brentley Jones, Cameron Martin, Chi Wawng, Christian Scott, Cristin Donoso, David Ostrovsky, Ed Schouten, Fabian Meumertzheim, Gunnar Wagenknecht, Jordan Mele, Keith Smiley, lberki, Nikhil Kalige, oquenchil, Patrick Balestra, Rahul Butani, Ryan Beasley, Siddhartha Bagaria, Son Luong Ngoc, Sushain Cherivirala, thesayyn, Tianyu Geng, Viktor Kustov, Xdng Yng, Xùdōng Yáng, Yannic, Yannic Bonenberger.
+```
 
 ## Release 7.0.0 (2023-12-11)
 

@@ -13,15 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.base.Preconditions;
+import static com.google.common.base.Preconditions.checkState;
+
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ConcurrentHashMultiset;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.profiler.Profiler;
-import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.skyframe.Differencer.Diff;
+import com.google.devtools.build.lib.util.TestType;
+import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
+import com.google.devtools.build.skyframe.SkyframeGraphStatsEvent.EvaluationStats;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.ConcurrentHashMap;
+import javax.annotation.Nullable;
 
 /**
  * An in-memory {@link MemoizingEvaluator} that uses the eager invalidation strategy. This class is,
@@ -32,12 +35,106 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * <p>This memoizing evaluator uses a monotonically increasing {@link IntVersion} for incremental
  * evaluations and {@link Version#constant} for non-incremental evaluations.
  */
-public final class InMemoryMemoizingEvaluator
-    extends AbstractIncrementalInMemoryMemoizingEvaluator {
+public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingEvaluator {
+
+  /**
+   * A progress receiver that, in addition to tracking dirty and inflight notes, also collects
+   * stats.
+   */
+  private static final class ProgressReceiver extends DirtyAndInflightTrackingProgressReceiver {
+    // Nodes that were dirtied because one of their transitive dependencies changed
+    private final ConcurrentHashMultiset<SkyFunctionName> dirtied;
+
+    // Nodes that were dirtied because they themselves changed (for example, a leaf node that
+    // represents a file and that changed between builds)
+    private final ConcurrentHashMultiset<SkyFunctionName> changed;
+
+    // Nodes that were built and found different from the previous version
+    private final ConcurrentHashMultiset<SkyFunctionName> built;
+
+    // Nodes that were built and found to be same as the previous version
+    private final ConcurrentHashMultiset<SkyFunctionName> cleaned;
+
+    // Nodes that were computed during the build
+    private final ConcurrentHashMultiset<SkyFunctionName> evaluated;
+
+    private static ConcurrentHashMultiset<SkyFunctionName> createMultiset() {
+      return ConcurrentHashMultiset.create(
+          new ConcurrentHashMap<>(Runtime.getRuntime().availableProcessors(), 0.75f));
+    }
+
+    private ProgressReceiver(EvaluationProgressReceiver progressReceiver) {
+      super(progressReceiver);
+
+      dirtied = createMultiset();
+      changed = createMultiset();
+      built = createMultiset();
+      cleaned = createMultiset();
+      evaluated = createMultiset();
+    }
+
+    private static ImmutableMap<SkyFunctionName, Integer> fromMultiset(
+        ConcurrentHashMultiset<SkyFunctionName> s) {
+      return s.entrySet().stream()
+          .collect(ImmutableMap.toImmutableMap(e -> e.getElement(), e -> e.getCount()));
+    }
+
+    private EvaluationStats aggregateAndReset() {
+      EvaluationStats result =
+          new EvaluationStats(
+              fromMultiset(dirtied),
+              fromMultiset(changed),
+              fromMultiset(built),
+              fromMultiset(cleaned),
+              fromMultiset(evaluated));
+      dirtied.clear();
+      changed.clear();
+      built.clear();
+      cleaned.clear();
+      evaluated.clear();
+      return result;
+    }
+
+    @Override
+    public void dirtied(SkyKey skyKey, DirtyType dirtyType) {
+      super.dirtied(skyKey, dirtyType);
+
+      switch (dirtyType) {
+        case DIRTY -> dirtied.add(skyKey.functionName());
+        case CHANGE -> changed.add(skyKey.functionName());
+        case REWIND -> {} // Should not happen but let's not crash the server due to logging
+      }
+    }
+
+    @Override
+    public void evaluated(
+        SkyKey skyKey,
+        EvaluationState state,
+        @Nullable SkyValue newValue,
+        @Nullable ErrorInfo newError,
+        @Nullable GroupedDeps directDeps) {
+      super.evaluated(skyKey, state, newValue, newError, directDeps);
+
+      if (directDeps == null) {
+        // In this case, no actual evaluation work was done so let's not record it.
+      } else if (state.versionChanged()) {
+        built.add(skyKey.functionName(), 1);
+      } else {
+        cleaned.add(skyKey.functionName(), 1);
+      }
+    }
+
+    @Override
+    public void stateEnding(SkyKey skyKey, NodeState nodeState) {
+      super.stateEnding(skyKey, nodeState);
+      if (nodeState == NodeState.COMPUTE) {
+        evaluated.add(skyKey.functionName());
+      }
+    }
+  }
+
   // Not final only for testing.
   private InMemoryGraph graph;
-
-  private final AtomicBoolean evaluating = new AtomicBoolean(false);
 
   public InMemoryMemoizingEvaluator(
       Map<SkyFunctionName, SkyFunction> skyFunctions, Differencer differencer) {
@@ -71,11 +168,12 @@ public final class InMemoryMemoizingEvaluator
     super(
         ImmutableMap.copyOf(skyFunctions),
         differencer,
-        new DirtyAndInflightTrackingProgressReceiver(progressReceiver),
+        new ProgressReceiver(progressReceiver),
         eventFilter,
         emittedEventState,
         graphInconsistencyReceiver,
-        keepEdges);
+        keepEdges,
+        Version.minimal());
     this.graph =
         keepEdges
             ? InMemoryGraph.create(usePooledInterning)
@@ -83,87 +181,14 @@ public final class InMemoryMemoizingEvaluator
   }
 
   @Override
-  public <T extends SkyValue> EvaluationResult<T> evaluate(
-      Iterable<? extends SkyKey> roots, EvaluationContext evaluationContext)
-      throws InterruptedException {
-    // NOTE: Performance critical code. See bug "Null build performance parity".
-    Version graphVersion = getNextGraphVersion();
-    setAndCheckEvaluateState(true, roots);
-
-    // Mark for removal any nodes from the previous evaluation that were still inflight or were
-    // rewound but did not complete successfully. When the invalidator runs, it will delete the
-    // reverse transitive closure.
-    valuesToDelete.addAll(progressReceiver.getAndClearInflightKeys());
-    valuesToDelete.addAll(progressReceiver.getAndClearUnsuccessfullyRewoundKeys());
-    try {
-      // The RecordingDifferencer implementation is not quite working as it should be at this point.
-      // It clears the internal data structures after getDiff is called and will not return
-      // diffs for historical versions. This makes the following code sensitive to interrupts.
-      // Ideally we would simply not update lastGraphVersion if an interrupt occurs.
-      Diff diff =
-          differencer.getDiff(new DelegatingWalkableGraph(graph), lastGraphVersion, graphVersion);
-      if (!diff.isEmpty() || !valuesToInject.isEmpty() || !valuesToDelete.isEmpty()) {
-        valuesToInject.putAll(diff.changedKeysWithNewValues());
-        invalidate(diff.changedKeysWithoutNewValues());
-        pruneInjectedValues(valuesToInject);
-        invalidate(valuesToInject.keySet());
-
-        performInvalidation();
-        injectValues(graphVersion);
-      }
-
-      EvaluationResult<T> result;
-      try (SilentCloseable c = Profiler.instance().profile("ParallelEvaluator.eval")) {
-        ParallelEvaluator evaluator =
-            new ParallelEvaluator(
-                graph,
-                graphVersion,
-                Version.minimal(),
-                skyFunctions,
-                evaluationContext.getEventHandler(),
-                emittedEventState,
-                eventFilter,
-                ErrorInfoManager.UseChildErrorInfoIfNecessary.INSTANCE,
-                evaluationContext.getKeepGoing(),
-                progressReceiver,
-                graphInconsistencyReceiver,
-                evaluationContext
-                    .getExecutor()
-                    .orElseGet(
-                        () ->
-                            AbstractQueueVisitor.create(
-                                "skyframe-evaluator",
-                                evaluationContext.getParallelism(),
-                                ParallelEvaluatorErrorClassifier.instance())),
-                new SimpleCycleDetector(),
-                evaluationContext.mergingSkyframeAnalysisExecutionPhases(),
-                evaluationContext.getUnnecessaryTemporaryStateDropperReceiver());
-        result = evaluator.eval(roots);
-      }
-      return EvaluationResult.<T>builder()
-          .mergeFrom(result)
-          .setWalkableGraph(new DelegatingWalkableGraph(graph))
-          .build();
-    } finally {
-      if (keepEdges) {
-        lastGraphVersion = (IntVersion) graphVersion;
-      }
-      setAndCheckEvaluateState(false, roots);
-    }
-  }
-
-  private void setAndCheckEvaluateState(boolean newValue, Object requestInfo) {
-    Preconditions.checkState(evaluating.getAndSet(newValue) != newValue,
-        "Re-entrant evaluation for request: %s", requestInfo);
-  }
-
-  @Override
   public void postLoggingStats(ExtendedEventHandler eventHandler) {
-    eventHandler.post(new SkyframeGraphStatsEvent(graph.valuesSize()));
+    EvaluationStats evaluationStats = ((ProgressReceiver) progressReceiver).aggregateAndReset();
+    eventHandler.post(new SkyframeGraphStatsEvent(graph.valuesSize(), evaluationStats));
   }
 
   @Override
   public void injectGraphTransformerForTesting(GraphTransformerForTesting transformer) {
+    checkState(TestType.isInTest());
     this.graph = transformer.transform(this.graph);
   }
 
@@ -172,6 +197,7 @@ public final class InMemoryMemoizingEvaluator
     return graph;
   }
 
+  @VisibleForTesting
   public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctionsForTesting() {
     return skyFunctions;
   }

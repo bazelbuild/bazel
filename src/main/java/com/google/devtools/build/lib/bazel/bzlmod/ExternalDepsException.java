@@ -51,6 +51,10 @@ public class ExternalDepsException extends Exception implements DetailedExceptio
         String.format(format, args) + ": " + cause.getMessage(), cause, code);
   }
 
+  public static ExternalDepsException withCause(ExternalDeps.Code code, Throwable cause) {
+    return new ExternalDepsException(cause.getMessage(), cause, code);
+  }
+
   @Override
   public DetailedExitCode getDetailedExitCode() {
     return detailedExitCode;

@@ -29,7 +29,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.Expandable;
@@ -122,11 +123,12 @@ public class CcToolchainFeatures implements StarlarkValue {
     public void expand(
         CcToolchainVariables variables,
         @Nullable ArtifactExpander expander,
+        PathMapper pathMapper,
         List<String> commandLine)
         throws ExpansionException {
       StringBuilder flag = new StringBuilder();
       for (StringChunk chunk : chunks) {
-        flag.append(chunk.expand(variables));
+        flag.append(chunk.expand(variables, pathMapper));
       }
       commandLine.add(flag.toString().intern());
     }
@@ -136,8 +138,7 @@ public class CcToolchainFeatures implements StarlarkValue {
       if (this == object) {
         return true;
       }
-      if (object instanceof Flag) {
-        Flag that = (Flag) object;
+      if (object instanceof Flag that) {
         return Iterables.elementsEqual(chunks, that.chunks);
       }
       return false;
@@ -170,9 +171,10 @@ public class CcToolchainFeatures implements StarlarkValue {
       public void expand(
           CcToolchainVariables variables,
           @Nullable ArtifactExpander artifactExpander,
+          PathMapper pathMapper,
           List<String> commandLine)
           throws ExpansionException {
-        commandLine.add(chunk.expand(variables));
+        commandLine.add(chunk.expand(variables, pathMapper));
       }
 
       @Override
@@ -251,14 +253,16 @@ public class CcToolchainFeatures implements StarlarkValue {
      * value of the entry is expanded with the given {@code variables}.
      */
     public void addEnvEntry(
-        CcToolchainVariables variables, ImmutableMap.Builder<String, String> envBuilder)
+        CcToolchainVariables variables,
+        ImmutableMap.Builder<String, String> envBuilder,
+        PathMapper pathMapper)
         throws ExpansionException {
       if (!canBeExpanded(variables)) {
         return;
       }
       StringBuilder value = new StringBuilder();
       for (StringChunk chunk : valueChunks) {
-        value.append(chunk.expand(variables));
+        value.append(chunk.expand(variables, pathMapper));
       }
       envBuilder.put(key, value.toString());
     }
@@ -268,8 +272,7 @@ public class CcToolchainFeatures implements StarlarkValue {
       if (this == object) {
         return true;
       }
-      if (object instanceof EnvEntry) {
-        EnvEntry that = (EnvEntry) object;
+      if (object instanceof EnvEntry that) {
         return Objects.equals(key, that.key)
             && Iterables.elementsEqual(valueChunks, that.valueChunks);
       }
@@ -372,29 +375,30 @@ public class CcToolchainFeatures implements StarlarkValue {
     public void expand(
         CcToolchainVariables variables,
         @Nullable ArtifactExpander expander,
+        PathMapper pathMapper,
         final List<String> commandLine)
         throws ExpansionException {
-      if (!canBeExpanded(variables, expander)) {
+      if (!canBeExpanded(variables, expander, pathMapper)) {
         return;
       }
       if (iterateOverVariable != null) {
         for (CcToolchainVariables.VariableValue variableValue :
-            variables.getSequenceVariable(iterateOverVariable, expander)) {
+            variables.getSequenceVariable(iterateOverVariable, expander, pathMapper)) {
           CcToolchainVariables nestedVariables =
               new SingleVariables(variables, iterateOverVariable, variableValue);
           for (Expandable expandable : expandables) {
-            expandable.expand(nestedVariables, expander, commandLine);
+            expandable.expand(nestedVariables, expander, pathMapper, commandLine);
           }
         }
       } else {
         for (Expandable expandable : expandables) {
-          expandable.expand(variables, expander, commandLine);
+          expandable.expand(variables, expander, pathMapper, commandLine);
         }
       }
     }
 
     private boolean canBeExpanded(
-        CcToolchainVariables variables, @Nullable ArtifactExpander expander)
+        CcToolchainVariables variables, @Nullable ArtifactExpander expander, PathMapper pathMapper)
         throws ExpansionException {
       for (String variable : expandIfAllAvailable) {
         if (!variables.isAvailable(variable, expander)) {
@@ -420,7 +424,7 @@ public class CcToolchainFeatures implements StarlarkValue {
           && (!variables.isAvailable(expandIfEqual.variable, expander)
               || !variables
                   .getVariable(expandIfEqual.variable)
-                  .getStringValue(expandIfEqual.variable)
+                  .getStringValue(expandIfEqual.variable, pathMapper)
                   .equals(expandIfEqual.value))) {
         return false;
       }
@@ -445,9 +449,10 @@ public class CcToolchainFeatures implements StarlarkValue {
     private void expandCommandLine(
         CcToolchainVariables variables,
         @Nullable ArtifactExpander expander,
+        PathMapper pathMapper,
         final List<String> commandLine)
         throws ExpansionException {
-      expand(variables, expander, commandLine);
+      expand(variables, expander, pathMapper, commandLine);
     }
 
     @Override
@@ -455,8 +460,7 @@ public class CcToolchainFeatures implements StarlarkValue {
       if (this == object) {
         return true;
       }
-      if (object instanceof FlagGroup) {
-        FlagGroup that = (FlagGroup) object;
+      if (object instanceof FlagGroup that) {
         return Iterables.elementsEqual(expandables, that.expandables)
             && Objects.equals(iterateOverVariable, that.iterateOverVariable)
             && Iterables.elementsEqual(expandIfAllAvailable, that.expandIfAllAvailable)
@@ -568,6 +572,7 @@ public class CcToolchainFeatures implements StarlarkValue {
         CcToolchainVariables variables,
         Set<String> enabledFeatureNames,
         @Nullable ArtifactExpander expander,
+        PathMapper pathMapper,
         List<String> commandLine)
         throws ExpansionException {
       for (String variable : expandIfAllAvailable) {
@@ -582,14 +587,13 @@ public class CcToolchainFeatures implements StarlarkValue {
         return;
       }
       for (FlagGroup flagGroup : flagGroups) {
-        flagGroup.expandCommandLine(variables, expander, commandLine);
+        flagGroup.expandCommandLine(variables, expander, pathMapper, commandLine);
       }
     }
 
     @Override
     public boolean equals(@Nullable Object object) {
-      if (object instanceof FlagSet) {
-        FlagSet that = (FlagSet) object;
+      if (object instanceof FlagSet that) {
         return Iterables.elementsEqual(actions, that.actions)
             && Iterables.elementsEqual(expandIfAllAvailable, that.expandIfAllAvailable)
             && Iterables.elementsEqual(withFeatureSets, that.withFeatureSets)
@@ -652,8 +656,7 @@ public class CcToolchainFeatures implements StarlarkValue {
       if (this == object) {
         return true;
       }
-      if (object instanceof WithFeatureSet) {
-        WithFeatureSet that = (WithFeatureSet) object;
+      if (object instanceof WithFeatureSet that) {
         return Iterables.elementsEqual(features, that.features)
             && Iterables.elementsEqual(notFeatures, that.notFeatures);
       }
@@ -716,6 +719,7 @@ public class CcToolchainFeatures implements StarlarkValue {
     private void expandEnvironment(
         String action,
         CcToolchainVariables variables,
+        PathMapper pathMapper,
         Set<String> enabledFeatureNames,
         ImmutableMap.Builder<String, String> envBuilder)
         throws ExpansionException {
@@ -726,7 +730,7 @@ public class CcToolchainFeatures implements StarlarkValue {
         return;
       }
       for (EnvEntry envEntry : envEntries) {
-        envEntry.addEnvEntry(variables, envBuilder);
+        envEntry.addEnvEntry(variables, envBuilder, pathMapper);
       }
     }
 
@@ -735,8 +739,7 @@ public class CcToolchainFeatures implements StarlarkValue {
       if (this == object) {
         return true;
       }
-      if (object instanceof EnvSet) {
-        EnvSet that = (EnvSet) object;
+      if (object instanceof EnvSet that) {
         return Iterables.elementsEqual(actions, that.actions)
             && Iterables.elementsEqual(envEntries, that.envEntries)
             && Iterables.elementsEqual(withFeatureSets, that.withFeatureSets);
@@ -836,11 +839,12 @@ public class CcToolchainFeatures implements StarlarkValue {
     private void expandEnvironment(
         String action,
         CcToolchainVariables variables,
+        PathMapper pathMapper,
         Set<String> enabledFeatureNames,
         ImmutableMap.Builder<String, String> envBuilder)
         throws ExpansionException {
       for (EnvSet envSet : envSets) {
-        envSet.expandEnvironment(action, variables, enabledFeatureNames, envBuilder);
+        envSet.expandEnvironment(action, variables, pathMapper, enabledFeatureNames, envBuilder);
       }
     }
 
@@ -850,10 +854,12 @@ public class CcToolchainFeatures implements StarlarkValue {
         CcToolchainVariables variables,
         Set<String> enabledFeatureNames,
         @Nullable ArtifactExpander expander,
+        PathMapper pathMapper,
         List<String> commandLine)
         throws ExpansionException {
       for (FlagSet flagSet : flagSets) {
-        flagSet.expandCommandLine(action, variables, enabledFeatureNames, expander, commandLine);
+        flagSet.expandCommandLine(
+            action, variables, enabledFeatureNames, expander, pathMapper, commandLine);
       }
     }
 
@@ -870,8 +876,7 @@ public class CcToolchainFeatures implements StarlarkValue {
       if (this == object) {
         return true;
       }
-      if (object instanceof Feature) {
-        Feature that = (Feature) object;
+      if (object instanceof Feature that) {
         return name.equals(that.name)
             && Iterables.elementsEqual(flagSets, that.flagSets)
             && Iterables.elementsEqual(envSets, that.envSets)
@@ -915,6 +920,9 @@ public class CcToolchainFeatures implements StarlarkValue {
     private final CToolchain.Tool.PathOrigin toolPathOrigin;
     private final ImmutableSet<String> executionRequirements;
     private final ImmutableSet<WithFeatureSet> withFeatureSetSets;
+
+    // Caching tool path string.
+    @Nullable private String toolPathString = null;
 
     private Tool(CToolchain.Tool tool, ImmutableSet<WithFeatureSet> withFeatureSetSets)
         throws EvalException {
@@ -986,7 +994,10 @@ public class CcToolchainFeatures implements StarlarkValue {
       switch (toolPathOrigin) {
         case CROSSTOOL_PACKAGE:
           // Legacy behavior.
-          return ccToolchainPath.getRelative(toolPathFragment).getSafePathString();
+          if (toolPathString == null) {
+            toolPathString = ccToolchainPath.getRelative(toolPathFragment).getSafePathString();
+          }
+          return toolPathString;
 
         case FILESYSTEM_ROOT: // fallthrough.
         case WORKSPACE_ROOT:
@@ -1145,11 +1156,12 @@ public class CcToolchainFeatures implements StarlarkValue {
         CcToolchainVariables variables,
         Set<String> enabledFeatureNames,
         @Nullable ArtifactExpander expander,
+        PathMapper pathMapper,
         List<String> commandLine)
         throws ExpansionException {
       for (FlagSet flagSet : flagSets) {
         flagSet.expandCommandLine(
-            actionName, variables, enabledFeatureNames, expander, commandLine);
+            actionName, variables, enabledFeatureNames, expander, pathMapper, commandLine);
       }
     }
 
@@ -1166,10 +1178,9 @@ public class CcToolchainFeatures implements StarlarkValue {
       if (other == this) {
         return true;
       }
-      if (!(other instanceof ActionConfig)) {
+      if (!(other instanceof ActionConfig that)) {
         return false;
       }
-      ActionConfig that = (ActionConfig) other;
 
       return Objects.equals(configName, that.configName)
           && Objects.equals(actionName, that.actionName)
@@ -1350,59 +1361,74 @@ public class CcToolchainFeatures implements StarlarkValue {
     /** @return the command line for the given {@code action}. */
     public List<String> getCommandLine(String action, CcToolchainVariables variables)
         throws ExpansionException {
-      return getCommandLine(action, variables, /* expander= */ null);
+      return getCommandLine(action, variables, /* expander= */ null, PathMapper.NOOP);
     }
 
     public List<String> getCommandLine(
-        String action, CcToolchainVariables variables, @Nullable ArtifactExpander expander)
+        String action,
+        CcToolchainVariables variables,
+        @Nullable ArtifactExpander expander,
+        PathMapper pathMapper)
         throws ExpansionException {
       List<String> commandLine = new ArrayList<>();
       if (actionIsConfigured(action)) {
         actionConfigByActionName
             .get(action)
-            .expandCommandLine(variables, enabledFeatureNames, expander, commandLine);
+            .expandCommandLine(variables, enabledFeatureNames, expander, pathMapper, commandLine);
       }
 
       for (Feature feature : enabledFeatures) {
-        feature.expandCommandLine(action, variables, enabledFeatureNames, expander, commandLine);
+        feature.expandCommandLine(
+            action, variables, enabledFeatureNames, expander, pathMapper, commandLine);
       }
 
       return commandLine;
     }
 
-    /** @return the flags expanded for the given {@code action} in per-feature buckets. */
+    /**
+     * @return the flags expanded for the given {@code action} in per-feature buckets.
+     */
     public ImmutableList<Pair<String, List<String>>> getPerFeatureExpansions(
-        String action, CcToolchainVariables variables) throws ExpansionException {
-      return getPerFeatureExpansions(action, variables, null);
+        String action, CcToolchainVariables variables, PathMapper pathMapper)
+        throws ExpansionException {
+      return getPerFeatureExpansions(action, variables, null, pathMapper);
     }
 
     public ImmutableList<Pair<String, List<String>>> getPerFeatureExpansions(
-        String action, CcToolchainVariables variables, @Nullable ArtifactExpander expander)
+        String action,
+        CcToolchainVariables variables,
+        @Nullable ArtifactExpander expander,
+        PathMapper pathMapper)
         throws ExpansionException {
       ImmutableList.Builder<Pair<String, List<String>>> perFeatureExpansions =
           ImmutableList.builder();
       if (actionIsConfigured(action)) {
         List<String> commandLine = new ArrayList<>();
         ActionConfig actionConfig = actionConfigByActionName.get(action);
-        actionConfig.expandCommandLine(variables, enabledFeatureNames, expander, commandLine);
+        actionConfig.expandCommandLine(
+            variables, enabledFeatureNames, expander, pathMapper, commandLine);
         perFeatureExpansions.add(Pair.of(actionConfig.getName(), commandLine));
       }
 
       for (Feature feature : enabledFeatures) {
         List<String> commandLine = new ArrayList<>();
-        feature.expandCommandLine(action, variables, enabledFeatureNames, expander, commandLine);
+        feature.expandCommandLine(
+            action, variables, enabledFeatureNames, expander, pathMapper, commandLine);
         perFeatureExpansions.add(Pair.of(feature.getName(), commandLine));
       }
 
       return perFeatureExpansions.build();
     }
 
-    /** @return the environment variables (key/value pairs) for the given {@code action}. */
+    /**
+     * @return the environment variables (key/value pairs) for the given {@code action}.
+     */
     public ImmutableMap<String, String> getEnvironmentVariables(
-        String action, CcToolchainVariables variables) throws ExpansionException {
+        String action, CcToolchainVariables variables, PathMapper pathMapper)
+        throws ExpansionException {
       ImmutableMap.Builder<String, String> envBuilder = ImmutableMap.builder();
       for (Feature feature : enabledFeatures) {
-        feature.expandEnvironment(action, variables, enabledFeatureNames, envBuilder);
+        feature.expandEnvironment(action, variables, pathMapper, enabledFeatureNames, envBuilder);
       }
       return envBuilder.buildOrThrow();
     }
@@ -1430,8 +1456,7 @@ public class CcToolchainFeatures implements StarlarkValue {
       if (object == this) {
         return true;
       }
-      if (object instanceof FeatureConfiguration) {
-        FeatureConfiguration that = (FeatureConfiguration) object;
+      if (object instanceof FeatureConfiguration that) {
         // Only compare actionConfigByActionName, enabledActionConfigActionnames and enabledFeatures
         // because enabledFeatureNames is based on the list of Features.
         return Objects.equals(actionConfigByActionName, that.actionConfigByActionName)

@@ -30,6 +30,7 @@ class BazelRepoMappingTest(test_base.TestBase):
     self.main_registry = BazelRegistry(
         os.path.join(self.registries_work_dir, 'main')
     )
+    self.main_registry.start()
     self.main_registry.createCcModule('aaa', '1.0').createCcModule(
         'aaa', '1.1'
     ).createCcModule('bbb', '1.0', {'aaa': '1.0'}).createCcModule(
@@ -58,6 +59,10 @@ class BazelRepoMappingTest(test_base.TestBase):
             ),
         ],
     )
+
+  def tearDown(self):
+    self.main_registry.stop()
+    test_base.TestBase.tearDown(self)
 
   def testRunfilesRepoMappingManifest(self):
     self.main_registry.setModuleBasePath('projects')
@@ -104,6 +109,7 @@ class BazelRepoMappingTest(test_base.TestBase):
             'bazel_dep(name="foo",version="1.0")',
             'bazel_dep(name="bar",version="2.0")',
             'bazel_dep(name="bare_rule",version="1.0")',
+            'multiple_version_override(module_name="quux",versions=["1.0","2.0"])',
         ],
     )
     self.ScratchFile('WORKSPACE.bzlmod', ['workspace(name="me_ws")'])
@@ -160,12 +166,12 @@ class BazelRepoMappingTest(test_base.TestBase):
       with open(self.Path(path), 'r') as f:
         self.assertEqual(
             f.read().strip(),
-            """,foo,foo~1.0
+            """,foo,foo+
 ,me,_main
 ,me_ws,_main
-foo~1.0,foo,foo~1.0
-foo~1.0,quux,quux~2.0
-quux~2.0,quux,quux~2.0""",
+foo+,foo,foo+
+foo+,quux,quux+1.0
+quux+1.0,quux,quux+1.0""",
         )
     with open(self.Path('bazel-bin/me.runfiles_manifest')) as f:
       self.assertIn('_repo_mapping ', f.read())
@@ -177,20 +183,18 @@ quux~2.0,quux,quux~2.0""",
         '--test_output=errors',
     ])
 
-    paths = ['bazel-bin/external/bar~2.0/bar.repo_mapping']
+    paths = ['bazel-bin/external/bar+/bar.repo_mapping']
     if not self.IsWindows():
-      paths.append('bazel-bin/external/bar~2.0/bar.runfiles/_repo_mapping')
+      paths.append('bazel-bin/external/bar+/bar.runfiles/_repo_mapping')
     for path in paths:
       with open(self.Path(path), 'r') as f:
         self.assertEqual(
             f.read().strip(),
-            """bar~2.0,bar,bar~2.0
-bar~2.0,quux,quux~2.0
-quux~2.0,quux,quux~2.0""",
+            """bar+,bar,bar+
+bar+,quux,quux+2.0
+quux+2.0,quux,quux+2.0""",
         )
-    with open(
-        self.Path('bazel-bin/external/bar~2.0/bar.runfiles_manifest')
-    ) as f:
+    with open(self.Path('bazel-bin/external/bar+/bar.runfiles_manifest')) as f:
       self.assertIn('_repo_mapping ', f.read())
 
   def testBashRunfilesLibraryRepoMapping(self):

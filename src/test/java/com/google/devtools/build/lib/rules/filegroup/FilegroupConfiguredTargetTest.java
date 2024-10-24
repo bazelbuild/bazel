@@ -36,9 +36,12 @@ public class FilegroupConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testGroup() throws Exception {
-    scratch.file("nevermore/BUILD",
-        "filegroup(name  = 'staticdata',",
-        "          srcs = ['staticdata/spam.txt', 'staticdata/good.txt'])");
+    scratch.file(
+        "nevermore/BUILD",
+        """
+        filegroup(name  = 'staticdata',
+                  srcs = ['staticdata/spam.txt', 'staticdata/good.txt'])
+        """);
     ConfiguredTarget groupTarget = getConfiguredTarget("//nevermore:staticdata");
     assertThat(ActionsTestUtil.prettyArtifactNames(getFilesToBuild(groupTarget)))
         .containsExactly("nevermore/staticdata/spam.txt", "nevermore/staticdata/good.txt");
@@ -48,12 +51,15 @@ public class FilegroupConfiguredTargetTest extends BuildViewTestCase {
   public void testDependencyGraph() throws Exception {
     scratch.file(
         "java/com/google/test/BUILD",
-        "java_binary(name  = 'test_app',",
-        "    resources = [':data'],",
-        "    create_executable = 0,",
-        "    srcs  = ['InputFile.java', 'InputFile2.java'])",
-        "filegroup(name  = 'data',",
-        "          srcs = ['b.txt', 'a.txt'])");
+        """
+        load("@rules_java//java:defs.bzl", "java_binary")
+        java_binary(name  = 'test_app',
+            resources = [':data'],
+            create_executable = 0,
+            srcs  = ['InputFile.java', 'InputFile2.java'])
+        filegroup(name  = 'data',
+                  srcs = ['b.txt', 'a.txt'])
+        """);
     FileConfiguredTarget appOutput =
         getFileConfiguredTarget("//java/com/google/test:test_app.jar");
     assertThat(actionsTestUtil().predecessorClosureOf(appOutput.getArtifact(), FileType.of(".txt")))
@@ -74,18 +80,24 @@ public class FilegroupConfiguredTargetTest extends BuildViewTestCase {
   }
 
   private void writeTest() throws IOException {
-    scratch.file("another/BUILD",
-        "filegroup(name  = 'another',",
-        "          srcs = ['another.txt'])");
-    scratch.file("test/BUILD",
-        "filegroup(name  = 'a',",
-        "          srcs = ['a.txt'])",
-        "filegroup(name  = 'b',",
-        "          srcs = ['a.txt'])",
-        "filegroup(name  = 'c',",
-        "          srcs = ['a', 'b.txt'])",
-        "filegroup(name  = 'd',",
-        "          srcs = ['//another:another.txt'])");
+    scratch.file(
+        "another/BUILD",
+        """
+        filegroup(name  = 'another',
+                  srcs = ['another.txt'])
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        filegroup(name  = 'a',
+                  srcs = ['a.txt'])
+        filegroup(name  = 'b',
+                  srcs = ['a.txt'])
+        filegroup(name  = 'c',
+                  srcs = ['a', 'b.txt'])
+        filegroup(name  = 'd',
+                  srcs = ['//another:another.txt'])
+        """);
   }
 
   @Test
@@ -131,10 +143,13 @@ public class FilegroupConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testNoDuplicate() throws Exception {
-    scratch.file("x/BUILD",
-                "filegroup(name = 'a', srcs = ['file'])",
-                "filegroup(name = 'b', srcs = ['file'])",
-                "filegroup(name = 'c', srcs = [':a', ':b'])");
+    scratch.file(
+        "x/BUILD",
+        """
+        filegroup(name = 'a', srcs = ['file'])
+        filegroup(name = 'b', srcs = ['file'])
+        filegroup(name = 'c', srcs = [':a', ':b'])
+        """);
     assertThat(ActionsTestUtil.prettyArtifactNames(getFilesToBuild(getConfiguredTarget("//x:c"))))
         .containsExactly("x/file");
   }
@@ -156,6 +171,7 @@ public class FilegroupConfiguredTargetTest extends BuildViewTestCase {
     scratch.file("pkg/c.java");
     scratch.file(
         "pkg/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
         "java_library(name='lib_a', srcs=['a.java'])",
         "java_library(name='lib_b', srcs=['b.java'], deps = [':lib_c'])",
         "java_library(name='lib_c', srcs=['c.java'])",
@@ -175,6 +191,7 @@ public class FilegroupConfiguredTargetTest extends BuildViewTestCase {
     scratch.file("pkg/c.java");
     scratch.file(
         "pkg/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
         "java_library(name='lib_a', srcs=['a.java'])",
         "java_library(name='lib_b', srcs=['b.java'], deps = [':lib_c'])",
         "java_library(name='lib_c', srcs=['c.java'])",

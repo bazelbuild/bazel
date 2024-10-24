@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -61,6 +62,7 @@ public class UnixFileSystemTest extends SymlinkAwareFileSystemTest {
     Path fifo = absolutize("fifo");
     FileSystemUtils.createEmptyFile(regular);
     NativePosixFiles.mkfifo(fifo.toString(), 0777);
+
     assertThat(regular.isFile()).isTrue();
     assertThat(regular.isSpecialFile()).isFalse();
     assertThat(regular.stat().isFile()).isTrue();
@@ -69,5 +71,25 @@ public class UnixFileSystemTest extends SymlinkAwareFileSystemTest {
     assertThat(fifo.isSpecialFile()).isTrue();
     assertThat(fifo.stat().isFile()).isTrue();
     assertThat(fifo.stat().isSpecialFile()).isTrue();
+  }
+
+  @Test
+  public void testReaddirSpecialFile() throws Exception {
+    Path dir = absolutize("readdir");
+    Path symlink = dir.getChild("symlink");
+    Path fifo = dir.getChild("fifo");
+    dir.createDirectoryAndParents();
+    symlink.createSymbolicLink(fifo.asFragment());
+    NativePosixFiles.mkfifo(fifo.toString(), 0777);
+
+    assertThat(dir.getDirectoryEntries()).containsExactly(symlink, fifo);
+
+    assertThat(dir.readdir(Symlinks.NOFOLLOW))
+        .containsExactly(
+            new Dirent("symlink", Dirent.Type.SYMLINK), new Dirent("fifo", Dirent.Type.UNKNOWN));
+
+    assertThat(dir.readdir(Symlinks.FOLLOW))
+        .containsExactly(
+            new Dirent("symlink", Dirent.Type.UNKNOWN), new Dirent("fifo", Dirent.Type.UNKNOWN));
   }
 }

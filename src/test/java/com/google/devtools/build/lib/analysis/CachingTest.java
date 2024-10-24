@@ -37,8 +37,20 @@ public class CachingTest extends BuildViewTestCase {
   public void testRunfilesManifestNotAnInput() throws Exception {
     scratch.file(
         "x/BUILD",
-        "sh_binary(name = 'tool', srcs = ['tool.sh'], data = ['tool.data'])",
-        "genrule(name = 'x', tools = [':tool'], outs = ['x.out'], cmd = 'dummy')");
+        """
+        sh_binary(
+            name = "tool",
+            srcs = ["tool.sh"],
+            data = ["tool.data"],
+        )
+
+        genrule(
+            name = "x",
+            outs = ["x.out"],
+            cmd = "dummy",
+            tools = [":tool"],
+        )
+        """);
 
     Set<Action> actions = new HashSet<>();
     for (Artifact artifact : getFilesToBuild(getConfiguredTarget("//x:x")).toList()) {
@@ -49,10 +61,11 @@ public class CachingTest extends BuildViewTestCase {
     boolean foundRunfilesMiddlemanSoRunfilesAreCorrectlyStaged = false;
     for (Action action : actions) {
       if (action instanceof SpawnAction) {
-        for (ActionInput string : ((SpawnAction) action).getSpawn().getInputFiles().toList()) {
+        for (ActionInput string :
+            ((SpawnAction) action).getSpawnForTesting().getInputFiles().toList()) {
           lookedAtAnyAction = true;
-          if (string.getExecPathString().endsWith("x_Stool-runfiles")
-              || string.getExecPathString().endsWith("x_Stool.exe-runfiles")) {
+          if (string.getExecPathString().endsWith("tool.runfiles")
+              || string.getExecPathString().endsWith("tool.exe.runfiles")) {
             foundRunfilesMiddlemanSoRunfilesAreCorrectlyStaged = true;
           } else {
             assertThat(string.getExecPathString().endsWith(".runfiles/MANIFEST")).isFalse();

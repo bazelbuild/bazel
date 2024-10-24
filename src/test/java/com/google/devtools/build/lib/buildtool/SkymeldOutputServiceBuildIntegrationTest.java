@@ -46,13 +46,16 @@ public class SkymeldOutputServiceBuildIntegrationTest extends BuildIntegrationTe
                 // An output service that fails when #startBuild or #finalizeBuild is called.
                 return new OutputService() {
                   @Override
-                  public String getFilesSystemName() {
+                  public String getFileSystemName(String outputBaseFileSystemName) {
                     return "dummyTestFileSystem";
                   }
 
                   @Override
                   public ModifiedFileSet startBuild(
-                      EventHandler eventHandler, UUID buildId, boolean finalizeActions) {
+                      UUID buildId,
+                      String workspaceName,
+                      EventHandler eventHandler,
+                      boolean finalizeActions) {
                     throw new IllegalStateException();
                   }
 
@@ -96,12 +99,14 @@ public class SkymeldOutputServiceBuildIntegrationTest extends BuildIntegrationTe
   public void noAnalyze_outputServiceStartBuildFinalizeBuildNotCalled() throws Exception {
     write(
         "foo/BUILD",
-        "genrule(",
-        "  name = 'foo',",
-        "  srcs = ['foo.in'],",
-        "  outs = ['foo.out'],",
-        "  cmd = 'cp $< $@'",
-        ")");
+        """
+        genrule(
+            name = "foo",
+            srcs = ["foo.in"],
+            outs = ["foo.out"],
+            cmd = "cp $< $@",
+        )
+        """);
     write("foo/foo.in");
     addOptions("--noanalyze");
 

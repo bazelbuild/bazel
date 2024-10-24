@@ -23,12 +23,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
-import com.google.devtools.build.lib.rules.cpp.LinkBuildVariables;
-import com.google.devtools.build.lib.rules.cpp.LinkCommandLine;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -171,20 +167,6 @@ public abstract class MockCcSupport {
         }
       };
 
-  /** Returns the additional linker options for this link. */
-  public static ImmutableList<String> getLinkopts(LinkCommandLine linkCommandLine)
-      throws ExpansionException {
-    if (linkCommandLine
-        .getBuildVariables()
-        .isAvailable(LinkBuildVariables.USER_LINK_FLAGS.getVariableName())) {
-      return CcToolchainVariables.toStringList(
-          linkCommandLine.getBuildVariables(),
-          LinkBuildVariables.USER_LINK_FLAGS.getVariableName());
-    } else {
-      return ImmutableList.of();
-    }
-  }
-
   public abstract Predicate<String> labelNameFilter();
 
   /**
@@ -227,7 +209,8 @@ public abstract class MockCcSupport {
       throws IOException {
     if (config.isRealFileSystem() && shouldUseRealFileSystemCrosstool()) {
       String crosstoolTopPath = getRealFilesystemCrosstoolTopPath();
-      config.linkTools(getRealFilesystemTools(crosstoolTopPath));
+      config.linkTools(getRealFilesystemToolsToLink(crosstoolTopPath));
+      config.copyTools(getRealFilesystemToolsToCopy(crosstoolTopPath));
       writeToolchainsForRealFilesystemTools(config, crosstoolTopPath);
     } else {
       new Crosstool(config, getMockCrosstoolPath(), getMockCrosstoolLabel())
@@ -247,7 +230,7 @@ public abstract class MockCcSupport {
         "toolchains/BUILD",
         "toolchain(",
         "    name = 'k8-toolchain',",
-        "    toolchain = '//" + crosstoolTopPath + ":cc-compiler-k8-llvm',",
+        "    toolchain = '//" + crosstoolTopPath + ":cc-compiler-k8-llvm.k8',",
         "    toolchain_type = '" + TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type',",
         "    target_compatible_with = [",
         "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64',",
@@ -256,7 +239,7 @@ public abstract class MockCcSupport {
         ")",
         "toolchain(",
         "    name = 'arm-toolchain',",
-        "    toolchain = '//" + crosstoolTopPath + ":cc-compiler-arm-llvm',",
+        "    toolchain = '//" + crosstoolTopPath + ":cc-compiler-arm-llvm.k8',",
         "    toolchain_type = '" + TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type',",
         "    target_compatible_with = [",
         "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:armv7',",
@@ -264,6 +247,7 @@ public abstract class MockCcSupport {
         "    ],",
         ")");
     config.append("WORKSPACE", "register_toolchains('//toolchains:all')");
+    config.append("MODULE.bazel", "register_toolchains('//toolchains:all')");
   }
 
   protected void setupRulesCc(MockToolsConfig config) throws IOException {
@@ -275,9 +259,10 @@ public abstract class MockCcSupport {
             "cc/cc_toolchain_config_lib.bzl",
             "cc/find_cc_toolchain.bzl",
             "cc/toolchain_utils.bzl",
-            "cc/private/rules_impl/BUILD")) {
+            "cc/private/rules_impl/BUILD",
+            "cc/private/rules_impl/native.bzl")) {
       try {
-        config.create(
+        config.overwrite(
             "third_party/bazel_rules/rules_cc/" + path,
             ResourceLoader.readFromResources(TestConstants.RULES_CC_REPOSITORY_EXECROOT + path));
       } catch (Exception e) {
@@ -363,7 +348,9 @@ public abstract class MockCcSupport {
 
   protected abstract ImmutableList<String> getCrosstoolArchs();
 
-  protected abstract String[] getRealFilesystemTools(String crosstoolTop);
+  protected abstract String[] getRealFilesystemToolsToLink(String crosstoolTop);
+
+  protected abstract String[] getRealFilesystemToolsToCopy(String crosstoolTop);
 
   protected abstract String getRealFilesystemCrosstoolTopPath();
 
@@ -427,47 +414,77 @@ public abstract class MockCcSupport {
   public static void writeCcRuntimeToolchains(Scratch scratch) throws IOException {
     scratch.file(
         "runtimes/toolchain.bzl",
-        "BuildSettingInfo = provider(fields = ['value'])",
-        "def _bool_flag_impl(ctx):",
-        "    return BuildSettingInfo(value = ctx.build_setting_value)",
-        "bool_flag = rule(",
-        "    implementation = _bool_flag_impl,",
-        "    build_setting = config.bool())",
-        "def _include_runtimes_transition_impl(_settings, _attr):",
-        "    return {'//runtimes:include_runtimes': False}",
-        "_include_runtimes_transition = transition(",
-        "    implementation = _include_runtimes_transition_impl,",
-        "    inputs = [],",
-        "    outputs = ['//runtimes:include_runtimes'])",
-        "CcRuntimesInfo = provider(fields = ['runtimes'])",
-        "def _cc_runtimes_toolchain_impl(ctx):",
-        "    return [platform_common.ToolchainInfo(",
-        "        cc_runtimes_info = CcRuntimesInfo(runtimes = ctx.attr.runtimes))]",
-        "cc_runtimes_toolchain = rule(",
-        "    implementation = _cc_runtimes_toolchain_impl,",
-        "    attrs = {",
-        "        'runtimes': attr.label_list(cfg = _include_runtimes_transition)",
-        "    })");
+        """
+        BuildSettingInfo = provider(fields = ["value"])
+
+        def _bool_flag_impl(ctx):
+            return BuildSettingInfo(value = ctx.build_setting_value)
+
+        bool_flag = rule(
+            implementation = _bool_flag_impl,
+            build_setting = config.bool(),
+        )
+
+        def _include_runtimes_transition_impl(_settings, _attr):
+            return {"//runtimes:include_runtimes": False}
+
+        _include_runtimes_transition = transition(
+            implementation = _include_runtimes_transition_impl,
+            inputs = [],
+            outputs = ["//runtimes:include_runtimes"],
+        )
+        CcRuntimesInfo = provider(fields = ["runtimes", "copts"])
+
+        def _cc_runtimes_toolchain_impl(ctx):
+            return [platform_common.ToolchainInfo(
+                cc_runtimes_info = CcRuntimesInfo(
+                    runtimes = ctx.attr.runtimes,
+                    copts = ctx.attr.copts,
+                ),
+            )]
+
+        cc_runtimes_toolchain = rule(
+            implementation = _cc_runtimes_toolchain_impl,
+            attrs = {
+                "runtimes": attr.label_list(cfg = _include_runtimes_transition),
+                "copts": attr.string_list(),
+            },
+        )
+        """);
 
     scratch.file(
         "runtimes/BUILD",
-        "load('//runtimes:toolchain.bzl', 'cc_runtimes_toolchain', 'bool_flag')",
-        "bool_flag(",
-        "    name = 'include_runtimes',",
-        "    build_setting_default = True)",
-        "config_setting(",
-        "    name = 'include_runtimes_config',",
-        "    flag_values = {':include_runtimes': 'True'})",
-        "cc_library(name = 'runtime',",
-        "    srcs = ['runtime.cc'],",
-        "    hdrs = ['runtime.h'])",
-        "cc_runtimes_toolchain(",
-        "    name = 'runtimes_toolchain',",
-        "    runtimes = [':runtime'])",
-        "toolchain(",
-        "    name = 'toolchain',",
-        "    target_settings = [':include_runtimes_config'],",
-        "    toolchain = ':runtimes_toolchain',",
-        "    toolchain_type = '//tools/cpp:cc_runtimes_toolchain_type')");
+        """
+        load("//runtimes:toolchain.bzl", "bool_flag", "cc_runtimes_toolchain")
+
+        bool_flag(
+            name = "include_runtimes",
+            build_setting_default = True,
+        )
+
+        config_setting(
+            name = "include_runtimes_config",
+            flag_values = {":include_runtimes": "True"},
+        )
+
+        cc_library(
+            name = "runtime",
+            srcs = ["runtime.cc"],
+            hdrs = ["runtime.h"],
+        )
+
+        cc_runtimes_toolchain(
+            name = "runtimes_toolchain",
+            copts = ["-Iruntimes"],
+            runtimes = [":runtime"],
+        )
+
+        toolchain(
+            name = "toolchain",
+            target_settings = [":include_runtimes_config"],
+            toolchain = ":runtimes_toolchain",
+            toolchain_type = "//tools/cpp:cc_runtimes_toolchain_type",
+        )
+        """);
   }
 }

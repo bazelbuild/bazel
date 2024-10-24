@@ -26,16 +26,9 @@ public enum CommandDescriptionForm {
   ABBREVIATED,
 
   /**
-   * A form that is complete and suitable for a user to copy and paste into a
-   * shell.  On Linux, the command is placed in a subshell so it has no side
-   * effects on the user's shell.  On Windows, this is not implemented, but the
-   * side effects in question are less severe (no "exec").
+   * A form that is complete and suitable for a user to copy and paste into a shell. On Linux, the
+   * command is placed in a subshell so it has no side effects on the user's shell. On Windows, this
+   * is not implemented, but the side effects in question are less severe (no "exec").
    */
   COMPLETE,
-
-  /**
-   * A form that is complete and does not isolate side effects.  Suitable for
-   * launch scripts, i.e., "blaze run --script_path".
-   */
-  COMPLETE_UNISOLATED,
 }

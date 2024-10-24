@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import java.util.Collection;
@@ -129,15 +128,18 @@ public interface ActionAnalysisMetadata {
   /**
    * Returns the input Artifacts that this Action depends upon. May be empty.
    *
-   * <p>During execution, the {@link Iterable} returned by {@code getInputs} <em>must not</em> be
-   * concurrently modified before the value is fully read in {@code JavaDistributorDriver#exec} (via
-   * the {@code Iterable<ActionInput>} argument there). Violating this would require somewhat
-   * pathological behavior by the {@link Action}, since it would have to modify its inputs, as a
-   * list, say, without reassigning them. This should never happen with any Action subclassing
-   * AbstractAction, since AbstractAction's implementation of getInputs() returns an immutable
-   * iterable.
+   * <p>For actions that do input discovery, a different result may be returned before and after
+   * action execution, because input discovery may add or remove inputs. The original input set may
+   * be retrieved from {@link ActionExecutionMetadata#getOriginalInputs}.
    */
   NestedSet<Artifact> getInputs();
+
+  /**
+   * Returns this action's original inputs prior to input discovery.
+   *
+   * <p>Unlike {@link #getInputs}, the same result is returned before and after action execution.
+   */
+  NestedSet<Artifact> getOriginalInputs();
 
   /**
    * Returns the input Artifacts that must be built before the action can be executed, but are not
@@ -172,7 +174,7 @@ public interface ActionAnalysisMetadata {
    * other files as well. For example C(++) compilation may perform include file header scanning.
    * This needs to be mirrored by the extra_action rule. Called by {@link
    * com.google.devtools.build.lib.analysis.extra.ExtraAction} at execution time for actions that
-   * return true for {link #discoversInputs()}.
+   * return true for {link ActionExecutionMetadata#discoversInputs}.
    *
    * @param actionExecutionContext Services in the scope of the action, like the Out/Err streams.
    * @throws ActionExecutionException only when code called from this method throws that exception.
@@ -192,13 +194,12 @@ public interface ActionAnalysisMetadata {
   ImmutableSet<Artifact> getMandatoryOutputs();
 
   /**
-   * Returns the "primary" input of this action, if applicable.
+   * Returns the "primary" input of this action, or {@code null} if this action has no inputs.
    *
    * <p>For example, a C++ compile action would return the .cc file which is being compiled,
    * irrespective of the other inputs.
-   *
-   * <p>May return null.
    */
+  @Nullable
   Artifact getPrimaryInput();
 
   /**
@@ -246,6 +247,12 @@ public interface ActionAnalysisMetadata {
 
   static ImmutableMap<String, String> mergeMaps(
       ImmutableMap<String, String> first, ImmutableMap<String, String> second) {
+    if (first.isEmpty()) {
+      return second;
+    }
+    if (second.isEmpty()) {
+      return first;
+    }
     return ImmutableMap.<String, String>builderWithExpectedSize(first.size() + second.size())
         .putAll(first)
         .putAll(second)

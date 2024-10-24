@@ -96,6 +96,26 @@ public class PlatformInfoApiTest extends PlatformTestCase {
   }
 
   @Test
+  public void constraints_invalidTarget_error() throws Exception {
+    checkError(
+        "foo",
+        "my_platform",
+        // TODO: https://github.com/bazelbuild/bazel/issues/23126 - Have a better error message.
+        // Something like "Invalid dependency :lib does not provide ConstraintValueInfo"
+        "errors encountered while analyzing target",
+        """
+        cc_library(name = "lib")
+
+        platform(
+            name = "my_platform",
+            constraint_values = [
+                ":lib",
+            ],
+        )
+        """);
+  }
+
+  @Test
   public void constraints_parent() throws Exception {
     constraintBuilder("//foo:setting1").addConstraintValue("value1").write();
     constraintBuilder("//foo:setting2").addConstraintValue("value2").write();
@@ -270,5 +290,47 @@ public class PlatformInfoApiTest extends PlatformTestCase {
             + " remote_execution_properties. Prefer exec_properties over the deprecated"
             + " remote_execution_properties.",
         builder.lines().toArray(new String[] {}));
+  }
+
+  @Test
+  public void flags() throws Exception {
+    platformBuilder("//foo:basic").addFlags("--cpu=k8", "--//starlark:flag=other").write();
+
+    PlatformInfo platformInfo = fetchPlatformInfo("//foo:basic");
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.flags()).containsExactly("--cpu=k8", "--//starlark:flag=other");
+  }
+
+  @Test
+  public void flags_parent() throws Exception {
+    platformBuilder("//foo:parent").addFlags("--cpu=k8").write();
+    platformBuilder("//foo:basic").setParent("//foo:parent").write();
+
+    PlatformInfo platformInfo = fetchPlatformInfo("//foo:basic");
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.flags()).containsExactly("--cpu=k8");
+  }
+
+  @Test
+  public void flags_parent_merged() throws Exception {
+    platformBuilder("//foo:parent").addFlags("--cpu=k8").write();
+    platformBuilder("//foo:basic")
+        .setParent("//foo:parent")
+        .addFlags("--//starlark:flag=other")
+        .write();
+
+    PlatformInfo platformInfo = fetchPlatformInfo("//foo:basic");
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.flags()).containsExactly("--cpu=k8", "--//starlark:flag=other");
+  }
+
+  @Test
+  public void flags_parent_override() throws Exception {
+    platformBuilder("//foo:parent").addFlags("--cpu=arm").write();
+    platformBuilder("//foo:basic").setParent("//foo:parent").addFlags("--cpu=k8").write();
+
+    PlatformInfo platformInfo = fetchPlatformInfo("//foo:basic");
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.flags()).containsExactly("--cpu=arm", "--cpu=k8").inOrder();
   }
 }

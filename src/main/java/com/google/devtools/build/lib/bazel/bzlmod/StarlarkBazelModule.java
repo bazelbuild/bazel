@@ -111,7 +111,7 @@ public class StarlarkBazelModule implements StarlarkValue {
       throws ExternalDepsException {
     LabelConverter labelConverter =
         new LabelConverter(
-            PackageIdentifier.create(module.getCanonicalRepoName(), PathFragment.EMPTY_FRAGMENT),
+            PackageIdentifier.create(repoMapping.ownerRepo(), PathFragment.EMPTY_FRAGMENT),
             repoMapping);
     ImmutableList<Tag> tags = usage == null ? ImmutableList.of() : usage.getTags();
     HashMap<String, ArrayList<TypeCheckedTag>> typeCheckedTags = new HashMap<>();
@@ -135,11 +135,13 @@ public class StarlarkBazelModule implements StarlarkValue {
       // (for example, String to Label).
       typeCheckedTags
           .get(tag.getTagName())
-          .add(TypeCheckedTag.create(tagClass, tag, labelConverter));
+          .add(
+              TypeCheckedTag.create(
+                  tagClass, tag, labelConverter, module.getKey().toDisplayString()));
     }
     return new StarlarkBazelModule(
         module.getName(),
-        module.getVersion().getOriginal(),
+        module.getVersion().getNormalized(),
         new Tags(Maps.transformValues(typeCheckedTags, StarlarkList::immutableCopyOf)),
         module.getKey().equals(ModuleKey.ROOT));
   }

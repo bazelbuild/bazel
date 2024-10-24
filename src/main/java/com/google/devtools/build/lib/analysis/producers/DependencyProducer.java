@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.AnalysisRootCauseEvent;
 import com.google.devtools.build.lib.analysis.DependencyKind;
+import com.google.devtools.build.lib.analysis.DependencyKind.AttributeDependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyKind.ToolchainDependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolutionHelpers;
 import com.google.devtools.build.lib.analysis.DependencyResolutionHelpers.ExecutionPlatformResult;
@@ -32,6 +33,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationTransitionEven
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionCollector;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory.TransitionCreationException;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LoadingFailedCause;
@@ -49,6 +51,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingException;
+import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.state.StateMachine;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -142,7 +145,8 @@ final class DependencyProducer
       return computePrerequisites(
           AttributeConfiguration.ofUnary(configurationKey),
           parameters.getExecutionPlatformLabel(
-              ((ToolchainDependencyKind) kind).getExecGroupName()));
+              ((ToolchainDependencyKind) kind).getExecGroupName(),
+              DependencyKind.isBaseTargetToolchain(kind)));
     }
 
     if (kind == OUTPUT_FILE_RULE_DEPENDENCY) {
@@ -156,22 +160,29 @@ final class DependencyProducer
             .attributes(parameters.attributeMap())
             .analysisData(parameters.starlarkTransitionProvider());
     ExecutionPlatformResult executionPlatformResult =
-        getExecutionPlatformLabel(kind, parameters.toolchainContexts(), parameters.aspects());
+        getExecutionPlatformLabel(
+            (AttributeDependencyKind) kind,
+            parameters.toolchainContexts(),
+            parameters.baseTargetToolchainContexts(),
+            parameters.aspects());
     switch (executionPlatformResult.kind()) {
-      case LABEL:
-        transitionData.executionPlatform(executionPlatformResult.label());
-        break;
-      case NULL_LABEL:
-        transitionData.executionPlatform(null);
-        break;
-      case SKIP:
+      case LABEL -> transitionData.executionPlatform(executionPlatformResult.label());
+      case NULL_LABEL -> transitionData.executionPlatform(null);
+      case SKIP -> {
         sink.acceptDependencyValues(index, EMPTY_OUTPUT);
         return DONE;
-      case ERROR:
+      }
+      case ERROR -> {
         return new ExecGroupErrorEmitter(executionPlatformResult.error());
+      }
     }
-    ConfigurationTransition attributeTransition =
-        attribute.getTransitionFactory().create(transitionData.build());
+    ConfigurationTransition attributeTransition;
+    try {
+      attributeTransition = attribute.getTransitionFactory().create(transitionData.build());
+    } catch (TransitionCreationException e) {
+      sink.acceptDependencyError(DependencyError.of(e));
+      return DONE;
+    }
     sink.acceptTransition(kind, toLabel, attributeTransition);
     return new TransitionApplier(
         configurationKey,
@@ -195,7 +206,7 @@ final class DependencyProducer
   }
 
   @Override
-  public void acceptTransitionError(OptionsParsingException e) {
+  public void acceptOptionsParsingError(OptionsParsingException e) {
     sink.acceptDependencyError(
         DependencyError.of(
             new OptionsParsingException(
@@ -204,6 +215,11 @@ final class DependencyProducer
 
   @Override
   public void acceptPlatformMappingError(PlatformMappingException e) {
+    sink.acceptDependencyError(DependencyError.of(e));
+  }
+
+  @Override
+  public void acceptPlatformFlagsError(InvalidPlatformException e) {
     sink.acceptDependencyError(DependencyError.of(e));
   }
 
@@ -289,6 +305,10 @@ final class DependencyProducer
       return false;
     }
 
+    if (DependencyKind.isBaseTargetToolchain(kind)) {
+      return true;
+    }
+
     if (DependencyKind.isAttribute(kind)) {
       if (kind.getOwningAspect() == null) {
         return true;
@@ -321,8 +341,7 @@ final class DependencyProducer
     // `LoadingFailedCause`. Requests parent-side context to be added to such errors by propagating
     // a `MissingEdgeError`.
     for (Cause cause : error.getRootCauses().toList()) {
-      if (cause instanceof LoadingFailedCause) {
-        var loadingFailed = (LoadingFailedCause) cause;
+      if (cause instanceof LoadingFailedCause loadingFailed) {
         if (loadingFailed.getLabel().equals(toLabel)) {
           sink.acceptDependencyError(
               new MissingEdgeError(

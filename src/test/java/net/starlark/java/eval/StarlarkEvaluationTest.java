@@ -14,7 +14,6 @@
 package net.starlark.java.eval;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth8.assertThat;
 import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.joining;
 import static org.junit.Assert.assertThrows;
@@ -378,7 +377,7 @@ public final class StarlarkEvaluationTest {
         useStarlarkThread = true)
     public String withArgsAndThread(
         StarlarkInt pos1, boolean pos2, boolean named, Sequence<?> args, StarlarkThread thread) {
-      String argsString = debugPrintArgs(args, thread.getSemantics());
+      String argsString = debugPrintArgs(args, thread);
       return "with_args_and_thread("
           + pos1
           + ", "
@@ -417,9 +416,11 @@ public final class StarlarkEvaluationTest {
           @Param(name = "foo", named = true, positional = true),
         },
         extraPositionals = @Param(name = "args"),
-        extraKeywords = @Param(name = "kwargs"))
-    public String withArgsAndKwargs(String foo, Tuple args, Dict<String, Object> kwargs) {
-      String argsString = debugPrintArgs(args, StarlarkSemantics.DEFAULT);
+        extraKeywords = @Param(name = "kwargs"),
+        useStarlarkThread = true)
+    public String withArgsAndKwargs(
+        String foo, Tuple args, Dict<String, Object> kwargs, StarlarkThread thread) {
+      String argsString = debugPrintArgs(args, thread);
       String kwargsString =
           "kwargs("
               + kwargs
@@ -437,12 +438,12 @@ public final class StarlarkEvaluationTest {
     }
   }
 
-  private static String debugPrintArgs(Iterable<?> args, StarlarkSemantics semantics) {
+  private static String debugPrintArgs(Iterable<?> args, StarlarkThread thread) {
     Printer p = new Printer();
     p.append("args(");
     String sep = "";
     for (Object arg : args) {
-      p.append(sep).debugPrint(arg, semantics);
+      p.append(sep).debugPrint(arg, thread);
       sep = ", ";
     }
     return p.append(")").toString();
@@ -1814,7 +1815,7 @@ public final class StarlarkEvaluationTest {
     try (Mutability mu = Mutability.create("test")) {
       StarlarkSemantics semantics =
           StarlarkSemantics.builder().setBool(StarlarkSemantics.ALLOW_RECURSION, true).build();
-      StarlarkThread thread = new StarlarkThread(mu, semantics);
+      StarlarkThread thread = StarlarkThread.createTransient(mu, semantics);
       Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
     }
     assertThat(module.getGlobal("x")).isEqualTo(StarlarkInt.of(120));
@@ -1952,7 +1953,7 @@ public final class StarlarkEvaluationTest {
             "print('a', 'b', sep='x')");
     List<String> prints = new ArrayList<>();
     try (Mutability mu = Mutability.create("test")) {
-      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+      StarlarkThread thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
       thread.setPrintHandler((unused, msg) -> prints.add(msg));
       Starlark.execFile(input, FileOptions.DEFAULT, Module.create(), thread);
     }

@@ -56,7 +56,8 @@ final class CallUtils {
     // a cycle; see b/161479826 for history.
     // TODO(bazel-team): Maybe the above cycle concern doesn't exist now that CallUtils is private.
     ConcurrentHashMap<Class<?>, StarlarkClassDescriptor> starlarkClassDescriptorCache =
-        starlarkClassDescriptorCachesBySemantics.get(semantics);
+        starlarkClassDescriptorCachesBySemantics.get(
+            semantics.getStarlarkClassDescriptorCacheKey());
     if (starlarkClassDescriptorCache == null) {
       starlarkClassDescriptorCache =
           new ConcurrentHashMap<>(

@@ -15,19 +15,20 @@ package com.google.devtools.build.lib.bazel.rules.genrule;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
-import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
+import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
 
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.genrule.GenRuleBaseRule;
 
 /**
  * Rule definition for genrule for Bazel.
  */
 public final class BazelGenRuleRule implements RuleDefinition {
-  public static final String GENRULE_SETUP_LABEL = "//tools/genrule:genrule-setup.sh";
+  private static final String GENRULE_SETUP_LABEL = "//tools/genrule:genrule-setup.sh";
 
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
@@ -43,9 +44,7 @@ public final class BazelGenRuleRule implements RuleDefinition {
             attr("$genrule_setup", LABEL)
                 .cfg(ExecutionTransitionFactory.createFactory())
                 .value(env.getToolsLabel(GENRULE_SETUP_LABEL)))
-
-        // TODO(bazel-team): stamping doesn't seem to work. Fix it or remove attribute.
-        .add(attr("stamp", BOOLEAN).value(false))
+        .add(attr("stamp", TRISTATE).value(TriState.NO))
         .build();
   }
 
@@ -77,6 +76,15 @@ public final class BazelGenRuleRule implements RuleDefinition {
   If you only need to run a single tool, consider using
   <a href="https://github.com/bazelbuild/bazel-skylib/blob/main/docs/run_binary_doc.md">run_binary</a>
   instead.
+</p>
+<p>
+  Like every other action, the action created by genrules should not assume anything about their
+  working directory; all Bazel guarantees is that their declared inputs will be available at the
+  path that <code>$(location)</code> returns for their label. For example, if the action is run in a
+  sandbox or remotely, the implementation of the sandbox or the remote execution will determine the
+  working directory. If run directly (using the <code>standalone</code> strategy), the working
+  directory will be the execution root, i.e. the result of <code>bazel info execution_root</code>.
+</p>
 <p>
   Do not use a genrule for running tests. There are special dispensations for tests and test
   results, including caching policies and environment variables. Tests generally need to be run

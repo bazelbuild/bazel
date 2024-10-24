@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutionOptions.TestSummaryFormat;
-import com.google.devtools.build.lib.runtime.TerminalTestResultNotifier.TestSummaryOptions;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
@@ -57,6 +56,7 @@ public final class TerminalTestResultNotifierTest {
 
   private BlazeTestStatus targetStatus;
   private int numFailedTestCases;
+  private int numSkippedTestCases;
   private int numUnknownTestCases;
   private int numTotalTestCases;
   private TestSummaryFormat testSummaryFormat;
@@ -173,6 +173,27 @@ public final class TerminalTestResultNotifierTest {
     String printed = getPrintedMessage();
     assertThat(printed).contains(info("10 passing"));
     assertThat(printed).contains("0 failing");
+    assertThat(printed).contains("0 skipped");
+    assertThat(printed).contains("out of 10 test cases");
+    assertThat(printed).doesNotContain(SOME_TARGETS_ARE_MISSING_TEST_CASES_DISCLAIMER);
+    assertThat(printed).doesNotContain(AnsiTerminalPrinter.Mode.ERROR.toString());
+  }
+
+  @Test
+  public void detailedOption_allPassButSomeSkipped() throws Exception {
+    testSummaryFormat = ExecutionOptions.TestSummaryFormat.DETAILED;
+    numFailedTestCases = 0;
+    numUnknownTestCases = 0;
+    numTotalTestCases = 10;
+    numSkippedTestCases = 2;
+    targetStatus = BlazeTestStatus.PASSED;
+
+    printTestCaseSummary();
+
+    String printed = getPrintedMessage();
+    assertThat(printed).contains(info("8 passing"));
+    assertThat(printed).contains("0 failing");
+    assertThat(printed).contains(warn("2 skipped"));
     assertThat(printed).contains("out of 10 test cases");
     assertThat(printed).doesNotContain(SOME_TARGETS_ARE_MISSING_TEST_CASES_DISCLAIMER);
     assertThat(printed).doesNotContain(AnsiTerminalPrinter.Mode.ERROR.toString());
@@ -314,9 +335,12 @@ public final class TerminalTestResultNotifierTest {
     when(testSummary.getUnkownTestCases()).thenReturn(numUnknownTestCases);
     TestCase failedTestCase = TestCase.newBuilder().setStatus(Status.FAILED).build();
     List<TestCase> failedTestCases = Collections.nCopies(numFailedTestCases, failedTestCase);
+    TestCase skippedTestCase = TestCase.newBuilder().setStatus(Status.SKIPPED).build();
+    List<TestCase> skippedTestCases = Collections.nCopies(numSkippedTestCases, skippedTestCase);
 
     Label labelA = Label.parseCanonical("//foo/bar:baz");
     when(testSummary.getFailedTestCases()).thenReturn(failedTestCases);
+    when(testSummary.getSkippedTestCases()).thenReturn(skippedTestCases);
     when(testSummary.getStatus()).thenReturn(targetStatus);
     when(testSummary.getLabel()).thenReturn(labelA);
 
@@ -341,6 +365,10 @@ public final class TerminalTestResultNotifierTest {
 
   private static String info(String message) {
     return AnsiTerminalPrinter.Mode.INFO + message + AnsiTerminalPrinter.Mode.DEFAULT;
+  }
+
+  private static String warn(String message) {
+    return AnsiTerminalPrinter.Mode.WARNING + message + AnsiTerminalPrinter.Mode.DEFAULT;
   }
 
   private static String error(String message) {

@@ -1,6 +1,6 @@
+load("@protobuf//bazel:java_proto_library.bzl", "java_proto_library")
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
 load("//tools/build_rules:utilities.bzl", "java_library_srcs")
-load("@rules_java//java:defs.bzl", "java_proto_library")
-load("@rules_proto//proto:defs.bzl", "proto_library")
 
 package(default_visibility = ["//src:__pkg__"])
 

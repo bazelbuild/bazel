@@ -1,6 +1,7 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+
 # -*- coding: utf-8 -*-
 load("//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
-load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 
 licenses(["notice"])
 

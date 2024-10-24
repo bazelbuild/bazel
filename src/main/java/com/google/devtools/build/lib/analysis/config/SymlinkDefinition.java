@@ -30,7 +30,7 @@ public interface SymlinkDefinition {
    * <p>Note that this is independent of the target configuration(s) that may help determine the
    * symlink's destination.
    */
-  String getLinkName(String symlinkPrefix, String productName, String workspaceBaseName);
+  String getLinkName(String symlinkPrefix, String workspaceBaseName);
 
   /**
    * Returns a set of candidate destination paths for the symlink.

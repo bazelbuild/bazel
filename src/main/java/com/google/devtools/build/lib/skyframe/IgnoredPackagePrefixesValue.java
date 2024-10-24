@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -27,18 +27,26 @@ import com.google.devtools.build.skyframe.SkyValue;
 
 /** An immutable set of package name prefixes that should be ignored. */
 public class IgnoredPackagePrefixesValue implements SkyValue {
-  private final ImmutableSet<PathFragment> patterns;
+  private final IgnoredSubdirectories ignoredSubdirectories;
 
   @SerializationConstant @VisibleForSerialization
-  public static final IgnoredPackagePrefixesValue EMPTY_LIST =
-      new IgnoredPackagePrefixesValue(ImmutableSet.of());
+  public static final IgnoredPackagePrefixesValue EMPTY =
+      new IgnoredPackagePrefixesValue(IgnoredSubdirectories.EMPTY);
 
-  private IgnoredPackagePrefixesValue(ImmutableSet<PathFragment> patterns) {
-    this.patterns = Preconditions.checkNotNull(patterns);
+  private IgnoredPackagePrefixesValue(IgnoredSubdirectories ignoredSubdirectories) {
+    this.ignoredSubdirectories = ignoredSubdirectories;
   }
 
   public static IgnoredPackagePrefixesValue of(ImmutableSet<PathFragment> patterns) {
-    return patterns.isEmpty() ? EMPTY_LIST : new IgnoredPackagePrefixesValue(patterns);
+    return patterns.isEmpty()
+        ? EMPTY
+        : new IgnoredPackagePrefixesValue(IgnoredSubdirectories.of(patterns));
+  }
+
+  public static IgnoredPackagePrefixesValue of(IgnoredSubdirectories ignoredSubdirectories) {
+    return ignoredSubdirectories.isEmpty()
+        ? EMPTY
+        : new IgnoredPackagePrefixesValue(ignoredSubdirectories);
   }
 
   /** Creates a key from the main repository. */
@@ -51,22 +59,26 @@ public class IgnoredPackagePrefixesValue implements SkyValue {
     return Key.create(repository);
   }
 
-  public ImmutableSet<PathFragment> getPatterns() {
-    return patterns;
+  public IgnoredSubdirectories asIgnoredSubdirectories() {
+    return ignoredSubdirectories;
   }
 
   @Override
   public int hashCode() {
-    return patterns.hashCode();
+    return ignoredSubdirectories.hashCode();
   }
 
   @Override
   public boolean equals(Object obj) {
-    if (obj instanceof IgnoredPackagePrefixesValue) {
-      IgnoredPackagePrefixesValue other = (IgnoredPackagePrefixesValue) obj;
-      return this.patterns.equals(other.patterns);
+    if (obj instanceof IgnoredPackagePrefixesValue other) {
+      return this.ignoredSubdirectories.equals(other.ignoredSubdirectories);
     }
     return false;
+  }
+
+  @Override
+  public String toString() {
+    return ignoredSubdirectories.toString();
   }
 
   @VisibleForSerialization

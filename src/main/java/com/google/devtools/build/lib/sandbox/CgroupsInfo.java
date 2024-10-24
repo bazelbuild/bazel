@@ -17,20 +17,23 @@ package com.google.devtools.build.lib.sandbox;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Joiner;
-import com.google.common.base.Splitter;
+import com.google.common.base.Suppliers;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.io.Files;
-import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.util.OS;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.List;
+import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /** This class manages cgroups directories for memory-limiting sandboxed processes. */
-public class CgroupsInfo {
+public abstract class CgroupsInfo implements Cgroup {
+
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /**
@@ -42,276 +45,256 @@ public class CgroupsInfo {
   private static final Pattern CGROUPS_MOUNT_PATTERN =
       Pattern.compile("^cgroup(|2)\\s+(\\S*)\\s+cgroup2?\\s+(\\S*).*");
 
-  public static final String PROC_SELF_MOUNTS_PATH = "/proc/self/mounts";
-  public static final String PROC_SELF_CGROUP_PATH = "/proc/self/cgroup";
-  /** If non-null, this is a cgroups directory that sandboxes can put their directories into. */
-  @Nullable private static volatile CgroupsInfo instance;
+  private static final String PROC_SELF_MOUNTS_PATH = "/proc/self/mounts";
+  private static final String PROC_SELF_CGROUP_PATH = "/proc/self/cgroup";
 
-  private final boolean isCgroupsV2;
-  private final File blazeDir;
-  private final File mountPoint;
+  private static final CgroupsInfo rootCgroup = getRootCgroup(new File(PROC_SELF_MOUNTS_PATH));
 
-  private CgroupsInfo(boolean isCgroupsV2, File blazeDir, File mountPoint) {
-    this.isCgroupsV2 = isCgroupsV2;
-    this.blazeDir = blazeDir;
-    this.mountPoint = mountPoint;
+  private static final Supplier<CgroupsInfo> blazeSpawnsCgroupSupplier =
+      Suppliers.memoize(CgroupsInfo::createBlazeSpawnsCgroup);
+
+  /** Returns whether the local machine supports cgroups. */
+  public static boolean isSupported() {
+    return OS.getCurrent() == OS.LINUX && getBlazeSpawnsCgroup().canWrite();
   }
 
   /**
-   * Creates a cgroups directory for Blaze to place sandboxes in. Figures out whether cgroups v1 or
-   * v2 is available, and for cgroups v2 sets subtree control for the <code>memory</code> and <code>
-   * pids</code> controllers.
+   * Returns an instance of the root cgroup of the hierarchy, {@link InvalidCgroupsInfo} if invalid.
    *
-   * <p>The cgroups directory is created at most once per Blaze instance.
+   * <p>For v1, we only care about the memory hierarchy.
    *
-   * @return A CgroupsInfo object that defines the cgroups directory that Blaze can use for
-   *     sub-processes. The Blaze process itself is not moved into this directory.
-   * @throws IOException If there are errors reading any of the required files.
-   */
-  public static CgroupsInfo create() throws IOException {
-    return create(PROC_SELF_MOUNTS_PATH, PROC_SELF_CGROUP_PATH);
-  }
-
-  @VisibleForTesting
-  static CgroupsInfo create(String procSelfMountsPath, String procSelfCgroupPath)
-      throws IOException {
-    Pair<File, Boolean> cgroupsMount = getMemoryCgroupInfo(new File(procSelfMountsPath));
-    File blazeDir;
-    File cgroupsMountPoint = cgroupsMount.first;
-    if (cgroupsMount.second) {
-      File cgroupsNode = getBlazeMemoryCgroup(cgroupsMountPoint, 0, procSelfCgroupPath);
-      // In cgroups v2, we need to step back from the leaf node to make a further hierarchy.
-      blazeDir =
-          new File(
-              cgroupsNode.getParentFile(),
-              "blaze_" + ProcessHandle.current().pid() + "_spawns.slice");
-      blazeDir.mkdirs();
-      blazeDir.deleteOnExit();
-      setSubtreeControllers(blazeDir);
-      logger.atInfo().log("Creating cgroups v2 node at %s", blazeDir);
-      return new CgroupsInfo(true, blazeDir, cgroupsMountPoint);
-    } else {
-      int memoryHierarchy = getMemoryHierarchy(new File(procSelfCgroupPath));
-      File cgroupsNode =
-          getBlazeMemoryCgroup(cgroupsMountPoint, memoryHierarchy, procSelfCgroupPath);
-      blazeDir = new File(cgroupsNode, "blaze_" + ProcessHandle.current().pid() + "_spawns");
-      blazeDir.mkdirs();
-      blazeDir.deleteOnExit();
-      logger.atInfo().log("Creating cgroups v1 node at %s", blazeDir);
-      return new CgroupsInfo(false, blazeDir, cgroupsMountPoint);
-    }
-  }
-
-  /**
-   * Sets the subtree controllers we need. This also checks that the controllers are available.
-   *
-   * @param blazeDir A directory in the cgroups hierarchy.
-   * @throws IOException If reading or writing the {@code cgroup.controllers} or {@code
-   *     cgroup.subtree_control} file fails.
-   * @throws IllegalStateException if the {@code memory} and {code pids} controllers are either not
-   *     available or cannot be set for subtrees.
-   */
-  private static void setSubtreeControllers(File blazeDir) throws IOException {
-    var controllers =
-        Joiner.on(' ').join(Files.readLines(new File(blazeDir, "cgroup.controllers"), UTF_8));
-    if (!(controllers.contains("memory") && controllers.contains("pids"))) {
-      throw new IllegalStateException(
-          String.format(
-              "Required controllers 'memory' and 'pids' not found in %s/cgroup.controllers",
-              blazeDir));
-    }
-    var subtreeControllers =
-        Joiner.on(' ').join(Files.readLines(new File(blazeDir, "cgroup.subtree_control"), UTF_8));
-    if (!subtreeControllers.contains("memory") || !subtreeControllers.contains("pids")) {
-      Files.asCharSink(new File(blazeDir, "cgroup.subtree_control"), UTF_8)
-          .write("+memory +pids\n");
-    }
-  }
-
-  public boolean isCgroupsV2() {
-    return isCgroupsV2;
-  }
-
-  /** A cgroups directory for this Blaze instance to put sandboxes in. */
-  public File getBlazeDir() {
-    return blazeDir;
-  }
-
-  /** The place where the cgroups (memory) file system is mounted. */
-  public File getMountPoint() {
-    return mountPoint;
-  }
-
-  /**
-   * Reads from the given file (e.g. /proc/mounts) where cgroups are mounted. If both cgroups v1 and
-   * cgroups v2 are mounted, the one that has the memory controller is used.
-   *
-   * <p>In cgroups v1, a typical mount line looks like this (note {@code memory} in the options):
-   *
-   * <pre>
-   * cgroup /dev/cgroup/memory cgroup rw,memory,hugetlb 0 0
-   * </pre>
-   *
-   * In cgroups v2, there is only one relevant line, and it looks like this:
-   *
-   * <pre>
-   * cgroup2 /sys/fs/cgroup cgroup2 rw,[...] 0 0
-   * </pre>
-   *
-   * @param procMountsPath Paths of the mounts file, e.g. /proc/mounts
-   * @return Pair of
-   *     <ol>
-   *       <li>the path of the cgroups mount (for cgroups v1, this is the memory hierarchy) and
-   *       <li>whether this is cgroups v2.
-   *     </ol>
-   *
-   * @throws IOException If there are errors reading the given file.
+   * @param procMountsFile the /proc/self/mounts file.
    */
   @VisibleForTesting
-  static Pair<File, Boolean> getMemoryCgroupInfo(File procMountsPath) throws IOException {
-    var procMountContents = Files.readLines(procMountsPath, UTF_8);
-    Pair<File, Boolean> v1 = null;
-    Pair<File, Boolean> v2 = null;
-    for (String s : procMountContents) {
+  static CgroupsInfo getRootCgroup(File procMountsFile) {
+    if (OS.getCurrent() != OS.LINUX) {
+      return new InvalidCgroupsInfo(
+          Type.ROOT, /* version= */ null, "Croups is not supported on non-linux environments.");
+    }
+
+    List<String> procMountsContents;
+    try {
+      procMountsContents = Files.readLines(procMountsFile, UTF_8);
+    } catch (IOException e) {
+      return new InvalidCgroupsInfo(Type.ROOT, /* version= */ null, e);
+    }
+    File v1RootDir = null;
+    File v2RootDir = null;
+    for (String s : procMountsContents) {
       Matcher m = CGROUPS_MOUNT_PATTERN.matcher(s);
       if (m.matches()) {
         if (m.group(1).isEmpty()) {
           // v1
           if (m.group(3).contains("memory")) {
             // For now, we only care about the memory cgroup
-            v1 = Pair.of(new File(m.group(2)), false);
+            v1RootDir = new File(m.group(2));
           }
         } else {
-          // v2
-          v2 = Pair.of(new File(m.group(2)), true);
+          v2RootDir = new File(m.group(2));
         }
       }
     }
     // If we found the memory controller in v1, we use that, just in case we have a hybrid system
     // where some controllers are v1 and some are v2. It would be harder to detect if v2 has the
     // memory controller
-    if (v1 != null) {
-      return v1;
+    if (v1RootDir != null) {
+      return new CgroupsInfoV1(Type.ROOT, v1RootDir);
     }
-    if (v2 != null) {
-      return v2;
+    if (v2RootDir != null) {
+      return new CgroupsInfoV2(Type.ROOT, v2RootDir);
     }
-    throw new IllegalStateException(
-        "Cgroups requested, but no applicable cgroups are mounted on this machine");
-  }
-
-  /**
-   * Returns the number of the memory cgroups v1 hierarchy.
-   *
-   * <p>The <code>/proc/self/cgroup</code> file look like this in v1:
-   *
-   * <pre>
-   * 8:net:/some/path
-   * 7:memory,hugetlb:/some/other/path
-   * ...
-   * </pre>
-   *
-   * In v2, there is only one entry, and it looks something like
-   *
-   * <pre>
-   * 0::/user.slice/user-123.slice/session-1.scope
-   * </pre>
-   *
-   * @param procSelfCgroupPath Path for the <code>/proc/self/cgroup</code> file.
-   * @return The hierarchy number for the cgroups v1 hierarchy that contains the memory controller.
-   * @throws IOException If there are errors reading the file.
-   */
-  @VisibleForTesting
-  static int getMemoryHierarchy(File procSelfCgroupPath) throws IOException {
-    List<String> devCgroupContents = Files.readLines(procSelfCgroupPath, UTF_8);
-    for (String s : devCgroupContents) {
-      if (s.contains("memory")) {
-        return Integer.parseInt(Splitter.on(":").split(s).iterator().next());
-      }
-    }
-    throw new IllegalStateException(
+    return new InvalidCgroupsInfo(
+        Type.ROOT,
+        /* version= */ null,
         String.format(
-            "Cgroups v1 requested, but no memory cgroup found in %s", procSelfCgroupPath));
+            "No cgroups mounted in %s: %s", procMountsFile.getPath(), procMountsContents));
   }
 
   /**
-   * Returns the path of the memory cgroups node that Blaze itself runs inside.
-   *
-   * @param mountPoint Where the cgroups hierarchy (with the memory controller for v1) is mounted.
-   * @param memoryHierarchyId The v1 hierarchy that contains the memory controller, or 0 for v2.
-   * @param procSelfPath The path of the <code>/proc/self/cgroup</code> file.
-   * @return A <code>File</code> object of the cgroup directory of the current process.
-   * @throws IOException If the given file cannot be read.
+   * Returns the singleton {@link Type.BLAZE_SPAWNS} cgroup created under the root cgroup, {@link
+   * InvalidCgroupsInfo} if invalid.
    */
-  @VisibleForTesting
-  static File getBlazeMemoryCgroup(File mountPoint, int memoryHierarchyId, String procSelfPath)
-      throws IOException {
-    var procSelfCgroupContents = Files.readLines(new File(procSelfPath), UTF_8);
-    if (procSelfCgroupContents.isEmpty()) {
-      throw new IOException("Cgroups requested, but /proc/self/cgroup is empty");
-    }
-    File cgroupsNode = null;
-    for (String s : procSelfCgroupContents) {
-      List<String> parts = Splitter.on(":").limit(3).splitToList(s);
-      if (parts.size() == 3 && Integer.parseInt(parts.get(0)) == memoryHierarchyId) {
-        String path = parts.get(2);
-        if (path.startsWith(File.pathSeparator)) {
-          path = path.substring(1);
-        }
-        cgroupsNode = new File(mountPoint, path);
-        break;
-      }
-    }
-    if (cgroupsNode == null) {
-      throw new IllegalStateException("Found no memory cgroups entries in '" + procSelfPath + "'");
-    }
-    if (!cgroupsNode.exists()) {
-      throw new IllegalStateException("Cgroups node '" + cgroupsNode + "' does not exist");
-    }
-    if (!cgroupsNode.isDirectory()) {
-      throw new IllegalStateException("Cgroups node " + cgroupsNode + " is not a directory");
-    }
-    if (!cgroupsNode.canWrite()) {
-      throw new IllegalStateException("Cgroups node " + cgroupsNode + " is not writable");
-    }
-    return cgroupsNode;
+  public static CgroupsInfo getBlazeSpawnsCgroup() {
+    return blazeSpawnsCgroupSupplier.get();
   }
 
-  public static CgroupsInfo getInstance() throws IOException {
-    if (instance == null) {
-      synchronized (CgroupsInfo.class) {
-        if (instance == null) {
-          instance = create();
-        }
-      }
+  private static CgroupsInfo createBlazeSpawnsCgroup() {
+    if (!rootCgroup.exists()) {
+      return new InvalidCgroupsInfo(
+          Type.BLAZE_SPAWNS, rootCgroup.getVersion(), "Root cgroup does not exist.");
     }
-    return instance;
+    return rootCgroup.createBlazeSpawnsCgroup(PROC_SELF_CGROUP_PATH);
   }
 
   /**
-   * Creates a cgroups directory with the given memory limit.
+   * Creates a cgroups directory for Blaze to place spawns in.
    *
-   * @param memoryLimit Memory limit in megabytes (MiB).
-   * @param dirName Base name of the directory created. In cgroups v2, <code>.scope</code> gets
-   *     appended.
+   * <p>This cgroups directory is created at most once per Blaze instance.
+   *
+   * @param procSelfCgroupPath path to the <code>/proc/self/cgroup</code> file
+   * @return A CgroupsInfo object representing the created cgroup that Blaze can use for
+   *     sub-processes (the Blaze process itself is not moved into this directory). If unable to
+   *     create, returns an {@link InvalidCgroupsInfo} containing the exception.
    */
-  public String createMemoryLimitCgroupDir(String dirName, int memoryLimit) throws IOException {
-    File cgroupsDir;
-    if (isCgroupsV2) {
-      cgroupsDir = new File(blazeDir, dirName + ".scope");
-      cgroupsDir.mkdirs();
-      cgroupsDir.deleteOnExit();
-      // In cgroups v2, we need to propagate the controllers into new subdirs.
-      Files.asCharSink(new File(cgroupsDir, "memory.oom.group"), UTF_8).write("1\n");
-      Files.asCharSink(new File(cgroupsDir, "memory.max"), UTF_8)
-          .write(Long.toString(memoryLimit * 1024L * 1024L));
-    } else {
-      cgroupsDir = new File(getBlazeDir(), dirName);
-      cgroupsDir.mkdirs();
-      cgroupsDir.deleteOnExit();
-      Files.asCharSink(new File(cgroupsDir, "memory.limit_in_bytes"), UTF_8)
-          .write(Long.toString(memoryLimit * 1024L * 1024L));
+  public abstract CgroupsInfo createBlazeSpawnsCgroup(String procSelfCgroupPath);
+
+  /** The version of Cgroups that is currently being used. */
+  public enum Version {
+    V1,
+    V2,
+  }
+
+  @Nullable protected Version version;
+
+  /**
+   * The types of cgroups relevant to Blaze:
+   *
+   * <ul>
+   *   <li>ROOT: corresponds to the root cgroup where * the hierarchy is mounted at; one of
+   *       "/dev/cgroup/{controller}" or "/sys/fs/cgroup".
+   *   <li>BLAZE_SPAWNS: corresponds the overarching cgroup that contains children {@link
+   *       Type.SPAWN} cgroups.
+   *   <li>SPAWN: corresponds to the cgroup for a single spawn - this could be a locally executed
+   *       action or a worker process.
+   * </ul>
+   */
+  public enum Type {
+    ROOT,
+    BLAZE_SPAWNS,
+    SPAWN,
+  }
+
+  protected Type type;
+
+  /**
+   * This is the directory where the cgroup is in, any related files pertaining to limits / resource
+   * usage or child cgroups (nested directories) are found here.
+   */
+  @Nullable protected final File cgroupDir;
+
+  public CgroupsInfo(Type type, @Nullable Version version, @Nullable File cgroupDir) {
+    this.version = version;
+    this.type = type;
+    this.cgroupDir = cgroupDir;
+    // Valid.
+    if (exists()) {
+      logger.atInfo().log(
+          "Successfully found / created %s (%s) cgroup at %s", version, type, cgroupDir.getPath());
     }
-    return cgroupsDir.toString();
+  }
+
+  /** Returns whether the cgroup at {@code cgroupDir} exists. */
+  @Override
+  public boolean exists() {
+    return cgroupDir != null && cgroupDir.exists() && cgroupDir.isDirectory();
+  }
+
+  /** Returns whether Blaze can write to the current cgroup at {@code cgroupDir}. */
+  public boolean canWrite() {
+    return exists() && cgroupDir.canWrite();
+  }
+
+  /** A cgroups directory for this Blaze instance to put sandboxes in. */
+  public File getCgroupDir() {
+    return cgroupDir;
+  }
+
+  @Override
+  public ImmutableSet<Path> paths() {
+    return ImmutableSet.of(getCgroupDir().toPath());
+  }
+
+  @Nullable
+  public Version getVersion() {
+    return version;
+  }
+
+  public Type getType() {
+    return type;
+  }
+
+  @Override
+  public int getMemoryUsageInKb() {
+    return 0;
+  }
+
+  public int getMemoryUsageInKbFromFile(String filename) {
+    try {
+      String val = Files.readLines(new File(cgroupDir, filename), UTF_8).get(0);
+      return (int) (Long.parseLong(val) / 1024);
+    } catch (IOException e) {
+      return 0;
+    }
+  }
+
+  @Override
+  public void addProcess(long pid) throws IOException {
+    Files.asCharSink(new File(cgroupDir, "cgroup.procs"), UTF_8).write(Long.toString(pid));
+  }
+
+  @Override
+  public void destroy() {
+    getCgroupDir().delete();
+  }
+
+  /**
+   * Creates a cgroups directory for individual spawns (local / workers).
+   *
+   * <p>Has to be called from a {@link Type.BLAZE_SPAWNS} cgroup.
+   *
+   * @param dirName the directory name of the spawn's cgroup.
+   * @param memoryLimitMb memory limit in Mb to set on the cgroup. If 0, no limit is set.
+   * @return an instance of the spawn's cgroup; if unable to create, returns an {@link
+   *     InvalidCgroupsInfo} containing the exception.
+   */
+  public abstract CgroupsInfo createIndividualSpawnCgroup(String dirName, int memoryLimitMb);
+
+  /**
+   * Represents an invalid cgroup so that we can distinguish between whether a cgroup was not meant
+   * to be created (null) or if it was attempted but failed.
+   */
+  public static class InvalidCgroupsInfo extends CgroupsInfo {
+
+    private final Exception exception;
+
+    public InvalidCgroupsInfo(Type type, @Nullable Version version, String errorMessage) {
+      super(type, version, null);
+      this.exception = new IllegalStateException(errorMessage);
+      logger.atInfo().withCause(exception).log("Unable to create cgroup.");
+    }
+
+    public InvalidCgroupsInfo(Type type, @Nullable Version version, Exception exception) {
+      super(type, version, null);
+      logger.atInfo().withCause(exception).log("Unable to create cgroup.");
+      this.exception = exception;
+    }
+
+    @Override
+    public boolean exists() {
+      return false;
+    }
+
+    @Override
+    public boolean canWrite() {
+      return false;
+    }
+
+    public Exception getException() {
+      return exception;
+    }
+
+    @Override
+    public CgroupsInfo createBlazeSpawnsCgroup(String procSelfCgroupPath) {
+      return new InvalidCgroupsInfo(
+          Type.BLAZE_SPAWNS,
+          getVersion(),
+          "Unable to create BLAZE_SPAWNS cgroup from an invalid cgroup.");
+    }
+
+    @Override
+    public CgroupsInfo createIndividualSpawnCgroup(String dirName, int memoryLimitMb) {
+      return new InvalidCgroupsInfo(
+          Type.SPAWN, getVersion(), "Unable to create SPAWN cgroup from an invalid cgroup.");
+    }
   }
 }

@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.concurrent.QuiescingExecutors;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.skyframe.ParallelEvaluatorErrorClassifier;
 import com.google.devtools.common.options.OptionsProvider;
+import java.util.concurrent.Executors;
 
 /**
  * Encapsulates thread pool options used by parallel evaluation.
@@ -42,6 +43,7 @@ public final class QuiescingExecutorsImpl implements QuiescingExecutors {
   private int analysisParallelism;
   private int executionParallelism;
   private int globbingParallelism;
+  private boolean useAsyncExecution;
 
   /**
    * The size of the thread pool for CPU-heavy tasks set by
@@ -93,16 +95,12 @@ public final class QuiescingExecutorsImpl implements QuiescingExecutors {
         loadingPhaseThreadsOption != null ? loadingPhaseThreadsOption.threads : 0;
     var buildRequestOptions = options.getOptions(BuildRequestOptions.class);
     this.executionParallelism = buildRequestOptions != null ? buildRequestOptions.jobs : 0;
+    this.useAsyncExecution = buildRequestOptions != null && buildRequestOptions.useAsyncExecution;
     var packageOptions = options.getOptions(PackageOptions.class);
     this.globbingParallelism = packageOptions != null ? packageOptions.globbingThreads : 0;
     var analysisOptions = options.getOptions(AnalysisOptions.class);
     this.cpuHeavySkyKeysThreadPoolSize =
         analysisOptions != null ? analysisOptions.cpuHeavySkyKeysThreadPoolSize : 0;
-    if (analysisOptions != null) {
-      this.cpuHeavySkyKeysThreadPoolSize = analysisOptions.cpuHeavySkyKeysThreadPoolSize;
-    } else {
-      this.cpuHeavySkyKeysThreadPoolSize = 0;
-    }
   }
 
   @Override
@@ -136,15 +134,6 @@ public final class QuiescingExecutorsImpl implements QuiescingExecutors {
   }
 
   @Override
-  public QuiescingExecutor getExecutionExecutor() {
-    checkState(executionParallelism > 0, "expected executionParallelism > 0 : %s", this);
-    return AbstractQueueVisitor.createWithExecutorService(
-        newNamedPool(SKYFRAME_EVALUATOR, executionParallelism),
-        ExceptionHandlingMode.FAIL_FAST,
-        ParallelEvaluatorErrorClassifier.instance());
-  }
-
-  @Override
   public QuiescingExecutor getMergedAnalysisAndExecutionExecutor() {
     checkState(analysisParallelism > 0, "expected analysisParallelism > 0 : %s", this);
     checkState(executionParallelism > 0, "expected executionParallelism > 0 : %s", this);
@@ -154,8 +143,11 @@ public final class QuiescingExecutorsImpl implements QuiescingExecutors {
         newNamedPool(SKYFRAME_EVALUATOR, analysisParallelism),
         AbstractQueueVisitor.createExecutorService(
             /* parallelism= */ cpuHeavySkyKeysThreadPoolSize, SKYFRAME_EVALUATOR_CPU_HEAVY),
-        AbstractQueueVisitor.createExecutorService(
-            /* parallelism= */ executionParallelism, SKYFRAME_EVALUATOR_EXECUTION),
+        useAsyncExecution
+            ? Executors.newThreadPerTaskExecutor(
+                Thread.ofVirtual().name(SKYFRAME_EVALUATOR_EXECUTION + "-", 0).factory())
+            : AbstractQueueVisitor.createExecutorService(
+                /* parallelism= */ executionParallelism, SKYFRAME_EVALUATOR_EXECUTION),
         ExceptionHandlingMode.FAIL_FAST,
         ParallelEvaluatorErrorClassifier.instance());
   }

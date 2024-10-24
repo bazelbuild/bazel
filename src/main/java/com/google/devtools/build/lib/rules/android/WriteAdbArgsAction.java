@@ -17,6 +17,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.DeterministicWriter;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -46,15 +47,14 @@ public final class WriteAdbArgsAction extends AbstractFileWriteAction {
   /** Options of the {@code mobile-install} command pertaining to the way {@code adb} is invoked. */
   public static final class Options extends OptionsBase {
     @Option(
-      name = "adb",
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.CHANGES_INPUTS},
-      help =
-          "adb binary to use for the 'mobile-install' command. If unspecified, the one in "
-              + "the Android SDK specified by the --android_sdk command line option (or the "
-              + "default SDK if --android_sdk is not specified) is used."
-    )
+        name = "adb",
+        defaultValue = "",
+        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+        effectTags = {OptionEffectTag.CHANGES_INPUTS},
+        help =
+            "adb binary to use for the 'mobile-install' command. If unspecified, the one in "
+                + "the Android SDK specified by the --android_sdk_channel command line option (or "
+                + " the default SDK if --android_sdk_channel is not specified) is used.")
     public String adb;
 
     @Option(
@@ -118,7 +118,7 @@ public final class WriteAdbArgsAction extends AbstractFileWriteAction {
   }
 
   public WriteAdbArgsAction(ActionOwner owner, Artifact outputFile) {
-    super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), outputFile, false);
+    super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), outputFile);
   }
 
   @Override
@@ -181,7 +181,7 @@ public final class WriteAdbArgsAction extends AbstractFileWriteAction {
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable Artifact.ArtifactExpander artifactExpander,
+      @Nullable ArtifactExpander artifactExpander,
       Fingerprint fp) {
     fp.addString(GUID);
   }

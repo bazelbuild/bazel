@@ -77,7 +77,7 @@ function fail() {
 DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 WORKSPACE_DIR="$(dirname "$(dirname "${DIR}")")"
 
-JAVA_VERSION=${JAVA_VERSION:-11}
+JAVA_VERSION=${JAVA_VERSION:-21}
 BAZELRC=${BAZELRC:-"/dev/null"}
 PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
 

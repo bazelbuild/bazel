@@ -14,7 +14,10 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.common.collect.ImmutableList;
 import java.io.IOException;
+import java.util.LinkedHashSet;
+import javax.annotation.Nullable;
 
 /** A {@link InputMetadataProvider} implementation that consults two others in a given order. */
 public final class DelegatingPairInputMetadataProvider implements InputMetadataProvider {
@@ -34,6 +37,21 @@ public final class DelegatingPairInputMetadataProvider implements InputMetadataP
     return (metadata != null) && (metadata != FileArtifactValue.MISSING_FILE_MARKER)
         ? metadata
         : secondary.getInputMetadata(input);
+  }
+
+  @Override
+  @Nullable
+  public RunfilesArtifactValue getRunfilesMetadata(ActionInput input) {
+    RunfilesArtifactValue result = primary.getRunfilesMetadata(input);
+    return result != null ? result : secondary.getRunfilesMetadata(input);
+  }
+
+  @Override
+  public ImmutableList<RunfilesTree> getRunfilesTrees() {
+    LinkedHashSet<RunfilesTree> result = new LinkedHashSet<>();
+    result.addAll(primary.getRunfilesTrees());
+    result.addAll(secondary.getRunfilesTrees());
+    return ImmutableList.copyOf(result);
   }
 
   @Override

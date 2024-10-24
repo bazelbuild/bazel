@@ -17,9 +17,7 @@ package com.google.devtools.build.lib.skyframe.serialization;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.math.BigInteger;
@@ -79,10 +77,8 @@ public final class ArrayCodecTest {
       }
     }
 
-    SerializationContext serializationContext =
-        new SerializationContext(
-            ObjectCodecRegistry.newBuilder().add(new FooCodec()).build(),
-            ImmutableClassToInstanceMap.of());
+    ObjectCodecs codecs =
+        new ObjectCodecs(ObjectCodecRegistry.newBuilder().add(new FooCodec()).build());
     // Serialize an array containing a special object of a special class for which the code always
     // will throw a StackOverflowError. This way we exercise the catch block in ArrayCodec without
     // having to cause a real StackOverflowError to organically occur.
@@ -93,8 +89,7 @@ public final class ArrayCodecTest {
     // wouldn't organically throw a StackOverflowError, and when we increased the nesting depth that
     // caused segfaults on machines/architectures with less stack memory.
     Object[] array = {foo};
-    assertThrows(
-        SerializationException.class, () -> TestUtils.toBytes(serializationContext, array));
+    assertThrows(SerializationException.class, () -> codecs.serialize(array));
   }
 
   private static void verifyDeserialized(Object[] original, Object[] deserialized) {

@@ -89,12 +89,12 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
   }
 
   @Override
-  public Iterable<SkyKey> getDirectDeps() {
+  public final Iterable<SkyKey> getDirectDeps() {
     return GroupedDeps.compressedToIterable(getCompressedDirectDepsForDoneEntry());
   }
 
   @Override
-  public boolean hasAtLeastOneDep() {
+  public final boolean hasAtLeastOneDep() {
     return !GroupedDeps.isEmpty(getCompressedDirectDepsForDoneEntry());
   }
 
@@ -413,6 +413,23 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
   @Override
   public final ImmutableSet<SkyKey> getResetDirectDeps() {
     return checkNotNull(dirtyBuildingState, this).getResetDirectDeps();
+  }
+
+  /**
+   * For Skyfocus only: clears out all direct dep edges of this node. It is not safe to call this
+   * otherwise.
+   */
+  public final synchronized void clearDirectDepsForSkyfocus() {
+
+    checkState(isDone(), this);
+    this.directDeps = GroupedDeps.EMPTY_COMPRESSED;
+  }
+
+  /** Flushes pending reverse dep operations, which potentially saves memory. */
+  public final synchronized void consolidateReverseDeps() {
+
+    checkState(isDone(), this);
+    ReverseDepsUtility.consolidateData(this);
   }
 
   @Override

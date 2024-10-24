@@ -25,15 +25,18 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.FileValue;
+import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.InterimModuleBuilder;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -48,6 +51,10 @@ import com.google.devtools.build.lib.skyframe.ExternalFilesHelper;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.FileFunction;
 import com.google.devtools.build.lib.skyframe.FileStateFunction;
+import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesFunction;
+import com.google.devtools.build.lib.skyframe.LocalRepositoryLookupFunction;
+import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
+import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PrecomputedFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
@@ -56,7 +63,11 @@ import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStateKey;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
@@ -129,7 +140,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
-                .put(FileValue.FILE, new FileFunction(packageLocator, directories))
+                .put(SkyFunctions.FILE, new FileFunction(packageLocator, directories))
                 .put(
                     FileStateKey.FILE_STATE,
                     new FileStateFunction(
@@ -137,9 +148,28 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                             new TimestampGranularityMonitor(BlazeClock.instance())),
                         SyscallCache.NO_CACHE,
                         externalFilesHelper))
+                .put(SkyFunctions.BAZEL_LOCK_FILE, new BazelLockFileFunction(rootDirectory))
                 .put(
                     SkyFunctions.MODULE_FILE,
-                    new ModuleFileFunction(registryFactory, rootDirectory, builtinModules))
+                    new ModuleFileFunction(
+                        ruleClassProvider.getBazelStarlarkEnvironment(),
+                        rootDirectory,
+                        builtinModules))
+                .put(
+                    SkyFunctions.PACKAGE_LOOKUP,
+                    new PackageLookupFunction(
+                        new AtomicReference<>(ImmutableSet.of()),
+                        CrossRepositoryLabelViolationStrategy.ERROR,
+                        BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
+                        BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
+                .put(
+                    SkyFunctions.IGNORED_PACKAGE_PREFIXES,
+                    new IgnoredPackagePrefixesFunction(
+                        /* ignoredPackagePrefixesFile= */ PathFragment.EMPTY_FRAGMENT))
+                .put(
+                    SkyFunctions.LOCAL_REPOSITORY_LOOKUP,
+                    new LocalRepositoryLookupFunction(
+                        BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
                 .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
                 .put(
                     SkyFunctions.REPOSITORY_DIRECTORY,
@@ -153,7 +183,11 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 .put(
                     BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
                     new BzlmodRepoRuleFunction(ruleClassProvider, directories))
-                .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction(registryFactory))
+                .put(
+                    SkyFunctions.REGISTRY,
+                    new RegistryFunction(registryFactory, directories.getWorkspace()))
+                .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction())
+                .put(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction())
                 .put(
                     SkyFunctions.MODULE_EXTENSION_REPO_MAPPING_ENTRIES,
                     new ModuleExtensionRepoMappingEntriesFunction())
@@ -169,6 +203,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
     RepositoryDelegatorFunction.FORCE_FETCH.set(
         differencer, RepositoryDelegatorFunction.FORCE_FETCH_DISABLED);
+    RepositoryDelegatorFunction.VENDOR_DIRECTORY.set(differencer, Optional.empty());
+
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, packageLocator.get());
     RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(
         differencer, Optional.empty());
@@ -176,6 +212,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());
     YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
+    BazelLockFileFunction.LOCKFILE_MODE.set(differencer, LockfileMode.UPDATE);
   }
 
   @Test
@@ -196,7 +233,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         "multiple_version_override(module_name='fff',versions=['1.0','2.0'])",
         "archive_override(module_name='ggg',urls=['https://hello.com/world.zip'])");
     FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
 
     EvaluationResult<RootModuleFileValue> result =
         evaluator.evaluate(
@@ -234,8 +271,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                     0));
     assertThat(rootModuleFileValue.getNonRegistryOverrideCanonicalRepoNameLookup())
         .containsExactly(
-            RepositoryName.create("eee~override"), "eee",
-            RepositoryName.create("ggg~override"), "ggg");
+            RepositoryName.create("eee+"), "eee",
+            RepositoryName.create("ggg+"), "ggg");
   }
 
   @Test
@@ -244,7 +281,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "bazel_dep(name='bbb',version='1.0')");
     FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
 
     EvaluationResult<RootModuleFileValue> result =
         evaluator.evaluate(
@@ -270,7 +307,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         "module(name='aaa')",
         "single_version_override(module_name='aaa',version='7')");
     FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
 
     EvaluationResult<RootModuleFileValue> result =
         evaluator.evaluate(
@@ -291,7 +328,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         "module(name='aaa')",
         "local_path_override(module_name='bazel_tools',path='./bazel_tools_new')");
     FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
 
     EvaluationResult<RootModuleFileValue> result =
         evaluator.evaluate(
@@ -299,14 +336,219 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     ModuleOverride bazelToolsOverride =
         result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE).getOverrides().get("bazel_tools");
     assertThat(bazelToolsOverride).isInstanceOf(LocalPathOverride.class);
-    assertThat((LocalPathOverride) bazelToolsOverride)
-        .isEqualTo(LocalPathOverride.create("./bazel_tools_new"));
+    assertThat(bazelToolsOverride).isEqualTo(LocalPathOverride.create("./bazel_tools_new"));
+  }
+
+  @Test
+  public void testRootModule_overridesIgnoredWithIgnoreDevDependency() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "bazel_dep(name='aaa')",
+        "single_version_override(module_name='ddd',version='18')",
+        "local_path_override(module_name='eee',path='somewhere/else')",
+        "multiple_version_override(module_name='fff',versions=['1.0','2.0'])",
+        "archive_override(module_name='ggg',urls=['https://hello.com/world.zip'])");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+    ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, true);
+
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE).getOverrides()).isEmpty();
+  }
+
+  @Test
+  public void testRootModule_include_good() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa')",
+        "include('//java:java.MODULE.bazel')",
+        "bazel_dep(name='foo', version='1.0')",
+        "register_toolchains('//:whatever')",
+        "include('//python:python.MODULE.bazel')");
+    scratch.overwriteFile(rootDirectory.getRelative("java/BUILD").getPathString());
+    scratch.overwriteFile(
+        rootDirectory.getRelative("java/java.MODULE.bazel").getPathString(),
+        "bazel_dep(name='java-foo', version='1.0')");
+    scratch.overwriteFile(rootDirectory.getRelative("python/BUILD").getPathString());
+    scratch.overwriteFile(
+        rootDirectory.getRelative("python/python.MODULE.bazel").getPathString(),
+        "bazel_dep(name='py-foo', version='1.0', repo_name='python-foo')",
+        "single_version_override(module_name='java-foo', version='2.0')",
+        "include('//python:toolchains/toolchains.MODULE.bazel')");
+    scratch.overwriteFile(
+        rootDirectory.getRelative("python/toolchains/toolchains.MODULE.bazel").getPathString(),
+        "register_toolchains('//:python-whatever')");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    if (result.hasError()) {
+      fail(result.getError().toString());
+    }
+    RootModuleFileValue rootModuleFileValue = result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE);
+    InterimModule expectedModule =
+        InterimModuleBuilder.create("aaa", "")
+            .setKey(ModuleKey.ROOT)
+            .addDep("java-foo", createModuleKey("java-foo", "1.0"))
+            .addDep("foo", createModuleKey("foo", "1.0"))
+            .addDep("python-foo", createModuleKey("py-foo", "1.0"))
+            .addToolchainsToRegister(ImmutableList.of("//:whatever", "//:python-whatever"))
+            .build();
+    assertThat(rootModuleFileValue.getModule()).isEqualTo(expectedModule);
+    // specifically assert the order of deps, which is significant; Map.equals semantics don't test
+    // this.
+    assertThat(rootModuleFileValue.getModule().getDeps())
+        .containsExactlyEntriesIn(expectedModule.getDeps())
+        .inOrder();
+    assertThat(rootModuleFileValue.getOverrides())
+        .containsExactly(
+            "java-foo",
+            SingleVersionOverride.create(
+                Version.parse("2.0"), "", ImmutableList.of(), ImmutableList.of(), 0));
+  }
+
+  @Test
+  public void testRootModule_include_bad_otherRepoLabel() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa')",
+        "include('@haha//java:java.MODULE.bazel')");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError().toString()).contains("starting with double slashes");
+  }
+
+  @Test
+  public void testRootModule_include_bad_relativeLabel() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa')",
+        "include(':relative.MODULE.bazel')");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError().toString()).contains("starting with double slashes");
+  }
+
+  @Test
+  public void testRootModule_include_bad_notEndingInModuleBazel() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa')",
+        "include('//:MODULE.bazel.segment')");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError().toString()).contains("have a name ending in '.MODULE.bazel'");
+  }
+
+  @Test
+  public void testRootModule_include_bad_badLabelSyntax() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa')",
+        "include('//haha/:::.MODULE.bazel')");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+
+    reporter.removeHandler(failFastHandler); // expect failures
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError().toString()).contains("bad include label");
+  }
+
+  @Test
+  public void testRootModule_include_bad_moduleAfterInclude() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "include('//java:java.MODULE.bazel')");
+    scratch.overwriteFile(rootDirectory.getRelative("java/BUILD").getPathString());
+    scratch.overwriteFile(
+        rootDirectory.getRelative("java/java.MODULE.bazel").getPathString(),
+        "module(name='bet-you-didnt-expect-this-didya')",
+        "bazel_dep(name='java-foo', version='1.0', repo_name='foo')");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+
+    reporter.removeHandler(failFastHandler); // expect failures
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent("if module() is called, it must be called before any other functions");
+  }
+
+  @Test
+  public void testRootModule_include_bad_repoNameCollision() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa')",
+        "include('//java:java.MODULE.bazel')",
+        "include('//python:python.MODULE.bazel')");
+    scratch.overwriteFile(rootDirectory.getRelative("java/BUILD").getPathString());
+    scratch.overwriteFile(
+        rootDirectory.getRelative("java/java.MODULE.bazel").getPathString(),
+        "bazel_dep(name='java-foo', version='1.0', repo_name='foo')");
+    scratch.overwriteFile(rootDirectory.getRelative("python/BUILD").getPathString());
+    scratch.overwriteFile(
+        rootDirectory.getRelative("python/python.MODULE.bazel").getPathString(),
+        "bazel_dep(name='python-foo', version='1.0', repo_name='foo')");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+
+    reporter.removeHandler(failFastHandler); // expect failures
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent("The repo name 'foo' is already being used");
+  }
+
+  @Test
+  public void testRootModule_include_bad_tryingToLeakBindings() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa')",
+        "FOO_NAME = 'foo'",
+        "include('//java:java.MODULE.bazel')");
+    scratch.overwriteFile(rootDirectory.getRelative("java/BUILD").getPathString());
+    scratch.overwriteFile(
+        rootDirectory.getRelative("java/java.MODULE.bazel").getPathString(),
+        "bazel_dep(name=FOO_NAME, version='1.0')");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+
+    reporter.removeHandler(failFastHandler); // expect failures
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent("name 'FOO_NAME' is not defined");
   }
 
   @Test
   public void forgotVersion() throws Exception {
     FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
 
     SkyKey skyKey = ModuleFileValue.key(createModuleKey("bbb", ""), null);
     EvaluationResult<ModuleFileValue> result =
@@ -334,7 +576,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 createModuleKey("bbb", "1.0"),
                 "module(name='bbb',version='1.0');bazel_dep(name='ddd',version='3.0')");
     ModuleFileFunction.REGISTRIES.set(
-        differencer, ImmutableList.of(registry1.getUrl(), registry2.getUrl(), registry3.getUrl()));
+        differencer, ImmutableSet.of(registry1.getUrl(), registry2.getUrl(), registry3.getUrl()));
 
     SkyKey skyKey = ModuleFileValue.key(createModuleKey("bbb", "1.0"), null);
     EvaluationResult<ModuleFileValue> result =
@@ -349,6 +591,25 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 .addDep("ccc", createModuleKey("ccc", "2.0"))
                 .setRegistry(registry2)
                 .build());
+  }
+
+  @Test
+  public void testNonRootModuleCannotUseInclude() throws Exception {
+    FakeRegistry registry =
+        registryFactory
+            .newFakeRegistry("/foo")
+            .addModule(
+                createModuleKey("foo", "1.0"),
+                "module(name='foo',version='1.0')",
+                "include('//java:MODULE.bazel.segment')");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.key(createModuleKey("foo", "1.0"), null)),
+            evaluationContext);
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError().toString()).contains("but it can only be used in the root module");
   }
 
   @Test
@@ -370,7 +631,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             .addModule(
                 createModuleKey("bbb", "1.0"),
                 "module(name='bbb',version='1.0');bazel_dep(name='ccc',version='3.0')");
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
 
     // The version is empty here due to the override.
     SkyKey skyKey =
@@ -421,7 +682,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             .addModule(
                 createModuleKey("bbb", "1.0"),
                 "module(name='bbb',version='1.0');bazel_dep(name='ccc',version='3.0')");
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
 
     // The version is empty here due to the override.
     SkyKey skyKey =
@@ -456,7 +717,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 createModuleKey("bbb", "1.0"),
                 "module(name='bbb',version='1.0',compatibility_level=6)",
                 "bazel_dep(name='ccc',version='3.0')");
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry1.getUrl()));
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry1.getUrl()));
 
     // Override the registry for B to be registry2 (instead of the default registry1).
     SkyKey skyKey =
@@ -499,7 +760,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 "maven.dep(coord='junit')",
                 "use_repo(maven, 'junit', 'guava')",
                 "maven.dep(coord='guava')");
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
 
     ModuleKey myMod = createModuleKey("mymod", "1.0");
     SkyKey skyKey = ModuleFileValue.key(myMod, null);
@@ -519,14 +780,18 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .setExtensionBzlFile("@mymod//:defs.bzl")
                         .setExtensionName("myext1")
                         .setIsolationKey(Optional.empty())
-                        .setUsingModule(myMod)
-                        .setLocation(
-                            Location.fromFileLineColumn(
-                                "fake:0/modules/mymod/1.0/MODULE.bazel", 2, 23))
-                        .setImports(ImmutableBiMap.of("repo1", "repo1"))
-                        .setDevImports(ImmutableSet.of())
-                        .setHasDevUseExtension(false)
-                        .setHasNonDevUseExtension(true)
+                        .setRepoOverrides(ImmutableMap.of())
+                        .addProxy(
+                            ModuleExtensionUsage.Proxy.builder()
+                                .setLocation(
+                                    Location.fromFileLineColumn(
+                                        "fake:0/modules/mymod/1.0/MODULE.bazel", 2, 23))
+                                .setDevDependency(false)
+                                .setProxyName("myext1")
+                                .setImports(ImmutableBiMap.of("repo1", "repo1"))
+                                .setContainingModuleFilePath(
+                                    LabelConstants.MODULE_DOT_BAZEL_FILE_NAME)
+                                .build())
                         .addTag(
                             Tag.builder()
                                 .setTagName("tag")
@@ -546,14 +811,19 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .setExtensionBzlFile("@mymod//:defs.bzl")
                         .setExtensionName("myext2")
                         .setIsolationKey(Optional.empty())
-                        .setUsingModule(myMod)
-                        .setLocation(
-                            Location.fromFileLineColumn(
-                                "fake:0/modules/mymod/1.0/MODULE.bazel", 5, 23))
-                        .setImports(ImmutableBiMap.of("other_repo1", "repo1", "repo2", "repo2"))
-                        .setDevImports(ImmutableSet.of())
-                        .setHasDevUseExtension(false)
-                        .setHasNonDevUseExtension(true)
+                        .setRepoOverrides(ImmutableMap.of())
+                        .addProxy(
+                            ModuleExtensionUsage.Proxy.builder()
+                                .setLocation(
+                                    Location.fromFileLineColumn(
+                                        "fake:0/modules/mymod/1.0/MODULE.bazel", 5, 23))
+                                .setDevDependency(false)
+                                .setProxyName("myext2")
+                                .setImports(
+                                    ImmutableBiMap.of("other_repo1", "repo1", "repo2", "repo2"))
+                                .setContainingModuleFilePath(
+                                    LabelConstants.MODULE_DOT_BAZEL_FILE_NAME)
+                                .build())
                         .addTag(
                             Tag.builder()
                                 .setTagName("tag1")
@@ -586,15 +856,20 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .setExtensionBzlFile("@rules_jvm_external//:defs.bzl")
                         .setExtensionName("maven")
                         .setIsolationKey(Optional.empty())
-                        .setUsingModule(myMod)
-                        .setLocation(
-                            Location.fromFileLineColumn(
-                                "fake:0/modules/mymod/1.0/MODULE.bazel", 10, 22))
-                        .setImports(
-                            ImmutableBiMap.of("mvn", "maven", "junit", "junit", "guava", "guava"))
-                        .setDevImports(ImmutableSet.of())
-                        .setHasDevUseExtension(false)
-                        .setHasNonDevUseExtension(true)
+                        .setRepoOverrides(ImmutableMap.of())
+                        .addProxy(
+                            ModuleExtensionUsage.Proxy.builder()
+                                .setLocation(
+                                    Location.fromFileLineColumn(
+                                        "fake:0/modules/mymod/1.0/MODULE.bazel", 10, 22))
+                                .setDevDependency(false)
+                                .setProxyName("maven")
+                                .setImports(
+                                    ImmutableBiMap.of(
+                                        "mvn", "maven", "junit", "junit", "guava", "guava"))
+                                .setContainingModuleFilePath(
+                                    LabelConstants.MODULE_DOT_BAZEL_FILE_NAME)
+                                .build())
                         .addTag(
                             Tag.builder()
                                 .setTagName("dep")
@@ -641,7 +916,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         "myext4 = use_extension('//:defs.bzl','myext')",
         "myext4.tag(name = 'tag4')",
         "use_repo(myext4, 'delta')");
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of());
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of());
 
     SkyKey skyKey = ModuleFileValue.KEY_FOR_ROOT_MODULE;
     EvaluationResult<ModuleFileValue> result =
@@ -659,15 +934,47 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .setExtensionBzlFile("@//:defs.bzl")
                         .setExtensionName("myext")
                         .setIsolationKey(Optional.empty())
-                        .setUsingModule(ModuleKey.ROOT)
-                        .setLocation(Location.fromFileLineColumn("/workspace/MODULE.bazel", 1, 23))
-                        .setImports(
-                            ImmutableBiMap.of(
-                                "alpha", "alpha", "beta", "beta", "gamma", "gamma", "delta",
-                                "delta"))
-                        .setDevImports(ImmutableSet.of("alpha", "gamma"))
-                        .setHasDevUseExtension(true)
-                        .setHasNonDevUseExtension(true)
+                        .setRepoOverrides(ImmutableMap.of())
+                        .addProxy(
+                            ModuleExtensionUsage.Proxy.builder()
+                                .setLocation(
+                                    Location.fromFileLineColumn("/workspace/MODULE.bazel", 1, 23))
+                                .setDevDependency(true)
+                                .setProxyName("myext1")
+                                .addImport("alpha", "alpha")
+                                .setContainingModuleFilePath(
+                                    LabelConstants.MODULE_DOT_BAZEL_FILE_NAME)
+                                .build())
+                        .addProxy(
+                            ModuleExtensionUsage.Proxy.builder()
+                                .setLocation(
+                                    Location.fromFileLineColumn("/workspace/MODULE.bazel", 4, 23))
+                                .setDevDependency(false)
+                                .setProxyName("myext2")
+                                .addImport("beta", "beta")
+                                .setContainingModuleFilePath(
+                                    LabelConstants.MODULE_DOT_BAZEL_FILE_NAME)
+                                .build())
+                        .addProxy(
+                            ModuleExtensionUsage.Proxy.builder()
+                                .setLocation(
+                                    Location.fromFileLineColumn("/workspace/MODULE.bazel", 7, 23))
+                                .setDevDependency(true)
+                                .setProxyName("myext3")
+                                .addImport("gamma", "gamma")
+                                .setContainingModuleFilePath(
+                                    LabelConstants.MODULE_DOT_BAZEL_FILE_NAME)
+                                .build())
+                        .addProxy(
+                            ModuleExtensionUsage.Proxy.builder()
+                                .setLocation(
+                                    Location.fromFileLineColumn("/workspace/MODULE.bazel", 10, 23))
+                                .setDevDependency(false)
+                                .setProxyName("myext4")
+                                .addImport("delta", "delta")
+                                .setContainingModuleFilePath(
+                                    LabelConstants.MODULE_DOT_BAZEL_FILE_NAME)
+                                .build())
                         .addTag(
                             Tag.builder()
                                 .setTagName("tag")
@@ -740,7 +1047,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 "myext4 = use_extension('//:defs.bzl','myext')",
                 "myext4.tag(name = 'tag4')",
                 "use_repo(myext4, 'delta')");
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
 
     ModuleKey myMod = createModuleKey("mymod", "1.0");
     SkyKey skyKey = ModuleFileValue.key(myMod, null);
@@ -759,14 +1066,29 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .setExtensionBzlFile("@mymod//:defs.bzl")
                         .setExtensionName("myext")
                         .setIsolationKey(Optional.empty())
-                        .setUsingModule(myMod)
-                        .setLocation(
-                            Location.fromFileLineColumn(
-                                "fake:0/modules/mymod/1.0/MODULE.bazel", 5, 23))
-                        .setImports(ImmutableBiMap.of("beta", "beta", "delta", "delta"))
-                        .setDevImports(ImmutableSet.of())
-                        .setHasDevUseExtension(false)
-                        .setHasNonDevUseExtension(true)
+                        .setRepoOverrides(ImmutableMap.of())
+                        .addProxy(
+                            ModuleExtensionUsage.Proxy.builder()
+                                .setLocation(
+                                    Location.fromFileLineColumn(
+                                        "fake:0/modules/mymod/1.0/MODULE.bazel", 5, 23))
+                                .setDevDependency(false)
+                                .setProxyName("myext2")
+                                .addImport("beta", "beta")
+                                .setContainingModuleFilePath(
+                                    LabelConstants.MODULE_DOT_BAZEL_FILE_NAME)
+                                .build())
+                        .addProxy(
+                            ModuleExtensionUsage.Proxy.builder()
+                                .setLocation(
+                                    Location.fromFileLineColumn(
+                                        "fake:0/modules/mymod/1.0/MODULE.bazel", 11, 23))
+                                .setDevDependency(false)
+                                .setProxyName("myext4")
+                                .addImport("delta", "delta")
+                                .setContainingModuleFilePath(
+                                    LabelConstants.MODULE_DOT_BAZEL_FILE_NAME)
+                                .build())
                         .addTag(
                             Tag.builder()
                                 .setTagName("tag")
@@ -807,7 +1129,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 "module(name='mymod',version='1.0')",
                 "myext = use_extension('//:defs.bzl','myext')",
                 "use_repo(myext, mymod='some_repo')");
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
 
     SkyKey skyKey = ModuleFileValue.key(createModuleKey("mymod", "1.0"), null);
     reporter.removeHandler(failFastHandler); // expect failures
@@ -827,7 +1149,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 "module(name='mymod',version='1.0')",
                 "myext = use_extension('//:defs.bzl','myext')",
                 "use_repo(myext, 'some_repo', again='some_repo')");
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
 
     SkyKey skyKey = ModuleFileValue.key(createModuleKey("mymod", "1.0"), null);
     reporter.removeHandler(failFastHandler); // expect failures
@@ -846,7 +1168,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         "http_archive = use_repo_rule('@bazel_tools//:http.bzl','http_archive')",
         "http_archive(name='guava',url='guava.com')",
         "http_archive(name='vuaga',url='vuaga.com',dev_dependency=True)");
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of());
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of());
 
     SkyKey skyKey = ModuleFileValue.KEY_FOR_ROOT_MODULE;
     EvaluationResult<ModuleFileValue> result =
@@ -864,14 +1186,34 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .setExtensionBzlFile("//:MODULE.bazel")
                         .setExtensionName("_repo_rules")
                         .setIsolationKey(Optional.empty())
-                        .setUsingModule(ModuleKey.ROOT)
-                        .setLocation(Location.fromFile("/workspace/MODULE.bazel"))
-                        .setImports(
-                            ImmutableBiMap.of(
-                                "repo_name", "repo_name", "guava", "guava", "vuaga", "vuaga"))
-                        .setDevImports(ImmutableSet.of("vuaga"))
-                        .setHasDevUseExtension(true)
-                        .setHasNonDevUseExtension(true)
+                        .setRepoOverrides(ImmutableMap.of())
+                        .addProxy(
+                            ModuleExtensionUsage.Proxy.builder()
+                                .setLocation(
+                                    Location.fromFileLineColumn("/workspace/MODULE.bazel", 2, 5))
+                                .setDevDependency(false)
+                                .addImport("repo_name", "repo_name")
+                                .setContainingModuleFilePath(
+                                    LabelConstants.MODULE_DOT_BAZEL_FILE_NAME)
+                                .build())
+                        .addProxy(
+                            ModuleExtensionUsage.Proxy.builder()
+                                .setLocation(
+                                    Location.fromFileLineColumn("/workspace/MODULE.bazel", 4, 13))
+                                .setDevDependency(false)
+                                .addImport("guava", "guava")
+                                .setContainingModuleFilePath(
+                                    LabelConstants.MODULE_DOT_BAZEL_FILE_NAME)
+                                .build())
+                        .addProxy(
+                            ModuleExtensionUsage.Proxy.builder()
+                                .setLocation(
+                                    Location.fromFileLineColumn("/workspace/MODULE.bazel", 5, 13))
+                                .setDevDependency(true)
+                                .addImport("vuaga", "vuaga")
+                                .setContainingModuleFilePath(
+                                    LabelConstants.MODULE_DOT_BAZEL_FILE_NAME)
+                                .build())
                         .addTag(
                             Tag.builder()
                                 .setTagName("//:repo.bzl%repo")
@@ -952,6 +1294,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     assertThrows(EvalException.class, () -> ModuleFileGlobals.validateModuleName("_foo"));
     assertThrows(EvalException.class, () -> ModuleFileGlobals.validateModuleName("foo#bar"));
     assertThrows(EvalException.class, () -> ModuleFileGlobals.validateModuleName("foo~bar"));
+    assertThrows(EvalException.class, () -> ModuleFileGlobals.validateModuleName("foo+bar"));
   }
 
   @Test
@@ -1040,7 +1383,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "bazel_dep(name='foo',version='1.0')");
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of());
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of());
 
     SkyKey skyKey = ModuleFileValue.KEY_FOR_ROOT_MODULE;
     EvaluationResult<RootModuleFileValue> result =
@@ -1076,7 +1419,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         rootDirectory.getRelative("tools/MODULE.bazel").getPathString(),
         "module(name='bazel_tools',version='1.0')",
         "bazel_dep(name='foo',version='2.0')");
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of());
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of());
 
     SkyKey skyKey =
         ModuleFileValue.key(createModuleKey("bazel_tools", ""), builtinModules.get("bazel_tools"));
@@ -1101,7 +1444,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "module(name='aaa',version='0.1',repo_name='bbb')");
     FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
 
     EvaluationResult<RootModuleFileValue> result =
         evaluator.evaluate(
@@ -1125,7 +1468,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         "module(name='aaa',version='0.1',repo_name='bbb')",
         "bazel_dep(name='bbb',version='1.0')");
     FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
 
     reporter.removeHandler(failFastHandler); // expect failures
     evaluator.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
@@ -1140,7 +1483,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         "module(name='aaa',version='0.1',repo_name='bbb')",
         "module(name='aaa',version='0.1',repo_name='bbb')");
     FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
 
     reporter.removeHandler(failFastHandler); // expect failures
     evaluator.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
@@ -1155,7 +1498,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         "use_extension('//:extensions.bzl', 'my_ext')",
         "module(name='aaa',version='0.1',repo_name='bbb')");
     FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
 
     reporter.removeHandler(failFastHandler); // expect failures
     evaluator.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
@@ -1169,7 +1512,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "if 3+5>7: module(name='aaa',version='0.1',repo_name='bbb')");
     FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
 
     reporter.removeHandler(failFastHandler); // expect failures
     evaluator.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
@@ -1192,7 +1535,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "isolated_ext = use_extension('//:extensions.bzl', 'my_ext', isolate = True)");
     FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
 
     EvaluationResult<RootModuleFileValue> result =
         evaluator.evaluate(
@@ -1219,7 +1562,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "use_extension('//:extensions.bzl', 'my_ext', isolate = True)");
     FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
 
     reporter.removeHandler(failFastHandler); // expect failures
     evaluator.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
@@ -1234,7 +1577,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "use_extension('//:extensions.bzl', 'my_ext', isolate = True)");
     FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
 
     reporter.removeHandler(failFastHandler); // expect failures
     evaluator.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
@@ -1242,5 +1585,459 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         "Error in use_extension: in call to use_extension(), parameter 'isolate' is experimental "
             + "and thus unavailable with the current flags. It may be enabled by setting "
             + "--experimental_isolated_extension_usages");
+  }
+
+  @Test
+  public void testRegisterToolchains_singlePackageRestriction_underDir() throws Exception {
+    // Test intentionally introduces errors.
+    reporter.removeHandler(failFastHandler);
+    PrecomputedValue.STARLARK_SEMANTICS.set(
+        differencer,
+        StarlarkSemantics.builder()
+            .setBool(BuildLanguageOptions.EXPERIMENTAL_SINGLE_PACKAGE_TOOLCHAIN_BINDING, true)
+            .build());
+
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa')",
+        "register_toolchains('//bar/...')");
+
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+
+    assertContainsEvent(
+        "invalid target pattern \"//bar/...\": register_toolchain target patterns "
+            + "may only refer to targets within a single package");
+  }
+
+  @Test
+  public void testRegisterToolchains_pathSyntax() throws Exception {
+    // Test intentionally introduces errors.
+    reporter.removeHandler(failFastHandler);
+
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa')",
+        "register_toolchains('bar/baz')");
+
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+
+    assertContainsEvent(
+        "Expected absolute target patterns (must begin with '//' or '@') for 'register_toolchains'"
+            + " argument, but got 'bar/baz' as an argument");
+  }
+
+  @Test
+  public void testRegisterToolchains_singlePackageRestriction() throws Exception {
+    PrecomputedValue.STARLARK_SEMANTICS.set(
+        differencer,
+        StarlarkSemantics.builder()
+            .setBool(BuildLanguageOptions.EXPERIMENTAL_SINGLE_PACKAGE_TOOLCHAIN_BINDING, true)
+            .build());
+
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa')",
+        "register_toolchains('//:whatever')",
+        "register_toolchains('//bar:all')",
+        "register_toolchains('//qux:baz')");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isFalse();
+  }
+
+  @Test
+  public void testNoUsages() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa')",
+        "http_archive = use_repo_rule('@bazel_tools//tools/build_defs/repo:http.bzl',"
+            + " 'http_archive')");
+
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isFalse();
+  }
+
+  @Test
+  public void testInvalidRepoInPatches() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa')",
+        "single_version_override(",
+        "    module_name = 'bbb',",
+        "    version = '1.0',",
+        "    patches = ['@unknown_repo//:patch.bzl'],",
+        ")");
+
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+
+    assertContainsEvent(
+        "Error in single_version_override: invalid label in 'patches': only patches in the main"
+            + " repository can be applied, not from '@unknown_repo'");
+  }
+
+  @Test
+  public void testInvalidUseExtensionLabel() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa')",
+        "use_extension('@foo/bar:extensions.bzl', 'my_ext')");
+
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+
+    assertContainsEvent(
+        "Error in use_extension: invalid label \"@foo/bar:extensions.bzl\": invalid repository"
+            + " name 'foo/bar:extensions.bzl': repo names may contain only A-Z, a-z, 0-9, '-',"
+            + " '_', '.' and '+'");
+  }
+
+  @Test
+  public void testSingleVersionOverridePatches() throws Exception {
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+    ModuleKey bbb = createModuleKey("bbb", "1.0");
+    registry.addModule(bbb, "module(name='bbb',version='1.0')");
+
+    scratch.file("BUILD");
+    scratch.file(
+        "patch.diff",
+        """
+        diff --git a/MODULE.bazel b/MODULE.bazel
+        --- a/MODULE.bazel
+        +++ b/MODULE.bazel
+        @@ -1,1 +1,1 @@
+        -module(name='bbb',version='1.0')
+        +module(name='bbb',version='1.0',bazel_compatibility=[">=7.0.0"])
+        diff --git a/not/MODULE.bazel b/not/MODULE.bazel
+        --- a/not/MODULE.bazel
+        +++ b/not/MODULE.bazel
+        @@ -1,1 +1,2 @@
+         module(name='bbb',version='1.0',bazel_compatibility=[">=7.0.0"])
+        +bazel_dep(name='ccc',version='3.0')
+        diff --git a/also/not/MODULE.bazel b/also/not/MODULE.bazel.bak
+        similarity index 55%
+        rename from also/not/MODULE.bazel
+        rename to also/not/MODULE.bazel.bak
+        index 3f855b5..949dd15 100644
+        """);
+    scratch.file("other/pkg/BUILD");
+    Path otherPatch =
+        scratch.file(
+            "other/pkg/other_patch.diff",
+            """
+            --- a/MODULE.bazel
+            +++ b/MODULE.bazel
+            @@ -1,1 +1,2 @@
+             module(name='bbb',version='1.0',bazel_compatibility=[">=7.0.0"])
+            +bazel_dep(name='ccc',version='3.0')
+            """);
+
+    var moduleFileKey =
+        ModuleFileValue.key(
+            bbb,
+            SingleVersionOverride.create(
+                Version.EMPTY,
+                "",
+                ImmutableList.of(
+                    Label.parseCanonicalUnchecked("//:patch.diff"),
+                    Label.parseCanonicalUnchecked("@other_repo//:patch.diff"),
+                    Label.parseCanonicalUnchecked("//other/pkg:other_patch.diff")),
+                ImmutableList.of(),
+                1));
+    EvaluationResult<ModuleFileValue> result =
+        evaluator.evaluate(ImmutableList.of(moduleFileKey), evaluationContext);
+    if (result.hasError()) {
+      throw result.getError().getException();
+    }
+    assertThat(result.get(moduleFileKey).getModule().getBazelCompatibility())
+        .isEqualTo(ImmutableList.of(">=7.0.0"));
+    assertThat(result.get(moduleFileKey).getModule().getDeps())
+        .containsExactly(
+            "ccc", InterimModule.DepSpec.fromModuleKey(new ModuleKey("ccc", Version.parse("3.0"))));
+
+    FileSystemUtils.writeContentAsLatin1(
+        otherPatch,
+        """
+        --- a/MODULE.bazel
+        +++ b/MODULE.bazel
+        @@ -1,1 +1,2 @@
+         module(name='bbb',version='1.0',bazel_compatibility=[">=7.0.0"])
+        +bazel_dep(name='ccc',version='2.0')
+        """);
+    differencer.invalidate(
+        ImmutableList.of(
+            FileStateValue.key(RootedPath.toRootedPath(Root.fromPath(rootDirectory), otherPatch))));
+
+    result = evaluator.evaluate(ImmutableList.of(moduleFileKey), evaluationContext);
+    if (result.hasError()) {
+      throw result.getError().getException();
+    }
+    assertThat(result.get(moduleFileKey).getModule().getBazelCompatibility())
+        .isEqualTo(ImmutableList.of(">=7.0.0"));
+    assertThat(result.get(moduleFileKey).getModule().getDeps())
+        .containsExactly(
+            "ccc", InterimModule.DepSpec.fromModuleKey(new ModuleKey("ccc", Version.parse("2.0"))));
+  }
+
+  @Test
+  public void testSingleVersionOverridePatches_failsOnRename() throws Exception {
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+    ModuleKey bbb = createModuleKey("bbb", "1.0");
+    registry.addModule(bbb, "module(name='bbb',version='1.0')");
+
+    scratch.file("BUILD");
+    scratch.file(
+        "patch.diff",
+        """
+        diff --git a/MODULE.bazel b/MODULE.bazel.bak
+        similarity index 55%
+        rename from MODULE.bazel
+        rename to MODULE.bazel.bak
+        index 3f855b5..949dd15 100644
+        """);
+
+    var moduleFileKey =
+        ModuleFileValue.key(
+            bbb,
+            SingleVersionOverride.create(
+                Version.EMPTY,
+                "",
+                ImmutableList.of(Label.parseCanonicalUnchecked("//:patch.diff")),
+                ImmutableList.of(),
+                1));
+    EvaluationResult<ModuleFileValue> result =
+        evaluator.evaluate(ImmutableList.of(moduleFileKey), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError().getException())
+        .hasMessageThat()
+        .isEqualTo(
+            "error applying single_version_override patch /workspace/patch.diff to module file:"
+                + " Renaming /module/MODULE.bazel while applying patches to it as a single file is"
+                + " not supported.");
+  }
+
+  @Test
+  public void testOverrideRepo_overridingRepoDoesntExist() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        """
+        module(name='aaa')
+        ext = use_extension('//:defs.bzl', 'ext')
+        override_repo(ext, 'foo')
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+
+    assertContainsEvent(
+        """
+        ERROR /workspace/MODULE.bazel:3:14: Traceback (most recent call last):
+        \tFile "/workspace/MODULE.bazel", line 3, column 14, in <toplevel>
+        \t\toverride_repo(ext, 'foo')
+        Error in override_repo: The repo exported as 'foo' by module extension 'ext' is \
+        overridden with 'foo', but no repo is visible under this name""");
+  }
+
+  @Test
+  public void testOverrideRepo_duplicateOverride() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        """
+        module(name='aaa')
+        bazel_dep(name = "override1", version = "1.0")
+        bazel_dep(name = "override2", version = "1.0")
+        ext = use_extension('//:defs.bzl', 'ext')
+        override_repo(ext, foo = "override1")
+        override_repo(ext, foo = "override2")
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+
+    assertContainsEvent(
+        """
+        ERROR /workspace/MODULE.bazel:6:14: Traceback (most recent call last):
+        \tFile "/workspace/MODULE.bazel", line 6, column 14, in <toplevel>
+        \t\toverride_repo(ext, foo = "override2")
+        Error in override_repo: The repo exported as 'foo' by module extension 'ext' is already \
+        overridden with 'override1' at /workspace/MODULE.bazel:5:14""");
+  }
+
+  @Test
+  public void testOverrideRepo_chain_singleExtension() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        """
+        module(name='aaa')
+        bazel_dep(name = "override", version = "1.0")
+        ext = use_extension('//:defs.bzl', 'ext')
+        use_repo(ext, bar = "foo")
+        override_repo(ext, baz = "bar")
+        override_repo(ext, foo = "override")
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+
+    assertContainsEvent(
+        """
+        ERROR /workspace/MODULE.bazel:5:14: Traceback (most recent call last):
+        \tFile "/workspace/MODULE.bazel", line 5, column 14, in <toplevel>
+        \t\toverride_repo(ext, baz = "bar")
+        Error in override_repo: The repo 'bar' used as an override for 'baz' in module extension \
+        'ext' is itself overridden with 'override' at /workspace/MODULE.bazel:6:14, which is not \
+        supported.""");
+  }
+
+  @Test
+  public void testOverrideRepo_chain_multipleExtensions() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        """
+        module(name='aaa')
+        bazel_dep(name = "override", version = "1.0")
+        ext1 = use_extension('//:defs.bzl', 'ext1')
+        ext2 = use_extension('//:defs.bzl', 'ext2')
+        override_repo(ext1, baz = "bar")
+        override_repo(ext2, foo = "override")
+        use_repo(ext2, bar = "foo")
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+
+    assertContainsEvent(
+        """
+        ERROR /workspace/MODULE.bazel:5:14: Traceback (most recent call last):
+        \tFile "/workspace/MODULE.bazel", line 5, column 14, in <toplevel>
+        \t\toverride_repo(ext1, baz = "bar")
+        Error in override_repo: The repo 'bar' used as an override for 'baz' in module extension \
+        'ext1' is itself overridden with 'override' at /workspace/MODULE.bazel:6:14, which is not \
+        supported.""");
+  }
+
+  @Test
+  public void testOverrideRepo_cycle_singleExtension() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        """
+        module(name='aaa')
+        bazel_dep(name = "override", version = "1.0")
+        ext = use_extension('//:defs.bzl', 'ext')
+        use_repo(ext, my_foo = "foo", my_bar = "bar")
+        override_repo(ext, foo = "my_bar", bar = "my_foo")
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+
+    assertContainsEvent(
+        """
+        ERROR /workspace/MODULE.bazel:5:14: Traceback (most recent call last):
+        \tFile "/workspace/MODULE.bazel", line 5, column 14, in <toplevel>
+        \t\toverride_repo(ext, foo = "my_bar", bar = "my_foo")
+        Error in override_repo: The repo 'my_foo' used as an override for 'bar' in module \
+        extension 'ext' is itself overridden with 'my_bar' at /workspace/MODULE.bazel:5:14, which \
+        is not supported.""");
+  }
+
+  @Test
+  public void testOverrideRepo_cycle_multipleExtensions() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        """
+        module(name='aaa')
+        ext1 = use_extension('//:defs.bzl', 'ext1')
+        ext2 = use_extension('//:defs.bzl', 'ext2')
+        override_repo(ext1, foo = "my_bar")
+        override_repo(ext2, bar = "my_foo")
+        use_repo(ext1, my_foo = "foo")
+        use_repo(ext2, my_bar = "bar")
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+
+    assertContainsEvent(
+        """
+        ERROR /workspace/MODULE.bazel:5:14: Traceback (most recent call last):
+        \tFile "/workspace/MODULE.bazel", line 5, column 14, in <toplevel>
+        \t\toverride_repo(ext2, bar = "my_foo")
+        Error in override_repo: The repo 'my_foo' used as an override for 'bar' in module \
+        extension 'ext2' is itself overridden with 'my_bar' at /workspace/MODULE.bazel:4:14, \
+        which is not supported.""");
+  }
+
+  @Test
+  public void testInjectRepo_imported() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        """
+        module(name='aaa')
+        bazel_dep(name = 'my_repo', version = "1.0")
+        ext = use_extension('//:defs.bzl', 'ext')
+        inject_repo(ext, foo = 'my_repo')
+        use_repo(ext, bar = 'foo')
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+
+    assertContainsEvent(
+        """
+        ERROR /workspace/MODULE.bazel:5:9: Traceback (most recent call last):
+        \tFile "/workspace/MODULE.bazel", line 5, column 9, in <toplevel>
+        \t\tuse_repo(ext, bar = 'foo')
+        Error in use_repo: Cannot import repo 'foo' that has been injected into \
+        module extension 'ext' at /workspace/MODULE.bazel:4:12. Please refer \
+        to @my_repo directly.\
+        """);
   }
 }

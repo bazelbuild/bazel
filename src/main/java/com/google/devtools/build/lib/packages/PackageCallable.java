@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.packages;
 
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import java.util.Map;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
@@ -39,7 +38,7 @@ public class PackageCallable {
       useStarlarkThread = true)
   public Object packageCallable(Map<String, Object> kwargs, StarlarkThread thread)
       throws EvalException {
-    Package.Builder pkgBuilder = PackageFactory.getContext(thread);
+    Package.Builder pkgBuilder = Package.Builder.fromOrFailAllowBuildOnly(thread, "package()");
     if (pkgBuilder.isPackageFunctionUsed()) {
       throw new EvalException("'package' can only be used once per BUILD file");
     }
@@ -50,15 +49,8 @@ public class PackageCallable {
     }
 
     PackageArgs.Builder pkgArgsBuilder = PackageArgs.builder();
-    boolean disallowDistribs =
-        thread.getSemantics().getBool(BuildLanguageOptions.INCOMPATIBLE_NO_PACKAGE_DISTRIBS);
     for (Map.Entry<String, Object> kwarg : kwargs.entrySet()) {
       String name = kwarg.getKey();
-      if (disallowDistribs && name.equals("distribs")) {
-        throw Starlark.errorf(
-            "'package(distribs=...)' is not allowed when --incompatible_no_package_distribs is"
-                + " set");
-      }
       Object rawValue = kwarg.getValue();
       processParam(name, rawValue, pkgBuilder, pkgArgsBuilder);
     }

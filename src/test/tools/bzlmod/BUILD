@@ -20,9 +20,10 @@ sh_test(
     srcs = ["verify_default_lock_file.sh"],
     data = [
         ":MODULE.bazel.lock",
+        "//:MODULE.bazel.lock",
+        "//src:MODULE.tools",
         "//src:bazel",
         "//src/test/shell/bazel:test-deps",
     ],
-    tags = ["requires-network"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )

@@ -357,9 +357,7 @@ public final class ClassCache implements Closeable {
                     if (!name.endsWith(".class")) {
                       return; // Not a class file.
                     }
-                    if (isBoot
-                        && (name.startsWith("org/jspecify/annotations")
-                            || name.startsWith("org/jspecify/nullness"))) {
+                    if (isBoot && name.startsWith("org/jspecify/annotations")) {
                       // For details on the JSpecify special case, see StrictJavaDepsPlugin.
                       return;
                     }

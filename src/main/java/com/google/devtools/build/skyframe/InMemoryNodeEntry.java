@@ -37,6 +37,7 @@ public interface InMemoryNodeEntry extends NodeEntry {
   Object getCompressedDirectDepsForDoneEntry();
 
   @Override // Remove InterruptedException.
+  @Nullable
   SkyValue getValue();
 
   @Override // Remove InterruptedException.
@@ -53,6 +54,12 @@ public interface InMemoryNodeEntry extends NodeEntry {
 
   @Override // Remove InterruptedException.
   Iterable<SkyKey> getDirectDeps();
+
+  @Override // Remove InterruptedException.
+  boolean hasAtLeastOneDep();
+
+  @Override // Remove InterruptedException.
+  void removeReverseDep(SkyKey reverseDep);
 
   @Override // Remove InterruptedException.
   Collection<SkyKey> getReverseDepsForDoneEntry();

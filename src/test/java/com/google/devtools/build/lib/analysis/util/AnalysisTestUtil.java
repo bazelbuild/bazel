@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -30,18 +31,15 @@ import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
-import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
-import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.Runfiles;
-import com.google.devtools.build.lib.analysis.SingleRunfilesSupplier;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
-import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Key;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Options;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
@@ -49,6 +47,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -62,7 +61,6 @@ import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.testutil.FakeAttributeMapper;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
-import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -152,6 +150,11 @@ public final class AnalysisTestUtil {
     }
 
     @Override
+    public SpecialArtifact getRunfilesArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
+      return original.getRunfilesArtifact(rootRelativePath, root);
+    }
+
+    @Override
     public SpecialArtifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
       return original.getTreeArtifact(rootRelativePath, root);
     }
@@ -164,11 +167,6 @@ public final class AnalysisTestUtil {
     @Override
     public Artifact getFilesetArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
       return original.getFilesetArtifact(rootRelativePath, root);
-    }
-
-    @Override
-    public MiddlemanFactory getMiddlemanFactory() {
-      return original.getMiddlemanFactory();
     }
 
     @Override
@@ -225,6 +223,11 @@ public final class AnalysisTestUtil {
     public ActionKeyContext getActionKeyContext() {
       return original.getActionKeyContext();
     }
+
+    @Override
+    public RepositoryMapping getMainRepoMapping() throws InterruptedException {
+      return original.getMainRepoMapping();
+    }
   }
 
   /** A dummy WorkspaceStatusAction. */
@@ -259,15 +262,19 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public String getMnemonic() {
-      return "DummyBuildInfoAction";
+    public boolean executeUnconditionally() {
+      return false; // Some test assertions rely on this action being cached.
     }
 
     @Override
-    public void computeKey(
-        ActionKeyContext actionKeyContext,
-        @Nullable Artifact.ArtifactExpander artifactExpander,
-        Fingerprint fp) {}
+    public boolean isVolatile() {
+      return false;
+    }
+
+    @Override
+    public String getMnemonic() {
+      return "DummyBuildInfoAction";
+    }
 
     @Override
     public Artifact getVolatileStatus() {
@@ -280,17 +287,8 @@ public final class AnalysisTestUtil {
     }
   }
 
-  /** A WorkspaceStatusAction.Context that has no stable keys and no volatile keys. */
+  /** A {@link WorkspaceStatusAction.Context} that does not support any operations. */
   public static class DummyWorkspaceStatusActionContext implements WorkspaceStatusAction.Context {
-    @Override
-    public ImmutableMap<String, Key> getStableKeys() {
-      return ImmutableMap.of();
-    }
-
-    @Override
-    public ImmutableMap<String, Key> getVolatileKeys() {
-      return ImmutableMap.of();
-    }
 
     @Override
     public Options getOptions() {
@@ -365,6 +363,11 @@ public final class AnalysisTestUtil {
     }
 
     @Override
+    public SpecialArtifact getRunfilesArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
+      return null;
+    }
+
+    @Override
     public SpecialArtifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
       return null;
     }
@@ -376,11 +379,6 @@ public final class AnalysisTestUtil {
 
     @Override
     public ExtendedEventHandler getEventHandler() {
-      return null;
-    }
-
-    @Override
-    public MiddlemanFactory getMiddlemanFactory() {
       return null;
     }
 
@@ -405,7 +403,7 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public ImmutableMap<String, Object> getStarlarkDefinedBuiltins() throws InterruptedException {
+    public ImmutableMap<String, Object> getStarlarkDefinedBuiltins() {
       return null;
     }
 
@@ -455,6 +453,11 @@ public final class AnalysisTestUtil {
     public ActionKeyContext getActionKeyContext() {
       return null;
     }
+
+    @Override
+    public RepositoryMapping getMainRepoMapping() {
+      return RepositoryMapping.ALWAYS_FALLBACK;
+    }
   }
 
   /** Matches the output path prefix contributed by a C++ configuration fragment. */
@@ -467,8 +470,8 @@ public final class AnalysisTestUtil {
 
   /**
    * Apply {@code function} to the path string of the given ArtifactRoot. If the root path matches
-   * {@link OUTPUT_PATH_CPP_PREFIX_PATTERN} or {@link OUTPUT_PATH_ANDROID_PREFIX_PATTERN}, also use
-   * those to update the path and invoke {@code function} again.
+   * {@link #OUTPUT_PATH_CPP_PREFIX_PATTERN} or {@link #OUTPUT_PATH_ANDROID_PREFIX_PATTERN}, also
+   * use those to update the path and invoke {@code function} again.
    *
    * @return the result of {@code function} from the most specific root path
    */
@@ -507,9 +510,6 @@ public final class AnalysisTestUtil {
     computeRootPaths(
         targetConfiguration.getGenfilesDirectory(RepositoryName.MAIN),
         path -> rootMap.put(path, "bin"));
-    computeRootPaths(
-        targetConfiguration.getMiddlemanDirectory(RepositoryName.MAIN),
-        path -> rootMap.put(path, "internal"));
 
     Set<String> files = new LinkedHashSet<>();
     for (Artifact artifact : artifacts) {
@@ -525,10 +525,9 @@ public final class AnalysisTestUtil {
     return files;
   }
 
-  /** Creates a {@link RunfilesSupplier} for use in tests. */
-  public static RunfilesSupplier createRunfilesSupplier(
-      PathFragment runfilesDir, Runfiles runfiles) {
-    return new SingleRunfilesSupplier(
+  /** Creates a {@link RunfilesTree} for use in tests. */
+  public static RunfilesTree createRunfilesTree(PathFragment runfilesDir, Runfiles runfiles) {
+    return new FakeRunfilesTree(
         runfilesDir,
         runfiles,
         /* repoMappingManifest= */ null,
@@ -544,7 +543,7 @@ public final class AnalysisTestUtil {
             .create(
                 AttributeTransitionData.builder()
                     .attributes(FakeAttributeMapper.empty())
-                    .executionPlatform(Label.parseCanonicalUnchecked(TestConstants.PLATFORM_LABEL))
+                    .executionPlatform(targetOptions.get(PlatformOptions.class).hostPlatform)
                     .analysisData(
                         skyframeExecutor.getStarlarkExecTransitionForTesting(
                             targetOptions, handler))

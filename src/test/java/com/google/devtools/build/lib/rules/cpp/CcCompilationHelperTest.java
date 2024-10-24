@@ -56,7 +56,6 @@ public final class CcCompilationHelperTest extends BuildViewTestCase {
     tester.testAllPublicInstanceMethods(
         new CcCompilationHelper(
             ruleContext,
-            ruleContext,
             target.getLabel(),
             MockCppSemantics.INSTANCE,
             FeatureConfiguration.EMPTY,
@@ -76,7 +75,6 @@ public final class CcCompilationHelperTest extends BuildViewTestCase {
     FdoContext fdoContext = ccToolchain.getFdoContext();
     CcCompilationHelper helper =
         new CcCompilationHelper(
-                ruleContext,
                 ruleContext,
                 ruleContext.getLabel(),
                 MockCppSemantics.INSTANCE,
@@ -105,7 +103,6 @@ public final class CcCompilationHelperTest extends BuildViewTestCase {
     FdoContext fdoContext = ccToolchain.getFdoContext();
     CcCompilationHelper helper =
         new CcCompilationHelper(
-                ruleContext,
                 ruleContext,
                 ruleContext.getLabel(),
                 MockCppSemantics.INSTANCE,

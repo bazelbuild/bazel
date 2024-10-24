@@ -14,10 +14,12 @@
 
 package com.google.devtools.build.lib.rules.platform;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -25,10 +27,15 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Types;
+import java.util.List;
 import java.util.Map;
 
 /** Defines a platform for execution contexts. */
@@ -63,9 +70,28 @@ public class Platform implements RuleConfiguredTargetFactory {
     platformBuilder.setRemoteExecutionProperties(remoteExecutionProperties);
 
     Map<String, String> execProperties =
-        ruleContext.attributes().get(PlatformRule.EXEC_PROPS_ATTR, Type.STRING_DICT);
+        ruleContext.attributes().get(PlatformRule.EXEC_PROPS_ATTR, Types.STRING_DICT);
     if (execProperties != null && !execProperties.isEmpty()) {
       platformBuilder.setExecProperties(ImmutableMap.copyOf(execProperties));
+    }
+
+    List<String> flags = ruleContext.attributes().get(PlatformRule.FLAGS_ATTR, Types.STRING_LIST);
+    if (flags != null && !flags.isEmpty()) {
+      platformBuilder.addFlags(flags);
+    }
+    ImmutableList<ConfigMatchingProvider> requiredSettings =
+        ruleContext.getPrerequisites(PlatformRule.REQUIRED_SETTINGS_ATTR).stream()
+            .map(target -> target.getProvider(ConfigMatchingProvider.class))
+            .collect(toImmutableList());
+    platformBuilder.addRequiredSettings(requiredSettings);
+
+    if (ruleContext.attributes().get("check_toolchain_types", Type.BOOLEAN)) {
+      List<Label> allowedToolchainTypes =
+          ruleContext.attributes().get("allowed_toolchain_types", BuildType.NODEP_LABEL_LIST);
+      platformBuilder.checkToolchainTypes(true);
+      platformBuilder.addAllowedToolchainTypes(allowedToolchainTypes);
+    } else {
+      platformBuilder.checkToolchainTypes(false);
     }
 
     PlatformInfo platformInfo;

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.util.Collection;
 import java.util.Map;
@@ -50,6 +51,17 @@ public final class StaticInputMetadataProvider implements InputMetadataProvider 
   @Override
   public FileArtifactValue getInputMetadata(ActionInput input) {
     return inputToMetadata.get(input);
+  }
+
+  @Override
+  @Nullable
+  public RunfilesArtifactValue getRunfilesMetadata(ActionInput input) {
+    return null;
+  }
+
+  @Override
+  public ImmutableList<RunfilesTree> getRunfilesTrees() {
+    return ImmutableList.of();
   }
 
   @Nullable

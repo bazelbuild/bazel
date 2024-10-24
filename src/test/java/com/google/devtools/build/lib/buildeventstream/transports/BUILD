@@ -32,7 +32,7 @@ java_test(
         "//third_party:mockito",
         "//third_party:netty",
         "//third_party:truth",
-        "//third_party/protobuf:protobuf_java",
-        "//third_party/protobuf:protobuf_java_util",
+        "@protobuf//:protobuf_java",
+        "@protobuf//:protobuf_java_util",
     ],
 )

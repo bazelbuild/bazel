@@ -319,29 +319,6 @@ public class ZipCombiner implements AutoCloseable {
   }
 
   /**
-   * Write all contents from the {@link InputStream} as a prefix file for the combined ZIP file.
-   *
-   * @param in the {@link InputStream} containing the prefix file data
-   * @throws IOException if there is an error writing the prefix file
-   */
-  public void prependExecutable(InputStream in) throws IOException {
-    out.startPrefixFile();
-    copyStream(in, out);
-    out.endPrefixFile();
-  }
-
-  /**
-   * Adds a directory entry to the combined ZIP file using the specified filename and date.
-   *
-   * @param filename the name of the directory to create
-   * @param date the modified time to assign to the directory
-   * @throws IOException if there is an error writing the directory entry
-   */
-  public void addDirectory(String filename, Date date) throws IOException {
-    addDirectory(filename, date, new ExtraData[0]);
-  }
-
-  /**
    * Adds a directory entry to the combined ZIP file using the specified filename, date, and extra
    * data.
    *
@@ -365,19 +342,6 @@ public class ZipCombiner implements AutoCloseable {
     out.putNextEntry(entry);
     out.closeEntry();
     entries.put(filename, entry);
-  }
-
-  /**
-   * Adds a file with the specified name to the combined ZIP file.
-   *
-   * @param filename the name of the file to create
-   * @param in the {@link InputStream} containing the file data
-   * @throws IOException if there is an error writing the file entry
-   * @throws IllegalArgumentException if the combined ZIP file already contains a file of the same
-   *     name.
-   */
-  public void addFile(String filename, InputStream in) throws IOException {
-    addFile(filename, null, in);
   }
 
   /**
@@ -562,18 +526,6 @@ public class ZipCombiner implements AutoCloseable {
     copyStream(data, out);
     out.closeEntry();
     entries.put(entry.getName(), entry);
-  }
-
-  /**
-   * Returns true if the combined ZIP file already contains a file of the specified file name.
-   *
-   * @param filename the filename of the file whose presence in the combined ZIP file is to be
-   *     tested
-   * @return true if the combined ZIP file contains the specified file
-   */
-  public boolean containsFile(String filename) {
-    // TODO(apell): may be slightly different behavior because v1 returns true on skipped names.
-    return entries.containsKey(filename);
   }
 
   /**

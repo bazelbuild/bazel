@@ -233,9 +233,11 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
         "pkg/BUILD", //
         "load(':dummy.bzl', 'dummy_symbol')");
     scratch.file(
-        "pkg/dummy.bzl", //
-        "_builtins",
-        "dummy_symbol = None");
+        "pkg/dummy.bzl",
+        """
+        _builtins
+        dummy_symbol = None
+        """);
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//pkg:BUILD");

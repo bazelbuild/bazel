@@ -19,11 +19,11 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import org.junit.Test;
@@ -86,19 +86,26 @@ public final class LibrariesToLinkCollectorTest extends BuildViewTestCase {
   is available.*/
   @Test
   public void dynamicLink_siblingLayout_externalBinary_rpath() throws Exception {
-    FileSystemUtils.appendIsoLatin1(
-        scratch.resolve("WORKSPACE"), "local_repository(name = 'src', path = 'src')");
-    invalidatePackages();
+    scratch.appendFile(
+        "MODULE.bazel",
+        "bazel_dep(name = 'src')",
+        "local_path_override(module_name = 'src', path = 'src')");
 
-    scratch.file("src/WORKSPACE");
+    scratch.file("src/MODULE.bazel", "module(name = 'src')");
     scratch.file(
         "src/test/BUILD",
-        "cc_binary(",
-        "  name = 'foo',",
-        "  srcs = ['some-dir/bar.so', 'some-other-dir/qux.so'],",
-        ")");
+        """
+        cc_binary(
+            name = "foo",
+            srcs = [
+                "some-dir/bar.so",
+                "some-other-dir/qux.so",
+            ],
+        )
+        """);
     scratch.file("src/test/some-dir/bar.so");
     scratch.file("src/test/some-other-dir/qux.so");
+    invalidatePackages();
 
     analysisMock.ccSupport().setupCcToolchainConfig(mockToolsConfig, CcToolchainConfig.builder());
     mockToolsConfig.create(
@@ -158,12 +165,17 @@ public final class LibrariesToLinkCollectorTest extends BuildViewTestCase {
     useConfiguration(
         "--extra_toolchains=//toolchain:toolchain",
         "--dynamic_mode=fully",
-        "--incompatible_enable_cc_toolchain_resolution");
+        "--incompatible_enable_cc_toolchain_resolution",
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--experimental_platform_in_output_dir",
+        String.format(
+            "--experimental_override_name_platform_in_output_dir=%s=k8",
+            TestConstants.PLATFORM_LABEL));
 
-    ConfiguredTarget target = getConfiguredTarget("@src//test:foo");
+    ConfiguredTarget target = getConfiguredTarget("@@src+//test:foo");
     assertThat(target).isNotNull();
     Artifact binary = getExecutable(target);
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binary);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(binary);
     assertThat(linkAction).isNotNull();
 
     String workspace = getTarget("//toolchain:toolchain").getPackage().getWorkspaceName();
@@ -180,16 +192,21 @@ public final class LibrariesToLinkCollectorTest extends BuildViewTestCase {
 
   @Test
   public void dynamicLink_siblingLayout_externalToolchain_rpath() throws Exception {
-    FileSystemUtils.appendIsoLatin1(
-        scratch.resolve("WORKSPACE"), "local_repository(name = 'toolchain', path = 'toolchain')");
-    invalidatePackages();
-
+    scratch.appendFile(
+        "MODULE.bazel",
+        "bazel_dep(name = 'toolchain')",
+        "local_path_override(module_name = 'toolchain', path = 'toolchain')");
     scratch.file(
         "src/test/BUILD",
-        "cc_binary(",
-        "  name = 'foo',",
-        "  srcs = ['some-dir/bar.so', 'some-other-dir/qux.so'],",
-        ")");
+        """
+        cc_binary(
+            name = "foo",
+            srcs = [
+                "some-dir/bar.so",
+                "some-other-dir/qux.so",
+            ],
+        )
+        """);
     scratch.file("src/test/some-dir/bar.so");
     scratch.file("src/test/some-other-dir/qux.so");
 
@@ -200,10 +217,10 @@ public final class LibrariesToLinkCollectorTest extends BuildViewTestCase {
             "com/google/devtools/build/lib/analysis/mock/cc_toolchain_config.bzl"));
     scratch.file("BUILD");
 
-    scratch.file("toolchain/WORKSPACE");
+    scratch.file("toolchain/MODULE.bazel", "module(name = 'toolchain')");
     scratch.file(
         "toolchain/BUILD",
-        "load('@//:cc_toolchain_config.bzl', 'cc_toolchain_config')",
+        "load('@@//:cc_toolchain_config.bzl', 'cc_toolchain_config')",
         "filegroup(",
         "   name = 'empty',",
         ")",
@@ -250,24 +267,32 @@ public final class LibrariesToLinkCollectorTest extends BuildViewTestCase {
     scratch.file("toolchain/librt.so");
     analysisMock.ccSupport().setupCcToolchainConfig(mockToolsConfig, CcToolchainConfig.builder());
 
+    invalidatePackages();
+
     setBuildLanguageOptions("--experimental_sibling_repository_layout");
     useConfiguration(
-        "--extra_toolchains=@toolchain//:toolchain",
+        "--extra_toolchains=@@toolchain+//:toolchain",
         "--dynamic_mode=fully",
-        "--incompatible_enable_cc_toolchain_resolution");
+        "--incompatible_enable_cc_toolchain_resolution",
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--experimental_platform_in_output_dir",
+        String.format(
+            "--experimental_override_name_platform_in_output_dir=%s=k8",
+            TestConstants.PLATFORM_LABEL));
 
     ConfiguredTarget target = getConfiguredTarget("//src/test:foo");
     assertThat(target).isNotNull();
     Artifact binary = getExecutable(target);
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binary);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(binary);
     assertThat(linkAction).isNotNull();
 
     List<String> linkArgs = linkAction.getArguments();
     assertThat(linkArgs)
         .contains(
-            "--runtime_library=../../../../toolchain/k8-fastbuild/bin/_solib___Cc_Utoolchain/");
+            "--runtime_library=../../../../toolchain+/k8-fastbuild/bin/_solib__toolchain+_A_Cc_Utoolchain/");
     assertThat(linkArgs)
-        .contains("--runtime_library=foo.runfiles/toolchain/_solib___Cc_Utoolchain/");
-    assertThat(linkArgs).contains("--runtime_library=../../../toolchain/_solib___Cc_Utoolchain/");
+        .contains("--runtime_library=foo.runfiles/toolchain+/_solib__toolchain+_A_Cc_Utoolchain/");
+    assertThat(linkArgs)
+        .contains("--runtime_library=../../../toolchain+/_solib__toolchain+_A_Cc_Utoolchain/");
   }
 }

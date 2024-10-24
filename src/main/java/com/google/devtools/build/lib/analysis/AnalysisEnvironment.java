@@ -23,8 +23,8 @@ import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
-import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -81,6 +81,9 @@ public interface AnalysisEnvironment extends ActionRegistry {
    */
   Artifact getConstantMetadataArtifact(PathFragment rootRelativePath, ArtifactRoot root);
 
+  /** Returns and artifact that represents a runfiles tree. */
+  SpecialArtifact getRunfilesArtifact(PathFragment rootRelativePath, ArtifactRoot root);
+
   /**
    * Returns the artifact for the derived TreeArtifact with directory {@code rootRelativePath},
    * creating it if necessary, and setting the root of that artifact to {@code root}. The artifact
@@ -97,10 +100,6 @@ public interface AnalysisEnvironment extends ActionRegistry {
    * directory of a {@code Fileset}.
    */
   Artifact getFilesetArtifact(PathFragment rootRelativePath, ArtifactRoot root);
-
-  /** Returns the middleman factory associated with the build. */
-  // TODO(bazel-team): remove this method and replace it with delegate methods.
-  MiddlemanFactory getMiddlemanFactory();
 
   /**
    * Returns the generating action for the given local artifact.
@@ -166,4 +165,9 @@ public interface AnalysisEnvironment extends ActionRegistry {
   ImmutableSet<Artifact> getTreeArtifactsConflictingWithFiles();
 
   ActionKeyContext getActionKeyContext();
+
+  /**
+   * Returns and registers a Skyframe dependency on the {@link RepositoryMapping} of the main repo.
+   */
+  RepositoryMapping getMainRepoMapping() throws InterruptedException;
 }

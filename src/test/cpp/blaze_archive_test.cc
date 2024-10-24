@@ -23,7 +23,6 @@
 #include "src/main/cpp/bazel_startup_options.h"
 #include "googlemock/include/gmock/gmock.h"
 #include "googletest/include/gtest/gtest.h"
-#include "third_party/absl/strings/escaping.h"
 #include "src/main/cpp/blaze.h"
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/file_platform.h"
@@ -139,10 +138,9 @@ TEST_F(BlazeArchiveTest, TestZipExtractionAndFarOutMTimes) {
   EXPECT_THAT(file::GetContents(baz_path, file::Defaults()),
               IsOkAndHolds("baz content"));
 
-  std::unique_ptr<blaze_util::IFileMtime> mtime(blaze_util::CreateFileMtime());
-  EXPECT_TRUE(mtime->IsUntampered(blaze_util::Path(foo_path)));
-  EXPECT_TRUE(mtime->IsUntampered(blaze_util::Path(bar_path)));
-  EXPECT_TRUE(mtime->IsUntampered(blaze_util::Path(baz_path)));
+  EXPECT_TRUE(IsUntampered(blaze_util::Path(foo_path)));
+  EXPECT_TRUE(IsUntampered(blaze_util::Path(bar_path)));
+  EXPECT_TRUE(IsUntampered(blaze_util::Path(baz_path)));
 
   const auto far_future = absl::Now() + absl::Hours(24 * 365 * 9);
   EXPECT_THAT(get_mtime(foo_path), IsOkAndHolds(Gt(far_future)));

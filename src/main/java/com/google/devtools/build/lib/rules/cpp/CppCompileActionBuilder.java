@@ -39,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 
 /** Builder class to construct C++ compile actions. */
 public final class CppCompileActionBuilder {
@@ -83,8 +84,8 @@ public final class CppCompileActionBuilder {
       CppSemantics cppSemantics) {
 
     ActionOwner actionOwner = null;
-    if (actionConstructionContext instanceof RuleContext
-        && ((RuleContext) actionConstructionContext).useAutoExecGroups()) {
+    if (actionConstructionContext instanceof RuleContext ruleContext
+        && ruleContext.useAutoExecGroups()) {
       actionOwner = actionConstructionContext.getActionOwner(cppSemantics.getCppToolchainType());
     }
 
@@ -223,6 +224,8 @@ public final class CppCompileActionBuilder {
       return buildAndVerify();
     } catch (UnconfiguredActionConfigException e) {
       throw ruleErrorConsumer.throwWithRuleError(e.getMessage());
+    } catch (EvalException e) {
+      throw ruleErrorConsumer.throwWithRuleError(e.getMessage());
     }
   }
 
@@ -238,7 +241,7 @@ public final class CppCompileActionBuilder {
   public CppCompileAction buildOrThrowIllegalStateException() {
     try {
       return buildAndVerify();
-    } catch (UnconfiguredActionConfigException e) {
+    } catch (UnconfiguredActionConfigException | EvalException e) {
       throw new IllegalStateException(e);
     }
   }
@@ -253,7 +256,7 @@ public final class CppCompileActionBuilder {
    * Builds the Action as configured and performs some validations on the action. Uses given {@link
    * Consumer} to collect validation errors.
    */
-  public CppCompileAction buildAndVerify() throws UnconfiguredActionConfigException {
+  public CppCompileAction buildAndVerify() throws UnconfiguredActionConfigException, EvalException {
     // This must be set either to false or true by CppSemantics, otherwise someone forgot to call
     // finalizeCompileActionBuilder on this builder.
     Preconditions.checkNotNull(shouldScanIncludes);
@@ -315,9 +318,8 @@ public final class CppCompileActionBuilder {
         additionalOutputs);
   }
 
-  private ImmutableList<Artifact> getBuiltinIncludeFiles() {
-    ImmutableList<Artifact> builtinIncludeFiles =
-        ccToolchain.getBuiltinIncludeFiles(cppConfiguration);
+  private ImmutableList<Artifact> getBuiltinIncludeFiles() throws EvalException {
+    ImmutableList<Artifact> builtinIncludeFiles = ccToolchain.getBuiltinIncludeFiles();
     if (buildInfoHeaderArtifacts.isEmpty()) {
       return builtinIncludeFiles;
     }
@@ -335,10 +337,8 @@ public final class CppCompileActionBuilder {
     return featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES);
   }
 
-  /**
-   * Returns the list of mandatory inputs for the {@link CppCompileAction} as configured.
-   */
-  NestedSet<Artifact> buildMandatoryInputs() {
+  /** Returns the list of mandatory inputs for the {@link CppCompileAction} as configured. */
+  NestedSet<Artifact> buildMandatoryInputs() throws EvalException {
     NestedSetBuilder<Artifact> realMandatoryInputsBuilder = NestedSetBuilder.compileOrder();
     realMandatoryInputsBuilder.addTransitive(mandatoryInputsBuilder.build());
     realMandatoryInputsBuilder.addAll(getBuiltinIncludeFiles());
@@ -616,12 +616,12 @@ public final class CppCompileActionBuilder {
     return this;
   }
 
-  ImmutableList<PathFragment> getBuiltinIncludeDirectories() {
+  ImmutableList<PathFragment> getBuiltinIncludeDirectories() throws EvalException {
     return ccToolchain.getBuiltInIncludeDirectories();
   }
 
   public boolean shouldCompileHeaders() {
     Preconditions.checkNotNull(featureConfiguration);
-    return ccToolchain.shouldProcessHeaders(featureConfiguration, cppConfiguration);
+    return CcToolchainProvider.shouldProcessHeaders(featureConfiguration, cppConfiguration);
   }
 }

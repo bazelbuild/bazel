@@ -20,16 +20,20 @@ import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
+import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
@@ -66,7 +70,7 @@ public final class WorkerFilesHashTest {
 
     SortedMap<PathFragment, byte[]> filesWithDigests =
         WorkerFilesHash.getWorkerFilesWithDigests(
-            spawn, (ignored1, ignored2) -> {}, inputMetadataProvider);
+            spawn, treeArtifact -> ImmutableSortedSet.of(), inputMetadataProvider);
 
     assertThat(filesWithDigests)
         .containsExactly(
@@ -90,12 +94,12 @@ public final class WorkerFilesHashTest {
                 fileArtifactValue(child2Digest)));
     Spawn spawn = new SpawnBuilder().withTool(tree).build();
     ArtifactExpander expander =
-        (artifact, output) -> {
-          if (artifact.equals(tree)) {
-            output.add(TreeFileArtifact.createTreeOutput(tree, "child1"));
-            output.add(TreeFileArtifact.createTreeOutput(tree, "child2"));
-          }
-        };
+        treeArtifact ->
+            treeArtifact.equals(tree)
+                ? ImmutableSortedSet.of(
+                    TreeFileArtifact.createTreeOutput(tree, "child1"),
+                    TreeFileArtifact.createTreeOutput(tree, "child2"))
+                : ImmutableSortedSet.of();
 
     SortedMap<PathFragment, byte[]> filesWithDigests =
         WorkerFilesHash.getWorkerFilesWithDigests(spawn, expander, inputMetadataProvider);
@@ -112,7 +116,7 @@ public final class WorkerFilesHashTest {
 
     SortedMap<PathFragment, byte[]> filesWithDigests =
         WorkerFilesHash.getWorkerFilesWithDigests(
-            spawn, (ignored1, ignored2) -> {}, inputMetadataProvider);
+            spawn, treeArtifact -> ImmutableSortedSet.of(), inputMetadataProvider);
 
     assertThat(filesWithDigests).isEmpty();
   }
@@ -126,7 +130,7 @@ public final class WorkerFilesHashTest {
         MissingInputException.class,
         () ->
             WorkerFilesHash.getWorkerFilesWithDigests(
-                spawn, (ignored1, ignored2) -> {}, inputMetadataProvider));
+                spawn, treeArtifact -> ImmutableSortedSet.of(), inputMetadataProvider));
   }
 
   @Test
@@ -141,7 +145,7 @@ public final class WorkerFilesHashTest {
             IOException.class,
             () ->
                 WorkerFilesHash.getWorkerFilesWithDigests(
-                    spawn, (ignored1, ignored2) -> {}, inputMetadataProvider));
+                    spawn, treeArtifact -> ImmutableSortedSet.of(), inputMetadataProvider));
 
     assertThat(thrown).isSameInstanceAs(injected);
   }
@@ -158,13 +162,24 @@ public final class WorkerFilesHashTest {
         if (metadataOrException == null) {
           return null;
         }
-        if (metadataOrException instanceof IOException) {
-          throw (IOException) metadataOrException;
+        if (metadataOrException instanceof IOException ioException) {
+          throw ioException;
         }
-        if (metadataOrException instanceof FileArtifactValue) {
-          return (FileArtifactValue) metadataOrException;
+        if (metadataOrException instanceof FileArtifactValue fileArtifactValue) {
+          return fileArtifactValue;
         }
         throw new AssertionError("Unexpected value: " + metadataOrException);
+      }
+
+      @Override
+      @Nullable
+      public RunfilesArtifactValue getRunfilesMetadata(ActionInput input) {
+        throw new UnsupportedOperationException();
+      }
+
+      @Override
+      public ImmutableList<RunfilesTree> getRunfilesTrees() {
+        throw new UnsupportedOperationException();
       }
 
       @Nullable

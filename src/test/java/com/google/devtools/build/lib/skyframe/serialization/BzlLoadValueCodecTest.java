@@ -16,13 +16,12 @@ package com.google.devtools.build.lib.skyframe.serialization;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
-import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableTable;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.BzlVisibility;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
 import net.starlark.java.eval.Module;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -58,9 +57,10 @@ public class BzlLoadValueCodecTest {
   @Test
   public void canSendBuiltins() throws Exception {
     Object builtin = new Object();
+    ObjectCodecRegistry registry =
+        AutoRegistry.get().getBuilder().addReferenceConstant(builtin).build();
     BzlLoadValue value = makeBLV("var", builtin);
-    BzlLoadValue deserialized =
-        TestUtils.roundTrip(value, ImmutableClassToInstanceMap.of(Object.class, builtin));
+    BzlLoadValue deserialized = RoundTripping.roundTrip(value, registry);
     Object deserializedDummy = deserialized.getModule().getGlobal("var");
     assertThat(deserializedDummy).isSameInstanceAs(builtin);
   }

@@ -40,14 +40,11 @@ public class SystemDiskSpaceEvent implements ExtendedEventHandler.Postable {
 
     /** These constants are mapped to enum in third_party/bazel/src/main/native/unix_jni.h. */
     static Level fromInt(int number) {
-      switch (number) {
-        case 0:
-          return LOW;
-        case 1:
-          return VERY_LOW;
-        default:
-          throw new IllegalStateException("Unknown disk space level: " + number);
-      }
+      return switch (number) {
+        case 0 -> LOW;
+        case 1 -> VERY_LOW;
+        default -> throw new IllegalStateException("Unknown disk space level: " + number);
+      };
     }
   };
 

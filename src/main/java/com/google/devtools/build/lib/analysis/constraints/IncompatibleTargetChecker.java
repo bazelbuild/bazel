@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
+import com.google.devtools.build.lib.analysis.VisibilityProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
@@ -38,14 +39,12 @@ import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper.ValidationException;
-import com.google.devtools.build.lib.packages.PackageSpecification;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleClassId;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
@@ -188,7 +187,11 @@ public class IncompatibleTargetChecker {
                     configConditions,
                     IncompatiblePlatformProvider.incompatibleDueToConstraints(
                         platformInfo.label(), invalidConstraintValues),
-                    targetAndConfiguration.getTarget().getAssociatedRule().getRuleClass(),
+                    targetAndConfiguration
+                        .getTarget()
+                        .getAssociatedRule()
+                        .getRuleClassObject()
+                        .getRuleClassId(),
                     transitiveState)));
         return runAfter;
       }
@@ -246,7 +249,7 @@ public class IncompatibleTargetChecker {
             configuration,
             configConditions,
             IncompatiblePlatformProvider.incompatibleDueToTargets(platformLabel, incompatibleDeps),
-            rule.getRuleClass(),
+            rule.getRuleClassObject().getRuleClassId(),
             transitiveState));
   }
 
@@ -269,7 +272,7 @@ public class IncompatibleTargetChecker {
       BuildConfigurationValue configuration,
       ConfigConditions configConditions,
       IncompatiblePlatformProvider incompatiblePlatformProvider,
-      String ruleClassString,
+      RuleClassId ruleClassId,
       TransitiveDependencyState transitiveState) {
     // Create dummy instances of the necessary data for a configured target. None of this data will
     // actually be used because actions associated with incompatible targets must not be evaluated.
@@ -291,9 +294,10 @@ public class IncompatibleTargetChecker {
         new RuleConfiguredTarget(
             configuredTargetKey,
             convertVisibility(),
+            /* isCreatedInSymbolicMacro= */ false,
             providerBuilder.build(),
             configConditions.asProviders(),
-            ruleClassString);
+            ruleClassId);
     return new RuleConfiguredTargetValue(configuredTarget, transitiveState.transitivePackages());
   }
 
@@ -308,8 +312,6 @@ public class IncompatibleTargetChecker {
    * <p>TODO(#16044): Set up properly validated visibility here.
    */
   private static NestedSet<PackageGroupContents> convertVisibility() {
-    return NestedSetBuilder.create(
-        Order.STABLE_ORDER,
-        PackageGroupContents.create(ImmutableList.of(PackageSpecification.everything())));
+    return VisibilityProvider.PUBLIC_VISIBILITY;
   }
 }

@@ -147,9 +147,12 @@ documentation](/query/language#target-patterns) for more information on target p
 ## Functions {:#functions}
 
 Of the [set of functions](/query/language#functions "list of query functions")
-supported by `query`, `cquery` supports all but [`visible`](/query/language#visible),
-[`siblings`](/query/language#siblings), [`buildfiles`](/query/language#buildfiles),
-and [`tests`](/query/language#tests).
+supported by `query`, `cquery` supports all but
+[`allrdeps`](/query/language#allrdeps),
+[`buildfiles`](/query/language#buildfiles),
+[`rbuildfiles`](/query/language#rbuildfiles),
+[`siblings`](/query/language#siblings), [`tests`](/query/language#tests), and
+[`visible`](/query/language#visible).
 
 `cquery` also introduces the following new functions:
 
@@ -163,7 +166,7 @@ second argument.
 
 Valid values for the second argument are `null` or a
 [custom configuration hash](#configurations). Hashes can be retrieved from `$
-bazel config` or a prevous `cquery`'s output.
+bazel config` or a previous `cquery`'s output.
 
 Examples:
 
@@ -573,7 +576,7 @@ $ bazel cquery 'somepath(//foo, //bar)' --universe_scope=//foo
 
 `cquery` does not automatically wipe the build graph from
 previous commands and is therefore prone to picking up results from past
-queries. For example, `genquery` exerts an exec transition on
+queries. For example, `genrule` exerts an exec transition on
 its `tools` attribute - that is, it configures its tools in the
 [exec configuration](/extending/rules#configurations).
 
@@ -606,7 +609,7 @@ tool(exec_config)
 </pre>
 
 Workaround: change any startup option to force re-analysis of configured targets.
-For example, add `--test_arg=&lt;whatever&gt;` to your build command.
+For example, add `--test_arg=<whatever>` to your build command.
 
 ## Troubleshooting {:#troubleshooting}
 

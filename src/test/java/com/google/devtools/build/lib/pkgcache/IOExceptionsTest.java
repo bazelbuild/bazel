@@ -97,9 +97,12 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
     crashMessage =
         path -> buildPath.asFragment().equals(path) ? "custom crash: " + buildPath : null;
     assertThat(visitTransitively(Label.parseCanonical("//pkg:x"))).isFalse();
-    scratch.overwriteFile("pkg/BUILD",
-        "# another comment to force reload",
-        "sh_library(name = 'x')");
+    scratch.overwriteFile(
+        "pkg/BUILD",
+        """
+        # another comment to force reload
+        sh_library(name = "x")
+        """);
     crashMessage = IOExceptionsTest::nullFunction;
     syncPackages();
     eventCollector.clear();
@@ -123,7 +126,11 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
     assertContainsEvent("custom crash");
     assertThat(eventCollector).hasSize(1);
     scratch.overwriteFile(
-        "pkg/BUILD", "# another comment to force reload", "sh_library(name = 'x')");
+        "pkg/BUILD",
+        """
+        # another comment to force reload
+        sh_library(name = "x")
+        """);
     crashMessage = IOExceptionsTest::nullFunction;
     syncPackages();
     eventCollector.clear();

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import static org.junit.Assume.assumeFalse;
 
-import com.google.common.base.Charsets;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -27,7 +26,9 @@ import com.google.devtools.build.lib.testing.common.FakeOptions;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsProvider;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -39,6 +40,7 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
@@ -97,7 +99,7 @@ public class MacOSXFsEventsDiffAwarenessTest {
 
   private void scratchFile(String path, String contents) throws IOException {
     Path p = watchedPath.resolve(path);
-    com.google.common.io.Files.write(contents.getBytes(Charsets.UTF_8), p.toFile());
+    com.google.common.io.Files.asCharSink(p.toFile(), StandardCharsets.UTF_8).write(contents);
   }
 
   private void scratchFile(String path) throws IOException {
@@ -112,6 +114,7 @@ public class MacOSXFsEventsDiffAwarenessTest {
    * @param rawPaths the files to expect in the view
    * @return the new view
    */
+  @CanIgnoreReturnValue
   private View assertDiff(View view1, Iterable<String> rawPaths)
       throws IncompatibleViewException, BrokenDiffAwarenessException, InterruptedException {
     Set<PathFragment> allPaths = new HashSet<>();
@@ -215,19 +218,21 @@ public class MacOSXFsEventsDiffAwarenessTest {
     dirToFilesToCreate
         .asMap()
         .forEach(
-            (dir, files) ->
-                executor.submit(
-                    () -> {
-                      try {
-                        scratchDir(dir);
-                        for (String file : files) {
-                          scratchFile(file);
+            (dir, files) -> {
+              Future<?> unused =
+                  executor.submit(
+                      () -> {
+                        try {
+                          scratchDir(dir);
+                          for (String file : files) {
+                            scratchFile(file);
+                          }
+                        } catch (IOException e) {
+                          firstError.compareAndSet(null, e);
                         }
-                      } catch (IOException e) {
-                        firstError.compareAndSet(null, e);
-                      }
-                      latch.countDown();
-                    }));
+                        latch.countDown();
+                      });
+            });
     latch.await();
     executor.shutdown();
     IOException e = firstError.get();

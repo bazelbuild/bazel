@@ -53,6 +53,12 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
   public abstract boolean isFetchingDelayed();
 
   /**
+   * Returns if this repo should be excluded from vendoring. The value is true for local & configure
+   * repos
+   */
+  public abstract boolean excludeFromVendoring();
+
+  /**
    * For an unsuccessful repository lookup, gets a detailed error message that is suitable for
    * reporting to a user.
    */
@@ -62,6 +68,7 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
   public static final class SuccessfulRepositoryDirectoryValue extends RepositoryDirectoryValue {
     private final Path path;
     private final boolean fetchingDelayed;
+    private final boolean excludeFromVendoring;
     @Nullable private final byte[] digest;
     @Nullable private final DirectoryListingValue sourceDir;
     private final ImmutableMap<SkyKey, SkyValue> fileValues;
@@ -71,13 +78,16 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
         boolean fetchingDelayed,
         @Nullable DirectoryListingValue sourceDir,
         byte[] digest,
-        ImmutableMap<SkyKey, SkyValue> fileValues) {
+        ImmutableMap<SkyKey, SkyValue> fileValues,
+        boolean excludeFromVendoring) {
       this.path = path;
       this.fetchingDelayed = fetchingDelayed;
       this.sourceDir = sourceDir;
       this.digest = digest;
       this.fileValues = fileValues;
+      this.excludeFromVendoring = excludeFromVendoring;
     }
+
 
     @Override
     public boolean repositoryExists() {
@@ -100,17 +110,22 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
     }
 
     @Override
+    public boolean excludeFromVendoring() {
+      return excludeFromVendoring;
+    }
+
+    @Override
     public boolean equals(Object other) {
       if (this == other) {
         return true;
       }
 
-      if (other instanceof SuccessfulRepositoryDirectoryValue) {
-        SuccessfulRepositoryDirectoryValue otherValue = (SuccessfulRepositoryDirectoryValue) other;
+      if (other instanceof SuccessfulRepositoryDirectoryValue otherValue) {
         return Objects.equal(path, otherValue.path)
             && Objects.equal(sourceDir, otherValue.sourceDir)
             && Arrays.equals(digest, otherValue.digest)
-            && Objects.equal(fileValues, otherValue.fileValues);
+            && Objects.equal(fileValues, otherValue.fileValues)
+            && Objects.equal(excludeFromVendoring, otherValue.excludeFromVendoring);
       }
       return false;
     }
@@ -154,6 +169,10 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
       throw new IllegalStateException();
     }
 
+    @Override
+    public boolean excludeFromVendoring() {
+      throw new IllegalStateException();
+    }
   }
 
   /** Creates a key from the given repository name. */
@@ -204,6 +223,8 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
     @Nullable private DirectoryListingValue sourceDir = null;
     private Map<SkyKey, SkyValue> fileValues = ImmutableMap.of();
 
+    private boolean excludeFromVendoring = false;
+
     private Builder() {}
 
     @CanIgnoreReturnValue
@@ -236,6 +257,12 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public Builder setExcludeFromVendoring(boolean excludeFromVendoring) {
+      this.excludeFromVendoring = excludeFromVendoring;
+      return this;
+    }
+
     public SuccessfulRepositoryDirectoryValue build() {
       Preconditions.checkNotNull(path, "Repository path must be specified!");
       // Only if fetching is delayed then we are allowed to have a null digest.
@@ -247,7 +274,8 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
           fetchingDelayed,
           sourceDir,
           checkNotNull(digest, "Null digest: %s %s %s", path, fetchingDelayed, sourceDir),
-          ImmutableMap.copyOf(fileValues));
+          ImmutableMap.copyOf(fileValues),
+          excludeFromVendoring);
     }
   }
 }

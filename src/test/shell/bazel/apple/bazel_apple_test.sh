@@ -35,6 +35,11 @@ function set_up() {
   XCODE_VERSION=$(xcodebuild -version | grep ^Xcode | cut -d' ' -f2)
 
   create_new_workspace
+
+  cat > $(setup_module_dot_bazel) <<EOF
+xcode_configure = use_extension("@bazel_tools//tools/osx:xcode_configure.bzl", "xcode_configure_extension")
+use_repo(xcode_configure, "local_config_xcode")
+EOF
 }
 
 function test_host_xcodes() {
@@ -42,7 +47,7 @@ function test_host_xcodes() {
       | sed -E "s/Xcode (([0-9]|.)+).*/\1/")
   XCODE_BUILD_VERSION=$(env -i xcodebuild -version | grep "Build version" \
       | sed -E "s/Build version (([0-9]|.)+).*/\1/")
-  IOS_SDK=$(env -i xcodebuild -version -sdk | grep iphoneos \
+  IOS_SDK=$(env -i xcodebuild -version -sdk | grep iphoneos -m 1 \
       | sed -E "s/.*\(iphoneos(([0-9]|.)+)\).*/\1/")
   MACOSX_SDK=$(env -i xcodebuild -version -sdk | grep "(macosx" \
       | sed -E "s/.*\(macosx(([0-9]|.)+)\).*/\1/" | head -n 1)
@@ -77,7 +82,7 @@ function test_host_available_xcodes() {
 
   XCODE_VERSION=$(env -i xcodebuild -version | grep "Xcode" \
       | sed -E "s/Xcode (([0-9]|.)+).*/\1/")
-  IOS_SDK=$(env -i xcodebuild -version -sdk | grep iphoneos \
+  IOS_SDK=$(env -i xcodebuild -version -sdk | grep iphoneos -m 1 \
       | sed -E "s/.*\(iphoneos(([0-9]|.)+)\).*/\1/")
   MACOSX_SDK=$(env -i xcodebuild -version -sdk | grep "(macosx" \
       | sed -E "s/.*\(macosx(([0-9]|.)+)\).*/\1/" | head -n 1)

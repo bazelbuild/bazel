@@ -64,8 +64,10 @@ public class AnalysisWithIOExceptionsTest extends AnalysisTestCase {
     scratch.file("b/BUILD", "sh_library(name = 'b', deps= ['//a:a'])");
     scratch.file(
         "a/BUILD",
-        "sh_library(name = 'a', srcs = glob(['a.sh']))",
-        "sh_library(name = 'expensive', srcs = ['expensive.sh'])");
+        """
+        sh_library(name = 'a', srcs = glob(['a.sh']))
+        sh_library(name = 'expensive', srcs = ['expensive.sh'])
+        """);
     Path aShFile = scratch.file("a/a.sh");
     update("//b:b");
     skyframeExecutor.invalidateFilesUnderPathForTesting(
@@ -80,7 +82,7 @@ public class AnalysisWithIOExceptionsTest extends AnalysisTestCase {
   @Test
   public void testWorkspaceError() throws IOException {
     scratch.file("a/BUILD");
-    crashMessage = path -> path.toString().contains("WORKSPACE") ? "bork" : null;
+    crashMessage = path -> path.toString().contains("MODULE.bazel") ? "bork" : null;
     reporter.removeHandler(failFastHandler);
     assertThrows(
         TargetParsingException.class,
@@ -93,8 +95,10 @@ public class AnalysisWithIOExceptionsTest extends AnalysisTestCase {
     Path buildPath =
         scratch.file(
             "foo/BUILD",
-            "sh_library(name = 'foo', srcs = glob(['subdir/*.sh']))",
-            "sh_library(name = 'crosses/directory', srcs = ['foo.sh'])");
+            """
+            sh_library(name = 'foo', srcs = glob(['subdir/*.sh']))
+            sh_library(name = 'crosses/directory', srcs = ['foo.sh'])
+            """);
     scratch.file("top/BUILD", "sh_library(name = 'top', deps = ['//foo:foo'], srcs = ['top.sh'])");
     Path errorPath = buildPath.getParentDirectory().getChild("subdir");
     crashMessage = path -> errorPath.asFragment().equals(path) ? "custom crash: bork" : null;

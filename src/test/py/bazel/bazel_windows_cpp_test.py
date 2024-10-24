@@ -20,8 +20,25 @@ from src.test.py.bazel import test_base
 
 class BazelWindowsCppTest(test_base.TestBase):
 
+  def createModuleDotBazel(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "platforms", version = "0.0.9")',
+            'bazel_dep(name = "rules_cc", version = "0.0.12")',
+            (
+                'cc_configure ='
+                ' use_extension("@rules_cc//cc:extensions.bzl",'
+                ' "cc_configure_extension")'
+            ),
+            'use_repo(cc_configure, "local_config_cc")',
+            # Register all cc toolchains for Windows
+            'register_toolchains("@local_config_cc//:all")',
+        ],
+    )
+
   def createProjectFiles(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.createModuleDotBazel()
     self.ScratchFile('BUILD', [
         'package(',
         '  default_visibility = ["//visibility:public"],',
@@ -313,7 +330,7 @@ class BazelWindowsCppTest(test_base.TestBase):
         len(glob.glob(os.path.join(bazel_bin, 'main', 'A_*.dll'))), 2)
 
   def testDLLIsCopiedFromExternalRepo(self):
-    self.ScratchFile('ext_repo/WORKSPACE')
+    self.ScratchFile('ext_repo/REPO.bazel')
     self.ScratchFile('ext_repo/BUILD', [
         'cc_library(',
         '  name = "A",',
@@ -328,12 +345,20 @@ class BazelWindowsCppTest(test_base.TestBase):
         '  printf("Hello A\\n");',
         '}',
     ])
-    self.ScratchFile('WORKSPACE', [
-        'local_repository(',
-        '  name = "ext_repo",',
-        '  path = "ext_repo",',
-        ')',
-    ])
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            (
+                'local_repository ='
+                ' use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl",'
+                ' "local_repository")'
+            ),
+            'local_repository(',
+            '  name = "ext_repo",',
+            '  path = "ext_repo",',
+            ')',
+        ],
+    )
     self.ScratchFile('BUILD', [
         'cc_binary(',
         '  name = "main",',
@@ -359,7 +384,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     # Test if A.dll is copied to the directory of main.exe
     main_bin = os.path.join(bazel_bin, 'main.exe')
     self.assertTrue(os.path.exists(main_bin))
-    self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'A_9324b6d0.dll')))
+    self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'A_729d833d.dll')))
 
     # Run the binary to see if it runs successfully
     _, stdout, _ = self.RunProgram([main_bin])
@@ -376,7 +401,7 @@ class BazelWindowsCppTest(test_base.TestBase):
         bazel_output, 'x64_windows-fastbuild/bin/_objs/A/a.obj.params'
     )
     link_params = os.path.join(
-        bazel_output, 'x64_windows-fastbuild/bin/A_0.dll-2.params'
+        bazel_output, 'x64_windows-fastbuild/bin/A_0.dll-0.params'
     )
     self.AssertExitCode(exit_code, 0, stderr)
     self.AssertFileContentContains(compile_params, '/MD')
@@ -391,7 +416,7 @@ class BazelWindowsCppTest(test_base.TestBase):
         bazel_output, 'x64_windows-dbg/bin/_objs/A/a.obj.params'
     )
     link_params = os.path.join(
-        bazel_output, 'x64_windows-dbg/bin/A_0.dll-2.params'
+        bazel_output, 'x64_windows-dbg/bin/A_0.dll-0.params'
     )
     self.AssertExitCode(exit_code, 0, stderr)
     self.AssertFileContentContains(compile_params, '/MDd')
@@ -412,7 +437,7 @@ class BazelWindowsCppTest(test_base.TestBase):
         bazel_output, 'x64_windows-fastbuild/bin/_objs/A/a.obj.params'
     )
     link_params = os.path.join(
-        bazel_output, 'x64_windows-fastbuild/bin/A_0.dll-2.params'
+        bazel_output, 'x64_windows-fastbuild/bin/A_0.dll-0.params'
     )
     self.AssertExitCode(exit_code, 0, stderr)
     self.AssertFileContentNotContains(compile_params, '/MD')
@@ -429,7 +454,7 @@ class BazelWindowsCppTest(test_base.TestBase):
         bazel_output, 'x64_windows-dbg/bin/_objs/A/a.obj.params'
     )
     link_params = os.path.join(
-        bazel_output, 'x64_windows-dbg/bin/A_0.dll-2.params'
+        bazel_output, 'x64_windows-dbg/bin/A_0.dll-0.params'
     )
     self.AssertExitCode(exit_code, 0, stderr)
     self.AssertFileContentNotContains(compile_params, '/MDd')
@@ -570,7 +595,6 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.AssertFileContentNotContains(empty_def_file, 'hello_A')
 
   def testUsingDefFileGeneratedFromCcLibrary(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('lib_A.cc', ['void hello_A() {}'])
     self.ScratchFile('lib_B.cc', ['void hello_B() {}'])
     self.ScratchFile('BUILD', [
@@ -610,7 +634,6 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.AssertFileContentContains(def_file, 'hello_B')
 
   def testWinDefFileAttribute(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('lib.cc', ['void hello() {}'])
     self.ScratchFile('my_lib.def', [
         'EXPORTS',
@@ -651,12 +674,11 @@ class BazelWindowsCppTest(test_base.TestBase):
     # Test specifying DEF file in cc_binary
     exit_code, _, stderr = self.RunBazel(['build', '//:lib_dy.dll', '-s'])
     self.AssertExitCode(exit_code, 0, stderr)
-    filepath = bazel_bin + '/lib_dy.dll-2.params'
+    filepath = bazel_bin + '/lib_dy.dll-0.params'
     with open(filepath, 'r', encoding='latin-1') as param_file:
       self.assertIn('/DEF:my_lib.def', param_file.read())
 
   def testCcImportRule(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('A.lib', [])
     self.ScratchFile('A.dll', [])
     self.ScratchFile('A.if.lib', [])
@@ -676,7 +698,6 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
 
   def testCopyDLLAsSource(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('BUILD', [
         'cc_import(',
         '  name = "a_import",',
@@ -726,7 +747,6 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.assertTrue(os.path.exists(nested_a_dll))
 
   def testCppErrorShouldBeVisible(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('BUILD', [
         'cc_binary(',
         '  name = "bad",',
@@ -746,35 +766,73 @@ class BazelWindowsCppTest(test_base.TestBase):
 
   def testBuildWithClangClByToolchainResolution(self):
     self.DisableBzlmod()
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE', [
-        'register_execution_platforms(',
-        '  ":windows_clang"',
-        ')',
-        '',
-        'register_toolchains(',
-        '  "@local_config_cc//:cc-toolchain-x64_windows-clang-cl",',
-        ')',
-    ])
-    self.ScratchFile('BUILD', [
-        'platform(',
-        '  name = "windows_clang",',
-        '  constraint_values = [',
-        '    "@platforms//cpu:x86_64",',
-        '    "@platforms//os:windows",',
-        '    "@bazel_tools//tools/cpp:clang-cl",',
-        '  ]',
-        ')',
-        '',
-        'cc_binary(',
-        '  name = "main",',
-        '  srcs = ["main.cc"],',
-        ')',
-    ])
-    self.ScratchFile('main.cc', [
-        'int main() {',
-        '  return 0;',
-        '}',
-    ])
+    self.ScratchFile(
+        'WORKSPACE',
+        [
+            'register_execution_platforms(',
+            '  ":windows_clang"',
+            ')',
+            '',
+            'register_toolchains(',
+            '  "@local_config_cc//:cc-toolchain-x64_windows-clang-cl",',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'BUILD',
+        [
+            'platform(',
+            '  name = "windows_clang",',
+            '  constraint_values = [',
+            '    "@platforms//cpu:x86_64",',
+            '    "@platforms//os:windows",',
+            '    "@bazel_tools//tools/cpp:clang-cl",',
+            '  ]',
+            ')',
+            '',
+            'cc_binary(',
+            '  name = "main",',
+            '  srcs = [    "main.cc",',
+            '    "inc.asm",',  # Test assemble action_config
+            '    "dec.S",',  # Test preprocess-assemble action_config
+            '  ],',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'main.cc',
+        [
+            'int main() {',
+            '  return 0;',
+            '}',
+        ],
+    )
+    self.ScratchFile(
+        'inc.asm',
+        [
+            '.code',
+            'PUBLIC increment',
+            'increment PROC x:WORD',
+            '  xchg rcx,rax',
+            '  inc rax',
+            '  ret',
+            'increment EndP',
+            'END',
+        ],
+    )
+    self.ScratchFile(
+        'dec.S',
+        [
+            '.code',
+            'PUBLIC decrement',
+            'decrement PROC x:WORD',
+            '  xchg rcx,rax',
+            '  dec rax',
+            '  ret',
+            'decrement EndP',
+            'END',
+        ],
+    )
     exit_code, _, stderr = self.RunBazel(['build', '-s', '//:main'])
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('clang-cl.exe', ''.join(stderr))
@@ -803,7 +861,6 @@ class BazelWindowsCppTest(test_base.TestBase):
 
   # Regression test for https://github.com/bazelbuild/bazel/issues/9321
   def testCcCompileWithTreeArtifactAsSource(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('BUILD', [
         'load(":genccs.bzl", "genccs")',
         '',
@@ -863,7 +920,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
 
   def testBuild32BitCppBinaryWithMsvcCL(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.createModuleDotBazel()
     self.ScratchFile('BUILD', [
         'platform(',
         '  name = "windows_32",',
@@ -889,7 +946,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.assertIn('x86\\cl.exe', '\n'.join(stderr))
 
   def testBuildArmCppBinaryWithMsvcCL(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.createModuleDotBazel()
     self.ScratchFile('BUILD', [
         'platform(',
         '  name = "windows_arm",',
@@ -915,7 +972,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.assertIn('arm\\cl.exe', '\n'.join(stderr))
 
   def testBuildArm64CppBinaryWithMsvcCLAndCpuX64Arm64Windows(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.createModuleDotBazel()
     self.ScratchFile('BUILD', [
         'platform(',
         '  name = "windows_arm64",',
@@ -941,7 +998,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.assertIn('arm64\\cl.exe', '\n'.join(stderr))
 
   def testBuildCppBinaryWithMingwGCC(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.createModuleDotBazel()
     self.ScratchFile('BUILD', [
         'platform(',
         '    name = "x64_windows-mingw-gcc",',
@@ -1005,7 +1062,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.assertIn('-Wl,--gc-sections', ''.join(stderr))
 
   def testBuildCppBinaryWithMsysGCC(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.createModuleDotBazel()
     self.ScratchFile('BUILD', [
         'platform(',
         '    name = "x64_windows-msys-gcc",',
@@ -1027,7 +1084,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     ])
 
     bazel_output = self.getBazelInfo('output_path')
-    paramfile = 'x64_windows-%s/bin/main.exe-2.params'
+    paramfile = 'x64_windows-%s/bin/main.exe-0.params'
 
     # Test build without debug and optimize modes.
     exit_code, _, stderr = self.RunBazel([
@@ -1076,7 +1133,7 @@ class BazelWindowsCppTest(test_base.TestBase):
         os.path.join(bazel_output, paramfile % 'opt'), '-Wl,--gc-sections')
 
   def testBuildArm64CppBinaryWithMsvcCLAndCpuArm64Windows(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.createModuleDotBazel()
     self.ScratchFile('BUILD', [
         'platform(',
         '  name = "windows_arm64",',
@@ -1102,7 +1159,6 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.assertIn('arm64\\cl.exe', ''.join(stderr))
 
   def testLongCompileCommandLines(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile(
         'BUILD',
         [
@@ -1123,7 +1179,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
 
   def testCompilerSettingMsvc(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.createModuleDotBazel()
     self.ScratchFile(
         'BUILD',
         [
@@ -1156,7 +1212,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
 
   def testCompilerSettingClangCl(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.createModuleDotBazel()
     self.ScratchFile(
         'BUILD',
         [
@@ -1189,7 +1245,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
 
   def testCompilerSettingMingwGcc(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.createModuleDotBazel()
     self.ScratchFile(
         'BUILD',
         [

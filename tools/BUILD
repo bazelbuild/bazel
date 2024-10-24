@@ -1,4 +1,8 @@
+load(":build_defs.bzl", "BZLMOD_ENABLED")
+
 package(default_visibility = ["//visibility:public"])
+
+exports_files(["fastutil.proguard"])
 
 filegroup(
     name = "srcs",
@@ -17,14 +21,12 @@ filegroup(
         "//tools/def_parser:srcs",
         "//tools/distributions:srcs",
         "//tools/genrule:srcs",
-        "//tools/j2objc:srcs",
         "//tools/java:srcs",
         "//tools/jdk:srcs",
         "//tools/launcher:srcs",
         "//tools/mini_tar:srcs",
         "//tools/objc:srcs",
         "//tools/osx:srcs",
-        "//tools/proto:srcs",
         "//tools/python:srcs",
         "//tools/runfiles:srcs",
         "//tools/sh:srcs",
@@ -39,9 +41,11 @@ filegroup(
 # Sources in the built in repo '@bazel_tools'
 filegroup(
     name = "embedded_tools_srcs",
-    srcs = glob(["**"]) + [
+    srcs = glob(
+        ["**"],
+        exclude = ["fastutil.proguard"],
+    ) + [
         "//tools/allowlists:srcs",
-        "//tools/android:embedded_tools",
         "//tools/bash:embedded_tools",
         "//tools/build_defs:embedded_tools",
         "//tools/build_rules:embedded_tools_srcs",
@@ -50,7 +54,6 @@ filegroup(
         "//tools/cpp:embedded_tools",
         "//tools/def_parser:srcs",
         "//tools/genrule:srcs",
-        "//tools/j2objc:srcs",
         "//tools/java:embedded_tools",
         "//tools/java:java_stub_template.txt",
         "//tools/jdk:package-srcs",
@@ -58,7 +61,6 @@ filegroup(
         "//tools/launcher:srcs",
         "//tools/objc:srcs",
         "//tools/osx:srcs",
-        "//tools/proto:srcs",
         "//tools/python:embedded_tools",
         "//tools/runfiles:embedded_tools",
         "//tools/sh:embedded_tools",
@@ -73,7 +75,7 @@ filegroup(
 filegroup(
     name = "bzl_srcs",
     srcs = [
-        "//tools/android:bzl_srcs",
+        "//tools:build_defs.bzl",
         "//tools/build_defs:bzl_srcs",
         "//tools/build_rules:bzl_srcs",
         "//tools/cpp:bzl_srcs",
@@ -89,4 +91,9 @@ filegroup(
 sh_binary(
     name = "upload_bazel_mirror",
     srcs = ["upload_bazel_mirror.sh"],
+)
+
+alias(
+    name = "host_platform",
+    actual = "@platforms//host" if BZLMOD_ENABLED else "@internal_platforms_do_not_use//host",
 )

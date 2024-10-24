@@ -84,6 +84,23 @@ using the C/C++ compiler.
 </p>
 """,
     ),
+    "module_interfaces": attr.label_list(
+        allow_files = True,
+        doc = """
+The list of files are regarded as C++20 Modules Interface.
+
+<p>
+C++ Standard has no restriction about module interface file extension
+<ul>
+<li>Clang use cppm </li>
+<li>GCC can use any source file extension </li>
+<li>MSVC use ixx </li>
+</ul>
+</p>
+<p>The use is guarded by the flag
+<code>--experimental_cpp_modules</code>.</p>
+        """,
+    ),
     "data": attr.label_list(
         allow_files = True,
         flags = ["SKIP_CONSTRAINTS_OVERRIDE"],
@@ -123,9 +140,8 @@ and every rule that depends on it. (Note: not the rules it depends upon!) Be
 very careful, since this may have far-reaching effects.  When in doubt, add
 "-I" flags to <a href="#cc_binary.copts">COPTS</a> instead.
 <p>
-The default <code>include</code> path doesn't include generated
-files. If you need to <code>#include</code> a generated header
-file, list it in the <code>srcs</code>.
+The added <code>include</code> paths will include generated files as well as
+files in the source tree.
 </p>
 """),
     "defines": attr.string_list(doc = """
@@ -147,7 +163,7 @@ is prepended with <code>-D</code> and added to the compile command line for this
 but not to its dependents.
 """),
     "copts": attr.string_list(doc = """
-Add these options to the C++ compilation command.
+Add these options to the C/C++ compilation command.
 Subject to <a href="${link make-variables}">"Make variable"</a> substitution and
 <a href="${link common-definitions#sh-tokenization}">Bourne shell tokenization</a>.
 <p>
@@ -162,6 +178,16 @@ Subject to <a href="${link make-variables}">"Make variable"</a> substitution and
   <code>no_copts_tokenization</code>, Bourne shell tokenization applies only to strings
   that consist of a single "Make" variable.
 </p>
+"""),
+    "conlyopts": attr.string_list(doc = """
+Add these options to the C compilation command.
+Subject to <a href="${link make-variables}">"Make variable"</a> substitution and
+<a href="${link common-definitions#sh-tokenization}">Bourne shell tokenization</a>.
+"""),
+    "cxxopts": attr.string_list(doc = """
+Add these options to the C++ compilation command.
+Subject to <a href="${link make-variables}">"Make variable"</a> substitution and
+<a href="${link common-definitions#sh-tokenization}">Bourne shell tokenization</a>.
 """),
     "hdrs_check": attr.string(
         doc = "Deprecated, no-op.",
@@ -373,8 +399,8 @@ this option is off.
     "_cc_binary": attr.bool(),
     "_is_test": attr.bool(default = False),
     "_stl": semantics.get_stl(),
+    # TODO(b/288421584): necessary because IDE aspect can't see toolchains
     "_cc_toolchain": attr.label(default = "@" + semantics.get_repo() + "//tools/cpp:current_cc_toolchain"),
-    "_cc_toolchain_type": attr.label(default = "@" + semantics.get_repo() + "//tools/cpp:toolchain_type"),
     "_def_parser": semantics.get_def_parser(),
     "_use_auto_exec_groups": attr.bool(default = True),
 }

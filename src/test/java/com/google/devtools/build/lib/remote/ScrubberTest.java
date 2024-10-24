@@ -16,12 +16,11 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.remote.RemoteScrubbing.Config;
 import com.google.devtools.build.lib.remote.Scrubber.SpawnScrubber;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -126,6 +125,54 @@ public class ScrubberTest {
   }
 
   @Test
+  public void matchExactKind() {
+    var scrubber =
+        new Scrubber(
+            Config.newBuilder()
+                .addRules(
+                    Config.Rule.newBuilder()
+                        .setMatcher(Config.Matcher.newBuilder().setKind("java_library")))
+                .build());
+
+    assertThat(scrubber.forSpawn(createSpawn("//foo:bar", "Foo", "java_library", false)))
+        .isNotNull();
+    assertThat(scrubber.forSpawn(createSpawn("//foo:barbaz", "Foo", "java_test", false))).isNull();
+  }
+
+  @Test
+  public void matchUnionKind() {
+    var scrubber =
+        new Scrubber(
+            Config.newBuilder()
+                .addRules(
+                    Config.Rule.newBuilder()
+                        .setMatcher(Config.Matcher.newBuilder().setKind("java_library|java_test")))
+                .build());
+
+    assertThat(scrubber.forSpawn(createSpawn("//foo:bar", "Foo", "java_library", false)))
+        .isNotNull();
+    assertThat(scrubber.forSpawn(createSpawn("//spam:eggs", "Foo", "java_test", false)))
+        .isNotNull();
+    assertThat(scrubber.forSpawn(createSpawn("//quux:xyzzy", "Foo", "go_library", false))).isNull();
+  }
+
+  @Test
+  public void matchWildcardKind() {
+    var scrubber =
+        new Scrubber(
+            Config.newBuilder()
+                .addRules(
+                    Config.Rule.newBuilder()
+                        .setMatcher(Config.Matcher.newBuilder().setKind("java_.*")))
+                .build());
+
+    assertThat(scrubber.forSpawn(createSpawn("//foo:bar", "Foo", "java_library", false)))
+        .isNotNull();
+    assertThat(scrubber.forSpawn(createSpawn("//foo:baz", "Foo", "java_test", false))).isNotNull();
+    assertThat(scrubber.forSpawn(createSpawn("//spam:eggs", "Foo", "go_library", false))).isNull();
+  }
+
+  @Test
   public void rejectToolAction() {
     var scrubber =
         new Scrubber(
@@ -137,7 +184,9 @@ public class ScrubberTest {
                 .build());
 
     assertThat(scrubber.forSpawn(createSpawn("//foo:bar", "Foo"))).isNotNull();
-    assertThat(scrubber.forSpawn(createSpawn("//foo:bar", "Foo", /* forTool= */ true))).isNull();
+    assertThat(
+            scrubber.forSpawn(createSpawn("//foo:bar", "Foo", "java_library", /* forTool= */ true)))
+        .isNull();
   }
 
   @Test
@@ -155,7 +204,9 @@ public class ScrubberTest {
                 .build());
 
     assertThat(scrubber.forSpawn(createSpawn("//foo:bar", "Foo"))).isNotNull();
-    assertThat(scrubber.forSpawn(createSpawn("//foo:bar", "Foo", /* forTool= */ true))).isNotNull();
+    assertThat(
+            scrubber.forSpawn(createSpawn("//foo:bar", "Foo", "java_library", /* forTool= */ true)))
+        .isNotNull();
   }
 
   @Test
@@ -164,7 +215,7 @@ public class ScrubberTest {
         new Scrubber(Config.newBuilder().addRules(Config.Rule.getDefaultInstance()).build())
             .forSpawn(createSpawn());
 
-    assertThat(spawnScrubber.shouldOmitInput(ActionInputHelper.fromPath("foo/bar"))).isFalse();
+    assertThat(spawnScrubber.shouldOmitInput(PathFragment.create("foo/bar"))).isFalse();
   }
 
   @Test
@@ -179,10 +230,9 @@ public class ScrubberTest {
                     .build())
             .forSpawn(createSpawn());
 
-    assertThat(spawnScrubber.shouldOmitInput(ActionInputHelper.fromPath("foo/bar"))).isTrue();
-    assertThat(spawnScrubber.shouldOmitInput(ActionInputHelper.fromPath("foo/bar/baz"))).isFalse();
-    assertThat(spawnScrubber.shouldOmitInput(ActionInputHelper.fromPath("bazel-out/foo/bar")))
-        .isFalse();
+    assertThat(spawnScrubber.shouldOmitInput(PathFragment.create("foo/bar"))).isTrue();
+    assertThat(spawnScrubber.shouldOmitInput(PathFragment.create("foo/bar/baz"))).isFalse();
+    assertThat(spawnScrubber.shouldOmitInput(PathFragment.create("bazel-out/foo/bar"))).isFalse();
   }
 
   @Test
@@ -197,10 +247,9 @@ public class ScrubberTest {
                     .build())
             .forSpawn(createSpawn());
 
-    assertThat(spawnScrubber.shouldOmitInput(ActionInputHelper.fromPath("foo/bar"))).isTrue();
-    assertThat(spawnScrubber.shouldOmitInput(ActionInputHelper.fromPath("foo/bar/baz"))).isTrue();
-    assertThat(spawnScrubber.shouldOmitInput(ActionInputHelper.fromPath("bazel-out/foo/bar")))
-        .isFalse();
+    assertThat(spawnScrubber.shouldOmitInput(PathFragment.create("foo/bar"))).isTrue();
+    assertThat(spawnScrubber.shouldOmitInput(PathFragment.create("foo/bar/baz"))).isTrue();
+    assertThat(spawnScrubber.shouldOmitInput(PathFragment.create("bazel-out/foo/bar"))).isFalse();
   }
 
   @Test
@@ -217,29 +266,12 @@ public class ScrubberTest {
                     .build())
             .forSpawn(createSpawn());
 
-    assertThat(spawnScrubber.shouldOmitInput(ActionInputHelper.fromPath("foo/bar"))).isTrue();
-    assertThat(spawnScrubber.shouldOmitInput(ActionInputHelper.fromPath("spam/eggs"))).isTrue();
-    assertThat(spawnScrubber.shouldOmitInput(ActionInputHelper.fromPath("foo/bar/baz"))).isFalse();
-    assertThat(spawnScrubber.shouldOmitInput(ActionInputHelper.fromPath("bazel-out/foo/bar")))
-        .isFalse();
-    assertThat(spawnScrubber.shouldOmitInput(ActionInputHelper.fromPath("spam/eggs/bacon")))
-        .isFalse();
-    assertThat(spawnScrubber.shouldOmitInput(ActionInputHelper.fromPath("bazel-out/spam/eggs")))
-        .isFalse();
-  }
-
-  @Test
-  public void doNotScrubEmptyMarker() {
-    var spawnScrubber =
-        new Scrubber(
-                Config.newBuilder()
-                    .addRules(
-                        Config.Rule.newBuilder()
-                            .setTransform(Config.Transform.newBuilder().addOmittedInputs(".*")))
-                    .build())
-            .forSpawn(createSpawn());
-
-    assertThat(spawnScrubber.shouldOmitInput(VirtualActionInput.EMPTY_MARKER)).isFalse();
+    assertThat(spawnScrubber.shouldOmitInput(PathFragment.create("foo/bar"))).isTrue();
+    assertThat(spawnScrubber.shouldOmitInput(PathFragment.create("spam/eggs"))).isTrue();
+    assertThat(spawnScrubber.shouldOmitInput(PathFragment.create("foo/bar/baz"))).isFalse();
+    assertThat(spawnScrubber.shouldOmitInput(PathFragment.create("bazel-out/foo/bar"))).isFalse();
+    assertThat(spawnScrubber.shouldOmitInput(PathFragment.create("spam/eggs/bacon"))).isFalse();
+    assertThat(spawnScrubber.shouldOmitInput(PathFragment.create("bazel-out/spam/eggs"))).isFalse();
   }
 
   @Test
@@ -420,13 +452,15 @@ public class ScrubberTest {
   }
 
   private static Spawn createSpawn(String label, String mnemonic) {
-    return createSpawn(label, mnemonic, /* forTool= */ false);
+    return createSpawn(label, mnemonic, /* ruleKind= */ "dummy-target-kind", /* forTool= */ false);
   }
 
-  private static Spawn createSpawn(String label, String mnemonic, boolean forTool) {
+  private static Spawn createSpawn(
+      String label, String mnemonic, String ruleKind, boolean forTool) {
     return new SpawnBuilder("cmd")
         .withOwnerLabel(label)
         .withMnemonic(mnemonic)
+        .withOwnerRuleKind(ruleKind)
         .setBuiltForToolConfiguration(forTool)
         .build();
   }

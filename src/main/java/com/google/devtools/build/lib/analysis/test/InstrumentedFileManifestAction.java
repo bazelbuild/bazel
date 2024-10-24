@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifacts;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
@@ -30,8 +31,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
-import java.io.IOException;
-import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.util.Arrays;
@@ -48,28 +47,21 @@ final class InstrumentedFileManifestAction extends AbstractFileWriteAction {
 
   @VisibleForTesting
   InstrumentedFileManifestAction(ActionOwner owner, NestedSet<Artifact> files, Artifact output) {
-    super(
-        owner,
-        /*inputs=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        output,
-        /*makeExecutable=*/ false);
+    super(owner, /* inputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER), output);
     this.files = files;
   }
 
   @Override
   public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx) {
-    return new DeterministicWriter() {
-      @Override
-      public void writeOutputFile(OutputStream out) throws IOException {
-        // Sort the exec paths before writing them out.
-        String[] fileNames =
-            files.toList().stream().map(Artifact::getExecPathString).toArray(String[]::new);
-        Arrays.sort(fileNames);
-        try (Writer writer = new OutputStreamWriter(out, ISO_8859_1)) {
-          for (String name : fileNames) {
-            writer.write(name);
-            writer.write('\n');
-          }
+    return out -> {
+      // Sort the exec paths before writing them out.
+      String[] fileNames =
+          files.toList().stream().map(Artifact::getExecPathString).toArray(String[]::new);
+      Arrays.sort(fileNames);
+      try (Writer writer = new OutputStreamWriter(out, ISO_8859_1)) {
+        for (String name : fileNames) {
+          writer.write(name);
+          writer.write('\n');
         }
       }
     };
@@ -78,7 +70,7 @@ final class InstrumentedFileManifestAction extends AbstractFileWriteAction {
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable Artifact.ArtifactExpander artifactExpander,
+      @Nullable ArtifactExpander artifactExpander,
       Fingerprint fp) {
     // TODO(b/150305897): use addUUID?
     fp.addString(GUID);

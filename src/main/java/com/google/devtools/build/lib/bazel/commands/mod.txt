@@ -1,5 +1,8 @@
 
-Usage: %{product} %{command} [<option> ...] <query_type> [<args> ...]
+Usage: %{product} %{command} [<option> ...] tidy|<query_type> [<args> ...]
+
+When invoked as %{product} %{command} tidy, the command will format the MODULE.bazel file and update all use_repo calls for supported module extensions.
+Only works when bzlmod is enabled via --enable_bzlmod.
 
 The command will display the external dependency graph or parts thereof, structured to display different kinds of insights depending on the query type.
 
@@ -12,6 +15,7 @@ The command will display the external dependency graph or parts thereof, structu
     - explain <module>...: Prints all the places where the module is (or was) requested as a direct dependency, along with the reason why the respective final version was selected. It will display a pruned version of the `all_paths <module>...` command which only contains the direct deps of the root, the <module(s)> leaves, along with their dependants (can be modified with --depth).
     - show_repo <module>...: Prints the rule that generated the specified repos (i.e. http_archive()). The arguments may refer to extension-generated repos.
     - show_extension <extension>...: Prints information about the given extension(s). Usages can be filtered down to only those from modules in --extension_usage.
+    - dump_repo_mapping <canonical_repo_name>...: Prints the mappings from apparent repo names to canonical repo names for the given repos in NDJSON format. The order of entries within each JSON object is unspecified. This command is intended for use by tools such as IDEs and Starlark language servers.
 
 
 <module> arguments must be one of the following:
@@ -24,5 +28,7 @@ The command will display the external dependency graph or parts thereof, structu
     - @@<repo_name>: The canonical name of any repo. Unless otherwise specified, this must refer to a module, not an extension-generated repo.
 
 <extension> arguments must be of the form <module><label_to_bzl_file>%<extension_name>. For example, both rules_java//java:extensions.bzl%toolchains and @rules_java//java:extensions.bzl%toolchains are valid specifications of extensions.
+
+<canonical_repo_name> arguments are canonical repo names without any leading @ characters. The canonical repo name of the root module repository is the empty string.
 
 %{options}

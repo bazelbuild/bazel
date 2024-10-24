@@ -44,7 +44,8 @@ public class JsonOutputFormatter extends OutputFormatter {
     seenExtensions = new HashSet<>();
     JsonObject root = printModule(ModuleKey.ROOT, null, IsExpanded.TRUE, IsIndirect.FALSE);
     root.addProperty("root", true);
-    printer.println(new GsonBuilder().setPrettyPrinting().create().toJson(root));
+    printer.println(
+        new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create().toJson(root));
   }
 
   public String printKey(ModuleKey key) {
@@ -93,10 +94,10 @@ public class JsonOutputFormatter extends OutputFormatter {
     AugmentedModule module = depGraph.get(key);
     JsonObject json = new JsonObject();
     json.addProperty("key", printKey(key));
-    if (!key.getName().equals(module.getName())) {
+    if (!key.name().equals(module.getName())) {
       json.addProperty("name", module.getName());
     }
-    if (!key.getVersion().equals(module.getVersion())) {
+    if (!key.version().equals(module.getVersion())) {
       json.addProperty("version", module.getVersion().toString());
     }
 

@@ -55,13 +55,6 @@ msys*)
   ;;
 esac
 
-if "$is_windows"; then
-  # Disable MSYS path conversion that converts path-looking command arguments to
-  # Windows paths (even if they arguments are not in fact paths).
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 #### TESTS #############################################################
 
 function test_passing_test_is_reported_correctly() {
@@ -208,11 +201,6 @@ EOF
 }
 
 function test_print_relative_test_log_paths() {
-  # The symlink resolution done by PathPrettyPrinter doesn't seem to work on
-  # Windows.
-  # TODO(nharmata): Fix this.
-  [[ "$is_windows" == "true" ]] && return 0
-
   local -r pkg="$FUNCNAME"
   mkdir -p "$pkg" || fail "mkdir -p $pkg failed"
   cat > "$pkg"/BUILD <<'EOF'
@@ -231,6 +219,14 @@ EOF
   expect_log "^  $testlogs_dir/$pkg/fail/test.log$"
 
   bazel test --print_relative_test_log_paths=true //"$pkg":fail &> $TEST_log \
+    && fail "expected failure"
+  expect_log "^  ${PRODUCT_NAME}-testlogs/$pkg/fail/test.log$"
+
+  # Tell bazel to not create the symlinks where these relative logs would be,
+  # but still pretend that they exist in logging.
+  bazel test --print_relative_test_log_paths=true \
+    --experimental_convenience_symlinks=log_only \
+    //"$pkg":fail &> $TEST_log \
     && fail "expected failure"
   expect_log "^  ${PRODUCT_NAME}-testlogs/$pkg/fail/test.log$"
 }

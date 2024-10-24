@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
@@ -94,9 +95,9 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
 
       @Override
       public boolean equals(Object obj) {
-        return obj instanceof InvalidatedKey
-            && this.skyKey.equals(((InvalidatedKey) obj).skyKey)
-            && this.state.equals(((InvalidatedKey) obj).state);
+        return obj instanceof InvalidatedKey invalidatedKey
+            && this.skyKey.equals(invalidatedKey.skyKey)
+            && this.state.equals(invalidatedKey.state);
       }
 
       @Override
@@ -116,9 +117,9 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
 
       @Override
       public boolean equals(Object obj) {
-        return obj instanceof EvaluatedEntry
-            && this.skyKey.equals(((EvaluatedEntry) obj).skyKey)
-            && this.state.equals(((EvaluatedEntry) obj).state);
+        return obj instanceof EvaluatedEntry evaluatedEntry
+            && this.skyKey.equals(evaluatedEntry.skyKey)
+            && this.state.equals(evaluatedEntry.state);
       }
 
       @Override
@@ -224,7 +225,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     @Override
     protected void computeKey(
         ActionKeyContext actionKeyContext,
-        @Nullable Artifact.ArtifactExpander artifactExpander,
+        @Nullable ArtifactExpander artifactExpander,
         Fingerprint fp) {
       fp.addString(getPrimaryOutput().getExecPathString());
       fp.addInt(executionCounter.get());
@@ -469,11 +470,11 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
       assertThat(newEntry).isNotNull();
       if (expectActionIs.actuallyClean()) {
         // Action was dirtied but verified clean.
-        assertThat(newEntry.state.changed()).isFalse();
+        assertThat(newEntry.state.versionChanged()).isFalse();
       } else {
         // Action was dirtied and rebuilt. It was either reexecuted or was an action cache hit,
         // doesn't matter here.
-        assertThat(newEntry.state.changed()).isTrue();
+        assertThat(newEntry.state.versionChanged()).isTrue();
       }
     } else {
       // Action was not dirtied.
@@ -711,7 +712,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     @Override
     protected void computeKey(
         ActionKeyContext actionKeyContext,
-        @Nullable Artifact.ArtifactExpander artifactExpander,
+        @Nullable ArtifactExpander artifactExpander,
         Fingerprint fp) {
       fp.addInt(42);
     }

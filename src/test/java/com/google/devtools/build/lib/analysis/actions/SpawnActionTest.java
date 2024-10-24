@@ -14,17 +14,17 @@
 package com.google.devtools.build.lib.analysis.actions;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth8.assertThat;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
-import static java.util.Arrays.asList;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
-import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
@@ -41,9 +40,6 @@ import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.SpawnInfo;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
-import com.google.devtools.build.lib.analysis.Runfiles;
-import com.google.devtools.build.lib.analysis.SingleRunfilesSupplier;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
@@ -52,6 +48,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.HashMap;
@@ -87,8 +84,10 @@ public final class SpawnActionTest extends BuildViewTestCase {
 
   private SpawnAction createCopyFromWelcomeToDestination(Map<String, String> environmentVariables) {
     PathFragment cp = PathFragment.create("/bin/cp");
-    List<String> arguments = asList(welcomeArtifact.getExecPath().getPathString(),
-        destinationArtifact.getExecPath().getPathString());
+    ImmutableList<String> arguments =
+        ImmutableList.of(
+            welcomeArtifact.getExecPath().getPathString(),
+            destinationArtifact.getExecPath().getPathString());
 
     SpawnAction action =
         builder()
@@ -183,7 +182,7 @@ public final class SpawnActionTest extends BuildViewTestCase {
         .isEqualTo(ActionsTestUtil.NULL_ACTION_OWNER.getLabel());
     assertThat(action.getInputs().toList()).containsExactly(input);
     assertThat(action.getOutputs()).containsExactly(output);
-    assertThat(action.getSpawn().getLocalResources())
+    assertThat(action.getSpawnForTesting().getLocalResources())
         .isEqualTo(AbstractAction.DEFAULT_RESOURCE_SET);
     assertThat(action.getArguments()).containsExactly("/bin/xxx");
     assertThat(action.getProgressMessage()).isEqualTo("Test");
@@ -253,13 +252,18 @@ public final class SpawnActionTest extends BuildViewTestCase {
         .containsExactly("/bin/java", "-jvmarg", "-jar", "pkg/exe.jar", "-X")
         .inOrder();
 
+    ActionExecutionContext actionExecutionContext =
+        new ActionExecutionContextBuilder()
+            .setArtifactExpander(treeArtifact -> ImmutableSortedSet.of())
+            .setMetadataProvider(new FakeActionInputFileCache())
+            .build();
+
     Spawn spawn =
         action.getSpawn(
-            (artifact, outputs) -> outputs.add(artifact),
+            actionExecutionContext,
             ImmutableMap.of(),
-            /*envResolved=*/ false,
-            ImmutableMap.of(),
-            /*reportOutputs=*/ true);
+            /* envResolved= */ false,
+            /* reportOutputs= */ true);
     String paramFileName = output.getExecPathString() + "-0.params";
     // The spawn's primary arguments should reference the param file
     assertThat(spawn.getArguments())
@@ -367,31 +371,10 @@ public final class SpawnActionTest extends BuildViewTestCase {
     }
   }
 
-  @Test
-  public void testInputManifestsRemovedIfSupplied() throws Exception {
-    SpawnAction action =
-        builder()
-            .addRunfilesSupplier(
-                new SingleRunfilesSupplier(
-                    PathFragment.create("destination"),
-                    Runfiles.EMPTY,
-                    /* repoMappingManifest= */ null,
-                    RunfileSymlinksMode.SKIP,
-                    /* buildRunfileLinks= */ false))
-            .addOutput(getBinArtifactWithNoOwner("output"))
-            .setExecutable(scratch.file("/bin/xxx").asFragment())
-            .setProgressMessage("Test")
-            .build(nullOwnerWithTargetConfig(), targetConfig);
-    collectingAnalysisEnvironment.registerAction(action);
-    ImmutableList<String> inputFiles = actionInputsToPaths(action.getSpawn().getInputFiles());
-    assertThat(inputFiles).isEmpty();
-  }
-
   private enum KeyAttributes {
     EXECUTABLE_PATH,
     EXECUTABLE,
     MNEMONIC,
-    RUNFILES_SUPPLIER_PATH,
     ENVIRONMENT
   }
 
@@ -420,12 +403,6 @@ public final class SpawnActionTest extends BuildViewTestCase {
             }
 
             builder.setMnemonic(attributesToFlip.contains(KeyAttributes.MNEMONIC) ? "a" : "b");
-
-            if (attributesToFlip.contains(KeyAttributes.RUNFILES_SUPPLIER_PATH)) {
-              builder.addRunfilesSupplier(runfilesSupplier(PathFragment.create("aa")));
-            } else {
-              builder.addRunfilesSupplier(runfilesSupplier(PathFragment.create("ab")));
-            }
 
             Map<String, String> env = new HashMap<>();
             if (attributesToFlip.contains(KeyAttributes.ENVIRONMENT)) {
@@ -470,24 +447,41 @@ public final class SpawnActionTest extends BuildViewTestCase {
   public void testGetExtraActionInfoOnAspects() throws Exception {
     scratch.file(
         "a/BUILD",
-        "load('//a:def.bzl', 'testrule')",
-        "testrule(name='a', deps=[':b'])",
-        "testrule(name='b')");
+        """
+        load("//a:def.bzl", "testrule")
+
+        testrule(
+            name = "a",
+            deps = [":b"],
+        )
+
+        testrule(name = "b")
+        """);
     scratch.file(
         "a/def.bzl",
-        "MyInfo = provider()",
-        "def _aspect_impl(target, ctx):",
-        "  f = ctx.actions.declare_file('foo.txt')",
-        "  ctx.actions.run_shell(outputs = [f], command = 'echo foo > \"$1\"')",
-        "  return MyInfo(output=f)",
-        "def _rule_impl(ctx):",
-        "  return DefaultInfo(",
-        "      files=depset([artifact[MyInfo].output for artifact in ctx.attr.deps]))",
-        "aspect1 = aspect(_aspect_impl, attr_aspects=['deps'], ",
-        "    attrs = {'parameter': attr.string(values = ['param_value'])})",
-        "testrule = rule(_rule_impl, attrs = { ",
-        "    'deps' : attr.label_list(aspects = [aspect1]), ",
-        "    'parameter': attr.string(default='param_value') })");
+        """
+        MyInfo = provider()
+
+        def _aspect_impl(target, ctx):
+            f = ctx.actions.declare_file("foo.txt")
+            ctx.actions.run_shell(outputs = [f], command = 'echo foo > "$1"')
+            return MyInfo(output = f)
+
+        def _rule_impl(ctx):
+            return DefaultInfo(
+                files = depset([artifact[MyInfo].output for artifact in ctx.attr.deps]),
+            )
+
+        aspect1 = aspect(
+            _aspect_impl,
+            attr_aspects = ["deps"],
+            attrs = {"parameter": attr.string(values = ["param_value"])},
+        )
+        testrule = rule(_rule_impl, attrs = {
+            "deps": attr.label_list(aspects = [aspect1]),
+            "parameter": attr.string(default = "param_value"),
+        })
+        """);
 
     update(
         ImmutableList.of("//a:a"),
@@ -522,20 +516,21 @@ public final class SpawnActionTest extends BuildViewTestCase {
   public void testWorkerSupport() throws Exception {
     SpawnAction workerSupportSpawn =
         createWorkerSupportSpawn(ImmutableMap.of("supports-workers", "1"));
-    assertThat(Spawns.supportsWorkers(workerSupportSpawn.getSpawn())).isTrue();
+    assertThat(Spawns.supportsWorkers(workerSupportSpawn.getSpawnForTesting())).isTrue();
   }
 
   @Test
   public void testMultiplexWorkerSupport() throws Exception {
     SpawnAction multiplexWorkerSupportSpawn =
         createWorkerSupportSpawn(ImmutableMap.of("supports-multiplex-workers", "1"));
-    assertThat(Spawns.supportsMultiplexWorkers(multiplexWorkerSupportSpawn.getSpawn())).isTrue();
+    assertThat(Spawns.supportsMultiplexWorkers(multiplexWorkerSupportSpawn.getSpawnForTesting()))
+        .isTrue();
   }
 
   @Test
   public void testWorkerProtocolFormat_defaultIsProto() throws Exception {
     SpawnAction spawn = createWorkerSupportSpawn(ImmutableMap.of("supports-workers", "1"));
-    assertThat(Spawns.getWorkerProtocolFormat(spawn.getSpawn()))
+    assertThat(Spawns.getWorkerProtocolFormat(spawn.getSpawnForTesting()))
         .isEqualTo(WorkerProtocolFormat.PROTO);
   }
 
@@ -544,7 +539,7 @@ public final class SpawnActionTest extends BuildViewTestCase {
     SpawnAction spawn =
         createWorkerSupportSpawn(
             ImmutableMap.of("supports-workers", "1", "requires-worker-protocol", "proto"));
-    assertThat(Spawns.getWorkerProtocolFormat(spawn.getSpawn()))
+    assertThat(Spawns.getWorkerProtocolFormat(spawn.getSpawnForTesting()))
         .isEqualTo(WorkerProtocolFormat.PROTO);
   }
 
@@ -553,14 +548,14 @@ public final class SpawnActionTest extends BuildViewTestCase {
     SpawnAction spawn =
         createWorkerSupportSpawn(
             ImmutableMap.of("supports-workers", "1", "requires-worker-protocol", "json"));
-    assertThat(Spawns.getWorkerProtocolFormat(spawn.getSpawn()))
+    assertThat(Spawns.getWorkerProtocolFormat(spawn.getSpawnForTesting()))
         .isEqualTo(WorkerProtocolFormat.JSON);
   }
 
   @Test
   public void testWorkerMnemonicDefault() throws Exception {
     SpawnAction defaultMnemonicSpawn = createWorkerSupportSpawn(ImmutableMap.of());
-    assertThat(Spawns.getWorkerKeyMnemonic(defaultMnemonicSpawn.getSpawn()))
+    assertThat(Spawns.getWorkerKeyMnemonic(defaultMnemonicSpawn.getSpawnForTesting()))
         .isEqualTo("ActionToolMnemonic");
   }
 
@@ -568,17 +563,8 @@ public final class SpawnActionTest extends BuildViewTestCase {
   public void testWorkerMnemonicOverride() throws Exception {
     SpawnAction customMnemonicSpawn =
         createWorkerSupportSpawn(ImmutableMap.of("worker-key-mnemonic", "ToolPoolMnemonic"));
-    assertThat(Spawns.getWorkerKeyMnemonic(customMnemonicSpawn.getSpawn()))
+    assertThat(Spawns.getWorkerKeyMnemonic(customMnemonicSpawn.getSpawnForTesting()))
         .isEqualTo("ToolPoolMnemonic");
-  }
-
-  private static RunfilesSupplier runfilesSupplier(PathFragment dir) {
-    return new SingleRunfilesSupplier(
-        dir,
-        Runfiles.EMPTY,
-        /* repoMappingManifest= */ null,
-        RunfileSymlinksMode.SKIP,
-        /* buildRunfileLinks= */ false);
   }
 
   private ActionOwner nullOwnerWithTargetConfig() {

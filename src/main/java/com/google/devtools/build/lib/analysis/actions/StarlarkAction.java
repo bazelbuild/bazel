@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
-import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.UserExecException;
@@ -47,6 +46,7 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.StarlarkAction.Code;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.protobuf.ByteString;
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -71,7 +71,6 @@ public class StarlarkAction extends SpawnAction {
       ActionEnvironment env,
       ImmutableMap<String, String> executionInfo,
       CharSequence progressMessage,
-      RunfilesSupplier runfilesSupplier,
       String mnemonic,
       OutputPathsMode outputPathsMode) {
     super(
@@ -84,7 +83,6 @@ public class StarlarkAction extends SpawnAction {
         env,
         executionInfo,
         progressMessage,
-        runfilesSupplier,
         mnemonic,
         outputPathsMode);
   }
@@ -148,7 +146,6 @@ public class StarlarkAction extends SpawnAction {
         @Nullable BuildConfigurationValue configuration,
         ImmutableMap<String, String> executionInfo,
         CharSequence progressMessage,
-        RunfilesSupplier runfilesSupplier,
         String mnemonic) {
       if (unusedInputsList.isPresent()) {
         // Always download unused_inputs_list file from remote cache.
@@ -172,7 +169,6 @@ public class StarlarkAction extends SpawnAction {
               env,
               executionInfo,
               progressMessage,
-              runfilesSupplier,
               mnemonic,
               outputPathsMode,
               unusedInputsList,
@@ -187,7 +183,6 @@ public class StarlarkAction extends SpawnAction {
               env,
               executionInfo,
               progressMessage,
-              runfilesSupplier,
               mnemonic,
               outputPathsMode);
     }
@@ -214,7 +209,6 @@ public class StarlarkAction extends SpawnAction {
         ActionEnvironment env,
         ImmutableMap<String, String> executionInfo,
         CharSequence progressMessage,
-        RunfilesSupplier runfilesSupplier,
         String mnemonic,
         OutputPathsMode outputPathsMode,
         Optional<Artifact> unusedInputsList,
@@ -231,7 +225,6 @@ public class StarlarkAction extends SpawnAction {
           env,
           executionInfo,
           progressMessage,
-          runfilesSupplier,
           mnemonic,
           outputPathsMode);
       this.allStarlarkActionInputs = inputs;
@@ -260,6 +253,11 @@ public class StarlarkAction extends SpawnAction {
     public boolean discoversInputs() {
       return unusedInputsList.isPresent()
           || (shadowedAction.isPresent() && shadowedAction.get().discoversInputs());
+    }
+
+    @Override
+    public NestedSet<Artifact> getOriginalInputs() {
+      return allStarlarkActionInputs;
     }
 
     @Override
@@ -315,9 +313,9 @@ public class StarlarkAction extends SpawnAction {
       // Note: SpawnActionContext guarantees that the first list entry exists and corresponds to the
       // executed spawn.
       Artifact unusedInputsListArtifact = unusedInputsList.get();
-      InputStream inputStream = spawnResults.get(0).getInMemoryOutput(unusedInputsListArtifact);
-      if (inputStream != null) {
-        return inputStream;
+      ByteString content = spawnResults.get(0).getInMemoryOutput(unusedInputsListArtifact);
+      if (content != null) {
+        return content.newInput();
       }
       // Fallback to reading from disk.
       try {
@@ -372,11 +370,13 @@ public class StarlarkAction extends SpawnAction {
     }
 
     @Override
-    Spawn getSpawnForExtraAction() throws CommandLineExpansionException, InterruptedException {
+    Spawn getSpawnForExtraActionSpawnInfo()
+        throws CommandLineExpansionException, InterruptedException {
       if (shadowedAction.isPresent()) {
-        return getSpawn(createInputs(shadowedAction.get().getInputs(), allStarlarkActionInputs));
+        return this.getSpawnForExtraActionSpawnInfo(
+            createInputs(shadowedAction.get().getInputs(), allStarlarkActionInputs));
       }
-      return getSpawn(allStarlarkActionInputs);
+      return this.getSpawnForExtraActionSpawnInfo(allStarlarkActionInputs);
     }
 
     @Nullable
@@ -418,10 +418,9 @@ public class StarlarkAction extends SpawnAction {
     public Spawn getSpawn(ActionExecutionContext actionExecutionContext)
         throws CommandLineExpansionException, InterruptedException {
       return getSpawn(
-          actionExecutionContext.getArtifactExpander(),
+          actionExecutionContext,
           getEffectiveEnvironment(actionExecutionContext.getClientEnv()),
           /* envResolved= */ true,
-          actionExecutionContext.getTopLevelFilesets(),
           /* reportOutputs= */ true);
     }
 

@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.Version;
+import java.io.IOException;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
@@ -34,30 +35,19 @@ public abstract class SkyValueDirtinessChecker {
    */
   public abstract boolean applies(SkyKey key);
 
-  /**
-   * If {@code applies(key)}, returns the new value for {@code key} or {@code null} if the checker
-   * was unable to create a new value.
-   */
-  @Nullable
+  /** If {@code applies(key)}, returns the new value for {@code key}. */
   public abstract SkyValue createNewValue(
-      SkyKey key, SyscallCache syscallCache, @Nullable TimestampGranularityMonitor tsgm);
+      SkyKey key, SyscallCache syscallCache, @Nullable TimestampGranularityMonitor tsgm)
+      throws IOException;
 
   /**
    * Returns the max transitive source version (mtsv) of a {@link SkyKey} for its new {@link
    * SkyValue}.
    */
   @Nullable
-  public Version getMaxTransitiveSourceVersionForNewValue(SkyKey key, SkyValue value) {
+  public Version getMaxTransitiveSourceVersionForNewValue(SkyKey key, SkyValue value)
+      throws IOException {
     return null;
-  }
-
-  /**
-   * Returns whether it is ok for this {@link SkyValueDirtinessChecker} to return a null max
-   * transitive source version. If this method returns false, a null mtsv would indicate an {@link
-   * java.io.IOException} was thrown.
-   */
-  public boolean nullMaxTransitiveSourceVersionOk() {
-    return true;
   }
 
   /**
@@ -68,11 +58,9 @@ public abstract class SkyValueDirtinessChecker {
       @Nullable SkyValue oldValue,
       @Nullable Version oldMtsv,
       SyscallCache syscallCache,
-      @Nullable TimestampGranularityMonitor tsgm) {
+      @Nullable TimestampGranularityMonitor tsgm)
+      throws IOException {
     SkyValue newValue = createNewValue(key, syscallCache, tsgm);
-    if (newValue == null) {
-      return DirtyResult.dirty();
-    }
     return newValue.equals(oldValue)
         ? DirtyResult.notDirty()
         : DirtyResult.dirtyWithNewValue(newValue);
@@ -143,7 +131,7 @@ public abstract class SkyValueDirtinessChecker {
      */
     @Nullable
     SkyValue getNewValue() {
-      Preconditions.checkState(isDirty(), newValue);
+      Preconditions.checkState(isDirty, newValue);
       return newValue;
     }
 
@@ -154,7 +142,7 @@ public abstract class SkyValueDirtinessChecker {
      */
     @Nullable
     Version getNewMaxTransitiveSourceVersion() {
-      Preconditions.checkState(isDirty(), newValue);
+      Preconditions.checkState(isDirty, newValue);
       return newMaxTransitiveSourceVersion;
     }
 
@@ -170,10 +158,9 @@ public abstract class SkyValueDirtinessChecker {
       if (this == obj) {
         return true;
       }
-      if (!(obj instanceof DirtyResult)) {
+      if (!(obj instanceof DirtyResult that)) {
         return false;
       }
-      DirtyResult that = (DirtyResult) obj;
       return this.isDirty == that.isDirty
           && Objects.equals(this.newValue, that.newValue)
           && Objects.equals(this.newMaxTransitiveSourceVersion, that.newMaxTransitiveSourceVersion);

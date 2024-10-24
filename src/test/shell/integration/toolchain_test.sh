@@ -44,9 +44,9 @@ source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
 
 function set_up() {
   create_new_workspace
-  # Clean out the WORKSPACE file.
-  rm WORKSPACE
-  touch WORKSPACE
+  # Clean out the MODULE.bazel file.
+  rm -f $TOOLCHAIN_REGISTRAION_FILE
+  setup_module_dot_bazel "MODULE.bazel"
 
   # Create shared report rule for printing toolchain info.
   mkdir -p report
@@ -159,7 +159,7 @@ function write_register_toolchain() {
   local exec_compatible_with="${3:-"[]"}"
   local target_compatible_with="${4:-"[]"}"
 
-  cat >> WORKSPACE <<EOF
+  cat >> $TOOLCHAIN_REGISTRAION_FILE <<EOF
 register_toolchains('//register/${pkg}:${toolchain_name}_1')
 EOF
 
@@ -676,8 +676,23 @@ function test_toolchain_debug_messages {
   mkdir -p "${pkg}/demo"
   cat > "${pkg}/demo/BUILD" <<EOF
 load('//${pkg}/toolchain:rule_use_toolchain.bzl', 'use_toolchain')
+load('//${pkg}/toolchain:toolchain_test_toolchain.bzl', 'test_toolchain')
 
 package(default_visibility = ["//visibility:public"])
+
+# Define a toolchain that can't be used due to the target_settings
+test_toolchain(
+    name = 'toolchain_impl_invalid',
+)
+config_setting(
+    name = "optimised",
+    values = {"compilation_mode": "opt"}
+)
+toolchain(
+    name = 'toolchain_invalid',
+    toolchain_type = '//${pkg}/toolchain:test_toolchain',
+    target_settings = [":optimised"],
+    toolchain = ':toolchain_impl_invalid')
 
 # Use the toolchain.
 use_toolchain(
@@ -686,11 +701,13 @@ use_toolchain(
 EOF
 
   bazel build \
+    --extra_toolchains="//${pkg}/demo:toolchain_invalid" \
     --toolchain_resolution_debug=toolchain:test_toolchain \
     --platform_mappings= \
     "//${pkg}/demo:use" &> $TEST_log || fail "Build failed"
   expect_log "Performing resolution of //${pkg}/toolchain:test_toolchain for target platform ${default_host_platform}"
-  expect_log "Toolchain //register/${pkg}:test_toolchain_impl_1 is compatible with target plaform, searching for execution platforms:"
+  expect_log "Rejected toolchain //${pkg}/demo:toolchain_impl_invalid; mismatching config settings: optimised"
+  expect_log "Toolchain //register/${pkg}:test_toolchain_impl_1 is compatible with target platform, searching for execution platforms:"
   expect_log "Compatible execution platform ${default_host_platform}"
   expect_log "Recap of selected //${pkg}/toolchain:test_toolchain toolchains for target platform ${default_host_platform}:"
   expect_log "Selected //register/${pkg}:test_toolchain_impl_1 to run on execution platform ${default_host_platform}"
@@ -721,7 +738,7 @@ EOF
     --platform_mappings= \
     "//${pkg}/demo:use" &> $TEST_log || fail "Build failed"
   expect_log "Performing resolution of //${pkg}/toolchain:test_toolchain for target platform ${default_host_platform}"
-  expect_log "Toolchain //register/${pkg}:test_toolchain_impl_1 is compatible with target plaform, searching for execution platforms:"
+  expect_log "Toolchain //register/${pkg}:test_toolchain_impl_1 is compatible with target platform, searching for execution platforms:"
   expect_log "Compatible execution platform ${default_host_platform}"
   expect_log "Recap of selected //${pkg}/toolchain:test_toolchain toolchains for target platform ${default_host_platform}:"
   expect_log "Selected //register/${pkg}:test_toolchain_impl_1 to run on execution platform ${default_host_platform}"
@@ -860,7 +877,7 @@ function test_toolchain_constraints() {
   write_test_toolchain "${pkg}"
   write_test_rule "${pkg}"
 
-  cat > WORKSPACE <<EOF
+  cat > $TOOLCHAIN_REGISTRAION_FILE <<EOF
 register_toolchains('//${pkg}:toolchain_1')
 register_toolchains('//${pkg}:toolchain_2')
 EOF
@@ -954,7 +971,7 @@ function test_register_toolchain_error_invalid_label() {
   write_test_rule "${pkg}"
   write_register_toolchain "${pkg}"
 
-  cat > WORKSPACE <<EOF
+  cat > $TOOLCHAIN_REGISTRAION_FILE <<EOF
 register_toolchains('/:invalid:label:syntax')
 EOF
 
@@ -971,7 +988,10 @@ use_toolchain(
 EOF
 
   bazel build "//${pkg}/demo:use" &> $TEST_log && fail "Build failure expected"
-  expect_log "error parsing target pattern \"/:invalid:label:syntax\": invalid package name '/': package names may not start with '/'"
+
+  expect_log "Expected absolute target patterns (must begin with '//'"
+  # Bazel's error message has an extra "or '@'" here
+  expect_log ") for 'register_toolchains' argument, but got '/:invalid:label:syntax'"
 }
 
 function test_register_toolchain_error_invalid_target() {
@@ -979,7 +999,7 @@ function test_register_toolchain_error_invalid_target() {
   write_test_toolchain "${pkg}"
   write_test_rule "${pkg}"
 
-  cat > WORKSPACE <<EOF
+  cat > $TOOLCHAIN_REGISTRAION_FILE <<EOF
 register_toolchains('//${pkg}/demo:not_a_target')
 EOF
 
@@ -1004,7 +1024,7 @@ function test_register_toolchain_error_target_not_a_toolchain() {
   write_test_toolchain "${pkg}"
   write_test_rule "${pkg}"
 
-  cat > WORKSPACE <<EOF
+  cat > $TOOLCHAIN_REGISTRAION_FILE <<EOF
 register_toolchains('//${pkg}/demo:invalid')
 EOF
 
@@ -1034,7 +1054,7 @@ EOF
 
 function test_register_toolchain_error_invalid_pattern() {
   local -r pkg="${FUNCNAME[0]}"
-  cat > WORKSPACE <<EOF
+  cat > $TOOLCHAIN_REGISTRAION_FILE <<EOF
 register_toolchains('//${pkg}:bad1')
 register_toolchains('//${pkg}:bad2')
 EOF
@@ -1085,7 +1105,7 @@ toolchain(
 )
 EOF
 
-  cat > WORKSPACE <<EOF
+  cat > $TOOLCHAIN_REGISTRAION_FILE <<EOF
 register_toolchains('//${pkg}/invalid:invalid_toolchain')
 EOF
 
@@ -1393,7 +1413,7 @@ function test_target_setting() {
   write_test_toolchain "${pkg}"
   write_test_rule "${pkg}"
 
-  cat > WORKSPACE <<EOF
+  cat > $TOOLCHAIN_REGISTRAION_FILE <<EOF
 register_toolchains('//${pkg}:toolchain_1')
 register_toolchains('//${pkg}:toolchain_2')
 EOF
@@ -1469,7 +1489,7 @@ function test_target_setting_with_transition() {
   write_test_toolchain "${pkg}"
   write_test_rule "${pkg}"
 
-  cat > WORKSPACE <<EOF
+  cat > $TOOLCHAIN_REGISTRAION_FILE <<EOF
 register_toolchains('//${pkg}:toolchain_1')
 register_toolchains('//${pkg}:toolchain_2')
 EOF
@@ -1628,7 +1648,7 @@ toolchain(
 EOF
 
   # Register the toolchains
-  cat > WORKSPACE <<EOF
+  cat > $TOOLCHAIN_REGISTRAION_FILE <<EOF
 register_toolchains('//${pkg}:test_toolchain_foo', '//${pkg}:test_toolchain_bar')
 EOF
 
@@ -1699,7 +1719,7 @@ rule_var = rule(
 EOF
 
   # Create and register a toolchain
-  cat > WORKSPACE <<EOF
+  cat > $TOOLCHAIN_REGISTRAION_FILE <<EOF
 register_toolchains('//${pkg}:toolchain_var_1')
 EOF
 
@@ -1849,8 +1869,8 @@ toolchain(
 )
 EOF
 
-  # Finally, set up the misconfigured WORKSPACE file.
-  cat >WORKSPACE <<EOF
+  # Finally, set up the misconfigured MODULE.bazel file.
+  cat > $TOOLCHAIN_REGISTRAION_FILE <<EOF
 register_toolchains(
     '//${pkg}:upper_toolchain', # Not a toolchain() target!
     '//${pkg}:lower_toolchain_impl',
@@ -2193,7 +2213,7 @@ test_rule(
 )
 EOF
 
-  cat > WORKSPACE <<EOF
+  cat > $TOOLCHAIN_REGISTRAION_FILE <<EOF
 register_toolchains('//${pkg}/project:toolchain')
 EOF
 
@@ -2321,7 +2341,7 @@ function test_two_toolchain_types_resolve_to_same_label() {
   local -r pkg="${FUNCNAME[0]}"
   write_test_toolchain "${pkg}"
 
-  cat > WORKSPACE <<EOF
+  cat > $TOOLCHAIN_REGISTRAION_FILE <<EOF
 register_toolchains('//${pkg}:toolchain_1')
 register_toolchains('//${pkg}:toolchain_2')
 EOF
@@ -2490,7 +2510,7 @@ toolchain(
 EOF
 
   # Register all the toolchains.
-  cat >WORKSPACE <<EOF
+  cat > $TOOLCHAIN_REGISTRAION_FILE <<EOF
 register_toolchains("//${pkg}/inner:all")
 register_toolchains("//${pkg}/outer:all")
 EOF
@@ -2540,7 +2560,7 @@ function test_repository_relative_toolchain_type() {
   # Create a repository that defines a toolchain type and simple rule.
   # The toolchain type used in the repository is relative to the repository.
   mkdir -p "${pkg}/external/rules_foo"
-  touch "${pkg}/external/rules_foo/WORKSPACE"
+  touch "${pkg}/external/rules_foo/REPO.bazel"
   mkdir -p "${pkg}/external/rules_foo/rule"
   touch "${pkg}/external/rules_foo/rule/BUILD"
   cat > "${pkg}/external/rules_foo/rule/rule.bzl" <<EOF
@@ -2616,8 +2636,9 @@ package(default_visibility = ["//visibility:public"])
 foo_rule(name = "demo")
 EOF
 
-  # Set up the WORKSPACE.
-  cat > WORKSPACE <<EOF
+  # Set up the MODULE.bazel.
+  cat > $TOOLCHAIN_REGISTRAION_FILE <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
   name = "rules_foo",
   path = "${pkg}/external/rules_foo",
@@ -2631,7 +2652,7 @@ EOF
   # Test the build.
   bazel build \
     "//${pkg}/demo:demo" &> $TEST_log || fail "Build failed"
-  expect_log "foo_tool = <target @@rules_foo//foo_tools:foo_tool>"
+  expect_log "foo_tool = <target @@+_repo_rules+rules_foo//foo_tools:foo_tool>"
 }
 
 function test_exec_platform_order_with_mandatory_toolchains {
@@ -2656,7 +2677,7 @@ platform(
 )
 EOF
   # Register them in order.
-  cat >> WORKSPACE <<EOF
+  cat >> $TOOLCHAIN_REGISTRAION_FILE <<EOF
 register_execution_platforms("//${pkg}/platforms:platform1", "//${pkg}/platforms:platform2")
 EOF
 
@@ -2730,7 +2751,7 @@ platform(
 )
 EOF
   # Register them in order.
-  cat >> WORKSPACE <<EOF
+  cat >> $TOOLCHAIN_REGISTRAION_FILE <<EOF
 register_execution_platforms("//${pkg}/platforms:platform1", "//${pkg}/platforms:platform2")
 EOF
 
@@ -2781,14 +2802,14 @@ EOF
   expect_log "Selected execution platform //${pkg}/platforms:platform2"
 }
 
-# Regression test for https://github.com/bazelbuild/bazel/issues/19945.
-function test_extra_toolchain_precedence {
-  local -r pkg="${FUNCNAME[0]}"
+function setup_toolchain_precedence_tests() {
+  local pkg="$1"
+  shift
 
   write_test_toolchain "${pkg}"
   write_test_rule "${pkg}"
 
-  cat > WORKSPACE <<EOF
+  cat > $TOOLCHAIN_REGISTRAION_FILE <<EOF
 register_toolchains('//${pkg}:toolchain_1')
 EOF
 
@@ -2824,44 +2845,88 @@ use_toolchain(
     name = 'use',
     message = 'this is the rule')
 EOF
+}
 
-  bazel query "//${pkg}:*"
+# Regression tests for https://github.com/bazelbuild/bazel/issues/19945 and https://github.com/bazelbuild/bazel/issues/22912
+function test_extra_toolchain_precedence_basic {
+  local -r pkg="${FUNCNAME[0]}"
+  setup_toolchain_precedence_tests "${pkg}"
 
+  # Even with other toolchains defined, only one is registered
   bazel \
     build \
     "//${pkg}/demo:use" &> $TEST_log || fail "Build failed"
   expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from toolchain_1"'
+}
 
-  # Test that bazelrc options take precedence over registered toolchains
+function test_extra_toolchain_precedence_from_bazelrc {
+  local -r pkg="${FUNCNAME[0]}"
+  setup_toolchain_precedence_tests "${pkg}"
+
   cat > "${pkg}/toolchain_rc" <<EOF
 import ${bazelrc}
 build --extra_toolchains=//${pkg}:toolchain_2
 EOF
 
+  # Test that bazelrc options take precedence over registered toolchains
   bazel \
     --${PRODUCT_NAME}rc="${pkg}/toolchain_rc" \
     build \
     "//${pkg}/demo:use" &> $TEST_log || fail "Build failed"
   expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from toolchain_2"'
+}
+
+function test_extra_toolchain_precedence_from_flag {
+  local -r pkg="${FUNCNAME[0]}"
+  setup_toolchain_precedence_tests "${pkg}"
 
   # Test that command-line options take precedence over other toolchains
   bazel \
-    --${PRODUCT_NAME}rc="${pkg}/toolchain_rc" \
     build \
     --extra_toolchains=//${pkg}:toolchain_3 \
     "//${pkg}/demo:use" &> $TEST_log || fail "Build failed"
   expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from toolchain_3"'
+}
+
+function test_extra_toolchain_precedence_multiple {
+  local -r pkg="${FUNCNAME[0]}"
+  setup_toolchain_precedence_tests "${pkg}"
 
   # Test that the last --extra_toolchains takes precedence
   bazel \
-    --${PRODUCT_NAME}rc="${pkg}/toolchain_rc" \
     build \
-    --extra_toolchains=//${pkg}:toolchain_3 \
-    --extra_toolchains=//${pkg}:toolchain_4 \
+    --extra_toolchains=//${pkg}:toolchain_3,//${pkg}:toolchain_4 \
     "//${pkg}/demo:use" &> $TEST_log || fail "Build failed"
   expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from toolchain_4"'
 }
 
+function test_extra_toolchain_precedence_multiple_repeated {
+  local -r pkg="${FUNCNAME[0]}"
+  setup_toolchain_precedence_tests "${pkg}"
+
+  # Test that the last --extra_toolchains takes precedence even when repeated
+  bazel \
+    build \
+    --extra_toolchains=//${pkg}:toolchain_3,//${pkg}:toolchain_4,//${pkg}:toolchain_3 \
+    "//${pkg}/demo:use" &> $TEST_log || fail "Build failed"
+  # Since toolchain_3 is last, it should still have highest precedence
+  expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from toolchain_3"'
+}
+
 # TODO(katre): Test using toolchain-provided make variables from a genrule.
+
+function test_invalid_cpu() {
+  local -r pkg="${FUNCNAME[0]}"
+  mkdir -p "${pkg}"
+  cat > "${pkg}/BUILD" <<EOF
+filegroup(name = "demo")
+EOF
+  bazel \
+    build \
+    --allowed_cpu_values=foo,bar \
+    --cpu=quux \
+    "//${pkg}:demo" &> $TEST_log && fail "Build failure expected"
+  expect_log "Invalid --cpu value \"quux\": allowed values are bar, foo."
+}
 
 run_suite "toolchain tests"

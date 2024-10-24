@@ -17,10 +17,10 @@ package com.google.devtools.build.lib.runtime;
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
-import com.google.devtools.build.lib.runtime.MemoryPressure.MemoryPressureStats;
 import com.google.devtools.build.lib.skyframe.HighWaterMarkLimiter;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.errorprone.annotations.Keep;
+import javax.annotation.Nullable;
 
 /**
  * A {@link BlazeModule} that installs a {@link MemoryPressureListener} that reacts to memory
@@ -28,11 +28,13 @@ import com.google.errorprone.annotations.Keep;
  */
 public final class MemoryPressureModule extends BlazeModule {
   private final MemoryPressureListener memoryPressureListener = MemoryPressureListener.create();
-  private HighWaterMarkLimiter highWaterMarkLimiter;
-  private EventBus eventBus;
+
+  // Null between commands.
+  @Nullable private HighWaterMarkLimiter highWaterMarkLimiter;
+  @Nullable private EventBus eventBus;
 
   @Override
-  public ImmutableList<Class<? extends OptionsBase>> getCommandOptions(Command command) {
+  public ImmutableList<Class<? extends OptionsBase>> getCommonCommandOptions() {
     return ImmutableList.of(MemoryPressureOptions.class);
   }
 
@@ -66,8 +68,12 @@ public final class MemoryPressureModule extends BlazeModule {
   }
 
   private void postStats() {
-    MemoryPressureStats.Builder stats = MemoryPressureStats.newBuilder();
-    highWaterMarkLimiter.addStatsAndReset(stats);
-    eventBus.post(stats.build());
+    // Guard against crashes between commands or an async crash racing with afterCommand().
+    var highWaterMarkLimiter = this.highWaterMarkLimiter;
+    var eventBus = this.eventBus;
+    if (highWaterMarkLimiter == null || eventBus == null) {
+      return;
+    }
+    eventBus.post(highWaterMarkLimiter.getStats());
   }
 }

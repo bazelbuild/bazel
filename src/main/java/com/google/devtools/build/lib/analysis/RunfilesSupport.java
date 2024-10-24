@@ -14,29 +14,35 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLine;
-import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.actions.MiddlemanAction;
+import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.analysis.SourceManifestAction.ManifestType;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
+import com.google.devtools.build.lib.analysis.test.TestActionBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.lang.ref.SoftReference;
+import java.lang.ref.WeakReference;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -75,28 +81,38 @@ import javax.annotation.Nullable;
  * which will run an executable should depend on this Middleman Artifact.
  */
 @Immutable
-public final class RunfilesSupport implements RunfilesSupplier {
+public final class RunfilesSupport {
   private static final String RUNFILES_DIR_EXT = ".runfiles";
   private static final String INPUT_MANIFEST_EXT = ".runfiles_manifest";
   private static final String OUTPUT_MANIFEST_BASENAME = "MANIFEST";
   private static final String REPO_MAPPING_MANIFEST_EXT = ".repo_mapping";
 
-  private static class RunfilesTreeImpl implements RunfilesTree {
+  /** The implementation of {@link RunfilesTree}. */
+  @VisibleForTesting
+  public static class RunfilesTreeImpl implements RunfilesTree {
+
+    private static final WeakReference<Map<PathFragment, Artifact>> NOT_YET_COMPUTED =
+        new WeakReference<>(null);
+
     private final PathFragment execPath;
     private final Runfiles runfiles;
-    private final Artifact repoMappingManifest;
+    @Nullable private final Artifact repoMappingManifest;
 
     /**
      * The cached runfiles mapping. Possible values:
      *
      * <ul>
      *   <li>null if caching is not desired
-     *   <li>A soft reference pointing to null if the cached value is not available (not yet
-     *       computed yet or flushed from RAM)
-     *   <li>A soft reference to the cached value
+     *   <li>A weak reference pointing to null if the cached value is not available (either {@link
+     *       #NOT_YET_COMPUTED} or flushed from RAM)
+     *   <li>A weak reference to the cached value
      * </ul>
+     *
+     * <p>Using weak references is preferable to soft references because {@link
+     * com.google.devtools.build.lib.runtime.GcThrashingDetector} may throw a manual OOM before all
+     * soft references are collected. See b/322474776.
      */
-    @Nullable private volatile SoftReference<Map<PathFragment, Artifact>> cachedMapping;
+    @Nullable private volatile WeakReference<Map<PathFragment, Artifact>> cachedMapping;
 
     private final boolean buildRunfileLinks;
     private final RunfileSymlinksMode runfileSymlinksMode;
@@ -104,7 +120,7 @@ public final class RunfilesSupport implements RunfilesSupplier {
     private RunfilesTreeImpl(
         PathFragment execPath,
         Runfiles runfiles,
-        Artifact repoMappingManifest,
+        @Nullable Artifact repoMappingManifest,
         boolean buildRunfileLinks,
         boolean cacheMapping,
         RunfileSymlinksMode runfileSymlinksMode) {
@@ -113,7 +129,18 @@ public final class RunfilesSupport implements RunfilesSupplier {
       this.repoMappingManifest = repoMappingManifest;
       this.buildRunfileLinks = buildRunfileLinks;
       this.runfileSymlinksMode = runfileSymlinksMode;
-      this.cachedMapping = cacheMapping ? new SoftReference<>(null) : null;
+      this.cachedMapping = cacheMapping ? NOT_YET_COMPUTED : null;
+    }
+
+    @VisibleForTesting
+    public RunfilesTreeImpl(PathFragment execPath, Runfiles runfiles) {
+      this(
+          execPath,
+          runfiles,
+          /* repoMappingManifest= */ null,
+          /* buildRunfileLinks= */ false,
+          /* cacheMapping= */ false,
+          RunfileSymlinksMode.EXTERNAL);
     }
 
     @Override
@@ -142,7 +169,7 @@ public final class RunfilesSupport implements RunfilesSupplier {
         result =
             runfiles.getRunfilesInputs(
                 /* eventHandler= */ null, /* location= */ null, repoMappingManifest);
-        cachedMapping = new SoftReference<>(result);
+        cachedMapping = new WeakReference<>(result);
         return result;
       }
     }
@@ -150,6 +177,42 @@ public final class RunfilesSupport implements RunfilesSupplier {
     @Override
     public NestedSet<Artifact> getArtifacts() {
       return runfiles.getAllArtifacts();
+    }
+
+    @Override
+    public NestedSet<Artifact> getArtifactsAtCanonicalLocationsForLogging() {
+      return runfiles.getArtifacts();
+    }
+
+    @Override
+    public Iterable<PathFragment> getEmptyFilenamesForLogging() {
+      return runfiles.getEmptyFilenames();
+    }
+
+    @Override
+    public NestedSet<SymlinkEntry> getSymlinksForLogging() {
+      return runfiles.getSymlinks();
+    }
+
+    @Override
+    public NestedSet<SymlinkEntry> getRootSymlinksForLogging() {
+      return runfiles.getRootSymlinks();
+    }
+
+    @Nullable
+    @Override
+    public Artifact getRepoMappingManifestForLogging() {
+      return repoMappingManifest;
+    }
+
+    @Override
+    public boolean isLegacyExternalRunfiles() {
+      return runfiles.isLegacyExternalRunfiles();
+    }
+
+    @Override
+    public boolean isMappingCached() {
+      return cachedMapping != null;
     }
 
     @Override
@@ -164,7 +227,7 @@ public final class RunfilesSupport implements RunfilesSupplier {
 
     @Override
     public String getWorkspaceName() {
-      return runfiles.getSuffix().getPathString();
+      return runfiles.getPrefix();
     }
   }
 
@@ -176,6 +239,28 @@ public final class RunfilesSupport implements RunfilesSupplier {
   private final Artifact owningExecutable;
   private final CommandLine args;
   private final ActionEnvironment actionEnvironment;
+
+  // Only cache mappings if there is a chance that more than one action will use it within a single
+  // build. This helps reduce peak memory usage, especially when the value of --jobs is high, but
+  // avoids the additional overhead of a weak reference when it is not needed.
+  private static boolean cacheRunfilesMappings(RuleContext ruleContext) {
+    if (!TargetUtils.isTestRule(ruleContext.getTarget())) {
+      // Runfiles trees of non-test rules are tools and can thus be used by multiple actions.
+      return true;
+    }
+
+    // Test runfiles are only used by a single test runner action unless there are multiple runs or
+    // shards.
+    if (TestActionBuilder.getRunsPerTest(ruleContext) > 1) {
+      return true;
+    }
+
+    if (TestActionBuilder.getShardCount(ruleContext) > 1) {
+      return true;
+    }
+
+    return false;
+  }
 
   /**
    * Creates the RunfilesSupport helper with the given executable and runfiles.
@@ -190,12 +275,11 @@ public final class RunfilesSupport implements RunfilesSupplier {
       Runfiles runfiles,
       CommandLine args,
       ActionEnvironment actionEnvironment) {
-    Artifact owningExecutable = Preconditions.checkNotNull(executable);
+    checkNotNull(executable);
     RunfileSymlinksMode runfileSymlinksMode =
         ruleContext.getConfiguration().getRunfileSymlinksMode();
     boolean buildRunfileManifests = ruleContext.getConfiguration().buildRunfileManifests();
     boolean buildRunfileLinks = ruleContext.getConfiguration().buildRunfileLinks();
-    boolean cacheRunfilesMapping = TargetUtils.isTestRule(ruleContext.getTarget());
 
     // Adding run_under target to the runfiles manifest so it would become part
     // of runfiles tree and would be executable everywhere.
@@ -203,7 +287,7 @@ public final class RunfilesSupport implements RunfilesSupplier {
     if (runUnder != null
         && runUnder.getLabel() != null
         && TargetUtils.isTestRule(ruleContext.getRule())) {
-      TransitiveInfoCollection runUnderTarget = ruleContext.getPrerequisite(":run_under");
+      TransitiveInfoCollection runUnderTarget = ruleContext.getRunUnderPrerequisite();
       runfiles =
           new Runfiles.Builder(
                   ruleContext.getWorkspaceName(),
@@ -212,15 +296,15 @@ public final class RunfilesSupport implements RunfilesSupplier {
               .merge(runfiles)
               .build();
     }
-    Preconditions.checkState(!runfiles.isEmpty());
+    checkState(!runfiles.isEmpty(), "Empty runfiles");
 
     Artifact repoMappingManifest =
-        createRepoMappingManifestAction(ruleContext, runfiles, owningExecutable);
+        createRepoMappingManifestAction(ruleContext, runfiles, executable);
 
     Artifact runfilesInputManifest;
     Artifact runfilesManifest;
     if (buildRunfileManifests) {
-      runfilesInputManifest = createRunfilesInputManifestArtifact(ruleContext, owningExecutable);
+      runfilesInputManifest = createRunfilesInputManifestArtifact(ruleContext, executable);
       runfilesManifest =
           createRunfilesAction(
               ruleContext, runfiles, buildRunfileLinks, runfilesInputManifest, repoMappingManifest);
@@ -229,29 +313,25 @@ public final class RunfilesSupport implements RunfilesSupplier {
       runfilesManifest = null;
     }
 
-    PathFragment executablePath = owningExecutable.getExecPath();
-    PathFragment runfilesExecPath =
-        executablePath.replaceName(executablePath.getBaseName() + RUNFILES_DIR_EXT);
-
     RunfilesTreeImpl runfilesTree =
         new RunfilesTreeImpl(
-            runfilesExecPath,
+            runfilesDirExecPath(executable),
             runfiles,
             repoMappingManifest,
             buildRunfileLinks,
-            cacheRunfilesMapping,
+            cacheRunfilesMappings(ruleContext),
             runfileSymlinksMode);
 
     Artifact runfilesMiddleman =
         createRunfilesMiddleman(
-            ruleContext, owningExecutable, runfilesTree, runfilesManifest, repoMappingManifest);
+            ruleContext, executable, runfilesTree, runfilesManifest, repoMappingManifest);
 
     return new RunfilesSupport(
         runfilesTree,
         runfilesInputManifest,
         runfilesManifest,
         runfilesMiddleman,
-        owningExecutable,
+        executable,
         args,
         actionEnvironment);
   }
@@ -316,12 +396,9 @@ public final class RunfilesSupport implements RunfilesSupplier {
 
   private static Artifact createRunfilesInputManifestArtifact(
       RuleContext context, Artifact owningExecutable) {
-    // The executable may be null for emptyRunfiles
     PathFragment relativePath =
-        (owningExecutable != null)
-            ? owningExecutable.getOutputDirRelativePath(
-                context.getConfiguration().isSiblingRepositoryLayout())
-            : context.getPackageDirectory().getRelative(context.getLabel().getName());
+        owningExecutable.getOutputDirRelativePath(
+            context.getConfiguration().isSiblingRepositoryLayout());
     String basename = relativePath.getBaseName();
     PathFragment inputManifestPath = relativePath.replaceName(basename + INPUT_MANIFEST_EXT);
     return context.getDerivedArtifact(inputManifestPath, context.getBinDirectory());
@@ -401,16 +478,30 @@ public final class RunfilesSupport implements RunfilesSupplier {
       RunfilesTree runfilesTree,
       @Nullable Artifact runfilesManifest,
       Artifact repoMappingManifest) {
-    return context
-        .getAnalysisEnvironment()
-        .getMiddlemanFactory()
-        .createRunfilesMiddleman(
-            context.getActionOwner(),
-            owningExecutable,
-            runfilesTree,
-            runfilesManifest,
-            repoMappingManifest,
-            context.getMiddlemanDirectory());
+
+    NestedSetBuilder<Artifact> contentsBuilder = NestedSetBuilder.stableOrder();
+    contentsBuilder.addTransitive(runfilesTree.getArtifacts());
+    if (runfilesManifest != null) {
+      contentsBuilder.add(runfilesManifest);
+    }
+    if (repoMappingManifest != null) {
+      contentsBuilder.add(repoMappingManifest);
+    }
+
+    NestedSet<Artifact> contents = contentsBuilder.build();
+    ArtifactRoot root = owningExecutable.getRoot();
+    PathFragment executableRootRelativePath = owningExecutable.getRootRelativePath();
+    PathFragment runfilesRootRelativePath =
+        executableRootRelativePath.replaceName(
+            executableRootRelativePath.getBaseName() + RUNFILES_DIR_EXT);
+    Artifact middleman =
+        context.getAnalysisEnvironment().getRunfilesArtifact(runfilesRootRelativePath, root);
+
+    MiddlemanAction middlemanAction =
+        new MiddlemanAction(
+            context.getActionOwner(), runfilesTree, contents, ImmutableSet.of(middleman));
+    context.registerAction(middlemanAction);
+    return middleman;
   }
 
   /**
@@ -463,8 +554,7 @@ public final class RunfilesSupport implements RunfilesSupplier {
                 inputManifest,
                 runfiles,
                 outputManifest,
-                repoMappingManifest,
-                /*filesetRoot=*/ null));
+                repoMappingManifest));
     return outputManifest;
   }
 
@@ -497,13 +587,13 @@ public final class RunfilesSupport implements RunfilesSupplier {
   }
 
   private static CommandLine computeArgs(RuleContext ruleContext) throws InterruptedException {
-    if (!ruleContext.getRule().isAttrDefined("args", Type.STRING_LIST)) {
+    if (!ruleContext.getRule().isAttrDefined("args", Types.STRING_LIST)) {
       // Some non-_binary rules create RunfilesSupport instances; it is fine to not have an args
       // attribute here.
-      return CommandLine.EMPTY;
+      return CommandLine.empty();
     }
     ImmutableList<String> args = ruleContext.getExpander().withDataLocations().tokenized("args");
-    return args.isEmpty() ? CommandLine.EMPTY : CommandLine.of(args);
+    return args.isEmpty() ? CommandLine.empty() : CommandLine.of(args);
   }
 
   private static ActionEnvironment computeActionEnvironment(RuleContext ruleContext)
@@ -512,21 +602,21 @@ public final class RunfilesSupport implements RunfilesSupplier {
     boolean isNativeRule =
         ruleContext.getRule().getRuleClassObject().getRuleDefinitionEnvironmentLabel() == null;
     if (!isNativeRule
-        || (!ruleContext.getRule().isAttrDefined("env", Type.STRING_DICT)
-            && !ruleContext.getRule().isAttrDefined("env_inherit", Type.STRING_LIST))) {
+        || (!ruleContext.getRule().isAttrDefined("env", Types.STRING_DICT)
+            && !ruleContext.getRule().isAttrDefined("env_inherit", Types.STRING_LIST))) {
       return ActionEnvironment.EMPTY;
     }
     TreeMap<String, String> fixedEnv = new TreeMap<>();
     Set<String> inheritedEnv = new LinkedHashSet<>();
-    if (ruleContext.isAttrDefined("env", Type.STRING_DICT)) {
+    if (ruleContext.isAttrDefined("env", Types.STRING_DICT)) {
       Expander expander = ruleContext.getExpander().withDataLocations();
       for (Map.Entry<String, String> entry :
-          ruleContext.attributes().get("env", Type.STRING_DICT).entrySet()) {
+          ruleContext.attributes().get("env", Types.STRING_DICT).entrySet()) {
         fixedEnv.put(entry.getKey(), expander.expand("env", entry.getValue()));
       }
     }
-    if (ruleContext.isAttrDefined("env_inherit", Type.STRING_LIST)) {
-      for (String key : ruleContext.attributes().get("env_inherit", Type.STRING_LIST)) {
+    if (ruleContext.isAttrDefined("env_inherit", Types.STRING_LIST)) {
+      for (String key : ruleContext.attributes().get("env_inherit", Types.STRING_LIST)) {
         if (!fixedEnv.containsKey(key)) {
           inheritedEnv.add(key);
         }
@@ -536,14 +626,33 @@ public final class RunfilesSupport implements RunfilesSupplier {
         ImmutableMap.copyOf(fixedEnv), ImmutableSet.copyOf(inheritedEnv));
   }
 
-  /** Returns the path of the input manifest of {@code runfilesDir}. */
-  public static Path inputManifestPath(Path runfilesDir) {
-    return FileSystemUtils.replaceExtension(runfilesDir, INPUT_MANIFEST_EXT);
+  /** Returns the exec path of the {@code .runfiles} directory for the given executable. */
+  public static PathFragment runfilesDirExecPath(Artifact executable) {
+    PathFragment executablePath = executable.getExecPath();
+    return executablePath.replaceName(executablePath.getBaseName() + RUNFILES_DIR_EXT);
   }
 
-  /** Returns the path of the output manifest of {@code runfilesDir}. */
-  public static Path outputManifestPath(Path runfilesDir) {
-    return runfilesDir.getRelative(OUTPUT_MANIFEST_BASENAME);
+  /**
+   * Returns the exec path of the corresponding {@code .runfiles_manifest} file for the given {@code
+   * .runfiles} directory.
+   *
+   * <p>The input manifest is produced by {@link SourceManifestAction} and is an input to {@link
+   * SymlinkTreeAction}.
+   */
+  public static PathFragment inputManifestExecPath(PathFragment runfilesDirExecPath) {
+    return FileSystemUtils.replaceExtension(runfilesDirExecPath, INPUT_MANIFEST_EXT);
+  }
+
+  /**
+   * Returns the exec path of the corresponding {@code MANIFEST} file for the given {@code
+   * .runfiles} directory.
+   *
+   * <p>The output manifest is a symlink to the {@linkplain #inputManifestExecPath input manifest}.
+   * It is located in the {@code .runfiles} directory and is the output of {@link
+   * SymlinkTreeAction}.
+   */
+  public static PathFragment outputManifestExecPath(PathFragment runfilesDirExecPath) {
+    return runfilesDirExecPath.getRelative(OUTPUT_MANIFEST_BASENAME);
   }
 
   @Nullable
@@ -580,10 +689,4 @@ public final class RunfilesSupport implements RunfilesSupplier {
   public RunfilesTree getRunfilesTree() {
     return runfilesTree;
   }
-
-  @Override
-  public ImmutableList<RunfilesTree> getRunfilesTrees() {
-    return ImmutableList.of(runfilesTree);
-  }
-
 }

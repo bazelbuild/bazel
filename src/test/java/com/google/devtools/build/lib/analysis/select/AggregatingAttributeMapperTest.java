@@ -20,24 +20,17 @@ import static com.google.devtools.build.lib.packages.Type.STRING;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
-import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.RuleDefinition;
-import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.AbstractAttributeMapper;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
-import com.google.devtools.build.lib.testutil.UnknownRuleConfiguredTarget;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -48,77 +41,148 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest {
 
-  @Before
-  public final void createMapper() throws Exception {
-    // Run AbstractAttributeMapper tests through an AggregatingAttributeMapper.
-    mapper = AggregatingAttributeMapper.of(rule);
-  }
+  private static final MockRule RULE_WITH_DEFAULT =
+      () ->
+          MockRule.define(
+              "rule_with_default",
+              (builder, env) ->
+                  builder.add(
+                      attr("attribute", BuildType.LABEL)
+                          .value(Label.parseCanonicalUnchecked("//default:value"))
+                          .allowedFileTypes()));
+
+  private static final MockRule RULE_WITH_COMPUTED_DEFAULT =
+      () ->
+          MockRule.define(
+              "rule_with_computed_defaults",
+              (builder, env) ->
+                  builder
+                      .add(attr("configurable1", STRING))
+                      .add(attr("configurable2", STRING))
+                      .add(attr("nonconfigurable", STRING).nonconfigurable("that's the point"))
+                      .add(
+                          attr("$computed_default_with_configurable_deps", STRING)
+                              .value(
+                                  new Attribute.ComputedDefault("configurable1", "configurable2") {
+                                    @Override
+                                    public Object getDefault(AttributeMap rule) {
+                                      return Joiner.on(" ")
+                                          .join(
+                                              rule.get("configurable1", STRING),
+                                              rule.get("configurable2", STRING),
+                                              rule.get("nonconfigurable", STRING));
+                                    }
+                                  }))
+                      .add(
+                          attr("$computed_default_without_configurable_deps", STRING)
+                              .value(
+                                  new Attribute.ComputedDefault() {
+                                    @Override
+                                    public Object getDefault(AttributeMap rule) {
+                                      return rule.get("nonconfigurable", STRING);
+                                    }
+                                  })));
 
   @Override
   protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder =
         new ConfiguredRuleClassProvider.Builder()
-            .addRuleDefinition(new RuleWithDefaults())
-            .addRuleDefinition(new RuleWithComputedDefaults());
+            .addRuleDefinition(RULE_WITH_DEFAULT)
+            .addRuleDefinition(RULE_WITH_COMPUTED_DEFAULT);
     TestRuleClassProvider.addStandardRules(builder);
     return builder.build();
   }
 
-  /**
-   * Tests that {@link AggregatingAttributeMapper#visitAttribute} returns an
-   * attribute's sole value when declared directly (i.e. not as a configurable dict).
-   */
-  @Test
-  public void testGetPossibleValuesDirectAttribute() throws Exception {
-    Rule rule = scratchRule("a", "myrule",
-        "sh_binary(name = 'myrule',",
-        "          srcs = ['a.sh'])");
-    assertThat(AggregatingAttributeMapper.of(rule).visitAttribute("srcs", BuildType.LABEL_LIST))
-        .containsExactly(ImmutableList.of(label("//a:a.sh")));
+  @Override
+  protected AbstractAttributeMapper createMapper(Rule rule) {
+    // Run AbstractAttributeMapper tests through an AggregatingAttributeMapper.
+    return AggregatingAttributeMapper.of(rule);
   }
 
   /**
-   * Tests that {@link AggregatingAttributeMapper#visitAttribute} returns
-   * every possible value that a configurable attribute can resolve to.
+   * Tests that {@link AggregatingAttributeMapper#visitAttribute} returns an attribute's sole value
+   * when declared directly (i.e. not as a configurable dict).
+   */
+  @Test
+  public void testGetPossibleValuesDirectAttribute() throws Exception {
+    Rule rule =
+        scratchRule(
+            "a",
+            "myrule",
+            """
+            sh_binary(
+                name = "myrule",
+                srcs = ["a.sh"],
+            )
+            """);
+    assertThat(AggregatingAttributeMapper.of(rule).visitAttribute("srcs", BuildType.LABEL_LIST))
+        .containsExactly(ImmutableList.of(Label.parseCanonicalUnchecked("//a:a.sh")));
+  }
+
+  /**
+   * Tests that {@link AggregatingAttributeMapper#visitAttribute} returns every possible value that
+   * a configurable attribute can resolve to.
    */
   @Test
   public void testGetPossibleValuesConfigurableAttribute() throws Exception {
-    Rule rule = scratchRule("a", "myrule",
-        "sh_binary(name = 'myrule',",
-        "          srcs = select({",
-        "              '//conditions:a': ['a.sh'],",
-        "              '//conditions:b': ['b.sh'],",
-        "              '" + BuildType.Selector.DEFAULT_CONDITION_KEY + "': ['default.sh'],",
-        "          }))");
+    Rule rule =
+        scratchRule(
+            "a",
+            "myrule",
+            """
+            sh_binary(
+                name = "myrule",
+                srcs = select({
+                    "//conditions:a": ["a.sh"],
+                    "//conditions:b": ["b.sh"],
+                    "//conditions:default": ["default.sh"],
+                 })
+            )
+            """);
     assertThat(AggregatingAttributeMapper.of(rule).visitAttribute("srcs", BuildType.LABEL_LIST))
         .containsExactly(
-            ImmutableList.of(label("//a:a.sh")),
-            ImmutableList.of(label("//a:b.sh")),
-            ImmutableList.of(label("//a:default.sh")));
+            ImmutableList.of(Label.parseCanonicalUnchecked("//a:a.sh")),
+            ImmutableList.of(Label.parseCanonicalUnchecked("//a:b.sh")),
+            ImmutableList.of(Label.parseCanonicalUnchecked("//a:default.sh")));
   }
 
   @Test
   public void testGetPossibleValuesWithConcatenatedSelects() throws Exception {
-    Rule rule = scratchRule("a", "myrule",
-        "sh_binary(name = 'myrule',",
-        "          srcs = select({",
-        "                  '//conditions:a1': ['a1.sh'],",
-        "                  '//conditions:b1': ['b1.sh']})",
-        "              + select({",
-        "                  '//conditions:a2': ['a2.sh'],",
-        "                  '//conditions:b2': ['b2.sh']})",
-        "          )");
+    Rule rule =
+        scratchRule(
+            "a",
+            "myrule",
+            """
+            sh_binary(
+                name = "myrule",
+                srcs = select({
+                    "//conditions:a1": ["a1.sh"],
+                    "//conditions:b1": ["b1.sh"],
+                }) + select({
+                    "//conditions:a2": ["a2.sh"],
+                    "//conditions:b2": ["b2.sh"],
+                }),
+            )
+            """);
     assertThat(AggregatingAttributeMapper.of(rule).visitAttribute("srcs", BuildType.LABEL_LIST))
         .containsExactly(
-            ImmutableList.of(label("//a:a1.sh"), label("//a:a2.sh")),
-            ImmutableList.of(label("//a:a1.sh"), label("//a:b2.sh")),
-            ImmutableList.of(label("//a:b1.sh"), label("//a:a2.sh")),
-            ImmutableList.of(label("//a:b1.sh"), label("//a:b2.sh")));
+            ImmutableList.of(
+                Label.parseCanonicalUnchecked("//a:a1.sh"),
+                Label.parseCanonicalUnchecked("//a:a2.sh")),
+            ImmutableList.of(
+                Label.parseCanonicalUnchecked("//a:a1.sh"),
+                Label.parseCanonicalUnchecked("//a:b2.sh")),
+            ImmutableList.of(
+                Label.parseCanonicalUnchecked("//a:b1.sh"),
+                Label.parseCanonicalUnchecked("//a:a2.sh")),
+            ImmutableList.of(
+                Label.parseCanonicalUnchecked("//a:b1.sh"),
+                Label.parseCanonicalUnchecked("//a:b2.sh")));
   }
 
   /**
-   * Given a large number of selects, we expect better than the naive
-   * exponential performance from evaluating select1 x select2 x select3 x ...
+   * Given a large number of selects, we expect better than the naive exponential performance from
+   * evaluating select1 x select2 x select3 x ...
    */
   @Test
   public void testGetPossibleValuesWithManySelects() throws Exception {
@@ -141,20 +205,36 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
         scratchRule(
             "a",
             "myrule",
-            "sh_binary(name = 'myrule',",
-            // Even though this combination seems invalid it's allowed due to select specialization.
-            "          srcs = select({'//conditions:x': ['x1.sh']})",
-            "              + select({'//conditions:y': ['y1.sh']})",
-            "              + select({",
-            "                   '//conditions:x': ['x2.sh'],",
-            "                   '//conditions:y': ['y2.sh'],",
-            "                   '//conditions:z': ['z2.sh']})",
-            "          )");
+            """
+            sh_binary(
+                name = "myrule",
+                # Even though this combination seems invalid it's
+                # allowed due to select specialization.
+                srcs = select({
+                    "//conditions:x": ["x1.sh"],
+                }) + select({
+                    "//conditions:y": ["y1.sh"],
+                }) + select({
+                    "//conditions:x": ["x2.sh"],
+                    "//conditions:y": ["y2.sh"],
+                    "//conditions:z": ["z2.sh"],
+                })
+            )
+            """);
     assertThat(AggregatingAttributeMapper.of(rule).visitAttribute("srcs", BuildType.LABEL_LIST))
         .containsExactly(
-            ImmutableList.of(label("//a:x1.sh"), label("//a:y1.sh"), label("//a:x2.sh")),
-            ImmutableList.of(label("//a:x1.sh"), label("//a:y1.sh"), label("//a:y2.sh")),
-            ImmutableList.of(label("//a:x1.sh"), label("//a:y1.sh"), label("//a:z2.sh")));
+            ImmutableList.of(
+                Label.parseCanonicalUnchecked("//a:x1.sh"),
+                Label.parseCanonicalUnchecked("//a:y1.sh"),
+                Label.parseCanonicalUnchecked("//a:x2.sh")),
+            ImmutableList.of(
+                Label.parseCanonicalUnchecked("//a:x1.sh"),
+                Label.parseCanonicalUnchecked("//a:y1.sh"),
+                Label.parseCanonicalUnchecked("//a:y2.sh")),
+            ImmutableList.of(
+                Label.parseCanonicalUnchecked("//a:x1.sh"),
+                Label.parseCanonicalUnchecked("//a:y1.sh"),
+                Label.parseCanonicalUnchecked("//a:z2.sh")));
   }
 
   /**
@@ -163,13 +243,20 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
    */
   @Test
   public void testVisitationConfigurableAttribute() throws Exception {
-    Rule rule = scratchRule("a", "myrule",
-        "sh_binary(name = 'myrule',",
-        "          srcs = select({",
-        "              '//conditions:a': ['a.sh'],",
-        "              '//conditions:b': ['b.sh'],",
-        "              '" + BuildType.Selector.DEFAULT_CONDITION_KEY + "': ['default.sh'],",
-        "          }))");
+    Rule rule =
+        scratchRule(
+            "a",
+            "myrule",
+            """
+            sh_binary(
+                name = "myrule",
+                srcs = select({
+                    "//conditions:a": ["a.sh"],
+                    "//conditions:b": ["b.sh"],
+                    "//conditions:default": ["default.sh"],
+                }),
+            )
+            """);
 
     assertThat(getLabelsForAttribute(AggregatingAttributeMapper.of(rule), "srcs"))
         .containsExactlyElementsIn(
@@ -179,61 +266,45 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
 
   @Test
   public void testGetReachableLabels() throws Exception {
-    Rule rule = scratchRule("x", "main",
-        "cc_binary(",
-        "    name = 'main',",
-        "    srcs = select({",
-        "        '//conditions:a': ['a.cc'],",
-        "        '//conditions:b': ['b.cc']})",
-        "    + ",
-        "        ['always.cc']",
-        "    + ",
-        "         select({",
-        "        '//conditions:c': ['c.cc'],",
-        "        '//conditions:d': ['d.cc'],",
-        "        '" + BuildType.Selector.DEFAULT_CONDITION_KEY + "': ['default.cc'],",
-        "    }))");
+    Rule rule =
+        scratchRule(
+            "x",
+            "main",
+            """
+            cc_binary(
+                name = "main",
+                srcs = select({
+                    "//conditions:a": ["a.cc"],
+                    "//conditions:b": ["b.cc"],
+                }) + [
+                    "always.cc",
+                ] + select({
+                    "//conditions:c": ["c.cc"],
+                    "//conditions:d": ["d.cc"],
+                    "//conditions:default": ["default.cc"],
+                }),
+            )
+            """);
 
     ImmutableList<Label> valueLabels =
         ImmutableList.of(
-            label("//x:a.cc"), label("@//x:b.cc"),
-            label("//x:always.cc"), label("@//x:c.cc"),
-            label("//x:d.cc"), label("@//x:default.cc"));
+            Label.parseCanonicalUnchecked("//x:a.cc"),
+            Label.parseCanonicalUnchecked("@//x:b.cc"),
+            Label.parseCanonicalUnchecked("//x:always.cc"),
+            Label.parseCanonicalUnchecked("@//x:c.cc"),
+            Label.parseCanonicalUnchecked("//x:d.cc"),
+            Label.parseCanonicalUnchecked("@//x:default.cc"));
     ImmutableList<Label> keyLabels =
         ImmutableList.of(
-            label("@//conditions:a"), label("@//conditions:b"),
-            label("@//conditions:c"), label("@//conditions:d"));
+            Label.parseCanonicalUnchecked("@//conditions:a"),
+            Label.parseCanonicalUnchecked("@//conditions:b"),
+            Label.parseCanonicalUnchecked("@//conditions:c"),
+            Label.parseCanonicalUnchecked("@//conditions:d"));
 
     AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
     assertThat(mapper.getReachableLabels("srcs", true))
         .containsExactlyElementsIn(Iterables.concat(valueLabels, keyLabels));
     assertThat(mapper.getReachableLabels("srcs", false)).containsExactlyElementsIn(valueLabels);
-  }
-
-  /** Custom rule to support testing over default values. */
-  public static final class RuleWithDefaults
-      implements RuleDefinition, RuleConfiguredTargetFactory {
-    @Override
-    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-      return builder
-          .add(
-              attr("attribute", BuildType.LABEL).value(label("//default:value")).allowedFileTypes())
-          .build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("rule_with_default")
-          .ancestors(BaseRuleClasses.NativeBuildRule.class)
-          .factoryClass(UnknownRuleConfiguredTarget.class)
-          .build();
-    }
-
-    @Override
-    public ConfiguredTarget create(RuleContext ruleContext) {
-      throw new UnsupportedOperationException();
-    }
   }
 
   @Test
@@ -257,71 +328,36 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
         scratchRule(
             "a",
             "myrule",
-            "rule_with_default(name = 'myrule',",
-            "    attribute = select({",
-            "        '//conditions:a': None,",
-            "    }))");
+            """
+            rule_with_default(
+                name = "myrule",
+                attribute = select({
+                    "//conditions:a": None,
+                }),
+            )
+            """);
 
     AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
     assertThat(mapper.getReachableLabels("attribute", true))
-        .containsExactly(label("//default:value"), label("//conditions:a"));
-  }
-
-  /**
-   * Custom rule to support testing over computed defaults.
-   */
-  public static final class RuleWithComputedDefaults
-      implements RuleDefinition, RuleConfiguredTargetFactory {
-    @Override
-    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-      return builder
-          .add(attr("configurable1", STRING))
-          .add(attr("configurable2", STRING))
-          .add(attr("nonconfigurable", STRING).nonconfigurable("that's the point"))
-          .add(attr("$computed_default_with_configurable_deps", STRING).value(
-              new Attribute.ComputedDefault("configurable1", "configurable2") {
-                @Override
-                public Object getDefault(AttributeMap rule) {
-                  return Joiner.on(" ").join(
-                      rule.get("configurable1", STRING),
-                      rule.get("configurable2", STRING),
-                      rule.get("nonconfigurable", STRING)
-                  );
-                }
-              }))
-          .add(attr("$computed_default_without_configurable_deps", STRING).value(
-              new Attribute.ComputedDefault() {
-                @Override
-                public Object getDefault(AttributeMap rule) {
-                  return rule.get("nonconfigurable", STRING);
-                }
-              }))
-          .build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("rule_with_computed_defaults")
-          .ancestors(BaseRuleClasses.NativeBuildRule.class)
-          .factoryClass(UnknownRuleConfiguredTarget.class)
-          .build();
-    }
-
-    @Override
-    public ConfiguredTarget create(RuleContext ruleContext) {
-      throw new UnsupportedOperationException();
-    }
+        .containsExactly(
+            Label.parseCanonicalUnchecked("//default:value"),
+            Label.parseCanonicalUnchecked("//conditions:a"));
   }
 
   @Test
   public void testComputedDefaultWithConfigurableDeps() throws Exception {
-    Rule rule = scratchRule("x", "bb",
-        "rule_with_computed_defaults(",
-        "    name = 'bb',",
-        "    configurable1 = select({':a': 'of', ':b': 'from'}),",
-        "    configurable2 = select({':a': 'this', ':b': 'the'}),",
-        "    nonconfigurable = 'bottom')");
+    Rule rule =
+        scratchRule(
+            "x",
+            "bb",
+            """
+            rule_with_computed_defaults(
+                name = "bb",
+                configurable1 = select({":a": "of", ":b": "from"}),
+                configurable2 = select({":a": "this", ":b": "the"}),
+                nonconfigurable = "bottom",
+            )
+            """);
     assertThat(AggregatingAttributeMapper.of(rule)
         .visitAttribute("$computed_default_with_configurable_deps", STRING))
         .containsExactly("of this bottom", "from this bottom", "of the bottom", "from the bottom");
@@ -329,16 +365,18 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
 
   @Test
   public void testComputedDefaultWithoutConfigurableDeps() throws Exception {
-    Rule rule = scratchRule("x", "bb",
-        "rule_with_computed_defaults(",
-        "    name = 'bb',",
-        "    nonconfigurable = 'swim up')");
+    Rule rule =
+        scratchRule(
+            "x",
+            "bb",
+            """
+            rule_with_computed_defaults(
+                name = "bb",
+                nonconfigurable = "swim up",
+            )
+            """);
     assertThat(AggregatingAttributeMapper.of(rule)
         .visitAttribute("$computed_default_without_configurable_deps", STRING))
         .containsExactly("swim up");
-  }
-
-  private static Label label(String labelString) {
-    return Label.parseCanonicalUnchecked(labelString);
   }
 }

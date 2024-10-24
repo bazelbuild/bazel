@@ -61,7 +61,6 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
 
   private ImmutableMap.Builder<String, Object> repositoryBuilder = ImmutableMap.builder();
 
-  private String directoryDigest;
   private final Path outputDirectory;
 
   private final String name;
@@ -169,7 +168,6 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
       // Digest not available, but we still have to report that a repository rule
       // was invoked. So we can do nothing, but ignore the event.
     }
-    this.directoryDigest = digest;
     if (repositoryBuilder != null) {
       resolvedInformationBuilder.put(
           ResolvedFileValue.REPOSITORIES,
@@ -193,11 +191,6 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
   @Override
   public String getName() {
     return name;
-  }
-
-  public String getDirectoryDigest(XattrProvider xattrProvider) {
-    finalizeResolvedInformation(xattrProvider);
-    return directoryDigest;
   }
 
   /**
@@ -261,8 +254,7 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
       Map<String, Object> orig, Map<String, Object> defaults, Map<?, ?> modified) {
     ImmutableMap.Builder<String, Object> valuesChanged = ImmutableMap.builder();
     for (Map.Entry<?, ?> entry : modified.entrySet()) {
-      if (entry.getKey() instanceof String) {
-        String key = (String) entry.getKey();
+      if (entry.getKey() instanceof String key) {
         if (IGNORED_ATTRIBUTE_NAMES.contains(key)) {
           // The dict returned by the repo rule really shouldn't know about these anyway, but
           // for symmetry we'll ignore them if they happen to be present.

@@ -56,10 +56,6 @@ msys*)
 esac
 
 if "$is_windows"; then
-  # Disable MSYS path conversion that converts path-looking command arguments to
-  # Windows paths (even if they arguments are not in fact paths).
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
   declare -r EXE_EXT=".exe"
 else
   declare -r EXE_EXT=""
@@ -226,7 +222,7 @@ function assert_good_output_of_the_program_with_many_args() {
 function test_args_escaping() {
   local -r ws="$TEST_TMPDIR/${FUNCNAME[0]}"  # unique workspace for this test
   mkdir -p "$ws"
-  create_workspace_with_default_repos "$ws/WORKSPACE"
+  setup_module_dot_bazel "$ws/MODULE.bazel"
 
   create_py_file_that_prints_args "$ws"
   create_build_file_with_many_args "$ws"
@@ -248,7 +244,7 @@ function test_args_escaping() {
 function test_untokenizable_args() {
   local -r ws="$TEST_TMPDIR/${FUNCNAME[0]}"  # unique workspace for this test
   mkdir -p "$ws"
-  create_workspace_with_default_repos "$ws/WORKSPACE"
+  setup_module_dot_bazel "$ws/MODULE.bazel"
 
   create_py_file_that_prints_args "$ws"
   create_build_file_for_untokenizable_args "$ws"
@@ -263,7 +259,7 @@ function test_untokenizable_args() {
 function test_host_config() {
   local -r ws="$TEST_TMPDIR/${FUNCNAME[0]}"  # unique workspace for this test
   mkdir -p "$ws"
-  create_workspace_with_default_repos "$ws/WORKSPACE"
+  setup_module_dot_bazel "$ws/MODULE.bazel"
 
   cat >"$ws/BUILD" <<'eof'
 load("//:rule.bzl", "run_host_configured")
@@ -289,14 +285,11 @@ eof
 
   cat >"$ws/rule.bzl" <<'eof'
 def _impl(ctx):
-    tool_inputs, tool_input_mfs = ctx.resolve_tools(tools = [ctx.attr.tool])
     ctx.actions.run(
         outputs = [ctx.outputs.out],
-        tools = tool_inputs,
         executable = ctx.executable.tool,
         arguments = [ctx.outputs.out.path, "a", "", "\"b \\\"c", "z"],
         use_default_shell_env = True,
-        input_manifests = tool_input_mfs,
     )
     return DefaultInfo(files = depset(direct = [ctx.outputs.out]))
 

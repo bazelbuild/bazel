@@ -17,6 +17,7 @@ import build.bazel.remote.execution.v2.ActionCacheUpdateCapabilities;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.ServerCapabilities;
 import build.bazel.remote.execution.v2.SymlinkAbsolutePathStrategy;
 import com.google.auth.Credentials;
 import com.google.common.collect.ImmutableList;
@@ -30,6 +31,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.remote.RemoteRetrier;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
+import com.google.devtools.build.lib.remote.common.LazyFileInputStream;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.util.DigestOutputStream;
@@ -86,6 +88,7 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -535,8 +538,8 @@ public final class HttpCacheClient implements RemoteCacheClient {
                             // Unsafe.throwException to
                             // re-throw a checked exception that hasn't been declared in the method
                             // signature.
-                            if (cause instanceof HttpException) {
-                              HttpResponse response = ((HttpException) cause).response();
+                            if (cause instanceof HttpException httpException) {
+                              HttpResponse response = httpException.response();
                               if (!dataWritten.get() && authTokenExpired(response)) {
                                 // The error is due to an auth token having expired. Let's try
                                 // again.
@@ -584,8 +587,8 @@ public final class HttpCacheClient implements RemoteCacheClient {
                             outerF.set(null);
                           } else {
                             Throwable cause = f.cause();
-                            if (cause instanceof HttpException) {
-                              HttpResponse response = ((HttpException) cause).response();
+                            if (cause instanceof HttpException httpException) {
+                              HttpResponse response = httpException.response();
                               if (cacheMiss(response.status())) {
                                 outerF.setException(new CacheNotFoundException(cmd.digest()));
                                 return;
@@ -601,12 +604,14 @@ public final class HttpCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public CacheCapabilities getCacheCapabilities() {
-    return CacheCapabilities.newBuilder()
-        .setActionCacheUpdateCapabilities(
-            ActionCacheUpdateCapabilities.newBuilder().setUpdateEnabled(true).build())
-        .setSymlinkAbsolutePathStrategy(SymlinkAbsolutePathStrategy.Value.ALLOWED)
-        .build();
+  public ServerCapabilities getServerCapabilities() {
+    var cacheCapabilities =
+        CacheCapabilities.newBuilder()
+            .setActionCacheUpdateCapabilities(
+                ActionCacheUpdateCapabilities.newBuilder().setUpdateEnabled(true).build())
+            .setSymlinkAbsolutePathStrategy(SymlinkAbsolutePathStrategy.Value.ALLOWED)
+            .build();
+    return ServerCapabilities.newBuilder().setCacheCapabilities(cacheCapabilities).build();
   }
 
   @Override
@@ -615,16 +620,16 @@ public final class HttpCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public ListenableFuture<CachedActionResult> downloadActionResult(
-      RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
-    return Futures.transform(
-        retrier.executeAsync(
-            () ->
-                Utils.downloadAsActionResult(
-                    actionKey,
-                    (digest, out) -> get(digest, out, /* casBytesDownloaded= */ Optional.empty()))),
-        CachedActionResult::remote,
-        MoreExecutors.directExecutor());
+  public ListenableFuture<ActionResult> downloadActionResult(
+      RemoteActionExecutionContext context,
+      ActionKey actionKey,
+      boolean inlineOutErr,
+      Set<String> inlineOutputFiles) {
+    return retrier.executeAsync(
+        () ->
+            Utils.downloadAsActionResult(
+                actionKey,
+                (digest, out) -> get(digest, out, /* casBytesDownloaded= */ Optional.empty())));
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")
@@ -658,8 +663,8 @@ public final class HttpCacheClient implements RemoteCacheClient {
                           result.set(null);
                         } else {
                           Throwable cause = f.cause();
-                          if (cause instanceof HttpException) {
-                            HttpResponse response = ((HttpException) cause).response();
+                          if (cause instanceof HttpException httpException) {
+                            HttpResponse response = httpException.response();
                             try {
                               // If the error is due to an expired auth token and we can reset
                               // the input stream, then try again.
@@ -717,18 +722,12 @@ public final class HttpCacheClient implements RemoteCacheClient {
   public ListenableFuture<Void> uploadFile(
       RemoteActionExecutionContext context, Digest digest, Path file) {
     return retrier.executeAsync(
-        () -> {
-          try {
-            return uploadAsync(
+        () ->
+            uploadAsync(
                 digest.getHash(),
                 digest.getSizeBytes(),
-                file.getInputStream(),
-                /* casUpload= */ true);
-          } catch (IOException e) {
-            // Can be thrown from file.getInputStream.
-            return Futures.immediateFailedFuture(e);
-          }
-        });
+                new LazyFileInputStream(file),
+                /* casUpload= */ true));
   }
 
   @Override
@@ -751,9 +750,9 @@ public final class HttpCacheClient implements RemoteCacheClient {
       in.reset();
       return true;
     }
-    if (in instanceof FileInputStream) {
+    if (in instanceof FileInputStream fileInputStream) {
       // FileInputStream does not support reset().
-      ((FileInputStream) in).getChannel().position(0);
+      fileInputStream.getChannel().position(0);
       return true;
     }
     return false;

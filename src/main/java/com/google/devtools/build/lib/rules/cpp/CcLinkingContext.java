@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcLinkingContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.LinkerInputApi;
@@ -44,6 +43,7 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.SymbolGenerator.Symbol;
 
 /** Structure of CcLinkingContext. */
 public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
@@ -54,6 +54,16 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   @Immutable
   public static final class LinkOptions {
     private final ImmutableList<String> linkOptions;
+
+    // This needs to be here to satisfy two constraints:
+    // 1. We cannot use reference equality so that when this object is serialized and then
+    // de-serialized, equality still works
+    // 2. Link options created from different configured targets but with the same contents must
+    // not be equal. If they were, the following error case would happen: if A depends on B1 and C1
+    // B1 depends on B2, C1 depends on C2 and B2 and C2 both have "-l<something>" in their linkopts,
+    // the nested set containing the linkopts would remove one of them, thereby moving
+    // "-l<something>" before the object files of C2 on the linker command line, thus making the
+    // symbols in them invisible from C2.
     private final Object symbolForEquality;
 
     private LinkOptions(ImmutableList<String> linkOptions, Object symbolForEquality) {
@@ -65,9 +75,8 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
       return linkOptions;
     }
 
-    public static LinkOptions of(
-        ImmutableList<String> linkOptions, SymbolGenerator<?> symbolGenerator) {
-      return new LinkOptions(linkOptions, symbolGenerator.generate());
+    public static LinkOptions of(ImmutableList<String> linkOptions, Symbol<?> symbol) {
+      return new LinkOptions(linkOptions, symbol);
     }
 
     @Override
@@ -81,10 +90,9 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
       if (this == obj) {
         return true;
       }
-      if (!(obj instanceof LinkOptions)) {
+      if (!(obj instanceof LinkOptions that)) {
         return false;
       }
-      LinkOptions that = (LinkOptions) obj;
       if (!this.symbolForEquality.equals(that.symbolForEquality)) {
         return false;
       }
@@ -172,10 +180,9 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
       if (this == obj) {
         return true;
       }
-      if (!(obj instanceof Linkstamp)) {
+      if (!(obj instanceof Linkstamp other)) {
         return false;
       }
-      Linkstamp other = (Linkstamp) obj;
       return artifact.equals(other.artifact) && nestedDigest == other.nestedDigest;
     }
   }
@@ -269,23 +276,23 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     }
 
     @Override
-    public void debugPrint(Printer printer, StarlarkSemantics semantics) {
+    public void debugPrint(Printer printer, StarlarkThread thread) {
       printer.append("<LinkerInput(owner=");
       if (owner == null) {
         printer.append("[null owner, uses old create_linking_context API]");
       } else {
-        owner.debugPrint(printer, semantics);
+        owner.debugPrint(printer, thread);
       }
       printer.append(", libraries=[");
       for (LibraryToLink libraryToLink : libraries) {
-        libraryToLink.debugPrint(printer, semantics);
+        libraryToLink.debugPrint(printer, thread);
         printer.append(", ");
       }
       printer.append("], userLinkFlags=[");
       printer.append(Joiner.on(", ").join(userLinkFlags));
       printer.append("], nonCodeInputs=[");
       for (Artifact nonCodeInput : nonCodeInputs) {
-        nonCodeInput.debugPrint(printer, semantics);
+        nonCodeInput.debugPrint(printer, thread);
         printer.append(", ");
       }
       // TODO(cparsons): Add debug repesentation of linkstamps.
@@ -346,10 +353,9 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
 
     @Override
     public boolean equals(Object otherObject) {
-      if (!(otherObject instanceof LinkerInput)) {
+      if (!(otherObject instanceof LinkerInput other)) {
         return false;
       }
-      LinkerInput other = (LinkerInput) otherObject;
       if (this == other) {
         return true;
       }
@@ -384,10 +390,10 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   @Nullable private final ExtraLinkTimeLibraries extraLinkTimeLibraries;
 
   @Override
-  public void debugPrint(Printer printer, StarlarkSemantics semantics) {
+  public void debugPrint(Printer printer, StarlarkThread thread) {
     printer.append("<CcLinkingContext([");
     for (LinkerInput linkerInput : linkerInputs.toList()) {
-      linkerInput.debugPrint(printer, semantics);
+      linkerInput.debugPrint(printer, thread);
       printer.append(", ");
     }
     printer.append("])>");
@@ -606,10 +612,9 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
 
   @Override
   public boolean equals(Object otherObject) {
-    if (!(otherObject instanceof CcLinkingContext)) {
+    if (!(otherObject instanceof CcLinkingContext other)) {
       return false;
     }
-    CcLinkingContext other = (CcLinkingContext) otherObject;
     if (this == other) {
       return true;
     }

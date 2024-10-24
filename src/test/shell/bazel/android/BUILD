@@ -23,183 +23,11 @@ sh_library(
     name = "android_helper",
     srcs = ["android_helper.sh"],
     data = [
-        "sample.aar",
         "@bazel_tools//tools/bash/runfiles",
     ],
 )
 
-android_sh_test(
-    name = "android_integration_test",
-    size = "enormous",
-    srcs = ["android_integration_test.sh"],
-    data = [
-        ":android_helper",
-        "//external:android_sdk_for_testing",
-        "//src/test/shell/bazel:test-deps",
-    ],
-    tags = [
-        # See https://github.com/bazelbuild/bazel/issues/18431.
-        "no-remote",
-        "no_windows",
-        # bzlmod test requires network
-        "requires-network",
-    ],
-)
-
-android_sh_test(
-    name = "android_local_test_integration_test",
-    size = "large",
-    srcs = ["android_local_test_integration_test.sh"],
-    data = [
-        ":android_helper",
-        "//external:android_sdk_for_testing",
-        "//src/test/shell/bazel:test-deps",
-    ],
-    tags = [
-        "no_windows",
-    ],
-)
-
-android_sh_test(
-    name = "aapt_integration_test",
-    size = "large",
-    srcs = ["aapt_integration_test.sh"],
-    data = [
-        ":android_helper",
-        "//external:android_sdk_for_testing",
-        "//src/test/shell/bazel:test-deps",
-    ],
-)
-
-android_sh_test(
-    name = "aar_integration_test",
-    size = "large",
-    srcs = ["aar_integration_test.sh"],
-    data = [
-        ":android_helper",
-        "//external:android_ndk_for_testing",
-        "//external:android_sdk_for_testing",
-        "//src/test/shell/bazel:test-deps",
-    ],
-    tags = [
-        # See https://github.com/bazelbuild/bazel/issues/17784.
-        "no-remote",
-        "no_windows",
-    ],
-)
-
-android_sh_test(
-    name = "proguard_integration_test",
-    size = "medium",
-    srcs = ["proguard_integration_test.sh"],
-    data = [
-        ":android_helper",
-        "//external:android_sdk_for_testing",
-        "//src/test/shell/bazel:test-deps",
-    ],
-)
-
-android_sh_test(
-    name = "android_sdk_integration_test",
-    size = "large",
-    srcs = ["android_sdk_integration_test.sh"],
-    data = [
-        ":android_helper",
-        "//external:android_sdk_for_testing",
-        "//src/test/shell/bazel:test-deps",
-    ],
-    shard_count = 3,
-    tags = [
-        "no_windows",
-    ],
-)
-
-android_sh_test(
-    name = "android_ndk_integration_test",
-    size = "medium",
-    timeout = "long",
-    srcs = ["android_ndk_integration_test.sh"],
-    data = [
-        ":android_helper",
-        "//external:android_ndk_for_testing",
-        "//external:android_sdk_for_testing",
-        "//src/test/shell/bazel:test-deps",
-    ],
-    shard_count = 6,
-    tags = [
-        # See https://github.com/bazelbuild/bazel/issues/17784.
-        "no-remote",
-        "no_windows",
-    ],
-)
-
-android_sh_test(
-    name = "aidl_integration_test",
-    size = "medium",
-    srcs = ["aidl_integration_test.sh"],
-    data = [
-        ":android_helper",
-        "//external:android_sdk_for_testing",
-        "//src/test/shell/bazel:test-deps",
-    ],
-)
-
-android_sh_test(
-    name = "desugarer_integration_test",
-    size = "large",
-    srcs = ["desugarer_integration_test.sh"],
-    data = [
-        ":android_helper",
-        "//external:android_sdk_for_testing",
-        "//src/test/shell/bazel:test-deps",
-    ],
-    tags = [
-        "no_windows",
-    ],
-)
-
-android_sh_test(
-    name = "library_desugarer_integration_test",
-    size = "small",
-    srcs = ["library_desugarer_integration_test.sh"],
-    data = [
-        ":android_helper",
-        "//external:android_sdk_for_testing",
-        "//src/test/shell/bazel:test-deps",
-    ],
-    tags = [
-        "manual",  # TODO(b/299338002): D8 library desugaring is broken.
-        "no_windows",
-    ],
-)
-
-android_sh_test(
-    name = "android_instrumentation_test_integration_test",
-    size = "medium",
-    srcs = ["android_instrumentation_test_integration_test.sh"],
-    data = [
-        ":android_helper",
-        "//external:android_sdk_for_testing",
-        "//src/test/shell/bazel:test-deps",
-    ],
-    shard_count = 4,
-    tags = [
-        "no_windows",
-    ],
-)
-
-android_sh_test(
-    name = "resource_processing_integration_test",
-    size = "large",
-    srcs = ["resource_processing_integration_test.sh"],
-    data = [
-        ":android_helper",
-        ":testdata/roboto.ttf",
-        "//external:android_sdk_for_testing",
-        "//src/test/shell/bazel:test-deps",
-    ],
-)
-
+# TODO(ahumesky): Migrate this to the rules_android repo and refactor it to use the Starlark rules when DexFileSplitter is migrated to rules_android
 android_sh_test(
     name = "DexFileSplitter_synthetic_classes_test",
     size = "large",
@@ -213,6 +41,7 @@ android_sh_test(
     ],
     shard_count = 2,
     tags = [
+        "manual",
         "no_windows",
     ],
 )

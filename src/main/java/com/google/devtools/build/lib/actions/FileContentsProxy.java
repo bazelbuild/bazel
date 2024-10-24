@@ -55,11 +55,10 @@ public final class FileContentsProxy {
       return true;
     }
 
-    if (!(other instanceof FileContentsProxy)) {
+    if (!(other instanceof FileContentsProxy that)) {
       return false;
     }
 
-    FileContentsProxy that = (FileContentsProxy) other;
     return ctime == that.ctime && mtime == that.mtime && nodeId == that.nodeId;
   }
 

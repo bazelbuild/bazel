@@ -67,7 +67,6 @@ public class OutputDirectories {
   public enum OutputDirectory {
     BIN("bin"),
     GENFILES("genfiles"),
-    MIDDLEMAN("internal"),
     TESTLOGS("testlogs"),
     COVERAGE("coverage-metadata"),
     OUTPUT("");
@@ -88,11 +87,7 @@ public class OutputDirectories {
       Path execRoot = directories.getExecRoot(workspaceName);
       // e.g., [[execroot/my_workspace]/bazel-out/config/bin]
       return ArtifactRoot.asDerivedRoot(
-          execRoot,
-          this == MIDDLEMAN ? RootType.Middleman : RootType.Output,
-          directories.getRelativeOutputPath(),
-          outputDirName,
-          name);
+          execRoot, RootType.Output, directories.getRelativeOutputPath(), outputDirName, name);
     }
   }
 
@@ -104,7 +99,6 @@ public class OutputDirectories {
   private final ArtifactRoot genfilesDirectory;
   private final ArtifactRoot coverageDirectory;
   private final ArtifactRoot testlogsDirectory;
-  private final ArtifactRoot middlemanDirectory;
 
   private final boolean mergeGenfilesDirectory;
 
@@ -127,8 +121,6 @@ public class OutputDirectories {
     this.genfilesDirectory = OutputDirectory.GENFILES.getRoot(mnemonic, directories, workspaceName);
     this.coverageDirectory = OutputDirectory.COVERAGE.getRoot(mnemonic, directories, workspaceName);
     this.testlogsDirectory = OutputDirectory.TESTLOGS.getRoot(mnemonic, directories, workspaceName);
-    this.middlemanDirectory =
-        OutputDirectory.MIDDLEMAN.getRoot(mnemonic, directories, workspaceName);
 
     this.mergeGenfilesDirectory = options.mergeGenfilesDirectory;
     this.siblingRepositoryLayout = siblingRepositoryLayout;
@@ -207,13 +199,6 @@ public class OutputDirectories {
   String getHostPathSeparator() {
     // TODO(bazel-team): Maybe do this in the constructor instead? This isn't serialization-safe.
     return OS.getCurrent() == OS.WINDOWS ? ";" : ":";
-  }
-
-  /** Returns the internal directory (used for middlemen) for this build configuration. */
-  ArtifactRoot getMiddlemanDirectory(RepositoryName repositoryName) {
-    return siblingRepositoryLayout
-        ? buildDerivedRoot("internal", repositoryName, true)
-        : middlemanDirectory;
   }
 
   String getMnemonic() {

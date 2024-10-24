@@ -13,13 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicate;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -36,12 +36,14 @@ import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.DynamicStrategyRegistry;
 import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.actions.MachineLoadProvider;
 import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
+import com.google.devtools.build.lib.actions.cache.PostableActionCacheStats;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -53,7 +55,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
-import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.ConvenienceSymlink;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions.ConvenienceSymlinksMode;
 import com.google.devtools.build.lib.buildtool.buildevent.ConvenienceSymlinksIdentifiedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
@@ -84,6 +85,8 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.CommonCommandOptions;
+import com.google.devtools.build.lib.runtime.InstrumentationOutput;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
@@ -161,7 +164,8 @@ public class ExecutionTool {
     ExecutorBuilder executorBuilder = new ExecutorBuilder();
     ModuleActionContextRegistry.Builder actionContextRegistryBuilder =
         ModuleActionContextRegistry.builder();
-    SpawnStrategyRegistry.Builder spawnStrategyRegistryBuilder = SpawnStrategyRegistry.builder();
+    SpawnStrategyRegistry.Builder spawnStrategyRegistryBuilder =
+        SpawnStrategyRegistry.builder(env.getInvocationPolicy().getStrategyPolicy());
     actionContextRegistryBuilder.register(SpawnStrategyResolver.class, new SpawnStrategyResolver());
 
     for (BlazeModule module : runtime.getBlazeModules()) {
@@ -255,33 +259,34 @@ public class ExecutionTool {
    *
    * <p>TODO(b/213040766): Write tests for these setup steps.
    */
-  public void prepareForExecution(Stopwatch executionTimer)
+  void prepareForExecution(Stopwatch executionTimer)
       throws AbruptExitException,
           BuildFailedException,
           InterruptedException,
           InvalidConfigurationException {
     init();
     BuildRequestOptions buildRequestOptions = request.getBuildOptions();
-
     SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
+    boolean localActionsSupported =
+        env.getOutputService().actionFileSystemType().supportsLocalActions();
+
+    // TODO: b/290617036 - Reconsider this for local action support with virtual roots.
+    checkState(
+        !localActionsSupported || env.getDirectories().getVirtualSourceRoot() == null,
+        "Local actions are incompatible with virtual roots");
 
     try (SilentCloseable c = Profiler.instance().profile("preparingExecroot")) {
-      boolean shouldSymlinksBePlanted =
-          skyframeExecutor.getForcedSingleSourceRootIfNoExecrootSymlinkCreation() == null;
-      Root singleSourceRoot =
-          shouldSymlinksBePlanted
-              ? Iterables.getOnlyElement(env.getPackageLocator().getPathEntries())
-              : skyframeExecutor.getForcedSingleSourceRootIfNoExecrootSymlinkCreation();
       IncrementalPackageRoots incrementalPackageRoots =
           IncrementalPackageRoots.createAndRegisterToEventBus(
               getExecRoot(),
-              singleSourceRoot,
+              // Single package path is a Skymeld prerequisite.
+              Iterables.getOnlyElement(env.getPackageLocator().getPathEntries()),
               env.getEventBus(),
               env.getDirectories().getProductName() + "-",
               skyframeExecutor.getIgnoredPaths(),
               request.getOptions(BuildLanguageOptions.class).experimentalSiblingRepositoryLayout,
               runtime.getWorkspace().doesAllowExternalRepositories());
-      if (shouldSymlinksBePlanted) {
+      if (localActionsSupported) {
         incrementalPackageRoots.eagerlyPlantSymlinksToSingleSourceRoot();
       }
 
@@ -293,7 +298,7 @@ public class ExecutionTool {
     OutputService outputService = env.getOutputService();
     ModifiedFileSet modifiedOutputFiles =
         startBuildAndDetermineModifiedOutputFiles(request.getId(), outputService);
-    if (outputService == null || outputService.actionFileSystemType().supportsLocalActions()) {
+    if (localActionsSupported) {
       // Must be created after the output path is created above.
       try (SilentCloseable c = Profiler.instance().profile("createActionLogDirectory")) {
         createActionLogDirectory();
@@ -309,8 +314,6 @@ public class ExecutionTool {
     }
     SkyframeBuilder skyframeBuilder;
     try (SilentCloseable c = Profiler.instance().profile("createBuilder")) {
-      var shouldStoreRemoteMetadataInActionCache =
-          outputService != null && outputService.shouldStoreRemoteOutputMetadataInActionCache();
       skyframeBuilder =
           (SkyframeBuilder)
               createBuilder(
@@ -318,19 +321,19 @@ public class ExecutionTool {
                   actionCache,
                   skyframeExecutor,
                   modifiedOutputFiles,
-                  shouldStoreRemoteMetadataInActionCache);
+                  outputService.shouldStoreRemoteOutputMetadataInActionCache());
     }
 
     skyframeExecutor.drainChangedFiles();
-    // With Skymeld, we don't have enough information at this stage to consider remote files.
-    // This allows BwoB to function (in the sense that it's now compatible with Skymeld), but
-    // there's a performance penalty for incremental build: all action nodes will be dirtied.
-    // We'll be relying on the other forms of caching (local action cache or remote cache).
-    // TODO(b/281655526): Improve this.
+
+    var remoteArtifactChecker =
+        env.getOutputService() != null
+            ? env.getOutputService().getRemoteArtifactChecker()
+            : RemoteArtifactChecker.IGNORE_ALL;
     skyframeExecutor.detectModifiedOutputFiles(
         modifiedOutputFiles,
         env.getBlazeWorkspace().getLastExecutionTimeRange(),
-        RemoteArtifactChecker.IGNORE_ALL,
+        remoteArtifactChecker,
         buildRequestOptions.fsvcThreads);
     try (SilentCloseable c = Profiler.instance().profile("configureActionExecutor")) {
       skyframeExecutor.configureActionExecutor(
@@ -375,8 +378,7 @@ public class ExecutionTool {
    * @param analysisResult the analysis phase output
    * @param buildResult the mutable build result
    * @param packageRoots package roots collected from loading phase and {@link
-   *     BuildConfigurationValue} creation. May be empty if {@link
-   *     SkyframeExecutor#getForcedSingleSourceRootIfNoExecrootSymlinkCreation} is false.
+   *     BuildConfigurationValue} creation. May be empty if using virtual roots.
    */
   void executeBuild(
       UUID buildId,
@@ -394,13 +396,14 @@ public class ExecutionTool {
     ModifiedFileSet modifiedOutputFiles =
         startBuildAndDetermineModifiedOutputFiles(buildId, outputService);
 
-    if (outputService == null || outputService.actionFileSystemType().supportsLocalActions()) {
+    if (outputService.actionFileSystemType().supportsLocalActions()) {
       // Must be created after the output path is created above.
       createActionLogDirectory();
     }
 
-    handleConvenienceSymlinks(
-        analysisResult.getTargetsToBuild(), analysisResult.getConfiguration());
+    buildResult.setConvenienceSymlinks(
+        handleConvenienceSymlinks(
+            analysisResult.getTargetsToBuild(), analysisResult.getConfiguration()));
 
     BuildRequestOptions options = request.getBuildOptions();
     ActionCache actionCache = null;
@@ -411,15 +414,13 @@ public class ExecutionTool {
     SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
     Builder builder;
     try (SilentCloseable c = Profiler.instance().profile("createBuilder")) {
-      var shouldStoreRemoteMetadataInActionCache =
-          outputService != null && outputService.shouldStoreRemoteOutputMetadataInActionCache();
       builder =
           createBuilder(
               request,
               actionCache,
               skyframeExecutor,
               modifiedOutputFiles,
-              shouldStoreRemoteMetadataInActionCache);
+              outputService.shouldStoreRemoteOutputMetadataInActionCache());
     }
 
     //
@@ -509,19 +510,15 @@ public class ExecutionTool {
   private ModifiedFileSet startBuildAndDetermineModifiedOutputFiles(
       UUID buildId, OutputService outputService)
       throws BuildFailedException, AbruptExitException, InterruptedException {
-    ModifiedFileSet modifiedOutputFiles = ModifiedFileSet.EVERYTHING_MODIFIED;
-    if (outputService != null) {
-      try (SilentCloseable c = Profiler.instance().profile("outputService.startBuild")) {
-        modifiedOutputFiles =
-            outputService.startBuild(
-                env.getReporter(), buildId, request.getBuildOptions().finalizeActions);
-        informedOutputServiceToStartTheBuild = true;
-      }
-    } else {
-      // TODO(bazel-team): this could be just another OutputService
-      try (SilentCloseable c = Profiler.instance().profile("startLocalOutputBuild")) {
-        startLocalOutputBuild();
-      }
+    ModifiedFileSet modifiedOutputFiles;
+    try (SilentCloseable c = Profiler.instance().profile("outputService.startBuild")) {
+      modifiedOutputFiles =
+          outputService.startBuild(
+              buildId,
+              env.getWorkspaceName(),
+              env.getReporter(),
+              request.getBuildOptions().finalizeActions);
+      informedOutputServiceToStartTheBuild = true;
     }
     if (!request.getPackageOptions().checkOutputFiles) {
       // Do not skip output invalidation in the following cases:
@@ -600,7 +597,7 @@ public class ExecutionTool {
     }
     // Finalize the output service last if required, so that if we do throw an exception, we know
     // that all the other code has already run.
-    if (env.getOutputService() != null && informedOutputServiceToStartTheBuild) {
+    if (informedOutputServiceToStartTheBuild) {
       boolean isBuildSuccessful =
           buildResult.getSuccessfulTargets().size()
               == buildResultListener.getAnalyzedTargets().size();
@@ -727,7 +724,7 @@ public class ExecutionTool {
   private static BuildConfigurationValue getConfiguration(
       SkyframeExecutor executor, Reporter reporter, BuildOptions options) {
     try {
-      return executor.getConfiguration(reporter, options, /*keepGoing=*/ false);
+      return executor.getConfiguration(reporter, options, /* keepGoing= */ false);
     } catch (InvalidConfigurationException e) {
       reporter.handle(
           Event.warn(
@@ -741,20 +738,27 @@ public class ExecutionTool {
    * ConvenienceSymlinksMode#IGNORE}, then skip any creating or cleaning of convenience symlinks.
    * Otherwise, manage the convenience symlinks and then post a {@link
    * ConvenienceSymlinksIdentifiedEvent} build event.
+   *
+   * @return map of convenience symlink name to target
    */
-  public void handleConvenienceSymlinks(
+  ImmutableMap<PathFragment, PathFragment> handleConvenienceSymlinks(
       ImmutableSet<ConfiguredTarget> targetsToBuild, BuildConfigurationValue configuration) {
     try (SilentCloseable c =
         Profiler.instance().profile("ExecutionTool.handleConvenienceSymlinks")) {
-      ImmutableList<ConvenienceSymlink> convenienceSymlinks = ImmutableList.of();
+      OutputDirectoryLinksUtils.SymlinkCreationResult convenienceSymlinks =
+          OutputDirectoryLinksUtils.EMPTY_SYMLINK_CREATION_RESULT;
       if (request.getBuildOptions().experimentalConvenienceSymlinks
           != ConvenienceSymlinksMode.IGNORE) {
         convenienceSymlinks =
             createConvenienceSymlinks(request.getBuildOptions(), targetsToBuild, configuration);
       }
       if (request.getBuildOptions().experimentalConvenienceSymlinksBepEvent) {
-        env.getEventBus().post(new ConvenienceSymlinksIdentifiedEvent(convenienceSymlinks));
+        env.getEventBus()
+            .post(
+                new ConvenienceSymlinksIdentifiedEvent(
+                    convenienceSymlinks.getConvenienceSymlinkProtos()));
       }
+      return convenienceSymlinks.getCreatedSymlinks();
     }
   }
 
@@ -774,7 +778,7 @@ public class ExecutionTool {
    * symlinks aren't created. Furthermore, lingering symlinks from the last build are deleted. This
    * is to prevent confusion by pointing to an outdated directory the current build never used.
    */
-  private ImmutableList<ConvenienceSymlink> createConvenienceSymlinks(
+  private OutputDirectoryLinksUtils.SymlinkCreationResult createConvenienceSymlinks(
       BuildRequestOptions buildRequestOptions,
       ImmutableSet<ConfiguredTarget> targetsToBuild,
       BuildConfigurationValue configuration) {
@@ -832,30 +836,6 @@ public class ExecutionTool {
     }
   }
 
-  /** Prepare for a local output build. */
-  private void startLocalOutputBuild() throws AbruptExitException {
-    try (SilentCloseable c = Profiler.instance().profile("Starting local output build")) {
-      Path outputPath = env.getDirectories().getOutputPath(env.getWorkspaceName());
-      Path localOutputPath = env.getDirectories().getLocalOutputPath();
-
-      if (outputPath.isSymbolicLink()) {
-        try {
-          // Remove the existing symlink first.
-          outputPath.delete();
-          if (localOutputPath.exists()) {
-            // Pre-existing local output directory. Move to outputPath.
-            localOutputPath.renameTo(outputPath);
-          }
-        } catch (IOException e) {
-          throw createExitException(
-              "Couldn't handle local output directory symlinks",
-              Code.LOCAL_OUTPUT_DIRECTORY_SYMLINK_FAILURE,
-              e);
-        }
-      }
-    }
-  }
-
   /**
    * If a path is supplied, creates and installs an ExplanationHandler. Returns an instance on
    * success. Reports an error and returns null otherwise.
@@ -868,9 +848,21 @@ public class ExecutionTool {
     }
     ExplanationHandler handler;
     try {
-      handler =
-          new ExplanationHandler(
-              getWorkspace().getRelative(explanationPath).getOutputStream(), allOptions);
+      InstrumentationOutput instrumentationOutput =
+          runtime
+              .getInstrumentationOutputFactory()
+              .createInstrumentationOutput(
+                  /* name= */ "explain",
+                  getWorkspace().getRelative(explanationPath),
+                  env.getOptions(),
+                  env.getOptions()
+                      .getOptions(CommonCommandOptions.class)
+                      .redirectLocalInstrumentationOutputWrites,
+                  getReporter(),
+                  /* convenienceName= */ null,
+                  /* append= */ null,
+                  /* internal= */ null);
+      handler = new ExplanationHandler(instrumentationOutput.createOutputStream(), allOptions);
     } catch (IOException e) {
       getReporter()
           .handle(
@@ -925,7 +917,7 @@ public class ExecutionTool {
    *
    * @param configuredTargets The configured targets whose artifacts are to be built.
    */
-  static ImmutableSet<ConfiguredTarget> determineSuccessfulTargets(
+  private static ImmutableSet<ConfiguredTarget> determineSuccessfulTargets(
       Collection<ConfiguredTarget> configuredTargets, Set<ConfiguredTargetKey> builtTargets) {
     // Maintain the ordering by copying builtTargets into an ImmutableSet.Builder in the same
     // iteration order as configuredTargets.
@@ -938,14 +930,14 @@ public class ExecutionTool {
     return successfulTargets.build();
   }
 
-  static ImmutableSet<AspectKey> determineSuccessfulAspects(
+  private static ImmutableSet<AspectKey> determineSuccessfulAspects(
       ImmutableSet<AspectKey> aspects, Set<AspectKey> builtAspects) {
     // Maintain the ordering.
     return aspects.stream().filter(builtAspects::contains).collect(ImmutableSet.toImmutableSet());
   }
 
   /** Get action cache if present or reload it from the on-disk cache. */
-  ActionCache getOrLoadActionCache() throws AbruptExitException {
+  private ActionCache getOrLoadActionCache() throws AbruptExitException {
     try {
       return env.getBlazeWorkspace().getOrLoadPersistentActionCache(getReporter());
     } catch (IOException e) {
@@ -1021,6 +1013,12 @@ public class ExecutionTool {
     resourceMgr.setAvailableResources(
         ResourceSet.create(
             resources, options.usingLocalTestJobs() ? options.localTestJobs : Integer.MAX_VALUE));
+
+    resourceMgr.initializeCpuLoadFunctionality(
+        MachineLoadProvider.instance(),
+        options.experimentalCpuLoadScheduling,
+        options.experimentalCpuLoadSchedulingWindowSize);
+    resourceMgr.scheduleCpuLoadWindowUpdate();
   }
 
   /**
@@ -1048,8 +1046,7 @@ public class ExecutionTool {
         builder.setSaveTimeInMs(Duration.ofNanos(p.completeAndGetElapsedTimeNanos()).toMillis());
       }
     }
-
-    env.getEventBus().post(builder.build());
+    env.getReporter().post(new PostableActionCacheStats(builder.build()));
   }
 
   private Reporter getReporter() {
@@ -1084,7 +1081,7 @@ public class ExecutionTool {
     private final CommandEnvironment env;
 
     private final Stopwatch executionUnstartedTimer;
-    private final AtomicBoolean activated = new AtomicBoolean(false);
+    private final AtomicBoolean progressReceiverStarted = new AtomicBoolean(false);
 
     private final int progressReportInterval;
 
@@ -1100,16 +1097,11 @@ public class ExecutionTool {
     }
 
     @Subscribe
-    public void setupExecutionProgressReceiver(SomeExecutionStartedEvent unused) {
-      if (activated.compareAndSet(false, true)) {
-        // Note that executionProgressReceiver accesses builtTargets concurrently (after wrapping in
-        // a synchronized collection), so unsynchronized access to this variable is unsafe while it
-        // runs.
+    public void setupExecutionProgressReceiver(SomeExecutionStartedEvent event) {
+      if (progressReceiverStarted.compareAndSet(false, true)) {
         // TODO(leba): count test actions
         ExecutionProgressReceiver executionProgressReceiver =
-            new ExecutionProgressReceiver(
-                /*exclusiveTestsCount=*/ 0,
-                env.getEventBus());
+            new ExecutionProgressReceiver(/* exclusiveTestsCount= */ 0, env.getEventBus());
         env.getEventBus()
             .post(new ExecutionProgressReceiverAvailableEvent(executionProgressReceiver));
 
@@ -1118,7 +1110,6 @@ public class ExecutionTool {
         skyframeExecutor.setActionExecutionProgressReportingObjects(
             executionProgressReceiver, executionProgressReceiver, statusReporter);
         skyframeExecutor.setExecutionProgressReceiver(executionProgressReceiver);
-        executionUnstartedTimer.start();
 
         skyframeExecutor.setAndStartWatchdog(
             new ActionExecutionInactivityWatchdog(
@@ -1126,7 +1117,10 @@ public class ExecutionTool {
                 executionProgressReceiver.createInactivityReporter(
                     statusReporter, skyframeExecutor.getIsBuildingExclusiveArtifacts()),
                 progressReportInterval));
-
+      }
+      // no lock necessary since this method is thread-safe.
+      if (event.countedInExecutionTime() && !executionUnstartedTimer.isRunning()) {
+        executionUnstartedTimer.start();
         env.getEventBus().unregister(this);
       }
     }

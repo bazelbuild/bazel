@@ -27,6 +27,8 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import java.io.IOException;
 import javax.annotation.Nullable;
 
@@ -34,38 +36,35 @@ import javax.annotation.Nullable;
  * Abstract Action to write to a file.
  */
 public abstract class AbstractFileWriteAction extends AbstractAction {
-
-  protected final boolean makeExecutable;
-
   /**
    * Creates a new AbstractFileWriteAction instance.
    *
    * @param owner the action owner.
    * @param inputs the Artifacts that this Action depends on
    * @param output the Artifact that will be created by executing this Action.
-   * @param makeExecutable iff true will change the output file to be executable.
    */
-  public AbstractFileWriteAction(
-      ActionOwner owner, NestedSet<Artifact> inputs, Artifact output, boolean makeExecutable) {
+  public AbstractFileWriteAction(ActionOwner owner, NestedSet<Artifact> inputs, Artifact output) {
     // There is only one output, and it is primary.
     super(owner, inputs, ImmutableSet.of(output));
-    this.makeExecutable = makeExecutable;
   }
 
   public boolean makeExecutable() {
-    return makeExecutable;
+    return false;
   }
 
   @Override
   public final ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     try {
-      DeterministicWriter deterministicWriter = newDeterministicWriter(actionExecutionContext);
+      DeterministicWriter deterministicWriter;
+      try (SilentCloseable c = Profiler.instance().profile("setupDeterministicWriter")) {
+        deterministicWriter = newDeterministicWriter(actionExecutionContext);
+      }
       FileWriteActionContext context =
           actionExecutionContext.getContext(FileWriteActionContext.class);
       ImmutableList<SpawnResult> result =
           context.writeOutputToFile(
-              this, actionExecutionContext, deterministicWriter, makeExecutable, isRemotable());
+              this, actionExecutionContext, deterministicWriter, makeExecutable(), isRemotable());
       afterWrite(actionExecutionContext);
       return ActionResult.create(result);
     } catch (ExecException e) {
@@ -96,7 +95,7 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
 
   @Override
   protected String getRawProgressMessage() {
-    return (makeExecutable ? "Writing script " : "Writing file ")
+    return (makeExecutable() ? "Writing script " : "Writing file ")
         + Iterables.getOnlyElement(getOutputs()).prettyPrint();
   }
 

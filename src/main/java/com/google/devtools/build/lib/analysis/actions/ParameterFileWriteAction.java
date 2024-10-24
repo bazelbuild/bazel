@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -86,7 +87,7 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
       Artifact output,
       CommandLine commandLine,
       ParameterFileType type) {
-    super(owner, inputs, output, false);
+    super(owner, inputs, output);
     this.commandLine = commandLine;
     this.type = type;
     this.hasInputArtifactToExpand = !inputs.isEmpty();
@@ -174,9 +175,9 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
       Fingerprint fp)
       throws CommandLineExpansionException, InterruptedException {
     fp.addString(GUID);
-    fp.addString(String.valueOf(makeExecutable));
     fp.addString(type.toString());
-    commandLine.addToFingerprint(actionKeyContext, artifactExpander, fp);
+    commandLine.addToFingerprint(
+        actionKeyContext, artifactExpander, CoreOptions.OutputPathsMode.OFF, fp);
   }
 
   @Override
@@ -184,8 +185,6 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
     StringBuilder message = new StringBuilder();
     message.append("GUID: ");
     message.append(GUID);
-    message.append("\nExecutable: ");
-    message.append(makeExecutable);
     message.append("\nParam File Type: ");
     message.append(type);
     message.append("\nContent digest (approximate): ");
@@ -194,7 +193,8 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
       // incomprehensible. Instead, just give a digest, which makes it easy to
       // tell if two contents are equal or not.
       var fp = new Fingerprint();
-      commandLine.addToFingerprint(new ActionKeyContext(), null, fp);
+      commandLine.addToFingerprint(
+          new ActionKeyContext(), null, CoreOptions.OutputPathsMode.OFF, fp);
       message.append(BaseEncoding.base16().lowerCase().encode(fp.digestAndReset()));
       message.append(
           "\n"

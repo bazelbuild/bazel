@@ -50,17 +50,10 @@ msys*|mingw*|cygwin*)
 esac
 
 if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
   declare -r EXE_EXT=".exe"
 else
   declare -r EXE_EXT=""
 fi
-
-# Tests in this file do not actually start a Python interpreter, but plug in a
-# fake stub executable to serve as the "interpreter".
-
-use_fake_python_runtimes_for_testsuite
 
 #### TESTS #############################################################
 
@@ -71,7 +64,7 @@ function test_cycle_under_command_line_aspect() {
   mkdir -p test
   cat > test/aspect.bzl << 'EOF' || fail "Couldn't write aspect.bzl"
 def _simple_aspect_impl(target, ctx):
-    return struct()
+    return []
 
 simple_aspect = aspect(implementation=_simple_aspect_impl)
 EOF
@@ -97,7 +90,7 @@ function test_aspect_on_target_with_analysis_failure() {
   mkdir -p test
   cat > test/aspect.bzl << 'EOF' || fail "Couldn't write aspect.bzl"
 def _simple_aspect_impl(target, ctx):
-    return struct()
+    return []
 
 simple_aspect = aspect(implementation=_simple_aspect_impl)
 EOF
@@ -169,6 +162,7 @@ EOF
   # propagate to its dependencies where they will run based on the dependencies
   # advertised providers.
   bazel build "${package}:target_with_a" \
+        --noincompatible_top_level_aspects_require_providers \
         --aspects="//${package}:lib.bzl%aspect_a" \
         --aspects="//${package}:lib.bzl%aspect_b" &>"$TEST_log" \
       || fail "Build failed but should have succeeded"
@@ -1790,7 +1784,6 @@ EOF
 
   bazel build "//${package}:t1" \
     --aspects="//${package}:defs.bzl%aspect_c,//${package}:defs.bzl%aspect_b,//${package}:defs.bzl%aspect_a" \
-    --separate_aspect_deps \
       &> $TEST_log || fail "Build failed"
 
   expect_log "aspect_c on target @@\?//test:t1: aspect_c _tool=@@\?//test:aspect_c_tool, rule _tool=@@\?//test:r1_tool"
@@ -1808,6 +1801,167 @@ EOF
   expect_log "aspect_a on target @@\?//test:t1: _tool_a=@@\?//test:aspect_a_diff_tool, _tool_r1=@@\?//test:r1_diff_tool, _tool_b=@@\?//test:aspect_b_diff_tool, _tool_c=@@\?//test:aspect_c_diff_tool"
   expect_log "aspect_a on target @@\?//test:t1: _base_aspects_tool=@@\?//test:aspect_c_tool"
 
+}
+
+function test_aspect_propagation_to_target_toolchain_deps() {
+  local toolchains_package="test_toolchains"
+  mkdir -p "${toolchains_package}"
+  cat > "${toolchains_package}/defs.bzl" <<EOF
+def _impl(ctx):
+  return [platform_common.ToolchainInfo(
+      tool = ctx.executable._tool,
+      files_to_run = ctx.attr._tool[DefaultInfo].files_to_run,
+  )]
+
+test_toolchain = rule(
+  implementation = _impl,
+  attrs = {
+      "_tool": attr.label(
+          default = "//${toolchains_package}:a_tool",
+          executable = True,
+          cfg = "exec",
+      ),
+      "toolchain_dep": attr.label(),
+  },
+)
+EOF
+
+  cat > "${toolchains_package}/BUILD" <<EOF
+load("//${toolchains_package}:defs.bzl", "test_toolchain")
+
+toolchain_type(name = "toolchain_type")
+
+genrule(
+    name = "a_tool",
+    outs = ["atool"],
+    cmd = "",
+    executable = True,
+)
+
+sh_library(name = "toolchain_dep")
+
+test_toolchain(
+  name = "foo",
+  toolchain_dep = ":toolchain_dep",
+)
+
+toolchain(
+  name = "foo_toolchain",
+  toolchain = ":foo",
+  toolchain_type = ":toolchain_type",
+)
+EOF
+
+  local package="test"
+  mkdir -p "${package}"
+
+  cat > "${package}/defs.bzl" <<EOF
+AspectProvider = provider()
+RuleProvider = provider()
+
+def _aspect_impl(target, ctx):
+  result = ["toolchain_aspect on " + str(target.label)]
+
+  if ctx.rule.toolchains and '//${toolchains_package}:toolchain_type' in ctx.rule.toolchains:
+      # aspect cannot access the ToolchainInfo of the target's toolchains
+      if platform_common.ToolchainInfo in ctx.rule.toolchains['//${toolchains_package}:toolchain_type']:
+          fail("aspect should not access the ToolchainInfo of the target's toolchains")
+
+      result.extend(
+          ctx.rule.toolchains['//${toolchains_package}:toolchain_type'][AspectProvider].value)
+
+  if hasattr(ctx.rule.attr, 'toolchain_dep'):
+      result.extend(ctx.rule.attr.toolchain_dep[AspectProvider].value)
+
+  return [AspectProvider(value = result)]
+
+toolchain_aspect = aspect(
+    implementation = _aspect_impl,
+    toolchains_aspects = ['//${toolchains_package}:toolchain_type'],
+    attr_aspects = ['toolchain_dep'],
+)
+
+def _rule_1_impl(ctx):
+  print(
+    'in rule_impl of rule: {}, toolchain_aspect on dep {} = {}'.format(
+      ctx.label, ctx.attr.rule_dep.label,
+       ctx.attr.rule_dep[AspectProvider].value))
+  return []
+
+r1 = rule(
+  implementation = _rule_1_impl,
+  attrs = {
+    "rule_dep": attr.label(aspects = [toolchain_aspect]),
+  },
+)
+
+def _rule_2_impl(ctx):
+  pass
+
+r2 = rule(
+  implementation = _rule_2_impl,
+  toolchains = ['//${toolchains_package}:toolchain_type'],
+)
+EOF
+
+  cat > "${package}/BUILD" <<EOF
+load('//${package}:defs.bzl', 'r1', 'r2')
+r1(name = 't1', rule_dep = ':t2')
+r2(name = 't2')
+EOF
+
+  bazel build "//${package}:t1" --extra_toolchains="//${toolchains_package}:foo_toolchain"\
+      &> $TEST_log || fail "Build failed"
+
+  expect_log 'in rule_impl of rule: @@\?//test:t1, toolchain_aspect on dep @@\?//test:t2 = \["toolchain_aspect on @@\?//test:t2", "toolchain_aspect on @@\?//test_toolchains:foo", "toolchain_aspect on @@\?//test_toolchains:toolchain_dep"\]'
+}
+
+function test_aspect_default_info_files_generated() {
+  local package="test"
+  mkdir -p "${package}"
+  cat > "${package}/defs.bzl" <<EOF
+
+def _aspect_impl(target, ctx):
+  files = []
+
+  if hasattr(ctx.rule.attr, 'dep') and ctx.rule.attr.dep:
+    files.append(ctx.rule.attr.dep[DefaultInfo].files)
+
+  f = ctx.actions.declare_file('from_aspect_on_{}'.format(target.label.name))
+  ctx.actions.write(f, 'hi')
+
+  return [DefaultInfo(files=depset(direct = [f], transitive = files))]
+
+my_aspect = aspect(implementation = _aspect_impl, attr_aspects = ['dep'])
+
+def _impl(ctx):
+  f = ctx.actions.declare_file('from_rule_{}'.format(ctx.label.name))
+  ctx.actions.write(f, 'hi')
+  return [DefaultInfo(files=depset([f]))]
+
+my_rule = rule(
+  implementation = _impl,
+  attrs = {
+      "dep": attr.label()
+  },
+)
+EOF
+
+  cat > "${package}/BUILD" <<EOF
+load("//${package}:defs.bzl", "my_rule")
+
+my_rule(name = 't1', dep = 't2')
+my_rule(name = 't2')
+EOF
+
+  bazel build "//${package}:t1" --aspects="//${package}:defs.bzl%my_aspect"\
+      &> $TEST_log || fail "Build failed"
+
+  assert_nonempty_file 'bazel-bin/test/from_aspect_on_t1'
+  assert_nonempty_file 'bazel-bin/test/from_rule_t1'
+
+  assert_nonempty_file 'bazel-bin/test/from_aspect_on_t2'
+  assert_nonempty_file 'bazel-bin/test/from_rule_t2'
 }
 
 run_suite "Tests for aspects"

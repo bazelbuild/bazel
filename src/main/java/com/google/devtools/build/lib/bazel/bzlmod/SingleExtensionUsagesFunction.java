@@ -49,6 +49,7 @@ public class SingleExtensionUsagesFunction implements SkyFunction {
     }
 
     ModuleExtensionId id = (ModuleExtensionId) skyKey.argument();
+    // We never request an extension without usages in Skyframe.
     ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> usagesTable =
         bazelDepGraphValue.getExtensionUsagesTable();
     return SingleExtensionUsagesValue.create(
@@ -60,6 +61,7 @@ public class SingleExtensionUsagesFunction implements SkyFunction {
             .collect(toImmutableList()),
         // TODO(wyv): Maybe cache these mappings?
         usagesTable.row(id).keySet().stream()
-            .collect(toImmutableMap(key -> key, bazelDepGraphValue::getFullRepoMapping)));
+            .collect(toImmutableMap(key -> key, bazelDepGraphValue::getFullRepoMapping)),
+        bazelDepGraphValue.getRepoOverrides().row(id));
   }
 }

@@ -24,15 +24,15 @@ import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.INTEGER;
 import static com.google.devtools.build.lib.packages.Type.STRING;
-import static com.google.devtools.build.lib.packages.Type.STRING_DICT;
-import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
+import static com.google.devtools.build.lib.packages.Types.STRING_DICT;
+import static com.google.devtools.build.lib.packages.Types.STRING_LIST;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
-import com.google.devtools.build.lib.analysis.config.RunUnder;
+import com.google.devtools.build.lib.analysis.config.transitions.NoConfigTransition;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintConstants;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.test.CoverageConfiguration;
@@ -45,12 +45,14 @@ import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault.Resolve
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -71,11 +73,6 @@ public class BaseRuleClasses {
         public Object getDefault(AttributeMap rule) {
           return rule.getPackageArgs().defaultTestOnly();
         }
-
-        @Override
-        public boolean resolvableWithRawAttributes() {
-          return true;
-        }
       };
 
   @SerializationConstant @VisibleForSerialization
@@ -84,11 +81,6 @@ public class BaseRuleClasses {
         @Override
         public Object getDefault(AttributeMap rule) {
           return rule.getPackageArgs().defaultDeprecation();
-        }
-
-        @Override
-        public boolean resolvableWithRawAttributes() {
-          return true;
         }
       };
 
@@ -106,11 +98,6 @@ public class BaseRuleClasses {
           }
           return "illegal";
         }
-
-        @Override
-        public boolean resolvableWithRawAttributes() {
-          return true;
-        }
       };
 
   @SerializationConstant @VisibleForSerialization
@@ -119,11 +106,6 @@ public class BaseRuleClasses {
         @Override
         public Object getDefault(AttributeMap rule) {
           return rule.getPackageArgs().defaultPackageMetadata();
-        }
-
-        @Override
-        public boolean resolvableWithRawAttributes() {
-          return true;
         }
       };
 
@@ -180,15 +162,48 @@ public class BaseRuleClasses {
       (rule, attributes, configuration) -> configuration.outputGenerator();
 
   // TODO(b/65746853): provide a way to do this without passing the entire configuration
-  /** Implementation for the :run_under attribute. */
+  /**
+   * Resolves the latebound exec-configured :run_under label. This only exists if --run_under is set
+   * to a label and --incompatible_bazel_test_exec_run_under is true. Else it's null.
+   *
+   * <p>{@link RUN_UNDER_EXEC_CONFIG} and {@link RUN_UNDER_TARGET_CONFIG} cannot both be non-null in
+   * a build: if {@code --run_under} is set it must connect to a single dependency.
+   */
   @SerializationConstant @VisibleForSerialization
-  public static final LabelLateBoundDefault<?> RUN_UNDER =
+  public static final LabelLateBoundDefault<?> RUN_UNDER_EXEC_CONFIG =
       LabelLateBoundDefault.fromTargetConfiguration(
           BuildConfigurationValue.class,
           null,
-          (rule, attributes, configuration) -> {
-            RunUnder runUnder = configuration.getRunUnder();
-            return runUnder != null ? runUnder.getLabel() : null;
+          (rule, attributes, config) -> {
+            if (config.isExecConfiguration()
+                // This is the opposite of RUN_UNDER_TARGET_CONFIG, so both can't be non-null.
+                || !config.runUnderExecConfigForTests()
+                || config.getRunUnder() == null) {
+              return null;
+            }
+            return config.getRunUnder().getLabel();
+          });
+
+  // TODO(b/65746853): provide a way to do this without passing the entire configuration
+  /**
+   * Resolves the latebound target-configured :run_under label. This only exists if --run_under is
+   * set to a label and --incompatible_bazel_test_exec_run_under is false. Else it's null.
+   *
+   * <p>{@link RUN_UNDER_EXEC_CONFIG} and {@link RUN_UNDER_TARGET_CONFIG} cannot both be non-null in
+   * a build: if {@code --run_under} is set it must connect to a single dependency.
+   */
+  public static final LabelLateBoundDefault<?> RUN_UNDER_TARGET_CONFIG =
+      LabelLateBoundDefault.fromTargetConfiguration(
+          BuildConfigurationValue.class,
+          null,
+          (rule, attributes, config) -> {
+            if (config.isExecConfiguration()
+                // This is the opposite of RUN_UNDER_EXEC_CONFIG, so both can't be non-null.
+                || config.runUnderExecConfigForTests()
+                || config.getRunUnder() == null) {
+              return null;
+            }
+            return config.getRunUnder().getLabel();
           });
 
   /**
@@ -227,6 +242,10 @@ public class BaseRuleClasses {
           .add(attr("args", STRING_LIST))
           .add(attr("env", STRING_DICT))
           .add(attr("env_inherit", STRING_LIST))
+          .add(
+              attr(Rule.IS_EXECUTABLE_ATTRIBUTE_NAME, BOOLEAN)
+                  .value(true)
+                  .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target"))
           // Input files for every test action
           .add(
               attr("$test_wrapper", LABEL)
@@ -269,9 +288,28 @@ public class BaseRuleClasses {
                   .value(
                       coverageReportGeneratorAttribute(
                           env.getToolsLabel(DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE))))
-          // The target itself and run_under both run on the same machine.
-          .add(attr(":run_under", LABEL).value(RUN_UNDER).skipPrereqValidatorCheck());
-
+          // Bazel runs --run_under targets on exec machines:
+          //   * For "$ bazel run", they run directly on the machine running bazel.
+          //   * For "$ bazel test", they run on the build machine that executes tests.
+          //
+          // This means they should be configured for the exec configuration.
+          // --incompatible_bazel_test_exec_run_under supports this. But we still need to support
+          // legacy invocations that incorrectly configure it with the target configuration. To
+          // support both modes, we define both an exec-configured and target-configured --run_under
+          // dep and have consuming logic choose the right one based on the flag.
+          //
+          // TODO: https://github.com/bazelbuild/bazel/discussions/21805 this works for
+          // "$ bazel test" but not "$ bazel run". Make this work for "$ bazel run" by updating
+          // RunCommand.java to self-transition --run_under to the exec configuration.
+          .add(
+              attr(":run_under_exec_config", LABEL)
+                  .cfg(ExecutionTransitionFactory.createFactory())
+                  .value(RUN_UNDER_EXEC_CONFIG)
+                  .skipPrereqValidatorCheck())
+          .add(
+              attr(":run_under_target_config", LABEL)
+                  .value(RUN_UNDER_TARGET_CONFIG)
+                  .skipPrereqValidatorCheck());
       env.getNetworkAllowlistForTests()
           .ifPresent(
               label ->
@@ -368,7 +406,7 @@ public class BaseRuleClasses {
         .add(
             attr(RuleClass.COMPATIBLE_ENVIRONMENT_ATTR, LABEL_LIST)
                 .allowedRuleClasses(ConstraintConstants.ENVIRONMENT_RULE)
-                .cfg(ExecutionTransitionFactory.createFactory())
+                .cfg(NoConfigTransition.getFactory())
                 .allowedFileTypes(FileTypeSet.NO_FILE)
                 .dontCheckConstraints()
                 .nonconfigurable(
@@ -376,7 +414,7 @@ public class BaseRuleClasses {
         .add(
             attr(RuleClass.RESTRICTED_ENVIRONMENT_ATTR, LABEL_LIST)
                 .allowedRuleClasses(ConstraintConstants.ENVIRONMENT_RULE)
-                .cfg(ExecutionTransitionFactory.createFactory())
+                .cfg(NoConfigTransition.getFactory())
                 .allowedFileTypes(FileTypeSet.NO_FILE)
                 .dontCheckConstraints()
                 .nonconfigurable(
@@ -387,7 +425,7 @@ public class BaseRuleClasses {
         .add(
             attr(RuleClass.APPLICABLE_METADATA_ATTR, LABEL_LIST)
                 .value(packageMetadataDefault)
-                .cfg(ExecutionTransitionFactory.createFactory())
+                .cfg(NoConfigTransition.getFactory())
                 .allowedFileTypes(FileTypeSet.NO_FILE)
                 .dontCheckConstraints()
                 .nonconfigurable("applicable_metadata is not configurable"))
@@ -488,7 +526,7 @@ public class BaseRuleClasses {
               attr("data", LABEL_LIST)
                   .allowedFileTypes(FileTypeSet.ANY_FILE)
                   .dontCheckConstraints())
-          .add(attr(RuleClass.EXEC_PROPERTIES_ATTR, Type.STRING_DICT).value(ImmutableMap.of()))
+          .add(attr(RuleClass.EXEC_PROPERTIES_ATTR, Types.STRING_DICT).value(ImmutableMap.of()))
           .add(
               attr(RuleClass.EXEC_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST)
                   .allowedFileTypes()
@@ -519,7 +557,7 @@ public class BaseRuleClasses {
           .add(attr("env", STRING_DICT))
           .add(attr("output_licenses", LICENSE))
           .add(
-              attr("$is_executable", BOOLEAN)
+              attr(Rule.IS_EXECUTABLE_ATTRIBUTE_NAME, BOOLEAN)
                   .value(true)
                   .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target"))
           .build();
@@ -552,7 +590,7 @@ public class BaseRuleClasses {
 
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-      return builder.build();
+      return builder.removeAttribute("deps").removeAttribute("data").build();
     }
 
     @Override

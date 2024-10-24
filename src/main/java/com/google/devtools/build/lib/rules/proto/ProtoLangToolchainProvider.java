@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.proto;
 
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -29,7 +31,6 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.syntax.Location;
@@ -45,7 +46,8 @@ public abstract class ProtoLangToolchainProvider {
   public static final String PROVIDER_NAME = "ProtoLangToolchainInfo";
   public static final StarlarkProvider.Key starlarkProtoLangToolchainKey =
       new StarlarkProvider.Key(
-          Label.parseCanonicalUnchecked("@_builtins//:common/proto/proto_common.bzl"),
+          keyForBuiltins(
+              Label.parseCanonicalUnchecked("@_builtins//:common/proto/proto_common.bzl")),
           PROVIDER_NAME);
   public static final StarlarkProviderIdentifier PROVIDER_ID =
       StarlarkProviderIdentifier.forKey(starlarkProtoLangToolchainKey);
@@ -109,8 +111,8 @@ public abstract class ProtoLangToolchainProvider {
     m.put("runtime", runtime == null ? Starlark.NONE : runtime);
 
     StarlarkProvider.Builder builder = StarlarkProvider.builder(Location.BUILTIN);
-    builder.setExported(starlarkProtoLangToolchainKey);
-    return StarlarkInfo.create(builder.build(), m, Location.BUILTIN);
+    return StarlarkInfo.create(
+        builder.buildExported(starlarkProtoLangToolchainKey), m, Location.BUILTIN);
   }
 
   private static ImmutableList<ProtoLangToolchainProvider> getToolchains(
@@ -158,15 +160,9 @@ public abstract class ProtoLangToolchainProvider {
       try {
         return new AutoValue_ProtoLangToolchainProvider(
             provider.getValue("out_replacement_format_flag", String.class),
-            provider.getValue("plugin_format_flag") instanceof NoneType
-                ? null
-                : provider.getValue("plugin_format_flag", String.class),
-            provider.getValue("plugin") instanceof NoneType
-                ? null
-                : provider.getValue("plugin", FilesToRunProvider.class),
-            provider.getValue("runtime") instanceof NoneType
-                ? null
-                : provider.getValue("runtime", TransitiveInfoCollection.class),
+            provider.getNoneableValue("plugin_format_flag", String.class),
+            provider.getNoneableValue("plugin", FilesToRunProvider.class),
+            provider.getNoneableValue("runtime", TransitiveInfoCollection.class),
             ImmutableList.copyOf(
                 (StarlarkList<StarlarkInfo>) provider.getValue("provided_proto_sources")),
             provider.getValue("proto_compiler", FilesToRunProvider.class),

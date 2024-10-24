@@ -27,6 +27,17 @@ source ${CURRENT_DIR}/../sandboxing_test_utils.sh \
 function set_up {
   add_to_bazelrc "build --spawn_strategy=sandboxed"
   add_to_bazelrc "build --genrule_strategy=sandboxed"
+
+  # Enabled in testenv.sh.tmpl, but not in Bazel by default.
+  sed -i.bak '/sandbox_tmpfs_path/d' "$bazelrc"
+}
+
+function assert_not_exists() {
+  path="$1"
+  [ ! -f "$path" ] && return 0
+
+  fail "Expected file '$path' to not exist, but it did"
+  return 1
 }
 
 function test_sandboxed_tooldir() {
@@ -82,7 +93,8 @@ EOF
 
   local output_file="bazel-genfiles/pkg/breaks.txt"
 
-  bazel build --sandbox_block_path="${block_path}" pkg:breaks \
+  bazel build --sandbox_block_path="${block_path}" \
+    --sandbox_block_path=/doesnotexist pkg:breaks \
     &> $TEST_log \
     && fail "Non-hermetic genrule succeeded: examples/genrule:breaks" || true
 
@@ -167,7 +179,6 @@ EOF
 }
 
 function test_sandbox_expands_tree_artifacts_in_runfiles_tree() {
-  create_workspace_with_default_repos WORKSPACE
 
   cat > def.bzl <<'EOF'
 def _mkdata_impl(ctx):
@@ -223,7 +234,6 @@ EOF
 
 # Regression test for https://github.com/bazelbuild/bazel/issues/6262.
 function test_create_tree_artifact_outputs() {
-  create_workspace_with_default_repos WORKSPACE
 
   cat > def.bzl <<'EOF'
 def _r(ctx):
@@ -246,16 +256,16 @@ EOF
   bazel build --test_output=streamed :a &>$TEST_log || fail "expected build to succeed"
 }
 
-# Regression test for https://github.com/bazelbuild/bazel/issues/20032.
-function test_read_only_tree_artifact() {
-  create_workspace_with_default_repos WORKSPACE
+# Regression test for https://github.com/bazelbuild/bazel/issues/20032 and
+# https://github.com/bazelbuild/bazel/issues/22260.
+function test_permissionless_tree_artifact() {
 
   cat > def.bzl <<'EOF'
 def _r(ctx):
   d = ctx.actions.declare_directory(ctx.label.name)
   ctx.actions.run_shell(
     outputs = [d],
-    command = "touch $1/file.txt && chmod -w $1",
+    command = "touch $1/file.txt && chmod 000 $1",
     arguments = [d.path],
   )
   return DefaultInfo(files = depset([d]))
@@ -275,7 +285,6 @@ EOF
 function test_empty_tree_artifact_as_inputs() {
   # Test that when an empty tree artifact is the input, an empty directory is
   # created in the sandbox for action to read.
-  create_workspace_with_default_repos WORKSPACE
 
   mkdir -p pkg
 
@@ -306,33 +315,99 @@ EOF
   bazel build //pkg:a &>$TEST_log || fail "expected build to succeed"
 }
 
+# Sets up targets under //test that, when building //test:all, verify that the
+# sandbox setup ensures that /tmp contents written by one action are not visible
+# to another action.
+#
+# Arguments:
+#   - The path to a unique temporary directory under /tmp that a
+#     file named "bazel_was_here" is written to in actions.
+function setup_tmp_hermeticity_check() {
+  local -r tmpdir=$1
+
+  mkdir -p test
+  cat > test/BUILD <<'EOF'
+cc_binary(
+    name = "create_file",
+    srcs = ["create_file.cc"],
+)
+
+[
+    genrule(
+        name = "gen" + str(i),
+        outs = ["gen{}.txt".format(i)],
+        tools = [":create_file"],
+        cmd = """
+        path=$$($(location :create_file))
+        cp "$$path" $@
+        """,
+    )
+    for i in range(1, 3)
+]
+EOF
+  cat > test/create_file.cc <<EOF
+// Create a file in a fixed location only if it doesn't exist.
+// Then write its path to stdout.
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+int main() {
+  if (mkdir("$tmpdir", 0755) < 0) {
+    perror("mkdir");
+    return 1;
+  }
+  int fd = open("$tmpdir/bazel_was_here", O_CREAT | O_EXCL | O_WRONLY, 0600);
+  if (fd < 0) {
+    perror("open");
+    return 1;
+  }
+  if (write(fd, "HERMETIC\n", 9) != 9) {
+    perror("write");
+    return 1;
+  }
+  close(fd);
+  printf("$tmpdir/bazel_was_here\n");
+  return 0;
+}
+EOF
+}
+
 function test_add_mount_pair_tmp_source() {
   if [[ "$PLATFORM" == "darwin" ]]; then
     # Tests Linux-specific functionality
     return 0
   fi
 
-  create_workspace_with_default_repos WORKSPACE
-
-  sed -i.bak '/sandbox_tmpfs_path/d' $TEST_TMPDIR/bazelrc
 
   local mounted=$(mktemp -d "/tmp/bazel_mounted.XXXXXXXX")
   trap "rm -fr $mounted" EXIT
   echo GOOD > "$mounted/data.txt"
 
+  local tmp_dir=$(mktemp -d "/tmp/bazel_mounted.XXXXXXXX")
+  trap "rm -fr $tmp_dir" EXIT
+  setup_tmp_hermeticity_check "$tmp_dir"
+
   mkdir -p pkg
-  cat > pkg/BUILD <<EOF
+  cat > pkg/BUILD <<'EOF'
 genrule(
     name = "gen",
     outs = ["gen.txt"],
-    # Verify that /tmp is still hermetic.
-    cmd = """[ ! -e "${mounted}/data.txt" ] && cp /etc/data.txt \$@""",
+    cmd = "cp /etc/data.txt $@",
 )
 EOF
 
   # This assumes the existence of /etc on the host system
-  bazel build --sandbox_add_mount_pair="$mounted:/etc" //pkg:gen || fail "build failed"
-  assert_contains GOOD bazel-bin/pkg/gen.txt
+  bazel build --sandbox_add_mount_pair="$mounted:/etc" \
+    //pkg:gen //test:all || fail "build failed"
+  assert_equals GOOD "$(cat bazel-bin/pkg/gen.txt)"
+  assert_equals HERMETIC "$(cat bazel-bin/test/gen1.txt)"
+  assert_equals HERMETIC "$(cat bazel-bin/test/gen2.txt)"
+  assert_not_exists "$tmp_dir/bazel_was_here"
 }
 
 function test_add_mount_pair_tmp_target() {
@@ -341,28 +416,33 @@ function test_add_mount_pair_tmp_target() {
     return 0
   fi
 
-  create_workspace_with_default_repos WORKSPACE
-
-  sed -i.bak '/sandbox_tmpfs_path/d' $TEST_TMPDIR/bazelrc
 
   local source_dir=$(mktemp -d "/tmp/bazel_mounted.XXXXXXXX")
   trap "rm -fr $source_dir" EXIT
   echo BAD > "$source_dir/data.txt"
+
+  local tmp_dir=$(mktemp -d "/tmp/bazel_mounted.XXXXXXXX")
+  trap "rm -fr $tmp_dir" EXIT
+  setup_tmp_hermeticity_check "$tmp_dir"
 
   mkdir -p pkg
   cat > pkg/BUILD <<EOF
 genrule(
     name = "gen",
     outs = ["gen.txt"],
-    # Verify that /tmp is still hermetic.
-    cmd = """[ ! -e "${source_dir}/data.txt" ] && ls "$source_dir" > \$@""",
+    cmd = """ls "$source_dir" > \$@""",
 )
 EOF
 
 
   # This assumes the existence of /etc on the host system
-  bazel build --sandbox_add_mount_pair="/etc:$source_dir" //pkg:gen || fail "build failed"
+  bazel build --sandbox_add_mount_pair="/etc:$source_dir" \
+    //pkg:gen //test:all || fail "build failed"
   assert_contains passwd bazel-bin/pkg/gen.txt
+  assert_not_contains data.txt bazel-bin/pkg/gen.txt
+  assert_equals HERMETIC "$(cat bazel-bin/test/gen1.txt)"
+  assert_equals HERMETIC "$(cat bazel-bin/test/gen2.txt)"
+  assert_not_exists "$tmp_dir/bazel_was_here"
 }
 
 function test_add_mount_pair_tmp_target_and_source() {
@@ -371,30 +451,30 @@ function test_add_mount_pair_tmp_target_and_source() {
     return 0
   fi
 
-  create_workspace_with_default_repos WORKSPACE
-
-  sed -i.bak '/sandbox_tmpfs_path/d' $TEST_TMPDIR/bazelrc
 
   local mounted=$(mktemp -d "/tmp/bazel_mounted.XXXXXXXX")
   trap "rm -fr $mounted" EXIT
   echo GOOD > "$mounted/data.txt"
 
-  local tmp_file=$(mktemp "/tmp/bazel_tmp.XXXXXXXX")
-  trap "rm $tmp_file" EXIT
-  echo BAD > "$tmp_file"
+  local tmp_dir=$(mktemp -d "/tmp/bazel_mounted.XXXXXXXX")
+  trap "rm -fr $tmp_dir" EXIT
+  setup_tmp_hermeticity_check "$tmp_dir"
 
   mkdir -p pkg
   cat > pkg/BUILD <<EOF
 genrule(
     name = "gen",
     outs = ["gen.txt"],
-    # Verify that /tmp is still hermetic.
-    cmd = """[ ! -e "${tmp_file}" ] && cp "$mounted/data.txt" \$@""",
+    cmd = """cp "$mounted/data.txt" \$@""",
 )
 EOF
 
-  bazel build --sandbox_add_mount_pair="$mounted" //pkg:gen || fail "build failed"
-  assert_contains GOOD bazel-bin/pkg/gen.txt
+  bazel build --sandbox_add_mount_pair="$mounted" \
+    //pkg:gen //test:all || fail "build failed"
+  assert_equals GOOD "$(cat bazel-bin/pkg/gen.txt)"
+  assert_equals HERMETIC "$(cat bazel-bin/test/gen1.txt)"
+  assert_equals HERMETIC "$(cat bazel-bin/test/gen2.txt)"
+  assert_not_exists "$tmp_dir/bazel_was_here"
 }
 
 function test_symlink_with_output_base_under_tmp() {
@@ -403,17 +483,52 @@ function test_symlink_with_output_base_under_tmp() {
     return 0
   fi
 
-  create_workspace_with_default_repos WORKSPACE
+  local repo=$(mktemp -d "/tmp/bazel_mounted.XXXXXXXX")
+  trap "rm -fr $repo" EXIT
 
-  sed -i.bak '/sandbox_tmpfs_path/d' $TEST_TMPDIR/bazelrc
+  mkdir -p $repo/pkg
+  touch $repo/REPO.bazel
+  cat > $repo/pkg/es1 <<'EOF'
+EXTERNAL_SOURCE_CONTENT
+EOF
+  cat > $repo/pkg/BUILD <<'EOF'
+exports_files(["es1"])
+genrule(
+    name="er1",
+    srcs=[],
+    outs=[":er1"],
+    cmd="echo EXTERNAL_GEN_CONTENT > $@",
+    visibility=["//visibility:public"],
+)
+EOF
+
+  mkdir -p $repo/examples
+  cd $repo/examples || fail "cd $repo/examples failed"
+
+  cat > MODULE.bazel <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+local_repository(
+    name = "repo",
+    path = "$repo",
+)
+EOF
 
   mkdir -p pkg
+  cat > pkg/s1 <<'EOF'
+SOURCE_CONTENT
+EOF
   cat > pkg/BUILD <<'EOF'
 load(":r.bzl", "symlink_rule")
 
-genrule(name="r1", srcs=[], outs=[":r1"], cmd="echo CONTENT > $@")
+genrule(name="r1", srcs=[], outs=[":r1"], cmd="echo GEN_CONTENT > $@")
 symlink_rule(name="r2", input=":r1")
 genrule(name="r3", srcs=[":r2"], outs=[":r3"], cmd="cp $< $@")
+symlink_rule(name="s2", input=":s1")
+genrule(name="s3", srcs=[":s2"], outs=[":s3"], cmd="cp $< $@")
+symlink_rule(name="er2", input="@repo//pkg:er1")
+genrule(name="er3", srcs=[":er2"], outs=[":er3"], cmd="cp $< $@")
+symlink_rule(name="es2", input="@repo//pkg:es1")
+genrule(name="es3", srcs=[":es2"], outs=[":es3"], cmd="cp $< $@")
 EOF
 
   cat > pkg/r.bzl <<'EOF'
@@ -430,9 +545,58 @@ EOF
   local tmp_output_base=$(mktemp -d "/tmp/bazel_output_base.XXXXXXXX")
   trap "chmod -R u+w $tmp_output_base && rm -fr $tmp_output_base" EXIT
 
-  bazel --output_base="$tmp_output_base" build //pkg:r3
-  assert_contains CONTENT bazel-bin/pkg/r3
+  bazel --output_base="$tmp_output_base" build //pkg:{er,es,r,s}3 --sandbox_debug
+  assert_contains EXTERNAL_GEN_CONTENT bazel-bin/pkg/er3
+  assert_contains EXTERNAL_SOURCE_CONTENT bazel-bin/pkg/es3
+  assert_contains GEN_CONTENT bazel-bin/pkg/r3
+  assert_contains SOURCE_CONTENT bazel-bin/pkg/s3
   bazel --output_base="$tmp_output_base" shutdown
+}
+
+function test_symlink_to_directory_absolute_path() {
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # Tests Linux-specific functionality
+    return 0
+  fi
+
+
+  mkdir -p /tmp/tree/{a,b}
+  touch /tmp/tree/{a,b}/file
+
+  mkdir -p pkg
+  cat > pkg/BUILD <<'EOF'
+load(":r.bzl", "symlink_rule", "tree_rule")
+
+symlink_rule(name="s", input=":t")
+tree_rule(name="t")
+EOF
+
+
+  cat > pkg/r.bzl <<'EOF'
+def _symlink_impl(ctx):
+  output = ctx.actions.declare_directory(ctx.label.name)
+  ctx.actions.symlink(output = output, target_file = ctx.file.input)
+  return [DefaultInfo(files = depset([output]))]
+
+symlink_rule = rule(
+  implementation = _symlink_impl,
+  attrs = {"input": attr.label(allow_single_file=True)})
+
+def _tree_impl(ctx):
+  output = ctx.actions.declare_directory(ctx.label.name)
+  ctx.actions.run_shell(
+    outputs = [output],
+    # Make the tree artifact itself a symlink to /tmp/tree
+    command = "export TREE=%s && rmdir $TREE && ln -s /tmp/tree $TREE" % output.path)
+  return [DefaultInfo(files = depset([output]))]
+
+tree_rule = rule(
+  implementation = _tree_impl,
+  attrs = {})
+EOF
+
+  # /tmp/tree in the action sandbox must be the same as outside of it
+  bazel build --sandbox_add_mount_pair=/tmp/tree //pkg:s || fail "build failed"
 }
 
 function test_symlink_to_directory_with_output_base_under_tmp() {
@@ -441,9 +605,6 @@ function test_symlink_to_directory_with_output_base_under_tmp() {
     return 0
   fi
 
-  create_workspace_with_default_repos WORKSPACE
-
-  sed -i.bak '/sandbox_tmpfs_path/d' $TEST_TMPDIR/bazelrc
 
   mkdir -p pkg
   cat > pkg/BUILD <<'EOF'
@@ -492,17 +653,14 @@ function test_tmpfs_path_under_tmp() {
     return 0
   fi
 
-  create_workspace_with_default_repos WORKSPACE
-
-  sed -i.bak '/sandbox_tmpfs_path/d' $TEST_TMPDIR/bazelrc
-
-  local tmp_file=$(mktemp "/tmp/bazel_tmp.XXXXXXXX")
-  trap "rm $tmp_file" EXIT
-  echo BAD > "$tmp_file"
 
   local tmpfs=$(mktemp -d "/tmp/bazel_tmpfs.XXXXXXXX")
   trap "rm -fr $tmpfs" EXIT
   echo BAD > "$tmpfs/data.txt"
+
+  local tmp_dir=$(mktemp -d "/tmp/bazel_mounted.XXXXXXXX")
+  trap "rm -fr $tmp_dir" EXIT
+  setup_tmp_hermeticity_check "$tmp_dir"
 
   mkdir -p pkg
   cat > pkg/BUILD <<EOF
@@ -510,10 +668,9 @@ genrule(
     name = "gen",
     outs = ["gen.txt"],
     cmd = """
-# Verify that /tmp is still hermetic and that the tmpfs under /tmp exists, but is empty.
-[[ ! -e "${tmp_file}" ]]
-[[ -d /tmp/tmpfs ]]
-[[ ! -e /tmp/tmpfs/data.txt ]]
+# Verify that the tmpfs under /tmp exists and is empty.
+[[ -d "$tmpfs" ]]
+[[ ! -e "$tmpfs/data.txt" ]]
 # Verify that the tmpfs on /etc exists and is empty.
 [[ -d /etc ]]
 [[ -z "\$\$(ls -A /etc)" ]]
@@ -523,8 +680,141 @@ touch \$@
 EOF
 
   # This assumes the existence of /etc on the host system
-  bazel build --sandbox_tmpfs_path=/tmp/tmpfs --sandbox_tmpfs_path=/etc \
-    //pkg:gen || fail "build failed"
+  bazel build --sandbox_tmpfs_path="$tmpfs" --sandbox_tmpfs_path=/etc \
+    //pkg:gen //test:all || fail "build failed"
+  assert_equals HERMETIC "$(cat bazel-bin/test/gen1.txt)"
+  assert_equals HERMETIC "$(cat bazel-bin/test/gen2.txt)"
+  assert_not_exists "$tmp_dir/bazel_was_here"
+}
+
+function test_hermetic_tmp_under_tmp {
+  if [[ "$(uname -s)" != Linux ]]; then
+    echo "Skipping test: --incompatible_sandbox_hermetic_tmp is only supported in Linux" 1>&2
+    return 0
+  fi
+
+  temp_dir=$(mktemp -d /tmp/test.XXXXXX)
+  trap 'rm -rf ${temp_dir}' EXIT
+
+  mkdir -p "${temp_dir}/workspace/a"
+  mkdir -p "${temp_dir}/package-path/b"
+  mkdir -p "${temp_dir}/repo/c"
+  mkdir -p "${temp_dir}/output-base"
+
+  cd "${temp_dir}/workspace"
+  cat > MODULE.bazel <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+local_repository(name="repo", path="${temp_dir}/repo")
+EOF
+
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "g",
+  outs = ["go"],
+  srcs = [],
+  cmd = "echo GO > $@",
+)
+sh_binary(
+  name = "bin",
+  srcs = ["bin.sh"],
+  data = [":s", ":go", "//b:s", "//b:go", "@repo//c:s", "@repo//c:go"],
+)
+genrule(
+  name = "t",
+  tools = [":bin"],
+  srcs = [":s", ":go", "//b:s", "//b:go", "@repo//c:s", "@repo//c:go"],
+  outs = ["to"],
+  cmd = "\n".join([
+    "RUNFILES=$(location :bin).runfiles/_main",
+    "S=$(location :s); GO=$(location :go)",
+    "BS=$(location //b:s); BGO=$(location //b:go)",
+    "RS=$(location @repo//c:s); RGO=$(location @repo//c:go)",
+    "for i in $$S $$GO $$BS $$BGO $$RS $$RGO; do",
+    "  echo reading $$i",
+    "  cat $$i >> $@",
+    "done",
+    "for i in a/s a/go b/s b/go ../+_repo_rules+repo/c/s ../+_repo_rules+repo/c/go; do",
+    "  echo reading $$RUNFILES/$$i",
+    "  cat $$RUNFILES/$$i >> $@",
+    "done",
+  ]),
+)
+EOF
+
+  touch a/bin.sh
+  chmod +x a/bin.sh
+
+  touch ../repo/REPO.bazel
+  cat > ../repo/c/BUILD <<'EOF'
+exports_files(["s"])
+genrule(
+  name = "g",
+  outs = ["go"],
+  srcs = [],
+  cmd = "echo GO > $@",
+  visibility = ["//visibility:public"],
+)
+EOF
+
+  cat > ../package-path/b/BUILD <<'EOF'
+exports_files(["s"])
+genrule(
+  name = "g",
+  outs = ["go"],
+  srcs = [],
+  cmd = "echo GO > $@",
+  visibility = ["//visibility:public"],
+)
+EOF
+
+  touch "a/s" "../package-path/b/s" "../repo/c/s"
+
+  bazel \
+    --output_base="${temp_dir}/output-base" \
+    build \
+    --incompatible_sandbox_hermetic_tmp \
+    --package_path="%workspace%:${temp_dir}/package-path" \
+    //a:t || fail "build failed"
+}
+
+# Regression test for https://github.com/bazelbuild/bazel/issues/21215
+function test_copy_input_symlinks() {
+
+  cat > MODULE.bazel <<'EOF'
+repo = use_repo_rule("//pkg:repo.bzl", "repo")
+repo(name = "some_repo")
+EOF
+
+  mkdir -p pkg
+  cat > pkg/BUILD <<'EOF'
+genrule(
+    name = "copy_files",
+    srcs = [
+        "@some_repo//:files",
+    ],
+    outs = [
+        "some_file1.json",
+        "some_file2.json",
+    ],
+    cmd = "cp -r $(locations @some_repo//:files) $(RULEDIR)",
+)
+EOF
+  cat > pkg/repo.bzl <<'EOF'
+def _impl(rctx):
+  rctx.file("some_file1.json", "hello")
+  rctx.file("some_file2.json", "world")
+  rctx.file("BUILD", """filegroup(
+    name = "files",
+    srcs = ["some_file1.json", "some_file2.json"],
+    visibility = ["//visibility:public"],
+)""")
+
+repo = repository_rule(_impl)
+EOF
+
+  bazel build //pkg:copy_files || fail "build failed"
+  assert_equals hello "$(cat bazel-bin/pkg/some_file1.json)"
+  assert_equals world "$(cat bazel-bin/pkg/some_file2.json)"
 }
 
 # The test shouldn't fail if the environment doesn't support running it.

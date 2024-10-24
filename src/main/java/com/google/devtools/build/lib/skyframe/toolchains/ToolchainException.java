@@ -71,8 +71,8 @@ public abstract class ToolchainException extends Exception implements DetailedEx
     for (Throwable cause = getCause();
         cause != null && cause != cause.getCause();
         cause = cause.getCause()) {
-      if (cause instanceof ConfiguredValueCreationException) {
-        return (ConfiguredValueCreationException) cause;
+      if (cause instanceof ConfiguredValueCreationException configuredValueCreationException) {
+        return configuredValueCreationException;
       }
     }
     Cause cause =

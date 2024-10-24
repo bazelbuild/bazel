@@ -14,16 +14,15 @@
 package com.google.devtools.build.lib.analysis.producers;
 
 import static com.google.devtools.build.lib.analysis.AspectCollection.buildAspectKey;
-import static com.google.devtools.build.lib.analysis.AspectResolutionHelpers.aspectMatchesConfiguredTarget;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.AspectCollection;
 import com.google.devtools.build.lib.analysis.AspectCollection.AspectDeps;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
-import com.google.devtools.build.lib.analysis.DuplicateException;
 import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
+import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget.MergingException;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.skyframe.AspectCreationException;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
@@ -43,7 +42,7 @@ final class ConfiguredAspectProducer
 
     void acceptConfiguredAspectError(AspectCreationException error);
 
-    void acceptConfiguredAspectError(DuplicateException error);
+    void acceptConfiguredAspectError(MergingException error);
   }
 
   // -------------------- Input --------------------
@@ -104,7 +103,7 @@ final class ConfiguredAspectProducer
     var configuredAspects = new ArrayList<ConfiguredAspect>(usedAspects.size());
     for (AspectCollection.AspectDeps depAspect : usedAspects) {
       var value = aspectValues.get(depAspect.getAspect());
-      if (!aspectMatchesConfiguredTarget(prerequisite, value.getAspect())) {
+      if (value == ConfiguredAspect.NonApplicableAspect.INSTANCE) {
         continue;
       }
       configuredAspects.add(value);
@@ -118,7 +117,7 @@ final class ConfiguredAspectProducer
           outputIndex,
           prerequisite.fromConfiguredTarget(
               MergedConfiguredTarget.of(prerequisite.getConfiguredTarget(), configuredAspects)));
-    } catch (DuplicateException e) {
+    } catch (MergingException e) {
       sink.acceptConfiguredAspectError(e);
     }
     return DONE;

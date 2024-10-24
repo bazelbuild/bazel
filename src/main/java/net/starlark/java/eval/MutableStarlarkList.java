@@ -123,10 +123,7 @@ final class MutableStarlarkList<E> extends StarlarkList<E> {
 
   // Grow capacity enough to insert given number of elements
   private void growAdditional(int additional) throws EvalException {
-    int mincap = size + additional;
-    if (mincap < 0 || mincap > MAX_ALLOC) {
-      throw Starlark.errorf("excessive capacity requested (%d + %d elements)", size, additional);
-    }
+    int mincap = addSizesAndFailIfExcessive(size, additional);
     grow(mincap);
   }
 

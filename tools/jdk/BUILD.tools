@@ -1,5 +1,6 @@
 package(default_visibility = ["//visibility:public"])
 
+load("@rules_java//java:defs.bzl", "java_import")
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 load(":launcher_flag_alias.bzl", "launcher_flag_alias")
 
@@ -130,19 +131,25 @@ filegroup(
     visibility = ["//tools:__pkg__"],
 )
 
-py_binary(
+# TODO(cushon): Delete this alias in the fullness of time.
+alias(
     name = "proguard_whitelister",
+    actual = ":proguard_allowlister",
+)
+
+py_binary(
+    name = "proguard_allowlister",
     srcs = [
-        "proguard_whitelister.py",
+        "proguard_allowlister.py",
     ],
 )
 
 py_test(
-    name = "proguard_whitelister_test",
-    srcs = ["proguard_whitelister_test.py"],
-    data = ["proguard_whitelister_test_input.pgcfg"],
+    name = "proguard_allowlister_test",
+    srcs = ["proguard_allowlister_test.py"],
+    data = ["proguard_allowlister_test_input.pgcfg"],
     deps = [
-        ":proguard_whitelister",
+        ":proguard_allowlister",
     ],
 )
 
@@ -175,10 +182,10 @@ TARGET_NAMES = [
     for version in (8, 9, 10, 11)
 ] + [
     "toolchain_jdk_%d" % version
-    for version in (14, 15, 16, 17, 20)
+    for version in (14, 15, 16, 17, 21)
 ] + [
      "toolchain_jdk_%d_definition" % version
-     for version in (14, 15, 16, 17, 20)
+     for version in (14, 15, 16, 17, 21)
 ]
 
 [

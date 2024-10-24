@@ -15,6 +15,8 @@ filegroup(
 
 IO_PROTO_SRCS = [
     "CommandExtensionReporter.java",
+    "MessageInputStream.java",
+    "MessageInputStreamWrapper.java",
     "MessageOutputStream.java",
     "MessageOutputStreamWrapper.java",
 ]
@@ -51,7 +53,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:flogger",
         "//third_party:guava",
-        "//third_party/protobuf:protobuf_java",
+        "@protobuf//:protobuf_java",
     ],
 )
 
@@ -60,8 +62,9 @@ java_library(
     srcs = IO_PROTO_SRCS,
     deps = [
         "//third_party:guava",
-        "//third_party/protobuf:protobuf_java",
-        "//third_party/protobuf:protobuf_java_util",
+        "//third_party:jsr305",
+        "@protobuf//:protobuf_java",
+        "@protobuf//:protobuf_java_util",
     ],
 )
 

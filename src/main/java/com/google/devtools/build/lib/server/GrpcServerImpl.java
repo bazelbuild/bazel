@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.CommandDispatcher;
 import com.google.devtools.build.lib.runtime.CommandDispatcher.LockingMode;
+import com.google.devtools.build.lib.runtime.CommandDispatcher.UiVerbosity;
 import com.google.devtools.build.lib.runtime.SafeRequestLogging;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.CommandManager.RunningCommand;
@@ -428,6 +429,9 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
     return server;
   }
 
+  // Suppress ErrorProne warnings for hardcoding "[::1]" and "127.0.0.1" instead of
+  // InetAddress.getLoopbackAddress().
+  @SuppressWarnings("AddressSelection")
   @Override
   public void serve() throws AbruptExitException {
     Preconditions.checkState(!serving);
@@ -606,6 +610,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
                 args,
                 rpcOutErr,
                 request.getBlockForLock() ? LockingMode.WAIT : LockingMode.ERROR_OUT,
+                request.getQuiet() ? UiVerbosity.QUIET : UiVerbosity.NORMAL,
                 request.getClientDescription(),
                 clock.currentTimeMillis(),
                 Optional.of(startupOptions.build()),
@@ -623,13 +628,10 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
                                 .setCode(Command.Code.INVOCATION_POLICY_PARSE_FAILURE))
                         .build()));
       }
-      if (!result.stateKeptAfterBuild()) {
-        // If state was not kept, GC as soon as the server becomes idle. This ensures that weakly
-        // reachable objects are not "resurrected" on a subsequent command. See b/291641466. Without
-        // this call, a manual GC will only be triggered if the server remains idle for at least 10
-        // seconds before the next command starts.
-        command.requestEagerIdleServerCleanup();
-      }
+
+      // Record tasks to be run by IdleTaskManager. This is triggered in RunningCommand#close()
+      // (as a Closeable), as we go out of scope immediately after this.
+      command.setIdleTasks(result.getIdleTasks(), result.stateKeptAfterBuild());
     } catch (InterruptedException e) {
       result =
           BlazeCommandResult.detailedExitCode(

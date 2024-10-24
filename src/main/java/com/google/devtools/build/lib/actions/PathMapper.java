@@ -14,11 +14,18 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.CommandLineItem.ExceptionlessMapFn;
 import com.google.devtools.build.lib.actions.CommandLineItem.MapFn;
+import com.google.devtools.build.lib.starlarkbuildapi.FileRootApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.List;
+import com.google.errorprone.annotations.CheckReturnValue;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * Support for mapping config parts of exec paths in an action's command line as well as when
@@ -33,6 +40,48 @@ import javax.annotation.Nullable;
  * part (e.g. "k8-fastbuild") from exec paths to allow for cross-configuration cache hits.
  */
 public interface PathMapper {
+  /**
+   * Retrieve the {@link PathMapper} instance stored in the given {@link StarlarkSemantics} via
+   * {@link #storeIn(StarlarkSemantics)}.
+   */
+  static PathMapper loadFrom(StarlarkSemantics semantics) {
+    return semantics.get(SEMANTICS_KEY);
+  }
+
+  /**
+   * Creates a new {@link StarlarkSemantics} instance which causes all Starlark threads using it to
+   * automatically apply this {@link PathMapper} to all struct fields of {@link
+   * com.google.devtools.build.lib.starlarkbuildapi.FileApi}.
+   *
+   * <p>This is meant to be used when evaluating user-defined callbacks to Starlark variants of
+   * custom command lines that are evaluated during the execution phase.
+   *
+   * <p>Since any unmapped path appearing in a command line will prevent cross-configuration cache
+   * hits, this mapping is applied automatically instead of requiring users to explicitly map all
+   * paths themselves. As an added benefit, this allows actions to opt into path mapping without
+   * actual changes to their command line code.
+   */
+  @CheckReturnValue
+  default StarlarkSemantics storeIn(StarlarkSemantics semantics) {
+    // This in particular covers the case where the semantics do not have a path mapper yet and this
+    // is NOOP.
+    if (semantics.get(SEMANTICS_KEY) == this) {
+      return semantics;
+    }
+    return new StarlarkSemantics(semantics.toBuilder().set(SEMANTICS_KEY, this).build()) {
+      // The path mapper doesn't affect which fields or methods are available on any given Starlark
+      // object; it just affects the behavior of certain methods on Artifact. We thus preserve the
+      // original semantics as a cache key. Otherwise, even if PathMapper#equals returned true for
+      // each two non-NOOP instances, cache lookups in CallUtils would result in frequent
+      // comparisons of equal but not reference equal semantics maps, which regresses CPU (~7% on
+      // a benchmark with ~10 semantics options).
+      @Override
+      public StarlarkSemantics getStarlarkClassDescriptorCacheKey() {
+        return semantics;
+      }
+    };
+  }
+
   /**
    * Returns the exec path with the path mapping applied.
    *
@@ -57,8 +106,8 @@ public interface PathMapper {
    * <p>This method allows implementations to hard-code support for specific command line entries
    * for specific Starlark actions.
    */
-  default List<String> mapCustomStarlarkArgs(List<String> args) {
-    return args;
+  default ArgChunk mapCustomStarlarkArgs(ArgChunk chunk) {
+    return chunk;
   }
 
   /**
@@ -76,6 +125,36 @@ public interface PathMapper {
    */
   default ExceptionlessMapFn<Object> getMapFn(@Nullable String previousFlag) {
     return MapFn.DEFAULT;
+  }
+
+  /** Heuristically maps all path-like strings in the given argument. */
+  default String mapHeuristically(String arg) {
+    return arg;
+  }
+
+  /**
+   * Returns a {@link FileRootApi} representing the new root of the given artifact after mapping.
+   *
+   * <p>All objects returned by this method must be {@link Comparable} among each other.
+   */
+  default FileRootApi mapRoot(Artifact artifact) {
+    ArtifactRoot root = artifact.getRoot();
+    if (root.isSourceRoot()) {
+      // Source roots' paths are never mapped, but we still need to wrap them in a
+      // MappedArtifactRoot to ensure correct Starlark comparison behavior.
+      return mappedSourceRoots.get(root);
+    }
+    // It would *not* be correct to just apply #map to the exec path of the root: The root part of
+    // the mapped exec path of this artifact may depend on its complete exec path as well as on e.g.
+    // the digest of the artifact.
+    PathFragment execPath = artifact.getExecPath();
+    PathFragment mappedExecPath = map(execPath);
+    // map never changes the root-relative part of the exec path, so we can remove that suffix to
+    // get the mapped root part.
+    int rootRelativeSegmentCount = execPath.segmentCount() - root.getExecPath().segmentCount();
+    PathFragment mappedRootExecPath =
+        mappedExecPath.subFragment(0, mappedExecPath.segmentCount() - rootRelativeSegmentCount);
+    return new MappedArtifactRoot(mappedRootExecPath);
   }
 
   /**
@@ -100,5 +179,80 @@ public interface PathMapper {
   }
 
   /** A {@link PathMapper} that doesn't change paths. */
-  PathMapper NOOP = execPath -> execPath;
+  PathMapper NOOP =
+      new PathMapper() {
+        @Override
+        public PathFragment map(PathFragment execPath) {
+          return execPath;
+        }
+
+        @Override
+        public FileRootApi mapRoot(Artifact artifact) {
+          return artifact.getRoot();
+        }
+      };
+
+  StarlarkSemantics.Key<PathMapper> SEMANTICS_KEY =
+      new StarlarkSemantics.Key<>("path_mapper", PathMapper.NOOP);
+
+  // Not meant for use outside this interface.
+  LoadingCache<ArtifactRoot, MappedArtifactRoot> mappedSourceRoots =
+      Caffeine.newBuilder()
+          .weakKeys()
+          .build(sourceRoot -> new MappedArtifactRoot(sourceRoot.getExecPath()));
+
+  /** A {@link FileRootApi} returned by {@link PathMapper#mapRoot(Artifact)}. */
+  @StarlarkBuiltin(
+      name = "mapped_root",
+      category = DocCategory.BUILTIN,
+      doc = "A root for files that have been subject to path mapping")
+  final class MappedArtifactRoot implements FileRootApi, Comparable<MappedArtifactRoot> {
+    private final PathFragment mappedRootExecPath;
+
+    public MappedArtifactRoot(PathFragment mappedRootExecPath) {
+      this.mappedRootExecPath = mappedRootExecPath;
+    }
+
+    @Override
+    public String getExecPathString() {
+      return mappedRootExecPath.getPathString();
+    }
+
+    @Override
+    public int compareTo(MappedArtifactRoot otherRoot) {
+      return mappedRootExecPath.compareTo(otherRoot.mappedRootExecPath);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      // Per the contract of PathMapper#map, mapped roots never have exec paths that are equal to
+      // exec paths of non-mapped roots, that is, of instances of ArtifactRoot. Thus, it is correct
+      // for both equals implementations to return false if the other object is not an instance of
+      // the respective class.
+      if (!(obj instanceof MappedArtifactRoot other)) {
+        return false;
+      }
+      return mappedRootExecPath.equals(other.mappedRootExecPath);
+    }
+
+    @Override
+    public int hashCode() {
+      return mappedRootExecPath.hashCode();
+    }
+
+    @Override
+    public String toString() {
+      return mappedRootExecPath + " [mapped]";
+    }
+
+    @Override
+    public void repr(Printer printer) {
+      printer.append("<mapped root>");
+    }
+
+    @Override
+    public boolean isImmutable() {
+      return true;
+    }
+  }
 }

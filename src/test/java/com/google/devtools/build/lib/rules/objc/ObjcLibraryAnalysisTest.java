@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
-import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.List;
 import org.junit.Before;
@@ -73,7 +72,6 @@ public final class ObjcLibraryAnalysisTest extends AnalysisTestCase {
                   .getExistingValue(generatingActionKey.getActionLookupKey());
       Action generatingAction = actionLookupValue.getAction(generatingActionKey.getActionIndex());
 
-      assertWithMessage(context).that(generatingAction).isInstanceOf(CppLinkAction.class);
       assertWithMessage(context).that(generatingAction.getPrimaryOutput()).isEqualTo(libraryToLink);
     }
   }

@@ -40,30 +40,19 @@ public abstract class ActionLookupData implements ExecutionPhaseSkyKey {
     if (!actionLookupKey.mayOwnShareableActions()) {
       return createUnshareable(actionLookupKey, actionIndex);
     }
-    switch (actionIndex) {
-      case 0:
-        return new ActionLookupData0(actionLookupKey);
-      case 1:
-        return new ActionLookupData1(actionLookupKey);
-      case 2:
-        return new ActionLookupData2(actionLookupKey);
-      case 3:
-        return new ActionLookupData3(actionLookupKey);
-      case 4:
-        return new ActionLookupData4(actionLookupKey);
-      case 5:
-        return new ActionLookupData5(actionLookupKey);
-      case 6:
-        return new ActionLookupData6(actionLookupKey);
-      case 7:
-        return new ActionLookupData7(actionLookupKey);
-      case 8:
-        return new ActionLookupData8(actionLookupKey);
-      case 9:
-        return new ActionLookupData9(actionLookupKey);
-      default:
-        return new ActionLookupDataN(actionLookupKey, actionIndex);
-    }
+    return switch (actionIndex) {
+      case 0 -> new ActionLookupData0(actionLookupKey);
+      case 1 -> new ActionLookupData1(actionLookupKey);
+      case 2 -> new ActionLookupData2(actionLookupKey);
+      case 3 -> new ActionLookupData3(actionLookupKey);
+      case 4 -> new ActionLookupData4(actionLookupKey);
+      case 5 -> new ActionLookupData5(actionLookupKey);
+      case 6 -> new ActionLookupData6(actionLookupKey);
+      case 7 -> new ActionLookupData7(actionLookupKey);
+      case 8 -> new ActionLookupData8(actionLookupKey);
+      case 9 -> new ActionLookupData9(actionLookupKey);
+      default -> new ActionLookupDataN(actionLookupKey, actionIndex);
+    };
   }
 
   /**
@@ -109,10 +98,9 @@ public abstract class ActionLookupData implements ExecutionPhaseSkyKey {
     if (this == obj) {
       return true;
     }
-    if (!(obj instanceof ActionLookupData)) {
+    if (!(obj instanceof ActionLookupData that)) {
       return false;
     }
-    ActionLookupData that = (ActionLookupData) obj;
     return getActionIndex() == that.getActionIndex()
         && actionLookupKey.equals(that.actionLookupKey)
         && valueIsShareable() == that.valueIsShareable();

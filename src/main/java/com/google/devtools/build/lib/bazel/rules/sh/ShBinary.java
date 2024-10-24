@@ -14,8 +14,8 @@
 package com.google.devtools.build.lib.bazel.rules.sh;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
@@ -102,7 +102,7 @@ public class ShBinary implements RuleConfiguredTargetFactory {
   }
 
   private static Artifact createWindowsExeLauncher(
-      RuleContext ruleContext, PathFragment shExecutable) throws RuleErrorException {
+      RuleContext ruleContext, PathFragment shExecutable, Artifact primaryOutput) {
     Artifact bashLauncher =
         ruleContext.getImplicitOutputArtifact(ruleContext.getTarget().getName() + ".exe");
 
@@ -114,6 +114,11 @@ public class ShBinary implements RuleConfiguredTargetFactory {
                 "symlink_runfiles_enabled",
                 ruleContext.getConfiguration().runfilesEnabled() ? "1" : "0")
             .addKeyValuePair("bash_bin_path", shExecutable.getPathString())
+            .addKeyValuePair(
+                "bash_file_rlocationpath",
+                PathFragment.create(ruleContext.getWorkspaceName())
+                    .getRelative(primaryOutput.getRunfilesPathString())
+                    .getPathString())
             .build();
 
     LauncherFileWriteAction.createAndRegister(ruleContext, bashLauncher, launchInfo);
@@ -139,6 +144,6 @@ public class ShBinary implements RuleConfiguredTargetFactory {
     PathFragment shExecutable =
         ShToolchain.getPathForPlatform(
             ruleContext.getConfiguration(), ruleContext.getExecutionPlatform());
-    return createWindowsExeLauncher(ruleContext, shExecutable);
+    return createWindowsExeLauncher(ruleContext, shExecutable, primaryOutput);
   }
 }

@@ -24,3 +24,8 @@
 //src/main/cpp/util:port
 //src/main/cpp/util:blaze_exit_code
 //src/main/cpp/util:logging
+//tools/cpp/modules_tools:aggregate-ddi
+//tools/cpp/modules_tools:aggregate-ddi-lib
+//tools/cpp/modules_tools:common
+//tools/cpp/modules_tools:generate-modmap
+//tools/cpp/modules_tools:generate-modmap-lib

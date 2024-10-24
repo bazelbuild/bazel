@@ -126,9 +126,19 @@ public abstract class BuildResultTestCase extends BuildIntegrationTestCase {
    */
   @Test
   public void testWithMissingData() throws Exception {
-    write("needsdata/BUILD",
-        "cc_library(name = 'needsdata', data = [':data_lib'])",
-        "cc_library(name = 'data_lib', data = [':does_not_exist'])");
+    write(
+        "needsdata/BUILD",
+        """
+        cc_library(
+            name = "needsdata",
+            data = [":data_lib"],
+        )
+
+        cc_library(
+            name = "data_lib",
+            data = [":does_not_exist"],
+        )
+        """);
 
     // TODO(bazel-team): figure out why error message is non-deterministic with Skyframe full.
     // LOADING_AND_ANALYSIS loading_and_analysis cleanup.

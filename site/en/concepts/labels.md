@@ -19,7 +19,7 @@ the workspace. Labels with canonical repo names unambiguously identify a target
 no matter which context they appear in.
 
 Often the canonical repo name is an arcane string that looks like
-`@@rules_java~7.1.0~toolchains~local_jdk`. What is much more commonly seen is
+`@@rules_java++toolchains+local_jdk`. What is much more commonly seen is
 labels with an [*apparent* repo name](/external/overview#apparent-repo-name),
 which looks like:
 
@@ -144,10 +144,10 @@ forbidden) nor contain multiple consecutive slashes as path separators
 (for example, `foo//bar`). Similarly, up-level references (`..`) and
 current-directory references (`./`) are forbidden.
 
-<p><span class="compare-worse">Wrong</span> — Do not use `..` to refer to files in other packages</p>
+<p><span class="compare-worse">Wrong</span> — Do not use <code>..</code> to refer to files in other packages</p>
 
 <p><span class="compare-better">Correct</span> — Use
-  `//{{ "<var>" }}package-name{{ "</var>" }}:{{ "<var>" }}filename{{ "</var>" }}`</p>
+  <code>//{{ "<var>" }}package-name{{ "</var>" }}:{{ "<var>" }}filename{{ "</var>" }}</code></p>
 
 
 While it is common to use `/` in the name of a file target, avoid the use of
@@ -166,19 +166,30 @@ The name of a package is the name of the directory containing its `BUILD` file,
 relative to the top-level directory of the containing repository.
 For example: `my/app`.
 
-Package names must be composed entirely of characters drawn from the set
-`A`-`Z`, `a`–`z`, `0`–`9`, '`/`', '`-`', '`.`', '`@`', and '`_`', and cannot
-start with a slash.
+On a technical level, Bazel enforces the following:
 
-For a language with a directory structure that is significant to its module
-system (for example, Java), it's important to choose directory names that are
-valid identifiers in the language.
+* Allowed characters in package names are the lowercase letters `a` through `z`,
+  the uppercase letters `A` through `Z`, the digits `0` through `9`, the
+  characters ``! \"#$%&'()*+,-.;<=>?@[]^_`{|}`` (yes, there's a space character
+  in there!), and of course forward slash `/` (since it's the directory
+  separator).
+* Package names may not start or end with a forward slash character `/`.
+* Package names may not contain the substring `//`. This wouldn't make
+  sense---what would the corresponding directory path be?
+* Package names may not contain the substring `/./` or `/../` or `/.../` etc.
+  This enforcement is done to avoid confusion when translating between a logical
+  package name and a physical directory name, given the semantic meaning of the
+  dot character in path strings.
 
-Although Bazel supports targets in the workspace's root package (for example,
-`//:foo`), it's best to leave that package empty so all meaningful packages
-have descriptive names.
+On a practical level:
 
-Package names may not contain the substring `//`, nor end with a slash.
+* For a language with a directory structure that is significant to its module
+  system (for example, Java), it's important to choose directory names that are
+  valid identifiers in the language. For example, don't start with a leading
+  digit and avoid special characters, especially underscores and hyphens.
+* Although Bazel supports targets in the workspace's root package (for example,
+  `//:foo`), it's best to leave that package empty so all meaningful packages
+  have descriptive names.
 
 ## Rules {:#rules}
 

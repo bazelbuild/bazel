@@ -13,6 +13,7 @@
 # limitations under the License.
 """Attributes for Python rules."""
 
+load(":common/cc/cc_info.bzl", _CcInfo = "CcInfo")
 load(":common/python/common.bzl", "union_attrs")
 load(":common/python/providers.bzl", "PyInfo")
 load(
@@ -20,9 +21,7 @@ load(
     "DEPS_ATTR_ALLOW_RULES",
     "PLATFORMS_LOCATION",
     "SRCS_ATTR_ALLOW_FILES",
-    "TOOLS_REPO",
 )
-load(":common/cc/cc_info.bzl", _CcInfo = "CcInfo")
 
 PackageSpecificationInfo = _builtins.toplevel.PackageSpecificationInfo
 
@@ -104,12 +103,6 @@ def copy_common_test_kwargs(kwargs):
         for key in TEST_ATTR_NAMES
         if key in kwargs
     }
-
-CC_TOOLCHAIN = {
-    # NOTE: The `cc_helper.find_cpp_toolchain()` function expects the attribute
-    # name to be this name.
-    "_cc_toolchain": attr.label(default = "@" + TOOLS_REPO + "//tools/cpp:current_cc_toolchain"),
-}
 
 NATIVE_RULES_ALLOWLIST_ATTRS = {
     "_native_rules_allowlist": attr.label(

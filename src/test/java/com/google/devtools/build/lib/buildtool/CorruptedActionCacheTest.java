@@ -32,10 +32,15 @@ public class CorruptedActionCacheTest extends BuildIntegrationTestCase {
 
   @Test
   public void testCorruptionActionCacheErrorMessage() throws Exception {
-    write("foo/BUILD",
-          "genrule(name = 'foo', ",
-          "        outs = ['out'],  ",
-          "        cmd = 'echo 123 >$(OUTS)')");
+    write(
+        "foo/BUILD",
+        """
+        genrule(
+            name = "foo",
+            outs = ["out"],
+            cmd = "echo 123 >$(OUTS)",
+        )
+        """);
 
     buildTarget("//foo:foo");
 
@@ -60,7 +65,6 @@ public class CorruptedActionCacheTest extends BuildIntegrationTestCase {
     assertThat(buildTarget("//foo:foo").getSuccess()).isTrue();
     assertThat(events.errors()).hasSize(1);
     events.assertContainsError("Error during action cache initialization");
-    events.assertContainsError(
-        "Bazel will now reset action cache data, potentially causing rebuilds");
+    events.assertContainsError("Data will be reset, potentially causing target rebuilds");
   }
 }

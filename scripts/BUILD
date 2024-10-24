@@ -22,7 +22,10 @@ genrule(
         ":generate_bash_completion.sh",
         "//src:bazel",
     ],
-    visibility = ["//scripts/packages:__subpackages__"],
+    visibility = [
+        "//scripts/packages:__subpackages__",
+        "//src/test/py/bazel:__pkg__",
+    ],
 )
 
 sh_test(
@@ -35,6 +38,49 @@ sh_test(
         "//src/test/shell:bashunit",
         "@bazel_tools//tools/bash/runfiles",
     ],
+)
+
+filegroup(
+    name = "jq_linux",
+    srcs = select({
+        "@platforms//cpu:arm64": ["@jq_linux_arm64//file"],
+        "@platforms//cpu:x86_64": ["@jq_linux_amd64//file"],
+        "@platforms//cpu:s390x": ["@jq_linux_s390x//file"],
+    }),
+)
+
+filegroup(
+    name = "jq_macos",
+    srcs = select({
+        "@platforms//cpu:arm64": ["@jq_macos_arm64//file"],
+        "@platforms//cpu:x86_64": ["@jq_macos_amd64//file"],
+    }),
+)
+
+filegroup(
+    name = "jq",
+    srcs = select({
+        "@platforms//os:linux": [":jq_linux"],
+        "@platforms//os:macos": [":jq_macos"],
+        "@platforms//os:windows": ["@jq_windows_amd64//file"],
+    }),
+)
+
+sh_test(
+    name = "bazel_lockfile_merge_test",
+    size = "small",
+    srcs = ["bazel_lockfile_merge_test.sh"],
+    data = [
+        "bazel-lockfile-merge.jq",
+        "testenv.sh",
+        ":jq",
+        "//src/test/shell:bashunit",
+        "//src/test/tools/bzlmod:MODULE.bazel.lock",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    env = {
+        "JQ_RLOCATIONPATH": "$(rlocationpath :jq)",
+    },
 )
 
 filegroup(

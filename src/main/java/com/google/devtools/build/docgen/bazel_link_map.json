@@ -23,7 +23,9 @@
     "visibility": "/concepts/visibility"
   },
   "sourceUrlRoot": "https://github.com/bazelbuild/bazel/blob/master/",
-  "labelRewrites": {
-    "@@_builtins//:": "//src/main/starlark/builtins_bzl:"
+  "repoPathRewrites": {
+    "@//": "https://github.com/bazelbuild/bazel/blob/master/",
+    "@_builtins//": "https://github.com/bazelbuild/bazel/blob/master/src/main/starlark/builtins_bzl/",
+    "@rules_python//": "https://github.com/bazelbuild/rules_python/blob/main/"
   }
 }

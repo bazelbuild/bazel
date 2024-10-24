@@ -42,6 +42,9 @@ class WindowsRemoteTest(test_base.TestBase):
 
   def setUp(self):
     test_base.TestBase.setUp(self)
+    self.ScratchFile(
+        'MODULE.bazel', ["bazel_dep(name = 'rules_shell', version = '0.1.1')"]
+    )
     self._worker_port = self.StartRemoteWorker()
 
   def tearDown(self):
@@ -52,14 +55,17 @@ class WindowsRemoteTest(test_base.TestBase):
   # this means the runfiles manifest, which is not present remotely, must exist
   # locally.
   def testBinaryRunsLocally(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
-    self.ScratchFile('foo/BUILD', [
-        'sh_binary(',
-        '  name = "foo",',
-        '  srcs = ["foo.sh"],',
-        '  data = ["//bar:bar.txt"],',
-        ')',
-    ])
+    self.ScratchFile(
+        'foo/BUILD',
+        [
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
+            '  name = "foo",',
+            '  srcs = ["foo.sh"],',
+            '  data = ["//bar:bar.txt"],',
+            ')',
+        ],
+    )
     self.ScratchFile(
         'foo/foo.sh', [
             '#!/bin/sh',
@@ -81,14 +87,17 @@ class WindowsRemoteTest(test_base.TestBase):
     self.assertEqual(stdout, ['hello shell'])
 
   def testShTestRunsLocally(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
-    self.ScratchFile('foo/BUILD', [
-        'sh_test(',
-        '  name = "foo_test",',
-        '  srcs = ["foo_test.sh"],',
-        '  data = ["//bar:bar.txt"],',
-        ')',
-    ])
+    self.ScratchFile(
+        'foo/BUILD',
+        [
+            'load("@rules_shell//shell:sh_test.bzl", "sh_test")',
+            'sh_test(',
+            '  name = "foo_test",',
+            '  srcs = ["foo_test.sh"],',
+            '  data = ["//bar:bar.txt"],',
+            ')',
+        ],
+    )
     self.ScratchFile(
         'foo/foo_test.sh', ['#!/bin/sh', 'echo hello test'], executable=True)
     self.ScratchFile('bar/BUILD', ['exports_files(["bar.txt"])'])
@@ -107,14 +116,17 @@ class WindowsRemoteTest(test_base.TestBase):
 
   # Remotely, the runfiles manifest does not exist.
   def testShTestRunsRemotely(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
-    self.ScratchFile('foo/BUILD', [
-        'sh_test(',
-        '  name = "foo_test",',
-        '  srcs = ["foo_test.sh"],',
-        '  data = ["//bar:bar.txt"],',
-        ')',
-    ])
+    self.ScratchFile(
+        'foo/BUILD',
+        [
+            'load("@rules_shell//shell:sh_test.bzl", "sh_test")',
+            'sh_test(',
+            '  name = "foo_test",',
+            '  srcs = ["foo_test.sh"],',
+            '  data = ["//bar:bar.txt"],',
+            ')',
+        ],
+    )
     self.ScratchFile(
         'foo/foo_test.sh', [
             '#!/bin/sh',
@@ -134,7 +146,6 @@ class WindowsRemoteTest(test_base.TestBase):
   # The Java launcher uses Rlocation which has differing behavior for local and
   # remote.
   def testJavaTestRunsRemotely(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('foo/BUILD', [
         'java_test(',
         '  name = "foo_test",',
@@ -164,7 +175,6 @@ class WindowsRemoteTest(test_base.TestBase):
   # it elsewhere, add --test_env=JAVA_HOME to your Bazel invocation to fix this
   # test.
   def testJavaTestWithRuntimeRunsRemotely(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('foo/BUILD', [
         'package(default_visibility = ["//visibility:public"])',
         'java_test(',
@@ -194,28 +204,31 @@ class WindowsRemoteTest(test_base.TestBase):
   # for genrule tool launchers, so the runfiles directory is discovered based on
   # the executable path.
   def testGenruleWithToolRunsRemotely(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     # TODO(jsharpe): Replace sh_binary with py_binary once
     # https://github.com/bazelbuild/bazel/issues/5087 resolved.
-    self.ScratchFile('foo/BUILD', [
-        'sh_binary(',
-        '  name = "data_tool",',
-        '  srcs = ["data_tool.sh"],',
-        '  data = ["//bar:bar.txt"],',
-        ')',
-        'sh_binary(',
-        '  name = "tool",',
-        '  srcs = ["tool.sh"],',
-        '  data = [":data_tool"],',
-        ')',
-        'genrule(',
-        '  name = "genrule",',
-        '  srcs = [],',
-        '  outs = ["out.txt"],',
-        '  cmd  = "$(location :tool) > \\"$@\\"",',
-        '  tools = [":tool"],',
-        ')',
-    ])
+    self.ScratchFile(
+        'foo/BUILD',
+        [
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
+            '  name = "data_tool",',
+            '  srcs = ["data_tool.sh"],',
+            '  data = ["//bar:bar.txt"],',
+            ')',
+            'sh_binary(',
+            '  name = "tool",',
+            '  srcs = ["tool.sh"],',
+            '  data = [":data_tool"],',
+            ')',
+            'genrule(',
+            '  name = "genrule",',
+            '  srcs = [],',
+            '  outs = ["out.txt"],',
+            '  cmd  = "$(location :tool) > \\"$@\\"",',
+            '  tools = [":tool"],',
+            ')',
+        ],
+    )
     self.ScratchFile(
         'foo/tool.sh', [
             '#!/bin/sh',

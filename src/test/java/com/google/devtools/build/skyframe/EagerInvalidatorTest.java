@@ -161,7 +161,6 @@ public class EagerInvalidatorTest {
             AbstractQueueVisitor.create(
                 "test-pool", 200, ParallelEvaluatorErrorClassifier.instance()),
             new SimpleCycleDetector(),
-            /* mergingSkyframeAnalysisExecutionPhases= */ false,
             UnnecessaryTemporaryStateDropperReceiver.NULL);
     graphVersion = graphVersion.next();
     return evaluator.eval(ImmutableList.copyOf(keys));

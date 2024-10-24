@@ -18,6 +18,16 @@ import com.google.common.base.Preconditions;
 
 /** An immutable implementation of a {@code StarlarkList}. */
 final class RegularImmutableStarlarkList<E> extends ImmutableStarlarkList<E> {
+
+  /**
+   * A shared instance for the empty list with immutable mutability.
+   *
+   * <p>Other immutable empty list objects can exist, e.g. lists that were once mutable but whose
+   * environments were then frozen. This instance is for empty lists that were always frozen from
+   * the beginning.
+   */
+  static final StarlarkList<?> EMPTY = new RegularImmutableStarlarkList<>(EMPTY_ARRAY);
+
   private final Object[] elems;
 
   RegularImmutableStarlarkList(Object[] elems) {

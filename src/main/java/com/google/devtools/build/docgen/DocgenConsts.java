@@ -90,8 +90,14 @@ public class DocgenConsts {
   public static final String META_KEY_FAMILY = "FAMILY";
 
   /**
-   * Types a rule can have (Binary, Library, Test or Other).
+   * For Starlark rules, this type name is equivalent to {@link RuleType#OTHER} with the {@link
+   * FLAG_GENERIC_RULE} flag set.
+   *
+   * <p>Example: "generic_rules.genrule" would be classified as a generic rule of type OTHER.
    */
+  public static final String STARLARK_GENERIC_RULE_TYPE = "GENERIC";
+
+  /** Types a rule can have (Binary, Library, Test or Other). */
   public static enum RuleType {
       BINARY, LIBRARY, TEST, OTHER
   }

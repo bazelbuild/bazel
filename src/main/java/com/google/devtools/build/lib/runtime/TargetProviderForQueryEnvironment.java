@@ -13,8 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
+
 import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -72,7 +74,8 @@ public class TargetProviderForQueryEnvironment implements TargetProvider {
     if (exception != null) {
       // PackageFunction should be catching, swallowing, and rethrowing all transitive
       // errors as NoSuchPackageExceptions or constructing packages with errors.
-      Throwables.propagateIfPossible(exception, NoSuchPackageException.class);
+      throwIfInstanceOf(exception, NoSuchPackageException.class);
+      throwIfUnchecked(exception);
       throw new IllegalStateException("Unexpected Exception type from PackageValue for " + pkgId);
     }
     if (walkableGraph.isCycle(pkgId)) {

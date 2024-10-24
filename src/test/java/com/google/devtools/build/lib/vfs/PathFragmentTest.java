@@ -19,17 +19,13 @@ import static com.google.devtools.build.lib.vfs.PathFragment.EMPTY_FRAGMENT;
 import static com.google.devtools.build.lib.vfs.PathFragment.create;
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.testing.EqualsTester;
-import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import com.google.protobuf.ByteString;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.File;
@@ -147,6 +143,20 @@ public final class PathFragmentTest {
 
     // Test normalization
     assertThat(create("a").getRelative(".").getPathString()).isEqualTo("a");
+  }
+
+  @Test
+  public void getRelative_absolutePathArgument_returnsSameInstance(
+      @TestParameter({"/c/d", "c/d"}) String basePath) {
+    PathFragment absolute = PathFragment.create("/a/b");
+    assertThat(PathFragment.create(basePath).getRelative(absolute)).isSameInstanceAs(absolute);
+  }
+
+  @Test
+  public void getRelative_emptyBasePath_returnsSameInstance(
+      @TestParameter({"/a/b", "a/b"}) String argument) {
+    PathFragment instance = PathFragment.create(argument);
+    assertThat(EMPTY_FRAGMENT.getRelative(instance)).isSameInstanceAs(instance);
   }
 
   @Test
@@ -623,12 +633,7 @@ public final class PathFragmentTest {
 
   private static void checkSerialization(String pathFragmentString) throws Exception {
     PathFragment a = create(pathFragmentString);
-    ByteString sa =
-        TestUtils.toBytes(new SerializationContext(ImmutableClassToInstanceMap.of()), a);
-
-    PathFragment a2 =
-        (PathFragment)
-            TestUtils.fromBytes(new DeserializationContext(ImmutableClassToInstanceMap.of()), sa);
+    PathFragment a2 = RoundTripping.roundTrip(a);
     assertThat(a2).isEqualTo(a);
   }
 

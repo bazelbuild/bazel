@@ -1,5 +1,5 @@
-load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_binary", "bootstrap_java_library")
 load("@rules_java//java:defs.bzl", "java_binary", "java_library")
+load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_binary", "bootstrap_java_library")
 
 # Description:
 #   The Java library builders, which are used by Bazel to compile Java
@@ -45,23 +45,19 @@ JAVAC_OPTIONS_SRCS = [
     "javac/WerrorCustomOption.java",
 ]
 
-JAVAC_TEST_SRCS = [
-    "javac/BootClassPathCachingFileManagerTest.java",
-]
-
 java_library(
     name = "javac",
     srcs = glob(
         ["javac/*.java"],
-        exclude = JAVAC_OPTIONS_SRCS + JAVAC_TEST_SRCS,
+        exclude = JAVAC_OPTIONS_SRCS,
     ),
-    javacopts = [
-        "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+    add_exports = [
+        "jdk.compiler/com.sun.tools.javac.api",
+        "jdk.compiler/com.sun.tools.javac.code",
+        "jdk.compiler/com.sun.tools.javac.comp",
+        "jdk.compiler/com.sun.tools.javac.file",
+        "jdk.compiler/com.sun.tools.javac.main",
+        "jdk.compiler/com.sun.tools.javac.util",
     ],
     deps = [
         ":invalid_command_line_exception",
@@ -71,7 +67,7 @@ java_library(
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/protobuf:protobuf_java",
+        "@protobuf//:protobuf_java",
     ],
 )
 
@@ -111,7 +107,6 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/java/jacoco:core",
-        "//third_party/protobuf:protobuf_java",
     ],
 )
 
@@ -178,7 +173,6 @@ bootstrap_java_library(
         "//third_party:bootstrap_guava_and_error_prone-jars",
         "//third_party:jsr305-jars",
         "//third_party/java/jacoco:core-jars",
-        "//third_party/grpc-java:bootstrap-grpc-jars",
         "//third_party:tomcat_annotations_api-jars",
     ],
     neverlink_jars = ["//third_party:auto_value-jars"],
@@ -218,27 +212,5 @@ bootstrap_java_binary(
     deps = [
         ":starlark-deps",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:bootstrap_jarhelper",
-    ],
-)
-
-java_test(
-    name = "BootClassPathCachingFileManagerTest",
-    srcs = ["javac/BootClassPathCachingFileManagerTest.java"],
-    javacopts = [
-        "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
-    ],
-    jvm_flags = [
-        "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
-    ],
-    deps = [
-        ":javac",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
-        "//third_party/protobuf:protobuf_java",
     ],
 )

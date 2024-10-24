@@ -56,13 +56,6 @@ msys*)
   ;;
 esac
 
-if "$is_windows"; then
-  # Disable MSYS path conversion that converts path-looking command arguments to
-  # Windows paths (even if they arguments are not in fact paths).
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 #### SETUP #############################################################
 
 add_to_bazelrc "build --genrule_strategy=local"
@@ -77,8 +70,8 @@ function set_up() {
   else
     local -r cwd="$PWD"
   fi
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+  cat > MODULE.bazel <<EOF
+http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 http_file(name="remote", urls=["file://${cwd}/remote_file"])
 EOF
   touch BUILD

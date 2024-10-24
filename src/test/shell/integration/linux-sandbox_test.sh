@@ -397,7 +397,7 @@ function test_child_ignores_sigterm_and_sigalrm_no_kill_delay() {
   assert_equals 137 "$code" # SIGNAL_BASE + SIGTERM = 128 + 9
 }
 
-# Tests that using cgruops v1 with linux_sandbox.cc works, if it's available
+# Tests that using cgroups v1 with linux_sandbox.cc works, if it's available
 function test_cgroups1_memory_limit() {
   if ! grep -E '^cgroup +[^ ]+ +cgroup +.*memory.*' /proc/mounts; then
     echo "No cgroup memory controller mounted, skipping test"

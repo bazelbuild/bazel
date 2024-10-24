@@ -554,15 +554,14 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
 
   @StarlarkMethod(
       name = "resolve_command",
-      // TODO(bazel-team): The naming here isn't entirely accurate (input_manifests is no longer
-      // manifests), but this is experimental/should be opaque to the end user.
       doc =
-          "<i>(Experimental)</i> Returns a tuple <code>(inputs, command, input_manifests)</code>"
-              + " of the list of resolved inputs, the argv list for the resolved command, and the"
-              + " runfiles metadata required to run the command, all of them suitable for passing"
-              + " as the same-named arguments of the <code>ctx.action</code> method.<br/><b>Note"
-              + " for Windows users</b>: this method requires Bash (MSYS2). Consider using"
-              + " <code>resolve_tools()</code> instead (if that fits your needs).",
+          "<i>(Experimental)</i> Returns a tuple <code>(inputs, command, empty list)</code>"
+              + " of the list of resolved inputs and the argv list for the resolved command"
+              + " both of them suitable for passing as the same-named arguments of the "
+              + " <code>ctx.action</code> method.<br/><b>Note for Windows users</b>: this method"
+              + " requires Bash (MSYS2). Consider using <code>resolve_tools()</code> instead (if"
+              + " that fits your needs). The empty list is returned as the third member of the"
+              + " tuple for backwards compatibility.",
       parameters = {
         @Param(
             name = "command",
@@ -640,12 +639,13 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
   @StarlarkMethod(
       name = "resolve_tools",
       doc =
-          "Returns a tuple <code>(inputs, input_manifests)</code> of the depset of resolved inputs"
-              + " and the runfiles metadata required to run the tools, both of them suitable for"
-              + " passing as the same-named arguments of the <code>ctx.actions.run</code> method."
-              + "<br/><br/>In contrast to <code>ctx.resolve_command</code>, this method does not"
+          "Returns a tuple <code>(inputs, empty list)</code> of the depset of resolved inputs"
+              + " required to run the tools, suitable for passing as the same-named argument of the"
+              + " <code>ctx.actions.run</code> and <code>ctx.actions.run_shell</code> methods."
+              + " <br/><br/>In contrast to <code>ctx.resolve_command</code>, this method does not"
               + " require that Bash be installed on the machine, so it's suitable for rules built"
-              + " on Windows.",
+              + " on Windows. The empty list is returned as part of the tuple for backward"
+              + " compatibility.",
       parameters = {
         @Param(
             name = "tools",

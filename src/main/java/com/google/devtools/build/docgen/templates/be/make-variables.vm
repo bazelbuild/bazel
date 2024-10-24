@@ -229,6 +229,24 @@
   </li>
 </ul>
 
+<p>
+  <b>Note:</b> If the filenames corresponding to the input labels or the output
+  filenames contain spaces, <code>'</code>, or other special characters (or your
+  genrule is part of a Starlark macro which downstream users may invoke on such
+  files), then <code>$(SRCS)</code> and <code>$(OUTS)</code> are not suitable
+  for interpolation into a command line, as they do not have the semantics that
+  <code>"${@}"</code> would in Bash.
+</p>
+<p>One workaround is to convert to a Bash array, with
+  <pre><code>mapfile SRCS <<< "$$(sed -e 's/ /\\n/g' <<'genrule_srcs_expansion'
+$(SRC)
+genrule_srcs_expansion
+)</code></pre>
+and then use <code>"$$\{SRCS[@]}"</code> in subsequent command lines in place
+of <code>$(SRCS)</code>. A more robust option is to write a Starlark rule
+instead.
+</p>
+
 
 <h2 id="predefined_label_variables">Predefined source/output path variables</h2>
 <p>
@@ -434,6 +452,10 @@
     select the correct architecture if <code>CC</code> supports multiple
     architectures.
   </li>
+
+
+  <li> <code>DUMPBIN</code>: Microsoft COFF Binary File Dumper (dumpbin.exe) from
+    from Microsoft Visual Studio. </li>
 
   <li> <code>NM</code>: The "nm" command from crosstool. </li>
   <li> <code>OBJCOPY</code>: The objcopy command from the same suite as the C/C++

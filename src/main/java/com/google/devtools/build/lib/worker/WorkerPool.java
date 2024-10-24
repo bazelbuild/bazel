@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.worker;
 
+import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
-import org.apache.commons.pool2.impl.EvictionPolicy;
 
 /**
  * A worker pool that spawns multiple workers and delegates work to them. Allows separate
@@ -28,17 +28,66 @@ import org.apache.commons.pool2.impl.EvictionPolicy;
  */
 public interface WorkerPool {
 
+  /**
+   * Returns the current maximum number of workers allowed in the pool.
+   *
+   * @param key the worker key.
+   */
   int getMaxTotalPerKey(WorkerKey key);
 
+  /**
+   * Returns the number of active workers.
+   *
+   * @param key the worker key.
+   */
   int getNumActive(WorkerKey key);
 
-  // TODO (b/242835648) filter throwed exceptions better
-  void evictWithPolicy(EvictionPolicy<Worker> evictionPolicy) throws InterruptedException;
+  /**
+   * Returns whether there is quota available to create or use an existing worker.
+   *
+   * <p>It is essentially #getMaxTotalPerKey() - #getNumActive() > 0, but meant to be handled
+   * atomically to prevent internal race conditions.
+   *
+   * @param key the worker key.
+   * @return whether there is quota available to either get an existing or create a new worker.
+   */
+  boolean hasAvailableQuota(WorkerKey key);
 
+  /**
+   * Evicts specified workers from the pool, destroying them.
+   *
+   * <p>It is possible that not all specified workers get evicted if they become active.
+   *
+   * @param workerIdsToEvict the worker ids to attempt to evict.
+   * @return a set of worker ids that were successfully evicted.
+   */
+  ImmutableSet<Integer> evictWorkers(ImmutableSet<Integer> workerIdsToEvict)
+      throws InterruptedException;
+
+  /** Returns the idle workers in the pool (note that these workers can still become active). */
+  ImmutableSet<Integer> getIdleWorkers() throws InterruptedException;
+
+  /**
+   * Borrows a persistent worker from the pool, creating if necessary and blocking if unavailable.
+   *
+   * @param key the worker key.
+   */
   Worker borrowObject(WorkerKey key) throws IOException, InterruptedException;
 
+  /**
+   * Returns an active worker back to the pool.
+   *
+   * @param key the worker key.
+   * @param obj the worker to be returned.
+   */
   void returnObject(WorkerKey key, Worker obj);
 
+  /**
+   * Invalidates the worker, thus destroying it.
+   *
+   * @param key the worker key.
+   * @param obj the worker to be invalidated.
+   */
   void invalidateObject(WorkerKey key, Worker obj) throws InterruptedException;
 
   void reset();

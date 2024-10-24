@@ -21,11 +21,18 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class ConfiguredTargetProgressReceiver {
 
-  private AtomicInteger configuredTargetsCompleted = new AtomicInteger();
+  private final AtomicInteger configuredTargetsCompleted = new AtomicInteger();
+
+  private final AtomicInteger configuredTargetsFetched = new AtomicInteger();
 
   /** Register that a target has been configured. */
   void doneConfigureTarget() {
     configuredTargetsCompleted.incrementAndGet();
+  }
+
+  void doneFetchedTarget() {
+    configuredTargetsCompleted.incrementAndGet();
+    configuredTargetsFetched.incrementAndGet();
   }
 
   /**
@@ -34,6 +41,7 @@ public class ConfiguredTargetProgressReceiver {
    */
   public void reset() {
     configuredTargetsCompleted.set(0);
+    configuredTargetsFetched.set(0);
   }
 
   /**
@@ -44,6 +52,9 @@ public class ConfiguredTargetProgressReceiver {
     String progress = "" + configuredTargetsCompleted + " ";
     progress += (configuredTargetsCompleted.get() != 1) ? "targets" : "target";
     progress += " configured";
+    if (configuredTargetsFetched.get() > 1) {
+      progress += " (" + configuredTargetsFetched + " cache hits)";
+    }
     return progress;
   }
 }

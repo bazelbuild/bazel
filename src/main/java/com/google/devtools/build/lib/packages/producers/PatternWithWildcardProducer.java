@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionUniquenessFu
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.producers.GlobComputationProducer.GlobDetail;
 import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
+import com.google.devtools.build.lib.skyframe.FileKey;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -46,7 +47,8 @@ import javax.annotation.Nullable;
  * symlink dirents in a batch. The results are put in the {@link #symlinks} container. The {@link
  * #processSymlinks} method is invoked only once to handle all symlinks.
  *
- * <p>All matching dirents are handled by creating the {@link DirentProducer}s for each one of them.
+ * <p>All matching dirents are handled by creating the {@link DirectoryDirentProducer}s for each one
+ * of them.
  */
 final class PatternWithWildcardProducer
     implements StateMachine, Consumer<SkyValue>, SymlinkProducer.ResultSink {
@@ -63,7 +65,7 @@ final class PatternWithWildcardProducer
   private DirectoryListingValue directoryListingValue = null;
 
   /** Holds both symlink path and target path for all symlink type dirents. */
-  private ArrayList<Pair<FileValue.Key, FileValue>> symlinks = null;
+  private ArrayList<Pair<FileKey, FileValue>> symlinks = null;
 
   private int symlinksCount = 0;
   @Nullable private final Set<Pair<PathFragment, Integer>> visitedGlobSubTasks;
@@ -104,20 +106,36 @@ final class PatternWithWildcardProducer
       if (dirent.getType() == Dirent.Type.UNKNOWN) {
         continue;
       }
-      if (!UnixGlob.matches(patternFragment, dirent.getName(), globDetail.regexPatternCache())) {
+
+      String direntName = dirent.getName();
+
+      if (!UnixGlob.matches(patternFragment, direntName, globDetail.regexPatternCache())) {
         continue;
       }
 
-      // At this point, we know that the dirent matches current pattern fragment.
-      PathFragment child = base.getChild(dirent.getName());
+      // At this point, we know that the dirent matches current pattern fragment but we don't yet
+      // know if it belongs in the result. Delay creating the full PathFragment until we actually
+      // need it.
+
       if (dirent.getType() == Dirent.Type.SYMLINK) {
         tasks.enqueue(
             new SymlinkProducer(
-                FileValue.key(RootedPath.toRootedPath(globDetail.packageRoot(), child)),
+                FileValue.key(
+                    RootedPath.toRootedPath(globDetail.packageRoot(), base.getChild(direntName))),
                 (SymlinkProducer.ResultSink) this));
         ++symlinksCount;
+      } else if (dirent.getType() == Dirent.Type.DIRECTORY) {
+        tasks.enqueue(
+            new DirectoryDirentProducer(
+                globDetail,
+                base.getChild(direntName),
+                fragmentIndex,
+                resultSink,
+                visitedGlobSubTasks));
       } else {
-        enqueueDirentProducer(child, /* isDir= */ dirent.getType() == Dirent.Type.DIRECTORY, tasks);
+        if (FragmentProducer.shouldAddFileMatchingToResult(fragmentIndex, globDetail)) {
+          resultSink.acceptPathFragmentWithPackageFragment(base.getChild(direntName));
+        }
       }
     }
 
@@ -134,7 +152,7 @@ final class PatternWithWildcardProducer
   }
 
   @Override
-  public void acceptSymlinkFileValue(FileValue symlinkValue, FileValue.Key symlinkKey) {
+  public void acceptSymlinkFileValue(FileValue symlinkValue, FileKey symlinkKey) {
     symlinks.add(Pair.of(symlinkKey, symlinkValue));
   }
 
@@ -151,8 +169,8 @@ final class PatternWithWildcardProducer
       return DONE;
     }
 
-    for (Pair<FileValue.Key, FileValue> symlink : symlinks) {
-      FileValue.Key symlinkKey = symlink.first;
+    for (Pair<FileKey, FileValue> symlink : symlinks) {
+      FileKey symlinkKey = symlink.first;
       FileValue symlinkValue = symlink.second;
 
       if (!symlinkValue.exists()) {
@@ -178,21 +196,22 @@ final class PatternWithWildcardProducer
         return DONE;
       }
 
-      // When creating `DirentProducer` for symlinks, pass in the symlink path instead of the target
-      // path.
-      enqueueDirentProducer(
-          symlinkKey.argument().getRootRelativePath(), symlinkValue.isDirectory(), tasks);
+      // Use the symlink path instead of the target path.
+      PathFragment direntPath = symlinkKey.argument().getRootRelativePath();
+      if (symlinkValue.isDirectory()) {
+        tasks.enqueue(
+            new DirectoryDirentProducer(
+                globDetail, direntPath, fragmentIndex, resultSink, visitedGlobSubTasks));
+      } else {
+        if (FragmentProducer.shouldAddFileMatchingToResult(fragmentIndex, globDetail)) {
+          resultSink.acceptPathFragmentWithPackageFragment(direntPath);
+        }
+      }
     }
 
     // After all symlinks of dirents are processed, `symlinks` array list is useless and should be
     // garbage collected.
     symlinks = null;
     return DONE;
-  }
-
-  private void enqueueDirentProducer(PathFragment pathFragment, boolean isDir, Tasks tasks) {
-    tasks.enqueue(
-        new DirentProducer(
-            globDetail, pathFragment, fragmentIndex, isDir, resultSink, visitedGlobSubTasks));
   }
 }

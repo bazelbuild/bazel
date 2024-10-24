@@ -19,7 +19,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
@@ -174,7 +174,7 @@ public interface SpawnRunner {
      * again. I suppose we could require implementations to memoize getInputMapping (but not compute
      * it eagerly), and that may change in the future.
      */
-    ListenableFuture<Void> prefetchInputs() throws IOException, ForbiddenActionInputException;
+    ListenableFuture<Void> prefetchInputs() throws ForbiddenActionInputException;
 
     /**
      * Prefetches the Spawns input files to the local machine and wait to finish.
@@ -274,7 +274,7 @@ public interface SpawnRunner {
      */
     SortedMap<PathFragment, ActionInput> getInputMapping(
         PathFragment baseDirectory, boolean willAccessRepeatedly)
-        throws IOException, ForbiddenActionInputException;
+        throws ForbiddenActionInputException;
 
     /** Reports a progress update to the Spawn strategy. */
     void report(ProgressStatus progress);

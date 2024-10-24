@@ -15,14 +15,10 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
-import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
@@ -61,41 +57,6 @@ public final class YankedVersionsUtil {
       }
     }
     return Optional.of(allowedYankedVersionBuilder.build());
-  }
-
-  /**
-   * Returns the reason for the given module being yanked, or {@code Optional.empty()} if the module
-   * is not yanked or explicitly allowed despite being yanked.
-   */
-  static Optional<String> getYankedInfo(
-      Registry registry,
-      ModuleKey key,
-      Optional<ImmutableSet<ModuleKey>> allowedYankedVersions,
-      ExtendedEventHandler eventHandler)
-      throws InterruptedException {
-    Optional<ImmutableMap<Version, String>> yankedVersions;
-    try {
-      yankedVersions = registry.getYankedVersions(key.getName(), eventHandler);
-    } catch (IOException e) {
-      eventHandler.handle(
-          Event.warn(
-              String.format(
-                  "Could not read metadata file for module %s: %s", key, e.getMessage())));
-      // This is failing open: If we can't read the metadata file, we allow yanked modules to be
-      // fetched.
-      return Optional.empty();
-    }
-    if (yankedVersions.isEmpty()) {
-      return Optional.empty();
-    }
-    String yankedInfo = yankedVersions.get().get(key.getVersion());
-    if (yankedInfo != null
-        && allowedYankedVersions.isPresent()
-        && !allowedYankedVersions.get().contains(key)) {
-      return Optional.of(yankedInfo);
-    } else {
-      return Optional.empty();
-    }
   }
 
   /**
@@ -148,7 +109,7 @@ public final class YankedVersionsUtil {
             pieces[1]);
       }
 
-      allowedYankedVersionBuilder.add(ModuleKey.create(pieces[0], version));
+      allowedYankedVersionBuilder.add(new ModuleKey(pieces[0], version));
     }
     return false;
   }

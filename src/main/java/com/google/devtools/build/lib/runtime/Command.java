@@ -38,10 +38,10 @@ public @interface Command {
   Class<? extends OptionsBase>[] options() default {};
 
   /**
-   * The set of other Blaze commands that this annotation's command "inherits"
-   * options from.  These classes must be annotated with {@link Command}.
+   * The set of other Blaze commands that this annotation's command "inherits" options from. These
+   * classes must be annotated with {@link Command}.
    */
-  Class<? extends BlazeCommand>[] inherits() default {};
+  Class<? extends BlazeCommand>[] inheritsOptionsFrom() default {};
 
   /**
    * A short description, which appears in 'blaze help'.
@@ -54,9 +54,66 @@ public @interface Command {
   boolean usesConfigurationOptions() default false;
 
   /**
-   * True if the command runs a build.
+   * The build phase associated with this command.
+   *
+   * <p>Use the enum helper methods to check the hierarchical effects of each command, like {@link
+   * BuildPhase#executes()}, {@link BuildPhase#loads()}, instead of checking the enum value
+   * directly.
    */
-  boolean builds() default false;
+  BuildPhase buildPhase() default BuildPhase.NONE;
+
+  /**
+   * Build phases that can be associated with a command.
+   *
+   * <p>The effects are hierarchical: {@code EXECUTES} implies {@code ANALYZES}, but {@code LOADS}
+   * does not imply {@code ANALYZES}. Use the helper methods to check this hierarchy.
+   */
+  enum BuildPhase {
+    /**
+     * Use when this command does not have a build phase. Can also be used for commands that resets
+     * state. Commands may produce effects to the terminal or output files, e.g. writing logs or
+     * printing the help message.
+     */
+    NONE,
+
+    /**
+     * Use when this command loads BUILD and bzl files to produce the target graph, or MODULE.bazel
+     * and WORKSPACE files for external dependencies.
+     */
+    LOADS,
+
+    /**
+     * Use when this command produces the configured target/aspect/action graphs.
+     *
+     * <p>Implies LOADS.
+     */
+    ANALYZES,
+
+    /**
+     * Use when this command executes actions.
+     *
+     * <p>Implies LOADS, ANALYZES.
+     */
+    EXECUTES;
+
+    /* True if this command executes actions. */
+    public final boolean executes() {
+      return this == EXECUTES;
+    }
+
+    /* True if this command analyzes and creates the configured target and action graphs. */
+    public final boolean analyzes() {
+      return this == ANALYZES || this == EXECUTES;
+    }
+
+    /**
+     * Use when this command loads BUILD and bzl files to produce the target graph, or MODULE.bazel
+     * and WORKSPACE files for external dependencies.
+     */
+    public final boolean loads() {
+      return this == LOADS || this == ANALYZES || this == EXECUTES;
+    }
+  }
 
   /**
    * True if the command should not be shown in the output of 'blaze help'.
@@ -112,13 +169,6 @@ public @interface Command {
    * confusing otherwise.
    */
   boolean mustRunInWorkspace() default true;
-
-  /**
-   * Returns true iff this command is allowed to run in the output directory,
-   * i.e. $OUTPUT_BASE/_blaze_$USER/$MD5/... . No command should be allowed to run here,
-   * but there are some legacy uses of 'blaze query'.
-   */
-  boolean canRunInOutputDirectory() default false;
 
   /**
    * Returns the type completion help for this command, that is the type arguments that this command

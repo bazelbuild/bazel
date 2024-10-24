@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import javax.annotation.Nullable;
+import net.starlark.java.spelling.SpellChecker;
 
 /**
  * Stores the mapping from apparent repo name to canonical repo name, from the viewpoint of an
@@ -31,6 +32,10 @@ import javax.annotation.Nullable;
  * <p>For repositories from the WORKSPACE file, if the requested repo doesn't exist in the mapping,
  * we fallback to the requested name. For repositories from Bzlmod, we return null to let the caller
  * decide what to do.
+ *
+ * <p>This class must not implement {@link net.starlark.java.eval.StarlarkValue} since instances of
+ * this class are used as markers by {@link
+ * com.google.devtools.build.lib.analysis.starlark.StarlarkCustomCommandLine}.
  */
 public class RepositoryMapping {
   /* A repo mapping that always falls back to using the apparent name as the canonical name. */
@@ -77,6 +82,11 @@ public class RepositoryMapping {
     return Objects.hashCode(entries, ownerRepo);
   }
 
+  @Override
+  public String toString() {
+    return String.format("RepositoryMapping{entries=%s, ownerRepo=%s}", entries, ownerRepo);
+  }
+
   public static RepositoryMapping create(
       Map<String, RepositoryName> entries, RepositoryName ownerRepo) {
     return new RepositoryMapping(
@@ -103,7 +113,8 @@ public class RepositoryMapping {
    * repo of the given additional mappings is ignored.
    */
   public RepositoryMapping withAdditionalMappings(RepositoryMapping additionalMappings) {
-    return withAdditionalMappings(additionalMappings.entries());
+    return withAdditionalMappings(
+        (additionalMappings == null) ? ImmutableMap.of() : additionalMappings.entries());
   }
 
   /**
@@ -119,7 +130,8 @@ public class RepositoryMapping {
     if (ownerRepo() == null) {
       return RepositoryName.createUnvalidated(preMappingName);
     } else {
-      return RepositoryName.createUnvalidated(preMappingName).toNonVisible(ownerRepo());
+      return RepositoryName.createUnvalidated(preMappingName)
+          .toNonVisible(ownerRepo(), SpellChecker.didYouMean(preMappingName, entries().keySet()));
     }
   }
 

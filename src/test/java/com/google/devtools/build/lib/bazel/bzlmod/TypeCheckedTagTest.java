@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Mutability;
@@ -53,7 +54,7 @@ public class TypeCheckedTagTest {
         StarlarkSemantics.DEFAULT,
         structure,
         fieldName,
-        /*defaultValue=*/ null);
+        /* defaultValue= */ null);
   }
 
   @Test
@@ -62,7 +63,8 @@ public class TypeCheckedTagTest {
         TypeCheckedTag.create(
             createTagClass(attr("foo", Type.INTEGER).build()),
             buildTag("tag_name").addAttr("foo", StarlarkInt.of(3)).setDevDependency().build(),
-            /* labelConverter= */ null);
+            /* labelConverter= */ null,
+            "root module");
     assertThat(typeCheckedTag.getFieldNames()).containsExactly("foo");
     assertThat(getattr(typeCheckedTag, "foo")).isEqualTo(StarlarkInt.of(3));
     assertThat(typeCheckedTag.isDevDependency()).isTrue();
@@ -80,7 +82,8 @@ public class TypeCheckedTagTest {
                 .build(),
             new LabelConverter(
                 PackageIdentifier.parse("@myrepo//mypkg"),
-                createRepositoryMapping(createModuleKey("test", "1.0"), "repo", "other_repo")));
+                createRepositoryMapping(createModuleKey("test", "1.0"), "repo", "other_repo")),
+            "root module");
     assertThat(typeCheckedTag.getFieldNames()).containsExactly("foo");
     assertThat(getattr(typeCheckedTag, "foo"))
         .isEqualTo(
@@ -100,7 +103,8 @@ public class TypeCheckedTagTest {
             buildTag("tag_name").setDevDependency().build(),
             new LabelConverter(
                 PackageIdentifier.parse("@myrepo//mypkg"),
-                createRepositoryMapping(createModuleKey("test", "1.0"), "repo", "other_repo")));
+                createRepositoryMapping(createModuleKey("test", "1.0"), "repo", "other_repo")),
+            "root module");
     assertThat(typeCheckedTag.getFieldNames()).containsExactly("foo");
     assertThat(getattr(typeCheckedTag, "foo")).isEqualTo(Starlark.NONE);
     assertThat(typeCheckedTag.isDevDependency()).isTrue();
@@ -111,11 +115,12 @@ public class TypeCheckedTagTest {
     TypeCheckedTag typeCheckedTag =
         TypeCheckedTag.create(
             createTagClass(
-                attr("foo", Type.STRING_LIST_DICT)
+                attr("foo", Types.STRING_LIST_DICT)
                     .value(ImmutableMap.of("key", ImmutableList.of("value1", "value2")))
                     .build()),
             buildTag("tag_name").build(),
-            null);
+            null,
+            "root module");
     assertThat(typeCheckedTag.getFieldNames()).containsExactly("foo");
     assertThat(getattr(typeCheckedTag, "foo"))
         .isEqualTo(
@@ -132,12 +137,13 @@ public class TypeCheckedTagTest {
             createTagClass(
                 attr("foo", Type.STRING).mandatory().build(),
                 attr("bar", Type.INTEGER).value(StarlarkInt.of(3)).build(),
-                attr("quux", Type.STRING_LIST).build()),
+                attr("quux", Types.STRING_LIST).build()),
             buildTag("tag_name")
                 .addAttr("foo", "fooValue")
                 .addAttr("quux", StarlarkList.immutableOf("quuxValue1", "quuxValue2"))
                 .build(),
-            /*labelConverter=*/ null);
+            /* labelConverter= */ null,
+            "root module");
     assertThat(typeCheckedTag.getFieldNames()).containsExactly("foo", "bar", "quux");
     assertThat(getattr(typeCheckedTag, "foo")).isEqualTo("fooValue");
     assertThat(getattr(typeCheckedTag, "bar")).isEqualTo(StarlarkInt.of(3));
@@ -155,7 +161,8 @@ public class TypeCheckedTagTest {
                 TypeCheckedTag.create(
                     createTagClass(attr("foo", Type.STRING).mandatory().build()),
                     buildTag("tag_name").build(),
-                    /*labelConverter=*/ null));
+                    /* labelConverter= */ null,
+                    "root module"));
     assertThat(e).hasMessageThat().contains("mandatory attribute foo isn't being specified");
   }
 
@@ -171,7 +178,8 @@ public class TypeCheckedTagTest {
                             .allowedValues(new AllowedValueSet("yes", "no"))
                             .build()),
                     buildTag("tag_name").addAttr("foo", "maybe").build(),
-                    /*labelConverter=*/ null));
+                    /* labelConverter= */ null,
+                    "root module"));
     assertThat(e)
         .hasMessageThat()
         .contains("the value for attribute foo has to be one of 'yes' or 'no' instead of 'maybe'");
@@ -186,7 +194,8 @@ public class TypeCheckedTagTest {
                 TypeCheckedTag.create(
                     createTagClass(attr("foo", Type.STRING).build()),
                     buildTag("tag_name").addAttr("bar", "maybe").build(),
-                    /*labelConverter=*/ null));
+                    /* labelConverter= */ null,
+                    "root module"));
     assertThat(e).hasMessageThat().contains("unknown attribute bar provided");
   }
 }

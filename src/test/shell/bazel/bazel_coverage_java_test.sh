@@ -25,33 +25,15 @@ source "${CURRENT_DIR}/coverage_helpers.sh" \
 
 
 RULES_JAVA_REPO_NAME=$(cat "$(rlocation io_bazel/src/test/shell/bazel/RULES_JAVA_REPO_NAME)")
-JAVA_TOOLS_REPO_PREFIX="${RULES_JAVA_REPO_NAME}~toolchains~"
-
 JAVA_TOOLS_ZIP="$1"; shift
-if [[ "${JAVA_TOOLS_ZIP}" != "released" ]]; then
-  JAVA_TOOLS_ZIP_FILE="$(rlocation "${JAVA_TOOLS_ZIP}")"
-  JAVA_TOOLS_DIR="$TEST_TMPDIR/_java_tools"
-  unzip -q "${JAVA_TOOLS_ZIP_FILE}" -d "$JAVA_TOOLS_DIR"
-  touch "$JAVA_TOOLS_DIR/WORKSPACE"
-  add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools=${JAVA_TOOLS_DIR}"
-fi
-
 JAVA_TOOLS_PREBUILT_ZIP="$1"; shift
-if [[ "${JAVA_TOOLS_PREBUILT_ZIP}" != "released" ]]; then
-  JAVA_TOOLS_PREBUILT_ZIP_FILE="$(rlocation "${JAVA_TOOLS_PREBUILT_ZIP}")"
-  JAVA_TOOLS_PREBUILT_DIR="$TEST_TMPDIR/_java_tools_prebuilt"
-  unzip -q "${JAVA_TOOLS_PREBUILT_ZIP_FILE}" -d "$JAVA_TOOLS_PREBUILT_DIR"
-  touch "$JAVA_TOOLS_PREBUILT_DIR/WORKSPACE"
-  add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools_linux=${JAVA_TOOLS_PREBUILT_DIR}"
-  add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools_windows=${JAVA_TOOLS_PREBUILT_DIR}"
-  add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools_darwin_x86_64=${JAVA_TOOLS_PREBUILT_DIR}"
-  add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools_darwin_arm64=${JAVA_TOOLS_PREBUILT_DIR}"
-fi
+
+override_java_tools "${RULES_JAVA_REPO_NAME}" "${JAVA_TOOLS_ZIP}" "${JAVA_TOOLS_PREBUILT_ZIP}"
 
 COVERAGE_GENERATOR_WORKSPACE_FILE="$1"; shift
 if [[ "${COVERAGE_GENERATOR_WORKSPACE_FILE}" != "released" ]]; then
   COVERAGE_GENERATOR_DIR="$(dirname "$(rlocation $COVERAGE_GENERATOR_WORKSPACE_FILE)")"
-  add_to_bazelrc "build --override_repository=bazel_tools~remote_coverage_tools_extension~remote_coverage_tools=${COVERAGE_GENERATOR_DIR}"
+  add_to_bazelrc "build --override_repository=bazel_tools+remote_coverage_tools_extension+remote_coverage_tools=${COVERAGE_GENERATOR_DIR}"
 fi
 
 if [[ $# -gt 0 ]]; then
@@ -210,7 +192,11 @@ public class TestCollatz {
 }
 EOF
 
-  bazel coverage --test_output=all //:test --coverage_report_generator=@bazel_tools//tools/test:coverage_report_generator --combined_report=lcov &>$TEST_log \
+  # Ensure that coverage succeeds even with lazily built runfiles trees for the
+  # merger tool.
+  bazel coverage \
+      --nobuild_runfile_links \
+      --test_output=all //:test --coverage_report_generator=@bazel_tools//tools/test:coverage_report_generator --combined_report=lcov &>$TEST_log \
    || echo "Coverage for //:test failed"
 
   local expected_result="SF:src/main/com/example/Collatz.java
@@ -630,6 +616,166 @@ end_of_record"
   # only that they are both included and correctly merged
   assert_coverage_result "$expected_result_cov" ${coverage_file_path}
   assert_coverage_result "$expected_result_random" ${coverage_file_path}
+}
+
+function test_java_coverage_with_classpath_jar() {
+  # Verifies the logic in JacocoCoverageRunner can unpack the classpath jar
+  # created when the classpath is too long.
+  cat <<EOF > BUILD
+java_library(
+    name = "lib",
+    srcs = ["src/main/java/lib/Lib.java"],
+)
+
+java_test(
+    name = "lib_test",
+    srcs = ["src/test/java/lib/TestLib.java"],
+    test_class = "lib.TestLib",
+    deps = [":lib"],
+)
+EOF
+
+  mkdir -p src/main/java/lib
+  cat <<EOF > src/main/java/lib/Lib.java
+package lib;
+public class Lib {
+  public static int calcX(int y) {
+    return y * 2;
+  }
+}
+EOF
+
+  mkdir -p src/test/java/lib
+  cat <<EOF > src/test/java/lib/TestLib.java
+package lib;
+
+import static org.junit.Assert.assertEquals;
+import org.junit.Test;
+
+public class TestLib {
+  @Test
+  public void testCalcX() throws Exception {
+    assertEquals(6, Lib.calcX(3));
+  }
+}
+EOF
+
+  bazel coverage \
+    --test_output=all \
+    --combined_report=lcov \
+    --instrumentation_filter="lib" \
+    --action_env CLASSPATH_LIMIT=1 \
+    //:lib_test &>$TEST_log \
+      || echo "Coverage for //:test failed"
+
+  local coverage_file_path="$(get_coverage_file_path_from_test_log)"
+  local expected_result="SF:src/main/java/lib/Lib.java
+FN:2,lib/Lib::<init> ()V
+FN:4,lib/Lib::calcX (I)I
+FNDA:0,lib/Lib::<init> ()V
+FNDA:1,lib/Lib::calcX (I)I
+FNF:2
+FNH:1
+DA:2,0
+DA:4,1
+LH:1
+LF:2"
+
+  assert_coverage_result "$expected_result" "$coverage_file_path"
+}
+
+function test_java_coverage_with_classpath_and_data_jar() {
+  cat <<EOF > BUILD
+java_binary(
+    name = "foo",
+    srcs = ["src/main/java/foo/Foo.java"],
+    main_class = "foo.Foo",
+    deploy_manifest_lines = [
+      "Premain-Class: foo.Foo",
+    ],
+    use_launcher = False,
+)
+
+java_library(
+    name = "lib",
+    srcs = ["src/main/java/lib/Lib.java"],
+)
+
+java_test(
+    name = "lib_test",
+    srcs = ["src/test/java/lib/TestLib.java"],
+    test_class = "lib.TestLib",
+    deps = [":lib"],
+    jvm_flags = ["-javaagent:\$(rootpath :foo_deploy.jar)"],
+    data = [":foo_deploy.jar"],
+)
+EOF
+
+  mkdir -p src/main/java/foo
+  cat <<EOF > src/main/java/foo/Foo.java
+package foo;
+public class Foo {
+  public static void main(String[] args) {
+    return;
+  }
+
+  public static void premain(String args) {
+    return;
+  }
+
+  public static void agentmain(String args) {
+    return;
+  }
+}
+EOF
+
+  mkdir -p src/main/java/lib
+  cat <<EOF > src/main/java/lib/Lib.java
+package lib;
+public class Lib {
+  public static int calcX(int y) {
+    return y * 2;
+  }
+}
+EOF
+
+  mkdir -p src/test/java/lib
+  cat <<EOF > src/test/java/lib/TestLib.java
+package lib;
+
+import static org.junit.Assert.assertEquals;
+import org.junit.Test;
+
+public class TestLib {
+  @Test
+  public void testCalcX() throws Exception {
+    assertEquals(6, Lib.calcX(3));
+  }
+}
+EOF
+
+  bazel coverage \
+    --test_output=all \
+    --combined_report=lcov \
+    --instrumentation_filter="lib" \
+    --action_env CLASSPATH_LIMIT=1 \
+    //:lib_test &>$TEST_log \
+      || echo "Coverage for //:test failed"
+
+  local coverage_file_path="$(get_coverage_file_path_from_test_log)"
+  local expected_result="SF:src/main/java/lib/Lib.java
+FN:2,lib/Lib::<init> ()V
+FN:4,lib/Lib::calcX (I)I
+FNDA:0,lib/Lib::<init> ()V
+FNDA:1,lib/Lib::calcX (I)I
+FNF:2
+FNH:1
+DA:2,0
+DA:4,1
+LH:1
+LF:2"
+
+  assert_coverage_result "$expected_result" "$coverage_file_path"
 }
 
 function test_java_string_switch_coverage() {
@@ -1072,7 +1218,8 @@ end_of_record"
 }
 
 function setup_external_java_target() {
-  cat >> WORKSPACE <<'EOF'
+  cat >> MODULE.bazel <<'EOF'
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "other_repo",
     path = "other_repo",
@@ -1100,7 +1247,7 @@ public class Math {
 EOF
 
   mkdir -p other_repo
-  touch other_repo/WORKSPACE
+  touch other_repo/REPO.bazel
 
   cat > other_repo/BUILD <<'EOF'
 java_library(
@@ -1182,7 +1329,7 @@ DA:6,1
 LH:1
 LF:2
 end_of_record'
-  local expected_result_collatz="SF:external/other_repo/src/main/com/example/Collatz.java
+  local expected_result_collatz="SF:external/+_repo_rules+other_repo/src/main/com/example/Collatz.java
 FN:3,com/example/Collatz::<init> ()V
 FN:6,com/example/Collatz::getCollatzFinal (I)I
 FNDA:0,com/example/Collatz::<init> ()V
@@ -1237,10 +1384,10 @@ LF:2
 end_of_record'
 
   assert_coverage_result "$expected_result_math" "$coverage_file_path"
-  assert_not_contains "SF:external/other_repo/" "$coverage_file_path"
+  assert_not_contains "SF:external/+_repo_rules+other_repo/" "$coverage_file_path"
 
   assert_coverage_result "$expected_result_math" bazel-out/_coverage/_coverage_report.dat
-  assert_not_contains "SF:external/other_repo/" bazel-out/_coverage/_coverage_report.dat
+  assert_not_contains "SF:external/+_repo_rules+other_repo/" bazel-out/_coverage/_coverage_report.dat
 }
 
 run_suite "test tests"

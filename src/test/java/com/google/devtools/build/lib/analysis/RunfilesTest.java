@@ -68,7 +68,7 @@ public class RunfilesTest extends FoundationTestCase {
 
   private static StarlarkThread newStarlarkThread(String... options)
       throws OptionsParsingException {
-    return new StarlarkThread(
+    return StarlarkThread.createTransient(
         Mutability.create("test"),
         Options.parse(BuildLanguageOptions.class, options).getOptions().toStarlarkSemantics());
   }
@@ -625,7 +625,8 @@ public class RunfilesTest extends FoundationTestCase {
                   public void fingerprint(Fingerprint fingerprint) {}
                 })
             .build();
-    assertThat(runfiles.getEmptyFilenames().toList())
-        .containsExactly("my-artifact-empty", "my-symlink-empty");
+    assertThat(runfiles.getEmptyFilenames())
+        .containsExactly(
+            PathFragment.create("my-artifact-empty"), PathFragment.create("my-symlink-empty"));
   }
 }

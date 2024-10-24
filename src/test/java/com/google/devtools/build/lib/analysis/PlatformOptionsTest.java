@@ -13,7 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
+
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.util.OptionsTestCase;
+import com.google.devtools.build.lib.skyframe.config.PlatformMappingKey;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.common.options.OptionsParsingException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -24,6 +31,7 @@ public final class PlatformOptionsTest extends OptionsTestCase<PlatformOptions> 
   private static final String EXTRA_PLATFORMS_PREFIX = "--extra_execution_platforms=";
   private static final String EXTRA_TOOLCHAINS_PREFIX = "--extra_toolchains=";
   private static final String PLATFORMS_PREFIX = "--platforms=";
+  private static final String PLATFORM_MAPPINGS_PREFIX = "--platform_mappings=";
 
   @Override
   protected Class<PlatformOptions> getOptionsClass() {
@@ -41,7 +49,7 @@ public final class PlatformOptionsTest extends OptionsTestCase<PlatformOptions> 
 
   @Test
   public void testExtraToolchains_ordering() throws Exception {
-    // The ordering matters for tool chains, since we pick the first available toolchain.
+    // The ordering matters for tool chains, but the last one in the list has highest priority.
     PlatformOptions one = createWithPrefix(EXTRA_TOOLCHAINS_PREFIX, "one", "two");
     PlatformOptions two = createWithPrefix(EXTRA_TOOLCHAINS_PREFIX, "two", "one");
     assertDifferent(one, two);
@@ -52,6 +60,14 @@ public final class PlatformOptionsTest extends OptionsTestCase<PlatformOptions> 
     // Specifying the same tool chain multiple times is a no-op.
     PlatformOptions one = createWithPrefix(EXTRA_TOOLCHAINS_PREFIX, "one", "one");
     PlatformOptions two = createWithPrefix(EXTRA_TOOLCHAINS_PREFIX, "one");
+    assertSame(one, two);
+  }
+
+  @Test
+  public void testExtraToolchains_duplicates_keepLast() throws Exception {
+    // The last toolchain in the list has highest priority, so keep the last of any duplicates.
+    PlatformOptions one = createWithPrefix(EXTRA_TOOLCHAINS_PREFIX, "one", "two", "one");
+    PlatformOptions two = createWithPrefix(EXTRA_TOOLCHAINS_PREFIX, "two", "one");
     assertSame(one, two);
   }
 
@@ -76,5 +92,26 @@ public final class PlatformOptionsTest extends OptionsTestCase<PlatformOptions> 
     PlatformOptions foo = createWithPrefix(PLATFORMS_PREFIX, "//one,//two");
     PlatformOptions bar = createWithPrefix(PLATFORMS_PREFIX, "//two,//one");
     assertDifferent(foo, bar);
+  }
+
+  @Test
+  public void platformMappings_default() throws Exception {
+    PlatformOptions options = create(ImmutableList.of());
+    assertThat(options.platformMappingKey).isEqualTo(PlatformMappingKey.DEFAULT);
+  }
+
+  @Test
+  public void platformMappings_custom() throws Exception {
+    PlatformOptions options = createWithPrefix(PLATFORM_MAPPINGS_PREFIX, "a/b/platform_mappings");
+    assertThat(options.platformMappingKey)
+        .isEqualTo(
+            PlatformMappingKey.createExplicitlySet(PathFragment.create("a/b/platform_mappings")));
+  }
+
+  @Test
+  public void platformMappings_absolutePath_throws() {
+    assertThrows(
+        OptionsParsingException.class,
+        () -> createWithPrefix(PLATFORM_MAPPINGS_PREFIX, "/a/b/platform_mappings"));
   }
 }

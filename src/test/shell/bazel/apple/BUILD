@@ -23,7 +23,6 @@ sh_test(
     srcs = ["bazel_apple_test.sh"],
     data = [
         ":objc-deps",
-        "//:workspace-file",
         "//src/test/shell/bazel:test-deps",
     ],
     tags = ["no_windows"],

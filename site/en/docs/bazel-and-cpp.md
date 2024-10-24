@@ -82,3 +82,22 @@ Follow these guidelines for include paths:
    use the [`include_prefix`](/reference/be/c-cpp#cc_library.include_prefix) and
    [`strip_include_prefix`](/reference/be/c-cpp#cc_library.strip_include_prefix)
    arguments on the `cc_library` rule target.
+
+### Toolchain features {:#toolchain-features}
+
+The following optional [features](/docs/cc-toolchain-config-reference#features)
+can improve the hygiene of a C++ project. They can be enabled using the
+`--features` command-line flag or the `features` attribute of
+[`repo`](/external/overview#repo.bazel),
+[`package`](/reference/be/functions#package) or `cc_*` rules:
+
+* The `parse_headers` feature makes it so that the C++ compiler is used to parse
+  (but not compile) all header files in the built targets and their dependencies
+  when using the
+  [`--process_headers_in_dependencies`](/reference/command-line-reference#flag--process_headers_in_dependencies)
+  flag. This can help catch issues in header-only libraries and ensure that
+  headers are self-contained and independent of the order in which they are
+  included.
+* The `layering_check` feature enforces that targets only include headers
+  provided by their direct dependencies. The default toolchain supports this
+  feature on Linux with `clang` as the compiler.

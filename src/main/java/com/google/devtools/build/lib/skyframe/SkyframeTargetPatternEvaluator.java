@@ -13,11 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
+
 import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.QueryExceptionMarkerInterface;
@@ -48,6 +51,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
@@ -85,8 +89,9 @@ public final class SkyframeTargetPatternEvaluator implements TargetPatternPreloa
         skyframeExecutor.targetPatterns(
             allKeys, SkyframeExecutor.DEFAULT_THREAD_COUNT, keepGoing, eventHandler);
     Exception catastrophe = result.getCatastrophe();
-    Throwables.propagateIfPossible(catastrophe, TargetParsingException.class);
     if (catastrophe != null) {
+      throwIfInstanceOf(catastrophe, TargetParsingException.class);
+      throwIfUnchecked(catastrophe);
       throw wrapException(catastrophe, null, result);
     }
     WalkableGraph walkableGraph = Preconditions.checkNotNull(result.getWalkableGraph(), result);
@@ -125,8 +130,8 @@ public final class SkyframeTargetPatternEvaluator implements TargetPatternPreloa
           // exception if there is a bug in error handling.
           Exception exception = error.getException();
           errorMessage = exception.getMessage();
-          if (exception instanceof TargetParsingException) {
-            targetParsingException = (TargetParsingException) exception;
+          if (exception instanceof TargetParsingException tpe) {
+            targetParsingException = tpe;
           } else {
             targetParsingException = wrapException(exception, key, key);
           }
@@ -292,13 +297,14 @@ public final class SkyframeTargetPatternEvaluator implements TargetPatternPreloa
               eventHandler,
               FilteringPolicies.NO_FILTER,
               /* packageSemaphore= */ null,
+              /* maxConcurrentGetTargetsTasks= */ Optional.empty(),
               SimplePackageIdentifierBatchingCallback::new);
       AtomicReference<Collection<Target>> result = new AtomicReference<>();
       try {
         targetPattern.eval(
             resolver,
-            /*ignoredSubdirectories=*/ ImmutableSet::of,
-            /*excludedSubdirectories=*/ ImmutableSet.of(),
+            /* ignoredSubdirectories= */ () -> IgnoredSubdirectories.EMPTY,
+            /* excludedSubdirectories= */ ImmutableSet.of(),
             partialResult ->
                 result.set(
                     partialResult instanceof Collection

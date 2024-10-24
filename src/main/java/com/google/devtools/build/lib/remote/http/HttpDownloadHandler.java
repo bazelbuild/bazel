@@ -74,8 +74,8 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
     }
     checkState(userPromise != null, "response before request");
 
-    if (msg instanceof HttpResponse) {
-      response = (HttpResponse) msg;
+    if (msg instanceof HttpResponse httpResponse) {
+      response = httpResponse;
       if (!response.protocolVersion().equals(HttpVersion.HTTP_1_1)) {
         HttpException error =
             new HttpException(
@@ -143,13 +143,12 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
       throws Exception {
     checkState(userPromise == null, "handler can't be shared between pipelines.");
     userPromise = promise;
-    if (!(msg instanceof DownloadCommand)) {
+    if (!(msg instanceof DownloadCommand cmd)) {
       failAndResetUserPromise(
           new IllegalArgumentException(
               "Unsupported message type: " + StringUtil.simpleClassName(msg)));
       return;
     }
-    DownloadCommand cmd = (DownloadCommand) msg;
     out = cmd.out();
     path = constructPath(cmd.uri(), cmd.digest().getHash(), cmd.casDownload());
     skipBytes = cmd.offset();

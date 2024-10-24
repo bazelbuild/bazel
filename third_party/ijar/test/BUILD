@@ -34,6 +34,7 @@ sh_test(
         "records/records.jar",
         "sealed/sealed.jar",
         ":source_debug_extension.jar",
+        ":duplicated_unsupported_attribute.jar",
         ":keep_for_compile_lib.jar",
         ":largest_regular.jar",
         ":smallest_zip64.jar",
@@ -211,6 +212,21 @@ genrule(
 )
 
 java_binary(
+    name = "gen_duplicated_unsupported_attribute",
+    srcs = ["GenDuplicatedUnsupportedAttribute.java"],
+    main_class = "test.GenDuplicatedUnsupportedAttribute",
+    deps = ["//third_party:asm"],
+)
+
+genrule(
+    name = "gen_duplicated_unsupported_attribute_jar",
+    srcs = [],
+    outs = ["duplicated_unsupported_attribute.jar"],
+    cmd = "$(location :gen_duplicated_unsupported_attribute) $@",
+    tools = ["gen_duplicated_unsupported_attribute"],
+)
+
+java_binary(
     name = "gen_dynamic_constant",
     srcs = ["GenDynamicConstant.java"],
     main_class = "test.GenDynamicConstant",
@@ -356,6 +372,31 @@ genrule(
     tools = [":GenJarWithManifestSections"],
 )
 
+java_binary(
+    name = "GenMetaInfTransitive",
+    testonly = 1,
+    srcs = ["GenMetaInfTransitive.java"],
+    main_class = "GenMetaInfTransitive",
+    deps = ["//third_party:guava"],
+)
+
+genrule(
+    name = "meta_inf_transitive",
+    testonly = 1,
+    outs = ["meta_inf_transitive.jar"],
+    cmd = "$(location :GenMetaInfTransitive) $@",
+    tools = [":GenMetaInfTransitive"],
+)
+
+genrule(
+    name = "meta_inf_transitive-interface",
+    testonly = 1,
+    srcs = [":meta_inf_transitive.jar"],
+    outs = ["meta_inf_transitive-interface.jar"],
+    cmd = "$(location //third_party/ijar) $< $@",
+    tools = ["//third_party/ijar"],
+)
+
 java_test(
     name = "IjarTests",
     size = "small",
@@ -386,6 +427,7 @@ java_test(
         ":kotlin_module-interface.jar",
         ":liblocal_and_anonymous_lib.jar",
         ":local_and_anonymous-interface.jar",
+        ":meta_inf_transitive-interface",
         ":module_info-interface.jar",
         ":scala_tasty-interface.jar",
     ],

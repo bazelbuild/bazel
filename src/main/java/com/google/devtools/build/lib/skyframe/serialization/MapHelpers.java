@@ -52,18 +52,12 @@ final class MapHelpers {
   /**
    * Deserializes map entries into the given {@code keys} and {@code values}.
    *
-   * <p>Requests keys to be <i>fully</i> deserialized, but the values could be partially
-   * deserialized depending on the value of {@code requiresFullValueDeserialization}.
-   *
    * <p>There's no direct indication of when the deserialization is complete so this should be used
    * with a {@link DeferredObjectCodec}.
-   *
-   * @param requiresFullValueDeserialization true if values should be fully deserialized
    */
   static void deserializeMapEntries(
       AsyncDeserializationContext context,
       CodedInputStream codedIn,
-      boolean requiresFullValueDeserialization,
       Object[] keys,
       Object[] values)
       throws SerializationException, IOException {
@@ -72,13 +66,9 @@ final class MapHelpers {
     long offset = ARRAY_OBJECT_BASE_OFFSET;
     for (int i = 0; i < size; i++) {
       // Ensures that keys are fully deserialized.
-      context.deserializeFully(codedIn, keys, offset);
+      context.deserialize(codedIn, keys, offset);
       try {
-        if (requiresFullValueDeserialization) {
-          context.deserializeFully(codedIn, values, offset);
-        } else {
-          context.deserialize(codedIn, values, offset);
-        }
+        context.deserialize(codedIn, values, offset);
       } catch (SerializationException | IOException e) {
         Object key = keys[i];
         if (key != null) {
@@ -110,8 +100,7 @@ final class MapHelpers {
     ReferenceCounter countDown = new ReferenceCounter(2 * size, done);
     long offset = ARRAY_OBJECT_BASE_OFFSET;
     for (int i = 0; i < size; i++) {
-      // Ensures that keys are fully deserialized.
-      context.deserializeFully(codedIn, keys, offset, /* done= */ countDown);
+      context.deserialize(codedIn, keys, offset, /* done= */ countDown);
       try {
         context.deserialize(codedIn, values, offset, /* done= */ countDown);
       } catch (SerializationException | IOException e) {

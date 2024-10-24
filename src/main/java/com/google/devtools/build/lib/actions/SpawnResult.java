@@ -20,13 +20,15 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.exec.Protos.Digest;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.shell.ExecutionStatistics;
 import com.google.devtools.build.lib.shell.TerminationStatus;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
-import java.io.InputStream;
+import java.io.IOException;
 import java.time.Instant;
 import java.util.Locale;
 import javax.annotation.Nullable;
@@ -35,7 +37,7 @@ import javax.annotation.Nullable;
 @SuppressWarnings("GoodTime") // Use ints instead of Durations to improve build time (cl/505728570)
 public interface SpawnResult {
 
-  int POSIX_TIMEOUT_EXIT_CODE = /*SIGNAL_BASE=*/ 128 + /*SIGALRM=*/ 14;
+  int POSIX_TIMEOUT_EXIT_CODE = /* SIGNAL_BASE= */ 128 + /* SIGALRM= */ 14;
 
   /** The status of the attempted Spawn execution. */
   enum Status {
@@ -259,14 +261,11 @@ public interface SpawnResult {
    * ExecutionRequirements#REMOTE_EXECUTION_INLINE_OUTPUTS}.
    */
   @Nullable
-  default InputStream getInMemoryOutput(ActionInput output) {
+  default ByteString getInMemoryOutput(ActionInput output) {
     return null;
   }
 
-  String getDetailMessage(
-      String message,
-      boolean catastrophe,
-      boolean forciblyRunRemotely);
+  String getDetailMessage(String message, boolean catastrophe, boolean forciblyRunRemotely);
 
   /** Returns a file path to the action metadata log. */
   @Nullable
@@ -431,11 +430,8 @@ public interface SpawnResult {
 
     @Override
     public String getDetailMessage(
-        String message,
-        boolean catastrophe,
-        boolean forciblyRunRemotely) {
-      TerminationStatus status = new TerminationStatus(
-          exitCode(), status() == Status.TIMEOUT);
+        String message, boolean catastrophe, boolean forciblyRunRemotely) {
+      TerminationStatus status = new TerminationStatus(exitCode(), status() == Status.TIMEOUT);
       String reason = "(" + status.toShortString() + ")"; // e.g. "(Exit 1)"
       String explanation = Strings.isNullOrEmpty(message) ? "" : ": " + message;
 
@@ -454,17 +450,18 @@ public interface SpawnResult {
         explanation += " (Remote action was terminated due to Out of Memory.)";
       }
       if (status() != Status.TIMEOUT && forciblyRunRemotely) {
-        explanation += " Action tagged as local was forcibly run remotely and failed - it's "
-            + "possible that the action simply doesn't work remotely";
+        explanation +=
+            " Action tagged as local was forcibly run remotely and failed - it's "
+                + "possible that the action simply doesn't work remotely";
       }
       return reason + explanation;
     }
 
     @Nullable
     @Override
-    public InputStream getInMemoryOutput(ActionInput output) {
+    public ByteString getInMemoryOutput(ActionInput output) {
       if (inMemoryOutputFile != null && inMemoryOutputFile.equals(output)) {
-        return inMemoryContents.newInput();
+        return inMemoryContents;
       }
       return null;
     }
@@ -482,6 +479,149 @@ public interface SpawnResult {
     @Override
     public Digest getDigest() {
       return digest;
+    }
+  }
+
+  /**
+   * A helper class for wrapping an existing {@link SpawnResult} and modifying a subset of its
+   * methods.
+   */
+  class DelegateSpawnResult implements SpawnResult {
+    private final SpawnResult delegate;
+
+    public DelegateSpawnResult(SpawnResult delegate) {
+      this.delegate = delegate;
+    }
+
+    @Override
+    public boolean setupSuccess() {
+      return delegate.setupSuccess();
+    }
+
+    @Override
+    public boolean isCatastrophe() {
+      return delegate.isCatastrophe();
+    }
+
+    @Override
+    public Status status() {
+      return delegate.status();
+    }
+
+    @Override
+    public int exitCode() {
+      return delegate.exitCode();
+    }
+
+    @Override
+    @Nullable
+    public FailureDetail failureDetail() {
+      return delegate.failureDetail();
+    }
+
+    @Override
+    @Nullable
+    public String getExecutorHostName() {
+      return delegate.getExecutorHostName();
+    }
+
+    @Override
+    public String getRunnerName() {
+      return delegate.getRunnerName();
+    }
+
+    @Override
+    public String getRunnerSubtype() {
+      return delegate.getRunnerSubtype();
+    }
+
+    @Override
+    @Nullable
+    public Instant getStartTime() {
+      return delegate.getStartTime();
+    }
+
+    @Override
+    public int getWallTimeInMs() {
+      return delegate.getWallTimeInMs();
+    }
+
+    @Override
+    public int getUserTimeInMs() {
+      return delegate.getUserTimeInMs();
+    }
+
+    @Override
+    public int getSystemTimeInMs() {
+      return delegate.getSystemTimeInMs();
+    }
+
+    @Override
+    @Nullable
+    public Long getNumBlockOutputOperations() {
+      return delegate.getNumBlockOutputOperations();
+    }
+
+    @Override
+    @Nullable
+    public Long getNumBlockInputOperations() {
+      return delegate.getNumBlockInputOperations();
+    }
+
+    @Override
+    @Nullable
+    public Long getNumInvoluntaryContextSwitches() {
+      return delegate.getNumInvoluntaryContextSwitches();
+    }
+
+    @Override
+    @Nullable
+    public Long getMemoryInKb() {
+      return delegate.getMemoryInKb();
+    }
+
+    @Override
+    public SpawnMetrics getMetrics() {
+      return delegate.getMetrics();
+    }
+
+    @Override
+    public boolean isCacheHit() {
+      return delegate.isCacheHit();
+    }
+
+    @Override
+    public String getFailureMessage() {
+      return delegate.getFailureMessage();
+    }
+
+    @Override
+    @Nullable
+    public ByteString getInMemoryOutput(ActionInput output) {
+      return delegate.getInMemoryOutput(output);
+    }
+
+    @Override
+    public String getDetailMessage(
+        String message, boolean catastrophe, boolean forciblyRunRemotely) {
+      return delegate.getDetailMessage(message, catastrophe, forciblyRunRemotely);
+    }
+
+    @Override
+    @Nullable
+    public MetadataLog getActionMetadataLog() {
+      return delegate.getActionMetadataLog();
+    }
+
+    @Override
+    public boolean wasRemote() {
+      return delegate.wasRemote();
+    }
+
+    @Override
+    @Nullable
+    public Digest getDigest() {
+      return delegate.getDigest();
     }
   }
 
@@ -668,6 +808,28 @@ public interface SpawnResult {
     @CanIgnoreReturnValue
     public Builder setDigest(Digest digest) {
       this.digest = digest;
+      return this;
+    }
+
+    /** Adds execution statistics based on a {@code execution_statistics.proto} file. */
+    @CanIgnoreReturnValue
+    public Builder setResourceUsageFromProto(Path statisticsPath) throws IOException {
+      ExecutionStatistics.getResourceUsage(statisticsPath)
+          .ifPresent(
+              resourceUsage -> {
+                setUserTimeInMs((int) resourceUsage.getUserExecutionTime().toMillis());
+                setSystemTimeInMs((int) resourceUsage.getSystemExecutionTime().toMillis());
+                setNumBlockOutputOperations(resourceUsage.getBlockOutputOperations());
+                setNumBlockInputOperations(resourceUsage.getBlockInputOperations());
+                setNumInvoluntaryContextSwitches(resourceUsage.getInvoluntaryContextSwitches());
+                // The memory usage of the largest child process. For Darwin maxrss returns size in
+                // bytes.
+                if (OS.getCurrent() == OS.DARWIN) {
+                  setMemoryInKb(resourceUsage.getMaximumResidentSetSize() / 1000);
+                } else {
+                  setMemoryInKb(resourceUsage.getMaximumResidentSetSize());
+                }
+              });
       return this;
     }
   }

@@ -15,9 +15,8 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
-
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableTable;
@@ -42,13 +41,15 @@ public abstract class BazelDepGraphValue implements SkyValue {
       ImmutableMap<RepositoryName, ModuleKey> canonicalRepoNameLookup,
       ImmutableList<AbridgedModule> abridgedModules,
       ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsagesTable,
-      ImmutableMap<ModuleExtensionId, String> extensionUniqueNames) {
+      ImmutableMap<ModuleExtensionId, String> extensionUniqueNames,
+      ImmutableTable<ModuleExtensionId, String, RepositoryName> repoOverrides) {
     return new AutoValue_BazelDepGraphValue(
         depGraph,
-        canonicalRepoNameLookup,
+        ImmutableBiMap.copyOf(canonicalRepoNameLookup),
         abridgedModules,
         extensionUsagesTable,
-        extensionUniqueNames);
+        extensionUniqueNames,
+        repoOverrides);
   }
 
   public static BazelDepGraphValue createEmptyDepGraph() {
@@ -64,17 +65,16 @@ public abstract class BazelDepGraphValue implements SkyValue {
             .build();
 
     ImmutableMap<ModuleKey, Module> emptyDepGraph = ImmutableMap.of(ModuleKey.ROOT, root);
-
     ImmutableMap<RepositoryName, ModuleKey> canonicalRepoNameLookup =
-        emptyDepGraph.keySet().stream()
-            .collect(toImmutableMap(ModuleKey::getCanonicalRepoName, key -> key));
+        ImmutableMap.of(RepositoryName.MAIN, ModuleKey.ROOT);
 
     return BazelDepGraphValue.create(
         emptyDepGraph,
         canonicalRepoNameLookup,
         ImmutableList.of(),
         ImmutableTable.of(),
-        ImmutableMap.of());
+        ImmutableMap.of(),
+        ImmutableTable.of());
   }
 
   /**
@@ -83,8 +83,8 @@ public abstract class BazelDepGraphValue implements SkyValue {
    */
   public abstract ImmutableMap<ModuleKey, Module> getDepGraph();
 
-  /** A mapping from a canonical repo name to the key of the module backing it. */
-  public abstract ImmutableMap<RepositoryName, ModuleKey> getCanonicalRepoNameLookup();
+  /** A mapping from a canonical repo name to the key of the module backing it and back. */
+  public abstract ImmutableBiMap<RepositoryName, ModuleKey> getCanonicalRepoNameLookup();
 
   /** All modules in the same order as {@link #getDepGraph}, but with limited information. */
   public abstract ImmutableList<AbridgedModule> getAbridgedModules();
@@ -107,24 +107,53 @@ public abstract class BazelDepGraphValue implements SkyValue {
   public abstract ImmutableMap<ModuleExtensionId, String> getExtensionUniqueNames();
 
   /**
+   * For each module extension, a mapping from the name of the repo exported by the extension to the
+   * canonical name of the repo that should override it (if any).
+   */
+  public abstract ImmutableTable<ModuleExtensionId, String, RepositoryName> getRepoOverrides();
+
+  /**
    * Returns the full {@link RepositoryMapping} for the given module, including repos from Bazel
    * module deps and module extensions.
    */
   public final RepositoryMapping getFullRepoMapping(ModuleKey key) {
+    return getRepositoryMapping(
+        key,
+        getDepGraph(),
+        getExtensionUsagesTable(),
+        getExtensionUniqueNames(),
+        getCanonicalRepoNameLookup(),
+        getRepoOverrides());
+  }
+
+  static RepositoryMapping getRepositoryMapping(
+      ModuleKey key,
+      ImmutableMap<ModuleKey, Module> depGraph,
+      ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsagesTable,
+      ImmutableMap<ModuleExtensionId, String> extensionUniqueNames,
+      ImmutableBiMap<RepositoryName, ModuleKey> canonicalRepoNameLookup,
+      ImmutableTable<ModuleExtensionId, String, RepositoryName> repoOverrides) {
     ImmutableMap.Builder<String, RepositoryName> mapping = ImmutableMap.builder();
-    for (Map.Entry<ModuleExtensionId, ModuleExtensionUsage> e :
-        getExtensionUsagesTable().column(key).entrySet()) {
-      ModuleExtensionId extensionId = e.getKey();
-      ModuleExtensionUsage usage = e.getValue();
-      for (Map.Entry<String, String> entry : usage.getImports().entrySet()) {
-        String canonicalRepoName =
-            getExtensionUniqueNames().get(extensionId) + "~" + entry.getValue();
-        mapping.put(entry.getKey(), RepositoryName.createUnvalidated(canonicalRepoName));
+    for (Map.Entry<ModuleExtensionId, ModuleExtensionUsage> extIdAndUsage :
+        extensionUsagesTable.column(key).entrySet()) {
+      ModuleExtensionId extensionId = extIdAndUsage.getKey();
+      ModuleExtensionUsage usage = extIdAndUsage.getValue();
+      String repoNamePrefix = extensionUniqueNames.get(extensionId) + "+";
+      for (ModuleExtensionUsage.Proxy proxy : usage.getProxies()) {
+        for (Map.Entry<String, String> entry : proxy.getImports().entrySet()) {
+          RepositoryName defaultCanonicalRepoName =
+              RepositoryName.createUnvalidated(repoNamePrefix + entry.getValue());
+          mapping.put(
+              entry.getKey(),
+              repoOverrides
+                  .row(extensionId)
+                  .getOrDefault(entry.getValue(), defaultCanonicalRepoName));
+        }
       }
     }
-    return getDepGraph()
+    return depGraph
         .get(key)
-        .getRepoMappingWithBazelDepsOnly()
+        .getRepoMappingWithBazelDepsOnly(canonicalRepoNameLookup.inverse())
         .withAdditionalMappings(mapping.buildOrThrow());
   }
 }

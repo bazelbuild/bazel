@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import net.starlark.java.eval.Starlark;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -35,16 +36,26 @@ public class StarlarkPathTest {
   private final FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
   private final Path wd = FileSystemUtils.getWorkingDirectory(fs);
 
+  private static StarlarkPath makePath(Path path) {
+    return new StarlarkPath(/* ctx= */ null, path);
+  }
+
   @Before
   public void setup() throws Exception {
-    ev.update("wd", new StarlarkPath(wd));
+    ev.update("wd", makePath(wd));
   }
 
   @Test
   public void testStarlarkPathGetChild() throws Exception {
-    assertThat(ev.eval("wd.get_child()")).isEqualTo(new StarlarkPath(wd));
-    assertThat(ev.eval("wd.get_child('foo')")).isEqualTo(new StarlarkPath(wd.getChild("foo")));
+    assertThat(ev.eval("wd.get_child()")).isEqualTo(makePath(wd));
+    assertThat(ev.eval("wd.get_child('foo')")).isEqualTo(makePath(wd.getChild("foo")));
     assertThat(ev.eval("wd.get_child('a','b/c','/d/')"))
-        .isEqualTo(new StarlarkPath(wd.getRelative("a/b/c/d")));
+        .isEqualTo(makePath(wd.getRelative("a/b/c/d")));
+  }
+
+  @Test
+  public void testStarlarkPathStringifications() throws Exception {
+    assertThat(ev.eval("repr(wd)")).isEqualTo(Starlark.repr(wd.toString()));
+    assertThat(ev.eval("str(wd)")).isEqualTo(wd.toString());
   }
 }

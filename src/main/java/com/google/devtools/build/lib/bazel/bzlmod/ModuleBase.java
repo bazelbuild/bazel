@@ -16,7 +16,6 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 
 /** Represents a node in the external dependency graph. */
 abstract class ModuleBase {
@@ -48,10 +47,6 @@ abstract class ModuleBase {
    * </ul>
    */
   public abstract ModuleKey getKey();
-
-  public final RepositoryName getCanonicalRepoName() {
-    return getKey().getCanonicalRepoName();
-  }
 
   /**
    * The name of the repository representing this module, as seen by the module itself. By default,

@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.skyframe.serialization.SerializationExcepti
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
-import java.util.function.Supplier;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -93,7 +92,7 @@ final class RuleDataCodec extends DeferredObjectCodec<RuleData> {
   }
 
   @Override
-  public Supplier<RuleData> deserializeDeferred(
+  public DeferredValue<RuleData> deserializeDeferred(
       AsyncDeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
     byte presenceMask = codedIn.readRawByte();
@@ -107,7 +106,7 @@ final class RuleDataCodec extends DeferredObjectCodec<RuleData> {
       NativeRuleClassBuilder nativeBuilder =
           new NativeRuleClassBuilder(
               presenceMask, context.getDependency(RuleClassProvider.class).getRuleClassMap());
-      context.deserializeFully(codedIn, nativeBuilder, NativeRuleClassBuilder::setRuleClassName);
+      context.deserialize(codedIn, nativeBuilder, NativeRuleClassBuilder::setRuleClassName);
       builder = nativeBuilder;
     }
 
@@ -144,7 +143,7 @@ final class RuleDataCodec extends DeferredObjectCodec<RuleData> {
    *       StarlarkRuleClassData} object.
    * </ul>
    */
-  private abstract static class Builder implements Supplier<RuleData> {
+  private abstract static class Builder implements DeferredValue<RuleData> {
     private final byte presenceMask;
     private Location location;
     private Label label;
@@ -157,7 +156,7 @@ final class RuleDataCodec extends DeferredObjectCodec<RuleData> {
     }
 
     @Override
-    public RuleData get() {
+    public RuleData call() {
       return new RuleData(
           getRuleClassData(),
           location,
@@ -246,7 +245,10 @@ final class RuleDataCodec extends DeferredObjectCodec<RuleData> {
     // Serializes rule data for Starlark.
     context.serialize(
         new AutoValue_RuleDataCodec_StarlarkRuleClassData(
-            obj.getName(), obj.getTargetKind(), obj.getAdvertisedProviders()),
+            obj.getName(),
+            obj.getTargetKind(),
+            obj.isDependencyResolutionRule(),
+            obj.getAdvertisedProviders()),
         codedOut);
   }
 

@@ -22,6 +22,7 @@
 #include <limits.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/resource.h>
@@ -30,6 +31,7 @@
 #include <sys/syscall.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <time.h>
 #include <unistd.h>
 #include <utime.h>
 
@@ -65,7 +67,8 @@ static void PostException(JNIEnv *env, const char *exception_classname,
     success = env->ThrowNew(exception_class, message.c_str()) == 0;
   }
   if (!success) {
-    BAZEL_LOG(FATAL) << "Failure to throw java error: " << message.c_str();
+    BAZEL_LOG(FATAL) << "Failed to throw Java exception from JNI: "
+                     << message.c_str();
   }
 }
 
@@ -318,11 +321,12 @@ static jmethodID getConstructorID(JNIEnv *env, jclass clazz,
 static jobject NewFileStatus(JNIEnv *env,
                              const portable_stat_struct &stat_ref) {
   return env->NewObject(
-      file_status_class, file_status_class_ctor, stat_ref.st_mode,
-      StatSeconds(stat_ref, STAT_ATIME), StatNanoSeconds(stat_ref, STAT_ATIME),
-      StatSeconds(stat_ref, STAT_MTIME), StatNanoSeconds(stat_ref, STAT_MTIME),
-      StatSeconds(stat_ref, STAT_CTIME), StatNanoSeconds(stat_ref, STAT_CTIME),
-      static_cast<jlong>(stat_ref.st_size), static_cast<int>(stat_ref.st_dev),
+      file_status_class, file_status_class_ctor,
+      static_cast<jint>(stat_ref.st_mode),
+      static_cast<jlong>(StatEpochMilliseconds(stat_ref, STAT_ATIME)),
+      static_cast<jlong>(StatEpochMilliseconds(stat_ref, STAT_MTIME)),
+      static_cast<jlong>(StatEpochMilliseconds(stat_ref, STAT_CTIME)),
+      static_cast<jlong>(stat_ref.st_size), static_cast<jint>(stat_ref.st_dev),
       static_cast<jlong>(stat_ref.st_ino));
 }
 
@@ -335,11 +339,11 @@ static jobject NewErrnoFileStatus(JNIEnv *env,
   }
   return env->NewObject(
       errno_file_status_class, errno_file_status_class_no_error_ctor,
-      stat_ref.st_mode, StatSeconds(stat_ref, STAT_ATIME),
-      StatNanoSeconds(stat_ref, STAT_ATIME), StatSeconds(stat_ref, STAT_MTIME),
-      StatNanoSeconds(stat_ref, STAT_MTIME), StatSeconds(stat_ref, STAT_CTIME),
-      StatNanoSeconds(stat_ref, STAT_CTIME),
-      static_cast<jlong>(stat_ref.st_size), static_cast<int>(stat_ref.st_dev),
+      static_cast<jint>(stat_ref.st_mode),
+      static_cast<jlong>(StatEpochMilliseconds(stat_ref, STAT_ATIME)),
+      static_cast<jlong>(StatEpochMilliseconds(stat_ref, STAT_MTIME)),
+      static_cast<jlong>(StatEpochMilliseconds(stat_ref, STAT_CTIME)),
+      static_cast<jlong>(stat_ref.st_size), static_cast<jint>(stat_ref.st_dev),
       static_cast<jlong>(stat_ref.st_ino));
 }
 
@@ -378,9 +382,9 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_initJNIClasses(
   errno_file_status_class = makeStaticClass(
       env, "com/google/devtools/build/lib/unix/ErrnoFileStatus");
   file_status_class_ctor =
-      getConstructorID(env, file_status_class, "(IIIIIIIJIJ)V");
+      getConstructorID(env, file_status_class, "(IJJJJIJ)V");
   errno_file_status_class_no_error_ctor =
-      getConstructorID(env, errno_file_status_class, "(IIIIIIIJIJ)V");
+      getConstructorID(env, errno_file_status_class, "(IJJJJIJ)V");
   errno_file_status_class_errorno_ctor =
       getConstructorID(env, errno_file_status_class, "(I)V");
   dirents_class = makeStaticClass(
@@ -488,32 +492,25 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_errnoLstat(JNIEnv *env,
 
 /*
  * Class:     com.google.devtools.build.lib.unix.NativePosixFiles
- * Method:    utime
- * Signature: (Ljava/lang/String;ZII)V
+ * Method:    utimensat
+ * Signature: (Ljava/lang/String;ZJ)V
  * Throws:    java.io.IOException
  */
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_unix_NativePosixFiles_utime(JNIEnv *env,
-                                                  jclass clazz,
-                                                  jstring path,
-                                                  jboolean now,
-                                                  jint modtime) {
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_utimensat(
+    JNIEnv *env, jclass clazz, jstring path, jboolean now, jlong millis) {
   const char *path_chars = GetStringLatin1Chars(env, path);
-#ifdef __linux
-  struct timespec spec[2] = {{0, UTIME_OMIT}, {modtime, now ? UTIME_NOW : 0}};
+  int64_t sec = millis / 1000;
+  int32_t nsec = (millis % 1000) * 1000000;
+  struct timespec spec[2] = {
+      // Do not set atime.
+      {0, UTIME_OMIT},
+      // Set mtime to now if `now` is true, otherwise to the specified time.
+      {sec, now ? UTIME_NOW : nsec},
+  };
   if (::utimensat(AT_FDCWD, path_chars, spec, 0) == -1) {
     PostException(env, errno, path_chars);
   }
-#else
-  struct utimbuf buf = { modtime, modtime };
-  struct utimbuf *bufptr = now ? nullptr : &buf;
-  if (::utime(path_chars, bufptr) == -1) {
-    // EACCES ENOENT EMULTIHOP ELOOP EINTR
-    // ENOTDIR ENOLINK EPERM EROFS   -> IOException
-    // EFAULT ENAMETOOLONG           -> RuntimeException
-    PostException(env, errno, path_chars);
-  }
-#endif
   ReleaseStringLatin1Chars(path_chars);
 }
 
@@ -580,20 +577,25 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_mkdirWritable(
       PostException(env, errno, path_chars);
       return false;
     }
-    // directory does not exist.
-    if (::mkdir(path_chars, 0755) == -1) {
+    // Directory does not exist.
+    // Use 0777 so that the permissions can be overridden by umask(2).
+    if (::mkdir(path_chars, 0777) == -1) {
       PostException(env, errno, path_chars);
     }
     return true;
   }
-  // path already exists
+  // Path already exists, but might not be a directory.
   if (!S_ISDIR(statbuf.st_mode)) {
     PostException(env, ENOTDIR, path_chars);
     return false;
   }
-  // Make sure the mode is correct.
-  if ((statbuf.st_mode & 0755) != 0755 && ::chmod(path_chars, 0755) == -1) {
-    PostException(env, errno, path_chars);
+  // Make sure the permissions are correct.
+  // Avoid touching permissions for group/other, which may have been overridden
+  // by umask(2) when this directory was originally created.
+  if ((statbuf.st_mode & S_IRWXU) != S_IRWXU) {
+    if (::chmod(path_chars, statbuf.st_mode | S_IRWXU) == -1) {
+      PostException(env, errno, path_chars);
+    }
   }
   return false;
 }

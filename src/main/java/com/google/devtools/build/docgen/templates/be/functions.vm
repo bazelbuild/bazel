@@ -424,8 +424,8 @@ under package's first level subdirectory <code>foo/</code>; if
 <code>exclude_directories</code> is set to </code>0</code>, <code>foo</code>
 directory itself also matches the pattern; in this case, <code>**</code> is
 considered to match zero path segments</li>
-<li><code>**/a.txt</code> matches every <code>a.txt</code> file in every
-non-subpackage subdirectory of this package</li>
+<li><code>**/a.txt</code> matches <code>a.txt</code> files in this package's
+directory plus non-subpackage subdirectories.</li>
 <li><code>**/bar/**/*.txt</code> matches every <code>.txt</code> file in every
 non-subpackage subdirectory of this package, if at least one directory on the
 resulting path is called <code>bar</code>, such as
@@ -529,7 +529,7 @@ There are several important limitations and caveats:
   <li>
     The "**" wildcard has one corner case: the pattern
     <code>"**"</code> doesn't match the package's directory path. That is to
-    say, <code>glob(["**"], exclude_directories = 0)</code> matches all files
+    say, <code>glob(["**"], exclude_directories = False)</code> matches all files
     and directories transitively strictly under the current package's directory
     (but of course not going into directories of subpackages - see the previous
     note about that).
@@ -687,7 +687,7 @@ sh_binary(
   configuration conditions to matching values. Each condition is a label
   reference to
   a <code><a href="general.html#config_setting">config_setting</a></code> or
-  <code><a href="platforms-and-toolchains#constraint_value">constraint_value</a></code>,
+  <code><a href="platforms-and-toolchains.html#constraint_value">constraint_value</a></code>,
   which "matches" if the target's configuration matches an expected set of
   values. The value of <code>mytarget#srcs</code> then becomes whichever
   label list matches the current invocation.

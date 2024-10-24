@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
-import com.google.devtools.build.lib.actions.ActionKeyCacher;
+import com.google.devtools.build.lib.actions.ActionKeyComputer;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.MiddlemanType;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -47,7 +48,7 @@ import javax.annotation.Nullable;
  * An {@link ActionTemplate} that expands into {@link LtoBackendAction}s at execution time. Is is
  * similar to {@link com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate}.
  */
-public final class LtoBackendActionTemplate extends ActionKeyCacher
+public final class LtoBackendActionTemplate extends ActionKeyComputer
     implements ActionTemplate<LtoBackendAction> {
   private final LtoBackendAction.Builder ltoBackendActionbuilder;
   private final CcToolchainVariables buildVariables;
@@ -315,7 +316,7 @@ public final class LtoBackendActionTemplate extends ActionKeyCacher
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable Artifact.ArtifactExpander artifactExpander,
+      @Nullable ArtifactExpander artifactExpander,
       Fingerprint fp)
       throws CommandLineExpansionException, InterruptedException {
 
@@ -404,6 +405,11 @@ public final class LtoBackendActionTemplate extends ActionKeyCacher
 
   @Override
   public NestedSet<Artifact> getInputs() {
+    return allInputs;
+  }
+
+  @Override
+  public NestedSet<Artifact> getOriginalInputs() {
     return allInputs;
   }
 

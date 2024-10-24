@@ -18,44 +18,71 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.runtime.BlazeModule;
-import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import java.time.Duration;
+import java.util.Locale;
 import javax.annotation.Nullable;
 import one.profiler.AsyncProfiler;
 
-/** Bazel module to record pprof-compatible profiles for single invocations. */
+/** Bazel module to record a Java Flight Recorder profile for a single command. */
 public class CommandProfilerModule extends BlazeModule {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private static final Duration PROFILING_INTERVAL = Duration.ofMillis(10);
 
+  /** The type of profile to capture. */
+  enum ProfileType {
+    CPU,
+    WALL,
+    ALLOC,
+    LOCK;
+
+    @Override
+    public String toString() {
+      return name().toLowerCase(Locale.US);
+    }
+  }
+
+  /** Options converter for --experimental_command_profile. */
+  public static final class ProfileTypeConverter extends EnumConverter<ProfileType> {
+
+    public ProfileTypeConverter() {
+      super(ProfileType.class, "--experimental_command_profile setting");
+    }
+  }
+
   /** CommandProfilerModule options. */
   public static final class Options extends OptionsBase {
+
     @Option(
         name = "experimental_command_profile",
-        defaultValue = "false",
+        defaultValue = "null",
+        converter = ProfileTypeConverter.class,
         documentationCategory = OptionDocumentationCategory.LOGGING,
         effectTags = {OptionEffectTag.UNKNOWN},
         help =
-            "Records a Java Flight Recorder CPU profile into a profile.jfr file in the output base"
-                + " directory. The syntax and semantics of this flag might change in the future to"
-                + " support different profile types or output formats; use at your own risk.")
-    public boolean captureCommandProfile;
+            "Records a Java Flight Recorder profile for the duration of the command. One of the"
+                + " supported profiling event types (cpu, wall, alloc or lock) must be given as an"
+                + " argument. The profile is written to a file named after the event type under the"
+                + " output base directory."
+                + " The syntax and semantics of this flag might change in the future to support"
+                + " additional profile types or output formats; use at your own risk.")
+    public ProfileType profileType;
   }
 
   @Override
-  public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
+  public Iterable<Class<? extends OptionsBase>> getCommonCommandOptions() {
     return ImmutableList.of(Options.class);
   }
 
-  private boolean captureCommandProfile;
+  @Nullable private ProfileType profileType;
   @Nullable private Reporter reporter;
   @Nullable private Path outputBase;
   @Nullable private Path outputPath;
@@ -63,11 +90,11 @@ public class CommandProfilerModule extends BlazeModule {
   @Override
   public void beforeCommand(CommandEnvironment env) {
     Options options = env.getOptions().getOptions(Options.class);
-    captureCommandProfile = options.captureCommandProfile;
+    profileType = options.profileType;
     outputBase = env.getBlazeWorkspace().getOutputBase();
     reporter = env.getReporter();
 
-    if (!captureCommandProfile) {
+    if (profileType == null) {
       // Early exit so we don't attempt to load the JNI unless necessary.
       return;
     }
@@ -77,24 +104,26 @@ public class CommandProfilerModule extends BlazeModule {
       return;
     }
 
-    outputPath = outputBase.getRelative("profile.jfr");
+    outputPath = getProfilerOutputPath(profileType);
 
     try {
-      profiler.execute(getProfilerCommand(outputPath));
+      profiler.execute(getProfilerCommand(profileType, outputPath));
     } catch (Exception e) {
       // This may occur if the user has insufficient privileges to capture performance events.
-      reporter.handle(Event.error("Starting JFR CPU profile failed: " + e));
-      captureCommandProfile = false;
+      reporter.handle(
+          Event.error(String.format("Starting JFR %s profile failed: %s", profileType, e)));
+      profileType = null;
     }
 
-    if (captureCommandProfile) {
-      reporter.handle(Event.info("Writing JFR CPU profile to " + outputPath));
+    if (profileType != null) {
+      reporter.handle(
+          Event.info(String.format("Writing JFR %s profile to %s", profileType, outputPath)));
     }
   }
 
   @Override
   public void afterCommand() {
-    if (!captureCommandProfile) {
+    if (profileType == null) {
       // Early exit so we don't attempt to load the JNI unless necessary.
       return;
     }
@@ -106,7 +135,7 @@ public class CommandProfilerModule extends BlazeModule {
 
     profiler.stop();
 
-    captureCommandProfile = false;
+    profileType = null;
     outputBase = null;
     reporter = null;
     outputPath = null;
@@ -123,9 +152,14 @@ public class CommandProfilerModule extends BlazeModule {
     return null;
   }
 
-  private static String getProfilerCommand(Path outputPath) {
+  private Path getProfilerOutputPath(ProfileType profileType) {
+    return outputBase.getChild(profileType + ".jfr");
+  }
+
+  private static String getProfilerCommand(ProfileType profileType, Path outputPath) {
     // See https://github.com/async-profiler/async-profiler/blob/master/src/arguments.cpp.
     return String.format(
-        "start,event=cpu,interval=%s,file=%s,jfr", PROFILING_INTERVAL.toNanos(), outputPath);
+        "start,event=%s,interval=%s,file=%s,jfr",
+        profileType, PROFILING_INTERVAL.toNanos(), outputPath);
   }
 }

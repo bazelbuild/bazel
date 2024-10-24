@@ -58,13 +58,6 @@ msys*)
   ;;
 esac
 
-if "$is_windows"; then
-  # Disable MSYS path conversion that converts path-looking command arguments to
-  # Windows paths (even if they arguments are not in fact paths).
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 #### TESTS #############################################################
 
 # Check that our environment setup works.
@@ -104,13 +97,6 @@ py_binary(
 EOF
 
   touch test/main3.py
-
-  # Tell bzlmod to ignore workspace entirely
-  touch WORKSPACE.bzlmod
-  # Also clear out workspace, just to be safe. If workspace is triggered at all,
-  # then internal logic as part of the Python rules registration will trigger
-  # registering a Python toolchain, which we explicitly want to avoid.
-  cat > WORKSPACE
 
   # Build instead of run. The autodetecting toolchain may not produce something
   # that actually works (it could be a fake or some arbitrary system python).
@@ -161,6 +147,11 @@ EOF
 # The specific issue #5104 was caused by file permissions being lost when
 # unzipping runfiles, which led to an unexecutable runtime.
 function test_build_python_zip_works_with_workspace_runtime() {
+  cat > MODULE.bazel << EOF
+module(name="pyzip")
+bazel_dep(name = "rules_python", version = "0.19.0")
+EOF
+
   mkdir -p test
 
   # The runfiles interpreter is either a sh script or bat script depending on
@@ -172,7 +163,8 @@ function test_build_python_zip_works_with_workspace_runtime() {
   fi
 
   cat > test/BUILD << EOF
-load("@bazel_tools//tools/python:toolchain.bzl", "py_runtime_pair")
+load("@rules_python//python:py_runtime.bzl", "py_runtime")
+load("@rules_python//python:py_runtime_pair.bzl", "py_runtime_pair")
 
 py_binary(
     name = "pybin",
@@ -221,7 +213,6 @@ EOF
 
 # Verify that looking up runfiles that require repo mapping works
 function test_build_python_zip_bzlmod_repo_mapping_runfiles() {
-  cat > WORKSPACE
   cat > MODULE.bazel << EOF
 module(name="pyzip")
 bazel_dep(name = "rules_python", version = "0.19.0")
@@ -266,7 +257,11 @@ print(__file__)
 EOF
 
   bazel build //test:pybin --build_python_zip &> $TEST_log || fail "bazel build failed"
-  pybin_location=$(bazel-bin/test/pybin)
+  # Clear out runfiles variables to ensure that the binary finds its own
+  # runfiles correctly.
+  pybin_location=$(env -u RUNFILES_DIR -u RUNFILES_MANIFEST_FILE \
+      -u RUNFILES_MANIFEST_ONLY -u JAVA_RUNFILES -u PYTHON_RUNFILES \
+      bazel-bin/test/pybin)
 
   # The pybin location is "<ms root>/runfiles/<workspace>/test/pybin.py",
   # so we have to go up 4 directories to get to the module space root
@@ -430,14 +425,15 @@ EOF
 }
 
 function test_external_runfiles() {
-  cat >> WORKSPACE <<EOF
+  cat >> MODULE.bazel <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
   name = "repo2",
   path = "repo2"
 )
 EOF
   mkdir repo2
-  touch repo2/WORKSPACE
+  touch repo2/REPO.bazel
   cat > repo2/BUILD <<EOF
 package(default_visibility=["//visibility:public"])
 filegroup(name="r2files", srcs=["r2.txt"])
@@ -464,14 +460,14 @@ EOF
   fi
 
   cp bazel-bin/py/foo$exe.runfiles_manifest runfiles_manifest
-  assert_contains _main/external/repo2/r2.txt runfiles_manifest \
+  assert_contains _main/external/+_repo_rules+repo2/r2.txt runfiles_manifest \
     "runfiles manifest didn't have external path mapping"
 
   # By default, Python binaries are put into zip files on Windows and don't
   # have a real runfiles tree.
   if ! "$is_windows"; then
     find bazel-bin/py/foo.runfiles > runfiles_listing
-    assert_contains bazel-bin/py/foo.runfiles/_main/external/repo2/r2.txt \
+    assert_contains bazel-bin/py/foo.runfiles/_main/external/+_repo_rules+repo2/r2.txt \
       runfiles_listing \
       "runfiles didn't have external links"
   fi
@@ -482,8 +478,6 @@ function test_incompatible_python_disallow_native_rules_external_repos() {
   mkdir ../external_repo
   external_repo=$(cd ../external_repo && pwd)
 
-  touch $external_repo/WORKSPACE
-  touch $external_repo/WORKSPACE.bzlmod
   cat > $external_repo/MODULE.bazel <<EOF
 module(name="external_repo")
 EOF
@@ -537,14 +531,13 @@ package_group(
     name = "allowed",
     packages = [
         "//__EXTERNAL_REPOS__/external_repo/...",
-        "//__EXTERNAL_REPOS__/external_repo~override/...",
+        "//__EXTERNAL_REPOS__/external_repo+/...",
         "//__EXTERNAL_REPOS__/bazel_tools/...",
         ##"//tools/python/windows...",
     ],
 )
 EOF
-  cat > MODULE.bazel <<EOF
-module(name="python_version_test")
+  cat >> $(setup_module_dot_bazel MODULE.bazel) <<EOF
 bazel_dep(name = "external_repo", version="0.0.0")
 local_path_override(
     module_name = "external_repo",
@@ -552,6 +545,7 @@ local_path_override(
     path = "../external_repo",
 )
 EOF
+  add_rules_python "MODULE.bazel"
 
   bazel build \
     --extra_toolchains=//:py_toolchain \

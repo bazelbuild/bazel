@@ -144,8 +144,8 @@ public abstract class Root implements Comparable<Root> {
     public int compareTo(Root o) {
       if (o instanceof AbsoluteRoot) {
         return 1;
-      } else if (o instanceof PathRoot) {
-        return path.compareTo(((PathRoot) o).path);
+      } else if (o instanceof PathRoot pathRoot) {
+        return path.compareTo(pathRoot.path);
       } else {
         throw new AssertionError("Unknown Root subclass: " + o.getClass().getName());
       }
@@ -246,10 +246,9 @@ public abstract class Root implements Comparable<Root> {
       if (this == o) {
         return true;
       }
-      if (!(o instanceof AbsoluteRoot)) {
+      if (!(o instanceof AbsoluteRoot that)) {
         return false;
       }
-      AbsoluteRoot that = (AbsoluteRoot) o;
       return fileSystem.equals(that.fileSystem);
     }
 

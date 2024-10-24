@@ -22,6 +22,8 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.build.runfiles.Runfiles;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /**
@@ -159,14 +161,28 @@ public final class MockToolsConfig {
   }
 
   public void copyTool(String relativePath, String dest) throws IOException {
-    // Tests are assumed to be run from the main repository only.
-    Runfiles runfiles = Runfiles.preload().withSourceRepository("");
     PathFragment rlocationPath =
         PathFragment.create(TestConstants.WORKSPACE_NAME).getRelative(relativePath);
+    copyTool(rlocationPath, dest);
+  }
+
+  public void copyTool(PathFragment rlocationPath, String dest) throws IOException {
+    // Tests are assumed to be run from the main repository only.
+    Runfiles runfiles = Runfiles.preload().withSourceRepository("");
     Path source =
         FileSystems.getNativeFileSystem()
             .getPath(runfiles.rlocation(rlocationPath.getPathString()));
-    create(dest, FileSystemUtils.readLinesAsLatin1(source).toArray(String[]::new));
+    overwrite(dest, FileSystemUtils.readLinesAsLatin1(source).toArray(String[]::new));
+  }
+
+  /**
+   * Convenience method to copy multiple tools. Same as calling {@link #copyTool(String)} for each
+   * parameter.
+   */
+  public void copyTools(String... tools) throws IOException {
+    for (String tool : tools) {
+      copyTool(tool);
+    }
   }
 
   /**
@@ -176,6 +192,45 @@ public final class MockToolsConfig {
   public void linkTools(String... tools) throws IOException {
     for (String tool : tools) {
       linkTool(tool);
+    }
+  }
+
+  public void copyDirectory(String relativeDirPath, int depth, boolean useEmptyBuildFiles)
+      throws IOException {
+    Runfiles runfiles = Runfiles.preload().withSourceRepository("");
+    copyDirectory(
+        PathFragment.create(
+            runfiles.rlocation(
+                PathFragment.create(TestConstants.WORKSPACE_NAME)
+                    .getRelative(relativeDirPath)
+                    .getPathString())),
+        relativeDirPath,
+        depth,
+        useEmptyBuildFiles);
+  }
+
+  public void copyDirectory(PathFragment path, String to, int depth, boolean useEmptyBuildFiles)
+      throws IOException {
+    // Tests are assumed to be run from the main repository only.
+    java.nio.file.Path source =
+        FileSystems.getNativeFileSystem().getPath(path).getPathFile().toPath();
+    try (Stream<java.nio.file.Path> stream = Files.walk(source, depth)) {
+      stream
+          .filter(f -> f.toFile().isFile())
+          .map(f -> source.relativize(f).toString())
+          .filter(f -> !f.isEmpty())
+          .forEach(
+              f -> {
+                try {
+                  if (f.endsWith("BUILD") && useEmptyBuildFiles) {
+                    create(to + "/" + f);
+                  } else {
+                    copyTool(path.getRelative(f), to + "/" + f);
+                  }
+                } catch (IOException e) {
+                  throw new RuntimeException(e);
+                }
+              });
     }
   }
 }

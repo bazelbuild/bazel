@@ -18,12 +18,12 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Stopwatch;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourcePriority;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -60,8 +61,6 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import com.google.protobuf.ByteString;
@@ -69,6 +68,7 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -91,7 +91,6 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
   private final SandboxHelpers helpers;
   private final Path execRoot;
-  private final ImmutableList<Root> packageRoots;
   private final ExtendedEventHandler reporter;
   private final ResourceManager resourceManager;
   private final RunfilesTreeUpdater runfilesTreeUpdater;
@@ -103,7 +102,6 @@ final class WorkerSpawnRunner implements SpawnRunner {
   public WorkerSpawnRunner(
       SandboxHelpers helpers,
       Path execRoot,
-      ImmutableList<Root> packageRoots,
       WorkerPool workers,
       ExtendedEventHandler reporter,
       LocalEnvProvider localEnvProvider,
@@ -115,7 +113,6 @@ final class WorkerSpawnRunner implements SpawnRunner {
       Clock clock) {
     this.helpers = helpers;
     this.execRoot = execRoot;
-    this.packageRoots = packageRoots;
     this.reporter = reporter;
     this.resourceManager = resourceManager;
     this.runfilesTreeUpdater = runfilesTreeUpdater;
@@ -178,8 +175,15 @@ final class WorkerSpawnRunner implements SpawnRunner {
                     "%s worker %s", spawn.getMnemonic(), spawn.getResourceOwner().describe()))) {
 
       try (var s = Profiler.instance().profile("updateRunfiles")) {
+        List<RunfilesTree> runfilesTrees = new ArrayList<>();
+        for (ActionInput toolFile : spawn.getToolFiles().toList()) {
+          if ((toolFile instanceof Artifact) && ((Artifact) toolFile).isMiddlemanArtifact()) {
+            runfilesTrees.add(
+                context.getInputMetadataProvider().getRunfilesMetadata(toolFile).getRunfilesTree());
+          }
+        }
         runfilesTreeUpdater.updateRunfiles(
-            spawn.getRunfilesSupplier(), spawn.getEnvironment(), context.getFileOutErr());
+            runfilesTrees, spawn.getEnvironment(), context.getFileOutErr());
       }
 
       InputMetadataProvider inputFileCache = context.getInputMetadataProvider();
@@ -191,11 +195,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
             helpers.processInputFiles(
                 context.getInputMapping(
                     PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
-                context.getInputMetadataProvider(),
-                execRoot,
-                execRoot,
-                packageRoots,
-                null);
+                execRoot);
       }
       SandboxOutputs outputs = helpers.getOutputs(spawn);
 
@@ -254,7 +254,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
         ActionInputHelper.expandArtifacts(
             spawn.getInputFiles(),
             context.getArtifactExpander(),
-            /* keepEmptyTreeArtifacts= */ false);
+            /* keepEmptyTreeArtifacts= */ false,
+            /* keepMiddlemanArtifacts= */ false);
 
     for (ActionInput input : inputs) {
       byte[] digestBytes;
@@ -304,21 +305,20 @@ final class WorkerSpawnRunner implements SpawnRunner {
         throw new InterruptedException();
       }
       String argValue = arg.substring(1);
-      RootedPath path = inputs.getFiles().get(PathFragment.create(argValue));
+      Path path = inputs.getFiles().get(PathFragment.create(argValue));
       if (path == null) {
         throw new IOException(
             String.format(
                 "Failed to read @-argument '%s': file is not a declared input", argValue));
       }
       try {
-        for (String line : FileSystemUtils.readLines(path.asPath(), UTF_8)) {
+        for (String line : FileSystemUtils.readLines(path, UTF_8)) {
           expandArgument(inputs, line, requestBuilder);
         }
       } catch (IOException e) {
         throw new IOException(
             String.format(
-                "Failed to read @-argument '%s' from file '%s'.",
-                argValue, path.asPath().getPathString()),
+                "Failed to read @-argument '%s' from file '%s'.", argValue, path.getPathString()),
             e);
       }
     } else {
@@ -335,7 +335,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
         ErrorMessage.builder()
             .message("Worker process did not return a WorkResponse:")
             .logFile(logfile)
-            .logSizeLimit(4096)
+            .logSizeLimit(8192)
             .build()
             .toString();
     return createUserExecException(message, Code.NO_RESPONSE);
@@ -372,7 +372,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       List<String> flagFiles,
       InputMetadataProvider inputFileCache,
       SpawnMetrics.Builder spawnMetrics)
-      throws InterruptedException, ExecException {
+      throws ExecException, ForbiddenActionInputException, IOException, InterruptedException {
     WorkerOwner workerOwner = null;
     WorkResponse response;
     WorkRequest request;
@@ -385,16 +385,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.WORKER_SETUP, "Preparing inputs")) {
-      try {
-        context.prefetchInputsAndWait();
-      } catch (IOException e) {
-        restoreInterrupt(e);
-        String message = "IOException while prefetching for worker:";
-        throw createUserExecException(e, message, Code.PREFETCH_FAILURE);
-      } catch (ForbiddenActionInputException e) {
-        throw createUserExecException(
-            e, "Forbidden input found while prefetching for worker:", Code.FORBIDDEN_INPUT);
-      }
+      context.prefetchInputsAndWait();
     }
     Duration setupInputsTime = setupInputsStopwatch.elapsed();
     spawnMetrics.setSetupTimeInMs((int) setupInputsTime.toMillis());
@@ -447,6 +438,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
           context.lockOutputFiles(response.getExitCode(), response.getOutput(), null);
           hasOutputFileLock = true;
           workerOwner.getWorker().finishExecution(execRoot, outputs);
+          WorkerProcessMetricsCollector.instance()
+              .onWorkerFinishExecution(workerOwner.getWorker().getProcessId());
           spawnMetrics.setProcessOutputsTimeInMs(
               (int) processOutputsStopwatch.elapsed().toMillis());
         } else {
@@ -614,7 +607,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
         workerKey.getMnemonic(),
         workerKey.isMultiplex(),
         workerKey.isSandboxed(),
-        workerKey.hashCode());
+        workerKey.hashCode(),
+        worker.getCgroup());
   }
 
   /**
@@ -698,12 +692,6 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
   private static UserExecException createUserExecException(
       IOException e, String message, Code detailedCode) {
-    return createUserExecException(
-        ErrorMessage.builder().message(message).exception(e).build().toString(), detailedCode);
-  }
-
-  private static UserExecException createUserExecException(
-      ForbiddenActionInputException e, String message, Code detailedCode) {
     return createUserExecException(
         ErrorMessage.builder().message(message).exception(e).build().toString(), detailedCode);
   }

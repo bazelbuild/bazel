@@ -14,8 +14,14 @@
 
 """Utilities related to C++ support."""
 
+load(
+    ":common/cc/cc_helper_internal.bzl",
+    _CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES = "CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES",
+    _PRIVATE_STARLARKIFICATION_ALLOWLIST = "PRIVATE_STARLARKIFICATION_ALLOWLIST",
+)
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/cc_shared_library_hint_info.bzl", "CcSharedLibraryHintInfo")
+load(":common/cc/link/link_build_variables.bzl", "create_link_variables")
 
 cc_common_internal = _builtins.internal.cc_common
 CcNativeLibraryInfo = _builtins.internal.CcNativeLibraryInfo
@@ -25,20 +31,6 @@ _UnboundValueProviderDoNotUse = provider("This provider is used as an unique sym
 _UNBOUND = _UnboundValueProviderDoNotUse()
 
 _OLD_STARLARK_API_ALLOWLISTED_PACKAGES = [("", "tools/build_defs/cc"), ("_builtins", "")]
-
-_CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES = [("", "devtools/rust/cc_interop"), ("", "third_party/crubit")]
-
-_PRIVATE_STARLARKIFICATION_ALLOWLIST = [
-    ("_builtins", ""),
-    ("", "bazel_internal/test_rules/cc"),
-    ("", "tools/build_defs/android"),
-    ("", "third_party/bazel_rules/rules_android"),
-    ("build_bazel_rules_android", ""),
-    ("rules_android", ""),
-    ("", "rust/private"),
-    ("rules_rust", "rust/private"),
-    ("", "third_party/gpus/cuda"),
-]
 
 _BUILTINS = [("_builtins", "")]
 
@@ -60,118 +52,113 @@ def _check_all_sources_contain_tuples_or_none_of_them(files):
 def _link(
         *,
         actions,
+        name,
         feature_configuration,
         cc_toolchain,
-        name,
-        compilation_outputs = None,
-        user_link_flags = [],
-        linking_contexts = [],
         language = "c++",
         output_type = "executable",
         link_deps_statically = True,
+        compilation_outputs = _builtins.internal.cc_internal.empty_compilation_outputs(),
+        linking_contexts = [],
+        user_link_flags = [],
         stamp = 0,
         additional_inputs = [],
-        link_artifact_name_suffix = _UNBOUND,
-        never_link = _UNBOUND,
-        always_link = _UNBOUND,
-        test_only_target = _UNBOUND,
+        additional_outputs = [],
         variables_extension = {},
+        use_test_only_flags = _UNBOUND,
+        never_link = _UNBOUND,
+        test_only_target = _UNBOUND,
         native_deps = _UNBOUND,
         whole_archive = _UNBOUND,
         additional_linkstamp_defines = _UNBOUND,
+        always_link = _UNBOUND,
         only_for_dynamic_libs = _UNBOUND,
+        link_artifact_name_suffix = _UNBOUND,
         main_output = _UNBOUND,
-        additional_outputs = [],
-        use_test_only_flags = _UNBOUND,
-        pdb_file = _UNBOUND,
-        win_def_file = _UNBOUND,
         use_shareable_artifact_factory = _UNBOUND,
-        build_config = _UNBOUND):
+        build_config = _UNBOUND,
+        emit_interface_shared_library = _UNBOUND):
+    if output_type == "archive":
+        cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+
     # TODO(b/205690414): Keep linkedArtifactNameSuffixObject protected. Use cases that are
     #  passing the suffix should be migrated to using mainOutput instead where the suffix is
     #  taken into account. Then this parameter should be removed.
-    if link_artifact_name_suffix != _UNBOUND or \
+    if use_test_only_flags != _UNBOUND or \
        never_link != _UNBOUND or \
-       always_link != _UNBOUND or \
        test_only_target != _UNBOUND or \
        native_deps != _UNBOUND or \
        whole_archive != _UNBOUND or \
        additional_linkstamp_defines != _UNBOUND or \
+       always_link != _UNBOUND or \
        only_for_dynamic_libs != _UNBOUND or \
+       link_artifact_name_suffix != _UNBOUND or \
        main_output != _UNBOUND or \
-       use_test_only_flags != _UNBOUND or \
-       pdb_file != _UNBOUND or \
-       win_def_file != _UNBOUND or \
        use_shareable_artifact_factory != _UNBOUND or \
-       build_config != _UNBOUND:
+       build_config != _UNBOUND or \
+       emit_interface_shared_library != _UNBOUND:
         cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
 
-    if output_type == "archive":
-        cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
-
-    if link_artifact_name_suffix == _UNBOUND:
-        link_artifact_name_suffix = ""
+    if use_test_only_flags == _UNBOUND:
+        use_test_only_flags = False
     if never_link == _UNBOUND:
         never_link = False
-    if always_link == _UNBOUND:
-        always_link = False
     if test_only_target == _UNBOUND:
         test_only_target = False
-    if variables_extension == _UNBOUND:
-        variables_extension = {}
     if native_deps == _UNBOUND:
         native_deps = False
     if whole_archive == _UNBOUND:
         whole_archive = False
     if additional_linkstamp_defines == _UNBOUND:
         additional_linkstamp_defines = []
+    if always_link == _UNBOUND:
+        always_link = False
     if only_for_dynamic_libs == _UNBOUND:
         only_for_dynamic_libs = False
+    if link_artifact_name_suffix == _UNBOUND:
+        link_artifact_name_suffix = ""
     if main_output == _UNBOUND:
         main_output = None
-    if additional_outputs == _UNBOUND:
-        additional_outputs = []
-    if use_test_only_flags == _UNBOUND:
-        use_test_only_flags = False
-    if pdb_file == _UNBOUND:
-        pdb_file = None
-    if win_def_file == _UNBOUND:
-        win_def_file = None
     if use_shareable_artifact_factory == _UNBOUND:
         use_shareable_artifact_factory = False
     if build_config == _UNBOUND:
         build_config = None
+    if emit_interface_shared_library == _UNBOUND:
+        emit_interface_shared_library = False
 
     return cc_common_internal.link(
         actions = actions,
+        name = name,
         feature_configuration = feature_configuration,
         cc_toolchain = cc_toolchain,
-        compilation_outputs = compilation_outputs,
-        name = name,
-        user_link_flags = user_link_flags,
-        linking_contexts = linking_contexts,
         language = language,
         output_type = output_type,
         link_deps_statically = link_deps_statically,
+        compilation_outputs = compilation_outputs,
+        linking_contexts = linking_contexts,
+        user_link_flags = user_link_flags,
         stamp = stamp,
         additional_inputs = additional_inputs,
-        link_artifact_name_suffix = link_artifact_name_suffix,
-        never_link = never_link,
-        always_link = always_link,
-        test_only_target = test_only_target,
+        additional_outputs = additional_outputs,
         variables_extension = variables_extension,
+        use_test_only_flags = use_test_only_flags,
+        never_link = never_link,
+        test_only_target = test_only_target,
         native_deps = native_deps,
         whole_archive = whole_archive,
         additional_linkstamp_defines = additional_linkstamp_defines,
+        always_link = always_link,
         only_for_dynamic_libs = only_for_dynamic_libs,
+        link_artifact_name_suffix = link_artifact_name_suffix,
         main_output = main_output,
-        additional_outputs = additional_outputs,
-        use_test_only_flags = use_test_only_flags,
-        pdb_file = pdb_file,
-        win_def_file = win_def_file,
         use_shareable_artifact_factory = use_shareable_artifact_factory,
         build_config = build_config,
+        emit_interface_shared_library = emit_interface_shared_library,
     )
+
+def _create_lto_compilation_context(*, objects = {}):
+    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    return cc_common_internal.create_lto_compilation_context(objects = objects)
 
 def _create_compilation_outputs(*, objects = None, pic_objects = None, lto_compilation_context = _UNBOUND, dwo_objects = _UNBOUND, pic_dwo_objects = _UNBOUND):
     if lto_compilation_context != _UNBOUND or dwo_objects != _UNBOUND or pic_dwo_objects != _UNBOUND:
@@ -209,7 +196,7 @@ def _get_execution_requirements(*, feature_configuration, action_name):
     return cc_common_internal.get_execution_requirements(feature_configuration = feature_configuration, action_name = action_name)
 
 def _is_enabled(*, feature_configuration, feature_name):
-    return cc_common_internal.is_enabled(feature_configuration = feature_configuration, feature_name = feature_name)
+    return feature_configuration.is_enabled(feature_name)
 
 def _action_is_enabled(*, feature_configuration, action_name):
     return cc_common_internal.action_is_enabled(feature_configuration = feature_configuration, action_name = action_name)
@@ -267,37 +254,6 @@ def _create_compile_variables(
         input_file = input_file,
     )
 
-def _create_link_variables(
-        *,
-        cc_toolchain,
-        feature_configuration,
-        library_search_directories = None,
-        runtime_library_search_directories = None,
-        user_link_flags = None,
-        output_file = None,
-        param_file = None,
-        def_file = None,
-        is_using_linker = True,
-        is_linking_dynamic_library = False,
-        must_keep_debug = True,
-        use_test_only_flags = False,
-        is_static_linking_mode = True):
-    return cc_common_internal.create_link_variables(
-        cc_toolchain = cc_toolchain,
-        feature_configuration = feature_configuration,
-        library_search_directories = library_search_directories,
-        runtime_library_search_directories = runtime_library_search_directories,
-        user_link_flags = user_link_flags,
-        output_file = output_file,
-        param_file = param_file,
-        def_file = def_file,
-        is_using_linker = is_using_linker,
-        is_linking_dynamic_library = is_linking_dynamic_library,
-        must_keep_debug = must_keep_debug,
-        use_test_only_flags = use_test_only_flags,
-        is_static_linking_mode = is_static_linking_mode,
-    )
-
 def _empty_variables():
     return cc_common_internal.empty_variables()
 
@@ -312,14 +268,23 @@ def _create_library_to_link(
         interface_library = None,
         pic_objects = _UNBOUND,
         objects = _UNBOUND,
+        lto_compilation_context = _UNBOUND,
         alwayslink = False,
         dynamic_library_symlink_path = "",
         interface_library_symlink_path = "",
         must_keep_debug = _UNBOUND):
+    if lto_compilation_context != _UNBOUND:
+        cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    else:  # lto_compilation_context == _UNBOUND
+        lto_compilation_context = None
     if must_keep_debug != _UNBOUND:
         cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     if must_keep_debug == _UNBOUND:
         must_keep_debug = False
+    if objects != _UNBOUND:
+        cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    if pic_objects != _UNBOUND:
+        cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
 
     # We cannot check if experimental_starlark_cc_import is set or not here,
     # since there is not ctx. So for a native code to perform the check
@@ -336,6 +301,7 @@ def _create_library_to_link(
         "dynamic_library_symlink_path": dynamic_library_symlink_path,
         "interface_library_symlink_path": interface_library_symlink_path,
         "must_keep_debug": must_keep_debug,
+        "lto_compilation_context": lto_compilation_context,
     }
     if pic_objects != _UNBOUND:
         kwargs["pic_objects"] = pic_objects
@@ -366,7 +332,8 @@ def _create_linking_context(
         libraries_to_link = _UNBOUND,
         user_link_flags = _UNBOUND,
         additional_inputs = _UNBOUND,
-        extra_link_time_library = _UNBOUND):
+        extra_link_time_library = _UNBOUND,
+        owner = _UNBOUND):
     if extra_link_time_library != _UNBOUND:
         cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     if extra_link_time_library == _UNBOUND:
@@ -384,6 +351,8 @@ def _create_linking_context(
         kwargs["user_link_flags"] = user_link_flags
     if additional_inputs != _UNBOUND:
         kwargs["additional_inputs"] = additional_inputs
+    if owner != _UNBOUND:
+        kwargs["owner"] = owner
     return cc_common_internal.create_linking_context(
         **kwargs
     )
@@ -433,6 +402,7 @@ def _create_compilation_context(
         external_includes = _UNBOUND,
         virtual_to_original_headers = _UNBOUND,
         dependent_cc_compilation_contexts = _UNBOUND,
+        exported_dependent_cc_compilation_contexts = _UNBOUND,
         non_code_inputs = _UNBOUND,
         headers_checking_mode = _UNBOUND,
         propagate_module_map_to_compile_action = _UNBOUND,
@@ -473,6 +443,8 @@ def _create_compilation_context(
         virtual_to_original_headers = depset()
     if dependent_cc_compilation_contexts == _UNBOUND:
         dependent_cc_compilation_contexts = []
+    if exported_dependent_cc_compilation_contexts == _UNBOUND:
+        exported_dependent_cc_compilation_contexts = []
     if non_code_inputs == _UNBOUND:
         non_code_inputs = []
     if headers_checking_mode == _UNBOUND:
@@ -509,6 +481,7 @@ def _create_compilation_context(
         external_includes = external_includes,
         virtual_to_original_headers = virtual_to_original_headers,
         dependent_cc_compilation_contexts = dependent_cc_compilation_contexts,
+        exported_dependent_cc_compilation_contexts = exported_dependent_cc_compilation_contexts,
         non_code_inputs = non_code_inputs,
         loose_hdrs_dirs = [],
         headers_checking_mode = headers_checking_mode,
@@ -533,15 +506,15 @@ def _create_cc_toolchain_config_info(
         *,
         ctx,
         toolchain_identifier,
-        target_system_name,
-        target_cpu,
-        target_libc,
         compiler,
         features = [],
         action_configs = [],
         artifact_name_patterns = [],
         cxx_builtin_include_directories = [],
         host_system_name = None,
+        target_system_name = None,
+        target_cpu = None,
+        target_libc = None,
         abi_version = None,
         abi_libc_version = None,
         tool_paths = [],
@@ -565,31 +538,28 @@ def _create_cc_toolchain_config_info(
         tool_paths = tool_paths,
         make_variables = make_variables,
         builtin_sysroot = builtin_sysroot,
-        cc_target_os = cc_target_os,
     )
 
 def _create_linking_context_from_compilation_outputs(
         *,
         actions,
+        name,
         feature_configuration,
         cc_toolchain,
-        compilation_outputs,
-        name,
-        user_link_flags = [],
-        linking_contexts = [],
         language = "c++",
-        alwayslink = False,
-        additional_inputs = [],
         disallow_static_libraries = False,
         disallow_dynamic_library = False,
+        compilation_outputs,
+        linking_contexts = [],
+        user_link_flags = [],
+        alwayslink = False,
+        additional_inputs = [],
         variables_extension = {},
         stamp = _UNBOUND,
         linked_dll_name_suffix = _UNBOUND,
-        win_def_file = _UNBOUND,
         test_only_target = _UNBOUND):
     if stamp != _UNBOUND or \
        linked_dll_name_suffix != _UNBOUND or \
-       win_def_file != _UNBOUND or \
        test_only_target != _UNBOUND:
         cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
 
@@ -597,28 +567,25 @@ def _create_linking_context_from_compilation_outputs(
         stamp = 0
     if linked_dll_name_suffix == _UNBOUND:
         linked_dll_name_suffix = ""
-    if win_def_file == _UNBOUND:
-        win_def_file = None
     if test_only_target == _UNBOUND:
         test_only_target = False
 
     return cc_common_internal.create_linking_context_from_compilation_outputs(
         actions = actions,
+        name = name,
         feature_configuration = feature_configuration,
         cc_toolchain = cc_toolchain,
-        compilation_outputs = compilation_outputs,
-        name = name,
-        user_link_flags = user_link_flags,
-        linking_contexts = linking_contexts,
         language = language,
-        alwayslink = alwayslink,
-        additional_inputs = additional_inputs,
         disallow_static_libraries = disallow_static_libraries,
         disallow_dynamic_library = disallow_dynamic_library,
+        compilation_outputs = compilation_outputs,
+        linking_contexts = linking_contexts,
+        user_link_flags = user_link_flags,
+        alwayslink = alwayslink,
+        additional_inputs = additional_inputs,
         variables_extension = variables_extension,
         stamp = stamp,
         linked_dll_name_suffix = linked_dll_name_suffix,
-        win_def_file = win_def_file,
         test_only_target = test_only_target,
     )
 
@@ -631,6 +598,10 @@ def _merge_linking_contexts(*, linking_contexts = []):
 def _check_experimental_cc_shared_library():
     cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     return cc_common_internal.check_experimental_cc_shared_library()
+
+def _check_experimental_cc_static_library():
+    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    return cc_common_internal.check_experimental_cc_static_library()
 
 def _incompatible_disable_objc_library_transition():
     cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
@@ -657,7 +628,7 @@ def _get_tool_requirement_for_action(*, feature_configuration, action_name):
     return cc_common_internal.get_tool_requirement_for_action(feature_configuration = feature_configuration, action_name = action_name)
 
 def _create_extra_link_time_library(*, build_library_func, **kwargs):
-    cc_common_internal.check_private_api(allowlist = _BUILTINS)
+    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     return cc_common_internal.create_extra_link_time_library(build_library_func = build_library_func, **kwargs)
 
 def _register_linkstamp_compile_action(
@@ -694,7 +665,7 @@ def _compile(
         public_hdrs = [],
         private_hdrs = [],
         textual_hdrs = [],
-        additional_exported_hdrs = _UNBOUND,
+        additional_exported_hdrs = _UNBOUND,  # TODO(ilist@): remove, there are no uses
         includes = [],
         quote_includes = [],
         system_includes = [],
@@ -704,6 +675,8 @@ def _compile(
         include_prefix = "",
         strip_include_prefix = "",
         user_compile_flags = [],
+        conly_flags = [],
+        cxx_flags = [],
         compilation_contexts = [],
         implementation_compilation_contexts = _UNBOUND,
         disallow_pic_outputs = False,
@@ -721,6 +694,7 @@ def _compile(
         purpose = _UNBOUND,
         copts_filter = _UNBOUND,
         separate_module_headers = _UNBOUND,
+        module_interfaces = _UNBOUND,
         non_compilation_additional_inputs = _UNBOUND):
     if module_map != _UNBOUND or \
        additional_module_maps != _UNBOUND or \
@@ -733,6 +707,7 @@ def _compile(
        implementation_compilation_contexts != _UNBOUND or \
        copts_filter != _UNBOUND or \
        separate_module_headers != _UNBOUND or \
+       module_interfaces != _UNBOUND or \
        non_compilation_additional_inputs != _UNBOUND:
         cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
 
@@ -758,10 +733,12 @@ def _compile(
         copts_filter = None
     if separate_module_headers == _UNBOUND:
         separate_module_headers = []
+    if module_interfaces == _UNBOUND:
+        module_interfaces = []
     if non_compilation_additional_inputs == _UNBOUND:
         non_compilation_additional_inputs = []
 
-    has_tuple = _check_all_sources_contain_tuples_or_none_of_them([srcs, private_hdrs, public_hdrs])
+    has_tuple = _check_all_sources_contain_tuples_or_none_of_them([srcs, module_interfaces, private_hdrs, public_hdrs])
     if has_tuple:
         cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
 
@@ -771,6 +748,7 @@ def _compile(
         cc_toolchain = cc_toolchain,
         name = name,
         srcs = srcs,
+        module_interfaces = module_interfaces,
         public_hdrs = public_hdrs,
         private_hdrs = private_hdrs,
         textual_hdrs = textual_hdrs,
@@ -784,6 +762,8 @@ def _compile(
         include_prefix = include_prefix,
         strip_include_prefix = strip_include_prefix,
         user_compile_flags = user_compile_flags,
+        conly_flags = conly_flags,
+        cxx_flags = cxx_flags,
         compilation_contexts = compilation_contexts,
         implementation_compilation_contexts = implementation_compilation_contexts,
         disallow_pic_outputs = disallow_pic_outputs,
@@ -835,18 +815,15 @@ def _create_cc_launcher_info(*, cc_info, compilation_outputs):
 
 def _objcopy(*, ctx, cc_toolchain):
     cc_common_internal.check_private_api(allowlist = _OLD_STARLARK_API_ALLOWLISTED_PACKAGES)
-    return cc_common_internal.objcopy(ctx = ctx, cc_toolchain = cc_toolchain)
+    return cc_toolchain._objcopy_files
 
 def _objcopy_tool_path(*, ctx, cc_toolchain):
     cc_common_internal.check_private_api(allowlist = _OLD_STARLARK_API_ALLOWLISTED_PACKAGES)
-    return cc_common_internal.objcopy_tool_path(ctx = ctx, cc_toolchain = cc_toolchain)
+    return cc_toolchain._tool_paths.get("objcopy", None)
 
 def _ld_tool_path(*, ctx, cc_toolchain):
     cc_common_internal.check_private_api(allowlist = _OLD_STARLARK_API_ALLOWLISTED_PACKAGES)
-    return cc_common_internal.ld_tool_path(ctx = ctx, cc_toolchain = cc_toolchain)
-
-def _cc_target_os_do_not_use(toolchain):
-    return cc_common_internal.cc_target_os_do_not_use(toolchain)
+    return cc_toolchain._tool_paths.get("ld", None)
 
 def _create_compile_action(
         *,
@@ -875,13 +852,16 @@ def _create_compile_action(
     )
 
 def _implementation_deps_allowed_by_allowlist(*, ctx):
-    cc_common_internal.check_private_api(allowlist = _BUILTINS)
+    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     return cc_common_internal.implementation_deps_allowed_by_allowlist(ctx = ctx)
 
 cc_common = struct(
     link = _link,
+    create_lto_compilation_context = _create_lto_compilation_context,
     create_compilation_outputs = _create_compilation_outputs,
     merge_compilation_outputs = _merge_compilation_outputs,
+    # Ideally we would like to get rid of this Java symbol and replace it with Starlark one.
+    # And also deprecate this public API.
     CcToolchainInfo = cc_common_internal.CcToolchainInfo,
     do_not_use_tools_cpp_compiler_present = cc_common_internal.do_not_use_tools_cpp_compiler_present,
     configure_features = _configure_features,
@@ -892,7 +872,7 @@ cc_common = struct(
     get_memory_inefficient_command_line = _get_memory_inefficient_command_line,
     get_environment_variables = _get_environment_variables,
     create_compile_variables = _create_compile_variables,
-    create_link_variables = _create_link_variables,
+    create_link_variables = create_link_variables,
     empty_variables = _empty_variables,
     create_library_to_link = _create_library_to_link,
     create_linker_input = _create_linker_input,
@@ -907,6 +887,7 @@ cc_common = struct(
     merge_compilation_contexts = _merge_compilation_contexts,
     merge_linking_contexts = _merge_linking_contexts,
     check_experimental_cc_shared_library = _check_experimental_cc_shared_library,
+    check_experimental_cc_static_library = _check_experimental_cc_static_library,
     create_module_map = _create_module_map,
     create_debug_context = _create_debug_context,
     merge_debug_context = _merge_debug_context,
@@ -922,7 +903,6 @@ cc_common = struct(
     objcopy = _objcopy,
     objcopy_tool_path = _objcopy_tool_path,
     ld_tool_path = _ld_tool_path,
-    cc_target_os_do_not_use = _cc_target_os_do_not_use,
     create_compile_action = _create_compile_action,
     implementation_deps_allowed_by_allowlist = _implementation_deps_allowed_by_allowlist,
     CcSharedLibraryHintInfo = CcSharedLibraryHintInfo,

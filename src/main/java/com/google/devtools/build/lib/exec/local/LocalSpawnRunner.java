@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourcePriority;
+import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -51,12 +52,10 @@ import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
-import com.google.devtools.build.lib.shell.ExecutionStatistics;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.shell.TerminationStatus;
 import com.google.devtools.build.lib.util.NetUtil;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.errorprone.annotations.FormatMethod;
@@ -64,7 +63,6 @@ import com.google.errorprone.annotations.FormatString;
 import java.io.File;
 import java.io.IOException;
 import java.io.InterruptedIOException;
-import java.io.OutputStream;
 import java.nio.file.Files;
 import java.time.Duration;
 import java.time.Instant;
@@ -131,10 +129,6 @@ public class LocalSpawnRunner implements SpawnRunner {
     SpawnMetrics.Builder spawnMetrics = SpawnMetrics.Builder.forLocalExec();
     Stopwatch totalTimeStopwatch = Stopwatch.createStarted();
     Stopwatch setupTimeStopwatch = Stopwatch.createStarted();
-    try (var s = Profiler.instance().profile("updateRunfiles")) {
-      runfilesTreeUpdater.updateRunfiles(
-          spawn.getRunfilesSupplier(), spawn.getEnvironment(), context.getFileOutErr());
-    }
     if (Spawns.shouldPrefetchInputsForLocalExecution(spawn)) {
       context.prefetchInputsAndWait();
     }
@@ -226,8 +220,7 @@ public class LocalSpawnRunner implements SpawnRunner {
       setState(State.PARSING);
     }
 
-    public SpawnResult run()
-        throws InterruptedException, IOException, ForbiddenActionInputException {
+    public SpawnResult run() throws InterruptedException, ExecException, IOException {
       if (localExecutionOptions.localRetriesOnCrash == 0) {
         return runOnce();
       } else {
@@ -256,8 +249,7 @@ public class LocalSpawnRunner implements SpawnRunner {
       }
     }
 
-    private SpawnResult runOnce()
-        throws InterruptedException, IOException, ForbiddenActionInputException {
+    private SpawnResult runOnce() throws InterruptedException, ExecException, IOException {
       try {
         return start();
       } catch (InterruptedException | InterruptedIOException e) {
@@ -268,9 +260,6 @@ public class LocalSpawnRunner implements SpawnRunner {
         throw e;
       } catch (Error e) {
         stepLog(SEVERE, e, UNHANDLED_EXCEPTION_MSG);
-        throw e;
-      } catch (ForbiddenActionInputException e) {
-        stepLog(WARNING, e, "Bad input file");
         throw e;
       } catch (IOException e) {
         stepLog(SEVERE, e, "Local I/O error");
@@ -323,8 +312,7 @@ public class LocalSpawnRunner implements SpawnRunner {
     }
 
     /** Parse the request and run it locally. */
-    private SpawnResult start()
-        throws InterruptedException, IOException, ForbiddenActionInputException {
+    private SpawnResult start() throws InterruptedException, ExecException, IOException {
       logger.atInfo().log("starting local subprocess #%d, argv: %s", id, debugCmdString());
 
       SpawnResult.Builder spawnResultBuilder =
@@ -360,21 +348,20 @@ public class LocalSpawnRunner implements SpawnRunner {
 
       spawnMetrics.setInputFiles(spawn.getInputFiles().memoizedFlattenAndGetSize());
       Stopwatch setupTimeStopwatch = Stopwatch.createStarted();
+      List<RunfilesTree> runfilesTrees = new ArrayList<>();
+
       for (ActionInput input : spawn.getInputFiles().toList()) {
-        if (input instanceof VirtualActionInput) {
-          VirtualActionInput virtualActionInput = (VirtualActionInput) input;
-          Path outputPath = execRoot.getRelative(virtualActionInput.getExecPath());
-          if (outputPath.exists()) {
-            outputPath.delete();
-          }
-          outputPath.getParentDirectory().createDirectoryAndParents();
-          try (OutputStream outputStream = outputPath.getOutputStream()) {
-            virtualActionInput.writeTo(outputStream);
-          }
-          // Some of the virtual inputs are tools run as part of the execution, hence we need to set
-          // executable flag.
-          outputPath.setExecutable(true);
+        if (input instanceof VirtualActionInput virtualActionInput) {
+          virtualActionInput.atomicallyWriteRelativeTo(execRoot);
+        } else if ((input instanceof Artifact) && ((Artifact) input).isMiddlemanArtifact()) {
+          runfilesTrees.add(
+              context.getInputMetadataProvider().getRunfilesMetadata(input).getRunfilesTree());
         }
+      }
+
+      try (var s = Profiler.instance().profile("updateRunfiles")) {
+        runfilesTreeUpdater.updateRunfiles(
+            runfilesTrees, spawn.getEnvironment(), context.getFileOutErr());
       }
 
       stepLog(INFO, "running locally");
@@ -481,29 +468,8 @@ public class LocalSpawnRunner implements SpawnRunner {
         if (status != Status.SUCCESS) {
           spawnResultBuilder.setFailureDetail(makeFailureDetail(exitCode, status, actionType));
         }
-        if (statisticsPath != null && statisticsPath.exists()) {
-          ExecutionStatistics.getResourceUsage(statisticsPath)
-              .ifPresent(
-                  resourceUsage -> {
-                    spawnResultBuilder.setUserTimeInMs(
-                        (int) resourceUsage.getUserExecutionTime().toMillis());
-                    spawnResultBuilder.setSystemTimeInMs(
-                        (int) resourceUsage.getSystemExecutionTime().toMillis());
-                    spawnResultBuilder.setNumBlockOutputOperations(
-                        resourceUsage.getBlockOutputOperations());
-                    spawnResultBuilder.setNumBlockInputOperations(
-                        resourceUsage.getBlockInputOperations());
-                    spawnResultBuilder.setNumInvoluntaryContextSwitches(
-                        resourceUsage.getInvoluntaryContextSwitches());
-                    // The memory usage of the largest child process. For Darwin maxrss returns size
-                    // in bytes.
-                    if (OS.getCurrent() == OS.DARWIN) {
-                      spawnResultBuilder.setMemoryInKb(
-                          resourceUsage.getMaximumResidentSetSize() / 1000);
-                    } else {
-                      spawnResultBuilder.setMemoryInKb(resourceUsage.getMaximumResidentSetSize());
-                    }
-                  });
+        if (statisticsPath != null) {
+          spawnResultBuilder.setResourceUsageFromProto(statisticsPath);
         }
         spawnMetrics.setTotalTimeInMs((int) totalTimeStopwatch.elapsed().toMillis());
         spawnResultBuilder.setSpawnMetrics(spawnMetrics.build());
@@ -572,32 +538,17 @@ public class LocalSpawnRunner implements SpawnRunner {
   private static FailureDetail makeFailureDetail(int exitCode, Status status, String actionType) {
     FailureDetails.Spawn.Builder spawnFailure = FailureDetails.Spawn.newBuilder();
     switch (status) {
-      case SUCCESS:
-        throw new AssertionError("makeFailureDetail() called with Status == SUCCESS");
-      case NON_ZERO_EXIT:
-        spawnFailure.setCode(Code.NON_ZERO_EXIT).setSpawnExitCode(exitCode);
-        break;
-      case TIMEOUT:
-        spawnFailure.setCode(Code.TIMEOUT);
-        break;
-      case OUT_OF_MEMORY:
-        spawnFailure.setCode(Code.OUT_OF_MEMORY);
-        break;
-      case EXECUTION_FAILED:
-        spawnFailure.setCode(Code.EXECUTION_FAILED);
-        break;
-      case EXECUTION_FAILED_CATASTROPHICALLY:
-        spawnFailure.setCode(Code.EXECUTION_FAILED).setCatastrophic(true);
-        break;
-      case EXECUTION_DENIED:
-        spawnFailure.setCode(Code.EXECUTION_DENIED);
-        break;
-      case EXECUTION_DENIED_CATASTROPHICALLY:
-        spawnFailure.setCode(Code.EXECUTION_DENIED).setCatastrophic(true);
-        break;
-      case REMOTE_CACHE_FAILED:
-        spawnFailure.setCode(Code.REMOTE_CACHE_FAILED);
-        break;
+      case SUCCESS -> throw new AssertionError("makeFailureDetail() called with Status == SUCCESS");
+      case NON_ZERO_EXIT -> spawnFailure.setCode(Code.NON_ZERO_EXIT).setSpawnExitCode(exitCode);
+      case TIMEOUT -> spawnFailure.setCode(Code.TIMEOUT);
+      case OUT_OF_MEMORY -> spawnFailure.setCode(Code.OUT_OF_MEMORY);
+      case EXECUTION_FAILED -> spawnFailure.setCode(Code.EXECUTION_FAILED);
+      case EXECUTION_FAILED_CATASTROPHICALLY ->
+          spawnFailure.setCode(Code.EXECUTION_FAILED).setCatastrophic(true);
+      case EXECUTION_DENIED -> spawnFailure.setCode(Code.EXECUTION_DENIED);
+      case EXECUTION_DENIED_CATASTROPHICALLY ->
+          spawnFailure.setCode(Code.EXECUTION_DENIED).setCatastrophic(true);
+      case REMOTE_CACHE_FAILED -> spawnFailure.setCode(Code.REMOTE_CACHE_FAILED);
     }
     return FailureDetail.newBuilder()
         .setMessage("local spawn failed for " + actionType)

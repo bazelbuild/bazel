@@ -239,58 +239,83 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
 
   @Before
   public void createToolchains() throws Exception {
-    scratch.appendFile("WORKSPACE", "register_toolchains('//toolchains:all')");
+    scratch.appendFile("MODULE.bazel", "register_toolchains('//toolchains:all')");
 
     scratch.file(
         "toolchain/toolchain_def.bzl",
-        "def _impl(ctx):",
-        "  toolchain = platform_common.ToolchainInfo(",
-        "      data = ctx.attr.data)",
-        "  return [toolchain]",
-        "test_toolchain = rule(",
-        "    implementation = _impl,",
-        "    attrs = {",
-        "       'data': attr.string()})");
+        """
+        def _impl(ctx):
+            toolchain = platform_common.ToolchainInfo(
+                data = ctx.attr.data,
+            )
+            return [toolchain]
+
+        test_toolchain = rule(
+            implementation = _impl,
+            attrs = {
+                "data": attr.string(),
+            },
+        )
+        """);
 
     scratch.file("toolchain/BUILD", "toolchain_type(name = 'test_toolchain')");
 
     scratch.appendFile(
         "toolchains/BUILD",
-        "load('//toolchain:toolchain_def.bzl', 'test_toolchain')",
-        "toolchain(",
-        "    name = 'toolchain_1',",
-        "    toolchain_type = '//toolchain:test_toolchain',",
-        "    exec_compatible_with = [],",
-        "    target_compatible_with = [],",
-        "    toolchain = ':toolchain_1_impl')",
-        "test_toolchain(",
-        "  name='toolchain_1_impl',",
-        "  data = 'foo')",
-        "toolchain(",
-        "    name = 'toolchain_2',",
-        "    toolchain_type = '//toolchain:test_toolchain',",
-        "    exec_compatible_with = [],",
-        "    target_compatible_with = [],",
-        "    toolchain = ':toolchain_2_impl')",
-        "test_toolchain(",
-        "    name='toolchain_2_impl',",
-        "    data = 'bar')");
+        """
+        load("//toolchain:toolchain_def.bzl", "test_toolchain")
+
+        toolchain(
+            name = "toolchain_1",
+            exec_compatible_with = [],
+            target_compatible_with = [],
+            toolchain = ":toolchain_1_impl",
+            toolchain_type = "//toolchain:test_toolchain",
+        )
+
+        test_toolchain(
+            name = "toolchain_1_impl",
+            data = "foo",
+        )
+
+        toolchain(
+            name = "toolchain_2",
+            exec_compatible_with = [],
+            target_compatible_with = [],
+            toolchain = ":toolchain_2_impl",
+            toolchain_type = "//toolchain:test_toolchain",
+        )
+
+        test_toolchain(
+            name = "toolchain_2_impl",
+            data = "bar",
+        )
+        """);
 
     scratch.appendFile(
         "toolchain/rule.bzl",
-        "def _impl(ctx):",
-        "    data = ctx.toolchains['//toolchain:test_toolchain'].data",
-        "    return []",
-        "my_rule = rule(",
-        "    implementation = _impl,",
-        "    toolchains = ['//toolchain:test_toolchain'],",
-        ")");
+        """
+        def _impl(ctx):
+            data = ctx.toolchains["//toolchain:test_toolchain"].data
+            return []
+
+        my_rule = rule(
+            implementation = _impl,
+            toolchains = ["//toolchain:test_toolchain"],
+        )
+        """);
   }
 
   // actual tests
   @Test
   public void basicToolchains() throws Exception {
-    scratch.file("a/BUILD", "load('//toolchain:rule.bzl', 'my_rule')", "my_rule(name = 'a')");
+    scratch.file(
+        "a/BUILD",
+        """
+        load("//toolchain:rule.bzl", "my_rule")
+
+        my_rule(name = "a")
+        """);
 
     ToolchainCollection<UnloadedToolchainContext> toolchainCollection =
         getToolchainCollection("//a");
@@ -305,12 +330,127 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
   }
 
   @Test
+  public void basicToolchainsWithAliasAutoExecGroups() throws Exception {
+    scratch.file(
+        "test/alias/BUILD",
+        """
+        alias(
+            name = "alias_toolchain_type",
+            actual = "//toolchain:test_toolchain",
+        )
+        """);
+    scratch.file(
+        "test/defs.bzl",
+        """
+        def _impl(ctx):
+            print(ctx.toolchains["//test/alias:alias_toolchain_type"])
+            print(ctx.toolchains["//toolchain:test_toolchain"])
+            return []
+
+        custom_rule = rule(
+            implementation = _impl,
+            toolchains = ["//test/alias:alias_toolchain_type"],
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:defs.bzl", "custom_rule")
+
+        custom_rule(
+            name = "custom_rule_name",
+        )
+        """);
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    assertThat(update("//test:custom_rule_name").hasError()).isFalse();
+  }
+
+  @Test
+  public void basicToolchainsWithAliasNoAutoExecGroups() throws Exception {
+    scratch.file(
+        "test/alias/BUILD",
+        """
+        alias(
+            name = "alias_toolchain_type",
+            actual = "//toolchain:test_toolchain",
+        )
+        """);
+    scratch.file(
+        "test/defs.bzl",
+        """
+        def _impl(ctx):
+            print(ctx.toolchains["//test/alias:alias_toolchain_type"])
+            print(ctx.toolchains["//toolchain:test_toolchain"])
+            return []
+
+        custom_rule = rule(
+            implementation = _impl,
+            toolchains = ["//test/alias:alias_toolchain_type"],
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:defs.bzl", "custom_rule")
+
+        custom_rule(
+            name = "custom_rule_name",
+        )
+        """);
+    useConfiguration("--noincompatible_auto_exec_groups");
+
+    assertThat(update("//test:custom_rule_name").hasError()).isFalse();
+  }
+
+  @Test
+  public void basicToolchainsWithAliasNoAutoExecGroups_test() throws Exception {
+    scratch.appendFile(
+        "toolchain/exec_group_rule.bzl",
+        """
+        def _impl(ctx):
+            if "//toolchain:test_toolchain" in ctx.toolchains:
+                fail("this is not expected, it's an exec gp toolchain")
+            if ctx.exec_groups["temp"].toolchains["//toolchain:test_toolchain"] == None:
+                fail("this is not expected, it's an exec gp toolchain")
+            return []
+
+        my_exec_group_rule = rule(
+            implementation = _impl,
+            exec_groups = {
+                "temp": exec_group(
+                    toolchains = ["//toolchain:test_toolchain"],
+                ),
+            },
+        )
+        """);
+
+    scratch.file(
+        "a/BUILD",
+        """
+        load("//toolchain:exec_group_rule.bzl", "my_exec_group_rule")
+
+        my_exec_group_rule(name = "a")
+        """);
+
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    assertThat(update("//a:a").hasError()).isFalse();
+  }
+
+  @Test
   public void execPlatform() throws Exception {
     // Add some platforms and custom constraints.
     scratch.file("platforms/BUILD", "platform(name = 'local_platform_a')");
 
     // Test normal resolution, and with a per-target exec constraint.
-    scratch.file("a/BUILD", "load('//toolchain:rule.bzl', 'my_rule')", "my_rule(name = 'a')");
+    scratch.file(
+        "a/BUILD",
+        """
+        load("//toolchain:rule.bzl", "my_rule")
+
+        my_rule(name = "a")
+        """);
 
     useConfiguration("--extra_execution_platforms=//platforms:local_platform_a");
 
@@ -329,23 +469,41 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
     // Add some platforms and custom constraints.
     scratch.file(
         "platforms/BUILD",
-        "constraint_setting(name = 'local_setting')",
-        "constraint_value(name = 'local_value_a', constraint_setting = ':local_setting')",
-        "constraint_value(name = 'local_value_b', constraint_setting = ':local_setting')",
-        "platform(name = 'local_platform_a',",
-        "    constraint_values = [':local_value_a'],",
-        ")",
-        "platform(name = 'local_platform_b',",
-        "    constraint_values = [':local_value_b'],",
-        ")");
+        """
+        constraint_setting(name = "local_setting")
+
+        constraint_value(
+            name = "local_value_a",
+            constraint_setting = ":local_setting",
+        )
+
+        constraint_value(
+            name = "local_value_b",
+            constraint_setting = ":local_setting",
+        )
+
+        platform(
+            name = "local_platform_a",
+            constraint_values = [":local_value_a"],
+        )
+
+        platform(
+            name = "local_platform_b",
+            constraint_values = [":local_value_b"],
+        )
+        """);
 
     // Test normal resolution, and with a per-target exec constraint.
     scratch.file(
         "a/BUILD",
-        "load('//toolchain:rule.bzl', 'my_rule')",
-        "my_rule(name = 'a',",
-        "    exec_compatible_with = ['//platforms:local_value_b'],",
-        ")");
+        """
+        load("//toolchain:rule.bzl", "my_rule")
+
+        my_rule(
+            name = "a",
+            exec_compatible_with = ["//platforms:local_value_b"],
+        )
+        """);
 
     useConfiguration(
         "--extra_execution_platforms=//platforms:local_platform_a,//platforms:local_platform_b");
@@ -365,21 +523,27 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
     // Write a rule with exec groups.
     scratch.appendFile(
         "toolchain/exec_group_rule.bzl",
-        "def _impl(ctx):",
-        "    pass",
-        "my_exec_group_rule = rule(",
-        "    implementation = _impl,",
-        "    exec_groups = {",
-        "        'temp': exec_group(",
-        "             toolchains = ['//toolchain:test_toolchain'],",
-        "         ),",
-        "    },",
-        ")");
+        """
+        def _impl(ctx):
+            pass
+
+        my_exec_group_rule = rule(
+            implementation = _impl,
+            exec_groups = {
+                "temp": exec_group(
+                    toolchains = ["//toolchain:test_toolchain"],
+                ),
+            },
+        )
+        """);
 
     scratch.file(
         "a/BUILD",
-        "load('//toolchain:exec_group_rule.bzl', 'my_exec_group_rule')",
-        "my_exec_group_rule(name = 'a')");
+        """
+        load("//toolchain:exec_group_rule.bzl", "my_exec_group_rule")
+
+        my_exec_group_rule(name = "a")
+        """);
 
     ToolchainCollection<UnloadedToolchainContext> toolchainCollection =
         getToolchainCollection("//a");
@@ -408,37 +572,50 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
     // Add another toolchain type.
     scratch.appendFile(
         "extra/BUILD",
-        "load('//toolchain:toolchain_def.bzl', 'test_toolchain')",
-        "toolchain_type(name = 'extra_toolchain')",
-        "toolchain(",
-        "    name = 'toolchain',",
-        "    toolchain_type = ':extra_toolchain',",
-        "    exec_compatible_with = [],",
-        "    target_compatible_with = [],",
-        "    toolchain = ':toolchain_impl')",
-        "test_toolchain(",
-        "    name='toolchain_impl',",
-        "    data = 'foo')");
+        """
+        load("//toolchain:toolchain_def.bzl", "test_toolchain")
+
+        toolchain_type(name = "extra_toolchain")
+
+        toolchain(
+            name = "toolchain",
+            exec_compatible_with = [],
+            target_compatible_with = [],
+            toolchain = ":toolchain_impl",
+            toolchain_type = ":extra_toolchain",
+        )
+
+        test_toolchain(
+            name = "toolchain_impl",
+            data = "foo",
+        )
+        """);
 
     // Write a rule with exec groups.
     scratch.appendFile(
         "toolchain/exec_group_rule.bzl",
-        "def _impl(ctx):",
-        "    pass",
-        "my_exec_group_rule = rule(",
-        "    implementation = _impl,",
-        "    toolchains = ['//extra:extra_toolchain'],",
-        "    exec_groups = {",
-        "        'temp': exec_group(",
-        "             toolchains = ['//toolchain:test_toolchain'],",
-        "         ),",
-        "    },",
-        ")");
+        """
+        def _impl(ctx):
+            pass
+
+        my_exec_group_rule = rule(
+            implementation = _impl,
+            toolchains = ["//extra:extra_toolchain"],
+            exec_groups = {
+                "temp": exec_group(
+                    toolchains = ["//toolchain:test_toolchain"],
+                ),
+            },
+        )
+        """);
 
     scratch.file(
         "a/BUILD",
-        "load('//toolchain:exec_group_rule.bzl', 'my_exec_group_rule')",
-        "my_exec_group_rule(name = 'a')");
+        """
+        load("//toolchain:exec_group_rule.bzl", "my_exec_group_rule")
+
+        my_exec_group_rule(name = "a")
+        """);
 
     useConfiguration("--extra_toolchains=//extra:toolchain");
     ToolchainCollection<UnloadedToolchainContext> toolchainCollection =
@@ -466,18 +643,38 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
     // Add some platforms and custom constraints.
     scratch.file(
         "platforms/BUILD",
-        "constraint_setting(name = 'local_setting')",
-        "constraint_value(name = 'local_value_a', constraint_setting = ':local_setting')",
-        "constraint_value(name = 'local_value_b', constraint_setting = ':local_setting')",
-        "platform(name = 'local_platform_a',",
-        "    constraint_values = [':local_value_a'],",
-        ")",
-        "platform(name = 'local_platform_b',",
-        "    constraint_values = [':local_value_b'],",
-        ")");
+        """
+        constraint_setting(name = "local_setting")
+
+        constraint_value(
+            name = "local_value_a",
+            constraint_setting = ":local_setting",
+        )
+
+        constraint_value(
+            name = "local_value_b",
+            constraint_setting = ":local_setting",
+        )
+
+        platform(
+            name = "local_platform_a",
+            constraint_values = [":local_value_a"],
+        )
+
+        platform(
+            name = "local_platform_b",
+            constraint_values = [":local_value_b"],
+        )
+        """);
 
     // Test normal resolution, and with a per-target exec constraint.
-    scratch.file("a/BUILD", "load('//toolchain:rule.bzl', 'my_rule')", "my_rule(name = 'a')");
+    scratch.file(
+        "a/BUILD",
+        """
+        load("//toolchain:rule.bzl", "my_rule")
+
+        my_rule(name = "a")
+        """);
 
     useConfiguration(
         "--extra_execution_platforms=//platforms:local_platform_a,//platforms:local_platform_b");
@@ -508,16 +705,44 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
       throws Exception {
     scratch.file(
         "platforms/BUILD",
-        "constraint_setting(name = 'local_setting')",
-        "constraint_value(name = 'local_value_a', constraint_setting = ':local_setting')",
-        "constraint_value(name = 'local_value_b', constraint_setting = ':local_setting')",
-        "platform(name = 'local_platform_a', constraint_values = [':local_value_a'])",
-        "platform(name = 'local_platform_b', constraint_values = [':local_value_b'])");
+        """
+        constraint_setting(name = "local_setting")
+
+        constraint_value(
+            name = "local_value_a",
+            constraint_setting = ":local_setting",
+        )
+
+        constraint_value(
+            name = "local_value_b",
+            constraint_setting = ":local_setting",
+        )
+
+        platform(
+            name = "local_platform_a",
+            constraint_values = [":local_value_a"],
+        )
+
+        platform(
+            name = "local_platform_b",
+            constraint_values = [":local_value_b"],
+        )
+        """);
     scratch.file(
         "a/BUILD",
-        "load('//toolchain:rule.bzl', 'my_rule')",
-        "my_rule(name='a', exec_compatible_with=['//platforms:local_value_a'])",
-        "my_rule(name='b', exec_compatible_with=['//platforms:local_value_b'])");
+        """
+        load("//toolchain:rule.bzl", "my_rule")
+
+        my_rule(
+            name = "a",
+            exec_compatible_with = ["//platforms:local_value_a"],
+        )
+
+        my_rule(
+            name = "b",
+            exec_compatible_with = ["//platforms:local_value_b"],
+        )
+        """);
     useConfiguration(
         "--collect_code_coverage",
         "--extra_execution_platforms=//platforms:local_platform_a,//platforms:local_platform_b");
@@ -558,28 +783,53 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
         .setupCcToolchainConfig(
             mockToolsConfig,
             CcToolchainConfig.builder()
-                .withToolchainTargetConstraints("@//platforms:local_value_a")
+                .withToolchainTargetConstraints("@@//platforms:local_value_a")
                 .withToolchainExecConstraints()
                 .withCpu("fake"));
     scratch.file(
         "platforms/BUILD",
-        "constraint_setting(name = 'local_setting')",
-        "constraint_value(name = 'local_value_a', constraint_setting = ':local_setting')",
-        "constraint_value(name = 'local_value_b', constraint_setting = ':local_setting')",
-        "platform(name = 'local_platform_a',",
-        "    constraint_values = [':local_value_a'],",
-        ")",
-        "platform(name = 'local_platform_b',",
-        "    constraint_values = [':local_value_b'],",
-        ")");
+        """
+        constraint_setting(name = "local_setting")
+
+        constraint_value(
+            name = "local_value_a",
+            constraint_setting = ":local_setting",
+        )
+
+        constraint_value(
+            name = "local_value_b",
+            constraint_setting = ":local_setting",
+        )
+
+        platform(
+            name = "local_platform_a",
+            constraint_values = [":local_value_a"],
+        )
+
+        platform(
+            name = "local_platform_b",
+            constraint_values = [":local_value_b"],
+        )
+        """);
     useConfiguration(
         "--extra_execution_platforms=//platforms:local_platform_a,//platforms:local_platform_b");
     scratch.file(
         "foo/BUILD",
-        "sh_binary(name = 'tool', srcs = ['a.sh'], ",
-        "  target_compatible_with = ['//platforms:local_value_b'])",
-        "genrule(name = 'runtool', tools = [':tool'], cmd = '', outs = ['b.txt'],",
-        "  exec_compatible_with = ['//platforms:local_value_b'])");
+        """
+        sh_binary(
+            name = "tool",
+            srcs = ["a.sh"],
+            target_compatible_with = ["//platforms:local_value_b"],
+        )
+
+        genrule(
+            name = "runtool",
+            outs = ["b.txt"],
+            cmd = "",
+            exec_compatible_with = ["//platforms:local_value_b"],
+            tools = [":tool"],
+        )
+        """);
 
     AnalysisResult result = updateExplicitTarget("//foo:runtool");
 
@@ -591,23 +841,48 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
   public void targetCompatibleWith_mismatchesExecCompatibleWith() throws Exception {
     scratch.file(
         "platforms/BUILD",
-        "constraint_setting(name = 'local_setting')",
-        "constraint_value(name = 'local_value_a', constraint_setting = ':local_setting')",
-        "constraint_value(name = 'local_value_b', constraint_setting = ':local_setting')",
-        "platform(name = 'local_platform_a',",
-        "    constraint_values = [':local_value_a'],",
-        ")",
-        "platform(name = 'local_platform_b',",
-        "    constraint_values = [':local_value_b'],",
-        ")");
+        """
+        constraint_setting(name = "local_setting")
+
+        constraint_value(
+            name = "local_value_a",
+            constraint_setting = ":local_setting",
+        )
+
+        constraint_value(
+            name = "local_value_b",
+            constraint_setting = ":local_setting",
+        )
+
+        platform(
+            name = "local_platform_a",
+            constraint_values = [":local_value_a"],
+        )
+
+        platform(
+            name = "local_platform_b",
+            constraint_values = [":local_value_b"],
+        )
+        """);
     useConfiguration(
         "--extra_execution_platforms=//platforms:local_platform_a,//platforms:local_platform_b");
     scratch.file(
         "foo/BUILD",
-        "sh_binary(name = 'tool', srcs = ['a.sh'], ",
-        "  target_compatible_with = ['//platforms:local_value_a'])",
-        "genrule(name = 'runtool', tools = [':tool'], cmd = '', outs = ['b.txt'],",
-        "  exec_compatible_with = ['//platforms:local_value_b'])");
+        """
+        sh_binary(
+            name = "tool",
+            srcs = ["a.sh"],
+            target_compatible_with = ["//platforms:local_value_a"],
+        )
+
+        genrule(
+            name = "runtool",
+            outs = ["b.txt"],
+            cmd = "",
+            exec_compatible_with = ["//platforms:local_value_b"],
+            tools = [":tool"],
+        )
+        """);
 
     reporter.removeHandler(failFastHandler);
     AnalysisResult result = updateExplicitTarget("//foo:runtool");
@@ -627,35 +902,59 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
     // and it's verified if the tool is visible to the Starlark target.
     scratch.file(
         "platforms/BUILD",
-        "constraint_setting(name = 'local_setting')",
-        "constraint_value(name = 'local_value_a', constraint_setting = ':local_setting')",
-        "constraint_value(name = 'local_value_b', constraint_setting = ':local_setting')",
-        "platform(name = 'local_platform_a',",
-        "    constraint_values = [':local_value_a'],",
-        ")",
-        "platform(name = 'local_platform_b',",
-        "    constraint_values = [':local_value_b'],",
-        ")");
+        """
+        constraint_setting(name = "local_setting")
+
+        constraint_value(
+            name = "local_value_a",
+            constraint_setting = ":local_setting",
+        )
+
+        constraint_value(
+            name = "local_value_b",
+            constraint_setting = ":local_setting",
+        )
+
+        platform(
+            name = "local_platform_a",
+            constraint_values = [":local_value_a"],
+        )
+
+        platform(
+            name = "local_platform_b",
+            constraint_values = [":local_value_b"],
+        )
+        """);
 
     useConfiguration(
-        "--extra_execution_platforms=//platforms:local_platform_a,//platforms:local_platform_b",
-        "--incompatible_visibility_private_attributes_at_definition");
+        "--extra_execution_platforms=//platforms:local_platform_a,//platforms:local_platform_b");
     scratch.file(
         "foo/lib.bzl",
-        "def _impl(ctx):",
-        "  pass",
-        "my_rule = rule(",
-        "  _impl,",
-        "  attrs = { '_my_tool': attr.label(default = '//tool') },",
-        ")");
+        """
+        def _impl(ctx):
+            pass
+
+        my_rule = rule(
+            _impl,
+            attrs = {"_my_tool": attr.label(default = "//tool")},
+        )
+        """);
     scratch.file(
         "tool/BUILD",
-        "sh_binary(name = 'tool', srcs = ['a.cc'], ",
-        "  target_compatible_with = ['//platforms:local_value_a'])");
+        """
+        sh_binary(
+            name = "tool",
+            srcs = ["a.cc"],
+            target_compatible_with = ["//platforms:local_value_a"],
+        )
+        """);
     scratch.file(
-        "foo/BUILD", //
-        "load(':lib.bzl','my_rule')",
-        "my_rule(name = 'target_in_different_package')");
+        "foo/BUILD",
+        """
+        load(":lib.bzl", "my_rule")
+
+        my_rule(name = "target_in_different_package")
+        """);
 
     reporter.removeHandler(failFastHandler);
     AnalysisResult result = updateExplicitTarget("//foo:target_in_different_package");
@@ -671,36 +970,64 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
       throws Exception {
     scratch.file(
         "platforms/BUILD",
-        "constraint_setting(name = 'local_setting')",
-        "constraint_value(name = 'local_value_a', constraint_setting = ':local_setting')",
-        "constraint_value(name = 'local_value_b', constraint_setting = ':local_setting')",
-        "platform(name = 'local_platform_a',",
-        "    constraint_values = [':local_value_a'],",
-        ")",
-        "platform(name = 'local_platform_b',",
-        "    constraint_values = [':local_value_b'],",
-        ")");
+        """
+        constraint_setting(name = "local_setting")
+
+        constraint_value(
+            name = "local_value_a",
+            constraint_setting = ":local_setting",
+        )
+
+        constraint_value(
+            name = "local_value_b",
+            constraint_setting = ":local_setting",
+        )
+
+        platform(
+            name = "local_platform_a",
+            constraint_values = [":local_value_a"],
+        )
+
+        platform(
+            name = "local_platform_b",
+            constraint_values = [":local_value_b"],
+        )
+        """);
 
     useConfiguration(
-        "--extra_execution_platforms=//platforms:local_platform_a,//platforms:local_platform_b",
-        "--incompatible_visibility_private_attributes_at_definition");
+        "--extra_execution_platforms=//platforms:local_platform_a,//platforms:local_platform_b");
     scratch.file(
         "foo/lib.bzl",
-        "def _impl(ctx):",
-        "  pass",
-        "my_rule = rule(",
-        "  _impl,",
-        "  attrs = { '_my_tool': attr.label(default = '//tool') },",
-        ")");
+        """
+        def _impl(ctx):
+            pass
+
+        my_rule = rule(
+            _impl,
+            attrs = {"_my_tool": attr.label(default = "//tool")},
+        )
+        """);
     scratch.file(
         "tool/BUILD",
-        "sh_binary(name = 'tool', srcs = ['a.cc'], ",
-        "  target_compatible_with = ['//platforms:local_value_a'])");
+        """
+        sh_binary(
+            name = "tool",
+            srcs = ["a.cc"],
+            target_compatible_with = ["//platforms:local_value_a"],
+        )
+        """);
     scratch.file(
         "foo/BUILD",
-        "load(':lib.bzl','my_rule')",
-        "my_rule(name = 'dep')",
-        "filegroup(name = 'target_with_dep', srcs = [':dep'])");
+        """
+        load(":lib.bzl", "my_rule")
+
+        my_rule(name = "dep")
+
+        filegroup(
+            name = "target_with_dep",
+            srcs = [":dep"],
+        )
+        """);
 
     reporter.removeHandler(failFastHandler);
     AnalysisResult result = updateExplicitTarget("//foo:target_with_dep");
@@ -721,46 +1048,76 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
     // and it's verified if the tool is visible to the Starlark target the aspect is over.
     scratch.file(
         "platforms/BUILD",
-        "constraint_setting(name = 'local_setting')",
-        "constraint_value(name = 'local_value_a', constraint_setting = ':local_setting')",
-        "constraint_value(name = 'local_value_b', constraint_setting = ':local_setting')",
-        "platform(name = 'local_platform_a',",
-        "    constraint_values = [':local_value_a'],",
-        ")",
-        "platform(name = 'local_platform_b',",
-        "    constraint_values = [':local_value_b'],",
-        ")");
+        """
+        constraint_setting(name = "local_setting")
+
+        constraint_value(
+            name = "local_value_a",
+            constraint_setting = ":local_setting",
+        )
+
+        constraint_value(
+            name = "local_value_b",
+            constraint_setting = ":local_setting",
+        )
+
+        platform(
+            name = "local_platform_a",
+            constraint_values = [":local_value_a"],
+        )
+
+        platform(
+            name = "local_platform_b",
+            constraint_values = [":local_value_b"],
+        )
+        """);
 
     useConfiguration(
-        "--extra_execution_platforms=//platforms:local_platform_a,//platforms:local_platform_b",
-        "--incompatible_visibility_private_attributes_at_definition");
+        "--extra_execution_platforms=//platforms:local_platform_a,//platforms:local_platform_b");
     scratch.file(
         "foo/lib.bzl",
-        "def _impl_aspect(ctx, target):",
-        "  return []",
-        "my_aspect = aspect(",
-        "  _impl_aspect,",
-        "  attrs = { '_my_tool': attr.label(default = '//tool') },",
-        "  exec_compatible_with = ['//platforms:local_value_a'],",
-        ")",
-        "def _impl(ctx):",
-        "  pass",
-        "my_rule = rule(",
-        "  _impl,",
-        "  attrs = { 'deps': attr.label_list(aspects = [my_aspect]) },",
-        ")",
-        "simple_starlark_rule = rule(",
-        "  _impl,",
-        ")");
+        """
+        def _impl_aspect(ctx, target):
+            return []
+
+        my_aspect = aspect(
+            _impl_aspect,
+            attrs = {"_my_tool": attr.label(default = "//tool")},
+            exec_compatible_with = ["//platforms:local_value_a"],
+        )
+
+        def _impl(ctx):
+            pass
+
+        my_rule = rule(
+            _impl,
+            attrs = {"deps": attr.label_list(aspects = [my_aspect])},
+        )
+        simple_starlark_rule = rule(
+            _impl,
+        )
+        """);
     scratch.file(
         "tool/BUILD",
-        "sh_binary(name = 'tool', srcs = ['a.cc'], ",
-        "  target_compatible_with = ['//platforms:local_value_b'])");
+        """
+        sh_binary(
+            name = "tool",
+            srcs = ["a.cc"],
+            target_compatible_with = ["//platforms:local_value_b"],
+        )
+        """);
     scratch.file(
         "foo/BUILD",
-        "load(':lib.bzl','my_rule', 'simple_starlark_rule')",
-        "simple_starlark_rule(name = 'simple_dep')",
-        "my_rule(name = 'target_with_aspect', deps = [':simple_dep'])");
+        """
+        load(":lib.bzl", "my_rule", "simple_starlark_rule")
+
+        simple_starlark_rule(name = "simple_dep")
+
+        my_rule(
+            name = "target_with_aspect",
+            deps = [":simple_dep"],
+        )
+        """);
 
     reporter.removeHandler(failFastHandler);
     AnalysisResult result = updateExplicitTarget("//foo:target_with_aspect");

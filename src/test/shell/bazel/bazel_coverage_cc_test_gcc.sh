@@ -78,9 +78,9 @@ function test_cc_test_coverage_gcov() {
     echo "Skipping test." && return
   fi
   setup_a_cc_lib_and_t_cc_test
-
+  BEP=bep.txt
   bazel coverage  --test_output=all \
-     --build_event_text_file=bep.txt //:t &>"$TEST_log" \
+     --build_event_text_file="${BEP}" //:t &>"$TEST_log" \
      || fail "Coverage for //:t failed"
 
   local coverage_file_path="$( get_coverage_file_path_from_test_log )"
@@ -109,12 +109,23 @@ end_of_record"
 
   # Verify that this is also true for cached coverage actions.
   bazel coverage  --test_output=all \
-      --build_event_text_file=bep.txt //:t \
+      --build_event_text_file="${BEP}" \
+      --legacy_important_outputs //:t \
       &>"$TEST_log" || fail "Coverage for //:t failed"
   expect_log '//:t.*cached'
   # Verify the files are reported correctly in the build event protocol.
-  assert_contains 'name: "test.lcov"' bep.txt
-  assert_contains 'name: "baseline.lcov"' bep.txt
+  assert_contains 'name: "test.lcov"' "${BEP}"
+  assert_contains 'name: "baseline.lcov"' "${BEP}"
+    # Assert coverage output is reported in the right proto fields
+  grep 'name: "baseline.lcov"' -B1 "${BEP}" | grep -q 'output_group'\
+    || fail "File 'baseline.lcov' missing in output_group!"
+  grep 'name: "t/baseline_coverage.dat"' -B1 "${BEP}"\
+    | grep -q 'inline_files'\
+    || fail "File 'baseline_coverage.dat' missing in inline_files!"
+  grep 'name: "baseline.lcov"' -B1 "${BEP}" | grep -q 'important_output'\
+    || fail "File 'baseline.lcov' missing in important_output!"
+  grep 'name: "test.lcov"' -B1 "${BEP}" | grep -q 'test_action_output'\
+    || fail "File 'test.lcov' missing in test_action_output!"
 }
 
 # TODO(#6254): Enable this test when #6254 is fixed.
@@ -925,7 +936,8 @@ EOF
 }
 
 function setup_external_cc_target() {
-  cat > WORKSPACE <<'EOF'
+  cat > MODULE.bazel <<'EOF'
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "other_repo",
     path = "other_repo",
@@ -956,7 +968,7 @@ int b(bool what) {
 EOF
 
   mkdir -p other_repo
-  touch other_repo/WORKSPACE
+  touch other_repo/REPO.bazel
 
   cat > other_repo/BUILD <<'EOF'
 cc_library(
@@ -1012,7 +1024,7 @@ function test_external_cc_target_can_collect_coverage() {
       &>"$TEST_log" || fail "Coverage for @other_repo//:t failed"
 
   local coverage_file_path="$(get_coverage_file_path_from_test_log)"
-  local expected_result_a_cc='SF:external/other_repo/a.cc
+  local expected_result_a_cc='SF:external/+_repo_rules+other_repo/a.cc
 FN:4,_Z1ab
 FNDA:1,_Z1ab
 FNF:1
@@ -1078,7 +1090,7 @@ LF:4
 end_of_record'
 
   assert_cc_coverage_result "$expected_result_b_cc" "$coverage_file_path"
-  assert_not_contains "SF:external/other_repo/a.cc" "$coverage_file_path"
+  assert_not_contains "SF:external/+_repo_rules+other_repo/a.cc" "$coverage_file_path"
 }
 
 run_suite "test tests"

@@ -13,11 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.platform;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.testing.EqualsTester;
+import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo.ExecPropertiesException;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -347,6 +352,99 @@ public class PlatformInfoTest extends BuildViewTestCase {
   }
 
   @Test
+  public void flags_empty() throws Exception {
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    // Don't add any flags
+    PlatformInfo platformInfo = builder.build();
+
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.flags()).isEmpty();
+  }
+
+  @Test
+  public void flags() throws Exception {
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.addFlags(ImmutableList.of("--cpu=k8", "--//starlark:flag=other"));
+    PlatformInfo platformInfo = builder.build();
+
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.flags()).containsExactly("--cpu=k8", "--//starlark:flag=other");
+  }
+
+  @Test
+  public void flags_parentPlatform_keep() throws Exception {
+    PlatformInfo parent = PlatformInfo.builder().addFlags(ImmutableList.of("--cpu=k8")).build();
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.setParent(parent);
+    builder.addFlags(ImmutableList.of("--//starlark:flag=other"));
+    PlatformInfo platformInfo = builder.build();
+
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.flags())
+        .containsExactly("--cpu=k8", "--//starlark:flag=other")
+        .inOrder();
+  }
+
+  @Test
+  public void flags_parentPlatform_inheritance() throws Exception {
+    PlatformInfo parent = PlatformInfo.builder().addFlags(ImmutableList.of("--cpu=arm")).build();
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.setParent(parent);
+    builder.addFlags(ImmutableList.of("--cpu=k8"));
+    PlatformInfo platformInfo = builder.build();
+
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.flags()).containsExactly("--cpu=arm", "--cpu=k8").inOrder();
+  }
+
+  @Test
+  public void requiredSettings_empty() throws Exception {
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    // Don't add any settings
+    PlatformInfo platformInfo = builder.build();
+
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.requiredSettings()).isEmpty();
+  }
+
+  @Test
+  public void requiredSettings() throws Exception {
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.addRequiredSettings(
+        ImmutableList.of(
+            configMatchingProvider("//setting:first", true),
+            configMatchingProvider("//setting:second", false)));
+    PlatformInfo platformInfo = builder.build();
+
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.requiredSettings()).hasSize(2);
+    assertThat(
+            platformInfo.requiredSettings().stream()
+                .map(ConfigMatchingProvider::label)
+                .collect(toImmutableSet()))
+        .containsExactly(
+            Label.parseCanonicalUnchecked("//setting:first"),
+            Label.parseCanonicalUnchecked("//setting:second"));
+  }
+
+  @Test
+  public void requiredSettings_parentPlatform_areIgnored() throws Exception {
+    PlatformInfo parent =
+        PlatformInfo.builder()
+            .addRequiredSettings(
+                ImmutableList.of(
+                    configMatchingProvider("//setting:first", true),
+                    configMatchingProvider("//setting:second", false)))
+            .build();
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.setParent(parent);
+    PlatformInfo platformInfo = builder.build();
+
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.requiredSettings()).isEmpty();
+  }
+
+  @Test
   public void equalsTester() throws Exception {
     ConstraintSettingInfo setting1 =
         ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//constraint:basic"));
@@ -402,5 +500,14 @@ public class PlatformInfoTest extends BuildViewTestCase {
                 .setRemoteExecutionProperties("foo")
                 .build())
         .testEquals();
+  }
+
+  private static ConfigMatchingProvider configMatchingProvider(String label, boolean match) {
+    return ConfigMatchingProvider.create(
+        Label.parseCanonicalUnchecked(label),
+        ImmutableMultimap.of(),
+        ImmutableMap.of(),
+        ImmutableSet.of(),
+        ConfigMatchingProvider.MatchResult.create(match));
   }
 }

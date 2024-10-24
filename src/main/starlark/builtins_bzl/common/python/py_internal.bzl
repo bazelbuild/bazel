@@ -35,6 +35,9 @@ def _add_py_extra_pseudo_action(*args, **kwargs):
 def _are_action_listeners_enabled(*args, **kwargs):
     return _py_builtins.are_action_listeners_enabled(*args, **kwargs)
 
+def _cc_info_debug_context(cc_info, *args, **kwargs):
+    return cc_info.debug_context(*args, **kwargs)
+
 def _cc_semantics_get_cc_runtimes(*args, **kwargs):
     return cc_semantics.get_cc_runtimes(*args, **kwargs)
 
@@ -45,16 +48,22 @@ def _cc_semantics_get_stl(*args, **kwargs):
     return cc_semantics.get_stl(*args, **kwargs)
 
 def _cc_toolchain_strip_files(cc_toolchain, *args, **kwargs):
-    return cc_toolchain.strip_files(*args, **kwargs)
+    return cc_toolchain._strip_files
 
 def _cc_toolchain_build_info_files(cc_toolchain, *args, **kwargs):
-    return cc_toolchain.build_info_files(*args, **kwargs)
+    return cc_toolchain._build_info_files
 
 def _cc_launcher_info_cc_info(cc_launcher_info, *args, **kwargs):
     return cc_launcher_info.cc_info(*args, **kwargs)
 
 def _compilation_outputs(cc_launcher_info):
     return cc_launcher_info.compilation_outputs()
+
+def _compilation_outputs_gcno_files(compilation_outputs, *args, **kwargs):
+    return compilation_outputs.gcno_files(*args, **kwargs)
+
+def _compilation_outputs_pic_gcno_files(compilation_outputs, *args, **kwargs):
+    return compilation_outputs.pic_gcno_files(*args, **kwargs)
 
 def _compile(*args, **kwargs):
     return cc_common.compile(*args, **kwargs)
@@ -107,6 +116,9 @@ def _is_singleton_depset(*args, **kwargs):
 def _is_tool_configuration(ctx):
     return ctx.configuration.is_tool_configuration()
 
+def _regex_match(*args, **kwargs):
+    return _py_builtins.regex_match(*args, **kwargs)
+
 def _runfiles_enabled(ctx):
     return ctx.configuration.runfiles_enabled()
 
@@ -150,6 +162,7 @@ py_internal = struct(
     add_py_extra_pseudo_action = _add_py_extra_pseudo_action,
     are_action_listeners_enabled = _are_action_listeners_enabled,
     cc_helper = cc_helper,
+    cc_info_debug_context = _cc_info_debug_context,
     cc_launcher_info_cc_info = _cc_launcher_info_cc_info,
     cc_semantics_get_cc_runtimes = _cc_semantics_get_cc_runtimes,
     cc_semantics_get_runtimes_toolchain = _cc_semantics_get_runtimes_toolchain,
@@ -157,6 +170,8 @@ py_internal = struct(
     cc_toolchain_strip_files = _cc_toolchain_strip_files,
     cc_toolchain_build_info_files = _cc_toolchain_build_info_files,
     compilation_outputs = _compilation_outputs,
+    compilation_outputs_gcno_files = _compilation_outputs_gcno_files,
+    compilation_outputs_pic_gcno_files = _compilation_outputs_pic_gcno_files,
     compile = _compile,
     copy_without_caching = _copy_without_caching,
     create_linking_context_from_compilation_outputs = _create_linking_context_from_compilation_outputs,
@@ -182,6 +197,7 @@ py_internal = struct(
     merge_debug_context = _merge_debug_context,
     merge_linking_contexts = _merge_linking_contexts,
     merge_runfiles_with_generated_inits_empty_files_supplier = _merge_runfiles_with_generated_inits_empty_files_supplier,
+    regex_match = _regex_match,
     runfiles_enabled = _runfiles_enabled,
     share_native_deps = _share_native_deps,
     stamp_binaries = _stamp_binaries,

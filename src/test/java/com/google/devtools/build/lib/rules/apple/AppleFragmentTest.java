@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.apple;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -36,32 +37,38 @@ public class AppleFragmentTest extends BuildViewTestCase {
   public void setup() throws Exception {
     scratch.file(
         "rules.bzl",
-        "MyInfo = provider()",
-        "def _my_binary_impl(ctx):",
-        "    out = ctx.actions.declare_file(ctx.label.name)",
-        "    ctx.actions.write(out, '')",
-        "    return [",
-        "        DefaultInfo(executable = out),",
-        "        MyInfo(",
-        "            exec_cpu = ctx.fragments.apple.single_arch_cpu,",
-        "        ),",
-        "    ]",
-        "my_binary = rule(",
-        "    fragments = ['apple'],",
-        "    implementation = _my_binary_impl,",
-        ")",
-        "def _my_rule_impl(ctx):",
-        "    return ctx.attr._tool[MyInfo]",
-        "my_rule = rule(",
-        "    _my_rule_impl,",
-        "    attrs = {",
-        "        '_tool': attr.label(",
-        "            cfg = 'exec',",
-        "            executable = True,",
-        "            default = ('//:bin'),",
-        "        ),",
-        "    },",
-        ")");
+        """
+        MyInfo = provider()
+
+        def _my_binary_impl(ctx):
+            out = ctx.actions.declare_file(ctx.label.name)
+            ctx.actions.write(out, "")
+            return [
+                DefaultInfo(executable = out),
+                MyInfo(
+                    exec_cpu = ctx.fragments.apple.single_arch_cpu,
+                ),
+            ]
+
+        my_binary = rule(
+            fragments = ["apple"],
+            implementation = _my_binary_impl,
+        )
+
+        def _my_rule_impl(ctx):
+            return ctx.attr._tool[MyInfo]
+
+        my_rule = rule(
+            _my_rule_impl,
+            attrs = {
+                "_tool": attr.label(
+                    cfg = "exec",
+                    executable = True,
+                    default = ("//:bin"),
+                ),
+            },
+        )
+        """);
     scratch.file(
         "BUILD",
         "load(':rules.bzl', 'my_binary', 'my_rule')",
@@ -76,13 +83,17 @@ public class AppleFragmentTest extends BuildViewTestCase {
         ")");
     scratch.file(
         "/workspace/platform_mappings",
-        "platforms:",
-        "  //:macos_arm64",
-        "    --cpu=darwin_arm64",
-        "flags:",
-        "  --cpu=darwin_arm64",
-        "  --apple_platform_type=macos",
-        "    //:macos_arm64");
+        """
+        platforms:
+          //:macos_arm64
+            --cpu=darwin_arm64
+            --macos_cpus=arm64
+
+        flags:
+          --cpu=darwin_arm64
+          --apple_platform_type=macos
+            //:macos_arm64
+        """);
     invalidatePackages(false);
   }
 
@@ -92,7 +103,8 @@ public class AppleFragmentTest extends BuildViewTestCase {
     // platform's cpu in a tool's rule context.
     useConfiguration("--extra_execution_platforms=//:macos_arm64");
     ConfiguredTarget configuredTarget = getConfiguredTarget("//:a");
-    Provider.Key key = new StarlarkProvider.Key(Label.parseCanonical("//:rules.bzl"), "MyInfo");
+    Provider.Key key =
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//:rules.bzl")), "MyInfo");
     StructImpl myInfo = (StructImpl) configuredTarget.get(key);
     assertThat((String) myInfo.getValue("exec_cpu")).isEqualTo("arm64");
   }

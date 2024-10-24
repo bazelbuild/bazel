@@ -26,14 +26,13 @@ public class ByteArrayCodec extends LeafObjectCodec<byte[]> {
   }
 
   @Override
-  public void serialize(
-      SerializationDependencyProvider dependencies, byte[] obj, CodedOutputStream codedOut)
+  public void serialize(LeafSerializationContext context, byte[] obj, CodedOutputStream codedOut)
       throws IOException {
     codedOut.writeByteArrayNoTag(obj);
   }
 
   @Override
-  public byte[] deserialize(SerializationDependencyProvider dependencies, CodedInputStream codedIn)
+  public byte[] deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
       throws IOException {
     return codedIn.readByteArray();
   }

@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 public final class ActionMiddlemanEvent implements Postable {
 
   private final Action action;
+  private final InputMetadataProvider inputMetadataProvider;
   private final long nanoTimeStart;
   private final long nanoTimeFinish;
 
@@ -31,14 +32,20 @@ public final class ActionMiddlemanEvent implements Postable {
    * Create an event for action that has been started.
    *
    * @param action the middleman action.
+   * @param inputMetadataProvider the metadata about the inputs of the action
    * @param nanoTimeStart the time when the action was started. This allow us to record more
    *     accurately the time spent by the middleman action, since even for middleman actions we
    *     execute some.
    */
-  public ActionMiddlemanEvent(Action action, long nanoTimeStart, long nanoTimeFinish) {
+  public ActionMiddlemanEvent(
+      Action action,
+      InputMetadataProvider inputMetadataProvider,
+      long nanoTimeStart,
+      long nanoTimeFinish) {
     Preconditions.checkArgument(action.getActionType().isMiddleman(),
         "Only middleman actions should be passed: %s", action);
     this.action = action;
+    this.inputMetadataProvider = inputMetadataProvider;
     this.nanoTimeStart = nanoTimeStart;
     this.nanoTimeFinish = nanoTimeFinish;
   }
@@ -48,6 +55,11 @@ public final class ActionMiddlemanEvent implements Postable {
    */
   public Action getAction() {
     return action;
+  }
+
+  /** Returns the metadata of the inputs of the action. */
+  public InputMetadataProvider getInputMetadataProvider() {
+    return inputMetadataProvider;
   }
 
   public long getNanoTimeStart() {

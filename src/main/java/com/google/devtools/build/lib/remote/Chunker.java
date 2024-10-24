@@ -16,10 +16,11 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.lang.Math.min;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Throwables;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
@@ -87,10 +88,9 @@ public class Chunker {
       if (o == this) {
         return true;
       }
-      if (!(o instanceof Chunk)) {
+      if (!(o instanceof Chunk other)) {
         return false;
       }
-      Chunk other = (Chunk) o;
       return other.offset == offset && other.data.equals(data);
     }
 
@@ -275,7 +275,10 @@ public class Chunker {
               ? new ChunkerInputStream(new ZstdCompressingInputStream(src))
               : new ChunkerInputStream(src);
     } catch (RuntimeException e) {
-      Throwables.propagateIfPossible(e.getCause(), IOException.class);
+      if (e.getCause() != null) {
+        throwIfInstanceOf(e.getCause(), IOException.class);
+        throwIfUnchecked(e.getCause());
+      }
       throw e;
     }
     offset = srcPos;
@@ -322,8 +325,8 @@ public class Chunker {
     public Builder setInput(long size, ActionInput actionInput, Path execRoot) {
       checkState(inputStream == null);
       this.size = size;
-      if (actionInput instanceof VirtualActionInput) {
-        inputStream = () -> ((VirtualActionInput) actionInput).getBytes().newInput();
+      if (actionInput instanceof VirtualActionInput virtualActionInput) {
+        inputStream = () -> virtualActionInput.getBytes().newInput();
       } else {
         inputStream = () -> ActionInputHelper.toInputPath(actionInput, execRoot).getInputStream();
       }

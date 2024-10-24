@@ -328,4 +328,204 @@ EOF
   assert_contains_no_stripped_path "${bazel_bin}/$pkg/java/libbase_lib-hjar.jdeps"
 }
 
+function test_direct_classpath() {
+  local -r pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg/java/hello/" || fail "Expected success"
+  # When compiling C, the direct classpath optimization in Turbine embeds information about the
+  # dependency D into the header jar, which then results in the path to Ds header jar being included
+  # in the jdeps file for B. The full compilation action for A requires the header jar for D  and
+  # thus the path to it in the jdeps file of B has to be unmapped properly for the reduced classpath
+  # created for A to contain it.
+  cat > "$pkg/java/hello/A.java" <<'EOF'
+package hello;
+public class A extends B {}
+EOF
+  cat > "$pkg/java/hello/B.java" <<'EOF'
+package hello;
+public class B extends C {}
+EOF
+  cat > "$pkg/java/hello/C.java" <<'EOF'
+package hello;
+public class C extends D {}
+EOF
+  cat > "$pkg/java/hello/D.java" <<'EOF'
+package hello;
+public class D {}
+EOF
+  cat > "$pkg/java/hello/BUILD" <<'EOF'
+java_library(name='a', srcs=['A.java'], deps = [':b'])
+java_library(name='b', srcs=['B.java'], deps = [':c'])
+java_library(name='c', srcs=['C.java'], deps = [':d'])
+java_library(name='d', srcs=['D.java'])
+EOF
+
+  bazel build --experimental_java_classpath=bazel  \
+    --experimental_output_paths=strip \
+    //"$pkg"/java/hello:a -s 2>"$TEST_log" \
+    || fail "Expected success"
+
+  # java_library .jar compilation:
+  assert_paths_stripped "$TEST_log" "$pkg/java/hello/liba.jar-0.params"
+  # java_library header jar compilation:
+  assert_paths_stripped "$TEST_log" "bin/$pkg/java/hello/libb-hjar.jar"
+  # jdeps files should contain the original paths since they are read by downstream actions that may
+  # not use path mapping.
+  assert_contains_no_stripped_path "${bazel_bin}/$pkg/java/hello/liba.jdeps"
+  assert_contains_no_stripped_path "${bazel_bin}/$pkg/java/hello/libb.jdeps"
+  assert_contains_no_stripped_path "${bazel_bin}/$pkg/java/hello/libb-hjar.jdeps"
+  assert_contains_no_stripped_path "${bazel_bin}/$pkg/java/hello/libc.jdeps"
+  assert_contains_no_stripped_path "${bazel_bin}/$pkg/java/hello/libc-hjar.jdeps"
+  assert_contains_no_stripped_path "${bazel_bin}/$pkg/java/hello/libd.jdeps"
+  assert_contains_no_stripped_path "${bazel_bin}/$pkg/java/hello/libd-hjar.jdeps"
+}
+
+function test_builtin_cc_support() {
+  local -r pkg="third_party/${FUNCNAME[0]}"
+  mkdir -p "$pkg"
+  cat > "$pkg/BUILD" <<EOF
+cc_binary(
+    name = "main",
+    srcs = ["main.cc"],
+    deps = [
+        "//$pkg/lib1",
+        "//$pkg/lib2",
+    ],
+)
+EOF
+  cat > "$pkg/main.cc" <<EOF
+#include <iostream>
+#include "$pkg/lib1/lib1.h"
+#include "lib2.h"
+
+int main() {
+  std::cout << GetLib1Greeting() << std::endl;
+  std::cout << GetLib2Greeting() << std::endl;
+  return 0;
+}
+EOF
+
+  mkdir -p "$pkg"/lib1
+  cat > "$pkg/lib1/BUILD" <<EOF
+cc_library(
+    name = "lib1",
+    srcs = ["lib1.cc"],
+    hdrs = ["lib1.h"],
+    deps = ["//$pkg/common/utils:utils"],
+    visibility = ["//visibility:public"],
+)
+EOF
+  cat > "$pkg/lib1/lib1.h" <<EOF
+#ifndef LIB1_H_
+#define LIB1_H_
+
+#include <string>
+
+std::string GetLib1Greeting();
+
+#endif
+EOF
+  cat > "$pkg/lib1/lib1.cc" <<EOF
+#include "lib1.h"
+#include "other_dir/utils.h"
+
+std::string GetLib1Greeting() {
+  return AsGreeting("lib1");
+}
+EOF
+
+  mkdir -p "$pkg"/lib2
+  cat > "$pkg/lib2/BUILD" <<EOF
+genrule(
+    name = "gen_header",
+    srcs = ["lib2.h.tpl"],
+    outs = ["lib2.h"],
+    cmd = "cp \$< \$@",
+)
+genrule(
+    name = "gen_source",
+    srcs = ["lib2.cc.tpl"],
+    outs = ["lib2.cc"],
+    cmd = "cp \$< \$@",
+)
+cc_library(
+    name = "lib2",
+    srcs = ["lib2.cc"],
+    hdrs = ["lib2.h"],
+    includes = ["."],
+    deps = ["//$pkg/common/utils:utils"],
+    visibility = ["//visibility:public"],
+)
+EOF
+  cat > "$pkg/lib2/lib2.h.tpl" <<EOF
+#ifndef LIB2_H_
+#define LIB2_H_
+
+#include <string>
+
+std::string GetLib2Greeting();
+
+#endif
+EOF
+  cat > "$pkg/lib2/lib2.cc.tpl" <<EOF
+#include "lib2.h"
+#include "other_dir/utils.h"
+
+std::string GetLib2Greeting() {
+  return AsGreeting("lib2");
+}
+EOF
+
+  mkdir -p "$pkg"/common/utils
+  cat > "$pkg/common/utils/BUILD" <<EOF
+genrule(
+    name = "gen_header",
+    srcs = ["utils.h.tpl"],
+    outs = ["dir/utils.h"],
+    cmd = "cp \$< \$@",
+)
+genrule(
+    name = "gen_source",
+    srcs = ["utils.cc.tpl"],
+    outs = ["dir/utils.cc"],
+    cmd = "cp \$< \$@",
+)
+cc_library(
+    name = "utils",
+    srcs = ["dir/utils.cc"],
+    hdrs = ["dir/utils.h"],
+    include_prefix = "other_dir",
+    strip_include_prefix = "dir",
+    visibility = ["//visibility:public"],
+)
+EOF
+  cat > "$pkg/common/utils/utils.h.tpl" <<EOF
+#ifndef SOME_PKG_UTILS_H_
+#define SOME_PKG_UTILS_H_
+
+#include <string>
+
+std::string AsGreeting(const std::string& name);
+#endif
+EOF
+  cat > "$pkg/common/utils/utils.cc.tpl" <<EOF
+#include "utils.h"
+
+std::string AsGreeting(const std::string& name) {
+  return "Hello, " + name + "!";
+}
+EOF
+
+  # Verify the build succeeds
+  bazel build -s \
+    --modify_execution_info=CppCompile=+supports-path-mapping \
+    "//$pkg:main" 2>"$TEST_log" || fail "Expected success"
+
+  # Verify that all paths are stripped as expected.
+  # The extension can be .pic.o or .o depending on the platform.
+  assert_paths_stripped "$TEST_log" "$pkg/common/utils/_objs/utils/utils."
+  assert_paths_stripped "$TEST_log" "$pkg/lib1/_objs/lib1/lib1."
+  assert_paths_stripped "$TEST_log" "$pkg/lib2/_objs/lib2/lib2."
+  assert_paths_stripped "$TEST_log" "$pkg/_objs/main/main."
+}
+
 run_suite "Tests stripping config prefixes from output paths for better action caching"

@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "src/main/cpp/util/file_platform.h"
-
 #include <dirent.h>  // DIR, dirent, opendir, closedir
 #include <errno.h>
 #include <fcntl.h>   // O_RDONLY
@@ -21,19 +19,19 @@
 #include <stdlib.h>  // getenv
 #include <string.h>  // strncmp
 #include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>  // access, open, close, fsync
 #include <utime.h>   // utime
 
 #include <string>
-#include <vector>
 
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/path.h"
 #include "src/main/cpp/util/path_platform.h"
-#include "src/main/cpp/util/strings.h"
 
 namespace blaze_util {
 
@@ -327,6 +325,8 @@ bool WriteFile(const void *data, size_t size, const Path &path,
   return WriteFile(data, size, path.AsNativePath(), perm);
 }
 
+void InitializeStdOutErrForUtf8() {}
+
 int WriteToStdOutErr(const void *data, size_t size, bool to_stdout) {
   size_t r = fwrite(data, 1, size, to_stdout ? stdout : stderr);
   return (r == size) ? WriteResult::SUCCESS
@@ -445,50 +445,46 @@ void SyncFile(const string& path) {
 
 void SyncFile(const Path &path) { SyncFile(path.AsNativePath()); }
 
-class PosixFileMtime : public IFileMtime {
- public:
-  PosixFileMtime()
-      : near_future_(GetFuture(9)),
-        distant_future_({GetFuture(10), GetFuture(10)}) {}
+static time_t GetNow() {
+  time_t result = time(nullptr);
+  if (result == -1) {
+    BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+        << "time(nullptr) failed: " << GetLastErrorString();
+  }
+  return result;
+}
 
-  bool IsUntampered(const Path &path) override;
-  bool SetToNow(const Path &path) override;
-  bool SetToNowIfPossible(const Path &path) override;
-  bool SetToDistantFuture(const Path &path) override;
+static time_t GetYearsInFuture(int years) {
+  return GetNow() + 3600 * 24 * 365 * years;
+}
 
- private:
-  // 9 years in the future.
-  const time_t near_future_;
-  // 10 years in the future.
-  const struct utimbuf distant_future_;
+static bool SetMtime(const Path &path, time_t mtime) {
+  struct utimbuf times = {mtime, mtime};
+  return utime(path.AsNativePath().c_str(), &times) == 0;
+}
 
-  static bool Set(const Path &path, const struct utimbuf &mtime);
-  static time_t GetNow();
-  static time_t GetFuture(unsigned int years);
-};
+static const time_t kNearFuture = GetYearsInFuture(9);
+static const time_t kDistantFuture = GetYearsInFuture(10);
 
-bool PosixFileMtime::IsUntampered(const Path &path) {
+bool IsUntampered(const Path &path) {
   struct stat buf;
   if (stat(path.AsNativePath().c_str(), &buf)) {
     return false;
   }
 
-  // Compare the mtime with `near_future_`, not with `GetNow()` or
-  // `distant_future_`.
-  // This way we don't need to call GetNow() every time we want to compare and
-  // we also don't need to worry about potentially unreliable time equality
-  // check (in case it uses floats or something crazy).
-  return S_ISDIR(buf.st_mode) || (buf.st_mtime > near_future_);
+  // Compare with kNearFuture, not kDistantFuture.
+  // This way we don't need to worry about a potentially unreliable equality
+  // check if precision isn't preserved.
+  return S_ISDIR(buf.st_mode) || (buf.st_mtime > kNearFuture);
 }
 
-bool PosixFileMtime::SetToNow(const Path &path) {
-  time_t now(GetNow());
-  struct utimbuf times = {now, now};
-  return Set(path, times);
+bool SetMtimeToNow(const Path &path) {
+  time_t now = GetNow();
+  return SetMtime(path, now);
 }
 
-bool PosixFileMtime::SetToNowIfPossible(const Path &path) {
-  bool okay = this->SetToNow(path);
+bool SetMtimeToNowIfPossible(const Path &path) {
+  bool okay = SetMtimeToNow(path);
   if (!okay) {
     // `SetToNow`/`Set` are backed by `utime(2)` which can return `EROFS` and
     // `EPERM` when there's a permissions issue:
@@ -500,28 +496,9 @@ bool PosixFileMtime::SetToNowIfPossible(const Path &path) {
   return okay;
 }
 
-bool PosixFileMtime::SetToDistantFuture(const Path &path) {
-  return Set(path, distant_future_);
+bool SetMtimeToDistantFuture(const Path &path) {
+  return SetMtime(path, kDistantFuture);
 }
-
-bool PosixFileMtime::Set(const Path &path, const struct utimbuf &mtime) {
-  return utime(path.AsNativePath().c_str(), &mtime) == 0;
-}
-
-time_t PosixFileMtime::GetNow() {
-  time_t result = time(nullptr);
-  if (result == -1) {
-    BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
-        << "time(nullptr) failed: " << GetLastErrorString();
-  }
-  return result;
-}
-
-time_t PosixFileMtime::GetFuture(unsigned int years) {
-  return GetNow() + 3600 * 24 * 365 * years;
-}
-
-IFileMtime *CreateFileMtime() { return new PosixFileMtime(); }
 
 // mkdir -p path. Returns true if the path was created or already exists and
 // could

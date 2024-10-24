@@ -91,7 +91,7 @@ public class SingleToolchainResolutionFunctionTest extends ToolchainTestCase {
         ImmutableList.of("//constraints:linux"),
         ImmutableList.of("//constraints:linux"),
         "baz");
-    rewriteWorkspace(
+    rewriteModuleDotBazel(
         "register_toolchains(",
         "'//toolchain:toolchain_1',",
         "'//toolchain:toolchain_2',",
@@ -120,7 +120,7 @@ public class SingleToolchainResolutionFunctionTest extends ToolchainTestCase {
   @Test
   public void testResolution_noneFound() throws Exception {
     // Clear the toolchains.
-    rewriteWorkspace();
+    rewriteModuleDotBazel();
 
     SkyKey key =
         SingleToolchainResolutionValue.key(
@@ -133,6 +133,61 @@ public class SingleToolchainResolutionFunctionTest extends ToolchainTestCase {
 
     SingleToolchainResolutionValue singleToolchainResolutionValue = result.get(key);
     assertThat(singleToolchainResolutionValue.availableToolchainLabels()).isEmpty();
+  }
+
+  @Test
+  public void testResolution_checkPlatformAllowedToolchains() throws Exception {
+    // Define two new execution platforms, only one of which is compatible with the test toolchain.
+    scratch.file(
+        "allowed/BUILD",
+        """
+        platform(
+            name = "fails_match",
+            check_toolchain_types = True,
+            allowed_toolchain_types = [
+                # Empty, so doesn't match anything.
+            ],
+        )
+
+        platform(
+            name = "matches",
+            check_toolchain_types = True,
+            allowed_toolchain_types = [
+                "//toolchain:test_toolchain",
+            ],
+        )
+        """);
+    ConfiguredTargetKey failsMatchPlatformCtKey =
+        ConfiguredTargetKey.builder()
+            .setLabel(Label.parseCanonicalUnchecked("//allowed:fails_match"))
+            .setConfiguration(getTargetConfiguration())
+            .build();
+    ConfiguredTargetKey allowedPlatformCtKey =
+        ConfiguredTargetKey.builder()
+            .setLabel(Label.parseCanonicalUnchecked("//allowed:matches"))
+            .setConfiguration(getTargetConfiguration())
+            .build();
+
+    // Define the toolchains themselves.
+    addToolchain("extra", "extra_toolchain", ImmutableList.of(), ImmutableList.of(), "baz");
+    rewriteModuleDotBazel("register_toolchains('//extra:extra_toolchain')");
+
+    // Resolve toolchains.
+    SkyKey key =
+        SingleToolchainResolutionValue.key(
+            targetConfigKey,
+            testToolchainType,
+            testToolchainTypeInfo,
+            linuxCtkey,
+            ImmutableList.of(failsMatchPlatformCtKey, allowedPlatformCtKey));
+    EvaluationResult<SingleToolchainResolutionValue> result = invokeToolchainResolution(key);
+
+    assertThatEvaluationResult(result).hasNoError();
+
+    SingleToolchainResolutionValue singleToolchainResolutionValue = result.get(key);
+    assertThat(singleToolchainResolutionValue.availableToolchainLabels())
+        .containsExactly(
+            allowedPlatformCtKey, Label.parseCanonicalUnchecked("//extra:extra_toolchain_impl"));
   }
 
   @Test

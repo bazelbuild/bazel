@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
@@ -249,6 +248,18 @@ public class ArtifactFactory implements ArtifactResolver {
             owner,
             SpecialArtifactType.FILESET,
             /*contentBasedPath=*/ false);
+  }
+
+  public Artifact.DerivedArtifact getRunfilesArtifact(
+      PathFragment rootRelativePath, ArtifactRoot root, ArtifactOwner owner) {
+    validatePath(rootRelativePath, root);
+    return (Artifact.DerivedArtifact)
+        getArtifact(
+            root,
+            root.getExecPath().getRelative(rootRelativePath),
+            owner,
+            SpecialArtifactType.RUNFILES,
+            /* contentBasedPath= */ false);
   }
 
   /**
@@ -542,14 +553,8 @@ public class ArtifactFactory implements ArtifactResolver {
     }
   }
 
-  /**
-   * Determines if an artifact is derived, that is, its root is a derived root or its exec path
-   * starts with the bazel-out prefix.
-   *
-   * @param execPath The artifact's exec path.
-   */
-  @VisibleForTesting // for our own unit tests only.
-  boolean isDerivedArtifact(PathFragment execPath) {
+  @Override
+  public boolean isDerivedArtifact(PathFragment execPath) {
     return execPath.startsWith(derivedPathPrefix);
   }
 }

@@ -40,7 +40,7 @@ public class WorkerOptions extends OptionsBase {
    * Defines a resource converter for named values in the form [name=]value, where the value is
    * {@link ResourceConverter.FLAG_SYNTAX}. If no name is provided (used when setting a default),
    * the empty string is used as the key. The default value for unspecified mnemonics is defined in
-   * {@link WorkerPoolImpl.createWorkerPools}. "auto" currently returns the default.
+   * {@link WorkerPoolImplLegacy.createWorkerPools}. "auto" currently returns the default.
    */
   public static class MultiResourceConverter extends Converter.Contextless<Entry<String, Integer>> {
 
@@ -55,7 +55,8 @@ public class WorkerOptions extends OptionsBase {
       }
       int pos = input.indexOf('=');
       if (pos < 0) {
-        return Maps.immutableEntry("", valueConverter.convert(input, /*conversionContext=*/ null));
+        return Maps.immutableEntry(
+            "", valueConverter.convert(input, /* conversionContext= */ null));
       }
       String name = input.substring(0, pos);
       String value = input.substring(pos + 1);
@@ -63,7 +64,8 @@ public class WorkerOptions extends OptionsBase {
         return Maps.immutableEntry(name, null);
       }
 
-      return Maps.immutableEntry(name, valueConverter.convert(value, /*conversionContext=*/ null));
+      return Maps.immutableEntry(
+          name, valueConverter.convert(value, /* conversionContext= */ null));
     }
 
     @Override
@@ -71,6 +73,16 @@ public class WorkerOptions extends OptionsBase {
       return "[name=]value, where value is " + ResourceConverter.FLAG_SYNTAX;
     }
   }
+
+  @Option(
+      name = "experimental_use_new_worker_pool",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "Uses a new worker pool implementation (no change in behavior, reimplementation of "
+              + " the worker pool in order to deprecate the use of a third party tool).")
+  public boolean useNewWorkerPool;
 
   @Option(
       name = "worker_max_instances",
@@ -144,7 +156,10 @@ public class WorkerOptions extends OptionsBase {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION},
-      help = "If enabled, workers will be executed in a sandboxed environment.")
+      help =
+          "If enabled, singleplex workers will run in a sandboxed environment. Singleplex workers"
+              + " are always sandboxed when running under the dynamic execution strategy,"
+              + " irrespective of this flag.")
   public boolean workerSandboxing;
 
   @Option(
@@ -170,9 +185,11 @@ public class WorkerOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION},
       help =
-          "If enabled, multiplex workers will be sandboxed, using a separate sandbox directory"
-              + " per work request. Only workers that have the 'supports-multiplex-sandboxing' "
-              + "execution requirement will be sandboxed.")
+          "If enabled, multiplex workers with a 'supports-multiplex-sandboxing' execution"
+              + " requirement will run in a sandboxed environment, using a separate sandbox"
+              + " directory per work request. Multiplex workers with the execution requirement are"
+              + " always sandboxed when running under the dynamic execution strategy,"
+              + " irrespective of this flag.")
   public boolean multiplexSandboxing;
 
   @Option(
@@ -198,11 +215,25 @@ public class WorkerOptions extends OptionsBase {
   public int totalWorkerMemoryLimitMb;
 
   @Option(
+      name = "experimental_worker_use_cgroups_on_linux",
+      defaultValue = "false",
+      // List as undocumented since we will want to make this the default eventually.
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "On linux, run all workers in its own cgroup (without any limits set) and use the"
+              + " cgroup's own resource accounting for memory measurements. This is overridden by"
+              + " --experimental_worker_sandbox_hardening for sandboxed workers.")
+  public boolean useCgroupsOnLinux;
+
+  @Option(
       name = "experimental_worker_sandbox_hardening",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION},
-      help = "If enabled, workers are run in a hardened sandbox, if the implementation allows it.")
+      help =
+          "If enabled, workers are run in a hardened sandbox, if the implementation allows it. If"
+              + " hardening is enabled then tmp directories are distinct for different workers.")
   public boolean sandboxHardening;
 
   @Option(
@@ -237,6 +268,19 @@ public class WorkerOptions extends OptionsBase {
               + "worker exceeds the limit. If not used together with dynamic execution and "
               + "`--experimental_dynamic_ignore_local_signals=9`, this may crash your build.")
   public int workerMemoryLimitMb;
+
+  @Option(
+      name = "experimental_worker_sandbox_inmemory_tracking",
+      defaultValue = "null",
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "A worker key mnemonic for which the contents of the sandbox directory are tracked in"
+              + " memory. This may improve build performance at the cost of additional memory"
+              + " usage. Only affects sandboxed workers. May be specified multiple times for"
+              + " different mnemonics.")
+  public List<String> workerSandboxInMemoryTracking;
 
   @Option(
       name = "experimental_worker_allowlist",

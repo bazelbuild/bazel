@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.HasDigest;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.io.FileSymlinkException;
 import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionException;
 import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionUniquenessFunction;
@@ -47,6 +46,7 @@ import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.vfs.DetailedIOException;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
@@ -91,7 +91,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
     public enum Type {
       /**
        * The traversal encountered a subdirectory with a BUILD file but is not allowed to recurse
-       * into it. See {@code PackageBoundaryMode#REPORT_ERROR}.
+       * into it.
        */
       CANNOT_CROSS_PACKAGE_BOUNDARY,
 
@@ -109,13 +109,22 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
 
       /** The filesystem told us inconsistent information. */
       INCONSISTENT_FILESYSTEM,
+
+      /** The filesystem threw a {@link DetailedIOException}. */
+      DETAILED_IO_EXCEPTION,
     }
 
     private final RecursiveFilesystemTraversalException.Type type;
 
+    RecursiveFilesystemTraversalException(String message, DetailedIOException cause) {
+      super(message, cause);
+      this.type = RecursiveFilesystemTraversalException.Type.DETAILED_IO_EXCEPTION;
+    }
+
     RecursiveFilesystemTraversalException(
         String message, RecursiveFilesystemTraversalException.Type type) {
       super(message);
+      checkArgument(type != Type.DETAILED_IO_EXCEPTION);
       this.type = type;
     }
 
@@ -186,8 +195,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
       if (rootInfo.type.isFile()) {
         return resultForFileRoot(traversal.root().asRootedPath(), rootInfo);
       }
-      if (rootInfo.type.isDirectory() && rootInfo.metadata instanceof TreeArtifactValue) {
-        TreeArtifactValue value = (TreeArtifactValue) rootInfo.metadata;
+      if (rootInfo.type.isDirectory() && rootInfo.metadata instanceof TreeArtifactValue value) {
         ImmutableList.Builder<RecursiveFilesystemTraversalValue> traversalValues =
             ImmutableList.builderWithExpectedSize(value.getChildValues().size());
         for (Map.Entry<TreeFileArtifact, FileArtifactValue> entry
@@ -216,27 +224,15 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
         // with a source package. We can't handle that, bail out.
         throw createGeneratedPathConflictException(traversal);
       } else if (pkgLookupResult.isPackage() && !traversal.skipTestingForSubpackage()) {
-        // The traversal was requested for a directory that defines a package.
+        // The traversal was requested for a directory that defines a package which we should not
+        // traverse and should complain loudly (display an error).
         String msg =
             traversal.errorInfo()
                 + " crosses package boundary into package rooted at "
                 + traversal.root().getRelativePart().getPathString();
-        switch (traversal.crossPkgBoundaries()) {
-          case CROSS:
-            // We are free to traverse the subpackage but we need to display a warning.
-            env.getListener().handle(Event.warn(null, msg));
-            break;
-          case DONT_CROSS:
-            // We cannot traverse the subpackage and should skip it silently. Return empty results.
-            return RecursiveFilesystemTraversalValue.EMPTY;
-          case REPORT_ERROR:
-            // We cannot traverse the subpackage and should complain loudly (display an error).
-            throw new RecursiveFilesystemTraversalFunctionException(
-                new RecursiveFilesystemTraversalException(
-                    msg, RecursiveFilesystemTraversalException.Type.CANNOT_CROSS_PACKAGE_BOUNDARY));
-          default:
-            throw new IllegalStateException(traversal.toString());
-        }
+        throw new RecursiveFilesystemTraversalFunctionException(
+            new RecursiveFilesystemTraversalException(
+                msg, RecursiveFilesystemTraversalException.Type.CANNOT_CROSS_PACKAGE_BOUNDARY));
       }
 
       // We are free to traverse this directory.
@@ -251,6 +247,12 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
           String.format(
               "Error while traversing directory %s: %s",
               traversal.root().getRelativePart(), e.getMessage());
+
+      if (e instanceof DetailedIOException detailedException) {
+        throw new RecursiveFilesystemTraversalFunctionException(
+            new RecursiveFilesystemTraversalException(message, detailedException));
+      }
+
       // Trying to stat the starting point of this root may have failed with a symlink cycle or
       // trying to get a package lookup value may have failed due to a symlink cycle.
       RecursiveFilesystemTraversalException.Type exceptionType =
@@ -336,8 +338,8 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
 
         if (value instanceof FileArtifactValue || value instanceof TreeArtifactValue) {
           fsVal = (HasDigest) value;
-        } else if (value instanceof ActionExecutionValue) {
-          fsVal = ((ActionExecutionValue) value).getExistingFileArtifactValue(artifact);
+        } else if (value instanceof ActionExecutionValue actionExecutionValue) {
+          fsVal = actionExecutionValue.getExistingFileArtifactValue(artifact);
         } else {
           return NON_EXISTENT_FILE_INFO;
         }
@@ -387,21 +389,24 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
       }
     } else {
       // Stat the file.
+      RootedPath rootedPath = traversal.root().asRootedPath();
       FileValue fileValue =
-          (FileValue)
-              env.getValueOrThrow(
-                  FileValue.key(traversal.root().asRootedPath()), IOException.class);
+          (FileValue) env.getValueOrThrow(FileValue.key(rootedPath), IOException.class);
 
       if (env.valuesMissing()) {
         return null;
       }
-      return toFileInfo(fileValue, env, traversal.root().asPath(), syscallCache);
+      return toFileInfo(rootedPath, fileValue, env, traversal.root().asPath(), syscallCache);
     }
   }
 
   @Nullable
   private static FileInfo toFileInfo(
-      FileValue fileValue, Environment env, Path path, SyscallCache syscallCache)
+      RootedPath rootedPath,
+      FileValue fileValue,
+      Environment env,
+      Path path,
+      SyscallCache syscallCache)
       throws IOException, InterruptedException {
     if (fileValue.unboundedAncestorSymlinkExpansionChain() != null) {
       SkyKey uniquenessKey =
@@ -438,7 +443,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
     return new FileInfo(
         type,
         withDigest(fileValue.realFileStateValue(), path, syscallCache),
-        fileValue.realRootedPath(),
+        fileValue.realRootedPath(rootedPath),
         unresolvedLinkTarget);
   }
 
@@ -457,19 +462,15 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
   @VisibleForTesting
   static HasDigest withDigest(HasDigest fsVal, Path path, XattrProvider syscallCache)
       throws IOException {
-    if (fsVal instanceof FileStateValue) {
-      FileStateValue fsv = (FileStateValue) fsVal;
-      if (fsv instanceof RegularFileStateValueWithDigest) {
-        RegularFileStateValueWithDigest rfsv = (RegularFileStateValueWithDigest) fsv;
+    if (fsVal instanceof FileStateValue fsv) {
+      if (fsv instanceof RegularFileStateValueWithDigest rfsv) {
         return FileArtifactValue.createForVirtualActionInput(rfsv.getDigest(), rfsv.getSize());
-      } else if (fsv instanceof RegularFileStateValueWithContentsProxy) {
-        RegularFileStateValueWithContentsProxy rfsv = (RegularFileStateValueWithContentsProxy) fsv;
+      } else if (fsv instanceof RegularFileStateValueWithContentsProxy rfsv) {
         return FileArtifactValue.createForNormalFileUsingPath(path, rfsv.getSize(), syscallCache);
       }
 
       return new HasDigest.ByteStringDigest(fsv.getValueFingerprint());
-    } else if (fsVal instanceof FileArtifactValue) {
-      FileArtifactValue fav = ((FileArtifactValue) fsVal);
+    } else if (fsVal instanceof FileArtifactValue fav) {
       if (fav.getDigest() != null) {
         return fav;
       }
@@ -718,10 +719,14 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
       if (value == null) {
         continue;
       }
-      if (key instanceof FileValue.Key) {
-        FileValue.Key fileKey = (FileValue.Key) key;
+      if (key instanceof FileKey fileKey) {
         FileInfo fileInfo =
-            toFileInfo((FileValue) value, env, fileKey.argument().asPath(), syscallCache);
+            toFileInfo(
+                fileKey.argument(),
+                (FileValue) value,
+                env,
+                fileKey.argument().asPath(),
+                syscallCache);
         if (fileInfo != null) {
           childValues.add(resultForFileRoot(fileKey.argument(), fileInfo));
         }

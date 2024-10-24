@@ -32,7 +32,11 @@ java_test(
         "StarlarkThreadDebuggingTest.java",
         "StarlarkThreadTest.java",
     ],
-    jvm_flags = ["-Dfile.encoding=UTF8"],
+    jvm_flags = [
+        "-Dfile.encoding=UTF8",
+        # StarlarkListTest.concat_failsCleanlyOnOverflow() needs at least 4GB of max heap
+        "-Xmx4096m",
+    ],
     deps = [
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",

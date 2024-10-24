@@ -22,45 +22,8 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-# Appends to "WORKSPACE" the declaration of 2 local repositories.
-# Assumes the main content of WORKSPACE was created previously.
-function add_local_repos_to_workspace() {
-  cat >> WORKSPACE <<EOF
-local_repository(
-  name = "repo",
-  path = "a/b"
-)
-
-local_repository(
-  name = "main_repo",
-  path = "c/d"
-)
-EOF
-}
-
-# Appends to the WORKSPACE file under a given path (the first argument) the dependencies needed
-# for proto_library.
-function write_workspace() {
-  workspace=""
-  if [ ! -z "$1" ];
-  then
-    workspace=$1
-    mkdir -p "$workspace"
-  fi
-
-  cat >> "$workspace"WORKSPACE << EOF
-load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_proto_toolchains")
-rules_proto_dependencies()
-rules_proto_toolchains()
-
-# @com_google_protobuf//:protoc depends on @io_bazel//third_party/zlib.
-new_local_repository(
-    name = "io_bazel",
-    path = "$(dirname $(rlocation io_bazel/third_party/zlib))/..",
-    build_file_content = "# Intentionally left empty.",
-    workspace_file_content = "workspace(name = 'io_bazel')",
-)
-EOF
+function set_up() {
+  add_protobuf "MODULE.bazel"
 }
 
 # Creates directories and files with the structure:
@@ -90,7 +53,7 @@ function write_setup() {
   extra_attribute=$2
   include_macro=$3
   if [ "${include_macro}" -eq "" ]; then
-    include_macro="load('@rules_proto//proto:defs.bzl', 'proto_library')"
+    include_macro="load('@protobuf//bazel:proto_library.bzl', 'proto_library')"
   fi
 
   cat > x/person/BUILD << EOF
@@ -171,7 +134,7 @@ function write_regression_setup() {
   touch proto_library/BUILD
 
   cat > proto_library/src/BUILD << EOF
-load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
 proto_library(
     name = "all",
     srcs = glob(["*.proto"]),
@@ -240,7 +203,7 @@ function write_workspaces_setup() {
   touch a/b/BUILD
   cat > a/b/src/BUILD <<EOF
 package(default_visibility = ["//visibility:public"])
-load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
 proto_library(
   name = "all_protos",
   srcs = glob(["*.proto"]),
@@ -280,7 +243,7 @@ EOF
 
   cat > c/d/src/BUILD <<EOF
 package(default_visibility = ["//visibility:public"])
-load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
 proto_library(
   name = "all_protos",
   srcs = glob(["*.proto"]),
@@ -319,7 +282,7 @@ export_files(["proto_library_macro.bzl])
 EOF
 
   cat > macros/proto_library_macro.bzl << EOF
-load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
 def proto_library_macro(name, srcs, deps = []):
   proto_library(
       name = name,
@@ -370,8 +333,6 @@ EOF
 ############# TESTS #############
 
 function test_legacy_proto_library_include_well_known_protos() {
-  write_workspace ""
-
   mkdir -p a
   cat > a/BUILD <<EOF
 proto_library(
@@ -383,7 +344,7 @@ proto_library(
 proto_library(
   name="b",
   srcs=["b.proto"],
-  deps=["@com_google_protobuf//:duration_proto"],
+  deps=["@protobuf//:duration_proto"],
 )
 EOF
 
@@ -417,7 +378,6 @@ EOF
 }
 
 function test_javainfo_proto_aspect() {
-  write_workspace ""
 
   mkdir -p java/proto/
   touch java/proto/my.proto
@@ -476,13 +436,11 @@ EOF
 }
 
 function test_strip_import_prefix() {
-  write_workspace ""
   write_setup "proto_library" "strip_import_prefix = '/x/person'" ""
   bazel build --verbose_failures //x/person:person_proto > "$TEST_log" || fail "Expected success"
 }
 
 function test_strip_import_prefix_fails() {
-  write_workspace ""
   # Don't specify the "strip_import_prefix" attribute and expect failure.
   write_setup "proto_library" "" ""
   bazel build //x/person:person_proto >& "$TEST_log"  && fail "Expected failure"
@@ -490,7 +448,6 @@ function test_strip_import_prefix_fails() {
 }
 
 function test_strip_import_prefix_macro() {
-  write_workspace ""
   write_macro
   write_setup "proto_library_macro" "" "load('//macros:proto_library_macro.bzl', 'proto_library_macro')"
   bazel build //x/person:person_proto > "$TEST_log" || fail "Expected success"
@@ -499,7 +456,6 @@ function test_strip_import_prefix_macro() {
 # Fails with "IllegalArgumentException: external/lcocal_jdk in
 # DumpPlatformClassPath.dumpJDK9AndNewerBootClassPath.java:67
 function DISABLED_test_strip_import_prefix_with_java_library() {
-  write_workspace ""
   write_setup "proto_library" "strip_import_prefix = '/x/person'" ""
   write_java_library
   bazel build //java/com/google/src:top \
@@ -507,26 +463,34 @@ function DISABLED_test_strip_import_prefix_with_java_library() {
 }
 
 function test_strip_import_prefix_glob() {
-  write_workspace ""
   write_regression_setup
   bazel build //proto_library/src:all >& "$TEST_log" || fail "Expected success"
 }
 
 function test_strip_import_prefix_multiple_workspaces() {
-  write_workspace "a/b/"
-  write_workspace "c/d/"
-  write_workspace ""
-  add_local_repos_to_workspace
+  mkdir -p a/b && touch "a/b/REPO.bazel"
+  mkdir -p c/d && touch "c/d/REPO.bazel"
+  cat >> MODULE.bazel <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+local_repository(
+  name = "repo",
+  path = "a/b"
+)
+
+local_repository(
+  name = "main_repo",
+  path = "c/d"
+)
+EOF
   write_workspaces_setup
 
   bazel build @main_repo//src:all_protos >& "$TEST_log" || fail "Expected success"
 }
 
 function test_cc_proto_library() {
-  write_workspace ""
   mkdir -p a
   cat > a/BUILD <<EOF
-load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
 proto_library(name='p', srcs=['p.proto'])
 cc_proto_library(name='cp', deps=[':p'])
 cc_library(name='c', srcs=['c.cc'], deps=[':cp'])
@@ -552,10 +516,9 @@ EOF
 }
 
 function test_cc_proto_library_with_toolchain_resolution() {
-  write_workspace ""
   mkdir -p a
   cat > a/BUILD <<EOF
-load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
 proto_library(name='p', srcs=['p.proto'])
 cc_proto_library(name='cp', deps=[':p'])
 cc_library(name='c', srcs=['c.cc'], deps=[':cp'])
@@ -581,10 +544,9 @@ EOF
 }
 
 function test_cc_proto_library_import_prefix_stripping() {
-  write_workspace ""
   mkdir -p a/dir
   cat > a/BUILD <<EOF
-load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
 proto_library(name='p', srcs=['dir/p.proto'], strip_import_prefix='/a')
 cc_proto_library(name='cp', deps=[':p'])
 cc_library(name='c', srcs=['c.cc'], deps=[':cp'])
@@ -611,10 +573,10 @@ EOF
 
 function test_import_prefix_stripping() {
   mkdir -p e
-  touch e/WORKSPACE
-  write_workspace ""
+  touch e/REPO.bazel
 
-  cat >> WORKSPACE <<EOF
+  cat >> MODULE.bazel <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
   name = "repo",
   path = "e"
@@ -623,7 +585,7 @@ EOF
 
   mkdir -p e/f/bad
   cat > e/f/BUILD <<EOF
-load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
 proto_library(
   name = "f",
   strip_import_prefix = "bad",
@@ -644,7 +606,7 @@ EOF
 
   mkdir -p g/bad
   cat > g/BUILD << EOF
-load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
 proto_library(
   name = 'g',
   strip_import_prefix = "/g/bad",
@@ -665,7 +627,7 @@ EOF
 
   mkdir -p h
   cat > h/BUILD <<EOF
-load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
 proto_library(
   name = "h",
   srcs = ["h.proto"],
@@ -710,10 +672,10 @@ EOF
 
 function test_cross_repo_protos() {
   mkdir -p e
-  touch e/WORKSPACE
-  write_workspace ""
+  touch e/REPO.bazel
 
-  cat >> WORKSPACE <<EOF
+  cat >> MODULE.bazel <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
   name = "repo",
   path = "e"
@@ -722,7 +684,7 @@ EOF
 
   mkdir -p e/f/good
   cat > e/f/BUILD <<EOF
-load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
 proto_library(
   name = "f",
   srcs = ["good/f.proto"],
@@ -759,7 +721,7 @@ EOF
 
   mkdir -p g/good
   cat > g/BUILD << EOF
-load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
 proto_library(
   name = 'g',
   srcs = ['good/g.proto'],
@@ -778,7 +740,7 @@ EOF
 
   mkdir -p h
   cat > h/BUILD <<EOF
-load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
 proto_library(
   name = "h",
   srcs = ["h.proto"],

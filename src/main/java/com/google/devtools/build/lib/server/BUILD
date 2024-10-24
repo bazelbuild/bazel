@@ -14,14 +14,20 @@ filegroup(
 )
 
 java_library(
+    name = "idle_task",
+    srcs = ["IdleTask.java"],
+)
+
+java_library(
     name = "server",
     srcs = [
         "CommandManager.java",
         "GrpcServerImpl.java",
-        "IdleServerTasks.java",
+        "IdleTaskManager.java",
         "ServerWatcherRunnable.java",
     ],
     deps = [
+        ":idle_task",
         ":pid_file_watcher",
         ":rpc_server",
         ":shutdown_hooks",
@@ -30,8 +36,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:runtime/safe_request_logging",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/clock",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/platform:system_memory_pressure_monitor",
-        "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/profiler:google-auto-profiler-utils",
         "//src/main/java/com/google/devtools/build/lib/unix:procmeminfo_parser",
         "//src/main/java/com/google/devtools/build/lib/util",
@@ -55,7 +61,7 @@ java_library(
         "//third_party:jsr305",
         "//third_party:netty",
         "//third_party/grpc-java:grpc-jar",
-        "//third_party/protobuf:protobuf_java",
+        "@protobuf//:protobuf_java",
     ],
 )
 

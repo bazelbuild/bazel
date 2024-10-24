@@ -27,7 +27,6 @@ def _cc_library_impl(ctx):
 
     semantics.check_cc_shared_library_tags(ctx)
 
-    common = cc_internal.create_common(ctx = ctx)
     cc_toolchain = cc_helper.find_cpp_toolchain(ctx)
     cc_helper.report_invalid_options(cc_toolchain, ctx.fragments.cpp)
 
@@ -38,6 +37,8 @@ def _cc_library_impl(ctx):
         unsupported_features = ctx.disabled_features,
     )
 
+    cc_helper.check_cpp_modules(ctx, feature_configuration)
+
     precompiled_files = cc_helper.build_precompiled_files(ctx = ctx)
 
     semantics.validate_attributes(ctx = ctx)
@@ -45,6 +46,7 @@ def _cc_library_impl(ctx):
 
     semantics.check_can_use_implementation_deps(ctx)
     interface_deps = ctx.attr.deps + semantics.get_cc_runtimes(ctx, True)
+    runtimes_copts = semantics.get_cc_runtimes_copts(ctx)
     compilation_contexts = cc_helper.get_compilation_contexts_from_deps(interface_deps)
     implementation_compilation_contexts = cc_helper.get_compilation_contexts_from_deps(ctx.attr.implementation_deps)
 
@@ -56,13 +58,16 @@ def _cc_library_impl(ctx):
         name = ctx.label.name,
         cc_toolchain = cc_toolchain,
         feature_configuration = feature_configuration,
-        user_compile_flags = cc_helper.get_copts(ctx, feature_configuration, additional_make_variable_substitutions),
+        user_compile_flags = runtimes_copts + cc_helper.get_copts(ctx, feature_configuration, additional_make_variable_substitutions, attr = "copts"),
+        conly_flags = cc_helper.get_copts(ctx, feature_configuration, additional_make_variable_substitutions, attr = "conlyopts"),
+        cxx_flags = cc_helper.get_copts(ctx, feature_configuration, additional_make_variable_substitutions, attr = "cxxopts"),
         defines = cc_helper.defines(ctx, additional_make_variable_substitutions),
         local_defines = cc_helper.local_defines(ctx, additional_make_variable_substitutions) + cc_helper.get_local_defines_for_runfiles_lookup(ctx, ctx.attr.deps + ctx.attr.implementation_deps),
         system_includes = cc_helper.system_include_dirs(ctx, additional_make_variable_substitutions),
         copts_filter = cc_helper.copts_filter(ctx, additional_make_variable_substitutions),
         purpose = "cc_library-compile",
         srcs = cc_helper.get_srcs(ctx),
+        module_interfaces = cc_helper.get_cpp_module_interfaces(ctx),
         private_hdrs = cc_helper.get_private_hdrs(ctx),
         public_hdrs = cc_helper.get_public_hdrs(ctx),
         code_coverage_enabled = cc_helper.is_code_coverage_enabled(ctx),
@@ -124,7 +129,8 @@ def _cc_library_impl(ctx):
 
     if has_compilation_outputs:
         dll_name_suffix = ""
-        win_def_file = None
+        additional_inputs = _filter_linker_scripts(ctx.files.deps) + ctx.files.additional_linker_inputs
+        link_variables = {}
         is_windows_enabled = cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "targets_windows")
         if is_windows_enabled:
             dll_name_suffix = cc_helper.dll_hash_suffix(ctx, feature_configuration, ctx.fragments.cpp)
@@ -136,6 +142,8 @@ def _cc_library_impl(ctx):
                 output_group_builder["def_file"] = depset([generated_def_file])
 
             win_def_file = cc_helper.get_windows_def_file_for_linking(ctx, ctx.file.win_def_file, generated_def_file, feature_configuration)
+            link_variables["def_file_path"] = win_def_file.path
+            additional_inputs.append(win_def_file)
 
         (
             linking_context,
@@ -146,13 +154,13 @@ def _cc_library_impl(ctx):
             compilation_outputs = compilation_outputs,
             cc_toolchain = cc_toolchain,
             feature_configuration = feature_configuration,
-            additional_inputs = _filter_linker_scripts(ctx.files.deps) + ctx.files.additional_linker_inputs,
+            additional_inputs = additional_inputs,
             linking_contexts = linking_contexts,
             user_link_flags = cc_helper.linkopts(ctx, additional_make_variable_substitutions, cc_toolchain),
             alwayslink = ctx.attr.alwayslink,
-            disallow_dynamic_library = not create_dynamic_library or is_windows_enabled and win_def_file == None,
+            disallow_dynamic_library = not create_dynamic_library,
             linked_dll_name_suffix = dll_name_suffix,
-            win_def_file = win_def_file,
+            variables_extension = link_variables,
         )
     elif semantics.should_create_empty_archive():
         precompiled_files_count = 0
@@ -373,7 +381,6 @@ def _convert_precompiled_libraries_to_library_to_link(
         static_library = None
         pic_static_library = None
         dynamic_library = None
-        interface_library = None
 
         has_pic = identifier in pic_static_libraries
         has_always_pic = identifier in alwayslink_pic_static_libraries
@@ -845,8 +852,6 @@ The list of other libraries that the library target depends on. Unlike with
 transitive deps) are only used for compilation of this library, and not libraries that
 depend on it. Libraries specified with <code>implementation_deps</code> are still linked in
 binary targets that depend on this library.
-<p>For now usage is limited to cc_libraries and guarded by the flag
-<code>--experimental_cc_implementation_deps</code>.</p>
 """),
         "strip_include_prefix": attr.string(doc = """
 The prefix to strip from the paths of the headers of this rule.
@@ -944,6 +949,7 @@ See <a href="${link cc_binary.linkshared}"><code>cc_binary.linkshared</code></a>
         "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
         "_stl": semantics.get_stl(),
         "_def_parser": semantics.get_def_parser(),
+        # TODO(b/288421584): necessary because IDE aspect can't see toolchains
         "_cc_toolchain": attr.label(default = "@" + semantics.get_repo() + "//tools/cpp:current_cc_toolchain"),
         "_use_auto_exec_groups": attr.bool(default = True),
     } | semantics.get_distribs_attr() | semantics.get_implementation_deps_allowed_attr() | semantics.get_nocopts_attr(),

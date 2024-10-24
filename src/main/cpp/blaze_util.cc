@@ -34,6 +34,10 @@
 #include "src/main/cpp/util/port.h"
 #include "src/main/cpp/util/strings.h"
 
+#include "absl/base/log_severity.h"
+#include "absl/log/globals.h"
+#include "absl/log/initialize.h"
+
 namespace blaze {
 
 using std::map;
@@ -185,16 +189,26 @@ bool AwaitServerProcessTermination(int pid, const blaze_util::Path& output_base,
   return true;
 }
 
-// For now, we don't have the client set up to log to a file. If --client_debug
-// is passed, however, all BAZEL_LOG statements will be output to stderr.
-// If/when we switch to logging these to a file, care will have to be taken to
-// either log to both stderr and the file in the case of --client_debug, or be
-// ok that these log lines will only go to one stream.
-void SetDebugLog(bool enabled) {
-  if (enabled) {
-    blaze_util::SetLoggingOutputStreamToStderr();
+void SetDebugLog(blaze_util::LoggingDetail detail) {
+  if (detail == blaze_util::LOGGINGDETAIL_DEBUG) {
+    blaze_util::SetLoggingDetail(blaze_util::LOGGINGDETAIL_DEBUG, &std::cerr);
+    absl::SetStderrThreshold(absl::LogSeverityAtLeast::kInfo);
   } else {
-    blaze_util::SetLoggingOutputStream(nullptr);
+    blaze_util::SetLoggingDetail(detail, nullptr);
+
+    // Disable absl debug logging, since that gets printed to stderr due to us
+    // not setting up a log file. We don't use absl but one of our dependencies
+    // might (as of 2024Q2, gRPC does).
+    //
+    // Future improvements to this approach:
+    // * Disable absl logging ASAP, not just here after handling
+    //   --client_debug=false.
+    // * Use the same approach for handling --client_debug=true that we do for
+    //   BAZEL_LOG of first redirecting all messages to an inmemory string, and
+    //   then writing that string to stderr. We could use a absl::LogSink to
+    //   achieve this.
+    absl::InitializeLog();
+    absl::SetStderrThreshold(absl::LogSeverityAtLeast::kInfinity);
   }
 }
 

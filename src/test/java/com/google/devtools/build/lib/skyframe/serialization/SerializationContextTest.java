@@ -18,10 +18,8 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.collect.ClassToInstanceMap;
 import com.google.common.collect.ImmutableClassToInstanceMap;
-import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import com.google.testing.junit.testparameterinjector.TestParameter;
@@ -76,15 +74,13 @@ public final class SerializationContextTest {
           .build();
 
   private int exampleCodecSerializeCalls = 0;
+
+  @SuppressWarnings("UnusedVariable")
   private int exampleCodecDeserializeCalls = 0;
 
   @Test
   public void nullSerialize(@TestParameter boolean memoize) throws Exception {
-    SerializationContext context =
-        new SerializationContext(registry, ImmutableClassToInstanceMap.of());
-    if (memoize) {
-      context = context.getMemoizingContext();
-    }
+    SerializationContext context = getSerializationContext(memoize);
     ByteArrayOutputStream bytes = new ByteArrayOutputStream();
     CodedOutputStream codedOut = CodedOutputStream.newInstance(bytes);
 
@@ -98,11 +94,7 @@ public final class SerializationContextTest {
 
   @Test
   public void constantSerialize(@TestParameter boolean memoize) throws Exception {
-    SerializationContext context =
-        new SerializationContext(registry, ImmutableClassToInstanceMap.of());
-    if (memoize) {
-      context = context.getMemoizingContext();
-    }
+    SerializationContext context = getSerializationContext(memoize);
     ByteArrayOutputStream bytes = new ByteArrayOutputStream();
     CodedOutputStream codedOut = CodedOutputStream.newInstance(bytes);
 
@@ -117,8 +109,7 @@ public final class SerializationContextTest {
   @Test
   public void descriptorSerialize() throws SerializationException, IOException {
     Example obj = Example.withData("data");
-    SerializationContext context =
-        new SerializationContext(registry, ImmutableClassToInstanceMap.of());
+    SerializationContext context = getSerializationContext(/* memoizing= */ false);
     ByteArrayOutputStream bytes = new ByteArrayOutputStream();
     CodedOutputStream codedOut = CodedOutputStream.newInstance(bytes);
 
@@ -126,7 +117,7 @@ public final class SerializationContextTest {
     codedOut.flush();
 
     CodedInputStream codedIn = CodedInputStream.newInstance(bytes.toByteArray());
-    assertThat(codedIn.readSInt32()).isEqualTo(registry.getCodecDescriptorForObject(obj).getTag());
+    assertThat(codedIn.readSInt32()).isEqualTo(registry.getCodecDescriptorForObject(obj).tag());
     assertThat(codedIn.readString()).isEqualTo(obj.getDataToSerialize());
     assertThat(codedIn.isAtEnd()).isTrue();
   }
@@ -134,8 +125,7 @@ public final class SerializationContextTest {
   @Test
   public void descriptorSerialize_memoizing() throws SerializationException, IOException {
     Example obj = Example.withData("data");
-    SerializationContext context =
-        new SerializationContext(registry, ImmutableClassToInstanceMap.of()).getMemoizingContext();
+    SerializationContext context = getSerializationContext(/* memoizing= */ true);
     ByteArrayOutputStream bytes = new ByteArrayOutputStream();
     CodedOutputStream codedOut = CodedOutputStream.newInstance(bytes);
 
@@ -144,31 +134,15 @@ public final class SerializationContextTest {
     codedOut.flush();
 
     CodedInputStream codedIn = CodedInputStream.newInstance(bytes.toByteArray());
-    assertThat(codedIn.readSInt32()).isEqualTo(registry.getCodecDescriptorForObject(obj).getTag());
+    assertThat(codedIn.readSInt32()).isEqualTo(registry.getCodecDescriptorForObject(obj).tag());
     assertThat(codedIn.readString()).isEqualTo(obj.getDataToSerialize());
     assertThat(codedIn.isAtEnd()).isFalse();
     assertThat(exampleCodecSerializeCalls).isEqualTo(1);
   }
 
   @Test
-  public void startMemoizingIsIdempotent() throws Exception {
-    ObjectCodecRegistry registry =
-        ObjectCodecRegistry.newBuilder()
-            .add(new ExampleCodec())
-            .add(new MemoizingImmutableListCodec())
-            .build();
-    Example obj = Example.withData("data");
-    ImmutableList<Object> repetitiveList = ImmutableList.of(ImmutableList.of(obj, obj), obj);
-
-    assertThat(TestUtils.roundTrip(repetitiveList, registry)).isEqualTo(repetitiveList);
-    assertThat(exampleCodecSerializeCalls).isEqualTo(1);
-    assertThat(exampleCodecDeserializeCalls).isEqualTo(1);
-  }
-
-  @Test
   public void explicitlyAllowedClassCheck() throws SerializationException {
-    SerializationContext context =
-        new SerializationContext(registry, ImmutableClassToInstanceMap.of()).getMemoizingContext();
+    SerializationContext context = getSerializationContext(/* memoizing= */ true);
     context.addExplicitlyAllowedClass(String.class);
     context.checkClassExplicitlyAllowed(String.class, "str");
     assertThrows(
@@ -176,54 +150,20 @@ public final class SerializationContextTest {
     // Explicitly registered classes do not carry over to a new context.
     assertThrows(
         SerializationException.class,
-        () -> context.getNewMemoizingContext().checkClassExplicitlyAllowed(String.class, "str"));
+        () -> context.getFreshContext().checkClassExplicitlyAllowed(String.class, "str"));
   }
 
   @Test
   public void explicitlyAllowedClassCheckFailsIfNotMemoizing() {
-    SerializationContext context =
-        new SerializationContext(registry, ImmutableClassToInstanceMap.of());
+    SerializationContext context = getSerializationContext(/* memoizing= */ false);
     assertThrows(
         SerializationException.class, () -> context.addExplicitlyAllowedClass(String.class));
-  }
-
-  private static final class MemoizingImmutableListCodec
-      implements ObjectCodec<ImmutableList<Object>> {
-    @SuppressWarnings("unchecked")
-    @Override
-    public Class<ImmutableList<Object>> getEncodedClass() {
-      return (Class<ImmutableList<Object>>) (Class<?>) ImmutableList.class;
-    }
-
-    @Override
-    public void serialize(
-        SerializationContext context, ImmutableList<Object> obj, CodedOutputStream codedOut)
-        throws SerializationException, IOException {
-      context = context.getMemoizingContext();
-      codedOut.writeInt32NoTag(obj.size());
-      for (Object item : obj) {
-        context.serialize(item, codedOut);
-      }
-    }
-
-    @Override
-    public ImmutableList<Object> deserialize(
-        DeserializationContext context, CodedInputStream codedIn)
-        throws SerializationException, IOException {
-      context = context.getMemoizingContext();
-      int size = codedIn.readInt32();
-      ImmutableList.Builder<Object> builder = ImmutableList.builder();
-      for (int i = 0; i < size; i++) {
-        builder.add(context.<Object>deserialize(codedIn));
-      }
-      return builder.build();
-    }
   }
 
   @Test
   public void mismatchMemoizingRoundtrip() throws Exception {
     ObjectCodecRegistry registry =
-        ObjectCodecRegistry.newBuilder().add(new BadCodecOnlyMemoizesWhenDeserializing()).build();
+        ObjectCodecRegistry.newBuilder().add(new ArrayListCodec()).build();
     ArrayList<Object> repeatedObject = new ArrayList<>();
     repeatedObject.add(null);
     repeatedObject.add(null);
@@ -232,15 +172,22 @@ public final class SerializationContextTest {
     ArrayList<Object> toSerialize = new ArrayList<>();
     toSerialize.add(repeatedObject);
     toSerialize.add(container);
-    assertThrows(RuntimeException.class, () -> TestUtils.roundTrip(toSerialize, registry));
+
+    ObjectCodecs codecs = new ObjectCodecs(registry);
+    ByteString bytes = codecs.serialize(toSerialize);
+    assertThrows(RuntimeException.class, () -> codecs.deserializeMemoized(bytes));
   }
 
-  private static final class BadCodecOnlyMemoizesWhenDeserializing
-      implements ObjectCodec<ArrayList<?>> {
+  private static final class ArrayListCodec implements ObjectCodec<ArrayList<?>> {
     @SuppressWarnings("unchecked")
     @Override
     public Class<ArrayList<?>> getEncodedClass() {
       return (Class<ArrayList<?>>) (Class<?>) ArrayList.class;
+    }
+
+    @Override
+    public boolean autoRegister() {
+      return false;
     }
 
     @Override
@@ -256,7 +203,6 @@ public final class SerializationContextTest {
     @Override
     public ArrayList<?> deserialize(DeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
-      context = context.getMemoizingContext();
       int size = codedIn.readInt32();
       ArrayList<?> result = new ArrayList<>();
       for (int i = 0; i < size; i++) {
@@ -269,14 +215,14 @@ public final class SerializationContextTest {
   @Test
   public void getDependency() {
     SerializationContext context =
-        new SerializationContext(registry, ImmutableClassToInstanceMap.of(String.class, "abc"));
+        new ObjectCodecs(registry, ImmutableClassToInstanceMap.of(String.class, "abc"))
+            .getSerializationContextForTesting();
     assertThat(context.getDependency(String.class)).isEqualTo("abc");
   }
 
   @Test
   public void getDependency_notPresent() {
-    SerializationContext context =
-        new SerializationContext(registry, ImmutableClassToInstanceMap.of());
+    SerializationContext context = getSerializationContext(/* memoizing= */ false);
     Exception e =
         assertThrows(NullPointerException.class, () -> context.getDependency(String.class));
     assertThat(e).hasMessageThat().contains("Missing dependency of type " + String.class);
@@ -284,37 +230,39 @@ public final class SerializationContextTest {
 
   @Test
   public void dependencyOverrides_alreadyPresent() {
-    SerializationContext context =
-        new SerializationContext(registry, ImmutableClassToInstanceMap.of(String.class, "abc"));
-    SerializationContext overridden =
-        context.withDependencyOverrides(ImmutableClassToInstanceMap.of(String.class, "xyz"));
-    assertThat(overridden.getDependency(String.class)).isEqualTo("xyz");
+    ObjectCodecs codecs =
+        new ObjectCodecs(registry, ImmutableClassToInstanceMap.of(String.class, "abc"));
+    ObjectCodecs overridden =
+        codecs.withDependencyOverridesForTesting(
+            ImmutableClassToInstanceMap.of(String.class, "xyz"));
+    assertThat(overridden.getSerializationContextForTesting().getDependency(String.class))
+        .isEqualTo("xyz");
   }
 
   @Test
   public void dependencyOverrides_new() {
-    SerializationContext context =
-        new SerializationContext(registry, ImmutableClassToInstanceMap.of(String.class, "abc"));
-    SerializationContext overridden =
-        context.withDependencyOverrides(ImmutableClassToInstanceMap.of(Integer.class, 1));
-    assertThat(overridden.getDependency(Integer.class)).isEqualTo(1);
+    ObjectCodecs codecs =
+        new ObjectCodecs(registry, ImmutableClassToInstanceMap.of(String.class, "abc"));
+    ObjectCodecs overridden =
+        codecs.withDependencyOverridesForTesting(ImmutableClassToInstanceMap.of(Integer.class, 1));
+    assertThat(overridden.getSerializationContextForTesting().getDependency(Integer.class))
+        .isEqualTo(1);
   }
 
   @Test
   public void dependencyOverrides_unchanged() {
-    SerializationContext context =
-        new SerializationContext(registry, ImmutableClassToInstanceMap.of(String.class, "abc"));
-    SerializationContext overridden =
-        context.withDependencyOverrides(ImmutableClassToInstanceMap.of(Integer.class, 1));
-    assertThat(overridden.getDependency(String.class)).isEqualTo("abc");
+    ObjectCodecs codecs =
+        new ObjectCodecs(registry, ImmutableClassToInstanceMap.of(String.class, "abc"));
+    ObjectCodecs overridden =
+        codecs.withDependencyOverridesForTesting(ImmutableClassToInstanceMap.of(Integer.class, 1));
+    assertThat(overridden.getSerializationContextForTesting().getDependency(String.class))
+        .isEqualTo("abc");
   }
 
-  @Test
-  public void dependencyOverrides_disallowedOnMemoizingContext() {
-    SerializationContext context =
-        new SerializationContext(registry, ImmutableClassToInstanceMap.of());
-    SerializationContext memoizing = context.getMemoizingContext();
-    ClassToInstanceMap<?> overrides = ImmutableClassToInstanceMap.of(Integer.class, 1);
-    assertThrows(IllegalStateException.class, () -> memoizing.withDependencyOverrides(overrides));
+  private SerializationContext getSerializationContext(boolean memoizing) {
+    ObjectCodecs codecs = new ObjectCodecs(registry);
+    return (memoizing
+        ? codecs.getMemoizingSerializationContextForTesting()
+        : codecs.getSerializationContextForTesting());
   }
 }

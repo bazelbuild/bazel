@@ -176,7 +176,13 @@ public class StarlarkDebugServerTest {
   @Test
   public void testResumeAllThreads() throws Exception {
     sendStartDebuggingRequest();
-    ParserInput buildFile = createInput("/a/build/file/BUILD", "x = [1,2,3]", "y = [2,3,4]");
+    ParserInput buildFile =
+        createInput(
+            "/a/build/file/BUILD",
+            """
+            x = [1,2,3]
+            y = [2,3,4]
+            """);
 
     Location breakpoint =
         Location.newBuilder().setLineNumber(2).setPath("/a/build/file/BUILD").build();
@@ -211,7 +217,13 @@ public class StarlarkDebugServerTest {
   @Test
   public void testPauseAtBreakpoint() throws Exception {
     sendStartDebuggingRequest();
-    ParserInput buildFile = createInput("/a/build/file/BUILD", "x = [1,2,3]", "y = [2,3,4]");
+    ParserInput buildFile =
+        createInput(
+            "/a/build/file/BUILD",
+            """
+            x = [1,2,3]
+            y = [2,3,4]
+            """);
 
     Location breakpoint =
         Location.newBuilder().setLineNumber(2).setPath("/a/build/file/BUILD").build();
@@ -239,7 +251,13 @@ public class StarlarkDebugServerTest {
   public void testDoNotPauseAtUnsatisfiedConditionalBreakpoint() throws Exception {
     sendStartDebuggingRequest();
     ParserInput buildFile =
-        createInput("/a/build/file/BUILD", "x = [1,2,3]", "y = [2,3,4]", "z = 1");
+        createInput(
+            "/a/build/file/BUILD",
+            """
+            x = [1,2,3]
+            y = [2,3,4]
+            z = 1
+            """);
 
     ImmutableList<Breakpoint> breakpoints =
         ImmutableList.of(
@@ -273,7 +291,13 @@ public class StarlarkDebugServerTest {
   @Test
   public void testPauseAtSatisfiedConditionalBreakpoint() throws Exception {
     sendStartDebuggingRequest();
-    ParserInput buildFile = createInput("/a/build/file/BUILD", "x = [1,2,3]", "y = [2,3,4]");
+    ParserInput buildFile =
+        createInput(
+            "/a/build/file/BUILD",
+            """
+            x = [1,2,3]
+            y = [2,3,4]
+            """);
 
     Location location =
         Location.newBuilder().setLineNumber(2).setPath("/a/build/file/BUILD").build();
@@ -302,7 +326,13 @@ public class StarlarkDebugServerTest {
   @Test
   public void testPauseAtInvalidConditionBreakpointWithError() throws Exception {
     sendStartDebuggingRequest();
-    ParserInput buildFile = createInput("/a/build/file/BUILD", "x = [1,2,3]", "y = [2,3,4]");
+    ParserInput buildFile =
+        createInput(
+            "/a/build/file/BUILD",
+            """
+            x = [1,2,3]
+            y = [2,3,4]
+            """);
 
     Location location =
         Location.newBuilder().setLineNumber(2).setPath("/a/build/file/BUILD").build();
@@ -346,7 +376,13 @@ public class StarlarkDebugServerTest {
   @Test
   public void testSimpleListFramesRequest() throws Exception {
     sendStartDebuggingRequest();
-    ParserInput buildFile = createInput("/a/build/file/BUILD", "x = [1,2,3]", "y = [2,3,4]");
+    ParserInput buildFile =
+        createInput(
+            "/a/build/file/BUILD",
+            """
+            x = [1,2,3]
+            y = [2,3,4]
+            """);
 
     Location breakpoint =
         Location.newBuilder().setLineNumber(2).setPath("/a/build/file/BUILD").build();
@@ -379,7 +415,13 @@ public class StarlarkDebugServerTest {
   @Test
   public void testGetChildrenRequest() throws Exception {
     sendStartDebuggingRequest();
-    ParserInput buildFile = createInput("/a/build/file/BUILD", "x = [1,2,3]", "y = [2,3,4]");
+    ParserInput buildFile =
+        createInput(
+            "/a/build/file/BUILD",
+            """
+            x = [1,2,3]
+            y = [2,3,4]
+            """);
 
     Location breakpoint =
         Location.newBuilder().setLineNumber(2).setPath("/a/build/file/BUILD").build();
@@ -414,13 +456,15 @@ public class StarlarkDebugServerTest {
     ParserInput bzlFile =
         createInput(
             "/a/build/file/test.bzl",
-            "a = 1",
-            "c = 3",
-            "def fn():",
-            "  a = 2",
-            "  b = 1",
-            "  b + 1",
-            "fn()");
+            """
+            a = 1
+            c = 3
+            def fn():
+              a = 2
+              b = 1
+              b + 1
+            fn()
+            """);
 
     Location breakpoint =
         Location.newBuilder().setPath("/a/build/file/test.bzl").setLineNumber(6).build();
@@ -474,7 +518,13 @@ public class StarlarkDebugServerTest {
   @Test
   public void testEvaluateRequestWithExpression() throws Exception {
     sendStartDebuggingRequest();
-    ParserInput buildFile = createInput("/a/build/file/BUILD", "x = [1,2,3]", "y = [2,3,4]");
+    ParserInput buildFile =
+        createInput(
+            "/a/build/file/BUILD",
+            """
+            x = [1,2,3]
+            y = [2,3,4]
+            """);
 
     Location breakpoint =
         Location.newBuilder().setLineNumber(2).setPath("/a/build/file/BUILD").build();
@@ -501,7 +551,13 @@ public class StarlarkDebugServerTest {
   @Test
   public void testEvaluateRequestWithAssignmentStatement() throws Exception {
     sendStartDebuggingRequest();
-    ParserInput buildFile = createInput("/a/build/file/BUILD", "x = [1,2,3]", "y = [2,3,4]");
+    ParserInput buildFile =
+        createInput(
+            "/a/build/file/BUILD",
+            """
+            x = [1,2,3]
+            y = [2,3,4]
+            """);
 
     Location breakpoint =
         Location.newBuilder().setLineNumber(2).setPath("/a/build/file/BUILD").build();
@@ -536,7 +592,13 @@ public class StarlarkDebugServerTest {
   @Test
   public void testEvaluateRequestWithExpressionStatementMutatingState() throws Exception {
     sendStartDebuggingRequest();
-    ParserInput buildFile = createInput("/a/build/file/BUILD", "x = [1,2,3]", "y = [2,3,4]");
+    ParserInput buildFile =
+        createInput(
+            "/a/build/file/BUILD",
+            """
+            x = [1,2,3]
+            y = [2,3,4]
+            """);
 
     Location breakpoint =
         Location.newBuilder().setLineNumber(2).setPath("/a/build/file/BUILD").build();
@@ -573,7 +635,13 @@ public class StarlarkDebugServerTest {
   @Test
   public void testEvaluateRequestThrowingException() throws Exception {
     sendStartDebuggingRequest();
-    ParserInput buildFile = createInput("/a/build/file/BUILD", "x = [1,2,3]", "y = [2,3,4]");
+    ParserInput buildFile =
+        createInput(
+            "/a/build/file/BUILD",
+            """
+            x = [1,2,3]
+            y = [2,3,4]
+            """);
 
     Location breakpoint =
         Location.newBuilder().setLineNumber(2).setPath("/a/build/file/BUILD").build();
@@ -603,12 +671,14 @@ public class StarlarkDebugServerTest {
     ParserInput buildFile =
         createInput(
             "/a/build/file/foo.bzl",
-            "_global = [1,2,3]",
-            "",
-            "def _func(my_arg):",
-            "  pass",
-            "",
-            "_func(my_arg = [4,5,6])");
+            """
+            _global = [1,2,3]
+
+            def _func(my_arg):
+              pass
+
+            _func(my_arg = [4,5,6])
+            """);
 
     Location breakpoint =
         Location.newBuilder().setLineNumber(4).setPath("/a/build/file/foo.bzl").build();
@@ -656,11 +726,13 @@ public class StarlarkDebugServerTest {
     ParserInput bzlFile =
         createInput(
             "/a/build/file/test.bzl",
-            "def fn():",
-            "  a = 2",
-            "  return a",
-            "x = fn()",
-            "y = [2,3,4]");
+            """
+            def fn():
+              a = 2
+              return a
+            x = fn()
+            y = [2,3,4]
+            """);
 
     Location breakpoint =
         Location.newBuilder().setLineNumber(4).setPath("/a/build/file/test.bzl").build();
@@ -703,11 +775,13 @@ public class StarlarkDebugServerTest {
     ParserInput bzlFile =
         createInput(
             "/a/build/file/test.bzl",
-            "def fn():",
-            "  a = 2",
-            "  return a",
-            "x = fn()",
-            "y = [2,3,4]");
+            """
+            def fn():
+              a = 2
+              return a
+            x = fn()
+            y = [2,3,4]
+            """);
 
     Location breakpoint =
         Location.newBuilder().setLineNumber(4).setPath("/a/build/file/test.bzl").build();
@@ -745,11 +819,13 @@ public class StarlarkDebugServerTest {
     ParserInput bzlFile =
         createInput(
             "/a/build/file/test.bzl",
-            "def fn():",
-            "  a = 2",
-            "  return a",
-            "x = fn()",
-            "y = [2,3,4]");
+            """
+            def fn():
+              a = 2
+              return a
+            x = fn()
+            y = [2,3,4]
+            """);
 
     Location breakpoint =
         Location.newBuilder().setLineNumber(2).setPath("/a/build/file/test.bzl").build();
@@ -835,7 +911,8 @@ public class StarlarkDebugServerTest {
         new Thread(
             () -> {
               try (Mutability mu = Mutability.create("test")) {
-                StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+                StarlarkThread thread =
+                    StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
                 Starlark.execFile(
                     input, FileOptions.DEFAULT, module != null ? module : Module.create(), thread);
               } catch (SyntaxError.Exception | EvalException | InterruptedException ex) {

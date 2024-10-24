@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -29,7 +30,6 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.License.LicenseType;
 import com.google.devtools.build.lib.packages.Provider;
@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -47,9 +48,19 @@ import org.junit.runners.JUnit4;
 public class AliasTest extends BuildViewTestCase {
   @Test
   public void smoke() throws Exception {
-    scratch.file("a/BUILD",
-        "cc_library(name='a', srcs=['a.cc'])",
-        "alias(name='b', actual='a')");
+    scratch.file(
+        "a/BUILD",
+        """
+        cc_library(
+            name = "a",
+            srcs = ["a.cc"],
+        )
+
+        alias(
+            name = "b",
+            actual = "a",
+        )
+        """);
 
     ConfiguredTarget b = getConfiguredTarget("//a:b");
     assertThat(b.get(CcInfo.PROVIDER).getCcCompilationContext()).isNotNull();
@@ -57,9 +68,16 @@ public class AliasTest extends BuildViewTestCase {
 
   @Test
   public void aliasToInputFile() throws Exception {
-    scratch.file("a/BUILD",
-        "exports_files(['a'])",
-        "alias(name='b', actual='a')");
+    scratch.file(
+        "a/BUILD",
+        """
+        exports_files(["a"])
+
+        alias(
+            name = "b",
+            actual = "a",
+        )
+        """);
 
     ConfiguredTarget b = getConfiguredTarget("//a:b");
     assertThat(ActionsTestUtil.baseArtifactNames(getFilesToBuild(b))).containsExactly("a");
@@ -113,21 +131,50 @@ public class AliasTest extends BuildViewTestCase {
   @Test
   public void testAliasWithPrivateVisibilityAccessibleFromSamePackage() throws Exception {
     scratch.file("a/BUILD", "exports_files(['af'])");
-    scratch.file("b/BUILD",
-        "package(default_visibility=['//visibility:private'])",
-        "alias(name='al', actual='//a:af')",
-        "filegroup(name='ta', srcs=[':al'])");
+    scratch.file(
+        "b/BUILD",
+        """
+        package(default_visibility = ["//visibility:private"])
+
+        alias(
+            name = "al",
+            actual = "//a:af",
+        )
+
+        filegroup(
+            name = "ta",
+            srcs = [":al"],
+        )
+        """);
 
     getConfiguredTarget("//b:ta");
   }
 
   @Test
   public void testAliasCycle() throws Exception {
-    scratch.file("a/BUILD",
-        "alias(name='a', actual=':b')",
-        "alias(name='b', actual=':c')",
-        "alias(name='c', actual=':a')",
-        "filegroup(name='d', srcs=[':c'])");
+    scratch.file(
+        "a/BUILD",
+        """
+        alias(
+            name = "a",
+            actual = ":b",
+        )
+
+        alias(
+            name = "b",
+            actual = ":c",
+        )
+
+        alias(
+            name = "c",
+            actual = ":a",
+        )
+
+        filegroup(
+            name = "d",
+            srcs = [":c"],
+        )
+        """);
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//a:d");
@@ -136,10 +183,21 @@ public class AliasTest extends BuildViewTestCase {
 
   @Test
   public void testAliasedInvalidDependency() throws Exception {
-    scratch.file("a/BUILD",
-        "cc_library(name='a', deps=[':b'])",
-        "alias(name='b', actual=':c')",
-        "filegroup(name='c')");
+    scratch.file(
+        "a/BUILD",
+        """
+        cc_library(
+            name = "a",
+            deps = [":b"],
+        )
+
+        alias(
+            name = "b",
+            actual = ":c",
+        )
+
+        filegroup(name = "c")
+        """);
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//a:a");
@@ -151,25 +209,41 @@ public class AliasTest extends BuildViewTestCase {
     writeConfigTransitionTestFiles();
     scratch.file(
         "test/aspect.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def _impl(target, ctx):",
-        "    if not target[MyInfo]:",
-        "        fail('missing MyInfo')",
-        "    if target[MyInfo].config != ctx.configuration:",
-        "        fail('mismatched configs')",
-        "    return MyInfo(",
-        "        origin = 'aspect',",
-        "        config = target[MyInfo].config)",
-        "MyAspect = aspect(implementation=_impl)");
+        """
+        load("//myinfo:myinfo.bzl", "MyInfo")
+
+        def _impl(target, ctx):
+            if not target[MyInfo]:
+                fail("missing MyInfo")
+            if target[MyInfo].config != ctx.configuration:
+                fail("mismatched configs")
+            return MyInfo(
+                origin = "aspect",
+                config = target[MyInfo].config,
+            )
+
+        MyAspect = aspect(implementation = _impl)
+        """);
     scratch.file(
         "test/BUILD",
-        "alias(name = 'simple_alias', actual = '//test/starlark:test')",
-        "alias(name = 'selecting_alias',",
-        "  actual = select({':arm': ':simple_alias'}))",
-        "config_setting(name = 'arm', values = {'cpu': 'armeabi-v7a'})");
+        String.format(
+            """
+            alias(
+                name = "simple_alias",
+                actual = "//test/starlark:test",
+            )
 
-    // Set --cpu so we can test alias :selecting_alias that selects on this flag
-    useConfiguration("--cpu=armeabi-v7a");
+            alias(
+                name = "selecting_alias",
+                actual = select(
+                  {"%s": ":simple_alias"}
+                ),
+            )
+            """,
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64"));
+
+    // Set --platforms so we can test alias :selecting_alias that selects on the CPU.
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
 
     // 1. Query "actual" target to establish reference values to compare to below. Make some basic
     // assertions that tie aspect's config to underlying target.
@@ -245,18 +319,21 @@ public class AliasTest extends BuildViewTestCase {
   private void writeAllowlistFile() throws Exception {
     scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
-        "package_group(",
-        "    name = 'function_transition_allowlist',",
-        "    packages = [",
-        "        '//test/...',",
-        "    ],",
-        ")");
+        """
+        package_group(
+            name = "function_transition_allowlist",
+            packages = [
+                "//test/...",
+            ],
+        )
+        """);
   }
 
   private static StructImpl getMyInfoFromTarget(ConfiguredAspect configuredAspect)
       throws Exception {
     Provider.Key key =
-        new StarlarkProvider.Key(Label.parseCanonical("//myinfo:myinfo.bzl"), "MyInfo");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//myinfo:myinfo.bzl")), "MyInfo");
     return (StructImpl) configuredAspect.get(key);
   }
 
@@ -271,43 +348,99 @@ public class AliasTest extends BuildViewTestCase {
     getAnalysisMock().ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, "armeabi-v7a");
     scratch.file(
         "test/starlark/my_rule.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def transition_func(settings, attr):",
-        "  return [",
-        "    {'//command_line_option:cpu': 'k8'},",
-        "    {'//command_line_option:cpu': 'armeabi-v7a'}",
-        "  ]",
-        "my_transition = transition(implementation = transition_func, inputs = [],",
-        "  outputs = ['//command_line_option:cpu'])",
-        "def impl(ctx): ",
-        "  print(ctx.label, ctx.configuration)",
-        "  return MyInfo(",
-        "    config = ctx.configuration,",
-        "    attr_deps = ctx.split_attr.deps,",
-        "    attr_dep = ctx.split_attr.dep)",
-        "my_rule = rule(",
-        "  implementation = impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list(cfg = my_transition),",
-        "    'dep':  attr.label(cfg = my_transition),",
-        "  })");
+        """
+        load("//myinfo:myinfo.bzl", "MyInfo")
+
+        def transition_func(settings, attr):
+            return [
+                {"//command_line_option:cpu": "k8"},
+                {"//command_line_option:cpu": "armeabi-v7a"},
+            ]
+
+        my_transition = transition(
+            implementation = transition_func,
+            inputs = [],
+            outputs = ["//command_line_option:cpu"],
+        )
+
+        def impl(ctx):
+            print(ctx.label, ctx.configuration)
+            return MyInfo(
+                config = ctx.configuration,
+                attr_deps = ctx.split_attr.deps,
+                attr_dep = ctx.split_attr.dep,
+            )
+
+        my_rule = rule(
+            implementation = impl,
+            attrs = {
+                "deps": attr.label_list(cfg = my_transition),
+                "dep": attr.label(cfg = my_transition),
+            },
+        )
+        """);
 
     scratch.file(
         "test/starlark/BUILD",
-        "load('//test/starlark:my_rule.bzl', 'my_rule')",
-        "my_rule(name = 'test', deps = [':main1', ':main2'], dep = ':main1')",
-        "cc_binary(name = 'main1', srcs = ['main1.c'])",
-        "cc_binary(name = 'main2', srcs = ['main2.c'])");
+        """
+        load("//test/starlark:my_rule.bzl", "my_rule")
+
+        my_rule(
+            name = "test",
+            dep = ":main1",
+            deps = [
+                ":main1",
+                ":main2",
+            ],
+        )
+
+        cc_binary(
+            name = "main1",
+            srcs = ["main1.c"],
+        )
+
+        cc_binary(
+            name = "main2",
+            srcs = ["main2.c"],
+        )
+        """);
   }
 
   @Test
   public void licensesAreCollected() throws Exception {
-    scratch.file("a/BUILD",
-        "filegroup(name='a', licenses=['restricted'], output_licenses=['unencumbered'])",
-        "alias(name='b', actual=':a')",
-        "filegroup(name='c', srcs=[':b'])",
-        "genrule(name='d', outs=['do'], tools=[':b'], cmd='cmd')",
-        "genrule(name='e', outs=['eo'], srcs=[':b'], cmd='cmd')");
+    scratch.file(
+        "a/BUILD",
+        """
+        filegroup(
+            name = "a",
+            licenses = ["restricted"],
+            output_licenses = ["unencumbered"],
+        )
+
+        alias(
+            name = "b",
+            actual = ":a",
+        )
+
+        filegroup(
+            name = "c",
+            srcs = [":b"],
+        )
+
+        genrule(
+            name = "d",
+            outs = ["do"],
+            cmd = "cmd",
+            tools = [":b"],
+        )
+
+        genrule(
+            name = "e",
+            srcs = [":b"],
+            outs = ["eo"],
+            cmd = "cmd",
+        )
+        """);
     useConfiguration("--check_licenses");
     assertThat(getLicenses("//a:d", "//a:a")).containsExactly(LicenseType.UNENCUMBERED);
     assertThat(getLicenses("//a:e", "//a:a")).containsExactly(LicenseType.RESTRICTED);
@@ -322,9 +455,17 @@ public class AliasTest extends BuildViewTestCase {
 
   @Test
   public void assertNoLicensesAttribute() throws Exception {
-    scratch.file("a/BUILD",
-        "filegroup(name='a')",
-        "alias(name='b', actual=':a', licenses=['unencumbered'])");
+    scratch.file(
+        "a/BUILD",
+        """
+        filegroup(name = "a")
+
+        alias(
+            name = "b",
+            actual = ":a",
+            licenses = ["unencumbered"],
+        )
+        """);
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//a:b");
@@ -346,20 +487,49 @@ public class AliasTest extends BuildViewTestCase {
 
   @Test
   public void passesTargetTypeCheck() throws Exception {
-    scratch.file("a/BUILD",
-        "cc_library(name='a', srcs=['a.cc'], deps=[':b'])",
-        "alias(name='b', actual=':c')",
-        "cc_library(name='c', srcs=['c.cc'])");
+    scratch.file(
+        "a/BUILD",
+        """
+        cc_library(
+            name = "a",
+            srcs = ["a.cc"],
+            deps = [":b"],
+        )
+
+        alias(
+            name = "b",
+            actual = ":c",
+        )
+
+        cc_library(
+            name = "c",
+            srcs = ["c.cc"],
+        )
+        """);
 
     getConfiguredTarget("//a:a");
   }
 
   @Test
   public void packageGroupInAlias() throws Exception {
-    scratch.file("a/BUILD",
-        "package_group(name='a', packages=['//a'])",
-        "alias(name='b', actual=':a')",
-        "filegroup(name='c', srcs=[':b'])");
+    scratch.file(
+        "a/BUILD",
+        """
+        package_group(
+            name = "a",
+            packages = ["//a"],
+        )
+
+        alias(
+            name = "b",
+            actual = ":a",
+        )
+
+        filegroup(
+            name = "c",
+            srcs = [":b"],
+        )
+        """);
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//a:c");
@@ -369,10 +539,21 @@ public class AliasTest extends BuildViewTestCase {
 
   @Test
   public void aliasedFile() throws Exception {
-    scratch.file("a/BUILD",
-        "exports_files(['a'])",
-        "alias(name='b', actual='a')",
-        "filegroup(name='c', srcs=[':b'])");
+    scratch.file(
+        "a/BUILD",
+        """
+        exports_files(["a"])
+
+        alias(
+            name = "b",
+            actual = "a",
+        )
+
+        filegroup(
+            name = "c",
+            srcs = [":b"],
+        )
+        """);
 
     ConfiguredTarget c = getConfiguredTarget("//a:c");
     assertThat(ActionsTestUtil.baseArtifactNames(
@@ -382,10 +563,27 @@ public class AliasTest extends BuildViewTestCase {
 
   @Test
   public void aliasedConfigSetting() throws Exception {
-    scratch.file("a/BUILD",
-        "filegroup(name='a', srcs=select({':b': ['f1'], '//conditions:default': ['f2']}))",
-        "alias(name='b', actual=':c')",
-        "config_setting(name='c', values={'define': 'foo=bar'})");
+    scratch.file(
+        "a/BUILD",
+        """
+        filegroup(
+            name = "a",
+            srcs = select({
+                ":b": ["f1"],
+                "//conditions:default": ["f2"],
+            }),
+        )
+
+        alias(
+            name = "b",
+            actual = ":c",
+        )
+
+        config_setting(
+            name = "c",
+            values = {"define": "foo=bar"},
+        )
+        """);
 
     useConfiguration("--define=foo=bar");
     getConfiguredTarget("//a");
@@ -395,9 +593,20 @@ public class AliasTest extends BuildViewTestCase {
   public void aliasedTestSuiteDep() throws Exception {
     scratch.file("a/BUILD",
         "sh_test(name='a', srcs=['a.sh'])");
-    scratch.file("b/BUILD",
-        "alias(name='b', actual='//a:a', testonly=1)",
-        "test_suite(name='c', tests=[':b'])");
+    scratch.file(
+        "b/BUILD",
+        """
+        alias(
+            name = "b",
+            testonly = 1,
+            actual = "//a:a",
+        )
+
+        test_suite(
+            name = "c",
+            tests = [":b"],
+        )
+        """);
 
     ConfiguredTarget c = getConfiguredTarget("//b:c");
     NestedSet<Artifact> runfiles =
@@ -407,12 +616,12 @@ public class AliasTest extends BuildViewTestCase {
 
   @Test
   public void testRedirectChasing() throws Exception {
-    RepositoryName toolsRepository = ruleClassProvider.getToolsRepository();
-    scratch.file("a/BUILD",
-        "alias(name='cc', actual='" + toolsRepository + "//tools/cpp:toolchain')",
+    scratch.file(
+        "a/BUILD",
+        "alias(name='cc', actual='" + TestConstants.PLATFORM_LABEL + "')",
         "cc_library(name='a', srcs=['a.cc'])");
 
-    useConfiguration("--crosstool_top=//a:cc");
+    useConfiguration("--platforms=" + "//a:cc");
     getConfiguredTarget("//a:a");
   }
 

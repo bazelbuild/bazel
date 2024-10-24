@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
@@ -81,7 +82,7 @@ public class PrepareDepsOfTargetsUnderDirectoryFunctionTest extends BuildViewTes
       Path root, PathFragment rootRelativePath, ImmutableSet<PathFragment> excludedPaths) {
     RootedPath rootedPath = RootedPath.toRootedPath(Root.fromPath(root), rootRelativePath);
     return CollectPackagesUnderDirectoryValue.key(
-        RepositoryName.MAIN, rootedPath, excludedPaths);
+        RepositoryName.MAIN, rootedPath, IgnoredSubdirectories.of(excludedPaths));
   }
 
   private static SkyKey createPrepDepsKey(Path root, PathFragment rootRelativePath) {
@@ -92,13 +93,13 @@ public class PrepareDepsOfTargetsUnderDirectoryFunctionTest extends BuildViewTes
       Path root, PathFragment rootRelativePath, ImmutableSet<PathFragment> excludedPaths) {
     RootedPath rootedPath = RootedPath.toRootedPath(Root.fromPath(root), rootRelativePath);
     return PrepareDepsOfTargetsUnderDirectoryValue.key(
-        RepositoryName.MAIN, rootedPath, excludedPaths);
+        RepositoryName.MAIN, rootedPath, IgnoredSubdirectories.of(excludedPaths));
   }
 
   private static SkyKey createPrepDepsKey(
       Path root,
       PathFragment rootRelativePath,
-      ImmutableSet<PathFragment> excludedPaths,
+      IgnoredSubdirectories excludedPaths,
       FilteringPolicy filteringPolicy) {
     RootedPath rootedPath = RootedPath.toRootedPath(Root.fromPath(root), rootRelativePath);
     return PrepareDepsOfTargetsUnderDirectoryValue.key(
@@ -159,7 +160,7 @@ public class PrepareDepsOfTargetsUnderDirectoryFunctionTest extends BuildViewTes
         createPrepDepsKey(
             rootDirectory,
             PathFragment.create("a"),
-            ImmutableSet.of(),
+            IgnoredSubdirectories.EMPTY,
             FilteringPolicies.FILTER_TESTS);
     EvaluationResult<?> evaluationResult = getAndCheckEvaluationResult(key);
     WalkableGraph graph = Preconditions.checkNotNull(evaluationResult.getWalkableGraph());
@@ -178,9 +179,22 @@ public class PrepareDepsOfTargetsUnderDirectoryFunctionTest extends BuildViewTes
    * and a test rule "aTest".
    */
   private void createPackages() throws IOException {
-    scratch.file("a/BUILD",
-        "genrule(name='a', cmd='', srcs=['//b:b.txt'], outs=['a.out'])",
-        "sh_test(name='aTest', size='small', srcs=['aTest.sh'])");
+    scratch.file(
+        "a/BUILD",
+        """
+        genrule(
+            name = "a",
+            srcs = ["//b:b.txt"],
+            outs = ["a.out"],
+            cmd = "",
+        )
+
+        sh_test(
+            name = "aTest",
+            size = "small",
+            srcs = ["aTest.sh"],
+        )
+        """);
     scratch.file("b/BUILD",
         "exports_files(['b.txt'])");
   }

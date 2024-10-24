@@ -15,9 +15,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode.CROSS;
-import static com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode.DONT_CROSS;
-import static com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode.REPORT_ERROR;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Suppliers;
@@ -27,13 +24,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
-import com.google.devtools.build.lib.actions.FileStateValue;
-import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams;
-import com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode;
 import com.google.devtools.build.lib.actions.FilesetTraversalParamsFactory;
-import com.google.devtools.build.lib.actions.FilesetTraversalParamsFactory.SymlinkBehavior;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
@@ -111,7 +104,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             Suppliers.ofInstance(new TimestampGranularityMonitor(BlazeClock.instance())),
             SyscallCache.NO_CACHE,
             externalFilesHelper));
-    skyFunctions.put(FileValue.FILE, new FileFunction(pkgLocator, directories));
+    skyFunctions.put(SkyFunctions.FILE, new FileFunction(pkgLocator, directories));
     skyFunctions.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
     skyFunctions.put(
         SkyFunctions.DIRECTORY_LISTING_STATE,
@@ -153,10 +146,6 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
     Artifact result = getSourceArtifact(path);
     createFile(result, "foo");
     return result;
-  }
-
-  private static RootedPath rootedPath(Artifact artifact) {
-    return RootedPath.toRootedPath(artifact.getRoot().getRoot(), artifact.getRootRelativePath());
   }
 
   private static RootedPath childOf(Artifact artifact, String relative) {
@@ -207,10 +196,6 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
     return symlink(PathFragment.create(from), to.getPath().asFragment());
   }
 
-  private FilesetOutputSymlink symlink(String from, String to) {
-    return symlink(PathFragment.create(from), PathFragment.create(to));
-  }
-
   private FilesetOutputSymlink symlink(String from, RootedPath to) {
     return symlink(PathFragment.create(from), to.asPath().asFragment());
   }
@@ -240,49 +225,14 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
     Artifact file = createSourceArtifact("foo/file.real");
     FilesetTraversalParams params =
         FilesetTraversalParamsFactory.fileTraversal(
-            /*ownerLabel=*/ label("//foo"),
-            /*fileToTraverse=*/ file,
+            /* ownerLabel= */ label("//foo"),
+            /* fileToTraverse= */ file,
             PathFragment.create("output-name"),
-            /*symlinkBehaviorMode=*/ FilesetTraversalParamsFactory.SymlinkBehavior.COPY,
-            /*pkgBoundaryMode=*/ DONT_CROSS,
-            /*strictFilesetOutput=*/ false);
+            /* strictFilesetOutput= */ false,
+            /* permitDirectories= */ false);
     assertSymlinksCreatedInOrder(params, symlink("output-name", file));
   }
 
-  private void assertFileTraversalForFileSymlink(SymlinkBehavior symlinks) throws Exception {
-    Artifact file = createSourceArtifact("foo/file.real");
-    Artifact symlink = getSourceArtifact("foo/file.sym");
-    symlink.getPath().createSymbolicLink(PathFragment.create("file.real"));
-
-    FilesetTraversalParams params =
-        FilesetTraversalParamsFactory.fileTraversal(
-            /*ownerLabel=*/ label("//foo"),
-            /*fileToTraverse=*/ symlink,
-            PathFragment.create("output-name"),
-            /*symlinkBehaviorMode=*/ symlinks,
-            /*pkgBoundaryMode=*/ DONT_CROSS,
-            /*strictFilesetOutput=*/ false);
-    switch (symlinks) {
-      case COPY:
-        assertSymlinksCreatedInOrder(params, symlink("output-name", "file.real"));
-        break;
-      case DEREFERENCE:
-        assertSymlinksCreatedInOrder(params, symlink("output-name", file));
-        break;
-      default:
-        throw new IllegalStateException(symlinks.toString());
-    }
-  }
-
-  @Test
-  public void testFileTraversalForFileSymlinkNoFollow() throws Exception {
-    assertFileTraversalForFileSymlink(FilesetTraversalParamsFactory.SymlinkBehavior.COPY);
-  }
-
-  @Test
-  public void testFileTraversalForFileSymlinkFollow() throws Exception {
-    assertFileTraversalForFileSymlink(FilesetTraversalParamsFactory.SymlinkBehavior.DEREFERENCE);
-  }
 
   @Test
   public void testFileTraversalForDirectory() throws Exception {
@@ -292,335 +242,37 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
 
     FilesetTraversalParams params =
         FilesetTraversalParamsFactory.fileTraversal(
-            /*ownerLabel=*/ label("//foo"),
-            /*fileToTraverse=*/ dir,
+            /* ownerLabel= */ label("//foo"),
+            /* fileToTraverse= */ dir,
             PathFragment.create("output-name"),
-            /*symlinkBehaviorMode=*/ FilesetTraversalParamsFactory.SymlinkBehavior.COPY,
-            /*pkgBoundaryMode=*/ DONT_CROSS,
-            /*strictFilesetOutput*/ false);
+            /* strictFilesetOutput= */ false,
+            /* permitDirectories= */ true);
     assertSymlinksCreatedInOrder(
         params, symlink("output-name/file.a", fileA), symlink("output-name/sub/file.b", fileB));
   }
 
-  private void assertFileTraversalForDirectorySymlink(SymlinkBehavior symlinks) throws Exception {
+  @Test
+  public void testFileTraversalForDisallowedDirectoryThrows() throws Exception {
     Artifact dir = getSourceArtifact("foo/dir_real");
-    Artifact symlink = getSourceArtifact("foo/dir_sym");
     createFile(childOf(dir, "file.a"), "hello");
     createFile(childOf(dir, "sub/file.b"), "world");
-    symlink.getPath().createSymbolicLink(PathFragment.create("dir_real"));
 
     FilesetTraversalParams params =
         FilesetTraversalParamsFactory.fileTraversal(
-            /*ownerLabel=*/ label("//foo"),
-            /*fileToTraverse=*/ symlink,
+            /* ownerLabel= */ label("//foo"),
+            /* fileToTraverse= */ dir,
             PathFragment.create("output-name"),
-            /*symlinkBehaviorMode=*/ symlinks,
-            /*pkgBoundaryMode=*/ DONT_CROSS,
-            /*strictFilesetOutput*/ false);
-    switch (symlinks) {
-      case COPY:
-        assertSymlinksCreatedInOrder(params, symlink("output-name", "dir_real"));
-        break;
-      case DEREFERENCE:
-        assertSymlinksCreatedInOrder(params, symlink("output-name", dir));
-        break;
-      default:
-        throw new IllegalStateException(symlinks.toString());
-    }
+            /* strictFilesetOutput= */ false,
+            /* permitDirectories= */ false);
+
+    SkyKey key = FilesetEntryKey.key(params);
+    EvaluationResult<FilesetEntryValue> result = eval(key);
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError(key).getException())
+        .hasMessageThat()
+        .contains("foo contains a directory");
   }
 
-  @Test
-  public void testFileTraversalForDirectorySymlinkFollow() throws Exception {
-    assertFileTraversalForDirectorySymlink(FilesetTraversalParamsFactory.SymlinkBehavior.COPY);
-  }
-
-  @Test
-  public void testFileTraversalForDirectorySymlinkNoFollow() throws Exception {
-    assertFileTraversalForDirectorySymlink(
-        FilesetTraversalParamsFactory.SymlinkBehavior.DEREFERENCE);
-  }
-
-  private void assertRecursiveTraversalForDirectory(
-      SymlinkBehavior symlinks, PackageBoundaryMode pkgBoundaryMode) throws Exception {
-    Artifact dir = getSourceArtifact("foo/dir");
-    RootedPath fileA = createFile(childOf(dir, "file.a"), "blah");
-    RootedPath fileAsym = childOf(dir, "subdir/file.a.sym");
-    RootedPath buildFile = createFile(childOf(dir, "subpkg/BUILD"), "blah");
-    RootedPath fileB = createFile(childOf(dir, "subpkg/file.b"), "blah");
-    fileAsym.asPath().getParentDirectory().createDirectory();
-    fileAsym.asPath().createSymbolicLink(PathFragment.create("../file.a"));
-
-    FilesetOutputSymlink outA = symlink("output-name/file.a", childOf(dir, "file.a"));
-    FilesetOutputSymlink outAsym;
-    FilesetOutputSymlink outBuild = symlink("output-name/subpkg/BUILD", buildFile);
-    FilesetOutputSymlink outB = symlink("output-name/subpkg/file.b", fileB);
-    switch (symlinks) {
-      case COPY:
-        outAsym = symlink("output-name/subdir/file.a.sym", "../file.a");
-        break;
-      case DEREFERENCE:
-        outAsym = symlink("output-name/subdir/file.a.sym", fileA);
-        break;
-      default:
-        throw new IllegalStateException(symlinks.toString());
-    }
-
-    FilesetTraversalParams params =
-        FilesetTraversalParamsFactory.recursiveTraversalOfDirectory(
-            /*ownerLabel=*/ label("//foo"),
-            /*directoryToTraverse=*/ dir,
-            PathFragment.create("output-name"),
-            /*excludes=*/ null,
-            /*symlinkBehaviorMode=*/ symlinks,
-            /*pkgBoundaryMode=*/ pkgBoundaryMode,
-            /*strictFilesetOutput=*/ false);
-    switch (pkgBoundaryMode) {
-      case CROSS:
-        assertSymlinksCreatedInOrder(params, outA, outAsym, outBuild, outB);
-        break;
-      case DONT_CROSS:
-        assertSymlinksCreatedInOrder(params, outA, outAsym);
-        break;
-      case REPORT_ERROR:
-        SkyKey key = FilesetEntryKey.key(params);
-        EvaluationResult<SkyValue> result = eval(key);
-        assertThat(result.hasError()).isTrue();
-        assertThat(result.getError(key).getException())
-            .hasMessageThat()
-            .contains("'foo/dir' crosses package boundary into package rooted at foo/dir/subpkg");
-        break;
-      default:
-        throw new IllegalStateException(pkgBoundaryMode.toString());
-    }
-  }
-
-  @Test
-  public void testRecursiveTraversalForDirectoryCrossNoFollow() throws Exception {
-    assertRecursiveTraversalForDirectory(FilesetTraversalParamsFactory.SymlinkBehavior.COPY, CROSS);
-  }
-
-  @Test
-  public void testRecursiveTraversalForDirectoryDontCrossNoFollow() throws Exception {
-    assertRecursiveTraversalForDirectory(
-        FilesetTraversalParamsFactory.SymlinkBehavior.COPY, DONT_CROSS);
-  }
-
-  @Test
-  public void testRecursiveTraversalForDirectoryReportErrorNoFollow() throws Exception {
-    assertRecursiveTraversalForDirectory(
-        FilesetTraversalParamsFactory.SymlinkBehavior.COPY, REPORT_ERROR);
-  }
-
-  @Test
-  public void testRecursiveTraversalForDirectoryCrossFollow() throws Exception {
-    assertRecursiveTraversalForDirectory(
-        FilesetTraversalParamsFactory.SymlinkBehavior.DEREFERENCE, CROSS);
-  }
-
-  @Test
-  public void testRecursiveTraversalForDirectoryDontCrossFollow() throws Exception {
-    assertRecursiveTraversalForDirectory(
-        FilesetTraversalParamsFactory.SymlinkBehavior.DEREFERENCE, DONT_CROSS);
-  }
-
-  @Test
-  public void testRecursiveTraversalForDirectoryReportErrorFollow() throws Exception {
-    assertRecursiveTraversalForDirectory(
-        FilesetTraversalParamsFactory.SymlinkBehavior.DEREFERENCE, REPORT_ERROR);
-  }
-
-  private void assertRecursiveTraversalForDirectorySymlink(
-      SymlinkBehavior symlinks, PackageBoundaryMode pkgBoundaryMode) throws Exception {
-    Artifact dir = getSourceArtifact("foo/dir_real");
-    Artifact symlink = getSourceArtifact("foo/dir_sym");
-    createFile(childOf(dir, "file.a"), "blah");
-    RootedPath fileAsym = childOf(dir, "subdir/file.a.sym");
-    createFile(childOf(dir, "subpkg/BUILD"), "blah");
-    createFile(childOf(dir, "subpkg/file.b"), "blah");
-    fileAsym.asPath().getParentDirectory().createDirectory();
-    fileAsym.asPath().createSymbolicLink(PathFragment.create("../file.a"));
-    symlink.getPath().createSymbolicLink(PathFragment.create("dir_real"));
-
-    FilesetOutputSymlink outA = symlink("output-name/file.a", childOf(symlink, "file.a"));
-    FilesetOutputSymlink outASym;
-    FilesetOutputSymlink outBuild =
-        symlink("output-name/subpkg/BUILD", childOf(symlink, "subpkg/BUILD"));
-    FilesetOutputSymlink outB =
-        symlink("output-name/subpkg/file.b", childOf(symlink, "subpkg/file.b"));
-    switch (symlinks) {
-      case COPY:
-        outASym = symlink("output-name/subdir/file.a.sym", "../file.a");
-        break;
-      case DEREFERENCE:
-        outASym = symlink("output-name/subdir/file.a.sym", childOf(dir, "file.a"));
-        break;
-      default:
-        throw new IllegalStateException(symlinks.toString());
-    }
-
-    FilesetTraversalParams params =
-        FilesetTraversalParamsFactory.recursiveTraversalOfDirectory(
-            /*ownerLabel=*/ label("//foo"),
-            /*directoryToTraverse=*/ symlink,
-            PathFragment.create("output-name"),
-            /*excludes=*/ null,
-            /*symlinkBehaviorMode=*/ symlinks,
-            /*pkgBoundaryMode=*/ pkgBoundaryMode,
-            /*strictFilesetOutput=*/ false);
-    switch (pkgBoundaryMode) {
-      case CROSS:
-        assertSymlinksCreatedInOrder(params, outA, outASym, outBuild, outB);
-        break;
-      case DONT_CROSS:
-        assertSymlinksCreatedInOrder(params, outA, outASym);
-        break;
-      case REPORT_ERROR:
-        SkyKey key = FilesetEntryKey.key(params);
-        EvaluationResult<SkyValue> result = eval(key);
-        assertThat(result.hasError()).isTrue();
-        assertThat(result.getError(key).getException())
-            .hasMessageThat()
-            .contains(
-                "'foo/dir_sym' crosses package boundary into package rooted at foo/dir_sym/subpkg");
-        break;
-      default:
-        throw new IllegalStateException(pkgBoundaryMode.toString());
-    }
-  }
-
-  @Test
-  public void testRecursiveTraversalForDirectorySymlinkNoFollowCross() throws Exception {
-    assertRecursiveTraversalForDirectorySymlink(
-        FilesetTraversalParamsFactory.SymlinkBehavior.COPY, CROSS);
-  }
-
-  @Test
-  public void testRecursiveTraversalForDirectorySymlinkNoFollowDontCross() throws Exception {
-    assertRecursiveTraversalForDirectorySymlink(
-        FilesetTraversalParamsFactory.SymlinkBehavior.COPY, DONT_CROSS);
-  }
-
-  @Test
-  public void testRecursiveTraversalForDirectorySymlinkNoFollowReportError() throws Exception {
-    assertRecursiveTraversalForDirectorySymlink(
-        FilesetTraversalParamsFactory.SymlinkBehavior.COPY, REPORT_ERROR);
-  }
-
-  @Test
-  public void testRecursiveTraversalForDirectorySymlinkFollowCross() throws Exception {
-    assertRecursiveTraversalForDirectorySymlink(
-        FilesetTraversalParamsFactory.SymlinkBehavior.DEREFERENCE, CROSS);
-  }
-
-  @Test
-  public void testRecursiveTraversalForDirectorySymlinkFollowDontCross() throws Exception {
-    assertRecursiveTraversalForDirectorySymlink(
-        FilesetTraversalParamsFactory.SymlinkBehavior.DEREFERENCE, DONT_CROSS);
-  }
-
-  @Test
-  public void testRecursiveTraversalForDirectorySymlinkFollowReportError() throws Exception {
-    assertRecursiveTraversalForDirectorySymlink(
-        FilesetTraversalParamsFactory.SymlinkBehavior.DEREFERENCE, REPORT_ERROR);
-  }
-
-  private void assertRecursiveTraversalForPackage(
-      SymlinkBehavior symlinks, PackageBoundaryMode pkgBoundaryMode) throws Exception {
-    Artifact buildFile = createSourceArtifact("foo/BUILD");
-    Artifact subpkgBuildFile = createSourceArtifact("foo/subpkg/BUILD");
-    Artifact subpkgSymlink = getSourceArtifact("foo/subpkg_sym");
-
-    RootedPath fileA = createFile(siblingOf(buildFile, "file.a"), "blah");
-    RootedPath fileAsym = siblingOf(buildFile, "subdir/file.a.sym");
-    RootedPath fileB = createFile(siblingOf(subpkgBuildFile, "file.b"), "blah");
-
-    scratch.dir(fileAsym.asPath().getParentDirectory().getPathString());
-    fileAsym.asPath().createSymbolicLink(PathFragment.create("../file.a"));
-    subpkgSymlink.getPath().createSymbolicLink(PathFragment.create("subpkg"));
-
-    FilesetOutputSymlink outBuild = symlink("output-name/BUILD", buildFile);
-    FilesetOutputSymlink outA = symlink("output-name/file.a", fileA);
-    FilesetOutputSymlink outAsym;
-    FilesetOutputSymlink outSubpkgBuild = symlink("output-name/subpkg/BUILD", subpkgBuildFile);
-    FilesetOutputSymlink outSubpkgB = symlink("output-name/subpkg/file.b", fileB);
-    FilesetOutputSymlink outSubpkgSymBuild;
-    switch (symlinks) {
-      case COPY:
-        outAsym = symlink("output-name/subdir/file.a.sym", "../file.a");
-        outSubpkgSymBuild = symlink("output-name/subpkg_sym", "subpkg");
-        break;
-      case DEREFERENCE:
-        outAsym = symlink("output-name/subdir/file.a.sym", fileA);
-        outSubpkgSymBuild = symlink("output-name/subpkg_sym", getSourceArtifact("foo/subpkg"));
-        break;
-      default:
-        throw new IllegalStateException(symlinks.toString());
-    }
-
-    FilesetTraversalParams params =
-        FilesetTraversalParamsFactory.recursiveTraversalOfPackage(
-            /*ownerLabel=*/ label("//foo"),
-            /* buildFile= */ buildFile,
-            PathFragment.create("output-name"),
-            /*excludes=*/ null,
-            /*symlinkBehaviorMode=*/ symlinks,
-            /*pkgBoundaryMode=*/ pkgBoundaryMode,
-            /*strictFilesetOutput=*/ false);
-    switch (pkgBoundaryMode) {
-      case CROSS:
-        assertSymlinksCreatedInOrder(
-            params, outBuild, outA, outSubpkgSymBuild, outAsym, outSubpkgBuild, outSubpkgB);
-        break;
-      case DONT_CROSS:
-        assertSymlinksCreatedInOrder(params, outBuild, outA, outAsym);
-        break;
-      case REPORT_ERROR:
-        SkyKey key = FilesetEntryKey.key(params);
-        EvaluationResult<SkyValue> result = eval(key);
-        assertThat(result.hasError()).isTrue();
-        assertThat(result.getError(key).getException())
-            .hasMessageThat()
-            .contains("'foo' crosses package boundary into package rooted at foo/subpkg");
-        break;
-      default:
-        throw new IllegalStateException(pkgBoundaryMode.toString());
-    }
-  }
-
-  @Test
-  public void testRecursiveTraversalForPackageNoFollowCross() throws Exception {
-    assertRecursiveTraversalForPackage(FilesetTraversalParamsFactory.SymlinkBehavior.COPY, CROSS);
-  }
-
-  @Test
-  public void testRecursiveTraversalForPackageNoFollowDontCross() throws Exception {
-    assertRecursiveTraversalForPackage(
-        FilesetTraversalParamsFactory.SymlinkBehavior.COPY, DONT_CROSS);
-  }
-
-  @Test
-  public void testRecursiveTraversalForPackageNoFollowReportError() throws Exception {
-    assertRecursiveTraversalForPackage(
-        FilesetTraversalParamsFactory.SymlinkBehavior.COPY, REPORT_ERROR);
-  }
-
-  @Test
-  public void testRecursiveTraversalForPackageFollowCross() throws Exception {
-    assertRecursiveTraversalForPackage(
-        FilesetTraversalParamsFactory.SymlinkBehavior.DEREFERENCE, CROSS);
-  }
-
-  @Test
-  public void testRecursiveTraversalForPackageFollowDontCross() throws Exception {
-    assertRecursiveTraversalForPackage(
-        FilesetTraversalParamsFactory.SymlinkBehavior.DEREFERENCE, DONT_CROSS);
-  }
-
-  @Test
-  public void testRecursiveTraversalForPackageFollowReportError() throws Exception {
-    assertRecursiveTraversalForPackage(
-        FilesetTraversalParamsFactory.SymlinkBehavior.DEREFERENCE, REPORT_ERROR);
-  }
 
   @Test
   public void testFileTraversalForDanglingSymlink() throws Exception {
@@ -631,109 +283,12 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
 
     FilesetTraversalParams params =
         FilesetTraversalParamsFactory.fileTraversal(
-            /*ownerLabel=*/ label("//foo"),
-            /*fileToTraverse=*/ linkName,
+            /* ownerLabel= */ label("//foo"),
+            /* fileToTraverse= */ linkName,
             PathFragment.create("output-name"),
-            /*symlinkBehaviorMode=*/ FilesetTraversalParamsFactory.SymlinkBehavior.COPY,
-            /*pkgBoundaryMode=*/ DONT_CROSS,
-            /*strictFilesetOutput=*/ false);
+            /* strictFilesetOutput= */ false,
+            /* permitDirectories= */ false);
     assertSymlinksCreatedInOrder(params); // expect empty results
-  }
-
-  private void assertExclusionOfDanglingSymlink(SymlinkBehavior symlinkBehavior) throws Exception {
-    Artifact buildFile = getSourceArtifact("foo/BUILD");
-    createFile(buildFile);
-
-    Artifact linkName = getSourceArtifact("foo/file.sym");
-    Artifact linkTarget = getSourceArtifact("foo/file.actual");
-    createFile(linkTarget);
-    linkName.getPath().createSymbolicLink(PathFragment.create("file.actual"));
-
-    // Ensure the symlink and its target would be included if they weren't explicitly excluded.
-    FilesetTraversalParams params =
-        FilesetTraversalParamsFactory.recursiveTraversalOfPackage(
-            label("//foo"),
-            buildFile,
-            PathFragment.create("output-name"),
-            /*excludes=*/ ImmutableSet.of(),
-            symlinkBehavior,
-            PackageBoundaryMode.DONT_CROSS,
-            /*strictFilesetOutput=*/ false);
-    assertSymlinksCreatedInOrder(
-        params,
-        symlink("output-name/BUILD", buildFile),
-        symlink("output-name/file.actual", linkTarget),
-        symlinkBehavior == FilesetTraversalParamsFactory.SymlinkBehavior.COPY
-            ? symlink("output-name/file.sym", "file.actual")
-            : symlink("output-name/file.sym", linkTarget));
-
-    // Delete the symlink's target to make it dangling.
-    // Exclude the symlink and make sure it's not included.
-    linkTarget.getPath().delete();
-    differencer.invalidate(
-        ImmutableList.of(
-            FileStateValue.key(rootedPath(linkTarget)),
-            DirectoryListingStateValue.key(rootedPath(linkTarget).getParentDirectory())));
-    params =
-        FilesetTraversalParamsFactory.recursiveTraversalOfPackage(
-            /* ownerLabel */ label("//foo"),
-            /* buildFile */ buildFile,
-            PathFragment.create("output-name"),
-            /* excludes */ ImmutableSet.of("file.sym"),
-            /* symlinkBehaviorMode */ symlinkBehavior,
-            /* pkgBoundaryMode */ PackageBoundaryMode.DONT_CROSS,
-            /*strictFilesetOutput=*/ false);
-    assertSymlinksCreatedInOrder(params, symlink("output-name/BUILD", buildFile));
-  }
-
-  @Test
-  public void testExclusionOfDanglingSymlinkWithSymlinkModeCopy() throws Exception {
-    assertExclusionOfDanglingSymlink(FilesetTraversalParamsFactory.SymlinkBehavior.COPY);
-  }
-
-  @Test
-  public void testExclusionOfDanglingSymlinkWithSymlinkModeDereference() throws Exception {
-    assertExclusionOfDanglingSymlink(FilesetTraversalParamsFactory.SymlinkBehavior.DEREFERENCE);
-  }
-
-  @Test
-  public void testExcludes() throws Exception {
-    Artifact buildFile = getSourceArtifact("foo/BUILD");
-    createFile(buildFile);
-    Artifact outerFile = getSourceArtifact("foo/outerfile.txt");
-    createFile(outerFile);
-    Artifact innerFile = getSourceArtifact("foo/dir/innerfile.txt");
-    createFile(innerFile);
-
-    FilesetTraversalParams params =
-        FilesetTraversalParamsFactory.recursiveTraversalOfPackage(
-            /* ownerLabel */ label("//foo"),
-            /* buildFile */ buildFile,
-            PathFragment.create("output-name"),
-            /* excludes */ ImmutableSet.of(),
-            /* symlinkBehaviorMode */ FilesetTraversalParamsFactory.SymlinkBehavior.COPY,
-            /* pkgBoundaryMode */ PackageBoundaryMode.DONT_CROSS,
-            /*strictFilesetOutput=*/ false);
-    assertSymlinksCreatedInOrder(
-        params,
-        symlink("output-name/BUILD", buildFile),
-        symlink("output-name/outerfile.txt", outerFile),
-        symlink("output-name/dir/innerfile.txt", innerFile));
-
-    // Make sure the file within the excluded directory is no longer present.
-    params =
-        FilesetTraversalParamsFactory.recursiveTraversalOfPackage(
-            /* ownerLabel */ label("//foo"),
-            /* buildFile */ buildFile,
-            PathFragment.create("output-name"),
-            /* excludes */ ImmutableSet.of("dir"),
-            /* symlinkBehaviorMode */ FilesetTraversalParamsFactory.SymlinkBehavior.COPY,
-            /* pkgBoundaryMode */ PackageBoundaryMode.DONT_CROSS,
-            /*strictFilesetOutput=*/ false);
-    assertSymlinksCreatedInOrder(
-        params,
-        symlink("output-name/BUILD", buildFile),
-        symlink("output-name/outerfile.txt", outerFile));
   }
 
   @Test
@@ -741,47 +296,11 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
     Artifact path = getSourceArtifact("foo/non-existent");
     FilesetTraversalParams params =
         FilesetTraversalParamsFactory.fileTraversal(
-            /*ownerLabel=*/ label("//foo"),
-            /*fileToTraverse=*/ path,
+            /* ownerLabel= */ label("//foo"),
+            /* fileToTraverse= */ path,
             PathFragment.create("output-name"),
-            /*symlinkBehaviorMode=*/ FilesetTraversalParamsFactory.SymlinkBehavior.COPY,
-            /*pkgBoundaryMode=*/ DONT_CROSS,
-            /*strictFilesetOutput=*/ false);
-    assertSymlinksCreatedInOrder(params); // expect empty results
-  }
-
-  @Test
-  public void testRecursiveTraversalForDanglingSymlink() throws Exception {
-    Artifact linkName = getSourceArtifact("foo/dangling.sym");
-    RootedPath linkTarget = createFile(siblingOf(linkName, "target.file"), "blah");
-    linkName.getPath().createSymbolicLink(PathFragment.create("target.file"));
-    linkTarget.asPath().delete();
-
-    FilesetTraversalParams params =
-        FilesetTraversalParamsFactory.recursiveTraversalOfDirectory(
-            /*ownerLabel=*/ label("//foo"),
-            /*directoryToTraverse=*/ linkName,
-            PathFragment.create("output-name"),
-            /*excludes=*/ null,
-            /*symlinkBehaviorMode=*/ FilesetTraversalParamsFactory.SymlinkBehavior.COPY,
-            /*pkgBoundaryMode=*/ DONT_CROSS,
-            /*strictFilesetOutput=*/ false);
-    assertSymlinksCreatedInOrder(params); // expect empty results
-  }
-
-  @Test
-  public void testRecursiveTraversalForNonExistentFile() throws Exception {
-    Artifact path = getSourceArtifact("foo/non-existent");
-
-    FilesetTraversalParams params =
-        FilesetTraversalParamsFactory.recursiveTraversalOfDirectory(
-            /*ownerLabel=*/ label("//foo"),
-            /*directoryToTraverse=*/ path,
-            PathFragment.create("output-name"),
-            /*excludes=*/ null,
-            /*symlinkBehaviorMode=*/ FilesetTraversalParamsFactory.SymlinkBehavior.COPY,
-            /*pkgBoundaryMode=*/ DONT_CROSS,
-            /*strictFilesetOutput=*/ false);
+            /* strictFilesetOutput= */ false,
+            /* permitDirectories= */ false);
     assertSymlinksCreatedInOrder(params); // expect empty results
   }
 
@@ -881,13 +400,8 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             .put("ownerLabel", notPartOfFingerprint("//bar"))
             .put("fileToTraverse", partOfFingerprint("foo/file.a", "bar/file.b"))
             .put("destPath", partOfFingerprint("out1", "out2"))
-            .put(
-                "symlinkBehaviorMode",
-                partOfFingerprint(
-                    FilesetTraversalParamsFactory.SymlinkBehavior.COPY,
-                    FilesetTraversalParamsFactory.SymlinkBehavior.DEREFERENCE))
-            .put("pkgBoundaryMode", partOfFingerprint(CROSS, DONT_CROSS))
             .put("strictFilesetOutput", partOfFingerprint(true, false))
+            .put("permitDirectories", partOfFingerprint(true, false))
             .buildOrThrow()) {
       @Override
       FilesetTraversalParams create(Map<String, ?> kwArgs) throws Exception {
@@ -895,70 +409,8 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             label((String) kwArgs.get("ownerLabel")),
             getSourceArtifact((String) kwArgs.get("fileToTraverse")),
             PathFragment.create((String) kwArgs.get("destPath")),
-            ((SymlinkBehavior) kwArgs.get("symlinkBehaviorMode")),
-            (PackageBoundaryMode) kwArgs.get("pkgBoundaryMode"),
-            (Boolean) kwArgs.get("strictFilesetOutput"));
-      }
-    }.doTest();
-  }
-
-  @Test
-  public void testFingerprintOfDirectoryTraversal() throws Exception {
-    new FingerprintTester(
-        ImmutableMap.<String, Domain>builder()
-            .put("ownerLabel", notPartOfFingerprint("//bar"))
-            .put("directoryToTraverse", partOfFingerprint("foo/dir_a", "bar/dir_b"))
-            .put("destPath", partOfFingerprint("out1", "out2"))
-            .put("excludes", partOfFingerprint(ImmutableSet.of(), ImmutableSet.of("blah")))
-            .put(
-                "symlinkBehaviorMode",
-                partOfFingerprint(
-                    FilesetTraversalParamsFactory.SymlinkBehavior.COPY,
-                    FilesetTraversalParamsFactory.SymlinkBehavior.DEREFERENCE))
-            .put("pkgBoundaryMode", partOfFingerprint(CROSS, DONT_CROSS))
-            .put("strictFilesetOutput", partOfFingerprint(true, false))
-            .buildOrThrow()) {
-      @SuppressWarnings("unchecked")
-      @Override
-      FilesetTraversalParams create(Map<String, ?> kwArgs) throws Exception {
-        return FilesetTraversalParamsFactory.recursiveTraversalOfDirectory(
-            label((String) kwArgs.get("ownerLabel")),
-            getSourceArtifact((String) kwArgs.get("directoryToTraverse")),
-            PathFragment.create((String) kwArgs.get("destPath")),
-            (Set<String>) kwArgs.get("excludes"),
-            ((SymlinkBehavior) kwArgs.get("symlinkBehaviorMode")),
-            (PackageBoundaryMode) kwArgs.get("pkgBoundaryMode"),
-            (Boolean) kwArgs.get("strictFilesetOutput"));
-      }
-    }.doTest();
-  }
-
-  @Test
-  public void testFingerprintOfPackageTraversal() throws Exception {
-    new FingerprintTester(
-        ImmutableMap.<String, Domain>builder()
-            .put("ownerLabel", notPartOfFingerprint("//bar"))
-            .put("buildFile", partOfFingerprint("foo/BUILD", "bar/BUILD"))
-            .put("destPath", partOfFingerprint("out1", "out2"))
-            .put("excludes", partOfFingerprint(ImmutableSet.<String>of(), ImmutableSet.of("blah")))
-            .put(
-                "symlinkBehaviorMode",
-                partOfFingerprint(
-                    FilesetTraversalParamsFactory.SymlinkBehavior.COPY,
-                    FilesetTraversalParamsFactory.SymlinkBehavior.DEREFERENCE))
-            .put("pkgBoundaryMode", partOfFingerprint(CROSS, DONT_CROSS))
-            .buildOrThrow()) {
-      @SuppressWarnings("unchecked")
-      @Override
-      FilesetTraversalParams create(Map<String, ?> kwArgs) throws Exception {
-        return FilesetTraversalParamsFactory.recursiveTraversalOfPackage(
-            label((String) kwArgs.get("ownerLabel")),
-            getSourceArtifact((String) kwArgs.get("buildFile")),
-            PathFragment.create((String) kwArgs.get("destPath")),
-            (Set<String>) kwArgs.get("excludes"),
-            ((SymlinkBehavior) kwArgs.get("symlinkBehaviorMode")),
-            (PackageBoundaryMode) kwArgs.get("pkgBoundaryMode"),
-            /*strictFilesetOutput=*/ false);
+            (Boolean) kwArgs.get("strictFilesetOutput"),
+            (Boolean) kwArgs.get("permitDirectories"));
       }
     }.doTest();
   }

@@ -13,26 +13,30 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.devtools.build.lib.exec.SpawnLogContext.computeDigest;
-import static com.google.devtools.build.lib.exec.SpawnLogContext.getEnvironmentVariables;
-import static com.google.devtools.build.lib.exec.SpawnLogContext.getPlatform;
-import static com.google.devtools.build.lib.exec.SpawnLogContext.getSpawnMetricsProto;
-import static com.google.devtools.build.lib.exec.SpawnLogContext.isInputDirectory;
 
 import com.github.luben.zstd.ZstdOutputStream;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
-import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
+import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.analysis.SymlinkEntry;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
+import com.google.devtools.build.lib.concurrent.ErrorClassifier;
+import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.exec.Protos.Digest;
 import com.google.devtools.build.lib.exec.Protos.ExecLogEntry;
 import com.google.devtools.build.lib.exec.Protos.Platform;
@@ -42,36 +46,107 @@ import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.util.io.AsynchronousMessageOutputStream;
 import com.google.devtools.build.lib.util.io.MessageOutputStream;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.IORuntimeException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.XattrProvider;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.errorprone.annotations.CheckReturnValue;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Map;
+import java.util.Comparator;
+import java.util.List;
 import java.util.SortedMap;
+import java.util.concurrent.ForkJoinPool;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
 /** A {@link SpawnLogContext} implementation that produces a log in compact format. */
-public class CompactSpawnLogContext implements SpawnLogContext {
+public class CompactSpawnLogContext extends SpawnLogContext {
+
+  private static final Comparator<ExecLogEntry.File> EXEC_LOG_ENTRY_FILE_COMPARATOR =
+      Comparator.comparing(ExecLogEntry.File::getPath);
+
+  private static final ForkJoinPool VISITOR_POOL =
+      NamedForkJoinPool.newNamedPool(
+          "execlog-directory-visitor", Runtime.getRuntime().availableProcessors());
+
+  /** Visitor for use in {@link #visitDirectory}. */
+  protected interface DirectoryChildVisitor {
+    void visit(Path path) throws IOException;
+  }
+
+  private static class DirectoryVisitor extends AbstractQueueVisitor {
+    private final Path rootDir;
+    private final DirectoryChildVisitor childVisitor;
+
+    private DirectoryVisitor(Path rootDir, DirectoryChildVisitor childVisitor) {
+      super(
+          VISITOR_POOL,
+          ExecutorOwnership.SHARED,
+          ExceptionHandlingMode.FAIL_FAST,
+          ErrorClassifier.DEFAULT);
+      this.rootDir = checkNotNull(rootDir);
+      this.childVisitor = checkNotNull(childVisitor);
+    }
+
+    private void run() throws IOException, InterruptedException {
+      execute(() -> visitSubdirectory(rootDir));
+      try {
+        awaitQuiescence(true);
+      } catch (IORuntimeException e) {
+        throw e.getCauseIOException();
+      }
+    }
+
+    private void visitSubdirectory(Path dir) {
+      try {
+        for (Dirent dirent : dir.readdir(Symlinks.FOLLOW)) {
+          Path child = dir.getChild(dirent.getName());
+          if (dirent.getType() == Dirent.Type.DIRECTORY) {
+            execute(() -> visitSubdirectory(child));
+            continue;
+          }
+          childVisitor.visit(child);
+        }
+      } catch (IOException e) {
+        throw new IORuntimeException(e);
+      }
+    }
+  }
+
+  /**
+   * Visits a directory hierarchy in parallel.
+   *
+   * <p>Calls {@code childVisitor} for every descendant path of {@code rootDir} that isn't itself a
+   * directory, following symlinks. The visitor may be concurrently called by multiple threads, and
+   * must synchronize accesses to shared data.
+   */
+  private void visitDirectory(Path rootDir, DirectoryChildVisitor childVisitor)
+      throws IOException, InterruptedException {
+    new DirectoryVisitor(rootDir, childVisitor).run();
+  }
 
   private interface ExecLogEntrySupplier {
-    ExecLogEntry.Builder get() throws IOException;
+    ExecLogEntry.Builder get() throws IOException, InterruptedException;
   }
 
   private final PathFragment execRoot;
+  private final String workspaceName;
+  private final boolean siblingRepositoryLayout;
   @Nullable private final RemoteOptions remoteOptions;
   private final DigestHashFunction digestHashFunction;
   private final XattrProvider xattrProvider;
 
   // Maps a key identifying an entry into its ID.
-  // Each key is either a NestedSet.Node or the String path of a file or directory.
+  // Each key is either a NestedSet.Node or the String path of a file, directory, symlink or
+  // runfiles tree.
   // Only entries that are likely to be referenced by future entries are stored.
   // Use a specialized map for minimal memory footprint.
   @GuardedBy("this")
@@ -87,15 +162,21 @@ public class CompactSpawnLogContext implements SpawnLogContext {
   public CompactSpawnLogContext(
       Path outputPath,
       PathFragment execRoot,
+      String workspaceName,
+      boolean siblingRepositoryLayout,
       @Nullable RemoteOptions remoteOptions,
       DigestHashFunction digestHashFunction,
       XattrProvider xattrProvider)
-      throws IOException {
+      throws IOException, InterruptedException {
     this.execRoot = execRoot;
+    this.workspaceName = workspaceName;
+    this.siblingRepositoryLayout = siblingRepositoryLayout;
     this.remoteOptions = remoteOptions;
     this.digestHashFunction = digestHashFunction;
     this.xattrProvider = xattrProvider;
     this.outputStream = getOutputStream(outputPath);
+
+    logInvocation();
   }
 
   private static MessageOutputStream<ExecLogEntry> getOutputStream(Path path) throws IOException {
@@ -103,6 +184,23 @@ public class CompactSpawnLogContext implements SpawnLogContext {
     // thread. This ensures concurrent writes don't tear and avoids blocking execution.
     return new AsynchronousMessageOutputStream<>(
         path.toString(), new ZstdOutputStream(new BufferedOutputStream(path.getOutputStream())));
+  }
+
+  private void logInvocation() throws IOException, InterruptedException {
+    logEntryWithoutId(
+        () ->
+            ExecLogEntry.newBuilder()
+                .setInvocation(
+                    ExecLogEntry.Invocation.newBuilder()
+                        .setHashFunctionName(digestHashFunction.toString())
+                        .setWorkspaceRunfilesDirectory(workspaceName)
+                        .setSiblingRepositoryLayout(siblingRepositoryLayout)));
+  }
+
+  @Override
+  public boolean shouldPublish() {
+    // The compact log is small enough to be uploaded to a remote store.
+    return true;
   }
 
   @Override
@@ -113,7 +211,7 @@ public class CompactSpawnLogContext implements SpawnLogContext {
       FileSystem fileSystem,
       Duration timeout,
       SpawnResult result)
-      throws IOException, ExecException {
+      throws IOException, InterruptedException, ExecException {
     try (SilentCloseable c = Profiler.instance().profile("logSpawn")) {
       ExecLogEntry.Spawn.Builder builder = ExecLogEntry.Spawn.newBuilder();
 
@@ -127,22 +225,23 @@ public class CompactSpawnLogContext implements SpawnLogContext {
       builder.setInputSetId(logInputs(spawn, inputMetadataProvider, fileSystem));
       builder.setToolSetId(logTools(spawn, inputMetadataProvider, fileSystem));
 
-      builder.setTargetLabel(spawn.getTargetLabel().getCanonicalForm());
+      if (spawn.getTargetLabel() != null) {
+        builder.setTargetLabel(spawn.getTargetLabel().getCanonicalForm());
+      }
       builder.setMnemonic(spawn.getMnemonic());
 
       for (ActionInput output : spawn.getOutputFiles()) {
         Path path = fileSystem.getPath(execRoot.getRelative(output.getExecPath()));
-        if (!path.exists()) {
-          builder.addOutputs(
-              ExecLogEntry.Output.newBuilder().setMissingPath(output.getExecPathString()));
-        } else if (path.isDirectory()) {
-          builder.addOutputs(
-              ExecLogEntry.Output.newBuilder()
-                  .setDirectoryId(logDirectory(output, path, inputMetadataProvider)));
+        if (!output.isDirectory() && !output.isSymlink() && path.isFile()) {
+          builder.addOutputsBuilder().setOutputId(logFile(output, path, inputMetadataProvider));
+        } else if (output.isDirectory() && path.isDirectory()) {
+          builder
+              .addOutputsBuilder()
+              .setOutputId(logDirectory(output, path, inputMetadataProvider));
+        } else if (output.isSymlink() && path.isSymbolicLink()) {
+          builder.addOutputsBuilder().setOutputId(logUnresolvedSymlink(output, path));
         } else {
-          builder.addOutputs(
-              ExecLogEntry.Output.newBuilder()
-                  .setFileId(logFile(output, path, inputMetadataProvider)));
+          builder.addOutputsBuilder().setInvalidOutputPath(output.getExecPathString());
         }
       }
 
@@ -157,41 +256,56 @@ public class CompactSpawnLogContext implements SpawnLogContext {
       builder.setRemoteCacheable(Spawns.mayBeCachedRemotely(spawn));
 
       if (result.getDigest() != null) {
-        builder.setDigest(result.getDigest().getHash());
+        builder.setDigest(result.getDigest().toBuilder().clearHashFunctionName().build());
       }
 
       builder.setTimeoutMillis(timeout.toMillis());
       builder.setMetrics(getSpawnMetricsProto(result));
 
-      try (SilentCloseable c1 = Profiler.instance().profile("logEntry")) {
-        logEntry(null, () -> ExecLogEntry.newBuilder().setSpawn(builder));
+      logEntryWithoutId(() -> ExecLogEntry.newBuilder().setSpawn(builder));
+    }
+  }
+
+  @Override
+  public void logSymlinkAction(AbstractAction action) throws IOException, InterruptedException {
+    try (SilentCloseable c = Profiler.instance().profile("logSymlinkAction")) {
+      ExecLogEntry.SymlinkAction.Builder builder = ExecLogEntry.SymlinkAction.newBuilder();
+
+      Artifact input = action.getPrimaryInput();
+      if (input == null) {
+        // Symlinks to absolute paths are only used by FDO and not worth logging as they can be
+        // treated just like source files.
+        return;
       }
+      builder.setInputPath(input.getExecPathString());
+      builder.setOutputPath(action.getPrimaryOutput().getExecPathString());
+
+      Label label = action.getOwner().getLabel();
+      if (label != null) {
+        builder.setTargetLabel(label.getCanonicalForm());
+      }
+      builder.setMnemonic(action.getMnemonic());
+
+      logEntryWithoutId(() -> ExecLogEntry.newBuilder().setSymlinkAction(builder));
     }
   }
 
   /**
    * Logs the inputs.
    *
-   * @return the entry ID of the {@link ExecLogEntry.Set} describing the inputs, or 0 if there are
-   *     no inputs.
+   * @return the entry ID of the {@link ExecLogEntry.InputSet} describing the inputs, or 0 if there
+   *     are no inputs.
    */
   private int logInputs(
       Spawn spawn, InputMetadataProvider inputMetadataProvider, FileSystem fileSystem)
-      throws IOException {
+      throws IOException, InterruptedException {
 
-    // Add runfiles and filesets as additional direct members of the top-level nested set of inputs.
-    // This prevents it from being shared, but experimentally, the top-level input nested set for a
-    // spawn is almost never a transitive member of other nested sets, and not recording its entry
-    // ID turns out to be a very significant memory optimization.
+    // Add filesets as additional direct members of the top-level nested set of inputs. This
+    // prevents it from being shared, but experimentally, the top-level input nested set for a spawn
+    // is almost never a transitive member of other nested sets, and not recording its entry ID
+    // turns out to be a very significant memory optimization.
 
     ImmutableList.Builder<Integer> additionalDirectoryIds = ImmutableList.builder();
-
-    for (RunfilesTree tree : spawn.getRunfilesSupplier().getRunfilesTrees()) {
-      // The runfiles symlink tree might not have been materialized on disk, so use the mapping.
-      additionalDirectoryIds.add(
-          logRunfilesDirectory(
-              tree.getExecPath(), tree.getMapping(), inputMetadataProvider, fileSystem));
-    }
 
     for (Artifact fileset : spawn.getFilesetMappings().keySet()) {
       // The fileset symlink tree is always materialized on disk.
@@ -202,29 +316,31 @@ public class CompactSpawnLogContext implements SpawnLogContext {
               inputMetadataProvider));
     }
 
-    return logNestedSet(
+    return logInputSet(
         spawn.getInputFiles(),
         additionalDirectoryIds.build(),
         inputMetadataProvider,
         fileSystem,
-        /* shared= */ false);
+        /* shared= */ false,
+        "TestRunner".equals(spawn.getMnemonic()));
   }
 
   /**
    * Logs the tool inputs.
    *
-   * @return the entry ID of the {@link ExecLogEntry.Set} describing the tool inputs, or 0 if there
-   *     are no tool inputs.
+   * @return the entry ID of the {@link ExecLogEntry.InputSet} describing the tool inputs, or 0 if
+   *     there are no tool inputs.
    */
   private int logTools(
       Spawn spawn, InputMetadataProvider inputMetadataProvider, FileSystem fileSystem)
-      throws IOException {
-    return logNestedSet(
+      throws IOException, InterruptedException {
+    return logInputSet(
         spawn.getToolFiles(),
         ImmutableList.of(),
         inputMetadataProvider,
         fileSystem,
-        /* shared= */ true);
+        /* shared= */ true,
+        "TestRunner".equals(spawn.getMnemonic()));
   }
 
   /**
@@ -234,16 +350,18 @@ public class CompactSpawnLogContext implements SpawnLogContext {
    * @param additionalDirectoryIds the entry IDs of additional {@link ExecLogEntry.Directory}
    *     entries to include as direct members
    * @param shared whether this nested set is likely to be a transitive member of other sets
+   * @param isTestRunnerSpawn whether this nested set is logged for a test runner spawn
    * @return the entry ID of the {@link ExecLogEntry.InputSet} describing the nested set, or 0 if
    *     the nested set is empty.
    */
-  private int logNestedSet(
+  private int logInputSet(
       NestedSet<? extends ActionInput> set,
       Collection<Integer> additionalDirectoryIds,
       InputMetadataProvider inputMetadataProvider,
       FileSystem fileSystem,
-      boolean shared)
-      throws IOException {
+      boolean shared,
+      boolean isTestRunnerSpawn)
+      throws IOException, InterruptedException {
     if (set.isEmpty() && additionalDirectoryIds.isEmpty()) {
       return 0;
     }
@@ -252,34 +370,43 @@ public class CompactSpawnLogContext implements SpawnLogContext {
         shared ? set.toNode() : null,
         () -> {
           ExecLogEntry.InputSet.Builder builder =
-              ExecLogEntry.InputSet.newBuilder().addAllDirectoryIds(additionalDirectoryIds);
+              ExecLogEntry.InputSet.newBuilder().addAllInputIds(additionalDirectoryIds);
 
           for (NestedSet<? extends ActionInput> transitive : set.getNonLeaves()) {
             checkState(!transitive.isEmpty());
             builder.addTransitiveSetIds(
-                logNestedSet(
+                logInputSet(
                     transitive,
                     /* additionalDirectoryIds= */ ImmutableList.of(),
                     inputMetadataProvider,
                     fileSystem,
-                    /* shared= */ true));
+                    /* shared= */ true,
+                    isTestRunnerSpawn));
           }
 
           for (ActionInput input : set.getLeaves()) {
-            // Runfiles are logged separately.
-            if (input instanceof Artifact && ((Artifact) input).isMiddlemanArtifact()) {
+            if (input instanceof Artifact artifact && artifact.isMiddlemanArtifact()) {
+              RunfilesTree runfilesTree =
+                  inputMetadataProvider.getRunfilesMetadata(input).getRunfilesTree();
+              builder.addInputIds(
+                  logRunfilesTree(
+                      runfilesTree,
+                      inputMetadataProvider,
+                      fileSystem,
+                      // Runfiles of non-test spawns are tool inputs and thus potentially reused
+                      // between spawns. Runfiles of test spawns are reused if the test is attempted
+                      // multiple times in the same build; in this case, the runfiles tree caches
+                      // its mapping.
+                      !isTestRunnerSpawn || runfilesTree.isMappingCached()));
               continue;
             }
+
             // Filesets are logged separately.
-            if (input instanceof Artifact && ((Artifact) input).isFileset()) {
+            if (input instanceof Artifact artifact && artifact.isFileset()) {
               continue;
             }
-            Path path = fileSystem.getPath(execRoot.getRelative(input.getExecPath()));
-            if (isInputDirectory(input, inputMetadataProvider)) {
-              builder.addDirectoryIds(logDirectory(input, path, inputMetadataProvider));
-            } else {
-              builder.addFileIds(logFile(input, path, inputMetadataProvider));
-            }
+
+            builder.addInputIds(logInput(input, inputMetadataProvider, fileSystem));
           }
 
           return ExecLogEntry.newBuilder().setInputSet(builder);
@@ -287,14 +414,69 @@ public class CompactSpawnLogContext implements SpawnLogContext {
   }
 
   /**
+   * Logs a nested set of {@link SymlinkEntry}.
+   *
+   * @return the entry ID of the {@link ExecLogEntry.SymlinkEntrySet} describing the nested set, or
+   *     0 if the nested set is empty.
+   */
+  private int logSymlinkEntries(
+      NestedSet<SymlinkEntry> symlinks,
+      InputMetadataProvider inputMetadataProvider,
+      FileSystem fileSystem)
+      throws IOException, InterruptedException {
+    if (symlinks.isEmpty()) {
+      return 0;
+    }
+
+    return logEntry(
+        symlinks.toNode(),
+        () -> {
+          ExecLogEntry.SymlinkEntrySet.Builder builder = ExecLogEntry.SymlinkEntrySet.newBuilder();
+
+          for (NestedSet<SymlinkEntry> transitive : symlinks.getNonLeaves()) {
+            checkState(!transitive.isEmpty());
+            builder.addTransitiveSetIds(
+                logSymlinkEntries(transitive, inputMetadataProvider, fileSystem));
+          }
+
+          for (SymlinkEntry input : symlinks.getLeaves()) {
+            builder.putDirectEntries(
+                input.getPathString(),
+                logInput(input.getArtifact(), inputMetadataProvider, fileSystem));
+          }
+
+          return ExecLogEntry.newBuilder().setSymlinkEntrySet(builder);
+        });
+  }
+
+  /**
+   * Logs a single input that is either a file, a directory or a symlink.
+   *
+   * @return the entry ID of the {@link ExecLogEntry} describing the input.
+   */
+  private int logInput(
+      ActionInput input, InputMetadataProvider inputMetadataProvider, FileSystem fileSystem)
+      throws IOException, InterruptedException {
+    Path path = fileSystem.getPath(execRoot.getRelative(input.getExecPath()));
+    if (isInputDirectory(input, inputMetadataProvider)) {
+      return logDirectory(input, path, inputMetadataProvider);
+    } else if (input.isSymlink()) {
+      return logUnresolvedSymlink(input, path);
+    } else {
+      return logFile(input, path, inputMetadataProvider);
+    }
+  }
+
+  /**
    * Logs a file.
    *
    * @param input the input representing the file.
-   * @param path the path to the file
+   * @param path the path to the file, which must have already been verified to be of the correct
+   *     type.
    * @return the entry ID of the {@link ExecLogEntry.File} describing the file.
    */
   private int logFile(ActionInput input, Path path, InputMetadataProvider inputMetadataProvider)
-      throws IOException {
+      throws IOException, InterruptedException {
     checkState(!(input instanceof VirtualActionInput.EmptyActionInput));
 
     return logEntry(
@@ -306,9 +488,15 @@ public class CompactSpawnLogContext implements SpawnLogContext {
           builder.setPath(input.getExecPathString());
 
           Digest digest =
-              computeDigest(input, path, inputMetadataProvider, xattrProvider, digestHashFunction);
-          builder.setDigest(digest.getHash());
-          builder.setSizeBytes(digest.getSizeBytes());
+              computeDigest(
+                  input,
+                  path,
+                  inputMetadataProvider,
+                  xattrProvider,
+                  digestHashFunction,
+                  /* includeHashFunctionName= */ false);
+
+          builder.setDigest(digest);
 
           return ExecLogEntry.newBuilder().setFile(builder);
         });
@@ -317,17 +505,17 @@ public class CompactSpawnLogContext implements SpawnLogContext {
   /**
    * Logs a directory.
    *
-   * <p>This may be either a source directory, a fileset or an output directory. An output directory
-   * is not guaranteed to be a tree artifact; we must support the case where a directory is produced
-   * when a file was expected. For runfiles, {@link #logRunfilesDirectory} must be used instead.
+   * <p>This may be either a source directory, a fileset or an output directory. For runfiles,
+   * {@link #logRunfilesTree} must be used instead.
    *
-   * @param input the input representing the directory
-   * @param root the path to the directory
+   * @param input the input representing the directory.
+   * @param root the path to the directory, which must have already been verified to be of the
+   *     correct type.
    * @return the entry ID of the {@link ExecLogEntry.Directory} describing the directory.
    */
   private int logDirectory(
       ActionInput input, Path root, InputMetadataProvider inputMetadataProvider)
-      throws IOException {
+      throws IOException, InterruptedException {
     return logEntry(
         input.getExecPathString(),
         () ->
@@ -335,62 +523,72 @@ public class CompactSpawnLogContext implements SpawnLogContext {
                 .setDirectory(
                     ExecLogEntry.Directory.newBuilder()
                         .setPath(input.getExecPathString())
-                        .addAllFiles(
-                            expandDirectory(root, /* pathPrefix= */ null, inputMetadataProvider))));
+                        .addAllFiles(expandDirectory(root, inputMetadataProvider))));
   }
 
   /**
-   * Logs a runfiles directory.
+   * Logs a runfiles directory by storing the information in its {@link RunfilesTree}.
    *
-   * <p>We can't use {@link #logDirectory} because the runfiles symlink tree might not have been
-   * materialized on disk. We must follow the mappings to the actual location of the artifacts.
+   * <p>Since runfiles trees can be very large and, for tests, are only used by a single spawn, we
+   * store them in the log as a special entry that references the nested set of artifacts instead of
+   * as a flat directory.
    *
-   * @param root the path to the runfiles directory
-   * @param mapping a map from runfiles-relative path to the underlying artifact, or null for an
-   *     empty file
-   * @return the entry ID of the {@link ExecLogEntry.Directory} describing the directory.
+   * @param shared whether this runfiles tree is likely to be contained in more than one Spawn's
+   *     inputs
+   * @return the entry ID of the {@link ExecLogEntry.RunfilesTree} describing the directory.
    */
-  private int logRunfilesDirectory(
-      PathFragment root,
-      Map<PathFragment, Artifact> mapping,
+  private int logRunfilesTree(
+      RunfilesTree runfilesTree,
       InputMetadataProvider inputMetadataProvider,
-      FileSystem fileSystem)
-      throws IOException {
+      FileSystem fileSystem,
+      boolean shared)
+      throws IOException, InterruptedException {
     return logEntry(
-        root.getPathString(),
+        shared ? runfilesTree.getExecPath().getPathString() : null,
         () -> {
-          ExecLogEntry.Directory.Builder builder =
-              ExecLogEntry.Directory.newBuilder().setPath(root.getPathString());
+          Preconditions.checkState(workspaceName.equals(runfilesTree.getWorkspaceName()));
 
-          for (Map.Entry<PathFragment, Artifact> entry : mapping.entrySet()) {
-            String runfilesPath = entry.getKey().getPathString();
-            Artifact input = entry.getValue();
+          ExecLogEntry.RunfilesTree.Builder builder =
+              ExecLogEntry.RunfilesTree.newBuilder()
+                  .setPath(runfilesTree.getExecPath().getPathString())
+                  .setLegacyExternalRunfiles(runfilesTree.isLegacyExternalRunfiles());
 
-            if (input == null) {
-              // Empty file.
-              builder.addFiles(ExecLogEntry.File.newBuilder().setPath(runfilesPath));
-              continue;
-            }
-
-            Path path = fileSystem.getPath(execRoot.getRelative(input.getExecPath()));
-
-            if (isInputDirectory(input, inputMetadataProvider)) {
-              builder.addAllFiles(expandDirectory(path, runfilesPath, inputMetadataProvider));
-              continue;
-            }
-
-            Digest digest =
-                computeDigest(
-                    input, path, inputMetadataProvider, xattrProvider, digestHashFunction);
-
-            builder.addFiles(
+          builder.setInputSetId(
+              logInputSet(
+                  runfilesTree.getArtifactsAtCanonicalLocationsForLogging(),
+                  /* additionalDirectoryIds= */ ImmutableList.of(),
+                  inputMetadataProvider,
+                  fileSystem,
+                  // The runfiles tree itself is shared, but the nested set is unique to the tree as
+                  // it contains the executable.
+                  /* shared= */ false,
+                  // This value only matters for nested sets that may contain runfiles trees, but
+                  // these are never nested.
+                  /* isTestRunnerSpawn= */ false));
+          builder.setSymlinksId(
+              logSymlinkEntries(
+                  runfilesTree.getSymlinksForLogging(), inputMetadataProvider, fileSystem));
+          builder.setRootSymlinksId(
+              logSymlinkEntries(
+                  runfilesTree.getRootSymlinksForLogging(), inputMetadataProvider, fileSystem));
+          builder.addAllEmptyFiles(
+              Iterables.transform(
+                  runfilesTree.getEmptyFilenamesForLogging(), PathFragment::getPathString));
+          Artifact repoMappingManifest = runfilesTree.getRepoMappingManifestForLogging();
+          if (repoMappingManifest != null) {
+            builder.setRepoMappingManifest(
                 ExecLogEntry.File.newBuilder()
-                    .setPath(runfilesPath)
-                    .setSizeBytes(digest.getSizeBytes())
-                    .setDigest(digest.getHash()));
+                    .setDigest(
+                        computeDigest(
+                            repoMappingManifest,
+                            repoMappingManifest.getPath(),
+                            inputMetadataProvider,
+                            xattrProvider,
+                            digestHashFunction,
+                            /* includeHashFunctionName= */ false)));
           }
 
-          return ExecLogEntry.newBuilder().setDirectory(builder);
+          return ExecLogEntry.newBuilder().setRunfilesTree(builder);
         });
   }
 
@@ -398,41 +596,78 @@ public class CompactSpawnLogContext implements SpawnLogContext {
    * Expands a directory.
    *
    * @param root the path to the directory
-   * @param pathPrefix a prefix to prepend to each child path
    * @return the list of files transitively contained in the directory
    */
-  private ImmutableList<ExecLogEntry.File> expandDirectory(
-      Path root, @Nullable String pathPrefix, InputMetadataProvider inputMetadataProvider)
-      throws IOException {
-    ImmutableList.Builder<ExecLogEntry.File> builder = ImmutableList.builder();
+  private List<ExecLogEntry.File> expandDirectory(
+      Path root, InputMetadataProvider inputMetadataProvider)
+      throws IOException, InterruptedException {
+    ArrayList<ExecLogEntry.File> files = new ArrayList<>();
+    visitDirectory(
+        root,
+        (child) -> {
+          Digest digest =
+              computeDigest(
+                  /* input= */ null,
+                  child,
+                  inputMetadataProvider,
+                  xattrProvider,
+                  digestHashFunction,
+                  /* includeHashFunctionName= */ false);
 
-    ArrayDeque<Path> dirs = new ArrayDeque<>();
-    dirs.add(root);
+          ExecLogEntry.File file =
+              ExecLogEntry.File.newBuilder()
+                  .setPath(child.relativeTo(root).getPathString())
+                  .setDigest(digest)
+                  .build();
 
-    while (!dirs.isEmpty()) {
-      Path dir = dirs.removeFirst();
-      for (Path child : dir.getDirectoryEntries()) {
-        if (child.isDirectory()) {
-          dirs.addLast(child);
-          continue;
-        }
+          synchronized (files) {
+            files.add(file);
+          }
+        });
 
-        String childPath = pathPrefix != null ? pathPrefix + "/" : "";
-        childPath += child.relativeTo(root).getPathString();
+    files.sort(EXEC_LOG_ENTRY_FILE_COMPARATOR);
 
-        Digest digest =
-            computeDigest(
-                /* input= */ null, child, inputMetadataProvider, xattrProvider, digestHashFunction);
+    return files;
+  }
 
-        builder.add(
-            ExecLogEntry.File.newBuilder()
-                .setPath(childPath)
-                .setSizeBytes(digest.getSizeBytes())
-                .setDigest(digest.getHash())
-                .build());
-      }
+  /**
+   * Logs an unresolved symlink.
+   *
+   * @param input the input representing the unresolved symlink.
+   * @param path the path to the unresolved symlink, which must have already been verified to be of
+   *     the correct type.
+   * @return the entry ID of the {@link ExecLogEntry.UnresolvedSymlink} describing the unresolved
+   *     symlink.
+   */
+  private int logUnresolvedSymlink(ActionInput input, Path path)
+      throws IOException, InterruptedException {
+    return logEntry(
+        input.getExecPathString(),
+        () ->
+            ExecLogEntry.newBuilder()
+                .setUnresolvedSymlink(
+                    ExecLogEntry.UnresolvedSymlink.newBuilder()
+                        .setPath(input.getExecPathString())
+                        .setTargetPath(path.readSymbolicLink().getPathString())));
+  }
+
+  /**
+   * Ensures an entry is written to the log without an ID.
+   *
+   * @param supplier called to compute the entry; may cause other entries to be logged
+   */
+  private void logEntryWithoutId(ExecLogEntrySupplier supplier)
+      throws IOException, InterruptedException {
+    try (SilentCloseable c = Profiler.instance().profile("logEntryWithoutId")) {
+      logEntryWithoutIdSynchronized(supplier);
     }
-    return builder.build();
+  }
+
+  private synchronized void logEntryWithoutIdSynchronized(ExecLogEntrySupplier supplier)
+      throws IOException, InterruptedException {
+    try (SilentCloseable c = Profiler.instance().profile("logEntryWithoutId/synchronized")) {
+      outputStream.write(supplier.get().build());
+    }
   }
 
   /**
@@ -445,14 +680,22 @@ public class CompactSpawnLogContext implements SpawnLogContext {
    * @param supplier called to compute the entry; may cause other entries to be logged
    * @return the entry ID
    */
-  @CanIgnoreReturnValue
-  private synchronized int logEntry(@Nullable Object key, ExecLogEntrySupplier supplier)
-      throws IOException {
+  @CheckReturnValue
+  private int logEntry(@Nullable Object key, ExecLogEntrySupplier supplier)
+      throws IOException, InterruptedException {
+    try (SilentCloseable c = Profiler.instance().profile("logEntry")) {
+      return logEntrySynchronized(key, supplier);
+    }
+  }
+
+  private synchronized int logEntrySynchronized(@Nullable Object key, ExecLogEntrySupplier supplier)
+      throws IOException, InterruptedException {
     try (SilentCloseable c = Profiler.instance().profile("logEntry/synchronized")) {
       if (key == null) {
         // No need to check for a previously added entry.
+        ExecLogEntry.Builder entry = supplier.get();
         int id = nextEntryId++;
-        outputStream.write(supplier.get().setId(id).build());
+        outputStream.write(entry.setId(id).build());
         return id;
       }
 

@@ -23,12 +23,9 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.DelegateSpawn;
-import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
-import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSet;
-import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
@@ -47,6 +44,7 @@ public final class SpawnBuilder {
   private String mnemonic = "Mnemonic";
   private String progressMessage = "progress message";
   private String ownerLabel = "//dummy:label";
+  private String ownerRuleKind = "dummy-target-kind";
   @Nullable private Artifact ownerPrimaryOutput;
   @Nullable private PlatformInfo platform;
   private final List<String> args;
@@ -56,35 +54,12 @@ public final class SpawnBuilder {
   private final NestedSetBuilder<ActionInput> inputs = NestedSetBuilder.stableOrder();
   private final List<ActionInput> outputs = new ArrayList<>();
   @Nullable private Set<? extends ActionInput> mandatoryOutputs;
-  private final Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings =
-      new HashMap<>();
+  private final Map<Artifact, FilesetOutputTree> filesetMappings = new HashMap<>();
   private final NestedSetBuilder<ActionInput> tools = NestedSetBuilder.stableOrder();
 
-  private RunfilesSupplier runfilesSupplier = EmptyRunfilesSupplier.INSTANCE;
   private ResourceSet resourceSet = ResourceSet.ZERO;
   private PathMapper pathMapper = PathMapper.NOOP;
   private boolean builtForToolConfiguration;
-
-  /**
-   * A {@link DelegateSpawn} that supports output path mapping as described in {@link
-   * com.google.devtools.build.lib.actions.PathMapper}.
-   *
-   * <p>By overriding {@link #getPathMapper()} - and only in test code - instead of adding an extra
-   * field in {@link SimpleSpawn}, we avoid further pressuring memory on large build graphs.
-   */
-  private static class PathStrippableSpawn extends DelegateSpawn {
-    private final PathMapper pathMapper;
-
-    public PathStrippableSpawn(Spawn spawn, PathMapper pathMapper) {
-      super(spawn);
-      this.pathMapper = pathMapper;
-    }
-
-    @Override
-    public PathMapper getPathMapper() {
-      return pathMapper;
-    }
-  }
 
   public SpawnBuilder(String... args) {
     this.args = ImmutableList.copyOf(args);
@@ -96,23 +71,22 @@ public final class SpawnBuilder {
             mnemonic,
             progressMessage,
             ownerLabel,
+            ownerRuleKind,
             ownerPrimaryOutput,
             platform,
             execProperties,
             builtForToolConfiguration);
-    return new PathStrippableSpawn(
-        new SimpleSpawn(
-            owner,
-            ImmutableList.copyOf(args),
-            ImmutableMap.copyOf(environment),
-            ImmutableMap.copyOf(executionInfo),
-            runfilesSupplier,
-            ImmutableMap.copyOf(filesetMappings),
-            inputs.build(),
-            tools.build(),
-            ImmutableSet.copyOf(outputs),
-            mandatoryOutputs,
-            resourceSet),
+    return new SimpleSpawn(
+        owner,
+        ImmutableList.copyOf(args),
+        ImmutableMap.copyOf(environment),
+        ImmutableMap.copyOf(executionInfo),
+        ImmutableMap.copyOf(filesetMappings),
+        inputs.build(),
+        tools.build(),
+        ImmutableSet.copyOf(outputs),
+        mandatoryOutputs,
+        resourceSet,
         pathMapper);
   }
 
@@ -137,6 +111,12 @@ public final class SpawnBuilder {
   @CanIgnoreReturnValue
   public SpawnBuilder withOwnerLabel(String ownerLabel) {
     this.ownerLabel = checkNotNull(ownerLabel);
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public SpawnBuilder withOwnerRuleKind(String ownerRuleKind) {
+    this.ownerRuleKind = checkNotNull(ownerRuleKind);
     return this;
   }
 
@@ -231,16 +211,9 @@ public final class SpawnBuilder {
   }
 
   @CanIgnoreReturnValue
-  public SpawnBuilder withFilesetMapping(
-      Artifact fileset, ImmutableList<FilesetOutputSymlink> mappings) {
+  public SpawnBuilder withFilesetMapping(Artifact fileset, FilesetOutputTree filesetOutput) {
     Preconditions.checkArgument(fileset.isFileset(), "Artifact %s is not fileset", fileset);
-    filesetMappings.put(fileset, mappings);
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  public SpawnBuilder withRunfilesSupplier(RunfilesSupplier runfilesSupplier) {
-    this.runfilesSupplier = runfilesSupplier;
+    filesetMappings.put(fileset, filesetOutput);
     return this;
   }
 

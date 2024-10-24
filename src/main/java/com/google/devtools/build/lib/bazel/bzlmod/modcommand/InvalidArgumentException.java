@@ -34,6 +34,10 @@ public class InvalidArgumentException extends Exception {
     this.code = code;
   }
 
+  public InvalidArgumentException(String message) {
+    this(message, Code.INVALID_ARGUMENTS);
+  }
+
   public Code getCode() {
     return code;
   }

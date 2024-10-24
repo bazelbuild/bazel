@@ -40,25 +40,20 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-/**
- * A helper class for tests providing a simple interface for asserts.
- */
+/** A helper class for tests providing a simple interface for asserts. */
 public class MoreAsserts {
 
   /**
-   * Scans if an instance of given class is strongly reachable from a given
-   * object.
-   * <p>Runs breadth-first search in object reachability graph to check if
-   * an instance of <code>clz</code> can be reached.
-   * <strong>Note:</strong> This method can take a long time if analyzed
-   * data structure spans across large part of heap and may need a lot of
-   * memory.
+   * Scans if an instance of given class is strongly reachable from a given object.
+   *
+   * <p>Runs breadth-first search in object reachability graph to check if an instance of <code>clz
+   * </code> can be reached. <strong>Note:</strong> This method can take a long time if analyzed
+   * data structure spans across large part of heap and may need a lot of memory.
    *
    * @param start object to start the search from
    * @param clazz class to look for
    */
-  public static void assertInstanceOfNotReachable(
-      Object start, final Class<?> clazz) {
+  public static void assertInstanceOfNotReachable(Object start, final Class<?> clazz) {
     Predicate<Object> p = obj -> clazz.isAssignableFrom(obj.getClass());
     if (isRetained(p, start)) {
       fail("Found an instance of " + clazz.getCanonicalName() + " reachable from " + start);
@@ -102,8 +97,7 @@ public class MoreAsserts {
         }
       } else {
         // iterate *all* fields (getFields() returns only accessible ones)
-        for (Class<?> clazz = current.getClass(); clazz != null;
-            clazz = clazz.getSuperclass()) {
+        for (Class<?> clazz = current.getClass(); clazz != null; clazz = clazz.getSuperclass()) {
           for (Field f : clazz.getDeclaredFields()) {
             if (f.getType().isPrimitive() || ALL_STRONG_REFS.apply(f)) {
               continue;
@@ -145,8 +139,7 @@ public class MoreAsserts {
     assertThat(actual).isEqualTo(expected);
   }
 
-  public static void assertContainsWordsWithQuotes(String message,
-      String... strings) {
+  public static void assertContainsWordsWithQuotes(String message, String... strings) {
     for (String string : strings) {
       assertWithMessage(message + " should contain '" + string + "' (with quotes)")
           .that(message.contains("'" + string + "'"))
@@ -156,8 +149,12 @@ public class MoreAsserts {
 
   public static void assertNonZeroExitCode(int exitCode, String stdout, String stderr) {
     if (exitCode == 0) {
-      fail("expected non-zero exit code but exit code was 0 and stdout was <"
-          + stdout + "> and stderr was <" + stderr + ">");
+      fail(
+          "expected non-zero exit code but exit code was 0 and stdout was <"
+              + stdout
+              + "> and stderr was <"
+              + stderr
+              + ">");
     }
   }
 
@@ -169,11 +166,14 @@ public class MoreAsserts {
     assertExitCode(0, exitCode, recordingOutErr.outAsLatin1(), recordingOutErr.errAsLatin1());
   }
 
-  public static void assertExitCode(int expectedExitCode,
-      int exitCode, String stdout, String stderr) {
+  public static void assertExitCode(
+      int expectedExitCode, int exitCode, String stdout, String stderr) {
     if (exitCode != expectedExitCode) {
-      fail(String.format("expected exit code <%d> but exit code was <%d> and stdout was <%s> "
-          + "and stderr was <%s>", expectedExitCode, exitCode, stdout, stderr));
+      fail(
+          String.format(
+              "expected exit code <%d> but exit code was <%d> and stdout was <%s> "
+                  + "and stderr was <%s>",
+              expectedExitCode, exitCode, stdout, stderr));
     }
   }
 
@@ -195,30 +195,46 @@ public class MoreAsserts {
 
   public static void assertStderrContainsString(String expected, String stdout, String stderr) {
     if (!stderr.contains(expected)) {
-      fail("expected stderr to contain string <" + expected + "> but stdout was <"
-          + stdout + "> and stderr was <" + stderr + ">");
+      fail(
+          "expected stderr to contain string <"
+              + expected
+              + "> but stdout was <"
+              + stdout
+              + "> and stderr was <"
+              + stderr
+              + ">");
     }
   }
 
-  public static void assertStdoutContainsRegex(String expectedRegex,
-      String stdout, String stderr) {
+  public static void assertStdoutContainsRegex(String expectedRegex, String stdout, String stderr) {
     if (!Pattern.compile(expectedRegex).matcher(stdout).find()) {
-      fail("expected stdout to contain regex <" + expectedRegex + "> but stdout was <"
-          + stdout + "> and stderr was <" + stderr + ">");
+      fail(
+          "expected stdout to contain regex <"
+              + expectedRegex
+              + "> but stdout was <"
+              + stdout
+              + "> and stderr was <"
+              + stderr
+              + ">");
     }
   }
 
-  public static void assertStderrContainsRegex(String expectedRegex,
-      String stdout, String stderr) {
+  public static void assertStderrContainsRegex(String expectedRegex, String stdout, String stderr) {
     if (!Pattern.compile(expectedRegex).matcher(stderr).find()) {
-      fail("expected stderr to contain regex <" + expectedRegex + "> but stdout was <"
-          + stdout + "> and stderr was <" + stderr + ">");
+      fail(
+          "expected stderr to contain regex <"
+              + expectedRegex
+              + "> but stdout was <"
+              + stdout
+              + "> and stderr was <"
+              + stderr
+              + ">");
     }
   }
 
   /**
-   * If the specified EventCollector contains any events, an informative
-   * assertion fails in the context of the specified TestCase.
+   * If the specified EventCollector contains any events, an informative assertion fails in the
+   * context of the specified TestCase.
    */
   public static void assertNoEvents(Iterable<Event> eventCollector) {
     String eventsString = eventsToString(eventCollector);
@@ -231,7 +247,8 @@ public class MoreAsserts {
    */
   public static void assertEventCount(int expectedCount, EventCollector eventCollector) {
     assertWithMessage(eventsToString(eventCollector))
-        .that(eventCollector.count()).isEqualTo(expectedCount);
+        .that(eventCollector.count())
+        .isEqualTo(expectedCount);
   }
 
   /**
@@ -253,23 +270,21 @@ public class MoreAsserts {
   }
 
   /**
-   * If the specified EventCollector does not contain an event which has
-   * 'expectedEvent' as a substring, an informative assertion fails. Otherwise
-   * the matching event is returned.
+   * If the specified EventCollector does not contain an event which has 'expectedEvent' as a
+   * substring, an informative assertion fails. Otherwise the matching event is returned.
    */
-  public static Event assertContainsEvent(Iterable<Event> eventCollector,
-      String expectedEvent, EventKind kind) {
+  public static Event assertContainsEvent(
+      Iterable<Event> eventCollector, String expectedEvent, EventKind kind) {
     return assertContainsEvent(eventCollector, expectedEvent, ImmutableSet.of(kind));
   }
 
   /**
    * If the specified EventCollector does not contain an event of a kind of 'kinds' which has
-   * 'expectedEvent' as a substring, an informative assertion fails. Otherwise
-   * the matching event is returned.
+   * 'expectedEvent' as a substring, an informative assertion fails. Otherwise the matching event is
+   * returned.
    */
-  public static Event assertContainsEvent(Iterable<Event> eventCollector,
-                                          String expectedEvent,
-                                          Set<EventKind> kinds) {
+  public static Event assertContainsEvent(
+      Iterable<Event> eventCollector, String expectedEvent, Set<EventKind> kinds) {
     for (Event event : eventCollector) {
       // We want to be able to check for the location and the message type (error / warning).
       // Consequently, we use toString() instead of getMessage().
@@ -278,9 +293,13 @@ public class MoreAsserts {
       }
     }
     String eventsString = eventsToString(eventCollector);
-    assertWithMessage("Event '" + expectedEvent + "' not found"
-        + (eventsString.length() == 0 ? "" : ("; found these though:" + eventsString)))
-        .that(false).isTrue();
+    assertWithMessage(
+            "Event '"
+                + expectedEvent
+                + "' not found"
+                + (eventsString.length() == 0 ? "" : ("; found these though:" + eventsString)))
+        .that(false)
+        .isTrue();
     return null; // unreachable
   }
 
@@ -328,24 +347,40 @@ public class MoreAsserts {
   }
 
   /**
-   * If the specified EventCollector contains an event which has
-   * 'expectedEvent' as a substring, an informative assertion fails.
+   * If the specified EventCollector contains an event which has 'unexpectedEvent' as a substring,
+   * an informative assertion fails.
    */
-  public static void assertDoesNotContainEvent(Iterable<Event> eventCollector,
-                                          String expectedEvent) {
+  public static void assertDoesNotContainEvent(
+      Iterable<Event> eventCollector, String unexpectedEvent) {
+    assertDoesNotContainEvents(eventCollector, unexpectedEvent);
+  }
+
+  /**
+   * If the specified EventCollector contains an event which has any of 'unexpectedEvents' as a
+   * substring, an informative assertion fails.
+   */
+  public static void assertDoesNotContainEvents(
+      Iterable<Event> eventCollector, String... unexpectedEvents) {
     for (Event event : eventCollector) {
-      assertWithMessage("Unexpected string '" + expectedEvent + "' matched following event:\n"
-          + event.getMessage()).that(event.getMessage()).doesNotContain(expectedEvent);
+      for (String unexpectedEvent : unexpectedEvents) {
+        assertWithMessage(
+                "Unexpected string '"
+                    + unexpectedEvent
+                    + "' matched following event:\n"
+                    + event.getMessage())
+            .that(event.getMessage())
+            .doesNotContain(unexpectedEvent);
+      }
     }
   }
 
   /**
-   * Returns a string consisting of each event in the specified collector,
-   * preceded by a newline.
+   * Returns a string consisting of each event in the specified collector, preceded by a newline.
    */
   private static String eventsToString(Iterable<Event> eventCollector) {
     StringBuilder buf = new StringBuilder();
-    eventLoop: for (Event event : eventCollector) {
+    eventLoop:
+    for (Event event : eventCollector) {
       for (String ignoredPrefix : TestConstants.IGNORED_MESSAGE_PREFIXES) {
         if (event.getMessage().startsWith(ignoredPrefix)) {
           continue eventLoop;
@@ -402,21 +437,26 @@ public class MoreAsserts {
             expectedMessages);
 
     String eventsString = eventsToString(eventCollector);
-    assertWithMessage("Event '" + failure + "' not found in proper order"
-        + (eventsString.length() == 0 ? "" : ("; found these though:" + eventsString)))
-        .that(failure).isNull();
+    assertWithMessage(
+            "Event '"
+                + failure
+                + "' not found in proper order"
+                + (eventsString.length() == 0 ? "" : ("; found these though:" + eventsString)))
+        .that(failure)
+        .isNull();
   }
 
   /**
-   * Check to see if each element of expectedSublist is in arguments, according to
-   * the equalityChecker, in the same order as in expectedSublist (although with
-   * other interspersed elements in arguments allowed).
-   * @param equalityChecker function that takes a Pair<S, T> element and returns true
-   * if the elements of the pair are equal by its lights.
+   * Check to see if each element of expectedSublist is in arguments, according to the
+   * equalityChecker, in the same order as in expectedSublist (although with other interspersed
+   * elements in arguments allowed).
+   *
+   * @param equalityChecker function that takes a {@code Pair<S, T>} element and returns true if the
+   *     elements of the pair are equal by its lights.
    * @return first element not in arguments in order, or null if success.
    */
-  protected static <S, T> T containsSublistWithGapsAndEqualityChecker(List<S> arguments,
-      Function<Pair<S, T>, Boolean> equalityChecker, T... expectedSublist) {
+  protected static <S, T> T containsSublistWithGapsAndEqualityChecker(
+      List<S> arguments, Function<Pair<S, T>, Boolean> equalityChecker, T... expectedSublist) {
     Iterator<S> iter = arguments.iterator();
     outerLoop:
     for (T expected : expectedSublist) {
@@ -431,8 +471,8 @@ public class MoreAsserts {
     return null;
   }
 
-  public static List<Event> assertContainsEventWithFrequency(Iterable<Event> events,
-      String expectedMessage, int expectedFrequency) {
+  public static List<Event> assertContainsEventWithFrequency(
+      Iterable<Event> events, String expectedMessage, int expectedFrequency) {
     ImmutableList.Builder<Event> builder = ImmutableList.builder();
     for (Event event : events) {
       if (event.getMessage().contains(expectedMessage)) {

@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.runtime.commands;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.runtime.Command.BuildPhase.EXECUTES;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Joiner;
@@ -54,10 +55,10 @@ import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.BuildTool;
-import com.google.devtools.build.lib.buildtool.OutputDirectoryLinksUtils;
 import com.google.devtools.build.lib.buildtool.PathPrettyPrinter;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecRequestEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.RunBuildCompleteEvent;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -66,34 +67,28 @@ import com.google.devtools.build.lib.exec.TestPolicy;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
-import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
-import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.server.CommandProtos;
 import com.google.devtools.build.lib.server.CommandProtos.EnvironmentVariable;
 import com.google.devtools.build.lib.server.CommandProtos.ExecRequest;
+import com.google.devtools.build.lib.server.CommandProtos.PathToReplace;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.server.FailureDetails.RunCommand.Code;
-import com.google.devtools.build.lib.shell.ShellUtils;
-import com.google.devtools.build.lib.util.CommandDescriptionForm;
-import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OptionsUtils;
-import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -106,7 +101,6 @@ import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -116,9 +110,9 @@ import javax.annotation.Nullable;
 /** Builds and run a target with the given command line arguments. */
 @Command(
     name = "run",
-    builds = true,
+    buildPhase = EXECUTES,
     options = {RunCommand.RunOptions.class},
-    inherits = {BuildCommand.class},
+    inheritsOptionsFrom = {BuildCommand.class},
     shortDescription = "Runs the specified target.",
     help = "resource:run.txt",
     allowResidue = true,
@@ -142,12 +136,34 @@ public class RunCommand implements BlazeCommand {
     public PathFragment scriptPath;
 
     @Option(
+        name = "emit_script_path_in_exec_request",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        help =
+            "If true, emits the ExecRequest with --script_path file value and script contents"
+                + " instead of writing the script.")
+    public boolean emitScriptPathInExecRequest;
+
+    @Option(
         name = "run",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-        help = "If false, skip running the command line constructed for the built target.")
+        help =
+            "If false, skip running the command line constructed for the built target. Note that"
+                + " this flag is ignored for all --script_path builds.")
     public boolean runBuiltTarget;
+
+    @Option(
+        name = "portable_paths",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        help =
+            "If true, includes paths to replace in ExecRequest to make the resulting paths"
+                + " portable.")
+    public boolean portablePaths;
   }
 
   private static final String NO_TARGET_MESSAGE = "No targets found to run";
@@ -156,8 +172,8 @@ public class RunCommand implements BlazeCommand {
       "'run' only works with tests with one shard ('--test_sharding_strategy=disabled' is okay) "
           + "and without --runs_per_test";
 
-  private static final ImmutableList<String> ENV_VARIABLES_TO_CLEAR =
-      ImmutableList.of(
+  private static final ImmutableSortedSet<String> ENV_VARIABLES_TO_CLEAR =
+      ImmutableSortedSet.of(
           // These variables are all used by runfiles libraries to locate the runfiles directory or
           // manifest and can cause incorrect behavior when set for the top-level binary run with
           // bazel run.
@@ -189,15 +205,6 @@ public class RunCommand implements BlazeCommand {
       Iterables.addAll(args, targetArgs.arguments());
     }
     return ImmutableList.copyOf(args);
-  }
-
-  /**
-   * Compute the arguments the binary should be run with by concatenating the arguments in a {@link
-   * ConfiguredTarget}'s {@code args} attribute and the arguments on the Blaze command line.
-   */
-  private static ImmutableList<String> getAllCommandLineArgs(
-      ImmutableList<String> argsFromBinary, ImmutableList<String> argsFromResidue) {
-    return ImmutableList.<String>builder().addAll(argsFromBinary).addAll(argsFromResidue).build();
   }
 
   @Override
@@ -249,89 +256,66 @@ public class RunCommand implements BlazeCommand {
     } catch (RunCommandException e) {
       return e.result;
     }
-
-    if (runOptions.scriptPath != null) {
-      String unisolatedCommand =
-          CommandFailureUtils.describeCommand(
-              CommandDescriptionForm.COMPLETE_UNISOLATED,
-              /* prettyPrintArgs= */ false,
-              runCommandLine.args,
-              runCommandLine.runEnvironment,
-              ENV_VARIABLES_TO_CLEAR,
-              runCommandLine.workingDir.getPathString(),
-              builtTargets.configuration.checksum(),
-              /* executionPlatformLabel= */ null);
-
-      PathFragment shExecutable = ShToolchain.getPathForHost(builtTargets.configuration);
-      if (shExecutable.isEmpty()) {
-        return reportAndCreateFailureResult(
-            env,
-            "the \"run\" command needs a shell with \"--script_path\"; use the"
-                + " --shell_executable=<path> flag to specify its path, e.g."
-                + " --shell_executable=/bin/bash",
-            Code.NO_SHELL_SPECIFIED);
-      }
-
-      try {
-        writeScript(env, shExecutable, runOptions.scriptPath, unisolatedCommand);
-        return BlazeCommandResult.success();
-      } catch (IOException e) {
-        String message = "Error writing run script: " + e.getMessage();
-        return reportAndCreateFailureResult(env, message, Code.SCRIPT_WRITE_FAILURE);
-      }
-    }
-    if (runOptions.runBuiltTarget) {
-      env.getReporter()
-          .handle(
-              Event.info(
-                  null,
-                  "Running command line: "
-                      + ShellEscaper.escapeJoinAll(runCommandLine.prettyPrintArgs)));
-    } else {
-      env.getReporter()
-          .handle(
-              Event.info(
-                  null,
-                  "Runnable command line: "
-                      + ShellEscaper.escapeJoinAll(runCommandLine.prettyPrintArgs)));
-    }
-
-    // In --batch, prioritize original client env-var values over those added by the c++ launcher.
-    // Only necessary in --batch since the command runs as a subprocess of the java server.
     boolean batchMode =
         env.getRuntime()
             .getStartupOptionsProvider()
             .getOptions(BlazeServerStartupOptions.class)
             .batch;
-    ImmutableSortedMap.Builder<String, String> runEnv =
-        ImmutableSortedMap.<String, String>naturalOrder().putAll(runCommandLine.runEnvironment);
+    TreeMap<String, String> finalRunEnv = new TreeMap<>(runCommandLine.getEnvironment());
     if (batchMode) {
-      runEnv.putAll(env.getClientEnv());
+      // In --batch, prioritize original client env-var values over those added by the c++ launcher.
+      // Only necessary in --batch since the command runs as a subprocess of the java server.
+      finalRunEnv.putAll(env.getClientEnv());
     }
+    ExecRequest.Builder execRequest;
     try {
-      ExecRequest execRequest =
-          buildExecRequest(
+      boolean shouldRunTarget = runOptions.scriptPath == null && runOptions.runBuiltTarget;
+      ImmutableList<PathToReplace> pathsToReplace =
+          runOptions.portablePaths
+              ? getPathsToReplace(
+                  env,
+                  /* testLogDir= */ builtTargets
+                      .configuration
+                      .getTestLogsDirectory(RepositoryName.MAIN)
+                      .getExecPathString(),
+                  runCommandLine.isTestTarget())
+              : ImmutableList.of();
+
+      execRequest =
+          execRequestBuilder(
               env,
-              runCommandLine.workingDir,
-              runCommandLine.args,
-              runEnv.buildOrThrow(),
-              ENV_VARIABLES_TO_CLEAR,
+              runCommandLine,
+              ImmutableSortedMap.copyOf(finalRunEnv),
               builtTargets.configuration,
               builtTargets.stopTime,
-              runOptions.runBuiltTarget);
+              shouldRunTarget,
+              pathsToReplace);
+    } catch (RunCommandException e) {
+      return e.result;
+    }
+
+    if (runOptions.scriptPath != null) {
+      return handleScriptPath(runOptions, execRequest, runCommandLine, env, builtTargets);
+    }
+    if (runOptions.runBuiltTarget) {
+      env.getReporter()
+          .handle(Event.info(null, "Running command line: " + runCommandLine.getPrettyArgs()));
+    } else {
+      env.getReporter()
+          .handle(Event.info(null, "Runnable command line: " + runCommandLine.getPrettyArgs()));
+    }
+
+    try {
       env.getReporter()
           .post(
               new ExecRequestEvent(
-                  execRequest,
-                  options.getOptions(BuildEventProtocolOptions.class).includeResidueInRunBepEvent
+                  execRequest.build(),
+                  /* redactedArgv= */ options.getOptions(BuildEventProtocolOptions.class)
+                          .includeResidueInRunBepEvent
                       ? ImmutableList.copyOf(execRequest.getArgvList())
-                      : transformArgvsForExecRequest(
-                          env,
-                          runCommandLine.argsWithoutResidue,
-                          builtTargets.configuration,
-                          builtTargets.stopTime),
-                  runOptions.runBuiltTarget));
-      return BlazeCommandResult.execute(execRequest);
+                      : getArgvWithoutResidue(
+                          env, runCommandLine, builtTargets.configuration, builtTargets.stopTime)));
+      return BlazeCommandResult.execute(execRequest.build());
     } catch (RunCommandException e) {
       return e.result;
     }
@@ -504,28 +488,125 @@ public class RunCommand implements BlazeCommand {
         targetToRunRunfilesSupport,
         runUnderTarget,
         configuration,
+        result.getConvenienceSymlinks(),
         result.getStopTime());
   }
 
-  /** Encapsulates information for launching the command specified by a run invocation. */
-  private static class RunCommandLine {
-    private final ImmutableList<String> args;
-    private final ImmutableList<String> prettyPrintArgs;
-    private final ImmutableList<String> argsWithoutResidue;
-    private final ImmutableSortedMap<String, String> runEnvironment;
-    private final Path workingDir;
+  private static ExecRequest.Builder execRequestBuilder(
+      CommandEnvironment env,
+      RunCommandLine runCommandLine,
+      ImmutableSortedMap<String, String> runEnv,
+      BuildConfigurationValue configuration,
+      long stopTime,
+      boolean shouldRunTarget,
+      ImmutableList<PathToReplace> pathsToReplace)
+      throws RunCommandException {
+    ExecRequest.Builder execDescription =
+        ExecRequest.newBuilder()
+            .setWorkingDirectory(
+                ByteString.copyFrom(runCommandLine.getWorkingDir().getPathString(), ISO_8859_1))
+            .addAllArgv(getArgvForExecRequest(env, runCommandLine, configuration, stopTime));
 
-    private RunCommandLine(
-        ImmutableList<String> args,
-        ImmutableList<String> prettyPrintArgs,
-        ImmutableList<String> argsWithoutResidue,
-        ImmutableSortedMap<String, String> runEnvironment,
-        Path workingDir) {
-      this.args = args;
-      this.prettyPrintArgs = prettyPrintArgs;
-      this.argsWithoutResidue = argsWithoutResidue;
-      this.runEnvironment = runEnvironment;
-      this.workingDir = workingDir;
+    for (Map.Entry<String, String> variable : runEnv.entrySet()) {
+      execDescription.addEnvironmentVariable(
+          EnvironmentVariable.newBuilder()
+              .setName(ByteString.copyFrom(variable.getKey(), ISO_8859_1))
+              .setValue(ByteString.copyFrom(variable.getValue(), ISO_8859_1))
+              .build());
+    }
+    return execDescription
+        .addAllEnvironmentVariableToClear(
+            ENV_VARIABLES_TO_CLEAR.stream()
+                .map(s -> ByteString.copyFrom(s, ISO_8859_1))
+                .collect(toImmutableList()))
+        .setShouldExec(shouldRunTarget)
+        .addAllPathToReplace(pathsToReplace);
+  }
+
+  private static ImmutableList<PathToReplace> getPathsToReplace(
+      CommandEnvironment env, String testLogDir, boolean isTestTarget) {
+    ImmutableList<PathToReplace> pathsToReplace = ExecRequestUtils.getPathsToReplace(env);
+    if (isTestTarget) {
+      return ImmutableList.<PathToReplace>builder()
+          .addAll(pathsToReplace)
+          .add(
+              PathToReplace.newBuilder()
+                  .setType(PathToReplace.Type.TEST_LOG_SUBDIR)
+                  .setValue(ByteString.copyFrom(testLogDir, ISO_8859_1))
+                  .build())
+          .build();
+    }
+    return pathsToReplace;
+  }
+
+  private static ImmutableList<ByteString> getArgvForExecRequest(
+      CommandEnvironment env,
+      RunCommandLine runCommandLine,
+      BuildConfigurationValue configuration,
+      long stopTime)
+      throws RunCommandException {
+    return getArgv(env, runCommandLine, /* includeResidue= */ true, configuration, stopTime);
+  }
+
+  private static ImmutableList<ByteString> getArgvWithoutResidue(
+      CommandEnvironment env,
+      RunCommandLine runCommandLine,
+      BuildConfigurationValue configuration,
+      long stopTime)
+      throws RunCommandException {
+    return getArgv(env, runCommandLine, /* includeResidue= */ false, configuration, stopTime);
+  }
+
+  private static ImmutableList<ByteString> getArgv(
+      CommandEnvironment env,
+      RunCommandLine runCommandLine,
+      boolean includeResidue,
+      BuildConfigurationValue configuration,
+      long stopTime)
+      throws RunCommandException {
+    String shExecutable = null;
+    if (runCommandLine.requiresShExecutable()) {
+      shExecutable = getShellExecutableOrThrow(env, configuration, /* reason= */ "", stopTime);
+    }
+    ImmutableList<String> args =
+        includeResidue
+            ? runCommandLine.getArgs(shExecutable)
+            : runCommandLine.getArgsWithoutResidue(shExecutable);
+    return args.stream().map(s -> ByteString.copyFrom(s, ISO_8859_1)).collect(toImmutableList());
+  }
+
+  private BlazeCommandResult handleScriptPath(
+      RunOptions runOptions,
+      ExecRequest.Builder execRequest,
+      RunCommandLine runCommandLine,
+      CommandEnvironment env,
+      BuiltTargets builtTargets) {
+    String shExecutable;
+    try {
+      shExecutable =
+          getShellExecutableOrThrow(
+              env, builtTargets.configuration, "with \"--script_path\"", builtTargets.stopTime);
+    } catch (RunCommandException e) {
+      return e.result;
+    }
+
+    String scriptContents = runCommandLine.getScriptForm(shExecutable, ENV_VARIABLES_TO_CLEAR);
+
+    if (runOptions.emitScriptPathInExecRequest) {
+      execRequest.setScriptPath(
+          CommandProtos.ScriptPath.newBuilder()
+              .setScriptPath(ByteString.copyFrom(runOptions.scriptPath.toString(), ISO_8859_1))
+              .setScriptContents(ByteString.copyFrom(scriptContents, ISO_8859_1))
+              .build());
+      return BlazeCommandResult.execute(execRequest.build());
+    } else {
+      try {
+        writeScript(env, runOptions.scriptPath, scriptContents);
+      } catch (IOException e) {
+        String message = "Error writing run script: " + e.getMessage();
+        return reportAndCreateFailureResult(env, message, Code.SCRIPT_WRITE_FAILURE);
+      }
+      return BlazeCommandResult.success();
     }
   }
 
@@ -536,337 +617,224 @@ public class RunCommand implements BlazeCommand {
       ImmutableList<String> argsFromResidue,
       TestPolicy testPolicy)
       throws RunCommandException {
-    Map<String, String> runEnvironment = new TreeMap<>();
-    List<String> cmdLine = new ArrayList<>();
-    List<String> prettyCmdLine = new ArrayList<>();
-    List<String> redactedCmdLine = new ArrayList<>();
-    Path workingDir;
-
-    runEnvironment.put("BUILD_WORKSPACE_DIRECTORY", env.getWorkspace().getPathString());
-    runEnvironment.put("BUILD_WORKING_DIRECTORY", env.getWorkingDirectory().getPathString());
-
     if (builtTargets.targetToRun.getProvider(TestProvider.class) != null) {
-      // This is a test. Provide it with a reasonable approximation of the actual test environment
-      ImmutableList<Artifact.DerivedArtifact> statusArtifacts =
-          TestProvider.getTestStatusArtifacts(builtTargets.targetToRun);
-      if (statusArtifacts.size() != 1) {
-        throw new RunCommandException(
-            reportAndCreateFailureResult(
-                env, MULTIPLE_TESTS_MESSAGE, Code.TOO_MANY_TEST_SHARDS_OR_RUNS),
-            builtTargets.stopTime);
-      }
-
-      TestRunnerAction testAction =
-          (TestRunnerAction)
-              env.getSkyframeExecutor()
-                  .getActionGraph(env.getReporter())
-                  .getGeneratingAction(Iterables.getOnlyElement(statusArtifacts));
-      TestTargetExecutionSettings settings = testAction.getExecutionSettings();
-      // ensureRunfilesBuilt does build the runfiles, but an extra consistency check won't hurt.
-      Preconditions.checkState(
-          settings.getRunfilesSymlinksCreated()
-              == options.getOptions(CoreOptions.class).buildRunfileLinks);
-
-      ExecutionOptions executionOptions = options.getOptions(ExecutionOptions.class);
-      Path tmpDirRoot =
-          TestStrategy.getTmpRoot(env.getWorkspace(), env.getExecRoot(), executionOptions);
-      PathFragment maybeRelativeTmpDir =
-          tmpDirRoot.startsWith(env.getExecRoot())
-              ? tmpDirRoot.relativeTo(env.getExecRoot())
-              : tmpDirRoot.asFragment();
-      Duration timeout =
-          builtTargets
-              .configuration
-              .getFragment(TestConfiguration.class)
-              .getTestTimeout()
-              .get(testAction.getTestProperties().getTimeout());
-      runEnvironment.putAll(
-          testPolicy.computeTestEnvironment(
-              testAction,
-              env.getClientEnv(),
-              timeout,
-              settings.getRunfilesDir().relativeTo(env.getExecRoot()),
-              maybeRelativeTmpDir.getRelative(TestStrategy.getTmpDirName(testAction))));
-      workingDir = env.getExecRoot();
-
-      try {
-        testAction.prepare(
-            env.getExecRoot(),
-            ArtifactPathResolver.IDENTITY,
-            /* bulkDeleter= */ null,
-            /* cleanupArchivedArtifacts= */ false);
-      } catch (IOException e) {
-        throw new RunCommandException(
-            reportAndCreateFailureResult(
-                env,
-                "Error while setting up test: " + e.getMessage(),
-                Code.TEST_ENVIRONMENT_SETUP_FAILURE),
-            builtTargets.stopTime);
-      } catch (InterruptedException e) {
-        throw new RunCommandException(
-            reportAndCreateFailureResult(
-                env,
-                "Error while setting up test: " + e.getMessage(),
-                Code.TEST_ENVIRONMENT_SETUP_INTERRUPTED),
-            builtTargets.stopTime);
-      }
-
-      try {
-        ImmutableList<String> testArgs = TestStrategy.getArgs(testAction);
-        cmdLine.addAll(testArgs);
-        cmdLine.addAll(argsFromResidue);
-        prettyCmdLine.addAll(cmdLine);
-        redactedCmdLine.addAll(testArgs);
-      } catch (ExecException e) {
-        throw new RunCommandException(
-            reportAndCreateFailureResult(
-                env, Strings.nullToEmpty(e.getMessage()), Code.COMMAND_LINE_EXPANSION_FAILURE),
-            builtTargets.stopTime);
-      } catch (InterruptedException e) {
-        String message = "run: command line expansion interrupted";
-        env.getReporter().handle(Event.error(message));
-        throw new RunCommandException(
-            BlazeCommandResult.detailedExitCode(
-                InterruptedFailureDetails.detailedExitCode(message)),
-            builtTargets.stopTime);
-      }
-    } else {
-      workingDir =
-          builtTargets.targetToRunRunfilesDir != null
-              ? builtTargets.targetToRunRunfilesDir
-              : env.getWorkingDirectory();
-      ActionEnvironment actionEnvironment = ActionEnvironment.EMPTY;
-      if (builtTargets.targetToRunRunfilesSupport != null) {
-        actionEnvironment = builtTargets.targetToRunRunfilesSupport.getActionEnvironment();
-      }
-      RunEnvironmentInfo environmentProvider =
-          builtTargets.targetToRun.get(RunEnvironmentInfo.PROVIDER);
-      if (environmentProvider != null) {
-        actionEnvironment =
-            actionEnvironment.withAdditionalVariables(
-                environmentProvider.getEnvironment(),
-                ImmutableSet.copyOf(environmentProvider.getInheritedEnvironment()));
-      }
-      actionEnvironment.resolve(runEnvironment, env.getClientEnv());
-      try {
-        ImmutableList<String> argsFromBinary = getBinaryArgs(builtTargets.targetToRun);
-        ImmutableList<String> allCommandLineArgs =
-            getAllCommandLineArgs(argsFromBinary, argsFromResidue);
-
-        constructCommandLine(
-            cmdLine,
-            prettyCmdLine,
-            redactedCmdLine,
-            env,
-            builtTargets.configuration,
-            builtTargets.targetToRun,
-            builtTargets.runUnderTarget,
-            argsFromBinary,
-            allCommandLineArgs,
-            builtTargets.stopTime);
-      } catch (InterruptedException e) {
-        String message = "run: command line expansion interrupted";
-        env.getReporter().handle(Event.error(message));
-        throw new RunCommandException(
-            BlazeCommandResult.detailedExitCode(
-                InterruptedFailureDetails.detailedExitCode(message)),
-            builtTargets.stopTime);
-      } catch (CommandLineExpansionException e) {
-        throw new RunCommandException(
-            reportAndCreateFailureResult(
-                env, Strings.nullToEmpty(e.getMessage()), Code.COMMAND_LINE_EXPANSION_FAILURE),
-            builtTargets.stopTime);
-      }
+      return getTestCommandLine(env, builtTargets, options, argsFromResidue, testPolicy);
     }
 
-    return new RunCommandLine(
-        ImmutableList.copyOf(cmdLine),
-        ImmutableList.copyOf(prettyCmdLine),
-        ImmutableList.copyOf(redactedCmdLine),
+    ActionEnvironment actionEnvironment = ActionEnvironment.EMPTY;
+    if (builtTargets.targetToRunRunfilesSupport != null) {
+      actionEnvironment = builtTargets.targetToRunRunfilesSupport.getActionEnvironment();
+    }
+    RunEnvironmentInfo environmentProvider =
+        builtTargets.targetToRun.get(RunEnvironmentInfo.PROVIDER);
+    if (environmentProvider != null) {
+      actionEnvironment =
+          actionEnvironment.withAdditionalVariables(
+              environmentProvider.getEnvironment(),
+              ImmutableSet.copyOf(environmentProvider.getInheritedEnvironment()));
+    }
+    TreeMap<String, String> runEnvironment = makeMutableRunEnvironment(env);
+    actionEnvironment.resolve(runEnvironment, env.getClientEnv());
+
+    ImmutableList<String> argsFromBinary;
+    try {
+      argsFromBinary = getBinaryArgs(builtTargets.targetToRun);
+    } catch (InterruptedException e) {
+      String message = "run: command line expansion interrupted";
+      env.getReporter().handle(Event.error(message));
+      throw new RunCommandException(
+          BlazeCommandResult.detailedExitCode(InterruptedFailureDetails.detailedExitCode(message)),
+          builtTargets.stopTime);
+    } catch (CommandLineExpansionException e) {
+      throw new RunCommandException(
+          reportAndCreateFailureResult(
+              env, Strings.nullToEmpty(e.getMessage()), Code.COMMAND_LINE_EXPANSION_FAILURE),
+          builtTargets.stopTime);
+    }
+
+    return constructCommandLine(
+        env,
+        builtTargets,
         ImmutableSortedMap.copyOf(runEnvironment),
-        workingDir);
+        argsFromBinary,
+        argsFromResidue);
   }
 
-  private static void constructCommandLine(
-      List<String> cmdLine,
-      List<String> prettyCmdLine,
-      List<String> redactedCmdLine,
+  /**
+   * Returns the command line for the test, making a best effort to mimic the environment had we run
+   * `test //target`.
+   */
+  private static RunCommandLine getTestCommandLine(
       CommandEnvironment env,
-      BuildConfigurationValue configuration,
-      ConfiguredTarget targetToRun,
-      ConfiguredTarget runUnderTarget,
-      ImmutableList<String> argsFromBinary,
-      ImmutableList<String> allCommandLineArgs,
-      long stopTime)
+      BuiltTargets builtTargets,
+      OptionsParsingResult options,
+      ImmutableList<String> argsFromResidue,
+      TestPolicy testPolicy)
       throws RunCommandException {
-    BlazeRuntime runtime = env.getRuntime();
-    String productName = runtime.getProductName();
-    Artifact executable = targetToRun.getProvider(FilesToRunProvider.class).getExecutable();
+    ImmutableList<Artifact.DerivedArtifact> statusArtifacts =
+        TestProvider.getTestStatusArtifacts(builtTargets.targetToRun);
+    if (statusArtifacts.size() != 1) {
+      throw new RunCommandException(
+          reportAndCreateFailureResult(
+              env, MULTIPLE_TESTS_MESSAGE, Code.TOO_MANY_TEST_SHARDS_OR_RUNS),
+          builtTargets.stopTime);
+    }
 
+    TestRunnerAction testAction =
+        (TestRunnerAction)
+            env.getSkyframeExecutor()
+                .getActionGraph(env.getReporter())
+                .getGeneratingAction(Iterables.getOnlyElement(statusArtifacts));
+    TestTargetExecutionSettings settings = testAction.getExecutionSettings();
+    // ensureRunfilesBuilt does build the runfiles, but an extra consistency check won't hurt.
+    Preconditions.checkState(
+        settings.getRunfilesSymlinksCreated()
+            == options.getOptions(CoreOptions.class).buildRunfileLinks);
+
+    ExecutionOptions executionOptions = options.getOptions(ExecutionOptions.class);
+    Path tmpDirRoot =
+        TestStrategy.getTmpRoot(env.getWorkspace(), env.getExecRoot(), executionOptions);
+    PathFragment maybeRelativeTmpDir =
+        tmpDirRoot.startsWith(env.getExecRoot())
+            ? tmpDirRoot.relativeTo(env.getExecRoot())
+            : tmpDirRoot.asFragment();
+    Duration timeout =
+        builtTargets
+            .configuration
+            .getFragment(TestConfiguration.class)
+            .getTestTimeout()
+            .get(testAction.getTestProperties().getTimeout());
+    TreeMap<String, String> runEnvironment = makeMutableRunEnvironment(env);
+    runEnvironment.putAll(
+        testPolicy.computeTestEnvironment(
+            testAction,
+            env.getClientEnv(),
+            timeout,
+            settings.getRunfilesDir().relativeTo(env.getExecRoot()),
+            maybeRelativeTmpDir.getRelative(TestStrategy.getTmpDirName(testAction))));
+
+    try {
+      testAction.prepare(
+          env.getExecRoot(),
+          ArtifactPathResolver.IDENTITY,
+          /* bulkDeleter= */ null,
+          /* cleanupArchivedArtifacts= */ false);
+    } catch (IOException e) {
+      throw new RunCommandException(
+          reportAndCreateFailureResult(
+              env,
+              "Error while setting up test: " + e.getMessage(),
+              Code.TEST_ENVIRONMENT_SETUP_FAILURE),
+          builtTargets.stopTime);
+    } catch (InterruptedException e) {
+      throw new RunCommandException(
+          reportAndCreateFailureResult(
+              env,
+              "Error while setting up test: " + e.getMessage(),
+              Code.TEST_ENVIRONMENT_SETUP_INTERRUPTED),
+          builtTargets.stopTime);
+    }
+
+    ImmutableList<String> testArgs;
+    try {
+      testArgs = TestStrategy.getArgs(testAction);
+    } catch (ExecException e) {
+      throw new RunCommandException(
+          reportAndCreateFailureResult(
+              env, Strings.nullToEmpty(e.getMessage()), Code.COMMAND_LINE_EXPANSION_FAILURE),
+          builtTargets.stopTime);
+    } catch (InterruptedException e) {
+      String message = "run: command line expansion interrupted";
+      env.getReporter().handle(Event.error(message));
+      throw new RunCommandException(
+          BlazeCommandResult.detailedExitCode(InterruptedFailureDetails.detailedExitCode(message)),
+          builtTargets.stopTime);
+    }
+
+    return new RunCommandLine.Builder(
+            ImmutableSortedMap.copyOf(runEnvironment), env.getExecRoot(), /* isTestTarget= */ true)
+        .addArgs(testArgs)
+        .addArgsFromResidue(argsFromResidue)
+        .build();
+  }
+
+  /**
+   * Returns a new {@link TreeMap} with environment variables common to all run invocations. The
+   * return value is a new, mutable instance - this is necessary since we want to maintain order and
+   * overwrite existing keys, something which isn't supported by current immutable implementations.
+   */
+  @SuppressWarnings("NonApiType") // Sorted, mutable map is desired - see javadoc.
+  private static TreeMap<String, String> makeMutableRunEnvironment(CommandEnvironment env) {
+    TreeMap<String, String> result = new TreeMap<>();
+    result.put("BUILD_WORKSPACE_DIRECTORY", env.getWorkspace().getPathString());
+    result.put("BUILD_WORKING_DIRECTORY", env.getWorkingDirectory().getPathString());
+    return result;
+  }
+
+  private static RunCommandLine constructCommandLine(
+      CommandEnvironment env,
+      BuiltTargets builtTargets,
+      ImmutableSortedMap<String, String> runEnvironment,
+      ImmutableList<String> argsFromBinary,
+      ImmutableList<String> argsFromResidue) {
     BuildRequestOptions requestOptions = env.getOptions().getOptions(BuildRequestOptions.class);
-
-    PathFragment executablePath = executable.getPath().asFragment();
     PathPrettyPrinter prettyPrinter =
-        OutputDirectoryLinksUtils.getPathPrettyPrinter(
-            runtime.getRuleClassProvider().getSymlinkDefinitions(),
-            requestOptions.getSymlinkPrefix(productName),
-            productName,
-            env.getWorkspace());
-    PathFragment prettyExecutablePath =
-        prettyPrinter.getPrettyPath(executable.getPath().asFragment());
+        new PathPrettyPrinter(
+            requestOptions.getSymlinkPrefix(env.getRuntime().getProductName()),
+            builtTargets.convenienceSymlinks);
+
+    RunCommandLine.Builder runCommandLine =
+        new RunCommandLine.Builder(
+            runEnvironment,
+            /* workingDir= */ builtTargets.targetToRunRunfilesDir != null
+                ? builtTargets.targetToRunRunfilesDir
+                : env.getWorkingDirectory(),
+            /* isTestTarget= */ false);
 
     RunUnder runUnder = env.getOptions().getOptions(CoreOptions.class).runUnder;
     // Insert the command prefix specified by the "--run_under=<command-prefix>" option
     // at the start of the command line.
     if (runUnder != null) {
-      String runUnderValue = runUnder.getValue();
-      if (runUnderTarget != null) {
-        // --run_under specifies a target. Get the corresponding executable.
-        // This must be an absolute path, because the run_under target is only
-        // in the runfiles of test targets.
-        runUnderValue =
-            runUnderTarget
+      if (builtTargets.runUnderTarget != null) {
+        // --run_under specifies a target. Get the corresponding executable, this will be an
+        // absolute path because the run_under target is only in the runfiles of test targets
+        Path runUnderPath =
+            builtTargets
+                .runUnderTarget
                 .getProvider(FilesToRunProvider.class)
                 .getExecutable()
-                .getPath()
-                .getPathString();
-        // If the run_under command contains any options, make sure to add them
-        // to the command line as well.
-        List<String> opts = runUnder.getOptions();
-        if (!opts.isEmpty()) {
-          runUnderValue += " " + ShellEscaper.escapeJoinAll(opts);
-        }
+                .getPath();
+        runCommandLine.setRunUnderTarget(runUnderPath, runUnder.getOptions(), prettyPrinter);
+      } else {
+        runCommandLine.setRunUnderPrefix(runUnder.getValue());
       }
-
-      PathFragment shellExecutable = ShToolchain.getPathForHost(configuration);
-      if (shellExecutable.isEmpty()) {
-        throw new RunCommandException(
-            reportAndCreateFailureResult(
-                env,
-                "the \"run\" command needs a shell with \"--run_under\"; use the"
-                    + " --shell_executable=<path> flag to specify its path, e.g."
-                    + " --shell_executable=/bin/bash",
-                Code.NO_SHELL_SPECIFIED),
-            stopTime);
-      }
-
-      cmdLine.add(shellExecutable.getPathString());
-      cmdLine.add("-c");
-      String cmdLineArgs =
-          runUnderValue
-              + " "
-              + executablePath.getPathString()
-              + " "
-              + ShellEscaper.escapeJoinAll(allCommandLineArgs);
-      cmdLine.add(cmdLineArgs);
-
-      prettyCmdLine.add(shellExecutable.getPathString());
-      prettyCmdLine.add("-c");
-      String prettyCommandLineArgs =
-          runUnderValue
-              + " "
-              + prettyExecutablePath.getPathString()
-              + " "
-              + ShellEscaper.escapeJoinAll(allCommandLineArgs);
-      prettyCmdLine.add(prettyCommandLineArgs);
-
-      redactedCmdLine.add(shellExecutable.getPathString());
-      redactedCmdLine.add("-c");
-      String redactedCommandLineArgs =
-          runUnderValue
-              + " "
-              + executablePath.getPathString()
-              + " "
-              + ShellEscaper.escapeJoinAll(argsFromBinary);
-      redactedCmdLine.add(redactedCommandLineArgs);
-    } else {
-      cmdLine.add(executablePath.getPathString());
-      cmdLine.addAll(allCommandLineArgs);
-
-      prettyCmdLine.add(prettyExecutablePath.getPathString());
-      prettyCmdLine.addAll(allCommandLineArgs);
-
-      redactedCmdLine.add(executablePath.getPathString());
-      redactedCmdLine.addAll(argsFromBinary);
     }
+
+    Artifact executable =
+        builtTargets.targetToRun.getProvider(FilesToRunProvider.class).getExecutable();
+    return runCommandLine
+        .addArg(executable.getPath(), prettyPrinter)
+        .addArgs(argsFromBinary)
+        .addArgsFromResidue(argsFromResidue)
+        .build();
   }
 
-  private static ExecRequest buildExecRequest(
-      CommandEnvironment env,
-      Path workingDir,
-      ImmutableList<String> args,
-      ImmutableSortedMap<String, String> runEnv,
-      ImmutableList<String> runEnvToClear,
-      BuildConfigurationValue configuration,
-      long stopTime,
-      boolean runBuiltTarget)
+  private static String getShellExecutableOrThrow(
+      CommandEnvironment env, BuildConfigurationValue configuration, String reason, long stopTime)
       throws RunCommandException {
-    ExecRequest.Builder execDescription =
-        ExecRequest.newBuilder()
-            .setWorkingDirectory(ByteString.copyFrom(workingDir.getPathString(), ISO_8859_1));
-    execDescription.addAllArgv(transformArgvsForExecRequest(env, args, configuration, stopTime));
-
-    for (Map.Entry<String, String> variable : runEnv.entrySet()) {
-      execDescription.addEnvironmentVariable(
-          EnvironmentVariable.newBuilder()
-              .setName(ByteString.copyFrom(variable.getKey(), ISO_8859_1))
-              .setValue(ByteString.copyFrom(variable.getValue(), ISO_8859_1))
-              .build());
+    PathFragment shExecutable = ShToolchain.getPathForHost(configuration);
+    if (shExecutable.isEmpty()) {
+      throw new RunCommandException(
+          reportAndCreateFailureResult(
+              env,
+              "the \"run\" command needs a shell"
+                  + reason
+                  + "; use the --shell_executable=<path> "
+                  + "flag to specify the shell's path, e.g. --shell_executable=/bin/bash",
+              Code.NO_SHELL_SPECIFIED),
+          stopTime);
     }
-    execDescription.addAllEnvironmentVariableToClear(
-        runEnvToClear.stream()
-            .map(s -> ByteString.copyFrom(s, ISO_8859_1))
-            .collect(toImmutableList()));
-    execDescription.setShouldExec(runBuiltTarget);
-    return execDescription.build();
-  }
-
-  private static ImmutableList<ByteString> transformArgvsForExecRequest(
-      CommandEnvironment env,
-      List<String> args,
-      BuildConfigurationValue configuration,
-      long stopTime)
-      throws RunCommandException {
-    List<ByteString> execDescription = Lists.newArrayList();
-    if (OS.getCurrent() == OS.WINDOWS) {
-      boolean isBinary = true;
-      for (String arg : args) {
-        if (!isBinary) {
-          // All but the first element in `cmdLine` have to be escaped. The first element is the
-          // binary, which must not be escaped.
-          arg = ShellUtils.windowsEscapeArg(arg);
-        }
-        execDescription.add(ByteString.copyFrom(arg, ISO_8859_1));
-        isBinary = false;
-      }
-    } else {
-      PathFragment shExecutable = ShToolchain.getPathForHost(configuration);
-      if (shExecutable.isEmpty()) {
-        throw new RunCommandException(
-            reportAndCreateFailureResult(
-                env,
-                "the \"run\" command needs a shell with; use the --shell_executable=<path> "
-                    + "flag to specify the shell's path, e.g. --shell_executable=/bin/bash",
-                Code.NO_SHELL_SPECIFIED),
-            stopTime);
-      }
-
-      String shellEscaped = ShellEscaper.escapeJoinAll(args);
-      if (OS.getCurrent() == OS.WINDOWS) {
-        // On Windows, we run Bash as a subprocess of the client (via CreateProcessW).
-        // Bash uses its own (Bash-style) flag parsing logic, not the default logic for which
-        // ShellUtils.windowsEscapeArg escapes, so we escape the flags once again Bash-style.
-        shellEscaped = "\"" + shellEscaped.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
-      }
-
-      ImmutableList<String> shellCmdLine =
-          ImmutableList.<String>of(shExecutable.getPathString(), "-c", shellEscaped);
-
-      for (String arg : shellCmdLine) {
-        execDescription.add(ByteString.copyFrom(arg, ISO_8859_1));
-      }
-    }
-    return ImmutableList.copyOf(execDescription);
+    return shExecutable.getPathString();
   }
 
   private static class RunCommandException extends Exception {
@@ -887,6 +855,7 @@ public class RunCommand implements BlazeCommand {
     private final RunfilesSupport targetToRunRunfilesSupport;
     @Nullable private final ConfiguredTarget runUnderTarget;
     private final BuildConfigurationValue configuration;
+    private final ImmutableMap<PathFragment, PathFragment> convenienceSymlinks;
     private final long stopTime;
 
     private BuiltTargets(
@@ -895,12 +864,14 @@ public class RunCommand implements BlazeCommand {
         RunfilesSupport targetToRunRunfilesSupport,
         @Nullable ConfiguredTarget runUnderTarget,
         BuildConfigurationValue configuration,
+        ImmutableMap<PathFragment, PathFragment> convenienceSymlinks,
         long stopTime) {
       this.targetToRun = targetToRun;
       this.runUnderTarget = runUnderTarget;
       this.targetToRunRunfilesDir = targetToRunRunfilesDir;
       this.targetToRunRunfilesSupport = targetToRunRunfilesSupport;
       this.configuration = configuration;
+      this.convenienceSymlinks = convenienceSymlinks;
       this.stopTime = stopTime;
     }
   }
@@ -941,7 +912,7 @@ public class RunCommand implements BlazeCommand {
     // On Windows, runfiles tree is disabled.
     // Workspace name directory doesn't exist, so don't add it.
     if (configuration.runfilesEnabled()) {
-      workingDir = workingDir.getRelative(runfilesSupport.getRunfiles().getSuffix());
+      workingDir = workingDir.getRelative(runfilesSupport.getRunfiles().getPrefix());
     }
 
     // Always create runfiles directory and the workspace-named directory underneath, even if we
@@ -962,7 +933,9 @@ public class RunCommand implements BlazeCommand {
 
     try {
       runfilesTreeUpdater.updateRunfiles(
-          runfilesSupport, /* env= */ ImmutableMap.of(), /* outErr= */ null);
+          ImmutableList.of(runfilesSupport.getRunfilesTree()),
+          /* env= */ ImmutableMap.of(),
+          /* outErr= */ null);
     } catch (ExecException | IOException e) {
       throw new RunfilesException(
           "Failed to create runfiles symlinks: " + e.getMessage(),
@@ -973,17 +946,11 @@ public class RunCommand implements BlazeCommand {
   }
 
   private static void writeScript(
-      CommandEnvironment env, PathFragment shellExecutable, PathFragment scriptPathFrag, String cmd)
+      CommandEnvironment env, PathFragment scriptPathFrag, String scriptContent)
       throws IOException {
     Path scriptPath = env.getWorkingDirectory().getRelative(scriptPathFrag);
-    if (OS.getCurrent() == OS.WINDOWS) {
-      FileSystemUtils.writeContent(scriptPath, ISO_8859_1, "@echo off\n" + cmd + " %*");
-      scriptPath.setExecutable(true);
-    } else {
-      FileSystemUtils.writeContent(
-          scriptPath, ISO_8859_1, "#!" + shellExecutable.getPathString() + "\n" + cmd + " \"$@\"");
-      scriptPath.setExecutable(true);
-    }
+    FileSystemUtils.writeContent(scriptPath, ISO_8859_1, scriptContent);
+    scriptPath.setExecutable(true);
   }
 
   // Make sure we are building exactly 1 binary target.
@@ -1138,14 +1105,10 @@ public class RunCommand implements BlazeCommand {
    * code.
    */
   private static boolean isExecutableNonTestRule(Target target) {
-    if (!(target instanceof Rule)) {
+    if (!(target instanceof Rule rule)) {
       return false;
     }
-    Rule rule = ((Rule) target);
-    if (rule.getRuleClassObject().hasAttr("$is_executable", Type.BOOLEAN)) {
-      return NonconfigurableAttributeMapper.of(rule).get("$is_executable", Type.BOOLEAN);
-    }
-    return false;
+    return rule.isExecutable();
   }
 
   private static boolean isPlainFile(Target target) {

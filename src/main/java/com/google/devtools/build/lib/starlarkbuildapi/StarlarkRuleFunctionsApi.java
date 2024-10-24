@@ -19,7 +19,7 @@ import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.starlarkbuildapi.StarlarkConfigApi.BuildSettingApi;
+import com.google.devtools.build.lib.starlarkbuildapi.config.StarlarkConfigApi.BuildSettingApi;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkMethod;
@@ -57,11 +57,19 @@ public interface StarlarkRuleFunctionsApi {
           + " field of an <a href='../globals/bzl.html#aspect'>aspect</a> does, however, require"
           + " that providers are specified here.";
 
+  String DEPENDENCY_RESOLUTION_RULE_DOC =
+      "If set, the rule can be a dependency through attributes also marked as available in"
+          + " materializers. Every attribute of rules with this flag set must be marked as "
+          + " available in materializers also. This is so that rules so marked cannot depend on"
+          + " rules that are not so marked.";
+
   @StarlarkMethod(
       name = "provider",
       doc =
-          "Defines a provider symbol. The provider may be instantiated by calling it, or used"
-              + " directly as a key for retrieving an instance of that provider from a target."
+          "Defines a provider symbol. The resulting value of this function must be stored in a"
+              + " global value to be usable in a rule or aspect implementation. Providers can be"
+              + " instantiated by calling the resulting value as a function, or used directly as"
+              + " an index key for retrieving an instance of that provider from a target."
               + " Example:<br><pre class=\"language-python\">" //
               + "MyInfo = provider()\n"
               + "...\n"
@@ -200,11 +208,93 @@ public interface StarlarkRuleFunctionsApi {
             positional = false,
             named = true,
             documented = false // TODO(#19922): Document
-            )
-        // TODO(#19922): Take attrs dict
+            ),
+        @Param(
+            name = "attrs",
+            allowedTypes = {
+              @ParamType(type = Dict.class),
+            },
+            named = true,
+            positional = false,
+            defaultValue = "{}",
+            doc =
+                """
+A dictionary of the attributes this macro supports, analogous to <a href="#rule.attrs">rule.attrs
+</a>. Keys are attribute names, and values are attribute objects like <code>attr.label_list(...)
+</code> (see the <a href=\"../toplevel/attr.html\">attr</a> module).
+
+<p>The special <code>name</code> attribute is predeclared and must not be included in the
+dictionary. The <code>visibility</code> attribute name is reserved and must not be included in the
+dictionary.
+
+<p>Attributes whose names start with <code>_</code> are private -- they cannot be passed at the call
+site of the rule. Such attributes can be assigned a default value (as in
+<code>attr.label(default="//pkg:foo")</code>) to create an implicit dependency on a label.
+
+<p>Certain APIs are not available within symbolic macros. These include:
+<ul>
+  <li><a href="/reference/be/functions#package"><code>package()</code>, <code>licenses()</code>
+  <li><code>environment_group()</code>
+  <li><a href="../toplevel/native#glob"><code>native.glob()</code></a> - instead, you may pass a
+    glob into the macro via a label list attribute
+  <li><a href="../toplevel/native#subpackages"><code>native.subpackages()</code></a>
+  <li>(allowed in rule finalizers only)
+    <a href="../toplevel/native#existing_rules"><code>native.existing_rules()</code></a>,
+    <a href="../toplevel/native#existing_rule"><code>native.existing_rule()</code></a>
+  <li>(for <code>WORKSPACE</code> threads)
+    <a href="../globals/workspace#workspace"><code>workspace()</code></a>,
+    <a href="../globals/workspace#register_toolchains"><code>register_toolchains()</code></a>,
+    <a href="../globals/workspace#register_execution_platforms><code>register_execution_platforms()</code></a>,
+    <a href="../globals/workspace#bind"><code>bind()</code></a>, repository rule instantiation
+</ul>
+
+<p>To limit memory usage, there is a cap on the number of attributes that may be declared.
+"""),
+        // TODO: #19922 - Make a concepts page for symbolic macros, migrate some details like the
+        // list of disallowed APIs to there.
+        // TODO: #19922 - Make good on the above threat of enforcing a cap on the number of
+        // attributes.
+        // TODO: #19922 - Add a mechanism to optionally automatically pre-populate attrs with
+        // common build rule attributes ("tags", "testonly", etc.), or to inherit the list of
+        // attributes of a given rule class.
+        @Param(
+            name = "finalizer",
+            positional = false,
+            named = true,
+            defaultValue = "False",
+            doc =
+                """
+Whether this macro is a rule finalizer, which is a macro that, regardless of its position in a
+<code>BUILD</code> file, is evaluated at the end of package loading, after all non-finalizer targets
+have been defined.
+
+<p>Unlike ordinary symbolic macros, rule finalizers may call
+<a href="../toplevel/native#existing_rule"><code>native.existing_rule()</code></a> and
+<a href="../toplevel/native#existing_rules"><code>native.existing_rules()</code></a> to query the
+set of <em>non-finalizer</em> rule targets defined in the current package. Note that
+<code>native.existing_rule()</code> and <code>native.existing_rules()</code> cannot access the
+targets defined by any rule finalizer, including this one.
+"""),
+        @Param(
+            name = "doc",
+            positional = false,
+            named = true,
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            doc =
+                "A description of the macro that can be extracted by documentation generating "
+                    + "tools.")
       },
       useStarlarkThread = true)
-  StarlarkCallable macro(StarlarkFunction implementation, StarlarkThread thread)
+  StarlarkCallable macro(
+      StarlarkFunction implementation,
+      Dict<?, ?> attrs,
+      boolean finalizer,
+      Object doc,
+      StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
@@ -251,15 +341,19 @@ public interface StarlarkRuleFunctionsApi {
             positional = false,
             defaultValue = "{}",
             doc =
-                "dictionary to declare all the attributes of the rule. It maps from an attribute"
-                    + " name to an attribute object (see <a href=\"../toplevel/attr.html\">attr</a>"
-                    + " module). Attributes starting with <code>_</code> are private, and can be"
-                    + " used to add an implicit dependency on a label. The attribute"
-                    + " <code>name</code> is implicitly added and must not be specified. Attributes"
-                    + " <code>visibility</code>, <code>deprecation</code>, <code>tags</code>,"
-                    + " <code>testonly</code>, and <code>features</code> are implicitly added and"
-                    + " cannot be overridden. Most rules need only a handful of attributes. To"
-                    + " limit memory usage, the rule function imposes a cap on the size of attrs."),
+                """
+A dictionary to declare all the attributes of the rule. It maps from an attribute \
+name to an attribute object (see
+<a href="../toplevel/attr.html"><code>attr</code></a> module). Attributes starting \
+with <code>_</code> are private, and can be used to add an implicit dependency on \
+a label. The attribute <code>name</code> is implicitly added and must not be \
+specified. Attributes <code>visibility</code>, <code>deprecation</code>, \
+<code>tags</code>, <code>testonly</code>, and <code>features</code> are implicitly \
+added and cannot be overridden. Most rules need only a handful of attributes. To \
+limit memory usage, there is a cap on the number of attributes that may be \
+declared.
+<p>Declared attributes will convert <code>None</code> to the default value.</p>
+"""),
         // TODO(bazel-team): need to give the types of these builtin attributes
         @Param(
             name = "outputs",
@@ -407,6 +501,12 @@ public interface StarlarkRuleFunctionsApi {
             defaultValue = "[]",
             doc = PROVIDES_DOC),
         @Param(
+            name = "dependency_resolution_rule",
+            named = true,
+            positional = false,
+            defaultValue = "False",
+            doc = DEPENDENCY_RESOLUTION_RULE_DOC),
+        @Param(
             name = EXEC_COMPATIBLE_WITH_PARAM,
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
             named = true,
@@ -482,8 +582,8 @@ public interface StarlarkRuleFunctionsApi {
             doc =
                 "Experimental: the Stalark function initializing the attributes of the rule. "
                     + "<p>The function is called at load time for each instance of the rule. It's "
-                    + "called with values of public attributes defined by the rule (not with "
-                    + "generic attributes, for example <code>name</code> or <code>tags</code>). "
+                    + "called with <code>name</code> and the values of public attributes defined "
+                    + "by the rule (not with generic attributes, for example <code>tags</code>). "
                     + "<p>It has to return a dictionary from the attribute names to the desired "
                     + "values. The attributes that are not returned are unaffected. Returning "
                     + "<code>None</code> as value results in using the default value specified in "
@@ -554,6 +654,7 @@ public interface StarlarkRuleFunctionsApi {
       boolean useToolchainTransition,
       Object doc,
       Sequence<?> providesArg,
+      boolean dependencyResolutionRule,
       Sequence<?> execCompatibleWith,
       boolean analysisTest,
       Object buildSetting,
@@ -595,6 +696,14 @@ public interface StarlarkRuleFunctionsApi {
                     + "single string <code>\"*\"</code> to propagate along all dependencies of a "
                     + "target."),
         @Param(
+            name = "toolchains_aspects",
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = Object.class)},
+            named = true,
+            defaultValue = "[]",
+            doc =
+                "List of toolchain types. The aspect propagates to target"
+                    + " toolchains which match these toolchain types."),
+        @Param(
             name = "attrs",
             allowedTypes = {
               @ParamType(type = Dict.class),
@@ -602,17 +711,20 @@ public interface StarlarkRuleFunctionsApi {
             named = true,
             defaultValue = "{}",
             doc =
-                "A dictionary declaring all the attributes of the aspect. It maps from an attribute"
-                    + " name to an attribute object, like `attr.label` or `attr.string` (see <a"
-                    + " href=\"../toplevel/attr.html\">attr</a> module). Aspect attributes are"
-                    + " available to implementation function as fields of <code>ctx</code>"
-                    + " parameter. <p>Implicit attributes starting with <code>_</code> must have"
-                    + " default values, and have type <code>label</code> or"
-                    + " <code>label_list</code>. <p>Explicit attributes must have type"
-                    + " <code>string</code>, and must use the <code>values</code> restriction."
-                    + " Explicit attributes restrict the aspect to only be used with rules that"
-                    + " have attributes of the same name, type, and valid values according to the"
-                    + " restriction."),
+                """
+                A dictionary declaring all the attributes of the aspect. It maps from an \
+                attribute name to an attribute object, like <code>attr.label</code> or \
+                <code>attr.string</code> (see \
+                <a href="../toplevel/attr.html"><code>attr</code></a> module). Aspect attributes \
+                are available to implementation function as fields of <code>ctx</code> parameter. \
+                <p>Implicit attributes starting with <code>_</code> must have default values, and \
+                have type <code>label</code> or <code>label_list</code>.</p> \
+                <p>Explicit attributes must have type <code>string</code>, and must use the \
+                <code>values</code> restriction. Explicit attributes restrict the aspect to only \
+                be used with rules that have attributes of the same name, type, and valid values \
+                according to the restriction.</p>
+                <p>Declared attributes will convert <code>None</code> to the default value.</p>
+                """),
         @Param(
             name = "required_providers",
             named = true,
@@ -690,9 +802,9 @@ public interface StarlarkRuleFunctionsApi {
             named = true,
             defaultValue = "[]",
             doc =
-                "If set, the set of toolchains this rule requires. The list can contain String,"
+                "If set, the set of toolchains this aspect requires. The list can contain String,"
                     + " Label, or StarlarkToolchainTypeApi objects, in any combination. Toolchains"
-                    + " will be found by checking the current platform, and provided to the rule"
+                    + " will be found by checking the current platform, and provided to the aspect"
                     + " implementation via <code>ctx.toolchain</code>."),
         @Param(
             name = "incompatible_use_toolchain_transition",
@@ -763,6 +875,7 @@ public interface StarlarkRuleFunctionsApi {
   StarlarkAspectApi aspect(
       StarlarkFunction implementation,
       Sequence<?> attributeAspects,
+      Sequence<?> toolchainsAspects,
       Dict<?, ?> attrs,
       Sequence<?> requiredProvidersArg,
       Sequence<?> requiredAspectProvidersArg,
@@ -875,7 +988,10 @@ public interface StarlarkRuleFunctionsApi {
                 "If set, the set of toolchains this subrule requires. The list can contain String,"
                     + " Label, or StarlarkToolchainTypeApi objects, in any combination. Toolchains"
                     + " will be found by checking the current platform, and provided to the subrule"
-                    + " implementation via <code>ctx.toolchains</code>."),
+                    + " implementation via <code>ctx.toolchains</code>. Note that AEGs need to be"
+                    + " enabled on the consuming rule(s) if this parameter is set. In case you"
+                    + " haven't migrated to AEGs yet, see"
+                    + " https://bazel.build/extending/auto-exec-groups#migration-aegs."),
         @Param(
             name = "fragments",
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},

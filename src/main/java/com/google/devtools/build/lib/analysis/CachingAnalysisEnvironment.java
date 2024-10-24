@@ -26,10 +26,12 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
-import com.google.devtools.build.lib.actions.MiddlemanFactory;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue;
 import com.google.devtools.build.lib.skyframe.WorkspaceStatusValue;
 import com.google.devtools.build.lib.util.Pair;
@@ -62,7 +64,6 @@ public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
   private final ActionKeyContext actionKeyContext;
 
   private boolean enabled = true;
-  private MiddlemanFactory middlemanFactory;
   private ExtendedEventHandler errorEventListener;
   private SkyFunction.Environment skyframeEnv;
   // TODO(bazel-team): Should this be nulled out by disable()? Alternatively, does disable() even
@@ -101,7 +102,6 @@ public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
     this.errorEventListener = errorEventListener;
     this.skyframeEnv = env;
     this.starlarkBuiltinsValue = starlarkBuiltinsValue;
-    middlemanFactory = new MiddlemanFactory(artifactFactory, this);
   }
 
   public void disable(Target target) {
@@ -109,7 +109,6 @@ public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
       verifyGeneratedArtifactHaveActions(target);
     }
     artifacts = null;
-    middlemanFactory = null;
     enabled = false;
     errorEventListener = null;
     skyframeEnv = null;
@@ -233,12 +232,6 @@ public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
     return ((StoredEventHandler) errorEventListener).hasErrors();
   }
 
-  @Override
-  public MiddlemanFactory getMiddlemanFactory() {
-    Preconditions.checkState(enabled);
-    return middlemanFactory;
-  }
-
   /**
    * Keeps track of artifacts. We check that all of them have an owner when the environment is
    * sealed (disable()). For performance reasons we only track the originating stacktrace when
@@ -278,6 +271,15 @@ public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
     return dedupAndTrackArtifactAndOrigin(
         artifactFactory.getDerivedArtifact(rootRelativePath, root, owner, contentBasedPath),
         extendedSanityChecks ? new Throwable() : null);
+  }
+
+  @Override
+  public SpecialArtifact getRunfilesArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
+    Preconditions.checkState(enabled);
+    return (SpecialArtifact)
+        dedupAndTrackArtifactAndOrigin(
+            artifactFactory.getRunfilesArtifact(rootRelativePath, root, owner),
+            extendedSanityChecks ? new Throwable() : null);
   }
 
   @Override
@@ -366,6 +368,19 @@ public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
       throw new MissingDepException("Restart due to missing build info");
     }
     return workspaceStatusValue;
+  }
+
+  @Override
+  public RepositoryMapping getMainRepoMapping() throws InterruptedException {
+    var mainRepoMapping =
+        (RepositoryMappingValue)
+            skyframeEnv.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
+    if (mainRepoMapping == null) {
+      // This isn't expected to happen since the main repository mapping is computed before the
+      // analysis phase.
+      throw new MissingDepException("Restart due to missing main repository mapping");
+    }
+    return mainRepoMapping.getRepositoryMapping();
   }
 
   @Override

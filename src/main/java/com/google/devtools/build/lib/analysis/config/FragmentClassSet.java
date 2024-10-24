@@ -89,10 +89,9 @@ public final class FragmentClassSet extends AbstractSet<Class<? extends Fragment
     if (this == other) {
       return true;
     }
-    if (!(other instanceof FragmentClassSet)) {
+    if (!(other instanceof FragmentClassSet that)) {
       return false;
     }
-    FragmentClassSet that = (FragmentClassSet) other;
     return hashCode == that.hashCode && fragments.equals(that.fragments);
   }
 

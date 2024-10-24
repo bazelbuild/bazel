@@ -194,10 +194,9 @@ public class ParallelVisitorTest {
 
     @Override
     public boolean equals(Object obj) {
-      if (!(obj instanceof InputKey)) {
+      if (!(obj instanceof InputKey other)) {
         return false;
       }
-      InputKey other = (InputKey) obj;
       return this.str.equals(other.str);
     }
 

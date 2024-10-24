@@ -47,7 +47,7 @@ public class CppOptions extends FragmentOptions {
       } else if (!input.equals("no")) { // "no" is another special case that disables all modes.
         CompilationMode.Converter modeConverter = new CompilationMode.Converter();
         for (String mode : Splitter.on(',').split(input)) {
-          modes.add(modeConverter.convert(mode, /*conversionContext=*/ null));
+          modes.add(modeConverter.convert(mode, /* conversionContext= */ null));
         }
       }
       return modes.build().asList();
@@ -460,19 +460,28 @@ public class CppOptions extends FragmentOptions {
   public Label csFdoProfileLabel;
 
   @Option(
-      name = "enable_fdo_profile_absolute_path",
+      name = "enable_remaining_fdo_absolute_paths",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "If set, use of fdo_absolute_profile_path will raise an error.")
+      help = "If set, any use of absolute paths for FDO will raise an error.")
   public boolean enableFdoProfileAbsolutePath;
+
+  @Option(
+      name = "enable_propeller_optimize_absolute_paths",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "If set, any use of absolute paths for propeller optimize will raise an error.")
+  public boolean enablePropellerOptimizeAbsolutePath;
 
   @Option(
       name = "propeller_optimize_absolute_cc_profile",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Absolute path name of cc_profile file for Propeller Optimized builds.")
+      help = "Absolute path name of cc_profile file for Propeller Optimized builds.",
+      deprecationWarning = "Deprecated. Use --propeller_optimize instead.")
   public String propellerOptimizeAbsoluteCCProfile;
 
   @Option(
@@ -480,7 +489,8 @@ public class CppOptions extends FragmentOptions {
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Absolute path name of ld_profile file for Propeller Optimized builds.")
+      help = "Absolute path name of ld_profile file for Propeller Optimized builds.",
+      deprecationWarning = "Deprecated. Use --propeller_optimize instead.")
   public String propellerOptimizeAbsoluteLdProfile;
 
   @Option(
@@ -524,6 +534,25 @@ public class CppOptions extends FragmentOptions {
   public Label getMemProfProfileLabel() {
     return memprofProfileLabel;
   }
+
+  @Option(
+      name = "proto_profile",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+      defaultValue = "true",
+      help = "Whether to pass profile_path to the proto compiler.")
+  public boolean protoProfile;
+
+  @Option(
+      name = "proto_profile_path",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+      defaultValue = "null",
+      converter = LabelConverter.class,
+      help =
+          "The profile to pass to the proto compiler as profile_path. If unset, but "
+              + " --proto_profile is true (the default), infers the path from --fdo_optimize.")
+  public Label protoProfilePath;
 
   @Option(
       name = "save_temps",
@@ -694,9 +723,7 @@ public class CppOptions extends FragmentOptions {
    * <p>We want to make sure this stays bound to the top-level configuration (as opposed to a
    * configuration that comes out of a transition). Otherwise we risk multiple exec configurations
    * writing to the same path and creating C++ action conflicts (C++ actions can not be shared
-   * across configurations: see {@link ActionAnalysisMetadata#isShareable}). {@link
-   * com.google.devtools.build.lib.rules.android.AndroidSplitTransition}, for example, changes
-   * {@link #libcTopLabel} to an Android-specific variant.
+   * across configurations: see {@link ActionAnalysisMetadata#isShareable}).
    *
    * <p>To accomplish this, we initialize this to a special value that means "I haven't been set
    * yet" and use {@link #getNormalized} to rewrite it to {@link #libcTopLabel} <b>only</b> from
@@ -798,11 +825,9 @@ public class CppOptions extends FragmentOptions {
       name = "incompatible_make_thinlto_command_lines_standalone",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      effectTags = {OptionEffectTag.NO_OP},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If true, Bazel will not reuse C++ link action command lines for lto indexing command "
-              + "lines (see https://github.com/bazelbuild/bazel/issues/6791 for more information).")
+      help = "This flag is a noop and scheduled for removal.")
   public boolean useStandaloneLtoIndexingCommandLines;
 
   @Option(
@@ -937,6 +962,7 @@ public class CppOptions extends FragmentOptions {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "If true, coverage for clang will generate an LCOV report.")
   public boolean generateLlvmLcov;
 
@@ -949,9 +975,12 @@ public class CppOptions extends FragmentOptions {
       help = "If enabled, give distinguishing mnemonic to header processing actions")
   public boolean useCppCompileHeaderMnemonic;
 
+  // TODO: When moving this flag to the graveyard, also delete
+  // tools/cpp/osx_cc_wrapper.sh.tpl and make tools/cpp/linux_cc_wrapper.sh.tpl
+  // the generic wrapper for header parsing on all Unix platforms.
   @Option(
       name = "incompatible_macos_set_install_name",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
@@ -980,6 +1009,7 @@ public class CppOptions extends FragmentOptions {
         OptionEffectTag.EXECUTION,
         OptionEffectTag.CHANGES_INPUTS
       },
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           "Whether to narrow inputs to C/C++ compilation by parsing #include lines from input"
               + " files. This can improve performance and incrementality by decreasing the size of"
@@ -989,18 +1019,6 @@ public class CppOptions extends FragmentOptions {
               + " logic. Use at your own risk. Any issues relating to this flag that are filed will"
               + " be closed.")
   public boolean experimentalIncludeScanning;
-
-  @Option(
-      name = "experimental_objc_include_scanning",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-      effectTags = {
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-        OptionEffectTag.EXECUTION,
-        OptionEffectTag.CHANGES_INPUTS
-      },
-      help = "Whether to perform include scanning for objective C/C++.")
-  public boolean objcScanIncludes;
 
   @Option(
       name = "objc_use_dotd_pruning",
@@ -1022,6 +1040,23 @@ public class CppOptions extends FragmentOptions {
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "If enabled, cc_library targets can use attribute `implementation_deps`.")
   public boolean experimentalCcImplementationDeps;
+
+  @Option(
+      name = "experimental_cpp_modules",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.EXECUTION,
+        OptionEffectTag.CHANGES_INPUTS
+      },
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Enables experimental C++20 modules support. Use it with `module_interfaces` attribute on"
+              + " `cc_binary` and `cc_library`. While the support is behind the experimental flag,"
+              + " there are no guarantees about incompatible changes to it or even keeping the"
+              + " support in the future. Consider those risks when using it.")
+  public boolean experimentalCppModules;
 
   @Option(
       name = "experimental_link_static_libraries_once",
@@ -1079,18 +1114,5 @@ public class CppOptions extends FragmentOptions {
       return newOptions;
     }
     return this;
-  }
-
-  /** Returns true if targets under this configuration should apply FDO. */
-  public boolean isFdo() {
-    return getFdoOptimize() != null || fdoInstrumentForBuild != null || fdoProfileLabel != null;
-  }
-
-  /** Returns true if targets under this configuration should apply CSFdo. */
-  public boolean isCSFdo() {
-    return (getFdoOptimize() != null || fdoProfileLabel != null)
-        && (csFdoInstrumentForBuild != null
-            || csFdoProfileLabel != null
-            || csFdoAbsolutePathForBuild != null);
   }
 }

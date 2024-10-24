@@ -14,15 +14,11 @@
 
 package com.google.devtools.build.lib.rules.repository;
 
-import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.PackageSpecification;
-import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
+import com.google.devtools.build.lib.analysis.VisibilityProvider;
 import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import javax.annotation.Nullable;
 
@@ -40,11 +36,6 @@ public final class Bind implements RuleConfiguredTargetFactory {
     }
 
     ConfiguredTarget actual = (ConfiguredTarget) ruleContext.getPrerequisite("actual");
-    return AliasConfiguredTarget.create(
-        ruleContext,
-        actual,
-        NestedSetBuilder.create(
-            Order.STABLE_ORDER,
-            PackageGroupContents.create(ImmutableList.of(PackageSpecification.everything()))));
+    return AliasConfiguredTarget.create(ruleContext, actual, VisibilityProvider.PUBLIC_VISIBILITY);
   }
 }

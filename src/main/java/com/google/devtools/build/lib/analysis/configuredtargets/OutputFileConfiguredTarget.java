@@ -54,6 +54,11 @@ public final class OutputFileConfiguredTarget extends FileConfiguredTarget {
   }
 
   @Override
+  public boolean isCreatedInSymbolicMacro() {
+    return generatingRule.isCreatedInSymbolicMacro();
+  }
+
+  @Override
   public BuiltinProvider<LicensesProvider> getProvider() {
     return LicensesProvider.PROVIDER;
   }

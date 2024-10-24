@@ -79,10 +79,9 @@ public class ModifiedFileSet {
     if (o == this) {
       return true;
     }
-    if (!(o instanceof ModifiedFileSet)) {
+    if (!(o instanceof ModifiedFileSet other)) {
       return false;
     }
-    ModifiedFileSet other = (ModifiedFileSet) o;
     return treatEverythingAsModified() == other.treatEverythingAsModified()
         && treatEverythingAsDeleted() == other.treatEverythingAsDeleted()
         && Objects.equals(modified, other.modified);

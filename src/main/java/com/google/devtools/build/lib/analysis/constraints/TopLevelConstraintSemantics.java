@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.packages.EnvironmentGroup;
 import com.google.devtools.build.lib.packages.EnvironmentLabels;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -43,7 +42,7 @@ import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.skyframe.SaneAnalysisException;
+import com.google.devtools.build.lib.skyframe.AbstractSaneAnalysisException;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import java.util.ArrayList;
@@ -209,26 +208,6 @@ public class TopLevelConstraintSemantics {
       return EnvironmentCompatibility.severeIncompatible(severeMissingEnvironments);
     }
 
-    // Check auto-detected CPU environments.
-    try {
-      ImmutableSet<MissingEnvironment> nonSevereMissingEnvironment =
-          getMissingEnvironments(
-              configuredTarget,
-              autoConfigureTargetEnvironments(
-                  buildConfigurationValue,
-                  buildConfigurationValue.getAutoCpuEnvironmentGroup(),
-                  targetLookup),
-              targetLookup);
-      if (nonSevereMissingEnvironment == null) {
-        return null;
-      }
-      if (!nonSevereMissingEnvironment.isEmpty()) {
-        return EnvironmentCompatibility.nonSevereIncompatible();
-      }
-    } catch (NoSuchPackageException | NoSuchTargetException e) {
-      throw new TargetCompatibilityCheckException(
-          "invalid target environment", e.getDetailedExitCode().getFailureDetail(), e);
-    }
     return EnvironmentCompatibility.compatible();
   }
 
@@ -409,37 +388,6 @@ public class TopLevelConstraintSemantics {
   }
 
   /**
-   * Helper method for {@link #checkTargetEnvironmentRestrictions} that populates inferred expected
-   * environments.
-   */
-  @Nullable
-  private static ImmutableList<Label> autoConfigureTargetEnvironments(
-      BuildConfigurationValue config,
-      @Nullable Label environmentGroupLabel,
-      TargetLookup targetLookup)
-      throws InterruptedException, NoSuchTargetException, NoSuchPackageException {
-    if (environmentGroupLabel == null) {
-      return ImmutableList.of();
-    }
-
-    EnvironmentGroup environmentGroup =
-        (EnvironmentGroup) targetLookup.getTarget(environmentGroupLabel);
-    // Missing value.
-    if (environmentGroup == null) {
-      return null;
-    }
-
-    ImmutableList.Builder<Label> targetEnvironments = new ImmutableList.Builder<>();
-    for (Label environmentLabel : environmentGroup.getEnvironments()) {
-      if (environmentLabel.getName().equals(config.getCpu())) {
-        targetEnvironments.add(environmentLabel);
-      }
-    }
-
-    return targetEnvironments.build();
-  }
-
-  /**
    * Returns the expected environments that the given top-level target doesn't support.
    *
    * @param topLevelTarget the top-level target to check
@@ -488,8 +436,8 @@ public class TopLevelConstraintSemantics {
     topLevelTarget = topLevelTarget.getActual();
     // Now check the target against expected environments.
     TransitiveInfoCollection asProvider;
-    if (topLevelTarget instanceof OutputFileConfiguredTarget) {
-      asProvider = ((OutputFileConfiguredTarget) topLevelTarget).getGeneratingRule();
+    if (topLevelTarget instanceof OutputFileConfiguredTarget outputFileConfiguredTarget) {
+      asProvider = outputFileConfiguredTarget.getGeneratingRule();
     } else {
       asProvider = topLevelTarget;
     }
@@ -543,8 +491,8 @@ public class TopLevelConstraintSemantics {
       Collection<MissingEnvironment> missingEnvironments) {
     StringJoiner msg = new StringJoiner("\n");
     ConfiguredTarget targetWithProvider = configuredTarget.getActual();
-    if (targetWithProvider instanceof OutputFileConfiguredTarget) {
-      targetWithProvider = ((OutputFileConfiguredTarget) targetWithProvider).getGeneratingRule();
+    if (targetWithProvider instanceof OutputFileConfiguredTarget outputFileConfiguredTarget) {
+      targetWithProvider = outputFileConfiguredTarget.getGeneratingRule();
     }
     SupportedEnvironmentsProvider supportedEnvironments =
         targetWithProvider.getProvider(SupportedEnvironmentsProvider.class);
@@ -621,8 +569,7 @@ public class TopLevelConstraintSemantics {
   }
 
   /** For Exceptions that arise during the compatibility checking of a target. */
-  public static class TargetCompatibilityCheckException extends Exception
-      implements SaneAnalysisException {
+  public static class TargetCompatibilityCheckException extends AbstractSaneAnalysisException {
     private final FailureDetail failureDetail;
 
     public TargetCompatibilityCheckException(String message, FailureDetail failureDetail) {

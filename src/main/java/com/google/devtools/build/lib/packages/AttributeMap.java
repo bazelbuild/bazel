@@ -74,14 +74,13 @@ public interface AttributeMap {
   }
 
   /**
-   * Returns true if the given attribute is configurable for this rule instance, false
-   * if it isn't configurable or doesn't exist.
+   * Returns true if the given attribute is configurable for this rule instance or if any attributes
+   * it requires (for computed defaults) are configurable. Returns false if the attribute doesn't
+   * exist.
    */
   boolean isConfigurable(String attributeName);
 
-  /**
-   * Returns the names of all attributes covered by this map.
-   */
+  /** Returns the names of all attributes covered by this map. */
   Iterable<String> getAttributeNames();
 
   /**

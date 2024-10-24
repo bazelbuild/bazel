@@ -16,16 +16,16 @@ package com.google.devtools.build.lib.analysis.test;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
-import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.RunfilesSupplier;
-import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
+import com.google.devtools.build.lib.actions.MiddlemanAction;
+import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -124,32 +124,47 @@ public class TestActionBuilderTest extends BuildViewTestCase {
   private void writeJavaTests() throws IOException {
     scratch.file(
         "javatests/jt/BUILD",
-        "java_test(name = 'RGT',",
-        "          srcs = ['RGT.java'])",
-        "java_test(name = 'RGT_none',",
-        "          shard_count = 0,",
-        "          srcs = ['RGT.java'])",
-        "java_test(name = 'RGT_many',",
-        "          shard_count = 33,",
-        "          srcs = ['RGT.java'])",
-        "java_test(name = 'RGT_small',",
-        "          srcs = ['RGT.java'],",
-        "          size = 'small')",
-        "",
-        "java_test(name = 'NoRunner',",
-        "          main_class = 'NoTestRunnerTest.java',",
-        "          use_testrunner = 0,",
-        "          srcs = ['NoTestRunnerTest.java'])",
-        "");
+        """
+        load("@rules_java//java:defs.bzl", "java_test")
+        java_test(
+            name = "RGT",
+            srcs = ["RGT.java"],
+        )
+
+        java_test(
+            name = "RGT_none",
+            srcs = ["RGT.java"],
+            shard_count = 0,
+        )
+
+        java_test(
+            name = "RGT_many",
+            srcs = ["RGT.java"],
+            shard_count = 33,
+        )
+
+        java_test(
+            name = "RGT_small",
+            size = "small",
+            srcs = ["RGT.java"],
+        )
+
+        java_test(
+            name = "NoRunner",
+            srcs = ["NoTestRunnerTest.java"],
+            main_class = "NoTestRunnerTest.java",
+            use_testrunner = 0,
+        )
+        """);
   }
 
   private ImmutableList<Map<PathFragment, Artifact>> getShardRunfilesMappings(String label)
       throws Exception {
     return getTestStatusArtifacts(label).stream()
         .map(this::getGeneratingAction)
-        .map(ActionExecutionMetadata::getRunfilesSupplier)
-        .map(RunfilesSupplier::getRunfilesTrees)
-        .map(Iterables::getOnlyElement)
+        .map(a -> ((TestRunnerAction) a).getRunfilesMiddleman())
+        .map(this::getGeneratingAction)
+        .map(a -> ((MiddlemanAction) a).getRunfilesTree())
         .map(RunfilesTree::getMapping)
         .collect(toImmutableList());
   }
@@ -158,8 +173,20 @@ public class TestActionBuilderTest extends BuildViewTestCase {
   public void testRunfilesMappingCached() throws Exception {
     scratch.file(
         "a/BUILD",
-        "sh_test(name = 'sh', srcs = ['a.sh'], shard_count = 2)",
-        "java_test(name = 'java', srcs = ['Java.java'], shard_count = 2)");
+        """
+        load("@rules_java//java:defs.bzl", "java_test")
+        sh_test(
+            name = "sh",
+            srcs = ["a.sh"],
+            shard_count = 2,
+        )
+
+        java_test(
+            name = "java",
+            srcs = ["Java.java"],
+            shard_count = 2,
+        )
+        """);
 
     ImmutableList<Map<PathFragment, Artifact>> shMappings = getShardRunfilesMappings("//a:sh");
     assertThat(shMappings).hasSize(2);
@@ -221,12 +248,20 @@ public class TestActionBuilderTest extends BuildViewTestCase {
 
   @Test
   public void testFlakyAttributeValidation() throws Exception {
-    scratch.file("flaky/BUILD",
-        "sh_test(name = 'good_test',",
-        "        srcs = ['a.sh'])",
-        "sh_test(name = 'flaky_test',",
-        "        srcs = ['a.sh'],",
-        "        flaky = 1)");
+    scratch.file(
+        "flaky/BUILD",
+        """
+        sh_test(
+            name = "good_test",
+            srcs = ["a.sh"],
+        )
+
+        sh_test(
+            name = "flaky_test",
+            srcs = ["a.sh"],
+            flaky = 1,
+        )
+        """);
     Artifact testStatus = Iterables.getOnlyElement(getTestStatusArtifacts("//flaky:good_test"));
     assertThat(testStatus).isNotNull();
     TestRunnerAction action = (TestRunnerAction) getGeneratingAction(testStatus);
@@ -240,8 +275,10 @@ public class TestActionBuilderTest extends BuildViewTestCase {
 
   @Test
   public void testIllegalBooleanFlakySetting() throws Exception {
-    checkError("flaky", "bad_test",
-        "boolean is not one of [0, 1]",
+    checkError(
+        "flaky",
+        "bad_test",
+        "expected one of [False, True, 0, 1]",
         "sh_test(name = 'bad_test',",
         "        srcs = ['a.sh'],",
         "        flaky = 2)");
@@ -291,14 +328,23 @@ public class TestActionBuilderTest extends BuildViewTestCase {
    */
   @Test
   public void testTestTimeoutFlagOverridesTimeoutDefaultsValues() throws Exception {
-    scratch.file("javatests/timeouts/BUILD",
-        "java_test(name = 'small_no_timeout',",
-        "          srcs = [],",
-        "          size = 'small')",
-        "java_test(name = 'small_with_timeout',",
-        "          srcs = [],",
-        "          size = 'small',",
-        "          timeout = 'long')");
+    scratch.file(
+        "javatests/timeouts/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_test")
+        java_test(
+            name = "small_no_timeout",
+            size = "small",
+            srcs = [],
+        )
+
+        java_test(
+            name = "small_with_timeout",
+            size = "small",
+            timeout = "long",
+            srcs = [],
+        )
+        """);
     ImmutableList<Artifact.DerivedArtifact> testStatusList =
         getTestStatusArtifacts("//javatests/timeouts:small_no_timeout");
     TestRunnerAction testAction = (TestRunnerAction)
@@ -317,9 +363,14 @@ public class TestActionBuilderTest extends BuildViewTestCase {
     useConfiguration("--runs_per_test=2");
     scratch.file(
         "javatests/jt/BUILD",
-        "java_test(name = 'RGT',",
-        "          shard_count = 10,",
-        "          srcs = ['RGT.java'])");
+        """
+        load("@rules_java//java:defs.bzl", "java_test")
+        java_test(
+            name = "RGT",
+            srcs = ["RGT.java"],
+            shard_count = 10,
+        )
+        """);
     ImmutableList<Artifact.DerivedArtifact> testStatusList =
         getTestStatusArtifacts("//javatests/jt:RGT");
     assertThat(testStatusList).hasSize(20);
@@ -363,7 +414,8 @@ public class TestActionBuilderTest extends BuildViewTestCase {
     ConfiguredAspect aspectValue =
         Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
     StarlarkProvider.Key key =
-        new StarlarkProvider.Key(Label.parseCanonicalUnchecked("//:aspect.bzl"), "StructImpl");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonicalUnchecked("//:aspect.bzl")), "StructImpl");
     StructImpl info = (StructImpl) aspectValue.get(key);
     assertThat(((Depset) info.getValue("labels")).getSet(String.class).toList())
         .containsExactly("@@//:suite", "@@//:test_a", "@@//:test_b");
@@ -396,7 +448,8 @@ public class TestActionBuilderTest extends BuildViewTestCase {
     ConfiguredAspect aspectValue =
         Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
     StarlarkProvider.Key key =
-        new StarlarkProvider.Key(Label.parseCanonicalUnchecked("//:aspect.bzl"), "StructImpl");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonicalUnchecked("//:aspect.bzl")), "StructImpl");
     StructImpl info = (StructImpl) aspectValue.get(key);
     assertThat(((Depset) info.getValue("labels")).getSet(String.class).toList())
         .containsExactly("@@//:suite", "@@//:test_b");
@@ -425,7 +478,8 @@ public class TestActionBuilderTest extends BuildViewTestCase {
             /* doAnalysis= */ true,
             new EventBus());
     final StarlarkProvider.Key key =
-        new StarlarkProvider.Key(Label.parseCanonicalUnchecked("//:aspect.bzl"), "StructImpl");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonicalUnchecked("//:aspect.bzl")), "StructImpl");
 
     List<String> labels = new ArrayList<>();
     for (ConfiguredAspect a : analysisResult.getAspectsMap().values()) {
@@ -438,17 +492,20 @@ public class TestActionBuilderTest extends BuildViewTestCase {
   private void writeLabelCollectionAspect() throws IOException {
     scratch.file(
         "aspect.bzl",
-        "StructImpl = provider(fields = ['labels'])",
-        "def _impl(target,ctx):",
-        "    print(target.label)",
-        "    transitive = []",
-        "    if hasattr(ctx.rule.attr, 'tests'):",
-        "      transitive += [dep[StructImpl].labels for dep in ctx.rule.attr.tests]",
-        "    if hasattr(ctx.rule.attr, '_implicit_tests'):",
-        "      transitive += [dep[StructImpl].labels for dep in ctx.rule.attr._implicit_tests]",
-        "    return [StructImpl(labels = depset([str(target.label)], transitive = transitive))]",
-        "",
-        "a = aspect(_impl, attr_aspects = ['tests', '_implicit_tests'])");
+        """
+        StructImpl = provider(fields = ["labels"])
+
+        def _impl(target, ctx):
+            print(target.label)
+            transitive = []
+            if hasattr(ctx.rule.attr, "tests"):
+                transitive += [dep[StructImpl].labels for dep in ctx.rule.attr.tests]
+            if hasattr(ctx.rule.attr, "_implicit_tests"):
+                transitive += [dep[StructImpl].labels for dep in ctx.rule.attr._implicit_tests]
+            return [StructImpl(labels = depset([str(target.label)], transitive = transitive))]
+
+        a = aspect(_impl, attr_aspects = ["tests", "_implicit_tests"])
+        """);
   }
 
   /**
@@ -484,19 +541,21 @@ public class TestActionBuilderTest extends BuildViewTestCase {
   public void testOverrideExecGroup() throws Exception {
     scratch.file(
         "some_test.bzl",
-        "def _some_test_impl(ctx):",
-        "    script = ctx.actions.declare_file(ctx.attr.name + '.sh')",
-        "    ctx.actions.write(script, 'shell script goes here', is_executable = True)",
-        "    return [",
-        "        DefaultInfo(executable = script),",
-        "        testing.ExecutionInfo({}, exec_group = 'custom_group'),",
-        "    ]",
-        "",
-        "some_test = rule(",
-        "    implementation = _some_test_impl,",
-        "    exec_groups = {'custom_group': exec_group()},",
-        "    test = True,",
-        ")");
+        """
+        def _some_test_impl(ctx):
+            script = ctx.actions.declare_file(ctx.attr.name + ".sh")
+            ctx.actions.write(script, "shell script goes here", is_executable = True)
+            return [
+                DefaultInfo(executable = script),
+                testing.ExecutionInfo({}, exec_group = "custom_group"),
+            ]
+
+        some_test = rule(
+            implementation = _some_test_impl,
+            exec_groups = {"custom_group": exec_group()},
+            test = True,
+        )
+        """);
     scratch.file(
         "BUILD",
         "load(':some_test.bzl', 'some_test')",
@@ -519,22 +578,23 @@ public class TestActionBuilderTest extends BuildViewTestCase {
    */
   @Test
   public void testOverrideTestExecGroup() throws Exception {
-    useConfiguration("--use_target_platform_for_tests=true", "--platforms=//:linux_aarch64");
     scratch.file(
         "some_test.bzl",
-        "def _some_test_impl(ctx):",
-        "    script = ctx.actions.declare_file(ctx.attr.name + '.sh')",
-        "    ctx.actions.write(script, 'shell script goes here', is_executable = True)",
-        "    return [",
-        "        DefaultInfo(executable = script),",
-        "        testing.ExecutionInfo({}, exec_group = 'custom_group'),",
-        "    ]",
-        "",
-        "some_test = rule(",
-        "    implementation = _some_test_impl,",
-        "    exec_groups = {'custom_group': exec_group()},",
-        "    test = True,",
-        ")");
+        """
+        def _some_test_impl(ctx):
+            script = ctx.actions.declare_file(ctx.attr.name + ".sh")
+            ctx.actions.write(script, "shell script goes here", is_executable = True)
+            return [
+                DefaultInfo(executable = script),
+                testing.ExecutionInfo({}, exec_group = "custom_group"),
+            ]
+
+        some_test = rule(
+            implementation = _some_test_impl,
+            exec_groups = {"custom_group": exec_group()},
+            test = True,
+        )
+        """);
     scratch.file(
         "BUILD",
         "load(':some_test.bzl', 'some_test')",
@@ -549,6 +609,7 @@ public class TestActionBuilderTest extends BuildViewTestCase {
         "    name = 'custom_exec_group_test',",
         "    exec_properties = {'test.key': 'bad', 'custom_group.key': 'good'},",
         ")");
+    useConfiguration("--use_target_platform_for_tests=true", "--platforms=//:linux_aarch64");
     ImmutableList<Artifact.DerivedArtifact> testStatusList =
         getTestStatusArtifacts("//:custom_exec_group_test");
     TestRunnerAction testAction = (TestRunnerAction) getGeneratingAction(testStatusList.get(0));
@@ -559,23 +620,21 @@ public class TestActionBuilderTest extends BuildViewTestCase {
   /** Adding exec_properties from the platform with --use_target_platform_for_tests. */
   @Test
   public void testTargetTestExecGroup() throws Exception {
-    useConfiguration(
-        "--use_target_platform_for_tests=true",
-        "--platforms=//:linux_aarch64",
-        "--host_platform=//:linux_x86");
     scratch.file(
         "some_test.bzl",
-        "def _some_test_impl(ctx):",
-        "    script = ctx.actions.declare_file(ctx.attr.name + '.sh')",
-        "    ctx.actions.write(script, 'shell script goes here', is_executable = True)",
-        "    return [",
-        "        DefaultInfo(executable = script),",
-        "    ]",
-        "",
-        "some_test = rule(",
-        "    implementation = _some_test_impl,",
-        "    test = True,",
-        ")");
+        """
+        def _some_test_impl(ctx):
+            script = ctx.actions.declare_file(ctx.attr.name + ".sh")
+            ctx.actions.write(script, "shell script goes here", is_executable = True)
+            return [
+                DefaultInfo(executable = script),
+            ]
+
+        some_test = rule(
+            implementation = _some_test_impl,
+            test = True,
+        )
+        """);
     scratch.file(
         "BUILD",
         "load(':some_test.bzl', 'some_test')",
@@ -599,6 +658,10 @@ public class TestActionBuilderTest extends BuildViewTestCase {
         "    name = 'exec_group_test',",
         "    exec_properties = {'key': 'bad'},",
         ")");
+    useConfiguration(
+        "--use_target_platform_for_tests=true",
+        "--platforms=//:linux_aarch64",
+        "--host_platform=//:linux_x86");
     ImmutableList<Artifact.DerivedArtifact> testStatusList =
         getTestStatusArtifacts("//:exec_group_test");
     TestRunnerAction testAction = (TestRunnerAction) getGeneratingAction(testStatusList.get(0));
@@ -618,17 +681,19 @@ public class TestActionBuilderTest extends BuildViewTestCase {
         "--host_platform=//:linux_x86");
     scratch.file(
         "some_test.bzl",
-        "def _some_test_impl(ctx):",
-        "    script = ctx.actions.declare_file(ctx.attr.name + '.sh')",
-        "    ctx.actions.write(script, 'shell script goes here', is_executable = True)",
-        "    return [",
-        "        DefaultInfo(executable = script),",
-        "    ]",
-        "",
-        "some_test = rule(",
-        "    implementation = _some_test_impl,",
-        "    test = True,",
-        ")");
+        """
+        def _some_test_impl(ctx):
+            script = ctx.actions.declare_file(ctx.attr.name + ".sh")
+            ctx.actions.write(script, "shell script goes here", is_executable = True)
+            return [
+                DefaultInfo(executable = script),
+            ]
+
+        some_test = rule(
+            implementation = _some_test_impl,
+            test = True,
+        )
+        """);
     scratch.file(
         "BUILD",
         "load(':some_test.bzl', 'some_test')",

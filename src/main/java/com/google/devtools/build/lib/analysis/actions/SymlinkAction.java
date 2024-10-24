@@ -24,10 +24,11 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.exec.SpawnLogContext;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.SymlinkAction.Code;
@@ -171,9 +172,12 @@ public final class SymlinkAction extends AbstractAction {
    * @param absolutePath where the symlink will point to
    * @param output the Artifact that will be created by executing this Action.
    * @param progressMessage the progress message.
+   * @deprecated This action is not hermetic. To remove it, also the feature using it needs to be
+   *     deprecated.
    */
-  public static SymlinkAction toAbsolutePath(ActionOwner owner, PathFragment absolutePath,
-      Artifact output, String progressMessage) {
+  @Deprecated
+  public static SymlinkAction toAbsolutePath(
+      ActionOwner owner, PathFragment absolutePath, Artifact output, String progressMessage) {
     Preconditions.checkState(absolutePath.isAbsolute());
     return new SymlinkAction(owner, absolutePath, null, output, progressMessage, TargetType.OTHER);
   }
@@ -188,7 +192,7 @@ public final class SymlinkAction extends AbstractAction {
 
   @Override
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
-      throws ActionExecutionException {
+      throws ActionExecutionException, InterruptedException {
     maybeVerifyTargetIsExecutable(actionExecutionContext);
 
     Path srcPath;
@@ -218,6 +222,21 @@ public final class SymlinkAction extends AbstractAction {
     }
 
     updateInputMtimeIfNeeded(actionExecutionContext);
+
+    SpawnLogContext logContext = actionExecutionContext.getContext(SpawnLogContext.class);
+    if (logContext != null) {
+      try {
+        logContext.logSymlinkAction(this);
+      } catch (IOException e) {
+        String message =
+            String.format(
+                "failed to log creation of symlink '%s' to '%s' due to I/O error: %s",
+                getPrimaryOutput().getExecPathString(), printInputs(), e.getMessage());
+        DetailedExitCode code = createDetailedExitCode(message, Code.LINK_LOG_IO_EXCEPTION);
+        throw new ActionExecutionException(message, e, this, false, code);
+      }
+    }
+
     return ActionResult.EMPTY;
   }
 
@@ -311,6 +330,11 @@ public final class SymlinkAction extends AbstractAction {
     if (inputPath != null) {
       fp.addPath(inputPath);
     }
+  }
+
+  @Override
+  public String describeKey() {
+    return String.format("GUID: %s\ninputPath: %s\n", GUID, inputPath);
   }
 
   @Override

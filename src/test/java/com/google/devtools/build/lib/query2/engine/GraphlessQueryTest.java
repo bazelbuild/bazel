@@ -62,8 +62,17 @@ public class GraphlessQueryTest extends AbstractQueryTest<Target> {
   public void boundedRdepsWithError() throws Exception {
     writeFile(
         "foo/BUILD",
-        "sh_library(name = 'foo', deps = [':dep'])",
-        "sh_library(name = 'dep', deps = ['//bar:missing'])");
+        """
+        sh_library(
+            name = "foo",
+            deps = [":dep"],
+        )
+
+        sh_library(
+            name = "dep",
+            deps = ["//bar:missing"],
+        )
+        """);
     assertThat(
             evalThrows("rdeps(//foo:foo, //foo:dep, 1)", /* unconditionallyThrows= */ false)
                 .getMessage())
@@ -110,7 +119,6 @@ public class GraphlessQueryTest extends AbstractQueryTest<Target> {
               Set<Setting> settings,
               Iterable<QueryFunction> extraFunctions,
               @Nullable PathPackageLocator packagePath,
-              boolean blockUniverseEvaluationErrors,
               boolean useGraphlessQuery,
               LabelPrinter labelPrinter) {
             return new GraphlessBlazeQueryEnvironment(

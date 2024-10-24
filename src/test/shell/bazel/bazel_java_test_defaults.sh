@@ -52,11 +52,6 @@ msys*|mingw*|cygwin*)
   ;;
 esac
 
-if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 # Java source files version shall match --java_language_version_flag version.
 # Output class files shall be created in corresponding version (JDK 8, class version is 52).
 function test_default_java_toolchain_target_version() {
@@ -205,6 +200,11 @@ EOF
 
 # VANILLA_TOOLCHAIN_CONFIGURATION shall use VanillaJavaBuilder and not override any JDK internal compiler classes.
 function test_default_java_toolchain_vanillaToolchain() {
+  add_rules_java MODULE.bazel
+  cat >> MODULE.bazel <<EOF
+java_toolchains = use_extension("@rules_java//java:extensions.bzl", "toolchains")
+use_repo(java_toolchains, "local_jdk")
+EOF
   cat > BUILD <<EOF
 load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain", "VANILLA_TOOLCHAIN_CONFIGURATION")
 default_java_toolchain(
@@ -431,7 +431,7 @@ EOF
 
   bazel build --platforms=//pkg:exotic_platform --java_runtime_version=local_jdk \
     //pkg:foo_deploy.jar &>"$TEST_log" && fail "Build should fail"
-  expect_log "While resolving toolchains for target //pkg:foo_deployjars_internal_rule ([0-9a-f]*): No matching toolchains found for types @@bazel_tools//tools/jdk:runtime_toolchain_type"
+  expect_log "While resolving toolchains for target //pkg:foo_deploy.jar ([0-9a-f]*): No matching toolchains found for types @@bazel_tools//tools/jdk:runtime_toolchain_type"
 }
 
 function test_executable_java_binary_fails_without_runtime_with_remote_jdk() {
@@ -445,7 +445,7 @@ java_binary(
 )
 EOF
 
-    cat > pkg/Foo.java <<'EOF'
+  cat > pkg/Foo.java <<'EOF'
 package com.example;
 public class Foo {
   public static void main(String[] args) {
@@ -460,7 +460,7 @@ EOF
 
   bazel build --platforms=//pkg:exotic_platform --java_runtime_version=remotejdk_11 \
     //pkg:foo_deploy.jar &>"$TEST_log" && fail "Build should fail"
-  expect_log "While resolving toolchains for target //pkg:foo_deployjars_internal_rule ([0-9a-f]*): No matching toolchains found for types @@bazel_tools//tools/jdk:runtime_toolchain_type"
+  expect_log "While resolving toolchains for target //pkg:foo_deploy.jar ([0-9a-f]*): No matching toolchains found for types @@bazel_tools//tools/jdk:runtime_toolchain_type"
 }
 
 run_suite "Java toolchains tests, configured using flags or the default_java_toolchain macro."

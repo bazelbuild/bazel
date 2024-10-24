@@ -21,7 +21,7 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.MissingExpansionException;
+import com.google.devtools.build.lib.actions.ArtifactExpander.MissingExpansionException;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
@@ -72,7 +72,7 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
         GoogleAutoProfilerUtils.logged("running " + action.prettyPrint(), MIN_LOGGING)) {
       // TODO(tjgq): Respect RunfileSymlinksMode.SKIP even in the presence of an OutputService.
       try {
-        if (outputService != null && outputService.canCreateSymlinkTree()) {
+        if (outputService.canCreateSymlinkTree()) {
           Path inputManifest = actionExecutionContext.getInputPath(action.getInputManifest());
           Map<PathFragment, PathFragment> symlinks;
           if (action.getRunfiles() != null) {
@@ -85,7 +85,8 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
               filesetLinks =
                   actionExecutionContext
                       .getArtifactExpander()
-                      .getFileset(action.getInputManifest());
+                      .expandFileset(action.getInputManifest())
+                      .symlinks();
             } catch (MissingExpansionException e) {
               throw new IllegalStateException(e);
             }
@@ -93,7 +94,7 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
             symlinks =
                 SymlinkTreeHelper.processFilesetLinks(
                     filesetLinks,
-                    action.getFilesetRoot(),
+                    action.getWorkspaceNameForFileset(),
                     actionExecutionContext.getExecRoot().asFragment());
           }
 

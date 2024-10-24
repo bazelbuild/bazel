@@ -49,18 +49,6 @@ public class HostJvmStartupOptions extends OptionsBase {
   public List<String> hostJvmArgs;
 
   @Option(
-      name = "host_jvm_profile",
-      defaultValue = "", // NOTE: purely decorative!  See BlazeServerStartupOptions.
-      valueHelp = "<profiler_name>",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Convenience option to add some profiler/debugger-specific JVM startup flags. "
-              + "Bazel has a list of known values that it maps to hard-coded JVM startup flags, "
-              + "possibly searching some hardcoded paths for certain files.")
-  public String hostJvmProfile;
-
-  @Option(
     name = "host_jvm_debug",
     defaultValue = "null", // NOTE: purely decorative!  See BlazeServerStartupOptions.
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,

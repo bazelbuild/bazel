@@ -47,15 +47,18 @@ public class GraphOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
   public final void defineSimpleRule() throws Exception {
     writeFile(
         "defs/defs.bzl",
-        "def _impl(ctx):",
-        "  pass",
-        "simple_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list(allow_files = True),",
-        "    'tool_deps': attr.label_list(cfg = 'exec')",
-        "  }",
-        ")");
+        """
+        def _impl(ctx):
+            pass
+
+        simple_rule = rule(
+            implementation = _impl,
+            attrs = {
+                "deps": attr.label_list(allow_files = True),
+                "tool_deps": attr.label_list(cfg = "exec"),
+            },
+        )
+        """);
     writeFile("defs/BUILD");
   }
 
@@ -66,7 +69,7 @@ public class GraphOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     this.reporter = new Reporter(new EventBus(), events::add);
   }
 
-  private List<String> getOutput(String queryExpression) throws Exception {
+  private ImmutableList<String> getOutput(String queryExpression) throws Exception {
     QueryExpression expression = QueryParser.parse(queryExpression, getDefaultFunctions());
     Set<String> targetPatternSet = new LinkedHashSet<>();
     expression.collectTargetPatterns(targetPatternSet);
@@ -85,7 +88,7 @@ public class GraphOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
             ct -> env.getFwdDeps(ImmutableList.of(ct)),
             LabelPrinter.legacy());
     env.evaluateQuery(expression, callback);
-    return Arrays.asList(output.toString().split(System.lineSeparator()));
+    return ImmutableList.copyOf(output.toString().split(System.lineSeparator()));
   }
 
   /** Convenience method for easily injecting a config hash into an expected output sequence. */
@@ -99,11 +102,26 @@ public class GraphOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
   public void basicGraph() throws Exception {
     writeFile(
         "test/BUILD",
-        "load('//defs:defs.bzl', 'simple_rule')",
-        "simple_rule(name = 'a', deps = [':b', ':c'])",
-        "simple_rule(name = 'b', deps = [':d'])",
-        "simple_rule(name = 'c')",
-        "simple_rule(name = 'd')");
+        """
+        load("//defs:defs.bzl", "simple_rule")
+
+        simple_rule(
+            name = "a",
+            deps = [
+                ":b",
+                ":c",
+            ],
+        )
+
+        simple_rule(
+            name = "b",
+            deps = [":d"],
+        )
+
+        simple_rule(name = "c")
+
+        simple_rule(name = "d")
+        """);
     List<String> output = getOutput("deps(//test:a)");
     String firstNode = output.get(2);
     String configHash = firstNode.substring(firstNode.indexOf("(") + 1, firstNode.length() - 2);
@@ -128,11 +146,29 @@ public class GraphOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     options.graphFactored = true;
     writeFile(
         "test/BUILD",
-        "load('//defs:defs.bzl', 'simple_rule')",
-        "simple_rule(name = 'a', deps = [':b', ':c'])",
-        "simple_rule(name = 'b', deps = [':d'])",
-        "simple_rule(name = 'c', deps = [':d'])",
-        "simple_rule(name = 'd')");
+        """
+        load("//defs:defs.bzl", "simple_rule")
+
+        simple_rule(
+            name = "a",
+            deps = [
+                ":b",
+                ":c",
+            ],
+        )
+
+        simple_rule(
+            name = "b",
+            deps = [":d"],
+        )
+
+        simple_rule(
+            name = "c",
+            deps = [":d"],
+        )
+
+        simple_rule(name = "d")
+        """);
     List<String> output = getOutput("deps(//test:a)");
     String firstNode = output.get(2);
     String configHash = firstNode.substring(firstNode.indexOf("(") + 1, firstNode.length() - 2);
@@ -154,17 +190,29 @@ public class GraphOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
   public void nullAndToolDeps() throws Exception {
     writeFile(
         "test/BUILD",
-        "load('//defs:defs.bzl', 'simple_rule')",
-        "simple_rule(name = 'a', deps = [':b', ':file.src'], tool_deps = [':tool_dep'])",
-        "simple_rule(name = 'b')",
-        "simple_rule(name = 'tool_dep')");
+        """
+        load("//defs:defs.bzl", "simple_rule")
+
+        simple_rule(
+            name = "a",
+            tool_deps = [":tool_dep"],
+            deps = [
+                ":b",
+                ":file.src",
+            ],
+        )
+
+        simple_rule(name = "b")
+
+        simple_rule(name = "tool_dep")
+        """);
     writeFile("test/file.src");
-    List<String> output = getOutput("deps(//test:a)");
+    ImmutableList<String> output = getOutput("deps(//test:a)" + getDependencyCorrection());
     String firstNode = output.get(2);
     String configHash = firstNode.substring(firstNode.indexOf("(") + 1, firstNode.length() - 2);
     String toolNode = output.get(6);
     String execConfigHash = toolNode.substring(toolNode.indexOf("(") + 1, toolNode.length() - 2);
-    assertThat(getOutput("deps(//test:a)"))
+    assertThat(output)
         .isEqualTo(
             withConfigHash(
                 configHash,
@@ -184,14 +232,26 @@ public class GraphOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
   public void selectsResolvedAndRemoved() throws Exception {
     writeFile(
         "test/BUILD",
-        "load('//defs:defs.bzl', 'simple_rule')",
-        "config_setting(name = 'use_a', define_values = {'a': '1'})",
-        "simple_rule(name = 'a', deps = select({",
-        "    ':use_a': [':dep_with_a'],",
-        "    '//conditions:default': [':default_dep'],",
-        "}))",
-        "simple_rule(name = 'dep_with_a')",
-        "simple_rule(name = 'default_dep')");
+        """
+        load("//defs:defs.bzl", "simple_rule")
+
+        config_setting(
+            name = "use_a",
+            define_values = {"a": "1"},
+        )
+
+        simple_rule(
+            name = "a",
+            deps = select({
+                ":use_a": [":dep_with_a"],
+                "//conditions:default": [":default_dep"],
+            }),
+        )
+
+        simple_rule(name = "dep_with_a")
+
+        simple_rule(name = "default_dep")
+        """);
     getHelper().useConfiguration("--define", "a=1");
     List<String> output = getOutput("deps(//test:a)");
     String firstNode = output.get(2);

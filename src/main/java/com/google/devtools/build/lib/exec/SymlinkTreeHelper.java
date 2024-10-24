@@ -222,13 +222,21 @@ public final class SymlinkTreeHelper {
         .build();
   }
 
+  /**
+   * Processes a list of fileset symlinks into a map that can be passed to {@link
+   * com.google.devtools.build.lib.vfs.OutputService#createSymlinkTree}.
+   *
+   * <p>By convention, all symlinks are placed under a directory with the given workspace name.
+   */
   static ImmutableMap<PathFragment, PathFragment> processFilesetLinks(
-      ImmutableList<FilesetOutputSymlink> links, PathFragment root, PathFragment execRoot) {
-    Map<PathFragment, PathFragment> symlinks = new HashMap<>();
+      ImmutableList<FilesetOutputSymlink> links, String workspaceName, PathFragment execRoot) {
+    PathFragment root = PathFragment.create(workspaceName);
+    var symlinks = ImmutableMap.<PathFragment, PathFragment>builderWithExpectedSize(links.size());
     for (FilesetOutputSymlink symlink : links) {
       symlinks.put(root.getRelative(symlink.getName()), symlink.reconstituteTargetPath(execRoot));
     }
-    return ImmutableMap.copyOf(symlinks);
+    // Fileset links are already deduplicated by name in SkyframeFilesetManifestAction.
+    return symlinks.buildOrThrow();
   }
 
   private static final class Directory {
@@ -264,7 +272,7 @@ public final class SymlinkTreeHelper {
       // if (!stat.isExecutable() || !stat.isReadable()) {
       //   at.chmod(stat.getMods() | 0700);
       // }
-      for (Dirent dirent : at.readdir(Symlinks.FOLLOW)) {
+      for (Dirent dirent : at.readdir(Symlinks.NOFOLLOW)) {
         String basename = dirent.getName();
         Path next = at.getChild(basename);
         if (symlinks.containsKey(basename)) {
@@ -276,6 +284,11 @@ public final class SymlinkTreeHelper {
             }
             // For consistency with build-runfiles.cc, we don't truncate the file if one exists.
           } else {
+            // ensureSymbolicLink will replace a symlink that doesn't have the correct target, but
+            // everything else needs to be deleted first.
+            if (dirent.getType() != Dirent.Type.SYMLINK) {
+              next.deleteTree();
+            }
             // TODO(ulfjack): On Windows, this call makes a copy rather than creating a symlink.
             FileSystemUtils.ensureSymbolicLink(next, value.getPath().asFragment());
           }
@@ -294,6 +307,8 @@ public final class SymlinkTreeHelper {
         Path next = at.getChild(entry.getKey());
         if (entry.getValue() == null) {
           FileSystemUtils.createEmptyFile(next);
+        } else if (entry.getValue().isSymlink()) {
+          FileSystemUtils.ensureSymbolicLink(next, entry.getValue().getPath().readSymbolicLink());
         } else {
           FileSystemUtils.ensureSymbolicLink(next, entry.getValue().getPath().asFragment());
         }

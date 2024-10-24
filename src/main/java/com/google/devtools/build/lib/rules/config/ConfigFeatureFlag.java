@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.rules.config;
 
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 import static com.google.devtools.build.lib.packages.Type.STRING;
-import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
+import static com.google.devtools.build.lib.packages.Types.STRING_LIST;
 
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -24,8 +24,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multiset;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -82,11 +82,6 @@ public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
               @Override
               public Label getDefault(AttributeMap rule) {
                 return rule.isAttributeValueExplicitlySpecified(attributeToInspect) ? label : null;
-              }
-
-              @Override
-              public boolean resolvableWithRawAttributes() {
-                return true;
               }
             });
   }

@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.test;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.RunEnvironmentInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions;
@@ -68,7 +67,7 @@ public class StarlarkTestingModule implements TestingModuleApi {
       Object attrValuesApi,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
-    Package.Builder pkgBuilder = thread.getThreadLocal(Package.Builder.class);
+    Package.Builder pkgBuilder = Package.Builder.fromOrNull(thread);
     RuleDefinitionEnvironment ruleDefinitionEnvironment =
         thread.getThreadLocal(RuleDefinitionEnvironment.class);
     // TODO(b/236456122): Refactor this check into a standard helper / error message
@@ -84,10 +83,6 @@ public class StarlarkTestingModule implements TestingModuleApi {
     if (attrValues.containsKey("name")) {
       throw Starlark.errorf("'name' cannot be set or overridden in 'attr_values'");
     }
-
-    // Get the callstack, sans the last entry, which is the builtin 'analysis_test' callable itself.
-    ImmutableList<StarlarkThread.CallStackEntry> callStack = thread.getCallStack();
-    callStack = callStack.subList(0, callStack.size() - 1);
 
     LabelConverter labelConverter = LabelConverter.forBzlEvaluatingThread(thread);
 
@@ -121,12 +116,10 @@ public class StarlarkTestingModule implements TestingModuleApi {
         StarlarkRuleClassFunctions.createRule(
             // Contextual parameters.
             ruleDefinitionEnvironment,
-            thread.getCallerLocation(),
-            callStack,
+            thread,
             dummyBzlFile,
             transitiveDigestToUse,
             labelConverter,
-            thread.getSemantics(),
             // rule() parameters.
             /* parent= */ null,
             /* extendableUnchecked= */ false,
@@ -142,6 +135,7 @@ public class StarlarkTestingModule implements TestingModuleApi {
             /* toolchains= */ toolchains,
             /* doc= */ Starlark.NONE,
             /* providesArg= */ StarlarkList.empty(),
+            /* dependencyResolutionRule= */ false,
             /* execCompatibleWith= */ StarlarkList.empty(),
             /* analysisTest= */ Boolean.TRUE,
             /* buildSetting= */ Starlark.NONE,

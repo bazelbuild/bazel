@@ -181,7 +181,9 @@ public class WorkspaceFactoryTest {
         "    path = '/foo',",
         "    repo_mapping = {},",
         ")");
-    assertThat(helper.getPackage().getRepositoryMapping(RepositoryName.create("foo"))).isEmpty();
+    assertThat(
+            helper.getPackage().getExternalPackageRepositoryMapping(RepositoryName.create("foo")))
+        .isEmpty();
   }
 
   @Test
@@ -206,7 +208,8 @@ public class WorkspaceFactoryTest {
   @Test
   public void testEmptyRepositoryHasEmptyMap() throws Exception {
     helper.parse("");
-    assertThat(helper.getPackage().getRepositoryMapping(RepositoryName.create(""))).isEmpty();
+    assertThat(helper.getPackage().getExternalPackageRepositoryMapping(RepositoryName.create("")))
+        .isEmpty();
   }
 
   @Test
@@ -225,7 +228,7 @@ public class WorkspaceFactoryTest {
   private void assertMapping(
       WorkspaceFactoryTestHelper helper, String repo, String local, String global)
       throws Exception {
-    assertThat(helper.getPackage().getRepositoryMapping(RepositoryName.create(repo)))
+    assertThat(helper.getPackage().getExternalPackageRepositoryMapping(RepositoryName.create(repo)))
         .containsEntry(local, RepositoryName.create(global));
   }
 

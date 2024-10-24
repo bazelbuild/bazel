@@ -16,25 +16,24 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
-import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
-import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -54,18 +53,18 @@ import java.util.UUID;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
-/** Output service implementation for the remote module */
+/** Output service implementation for the remote build without local output service daemon. */
 public class RemoteOutputService implements OutputService {
 
-  private final CommandEnvironment env;
+  private final BlazeDirectories directories;
 
   @Nullable private RemoteOutputChecker remoteOutputChecker;
   @Nullable private RemoteActionInputFetcher actionInputFetcher;
   @Nullable private LeaseService leaseService;
   @Nullable private Supplier<InputMetadataProvider> fileCacheSupplier;
 
-  public RemoteOutputService(CommandEnvironment env) {
-    this.env = checkNotNull(env);
+  RemoteOutputService(BlazeDirectories directories) {
+    this.directories = checkNotNull(directories);
   }
 
   void setRemoteOutputChecker(RemoteOutputChecker remoteOutputChecker) {
@@ -118,23 +117,23 @@ public class RemoteOutputService implements OutputService {
       FileSystem actionFileSystem,
       Environment env,
       MetadataInjector injector,
-      ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesets) {
+      ImmutableMap<Artifact, FilesetOutputTree> filesets) {
     ((RemoteActionFileSystem) actionFileSystem).updateContext(action);
   }
 
   @Override
-  public String getFilesSystemName() {
+  public String getFileSystemName(String outputBaseFileSystemName) {
     return "remoteActionFS";
   }
 
   @Override
   public ModifiedFileSet startBuild(
-      EventHandler eventHandler, UUID buildId, boolean finalizeActions) throws AbruptExitException {
-    // One of the responsibilities of OutputService.startBuild() is that
-    // it ensures the output path is valid. If the previous
-    // OutputService redirected the output path to a remote location, we
+      UUID buildId, String workspaceName, EventHandler eventHandler, boolean finalizeActions)
+      throws AbruptExitException {
+    // One of the responsibilities of OutputService.startBuild() is that it ensures the output path
+    // is valid. If the previous OutputService redirected the output path to a remote location, we
     // must undo this.
-    Path outputPath = env.getDirectories().getOutputPath(env.getWorkspaceName());
+    Path outputPath = directories.getOutputPath(workspaceName);
     if (outputPath.isSymbolicLink()) {
       try {
         outputPath.delete();
@@ -168,11 +167,7 @@ public class RemoteOutputService implements OutputService {
   @Subscribe
   public void onExecutionPhaseCompleteEvent(ExecutionPhaseCompleteEvent event) {
     if (leaseService != null) {
-      var missingActionInputs = ImmutableSet.<ActionInput>of();
-      if (actionInputFetcher != null) {
-        missingActionInputs = actionInputFetcher.getMissingActionInputs();
-      }
-      leaseService.finalizeExecution(missingActionInputs);
+      leaseService.finalizeExecution();
     }
   }
 
@@ -233,8 +228,8 @@ public class RemoteOutputService implements OutputService {
       FileSystem fileSystem,
       ImmutableList<Root> pathEntries,
       ActionInputMap actionInputMap,
-      Map<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts,
-      Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesets) {
+      Map<Artifact, ImmutableSortedSet<TreeFileArtifact>> treeArtifacts,
+      Map<Artifact, FilesetOutputTree> filesets) {
     FileSystem remoteFileSystem =
         new RemoteActionFileSystem(
             fileSystem,

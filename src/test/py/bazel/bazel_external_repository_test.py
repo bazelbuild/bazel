@@ -50,7 +50,7 @@ class BazelExternalRepositoryTest(test_base.TestBase):
   def setUp(self):
     test_base.TestBase.setUp(self)
     for f in [
-        'six-1.10.0.tar.gz',
+        'hello-1.0.0.tar.gz',
         'archive_with_symlink.zip',
         'archive_with_symlink.tar.gz',
         'sparse_archive.tar',
@@ -66,46 +66,53 @@ class BazelExternalRepositoryTest(test_base.TestBase):
   def testNewHttpArchive(self):
     ip, port = self._http_server.server_address
     rule_definition = [
-        'load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")',
+        (
+            'http_archive ='
+            ' use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl",'
+            ' "http_archive")'
+        ),
         'http_archive(',
-        '    name = "six_archive",',
-        '    urls = ["http://%s:%s/six-1.10.0.tar.gz"],' % (ip, port),
-        '    sha256 = '
-        '"105f8d68616f8248e24bf0e9372ef04d3cc10104f1980f54d57b2ce73a5ad56a",',
-        '    strip_prefix = "six-1.10.0",',
-        '    build_file = "@//third_party:six.BUILD",',
+        '    name = "hello_archive",',
+        '    urls = ["http://%s:%s/hello-1.0.0.tar.gz"],' % (ip, port),
+        (
+            '    sha256 = '
+            '"154740b327bcfee5669ef2ce0a04bf0904227a3bfe0fee08a5aaca96ea5a601a",'
+        ),
+        '    strip_prefix = "hello-1.0.0",',
+        '    build_file = "@//third_party:hello.BUILD",',
         ')',
     ]
     build_file = [
         'py_library(',
-        '  name = "six",',
-        '  srcs = ["six.py"],',
+        '  name = "hello",',
+        '  srcs = ["hello.py"],',
         ')',
     ]
-    rule_definition.extend(self.GetDefaultRepoRules())
-    self.ScratchFile('WORKSPACE', rule_definition)
+    self.ScratchFile('MODULE.bazel', rule_definition)
     self.ScratchFile('BUILD')
     self.ScratchFile('third_party/BUILD')
-    self.ScratchFile('third_party/six.BUILD', build_file)
+    self.ScratchFile('third_party/hello.BUILD', build_file)
 
-    self.RunBazel(['build', '@six_archive//...'])
+    self.RunBazel(['build', '@hello_archive//...'])
 
     fetching_disabled_msg = 'fetching is disabled'
 
     # Changing the mtime of the BUILD file shouldn't invalidate it.
-    os.utime(self.Path('third_party/six.BUILD'), (100, 200))
-    _, _, stderr = self.RunBazel(['build', '--nofetch', '@six_archive//...'])
+    os.utime(self.Path('third_party/hello.BUILD'), (100, 200))
+    _, _, stderr = self.RunBazel(['build', '--nofetch', '@hello_archive//...'])
     self.assertNotIn(fetching_disabled_msg, os.linesep.join(stderr))
 
     # Check that --nofetch prints a warning if the BUILD file is changed.
-    self.ScratchFile('third_party/six.BUILD', build_file + ['"a noop string"'])
-    _, _, stderr = self.RunBazel(['build', '--nofetch', '@six_archive//...'])
+    self.ScratchFile(
+        'third_party/hello.BUILD', build_file + ['"a noop string"']
+    )
+    _, _, stderr = self.RunBazel(['build', '--nofetch', '@hello_archive//...'])
     self.assertIn(fetching_disabled_msg, os.linesep.join(stderr))
 
     # Test repository reloading after BUILD file changes.
-    self.ScratchFile('third_party/six.BUILD', build_file + ['foobar'])
+    self.ScratchFile('third_party/hello.BUILD', build_file + ['foobar'])
     exit_code, _, stderr = self.RunBazel(
-        ['build', '@six_archive//...'], allow_failure=True
+        ['build', '@hello_archive//...'], allow_failure=True
     )
     self.assertEqual(exit_code, 1, os.linesep.join(stderr))
     self.assertIn('name \'foobar\' is not defined', os.linesep.join(stderr))
@@ -113,17 +120,22 @@ class BazelExternalRepositoryTest(test_base.TestBase):
   def testNewHttpZipArchiveWithSymlinks(self):
     ip, port = self._http_server.server_address
     rule_definition = [
-        'load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")',
+        (
+            'http_archive ='
+            ' use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl",'
+            ' "http_archive")'
+        ),
         'http_archive(',
         '    name = "archive_with_symlink",',
         '    urls = ["http://%s:%s/archive_with_symlink.zip"],' % (ip, port),
         '    build_file = "@//:archive_with_symlink.BUILD",',
         '    sha256 = ',
-        '  "c9c32a48ff65f6319885246b1bfc704e60dd72fb0405dfafdffe403421a4c83a",'
-        ')',
+        (
+            '  "c9c32a48ff65f6319885246b1bfc704e60dd72fb0405dfafdffe403421a4c83a",'
+            ')'
+        ),
     ]
-    rule_definition.extend(self.GetDefaultRepoRules())
-    self.ScratchFile('WORKSPACE', rule_definition)
+    self.ScratchFile('MODULE.bazel', rule_definition)
     # In the archive, A is a symlink pointing to B
     self.ScratchFile('archive_with_symlink.BUILD', [
         'filegroup(',
@@ -140,17 +152,22 @@ class BazelExternalRepositoryTest(test_base.TestBase):
   def testNewHttpTarArchiveWithSymlinks(self):
     ip, port = self._http_server.server_address
     rule_definition = [
-        'load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")',
+        (
+            'http_archive ='
+            ' use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl",'
+            ' "http_archive")'
+        ),
         'http_archive(',
         '    name = "archive_with_symlink",',
         '    urls = ["http://%s:%s/archive_with_symlink.tar.gz"],' % (ip, port),
         '    build_file = "@//:archive_with_symlink.BUILD",',
         '    sha256 = ',
-        '  "5ea20285db1b18134e4efe608e41215687f03cd3e3fdd7529860b175fc12fe76",'
-        ')',
+        (
+            '  "5ea20285db1b18134e4efe608e41215687f03cd3e3fdd7529860b175fc12fe76",'
+            ')'
+        ),
     ]
-    rule_definition.extend(self.GetDefaultRepoRules())
-    self.ScratchFile('WORKSPACE', rule_definition)
+    self.ScratchFile('MODULE.bazel', rule_definition)
     # In the archive, A is a symlink pointing to B
     self.ScratchFile('archive_with_symlink.BUILD', [
         'filegroup(',
@@ -172,7 +189,11 @@ class BazelExternalRepositoryTest(test_base.TestBase):
 
     ip, port = self._http_server.server_address
     rule_definition = [
-        'load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")',
+        (
+            'http_archive ='
+            ' use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl",'
+            ' "http_archive")'
+        ),
         'http_archive(',
         '    name = "sparse_archive",',
         '    urls = ["http://%s:%s/sparse_archive.tar"],' % (ip, port),
@@ -183,8 +204,7 @@ class BazelExternalRepositoryTest(test_base.TestBase):
             ')'
         ),
     ]
-    rule_definition.extend(self.GetDefaultRepoRules())
-    self.ScratchFile('WORKSPACE', rule_definition)
+    self.ScratchFile('MODULE.bazel', rule_definition)
     self.ScratchFile(
         'sparse_archive.BUILD',
         [
@@ -240,16 +260,18 @@ class BazelExternalRepositoryTest(test_base.TestBase):
   def testNewLocalRepositoryNoticesFileChangeInRepoRoot(self):
     """Regression test for https://github.com/bazelbuild/bazel/issues/7063."""
     rule_definition = [
-        'load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")',
+        (
+            'new_local_repository ='
+            ' use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl",'
+            ' "new_local_repository")'
+        ),
         'new_local_repository(',
         '    name = "r",',
         '    path = "./repo",',
         '    build_file_content = "exports_files([\'foo.bzl\'])",',
         ')',
     ]
-    rule_definition.extend(self.GetDefaultRepoRules())
-    self.ScratchFile('WORKSPACE', rule_definition)
-    self.CreateWorkspaceWithDefaultRepos('repo/WORKSPACE')
+    self.ScratchFile('MODULE.bazel', rule_definition)
     self._CreatePyWritingStarlarkRule('hello!')
     self.ScratchFile('BUILD', [
         'load("@r//:foo.bzl", "gen_py")',
@@ -267,8 +289,22 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     self.assertNotIn('hello!', os.linesep.join(stdout))
     self.assertIn('world', os.linesep.join(stdout))
 
+  def setUpOtherRepoMyRepo(self):
+    self.ScratchFile('other_repo/REPO.bazel')
+    self.ScratchFile(
+        'my_repo/MODULE.bazel',
+        [
+            (
+                'local_repository ='
+                ' use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl",'
+                ' "local_repository")'
+            ),
+            'local_repository(name = "other_repo", path="../other_repo")',
+        ],
+    )
+
   def testDeletedPackagesOnExternalRepo(self):
-    self.ScratchFile('other_repo/WORKSPACE')
+    self.setUpOtherRepoMyRepo()
     self.ScratchFile('other_repo/pkg/BUILD', [
         'filegroup(',
         '  name = "file",',
@@ -280,9 +316,6 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     ])
     self.ScratchFile('other_repo/pkg/ignore/file')
     work_dir = self.ScratchDir('my_repo')
-    self.ScratchFile('my_repo/WORKSPACE', [
-        "local_repository(name = 'other_repo', path='../other_repo')",
-    ])
 
     exit_code, _, stderr = self.RunBazel(
         args=['build', '@other_repo//pkg:file'],
@@ -290,19 +323,23 @@ class BazelExternalRepositoryTest(test_base.TestBase):
         allow_failure=True,
     )
     self.AssertExitCode(exit_code, 1, stderr)
-    self.assertIn("'@@other_repo//pkg/ignore' is a subpackage", ''.join(stderr))
+    self.assertIn(
+        "'@@+_repo_rules+other_repo//pkg/ignore' is a subpackage",
+        ''.join(stderr),
+    )
 
     self.RunBazel(
         args=[
             'build',
             '@other_repo//pkg:file',
-            '--deleted_packages=@other_repo//pkg/ignore',
+            # TODO(bzlmod): support apparent repo name for --deleted_packages
+            '--deleted_packages=@@+_repo_rules+other_repo//pkg/ignore',
         ],
         cwd=work_dir,
     )
 
   def testBazelignoreFileOnExternalRepo(self):
-    self.ScratchFile('other_repo/WORKSPACE')
+    self.setUpOtherRepoMyRepo()
     self.ScratchFile('other_repo/pkg/BUILD', [
         'filegroup(',
         '  name = "file",',
@@ -317,9 +354,6 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     ])
     self.ScratchFile('other_repo/pkg/ignore/file.txt')
     work_dir = self.ScratchDir('my_repo')
-    self.ScratchFile('my_repo/WORKSPACE', [
-        'local_repository(name = "other_repo", path="../other_repo")',
-    ])
 
     exit_code, _, stderr = self.RunBazel(
         args=['build', '@other_repo//pkg:file'],
@@ -327,7 +361,10 @@ class BazelExternalRepositoryTest(test_base.TestBase):
         allow_failure=True,
     )
     self.AssertExitCode(exit_code, 1, stderr)
-    self.assertIn("'@@other_repo//pkg/ignore' is a subpackage", ''.join(stderr))
+    self.assertIn(
+        "'@@+_repo_rules+other_repo//pkg/ignore' is a subpackage",
+        ''.join(stderr),
+    )
 
     self.ScratchFile('other_repo/.bazelignore', [
         'pkg/ignore',
@@ -345,10 +382,13 @@ class BazelExternalRepositoryTest(test_base.TestBase):
         args=['build', '//:all_files'], cwd=work_dir, allow_failure=True
     )
     self.AssertExitCode(exit_code, 1, stderr)
-    self.assertIn("no such package '@@other_repo//pkg/ignore'", ''.join(stderr))
+    self.assertIn(
+        "no such package '@@+_repo_rules+other_repo//pkg/ignore'",
+        ''.join(stderr),
+    )
 
   def testUniverseScopeWithBazelIgnoreInExternalRepo(self):
-    self.ScratchFile('other_repo/WORKSPACE')
+    self.setUpOtherRepoMyRepo()
     self.ScratchFile('other_repo/pkg/BUILD', [
         'filegroup(',
         '  name = "file",',
@@ -368,9 +408,6 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     ])
 
     work_dir = self.ScratchDir('my_repo')
-    self.ScratchFile('my_repo/WORKSPACE', [
-        'local_repository(name = "other_repo", path="../other_repo")',
-    ])
 
     _, stdout, _ = self.RunBazel(
         args=[
@@ -385,7 +422,7 @@ class BazelExternalRepositoryTest(test_base.TestBase):
 
   def testBazelignoreFileFromMainRepoDoesNotAffectExternalRepos(self):
     # Regression test for https://github.com/bazelbuild/bazel/issues/10234
-    self.ScratchFile('other_repo/WORKSPACE')
+    self.setUpOtherRepoMyRepo()
     self.ScratchFile('other_repo/foo/bar/BUILD', [
         'filegroup(',
         '  name = "file",',
@@ -395,9 +432,6 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     self.ScratchFile('other_repo/foo/bar/file.txt')
 
     work_dir = self.ScratchDir('my_repo')
-    self.ScratchFile('my_repo/WORKSPACE', [
-        'local_repository(name = "other_repo", path="../other_repo")',
-    ])
     # This should not exclude @other_repo//foo/bar
     self.ScratchFile('my_repo/.bazelignore', ['foo/bar'])
 
@@ -407,7 +441,7 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     self.assertIn('@other_repo//foo/bar:file', ''.join(stdout))
 
   def testBazelignoreFileFromExternalRepoDoesNotAffectMainRepo(self):
-    self.ScratchFile('other_repo/WORKSPACE')
+    self.setUpOtherRepoMyRepo()
     # This should not exclude //foo/bar in main repo
     self.ScratchFile('other_repo/.bazelignore', ['foo/bar'])
     self.ScratchFile('other_repo/BUILD',)
@@ -420,15 +454,12 @@ class BazelExternalRepositoryTest(test_base.TestBase):
         ')',
     ])
     self.ScratchFile('my_repo/foo/bar/file.txt')
-    self.ScratchFile('my_repo/WORKSPACE', [
-        'local_repository(name = "other_repo", path="../other_repo")',
-    ])
 
     _, stdout, _ = self.RunBazel(args=['query', '//foo/bar/...'], cwd=work_dir)
     self.assertIn('//foo/bar:file', ''.join(stdout))
 
   def testMainBazelignoreContainingRepoName(self):
-    self.ScratchFile('other_repo/WORKSPACE')
+    self.setUpOtherRepoMyRepo()
     self.ScratchFile('other_repo/foo/bar/BUILD', [
         'filegroup(',
         '  name = "file",',
@@ -438,9 +469,7 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     self.ScratchFile('other_repo/foo/bar/file.txt')
 
     work_dir = self.ScratchDir('my_repo')
-    self.ScratchFile('my_repo/WORKSPACE', [
-        'local_repository(name = "other_repo", path="../other_repo")',
-    ])
+
     # This should not exclude @other_repo//foo/bar, because .bazelignore doesn't
     # support having repository name in the path fragment.
     self.ScratchFile('my_repo/.bazelignore', ['@other_repo//foo/bar'])
@@ -448,7 +477,7 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     self.RunBazel(args=['build', '@other_repo//foo/bar:file'], cwd=work_dir)
 
   def testExternalBazelignoreContainingRepoName(self):
-    self.ScratchFile('other_repo/WORKSPACE')
+    self.ScratchFile('other_repo/REPO.bazel')
     # This should not exclude @third_repo//foo/bar, because .bazelignore doesn't
     # support having repository name in the path fragment.
     self.ScratchFile('other_repo/.bazelignore', ['@third_repo//foo/bar'])
@@ -459,7 +488,7 @@ class BazelExternalRepositoryTest(test_base.TestBase):
         ')',
     ])
 
-    self.ScratchFile('third_repo/WORKSPACE')
+    self.ScratchFile('third_repo/REPO.bazel')
     self.ScratchFile('third_repo/foo/bar/BUILD', [
         'filegroup(',
         '  name = "file",',
@@ -470,20 +499,33 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     self.ScratchFile('third_repo/foo/bar/file.txt')
 
     work_dir = self.ScratchDir('my_repo')
-    self.ScratchFile('my_repo/WORKSPACE', [
-        'local_repository(name = "other_repo", path="../other_repo")',
-        'local_repository(name = "third_repo", path="../third_repo")',
-    ])
+    self.ScratchFile(
+        'my_repo/MODULE.bazel',
+        [
+            (
+                'local_repository ='
+                ' use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl",'
+                ' "local_repository")'
+            ),
+            'local_repository(name = "other_repo", path="../other_repo")',
+            'local_repository(name = "third_repo", path="../third_repo")',
+        ],
+    )
 
     self.RunBazel(args=['build', '@other_repo//:file'], cwd=work_dir)
 
   def testRepoEnv(self):
     # Testing fix for issue: https://github.com/bazelbuild/bazel/issues/15430
 
-    self.ScratchFile('WORKSPACE', [
-        'load("//:main.bzl", "dump_env")', 'dump_env(', '    name = "debug"',
-        ')'
-    ])
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'dump_env = use_repo_rule("//:main.bzl", "dump_env")',
+            'dump_env(',
+            '    name = "debug"',
+            ')',
+        ],
+    )
     self.ScratchFile('BUILD')
     self.ScratchFile('main.bzl', [
         'def _dump_env(ctx):', '    val = ctx.os.environ.get("FOO", "nothing")',

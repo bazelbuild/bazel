@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.DynamicStrategyRegistry;
-import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -414,7 +413,6 @@ public class DynamicSpawnStrategyTest {
         ImmutableList.of(),
         ImmutableMap.of(),
         executionInfo,
-        EmptyRunfilesSupplier.INSTANCE,
         action,
         ResourceSet.create(1, 0, 0));
   }

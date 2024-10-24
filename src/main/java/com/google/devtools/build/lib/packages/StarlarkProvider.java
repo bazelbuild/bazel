@@ -14,6 +14,15 @@
 
 package com.google.devtools.build.lib.packages;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.devtools.build.lib.bugreport.BugReport.sendNonFatalBugReport;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
+import static com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue.isBuiltinsRepo;
+import static com.google.devtools.build.lib.util.HashCodes.hashObjects;
+import static com.google.devtools.build.lib.util.TestType.isInTest;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -21,6 +30,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
@@ -35,6 +45,7 @@ import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -78,8 +89,14 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
   // Starlark dict mapping field names (string keys) to their values.
   @Nullable private final StarlarkCallable init;
 
-  /** Null iff this provider has not yet been exported. Mutated by {@link export}. */
-  @Nullable private Key key;
+  /**
+   * An identifier for this provider.
+   *
+   * <p>This is a {@link Key} if exported and a {@link SymbolGenerator.Symbol} otherwise.
+   *
+   * <p>Mutated by {@link #export}.
+   */
+  private Object keyOrIdentityToken;
 
   /**
    * For schemaful providers, an array of metadata concerning depset optimization.
@@ -132,8 +149,6 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
     @Nullable private ImmutableMap<String, Optional<String>> schema;
 
     @Nullable private StarlarkCallable init;
-
-    @Nullable private Key key;
 
     private Builder(Location location) {
       this.location = location;
@@ -193,16 +208,14 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
       return this;
     }
 
-    /** Sets the provider built by this builder to be exported with the given key. */
-    @CanIgnoreReturnValue
-    public Builder setExported(Key key) {
-      this.key = key;
-      return this;
+    /** Builds an exported StarlarkProvider. */
+    public StarlarkProvider buildExported(Key key) {
+      return new StarlarkProvider(location, documentation, schema, init, key);
     }
 
-    /** Builds a StarlarkProvider. */
-    public StarlarkProvider build() {
-      return new StarlarkProvider(location, documentation, schema, init, key);
+    /** Builds a unexported StarlarkProvider. */
+    public StarlarkProvider buildWithIdentityToken(SymbolGenerator.Symbol<?> identityToken) {
+      return new StarlarkProvider(location, documentation, schema, init, identityToken);
     }
   }
 
@@ -218,13 +231,13 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
       @Nullable String documentation,
       @Nullable ImmutableMap<String, Optional<String>> schema,
       @Nullable StarlarkCallable init,
-      @Nullable Key key) {
+      Object keyOrIdentityToken) {
     this.location = location;
     this.documentation = documentation;
     this.fields = schema != null ? ImmutableList.sortedCopyOf(schema.keySet()) : null;
     this.schema = schema;
     this.init = init;
-    this.key = key;
+    this.keyOrIdentityToken = keyOrIdentityToken;
     if (schema != null) {
       depsetTypePredictor = new AtomicReferenceArray<>(schema.size());
     }
@@ -327,18 +340,26 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
 
   @Override
   public boolean isExported() {
-    return key != null;
+    return keyOrIdentityToken instanceof Key;
   }
 
   @Override
   public Key getKey() {
-    Preconditions.checkState(isExported());
-    return key;
+    Preconditions.checkState(
+        isExported(),
+        "Calling getKey() is disallowed on an unexported provider. location: %s, identity token:"
+            + " %s",
+        location,
+        keyOrIdentityToken);
+    return (Key) keyOrIdentityToken;
   }
 
   @Override
   public String getName() {
-    return key != null ? key.getExportedName() : "<no name>";
+    if (keyOrIdentityToken instanceof Key key) {
+      return key.getExportedName();
+    }
+    return "<no name>";
   }
 
   @Override
@@ -370,36 +391,55 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
   @Override
   public String getErrorMessageForUnknownField(String name) {
     return String.format(
-        "'%s' value has no field or method '%s'",
-        isExported() ? key.getExportedName() : "struct", name);
+        "'%s' value has no field or method '%s'", isExported() ? getName() : "struct", name);
   }
 
   @Override
   public void export(EventHandler handler, Label extensionLabel, String exportedName) {
     Preconditions.checkState(!isExported());
-    this.key = new Key(extensionLabel, exportedName);
+    SymbolGenerator.Symbol<?> identifier = (SymbolGenerator.Symbol<?>) keyOrIdentityToken;
+    if (identifier.getOwner() instanceof BzlLoadValue.Key bzlKey) {
+      // In production code, StarlarkProviders are created only when loading .bzl files so the owner
+      // of the Symbol should be a BzlLoadValue.Key.
+      checkArgument(
+          extensionLabel.equals(bzlKey.getLabel()),
+          "export extensionLabel=%s, but owner=%s",
+          extensionLabel,
+          bzlKey);
+      this.keyOrIdentityToken = new Key(bzlKey, exportedName);
+    } else {
+      // In tests, the symbol may be arbitrary.
+      if (!isInTest()) {
+        sendNonFatalBugReport(
+            new IllegalStateException(
+                String.format(
+                    "exporting StarlarkProvider defined at %s as %s:%s but thread owner=%s was not"
+                        + " a BzlLoadValue.Key",
+                    location, extensionLabel, exportedName, identifier.getOwner())));
+      }
+      this.keyOrIdentityToken =
+          new Key(
+              isBuiltinsRepo(extensionLabel.getRepository())
+                  ? keyForBuiltins(extensionLabel)
+                  : keyForBuild(extensionLabel),
+              exportedName);
+    }
   }
 
   @Override
   public int hashCode() {
-    if (isExported()) {
-      return getKey().hashCode();
-    }
-    return System.identityHashCode(this);
+    return keyOrIdentityToken.hashCode();
   }
 
   @Override
   public boolean equals(@Nullable Object otherObject) {
-    if (!(otherObject instanceof StarlarkProvider)) {
-      return false;
+    if (this == otherObject) {
+      return true;
     }
-    StarlarkProvider other = (StarlarkProvider) otherObject;
-
-    if (this.isExported() && other.isExported()) {
-      return this.getKey().equals(other.getKey());
-    } else {
-      return this == other;
+    if (otherObject instanceof StarlarkProvider that) {
+      return this.keyOrIdentityToken.equals(that.keyOrIdentityToken);
     }
+    return false;
   }
 
   @Override
@@ -449,7 +489,8 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
         return depset.getSet();
       }
       Class<?> elementClass = depset.getElementClass();
-      if (depsetTypePredictor.compareAndExchange(index, null, elementClass) == elementClass) {
+      Class<?> witness = depsetTypePredictor.compareAndExchange(index, null, elementClass);
+      if (witness == elementClass || witness == null) {
         return depset.getSet();
       }
     }
@@ -467,7 +508,7 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
         // This matches empty depsets created in Starlark with `depset()`.
         return Depset.of(Object.class, nestedSet);
       }
-      @SuppressWarnings("unchecked") // can't parametrize Class literal by a non-raw type
+      @SuppressWarnings("unchecked") // can't parameterize Class literal by a non-raw type
       Depset depset = Depset.of((Class<Object>) depsetTypePredictor.get(index), nestedSet);
       return depset;
     }
@@ -478,43 +519,40 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
     return value instanceof NestedSet<?>;
   }
 
+  Object getKeyOrIdentityToken() {
+    return keyOrIdentityToken;
+  }
+
   /**
    * A serializable representation of Starlark-defined {@link StarlarkProvider} that uniquely
    * identifies all {@link StarlarkProvider}s that are exposed to SkyFrame.
    */
+  // TODO: b/335901349 - this is identical to SymbolGenerator.GlobalSymbol<BzlLoadValue.Key> and
+  // serves essentially the same purpose. Consider unifying these types.
   public static final class Key extends Provider.Key {
-    private final Label extensionLabel;
+    private final BzlLoadValue.Key key;
     private final String exportedName;
 
-    public Key(Label extensionLabel, String exportedName) {
-      this.extensionLabel = Preconditions.checkNotNull(extensionLabel);
-      this.exportedName = Preconditions.checkNotNull(exportedName);
+    public Key(BzlLoadValue.Key key, String exportedName) {
+      this.key = checkNotNull(key);
+      this.exportedName = checkNotNull(exportedName);
     }
 
     public Label getExtensionLabel() {
-      return extensionLabel;
+      return key.getLabel();
     }
 
     public String getExportedName() {
       return exportedName;
     }
 
-    @Override
-    public String toString() {
-      return exportedName;
-    }
-
-    @Override
-    void fingerprint(Fingerprint fp) {
-      // False => Not native.
-      fp.addBoolean(false);
-      fp.addString(extensionLabel.getCanonicalForm());
-      fp.addString(exportedName);
+    BzlLoadValue.Key getBzlLoadKey() {
+      return key;
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(extensionLabel, exportedName);
+      return hashObjects(key, exportedName);
     }
 
     @Override
@@ -527,8 +565,21 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
         return false;
       }
       Key other = (Key) obj;
-      return Objects.equals(this.extensionLabel, other.extensionLabel)
+      return Objects.equals(this.key, other.key)
           && Objects.equals(this.exportedName, other.exportedName);
+    }
+
+    @Override
+    void fingerprint(Fingerprint fp) {
+      // False => Not native.
+      fp.addBoolean(false);
+      fp.addString(getExtensionLabel().getCanonicalForm());
+      fp.addString(getExportedName());
+    }
+
+    @Override
+    public String toString() {
+      return exportedName;
     }
   }
 }

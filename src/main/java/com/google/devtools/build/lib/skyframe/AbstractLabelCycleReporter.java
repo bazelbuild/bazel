@@ -50,8 +50,8 @@ public abstract class AbstractLabelCycleReporter implements CyclesReporter.Singl
 
   /** Returns the String representation of the {@code SkyKey}. */
   protected String prettyPrint(Object rawKey) {
-    if (rawKey instanceof ActionLookupKey) {
-      return ((ActionLookupKey) rawKey).getLabel().toString();
+    if (rawKey instanceof ActionLookupKey actionLookupKey) {
+      return actionLookupKey.getLabel().toString();
     }
     return getLabel((SkyKey) rawKey).toString();
   }

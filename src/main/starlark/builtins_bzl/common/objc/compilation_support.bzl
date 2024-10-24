@@ -14,9 +14,17 @@
 
 """Utility methods used for creating objc_* rules actions"""
 
-load("@_builtins//:common/cc/cc_helper.bzl", "cc_helper")
-load("@_builtins//:common/objc/objc_common.bzl", "objc_common")
 load(":common/cc/cc_common.bzl", "cc_common")
+load(":common/cc/cc_helper.bzl", "cc_helper")
+load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/cc/semantics.bzl", cc_semantics = "semantics")
+load(":common/objc/apple_configuration.bzl", "apple_configuration")
+load(":common/objc/apple_env.bzl", "apple_host_system_env", "target_apple_env")
+load(":common/objc/compilation_artifacts_info.bzl", "CompilationArtifactsInfo")
+load(":common/objc/intermediate_artifacts.bzl", "create_intermediate_artifacts")
+load(":common/objc/objc_common.bzl", "objc_common")
+load(":common/objc/providers.bzl", "J2ObjcEntryClassInfo", "J2ObjcMappingFileInfo")
+load(":common/xcode/providers.bzl", "XcodeVersionInfo")
 
 objc_internal = _builtins.internal.objc_internal
 
@@ -48,11 +56,14 @@ def _build_common_variables(
         has_module_map = False,
         direct_cc_compilation_contexts = []):
     compilation_attributes = objc_internal.create_compilation_attributes(ctx = ctx)
-    intermediate_artifacts = objc_internal.create_intermediate_artifacts(ctx = ctx)
+    intermediate_artifacts = create_intermediate_artifacts(ctx = ctx)
     if empty_compilation_artifacts:
-        compilation_artifacts = objc_internal.create_compilation_artifacts()
+        compilation_artifacts = CompilationArtifactsInfo()
     else:
-        compilation_artifacts = objc_internal.create_compilation_artifacts(ctx = ctx)
+        compilation_artifacts = CompilationArtifactsInfo(
+            ctx = ctx,
+            intermediate_artifacts = intermediate_artifacts,
+        )
 
     (
         objc_provider,
@@ -145,6 +156,14 @@ def _compile(
     if pch_hdr != None:
         textual_hdrs.append(pch_hdr)
 
+    compilation_contexts = (
+        objc_compilation_context.cc_compilation_contexts +
+        cc_helper.get_compilation_contexts_from_deps(
+            cc_semantics.get_cc_runtimes(common_variables.ctx, True),
+        )
+    )
+    runtimes_copts = cc_semantics.get_cc_runtimes_copts(common_variables.ctx)
+
     return cc_common.compile(
         actions = common_variables.ctx.actions,
         feature_configuration = feature_configuration,
@@ -158,9 +177,9 @@ def _compile(
         includes = objc_compilation_context.includes,
         system_includes = objc_compilation_context.system_includes,
         quote_includes = objc_compilation_context.quote_includes,
-        compilation_contexts = objc_compilation_context.cc_compilation_contexts,
+        compilation_contexts = compilation_contexts,
         implementation_compilation_contexts = objc_compilation_context.implementation_cc_compilation_contexts,
-        user_compile_flags = user_compile_flags,
+        user_compile_flags = runtimes_copts + user_compile_flags,
         module_map = module_map,
         propagate_module_map_to_compile_action = True,
         variables_extension = extension,
@@ -328,7 +347,7 @@ def _cc_compile_and_link(
     )
     module_map = None
     if generate_module_map:
-        module_map = intermediate_artifacts.internal_module_map
+        module_map = intermediate_artifacts.internal_module_map()
 
     purpose = "{}_objc_arc".format(_get_purpose(common_variables))
     arc_primary_module_map_fc = feature_configuration
@@ -375,7 +394,7 @@ def _cc_compile_and_link(
     if generate_module_map_for_swift:
         _generate_extra_module_map(
             common_variables,
-            intermediate_artifacts.swift_module_map,
+            intermediate_artifacts.swift_module_map(),
             public_hdrs,
             private_hdrs,
             objc_compilation_context.public_textual_hdrs,
@@ -525,24 +544,35 @@ def _build_fully_linked_variable_extensions(archive, libs):
     extensions["imported_library_exec_paths"] = []
     return extensions
 
+def _get_static_library_for_linking(library_to_link):
+    if library_to_link.static_library:
+        return library_to_link.static_library
+    elif library_to_link.pic_static_library:
+        return library_to_link.pic_static_library
+    else:
+        return None
+
+def _get_library_for_linking(library_to_link):
+    if library_to_link.static_library:
+        return library_to_link.static_library
+    elif library_to_link.pic_static_library:
+        return library_to_link.pic_static_library
+    elif library_to_link.interface_library:
+        return library_to_link.interface_library
+    else:
+        return library_to_link.dynamic_library
+
 def _get_libraries_for_linking(libraries_to_link):
     libraries = []
-    for library_to_link in libraries_to_link.to_list():
-        if library_to_link.static_library:
-            libraries.append(library_to_link.static_library)
-        elif library_to_link.pic_static_library:
-            libraries.append(library_to_link.pic_static_library)
-        elif library_to_link.interface_library:
-            libraries.append(library_to_link.interface_library)
-        else:
-            libraries.append(library_to_link.dynamic_library)
+    for library_to_link in libraries_to_link:
+        libraries.append(_get_library_for_linking(library_to_link))
     return libraries
 
 def _register_fully_link_action(name, common_variables, cc_linking_context):
     ctx = common_variables.ctx
     feature_configuration = _build_feature_configuration(common_variables, False, False)
 
-    libraries_to_link = cc_helper.libraries_from_linking_context(cc_linking_context)
+    libraries_to_link = cc_helper.libraries_from_linking_context(cc_linking_context).to_list()
     libraries = _get_libraries_for_linking(libraries_to_link)
 
     output_archive = ctx.actions.declare_file(name + ".a")
@@ -562,11 +592,563 @@ def _register_fully_link_action(name, common_variables, cc_linking_context):
         variables_extension = extensions,
     )
 
+def _register_j2objc_dead_code_removal_actions(common_variables, deps, build_config):
+    """Registers actions to perform J2Objc dead code removal (when enabled)."""
+    ctx = common_variables.ctx
+
+    j2objc_entry_class_info = objc_common.j2objc_entry_class_info_union(
+        [dep[J2ObjcEntryClassInfo] for dep in deps if J2ObjcEntryClassInfo in dep],
+    )
+    entry_classes = j2objc_entry_class_info.entry_classes
+
+    # Only perform J2ObjC dead code stripping if flag --j2objc_dead_code_removal is specified and
+    # users have specified entry classes.
+    if (not ctx.fragments.j2objc.remove_dead_code() or not entry_classes or
+        not common_variables.objc_provider.j2objc_library.to_list()):
+        return {}
+
+    j2objc_mapping_file_info = objc_common.j2objc_mapping_file_info_union(
+        [dep[J2ObjcMappingFileInfo] for dep in deps if J2ObjcMappingFileInfo in dep],
+    )
+    j2objc_dependency_mapping_files = j2objc_mapping_file_info.dependency_mapping_files
+    j2objc_header_mapping_files = j2objc_mapping_file_info.header_mapping_files
+    j2objc_archive_source_mapping_files = j2objc_mapping_file_info.archive_source_mapping_files
+
+    replace_libs = {}
+    for j2objc_archive in common_variables.objc_provider.j2objc_library.to_list():
+        pruned_j2objc_archive = ctx.actions.declare_shareable_artifact(
+            ctx.label.package + "/_j2objc_pruned/" + ctx.label.name + "/" +
+            j2objc_archive.short_path[:-len(j2objc_archive.extension)].strip(".") +
+            "_pruned." + j2objc_archive.extension,
+            build_config.bin_dir,
+        )
+        replace_libs[j2objc_archive] = pruned_j2objc_archive
+
+        # Although _dummy_lib is always a label, weirdly when it has a cfg attached to it
+        # Bazel makes it a list (even if the cfg is not split)
+        _dummy_lib = ctx.attr._dummy_lib if type(ctx.attr._dummy_lib) == "Target" else ctx.attr._dummy_lib[0]
+        [dummy_archive] = _get_libraries_for_linking(cc_helper.libraries_from_linking_context(
+            _dummy_lib[CcInfo].linking_context,
+        ).to_list())
+
+        args = ctx.actions.args()
+        args.add("--input_archive", j2objc_archive)
+        args.add("--output_archive", pruned_j2objc_archive)
+        args.add("--dummy_archive", dummy_archive)
+        args.add_joined(
+            "--dependency_mapping_files",
+            j2objc_dependency_mapping_files,
+            join_with = ",",
+        )
+        args.add_joined("--header_mapping_files", j2objc_header_mapping_files, join_with = ",")
+        args.add_joined(
+            "--archive_source_mapping_files",
+            j2objc_archive_source_mapping_files,
+            join_with = ",",
+        )
+        args.add("--entry_classes")
+        args.add_joined(entry_classes, join_with = ",")
+        args.set_param_file_format("multiline")
+        args.use_param_file("@%s", use_always = True)
+        ctx.actions.run(
+            mnemonic = "DummyPruner",
+            executable = ctx.executable._j2objc_dead_code_pruner,
+            inputs = depset(
+                [j2objc_archive, dummy_archive],
+                transitive = [
+                    j2objc_dependency_mapping_files,
+                    j2objc_header_mapping_files,
+                    j2objc_archive_source_mapping_files,
+                ],
+            ),
+            arguments = [args],
+            outputs = [pruned_j2objc_archive],
+            exec_group = "j2objc",
+        )
+    return replace_libs
+
+def _register_obj_filelist_action(ctx, build_config, obj_files):
+    """
+    Returns a File containing the given set of object files.
+
+    This File is suitable to signal symbols to archive in a libtool archiving invocation.
+    """
+    obj_list = ctx.actions.declare_shareable_artifact(
+        ctx.label.package + "/" + ctx.label.name + "-linker.objlist",
+        build_config.bin_dir,
+    )
+
+    args = ctx.actions.args()
+    args.add_all(obj_files)
+    args.set_param_file_format("multiline")
+    ctx.actions.write(obj_list, args)
+
+    return obj_list
+
+def _register_binary_strip_action(
+        ctx,
+        name,
+        binary,
+        feature_configuration,
+        build_config,
+        extra_link_args):
+    """
+    Registers an action that uses the 'strip' tool to perform binary stripping on the given binary.
+    """
+
+    strip_safe = ctx.fragments.objc.strip_executable_safely
+
+    # For dylibs, loadable bundles, and kexts, must strip only local symbols.
+    link_dylib = cc_common.is_enabled(
+        feature_configuration = feature_configuration,
+        feature_name = "link_dylib",
+    )
+    link_bundle = cc_common.is_enabled(
+        feature_configuration = feature_configuration,
+        feature_name = "link_bundle",
+    )
+    if ("-dynamiclib" in extra_link_args or link_dylib or
+        "-bundle" in extra_link_args or link_bundle or "-kext" in extra_link_args):
+        strip_safe = True
+
+    stripped_binary = ctx.actions.declare_shareable_artifact(
+        ctx.label.package + "/" + name,
+        build_config.bin_dir,
+    )
+    args = ctx.actions.args()
+    args.add("strip")
+    if strip_safe:
+        args.add("-x")
+    args.add("-o", stripped_binary)
+    args.add(binary)
+    xcode_config = ctx.attr._xcode_config[XcodeVersionInfo]
+    apple_config = _builtins.internal.objc_internal.get_apple_config(build_config = build_config)
+    platform = apple_configuration.get_single_arch_platform(apple_config)
+
+    ctx.actions.run(
+        mnemonic = "ObjcBinarySymbolStrip",
+        executable = "/usr/bin/xcrun",
+        arguments = [args],
+        inputs = [binary],
+        outputs = [stripped_binary],
+        execution_requirements = ctx.attr._xcode_config[XcodeVersionInfo].execution_info(),
+        env = apple_host_system_env(xcode_config) |
+              target_apple_env(xcode_config, platform),
+    )
+    return stripped_binary
+
+def _create_deduped_linkopts_list(linker_inputs):
+    seen_flags = {}
+    final_linkopts = []
+    for linker_input in linker_inputs.to_list():
+        (_, new_flags, seen_flags) = _dedup_link_flags(
+            linker_input.user_link_flags,
+            seen_flags,
+        )
+        final_linkopts.extend(new_flags)
+
+    return final_linkopts
+
+def _linkstamp_map(ctx, linkstamps, output, build_config):
+    # create linkstamps_map - mapping from linkstamps to object files
+    linkstamps_map = {}
+
+    stamp_output_dir = ctx.label.package + "/_objs/" + output.basename + "/"
+    for linkstamp in linkstamps.to_list():
+        linkstamp_file = linkstamp.file()
+        stamp_output_path = (
+            stamp_output_dir +
+            linkstamp_file.short_path[:-len(linkstamp_file.extension)].rstrip(".") + ".o"
+        )
+        stamp_output_file = ctx.actions.declare_shareable_artifact(
+            stamp_output_path,
+            build_config.bin_dir,
+        )
+        linkstamps_map[linkstamp_file] = stamp_output_file
+    return linkstamps_map
+
+def _classify_libraries(libraries_to_link):
+    always_link_libraries = {
+        lib: None
+        for lib in _get_libraries_for_linking(
+            [lib for lib in libraries_to_link if lib.alwayslink],
+        )
+    }
+    as_needed_libraries = {
+        lib: None
+        for lib in _get_libraries_for_linking(
+            [lib for lib in libraries_to_link if not lib.alwayslink],
+        )
+        if lib not in always_link_libraries
+    }
+    return always_link_libraries.keys(), as_needed_libraries.keys()
+
+def _register_configuration_specific_link_actions(
+        name,
+        common_variables,
+        cc_linking_context,
+        build_config,
+        extra_link_args,
+        stamp,
+        user_variable_extensions,
+        additional_outputs,
+        deps,
+        extra_link_inputs,
+        attr_linkopts):
+    """
+    Registers actions to link a single-platform/architecture Apple binary in a specific config.
+
+    Registers any actions necessary to link this rule and its dependencies. Automatically infers
+    the toolchain from the configuration.
+
+    Returns:
+        (File) the linked binary
+    """
+    ctx = common_variables.ctx
+    feature_configuration = _build_feature_configuration(common_variables, False, False)
+
+    # When compilation_mode=opt and objc_enable_binary_stripping are specified, the unstripped
+    # binary containing debug symbols is generated by the linker, which also needs the debug
+    # symbols for dead-code removal. The binary is also used to generate dSYM bundle if
+    # --apple_generate_dsym is specified. A symbol strip action is later registered to strip
+    # the symbol table from the unstripped binary.
+    if (ctx.fragments.cpp.objc_enable_binary_stripping() and
+        ctx.fragments.cpp.compilation_mode() == "opt"):
+        binary = ctx.actions.declare_shareable_artifact(
+            ctx.label.package + "/" + name + "_unstripped",
+            build_config.bin_dir,
+        )
+    else:
+        binary = ctx.actions.declare_shareable_artifact(
+            ctx.label.package + "/" + name,
+            build_config.bin_dir,
+        )
+
+    if cc_common.is_enabled(
+        feature_configuration = feature_configuration,
+        feature_name = "use_cpp_variables_for_objc_executable",
+    ):
+        return _register_configuration_specific_link_actions_with_cpp_variables(
+            name,
+            binary,
+            common_variables,
+            feature_configuration,
+            cc_linking_context,
+            build_config,
+            extra_link_args,
+            stamp,
+            user_variable_extensions,
+            additional_outputs,
+            deps,
+            extra_link_inputs,
+            attr_linkopts,
+        )
+    else:
+        return _register_configuration_specific_link_actions_with_objc_variables(
+            name,
+            binary,
+            common_variables,
+            feature_configuration,
+            cc_linking_context,
+            build_config,
+            extra_link_args,
+            stamp,
+            user_variable_extensions,
+            additional_outputs,
+            deps,
+            extra_link_inputs,
+            attr_linkopts,
+        )
+
+def _register_configuration_specific_link_actions_with_cpp_variables(
+        name,
+        binary,
+        common_variables,
+        feature_configuration,
+        cc_linking_context,
+        build_config,
+        extra_link_args,
+        stamp,
+        user_variable_extensions,
+        additional_outputs,
+        deps,
+        extra_link_inputs,
+        attr_linkopts):
+    ctx = common_variables.ctx
+
+    replace_libs = _register_j2objc_dead_code_removal_actions(common_variables, deps, build_config)
+
+    if replace_libs:
+        cc_linking_context = _substitute_j2objc_pruned_libraries(
+            ctx.actions,
+            feature_configuration,
+            common_variables.toolchain,
+            cc_linking_context,
+            replace_libs,
+        )
+
+    (cc_linking_context, seen_flags) = _create_deduped_linkopts_linking_context(ctx.label, cc_linking_context)
+
+    prefixed_attr_linkopts = [
+        "-Wl,%s" % linkopt
+        for linkopt in attr_linkopts
+    ]
+
+    (_, user_link_flags, _) = _dedup_link_flags(extra_link_args + prefixed_attr_linkopts, seen_flags)
+
+    cc_common.link(
+        name = name,
+        actions = ctx.actions,
+        additional_inputs = (
+            extra_link_inputs +
+            getattr(ctx.files, "additional_linker_inputs", [])
+        ),
+        additional_outputs = additional_outputs,
+        build_config = build_config,
+        cc_toolchain = common_variables.toolchain,
+        feature_configuration = feature_configuration,
+        language = "objc",
+        linking_contexts = [cc_linking_context],
+        main_output = binary,
+        output_type = "executable",
+        stamp = stamp,
+        user_link_flags = user_link_flags,
+        variables_extension = user_variable_extensions,
+    )
+
+    if not (ctx.fragments.cpp.objc_enable_binary_stripping() and
+            ctx.fragments.cpp.compilation_mode() == "opt"):
+        return binary
+    else:
+        return _register_binary_strip_action(
+            ctx,
+            name,
+            binary,
+            feature_configuration,
+            build_config,
+            extra_link_args,
+        )
+
+def _dedup_link_flags(flags, seen_flags = {}):
+    new_flags = []
+    previous_arg = None
+    for arg in flags:
+        if previous_arg in ["-framework", "-weak_framework"]:
+            framework = arg
+            key = previous_arg[1] + framework
+            if key not in seen_flags:
+                new_flags.extend([previous_arg, framework])
+                seen_flags[key] = True
+            previous_arg = None
+        elif arg in ["-framework", "-weak_framework"]:
+            previous_arg = arg
+        elif arg.startswith("-Wl,-framework,") or arg.startswith("-Wl,-weak_framework,"):
+            framework = arg.split(",")[2]
+            key = arg[5] + framework
+            if key not in seen_flags:
+                new_flags.extend([arg.split(",")[1], framework])
+                seen_flags[key] = True
+        elif arg.startswith("-Wl,-rpath,"):
+            rpath = arg.split(",")[2]
+            key = arg[5] + rpath
+            if key not in seen_flags:
+                new_flags.append(arg)
+                seen_flags[key] = True
+        elif arg.startswith("-l"):
+            if arg not in seen_flags:
+                new_flags.append(arg)
+                seen_flags[arg] = True
+        else:
+            new_flags.append(arg)
+
+    same = (
+        len(flags) == len(new_flags) and
+        all([flags[i] == new_flags[i] for i in range(0, len(flags))])
+    )
+
+    return (same, new_flags, seen_flags)
+
+def _create_deduped_linkopts_linking_context(owner, cc_linking_context):
+    seen_flags = {}
+    linker_inputs = []
+    for linker_input in cc_linking_context.linker_inputs.to_list():
+        (same, new_flags, seen_flags) = _dedup_link_flags(
+            linker_input.user_link_flags,
+            seen_flags,
+        )
+        if same:
+            linker_inputs.append(linker_input)
+        else:
+            linker_inputs.append(cc_common.create_linker_input(
+                owner = linker_input.owner,
+                libraries = depset(linker_input.libraries),
+                user_link_flags = new_flags,
+                additional_inputs = depset(linker_input.additional_inputs),
+            ))
+
+    # Why does linker_input not expose linkstamp?  This needs to be fixed.
+    linker_inputs.append(cc_common.create_linker_input(
+        owner = owner,
+        linkstamps = cc_linking_context.linkstamps(),
+    ))
+
+    return (
+        cc_common.create_linking_context(
+            linker_inputs = depset(linker_inputs),
+        ),
+        seen_flags,
+    )
+
+def _substitute_j2objc_pruned_libraries(
+        actions,
+        feature_configuration,
+        cc_toolchain,
+        cc_linking_context,
+        replace_libs):
+    linker_inputs = []
+    for linker_input in cc_linking_context.linker_inputs.to_list():
+        need_replacement = any([
+            _get_library_for_linking(library_to_link) in replace_libs
+            for library_to_link in linker_input.libraries
+        ])
+
+        if need_replacement:
+            libraries_to_link = []
+            for library_to_link in linker_input.libraries:
+                library = _get_library_for_linking(library_to_link)
+                if library not in replace_libs:
+                    libraries_to_link.append(library_to_link)
+                else:
+                    new_library_to_link = cc_common.create_library_to_link(
+                        actions = actions,
+                        feature_configuration = feature_configuration,
+                        cc_toolchain = cc_toolchain,
+                        static_library = replace_libs[library],
+                        alwayslink = library_to_link.alwayslink,
+                    )
+                    libraries_to_link.append(new_library_to_link)
+
+            new_linker_input = cc_common.create_linker_input(
+                owner = linker_input.owner,
+                libraries = depset(libraries_to_link),
+                user_link_flags = linker_input.user_link_flags,
+                additional_inputs = depset(linker_input.additional_inputs),
+            )
+
+            linker_inputs.append(new_linker_input)
+        else:
+            linker_inputs.append(linker_input)
+
+    return cc_common.create_linking_context(
+        linker_inputs = depset(linker_inputs),
+    )
+
+def _register_configuration_specific_link_actions_with_objc_variables(
+        name,
+        binary,
+        common_variables,
+        feature_configuration,
+        cc_linking_context,
+        build_config,
+        extra_link_args,
+        stamp,
+        user_variable_extensions,
+        additional_outputs,
+        deps,
+        extra_link_inputs,
+        attr_linkopts):
+    ctx = common_variables.ctx
+
+    # We need to split input libraries into those that require -force_load and those that don't.
+    # Clang loads archives specified in filelists and also specified as -force_load twice,
+    # resulting in duplicate symbol errors unless they are deduped.
+    libraries_to_link = cc_helper.libraries_from_linking_context(cc_linking_context).to_list()
+    always_link_libraries, as_needed_libraries = _classify_libraries(libraries_to_link)
+
+    replace_libs = _register_j2objc_dead_code_removal_actions(common_variables, deps, build_config)
+
+    # Substitutes both sets of unpruned J2ObjC libraries with pruned ones
+    always_link_libraries = [replace_libs.get(lib, lib) for lib in always_link_libraries]
+    as_needed_libraries = [replace_libs.get(lib, lib) for lib in as_needed_libraries]
+
+    static_runtimes = common_variables.toolchain.static_runtime_lib(
+        feature_configuration = feature_configuration,
+    )
+
+    # Passing large numbers of inputs on the command line triggers a bug in Apple's Clang
+    # (b/29094356), so we'll create an input list manually and pass -filelist path/to/input/list.
+
+    # Populate the input file list with both the compiled object files and any linkstamp object
+    # files.
+    # There's some weirdness: cc_common.link compiles linkstamps and does the linking (without ever
+    # returning linkstamp objects)
+    # We replicate the linkstamp objects names (guess them) and generate input_file_list
+    # which is input to linking action.
+    linkstamp_map = _linkstamp_map(ctx, cc_linking_context.linkstamps(), binary, build_config)
+    input_file_list = _register_obj_filelist_action(
+        ctx,
+        build_config,
+        as_needed_libraries + static_runtimes.to_list() + linkstamp_map.values(),
+    )
+
+    extensions = user_variable_extensions | {
+        "framework_paths": [],
+        "framework_names": [],
+        "weak_framework_names": [],
+        "library_names": [],
+        "filelist": input_file_list.path,
+        "linked_binary": binary.path,
+        # artifacts to be passed to the linker with `-force_load`
+        "force_load_exec_paths": [lib.path for lib in always_link_libraries],
+        # linkopts from dependency
+        "dep_linkopts": _create_deduped_linkopts_list(cc_linking_context.linker_inputs),
+        "attr_linkopts": attr_linkopts,  # linkopts arising from rule attributes
+    }
+    additional_inputs = [
+        input
+        for linker_input in cc_linking_context.linker_inputs.to_list()
+        for input in linker_input.additional_inputs
+    ]
+    cc_common.link(
+        name = name,
+        actions = ctx.actions,
+        feature_configuration = feature_configuration,
+        cc_toolchain = common_variables.toolchain,
+        language = "objc",
+        additional_inputs = (
+            as_needed_libraries + always_link_libraries + [input_file_list] + extra_link_inputs +
+            additional_inputs +
+            getattr(ctx.files, "additional_linker_inputs", [])
+        ),
+        linking_contexts = [cc_common.create_linking_context(linker_inputs = depset(
+            [cc_common.create_linker_input(
+                owner = ctx.label,
+                linkstamps = cc_linking_context.linkstamps(),
+            )],
+        ))],
+        output_type = "executable",
+        build_config = build_config,
+        user_link_flags = extra_link_args,
+        stamp = stamp,
+        variables_extension = extensions,
+        additional_outputs = additional_outputs,
+        main_output = binary,
+    )
+
+    if not (ctx.fragments.cpp.objc_enable_binary_stripping() and
+            ctx.fragments.cpp.compilation_mode() == "opt"):
+        return binary
+    else:
+        return _register_binary_strip_action(ctx, name, binary, feature_configuration, build_config, extra_link_args)
+
 compilation_support = struct(
     register_compile_and_archive_actions = _register_compile_and_archive_actions,
     register_compile_and_archive_actions_for_j2objc = _register_compile_and_archive_actions_for_j2objc,
     build_common_variables = _build_common_variables,
     build_feature_configuration = _build_feature_configuration,
+    get_library_for_linking = _get_library_for_linking,
+    get_static_library_for_linking = _get_static_library_for_linking,
     validate_attributes = _validate_attributes,
     register_fully_link_action = _register_fully_link_action,
+    register_configuration_specific_link_actions = _register_configuration_specific_link_actions,
 )

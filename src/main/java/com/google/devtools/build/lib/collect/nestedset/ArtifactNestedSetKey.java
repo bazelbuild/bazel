@@ -16,12 +16,14 @@ package com.google.devtools.build.lib.collect.nestedset;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Sets;
+import com.google.common.collect.Iterables;
+import com.google.common.graph.MutableGraph;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.skyframe.ExecutionPhaseSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
+import java.util.HashSet;
 import java.util.Set;
 
 /**
@@ -70,8 +72,8 @@ public final class ArtifactNestedSetKey implements ExecutionPhaseSkyKey {
   public ImmutableList<SkyKey> getDirectDepKeys() {
     ImmutableList.Builder<SkyKey> depKeys = ImmutableList.builderWithExpectedSize(children.length);
     for (Object child : children) {
-      if (child instanceof Artifact) {
-        depKeys.add(Artifact.key((Artifact) child));
+      if (child instanceof Artifact artifact) {
+        depKeys.add(Artifact.key(artifact));
       } else {
         depKeys.add(createInternal((Object[]) child));
       }
@@ -82,8 +84,8 @@ public final class ArtifactNestedSetKey implements ExecutionPhaseSkyKey {
   /** Applies a consumer function to the direct artifacts of this nested set. */
   public void applyToDirectArtifacts(DirectArtifactConsumer function) throws InterruptedException {
     for (Object child : children) {
-      if (child instanceof Artifact) {
-        function.accept((Artifact) child);
+      if (child instanceof Artifact artifact) {
+        function.accept(artifact);
       }
     }
   }
@@ -109,47 +111,52 @@ public final class ArtifactNestedSetKey implements ExecutionPhaseSkyKey {
   }
 
   /**
-   * Finds a path from this key to the given {@link Artifact}, which must be contained beneath the
-   * node represented by this key.
+   * Augments the given rewind graph with paths from {@code failedKey} to {@code lostArtifacts}
+   * discoverable by following the {@link ArtifactNestedSetKey} nodes in {@code failedKeyDeps}.
    *
-   * <p>The returned list represents a Skyframe dependency chain from this key to the target
-   * artifact. The first element is always {@code this}, and the last element contains the target
-   * artifact as a direct child. The list may contain only a single element if the target artifact
-   * is a direct child of the node represented by this key.
+   * <p>{@code rewindGraph} must not contain any {@link ArtifactNestedSetKey} nodes prior to calling
+   * this method.
    */
-  public ImmutableList<ArtifactNestedSetKey> findPathToArtifact(Artifact target) {
-    ImmutableList.Builder<ArtifactNestedSetKey> path = ImmutableList.builder();
-    boolean found = findPathToArtifact(target, children, path, Sets.newIdentityHashSet());
-    checkArgument(found, "Artifact not found: %s", target);
-    path.add(this);
-    return path.build().reverse();
+  public static void addNestedSetPathsToRewindGraph(
+      MutableGraph<SkyKey> rewindGraph,
+      SkyKey failedKey,
+      Set<SkyKey> failedKeyDeps,
+      Set<? extends Artifact> lostArtifacts) {
+    var seen = new HashSet<ArtifactNestedSetKey>();
+    for (var nestedSetDep : Iterables.filter(failedKeyDeps, ArtifactNestedSetKey.class)) {
+      if (searchForLostArtifacts(nestedSetDep, rewindGraph, lostArtifacts, seen)) {
+        rewindGraph.putEdge(failedKey, nestedSetDep);
+      }
+    }
   }
 
-  private static boolean findPathToArtifact(
-      Artifact target,
-      Object[] currentNode,
-      ImmutableList.Builder<ArtifactNestedSetKey> path,
-      Set<Object[]> seen) {
-    if (!seen.add(currentNode)) {
+  private static boolean searchForLostArtifacts(
+      ArtifactNestedSetKey node,
+      MutableGraph<SkyKey> rewindGraph,
+      Set<? extends Artifact> lostArtifacts,
+      Set<ArtifactNestedSetKey> seen) {
+    if (rewindGraph.nodes().contains(node)) {
+      return true;
+    }
+    if (!seen.add(node)) {
       return false;
     }
-    // Check all leaves before entering recursion to favor finding a shorter path.
-    for (Object child : currentNode) {
-      if (child.equals(target)) {
-        return true;
+    boolean anyFound = false;
+    for (Object child : node.children) {
+      if (child instanceof Artifact artifact) {
+        if (lostArtifacts.contains(artifact)) {
+          rewindGraph.putEdge(node, Artifact.key(artifact));
+          anyFound = true;
+        }
+      } else {
+        ArtifactNestedSetKey nextNode = createInternal((Object[]) child);
+        if (searchForLostArtifacts(nextNode, rewindGraph, lostArtifacts, seen)) {
+          rewindGraph.putEdge(node, nextNode);
+          anyFound = true;
+        }
       }
     }
-    for (Object child : currentNode) {
-      if (!(child instanceof Object[])) {
-        continue;
-      }
-      Object[] nextNode = (Object[]) child;
-      if (findPathToArtifact(target, nextNode, path, seen)) {
-        path.add(createInternal(nextNode));
-        return true;
-      }
-    }
-    return false;
+    return anyFound;
   }
 
   @Override
@@ -174,8 +181,8 @@ public final class ArtifactNestedSetKey implements ExecutionPhaseSkyKey {
     if (this == that) {
       return true;
     }
-    return that instanceof ArtifactNestedSetKey
-        && children == ((ArtifactNestedSetKey) that).children;
+    return that instanceof ArtifactNestedSetKey artifactNestedSetKey
+        && children == artifactNestedSetKey.children;
   }
 
   @Override

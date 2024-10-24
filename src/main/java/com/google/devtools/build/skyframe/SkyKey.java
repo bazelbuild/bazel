@@ -36,7 +36,7 @@ public interface SkyKey extends Serializable {
 
   /** Returns the canonical representation of the key as a string. */
   default String getCanonicalName() {
-    return String.format("%s:%s\n", functionName(), argument().toString().replace('\n', '_'));
+    return String.format("%s:%s", functionName(), argument().toString().replace('\n', '_'));
   }
 
   SkyFunctionName functionName();
@@ -61,6 +61,19 @@ public interface SkyKey extends Serializable {
    */
   default boolean valueIsShareable() {
     return true;
+  }
+
+  /**
+   * Returns {@code true} if previously requested deps values are not eagerly batch prefetched when
+   * the {@link SkyFunctionEnvironment} to evaluate this {@link SkyKey} is created.
+   *
+   * <p>Please note that {@link SkyKey}s which supports partial reevaluation should always skip
+   * batch prefetch.
+   */
+  // TODO: b/324948927#comment8 - Remove this method in the future when skipping batch prefetching
+  // is determined during environment creation.
+  default boolean skipsBatchPrefetch() {
+    return supportsPartialReevaluation();
   }
 
   /**

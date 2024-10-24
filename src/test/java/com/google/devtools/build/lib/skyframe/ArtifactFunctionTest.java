@@ -16,13 +16,16 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.FileArtifactValue.createForTesting;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.Mockito.mock;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionTemplate;
@@ -36,8 +39,10 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.MiddlemanAction;
 import com.google.devtools.build.lib.actions.MiddlemanType;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
+import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.TestAction.DummyAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
@@ -133,7 +138,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
 
   @Test
   public void testMiddlemanArtifact() throws Throwable {
-    DerivedArtifact output = createMiddlemanArtifact("output");
+    DerivedArtifact output = createRunfilesArtifact("output");
     Artifact input1 = createSourceArtifact("input1");
     Artifact input2 = createDerivedArtifact("input2");
     SpecialArtifact tree = createDerivedTreeArtifactWithAction("treeArtifact");
@@ -141,11 +146,13 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     TreeFileArtifact treeFile2 = createFakeTreeFileArtifact(tree, "child2", "hello2");
     file(treeFile1.getPath(), "src1");
     file(treeFile2.getPath(), "src2");
+    RunfilesTree mockRunfilesTree = mock(RunfilesTree.class);
     Action action =
-        new DummyAction(
+        new MiddlemanAction(
+            ActionsTestUtil.NULL_ACTION_OWNER,
+            mockRunfilesTree,
             NestedSetBuilder.create(Order.STABLE_ORDER, input1, input2, tree),
-            output,
-            MiddlemanType.RUNFILES_MIDDLEMAN);
+            ImmutableSet.of(output));
     actions.add(action);
     file(input2.getPath(), "contents");
     file(input1.getPath(), "source contents");
@@ -156,10 +163,12 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     EvaluationResult<ActionExecutionValue> runfilesActionResult = evaluate(generatingActionKey);
     FileArtifactValue expectedMetadata =
         runfilesActionResult.get(generatingActionKey).getExistingFileArtifactValue(output);
+
     assertThat(value)
         .isEqualTo(
             new RunfilesArtifactValue(
                 expectedMetadata,
+                mockRunfilesTree,
                 ImmutableList.of(input1, input2),
                 ImmutableList.of(createForTesting(input1), createForTesting(input2)),
                 ImmutableList.of(tree),
@@ -335,11 +344,13 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     return output;
   }
 
-  private DerivedArtifact createMiddlemanArtifact(String path) {
-    ArtifactRoot middlemanRoot =
-        ArtifactRoot.asDerivedRoot(middlemanPath, RootType.Middleman, PathFragment.create("out"));
-    return DerivedArtifact.create(
-        middlemanRoot, middlemanRoot.getExecPath().getRelative(path), ALL_OWNER);
+  private SpecialArtifact createRunfilesArtifact(String path) {
+    PathFragment execPath = PathFragment.create("out").getRelative(path);
+    return SpecialArtifact.create(
+        ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
+        execPath,
+        ALL_OWNER,
+        SpecialArtifactType.RUNFILES);
   }
 
   private SpecialArtifact createDerivedTreeArtifactWithAction(String path) {
@@ -408,8 +419,8 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
       throw result.getError().getException();
     }
     SkyValue value = result.get(key);
-    if (value instanceof ActionExecutionValue) {
-      return ((ActionExecutionValue) value).getExistingFileArtifactValue(artifact);
+    if (value instanceof ActionExecutionValue actionExecutionValue) {
+      return actionExecutionValue.getExistingFileArtifactValue(artifact);
     }
     return value;
   }

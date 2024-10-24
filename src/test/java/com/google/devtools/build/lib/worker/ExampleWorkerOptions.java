@@ -84,12 +84,19 @@ public class ExampleWorkerOptions extends OptionsBase {
     public boolean printInputs;
 
     @Option(
-      name = "print_env",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "false",
-      help = "Prints a list of all environment variables."
-    )
+        name = "print_dir_listing",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "",
+        help = "Writes a recursive listing of the given directory, not following symlinks.")
+    public String printDirListing;
+
+    @Option(
+        name = "print_env",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "false",
+        help = "Prints a list of all environment variables.")
     public boolean printEnv;
 
     @Option(

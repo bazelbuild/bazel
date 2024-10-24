@@ -61,21 +61,14 @@ function hash_outputs() {
 }
 
 function test_determinism()  {
-    local workdir="${TEST_TMPDIR}/workdir"
+    # Verify that Bazel can build itself under a path with spaces.
+    local workdir="${TEST_TMPDIR}/work dir"
     mkdir "${workdir}" || fail "Could not create work directory"
     cd "${workdir}" || fail "Could not change to work directory"
     unzip -q "${DISTFILE}"
 
     # Set up the maven repository properly.
     cp derived/maven/BUILD.vendor derived/maven/BUILD
-
-    # Update the hash of bazel_tools in lockfile to avoid rerunning module resolution.
-    new_hash=$(shasum -a 256 "src/MODULE.tools" | awk '{print $1}')
-    sed -i.bak "/\"bazel_tools\":/s/\"[a-f0-9]*\"/\"$new_hash\"/" MODULE.bazel.lock
-    rm MODULE.bazel.lock.bak
-
-    # Use @bazel_tools//tools/python:autodetecting_toolchain to avoid
-    # downloading python toolchain.
 
     # Build Bazel once.
     bazel \

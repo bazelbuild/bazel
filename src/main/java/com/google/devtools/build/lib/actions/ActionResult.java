@@ -250,14 +250,14 @@ public abstract class ActionResult {
   }
 
   /**
-   * Indicates whether all {@link Spawn}s executed locally or not.
+   * Indicates whether the action had at least one locally executed spawn.
    *
-   * @return true if all spawns of action executed locally
+   * @return true if at the action had at least one locally executed spawn
    */
   public boolean locallyExecuted() {
-    boolean locallyExecuted = true;
+    boolean locallyExecuted = false;
     for (SpawnResult spawnResult : spawnResults()) {
-      locallyExecuted &= !spawnResult.wasRemote();
+      locallyExecuted |= !spawnResult.wasRemote();
     }
     return locallyExecuted;
   }

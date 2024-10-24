@@ -18,10 +18,11 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.OUTPUT_LIST;
 import static com.google.devtools.build.lib.packages.Type.INTEGER;
-import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
+import static com.google.devtools.build.lib.packages.Types.STRING_LIST;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.CommonPrerequisiteValidator;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -34,6 +35,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -42,7 +44,9 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.rules.config.ConfigRules;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
@@ -82,7 +86,7 @@ public class TestRuleClassProvider {
     builder.addRuleDefinition(new TestingDummyRule());
     builder.addRuleDefinition(new MockToolchainRule());
     if (clearSuffix) {
-      builder.clearWorkspaceFileSuffixForTesting();
+      builder.clearWorkspaceFileSuffixForTesting().clearWorkspaceFilePrefixForTesting();
     }
     return builder.build();
   }
@@ -186,7 +190,7 @@ public class TestRuleClassProvider {
     @Nullable
     public ConfiguredTarget create(RuleContext ruleContext)
         throws InterruptedException, RuleErrorException, ActionConflictException {
-      Map<String, String> variables = ruleContext.attributes().get("variables", Type.STRING_DICT);
+      Map<String, String> variables = ruleContext.attributes().get("variables", Types.STRING_DICT);
       return new RuleConfiguredTargetBuilder(ruleContext)
           .setFilesToBuild(NestedSetBuilder.emptySet(Order.STABLE_ORDER))
           .addProvider(RunfilesProvider.EMPTY)
@@ -201,8 +205,9 @@ public class TestRuleClassProvider {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
       return builder
-          .advertiseProvider(TemplateVariableInfo.class)
-          .add(attr("variables", Type.STRING_DICT))
+          .advertiseStarlarkProvider(
+              StarlarkProviderIdentifier.forKey(TemplateVariableInfo.PROVIDER.getKey()))
+          .add(attr("variables", Types.STRING_DICT))
           .build();
     }
 
@@ -236,6 +241,49 @@ public class TestRuleClassProvider {
           .name("mock_toolchain_rule")
           .factoryClass(UnknownRuleConfiguredTarget.class)
           .ancestors(BaseRuleClasses.NativeActionCreatingRule.class)
+          .build();
+    }
+  }
+
+  /** A simple provider for testing. */
+  public static final class FooProvider implements TransitiveInfoProvider {}
+
+  private static final Label FAKE_LABEL = Label.parseCanonicalUnchecked("//fake/label.bzl");
+
+  private static final StarlarkProviderIdentifier STARLARK_P1 =
+      StarlarkProviderIdentifier.forKey(
+          new StarlarkProvider.Key(keyForBuild(FAKE_LABEL), "STARLARK_P1"));
+
+  /** Definition of a rule that advertises a native provider that it does not return. */
+  public static final class LiarRuleWithNativeProvider implements RuleDefinition {
+    @Override
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
+      return builder.advertiseProvider(FooProvider.class).build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return Metadata.builder()
+          .name("liar_rule_with_native_provider")
+          .ancestors(BaseRuleClasses.NativeBuildRule.class)
+          .factoryClass(UnknownRuleConfiguredTarget.class)
+          .build();
+    }
+  }
+
+  /** Definition of a rule that advertises a Starlark provider that it does not return. */
+  public static final class LiarRuleWithStarlarkProvider implements RuleDefinition {
+    @Override
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
+      return builder.advertiseStarlarkProvider(STARLARK_P1).build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return Metadata.builder()
+          .name("liar_rule_with_starlark_provider")
+          .ancestors(BaseRuleClasses.NativeBuildRule.class)
+          .factoryClass(UnknownRuleConfiguredTarget.class)
           .build();
     }
   }

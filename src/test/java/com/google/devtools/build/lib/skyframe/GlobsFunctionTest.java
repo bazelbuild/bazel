@@ -169,11 +169,12 @@ public final class GlobsFunctionTest extends GlobTestBase {
     assertThat(errorInfo.getException()).isInstanceOf(FileSymlinkInfiniteExpansionException.class);
     assertThat(errorInfo.getException()).hasMessageThat().contains("Infinite symlink expansion");
 
-    // Since parent/sub1/self1 is always the first symlink to be processed, so its error is
-    // the first error to be caught. We expect the first error caught to be the one thrown by the
-    // Skyframe State Machine.
+    // The two globs are evaluated in parallel inside GlobsFunction, so it is non-deterministic
+    // which SymlinkInfiniteExpansionException is thrown and caught first. So this test only needs
+    // to verify the output error is from either one of the SymlinkInfiniteExpansion errors.
     assertThat(((FileSymlinkInfiniteExpansionException) errorInfo.getException()).getChain())
-        .contains(
-            RootedPath.toRootedPath(Root.fromPath(root), pkgPath.getRelative("parent/sub1/self1")));
+        .containsAnyOf(
+            RootedPath.toRootedPath(Root.fromPath(root), pkgPath.getRelative("parent/sub1/self1")),
+            RootedPath.toRootedPath(Root.fromPath(root), pkgPath.getRelative("parent/sub2/self2")));
   }
 }

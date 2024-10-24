@@ -19,8 +19,8 @@
 #include <unordered_map>
 #include <vector>
 
-#include "third_party/absl/status/status.h"
-#include "third_party/absl/types/span.h"
+#include "absl/status/status.h"
+#include "absl/types/span.h"
 
 namespace bazel {
 namespace tools {

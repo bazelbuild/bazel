@@ -16,13 +16,12 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -102,11 +101,9 @@ public abstract class CollectPackagesUnderDirectoryValue implements SkyValue {
       if (this == o) {
         return true;
       }
-      if (!(o instanceof NoErrorCollectPackagesUnderDirectoryValue)) {
+      if (!(o instanceof NoErrorCollectPackagesUnderDirectoryValue that)) {
         return false;
       }
-      NoErrorCollectPackagesUnderDirectoryValue that =
-          (NoErrorCollectPackagesUnderDirectoryValue) o;
       return this.isDirectoryPackage == that.isDirectoryPackage
           && Objects.equals(
               this.getSubdirectoryTransitivelyContainsPackagesOrErrors(),
@@ -157,10 +154,9 @@ public abstract class CollectPackagesUnderDirectoryValue implements SkyValue {
       if (this == o) {
         return true;
       }
-      if (!(o instanceof ErrorCollectPackagesUnderDirectoryValue)) {
+      if (!(o instanceof ErrorCollectPackagesUnderDirectoryValue that)) {
         return false;
       }
-      ErrorCollectPackagesUnderDirectoryValue that = (ErrorCollectPackagesUnderDirectoryValue) o;
       return Objects.equals(this.errorMessage, that.errorMessage)
           && Objects.equals(
               this.getSubdirectoryTransitivelyContainsPackagesOrErrors(),
@@ -231,7 +227,7 @@ public abstract class CollectPackagesUnderDirectoryValue implements SkyValue {
   /** Create a collect packages under directory request. */
   @ThreadSafe
   public static SkyKey key(
-      RepositoryName repository, RootedPath rootedPath, ImmutableSet<PathFragment> excludedPaths) {
+      RepositoryName repository, RootedPath rootedPath, IgnoredSubdirectories excludedPaths) {
     return Key.create(repository, rootedPath, excludedPaths);
   }
 
@@ -241,19 +237,20 @@ public abstract class CollectPackagesUnderDirectoryValue implements SkyValue {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
     private Key(
-        RepositoryName repositoryName,
-        RootedPath rootedPath,
-        ImmutableSet<PathFragment> excludedPaths) {
+        RepositoryName repositoryName, RootedPath rootedPath, IgnoredSubdirectories excludedPaths) {
       super(repositoryName, rootedPath, excludedPaths);
     }
 
     @VisibleForSerialization
-    @AutoCodec.Instantiator
     static Key create(
-        RepositoryName repositoryName,
-        RootedPath rootedPath,
-        ImmutableSet<PathFragment> excludedPaths) {
+        RepositoryName repositoryName, RootedPath rootedPath, IgnoredSubdirectories excludedPaths) {
       return interner.intern(new Key(repositoryName, rootedPath, excludedPaths));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static Key intern(Key key) {
+      return interner.intern(key);
     }
 
     @Override

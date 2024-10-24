@@ -153,15 +153,24 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
       ExecutionPolicy executionPolicy,
       ActionContext.ActionContextRegistry acr,
       DynamicStrategyRegistry dsr) {
+    return getLocalStrategy(spawn, executionPolicy, acr, dsr) != null;
+  }
+
+  @Nullable
+  private static SandboxedSpawnStrategy getLocalStrategy(
+      Spawn spawn,
+      ExecutionPolicy executionPolicy,
+      ActionContext.ActionContextRegistry acr,
+      DynamicStrategyRegistry dsr) {
     if (!executionPolicy.canRunLocally()) {
-      return false;
+      return null;
     }
     for (SandboxedSpawnStrategy s : dsr.getDynamicSpawnActionContexts(spawn, LOCAL)) {
       if ((s.canExec(spawn, acr) || s.canExecWithLegacyFallback(spawn, acr))) {
-        return true;
+        return s;
       }
     }
-    return false;
+    return null;
   }
 
   private static boolean canExecRemote(
@@ -169,15 +178,25 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
       ExecutionPolicy executionPolicy,
       ActionContext.ActionContextRegistry acr,
       DynamicStrategyRegistry dsr) {
+    return getRemoteStrategy(spawn, executionPolicy, acr, dsr) != null;
+  }
+
+  @Nullable
+  private static SandboxedSpawnStrategy getRemoteStrategy(
+      Spawn spawn,
+      ExecutionPolicy executionPolicy,
+      ActionContext.ActionContextRegistry acr,
+      DynamicStrategyRegistry dsr) {
     if (!executionPolicy.canRunRemotely()) {
-      return false;
+      return null;
     }
+
     for (SandboxedSpawnStrategy s : dsr.getDynamicSpawnActionContexts(spawn, REMOTE)) {
       if (s.canExec(spawn, acr)) {
-        return true;
+        return s;
       }
     }
-    return false;
+    return null;
   }
 
   @Override
@@ -220,11 +239,18 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
     }
     remoteBranch.execute(executorService);
 
+    ImmutableList<SpawnResult> results = null;
     try {
-      return waitBranches(localBranch, remoteBranch, spawn, options, actionExecutionContext);
+      results = waitBranches(localBranch, remoteBranch, spawn, options, actionExecutionContext);
+      return results;
     } finally {
       checkState(localBranch.isDone());
       checkState(remoteBranch.isDone());
+
+      if (results != null && !results.isEmpty()) {
+        updateStrategyWinner(actionExecutionContext, spawn, results.get(0), strategyThatCancelled);
+      }
+
       synchronized (waitingLocalJobs) {
         if (!waitingLocalJobs.remove(localBranch)) {
           threadLimiter.release();
@@ -237,6 +263,53 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
           localBranch.isCancelled() ? "cancelled" : "done",
           remoteBranch.isCancelled() ? "cancelled" : "done");
     }
+  }
+
+  void updateStrategyWinner(
+      ActionExecutionContext context,
+      Spawn spawn,
+      SpawnResult result,
+      AtomicReference<DynamicMode> strategyThatCancelled) {
+    DynamicStrategyRegistry dynamicStrategyRegistry =
+        context.getContext(DynamicStrategyRegistry.class);
+    ExecutionPolicy executionPolicy = getExecutionPolicy.apply(spawn);
+
+    // In case of remote runner, we could have "runner-name-cached" instead of "runner-name", in
+    // this case we want more precise name of branch.
+    String winner = result.getRunnerName();
+    SandboxedSpawnStrategy localStrategy =
+        getLocalStrategy(spawn, executionPolicy, context, dynamicStrategyRegistry);
+    SandboxedSpawnStrategy remoteStrategy =
+        getRemoteStrategy(spawn, executionPolicy, context, dynamicStrategyRegistry);
+
+    if (localStrategy == null || remoteStrategy == null) {
+      return;
+    }
+
+    String localName = localStrategy.toString();
+    String remoteName = remoteStrategy.toString();
+
+    DynamicMode winnerBranchType = null;
+    if (strategyThatCancelled.get() == null) {
+      return;
+    }
+
+    switch (strategyThatCancelled.get()) {
+      case LOCAL -> {
+        localName = winner;
+        winnerBranchType = LOCAL;
+      }
+      case REMOTE -> {
+        remoteName = winner;
+        winnerBranchType = REMOTE;
+      }
+    }
+
+    context
+        .getEventHandler()
+        .post(
+            new DynamicExecutionFinishedEvent(
+                spawn.getMnemonic(), localName, remoteName, winnerBranchType));
   }
 
   /**
@@ -289,11 +362,14 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
         canExecRemote(spawn, executionPolicy, actionExecutionContext, dynamicStrategyRegistry);
 
     if (!localCanExec && !remoteCanExec) {
+      @SuppressWarnings("RedundantSetterCall")
       FailureDetail failure =
           FailureDetail.newBuilder()
               .setMessage(
                   getNoCanExecFailureMessage(
                       spawn, executionPolicy.canRunLocally(), executionPolicy.canRunRemotely()))
+              // This use of `setDynamicExecution` was overwritten by a call to `setSpawn` below, as
+              // they're in a oneof. This may be a bug! Please fix, or delete this redundant call.
               .setDynamicExecution(
                   DynamicExecution.newBuilder().setCode(Code.NO_USABLE_STRATEGY_FOUND).build())
               .setSpawn(
@@ -471,8 +547,8 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
       return null;
     } catch (ExecutionException e) {
       Throwable cause = e.getCause();
-      if (cause instanceof ExecException) {
-        throw (ExecException) cause;
+      if (cause instanceof ExecException execException) {
+        throw execException;
       } else if (cause instanceof InterruptedException) {
         // If the branch was interrupted, it might be due to a user interrupt or due to our request
         // for cancellation. Assume the latter here because if this was actually a user interrupt,
@@ -621,10 +697,6 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
 
   private static String getSpawnReadableId(Spawn spawn) {
     ActionExecutionMetadata action = spawn.getResourceOwner();
-    if (action == null) {
-      return spawn.getMnemonic();
-    }
-
     Artifact primaryOutput = action.getPrimaryOutput();
     // In some cases, primary output could be null despite the method promises. And in that case, we
     // can't use action.prettyPrint as it assumes a non-null primary output.

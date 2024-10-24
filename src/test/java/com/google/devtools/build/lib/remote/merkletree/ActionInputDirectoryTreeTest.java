@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.remote.merkletree;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -52,6 +53,7 @@ public class ActionInputDirectoryTreeTest extends DirectoryTreeTest {
 
     return DirectoryTreeBuilder.fromActionInputs(
         inputFiles,
+        ImmutableSet.of(),
         new StaticInputMetadataProvider(metadata),
         execRoot,
         ArtifactPathResolver.forExecRoot(execRoot),
@@ -70,6 +72,7 @@ public class ActionInputDirectoryTreeTest extends DirectoryTreeTest {
     DirectoryTree tree =
         DirectoryTreeBuilder.fromActionInputs(
             sortedInputs,
+            ImmutableSet.of(),
             new StaticInputMetadataProvider(metadata),
             execRoot,
             ArtifactPathResolver.forExecRoot(execRoot),
@@ -120,6 +123,7 @@ public class ActionInputDirectoryTreeTest extends DirectoryTreeTest {
     DirectoryTree tree =
         DirectoryTreeBuilder.fromActionInputs(
             sortedInputs,
+            ImmutableSet.of(),
             new StaticInputMetadataProvider(metadata),
             execRoot,
             ArtifactPathResolver.forExecRoot(execRoot),
@@ -169,6 +173,7 @@ public class ActionInputDirectoryTreeTest extends DirectoryTreeTest {
     DirectoryTree tree =
         DirectoryTreeBuilder.fromActionInputs(
             sortedInputs,
+            ImmutableSet.of(),
             new StaticInputMetadataProvider(metadata),
             execRoot,
             ArtifactPathResolver.forExecRoot(execRoot),

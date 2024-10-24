@@ -32,13 +32,11 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collectors;
 
 /** A marker class for configuration transitions that are defined in Starlark. */
 public abstract class StarlarkTransition implements ConfigurationTransition {
@@ -55,13 +53,13 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
   }
 
   // Get the inputs of the starlark transition as a list of canonicalized labels strings.
-  private ImmutableList<String> getInputs() {
-    return starlarkDefinedConfigTransition.getInputsCanonicalizedToGiven().keySet().asList();
+  private ImmutableSet<String> getInputs() {
+    return starlarkDefinedConfigTransition.getInputsCanonicalizedToGiven().keySet();
   }
 
   // Get the outputs of the starlark transition as a list of canonicalized labels strings.
-  private ImmutableList<String> getOutputs() {
-    return starlarkDefinedConfigTransition.getOutputsCanonicalizedToGiven().keySet().asList();
+  private ImmutableSet<String> getOutputs() {
+    return starlarkDefinedConfigTransition.getOutputsCanonicalizedToGiven().keySet();
   }
 
   @Override
@@ -135,7 +133,7 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
    * same configuration.
    *
    * @param root transition that was applied. Likely a {@link
-   *     com.google.devtools.build.lib.analysis.config.transitions.ComposingTransition} so we
+   *     com.google.devtools.build.lib.analysis.config.transitions.ComposingTransitionFactory} so we
    *     decompose and post-process all StarlarkTransitions out of whatever transition is passed
    *     here.
    * @param details a StarlarkBuildSettingsDetailsValue whose corresponding key was all the input
@@ -261,14 +259,13 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
     boolean allowsMultiple = details.buildSettingIsAllowsMultiple().contains(setting);
     if (allowsMultiple) {
       // if this setting allows multiple settings
-      if (!(newValue instanceof List)) {
+      if (!(newValue instanceof List<?> rawNewValueAsList)) {
         throw new TransitionException(
             String.format(
                 "'%s' allows multiple values and must be set"
                     + " in transition using a starlark list instead of single value '%s'",
                 setting, newValue));
       }
-      List<?> rawNewValueAsList = (List<?>) newValue;
       List<Object> convertedValue = new ArrayList<>();
       Type<?> type = details.buildSettingToType().get(setting);
       for (Object value : rawNewValueAsList) {
@@ -362,24 +359,25 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
 
   private static ImmutableSet<Label> getRelevantStarlarkSettingsFromTransition(
       StarlarkTransition transition, Settings settings) {
-    Set<String> toGet = new HashSet<>();
+    ImmutableSet.Builder<Label> result = ImmutableSet.builder();
     switch (settings) {
-      case INPUTS:
-        toGet.addAll(transition.getInputs());
-        break;
-      case OUTPUTS:
-        toGet.addAll(transition.getOutputs());
-        break;
-      case INPUTS_AND_OUTPUTS:
-        toGet.addAll(transition.getInputs());
-        toGet.addAll(transition.getOutputs());
-        break;
+      case INPUTS -> addLabelIfRelevant(result, transition.getInputs());
+      case OUTPUTS -> addLabelIfRelevant(result, transition.getOutputs());
+      case INPUTS_AND_OUTPUTS -> {
+        addLabelIfRelevant(result, transition.getInputs());
+        addLabelIfRelevant(result, transition.getOutputs());
+      }
     }
-    return ImmutableSet.copyOf(
-        toGet.stream()
-            .filter(setting -> !setting.startsWith(COMMAND_LINE_OPTION_PREFIX))
-            .map(absName -> Label.parseCanonicalUnchecked(absName))
-            .collect(Collectors.toSet()));
+    return result.build();
+  }
+
+  private static void addLabelIfRelevant(
+      ImmutableSet.Builder<Label> builder, Iterable<String> entries) {
+    for (String entry : entries) {
+      if (!entry.startsWith(COMMAND_LINE_OPTION_PREFIX)) {
+        builder.add(Label.parseCanonicalUnchecked(entry));
+      }
+    }
   }
 
   @Override
@@ -415,8 +413,8 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
       extends ConfigurationTransition.Visitor<TransitionException> {
     @Override
     default void accept(ConfigurationTransition transition) throws TransitionException {
-      if (transition instanceof StarlarkTransition) {
-        this.accept((StarlarkTransition) transition);
+      if (transition instanceof StarlarkTransition starlarkTransition) {
+        this.accept(starlarkTransition);
       }
     }
 

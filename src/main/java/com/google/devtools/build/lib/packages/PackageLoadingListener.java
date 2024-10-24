@@ -24,18 +24,16 @@ public interface PackageLoadingListener {
 
   /** Returns a {@link PackageLoadingListener} from a composed of the input listeners. */
   static PackageLoadingListener create(List<PackageLoadingListener> listeners) {
-    switch (listeners.size()) {
-      case 0:
-        return NOOP_LISTENER;
-      case 1:
-        return listeners.get(0);
-      default:
-        return (pkg, semantics, loadTimeNanos) -> {
-          for (PackageLoadingListener listener : listeners) {
-            listener.onLoadingCompleteAndSuccessful(pkg, semantics, loadTimeNanos);
-          }
-        };
-    }
+    return switch (listeners.size()) {
+      case 0 -> NOOP_LISTENER;
+      case 1 -> listeners.get(0);
+      default ->
+          (pkg, semantics, loadTimeNanos) -> {
+            for (PackageLoadingListener listener : listeners) {
+              listener.onLoadingCompleteAndSuccessful(pkg, semantics, loadTimeNanos);
+            }
+          };
+    };
   }
 
   /**

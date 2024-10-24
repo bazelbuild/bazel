@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.actions;
 
+import static com.google.common.collect.ImmutableSortedSet.toImmutableSortedSet;
 import static com.google.common.truth.Truth.assertThat;
+import static java.util.Comparator.naturalOrder;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -23,9 +25,9 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCh
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.CommandLine;
@@ -46,7 +48,6 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.SyscallCache;
-import java.util.Collection;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
@@ -113,9 +114,10 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
     String content = new String(FileSystemUtils.readContentAsLatin1(outputArtifact.getPath()));
     assertThat(content.trim())
         .isEqualTo(
-            "--flag1\n"
-                + "out/artifact/myTreeFileArtifact/artifacts/treeFileArtifact1\n"
-                + "out/artifact/myTreeFileArtifact/artifacts/treeFileArtifact2");
+            """
+            --flag1
+            out/artifact/myTreeFileArtifact/artifacts/treeFileArtifact1
+            out/artifact/myTreeFileArtifact/artifacts/treeFileArtifact2""");
   }
 
   private SpecialArtifact createTreeArtifact(String rootRelativePath) {
@@ -133,7 +135,7 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
         ParameterFileType.UNQUOTED);
   }
 
-  private CommandLine createNormalCommandLine() {
+  private static CommandLine createNormalCommandLine() {
     return CustomCommandLine.builder()
         .add("--flag1")
         .add("--flag2")
@@ -154,16 +156,11 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
             TreeFileArtifact.createTreeOutput(treeArtifact, "artifacts/treeFileArtifact1"),
             TreeFileArtifact.createTreeOutput(treeArtifact, "artifacts/treeFileArtifact2"));
 
-    ArtifactExpander artifactExpander = new ArtifactExpander() {
-      @Override
-      public void expand(Artifact artifact, Collection<? super Artifact> output) {
-        for (TreeFileArtifact treeFileArtifact : treeFileArtifacts) {
-          if (treeFileArtifact.getParent().equals(artifact)) {
-            output.add(treeFileArtifact);
-          }
-        }
-      }
-    };
+    ArtifactExpander artifactExpander =
+        treeArtifact ->
+            treeFileArtifacts.stream()
+                .filter(child -> child.getParent().equals(treeArtifact))
+                .collect(toImmutableSortedSet(naturalOrder()));
 
     BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
     Executor executor = new TestExecutorBuilder(fileSystem, directories, binTools).build();
@@ -194,7 +191,7 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
 
   @Test
   public void testComputeKey() throws Exception {
-    final Artifact outputArtifact = getSourceArtifact("output");
+    Artifact outputArtifact = getSourceArtifact("output");
     ActionTester.runTest(
         KeyAttributes.class,
         attributesToFlip -> {

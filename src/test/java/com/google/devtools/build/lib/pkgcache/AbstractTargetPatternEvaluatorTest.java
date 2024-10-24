@@ -134,8 +134,7 @@ public abstract class AbstractTargetPatternEvaluatorTest extends PackageLoadingT
     @Override
     public void post(Postable post) {
       super.post(post);
-      if (post instanceof ParsingFailedEvent) {
-        ParsingFailedEvent e = (ParsingFailedEvent) post;
+      if (post instanceof ParsingFailedEvent e) {
         events.add(Pair.of(e.getPattern(), e.getMessage()));
       }
     }

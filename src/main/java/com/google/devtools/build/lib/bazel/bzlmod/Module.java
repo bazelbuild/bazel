@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -35,7 +34,6 @@ import javax.annotation.Nullable;
  * <p>For the intermediate type used during module resolution, see {@link InterimModule}.
  */
 @AutoValue
-@GenerateTypeAdapter
 public abstract class Module extends ModuleBase {
 
   /**
@@ -48,7 +46,8 @@ public abstract class Module extends ModuleBase {
    * Returns a {@link RepositoryMapping} with only Bazel module repos and no repos from module
    * extensions. For the full mapping, see {@link BazelDepGraphValue#getFullRepoMapping}.
    */
-  public final RepositoryMapping getRepoMappingWithBazelDepsOnly() {
+  public final RepositoryMapping getRepoMappingWithBazelDepsOnly(
+      ImmutableMap<ModuleKey, RepositoryName> moduleKeyToRepositoryNames) {
     ImmutableMap.Builder<String, RepositoryName> mapping = ImmutableMap.builder();
     // If this is the root module, then the main repository should be visible as `@`.
     if (getKey().equals(ModuleKey.ROOT)) {
@@ -56,15 +55,16 @@ public abstract class Module extends ModuleBase {
     }
     // Every module should be able to reference itself as @<module repo name>.
     // If this is the root module, this perfectly falls into @<module repo name> => @
+    RepositoryName owner = moduleKeyToRepositoryNames.get(getKey());
     if (!getRepoName().isEmpty()) {
-      mapping.put(getRepoName(), getCanonicalRepoName());
+      mapping.put(getRepoName(), owner);
     }
     for (Map.Entry<String, ModuleKey> dep : getDeps().entrySet()) {
       // Special note: if `dep` is actually the root module, its ModuleKey would be ROOT whose
       // canonicalRepoName is the empty string. This perfectly maps to the main repo ("@").
-      mapping.put(dep.getKey(), dep.getValue().getCanonicalRepoName());
+      mapping.put(dep.getKey(), moduleKeyToRepositoryNames.get(dep.getValue()));
     }
-    return RepositoryMapping.create(mapping.buildOrThrow(), getCanonicalRepoName());
+    return RepositoryMapping.create(mapping.buildOrThrow(), owner);
   }
 
   /**
@@ -116,6 +116,6 @@ public abstract class Module extends ModuleBase {
       return this;
     }
 
-    abstract Module build();
+    public abstract Module build();
   }
 }

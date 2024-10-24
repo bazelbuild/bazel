@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
@@ -45,8 +44,8 @@ public interface CppSemantics extends StarlarkValue {
   void finalizeCompileActionBuilder(
       BuildConfigurationValue configuration,
       FeatureConfiguration featureConfiguration,
-      CppCompileActionBuilder actionBuilder,
-      RuleErrorConsumer ruleErrorConsumer);
+      CppCompileActionBuilder actionBuilder)
+      throws EvalException;
 
   /**
    * Returns if include scanning is allowed.
@@ -66,7 +65,8 @@ public interface CppSemantics extends StarlarkValue {
       RuleContext ruleContext,
       AspectDescriptor aspectDescriptor,
       CcToolchainProvider ccToolchain,
-      ImmutableSet<String> unsupportedFeatures);
+      ImmutableSet<String> unsupportedFeatures)
+      throws EvalException;
 
   void validateStarlarkCompileApiCall(
       StarlarkActionFactory actionFactory,

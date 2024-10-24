@@ -45,6 +45,7 @@ import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.Program;
 import net.starlark.java.syntax.StarlarkFile;
@@ -103,8 +104,8 @@ public class RepoFileFunction implements SkyFunction {
         evalRepoFile(
             repoFile,
             repoName,
-            getDisplayNameForRepo(repoName, mainRepoMapping.getRepositoryMapping()),
             repoMapping.getRepositoryMapping(),
+            mainRepoMapping.getRepositoryMapping(),
             starlarkSemantics,
             env.getListener());
 
@@ -142,24 +143,29 @@ public class RepoFileFunction implements SkyFunction {
   private PackageArgs evalRepoFile(
       StarlarkFile starlarkFile,
       RepositoryName repoName,
-      String repoDisplayName,
       RepositoryMapping repoMapping,
+      RepositoryMapping mainRepoMapping,
       StarlarkSemantics starlarkSemantics,
       ExtendedEventHandler handler)
       throws RepoFileFunctionException, InterruptedException {
+    String repoDisplayName = getDisplayNameForRepo(repoName, mainRepoMapping);
     try (Mutability mu = Mutability.create("repo file", repoName)) {
       new DotBazelFileSyntaxChecker("REPO.bazel files", /* canLoadBzl= */ false)
           .check(starlarkFile);
-      Module predeclared =
-          Module.withPredeclared(
-              starlarkSemantics, starlarkEnv.getStarlarkGlobals().getRepoToplevels());
+      Module predeclared = Module.withPredeclared(starlarkSemantics, starlarkEnv.getRepoBazelEnv());
       Program program = Program.compileFile(starlarkFile, predeclared);
-      StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
+      StarlarkThread thread =
+          StarlarkThread.create(
+              mu,
+              starlarkSemantics,
+              /* contextDescription= */ "",
+              SymbolGenerator.create(repoName));
       thread.setPrintHandler(Event.makeDebugPrintHandler(handler));
       RepoThreadContext context =
           new RepoThreadContext(
               new LabelConverter(
-                  PackageIdentifier.create(repoName, PathFragment.EMPTY_FRAGMENT), repoMapping));
+                  PackageIdentifier.create(repoName, PathFragment.EMPTY_FRAGMENT), repoMapping),
+              mainRepoMapping);
       context.storeInThread(thread);
       Starlark.execFileProgram(program, predeclared, thread);
       return context.getPackageArgs();

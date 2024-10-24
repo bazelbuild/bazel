@@ -38,7 +38,7 @@ before the command (`build`, `test`, etc).
 2.  **The workspace RC file**, unless `--noworkspace_rc` is present.
 
     Path: `.bazelrc` in your workspace directory (next to the main
-    `WORKSPACE` file).
+    `MODULE.bazel` file).
 
     It is not an error if this file does not exist.
 
@@ -166,7 +166,7 @@ Option precedence:
     *   The following commands inherit from (and are more specific than)
         `build`: `test`, `run`, `clean`, `mobile-install`, `info`,
         `print_action`, `config`, `cquery`, and `aquery`
-    *   `coverage` inherits from `test`
+    *   `coverage`, `fetch`, and `vendor` inherit from `test`
 
 -   Two lines specifying options for the same command at equal specificity are
     parsed in the order in which they appear within the file.
@@ -207,6 +207,17 @@ had.
 This syntax does not extend to the use of `startup` to set
 [startup options](#option-defaults). Setting
 `startup:config-name --some_startup_option` in the .bazelrc will be ignored.
+
+#### `--enable_platform_specific_config` {:#enable_platform_specific_config}
+
+Platform specific configs in the `.bazelrc` can be automatically enabled using
+`--enable_platform_specific_config`. For example, if the host OS is Linux and
+the `build` command is run, the `build:linux` configuration will be
+automatically enabled. Supported OS identifiers are `linux`, `macos`, `windows`,
+`freebsd`, and `openbsd`. Enabling this flag is equivalent to using
+`--config=linux` on Linux, `--config=windows` on Windows, and so on.
+
+See [--enable_platform_specific_config](/reference/command-line-reference#flag--enable_platform_specific_config).
 
 #### Example {:#bazelrc-example}
 

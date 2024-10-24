@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -44,13 +45,20 @@ public class StarlarkStringRepresentationsTest extends BuildViewTestCase {
    * @param definition Additional code to define necessary variables
    */
   private Object starlarkLoadingEval(String code, String definition) throws Exception {
-    scratch.overwriteFile("eval/BUILD", "load(':eval.bzl', 'eval')", "eval(name='eval')");
+    scratch.overwriteFile(
+        "eval/BUILD",
+        """
+        load(":eval.bzl", "eval")
+
+        eval(name = "eval")
+        """);
     scratch.overwriteFile(
         "eval/eval.bzl",
         definition,
         String.format("x = %s", code), // Should be placed here to execute during the loading phase
+        "Info = provider()",
         "def _impl(ctx):",
-        "  return struct(result = x)",
+        "  return Info(result = x)",
         "eval = rule(implementation = _impl)");
     skyframeExecutor.invalidateFilesUnderPathForTesting(
         reporter,
@@ -61,7 +69,7 @@ public class StarlarkStringRepresentationsTest extends BuildViewTestCase {
         Root.fromPath(rootDirectory));
 
     ConfiguredTarget target = getConfiguredTarget("//eval");
-    return target.get("result");
+    return getStarlarkProvider(target, "Info").getValue("result");
   }
 
   /**
@@ -75,9 +83,13 @@ public class StarlarkStringRepresentationsTest extends BuildViewTestCase {
         String.format("eval(name='eval', param = %s)", code));
     scratch.overwriteFile(
         "eval/eval.bzl",
-        "def _impl(ctx):",
-        "  return struct(result = ctx.attr.param)",
-        "eval = rule(implementation = _impl, attrs = {'param': attr.string()})");
+        """
+        Info = provider()
+        def _impl(ctx):
+            return Info(result = ctx.attr.param)
+
+        eval = rule(implementation = _impl, attrs = {"param": attr.string()})
+        """);
     skyframeExecutor.invalidateFilesUnderPathForTesting(
         reporter,
         new ModifiedFileSet.Builder()
@@ -87,7 +99,7 @@ public class StarlarkStringRepresentationsTest extends BuildViewTestCase {
         Root.fromPath(rootDirectory));
 
     ConfiguredTarget target = getConfiguredTarget("//eval");
-    return target.get("result");
+    return getStarlarkProvider(target, "Info").getValue("result");
   }
 
   /**
@@ -154,72 +166,95 @@ public class StarlarkStringRepresentationsTest extends BuildViewTestCase {
 
     scratch.file(
         "test/starlark/rules.bzl",
-        "aspect_ctx_provider = provider()",
-        "def prepare_params(objects):",
-        "  params = {}",
-        "  for k, v in objects.items():",
-        "    params[k + '_str'] = str(v)",
-        "    params[k + '_repr'] = repr(v)",
-        "    params[k + '_format'] = '{}'.format(v)",
-        "    params[k + '_str_perc'] = '%s' % (v,)",
-        "    params[k + '_repr_perc'] = '%r' % (v,)",
-        "  return params",
-        "",
-        "def _impl_aspect(target, ctx):",
-        "  return [aspect_ctx_provider(ctx = ctx, rule = ctx.rule)]",
-        "my_aspect = aspect(implementation = _impl_aspect)",
-        "",
-        "def _impl(ctx): pass",
-        "dep = rule(implementation = _impl)",
-        "",
-        "def _genfile_impl(ctx):",
-        "  ctx.actions.write(output = ctx.outputs.my_output, content = 'foo')",
-        "genfile = rule(",
-        "  implementation = _genfile_impl,",
-        "  outputs = {'my_output': '%{name}.txt'},",
-        ")",
-        "",
-        "def _check_impl(ctx):",
-        "  source_file = ctx.attr.srcs[0].files.to_list()[0]",
-        "  generated_file = ctx.attr.srcs[1].files.to_list()[0]",
-        "  objects = {",
-        "    'target': ctx.attr.deps[0],",
-        "    'alias_target': ctx.attr.deps[1],",
-        "    'aspect_target': ctx.attr.asp_deps[0],",
-        "    'input_target': ctx.attr.srcs[0],",
-        "    'output_target': ctx.attr.srcs[1],",
-        "    'rule_ctx': ctx,",
-        "    'aspect_ctx': ctx.attr.asp_deps[0][aspect_ctx_provider].ctx,",
-        "    'aspect_ctx.rule': ctx.attr.asp_deps[0][aspect_ctx_provider].rule,",
-        "    'source_file': source_file,",
-        "    'generated_file': generated_file,",
-        "    'source_root': source_file.root,",
-        "    'generated_root': generated_file.root,",
-        "  }",
-        "  return struct(**prepare_params(objects))",
-        "check = rule(",
-        "  implementation = _check_impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list(),",
-        "    'asp_deps': attr.label_list(aspects = [my_aspect]),",
-        "    'srcs': attr.label_list(allow_files = True),",
-        "  },",
-        ")");
+        """
+        aspect_ctx_provider = provider()
+
+        def prepare_params(objects):
+            params = {}
+            for k, v in objects.items():
+                params[k + "_str"] = str(v)
+                params[k + "_repr"] = repr(v)
+                params[k + "_format"] = "{}".format(v)
+                params[k + "_str_perc"] = "%s" % (v,)
+                params[k + "_repr_perc"] = "%r" % (v,)
+            return params
+
+        def _impl_aspect(target, ctx):
+            return [aspect_ctx_provider(ctx = ctx, rule = ctx.rule)]
+
+        my_aspect = aspect(implementation = _impl_aspect)
+
+        def _impl(ctx):
+            pass
+
+        dep = rule(implementation = _impl)
+
+        def _genfile_impl(ctx):
+            ctx.actions.write(output = ctx.outputs.my_output, content = "foo")
+
+        genfile = rule(
+            implementation = _genfile_impl,
+            outputs = {"my_output": "%{name}.txt"},
+        )
+        CheckInfo = provider()
+        def _check_impl(ctx):
+            source_file = ctx.attr.srcs[0].files.to_list()[0]
+            generated_file = ctx.attr.srcs[1].files.to_list()[0]
+            objects = {
+                "target": ctx.attr.deps[0],
+                "alias_target": ctx.attr.deps[1],
+                "aspect_target": ctx.attr.asp_deps[0],
+                "input_target": ctx.attr.srcs[0],
+                "output_target": ctx.attr.srcs[1],
+                "rule_ctx": ctx,
+                "aspect_ctx": ctx.attr.asp_deps[0][aspect_ctx_provider].ctx,
+                "aspect_ctx.rule": ctx.attr.asp_deps[0][aspect_ctx_provider].rule,
+                "source_file": source_file,
+                "generated_file": generated_file,
+                "source_root": source_file.root,
+                "generated_root": generated_file.root,
+            }
+            return CheckInfo(**prepare_params(objects))
+
+        check = rule(
+            implementation = _check_impl,
+            attrs = {
+                "deps": attr.label_list(),
+                "asp_deps": attr.label_list(aspects = [my_aspect]),
+                "srcs": attr.label_list(allow_files = True),
+            },
+        )
+        """);
 
     scratch.file(
         "test/starlark/BUILD",
-        "load(':rules.bzl', 'check', 'dep', 'genfile')",
-        "",
-        "dep(name = 'foo')",
-        "dep(name = 'bar')",
-        "alias(name = 'foobar', actual = ':foo')",
-        "genfile(name = 'output')",
-        "check(",
-        "  name = 'check',",
-        "  deps = [':foo', ':foobar'],",
-        "  asp_deps = [':bar'],",
-        "  srcs = ['input.txt', 'output.txt'],",
-        ")");
+        """
+        load(":rules.bzl", "check", "dep", "genfile")
+
+        dep(name = "foo")
+
+        dep(name = "bar")
+
+        alias(
+            name = "foobar",
+            actual = ":foo",
+        )
+
+        genfile(name = "output")
+
+        check(
+            name = "check",
+            srcs = [
+                "input.txt",
+                "output.txt",
+            ],
+            asp_deps = [":bar"],
+            deps = [
+                ":foo",
+                ":foobar",
+            ],
+        )
+        """);
   }
 
   @Test
@@ -295,13 +330,14 @@ public class StarlarkStringRepresentationsTest extends BuildViewTestCase {
   public void testStringRepresentations_ruleContext() throws Exception {
     generateFilesToTestStrings();
     ConfiguredTarget target = getConfiguredTarget("//test/starlark:check");
+    StarlarkInfo checkInfo = getStarlarkProvider(target, "CheckInfo");
 
     for (String suffix : SUFFIXES) {
-      assertThat(target.get("rule_ctx" + suffix))
+      assertThat(checkInfo.getValue("rule_ctx" + suffix))
           .isEqualTo("<rule context for //test/starlark:check>");
-      assertThat(target.get("aspect_ctx" + suffix))
+      assertThat(checkInfo.getValue("aspect_ctx" + suffix))
           .isEqualTo("<aspect context for //test/starlark:bar>");
-      assertThat(target.get("aspect_ctx.rule" + suffix))
+      assertThat(checkInfo.getValue("aspect_ctx.rule" + suffix))
           .isEqualTo("<rule collection for //test/starlark:bar>");
     }
   }
@@ -310,11 +346,12 @@ public class StarlarkStringRepresentationsTest extends BuildViewTestCase {
   public void testStringRepresentations_files() throws Exception {
     generateFilesToTestStrings();
     ConfiguredTarget target = getConfiguredTarget("//test/starlark:check");
+    StarlarkInfo checkInfo = getStarlarkProvider(target, "CheckInfo");
 
     for (String suffix : SUFFIXES) {
-      assertThat(target.get("source_file" + suffix))
+      assertThat(checkInfo.getValue("source_file" + suffix))
           .isEqualTo("<source file test/starlark/input.txt>");
-      assertThat(target.get("generated_file" + suffix))
+      assertThat(checkInfo.getValue("generated_file" + suffix))
           .isEqualTo("<generated file test/starlark/output.txt>");
     }
   }
@@ -323,10 +360,11 @@ public class StarlarkStringRepresentationsTest extends BuildViewTestCase {
   public void testStringRepresentations_root() throws Exception {
     generateFilesToTestStrings();
     ConfiguredTarget target = getConfiguredTarget("//test/starlark:check");
+    StarlarkInfo checkInfo = getStarlarkProvider(target, "CheckInfo");
 
     for (String suffix : SUFFIXES) {
-      assertThat(target.get("source_root" + suffix)).isEqualTo("<source root>");
-      assertThat(target.get("generated_root" + suffix)).isEqualTo("<derived root>");
+      assertThat(checkInfo.getValue("source_root" + suffix)).isEqualTo("<source root>");
+      assertThat(checkInfo.getValue("generated_root" + suffix)).isEqualTo("<derived root>");
     }
   }
 
@@ -362,16 +400,17 @@ public class StarlarkStringRepresentationsTest extends BuildViewTestCase {
   public void testStringRepresentations_targets() throws Exception {
     generateFilesToTestStrings();
     ConfiguredTarget target = getConfiguredTarget("//test/starlark:check");
+    StarlarkInfo checkInfo = getStarlarkProvider(target, "CheckInfo");
 
     for (String suffix : SUFFIXES) {
-      assertThat(target.get("target" + suffix)).isEqualTo("<target //test/starlark:foo>");
-      assertThat(target.get("input_target" + suffix))
+      assertThat(checkInfo.getValue("target" + suffix)).isEqualTo("<target //test/starlark:foo>");
+      assertThat(checkInfo.getValue("input_target" + suffix))
           .isEqualTo("<input file target //test/starlark:input.txt>");
-      assertThat(target.get("output_target" + suffix))
+      assertThat(checkInfo.getValue("output_target" + suffix))
           .isEqualTo("<output file target //test/starlark:output.txt>");
-      assertThat(target.get("alias_target" + suffix))
+      assertThat(checkInfo.getValue("alias_target" + suffix))
           .isEqualTo("<alias target //test/starlark:foobar of //test/starlark:foo>");
-      assertThat(target.get("aspect_target" + suffix))
+      assertThat(checkInfo.getValue("aspect_target" + suffix))
           .isEqualTo("<merged target //test/starlark:bar>");
     }
   }

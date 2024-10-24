@@ -24,6 +24,8 @@ library_rules = struct(
     cc_import = native.cc_import,
     cc_proto_library = native.cc_proto_library,
     cc_shared_library = native.cc_shared_library,
+    # TODO: Replace with native.cc_static_library after bumping .bazelversion.
+    **({"cc_static_library": native.cc_static_library} if hasattr(native, "cc_static_library") else {})
 )
 
 test_rules = struct(
@@ -31,4 +33,9 @@ test_rules = struct(
 )
 
 other_rules = struct(
+    fdo_prefetch_hints = native.fdo_prefetch_hints,
+    fdo_profile = native.fdo_profile,
+    memprof_profile = native.memprof_profile,
+    propeller_optimize = native.propeller_optimize,
+    cc_toolchain = native.cc_toolchain,
 )

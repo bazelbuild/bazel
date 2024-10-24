@@ -23,26 +23,27 @@ load("@_builtins//:common/cc/cc_library.bzl", "cc_library")
 load("@_builtins//:common/cc/cc_shared_library.bzl", "CcSharedLibraryInfo", "cc_shared_library")
 load("@_builtins//:common/cc/cc_shared_library_hint_info.bzl", "CcSharedLibraryHintInfo")
 load("@_builtins//:common/cc/cc_test.bzl", "cc_test")
+load("@_builtins//:common/cc/cc_toolchain.bzl", "cc_toolchain")
 load("@_builtins//:common/cc/cc_toolchain_alias.bzl", "cc_toolchain_alias")
-load("@_builtins//:common/cc/cc_toolchain_provider_helper.bzl", "get_cc_toolchain_provider")
-load("@_builtins//:common/cc/cc_toolchain_wrapper.bzl", "apple_cc_toolchain", "cc_toolchain")
+load("@_builtins//:common/cc/experimental_cc_static_library.bzl", "cc_static_library")
 load("@_builtins//:common/java/proto/java_lite_proto_library.bzl", "java_lite_proto_library")
-load("@_builtins//:common/objc/compilation_support.bzl", "compilation_support")
-load("@_builtins//:common/objc/j2objc_library.bzl", "j2objc_library")
-load("@_builtins//:common/objc/linking_support.bzl", "linking_support")
 load("@_builtins//:common/objc/objc_import.bzl", "objc_import")
 load("@_builtins//:common/objc/objc_library.bzl", "objc_library")
 load("@_builtins//:common/proto/proto_common.bzl", "proto_common_do_not_use")
 load("@_builtins//:common/proto/proto_info.bzl", "ProtoInfo")
 load("@_builtins//:common/proto/proto_lang_toolchain.bzl", "proto_lang_toolchain")
 load("@_builtins//:common/python/providers.bzl", "PyCcLinkParamsProvider", "PyInfo", "PyRuntimeInfo")
-load("@_builtins//:common/python/py_runtime_macro.bzl", "py_runtime")
-load(":common/java/java_binary_deploy_jar.bzl", get_java_build_info = "get_build_info")
+load("@_builtins//:common/xcode/available_xcodes.bzl", "available_xcodes")
+load("@_builtins//:common/xcode/xcode_config.bzl", "xcode_config")
+load("@_builtins//:common/xcode/xcode_config_alias.bzl", "xcode_config_alias")
+load("@_builtins//:common/xcode/xcode_version.bzl", "xcode_version")
+load(":common/cc/fdo/fdo_prefetch_hints.bzl", "fdo_prefetch_hints")
+load(":common/cc/fdo/fdo_profile.bzl", "fdo_profile")
+load(":common/cc/fdo/memprof_profile.bzl", "memprof_profile")
+load(":common/cc/fdo/propeller_optimize.bzl", "propeller_optimize")
 load(":common/java/java_common.bzl", "java_common")
 load(":common/java/java_info.bzl", "JavaInfo", "JavaPluginInfo")
-load(":common/java/java_package_configuration.bzl", "java_package_configuration")
-load(":common/java/java_runtime.bzl", "java_runtime")
-load(":common/java/java_toolchain.bzl", "java_toolchain")
+load(":common/objc/apple_common.bzl", "apple_common")
 load(":common/objc/objc_common.bzl", "objc_common")
 
 exported_toplevels = {
@@ -61,6 +62,7 @@ exported_toplevels = {
     "+JavaPluginInfo": JavaPluginInfo,
     "+JavaInfo": JavaInfo,
     "java_common": java_common,
+    "apple_common": apple_common,
 }
 
 # A list of Starlarkified native rules.
@@ -74,35 +76,28 @@ exported_rules = {
     "java_lite_proto_library": java_lite_proto_library,
     "objc_import": objc_import,
     "objc_library": objc_library,
-    "j2objc_library": j2objc_library,
     "cc_shared_library": cc_shared_library,
+    "cc_static_library": cc_static_library,
     "cc_binary": cc_binary,
     "cc_test": cc_test,
     "cc_library": cc_library,
     "proto_lang_toolchain": proto_lang_toolchain,
-    "py_runtime": py_runtime,
     "cc_toolchain_alias": cc_toolchain_alias,
     "cc_toolchain": cc_toolchain,
-    "apple_cc_toolchain": apple_cc_toolchain,
-    "java_package_configuration": java_package_configuration,
-    "java_toolchain": java_toolchain,
-    "java_runtime": java_runtime,
+    "fdo_prefetch_hints": fdo_prefetch_hints,
+    "fdo_profile": fdo_profile,
+    "memprof_profile": memprof_profile,
+    "propeller_optimize": propeller_optimize,
+    "xcode_version": xcode_version,
+    "available_xcodes": available_xcodes,
+    "xcode_config": xcode_config,
+    "xcode_config_alias": xcode_config_alias,
 }
 
 # A list of Starlark functions callable from native rules implementation.
 exported_to_java = {
-    "register_compile_and_archive_actions_for_j2objc": compilation_support.register_compile_and_archive_actions_for_j2objc,
-    "proto_common_compile": proto_common_do_not_use.compile,
-    "proto_common_declare_generated_files": proto_common_do_not_use.declare_generated_files,
-    "proto_common_experimental_should_generate_code": proto_common_do_not_use.experimental_should_generate_code,
-    "proto_common_experimental_filter_sources": proto_common_do_not_use.experimental_filter_sources,
-    "link_multi_arch_static_library": linking_support.link_multi_arch_static_library,
-    "get_cc_toolchain_provider": get_cc_toolchain_provider,
-    "build_variables": cc_helper.build_variables,
     "j2objc_mapping_file_info_union": objc_common.j2objc_mapping_file_info_union,
     "j2objc_entry_class_info_union": objc_common.j2objc_entry_class_info_union,
     "init_cc_compilation_context": cc_compilation_helper.init_cc_compilation_context,
-    "java_common": java_common,
-    "get_build_info": get_java_build_info,
     "get_toolchain_global_make_variables": cc_helper.get_toolchain_global_make_variables,
 }

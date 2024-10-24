@@ -160,12 +160,12 @@ workspace.
 </tr>
 <tr>
   <td><code>//...</code></td>
-  <td>All targets in packages in the workspace. This does not include targets
+  <td>All rule targets in packages in the main repository. Does not include targets
   from <a href="/docs/external">external repositories</a>.</td>
 </tr>
 <tr>
   <td><code>//:all</code></td>
-  <td>All targets in the top-level package, if there is a `BUILD` file at the
+  <td>All rule targets in the top-level package, if there is a `BUILD` file at the
   root of the workspace.</td>
 </tr>
 </table>
@@ -297,7 +297,7 @@ you disallow during-build fetching, you'll need to run `bazel fetch`:
 - Before you build for the first time.
 - After you add a new external dependency.
 
-Once it has been run, you should not need to run it again until the WORKSPACE
+Once it has been run, you should not need to run it again until the MODULE.bazel
 file changes.
 
 `fetch` takes a list of targets to fetch dependencies for. For
@@ -318,7 +318,7 @@ With Bazel 7 or later, if you have Bzlmod enabled, you can also fetch all
 external dependencies by running
 
 ```posix-terminal
-bazel fetch --all
+bazel fetch
 ```
 
 You do not need to run bazel fetch at all if you have all of the tools you are
@@ -364,7 +364,7 @@ option, you can specify additional read-only directories to look for files
 instead of fetching them. A file is taken from such a directory if the file name
 is equal to the base name of the URL and additionally the hash of the file is
 equal to the one specified in the download request. This only works if the
-file hash is specified in the WORKSPACE declaration.
+file hash is specified in the repo rule declaration.
 
 While the condition on the file name is not necessary for correctness, it
 reduces the number of candidate files to one per specified directory. In this
@@ -400,14 +400,12 @@ an empty workspace:
 mkdir empty_workspace && cd empty_workspace
 
 touch MODULE.bazel
-
-touch WORKSPACE
 ```
 
 To fetch built-in Bzlmod dependencies, run
 
 ```posix-terminal
-bazel fetch --all --repository_cache="path/to/repository/cache"
+bazel fetch --repository_cache="path/to/repository/cache"
 ```
 
 If you still rely on the legacy WORKSPACE file, to fetch built-in WORKSPACE

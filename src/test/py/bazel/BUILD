@@ -46,10 +46,15 @@ py_library(
 gen_workspace_stanza(
     name = "default_repos_stanza",
     out = "default_repos_stanza.txt",
+    postamble = "load('@rules_python//python:repositories.bzl', 'py_repositories')\n" +
+                "py_repositories()",
+    preamble = "load('@bazel_tools//tools/build_defs/repo:http.bzl', 'http_archive')",
     repos = [
+        "bazel_skylib",
         "rules_license",
         "rules_cc",
         "rules_python",
+        "rules_shell",
     ],
 )
 
@@ -146,6 +151,8 @@ py_test(
         "//src/conditions:windows": "windows_remote_test.py",
         "//conditions:default": "empty_test.py",
     }),
+    # TODO - ilist@: fix the setup of rules_shell for this test
+    tags = ["manual"],
     deps = select({
         "//src/conditions:windows": [":test_base"],
         "//conditions:default": [],
@@ -305,6 +312,25 @@ py_test(
     size = "medium",
     srcs = ["bzlmod/bazel_fetch_test.py"],
     data = ["//tools/build_defs/repo:http_src"],
+    shard_count = 5,
+    tags = [
+        "requires-network",
+    ],
+    deps = [
+        ":bzlmod_test_utils",
+        ":test_base",
+    ],
+)
+
+py_test(
+    name = "bazel_vendor_test",
+    size = "large",
+    srcs = ["bzlmod/bazel_vendor_test.py"],
+    data = ["//tools/build_defs/repo:http_src"],
+    shard_count = 5,
+    tags = [
+        "requires-network",
+    ],
     deps = [
         ":bzlmod_test_utils",
         ":test_base",
@@ -373,6 +399,7 @@ py_test(
     name = "mod_command_test",
     size = "large",
     srcs = ["bzlmod/mod_command_test.py"],
+    shard_count = 8,
     tags = [
         "requires-network",
     ],
@@ -393,5 +420,21 @@ py_test(
     deps = [
         ":bzlmod_test_utils",
         ":test_base",
+    ],
+)
+
+py_test(
+    name = "external_repo_completion_test",
+    size = "large",
+    srcs = ["bzlmod/external_repo_completion_test.py"],
+    data = ["//scripts:bash_completion"],
+    tags = [
+        "no_windows",  # //scripts:bash_completion does not build on Windows
+        "requires-network",
+    ],
+    deps = [
+        ":bzlmod_test_utils",
+        ":test_base",
+        requirement("bazel-runfiles"),
     ],
 )

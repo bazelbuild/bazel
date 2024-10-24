@@ -20,6 +20,7 @@ import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
+import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reportable;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
@@ -47,7 +48,7 @@ class ParallelEvaluatorContext {
   private final EventFilter storedEventFilter;
   private final ErrorInfoManager errorInfoManager;
   private final GraphInconsistencyReceiver graphInconsistencyReceiver;
-  private final boolean mergingSkyframeAnalysisExecutionPhases;
+  private final QuiescingExecutor executor;
   private final Cache<SkyKey, SkyKeyComputeState> stateCache;
 
   /**
@@ -75,8 +76,8 @@ class ParallelEvaluatorContext {
       EventFilter storedEventFilter,
       ErrorInfoManager errorInfoManager,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
+      QuiescingExecutor executor,
       Supplier<NodeEntryVisitor> visitorSupplier,
-      boolean mergingSkyframeAnalysisExecutionPhases,
       Cache<SkyKey, SkyKeyComputeState> stateCache) {
     this.graph = graph;
     this.graphVersion = graphVersion;
@@ -91,8 +92,8 @@ class ParallelEvaluatorContext {
     this.progressReceiver = checkNotNull(progressReceiver);
     this.storedEventFilter = storedEventFilter;
     this.errorInfoManager = errorInfoManager;
+    this.executor = executor;
     this.visitorSupplier = Suppliers.memoize(visitorSupplier);
-    this.mergingSkyframeAnalysisExecutionPhases = mergingSkyframeAnalysisExecutionPhases;
     this.stateCache = stateCache;
   }
 
@@ -178,8 +179,8 @@ class ParallelEvaluatorContext {
     return errorInfoManager;
   }
 
-  boolean mergingSkyframeAnalysisExecutionPhases() {
-    return mergingSkyframeAnalysisExecutionPhases;
+  QuiescingExecutor getExecutor() {
+    return executor;
   }
 
   Cache<SkyKey, SkyKeyComputeState> stateCache() {

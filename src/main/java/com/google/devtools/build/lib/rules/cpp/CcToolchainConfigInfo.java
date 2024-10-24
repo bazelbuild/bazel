@@ -69,7 +69,6 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
   private final ImmutableList<Pair<String, String>> toolPaths;
   private final ImmutableList<Pair<String, String>> makeVariables;
   private final String builtinSysroot;
-  private final String ccTargetOs;
 
   CcToolchainConfigInfo(
       ImmutableList<ActionConfig> actionConfigs,
@@ -86,8 +85,7 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
       String abiLibcVersion,
       ImmutableList<Pair<String, String>> toolPaths,
       ImmutableList<Pair<String, String>> makeVariables,
-      String builtinSysroot,
-      String ccTargetOs) {
+      String builtinSysroot) {
     this.actionConfigs = actionConfigs;
     this.features = features;
     this.artifactNamePatterns = artifactNamePatterns;
@@ -103,7 +101,6 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
     this.toolPaths = toolPaths;
     this.makeVariables = makeVariables;
     this.builtinSysroot = builtinSysroot;
-    this.ccTargetOs = ccTargetOs;
   }
 
   @Override
@@ -165,8 +162,7 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
         toolchain.getMakeVariableList().stream()
             .map(makeVariable -> Pair.of(makeVariable.getName(), makeVariable.getValue()))
             .collect(ImmutableList.toImmutableList()),
-        toolchain.getBuiltinSysroot(),
-        toolchain.getCcTargetOs());
+        toolchain.getBuiltinSysroot());
   }
 
   public ImmutableList<ActionConfig> getActionConfigs() {
@@ -195,8 +191,20 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
     return cxxBuiltinIncludeDirectories;
   }
 
+  @StarlarkMethod(name = "toolchain_id", documented = false, useStarlarkThread = true)
+  public String getToolchainIdentifierForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getToolchainIdentifier();
+  }
+
   public String getToolchainIdentifier() {
     return toolchainIdentifier;
+  }
+
+  @StarlarkMethod(name = "target_system_name", documented = false, useStarlarkThread = true)
+  public String getTargetSystemNameForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getTargetSystemName();
   }
 
   public String getTargetSystemName() {
@@ -213,16 +221,40 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
     return targetCpu;
   }
 
+  @StarlarkMethod(name = "target_libc", documented = false, useStarlarkThread = true)
+  public String getTargetLibcForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getTargetLibc();
+  }
+
   public String getTargetLibc() {
     return targetLibc;
+  }
+
+  @StarlarkMethod(name = "compiler", documented = false, useStarlarkThread = true)
+  public String getCompilerForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getCompiler();
   }
 
   public String getCompiler() {
     return compiler;
   }
 
+  @StarlarkMethod(name = "abi_version", documented = false, useStarlarkThread = true)
+  public String getAbiVersionForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getAbiVersion();
+  }
+
   public String getAbiVersion() {
     return abiVersion;
+  }
+
+  @StarlarkMethod(name = "abi_libc_version", documented = false, useStarlarkThread = true)
+  public String getAbiLibcVersionForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getAbiLibcVersion();
   }
 
   public String getAbiLibcVersion() {
@@ -264,10 +296,6 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
 
   public String getBuiltinSysroot() {
     return builtinSysroot;
-  }
-
-  public String getCcTargetOs() {
-    return ccTargetOs;
   }
 
   @Override
@@ -319,9 +347,6 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
         .setCompiler(compiler)
         .setAbiVersion(abiVersion)
         .setAbiLibcVersion(abiLibcVersion);
-    if (!ccTargetOs.isEmpty()) {
-      cToolchain.setCcTargetOs(ccTargetOs);
-    }
     if (!builtinSysroot.isEmpty()) {
       cToolchain.setBuiltinSysroot(builtinSysroot);
     }
@@ -360,10 +385,10 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
     ImmutableList.Builder<CToolchain.FlagGroup> flagGroups = ImmutableList.builder();
     ImmutableList.Builder<String> flags = ImmutableList.builder();
     for (Expandable expandable : flagGroup.getExpandables()) {
-      if (expandable instanceof FlagGroup) {
-        flagGroups.add(flagGroupToProto((FlagGroup) expandable));
-      } else if (expandable instanceof SingleChunkFlag) {
-        flags.add(((SingleChunkFlag) expandable).getString());
+      if (expandable instanceof FlagGroup expandableFlagGroup) {
+        flagGroups.add(flagGroupToProto(expandableFlagGroup));
+      } else if (expandable instanceof SingleChunkFlag singleChunkFlag) {
+        flags.add(singleChunkFlag.getString());
       } else if (expandable instanceof CcToolchainFeatures.Flag) {
         flags.add(((CcToolchainFeatures.Flag) expandable).getString());
       } else {

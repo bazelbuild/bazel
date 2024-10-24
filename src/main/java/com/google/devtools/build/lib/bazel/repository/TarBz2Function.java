@@ -36,6 +36,7 @@ public class TarBz2Function extends CompressedTarFunction {
       throws IOException {
     return new BZip2CompressorInputStream(
         new BufferedInputStream(
-            new FileInputStream(descriptor.archivePath().getPathFile()), BUFFER_SIZE));
+            new FileInputStream(descriptor.archivePath().getPathFile()), BUFFER_SIZE),
+        true);
   }
 }

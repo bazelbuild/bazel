@@ -134,6 +134,8 @@ upper_tabs:
         path: /external/extension
       - title: Module lockfile
         path: /external/lockfile
+      - title: Vendor mode
+        path: /external/vendor
       - title: '`mod` command'
         path: /external/mod-command
       - title: Bzlmod migration guide
@@ -256,6 +258,10 @@ upper_tabs:
       contents:
       - title: Glossary
         path: /reference/glossary
+    - name: Flag cheatsheet
+      contents:
+      - title: Flag cheatsheet
+        path: /reference/flag-cheatsheet
 
 - name: Extending
   heading: Guides to maximize Bazel's power through advanced concepts and extensions

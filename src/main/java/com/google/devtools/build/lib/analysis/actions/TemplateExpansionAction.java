@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -193,6 +193,13 @@ public final class TemplateExpansionAction extends AbstractAction {
       fp.addString(entry.getKey());
       fp.addString(entry.getValue());
     }
+  }
+
+  @Override
+  public String describeKey() {
+    return String.format(
+        "GUID: %s\nmakeExecutable: %s\ntemplate: %s\nsubstitutions: %s\n",
+        GUID, makeExecutable, template.getKey(), substitutions);
   }
 
   @Override

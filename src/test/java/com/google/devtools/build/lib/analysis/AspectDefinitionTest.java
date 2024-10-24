@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
@@ -48,25 +49,23 @@ public class AspectDefinitionTest {
 
   private static final class P1 implements TransitiveInfoProvider {}
 
-  private static final class P2 implements TransitiveInfoProvider {}
-
-  private static final class P3 implements TransitiveInfoProvider {}
-
-  private static final class P4 implements TransitiveInfoProvider {}
-
   private static final Label FAKE_LABEL = Label.parseCanonicalUnchecked("//fake/label.bzl");
 
   private static final StarlarkProviderIdentifier STARLARK_P1 =
-      StarlarkProviderIdentifier.forKey(new StarlarkProvider.Key(FAKE_LABEL, "STARLARK_P1"));
+      StarlarkProviderIdentifier.forKey(
+          new StarlarkProvider.Key(keyForBuild(FAKE_LABEL), "STARLARK_P1"));
 
   private static final StarlarkProviderIdentifier STARLARK_P2 =
-      StarlarkProviderIdentifier.forKey(new StarlarkProvider.Key(FAKE_LABEL, "STARLARK_P2"));
+      StarlarkProviderIdentifier.forKey(
+          new StarlarkProvider.Key(keyForBuild(FAKE_LABEL), "STARLARK_P2"));
 
   private static final StarlarkProviderIdentifier STARLARK_P3 =
-      StarlarkProviderIdentifier.forKey(new StarlarkProvider.Key(FAKE_LABEL, "STARLARK_P3"));
+      StarlarkProviderIdentifier.forKey(
+          new StarlarkProvider.Key(keyForBuild(FAKE_LABEL), "STARLARK_P3"));
 
   private static final StarlarkProviderIdentifier STARLARK_P4 =
-      StarlarkProviderIdentifier.forKey(new StarlarkProvider.Key(FAKE_LABEL, "STARLARK_P4"));
+      StarlarkProviderIdentifier.forKey(
+          new StarlarkProvider.Key(keyForBuild(FAKE_LABEL), "STARLARK_P4"));
 
   /**
    * A dummy aspect factory. Is there to demonstrate how to define aspects and so that we can test
@@ -166,57 +165,41 @@ public class AspectDefinitionTest {
   }
 
   @Test
-  public void testRequireBuiltinProviders_addsToSetOfRequiredProvidersAndNames() throws Exception {
-    AspectDefinition requiresProviders =
+  public void testAspectWithToolchainsAspects_differentTypes_propagatesCorrectly()
+      throws Exception {
+    AspectDefinition aspect =
         new AspectDefinition.Builder(TEST_ASPECT_CLASS)
-            .requireProviders(P1.class, P2.class)
+            .propagateToToolchainsTypes(
+                ImmutableSet.of(
+                    Label.parseCanonicalUnchecked("//toolchains:type_1"),
+                    Label.parseCanonicalUnchecked("//toolchains:type_2")))
             .build();
-    AdvertisedProviderSet expectedOkSet =
-        AdvertisedProviderSet.builder()
-            .addBuiltin(P1.class)
-            .addBuiltin(P2.class)
-            .addBuiltin(P3.class)
-            .build();
-    assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(expectedOkSet))
-        .isTrue();
 
-    AdvertisedProviderSet expectedFailSet =
-        AdvertisedProviderSet.builder().addBuiltin(P1.class).build();
-    assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(expectedFailSet))
-        .isFalse();
-
-    assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(AdvertisedProviderSet.ANY))
+    assertThat(
+            aspect.canPropagateToToolchainType(
+                Label.parseCanonicalUnchecked("//toolchains:type_1")))
         .isTrue();
-    assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(AdvertisedProviderSet.EMPTY))
-        .isFalse();
+    assertThat(
+            aspect.canPropagateToToolchainType(
+                Label.parseCanonicalUnchecked("//toolchains:type_2")))
+        .isTrue();
   }
 
   @Test
-  public void testRequireBuiltinProviders_addsTwoSetsOfRequiredProvidersAndNames() {
-    AspectDefinition requiresProviders =
+  public void testAspectWithToolchainsAspects_missingType_noPropagation() throws Exception {
+    AspectDefinition aspect =
         new AspectDefinition.Builder(TEST_ASPECT_CLASS)
-            .requireProviderSets(
-                ImmutableList.of(ImmutableSet.of(P1.class, P2.class), ImmutableSet.of(P3.class)))
+            .propagateToToolchainsTypes(
+                ImmutableSet.of(
+                    Label.parseCanonicalUnchecked("//toolchains:type_1"),
+                    Label.parseCanonicalUnchecked("//toolchains:type_2")))
             .build();
 
-    AdvertisedProviderSet expectedOkSet1 =
-        AdvertisedProviderSet.builder().addBuiltin(P1.class).addBuiltin(P2.class).build();
-
-    AdvertisedProviderSet expectedOkSet2 =
-        AdvertisedProviderSet.builder().addBuiltin(P3.class).build();
-
-    AdvertisedProviderSet expectedFailSet =
-        AdvertisedProviderSet.builder().addBuiltin(P4.class).build();
-
-   assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(AdvertisedProviderSet.ANY))
-       .isTrue();
-    assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(expectedOkSet1)).isTrue();
-    assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(expectedOkSet2)).isTrue();
-    assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(expectedFailSet)).isFalse();
-   assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(AdvertisedProviderSet.EMPTY))
-       .isFalse();
-
- }
+    assertThat(
+            aspect.canPropagateToToolchainType(
+                Label.parseCanonicalUnchecked("//toolchains:type_3")))
+        .isFalse();
+  }
 
   @Test
   public void testRequireStarlarkProviders_addsFlatSetOfRequiredProviders() throws Exception {
@@ -275,7 +258,7 @@ public class AspectDefinitionTest {
     AspectDefinition noRequiredProviders = new AspectDefinition.Builder(TEST_ASPECT_CLASS).build();
 
     AdvertisedProviderSet expectedOkSet =
-        AdvertisedProviderSet.builder().addBuiltin(P4.class).addStarlark(STARLARK_P4).build();
+        AdvertisedProviderSet.builder().addBuiltin(P1.class).addStarlark(STARLARK_P4).build();
     assertThat(noRequiredProviders.getRequiredProviders().isSatisfiedBy(expectedOkSet)).isTrue();
 
     assertThat(noRequiredProviders.getRequiredProviders().isSatisfiedBy(AdvertisedProviderSet.ANY))
@@ -291,7 +274,7 @@ public class AspectDefinitionTest {
         .build();
 
     AdvertisedProviderSet expectedFailSet =
-        AdvertisedProviderSet.builder().addBuiltin(P4.class).build();
+        AdvertisedProviderSet.builder().addBuiltin(P1.class).build();
 
     assertThat(noAspects.getRequiredProvidersForAspects().isSatisfiedBy(AdvertisedProviderSet.ANY))
         .isFalse();

@@ -13,37 +13,41 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.TestConstants.PRODUCT_NAME;
+import static com.google.devtools.build.lib.testutil.TestConstants.WORKSPACE_NAME;
 
 import com.github.luben.zstd.ZstdInputStream;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
+import com.google.devtools.build.lib.actions.RunfilesTree;
+import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.exec.Protos.Digest;
-import com.google.devtools.build.lib.exec.Protos.ExecLogEntry;
 import com.google.devtools.build.lib.exec.Protos.File;
 import com.google.devtools.build.lib.exec.Protos.SpawnExec;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.common.options.Options;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.SortedMap;
-import java.util.TreeMap;
-import javax.annotation.Nullable;
+import net.starlark.java.syntax.Location;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -108,15 +112,136 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
             .build());
   }
 
+  @Test
+  public void testSymlinkAction() throws IOException, InterruptedException {
+    Artifact source = ActionsTestUtil.createArtifact(rootDir, "source");
+    Artifact target = ActionsTestUtil.createArtifact(rootDir, "target");
+    ActionOwner owner =
+        ActionOwner.createDummy(
+            Label.parseCanonicalUnchecked("//pkg:symlink"),
+            new Location("dummy-file", 0, 0),
+            "some_rule",
+            "configurationMnemonic",
+            /* configurationChecksum= */ "configurationChecksum",
+            new BuildConfigurationEvent(
+                BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
+                BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
+            /* isToolConfiguration= */ false,
+            /* executionPlatform= */ null,
+            /* aspectDescriptors= */ ImmutableList.of(),
+            /* execProperties= */ ImmutableMap.of());
+    SymlinkAction symlinkAction =
+        SymlinkAction.toArtifact(owner, source, target, "Creating symlink");
+
+    SpawnLogContext context = createSpawnLogContext();
+    context.logSymlinkAction(symlinkAction);
+
+    var entries = closeAndReadCompactLog(context);
+    assertThat(entries)
+        .containsExactly(
+            Protos.ExecLogEntry.newBuilder()
+                .setInvocation(
+                    Protos.ExecLogEntry.Invocation.newBuilder()
+                        .setHashFunctionName("SHA-256")
+                        .setWorkspaceRunfilesDirectory(TestConstants.WORKSPACE_NAME)
+                        .setSiblingRepositoryLayout(siblingRepositoryLayout))
+                .build(),
+            Protos.ExecLogEntry.newBuilder()
+                .setSymlinkAction(
+                    Protos.ExecLogEntry.SymlinkAction.newBuilder()
+                        .setInputPath("source")
+                        .setOutputPath("target")
+                        .setMnemonic("Symlink")
+                        .setTargetLabel("//pkg:symlink"))
+                .build());
+  }
+
+  @Test
+  public void testRunfilesTreeReusedForTool() throws Exception {
+    Artifact tool = ActionsTestUtil.createArtifact(rootDir, "data.txt");
+    writeFile(tool, "abc");
+    Artifact toolRunfiles = ActionsTestUtil.createRunfilesArtifact(outputDir, "tool.runfiles");
+
+    PathFragment runfilesRoot = outputDir.getExecPath().getRelative("foo.runfiles");
+    RunfilesTree runfilesTree = createRunfilesTree(runfilesRoot, tool);
+
+    Artifact firstInput = ActionsTestUtil.createArtifact(rootDir, "first_input");
+    writeFile(firstInput, "def");
+    Artifact secondInput = ActionsTestUtil.createArtifact(rootDir, "second_input");
+    writeFile(secondInput, "ghi");
+
+    Spawn firstSpawn =
+        defaultSpawnBuilder().withTool(toolRunfiles).withInputs(firstInput, toolRunfiles).build();
+    Spawn secondSpawn =
+        defaultSpawnBuilder().withTool(toolRunfiles).withInputs(secondInput, toolRunfiles).build();
+
+    SpawnLogContext context = createSpawnLogContext();
+
+    context.logSpawn(
+        firstSpawn,
+        createInputMetadataProvider(runfilesTree, toolRunfiles, firstInput),
+        createInputMap(runfilesTree, firstInput),
+        fs,
+        defaultTimeout(),
+        defaultSpawnResult());
+    context.logSpawn(
+        secondSpawn,
+        createInputMetadataProvider(runfilesTree, toolRunfiles, secondInput),
+        createInputMap(runfilesTree, secondInput),
+        fs,
+        defaultTimeout(),
+        defaultSpawnResult());
+
+    var entries = closeAndReadCompactLog(context);
+    assertThat(entries.stream().filter(Protos.ExecLogEntry::hasRunfilesTree)).hasSize(1);
+
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder()
+            .addInputs(
+                File.newBuilder()
+                    .setPath(
+                        PRODUCT_NAME
+                            + "-out/k8-fastbuild/bin/foo.runfiles/"
+                            + WORKSPACE_NAME
+                            + "/data.txt")
+                    .setDigest(getDigest("abc"))
+                    .setIsTool(true))
+            .addInputs(
+                File.newBuilder()
+                    .setPath("first_input")
+                    .setDigest(getDigest("def"))
+                    .setIsTool(false))
+            .build(),
+        defaultSpawnExecBuilder()
+            .addInputs(
+                File.newBuilder()
+                    .setPath(
+                        PRODUCT_NAME
+                            + "-out/k8-fastbuild/bin/foo.runfiles/"
+                            + WORKSPACE_NAME
+                            + "/data.txt")
+                    .setDigest(getDigest("abc"))
+                    .setIsTool(true))
+            .addInputs(
+                File.newBuilder()
+                    .setPath("second_input")
+                    .setDigest(getDigest("ghi"))
+                    .setIsTool(false))
+            .build());
+  }
+
   @Override
   protected SpawnLogContext createSpawnLogContext(ImmutableMap<String, String> platformProperties)
-      throws IOException {
+      throws IOException, InterruptedException {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     remoteOptions.remoteDefaultExecProperties = platformProperties.entrySet().asList();
 
     return new CompactSpawnLogContext(
         logPath,
         execRoot.asFragment(),
+        TestConstants.WORKSPACE_NAME,
+        siblingRepositoryLayout,
         remoteOptions,
         DigestHashFunction.SHA256,
         SyscallCache.NO_CACHE);
@@ -127,120 +252,30 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
       throws IOException {
     context.close();
 
-    HashMap<Integer, ExecLogEntry> entryMap = new HashMap<>();
-
     ArrayList<SpawnExec> actual = new ArrayList<>();
-    try (InputStream in = new ZstdInputStream(logPath.getInputStream())) {
-      while (in.available() > 0) {
-        ExecLogEntry e = ExecLogEntry.parseDelimitedFrom(in);
-        entryMap.put(e.getId(), e);
-        if (e.hasSpawn()) {
-          actual.add(reconstructSpawnExec(e.getSpawn(), entryMap));
-        }
+    try (SpawnLogReconstructor reconstructor =
+        new SpawnLogReconstructor(logPath.getInputStream())) {
+      SpawnExec ex;
+      while ((ex = reconstructor.read()) != null) {
+        actual.add(ex);
       }
     }
 
     assertThat(actual).containsExactlyElementsIn(expected).inOrder();
   }
 
-  private SpawnExec reconstructSpawnExec(
-      ExecLogEntry.Spawn entry, Map<Integer, ExecLogEntry> entryMap) {
-    SpawnExec.Builder builder =
-        SpawnExec.newBuilder()
-            .addAllCommandArgs(entry.getArgsList())
-            .addAllEnvironmentVariables(entry.getEnvVarsList())
-            .setTargetLabel(entry.getTargetLabel())
-            .setMnemonic(entry.getMnemonic())
-            .setExitCode(entry.getExitCode())
-            .setStatus(entry.getStatus())
-            .setRunner(entry.getRunner())
-            .setCacheHit(entry.getCacheHit())
-            .setRemotable(entry.getRemotable())
-            .setCacheable(entry.getCacheable())
-            .setRemoteCacheable(entry.getRemoteCacheable())
-            .setTimeoutMillis(entry.getTimeoutMillis())
-            .setMetrics(entry.getMetrics());
+  private ImmutableList<Protos.ExecLogEntry> closeAndReadCompactLog(SpawnLogContext context)
+      throws IOException {
+    context.close();
 
-    if (entry.hasPlatform()) {
-      builder.setPlatform(entry.getPlatform());
-    }
-
-    SortedMap<String, File> inputs = reconstructInputs(entry.getInputSetId(), entryMap);
-    SortedMap<String, File> toolInputs = reconstructInputs(entry.getToolSetId(), entryMap);
-
-    for (Map.Entry<String, File> e : inputs.entrySet()) {
-      File file = e.getValue();
-      if (toolInputs.containsKey(e.getKey())) {
-        file = file.toBuilder().setIsTool(true).build();
-      }
-      builder.addInputs(file);
-    }
-
-    for (ExecLogEntry.Output output : entry.getOutputsList()) {
-      switch (output.getTypeCase()) {
-        case FILE_ID:
-          ExecLogEntry.File file = checkNotNull(entryMap.get(output.getFileId())).getFile();
-          builder.addListedOutputs(file.getPath());
-          builder.addActualOutputs(reconstructFile(/* parentDir= */ null, file));
-          break;
-        case DIRECTORY_ID:
-          ExecLogEntry.Directory dir =
-              checkNotNull(entryMap.get(output.getDirectoryId())).getDirectory();
-          builder.addListedOutputs(dir.getPath());
-          for (ExecLogEntry.File dirFile : dir.getFilesList()) {
-            builder.addActualOutputs(reconstructFile(dir, dirFile));
-          }
-          break;
-        case MISSING_PATH:
-          builder.addListedOutputs(output.getMissingPath());
-          break;
-        case TYPE_NOT_SET:
-          throw new AssertionError("malformed log entry");
+    ImmutableList.Builder<Protos.ExecLogEntry> entries = ImmutableList.builder();
+    try (InputStream in = logPath.getInputStream();
+        ZstdInputStream zstdIn = new ZstdInputStream(in)) {
+      Protos.ExecLogEntry entry;
+      while ((entry = Protos.ExecLogEntry.parseDelimitedFrom(zstdIn)) != null) {
+        entries.add(entry);
       }
     }
-
-    if (!entry.getDigest().isEmpty()) {
-      builder.setDigest(Digest.newBuilder().setHash(entry.getDigest()).build());
-    }
-
-    return builder.build();
-  }
-
-  private SortedMap<String, File> reconstructInputs(
-      int setId, Map<Integer, ExecLogEntry> entryMap) {
-    TreeMap<String, File> inputs = new TreeMap<>();
-    ArrayDeque<Integer> setsToVisit = new ArrayDeque<>();
-    if (setId != 0) {
-      setsToVisit.addLast(setId);
-    }
-    while (!setsToVisit.isEmpty()) {
-      ExecLogEntry.InputSet set =
-          checkNotNull(entryMap.get(setsToVisit.removeFirst())).getInputSet();
-      for (int fileId : set.getFileIdsList()) {
-        ExecLogEntry.File file = checkNotNull(entryMap.get(fileId)).getFile();
-        inputs.put(file.getPath(), reconstructFile(null, file));
-      }
-      for (int dirId : set.getDirectoryIdsList()) {
-        ExecLogEntry.Directory dir = checkNotNull(entryMap.get(dirId)).getDirectory();
-        for (ExecLogEntry.File dirFile : dir.getFilesList()) {
-          inputs.put(dirFile.getPath(), reconstructFile(dir, dirFile));
-        }
-      }
-      setsToVisit.addAll(set.getTransitiveSetIdsList());
-    }
-    return inputs;
-  }
-
-  private File reconstructFile(@Nullable ExecLogEntry.Directory parentDir, ExecLogEntry.File file) {
-    String path = parentDir != null ? parentDir.getPath() + "/" + file.getPath() : file.getPath();
-    File.Builder builder = File.newBuilder().setPath(path);
-    if (file.getSizeBytes() > 0) {
-      builder.setDigest(
-          Digest.newBuilder()
-              .setSizeBytes(file.getSizeBytes())
-              .setHash(file.getDigest())
-              .setHashFunctionName(digestHashFunction.toString()));
-    }
-    return builder.build();
+    return entries.build();
   }
 }

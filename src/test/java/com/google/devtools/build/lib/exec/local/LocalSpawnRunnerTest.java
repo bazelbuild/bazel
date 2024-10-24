@@ -238,7 +238,7 @@ public class LocalSpawnRunnerTest {
     // Prevent any subprocess execution at all.
     SubprocessBuilder.setDefaultSubprocessFactory(new SubprocessInterceptor());
     resourceManager.setAvailableResources(
-        ResourceSet.create(/*memoryMb=*/ 1, /*cpuUsage=*/ 1, /*localTestCount=*/ 1));
+        ResourceSet.create(/* memoryMb= */ 1, /* cpu= */ 1, /* localTestCount= */ 1));
     return new InMemoryFileSystem(DigestHashFunction.SHA256);
   }
 
@@ -909,13 +909,10 @@ public class LocalSpawnRunnerTest {
     assertThat(spawnResult.setupSuccess()).isTrue();
     assertThat(spawnResult.getExecutorHostName()).isEqualTo(NetUtil.getCachedShortHostName());
 
-    assertThat(spawnResult.getWallTimeInMs()).isNotNull();
     assertThat(spawnResult.getWallTimeInMs()).isAtLeast(minimumWallTimeToSpendInMs);
     // Under heavy starvation, max wall time could be anything, so don't check it here.
-    assertThat(spawnResult.getUserTimeInMs()).isNotNull();
     assertThat(spawnResult.getUserTimeInMs()).isAtLeast(minimumUserTimeToSpendInMs);
     assertThat(spawnResult.getUserTimeInMs()).isAtMost(maximumUserTimeToSpendInMs);
-    assertThat(spawnResult.getSystemTimeInMs()).isNotNull();
     assertThat(spawnResult.getSystemTimeInMs()).isAtLeast(minimumSystemTimeToSpendInMs);
     assertThat(spawnResult.getSystemTimeInMs()).isAtMost(maximumSystemTimeToSpendInMs);
     assertThat(spawnResult.getNumBlockOutputOperations()).isAtLeast(0L);

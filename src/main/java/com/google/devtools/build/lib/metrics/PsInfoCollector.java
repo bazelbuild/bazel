@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -42,7 +41,6 @@ public class PsInfoCollector {
   // Updates snapshots no more than once per interval. Running ps is somewhat slow and should not be
   // done too often.
   private static final Duration MIN_COLLECTION_INTERVAL = Duration.ofMillis(500);
-  private static final Clock clock = BlazeClock.instance();
   private static final PsInfoCollector instance = new PsInfoCollector();
 
   public static PsInfoCollector instance() {
@@ -58,14 +56,15 @@ public class PsInfoCollector {
    * If ps snapshot was outdated will update it, and then returns resource consumption snapshot of
    * processes subtrees based on collected ps snapshot.
    */
-  public synchronized ResourceSnapshot collectResourceUsage(ImmutableSet<Long> processIds) {
+  public synchronized ResourceSnapshot collectResourceUsage(
+      ImmutableSet<Long> processIds, Clock clock) {
     Instant now = clock.now();
     if (currentPsSnapshot == null
         || Duration.between(currentPsSnapshot.getCollectionTime(), now)
                 .compareTo(MIN_COLLECTION_INTERVAL)
             > 0) {
 
-      updatePsSnapshot();
+      updatePsSnapshot(clock);
     }
 
     ImmutableMap.Builder<Long, Integer> pidToMemoryInKb = ImmutableMap.builder();
@@ -82,8 +81,7 @@ public class PsInfoCollector {
   }
 
   /** Updates current snapshot of all processes state, using ps command. */
-  private void updatePsSnapshot() {
-    // TODO(b/279003887): add exception if we couldn't collect the metrics.
+  private void updatePsSnapshot(Clock clock) {
     ImmutableMap<Long, PsInfo> pidToPsInfo = collectDataFromPs();
 
     ImmutableSetMultimap<Long, PsInfo> pidToChildrenPsInfo =
@@ -188,21 +186,6 @@ public class PsInfoCollector {
         Instant collectionTime) {
       return new AutoValue_PsInfoCollector_PsSnapshot(
           pidToPsInfo, pidToChildrenPsInfo, collectionTime);
-    }
-  }
-
-  /** Contains resource consumption info per process tree. */
-  @AutoValue
-  public abstract static class ResourceSnapshot {
-    /** Overall memory consumption by all descendant processes including initial process. */
-    public abstract ImmutableMap<Long, Integer> getPidToMemoryInKb();
-
-    /** Time when this snapshot was collected. */
-    public abstract Instant getCollectionTime();
-
-    public static ResourceSnapshot create(
-        ImmutableMap<Long, Integer> pidToMemoryInKb, Instant collectionTime) {
-      return new AutoValue_PsInfoCollector_ResourceSnapshot(pidToMemoryInKb, collectionTime);
     }
   }
 }

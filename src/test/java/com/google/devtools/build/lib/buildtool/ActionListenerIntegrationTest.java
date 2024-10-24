@@ -188,14 +188,16 @@ public final class ActionListenerIntegrationTest extends BuildIntegrationTestCas
 
   @Test
   public void testBasicActionListener() throws Exception {
-    write("nobuild/BUILD",
+    write(
+        "nobuild/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
         "java_library(name= 'javalib',",
         "             srcs=[])",
         "extra_action(name = 'baz',",
         "             out_templates = ['$(OWNER_LABEL_DIGEST)_$(ACTION_ID).tst'],",
-        "             cmd = " +
-        "                 'echo $(EXTRA_ACTION_FILE)>$(output $(OWNER_LABEL_DIGEST)" +
-            "_$(ACTION_ID).tst)')",
+        "             cmd = "
+            + "                 'echo $(EXTRA_ACTION_FILE)>$(output $(OWNER_LABEL_DIGEST)"
+            + "_$(ACTION_ID).tst)')",
         "action_listener(name = 'bar',",
         "                mnemonics = ['Javac'],",
         "                extra_actions = [':baz'])");
@@ -213,15 +215,17 @@ public final class ActionListenerIntegrationTest extends BuildIntegrationTestCas
 
    @Test
    public void testActionListenerThatRequiresActionOutputs() throws Exception {
-    write("nobuild/BUILD",
+    write(
+        "nobuild/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
         "java_library(name= 'javalib',",
         "             srcs=[])",
         "extra_action(name = 'baz',",
         "             out_templates = ['$(OWNER_LABEL_DIGEST)_$(ACTION_ID).tst'],",
         "             requires_action_output = 1,",
-        "             cmd = " +
-        "                 'echo $(EXTRA_ACTION_FILE)>$(output $(OWNER_LABEL_DIGEST)" +
-        "_$(ACTION_ID).tst)')",
+        "             cmd = "
+            + "                 'echo $(EXTRA_ACTION_FILE)>$(output $(OWNER_LABEL_DIGEST)"
+            + "_$(ACTION_ID).tst)')",
         "action_listener(name = 'bar',",
         "                mnemonics = ['Javac'],",
         "                extra_actions = [':baz'])");
@@ -239,16 +243,18 @@ public final class ActionListenerIntegrationTest extends BuildIntegrationTestCas
 
   @Test
   public void testFilteredActionListener() throws Exception {
-    write("filtered/BUILD",
+    write(
+        "filtered/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
         "java_library(name= 'a',",
         "             srcs=[])",
         "java_library(name= 'b',",
         "             exports=[':a'])",
         "extra_action(name = 'baz',",
         "             out_templates = ['$(OWNER_LABEL_DIGEST)_$(ACTION_ID).tst'],",
-        "             cmd = " +
-        "                 'echo $(EXTRA_ACTION_FILE)>$(output $(OWNER_LABEL_DIGEST)" +
-            "_$(ACTION_ID).tst)')",
+        "             cmd = "
+            + "                 'echo $(EXTRA_ACTION_FILE)>$(output $(OWNER_LABEL_DIGEST)"
+            + "_$(ACTION_ID).tst)')",
         "action_listener(name = 'bar',",
         "                mnemonics = ['Javac'],",
         "                extra_actions = [':baz'])");
@@ -268,16 +274,18 @@ public final class ActionListenerIntegrationTest extends BuildIntegrationTestCas
 
   @Test
   public void testTopLevelOnlyActionListener() throws Exception {
-    write("filtered/BUILD",
+    write(
+        "filtered/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
         "java_library(name= 'a',",
         "             srcs=[])",
         "java_library(name= 'b',",
         "             exports=[':a'])",
         "extra_action(name = 'baz',",
         "             out_templates = ['$(OWNER_LABEL_DIGEST)_$(ACTION_ID).tst'],",
-        "             cmd = " +
-        "                 'echo $(EXTRA_ACTION_FILE)>$(output $(OWNER_LABEL_DIGEST)" +
-            "_$(ACTION_ID).tst)')",
+        "             cmd = "
+            + "                 'echo $(EXTRA_ACTION_FILE)>$(output $(OWNER_LABEL_DIGEST)"
+            + "_$(ACTION_ID).tst)')",
         "action_listener(name = 'bar',",
         "                mnemonics = ['Javac'],",
         "                extra_actions = [':baz'])");
@@ -390,13 +398,14 @@ public final class ActionListenerIntegrationTest extends BuildIntegrationTestCas
 
   @Test
   public void testActionListenerNotEnabled() throws Exception {
-    write("nobuild/BUILD",
+    write(
+        "nobuild/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
         "java_library(name= 'javalib',",
         "             srcs=[])",
         "extra_action(name = 'baz',",
         "             out_templates = ['$(ACTION_ID).tst'],",
-        "             cmd = " +
-            "'echo $(EXTRA_ACTION_FILE)>$(output $(ACTION_ID).tst)')",
+        "             cmd = " + "'echo $(EXTRA_ACTION_FILE)>$(output $(ACTION_ID).tst)')",
         "action_listener(name = 'bar',",
         "                mnemonics = ['Javac'],",
         "                extra_actions = [':baz'])");
@@ -413,12 +422,20 @@ public final class ActionListenerIntegrationTest extends BuildIntegrationTestCas
 
   @Test
   public void testBuildActionListener() throws Exception {
-    write("nobuild/BUILD",
-      "extra_action(name = 'action',",
-      "             cmd = '')",
-      "action_listener(name = 'listener',",
-      "                mnemonics = ['Foo'],",
-      "                extra_actions = [':action'])");
+    write(
+        "nobuild/BUILD",
+        """
+        extra_action(
+            name = "action",
+            cmd = "",
+        )
+
+        action_listener(
+            name = "listener",
+            extra_actions = [":action"],
+            mnemonics = ["Foo"],
+        )
+        """);
     buildTarget("//nobuild:listener");
     // Confirm target exists.
     getExistingConfiguredTarget("//nobuild:listener");
@@ -426,11 +443,20 @@ public final class ActionListenerIntegrationTest extends BuildIntegrationTestCas
 
   @Test
   public void testNotActionListenerLabel() throws Exception {
-    write("nobuild/BUILD",
-        "java_library(name= 'javalib1',",
-        "             srcs=[])",
-        "java_library(name= 'javalib2',",
-        "             srcs=[])");
+    write(
+        "nobuild/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(
+            name = "javalib1",
+            srcs = [],
+        )
+
+        java_library(
+            name = "javalib2",
+            srcs = [],
+        )
+        """);
     addOptions("--experimental_action_listener=//nobuild:javalib1");
     try {
       buildTarget("//nobuild:javalib2");
@@ -445,9 +471,15 @@ public final class ActionListenerIntegrationTest extends BuildIntegrationTestCas
 
   @Test
   public void testInvalidActionListenerLabel() throws Exception {
-    write("nobuild/BUILD",
-        "java_library(name= 'javalib',",
-        "             srcs=[])");
+    write(
+        "nobuild/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(
+            name = "javalib",
+            srcs = [],
+        )
+        """);
     addOptions("--experimental_action_listener='this is \\not\\ a valid label'");
     OptionsParsingException expected =
         assertThrows(OptionsParsingException.class, () -> buildTarget("//nobuild:javalib"));
@@ -469,15 +501,30 @@ public final class ActionListenerIntegrationTest extends BuildIntegrationTestCas
    */
   @Test
   public void testNonUniqueOutputs() throws Exception {
-    write("nobuild/BUILD",
-        "java_library(name= 'javalib',",
-        "             srcs=[])",
-        "extra_action(name = 'baz',",
-        "             out_templates = ['test.tst'],",
-        "             cmd = 'echo $(output test.tst)')",
-        "action_listener(name = 'bar',",
-        "                mnemonics = ['Javac', 'JavaSourceJar'],",
-        "                extra_actions = [':baz'])");
+    write(
+        "nobuild/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(
+            name = "javalib",
+            srcs = [],
+        )
+
+        extra_action(
+            name = "baz",
+            cmd = "echo $(output test.tst)",
+            out_templates = ["test.tst"],
+        )
+
+        action_listener(
+            name = "bar",
+            extra_actions = [":baz"],
+            mnemonics = [
+                "Javac",
+                "JavaSourceJar",
+            ],
+        )
+        """);
 
     addOptions("--experimental_action_listener=//nobuild:bar");
 
@@ -488,7 +535,8 @@ public final class ActionListenerIntegrationTest extends BuildIntegrationTestCas
       assertThat(vcfe)
           .hasMessageThat()
           .contains(
-              String.format("Analysis of target '%s' failed; build aborted", "//nobuild:javalib"));
+              "file 'extra_actions/nobuild/baz/nobuild/test.tst' is generated by these conflicting"
+                  + " actions:");
     }
   }
 
@@ -504,32 +552,61 @@ public final class ActionListenerIntegrationTest extends BuildIntegrationTestCas
   public void extraActionDiscoversBothSharedArtifacts() throws Exception {
     write(
         "foo/defs.bzl",
-        "def _shared_header_impl(ctx):",
-        "  header = ctx.actions.declare_file('shared.h')",
-        "  ctx.actions.write(header, '')",
-        "  return DefaultInfo(files = depset([header]))",
-        "",
-        "shared_header = rule(implementation = _shared_header_impl)");
+        """
+        def _shared_header_impl(ctx):
+            header = ctx.actions.declare_file("shared.h")
+            ctx.actions.write(header, "")
+            return DefaultInfo(files = depset([header]))
+
+        shared_header = rule(implementation = _shared_header_impl)
+        """);
     write(
         "foo/BUILD",
-        "load(':defs.bzl', 'shared_header')",
-        "shared_header(name = 'shared1')",
-        "shared_header(name = 'shared2')",
-        "cc_library(name = 'shared1_lib', hdrs = [':shared1'])",
-        "cc_library(name = 'shared2_lib', hdrs = [':shared2'])",
-        "cc_library(name = 'mid', hdrs = ['mid.h'], deps = [':shared1_lib'])",
-        // Order of top's deps matters to reproduce the crash.
-        "cc_library(name = 'top', hdrs = ['top.h'], deps = [':shared2_lib', ':mid'])",
-        "extra_action(",
-        "  name = 'extra',",
-        "  cmd = 'touch $(output $(ACTION_ID).out)',",
-        "  out_templates = ['$(ACTION_ID).out'],",
-        ")",
-        "action_listener(",
-        "  name = 'listener',",
-        "  extra_actions = [':extra'],",
-        "  mnemonics = ['CppCompileHeader']",
-        ")");
+        """
+        load(":defs.bzl", "shared_header")
+
+        shared_header(name = "shared1")
+
+        shared_header(name = "shared2")
+
+        cc_library(
+            name = "shared1_lib",
+            hdrs = [":shared1"],
+        )
+
+        cc_library(
+            name = "shared2_lib",
+            hdrs = [":shared2"],
+        )
+
+        cc_library(
+            name = "mid",
+            hdrs = ["mid.h"],
+            deps = [":shared1_lib"],
+        )
+
+        # Order of top's deps matters to reproduce the crash.
+        cc_library(
+            name = "top",
+            hdrs = ["top.h"],
+            deps = [
+                ":mid",
+                ":shared2_lib",
+            ],
+        )
+
+        extra_action(
+            name = "extra",
+            cmd = "touch $(output $(ACTION_ID).out)",
+            out_templates = ["$(ACTION_ID).out"],
+        )
+
+        action_listener(
+            name = "listener",
+            extra_actions = [":extra"],
+            mnemonics = ["CppCompileHeader"],
+        )
+        """);
     write("foo/mid.h", "#include \"foo/shared.h\"");
     write(
         "foo/top.h",

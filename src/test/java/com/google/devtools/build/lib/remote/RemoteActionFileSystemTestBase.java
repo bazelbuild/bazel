@@ -161,10 +161,20 @@ public abstract class RemoteActionFileSystemTestBase {
   }
 
   @Test
-  public void renameTo_fileDoesNotExist_throwError() throws Exception {
+  public void renameTo_sourceFileDoesNotExist_throwError() throws Exception {
     FileSystem actionFs = createActionFileSystem();
     PathFragment path = getOutputPath("file");
     PathFragment newPath = getOutputPath("file-new");
+
+    assertThrows(FileNotFoundException.class, () -> actionFs.renameTo(path, newPath));
+  }
+
+  @Test
+  public void renameTo_targetDirectoryDoesNotExist_throwError() throws Exception {
+    FileSystem actionFs = createActionFileSystem();
+    PathFragment path = getOutputPath("file");
+    PathFragment newPath = getOutputPath("dir/file-new");
+    writeLocalFile(actionFs, path, "local-content");
 
     assertThrows(FileNotFoundException.class, () -> actionFs.renameTo(path, newPath));
   }

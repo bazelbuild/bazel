@@ -49,11 +49,14 @@ public final class AllowlistCachingTest extends AnalysisCachingTestBase {
     reporter.addHandler(failFastHandler);
     scratch.overwriteFile(
         "allowlist/BUILD",
-        "package_group(",
-        "    name='allowlist',",
-        "    packages=[",
-        "        '//...'",
-        "    ])");
+        """
+        package_group(
+            name = "allowlist",
+            packages = [
+                "//...",
+            ],
+        )
+        """);
     update("//x:x");
     assertNoEvents();
   }

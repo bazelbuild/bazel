@@ -20,11 +20,10 @@ import com.google.auth.oauth2.GoogleCredentials;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperCredentials;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperEnvironment;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperProvider;
+import com.google.devtools.build.lib.authandtls.credentialhelper.GetCredentialsResponse;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.runtime.CommandLinePathFactory;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -252,7 +251,7 @@ public final class GoogleAuthUtils {
    */
   public static Credentials newCredentials(
       CredentialHelperEnvironment credentialHelperEnvironment,
-      Cache<URI, ImmutableMap<String, ImmutableList<String>>> credentialCache,
+      Cache<URI, GetCredentialsResponse> credentialCache,
       CommandLinePathFactory commandLinePathFactory,
       FileSystem fileSystem,
       AuthAndTLSOptions authAndTlsOptions)

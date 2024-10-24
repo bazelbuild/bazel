@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
-import com.google.devtools.build.lib.analysis.config.TransitionFactories;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.util.MockRule;
@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.exec.FileWriteStrategy;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
+import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
@@ -96,32 +97,60 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     }
   }
 
-  private static final class PathTransition implements PatchTransition {
+  private static final class PathAttributeTransitionFactory
+      implements TransitionFactory<AttributeTransitionData> {
     private final String newPath;
 
-    PathTransition(String newPath) {
+    PathAttributeTransitionFactory(String newPath) {
       this.newPath = newPath;
     }
 
     @Override
-    public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
-      return ImmutableSet.of(PathTestOptions.class);
+    public ConfigurationTransition create(AttributeTransitionData data) {
+      return new PatchTransition() {
+        @Override
+        public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
+          return ImmutableSet.of(PathTestOptions.class);
+        }
+
+        @Override
+        public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
+          BuildOptionsView clone = options.clone();
+          clone.get(PathTestOptions.class).outputDirectoryName = newPath;
+          return clone.underlying();
+        }
+      };
     }
 
     @Override
-    public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
-      BuildOptionsView clone = options.clone();
-      clone.get(PathTestOptions.class).outputDirectoryName = newPath;
-      return clone.underlying();
+    public TransitionType transitionType() {
+      return TransitionType.ATTRIBUTE;
     }
   }
 
-  private static final class PathTransitionFactory
+  private static final class PathRuleTransitionFactory
       implements TransitionFactory<RuleTransitionData> {
     @Override
     public PatchTransition create(RuleTransitionData ruleData) {
-      return new PathTransition(
-          NonconfigurableAttributeMapper.of(ruleData.rule()).get("path", STRING));
+      String newPath = NonconfigurableAttributeMapper.of(ruleData.rule()).get("path", STRING);
+      return new PatchTransition() {
+        @Override
+        public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
+          return ImmutableSet.of(PathTestOptions.class);
+        }
+
+        @Override
+        public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
+          BuildOptionsView clone = options.clone();
+          clone.get(PathTestOptions.class).outputDirectoryName = newPath;
+          return clone.underlying();
+        }
+      };
+    }
+
+    @Override
+    public TransitionType transitionType() {
+      return TransitionType.RULE;
     }
   }
 
@@ -151,6 +180,11 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     public PatchTransition create(RuleTransitionData ruleData) {
       return new UselessOptionTransition(
           NonconfigurableAttributeMapper.of(ruleData.rule()).get("value", STRING));
+    }
+
+    @Override
+    public TransitionType transitionType() {
+      return TransitionType.RULE;
     }
   }
 
@@ -192,7 +226,7 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
                           .add(attr("deps", LABEL_LIST).allowedFileTypes())
                           .setImplicitOutputsFunction(
                               ImplicitOutputsFunction.fromTemplates("%{name}.bin"))
-                          .cfg(new PathTransitionFactory()));
+                          .cfg(new PathRuleTransitionFactory()));
       MockRule incomingUnrelatedTransitionRule =
           () ->
               MockRule.define(
@@ -218,8 +252,8 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
                               attr("deps", LABEL_LIST)
                                   .allowedFileTypes()
                                   .cfg(
-                                      TransitionFactories.of(
-                                          new PathTransition("set_by_outgoing_transition_rule"))))
+                                      new PathAttributeTransitionFactory(
+                                          "set_by_outgoing_transition_rule")))
                           .setImplicitOutputsFunction(
                               ImplicitOutputsFunction.fromTemplates("%{name}.bin")));
 
@@ -299,15 +333,25 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     addOptions(
         "--output_directory_name=set_by_flag",
         "--compilation_mode=fastbuild",
-        "--experimental_output_directory_naming_scheme=legacy",
         "--experimental_exec_configuration_distinguisher=legacy");
 
     write(
         "path/BUILD",
-        "basic_rule(name='from_flag')",
-        "incoming_transition_rule(name='from_transition', path='set_by_transition')",
-        "incoming_unrelated_transition_rule(name='unrelated_transition', value='whatever')",
-        "outgoing_transition_rule(name='outgoing_transition')");
+        """
+        basic_rule(name = "from_flag")
+
+        incoming_transition_rule(
+            name = "from_transition",
+            path = "set_by_transition",
+        )
+
+        incoming_unrelated_transition_rule(
+            name = "unrelated_transition",
+            value = "whatever",
+        )
+
+        outgoing_transition_rule(name = "outgoing_transition")
+        """);
     BuildResult result =
         buildTarget(
             "//path:from_flag",
@@ -321,7 +365,7 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
                     toImmutableMap(
                         (target) -> target.getLabel().toString(),
                         (target) ->
-                            getConfiguration(target)
+                            getConfigurationFromLastBuildResult(target)
                                 .getOutputDirectory(RepositoryName.MAIN)
                                 .getRoot()
                                 .asPath()
@@ -332,7 +376,7 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
             "//path:from_transition",
                 getTargetConfiguration().getCpu() + "-fastbuild-set_by_transition",
             "//path:unrelated_transition",
-                getTargetConfiguration().getCpu() + "-fastbuild-set_by_flag",
+                getTargetConfiguration().getCpu() + "-fastbuild-set_by_flag-ST-040655c91309",
             "//path:outgoing_transition",
                 getTargetConfiguration().getCpu() + "-fastbuild-set_by_flag");
   }
@@ -428,8 +472,17 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
 
     write(
         "targets/BUILD",
-        "incoming_transition_rule(name='config1', path='set_from_config1')",
-        "incoming_transition_rule(name='config2', path='set_from_config2')");
+        """
+        incoming_transition_rule(
+            name = "config1",
+            path = "set_from_config1",
+        )
+
+        incoming_transition_rule(
+            name = "config2",
+            path = "set_from_config2",
+        )
+        """);
     buildTarget("//targets:config1", "//targets:config2");
 
     // there should be nothing at any of the convenience symlinks which depend on configuration -
@@ -470,8 +523,14 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
 
     write(
         "targets/BUILD",
-        "basic_rule(name='default')",
-        "incoming_transition_rule(name='config1', path='set_from_config1')");
+        """
+        basic_rule(name = "default")
+
+        incoming_transition_rule(
+            name = "config1",
+            path = "set_from_config1",
+        )
+        """);
     buildTarget("//targets:default", "//targets:config1");
 
     assertThat(getConvenienceSymlinks())
@@ -501,8 +560,17 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
 
     write(
         "targets/BUILD",
-        "incoming_transition_rule(name='configged1', path='configured')",
-        "incoming_transition_rule(name='configged2', path='configured')");
+        """
+        incoming_transition_rule(
+            name = "configged1",
+            path = "configured",
+        )
+
+        incoming_transition_rule(
+            name = "configged2",
+            path = "configured",
+        )
+        """);
     buildTarget("//targets:configged1", "//targets:configged2");
 
     assertThat(getConvenienceSymlinks())
@@ -534,10 +602,24 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
 
     write(
         "targets/BUILD",
-        "outgoing_transition_rule(name='configged1', deps=[':alternate1'])",
-        "outgoing_transition_rule(name='configged2', deps=[':alternate2'])",
-        "basic_rule(name='alternate1')",
-        "incoming_transition_rule(name='alternate2', path='alternate_transition')");
+        """
+        outgoing_transition_rule(
+            name = "configged1",
+            deps = [":alternate1"],
+        )
+
+        outgoing_transition_rule(
+            name = "configged2",
+            deps = [":alternate2"],
+        )
+
+        basic_rule(name = "alternate1")
+
+        incoming_transition_rule(
+            name = "alternate2",
+            path = "alternate_transition",
+        )
+        """);
     buildTarget("//targets:configged1", "//targets:configged2");
 
     assertThat(getConvenienceSymlinks())
@@ -566,14 +648,23 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
         "--symlink_prefix=unchanged-",
         "--compilation_mode=fastbuild",
         "--incompatible_merge_genfiles_directory=false",
-        "--incompatible_skip_genfiles_symlink=false",
-        "--experimental_output_directory_naming_scheme=legacy");
+        "--incompatible_skip_genfiles_symlink=false");
 
     write(
         "targets/BUILD",
-        "basic_rule(name='from_flag')",
-        "incoming_unrelated_transition_rule(name='configged1', value='one_transition')",
-        "incoming_unrelated_transition_rule(name='configged2', value='alternate_transition')");
+        """
+        basic_rule(name = "from_flag")
+
+        incoming_unrelated_transition_rule(
+            name = "configged1",
+            value = "one_transition",
+        )
+
+        incoming_unrelated_transition_rule(
+            name = "configged2",
+            value = "alternate_transition",
+        )
+        """);
     buildTarget("//targets:from_flag", "//targets:configged1", "//targets:configged2");
 
     assertThat(getConvenienceSymlinks())
@@ -604,9 +695,13 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
 
     write(
         "targets/BUILD",
-        "exports_files(['null'])",
-        "basic_rule(name='configured1')",
-        "basic_rule(name='configured2')");
+        """
+        exports_files(["null"])
+
+        basic_rule(name = "configured1")
+
+        basic_rule(name = "configured2")
+        """);
     write("targets/null", "This is just a test file to pretend to build.");
     buildTarget("//targets:null", "//targets:configured1", "//targets:configured2");
 

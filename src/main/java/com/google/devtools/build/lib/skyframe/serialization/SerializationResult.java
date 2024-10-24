@@ -53,14 +53,14 @@ public abstract class SerializationResult<T> {
     return object;
   }
 
-  static <T> SerializationResult<T> create(
+  public static <T> SerializationResult<T> create(
       T object, @Nullable ListenableFuture<Void> futureToBlockWritesOn) {
     return futureToBlockWritesOn != null
         ? new ObjectWithFuture<>(object, futureToBlockWritesOn)
         : createWithoutFuture(object);
   }
 
-  /** Creates an {@link SerializationResult} with a null future (no waiting necessary. */
+  /** Creates a {@link SerializationResult} with a null future (no waiting necessary). */
   public static <T> SerializationResult<T> createWithoutFuture(T object) {
     return new ObjectWithoutFuture<>(object);
   }

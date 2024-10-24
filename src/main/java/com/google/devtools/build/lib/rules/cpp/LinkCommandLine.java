@@ -18,49 +18,44 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.rules.cpp.LinkBuildVariables.LINKER_PARAM_FILE;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
-import com.google.devtools.build.lib.actions.CommandLine;
+import com.google.devtools.build.lib.actions.AbstractCommandLine;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.CommandLines;
+import com.google.devtools.build.lib.actions.ParamFileInfo;
+import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 
 /**
  * Represents the command line of a linker invocation. It supports executables and dynamic libraries
  * as well as static libraries.
  */
 @Immutable
-public final class LinkCommandLine extends CommandLine {
+public final class LinkCommandLine extends AbstractCommandLine {
   private final String actionName;
   private final String forcedToolPath;
   private final CcToolchainVariables variables;
   // The feature config can be null for tests.
   @Nullable private final FeatureConfiguration featureConfiguration;
-  private final LinkTargetType linkTargetType;
-  @Nullable private final PathFragment toolchainLibrariesSolibDir;
-  private final boolean nativeDeps;
-  private final boolean useTestOnlyFlags;
 
-  @Nullable private final Artifact paramFile;
+  private final boolean splitCommandLine;
+  private final ParameterFileType parameterFileType;
 
   private LinkCommandLine(
       String actionName,
       String forcedToolPath,
-      LinkTargetType linkTargetType,
-      @Nullable PathFragment toolchainLibrariesSolibDir,
-      boolean nativeDeps,
-      boolean useTestOnlyFlags,
-      @Nullable Artifact paramFile,
+      boolean splitCommandLine,
+      ParameterFileType parameterFileType,
       CcToolchainVariables variables,
       @Nullable FeatureConfiguration featureConfiguration) {
 
@@ -68,16 +63,8 @@ public final class LinkCommandLine extends CommandLine {
     this.forcedToolPath = forcedToolPath;
     this.variables = variables;
     this.featureConfiguration = featureConfiguration;
-    this.linkTargetType = Preconditions.checkNotNull(linkTargetType);
-    this.toolchainLibrariesSolibDir = toolchainLibrariesSolibDir;
-    this.nativeDeps = nativeDeps;
-    this.useTestOnlyFlags = useTestOnlyFlags;
-    this.paramFile = paramFile;
-  }
-
-  @Nullable
-  public Artifact getParamFile() {
-    return paramFile;
+    this.splitCommandLine = splitCommandLine;
+    this.parameterFileType = parameterFileType;
   }
 
   public String getActionName() {
@@ -85,40 +72,15 @@ public final class LinkCommandLine extends CommandLine {
   }
 
   /** Returns the path to the linker. */
-  public String getLinkerPathString() {
+  public String getLinkerPathString() throws EvalException {
     if (forcedToolPath != null) {
       return forcedToolPath;
     } else {
-      Preconditions.checkArgument(
-          featureConfiguration.actionIsConfigured(actionName),
-          "Expected action_config for '%s' to be configured",
-          actionName);
-      return featureConfiguration.getToolPathForAction(linkTargetType.getActionName());
+      if (!featureConfiguration.actionIsConfigured(actionName)) {
+        throw Starlark.errorf("Expected action_config for '%s' to be configured", actionName);
+      }
+      return featureConfiguration.getToolPathForAction(actionName);
     }
-  }
-
-  /**
-   * Returns the location of the C++ runtime solib symlinks. If null, the C++ dynamic runtime
-   * libraries either do not exist (because they do not come from the depot) or they are in the
-   * regular solib directory.
-   */
-  @Nullable
-  public PathFragment getToolchainLibrariesSolibDir() {
-    return toolchainLibrariesSolibDir;
-  }
-
-  /** Returns true for libraries linked as native dependencies for other languages. */
-  public boolean isNativeDeps() {
-    return nativeDeps;
-  }
-
-  /**
-   * Returns true if this link should use test-specific flags (e.g. $EXEC_ORIGIN as the root for
-   * finding shared libraries or lazy binding); false by default. See bug "Please use $EXEC_ORIGIN
-   * instead of $ORIGIN when linking cc_tests" for further context.
-   */
-  public boolean useTestOnlyFlags() {
-    return useTestOnlyFlags;
   }
 
   /** Returns the build variables used to template the crosstool for this linker invocation. */
@@ -127,70 +89,66 @@ public final class LinkCommandLine extends CommandLine {
     return this.variables;
   }
 
-  /** Returns just the .params file portion of the command-line as a {@link CommandLine}. */
-  CommandLine paramCmdLine() {
-    Preconditions.checkNotNull(paramFile);
-    return new CommandLine() {
-      @Override
-      public Iterable<String> arguments() throws CommandLineExpansionException {
-        return getParamCommandLine(null);
-      }
-
-      @Override
-      public List<String> arguments(ArtifactExpander expander, PathMapper pathMapper)
-          throws CommandLineExpansionException {
-        return getParamCommandLine(expander);
-      }
-    };
-  }
-
-  public List<String> getCommandLine(@Nullable ArtifactExpander expander)
+  public ImmutableList<String> getParamCommandLine(@Nullable ArtifactExpander expander)
       throws CommandLineExpansionException {
-    // Try to shorten the command line by use of a parameter file.
-    // This makes the output with --subcommands (et al) more readable.
-    List<String> argv = new ArrayList<>();
-    argv.add(getLinkerPathString());
-    try {
-      if (paramFile != null) {
-        // Retrieve only reference to linker_param_file from the command line.
-        String linkerParamFile =
-            variables
-                .getVariable(LINKER_PARAM_FILE.getVariableName())
-                .getStringValue(LINKER_PARAM_FILE.getVariableName());
-        argv.addAll(
-            featureConfiguration.getCommandLine(actionName, variables, expander).stream()
-                .filter(s -> s.contains(linkerParamFile))
-                .collect(toImmutableList()));
-      } else {
-        argv.addAll(featureConfiguration.getCommandLine(actionName, variables, expander));
-      }
-    } catch (ExpansionException e) {
-      throw new CommandLineExpansionException(e.getMessage());
-    }
-    return argv;
-  }
-
-  public List<String> getParamCommandLine(@Nullable ArtifactExpander expander)
-      throws CommandLineExpansionException {
-    List<String> argv = new ArrayList<>();
+    ImmutableList.Builder<String> argv = ImmutableList.builder();
     try {
       if (variables.isAvailable(LINKER_PARAM_FILE.getVariableName())) {
         // Filter out linker_param_file
         String linkerParamFile =
             variables
                 .getVariable(LINKER_PARAM_FILE.getVariableName())
-                .getStringValue(LINKER_PARAM_FILE.getVariableName());
+                .getStringValue(LINKER_PARAM_FILE.getVariableName(), PathMapper.NOOP);
         argv.addAll(
-            featureConfiguration.getCommandLine(actionName, variables, expander).stream()
+            featureConfiguration
+                .getCommandLine(actionName, variables, expander, PathMapper.NOOP)
+                .stream()
                 .filter(s -> !s.contains(linkerParamFile))
                 .collect(toImmutableList()));
       } else {
-        argv.addAll(featureConfiguration.getCommandLine(actionName, variables, expander));
+        argv.addAll(
+            featureConfiguration.getCommandLine(actionName, variables, expander, PathMapper.NOOP));
       }
     } catch (ExpansionException e) {
       throw new CommandLineExpansionException(e.getMessage());
     }
-    return argv;
+    return argv.build();
+  }
+
+  CommandLines getCommandLines() throws EvalException {
+    CommandLines.Builder builder = CommandLines.builder();
+    builder.addSingleArgument(getLinkerPathString());
+    builder.addCommandLine(this, getParamFileInfo());
+    return builder.build();
+  }
+
+  @Nullable
+  ParamFileInfo getParamFileInfo() throws EvalException {
+    ParamFileInfo paramFileInfo = null;
+    if (splitCommandLine) {
+      try {
+        Optional<String> formatString =
+            featureConfiguration
+                .getCommandLine(actionName, variables, null, PathMapper.NOOP)
+                .stream()
+                .filter(s -> s.contains("LINKER_PARAM_FILE_PLACEHOLDER"))
+                .findAny();
+        if (formatString.isPresent()) {
+          paramFileInfo =
+              ParamFileInfo.builder(parameterFileType)
+                  .setFlagFormatString(
+                      formatString
+                          .get()
+                          .replace("%", "%%")
+                          .replace("LINKER_PARAM_FILE_PLACEHOLDER", "%s"))
+                  .setUseAlways(true)
+                  .build();
+        }
+      } catch (ExpansionException e) {
+        throw new EvalException(e);
+      }
+    }
+    return paramFileInfo;
   }
 
   @Override
@@ -201,21 +159,15 @@ public final class LinkCommandLine extends CommandLine {
   @Override
   public List<String> arguments(ArtifactExpander artifactExpander, PathMapper pathMapper)
       throws CommandLineExpansionException {
-    return ImmutableList.<String>builder()
-        .add(getLinkerPathString())
-        .addAll(getParamCommandLine(artifactExpander))
-        .build();
+    return getParamCommandLine(artifactExpander);
   }
 
   /** A builder for a {@link LinkCommandLine}. */
   public static final class Builder {
 
     private String forcedToolPath;
-    @Nullable private LinkTargetType linkTargetType;
-    @Nullable private PathFragment toolchainLibrariesSolibDir;
-    private boolean nativeDeps;
-    private boolean useTestOnlyFlags;
-    @Nullable private Artifact paramFile;
+    private boolean splitCommandLine;
+    private ParameterFileType parameterFileType = ParameterFileType.UNQUOTED;
     private CcToolchainVariables variables;
     private FeatureConfiguration featureConfiguration;
     private String actionName;
@@ -228,11 +180,8 @@ public final class LinkCommandLine extends CommandLine {
       return new LinkCommandLine(
           actionName,
           forcedToolPath,
-          linkTargetType,
-          toolchainLibrariesSolibDir,
-          nativeDeps,
-          useTestOnlyFlags,
-          paramFile,
+          splitCommandLine,
+          parameterFileType,
           variables,
           featureConfiguration);
     }
@@ -251,55 +200,21 @@ public final class LinkCommandLine extends CommandLine {
       return this;
     }
 
-    /**
-     * Sets the type of the link. It is an error to try to set this to {@link
-     * LinkTargetType#INTERFACE_DYNAMIC_LIBRARY}. Note that all the static target types (see {@link
-     * LinkTargetType#linkerOrArchiver}) are equivalent, and there is no check that the output
-     * artifact matches the target type extension.
-     */
     @CanIgnoreReturnValue
-    public Builder setLinkTargetType(LinkTargetType linkTargetType) {
-      Preconditions.checkArgument(linkTargetType != LinkTargetType.INTERFACE_DYNAMIC_LIBRARY);
-      this.linkTargetType = linkTargetType;
-      return this;
-    }
-
-    /**
-     * Whether the resulting library is intended to be used as a native library from another
-     * programming language. This influences the rpath. The {@link #build} method throws an
-     * exception if this is true for a static link (see {@link LinkTargetType#linkerOrArchiver()}}).
-     */
-    @CanIgnoreReturnValue
-    public Builder setNativeDeps(boolean nativeDeps) {
-      this.nativeDeps = nativeDeps;
-      return this;
-    }
-
-    /**
-     * Sets whether to use test-specific linker flags, e.g. {@code $EXEC_ORIGIN} instead of {@code
-     * $ORIGIN} in the rpath or lazy binding.
-     */
-    @CanIgnoreReturnValue
-    public Builder setUseTestOnlyFlags(boolean useTestOnlyFlags) {
-      this.useTestOnlyFlags = useTestOnlyFlags;
+    public Builder setSplitCommandLine(boolean splitCommandLine) {
+      this.splitCommandLine = splitCommandLine;
       return this;
     }
 
     @CanIgnoreReturnValue
-    public Builder setParamFile(Artifact paramFile) {
-      this.paramFile = paramFile;
+    public Builder setParameterFileType(ParameterFileType parameterFileType) {
+      this.parameterFileType = parameterFileType;
       return this;
     }
 
     @CanIgnoreReturnValue
     public Builder setBuildVariables(CcToolchainVariables variables) {
       this.variables = variables;
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder setToolchainLibrariesSolibDir(PathFragment toolchainLibrariesSolibDir) {
-      this.toolchainLibrariesSolibDir = toolchainLibrariesSolibDir;
       return this;
     }
 

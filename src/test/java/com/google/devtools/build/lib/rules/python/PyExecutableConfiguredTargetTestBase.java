@@ -146,6 +146,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
         "invalid value in 'python_version' attribute: "
             + "has to be one of 'PY2' or 'PY3' instead of 'doesnotexist'",
         // build file:
+        bzlLoad,
         ruleDeclWithPyVersionAttr("foo", "doesnotexist"));
   }
 

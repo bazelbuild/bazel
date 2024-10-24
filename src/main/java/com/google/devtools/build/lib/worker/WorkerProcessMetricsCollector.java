@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.worker;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -23,7 +24,10 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics.WorkerStatus;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.metrics.CgroupsInfoCollector;
 import com.google.devtools.build.lib.metrics.PsInfoCollector;
+import com.google.devtools.build.lib.metrics.ResourceSnapshot;
+import com.google.devtools.build.lib.sandbox.Cgroup;
 import com.google.devtools.build.lib.util.OS;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -31,6 +35,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import javax.annotation.Nullable;
 
 /** Collects and populates system metrics about persistent workers. */
 public class WorkerProcessMetricsCollector {
@@ -38,16 +43,33 @@ public class WorkerProcessMetricsCollector {
   /** The metrics collector (a static singleton instance). Inactive by default. */
   private static final WorkerProcessMetricsCollector instance = new WorkerProcessMetricsCollector();
 
+  private final PsInfoCollector psInfoCollector;
+  private final CgroupsInfoCollector cgroupsInfoCollector;
+
   private Clock clock;
 
   /**
    * Mapping of worker process ids to their process metrics. This contains all workers that have
    * been alive at any point during the build.
    */
-  private final Map<Long, WorkerProcessMetrics> processIdToWorkerProcessMetrics =
+  private final Map<Long, WorkerProcessMetrics> pidToWorkerProcessMetrics =
       new ConcurrentHashMap<>();
 
-  private WorkerProcessMetricsCollector() {}
+  private final Map<Long, Cgroup> pidToCgroups = new ConcurrentHashMap<>();
+
+  private boolean useCgroupsOnLinux = false;
+
+  private WorkerProcessMetricsCollector() {
+    psInfoCollector = PsInfoCollector.instance();
+    cgroupsInfoCollector = CgroupsInfoCollector.instance();
+  }
+
+  @VisibleForTesting
+  WorkerProcessMetricsCollector(
+      PsInfoCollector psInfoCollector, CgroupsInfoCollector cgroupsInfoCollector) {
+    this.psInfoCollector = psInfoCollector;
+    this.cgroupsInfoCollector = cgroupsInfoCollector;
+  }
 
   public static WorkerProcessMetricsCollector instance() {
     return instance;
@@ -57,18 +79,47 @@ public class WorkerProcessMetricsCollector {
     this.clock = clock;
   }
 
+  public void setUseCgroupsOnLinux(boolean useCgroupsOnLinux) {
+    this.useCgroupsOnLinux = useCgroupsOnLinux;
+  }
+
+  ResourceSnapshot collectResourceUsage() {
+    // Only collect for process we know are alive.
+    ImmutableSet<Long> alivePids =
+        pidToWorkerProcessMetrics.entrySet().stream()
+            .filter(e -> !e.getValue().getStatus().isKilled())
+            .map(e -> e.getKey())
+            .collect(toImmutableSet());
+    return collectResourceUsage(OS.getCurrent(), alivePids);
+  }
+
   /**
    * Collects memory usage of all ancestors of processes by pid. If a pid does not allow collecting
    * memory usage, it is silently ignored.
    */
-  PsInfoCollector.ResourceSnapshot collectMemoryUsageByPid(OS os, ImmutableSet<Long> processIds) {
+  @VisibleForTesting
+  public ResourceSnapshot collectResourceUsage(OS os, ImmutableSet<Long> alivePids) {
     // TODO(b/181317827): Support Windows.
-    if (processIds.isEmpty() || (os != OS.LINUX && os != OS.DARWIN)) {
-      return PsInfoCollector.ResourceSnapshot.create(
-          /* pidToMemoryInKb= */ ImmutableMap.of(), /* collectionTime= */ Instant.now());
+    if (alivePids.isEmpty()) {
+      return ResourceSnapshot.createEmpty(clock.now());
     }
-
-    return PsInfoCollector.instance().collectResourceUsage(processIds);
+    if (os.equals(OS.DARWIN)) {
+      return psInfoCollector.collectResourceUsage(alivePids, clock);
+    }
+    if (os.equals(OS.LINUX)) {
+      if (useCgroupsOnLinux) {
+        // Remove the killed pids so that we only collect from the cgroups that are alive.
+        for (long pid : ImmutableSet.copyOf(pidToCgroups.keySet())) {
+          if (!alivePids.contains(pid)) {
+            pidToCgroups.remove(pid);
+          }
+        }
+        return cgroupsInfoCollector.collectResourceUsage(pidToCgroups, clock);
+      }
+      // Default to using ps if cgroups is not enabled.
+      return psInfoCollector.collectResourceUsage(alivePids, clock);
+    }
+    return ResourceSnapshot.createEmpty(clock.now());
   }
 
   public ImmutableList<WorkerProcessMetrics> getLiveWorkerProcessMetrics() {
@@ -78,24 +129,26 @@ public class WorkerProcessMetricsCollector {
   }
 
   public ImmutableList<WorkerProcessMetrics> collectMetrics() {
-    PsInfoCollector.ResourceSnapshot resourceSnapshot =
-        collectMemoryUsageByPid(
-            OS.getCurrent(), ImmutableSet.copyOf(processIdToWorkerProcessMetrics.keySet()));
+    ResourceSnapshot resourceSnapshot = collectResourceUsage();
 
     ImmutableMap<Long, Integer> pidToMemoryInKb = resourceSnapshot.getPidToMemoryInKb();
+
     Instant collectionTime = resourceSnapshot.getCollectionTime();
 
     ImmutableList.Builder<WorkerProcessMetrics> workerMetrics = new ImmutableList.Builder<>();
-    for (Map.Entry<Long, WorkerProcessMetrics> entry : processIdToWorkerProcessMetrics.entrySet()) {
+    for (Map.Entry<Long, WorkerProcessMetrics> entry : pidToWorkerProcessMetrics.entrySet()) {
       WorkerProcessMetrics workerMetric = entry.getValue();
-      Long pid = workerMetric.getProcessId();
-      boolean isMeasurable = pidToMemoryInKb.containsKey(pid);
 
-      if (!isMeasurable && workerMetric.getStatus().isKilled()) {
-        // If it is not measurable and previously killed by Bazel, we don't do anything.
+      if (workerMetric.getStatus().isKilled()) {
+        // If it was previously killed by Bazel, we don't do anything.
         workerMetrics.add(workerMetric);
         continue;
-      } else if (!isMeasurable) {
+      }
+
+      Long pid = workerMetric.getProcessId();
+      int memoryInKb = pidToMemoryInKb.getOrDefault(pid, 0);
+
+      if (memoryInKb == 0) {
         // If it is not measurable, not killed by Bazel but has executed actions, then we assume
         // that something has happened to the worker process that is not accounted for by Bazel
         // and set this to KILLED_UNKNOWN. If a separate thread comes along to update the status
@@ -110,8 +163,7 @@ public class WorkerProcessMetricsCollector {
 
       // If it is measurable, we want to update the collected metrics.
       workerMetric.addCollectedMetrics(
-          /* memoryInKb= */ pidToMemoryInKb.getOrDefault(pid, 0),
-          /* collectionTime= */ collectionTime);
+          /* memoryInKb= */ memoryInKb, /* collectionTime= */ collectionTime);
       workerMetrics.add(workerMetric);
     }
 
@@ -119,7 +171,7 @@ public class WorkerProcessMetricsCollector {
   }
 
   public void onWorkerFinishExecution(long processId) {
-    WorkerProcessMetrics wpm = processIdToWorkerProcessMetrics.get(processId);
+    WorkerProcessMetrics wpm = pidToWorkerProcessMetrics.get(processId);
     if (wpm == null) {
       return;
     }
@@ -129,15 +181,6 @@ public class WorkerProcessMetricsCollector {
   public static final int MAX_PUBLISHED_WORKER_METRICS = 50;
 
   /** Returns a prioritized and limited list of WorkerMetrics to be published to the BEP. */
-  public ImmutableList<WorkerMetrics> getPublishedWorkerMetrics() {
-    return collectMetrics().stream()
-        .map(WorkerProcessMetrics::toProto)
-        .sorted(new WorkerMetricsPublishComparator())
-        .limit(MAX_PUBLISHED_WORKER_METRICS)
-        .sorted(Comparator.comparingInt(m -> m.getWorkerIdsList().get(0)))
-        .collect(toImmutableList());
-  }
-
   public static ImmutableList<WorkerMetrics> limitWorkerMetricsToPublish(
       ImmutableList<WorkerMetrics> metrics, int limit) {
     return metrics.stream()
@@ -186,12 +229,12 @@ public class WorkerProcessMetricsCollector {
   }
 
   public void clear() {
-    processIdToWorkerProcessMetrics.clear();
+    pidToWorkerProcessMetrics.clear();
   }
 
   @VisibleForTesting
-  Map<Long, WorkerProcessMetrics> getProcessIdToWorkerProcessMetrics() {
-    return processIdToWorkerProcessMetrics;
+  Map<Long, WorkerProcessMetrics> getPidToWorkerProcessMetrics() {
+    return pidToWorkerProcessMetrics;
   }
 
   /**
@@ -205,9 +248,10 @@ public class WorkerProcessMetricsCollector {
       String mnemonic,
       boolean isMultiplex,
       boolean isSandboxed,
-      int workerKeyHash) {
+      int workerKeyHash,
+      @Nullable Cgroup cgroup) {
     WorkerProcessMetrics workerMetric =
-        processIdToWorkerProcessMetrics.computeIfAbsent(
+        pidToWorkerProcessMetrics.computeIfAbsent(
             processId,
             (pid) ->
                 new WorkerProcessMetrics(
@@ -218,7 +262,9 @@ public class WorkerProcessMetricsCollector {
                     isMultiplex,
                     isSandboxed,
                     workerKeyHash));
-
+    if (cgroup != null) {
+      pidToCgroups.putIfAbsent(processId, cgroup);
+    }
     workerMetric.setLastCallTime(Instant.ofEpochMilli(clock.currentTimeMillis()));
     workerMetric.maybeAddWorkerId(workerId, status);
   }
@@ -226,18 +272,16 @@ public class WorkerProcessMetricsCollector {
   /** Removes all WorkerProcessMetrics that were marked as killed. */
   public void clearKilledWorkerProcessMetrics() {
     List<Long> pidsToRemove = new ArrayList<>();
-    for (Map.Entry<Long, WorkerProcessMetrics> entry : processIdToWorkerProcessMetrics.entrySet()) {
+    for (Map.Entry<Long, WorkerProcessMetrics> entry : pidToWorkerProcessMetrics.entrySet()) {
       if (entry.getValue().getStatus().isKilled()) {
         pidsToRemove.add(entry.getKey());
       }
     }
-    processIdToWorkerProcessMetrics.keySet().removeAll(pidsToRemove);
+    pidToWorkerProcessMetrics.keySet().removeAll(pidsToRemove);
   }
 
   /** To reset states in each WorkerProcessMetric before each command where applicable. */
   public void beforeCommand() {
-    processIdToWorkerProcessMetrics.values().forEach(m -> m.onBeforeCommand());
+    pidToWorkerProcessMetrics.values().forEach(m -> m.onBeforeCommand());
   }
-
-  // TODO(b/238416583) Add deregister function
 }

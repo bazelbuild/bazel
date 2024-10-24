@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
@@ -216,8 +217,7 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
       if (this == other) {
         return true;
       }
-      if (other instanceof Key) {
-        Key that = (Key) other;
+      if (other instanceof Key that) {
         // Compare roots last since that's the more expensive step.
         return this.kind == that.kind
             && Objects.equals(this.label, that.label)
@@ -253,7 +253,8 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
   }
 
   /** Constructs a key for loading the prelude .bzl. */
-  static Key keyForBuildPrelude(Root root, Label label) {
+  @VisibleForTesting
+  public static Key keyForBuildPrelude(Root root, Label label) {
     return Key.create(root, label, Kind.PRELUDE);
   }
 

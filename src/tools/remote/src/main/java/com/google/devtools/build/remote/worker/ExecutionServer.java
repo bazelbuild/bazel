@@ -29,6 +29,8 @@ import build.bazel.remote.execution.v2.Platform.Property;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.WaitExecutionRequest;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -36,6 +38,8 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.events.NullEventHandler;
+import com.google.devtools.build.lib.exec.BinTools;
+import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.remote.ExecutionStatusException;
 import com.google.devtools.build.lib.remote.UploadManifest;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
@@ -50,14 +54,17 @@ import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.shell.FutureCommandResult;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.runfiles.Runfiles;
 import com.google.longrunning.Operation;
 import com.google.protobuf.Any;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.ExtensionRegistry;
 import com.google.protobuf.util.Durations;
 import com.google.rpc.Code;
 import com.google.rpc.Status;
 import io.grpc.StatusException;
 import io.grpc.protobuf.StatusProto;
+import io.grpc.stub.ServerCallStreamObserver;
 import io.grpc.stub.StreamObserver;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -70,6 +77,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -101,6 +109,8 @@ final class ExecutionServer extends ExecutionImplBase {
   private final ConcurrentHashMap<String, ListenableFuture<ActionResult>> operationsCache;
   private final ListeningExecutorService executorService;
   private final DigestUtil digestUtil;
+  private final LocalEnvProvider localEnvProvider;
+  private final BinTools binTools;
 
   public ExecutionServer(
       Path workPath,
@@ -134,6 +144,21 @@ final class ExecutionServer extends ExecutionImplBase {
     // Allow the core threads to die.
     realExecutor.allowCoreThreadTimeOut(true);
     this.executorService = MoreExecutors.listeningDecorator(realExecutor);
+    this.localEnvProvider = LocalEnvProvider.forCurrentOs(System.getenv());
+    String xcodeLocator;
+    try {
+      xcodeLocator =
+          Runfiles.preload()
+              .withSourceRepository("")
+              .rlocation(
+                  "io_bazel/src/tools/remote/src/main/java/com/google/devtools/build/remote/worker/xcode-locator");
+    } catch (IOException e) {
+      throw new IllegalStateException(e);
+    }
+    this.binTools =
+        BinTools.forEmbeddedBin(
+            workPath.getFileSystem().getPath(xcodeLocator).getParentDirectory(),
+            ImmutableList.of("xcode-locator"));
   }
 
   @Override
@@ -149,6 +174,8 @@ final class ExecutionServer extends ExecutionImplBase {
                   .build()));
       return;
     }
+    ((ServerCallStreamObserver<Operation>) responseObserver)
+        .setOnCancelHandler(() -> operationsCache.remove(opName));
     waitExecution(opName, future, responseObserver);
   }
 
@@ -174,8 +201,8 @@ final class ExecutionServer extends ExecutionImplBase {
             }
           } catch (Exception e) {
             ExecuteResponse resp;
-            if (e instanceof ExecutionStatusException) {
-              resp = ((ExecutionStatusException) e).getResponse();
+            if (e instanceof ExecutionStatusException executionStatusException) {
+              resp = executionStatusException.getResponse();
             } else {
               logger.atSevere().withCause(e).log("Work failed: %s", opName);
               resp =
@@ -209,6 +236,8 @@ final class ExecutionServer extends ExecutionImplBase {
     ListenableFuture<ActionResult> future =
         executorService.submit(() -> execute(context, request, opName));
     operationsCache.put(opName, future);
+    ((ServerCallStreamObserver<Operation>) responseObserver)
+        .setOnCancelHandler(() -> operationsCache.remove(opName));
     // Send the first operation.
     responseObserver.onNext(Operation.newBuilder().setName(opName).build());
     // When the operation completes, send the result.
@@ -229,7 +258,12 @@ final class ExecutionServer extends ExecutionImplBase {
               "build-request-id: %s command-id: %s action-id: %s",
               meta.getCorrelatedInvocationsId(), meta.getToolInvocationId(), meta.getActionId());
       logger.atFine().log("Received work for: %s", workDetails);
-      ActionResult result = execute(context, request.getActionDigest(), tempRoot);
+      ActionResult result =
+          execute(
+              context,
+              request.getActionDigest(),
+              ImmutableSet.copyOf(request.getInlineOutputFilesList()),
+              tempRoot);
       logger.atFine().log("Completed %s", workDetails);
       return result;
     } catch (Exception e) {
@@ -249,7 +283,10 @@ final class ExecutionServer extends ExecutionImplBase {
   }
 
   private ActionResult execute(
-      RemoteActionExecutionContext context, Digest actionDigest, Path execRoot)
+      RemoteActionExecutionContext context,
+      Digest actionDigest,
+      Set<String> inlineOutputFiles,
+      Path execRoot)
       throws IOException, InterruptedException, StatusException {
     Command command;
     Action action;
@@ -271,27 +308,44 @@ final class ExecutionServer extends ExecutionImplBase {
     Path workingDirectory = execRoot.getRelative(command.getWorkingDirectory());
     workingDirectory.createDirectoryAndParents();
 
-    List<Path> outputs =
-        new ArrayList<>(command.getOutputDirectoriesCount() + command.getOutputFilesCount());
-
-    for (String output : command.getOutputFilesList()) {
-      Path file = workingDirectory.getRelative(output);
-      if (file.exists()) {
-        throw new FileAlreadyExistsException("Output file already exists: " + file);
-      }
-      file.getParentDirectory().createDirectoryAndParents();
-      outputs.add(file);
-    }
-    for (String output : command.getOutputDirectoriesList()) {
-      Path file = workingDirectory.getRelative(output);
-      if (file.exists()) {
-        if (!file.isDirectory()) {
-          throw new FileAlreadyExistsException(
-              "Non-directory exists at output directory path: " + file);
+    List<Path> outputs;
+    if (command.getOutputPathsCount() == 0) {
+      outputs =
+          new ArrayList<>(command.getOutputDirectoriesCount() + command.getOutputFilesCount());
+      for (String output : command.getOutputFilesList()) {
+        var file = workingDirectory.getRelative(output);
+        if (file.exists()) {
+          throw new FileAlreadyExistsException("Output file already exists: " + file);
         }
+        file.getParentDirectory().createDirectoryAndParents();
+        outputs.add(file);
       }
-      file.getParentDirectory().createDirectoryAndParents();
-      outputs.add(file);
+      for (String output : command.getOutputDirectoriesList()) {
+        Path file = workingDirectory.getRelative(output);
+        if (file.exists()) {
+          if (!file.isDirectory()) {
+            throw new FileAlreadyExistsException(
+                "Non-directory exists at output directory path: " + file);
+          }
+        }
+        file.getParentDirectory().createDirectoryAndParents();
+        outputs.add(file);
+      }
+    } else {
+      outputs = new ArrayList<>(command.getOutputPathsCount());
+      for (String output : command.getOutputPathsList()) {
+        var file = workingDirectory.getRelative(output);
+        // Since https://github.com/bazelbuild/bazel/pull/15818,
+        // Bazel includes all expected output directories as part of Action's inputs.
+        //
+        // Ensure no output file exists before execution happen.
+        // Ignore if output directories pre-exist.
+        if (file.exists() && !file.isDirectory()) {
+          throw new FileAlreadyExistsException("Output file already exists: " + file);
+        }
+        file.getParentDirectory().createDirectoryAndParents();
+        outputs.add(file);
+      }
     }
 
     // TODO(ulfjack): This is basically a copy of LocalSpawnRunner. Ideally, we'd use that
@@ -355,7 +409,7 @@ final class ExecutionServer extends ExecutionImplBase {
         UploadManifest manifest =
             UploadManifest.create(
                 cache.getRemoteOptions(),
-                cache.getCacheCapabilities(),
+                cache.getRemoteCacheCapabilities(),
                 digestUtil,
                 RemotePathResolver.createDefault(workingDirectory),
                 actionKey,
@@ -381,6 +435,23 @@ final class ExecutionServer extends ExecutionImplBase {
         result = ActionResult.newBuilder().setExitCode(exitCode).build();
       }
 
+      for (int i = 0; i < result.getOutputFilesCount(); i++) {
+        var outputFile = result.getOutputFiles(i);
+        if (inlineOutputFiles.contains(outputFile.getPath())) {
+          try {
+            ByteString content =
+                ByteString.copyFrom(cache.downloadBlob(context, outputFile.getDigest()).get());
+            result =
+                result.toBuilder()
+                    .setOutputFiles(i, outputFile.toBuilder().setContents(content))
+                    .build();
+          } catch (ExecutionException e) {
+            // Inlining is best-effort. If it fails, we just don't inline the file.
+          }
+          break;
+        }
+      }
+
       resp.setResult(result);
 
       if (errStatus != null) {
@@ -401,12 +472,13 @@ final class ExecutionServer extends ExecutionImplBase {
     return timeoutMillis > 0 && wallTimeMillis > timeoutMillis;
   }
 
-  private static Map<String, String> getEnvironmentVariables(Command command) {
+  private Map<String, String> getEnvironmentVariables(Command command)
+      throws IOException, InterruptedException {
     HashMap<String, String> result = new HashMap<>();
     for (EnvironmentVariable v : command.getEnvironmentVariablesList()) {
       result.put(v.getName(), v.getValue());
     }
-    return result;
+    return new HashMap<>(localEnvProvider.rewriteLocalEnv(result, binTools, "/tmp"));
   }
 
   // Gets the uid of the current user. If uid could not be successfully fetched (e.g., on other
@@ -419,8 +491,8 @@ final class ExecutionServer extends ExecutionImplBase {
     com.google.devtools.build.lib.shell.Command cmd =
         new com.google.devtools.build.lib.shell.Command(
             new String[] {"id", "-u"},
-            /*environmentVariables=*/ null,
-            /*workingDirectory=*/ null,
+            /* environmentVariables= */ null,
+            /* workingDirectory= */ null,
             uidTimeout);
     try {
       ByteArrayOutputStream stdout = new ByteArrayOutputStream();
@@ -481,7 +553,7 @@ final class ExecutionServer extends ExecutionImplBase {
   // arguments. Otherwise, returns a Command that would run the specified command inside the
   // specified docker container.
   private com.google.devtools.build.lib.shell.Command getCommand(Command cmd, String pathString)
-      throws StatusException, InterruptedException {
+      throws StatusException, InterruptedException, IOException {
     Map<String, String> environmentVariables = getEnvironmentVariables(cmd);
     // This allows Bazel's integration tests to test for the remote platform.
     environmentVariables.put("BAZEL_REMOTE_PLATFORM", platformAsString(cmd.getPlatform()));

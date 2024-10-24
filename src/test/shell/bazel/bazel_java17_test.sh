@@ -49,34 +49,19 @@ msys*|mingw*|cygwin*)
   ;;
 esac
 
-if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 RULES_JAVA_REPO_NAME=$(cat "$(rlocation io_bazel/src/test/shell/bazel/RULES_JAVA_REPO_NAME)")
-JAVA_TOOLS_REPO_PREFIX="${RULES_JAVA_REPO_NAME}~toolchains~"
-
 JAVA_TOOLS_ZIP="$1"; shift
-if [[ "${JAVA_TOOLS_ZIP}" != "released" ]]; then
-  JAVA_TOOLS_ZIP_FILE="$(rlocation "${JAVA_TOOLS_ZIP}")"
-  JAVA_TOOLS_DIR="$TEST_TMPDIR/_java_tools"
-  unzip -q "${JAVA_TOOLS_ZIP_FILE}" -d "$JAVA_TOOLS_DIR"
-  touch "$JAVA_TOOLS_DIR/WORKSPACE"
-  add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools=${JAVA_TOOLS_DIR}"
-fi
-
 JAVA_TOOLS_PREBUILT_ZIP="$1"; shift
-if [[ "${JAVA_TOOLS_PREBUILT_ZIP}" != "released" ]]; then
-  JAVA_TOOLS_PREBUILT_ZIP_FILE="$(rlocation "${JAVA_TOOLS_PREBUILT_ZIP}")"
-  JAVA_TOOLS_PREBUILT_DIR="$TEST_TMPDIR/_java_tools_prebuilt"
-  unzip -q "${JAVA_TOOLS_PREBUILT_ZIP_FILE}" -d "$JAVA_TOOLS_PREBUILT_DIR"
-  touch "$JAVA_TOOLS_PREBUILT_DIR/WORKSPACE"
-  add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools_linux=${JAVA_TOOLS_PREBUILT_DIR}"
-  add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools_windows=${JAVA_TOOLS_PREBUILT_DIR}"
-  add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools_darwin_x86_64=${JAVA_TOOLS_PREBUILT_DIR}"
-  add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools_darwin_arm64=${JAVA_TOOLS_PREBUILT_DIR}"
-fi
+
+override_java_tools "${RULES_JAVA_REPO_NAME}" "${JAVA_TOOLS_ZIP}" "${JAVA_TOOLS_PREBUILT_ZIP}"
+
+# Override test globals that are defaulted to 21 in testenv.sh.tmpl for all
+# other tests. For the purpose of this test, we want to run java_tools at
+# runtime 11 to test for failures in incompatible system classpaths.
+add_to_bazelrc "build --java_runtime_version=11"
+add_to_bazelrc "build --tool_java_runtime_version=11"
+
+add_protobuf "MODULE.bazel"
 
 # Java source files version shall match --java_language_version_flag version.
 function test_java17_text_block() {

@@ -19,22 +19,24 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import java.util.List;
 
-/** Defines the options specific to Bazel's sync command */
+/** Defines the options specific to Bazel's fetch command */
 public class FetchOptions extends OptionsBase {
+
   @Option(
       name = "all",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.CHANGES_INPUTS},
       help =
-          "Fetches all external repositories necessary for building any target or repository. Only"
-              + " works when --enable_bzlmod is on.")
+          "Fetches all external repositories necessary for building any target or repository. "
+              + "This is the default if no other flags and arguments are provided. Only works "
+              + "when --enable_bzlmod is on.")
   public boolean all;
 
   @Option(
       name = "configure",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      documentationCategory = OptionDocumentationCategory.BZLMOD,
       effectTags = {OptionEffectTag.CHANGES_INPUTS},
       help =
           "Only fetches repositories marked as 'configure' for system-configuration purpose. Only"
@@ -45,7 +47,7 @@ public class FetchOptions extends OptionsBase {
       name = "repo",
       defaultValue = "null",
       allowMultiple = true,
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      documentationCategory = OptionDocumentationCategory.BZLMOD,
       effectTags = {OptionEffectTag.CHANGES_INPUTS},
       help =
           "Only fetches the specified repository, which can be either {@apparent_repo_name} or"
@@ -55,7 +57,7 @@ public class FetchOptions extends OptionsBase {
   @Option(
       name = "force",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      documentationCategory = OptionDocumentationCategory.BZLMOD,
       effectTags = {OptionEffectTag.CHANGES_INPUTS},
       help =
           "Ignore existing repository if any and force fetch the repository again. Only works when "

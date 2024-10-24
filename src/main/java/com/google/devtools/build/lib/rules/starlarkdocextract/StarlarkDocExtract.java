@@ -20,15 +20,15 @@ import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
-import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
+import static com.google.devtools.build.lib.packages.Types.STRING_LIST;
 import static java.util.stream.Collectors.partitioningBy;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteSource;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -52,8 +52,10 @@ import com.google.devtools.build.lib.skyframe.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
-import com.google.devtools.build.skydoc.rendering.LabelRenderer;
-import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ModuleInfo;
+import com.google.devtools.build.lib.starlarkdocextract.ExtractionException;
+import com.google.devtools.build.lib.starlarkdocextract.LabelRenderer;
+import com.google.devtools.build.lib.starlarkdocextract.ModuleInfoExtractor;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ModuleInfo;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.TextFormat;
@@ -304,7 +306,7 @@ public class StarlarkDocExtract implements RuleConfiguredTargetFactory {
       moduleInfo =
           new ModuleInfoExtractor(getWantedSymbolPredicate(ruleContext), labelRenderer)
               .extractFrom(module);
-    } catch (ModuleInfoExtractor.ExtractionException e) {
+    } catch (ExtractionException e) {
       ruleContext.ruleError(e.getMessage());
       throw new RuleErrorException(e);
     }

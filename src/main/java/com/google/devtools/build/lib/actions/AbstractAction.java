@@ -64,7 +64,7 @@ import net.starlark.java.eval.Sequence;
  */
 @Immutable
 @ThreadSafe
-public abstract class AbstractAction extends ActionKeyCacher implements Action, ActionApi {
+public abstract class AbstractAction extends ActionKeyComputer implements Action, ActionApi {
 
   /**
    * An arbitrary default resource set. We assume that a typical subprocess is single-threaded
@@ -125,8 +125,8 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   /**
    * {@inheritDoc}
    *
-   * <p>Should be overridden along with {@link #discoverInputs}, {@link #inputsDiscovered}, and
-   * {@link #setInputsDiscovered} by actions that do input discovery.
+   * <p>Should be overridden along with {@link #discoverInputs}, {@link #inputsDiscovered}, {@link
+   * #setInputsDiscovered} and {@link #getOriginalInputs} by actions that do input discovery.
    */
   @Override
   public boolean discoversInputs() {
@@ -137,8 +137,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   @Nullable
   public NestedSet<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
-    throw new IllegalStateException("discoverInputs cannot be called for " + this.prettyPrint()
-        + " since it does not discover inputs");
+    throw new IllegalStateException("Not an input-discovering action: " + this);
   }
 
   @Override
@@ -147,12 +146,9 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
     if (!inputsKnown()) {
       return;
     }
-    NestedSet<Artifact> originalInputs = getOriginalInputs();
-    if (originalInputs != null) {
-      synchronized (this) {
-        inputs = originalInputs;
-        setInputsDiscovered(false);
-      }
+    synchronized (this) {
+      inputs = getOriginalInputs();
+      setInputsDiscovered(false);
     }
   }
 
@@ -168,7 +164,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   @ForOverride
   @GuardedBy("this")
   protected boolean inputsDiscovered() {
-    throw new IllegalStateException("Must be overridden by input-discovering actions: " + this);
+    throw new IllegalStateException("Must be overridden by input-discovering action: " + this);
   }
 
   /**
@@ -178,26 +174,19 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   @ForOverride
   @GuardedBy("this")
   protected void setInputsDiscovered(boolean inputsDiscovered) {
-    throw new IllegalStateException("Must be overridden by input-discovering actions: " + this);
+    throw new IllegalStateException("Must be overridden by input-discovering action: " + this);
   }
 
-  /**
-   * Returns this action's <em>original</em> inputs, prior to {@linkplain #discoverInputs input
-   * discovery}.
-   *
-   * <p>Input-discovering actions which are able to reconstitute their original inputs may override
-   * this, allowing for memory savings.
-   */
-  @Nullable
-  @ForOverride
-  protected NestedSet<Artifact> getOriginalInputs() {
-    return null;
+  @Override
+  public NestedSet<Artifact> getOriginalInputs() {
+    checkState(!discoversInputs(), "Must be overridden by input-discovering action");
+    return getInputs();
   }
 
   @Override
   public NestedSet<Artifact> getAllowedDerivedInputs() {
     throw new IllegalStateException(
-        "Method must be overridden for actions that may have unknown inputs.");
+        "Must be overridden for action that may have unknown inputs: " + this);
   }
 
   @Override
@@ -217,7 +206,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
    */
   @Override
   public synchronized void updateInputs(NestedSet<Artifact> inputs) {
-    checkState(discoversInputs(), "Can't update inputs unless discovering: %s %s", this, inputs);
+    checkState(discoversInputs(), "Not an input-discovering action: %s", this);
     this.inputs = inputs;
     setInputsDiscovered(true);
   }
@@ -252,14 +241,9 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   @Override
-  public RunfilesSupplier getRunfilesSupplier() {
-    return EmptyRunfilesSupplier.INSTANCE;
-  }
-
-  @Override
   public Collection<Artifact> getOutputs() {
-    return outputs instanceof Artifact
-        ? ImmutableSet.of((Artifact) outputs)
+    return outputs instanceof Artifact artifact
+        ? ImmutableSet.of(artifact)
         : new OutputSet((Artifact[]) outputs);
   }
 
@@ -289,11 +273,31 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
     }
   }
 
+  @Nullable
   @Override
   public Artifact getPrimaryInput() {
     // The default behavior is to return the first input artifact.
     // Call through the method, not the field, because it may be overridden.
-    return Iterables.getFirst(getInputs().toList(), null);
+    return getFirstOrNull(getInputs());
+  }
+
+  @Nullable
+  private Artifact getOriginalPrimaryInput() {
+    // The default behavior is to return the first input artifact of the original input list (before
+    // input discovery).
+    // Call through the method, not the field, because it may be overridden.
+    return getFirstOrNull(getOriginalInputs());
+  }
+
+  @Nullable
+  private static Artifact getFirstOrNull(NestedSet<Artifact> inputs) {
+    if (inputs.isEmpty()) {
+      return null;
+    } else if (inputs.isSingleton()) {
+      return inputs.getSingleton();
+    } else {
+      return inputs.toList().getFirst();
+    }
   }
 
   @Override
@@ -373,21 +377,18 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   private String replaceProgressMessagePlaceholders(
       String progressMessage, @Nullable RepositoryMapping mainRepositoryMapping) {
     if (progressMessage.contains("%{label}") && owner.getLabel() != null) {
-      String labelString;
-      if (mainRepositoryMapping != null) {
-        labelString = owner.getLabel().getDisplayForm(mainRepositoryMapping);
-      } else {
-        labelString = owner.getLabel().toString();
-      }
-      progressMessage = progressMessage.replace("%{label}", labelString);
+      progressMessage =
+          progressMessage.replace(
+              "%{label}", owner.getLabel().getDisplayForm(mainRepositoryMapping));
     }
     if (progressMessage.contains("%{output}") && getPrimaryOutput() != null) {
       progressMessage =
           progressMessage.replace("%{output}", getPrimaryOutput().getRootRelativePathString());
     }
-    if (progressMessage.contains("%{input}") && getPrimaryInput() != null) {
+    if (progressMessage.contains("%{input}") && getOriginalPrimaryInput() != null) {
       progressMessage =
-          progressMessage.replace("%{input}", getPrimaryInput().getRootRelativePathString());
+          progressMessage.replace(
+              "%{input}", getOriginalPrimaryInput().getRootRelativePathString());
     }
     return progressMessage;
   }
@@ -661,5 +662,13 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   @Nullable
   public PlatformInfo getExecutionPlatform() {
     return owner.getExecutionPlatform();
+  }
+
+  /**
+   * Returns artifacts that should be subject to path mapping (see {@link Spawn#getPathMapper()},
+   * but aren't inputs of the action.
+   */
+  public NestedSet<Artifact> getAdditionalArtifactsForPathMapping() {
+    return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 }

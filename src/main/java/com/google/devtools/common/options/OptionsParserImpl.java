@@ -14,6 +14,7 @@
 
 package com.google.devtools.common.options;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.common.options.OptionPriority.PriorityCategory.INVOCATION_POLICY;
 import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.toCollection;
@@ -26,6 +27,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterators;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionValueDescription.ExpansionBundle;
+import com.google.devtools.common.options.OptionsParser.ArgAndFallbackData;
 import com.google.devtools.common.options.OptionsParser.OptionDescription;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.Keep;
@@ -44,7 +46,9 @@ import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
+import net.starlark.java.spelling.SpellChecker;
 
 /**
  * The implementation of the options parser. This is intentionally package private for full
@@ -203,7 +207,7 @@ class OptionsParserImpl {
   static {
     try {
       skippedArgsDefinition =
-          OptionDefinition.extractOptionDefinition(
+          FieldOptionDefinition.extractOptionDefinition(
               OptionsParserImpl.class.getDeclaredField("skippedArgs"));
     } catch (NoSuchFieldException e) {
       throw new IllegalStateException(e);
@@ -280,7 +284,7 @@ class OptionsParserImpl {
   List<String> asCanonicalizedList() {
     return asCanonicalizedListOfParsedOptions().stream()
         .map(ParsedOptionDescription::getDeprecatedCanonicalForm)
-        .collect(ImmutableList.toImmutableList());
+        .collect(toImmutableList());
   }
 
   /** Implements {@link OptionsParser#canonicalize}. */
@@ -291,7 +295,7 @@ class OptionsParserImpl {
         .flatMap(Collection::stream)
         // Return the effective (canonical) options in the order they were applied.
         .sorted(comparing(ParsedOptionDescription::getPriority))
-        .collect(ImmutableList.toImmutableList());
+        .collect(toImmutableList());
   }
 
   /** Implements {@link OptionsParser#asListOfOptionValues()}. */
@@ -310,6 +314,14 @@ class OptionsParserImpl {
     return result;
   }
 
+  List<OptionValueDescription> allOptionValues() {
+    return optionsData.getAllOptionDefinitions().stream()
+        .map(Map.Entry::getValue)
+        .map(optionValues::get)
+        .filter(optionValue -> optionValue != null)
+        .collect(toImmutableList());
+  }
+
   private void maybeAddDeprecationWarning(
       OptionDefinition optionDefinition, PriorityCategory priority) {
     // Don't add a warning for deprecated flag set by the invocation policy.
@@ -318,7 +330,7 @@ class OptionsParserImpl {
     }
     // Continue to support the old behavior for @Deprecated options.
     String warning = optionDefinition.getDeprecationWarning();
-    if (!warning.isEmpty() || optionDefinition.getField().isAnnotationPresent(Deprecated.class)) {
+    if (!warning.isEmpty() || optionDefinition.isDeprecated()) {
       addDeprecationWarning(optionDefinition.getOptionName(), warning);
     }
   }
@@ -449,17 +461,10 @@ class OptionsParserImpl {
   OptionsParserImplResult parse(
       PriorityCategory priorityCat,
       Function<OptionDefinition, String> sourceFunction,
-      List<String> args,
-      OptionsData fallbackData)
+      List<ArgAndFallbackData> args)
       throws OptionsParsingException {
     OptionsParserImplResult optionsParserImplResult =
-        parse(
-            nextPriorityPerPriorityCategory.get(priorityCat),
-            sourceFunction,
-            null,
-            null,
-            args,
-            fallbackData);
+        parse(nextPriorityPerPriorityCategory.get(priorityCat), sourceFunction, null, null, args);
     nextPriorityPerPriorityCategory.put(priorityCat, optionsParserImplResult.nextPriority);
     return optionsParserImplResult;
   }
@@ -477,16 +482,19 @@ class OptionsParserImpl {
       Function<OptionDefinition, String> sourceFunction,
       ParsedOptionDescription implicitDependent,
       ParsedOptionDescription expandedFrom,
-      List<String> args,
-      OptionsData fallbackData)
+      List<ArgAndFallbackData> args)
       throws OptionsParsingException {
     List<String> unparsedArgs = new ArrayList<>();
     List<String> unparsedPostDoubleDashArgs = new ArrayList<>();
     List<String> ignoredArgs = new ArrayList<>();
 
-    Iterator<String> argsIterator = argsPreProcessor.preProcess(args).iterator();
-    while (argsIterator.hasNext()) {
-      String arg = argsIterator.next();
+    Iterator<ArgAndFallbackData> argsAndFallbackDataIterator =
+        argsPreProcessor.preProcess(args).iterator();
+    Iterator<String> argsIterator = Iterators.transform(argsAndFallbackDataIterator, a -> a.arg);
+    while (argsAndFallbackDataIterator.hasNext()) {
+      ArgAndFallbackData argAndFallbackData = argsAndFallbackDataIterator.next();
+      String arg = argAndFallbackData.arg;
+      @Nullable OptionsData fallbackData = argAndFallbackData.fallbackData;
 
       if (!arg.startsWith("-")) {
         unparsedArgs.add(arg);
@@ -594,16 +602,14 @@ class OptionsParserImpl {
   OptionsParserImplResult parseArgsAsExpansionOfOption(
       ParsedOptionDescription optionToExpand,
       Function<OptionDefinition, String> sourceFunction,
-      List<String> args,
-      OptionsData fallbackData)
+      List<ArgAndFallbackData> args)
       throws OptionsParsingException {
     return parse(
         OptionPriority.getChildPriority(optionToExpand.getPriority()),
         sourceFunction,
         null,
         optionToExpand,
-        args,
-        fallbackData);
+        args);
   }
 
   /**
@@ -644,7 +650,8 @@ class OptionsParserImpl {
   }
 
   /** Takes care of tracking the parsed option's value in relation to other options. */
-  private void handleNewParsedOption(ParsedOptionDescription parsedOption, OptionsData fallbackData)
+  private void handleNewParsedOption(
+      ParsedOptionDescription parsedOption, @Nullable OptionsData fallbackData)
       throws OptionsParsingException {
     OptionDefinition optionDefinition = parsedOption.getOptionDefinition();
     ExpansionBundle expansionBundle = setOptionValue(parsedOption);
@@ -657,8 +664,7 @@ class OptionsParserImpl {
               o -> expansionBundle.sourceOfExpansionArgs,
               optionDefinition.hasImplicitRequirements() ? parsedOption : null,
               optionDefinition.isExpansionOption() ? parsedOption : null,
-              expansionBundle.expansionArgs,
-              fallbackData);
+              ArgAndFallbackData.wrapWithFallbackData(expansionBundle.expansionArgs, fallbackData));
       if (!optionsParserImplResult.getResidue().isEmpty()) {
 
         // Throw an assertion here, because this indicates an error in the definition of this
@@ -791,9 +797,16 @@ class OptionsParserImpl {
       throw new OptionsParsingException("Invalid options syntax: " + arg, arg);
     }
 
+    // Do not recognize internal options, which are treated as if they did not exist.
     if (lookupResult == null || shouldIgnoreOption(lookupResult.definition)) {
-      // Do not recognize internal options, which are treated as if they did not exist.
-      throw new OptionsParsingException("Unrecognized option: " + arg, arg);
+      String suggestion;
+      // Do not offer suggestions for short-form options.
+      if (arg.startsWith("--")) {
+        suggestion = SpellChecker.didYouMean(arg, getAllValidArgs());
+      } else {
+        suggestion = "";
+      }
+      throw new OptionsParsingException("Unrecognized option: " + arg + suggestion, arg);
     }
 
     if (unconvertedValue == null) {
@@ -833,6 +846,22 @@ class OptionsParserImpl {
                 !parsedOptionName.isEmpty()
                     && lookupResult.definition.getOldOptionName().equals(parsedOptionName))),
         Optional.empty());
+  }
+
+  private Iterable<String> getAllValidArgs() {
+    return () ->
+        optionsData.getAllOptionDefinitions().stream()
+            .filter(entry -> !shouldIgnoreOption(entry.getValue()))
+            .flatMap(
+                definition -> {
+                  Stream.Builder<String> builder = Stream.builder();
+                  builder.add("--" + definition.getKey());
+                  if (definition.getValue().usesBooleanValueSyntax()) {
+                    builder.add("--no" + definition.getKey());
+                  }
+                  return builder.build();
+                })
+            .iterator();
   }
 
   /**
@@ -940,15 +969,10 @@ class OptionsParserImpl {
         value = optionValue.getValue();
       }
       try {
-        optionDefinition.getField().set(optionsInstance, value);
+        optionDefinition.setValue(optionsInstance, value);
       } catch (IllegalArgumentException e) {
         // May happen when a boolean option got a string value. Just ignore this error without
         // updating the field. Fixes https://github.com/bazelbuild/bazel/issues/7847
-      } catch (IllegalAccessException e) {
-        throw new IllegalStateException(
-            "Could not set the field due to access issues. This is impossible, as the "
-                + "OptionProcessor checks that all options are non-final public fields.",
-            e);
       }
     }
     return optionsInstance;

@@ -20,7 +20,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.config.TransitionFactories;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.util.MockRule;
@@ -66,30 +66,45 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
 
     writeFile(
         "test/BUILD",
-        "my_rule(name = 'rule_with_patch',",
-        "  patched = [':foo', ':foo2', ':trimmed_foo'],",
-        ")",
-        "my_rule(name = 'rule_with_split',",
-        "  split = ':bar',",
-        ")",
-        "simple_rule(name = 'foo')",
-        "simple_rule(name = 'foo2')",
-        "simple_rule(name = 'trimmed_foo')",
-        "simple_rule(name = 'bar')");
+        """
+        my_rule(
+            name = "rule_with_patch",
+            patched = [
+                ":foo",
+                ":foo2",
+                ":trimmed_foo",
+            ],
+        )
+
+        my_rule(
+            name = "rule_with_split",
+            split = ":bar",
+        )
+
+        simple_rule(name = "foo")
+
+        simple_rule(name = "foo2")
+
+        simple_rule(name = "trimmed_foo")
+
+        simple_rule(name = "bar")
+        """);
 
     List<String> result = getOutput("deps(//test:rule_with_patch)", Transitions.FULL);
 
-    assertThat(result.get(0)).startsWith("FooPatchTransition -> //test:rule_with_patch");
+    assertThat(result.get(0)).startsWith("FooPatchRuleTransitionFactory -> //test:rule_with_patch");
     assertThat(result.get(1)).startsWith("  patched#//test:foo#FooPatch");
     assertThat(result.get(2)).isEqualTo("    foo:SET BY RULE CLASS PATCH -> [SET BY PATCH]");
-    assertThat(result.get(3)).startsWith("  patched#//test:foo2#FooPatch");
+    assertThat(result.get(3)).startsWith("  patched#//test:foo2#FooPatchAttrTransitionFactory");
     assertThat(result.get(4)).isEqualTo(result.get(2));
     assertThat(result.get(5))
-        .startsWith("  patched#//test:trimmed_foo#(FooPatchTransition + FooPatchTransition(trim))");
+        .startsWith(
+            "  patched#//test:trimmed_foo#(FooPatchAttrTransitionFactory +"
+                + " FooPatchTransition(trim))");
     assertThat(result.get(6)).isEqualTo("    foo:SET BY RULE CLASS PATCH -> [SET BY TRIM]");
 
     result = getOutput("deps(//test:rule_with_split)", Transitions.FULL);
-    assertThat(result.get(1)).startsWith("  split#//test:bar#FooSplitTransition");
+    assertThat(result.get(1)).startsWith("  split#//test:bar#FooSplitTransitionFactory");
     // TODO(shahan): the right hand side of the diff below is in split dep ordering, which is
     // dependent on checksum values. It could be brittle.
     assertThat(result.get(2))
@@ -102,25 +117,36 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
 
     writeFile(
         "test/BUILD",
-        "my_rule(name = 'rule_with_patch',",
-        "  patched = [':foo', ':foo2'],",
-        ")",
-        "my_rule(name = 'rule_with_split',",
-        "  split = ':bar',",
-        ")",
-        "simple_rule(name = 'foo')",
-        "simple_rule(name = 'foo2')",
-        "simple_rule(name = 'bar')");
+        """
+        my_rule(
+            name = "rule_with_patch",
+            patched = [
+                ":foo",
+                ":foo2",
+            ],
+        )
+
+        my_rule(
+            name = "rule_with_split",
+            split = ":bar",
+        )
+
+        simple_rule(name = "foo")
+
+        simple_rule(name = "foo2")
+
+        simple_rule(name = "bar")
+        """);
 
     List<String> result = getOutput("deps(//test:rule_with_patch)", Transitions.LITE);
 
-    assertThat(result.get(0)).startsWith("FooPatchTransition -> //test:rule_with_patch");
-    assertThat(result.get(1)).startsWith("  patched#//test:foo#FooPatchTransition");
-    assertThat(result.get(2)).startsWith("  patched#//test:foo2#FooPatchTransition");
+    assertThat(result.get(0)).startsWith("FooPatchRuleTransitionFactory -> //test:rule_with_patch");
+    assertThat(result.get(1)).startsWith("  patched#//test:foo#FooPatchAttrTransitionFactory");
+    assertThat(result.get(2)).startsWith("  patched#//test:foo2#FooPatchAttrTransitionFactory");
 
     result = getOutput("deps(//test:rule_with_split)", Transitions.LITE);
-    assertThat(result.get(0)).startsWith("FooPatchTransition -> //test:rule_with_split");
-    assertThat(result.get(1)).startsWith("  split#//test:bar#FooSplitTransition");
+    assertThat(result.get(0)).startsWith("FooPatchRuleTransitionFactory -> //test:rule_with_split");
+    assertThat(result.get(1)).startsWith("  split#//test:bar#FooSplitTransitionFactory");
   }
 
   @Test
@@ -129,10 +155,14 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
 
     writeFile(
         "test/BUILD",
-        "my_rule(name = 'rule_with_patch',",
-        "  patched = [':foo'],",
-        ")",
-        "simple_rule(name = 'foo')");
+        """
+        my_rule(
+            name = "rule_with_patch",
+            patched = [":foo"],
+        )
+
+        simple_rule(name = "foo")
+        """);
 
     List<String> result = getOutput("deps(//test:rule_with_patch)", Transitions.LITE);
     String depEntry = result.get(2);
@@ -168,18 +198,22 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
 
     writeFile(
         "test/BUILD",
-        "package_group(",
-        "    name = 'custom_visibility',",
-        "    packages = ['//test/...'],",
-        ")",
-        "simple_rule(",
-        "    name = 'child',",
-        ")",
-        "simple_rule(",
-        "    name = 'parent',",
-        "    deps = [':child'],",
-        "    visibility = [':custom_visibility'],",
-        ")");
+        """
+        package_group(
+            name = "custom_visibility",
+            packages = ["//test/..."],
+        )
+
+        simple_rule(
+            name = "child",
+        )
+
+        simple_rule(
+            name = "parent",
+            visibility = [":custom_visibility"],
+            deps = [":child"],
+        )
+        """);
 
     assertThat(getOutput("deps(//test:parent)", Transitions.LITE)).isNotNull();
     assertThat(events).isEmpty();
@@ -187,17 +221,27 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
 
   private void setUpRules() throws Exception {
     TransitionFactory<RuleTransitionData> infixTrimmingTransitionFactory =
-        (ruleData) -> {
-          if (!ruleData.rule().getName().contains("trimmed")) {
-            return NoTransition.INSTANCE;
+        new TransitionFactory<>() {
+          @Override
+          public ConfigurationTransition create(RuleTransitionData ruleData) {
+            if (!ruleData.rule().getName().contains("trimmed")) {
+              return NoTransition.INSTANCE;
+            }
+            // rename the transition so it's distinguishable from the others in tests
+            return new FooPatchTransition("SET BY TRIM", "FooPatchTransition(trim)");
           }
-          // rename the transition so it's distinguishable from the others in tests
-          return new FooPatchTransition("SET BY TRIM", "FooPatchTransition(trim)");
+
+          @Override
+          public TransitionType transitionType() {
+            return TransitionType.RULE;
+          }
         };
-    FooPatchTransition ruleClassTransition = new FooPatchTransition("SET BY RULE CLASS PATCH");
-    FooPatchTransition attributePatchTransition = new FooPatchTransition("SET BY PATCH");
-    FooSplitTransition attributeSplitTransitions =
-        new FooSplitTransition("SET BY SPLIT 1", "SET BY SPLIT 2");
+    FooPatchRuleTransitionFactory ruleClassTransition =
+        new FooPatchRuleTransitionFactory("SET BY RULE CLASS PATCH");
+    FooPatchAttrTransitionFactory attributePatchTransition =
+        new FooPatchAttrTransitionFactory("SET BY PATCH");
+    FooSplitTransitionFactory attributeSplitTransitions =
+        new FooSplitTransitionFactory("SET BY SPLIT 1", "SET BY SPLIT 2");
 
     MockRule ruleWithTransitions =
         () ->
@@ -205,15 +249,15 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
                 "my_rule",
                 (builder, env) ->
                     builder
-                        .cfg(unused -> ruleClassTransition)
+                        .cfg(ruleClassTransition)
                         .add(
                             attr("patched", LABEL_LIST)
                                 .allowedFileTypes(FileTypeSet.ANY_FILE)
-                                .cfg(TransitionFactories.of(attributePatchTransition)))
+                                .cfg(attributePatchTransition))
                         .add(
                             attr("split", LABEL)
                                 .allowedFileTypes(FileTypeSet.ANY_FILE)
-                                .cfg(TransitionFactories.of(attributeSplitTransitions))));
+                                .cfg(attributeSplitTransitions)));
     MockRule simpleRule =
         () ->
             MockRule.define(

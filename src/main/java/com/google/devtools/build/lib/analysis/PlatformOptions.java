@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -22,27 +24,24 @@ import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyT
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelListConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.util.OptionsUtils;
+import com.google.devtools.build.lib.skyframe.config.PlatformMappingKey;
+import com.google.devtools.build.lib.util.OptionsUtils.PathFragmentConverter;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
+import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /** Command-line options for platform-related configuration. */
 public class PlatformOptions extends FragmentOptions {
-
-  /**
-   * Main workspace-relative location to use when the user does not explicitly set {@code
-   * --platform_mappings}.
-   */
-  public static final PathFragment DEFAULT_PLATFORM_MAPPINGS =
-      PathFragment.create("platform_mappings");
 
   private static final ImmutableSet<String> DEFAULT_PLATFORM_NAMES =
       ImmutableSet.of("host", "host_platform", "target_platform", "default_host", "default_target");
@@ -55,7 +54,7 @@ public class PlatformOptions extends FragmentOptions {
       name = "host_platform",
       oldName = "experimental_host_platform",
       converter = EmptyToNullLabelConverter.class,
-      defaultValue = "@local_config_platform//:host",
+      defaultValue = "@bazel_tools//tools:host_platform",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {
         OptionEffectTag.AFFECTS_OUTPUTS,
@@ -139,7 +138,7 @@ public class PlatformOptions extends FragmentOptions {
 
   @Option(
       name = "platform_mappings",
-      converter = OptionsUtils.EmptyToNullRelativePathFragmentConverter.class,
+      converter = PlatformMappingKeyConverter.class,
       defaultValue = "",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {
@@ -155,7 +154,7 @@ public class PlatformOptions extends FragmentOptions {
               + "which flags to set when a platform already exists. Must be relative to the main "
               + "workspace root. Defaults to 'platform_mappings' (a file directly under the "
               + "workspace root).")
-  public PathFragment platformMappings;
+  public PlatformMappingKey platformMappingKey;
 
   @Option(
       name = "experimental_add_exec_constraints_to_targets",
@@ -174,10 +173,38 @@ public class PlatformOptions extends FragmentOptions {
               + " 'test'.")
   public List<Map.Entry<RegexFilter, List<Label>>> targetFilterToAdditionalExecConstraints;
 
+  /**
+   * Deduplicate the given list, keeping the last copy of any duplicates.
+   *
+   * <p>Example: [a, b, a, c, b] -> [a, c, b]
+   */
+  private static ImmutableList<String> dedupeKeepingLast(ImmutableList<String> values) {
+    // Check common cases.
+    if (values.size() <= 1) {
+      return values;
+    }
+
+    // Reverse the list and then deduplicate.
+    ImmutableList<String> reversedResult =
+        values.reverse().stream().distinct().collect(toImmutableList());
+
+    // If there were no duplicates, return the exact same instance we got.
+    if (reversedResult.size() == values.size()) {
+      return values;
+    }
+
+    // Reverse the result to get back to the original order.
+    return reversedResult.reverse();
+  }
+
   @Override
   public PlatformOptions getNormalized() {
     PlatformOptions result = (PlatformOptions) clone();
-    result.extraToolchains = dedupeOnly(result.extraToolchains);
+    result.extraToolchains =
+        dedupeKeepingLast(
+            result.extraToolchains == null
+                ? ImmutableList.of()
+                : ImmutableList.copyOf(result.extraToolchains));
     // Only the first entry of platforms is used (it should have been Label and not List<Label>)
     // So drop all but the first entry.
     if (result.platforms.size() > 1) {
@@ -193,6 +220,45 @@ public class PlatformOptions extends FragmentOptions {
     } else {
       // Default to the host platform, whatever it is.
       return hostPlatform;
+    }
+  }
+
+  /**
+   * Converter for {@code --platform_mappings} that creates a canonical {@link PlatformMappingKey}
+   * for the build.
+   */
+  private static final class PlatformMappingKeyConverter implements Converter<PlatformMappingKey> {
+    private final PathFragmentConverter pathConverter = new PathFragmentConverter();
+
+    @Override
+    public PlatformMappingKey convert(String input, @Nullable Object conversionContext)
+        throws OptionsParsingException {
+      if (input.isEmpty()) {
+        return PlatformMappingKey.DEFAULT;
+      }
+      PathFragment path = pathConverter.convert(input);
+      if (path.isAbsolute()) {
+        throw new OptionsParsingException("Expected relative path but got '" + input + "'.");
+      }
+      return PlatformMappingKey.createExplicitlySet(path);
+    }
+
+    @Override
+    public boolean starlarkConvertible() {
+      return true;
+    }
+
+    @Override
+    public String reverseForStarlark(Object converted) {
+      var key = (PlatformMappingKey) converted;
+      return key.equals(PlatformMappingKey.DEFAULT)
+          ? ""
+          : key.getWorkspaceRelativeMappingPath().getPathString();
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a main workspace-relative path";
     }
   }
 

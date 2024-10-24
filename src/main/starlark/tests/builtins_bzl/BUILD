@@ -15,7 +15,7 @@ filegroup(
 
 sh_test(
     name = "cc_builtin_tests",
-    size = "medium",
+    size = "large",
     srcs = ["cc_builtin_tests.sh"],
     data = [
         ":builtin_test_setup",
@@ -25,6 +25,9 @@ sh_test(
         "@rules_testing//lib:analysis_test_bzl",
         "@rules_testing//lib:truth_bzl",
         "@rules_testing//lib:util_bzl",
+    ],
+    tags = [
+        "requires-network",  # for Bzlmod
     ],
 )
 

@@ -75,7 +75,7 @@ def compile(
             source_jars or source_files should be specified.
         output_source_jar: (File) The output source jar. Optional. Defaults to
             `{output_jar}-src.jar` if unset.
-        javac_opts: ([str]) A list of the desired javac options. Optional.
+        javac_opts: ([str]|depset[str]) A list of the desired javac options. Optional.
         deps: ([JavaInfo]) A list of dependencies. Optional.
         runtime_deps: ([JavaInfo]) A list of runtime dependencies. Optional.
         exports: ([JavaInfo]) A list of exports. Optional.
@@ -134,17 +134,28 @@ def compile(
             ["-Abazel.repository=" + ctx.label.workspace_name],
             order = "preorder",
         ))
+    system_override = False
     for package_config in java_toolchain._package_configuration:
         if package_config.matches(ctx.label):
-            all_javac_opts.append(package_config.javac_opts(as_depset = True))
+            all_javac_opts.append(package_config.javac_opts)
+            if package_config.system:
+                if system_override:
+                    fail("Multiple system package configurations found for %s" % ctx.label)
+                bootclasspath = package_config.system
+                system_override = True
 
     all_javac_opts.append(depset(
         ["--add-exports=%s=ALL-UNNAMED" % x for x in add_exports],
         order = "preorder",
     ))
 
-    # detokenize target's javacopts, it will be tokenized before compilation
-    all_javac_opts.append(helper.detokenize_javacopts(helper.tokenize_javacopts(ctx, javac_opts)))
+    if type(javac_opts) == type([]):
+        # detokenize target's javacopts, it will be tokenized before compilation
+        all_javac_opts.append(helper.detokenize_javacopts(helper.tokenize_javacopts(ctx, javac_opts)))
+    elif type(javac_opts) == type(depset()):
+        all_javac_opts.append(javac_opts)
+    else:
+        fail("Expected javac_opts to be a list or depset, got:", type(javac_opts))
 
     # we reverse the list of javacopts depsets, so that we keep the right-most set
     # in case it's deduped. When this depset is flattened, we will reverse again,
@@ -396,18 +407,6 @@ def target_kind(target):
         (str) The rule class string of the target
     """
     return _java_common_internal.target_kind(target)
-
-def get_build_info(ctx, is_stamping_enabled):
-    """Get the artifacts representing the workspace status for this build
-
-    Args:
-        ctx: (RuleContext) The rule context
-        is_stamping_enabled: (bool) If stamping is enabled
-
-    Returns
-        ([File]) The build info artifacts
-    """
-    return _java_common_internal.get_build_info(ctx, is_stamping_enabled)
 
 def collect_native_deps_dirs(libraries):
     """Collect the set of root-relative paths containing native libraries

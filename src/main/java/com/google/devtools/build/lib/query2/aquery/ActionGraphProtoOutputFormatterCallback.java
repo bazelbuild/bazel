@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.aquery;
 
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
+
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
@@ -72,7 +75,7 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
         new ActionGraphDump(
             options.includeCommandline,
             options.includeArtifacts,
-            options.includeSchedulingDependencies,
+            options.includePrunedInputs,
             this.actionFilters,
             options.includeParamFiles,
             options.includeFileWriteContents,
@@ -82,21 +85,16 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
 
   public static AqueryOutputHandler constructAqueryOutputHandler(
       OutputType outputType, OutputStream out, PrintStream printStream) {
-    switch (outputType) {
-      case BINARY:
-      case DELIMITED_BINARY:
-      case TEXT:
-        return new StreamedConsumingOutputHandler(
-            outputType,
-            out,
-            CodedOutputStream.newInstance(out, OUTPUT_BUFFER_SIZE),
-            printStream,
-            new LinkedBlockingQueue<>(BLOCKING_QUEUE_SIZE));
-      case JSON:
-        return new MonolithicOutputHandler(printStream);
-    }
-    // The above cases are exhaustive.
-    throw new AssertionError("Wrong output type: " + outputType);
+    return switch (outputType) {
+      case BINARY, DELIMITED_BINARY, TEXT ->
+          new StreamedConsumingOutputHandler(
+              outputType,
+              out,
+              CodedOutputStream.newInstance(out, OUTPUT_BUFFER_SIZE),
+              printStream,
+              new LinkedBlockingQueue<>(BLOCKING_QUEUE_SIZE));
+      case JSON -> new MonolithicOutputHandler(printStream);
+    };
   }
 
   @Override
@@ -179,8 +177,9 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
           // TODO(b/266179316): Clean this up.
           throw new IOException(cause.getMessage());
         }
-        Throwables.propagateIfPossible(cause, IOException.class);
-        Throwables.propagateIfPossible(cause, InterruptedException.class);
+        throwIfInstanceOf(cause, IOException.class);
+        throwIfInstanceOf(cause, InterruptedException.class);
+        throwIfUnchecked(cause);
         throw new IllegalStateException("Unexpected exception type: ", e);
       } finally {
         executor.shutdown();

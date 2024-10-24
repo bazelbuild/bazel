@@ -58,13 +58,6 @@ msys*)
   ;;
 esac
 
-if "$is_windows"; then
-  # Disable MSYS path conversion that converts path-looking command arguments to
-  # Windows paths (even if they arguments are not in fact paths).
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 function set_up() {
   mkdir -p pkg
   touch remote_file
@@ -76,8 +69,8 @@ function set_up() {
     FILE_URL="file://${PWD}/remote_file"
   fi
 
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+  cat > MODULE.bazel <<EOF
+http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 http_file(name="remote", urls=["${FILE_URL}"])
 EOF
   cat > pkg/BUILD <<'EOF'
@@ -152,8 +145,8 @@ function test_query() {
 function test_fetch_failure() {
   # We expect that if a build is failing due to an error fetching an external
   # repository, we get a reasonable attribution of the root cause.
-  cat > WORKSPACE <<'EOF'
-load("//:failing_repo.bzl", "failing")
+  cat > MODULE.bazel <<'EOF'
+failing = use_repo_rule("//:failing_repo.bzl", "failing")
 
 failing(name="remote")
 EOF
@@ -184,9 +177,11 @@ EOF
   bazel build -k --build_event_text_file=$TEST_log  //pkg:main //pkg:main2 \
     && fail "expected failure" || :
 
-  expect_log 'label: "//external:remote"'
+  # TODO: https://github.com/bazelbuild/bazel/issues/23240
+  # Create a new event id type that doesn't use "//external"
+  expect_log 'label: "//external:+_repo_rules+remote"'
   expect_log 'description:.*This is the error message'
-  expect_not_log 'label.*@remote//file'
+  expect_not_log 'label.*@+_repo_rules+remote//file'
 }
 
 function test_residue_in_run_bep(){
@@ -256,6 +251,7 @@ EOF
   ls >& "$TEST_log"
   cat bep.json >> "$TEST_log"
 
+  expect_log "//a:arg"
   expect_log "execRequest"
   expect_log "argv"
   expect_log "REDACTED"

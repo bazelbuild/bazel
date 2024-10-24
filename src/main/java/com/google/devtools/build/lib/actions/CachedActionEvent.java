@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 public final class CachedActionEvent implements Postable {
 
   private final Action action;
+  private final InputMetadataProvider inputMetadataProvider;
   private final long nanoTimeStart;
   private final long nanoTimeFinish;
 
@@ -27,18 +28,28 @@ public final class CachedActionEvent implements Postable {
    * Create an event for an action that was cached.
    *
    * @param action the cached action
+   * @param inputMetadataProvider metadata of the inputs of the action
    * @param nanoTimeStart the time when the action was started. This allow us to record more
    *     accurately the time spend by the action, since we execute some code before deciding if we
    *     execute the action or not.
    */
-  public CachedActionEvent(Action action, long nanoTimeStart, long nanoTimeFinish) {
+  public CachedActionEvent(
+      Action action,
+      InputMetadataProvider inputMetadataProvider,
+      long nanoTimeStart,
+      long nanoTimeFinish) {
     this.action = action;
+    this.inputMetadataProvider = inputMetadataProvider;
     this.nanoTimeStart = nanoTimeStart;
     this.nanoTimeFinish = nanoTimeFinish;
   }
 
   public Action getAction() {
     return action;
+  }
+
+  public InputMetadataProvider getInputMetadataProvider() {
+    return inputMetadataProvider;
   }
 
   public long getNanoTimeStart() {

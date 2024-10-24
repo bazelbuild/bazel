@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateExpander;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import java.util.ArrayList;
 import java.util.List;
@@ -187,11 +188,11 @@ public final class Expander {
 
   /**
    * Obtains the value of the attribute, expands all values, and returns the resulting list. If the
-   * attribute does not exist or is not of type {@link Type#STRING_LIST}, then this method throws an
-   * error.
+   * attribute does not exist or is not of type {@link Types.STRING_LIST}, then this method throws
+   * an error.
    */
   public ImmutableList<String> list(String attrName) throws InterruptedException {
-    return list(attrName, ruleContext.attributes().get(attrName, Type.STRING_LIST));
+    return list(attrName, ruleContext.attributes().get(attrName, Types.STRING_LIST));
   }
 
   /**
@@ -204,10 +205,10 @@ public final class Expander {
 
   /**
    * Obtains the value of the attribute, expands, and tokenizes all values. If the attribute does
-   * not exist or is not of type {@link Type#STRING_LIST}, then this method throws an error.
+   * not exist or is not of type {@link Types.STRING_LIST}, then this method throws an error.
    */
   public ImmutableList<String> tokenized(String attrName) throws InterruptedException {
-    return tokenized(attrName, ruleContext.attributes().get(attrName, Type.STRING_LIST));
+    return tokenized(attrName, ruleContext.attributes().get(attrName, Types.STRING_LIST));
   }
 
   /**

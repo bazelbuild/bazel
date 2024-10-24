@@ -38,13 +38,12 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.io.IOException;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Starlark;
 
-/**
- * Create a repository from a directory on the local filesystem.
- */
+/** Create a repository from a directory on the local filesystem. */
 public class NewLocalRepositoryFunction extends RepositoryFunction {
 
   @Override
@@ -54,14 +53,15 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
 
   @Override
   @Nullable
-  public RepositoryDirectoryValue.Builder fetch(
-      Rule rule,
-      Path outputDirectory,
-      BlazeDirectories directories,
-      Environment env,
-      Map<String, String> markerData,
-      SkyKey key)
+  public FetchResult fetch(
+      Rule rule, Path outputDirectory, BlazeDirectories directories, Environment env, SkyKey key)
       throws InterruptedException, RepositoryFunctionException {
+    ensureNativeRepoRuleEnabled(
+        rule,
+        env,
+        "load(\"@bazel_tools//tools/build_defs/repo:local.bzl\", \"new_local_repository\")");
+    // DO NOT MODIFY THIS! It's being deprecated in favor of Starlark counterparts.
+    // See https://github.com/bazelbuild/bazel/issues/18285
 
     NewRepositoryFileHandler fileHandler = new NewRepositoryFileHandler(directories.getWorkspace());
     if (!fileHandler.prepareFile(rule, env)) {
@@ -122,8 +122,9 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
     SkyKey dirKey = DirectoryListingValue.key(dirPath);
     DirectoryListingValue directoryValue;
     try {
-      directoryValue = (DirectoryListingValue) env.getValueOrThrow(
-          dirKey, InconsistentFilesystemException.class);
+      directoryValue =
+          (DirectoryListingValue)
+              env.getValueOrThrow(dirKey, InconsistentFilesystemException.class);
     } catch (InconsistentFilesystemException e) {
       throw new RepositoryFunctionException(new IOException(e), Transience.PERSISTENT);
     }
@@ -161,13 +162,16 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
       return null;
     }
 
-    fileHandler.finishFile(rule, outputDirectory, markerData);
+    Map<RepoRecordedInput, String> recordedInputValues = new LinkedHashMap<>();
+    fileHandler.finishFile(rule, outputDirectory, recordedInputValues);
     env.getListener().post(resolve(rule));
 
-    return RepositoryDirectoryValue.builder()
-        .setPath(outputDirectory)
-        .setSourceDir(directoryValue)
-        .setFileValues(fileValues.buildOrThrow());
+    return new FetchResult(
+        RepositoryDirectoryValue.builder()
+            .setPath(outputDirectory)
+            .setSourceDir(directoryValue)
+            .setFileValues(fileValues.buildOrThrow()),
+        recordedInputValues);
   }
 
   @Override

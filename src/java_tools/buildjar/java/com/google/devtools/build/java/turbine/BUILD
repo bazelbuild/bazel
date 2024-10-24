@@ -29,7 +29,9 @@ java_binary(
 native_image(
     name = "turbine_direct_graal",
     executable_name = select({
-        "@bazel_tools//src/conditions:windows": "%target%.exe",
+        # TODO(cushon): restore .exe suffix on windows
+        # see https://github.com/sgammon/rules_graalvm/issues/324
+        "@bazel_tools//src/conditions:windows": "%target%",
         "//conditions:default": "%target%",
     }),
     extra_args = [

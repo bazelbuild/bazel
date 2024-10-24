@@ -21,14 +21,13 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.remote.util.IntegrationTestUtils;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
+import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.starlarkdebug.module.StarlarkDebuggerModule;
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.Breakpoint;
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.DebugRequest;
@@ -38,6 +37,7 @@ import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.S
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.time.Duration;
@@ -49,10 +49,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Supplier;
+import java.util.function.Consumer;
 import java.util.regex.Pattern;
 import org.junit.Before;
 import org.junit.Test;
@@ -62,16 +61,6 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class StarlarkDebugIntegrationTest extends BuildIntegrationTestCase {
   private static final AtomicInteger sequenceIds = new AtomicInteger(1);
-
-  private static final int DEBUG_PORT = getRandomPort();
-
-  private static int getRandomPort() {
-    try {
-      return IntegrationTestUtils.pickUnusedRandomPort();
-    } catch (IOException | InterruptedException e) {
-      throw new RuntimeException(e);
-    }
-  }
 
   private final ExecutorService executor = Executors.newFixedThreadPool(1);
   private final Collection<Event> eventCollector = new ConcurrentLinkedQueue<>();
@@ -83,8 +72,7 @@ public class StarlarkDebugIntegrationTest extends BuildIntegrationTestCase {
 
   @Before
   public void setup() throws Exception {
-    addOptions(
-        "--experimental_skylark_debug", "--experimental_skylark_debug_server_port=" + DEBUG_PORT);
+    addOptions("--experimental_skylark_debug", "--experimental_skylark_debug_server_port=0");
     eventCollector.clear();
     events.addHandler(new EventCollector(EventKind.ALL_EVENTS, eventCollector));
   }
@@ -128,7 +116,8 @@ public class StarlarkDebugIntegrationTest extends BuildIntegrationTestCase {
     addOptions("--experimental_skylark_debug_reset_analysis");
     write("foo/BUILD", "genrule(name = 'foo', outs = ['foo.out'], cmd = 'touch $@')");
 
-    BuildResult result = buildTarget(() -> createClientAndSetBreakpoints("foo/BUILD"), "//foo");
+    BuildResult result =
+        buildTarget(debugPort -> createClientAndSetBreakpoints(debugPort, "foo/BUILD"), "//foo");
 
     MoreAsserts.assertContainsEvent(
         eventCollector, Pattern.compile("resetting analysis for: .*/foo/BUILD"));
@@ -148,7 +137,7 @@ public class StarlarkDebugIntegrationTest extends BuildIntegrationTestCase {
     Set<String> deletedFiles = ConcurrentHashMap.newKeySet();
     injectListenerAtStartOfNextBuild(
         (key, type, order, context) -> {
-          if (Objects.equals(key.functionName(), FileValue.FILE)
+          if (Objects.equals(key.functionName(), SkyFunctions.FILE)
               && Objects.equals(context, Reason.INVALIDATION)) {
             deletedFiles.add(((RootedPath) key.argument()).getRootRelativePath().getPathString());
           }
@@ -156,29 +145,30 @@ public class StarlarkDebugIntegrationTest extends BuildIntegrationTestCase {
     addOptions("--experimental_skylark_debug_reset_analysis");
 
     // rebuild with non-existent breakpoint
-    result = buildTarget(() -> createClientAndSetBreakpoints("bar/BUILD"), "//foo");
+    result =
+        buildTarget(debugPort -> createClientAndSetBreakpoints(debugPort, "bar/BUILD"), "//foo");
     assertThat(result).isNotNull();
     assertThat(deletedFiles).isEmpty();
 
     // rebuild with breakpoint on build file
-    result = buildTarget(() -> createClientAndSetBreakpoints("foo/BUILD"), "//foo");
+    result =
+        buildTarget(debugPort -> createClientAndSetBreakpoints(debugPort, "foo/BUILD"), "//foo");
     assertThat(result).isNotNull();
     assertThat(deletedFiles).contains("foo/BUILD");
   }
 
-  private BuildResult buildTarget(Supplier<MockDebugClient> clientSetup, String target)
-      throws Exception {
-    Future<MockDebugClient> clientFuture = executor.submit(clientSetup::get);
-    try {
-      return super.buildTarget(target);
-    } finally {
-      clientFuture.get().close();
-    }
+  private BuildResult buildTarget(Consumer<Integer> clientSetup, String target) throws Exception {
+    DebugServerTransport.onListenPortCallbackForTests =
+        port -> {
+          var unused = executor.submit(() -> clientSetup.accept(port));
+        };
+    return super.buildTarget(target);
   }
 
-  private static MockDebugClient createClient() {
+  @CanIgnoreReturnValue
+  private static MockDebugClient createClient(int debugPort) {
     MockDebugClient client = new MockDebugClient();
-    client.connect(InetAddress.getLoopbackAddress(), DEBUG_PORT, Duration.ofSeconds(10));
+    client.connect(InetAddress.getLoopbackAddress(), debugPort, Duration.ofSeconds(5));
     return client;
   }
 
@@ -194,17 +184,15 @@ public class StarlarkDebugIntegrationTest extends BuildIntegrationTestCase {
     }
   }
 
-  private static MockDebugClient createClientAndStartDebugging() {
-    MockDebugClient client = createClient();
+  private static void createClientAndStartDebugging(int debugPort) {
+    MockDebugClient client = createClient(debugPort);
     startDebugging(client);
-    return client;
   }
 
-  private MockDebugClient createClientAndSetBreakpoints(String... paths) {
-    MockDebugClient client = createClient();
+  private void createClientAndSetBreakpoints(int debugPort, String... paths) {
+    MockDebugClient client = createClient(debugPort);
     setBreakpoints(client, paths);
     startDebugging(client);
-    return client;
   }
 
   private void setBreakpoints(MockDebugClient client, String... paths) {

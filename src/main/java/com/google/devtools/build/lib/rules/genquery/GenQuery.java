@@ -21,12 +21,12 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.hash.HashFunction;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -126,7 +127,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
             .allowResidue(false)
             .build();
     try {
-      optionsParser.parse(ruleContext.attributes().get("opts", Type.STRING_LIST));
+      optionsParser.parse(ruleContext.attributes().get("opts", Types.STRING_LIST));
     } catch (OptionsParsingException e) {
       ruleContext.attributeError("opts", "error while parsing query options: " + e.getMessage());
       return null;
@@ -326,7 +327,6 @@ public class GenQuery implements RuleConfiguredTargetFactory {
               settings,
               /* extraFunctions= */ ImmutableList.of(),
               /* packagePath= */ null,
-              /* blockUniverseEvaluationErrors= */ false,
               /* useGraphlessQuery= */ graphlessQuery,
               LabelPrinter.legacy());
       QueryExpression expr = QueryExpression.parse(query, queryEnvironment);
@@ -379,8 +379,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     private final GenQueryResult result;
 
     private QueryResultAction(ActionOwner owner, Artifact output, GenQueryResult result) {
-      super(
-          owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), output, /*makeExecutable=*/ false);
+      super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), output);
       this.result = result;
     }
 

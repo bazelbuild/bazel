@@ -14,12 +14,17 @@
 
 package net.starlark.java.eval;
 
+import static com.google.common.collect.Streams.stream;
+import static java.util.Comparator.comparing;
+
 import com.google.common.base.Ascii;
+import com.google.common.base.Throwables;
 import com.google.common.collect.Ordering;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -31,43 +36,148 @@ class MethodLibrary {
   @StarlarkMethod(
       name = "min",
       doc =
-          "Returns the smallest one of all given arguments. "
-              + "If only one argument is provided, it must be a non-empty iterable. "
-              + "It is an error if elements are not comparable (for example int with string), "
-              + "or if no arguments are given. "
-              + "<pre class=\"language-python\">min(2, 5, 4) == 2\n"
-              + "min([5, 6, 3]) == 3</pre>",
-      extraPositionals = @Param(name = "args", doc = "The elements to be checked."))
-  public Object min(Sequence<?> args) throws EvalException {
-    return findExtreme(args, Starlark.ORDERING.reverse());
+          "Returns the smallest one of all given arguments. If only one positional argument is"
+              + " provided, it must be a non-empty iterable. It is an error if elements are not"
+              + " comparable (for example int with string), or if no arguments are given."
+              + "<pre class=\"language-python\">\n" //
+              + "min(2, 5, 4) == 2\n"
+              + "min([5, 6, 3]) == 3\n"
+              + "min(\"six\", \"three\", \"four\", key = len) == \"six\"  # the shortest\n"
+              + "min([2, -2, -1, 1], key = abs) == -1  # the first encountered with minimal key"
+              + " value\n"
+              + "</pre>",
+      extraPositionals = @Param(name = "args", doc = "The elements to be checked."),
+      parameters = {
+        @Param(
+            name = "key",
+            named = true,
+            positional = false,
+            allowedTypes = {
+              @ParamType(type = StarlarkCallable.class),
+              @ParamType(type = NoneType.class),
+            },
+            doc = "An optional function applied to each element before comparison.",
+            defaultValue = "None")
+      },
+      useStarlarkThread = true)
+  public Object min(Object key, Sequence<?> args, StarlarkThread thread)
+      throws EvalException, InterruptedException {
+    return findExtreme(
+        args,
+        Starlark.toJavaOptional(key, StarlarkCallable.class),
+        Starlark.ORDERING.reverse(),
+        thread);
   }
 
   @StarlarkMethod(
       name = "max",
       doc =
-          "Returns the largest one of all given arguments. "
-              + "If only one argument is provided, it must be a non-empty iterable."
-              + "It is an error if elements are not comparable (for example int with string), "
-              + "or if no arguments are given. "
-              + "<pre class=\"language-python\">max(2, 5, 4) == 5\n"
-              + "max([5, 6, 3]) == 6</pre>",
-      extraPositionals = @Param(name = "args", doc = "The elements to be checked."))
-  public Object max(Sequence<?> args) throws EvalException {
-    return findExtreme(args, Starlark.ORDERING);
+          "Returns the largest one of all given arguments. If only one positional argument is"
+              + " provided, it must be a non-empty iterable.It is an error if elements are not"
+              + " comparable (for example int with string), or if no arguments are given."
+              + "<pre class=\"language-python\">\n" //
+              + "max(2, 5, 4) == 5\n"
+              + "max([5, 6, 3]) == 6\n"
+              + "max(\"two\", \"three\", \"four\", key = len) ==\"three\"  # the longest\n"
+              + "max([1, -1, -2, 2], key = abs) == -2  # the first encountered with maximal key"
+              + " value\n"
+              + "</pre>",
+      extraPositionals = @Param(name = "args", doc = "The elements to be checked."),
+      parameters = {
+        @Param(
+            name = "key",
+            named = true,
+            positional = false,
+            allowedTypes = {
+              @ParamType(type = StarlarkCallable.class),
+              @ParamType(type = NoneType.class),
+            },
+            doc = "An optional function applied to each element before comparison.",
+            defaultValue = "None")
+      },
+      useStarlarkThread = true)
+  public Object max(Object key, Sequence<?> args, StarlarkThread thread)
+      throws EvalException, InterruptedException {
+    return findExtreme(
+        args, Starlark.toJavaOptional(key, StarlarkCallable.class), Starlark.ORDERING, thread);
   }
 
   /** Returns the maximum element from this list, as determined by maxOrdering. */
-  private static Object findExtreme(Sequence<?> args, Ordering<Object> maxOrdering)
-      throws EvalException {
+  private static Object findExtreme(
+      Sequence<?> args,
+      Optional<StarlarkCallable> keyFn,
+      Ordering<Object> maxOrdering,
+      StarlarkThread thread)
+      throws EvalException, InterruptedException {
     // Args can either be a list of items to compare, or a singleton list whose element is an
     // iterable of items to compare. In either case, there must be at least one item to compare.
     Iterable<?> items = (args.size() == 1) ? Starlark.toIterable(args.get(0)) : args;
     try {
-      return maxOrdering.max(items);
+      if (keyFn.isPresent()) {
+        try {
+          return stream(items)
+              .map(value -> ValueWithComparisonKey.make(value, keyFn.get(), thread))
+              .max(comparing(ValueWithComparisonKey::getComparisonKey, maxOrdering))
+              .get()
+              .getValue();
+        } catch (ValueWithComparisonKey.KeyCallException ex) {
+          Throwables.throwIfInstanceOf(ex.getCause(), EvalException.class);
+          Throwables.throwIfInstanceOf(ex.getCause(), InterruptedException.class);
+          throw new AssertionError("Got invalid ValueWithComparisonKey.KeyCallException", ex);
+        }
+      } else {
+        return maxOrdering.max(items);
+      }
     } catch (ClassCastException ex) {
       throw new EvalException(ex.getMessage()); // e.g. unsupported comparison: int <=> string
     } catch (NoSuchElementException ex) {
       throw new EvalException("expected at least one item", ex);
+    }
+  }
+
+  /**
+   * Original value decorated with its comparison key; storing the comparison key alongside the
+   * value ensures that we call the comparison key computation function only once per original value
+   * (which is important in case the function has side effects).
+   */
+  private static final class ValueWithComparisonKey {
+    private final Object value;
+    private final Object comparisonKey;
+
+    private ValueWithComparisonKey(Object value, Object comparisonKey) {
+      this.value = value;
+      this.comparisonKey = comparisonKey;
+    }
+
+    /**
+     * @throws KeyCallException wrapping the exception thrown by the underlying {@link
+     *     Starlark#fastcall} call if it threw.
+     */
+    static ValueWithComparisonKey make(
+        Object value, StarlarkCallable keyFn, StarlarkThread thread) {
+      Object[] positional = {value};
+      Object[] named = {};
+      try {
+        return new ValueWithComparisonKey(
+            value, Starlark.fastcall(thread, keyFn, positional, named));
+      } catch (EvalException | InterruptedException ex) {
+        throw new KeyCallException(ex);
+      }
+    }
+
+    Object getValue() {
+      return value;
+    }
+
+    Object getComparisonKey() {
+      return comparisonKey;
+    }
+
+    /** An unchecked exception wrapping an exception thrown by {@link Starlark#fastcall}. */
+    private static final class KeyCallException extends RuntimeException {
+      KeyCallException(Exception cause) {
+        super(cause);
+      }
     }
   }
 
@@ -140,16 +250,24 @@ class MethodLibrary {
               + " using x < y. The elements are sorted into ascending order, unless the reverse"
               + " argument is True, in which case the order is descending.\n"
               + " Sorting is stable: elements that compare equal retain their original relative"
-              + " order.\n"
-              + "<pre class=\"language-python\">sorted([3, 5, 4]) == [3, 4, 5]</pre>",
+              + " order.\n" //
+              + "<pre class=\"language-python\">\n" //
+              + "sorted([3, 5, 4]) == [3, 4, 5]\n" //
+              + "sorted([3, 5, 4], reverse = True) == [5, 4, 3]\n" //
+              + "sorted([\"two\", \"three\", \"four\"], key = len) == [\"two\", \"four\","
+              + " \"three\"]  # sort by length\n" //
+              + "</pre>",
       parameters = {
         @Param(name = "iterable", doc = "The iterable sequence to sort."),
         @Param(
             name = "key",
-            doc = "An optional function applied to each element before comparison.",
             named = true,
-            defaultValue = "None",
-            positional = false),
+            allowedTypes = {
+              @ParamType(type = StarlarkCallable.class),
+              @ParamType(type = NoneType.class),
+            },
+            doc = "An optional function applied to each element before comparison.",
+            defaultValue = "None"),
         @Param(
             name = "reverse",
             doc = "Return results in descending order.",
@@ -177,9 +295,6 @@ class MethodLibrary {
     // The user provided a key function.
     // We must call it exactly once per element, in order,
     // so use the decorate/sort/undecorate pattern.
-    if (!(key instanceof StarlarkCallable)) {
-      throw Starlark.errorf("for key, got %s, want callable", Starlark.type(key));
-    }
     StarlarkCallable keyfn = (StarlarkCallable) key;
 
     // decorate
@@ -697,16 +812,23 @@ class MethodLibrary {
                 "Deprecated. Causes an optional prefix containing this string to be added to the"
                     + " error message.",
             positional = false,
-            named = true)
+            named = true),
+        @Param(
+            name = "sep",
+            defaultValue = "\" \"",
+            named = true,
+            positional = false,
+            doc = "The separator string between the objects, default is space (\" \").")
       },
       extraPositionals =
           @Param(
               name = "args",
               doc =
                   "A list of values, formatted with debugPrint (which is equivalent to str by"
-                      + " default) and joined with spaces, that appear in the error message."),
+                      + " default) and joined with sep (defaults to \" \"), that appear in the"
+                      + " error message."),
       useStarlarkThread = true)
-  public void fail(Object msg, Object attr, Tuple args, StarlarkThread thread)
+  public void fail(Object msg, Object attr, String sep, Tuple args, StarlarkThread thread)
       throws EvalException {
     Printer printer = new Printer();
     boolean needSeparator = false;
@@ -717,16 +839,16 @@ class MethodLibrary {
     // msg acts like a leading element of args.
     if (msg != Starlark.NONE) {
       if (needSeparator) {
-        printer.append(" ");
+        printer.append(sep);
       }
-      printer.debugPrint(msg, thread.getSemantics());
+      printer.debugPrint(msg, thread);
       needSeparator = true;
     }
     for (Object arg : args) {
       if (needSeparator) {
-        printer.append(" ");
+        printer.append(sep);
       }
-      printer.debugPrint(arg, thread.getSemantics());
+      printer.debugPrint(arg, thread);
       needSeparator = true;
     }
     throw Starlark.errorf("%s", printer.toString());
@@ -760,7 +882,7 @@ class MethodLibrary {
     String separator = "";
     for (Object x : args) {
       p.append(separator);
-      p.debugPrint(x, thread.getSemantics());
+      p.debugPrint(x, thread);
       separator = sep;
     }
     // The PRINT_TEST_MARKER key is used in tests to verify the effects of command-line options.

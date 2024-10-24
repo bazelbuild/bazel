@@ -104,10 +104,9 @@ public final class ActionTemplateExpansionValue extends BasicActionLookupValue {
       if (this == obj) {
         return true;
       }
-      if (!(obj instanceof ActionTemplateExpansionKey)) {
+      if (!(obj instanceof ActionTemplateExpansionKey that)) {
         return false;
       }
-      ActionTemplateExpansionKey that = (ActionTemplateExpansionKey) obj;
       return this.actionIndex == that.actionIndex
           && this.actionLookupKey.equals(that.actionLookupKey);
     }

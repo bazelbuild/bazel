@@ -14,8 +14,10 @@
 
 package com.google.devtools.build.lib.query2.query;
 
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
+
 import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
@@ -255,10 +257,10 @@ final class PathLabelVisitor {
         throws InterruptedException, NoSuchThingException {
       if (from != null) {
         switch (mode) {
-          case DEPS:
+          case DEPS -> {
             // Don't update parentMap; only use visited.
-            break;
-          case SAME_PKG_DIRECT_RDEPS:
+          }
+          case SAME_PKG_DIRECT_RDEPS -> {
             // Only track same-package dependencies.
             if (target
                 .getLabel()
@@ -272,15 +274,14 @@ final class PathLabelVisitor {
             // We only need to perform a single level of visitation. We have a non-null 'from'
             // target, and we're now at 'target' target, so we have one level, and can return here.
             return;
-          case ALLPATHS:
+          }
+          case ALLPATHS -> {
             if (!parentMap.containsKey(target)) {
               parentMap.put(target, new ArrayList<>());
             }
             parentMap.get(target).add(from);
-            break;
-          case SOMEPATH:
-            parentMap.putIfAbsent(target, ImmutableList.of(from));
-            break;
+          }
+          case SOMEPATH -> parentMap.putIfAbsent(target, ImmutableList.of(from));
         }
 
         visitAspectsIfRequired(from, attribute, target);
@@ -311,8 +312,9 @@ final class PathLabelVisitor {
               }
             });
       } catch (CompletionException e) {
-        Throwables.propagateIfPossible(
-            e.getCause(), InterruptedException.class, NoSuchThingException.class);
+        throwIfInstanceOf(e.getCause(), InterruptedException.class);
+        throwIfInstanceOf(e.getCause(), NoSuchThingException.class);
+        throwIfUnchecked(e.getCause());
         throw e;
       }
     }
@@ -325,11 +327,9 @@ final class PathLabelVisitor {
       // of *different* attributes. These visitations get culled later, but we still have to pay the
       // overhead for all that.
 
-      if (!(from instanceof Rule) || !(to instanceof Rule)) {
+      if (!(from instanceof Rule fromRule) || !(to instanceof Rule toRule)) {
         return;
       }
-      Rule fromRule = (Rule) from;
-      Rule toRule = (Rule) to;
       for (Aspect aspect : attribute.getAspects(fromRule)) {
         if (AspectDefinition.satisfies(
             aspect, toRule.getRuleClassObject().getAdvertisedProviders())) {

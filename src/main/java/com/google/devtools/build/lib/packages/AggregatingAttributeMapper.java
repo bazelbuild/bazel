@@ -159,6 +159,8 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
     }
     if (rawVal instanceof Attribute.LateBoundDefault) {
       rawVal = ((Attribute.LateBoundDefault<?, ?>) rawVal).getDefault(rule);
+    } else if (rawVal instanceof MaterializingDefault) {
+      rawVal = ((MaterializingDefault<?, ?>) rawVal).getDefault();
     }
     if (rawVal == null || ((rawVal instanceof Collection) && ((Collection<?>) rawVal).isEmpty())) {
       return;
@@ -166,12 +168,23 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
     type.visitLabels(visitor, (T) rawVal, attr);
   }
 
-  private static <T> void visitLabelsInSelect(
+  /**
+   * Applies {@code visitor} to the labels appearing in {@code selectorList}.
+   *
+   * <p>{@code attribute} and {@code type} give the context for interpreting {@code selectorList}.
+   *
+   * <p>If {@code rule} is not null, its value is used to interpret a possible late-bound default
+   * specified by the attribute.
+   *
+   * <p>{@code includeKeys} and {@code includeValues} determine which parts of the select entries
+   * are traversed.
+   */
+  public static <T> void visitLabelsInSelect(
       SelectorList<T> selectorList,
       Attribute attribute,
       Type<T> type,
       Type.LabelVisitor visitor,
-      Rule rule,
+      @Nullable Rule rule,
       boolean includeKeys,
       boolean includeValues) {
     var entryProcessor =
@@ -262,22 +275,23 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
   }
 
   private static Set<Label> checkForDuplicateLabels(Collection<List<Label>> possibleLabels) {
-    switch (possibleLabels.size()) {
-      case 0:
-        return ImmutableSet.of();
-      case 1:
+    return switch (possibleLabels.size()) {
+      case 0 -> ImmutableSet.of();
+      case 1 -> {
         List<Label> onlyPossibility =
             possibleLabels instanceof List
                 ? ((List<List<Label>>) possibleLabels).get(0) // Avoid overhead of list iterator.
                 : possibleLabels.iterator().next();
-        return CollectionUtils.duplicatedElementsOf(onlyPossibility);
-      default:
+        yield CollectionUtils.duplicatedElementsOf(onlyPossibility);
+      }
+      default -> {
         ImmutableSet.Builder<Label> duplicates = null;
         for (List<Label> labels : possibleLabels) {
           duplicates = addDuplicateLabels(duplicates, labels);
         }
-        return duplicates == null ? ImmutableSet.of() : duplicates.build();
-    }
+        yield duplicates == null ? ImmutableSet.of() : duplicates.build();
+      }
+    };
   }
 
   private static ImmutableSet.Builder<Label> addDuplicateLabels(

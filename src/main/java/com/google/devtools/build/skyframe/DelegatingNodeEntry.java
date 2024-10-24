@@ -24,16 +24,19 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   protected abstract NodeEntry getDelegate();
 
   @Override
+  @Nullable
   public SkyValue getValue() throws InterruptedException {
     return getDelegate().getValue();
   }
 
   @Override
+  @Nullable
   public SkyValue getValueMaybeWithMetadata() throws InterruptedException {
     return getDelegate().getValueMaybeWithMetadata();
   }
 
   @Override
+  @Nullable
   public SkyValue toValue() throws InterruptedException {
     return getDelegate().toValue();
   }
@@ -91,6 +94,11 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   @Override
   public Version getMaxTransitiveSourceVersion() {
     return getDelegate().getMaxTransitiveSourceVersion();
+  }
+
+  @Override
+  public void setTemporaryMaxTransitiveSourceVersion(Version maxTransitiveSourceVersion) {
+    getDelegate().setTemporaryMaxTransitiveSourceVersion(maxTransitiveSourceVersion);
   }
 
   @Override

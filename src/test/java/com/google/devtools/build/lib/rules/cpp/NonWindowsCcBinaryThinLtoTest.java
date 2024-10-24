@@ -87,10 +87,7 @@ public final class NonWindowsCcBinaryThinLtoTest extends BuildViewTestCase {
 
   /** Helper method that checks that a .dwp has the expected generating action structure. */
   private void validateDwp(
-      RuleContext ruleContext,
-      Artifact dwpFile,
-      CcToolchainProvider toolchain,
-      List<String> expectedInputs)
+      Artifact dwpFile, CcToolchainProvider toolchain, List<String> expectedInputs)
       throws Exception {
     SpawnAction dwpAction = (SpawnAction) getGeneratingAction(dwpFile);
     String dwpToolPath =
@@ -98,8 +95,7 @@ public final class NonWindowsCcBinaryThinLtoTest extends BuildViewTestCase {
             toolchain.getToolPaths(),
             Tool.DWP,
             toolchain.getCcToolchainLabel(),
-            toolchain.getToolchainIdentifier(),
-            ruleContext);
+            toolchain.getToolchainIdentifier());
     assertThat(dwpAction.getMnemonic()).isEqualTo("CcGenerateDwp");
     assertThat(dwpToolPath).isEqualTo(dwpAction.getCommandFilename());
     List<String> commandArgs = dwpAction.getArguments();
@@ -136,7 +132,7 @@ public final class NonWindowsCcBinaryThinLtoTest extends BuildViewTestCase {
     ConfiguredTarget pkg = getConfiguredTarget("//pkg:bin_test");
     Artifact pkgArtifact = getFilesToBuild(pkg).getSingleton();
     String rootExecPath = pkgArtifact.getRoot().getExecPathString();
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(pkgArtifact);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(pkgArtifact);
 
     // The cc_test source should still get LTO in this case
     LtoBackendAction backendAction =
@@ -171,7 +167,6 @@ public final class NonWindowsCcBinaryThinLtoTest extends BuildViewTestCase {
     RuleContext ruleContext = getRuleContext(pkg);
     CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
     validateDwp(
-        ruleContext,
         dwpFile,
         toolchain,
         ImmutableList.of(
@@ -203,12 +198,12 @@ public final class NonWindowsCcBinaryThinLtoTest extends BuildViewTestCase {
     ConfiguredTarget pkg = getConfiguredTarget("//pkg:bin_test");
     Artifact pkgArtifact = getFilesToBuild(pkg).getSingleton();
     String rootExecPath1 = pkgArtifact.getRoot().getExecPathString();
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(pkgArtifact);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(pkgArtifact);
 
     ConfiguredTarget pkg2 = getConfiguredTarget("//pkg:bin_test2");
     Artifact pkgArtifact2 = getFilesToBuild(pkg2).getSingleton();
     String rootExecPath2 = pkgArtifact2.getRoot().getExecPathString();
-    CppLinkAction linkAction2 = (CppLinkAction) getGeneratingAction(pkgArtifact2);
+    SpawnAction linkAction2 = (SpawnAction) getGeneratingAction(pkgArtifact2);
 
     // The cc_test source should still get LTO in this case
     LtoBackendAction backendAction =

@@ -17,10 +17,10 @@ package com.google.devtools.build.lib.packages;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.mock;
 
-import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -146,8 +146,7 @@ public final class CallStackTest {
             interiorStack2);
 
     SerializationContext serializer =
-        new SerializationContext(/* dependencies= */ ImmutableClassToInstanceMap.of())
-            .getMemoizingContext();
+        new ObjectCodecs().getMemoizingSerializationContextForTesting();
     ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
     CodedOutputStream codedOut = CodedOutputStream.newInstance(bytesOut);
 
@@ -157,8 +156,7 @@ public final class CallStackTest {
     codedOut.flush();
 
     DeserializationContext deserializer =
-        new DeserializationContext(/* dependencies= */ ImmutableClassToInstanceMap.of())
-            .getMemoizingContext();
+        new ObjectCodecs().getMemoizingDeserializationContextForTesting();
     CodedInputStream codedIn = CodedInputStream.newInstance(bytesOut.toByteArray());
 
     CallStack.Node deserializedCallStack1 = deserializer.deserialize(codedIn);

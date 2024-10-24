@@ -19,6 +19,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.mockito.Mockito.mock;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
@@ -88,9 +89,12 @@ public final class UiEventHandlerStdOutAndStdErrTest {
         new UiEventHandler(
             outErr,
             uiOptions,
+            false,
             new ManualClock(),
+            new EventBus(),
             /* workspacePathFragment= */ null,
-            /* skymeldMode= */ skymeldMode);
+            /* skymeldMode= */ skymeldMode,
+            /* newStatsSummary= */ false);
     uiEventHandler.mainRepoMappingComputationStarted(new MainRepoMappingComputationStartingEvent());
     uiEventHandler.buildStarted(
         BuildStartingEvent.create(
@@ -237,6 +241,15 @@ public final class UiEventHandlerStdOutAndStdErrTest {
     assertThat(output.flushed.size()).isEqualTo(5);
     assertThat(output.flushed.get(3)).contains("Show me this!");
     assertThat(output.flushed.get(4)).doesNotContain("\033[1A\033[K");
+  }
+
+  @Test
+  public void handleOutputEvent_flushesRemainingLines() {
+    Assume.assumeTrue(testedOutput == TestedOutput.STDOUT);
+    uiEventHandler.handle(output("hello\nto\neveryone"));
+    output.assertFlushed("hello\nto\n");
+    uiEventHandler.afterCommand(new AfterCommandEvent());
+    output.assertFlushed("hello\nto\n", "everyone");
   }
 
   private Event output(String message) {

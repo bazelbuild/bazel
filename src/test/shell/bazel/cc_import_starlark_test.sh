@@ -42,8 +42,6 @@ function test_all_starlark_written_tests() {
 
   cd "$workspace_dir"
 
-  setup_skylib_support
-
   # TODO(gnish): Re-enable tests once bazel picks up changes.
   # bazel test --experimental_starlark_cc_import tools/build_defs/cc/tests:cc_import_tests
 }

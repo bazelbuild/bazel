@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLine;
-import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.analysis.BashCommandConstructor;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -47,7 +46,6 @@ import java.util.Map;
 @Immutable
 public final class ExtraActionSpec implements TransitiveInfoProvider {
   private final NestedSet<Artifact> resolvedTools;
-  private final RunfilesSupplier runfilesSupplier;
   private final ImmutableList<Artifact> resolvedData;
   private final ImmutableList<String> outputTemplates;
   private final ImmutableMap<String, String> executionInfo;
@@ -57,7 +55,6 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
 
   public ExtraActionSpec(
       NestedSet<Artifact> resolvedTools,
-      RunfilesSupplier runfilesSupplier,
       List<Artifact> resolvedData,
       List<String> outputTemplates,
       String command,
@@ -65,7 +62,6 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
       Map<String, String> executionInfo,
       boolean requiresActionOutput) {
     this.resolvedTools = resolvedTools;
-    this.runfilesSupplier = runfilesSupplier;
     this.resolvedData = ImmutableList.copyOf(resolvedData);
     this.outputTemplates = ImmutableList.copyOf(outputTemplates);
     this.command = command;
@@ -136,14 +132,14 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
     BashCommandConstructor constructor =
         CommandHelper.buildBashCommandConstructor(
             executionInfo, shExecutable, "." + actionUniquifier + ".extra_action_script.sh");
-    List<String> argv = commandHelper.buildCommandLine(command, extraActionInputs, constructor);
+    ImmutableList<String> argv =
+        commandHelper.buildCommandLine(command, extraActionInputs, constructor);
 
     String commandMessage = String.format("Executing extra_action %s on %s", label, ownerLabel);
     owningRule.registerAction(
         new ExtraAction(
             owningRule.getActionOwner(),
             extraActionInputs.build(),
-            runfilesSupplier,
             extraActionOutputs,
             actionToShadow,
             createDummyOutput,

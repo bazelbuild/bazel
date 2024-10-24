@@ -39,54 +39,24 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault.Resolver;
 import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.OsUtils;
 
 /** Rule class definitions for C++ rules. */
 public class CppRuleClasses {
-
-  /**
-   * Label of a pseudo-filegroup that contains all crosstool and libcfiles for all configurations,
-   * as specified on the command-line.
-   */
-  public static final String CROSSTOOL_LABEL = "//tools/cpp:toolchain";
-
   public static final LabelLateBoundDefault<?> DEFAULT_MALLOC =
       LabelLateBoundDefault.fromTargetConfiguration(
           CppConfiguration.class, null, (rule, attributes, cppConfig) -> cppConfig.customMalloc());
 
-  public static LabelLateBoundDefault<CppConfiguration> ccToolchainAttribute(
-      RuleDefinitionEnvironment env) {
-    return LabelLateBoundDefault.fromTargetConfiguration(
-        CppConfiguration.class,
-        env.getToolsLabel(CROSSTOOL_LABEL),
-        CC_TOOLCHAIN_CONFIGURATION_RESOLVER);
-  }
-
-  @SerializationConstant
-  static final Resolver<CppConfiguration, Label> CC_TOOLCHAIN_CONFIGURATION_RESOLVER =
-      (rule, attributes, configuration) -> configuration.getRuleProvidingCcToolchainProvider();
-
-  public static Label ccToolchainTypeAttribute(RuleDefinitionEnvironment env) {
-    return env.getToolsLabel(CppHelper.TOOLCHAIN_TYPE_LABEL);
-  }
-
-  public static ToolchainTypeRequirement ccToolchainTypeRequirement(Label ccToolchainType) {
-    // This is an optional dependency: if a toolchain cannot be found, CppHelper will give an
-    // appropriate error.
-    return ToolchainTypeRequirement.builder(ccToolchainType).mandatory(false).build();
-  }
-
   public static ToolchainTypeRequirement ccToolchainTypeRequirement(RuleDefinitionEnvironment env) {
-    return ccToolchainTypeRequirement(CppRuleClasses.ccToolchainTypeAttribute(env));
+    return ToolchainTypeRequirement.builder(env.getToolsLabel(CppHelper.TOOLCHAIN_TYPE_LABEL))
+        .mandatory(false)
+        .build();
   }
 
   // Artifacts of these types are discarded from the 'hdrs' attribute in cc rules
@@ -136,6 +106,9 @@ public class CppRuleClasses {
    * header_modules features.
    */
   public static final String MODULE_MAPS = "module_maps";
+
+  /** A string constant for the cpp_modules feature. */
+  public static final String CPP_MODULES = "cpp_modules";
 
   /**
    * A string constant for the random_seed feature. This is used by gcc and Clangfor the
@@ -322,6 +295,13 @@ public class CppRuleClasses {
   /** A string constant for enabling fsafdo for AutoFDO implicitly. */
   public static final String ENABLE_FSAFDO = "enable_fsafdo";
 
+  /** A string constant for enabling memprof_optimize for AutoFDO implicitly. */
+  public static final String ENABLE_AUTOFDO_MEMPROF_OPTIMIZE = "enable_autofdo_memprof_optimize";
+
+  /** A string constant for allowing memprof_optimize for AutoFDO implicitly. */
+  public static final String AUTOFDO_IMPLICIT_MEMPROF_OPTIMIZE =
+      "autofdo_implicit_memprof_optimize";
+
   /**
    * A string constant for allowing use of shared LTO backend actions for linkstatic tests building
    * with ThinLTO.
@@ -493,6 +473,9 @@ public class CppRuleClasses {
   /** A feature to use gcc quoting for linking param files. */
   public static final String GCC_QUOTING_FOR_PARAM_FILES = "gcc_quoting_for_param_files";
 
+  /** A feature to use windows quoting for linking param files. */
+  public static final String WINDOWS_QUOTING_FOR_PARAM_FILES = "windows_quoting_for_param_files";
+
   /**
    * A feature to indicate that this target generates debug symbols for a dSYM file. For Apple
    * platform only.
@@ -509,7 +492,7 @@ public class CppRuleClasses {
    */
   public static final String NO_GENERATE_DEBUG_SYMBOLS_FEATURE_NAME = "no_generate_debug_symbols";
 
-  /** A feature to indicate whether to generate linkmap. For Apple platform only. */
+  /** A feature to indicate whether to generate linkmap. */
   public static final String GENERATE_LINKMAP_FEATURE_NAME = "generate_linkmap";
 
   /** A feature to indicate whether to do linker deadstrip. For Apple platform only. */

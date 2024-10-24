@@ -53,9 +53,9 @@ import com.google.devtools.build.lib.actions.ActionScanningCompletedEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
 import com.google.devtools.build.lib.actions.DelegatingPairInputMetadataProvider;
@@ -63,7 +63,7 @@ import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
@@ -219,6 +219,9 @@ public final class SkyframeActionExecutor {
   private DiscoveredModulesPruner discoveredModulesPruner;
 
   @Nullable private Semaphore cacheHitSemaphore;
+
+  private boolean useAsyncExecution;
+
   /**
    * If not null, we use this semaphore to limit the number of concurrent actions instead of
    * depending on the size of thread pool.
@@ -295,7 +298,7 @@ public final class SkyframeActionExecutor {
     // Cache some option values for performance, since we consult them on every action.
     this.finalizeActions = buildRequestOptions.finalizeActions;
     this.rewindingEnabled = buildRequestOptions.rewindLostInputs;
-    this.outputService = outputService;
+    this.outputService = checkNotNull(outputService);
     this.outputDirectoryHelper = outputDirectoryHelper;
 
     // Retaining discovered inputs is only worthwhile for incremental builds or builds with extra
@@ -303,13 +306,18 @@ public final class SkyframeActionExecutor {
     freeDiscoveredInputsAfterExecution =
         !trackIncrementalState && options.getOptions(CoreOptions.class).actionListeners.isEmpty();
 
+    this.useAsyncExecution = buildRequestOptions.useAsyncExecution;
+
     this.cacheHitSemaphore =
-        options.getOptions(CoreOptions.class).throttleActionCacheCheck
+        (!this.useAsyncExecution && options.getOptions(CoreOptions.class).throttleActionCacheCheck)
             ? new Semaphore(ResourceUsage.getAvailableProcessors())
             : null;
 
+    // Always use semaphore for jobs if async execution is enabled.
     this.actionExecutionSemaphore =
-        buildRequestOptions.useSemaphoreForJobs ? new Semaphore(buildRequestOptions.jobs) : null;
+        (this.useAsyncExecution || buildRequestOptions.useSemaphoreForJobs)
+            ? new Semaphore(buildRequestOptions.jobs)
+            : null;
   }
 
   public void setActionLogBufferPathGenerator(
@@ -322,10 +330,17 @@ public final class SkyframeActionExecutor {
     this.clientEnv = ImmutableMap.copyOf(clientEnv);
   }
 
+  public OutputService getOutputService() {
+    return outputService;
+  }
+
+  @Nullable
+  public ActionInputPrefetcher getActionInputPrefetcher() {
+    return actionInputPrefetcher;
+  }
+
   ActionFileSystemType actionFileSystemType() {
-    return outputService != null
-        ? outputService.actionFileSystemType()
-        : ActionFileSystemType.DISABLED;
+    return outputService.actionFileSystemType();
   }
 
   Path getExecRoot() {
@@ -347,7 +362,7 @@ public final class SkyframeActionExecutor {
     return options.getOptions(BuildEventProtocolOptions.class).publishTargetSummary;
   }
 
-  boolean rewindingEnabled() {
+  public boolean rewindingEnabled() {
     return rewindingEnabled;
   }
 
@@ -358,7 +373,7 @@ public final class SkyframeActionExecutor {
   }
 
   XattrProvider getXattrProvider() {
-    return syscallCache;
+    return checkNotNull(outputService.getXattrProvider(syscallCache));
   }
 
   /** REQUIRES: {@link #actionFileSystemType()} to be not {@code DISABLED}. */
@@ -381,7 +396,7 @@ public final class SkyframeActionExecutor {
       FileSystem actionFileSystem,
       Environment env,
       MetadataInjector metadataInjector,
-      ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesets) {
+      ImmutableMap<Artifact, FilesetOutputTree> filesets) {
     outputService.updateActionFileSystemContext(
         action, actionFileSystem, env, metadataInjector, filesets);
   }
@@ -429,10 +444,8 @@ public final class SkyframeActionExecutor {
    * Called to prepare action execution states for rewinding after {@code failedAction} observed
    * lost inputs.
    */
-  void prepareForRewinding(
-      ActionLookupData failedKey,
-      Action failedAction,
-      ImmutableList<Action> depsToRewind) {
+  public void prepareForRewinding(
+      ActionLookupData failedKey, Action failedAction, ImmutableList<Action> depsToRewind) {
     var ownerlessArtifactWrapper = new OwnerlessArtifactWrapper(failedAction.getPrimaryOutput());
     ActionExecutionState state = buildActionMap.get(ownerlessArtifactWrapper);
     if (state != null) {
@@ -448,7 +461,7 @@ public final class SkyframeActionExecutor {
     }
   }
 
-  private void prepareDepForRewinding(ActionLookupData failedKey, Action dep) {
+  public void prepareDepForRewinding(SkyKey failedKey, Action dep) {
     OwnerlessArtifactWrapper ownerlessArtifactWrapper =
         new OwnerlessArtifactWrapper(dep.getPrimaryOutput());
     ActionExecutionState actionExecutionState = buildActionMap.get(ownerlessArtifactWrapper);
@@ -484,8 +497,8 @@ public final class SkyframeActionExecutor {
       long actionStartTime,
       ActionLookupData actionLookupData,
       ArtifactExpander artifactExpander,
-      ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets,
-      ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets,
+      ImmutableMap<Artifact, FilesetOutputTree> expandedFilesets,
+      ImmutableMap<Artifact, FilesetOutputTree> topLevelFilesets,
       @Nullable FileSystem actionFileSystem,
       @Nullable Object skyframeDepsResult,
       ActionPostprocessing postprocessing,
@@ -542,23 +555,28 @@ public final class SkyframeActionExecutor {
     ActionExecutionValue result = null;
     ActionExecutionException finalException = null;
 
-    if (actionExecutionSemaphore != null) {
-      actionExecutionSemaphore.acquire();
-    }
     try {
       result = activeAction.getResultOrDependOnFuture(env, actionLookupData, action, callback);
     } catch (ActionExecutionException e) {
       finalException = e;
-    } finally {
-      if (actionExecutionSemaphore != null) {
-        actionExecutionSemaphore.release();
-      }
     }
 
     if (result != null || finalException != null) {
       closeContext(actionExecutionContext, action, finalException);
     }
     return result;
+  }
+
+  void maybeAcquireActionExecutionSemaphore() throws InterruptedException {
+    if (actionExecutionSemaphore != null) {
+      actionExecutionSemaphore.acquire();
+    }
+  }
+
+  void maybeReleaseActionExecutionSemaphore() {
+    if (actionExecutionSemaphore != null) {
+      actionExecutionSemaphore.release();
+    }
   }
 
   private ExtendedEventHandler selectEventHandler(Action action) {
@@ -574,7 +592,7 @@ public final class SkyframeActionExecutor {
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
       ArtifactExpander artifactExpander,
-      ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets,
+      ImmutableMap<Artifact, FilesetOutputTree> topLevelFilesets,
       @Nullable FileSystem actionFileSystem,
       @Nullable Object skyframeDepsResult,
       ActionLookupData actionLookupData) {
@@ -629,6 +647,7 @@ public final class SkyframeActionExecutor {
       Action action,
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
+      ArtifactPathResolver artifactPathResolver,
       ArtifactExpander artifactExpander,
       long actionStartTime,
       List<Artifact> resolvedCacheArtifacts,
@@ -651,9 +670,7 @@ public final class SkyframeActionExecutor {
           remoteOptions != null
               ? remoteOptions.getRemoteDefaultExecProperties()
               : ImmutableSortedMap.of();
-      if (outputService != null) {
-        remoteArtifactChecker = outputService.getRemoteArtifactChecker();
-      }
+      remoteArtifactChecker = outputService.getRemoteArtifactChecker();
       handler =
           options.getOptions(BuildRequestOptions.class).explanationPath != null ? reporter : null;
       token =
@@ -674,12 +691,12 @@ public final class SkyframeActionExecutor {
         // Notify BlazeRuntimeStatistics about the action middleman 'execution'.
         if (action.getActionType().isMiddleman()) {
           eventHandler.post(
-              new ActionMiddlemanEvent(action, actionStartTime, BlazeClock.nanoTime()));
+              new ActionMiddlemanEvent(
+                  action, inputMetadataProvider, actionStartTime, BlazeClock.nanoTime()));
           eventPosted = true;
         }
 
-        if (action instanceof NotifyOnActionCacheHit) {
-          NotifyOnActionCacheHit notify = (NotifyOnActionCacheHit) action;
+        if (action instanceof NotifyOnActionCacheHit notify) {
           ExtendedEventHandler contextEventHandler = selectEventHandler(action);
           ActionCachedContext context =
               new ActionCachedContext() {
@@ -691,6 +708,11 @@ public final class SkyframeActionExecutor {
                 @Override
                 public Path getExecRoot() {
                   return executorEngine.getExecRoot();
+                }
+
+                @Override
+                public ArtifactPathResolver getPathResolver() {
+                  return artifactPathResolver;
                 }
 
                 @Override
@@ -721,10 +743,12 @@ public final class SkyframeActionExecutor {
             checkOutputs(
                 action,
                 outputMetadataStore,
-                /* filesetOutputSymlinksForMetrics= */ null,
+                /* filesetOutputForMetrics= */ null,
                 /* isActionCacheHitForMetrics= */ true);
         if (!eventPosted) {
-          eventHandler.post(new CachedActionEvent(action, actionStartTime, BlazeClock.nanoTime()));
+          eventHandler.post(
+              new CachedActionEvent(
+                  action, inputMetadataProvider, actionStartTime, BlazeClock.nanoTime()));
         }
       }
     } catch (UserExecException e) {
@@ -872,11 +896,9 @@ public final class SkyframeActionExecutor {
       }
 
       Path primaryOutputPath = actionExecutionContext.getInputPath(action.getPrimaryOutput());
-      if (e instanceof LostInputsActionExecutionException) {
+      if (e instanceof LostInputsActionExecutionException lostInputsException) {
         // If inputs were lost during input discovery, then enrich the exception, informing action
         // rewinding machinery that these lost inputs are now Skyframe deps of the action.
-        LostInputsActionExecutionException lostInputsException =
-            (LostInputsActionExecutionException) e;
         lostInputsException.setFromInputDiscovery();
         enrichLostInputsException(
             primaryOutputPath, actionLookupData, fileOutErr, lostInputsException);
@@ -900,8 +922,8 @@ public final class SkyframeActionExecutor {
 
   private InputMetadataProvider createFileCache(
       InputMetadataProvider graphFileCache, @Nullable FileSystem actionFileSystem) {
-    if (actionFileSystem instanceof InputMetadataProvider) {
-      return (InputMetadataProvider) actionFileSystem;
+    if (actionFileSystem instanceof InputMetadataProvider inputMetadataProvider) {
+      return inputMetadataProvider;
     }
     return new DelegatingPairInputMetadataProvider(graphFileCache, perBuildFileCache);
   }
@@ -1004,7 +1026,8 @@ public final class SkyframeActionExecutor {
               action.getMnemonic(),
               action.describe(),
               action.getPrimaryOutput().getExecPathString(),
-              getOwnerLabelAsString(action))) {
+              getOwnerLabelAsString(action),
+              getOwnerConfigurationAsString(action))) {
         String message = action.getProgressMessage();
         if (message != null) {
           reporter.startTask(null, prependExecPhaseStats(message));
@@ -1026,7 +1049,7 @@ public final class SkyframeActionExecutor {
               action.prepare(
                   actionExecutionContext.getExecRoot(),
                   actionExecutionContext.getPathResolver(),
-                  outputService != null ? outputService.bulkDeleter() : null,
+                  outputService.bulkDeleter(),
                   useArchivedTreeArtifacts(action));
             } catch (IOException e) {
               logger.atWarning().withCause(e).log(
@@ -1073,6 +1096,14 @@ public final class SkyframeActionExecutor {
       return ownerLabel.getCanonicalForm();
     }
 
+    private String getOwnerConfigurationAsString(Action action) {
+      ActionOwner owner = action.getOwner();
+      if (owner == null) {
+        return "";
+      }
+      return owner.getConfigurationChecksum();
+    }
+
     private void notifyActionCompletion(
         ExtendedEventHandler eventHandler, boolean postActionCompletionEvent) {
       if (statusReporter != null) {
@@ -1081,7 +1112,11 @@ public final class SkyframeActionExecutor {
       if (postActionCompletionEvent) {
         eventHandler.post(
             new ActionCompletionEvent(
-                actionStartTimeNanos, BlazeClock.nanoTime(), action, actionLookupData));
+                actionStartTimeNanos,
+                BlazeClock.nanoTime(),
+                action,
+                inputMetadataProvider,
+                actionLookupData));
       }
       String message = action.getProgressMessage();
       if (message != null) {
@@ -1098,8 +1133,8 @@ public final class SkyframeActionExecutor {
       // Action failures may be caused by lost inputs. Lost input failures have higher priority
       // because rewinding may be able to restore what was lost and allow the action to complete
       // without error.
-      if (e instanceof LostInputsActionExecutionException) {
-        lostInputsException = (LostInputsActionExecutionException) e;
+      if (e instanceof LostInputsActionExecutionException lostInputsActionExecutionException) {
+        lostInputsException = lostInputsActionExecutionException;
       } else {
         try {
           checkActionFileSystemForLostInputs(
@@ -1197,22 +1232,10 @@ public final class SkyframeActionExecutor {
             "Action %s successfully executed, but inputs still not known",
             action);
 
-        try {
-          flushActionFileSystem(actionExecutionContext.getActionFileSystem(), outputService);
-        } catch (IOException e) {
-          logger.atWarning().withCause(e).log("unable to flush action filesystem: '%s'", action);
-          throw toActionExecutionException(
-              "unable to flush action filesystem",
-              e,
-              action,
-              fileOutErr,
-              Code.ACTION_FINALIZATION_FAILURE);
-        }
-
         if (!checkOutputs(
             action,
             outputMetadataStore,
-            actionExecutionContext.getOutputSymlinks(),
+            actionExecutionContext.getFilesetOutput(),
             /* isActionCacheHitForMetrics= */ false)) {
           throw toActionExecutionException(
               "not all outputs were created or valid",
@@ -1222,7 +1245,7 @@ public final class SkyframeActionExecutor {
               Code.ACTION_OUTPUTS_NOT_CREATED);
         }
 
-        if (outputService != null && finalizeActions) {
+        if (finalizeActions) {
           try (SilentCloseable c =
               profiler.profile(ProfilerTask.INFO, "outputService.finalizeAction")) {
             outputService.finalizeAction(action, outputMetadataStore);
@@ -1286,17 +1309,16 @@ public final class SkyframeActionExecutor {
           fileOutErr,
           ErrorTiming.NO_ERROR);
 
-      ImmutableList<FilesetOutputSymlink> outputSymlinks =
-          actionExecutionContext.getOutputSymlinks();
+      FilesetOutputTree filesetOutput = actionExecutionContext.getFilesetOutput();
       checkState(
-          outputSymlinks.isEmpty() || action instanceof SkyframeAwareAction,
+          filesetOutput.isEmpty() || action instanceof SkyframeAwareAction,
           "Unexpected to find outputSymlinks set in an action which is not a SkyframeAwareAction."
               + "\nAction: %s"
               + "\nSymlinks: %s",
           action,
-          outputSymlinks);
+          filesetOutput);
       return ActionExecutionValue.createFromOutputMetadataStore(
-          this.outputMetadataStore, outputSymlinks, action);
+          this.outputMetadataStore, filesetOutput, action);
     }
 
     /**
@@ -1479,11 +1501,12 @@ public final class SkyframeActionExecutor {
       Action action, Artifact output, Reporter reporter, IOException e) {
     String errorMessage;
     if (e instanceof FileNotFoundException) {
-      errorMessage = String.format("TreeArtifact %s was not created", output.prettyPrint());
+      errorMessage = String.format("output tree artifact %s was not created", output.prettyPrint());
     } else {
       errorMessage =
           String.format(
-              "Error while validating output TreeArtifact %s : %s", output, e.getMessage());
+              "error while validating output tree artifact %s: %s",
+              output.prettyPrint(), e.getMessage());
     }
 
     reporter.handle(Event.error(action.getOwner().getLocation(), errorMessage));
@@ -1509,14 +1532,6 @@ public final class SkyframeActionExecutor {
         : () -> outputService.checkActionFileSystemForLostInputs(actionFileSystem, action);
   }
 
-  private static void flushActionFileSystem(
-      @Nullable FileSystem actionFileSystem, @Nullable OutputService outputService)
-      throws IOException, InterruptedException {
-    if (outputService != null && actionFileSystem != null) {
-      outputService.flushActionFileSystem(actionFileSystem);
-    }
-  }
-
   /**
    * Validates that all action outputs were created or intentionally omitted. This can result in
    * chmod calls on the output files; see {@link ActionOutputMetadataStore}.
@@ -1526,7 +1541,7 @@ public final class SkyframeActionExecutor {
   private boolean checkOutputs(
       Action action,
       OutputMetadataStore outputMetadataStore,
-      @Nullable ImmutableList<FilesetOutputSymlink> filesetOutputSymlinksForMetrics,
+      @Nullable FilesetOutputTree filesetOutputForMetrics,
       boolean isActionCacheHitForMetrics)
       throws InterruptedException {
     boolean success = true;
@@ -1547,7 +1562,7 @@ public final class SkyframeActionExecutor {
                 output,
                 metadata,
                 outputMetadataStore,
-                filesetOutputSymlinksForMetrics,
+                filesetOutputForMetrics,
                 isActionCacheHitForMetrics,
                 action);
           } catch (IOException e) {
@@ -1576,7 +1591,7 @@ public final class SkyframeActionExecutor {
       Artifact output,
       FileArtifactValue metadata,
       OutputMetadataStore outputMetadataStore,
-      @Nullable ImmutableList<FilesetOutputSymlink> filesetOutputSymlinks,
+      @Nullable FilesetOutputTree filesetOutput,
       boolean isActionCacheHit,
       Action actionForDebugging)
       throws IOException, InterruptedException {
@@ -1588,8 +1603,8 @@ public final class SkyframeActionExecutor {
                   output, outputMetadataStore, actionForDebugging)));
       return;
     }
-    if (output.isFileset() && filesetOutputSymlinks != null) {
-      outputArtifactsSeen.accumulate(filesetOutputSymlinks);
+    if (output.isFileset() && filesetOutput != null) {
+      outputArtifactsSeen.accumulate(filesetOutput);
     } else if (!output.isTreeArtifact()) {
       outputArtifactsSeen.accumulate(metadata);
       if (isActionCacheHit) {
@@ -1634,15 +1649,12 @@ public final class SkyframeActionExecutor {
         if (input.isSourceArtifact()
             && metadataProvider.getInputMetadata(input).getType().isDirectory()) {
           // TODO(ulfjack): What about dependency checking of special files?
-          String ownerString = action.getOwner().getLabel().toString();
           reporter.handle(
-              Event.warn(
-                      action.getOwner().getLocation(),
-                      String.format(
-                          "input '%s' to %s is a directory; "
-                              + "dependency checking of directories is unsound",
-                          input.prettyPrint(), ownerString))
-                  .withTag(ownerString));
+              getEventForUnsoundDirectory(
+                  EventKind.WARNING,
+                  "input %s is a directory; dependency checking of directories is unsound",
+                  input,
+                  action.getOwner()));
         }
       } catch (IOException e) {
         throw ActionExecutionException.fromExecException(
@@ -1658,16 +1670,24 @@ public final class SkyframeActionExecutor {
     if (output.isDirectory() || output.isSymlink() || !metadata.getType().isDirectory()) {
       return true;
     }
-    String ownerString = action.getOwner().getLabel().toString();
     reporter.handle(
-        Event.of(
-                EventKind.ERROR,
-                action.getOwner().getLocation(),
-                String.format(
-                    "output '%s' of %s is a directory but was not declared as such",
-                    output.prettyPrint(), ownerString))
-            .withTag(ownerString));
+        getEventForUnsoundDirectory(
+            EventKind.ERROR,
+            "output %s is a directory but was not declared as such",
+            output,
+            action.getOwner()));
     return false;
+  }
+
+  private static Event getEventForUnsoundDirectory(
+      EventKind kind, String format, Artifact artifact, ActionOwner owner) {
+    Label label = owner.getLabel();
+    String artifactString =
+        label != null
+            ? String.format("'%s' of %s", artifact.prettyPrint(), label)
+            : artifact.prettyPrint();
+    Event event = Event.of(kind, owner.getLocation(), String.format(format, artifactString));
+    return label != null ? event.withTag(label.toString()) : event;
   }
 
   /**
@@ -1839,8 +1859,8 @@ public final class SkyframeActionExecutor {
     if (actionResult != null) {
       return actionResult.spawnResults();
     }
-    if (exception instanceof SpawnActionExecutionException) {
-      return ImmutableList.of(((SpawnActionExecutionException) exception).getSpawnResult());
+    if (exception instanceof SpawnActionExecutionException spawnActionExecutionException) {
+      return ImmutableList.of(spawnActionExecutionException.getSpawnResult());
     }
     return ImmutableList.of();
   }

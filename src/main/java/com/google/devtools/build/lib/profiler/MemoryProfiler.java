@@ -18,6 +18,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Splitter;
+import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.util.HeapOffsetHelper;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -30,6 +31,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /**
@@ -59,10 +61,13 @@ public final class MemoryProfiler {
   private ProfilePhase currentPhase;
   private long heapUsedMemoryAtFinish;
   @Nullable private MemoryProfileStableHeapParameters memoryProfileStableHeapParameters;
+  private Pattern internalJvmObjectPattern;
 
   public synchronized void setStableMemoryParameters(
-      MemoryProfileStableHeapParameters memoryProfileStableHeapParameters) {
+      MemoryProfileStableHeapParameters memoryProfileStableHeapParameters,
+      Pattern internalJvmObjectPattern) {
     this.memoryProfileStableHeapParameters = memoryProfileStableHeapParameters;
+    this.internalJvmObjectPattern = internalJvmObjectPattern;
   }
 
   public synchronized void start(OutputStream out) {
@@ -94,7 +99,9 @@ public final class MemoryProfiler {
       var usedMemory = memoryUsage.getUsed();
       // TODO(b/311665999) Remove the subtraction of FillerArray once we figure out an alternative.
       if (nextPhase == ProfilePhase.FINISH) {
-        usedMemory -= HeapOffsetHelper.getSizeOfFillerArrayOnHeap();
+        usedMemory -=
+            HeapOffsetHelper.getSizeOfFillerArrayOnHeap(
+                internalJvmObjectPattern, BugReporter.defaultInstance());
         heapUsedMemoryAtFinish = usedMemory;
       }
       memoryProfile.println(name + ":heap:init:" + memoryUsage.getInit());

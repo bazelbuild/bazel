@@ -18,8 +18,12 @@ import static com.google.common.primitives.Booleans.trueFirst;
 import static java.util.Comparator.comparing;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Comparators;
+import com.google.common.collect.HashMultiset;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Multiset;
 import com.google.common.collect.Sets;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
@@ -48,6 +52,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
+import com.google.devtools.build.lib.runtime.CrashDebuggingProtos.InflightActionInfo;
 import com.google.devtools.build.lib.skyframe.ConfigurationPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetProgressReceiver;
 import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
@@ -61,9 +66,11 @@ import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
+import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.PriorityQueue;
@@ -78,6 +85,8 @@ import javax.annotation.concurrent.ThreadSafe;
 /** Tracks state for the UI. */
 class UiStateTracker {
 
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   private static final long SHOW_TIME_THRESHOLD_SECONDS = 3;
   private static final String ELLIPSIS = "...";
   private static final String FETCH_PREFIX = "    Fetching ";
@@ -90,8 +99,10 @@ class UiStateTracker {
 
   private int sampleSize = 3;
 
+  private boolean newStatsSummary = false;
+
   protected String status;
-  protected String additionalMessage;
+  protected String additionalMessage = "";
   // Not null after the loading phase has completed.
   protected RepositoryMapping mainRepositoryMapping;
 
@@ -198,7 +209,7 @@ class UiStateTracker {
     String describe() {
       return description;
     }
-  };
+  }
 
   /**
    * Tracks all details for an action that we have heard about.
@@ -369,6 +380,7 @@ class UiStateTracker {
   protected int failedTests;
   protected boolean ok;
   private boolean buildComplete;
+  protected volatile boolean executionPhaseStarted;
 
   @Nullable protected ExecutionProgressReceiver executionProgressReceiver;
   @Nullable protected PackageProgressReceiver packageProgressReceiver;
@@ -390,6 +402,7 @@ class UiStateTracker {
     this.ok = true;
     this.clock = clock;
     this.targetWidth = targetWidth;
+    this.executionPhaseStarted = false;
   }
 
   UiStateTracker(Clock clock) {
@@ -399,6 +412,10 @@ class UiStateTracker {
   /** Set the progress bar sample size. */
   void setProgressSampleSize(int sampleSize) {
     this.sampleSize = Math.max(1, sampleSize);
+  }
+
+  void setNewStatsSummary(boolean newStatsSummary) {
+    this.newStatsSummary = newStatsSummary;
   }
 
   void mainRepoMappingComputationStarted() {
@@ -429,6 +446,10 @@ class UiStateTracker {
       additionalMessage = count + " targets";
     }
     mainRepositoryMapping = event.getMainRepositoryMapping();
+  }
+
+  void executionPhaseStarted() {
+    executionPhaseStarted = true;
   }
 
   /**
@@ -463,20 +484,23 @@ class UiStateTracker {
     additionalMessage = "";
     if (event.getResult().getSuccess()) {
       int actionsCompleted = this.actionsCompleted.get();
+      StringBuilder completedStringBuilder = new StringBuilder().append("Build completed");
       if (failedTests == 0) {
-        return Event.info(
-            "Build completed successfully, "
-                + actionsCompleted
-                + pluralize(" total action", actionsCompleted));
+        completedStringBuilder.append(" successfully");
       } else {
-        return Event.info(
-            "Build completed, "
-                + failedTests
-                + pluralize(" test", failedTests)
-                + " FAILED, "
-                + actionsCompleted
-                + pluralize(" total action", actionsCompleted));
+        completedStringBuilder
+            .append(", ")
+            .append(failedTests)
+            .append(pluralize(" test", failedTests))
+            .append(" FAILED");
       }
+      if (!newStatsSummary) {
+        completedStringBuilder
+            .append(", ")
+            .append(actionsCompleted)
+            .append(pluralize(" total action", actionsCompleted));
+      }
+      return Event.info(completedStringBuilder.toString());
     } else {
       ok = false;
       return Event.error("Build did NOT complete successfully");
@@ -631,6 +655,29 @@ class UiStateTracker {
 
   void actionUploadFinished(ActionUploadFinishedEvent event) {
     activeActionUploads.decrementAndGet();
+  }
+
+  final InflightActionInfo logAndGetInflightActions() {
+    Multiset<String> mnemonicHistogram = HashMultiset.create();
+    for (var actionState : activeActions.values()) {
+      mnemonicHistogram.add(actionState.action.getMnemonic());
+    }
+
+    int total = mnemonicHistogram.size();
+    List<Multiset.Entry<String>> top20 =
+        mnemonicHistogram.entrySet().stream()
+            .collect(Comparators.greatest(20, Comparator.comparingInt(Multiset.Entry::getCount)));
+    logger.atInfo().log(
+        "Total number of actions in flight: %d. Most frequent mnemonics: %s", total, top20);
+
+    var inflightActions = InflightActionInfo.newBuilder().setCount(total);
+    for (Multiset.Entry<String> entry : top20) {
+      inflightActions
+          .addTopMnemonicsBuilder()
+          .setMnemonic(entry.getElement())
+          .setCount(entry.getCount());
+    }
+    return inflightActions.build();
   }
 
   /** From a string, take a suffix of at most the given length. */
@@ -1246,7 +1293,11 @@ class UiStateTracker {
     ActionState oldestAction = getOldestAction();
     if (actionsCount == 0 || oldestAction == null) {
       // TODO(b/239693084): Improve the message here.
-      terminalWriter.normal().append(" checking cached actions");
+      if (executionProgressReceiver != null && executionProgressReceiver.hasActionsInFlight()) {
+        terminalWriter.normal().append(" checking cached actions");
+      } else {
+        terminalWriter.normal().append(" no actions running");
+      }
       maybeShowRecentTest(terminalWriter, shortVersion, targetWidth - terminalWriter.getPosition());
     } else if (actionsCount == 1) {
       if (maybeShowRecentTest(null, shortVersion, targetWidth - terminalWriter.getPosition())) {

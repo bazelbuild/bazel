@@ -17,9 +17,9 @@ import static com.google.devtools.build.lib.skyframe.serialization.strings.Unsaf
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.CommandLineItem;
+import com.google.devtools.build.lib.skyframe.serialization.LeafDeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.LeafObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationDependencyProvider;
+import com.google.devtools.build.lib.skyframe.serialization.LeafSerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.FileType;
@@ -27,6 +27,7 @@ import com.google.errorprone.annotations.Immutable;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
+import java.util.function.UnaryOperator;
 import javax.annotation.Nullable;
 
 /**
@@ -50,8 +51,8 @@ import javax.annotation.Nullable;
  * <p>Mac and Windows path fragments are case insensitive.
  */
 @Immutable
-public abstract class PathFragment
-    implements Comparable<PathFragment>, FileType.HasFileType, CommandLineItem {
+public abstract sealed class PathFragment
+    implements Comparable<PathFragment>, FileType.HasFileType, PathStrippable {
   private static final OsPathPolicy OS = OsPathPolicy.getFilePathOs();
 
   @SerializationConstant
@@ -61,6 +62,7 @@ public abstract class PathFragment
   private static final char ADDITIONAL_SEPARATOR_CHAR = OS.additionalSeparator();
 
   private final String normalizedPath;
+
   // DON'T add more fields here unless you know what you are doing. Adding another field will
   // increase the shallow heap of a PathFragment instance beyond the current value of 16 bytes.
   // Blaze's heap typically has many instances.
@@ -115,7 +117,7 @@ public abstract class PathFragment
     return normalizedPath;
   }
 
-  public boolean isEmpty() {
+  public final boolean isEmpty() {
     return normalizedPath.isEmpty();
   }
 
@@ -192,7 +194,10 @@ public abstract class PathFragment
    */
   public PathFragment getRelative(PathFragment other) {
     Preconditions.checkNotNull(other);
-    // Fast-path: The path fragment is already normal, use cheaper normalization check
+    if (isEmpty() || other.isAbsolute()) {
+      return other;
+    }
+    // The path fragment is already normal, use cheaper normalization check.
     String otherStr = other.normalizedPath;
     return getRelative(otherStr, other.getDriveStrLength(), OS.needsToNormalizeSuffix(otherStr));
   }
@@ -209,7 +214,7 @@ public abstract class PathFragment
   }
 
   private PathFragment getRelative(String other, int otherDriveStrLength, int normalizationLevel) {
-    if (normalizedPath.isEmpty()) {
+    if (isEmpty()) {
       return create(other);
     }
     if (other.isEmpty()) {
@@ -280,7 +285,7 @@ public abstract class PathFragment
       }
     } else {
       if (lastSeparator == -1) {
-        if (!normalizedPath.isEmpty()) {
+        if (!isEmpty()) {
           return EMPTY_FRAGMENT;
         } else {
           return null;
@@ -379,7 +384,7 @@ public abstract class PathFragment
       return false;
     }
     return normalizedPath.length() == other.normalizedPath.length()
-        || other.normalizedPath.isEmpty()
+        || other.isEmpty()
         || normalizedPath.charAt(normalizedPath.length() - other.normalizedPath.length() - 1)
             == SEPARATOR_CHAR;
   }
@@ -421,7 +426,7 @@ public abstract class PathFragment
   ////////////////////////////////////////////////////////////////////////
 
   /**
-   * Returns the number of segments in this path.
+   * Returns the number of segments in this path, excluding the drive string for absolute paths.
    *
    * <p>This operation is O(N) on the length of the string.
    */
@@ -501,6 +506,10 @@ public abstract class PathFragment
    * </code>. Thus the number of segments in the new PathFragment is <code>endIndex - beginIndex
    * </code>.
    *
+   * <p>If the path is absolute and <code>beginIndex</code> is zero, the returned path is absolute.
+   * Otherwise, if the path is relative or <code>beginIndex> is greater than zero, the returned path
+   * is relative.
+   *
    * <p>This operation is O(N) on the length of the string.
    *
    * @param beginIndex the beginning index, inclusive.
@@ -557,7 +566,7 @@ public abstract class PathFragment
       throw new IndexOutOfBoundsException(
           String.format("path: %s, beginIndex: %d endIndex: %d", toString(), beginIndex, endIndex));
     }
-    // If beginIndex is 0 we include the drive. Very odd semantics.
+    // If beginIndex is 0, we include the drive string.
     int driveStrLength = 0;
     if (beginIndex == 0) {
       starti = 0;
@@ -603,7 +612,7 @@ public abstract class PathFragment
 
   /** Returns the path string, or '.' if the path is empty. */
   public String getSafePathString() {
-    return !normalizedPath.isEmpty() ? normalizedPath : ".";
+    return !isEmpty() ? normalizedPath : ".";
   }
 
   /**
@@ -613,17 +622,31 @@ public abstract class PathFragment
    *
    * <p>In this way, a shell will always interpret such a string as path (absolute or relative to
    * the working directory) and not as command to be searched for in the search path.
+   *
+   * <p>Prefer {@link #getCallablePathStringForOs} if the execution OS is available.
    */
   public String getCallablePathString() {
     if (isAbsolute()) {
       return normalizedPath;
-    } else if (normalizedPath.isEmpty()) {
+    } else if (isEmpty()) {
       return ".";
     } else if (normalizedPath.indexOf(SEPARATOR_CHAR) == -1) {
       return "." + SEPARATOR_CHAR + normalizedPath;
     } else {
       return normalizedPath;
     }
+  }
+
+  /**
+   * Returns the path string using the native name-separator for the given OS, but does so in a way
+   * unambiguously recognizable as path. In other words, return "." for relative and empty paths,
+   * and prefix relative paths with an additional "." segment.
+   *
+   * <p>In this way, a shell will always interpret such a string as path (absolute or relative to
+   * the working directory) and not as command to be searched for in the search path.
+   */
+  public String getCallablePathStringForOs(com.google.devtools.build.lib.util.OS executionOs) {
+    return OsPathPolicy.of(executionOs).postProcessPathStringForExecution(getCallablePathString());
   }
 
   /**
@@ -799,8 +822,8 @@ public abstract class PathFragment
   }
 
   @Override
-  public String expandToCommandLine() {
-    return normalizedPath;
+  public String expand(UnaryOperator<PathFragment> stripPaths) {
+    return stripPaths.apply(this).normalizedPath;
   }
 
   private static void checkBaseName(String baseName) {
@@ -835,8 +858,13 @@ public abstract class PathFragment
     }
   }
 
-  @SuppressWarnings("unused") // found by CLASSPATH-scanning magic
+  public static Codec pathFragmentCodec() {
+    return Codec.INSTANCE;
+  }
+
   private static class Codec extends LeafObjectCodec<PathFragment> {
+    private static final Codec INSTANCE = new Codec();
+
     @Override
     public Class<PathFragment> getEncodedClass() {
       return PathFragment.class;
@@ -844,16 +872,15 @@ public abstract class PathFragment
 
     @Override
     public void serialize(
-        SerializationDependencyProvider dependencies, PathFragment obj, CodedOutputStream codedOut)
+        LeafSerializationContext context, PathFragment obj, CodedOutputStream codedOut)
         throws SerializationException, IOException {
-      stringCodec().serialize(dependencies, obj.normalizedPath, codedOut);
+      context.serializeLeaf(obj.normalizedPath, stringCodec(), codedOut);
     }
 
     @Override
-    public PathFragment deserialize(
-        SerializationDependencyProvider dependencies, CodedInputStream codedIn)
+    public PathFragment deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
-      return createAlreadyNormalized(stringCodec().deserialize(dependencies, codedIn));
+      return createAlreadyNormalized(context.deserializeLeaf(codedIn, stringCodec()));
     }
   }
 }

@@ -58,12 +58,8 @@ msys*)
   ;;
 esac
 
-if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 function set_up() {
+  add_platforms "MODULE.bazel"
   mkdir -p target_skipping || fail "couldn't create directory"
   cat > target_skipping/pass.sh <<'EOF'
 #!/bin/bash
@@ -465,40 +461,6 @@ function test_failure_on_incompatible_top_level_target() {
   expect_log '^//target_skipping:pass_on_foo1  *  PASSED in'
   expect_log '^ERROR: command succeeded, but not all targets were analyzed'
   expect_log '^ERROR: Build did NOT complete successfully'
-}
-
-# https://github.com/bazelbuild/bazel/issues/17561 regression test: incompatible
-# target skipping doesn't crash with --auto_cpu_environment_group.
-function test_failure_on_incompatible_top_level_target_and_auto_cpu_environment_group() {
-  cat >> target_skipping/BUILD <<EOF
-sh_test(
-    name = "always_incompatible",
-    srcs = [":pass.sh"],
-    target_compatible_with = ["@platforms//:incompatible"],
-)
-EOF
-
-  mkdir -p buildenv/cpus
-  cat > buildenv/cpus/BUILD <<EOF
-package(default_visibility = ["//visibility:public"])
-
-environment(name = "foo_cpu")
-environment_group(
-    name = "cpus",
-    defaults = [":foo_cpu"],
-    environments = [":foo_cpu"],
-)
-EOF
-
-  bazel build \
-    --nobuild \
-    --cpu=foo_cpu \
-    --auto_cpu_environment_group=//buildenv/cpus:cpus \
-    --build_event_text_file=$TEST_log \
-    //target_skipping:all &> "${TEST_log}" \
-        || fail "Bazel failed unexpectedly."
-
-  expect_log 'Target //target_skipping:always_incompatible build was skipped'
 }
 
 # Validates that incompatible target skipping works with top level targets when
@@ -924,7 +886,7 @@ EOF
 # Validates that we can express targets being compatible with everything _but_
 # A and B.
 function test_inverse_logic() {
-  setup_skylib_support
+  add_bazel_skylib "MODULE.bazel"
 
   # Not using 'EOF' because injecting skylib_package
   cat >> target_skipping/BUILD <<EOF
@@ -1110,11 +1072,12 @@ EOF
 # for https://github.com/bazelbuild/bazel/issues/12897.
 function test_incompatible_with_missing_toolchain() {
   set_up_custom_toolchain
-  cat >> WORKSPACE <<'EOF'
+  cat >> MODULE.bazel <<'EOF'
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name = 'build_bazel_apple_support', path = 'build_bazel_apple_support')
 EOF
   mkdir -p build_bazel_apple_support/platforms
-  touch build_bazel_apple_support/WORKSPACE
+  touch build_bazel_apple_support/REPO.bazel
   cat > build_bazel_apple_support/platforms/BUILD <<'EOF'
 package(default_visibility=["//visibility:public"])
 platform(
@@ -1271,7 +1234,7 @@ EOF
 # Validates that we successfully skip analysistest rule targets when they
 # depend on incompatible targets.
 function test_analysistest() {
-  setup_skylib_support
+  add_bazel_skylib "MODULE.bazel"
 
   # Not using 'EOF' because injecting skylib_package
   cat > target_skipping/analysistest.bzl <<EOF

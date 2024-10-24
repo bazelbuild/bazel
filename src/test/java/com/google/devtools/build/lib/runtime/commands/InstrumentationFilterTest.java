@@ -78,7 +78,18 @@ public class InstrumentationFilterTest extends BuildViewTestCase {
   @Test
   public void testAllTestsInPackage() throws Exception {
     scratch.file(
-        "foo/test/BUILD", "sh_test(name='t1',srcs=['t1.sh'])", "sh_test(name='t2',srcs=['t1.sh'])");
+        "foo/test/BUILD",
+        """
+        sh_test(
+            name = "t1",
+            srcs = ["t1.sh"],
+        )
+
+        sh_test(
+            name = "t2",
+            srcs = ["t1.sh"],
+        )
+        """);
     List<Target> targets = getTargets("//foo/test:t1", "//foo/test:t2");
     String expectedFilter = "^//foo/test[/:]";
     assertThat(InstrumentationFilterSupport.computeInstrumentationFilter(events, targets))
@@ -90,8 +101,20 @@ public class InstrumentationFilterTest extends BuildViewTestCase {
   public void testMultiplePackages() throws Exception {
     scratch.file(
         "my/package1/BUILD",
-        "sh_test(name='t1',srcs=['t1.sh'])",
-        "test_suite(name='ts', tests=['//other/package1:t1', '//other/package2:ts'])");
+        """
+        sh_test(
+            name = "t1",
+            srcs = ["t1.sh"],
+        )
+
+        test_suite(
+            name = "ts",
+            tests = [
+                "//other/package1:t1",
+                "//other/package2:ts",
+            ],
+        )
+        """);
     scratch.file("other/package1/BUILD", "sh_test(name='t1',srcs=['t1.sh'])");
     scratch.file("other/package2/BUILD", "test_suite(name='ts', tests=['//other/package3:t3'])");
     scratch.file("other/package3/BUILD", "sh_test(name='t3',srcs=['t3.sh'])");

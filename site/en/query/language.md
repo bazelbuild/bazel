@@ -86,7 +86,9 @@ tokens:
   hyphen, underscore, colon, dollar sign, tilde, left square brace, right square
   brace). However, unquoted words may not start with a hyphen `-` or asterisk `*`
   even though relative [target names](/concepts/labels#target-names) may start
-  with those characters.
+  with those characters. As a special rule meant to simplify the handling of
+  labels referring to external repositories, unquoted words that start with
+  `@@` may contain `+` characters.
 
   Unquoted words also may not include the characters plus sign `+` or equals
   sign `=`, even though those characters are permitted in target names. When
@@ -163,15 +165,20 @@ cycles are treated are not specified and should not be relied upon.
 ### Implicit dependencies {:#implicit-dependencies}
 
 In addition to build dependencies that are defined explicitly in `BUILD` files,
-Bazel adds additional _implicit_ dependencies to rules. For example
-every Java rule implicitly depends on the JavaBuilder. Implicit dependencies
-are established using attributes that start with `$` and they
-cannot be overridden in `BUILD` files.
+Bazel adds additional _implicit_ dependencies to rules. Implicit dependencies
+may be defined by:
 
-Per default `bazel query` takes implicit dependencies into account
+- [Private attributes](/extending/rules#private_attributes_and_implicit_dependencies)
+- [Toolchain requirements](/extending/toolchains#writing-rules-toolchains)
+
+By default, `bazel query` takes implicit dependencies into account
 when computing the query result. This behavior can be changed with
-the `--[no]implicit_deps` option. Note that, as query does not consider
-configurations, potential toolchains are never considered.
+the `--[no]implicit_deps` option.
+
+Note that, as query does not consider configurations, potential toolchain
+**implementations** are not considered dependencies, only the
+required toolchain types. See
+[toolchain documentation](/extending/toolchains#writing-rules-toolchains).
 
 ### Soundness {:#soundness}
 
@@ -1032,7 +1039,7 @@ Warning: Bazel pretends each `.bzl` file produced by
 target `//a:b.bzl`), but this isn't necessarily the case. Therefore,
 `buildfiles` doesn't compose well with other query operators and its results can be
 misleading when formatted in a structured way, such as
-`[--output=xml](#output-xml)`.
+[`--output=xml`](#xml).
 
 ### Package definition files: rbuildfiles {:#rbuildfiles}
 
@@ -1081,7 +1088,7 @@ Warning: Bazel pretends each of these .bzl files has a corresponding target
 (for example, file `a/b.bzl` => target `//a:b.bzl`), but this isn't
 necessarily the case. Therefore, `loadfiles` doesn't compose well with other query
 operators and its results can be misleading when formatted in a structured way, such as
-`[--output=xml](#output-xml)`.
+[`--output=xml`](#xml).
 
 ## Output formats {:#output-formats}
 
@@ -1127,8 +1134,9 @@ generally the fastest option**. It is not supported though when
 ordered by the dependency order or rank.
 
 When this flag is `deps`, Bazel prints results in some topological order—that is,
-dependencies first. However, nodes that are unordered by the dependency order
-(because there is no path from either one to the other) may be printed in any order.
+dependents first and dependencies after. However, nodes that are unordered by the
+dependency order (because there is no path from either one to the other) may be
+printed in any order.
 
 When this flag is `full`, Bazel prints nodes in a fully deterministic (total) order.
 First, all nodes are sorted alphabetically. Then, each node in the list is used as the start of a

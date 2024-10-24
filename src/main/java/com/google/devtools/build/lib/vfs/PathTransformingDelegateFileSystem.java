@@ -19,7 +19,6 @@ import com.google.common.base.Preconditions;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.SeekableByteChannel;
 import java.util.Collection;
 
@@ -177,11 +176,6 @@ public abstract class PathTransformingDelegateFileSystem extends FileSystem {
   @Override
   protected InputStream getInputStream(PathFragment path) throws IOException {
     return delegateFs.getInputStream(toDelegatePath(path));
-  }
-
-  @Override
-  protected ReadableByteChannel createReadableByteChannel(PathFragment path) throws IOException {
-    return delegateFs.createReadableByteChannel(toDelegatePath(path));
   }
 
   @Override

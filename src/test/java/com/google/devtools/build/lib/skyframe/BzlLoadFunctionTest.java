@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -46,6 +47,7 @@ import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.common.options.Options;
+import com.google.devtools.common.options.OptionsParser;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.UUID;
@@ -72,6 +74,10 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
     packageOptions.defaultVisibility = RuleVisibility.PUBLIC;
     packageOptions.showLoadingProgress = true;
     packageOptions.globbingThreads = 7;
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(BuildLanguageOptions.class).build();
+    parser.parse(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
+    BuildLanguageOptions options = parser.getOptions(BuildLanguageOptions.class);
     getSkyframeExecutor()
         .preparePackageLoading(
             new PathPackageLocator(
@@ -79,7 +85,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
                 ImmutableList.of(Root.fromPath(rootDirectory), Root.fromPath(alternativeRoot)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
             packageOptions,
-            Options.getDefaults(BuildLanguageOptions.class),
+            options,
             UUID.randomUUID(),
             ImmutableMap.of(),
             QuiescingExecutorsImpl.forTesting(),
@@ -120,16 +126,14 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   @Test
   public void testLoadFromStarlarkFileInRemoteRepo() throws Exception {
     scratch.overwriteFile(
-        "WORKSPACE",
-        "local_repository(",
-        "    name = 'a_remote_repo',",
-        "    path = '/a_remote_repo'",
-        ")");
-    scratch.file("/a_remote_repo/WORKSPACE");
+        "MODULE.bazel",
+        "bazel_dep(name = 'a_remote_repo')",
+        "local_path_override(module_name = 'a_remote_repo', path = '/a_remote_repo')");
+    scratch.file("/a_remote_repo/MODULE.bazel", "module(name = 'a_remote_repo')");
     scratch.file("/a_remote_repo/remote_pkg/BUILD");
     scratch.file("/a_remote_repo/remote_pkg/ext1.bzl", "load(':ext2.bzl', 'CONST')");
     scratch.file("/a_remote_repo/remote_pkg/ext2.bzl", "CONST = 17");
-    checkSuccessfulLookup("@a_remote_repo//remote_pkg:ext1.bzl");
+    checkSuccessfulLookup("@@a_remote_repo+//remote_pkg:ext1.bzl");
   }
 
   @Test
@@ -153,16 +157,34 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   public void testLoadFromSameAbsoluteLabelTwice() throws Exception {
     scratch.file("pkg1/BUILD");
     scratch.file("pkg2/BUILD");
-    scratch.file("pkg1/ext.bzl", "a = 1", "b = 2");
-    scratch.file("pkg2/ext.bzl", "load('//pkg1:ext.bzl', 'a')", "load('//pkg1:ext.bzl', 'b')");
+    scratch.file(
+        "pkg1/ext.bzl",
+        """
+        a = 1
+        b = 2
+        """);
+    scratch.file(
+        "pkg2/ext.bzl",
+        """
+        load("//pkg1:ext.bzl", "a", "b")
+        """);
     checkSuccessfulLookup("//pkg2:ext.bzl");
   }
 
   @Test
   public void testLoadFromSameRelativeLabelTwice() throws Exception {
     scratch.file("pkg/BUILD");
-    scratch.file("pkg/ext1.bzl", "a = 1", "b = 2");
-    scratch.file("pkg/ext2.bzl", "load(':ext1.bzl', 'a')", "load(':ext1.bzl', 'b')");
+    scratch.file(
+        "pkg/ext1.bzl",
+        """
+        a = 1
+        b = 2
+        """);
+    scratch.file(
+        "pkg/ext2.bzl",
+        """
+        load(":ext1.bzl", "a", "b")
+        """);
     checkSuccessfulLookup("//pkg:ext2.bzl");
   }
 
@@ -416,6 +438,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testLoadFromExternalRepoInWorkspaceFileAllowed() throws Exception {
+    setBuildLanguageOptions("--enable_workspace");
     Path p =
         scratch.overwriteFile(
             "WORKSPACE",
@@ -512,9 +535,11 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
         "load(\"//b:bar.bzl\", \"x\")");
     scratch.file("b/BUILD");
     scratch.file(
-        "b/bar.bzl", //
-        "visibility(\"private\")",
-        "x = 1");
+        "b/bar.bzl",
+        """
+        visibility("private")
+        x = 1
+        """);
 
     reporter.removeHandler(failFastHandler);
     checkFailingLookup("//a:foo.bzl", "initialization of module 'b/bar.bzl' failed");
@@ -531,9 +556,11 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
         "load(\"//b:bar.bzl\", \"x\")");
     scratch.file("b/BUILD");
     scratch.file(
-        "b/bar.bzl", //
-        "visibility(\"public\")",
-        "x = 1");
+        "b/bar.bzl",
+        """
+        visibility("public")
+        x = 1
+        """);
 
     checkSuccessfulLookup("//a:foo.bzl");
     assertNoEvents();
@@ -566,9 +593,11 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
         "a/foo.bzl", //
         "load(\"//a:bar.bzl\", \"x\")");
     scratch.file(
-        "a/bar.bzl", //
-        "visibility(\"private\")",
-        "x = 1");
+        "a/bar.bzl",
+        """
+        visibility("private")
+        x = 1
+        """);
 
     checkSuccessfulLookup("//a:foo.bzl");
     assertNoEvents();
@@ -584,9 +613,11 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
         "load(\"//b:bar.bzl\", \"x\")");
     scratch.file("b/BUILD");
     scratch.file(
-        "b/bar.bzl", //
-        "visibility(\"private\")",
-        "x = 1");
+        "b/bar.bzl",
+        """
+        visibility("private")
+        x = 1
+        """);
 
     reporter.removeHandler(failFastHandler);
     checkFailingLookup(
@@ -604,9 +635,11 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
         "load(\"//b:bar.bzl\", \"x\")");
     scratch.file("b/BUILD");
     scratch.file(
-        "b/bar.bzl", //
-        "visibility([])",
-        "x = 1");
+        "b/bar.bzl",
+        """
+        visibility([])
+        x = 1
+        """);
 
     reporter.removeHandler(failFastHandler);
     checkFailingLookup(
@@ -624,10 +657,12 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
         "load(\"//b:bar.bzl\", \"x\")");
     scratch.file("b/BUILD");
     scratch.file(
-        "b/bar.bzl", //
-        // Tests "public" as a list item, and alongside other list items.
-        "visibility([\"public\", \"//c\"])",
-        "x = 1");
+        "b/bar.bzl",
+        """
+        # Tests "public" as a list item, and alongside other list items.
+        visibility(["public", "//c"])
+        x = 1
+        """);
 
     checkSuccessfulLookup("//a:foo.bzl");
     assertNoEvents();
@@ -647,10 +682,12 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
         "load(\"//b:bar.bzl\", \"x\")");
     scratch.file("b/BUILD");
     scratch.file(
-        "b/bar.bzl", //
-        // Tests "private" as a list item, and alongside other list items.
-        "visibility([\"private\", \"//a1\"])",
-        "x = 1");
+        "b/bar.bzl",
+        """
+        # Tests "private" as a list item, and alongside other list items.
+        visibility(["private", "//a1"])
+        x = 1
+        """);
 
     checkSuccessfulLookup("//a1:foo.bzl");
     assertNoEvents();
@@ -670,15 +707,20 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
         "load(\"//b:bar.bzl\", \"x\")");
     scratch.file("b/BUILD");
     scratch.file(
-        "b/bar.bzl", //
-        "load(\"//c:baz.bzl\", \"y\")",
-        "visibility(\"public\")",
-        "x = y");
+        "b/bar.bzl",
+        """
+        load("//c:baz.bzl", "y")
+
+        visibility("public")
+        x = y
+        """);
     scratch.file("c/BUILD");
     scratch.file(
-        "c/baz.bzl", //
-        "visibility(\"private\")",
-        "y = 1");
+        "c/baz.bzl",
+        """
+        visibility("private")
+        y = 1
+        """);
 
     reporter.removeHandler(failFastHandler);
     checkFailingLookup(
@@ -693,10 +735,13 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
     scratch.file("a/BUILD");
     scratch.file(
-        "a/foo.bzl", //
-        "def helper():",
-        "    visibility(\"public\")",
-        "helper()");
+        "a/foo.bzl",
+        """
+        def helper():
+            visibility("public")
+
+        helper()
+        """);
 
     reporter.removeHandler(failFastHandler);
     checkFailingLookup("//a:foo.bzl", "initialization of module 'a/foo.bzl' failed");
@@ -709,9 +754,11 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
     scratch.file("a/BUILD");
     scratch.file(
-        "a/foo.bzl", //
-        "visibility(\"public\")",
-        "visibility(\"public\")");
+        "a/foo.bzl",
+        """
+        visibility("public")
+        visibility("public")
+        """);
 
     reporter.removeHandler(failFastHandler);
     checkFailingLookup("//a:foo.bzl", "initialization of module 'a/foo.bzl' failed");
@@ -732,9 +779,11 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
         "load(\"//b:bar.bzl\", \"x\")");
     scratch.file("b/BUILD");
     scratch.file(
-        "b/bar.bzl", //
-        "visibility([\"//a1\"])",
-        "x = 1");
+        "b/bar.bzl",
+        """
+        visibility(["//a1"])
+        x = 1
+        """);
 
     checkSuccessfulLookup("//a1:foo1.bzl");
     assertNoEvents();
@@ -759,10 +808,12 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
         "load(\"//b:bar.bzl\", \"x\")");
     scratch.file("b/BUILD");
     scratch.file(
-        "b/bar.bzl", //
-        // Note: "//a1", not ["//a1"]
-        "visibility(\"//a1\")",
-        "x = 1");
+        "b/bar.bzl",
+        """
+        # Note: "//a1", not ["//a1"]
+        visibility("//a1")
+        x = 1
+        """);
 
     checkSuccessfulLookup("//a1:foo1.bzl");
     assertNoEvents();
@@ -780,34 +831,34 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
     // @repo//pkg:foo1.bzl and @//pkg:foo2.bzl both try to access @repo//lib:bar.bzl. Test that when
     // bar.bzl declares a visibility allowing "//pkg", it means @repo//pkg and *not* @//pkg.
     scratch.overwriteFile(
-        "WORKSPACE", //
-        "local_repository(",
-        "    name = 'repo',",
-        "    path = 'repo'",
-        ")");
-    scratch.file("repo/WORKSPACE");
+        "MODULE.bazel", //
+        "bazel_dep(name = 'repo')",
+        "local_path_override(module_name = 'repo', path = 'repo')");
+    scratch.file("repo/MODULE.bazel", "module(name = 'repo')");
     scratch.file("repo/pkg/BUILD");
     scratch.file(
         "repo/pkg/foo1.bzl", //
         "load(\"//lib:bar.bzl\", \"x\")");
     scratch.file("repo/lib/BUILD");
     scratch.file(
-        "repo/lib/bar.bzl", //
-        "visibility([\"//pkg\"])",
-        "x = 1");
+        "repo/lib/bar.bzl",
+        """
+        visibility(["//pkg"])
+        x = 1
+        """);
     scratch.file("pkg/BUILD");
     scratch.file(
         "pkg/foo2.bzl", //
         "load(\"@repo//lib:bar.bzl\", \"x\")");
 
-    checkSuccessfulLookup("@repo//pkg:foo1.bzl");
+    checkSuccessfulLookup("@@repo+//pkg:foo1.bzl");
     assertNoEvents();
 
     reporter.removeHandler(failFastHandler);
     checkFailingLookup(
         "//pkg:foo2.bzl", "module //pkg:foo2.bzl contains .bzl load visibility violations");
     assertContainsEvent(
-        "Starlark file @@repo//lib:bar.bzl is not visible for loading from package //pkg.");
+        "Starlark file @@repo+//lib:bar.bzl is not visible for loading from package //pkg.");
   }
 
   // TODO(#16365): This test case can be deleted once --incompatible_package_group_has_public_syntax
@@ -844,27 +895,27 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
         "--incompatible_fix_package_group_reporoot_syntax=false");
 
     scratch.overwriteFile(
-        "WORKSPACE", //
-        "local_repository(",
-        "    name = 'repo',",
-        "    path = 'repo'",
-        ")");
-    scratch.file("repo/WORKSPACE");
+        "MODULE.bazel", //
+        "bazel_dep(name = 'repo')",
+        "local_path_override(module_name = 'repo', path = 'repo')");
+    scratch.file("repo/MODULE.bazel", "module(name = 'repo')");
     scratch.file("repo/a/BUILD");
     scratch.file(
         "repo/a/foo.bzl", //
-        "load(\"@//b:bar.bzl\", \"x\")");
+        "load(\"@@//b:bar.bzl\", \"x\")");
     scratch.file("b/BUILD");
     scratch.file(
-        "b/bar.bzl", //
-        "visibility([\"//...\"])",
-        "x = 1");
+        "b/bar.bzl",
+        """
+        visibility(["//..."])
+        x = 1
+        """);
 
     reporter.removeHandler(failFastHandler);
     checkFailingLookup(
-        "@repo//a:foo.bzl", "module @@repo//a:foo.bzl contains .bzl load visibility violations");
+        "@@repo+//a:foo.bzl", "module @@repo+//a:foo.bzl contains .bzl load visibility violations");
     assertContainsEvent(
-        "Starlark file //b:bar.bzl is not visible for loading from package @@repo//a.");
+        "Starlark file //b:bar.bzl is not visible for loading from package @@repo+//a.");
   }
 
   @Test
@@ -881,9 +932,11 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
         "load(\"//b:bar.bzl\", \"x\")");
     scratch.file("b/BUILD");
     scratch.file(
-        "b/bar.bzl", //
-        "visibility([\"//a\"])",
-        "x = 1");
+        "b/bar.bzl",
+        """
+        visibility(["//a"])
+        x = 1
+        """);
 
     checkSuccessfulLookup("//a:foo1.bzl");
     assertNoEvents();
@@ -910,9 +963,11 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
         "load(\"//b:bar.bzl\", \"x\")");
     scratch.file("b/BUILD");
     scratch.file(
-        "b/bar.bzl", //
-        "visibility([\"//a/...\"])",
-        "x = 1");
+        "b/bar.bzl",
+        """
+        visibility(["//a/..."])
+        x = 1
+        """);
 
     checkSuccessfulLookup("//a:foo1.bzl");
     assertNoEvents();
@@ -987,9 +1042,11 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
         "load(\"//b:bar.bzl\", \"x\")");
     scratch.file("b/BUILD");
     scratch.file(
-        "b/bar.bzl", //
-        "visibility(\"private\")",
-        "x = 1");
+        "b/bar.bzl",
+        """
+        visibility("private")
+        x = 1
+        """);
 
     checkSuccessfulLookup("//a:foo.bzl");
     assertContainsEvent("Starlark file //b:bar.bzl is not visible for loading from package //a.");
@@ -1020,6 +1077,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testLoadBzlFileFromWorkspaceWithRemapping() throws Exception {
+    setBuildLanguageOptions("--enable_workspace");
     Path p =
         scratch.overwriteFile(
             "WORKSPACE",
@@ -1036,11 +1094,22 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
     scratch.file("/y/WORKSPACE");
     scratch.file("/y/BUILD");
-    scratch.file("/y/y.bzl", "l = Label('@z//:z')", "y_symbol = 5");
+    scratch.file(
+        "/y/y.bzl",
+        """
+        l = Label("@z//:z")
+        y_symbol = 5
+        """);
 
     scratch.file("/a/WORKSPACE");
     scratch.file("/a/BUILD");
-    scratch.file("/a/a.bzl", "load('@x//:y.bzl', 'y_symbol')", "a_symbol = y_symbol");
+    scratch.file(
+        "/a/a.bzl",
+        """
+        load("@x//:y.bzl", "y_symbol")
+
+        a_symbol = y_symbol
+        """);
 
     Root root = Root.fromPath(p.getParentDirectory());
     RootedPath rootedPath = RootedPath.toRootedPath(root, PathFragment.create("WORKSPACE"));
@@ -1071,7 +1140,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
             "module(name='foo',version='1.0')",
             "bazel_dep(name='bar',version='2.0',repo_name='bar_alias')")
         .addModule(createModuleKey("bar", "2.0"), "module(name='bar',version='2.0')");
-    Path fooDir = moduleRoot.getRelative("foo~1.0");
+    Path fooDir = moduleRoot.getRelative("foo+1.0");
     scratch.file(fooDir.getRelative("WORKSPACE").getPathString());
     scratch.file(fooDir.getRelative("BUILD").getPathString());
     scratch.file(
@@ -1080,12 +1149,12 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
         "load('@bar_alias//:test.scl', 'haha')",
         "l = Label('@foo//:whatever')",
         "hoho = haha");
-    Path barDir = moduleRoot.getRelative("bar~2.0");
+    Path barDir = moduleRoot.getRelative("bar+2.0");
     scratch.file(barDir.getRelative("WORKSPACE").getPathString());
     scratch.file(barDir.getRelative("BUILD").getPathString());
     scratch.file(barDir.getRelative("test.scl").getPathString(), "haha = 5");
 
-    SkyKey skyKey = BzlLoadValue.keyForBzlmod(Label.parseCanonical("@@foo~1.0//:test.bzl"));
+    SkyKey skyKey = BzlLoadValue.keyForBzlmod(Label.parseCanonical("@@foo+//:test.bzl"));
     EvaluationResult<BzlLoadValue> result =
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
@@ -1096,9 +1165,9 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
     assertThat(bzlLoadValue.getRecordedRepoMappings().cellSet())
         .containsExactly(
             Tables.immutableCell(
-                RepositoryName.create("foo~1.0"), "bar_alias", RepositoryName.create("bar~2.0")),
+                RepositoryName.create("foo+"), "bar_alias", RepositoryName.create("bar+")),
             Tables.immutableCell(
-                RepositoryName.create("foo~1.0"), "foo", RepositoryName.create("foo~1.0")))
+                RepositoryName.create("foo+"), "foo", RepositoryName.create("foo+")))
         .inOrder();
     // Note that we're not testing the case of a non-registry override using @bazel_tools here, but
     // that is incredibly hard to set up in a unit test. So we should just rely on integration tests
@@ -1110,10 +1179,12 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
     setBuildLanguageOptions("--experimental_builtins_bzl_path=tools/builtins_staging");
     scratch.file(
         "tools/builtins_staging/exports.bzl",
-        "1 // 0  # <-- dynamic error",
-        "exported_toplevels = {}",
-        "exported_rules = {}",
-        "exported_to_java = {}");
+        """
+        1 // 0  # <-- dynamic error
+        exported_toplevels = {}
+        exported_rules = {}
+        exported_to_java = {}
+        """);
     scratch.file("pkg/BUILD");
     scratch.file("pkg/foo.bzl");
     reporter.removeHandler(failFastHandler);

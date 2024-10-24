@@ -26,9 +26,7 @@ public class MockPlatformSupport {
         mockToolsConfig,
         TestConstants.PLATFORMS_PATH,
         TestConstants.CONSTRAINTS_PACKAGE_ROOT,
-        TestConstants.CONSTRAINTS_PATH,
-        TestConstants.LOCAL_CONFIG_PLATFORM_PACKAGE_ROOT,
-        TestConstants.LOCAL_CONFIG_PLATFORM_PATH);
+        TestConstants.CONSTRAINTS_PATH);
   }
 
   /** Adds mocks for basic exec and target platform. */
@@ -36,9 +34,7 @@ public class MockPlatformSupport {
       MockToolsConfig mockToolsConfig,
       String platformsPath,
       String constraintsPackageRoot,
-      String constraintsPath,
-      String localConfigPlatformPackageRoot,
-      String localConfigPlatformPath)
+      String constraintsPath)
       throws IOException {
     mockToolsConfig.create(
         constraintsPath + "/BUILD",
@@ -74,6 +70,10 @@ public class MockPlatformSupport {
         "    constraint_setting = ':cpu',",
         ")",
         "constraint_value(",
+        "    name = 'arm64e',",
+        "    constraint_setting = ':cpu',",
+        ")",
+        "constraint_value(",
         "    name = 'arm64_32',",
         "    constraint_setting = ':cpu',",
         ")",
@@ -87,6 +87,14 @@ public class MockPlatformSupport {
         ")",
         "constraint_value(",
         "    name = 'aarch64',",
+        "    constraint_setting = ':cpu',",
+        ")",
+        "constraint_value(",
+        "    name = 'riscv32',",
+        "    constraint_setting = ':cpu',",
+        ")",
+        "constraint_value(",
+        "    name = 'riscv64',",
         "    constraint_setting = ':cpu',",
         ")",
         "constraint_value(",
@@ -162,7 +170,7 @@ public class MockPlatformSupport {
         "    ],",
         ")");
     mockToolsConfig.create(
-        localConfigPlatformPath + "/BUILD",
+        constraintsPath + "/host/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "licenses(['notice'])",
         "platform(",
@@ -173,7 +181,24 @@ public class MockPlatformSupport {
         "        '" + constraintsPackageRoot + "cpu:x86_64',",
         "        '" + constraintsPackageRoot + "os:linux',",
         "    ],",
+        ")",
+        "platform(",
+        "     name = 'piii',",
+        "     constraint_values = [",
+        "        '" + constraintsPackageRoot + "cpu:x86_32',",
+        "        '" + constraintsPackageRoot + "os:linux',",
+        "    ],",
         ")");
+    mockToolsConfig.create(
+        constraintsPath + "/host/constraints.bzl",
+        "HOST_CONSTRAINTS = [",
+        // Regardless of the actual machine the tests are run on, hardcode everything to a single
+        // default value for simplicity.
+        "        '" + constraintsPackageRoot + "cpu:x86_64',",
+        "        '" + constraintsPackageRoot + "os:linux',",
+        "    ]");
+    mockToolsConfig.create(
+        constraintsPath + "/host/extension.bzl", "def host_platform_repo(**kwargs):", "    pass");
 
     mockToolsConfig.create(
         "third_party/bazel_platforms/android/BUILD",
@@ -181,7 +206,7 @@ public class MockPlatformSupport {
         "package(default_visibility=['//visibility:public'])",
         "platform(",
         "  name = 'armeabi-v7a',",
-        "  parents = ['" + TestConstants.LOCAL_CONFIG_PLATFORM_PACKAGE_ROOT + ":host'],",
+        "  parents = ['" + TestConstants.PLATFORM_LABEL + "'],",
         "  constraint_values = [",
         "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:android',",
         "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:armv7',",

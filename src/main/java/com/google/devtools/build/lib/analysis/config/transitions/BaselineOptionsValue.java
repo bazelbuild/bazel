@@ -72,6 +72,15 @@ public abstract class BaselineOptionsValue implements SkyValue {
       return SkyFunctions.BASELINE_OPTIONS;
     }
 
+    @Override
+    public final String toString() {
+      return "BaselineOptionsValue.Key{afterExecTransition="
+          + afterExecTransition()
+          + ", newPlatform="
+          + newPlatform()
+          + "}";
+    }
+
     static Key create(boolean afterExecTransition, @Nullable Label newPlatform) {
       return new AutoValue_BaselineOptionsValue_Key(afterExecTransition, newPlatform);
     }

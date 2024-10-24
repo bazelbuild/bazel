@@ -116,7 +116,6 @@ sandboxes [persistent workers](/remote/persistent).
 -   [Multiplex workers](/remote/multiplex) require explicit worker support
     to be sandboxed. Workers that do not support multiplex sandboxing run as
     singleplex workers under dynamic execution, which can cost extra memory.
-    ```
 
 ## Debugging {:#debugging}
 

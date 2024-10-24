@@ -80,13 +80,9 @@ message Action {
   repeated KeyValuePair environment_variables = 7;
 
   // The set of input dep sets that the action depends upon. If the action does
-  // input discovery, the contents of this set might change during execution.
+  // input discovery and `--include_pruned_outputs` is disabled, the contents of
+  // this set might differ before and after execution.
   repeated uint32 input_dep_set_ids = 8;
-
-  // The set of scheduling dependency dep sets the action depends on.
-  // Only set of both --include_artifacts and --include_scheduling_dependencies
-  // is set to true.
-  repeated uint32 scheduling_dep_dep_set_ids = 20;
 
   // The list of Artifact IDs that represent the output files that this action
   // will generate.
@@ -129,6 +125,8 @@ message Action {
   // If FileWrite actions should make their output executable.
   // (ctx.actions.write(is_executable=True))
   bool is_executable = 19;
+
+  reserved 20;
 }
 
 // Represents a single target (without configuration information) that is
@@ -199,6 +197,45 @@ message Configuration {
 
   // Whether this configuration is used for building tools.
   bool is_tool = 5;
+
+  // The configuration fragments that are a part of this configuration.
+  repeated Fragment fragments = 6;
+
+  // The union of all the FragmentOptions associated with the Fragments that are
+  // a part of this configuration. These are returned separately from the
+  // fragments field because a set of FragmentOptions can be referenced by more
+  // than one Fragment, and we wish to avoid returning the same FragmentOptions
+  // repeatedly. These are sorted by the FragmentOptions name field.
+  repeated FragmentOptions fragment_options = 7;
+}
+
+// A configuration fragment
+// (http://bazel.build/rules/lib/fragments).
+message Fragment {
+  // The name of the Fragment.
+  string name = 1;
+
+  // The names of the FragmentOptions associated with this fragment in sorted
+  // order.
+  repeated string fragment_option_names = 2;
+}
+
+// A set of fragment options.
+message FragmentOptions {
+  // The name of this set of fragment options.
+  string name = 1;
+
+  // The options themselves, in sorted order by name.
+  repeated Option options = 2;
+}
+
+// A fragment option.
+message Option {
+  // The name of the option.
+  optional string name = 1;
+
+  // The value of the option.
+  optional string value = 2;
 }
 
 message KeyValuePair {

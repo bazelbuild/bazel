@@ -156,9 +156,9 @@ public final class StarlarkFile extends Node {
 
   /** A ParseProfiler records the start and end times of parse operations. */
   public interface ParseProfiler {
-    Object start(String filename);
+    long start();
 
-    void end(Object span);
+    void end(long profileStartNanos, String filename);
   }
 
   /** Installs a global hook that will be notified of parse operations. */

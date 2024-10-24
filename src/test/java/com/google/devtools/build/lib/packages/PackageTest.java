@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -33,6 +34,7 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.util.List;
 import java.util.Optional;
 import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -43,9 +45,9 @@ import org.junit.runners.JUnit4;
 public class PackageTest {
 
   private static final RuleClass FAUX_TEST_CLASS =
-      new RuleClass.Builder("faux_test", RuleClassType.TEST, /*starlark=*/ false)
+      new RuleClass.Builder("faux_test", RuleClassType.TEST, /* starlark= */ false)
           .addAttribute(
-              Attribute.attr("tags", Type.STRING_LIST).nonconfigurable("tags aren't").build())
+              Attribute.attr("tags", Types.STRING_LIST).nonconfigurable("tags aren't").build())
           .addAttribute(Attribute.attr("size", Type.STRING).nonconfigurable("size isn't").build())
           .addAttribute(Attribute.attr("timeout", Type.STRING).build())
           .addAttribute(Attribute.attr("flaky", Type.BOOLEAN).build())
@@ -158,21 +160,26 @@ public class PackageTest {
   }
 
   private Package.Builder pkgBuilder(String name) {
-    return new Package.Builder(
+    return Package.newPackageBuilder(
         PackageSettings.DEFAULTS,
         PackageIdentifier.createInMainRepo(name),
         /* filename= */ RootedPath.toRootedPath(
-            Root.fromPath(fileSystem.getPath("/irrelevantRoot")), PathFragment.create(name)),
+            Root.fromPath(fileSystem.getPath("/irrelevantRoot")),
+            PathFragment.create(name + "/BUILD")),
         "workspace",
         Optional.empty(),
         Optional.empty(),
         /* noImplicitFileExport= */ true,
+        /* simplifyUnconditionalSelectsInRuleAttrs= */ StarlarkSemantics.DEFAULT.getBool(
+            BuildLanguageOptions.INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS),
         /* repositoryMapping= */ RepositoryMapping.ALWAYS_FALLBACK,
+        /* mainRepositoryMapping= */ null,
         /* cpuBoundSemaphore= */ null,
         PackageOverheadEstimator.NOOP_ESTIMATOR,
         /* generatorMap= */ null,
         /* configSettingVisibilityPolicy= */ null,
-        /* globber= */ null);
+        /* globber= */ null,
+        /* enableNameConflictChecking= */ true);
   }
 
   private static Rule addRule(Package.Builder pkgBuilder, Label label, RuleClass ruleClass)

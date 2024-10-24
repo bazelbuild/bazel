@@ -14,10 +14,13 @@
 package com.google.devtools.build.lib.worker;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.sandbox.CgroupsInfo;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
+import com.google.devtools.build.lib.sandbox.cgroups.VirtualCgroupFactory;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.vfs.Path;
@@ -68,14 +71,37 @@ class SingleplexWorker extends Worker {
    */
   protected Thread shutdownHook;
 
-  SingleplexWorker(WorkerKey workerKey, int workerId, final Path workDir, Path logFile) {
+  protected WorkerOptions options;
+  protected final VirtualCgroupFactory cgroupFactory;
+
+  SingleplexWorker(
+      WorkerKey workerKey,
+      int workerId,
+      final Path workDir,
+      Path logFile,
+      WorkerOptions options,
+      @Nullable VirtualCgroupFactory cgroupFactory) {
     super(workerKey, workerId, logFile, new WorkerProcessStatus());
     this.workDir = workDir;
+    this.options = options;
+    this.cgroupFactory = cgroupFactory;
   }
 
   protected Subprocess createProcess() throws IOException, InterruptedException, UserExecException {
     ImmutableList<String> args = makeExecPathAbsolute(workerKey.getArgs());
-    return createProcessBuilder(args).start();
+    Subprocess process = createProcessBuilder(args).start();
+    if (cgroupFactory != null) {
+      cgroup = cgroupFactory.create(workerId, ImmutableMap.of());
+    } else if (options.useCgroupsOnLinux && CgroupsInfo.isSupported()) {
+      cgroup =
+          CgroupsInfo.getBlazeSpawnsCgroup()
+              .createIndividualSpawnCgroup(
+                  /* dirName= */ "worker_" + workerId, /* memoryLimitMb= */ 0);
+    }
+    if (cgroup != null && cgroup.exists()) {
+      cgroup.addProcess(process.getProcessId());
+    }
+    return process;
   }
 
   protected SubprocessBuilder createProcessBuilder(ImmutableList<String> argv) {
@@ -99,6 +125,8 @@ class SingleplexWorker extends Worker {
     if (process == null) {
       addShutdownHook();
       process = createProcess();
+      logger.atInfo().log(
+          "Created worker process %s for worker id %d", process.getProcessId(), workerId);
       status.maybeUpdateStatus(WorkerProcessStatus.Status.ALIVE);
       recordingInputStream = new RecordingInputStream(process.getInputStream());
     }
@@ -179,6 +207,9 @@ class SingleplexWorker extends Worker {
     if (process != null) {
       wasDestroyed = true;
       process.destroyAndWait();
+    }
+    if (cgroupFactory != null) {
+      cgroupFactory.remove(workerId);
     }
     status.setKilled();
   }

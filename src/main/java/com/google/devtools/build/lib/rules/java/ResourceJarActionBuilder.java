@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -39,6 +40,8 @@ public class ResourceJarActionBuilder {
 
   private static final ParamFileInfo PARAM_FILE_INFO =
       ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED).build();
+  private static final ImmutableMap<String, String> EXECUTION_INFO =
+      ImmutableMap.of(ExecutionRequirements.SUPPORTS_PATH_MAPPING, "1");
 
   private Artifact outputJar;
   private Map<PathFragment, Artifact> resources = ImmutableMap.of();
@@ -125,6 +128,7 @@ public class ResourceJarActionBuilder {
             .addCommandLine(command.build(), PARAM_FILE_INFO)
             .setProgressMessage("Building Java resource jar")
             .setMnemonic(MNEMONIC)
+            .setExecutionInfo(EXECUTION_INFO)
             .setExecGroup(execGroup)
             .build(ruleContext));
   }

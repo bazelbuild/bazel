@@ -14,18 +14,19 @@
 
 package com.google.devtools.build.lib.vfs;
 
-import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
@@ -94,9 +95,18 @@ public interface OutputService {
   }
 
   /**
-   * @return the name of filesystem, akin to what you might see in /proc/mounts
+   * Returns the name of the filesystem used by this output service, akin to what you might see in
+   * /proc/mounts.
+   *
+   * @param outputBaseFileSystemName from {@link
+   *     com.google.devtools.build.lib.runtime.BlazeWorkspace#getOutputBaseFilesystemTypeName()}
    */
-  String getFilesSystemName();
+  String getFileSystemName(String outputBaseFileSystemName);
+
+  /** Whether actions can only be executed locally. */
+  default boolean isLocalOnly() {
+    return false;
+  }
 
   /** Returns true if remote output metadata should be stored in action cache. */
   default boolean shouldStoreRemoteOutputMetadataInActionCache() {
@@ -108,16 +118,18 @@ public interface OutputService {
   }
 
   /**
-   * Start the build.
+   * Starts the build.
    *
-   * @param buildId the UUID build identifier
+   * @param buildId the build identifier
+   * @param workspaceName the name of the workspace in which the build is running
+   * @param eventHandler an {@link EventHandler} to inform of events
    * @param finalizeActions whether this build is finalizing actions so that the output service can
    *     track output tree modifications
    * @return a ModifiedFileSet of changed output files.
    * @throws BuildFailedException if build preparation failed
-   * @throws InterruptedException
    */
-  ModifiedFileSet startBuild(EventHandler eventHandler, UUID buildId, boolean finalizeActions)
+  ModifiedFileSet startBuild(
+      UUID buildId, String workspaceName, EventHandler eventHandler, boolean finalizeActions)
       throws BuildFailedException, AbruptExitException, InterruptedException;
 
   /** Flush and wait for in-progress downloads. */
@@ -136,23 +148,21 @@ public interface OutputService {
   void finalizeAction(Action action, OutputMetadataStore outputMetadataStore)
       throws IOException, EnvironmentalExecException, InterruptedException;
 
-  /**
-   * @return the BatchStat instance or null.
-   */
+  @Nullable
   BatchStat getBatchStatter();
 
-  /**
-   * @return true iff createSymlinkTree() is available.
-   */
+  /** Returns true iff {@link #createSymlinkTree} is available. */
   boolean canCreateSymlinkTree();
 
   /**
-   * Creates the symlink tree
+   * Creates a symlink tree.
    *
-   * @param symlinks the symlinks to create
-   * @param symlinkTreeRoot the symlink tree root, relative to the execRoot
+   * @param symlinks map from {@code symlinkTreeRoot}-relative path to symlink target; may contain
+   *     null values to represent an empty file instead of a symlink (can happen with {@code
+   *     __init__.py} files, see {@link
+   *     com.google.devtools.build.lib.rules.python.PythonUtils.GetInitPyFiles})
+   * @param symlinkTreeRoot the symlink tree root, relative to the exec root
    * @throws ExecException on failure
-   * @throws InterruptedException
    */
   void createSymlinkTree(Map<PathFragment, PathFragment> symlinks, PathFragment symlinkTreeRoot)
       throws ExecException, InterruptedException;
@@ -161,7 +171,6 @@ public interface OutputService {
    * Cleans the entire output tree.
    *
    * @throws ExecException on failure
-   * @throws InterruptedException
    */
   void clean() throws ExecException, InterruptedException;
 
@@ -206,7 +215,7 @@ public interface OutputService {
       FileSystem actionFileSystem,
       Environment env,
       MetadataInjector injector,
-      ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesets) {}
+      ImmutableMap<Artifact, FilesetOutputTree> filesets) {}
 
   /**
    * Checks the filesystem returned by {@link #createActionFileSystem} for errors attributable to
@@ -214,13 +223,6 @@ public interface OutputService {
    */
   default void checkActionFileSystemForLostInputs(FileSystem actionFileSystem, Action action)
       throws LostInputsActionExecutionException {}
-
-  /**
-   * Flush the internal state of filesystem returned by {@link #createActionFileSystem} after action
-   * execution, before skyframe checking the action outputs.
-   */
-  default void flushActionFileSystem(FileSystem actionFileSystem)
-      throws IOException, InterruptedException {}
 
   default boolean supportsPathResolverForArtifactValues() {
     return false;
@@ -232,13 +234,17 @@ public interface OutputService {
       FileSystem fileSystem,
       ImmutableList<Root> pathEntries,
       ActionInputMap actionInputMap,
-      Map<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts,
-      Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesets) {
+      Map<Artifact, ImmutableSortedSet<TreeFileArtifact>> treeArtifacts,
+      Map<Artifact, FilesetOutputTree> filesets) {
     throw new IllegalStateException("Path resolver not supported by this class");
   }
 
   @Nullable
   default BulkDeleter bulkDeleter() {
     return null;
+  }
+
+  default XattrProvider getXattrProvider(XattrProvider delegate) {
+    return delegate;
   }
 }

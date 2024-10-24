@@ -17,19 +17,21 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.STRING;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.AspectContext;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
@@ -38,6 +40,7 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -54,14 +57,20 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkNativeAspect;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.io.Serializable;
 import java.util.List;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.syntax.Location;
 
 /**
  * Various rule and aspect classes that aid in testing the aspect machinery.
@@ -119,21 +128,28 @@ public class TestAspects {
     }
   }
 
+  private static final Label FAKE_LABEL = Label.parseCanonicalUnchecked("//fake/label.bzl");
+
+  public static final StarlarkProvider.Key REQUIRED_PROVIDER_KEY =
+      new StarlarkProvider.Key(keyForBuild(FAKE_LABEL), "RequiredProvider");
+  public static final StarlarkProvider.Key REQUIRED_PROVIDER2_KEY =
+      new StarlarkProvider.Key(keyForBuild(FAKE_LABEL), "RequiredProvider2");
+
   /**
    * A very simple provider used in tests that check whether the logic that attaches aspects
    * depending on whether a configured target has a provider works or not.
    */
-  @Immutable
-  public static final class RequiredProvider implements TransitiveInfoProvider {
-  }
+  @SerializationConstant @VisibleForSerialization
+  static final StarlarkProvider REQUIRED_PROVIDER =
+      StarlarkProvider.builder(Location.BUILTIN).buildExported(REQUIRED_PROVIDER_KEY);
 
   /**
    * Another very simple provider used in tests that check whether the logic that attaches aspects
    * depending on whether a configured target has a provider works or not.
    */
-  @Immutable
-  public static final class RequiredProvider2 implements TransitiveInfoProvider {
-  }
+  @SerializationConstant @VisibleForSerialization
+  static final StarlarkProvider REQUIRED_PROVIDER2 =
+      StarlarkProvider.builder(Location.BUILTIN).buildExported(REQUIRED_PROVIDER2_KEY);
 
   private static NestedSet<String> collectAspectData(String me, RuleContext ruleContext) {
     NestedSetBuilder<String> result = new NestedSetBuilder<>(Order.STABLE_ORDER);
@@ -156,6 +172,18 @@ public class TestAspects {
     return result.build();
   }
 
+  public static class FileProviderForwardingRuleFactory implements RuleConfiguredTargetFactory {
+    @Override
+    public ConfiguredTarget create(RuleContext ruleContext)
+        throws InterruptedException, RuleErrorException, ActionConflictException {
+      return new RuleConfiguredTargetBuilder(ruleContext)
+          .setFilesToBuild(ruleContext.getPrerequisite("dep", FileProvider.class).getFilesToBuild())
+          .setRunfilesSupport(null, null)
+          .addProvider(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY))
+          .build();
+    }
+  }
+
   /**
    * A simple rule configured target factory that is used in all the mock rules in this class.
    */
@@ -174,29 +202,30 @@ public class TestAspects {
               .add(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY));
 
       if (ruleContext.getRule().getRuleClassObject().getName().equals("honest")) {
-        builder.addProvider(new RequiredProvider());
+        builder.addStarlarkDeclaredProvider(
+            StarlarkInfo.create(REQUIRED_PROVIDER, ImmutableMap.of(), null));
       }
 
       return builder.build();
     }
   }
 
-  /**
-   * A simple rule configured target factory that exports provider {@link RequiredProvider2}.
-   */
+  /** A simple rule configured target factory that exports provider {@link REQUIRED_PROVIDER2}. */
   public static class DummyRuleFactory2 implements RuleConfiguredTargetFactory {
     @Override
     public ConfiguredTarget create(RuleContext ruleContext)
         throws InterruptedException, RuleErrorException, ActionConflictException {
       return new RuleConfiguredTargetBuilder(ruleContext)
-              .addProvider(
-                  new RuleInfo(collectAspectData("rule " + ruleContext.getLabel(), ruleContext)))
-              .setFilesToBuild(NestedSetBuilder.<Artifact>create(Order.STABLE_ORDER))
-              .setRunfilesSupport(null, null)
-              .add(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY))
-              .addProvider(new RequiredProvider())
-              .addProvider(new RequiredProvider2())
-              .build();
+          .addProvider(
+              new RuleInfo(collectAspectData("rule " + ruleContext.getLabel(), ruleContext)))
+          .setFilesToBuild(NestedSetBuilder.<Artifact>create(Order.STABLE_ORDER))
+          .setRunfilesSupport(null, null)
+          .add(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY))
+          .addStarlarkDeclaredProvider(
+              StarlarkInfo.create(REQUIRED_PROVIDER, ImmutableMap.of(), null))
+          .addStarlarkDeclaredProvider(
+              StarlarkInfo.create(REQUIRED_PROVIDER2, ImmutableMap.of(), null))
+          .build();
     }
   }
 
@@ -258,7 +287,30 @@ public class TestAspects {
     }
   }
 
+  public static class FileProviderAspect extends BaseAspect {
+    @Override
+    public ConfiguredAspect create(
+        Label targetLabel,
+        ConfiguredTarget ct,
+        RuleContext ruleContext,
+        AspectParameters parameters,
+        RepositoryName toolsRepository)
+        throws ActionConflictException, InterruptedException {
+      Artifact artifact = ruleContext.getBinArtifact("file_provider_aspect_file");
+      ruleContext.registerAction(FileWriteAction.create(ruleContext, artifact, "empty", false));
+      return new ConfiguredAspect.Builder(ruleContext)
+          .addProvider(FileProvider.of(NestedSetBuilder.create(Order.STABLE_ORDER, artifact)))
+          .build();
+    }
+
+    @Override
+    public AspectDefinition getDefinition(AspectParameters aspectParameters) {
+      return SIMPLE_ASPECT_DEFINITION;
+    }
+  }
+
   public static final SimpleAspect SIMPLE_ASPECT = new SimpleAspect();
+  public static final FileProviderAspect FILE_PROVIDER_ASPECT = new FileProviderAspect();
   public static final FooProviderAspect FOO_PROVIDER_ASPECT = new FooProviderAspect();
   public static final BarProviderAspect BAR_PROVIDER_ASPECT = new BarProviderAspect();
   public static final SimpleStarlarkNativeAspect SIMPLE_STARLARK_NATIVE_ASPECT =
@@ -357,30 +409,26 @@ public class TestAspects {
   private static final AspectDefinition EXTRA_ATTRIBUTE_ASPECT_REQUIRING_PROVIDER_DEFINITION =
       new AspectDefinition.Builder(EXTRA_ATTRIBUTE_ASPECT_REQUIRING_PROVIDER)
           .add(attr("$dep", LABEL).value(Label.parseCanonicalUnchecked("//extra:extra")))
-          .requireProviders(RequiredProvider.class)
+          .requireStarlarkProviders(StarlarkProviderIdentifier.forKey(REQUIRED_PROVIDER_KEY))
           .build();
 
   /** An aspect that defines its own implicit attribute. */
   public static class ExtraAttributeAspect extends BaseAspect {
 
     /** Test provider which includes the {@code dep} label. */
-    @AutoValue
-    public abstract static class Provider implements TransitiveInfoProvider {
-      public abstract String label();
-
-      static Provider create(String label) {
-        return new AutoValue_TestAspects_ExtraAttributeAspect_Provider(label);
-      }
-    }
+    @SerializationConstant
+    public static final StarlarkProvider PROVIDER =
+        StarlarkProvider.builder(Location.BUILTIN)
+            .buildExported(new StarlarkProvider.Key(keyForBuild(FAKE_LABEL), "Provider"));
 
     private final Label depLabel;
     private final boolean applyToFiles;
-    private final Class<? extends TransitiveInfoProvider>[] requiredAspectProviders;
+    private final StarlarkProviderIdentifier[] requiredAspectProviders;
 
     public ExtraAttributeAspect(
         String depLabel,
         boolean applyToFiles,
-        Class<? extends TransitiveInfoProvider>... requiredAspectProviders) {
+        StarlarkProviderIdentifier... requiredAspectProviders) {
       this.depLabel = Label.parseCanonicalUnchecked(depLabel);
       this.applyToFiles = applyToFiles;
       this.requiredAspectProviders = requiredAspectProviders;
@@ -402,9 +450,15 @@ public class TestAspects {
         ruleContext.attributeError("$dep", "$dep attribute not resolved");
         return ConfiguredAspect.builder(ruleContext).build();
       }
-      return ConfiguredAspect.builder(ruleContext)
-          .addProvider(ExtraAttributeAspect.Provider.create(dep.getLabel().getCanonicalForm()))
-          .build();
+      try {
+        return ConfiguredAspect.builder(ruleContext)
+            .addStarlarkDeclaredProvider(
+                StarlarkInfo.create(
+                    PROVIDER, ImmutableMap.of("label", dep.getLabel().getCanonicalForm()), null))
+            .build();
+      } catch (EvalException e) {
+        throw new IllegalStateException(e);
+      }
     }
 
     @Override
@@ -418,11 +472,69 @@ public class TestAspects {
           new AspectDefinition.Builder(this)
               .add(attr("$dep", LABEL).value(depLabel))
               .applyToFiles(applyToFiles)
-              .advertiseProvider(ExtraAttributeAspect.Provider.class);
+              .advertiseProvider(
+                  ImmutableList.of(StarlarkProviderIdentifier.forKey(PROVIDER.getKey())));
 
       if (requiredAspectProviders.length > 0) {
-        aspectDefinition.requireAspectsWithBuiltinProviders(requiredAspectProviders);
+        aspectDefinition.requireAspectsWithProviders(
+            ImmutableList.of(ImmutableSet.copyOf(requiredAspectProviders)));
       }
+
+      return aspectDefinition.build();
+    }
+  }
+
+  /**
+   * An aspect that applies to output files and propagates to toolchain dependencies and attribute
+   * dependencies.
+   */
+  public static class DepsVisitingFileAspect extends BaseAspect {
+
+    /** Test provider which includes the base target label. */
+    @SerializationConstant
+    public static final StarlarkProvider PROVIDER =
+        StarlarkProvider.builder(Location.BUILTIN)
+            .buildExported(new StarlarkProvider.Key(keyForBuild(FAKE_LABEL), "AspectProvider"));
+
+    private String depAttr;
+    private Label toolChainType;
+
+    public DepsVisitingFileAspect(String depAttr, String toolChainType) {
+      this.depAttr = depAttr;
+      this.toolChainType = Label.parseCanonicalUnchecked(toolChainType);
+    }
+
+    @Override
+    public ConfiguredAspect create(
+        Label targetLabel,
+        ConfiguredTarget ct,
+        RuleContext ruleContext,
+        AspectParameters parameters,
+        RepositoryName toolsRepository)
+        throws ActionConflictException, InterruptedException {
+      try {
+        return ConfiguredAspect.builder(ruleContext)
+            .addStarlarkDeclaredProvider(
+                StarlarkInfo.create(
+                    PROVIDER, ImmutableMap.of("val", ct.getLabel().getCanonicalForm()), null))
+            .build();
+      } catch (EvalException e) {
+        throw new IllegalStateException(e);
+      }
+    }
+
+    @Override
+    public String getName() {
+      return String.format("%s_%s_%s", super.getName(), depAttr, toolChainType.getCanonicalForm());
+    }
+
+    @Override
+    public AspectDefinition getDefinition(AspectParameters aspectParameters) {
+      AspectDefinition.Builder aspectDefinition =
+          new AspectDefinition.Builder(this)
+              .applyToFiles(true)
+              .propagateAlongAttribute(depAttr)
+              .propagateToToolchainsTypes(ImmutableSet.of(toolChainType));
 
       return aspectDefinition.build();
     }
@@ -547,7 +659,7 @@ public class TestAspects {
     public AspectDefinition getDefinition(AspectParameters aspectParameters) {
       AspectDefinition.Builder builder =
           new AspectDefinition.Builder(STARLARK_NATIVE_ASPECT_WITH_PROVIDER);
-      builder.requireProviders(RequiredProvider.class);
+      builder.requireStarlarkProviders(StarlarkProviderIdentifier.forKey(REQUIRED_PROVIDER_KEY));
       return builder.build();
     }
 
@@ -673,15 +785,15 @@ public class TestAspects {
       new AspectRequiringProviderSets();
   private static final AspectDefinition ASPECT_REQUIRING_PROVIDER_DEFINITION =
       new AspectDefinition.Builder(ASPECT_REQUIRING_PROVIDER)
-          .requireProviders(RequiredProvider.class)
+          .requireStarlarkProviders(StarlarkProviderIdentifier.forKey(REQUIRED_PROVIDER_KEY))
           .propagateAlongAttribute("foo")
           .build();
   private static final AspectDefinition ASPECT_REQUIRING_PROVIDER_SETS_DEFINITION =
       new AspectDefinition.Builder(ASPECT_REQUIRING_PROVIDER_SETS)
-          .requireProviderSets(
+          .requireStarlarkProviderSets(
               ImmutableList.of(
-                  ImmutableSet.of(RequiredProvider.class),
-                  ImmutableSet.of(RequiredProvider2.class)))
+                  ImmutableSet.of(StarlarkProviderIdentifier.forKey(REQUIRED_PROVIDER_KEY)),
+                  ImmutableSet.of(StarlarkProviderIdentifier.forKey(REQUIRED_PROVIDER2_KEY))))
           .build();
 
   /**
@@ -769,9 +881,10 @@ public class TestAspects {
       = new FalseAdvertisementAspect();
   private static final AspectDefinition FALSE_ADVERTISEMENT_DEFINITION =
       new AspectDefinition.Builder(FALSE_ADVERTISEMENT_ASPECT)
-          .advertiseProvider(RequiredProvider.class)
           .advertiseProvider(
-              ImmutableList.of(StarlarkProviderIdentifier.forLegacy("advertised_provider")))
+              ImmutableList.of(
+                  StarlarkProviderIdentifier.forLegacy("advertised_provider"),
+                  StarlarkProviderIdentifier.forKey(REQUIRED_PROVIDER_KEY)))
           .build();
 
   /**
@@ -782,6 +895,16 @@ public class TestAspects {
    */
   public static final MockRule BASE_RULE = () ->
       MockRule.factory(DummyRuleFactory.class).define("base");
+
+  public static final MockRule FILE_PROVIDER_ASPECT_REQUIRING_RULE =
+      () ->
+          MockRule.ancestor(BASE_RULE.getClass())
+              .factory(FileProviderForwardingRuleFactory.class)
+              .define(
+                  "file_provider_aspect",
+                  attr("dep", LABEL)
+                      .allowedFileTypes(FileTypeSet.ANY_FILE)
+                      .aspect(FILE_PROVIDER_ASPECT));
 
   /**
    * A rule that defines an aspect on one of its attributes.
@@ -944,38 +1067,32 @@ public class TestAspects {
           attr("foo1", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE),
           attr("txt", STRING));
 
-  /**
-   * A rule that advertises a provider but doesn't implement it.
-   */
-  public static final MockRule LIAR_RULE = () ->
-      MockRule.ancestor(BASE_RULE.getClass()).factory(DummyRuleFactory.class).define(
-          "liar",
-          (builder, env) ->
-              builder
-                  .add(attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
-                  .advertiseProvider(RequiredProvider.class));
 
-  /**
-   * A rule that advertises a provider and implements it.
-   */
-  public static final MockRule HONEST_RULE = () ->
-      MockRule.ancestor(BASE_RULE.getClass()).factory(DummyRuleFactory.class).define(
-          "honest",
-          (builder, env) ->
-              builder
-              .add(attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
-              .advertiseProvider(RequiredProvider.class));
+  /** A rule that advertises a provider and implements it. */
+  public static final MockRule HONEST_RULE =
+      () ->
+          MockRule.ancestor(BASE_RULE.getClass())
+              .factory(DummyRuleFactory.class)
+              .define(
+                  "honest",
+                  (builder, env) ->
+                      builder
+                          .add(attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
+                          .advertiseStarlarkProvider(
+                              StarlarkProviderIdentifier.forKey(REQUIRED_PROVIDER_KEY)));
 
-  /**
-   * A rule that advertises another, different provider and implements it.
-   */
-  public static final MockRule HONEST_RULE_2 = () ->
-      MockRule.ancestor(BASE_RULE.getClass()).factory(DummyRuleFactory2.class).define(
-          "honest2",
-          (builder, env) ->
-              builder
-                  .add(attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
-                  .advertiseProvider(RequiredProvider2.class));
+  /** A rule that advertises another, different provider and implements it. */
+  public static final MockRule HONEST_RULE_2 =
+      () ->
+          MockRule.ancestor(BASE_RULE.getClass())
+              .factory(DummyRuleFactory2.class)
+              .define(
+                  "honest2",
+                  (builder, env) ->
+                      builder
+                          .add(attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
+                          .advertiseStarlarkProvider(
+                              StarlarkProviderIdentifier.forKey(REQUIRED_PROVIDER2_KEY)));
 
   /** Rule with an implicit dependency. */
   public static final MockRule IMPLICIT_DEP_RULE =

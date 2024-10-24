@@ -12,12 +12,36 @@ filegroup(
 )
 
 java_library(
+    name = "collect_local_resource_usage",
+    srcs = [
+        "CollectLocalResourceUsage.java",
+    ],
+    deps = [
+        ":network_metrics_collector",
+        ":profiler",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/unix:procmeminfo_parser",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/util:resource_usage",
+        "//src/main/java/com/google/devtools/build/lib/worker:worker_process_metrics",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:error_prone_annotations",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "profiler",
     srcs = [
         "AutoProfiler.java",
-        "CollectLocalResourceUsage.java",
+        "CounterSeriesTask.java",
         "CounterSeriesTraceData.java",
         "JsonTraceFileWriter.java",
+        "LocalResourceCollector.java",
         "MemoryProfiler.java",
         "MetricData.java",
         "PredicateBasedStatRecorder.java",
@@ -32,19 +56,13 @@ java_library(
         "TraceData.java",
     ],
     deps = [
-        ":network_metrics_collector",
-        "//src/main/java/com/google/devtools/build/lib/actions:resource_estimator",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_version_info",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/collect:extrema",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/unix:procmeminfo_parser",
         "//src/main/java/com/google/devtools/build/lib/util:heap_offset_helper",
-        "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/util:pair",
-        "//src/main/java/com/google/devtools/build/lib/util:resource_usage",
-        "//src/main/java/com/google/devtools/build/lib/worker:worker_process_metrics",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:auto_value",
         "//third_party:error_prone_annotations",

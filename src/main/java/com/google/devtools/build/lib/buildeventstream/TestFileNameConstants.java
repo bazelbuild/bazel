@@ -28,13 +28,23 @@ public class TestFileNameConstants {
   public static final String TEST_STDERR = "test.stderr";
   public static final String TEST_WARNINGS = "test.warnings";
   public static final String TEST_XML = "test.xml";
+  public static final String UNUSED_RUNFILES_LOG = "test.unused_runfiles_log";
+
+  // Only present for the coverage command.
+  public static final String TEST_COVERAGE = "test.lcov";
+  public static final String BASELINE_COVERAGE = "baseline.lcov";
+
+  // Present for both --zip_undeclared_outputs and --nozip_undeclared_outputs.
   public static final String UNDECLARED_OUTPUTS_ANNOTATIONS = "test.outputs_manifest__ANNOTATIONS";
   public static final String UNDECLARED_OUTPUTS_ANNOTATIONS_PB =
       "test.outputs_manifest__ANNOTATIONS.pb";
   public static final String UNDECLARED_OUTPUTS_MANIFEST = "test.outputs_manifest__MANIFEST";
+
+  // Only present for --zip_undeclared_outputs.
   public static final String UNDECLARED_OUTPUTS_ZIP = "test.outputs__outputs.zip";
+
+  // Only present for --nozip_undeclared_outputs.
+  // This is a prefix; each file in the undeclared outputs directory is reported individually, e.g.
+  // test.outputs/path/to/file.txt.
   public static final String UNDECLARED_OUTPUTS_DIR = "test.outputs";
-  public static final String UNUSED_RUNFILES_LOG = "test.unused_runfiles_log";
-  public static final String TEST_COVERAGE = "test.lcov";
-  public static final String BASELINE_COVERAGE = "baseline.lcov";
 }

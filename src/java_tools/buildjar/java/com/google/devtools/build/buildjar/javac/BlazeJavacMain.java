@@ -36,7 +36,6 @@ import com.sun.tools.javac.api.JavacTaskImpl;
 import com.sun.tools.javac.api.JavacTool;
 import com.sun.tools.javac.file.CacheFSInfo;
 import com.sun.tools.javac.file.JavacFileManager;
-import com.sun.tools.javac.main.JavaCompiler;
 import com.sun.tools.javac.main.Main.Result;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.Log;
@@ -50,18 +49,12 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Path;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import javax.annotation.Nullable;
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticListener;
-import javax.tools.JavaFileObject;
-import javax.tools.JavaFileObject.Kind;
 import javax.tools.StandardLocation;
 
 /**
@@ -108,6 +101,12 @@ public class BlazeJavacMain {
       return BlazeJavacResult.error(e.getMessage());
     }
 
+    Optional<WerrorCustomOption> maybeWerrorCustom =
+        arguments.blazeJavacOptions().stream()
+            .filter(arg -> arg.startsWith("-Werror:"))
+            .collect(toOptional())
+            .map(WerrorCustomOption::create);
+
     Context context = new Context();
     BlazeJavacStatistics.preRegister(context);
     CacheFSInfo.preRegister(context);
@@ -119,8 +118,8 @@ public class BlazeJavacMain {
     // TODO(cushon): where is this used when a diagnostic listener is registered? Consider removing
     // it and handling exceptions directly in callers.
     PrintWriter errWriter = new PrintWriter(errOutput);
-    Listener diagnosticsBuilder = new Listener(arguments.failFast(), context);
-    BlazeJavaCompiler compiler;
+    Listener diagnosticsBuilder =
+        new Listener(arguments.failFast(), maybeWerrorCustom, context, arguments.workDir());
 
     // Initialize parts of context that the filemanager depends on
     context.put(DiagnosticListener.class, diagnosticsBuilder);
@@ -129,8 +128,7 @@ public class BlazeJavacMain {
     options.put("-Xlint:path", "path");
     options.put("expandJarClassPaths", "false");
 
-    try (ClassloaderMaskingFileManager fileManager =
-        new ClassloaderMaskingFileManager(context, getMatchingBootFileManager(arguments))) {
+    try (ClassloaderMaskingFileManager fileManager = new ClassloaderMaskingFileManager(context)) {
 
       setLocations(fileManager, arguments);
 
@@ -171,19 +169,6 @@ public class BlazeJavacMain {
       }
       t.printStackTrace(errWriter);
       status = Status.CRASH;
-    } finally {
-      compiler = (BlazeJavaCompiler) JavaCompiler.instance(context);
-      if (status == Status.OK) {
-        // There could be situations where we incorrectly skip Error Prone and the compilation
-        // ends up succeeding, e.g., if there are errors that are fixed by subsequent round of
-        // annotation processing.  This check ensures that if there were any flow events at all,
-        // then plugins were run.  There may legitimately not be any flow events, e.g. -proc:only
-        // or empty source files.
-        if (compiler.skippedFlowEvents() > 0 && compiler.flowEvents() == 0) {
-          errWriter.println("Expected at least one FLOW event");
-          status = Status.ERROR;
-        }
-      }
     }
     errWriter.flush();
     ImmutableList<FormattedDiagnostic> diagnostics = diagnosticsBuilder.build();
@@ -196,28 +181,14 @@ public class BlazeJavacMain {
 
     boolean werror =
         diagnostics.stream().anyMatch(d -> d.getCode().equals("compiler.err.warnings.and.werror"));
-    if (status.equals(Status.OK)) {
-      Optional<WerrorCustomOption> maybeWerrorCustom =
-          arguments.blazeJavacOptions().stream()
-              .filter(arg -> arg.startsWith("-Werror:"))
-              .collect(toOptional())
-              .map(WerrorCustomOption::create);
-      if (maybeWerrorCustom.isPresent()) {
-        WerrorCustomOption werrorCustom = maybeWerrorCustom.get();
-        if (diagnostics.stream().anyMatch(d -> isWerror(werrorCustom, d))) {
-          errOutput.append("error: warnings found and -Werror specified\n");
-          status = Status.ERROR;
-          werror = true;
-        }
-      }
+    if (status.equals(Status.OK) && diagnosticsBuilder.werror()) {
+      errOutput.append("error: warnings found and -Werror specified\n");
+      status = Status.ERROR;
+      werror = true;
     }
 
     return BlazeJavacResult.createFullResult(
-        status,
-        filterDiagnostics(werror, diagnostics),
-        errOutput.toString(),
-        compiler,
-        builder.build());
+        status, filterDiagnostics(werror, diagnostics), errOutput.toString(), builder.build());
   }
 
   private static Status fromResult(Result result) {
@@ -232,16 +203,6 @@ public class BlazeJavacMain {
         return Status.CRASH;
     }
     throw new AssertionError(result);
-  }
-
-  private static boolean isWerror(WerrorCustomOption werrorCustom, FormattedDiagnostic diagnostic) {
-    switch (diagnostic.getKind()) {
-      case WARNING:
-      case MANDATORY_WARNING:
-        return werrorCustom.isEnabled(diagnostic.getLintCategory());
-      default:
-        return false;
-    }
   }
 
   private static final ImmutableSet<String> IGNORED_DIAGNOSTIC_CODES =
@@ -380,69 +341,21 @@ public class BlazeJavacMain {
     }
   }
 
-  private static final boolean BOOT_CLASSPATH_CACHE_ENABLED =
-      Boolean.parseBoolean(
-          System.getProperty(
-              "com.google.devtools.build.buildjar.javac.enable_boot_classpath_cache", "true"));
-
   /**
-   * Multiple javac file manager instances each specific for a combination of bootClassPaths with
-   * their digest.
-   */
-  private static final Map<BootClassPathCachingFileManager.Key, BootClassPathCachingFileManager>
-      bootFileManagers = new HashMap<>();
-
-  /**
-   * Returns a BootClassPathCachingFileManager instance that matches the combination of
-   * bootClassPaths and their digest in the case of a worker with valid arguments.
-   */
-  @Nullable
-  private static synchronized BootClassPathCachingFileManager getMatchingBootFileManager(
-      BlazeJavacArguments arguments) {
-    if (!BOOT_CLASSPATH_CACHE_ENABLED) {
-      // Caching disabled by a feature switch.
-      return null;
-    }
-    if (!arguments.requestId().isPresent()) {
-      // worker mode is not enabled
-      return null;
-    }
-    if (!BootClassPathCachingFileManager.areArgumentsValid(arguments)) {
-      // arguments not valid
-      return null;
-    }
-
-    BootClassPathCachingFileManager.Key key = BootClassPathCachingFileManager.Key.create(arguments);
-    return bootFileManagers.computeIfAbsent(
-        key, x -> new BootClassPathCachingFileManager(new Context(), key));
-  }
-
-  /**
-   * When Bazel invokes JavaBuilder, it puts javac.jar on the bootstrap class path and
-   * JavaBuilder_deploy.jar on the user class path. We need Error Prone to be available on the
-   * annotation processor path, but we want to mask out any other classes to minimize class version
-   * skew.
+   * Ensure that classes that appear in the API between JavaBuilder and plugins are consistently
+   * loaded by the same classloader. 'Plugins' here means both annotation processors and Error Prone
+   * plugins. The annotation processor API is defined in the JDK and doesn't require any special
+   * handling, since the versions in the system classloader will always be loaded preferentially.
+   * For Error Prone plugins, we want to ensure that classes in the API are loaded from the same
+   * classloader as JavaBuilder, but that other classes referenced by plugins are loaded from the
+   * processor classpath to avoid plugins seeing stale versions of classes from the releases
+   * JavaBuilder jar.
    */
   @Trusted
   private static class ClassloaderMaskingFileManager extends JavacFileManager {
 
-    /** the BootClassPathCachingFileManager instance used for BootClassPaths only. */
-    private final BootClassPathCachingFileManager bootFileManger;
-
-    public ClassloaderMaskingFileManager(
-        Context context, BootClassPathCachingFileManager bootFileManager) {
+    public ClassloaderMaskingFileManager(Context context) {
       super(context, true, UTF_8);
-      this.bootFileManger = bootFileManager;
-    }
-
-    @Override
-    public Iterable<JavaFileObject> list(
-        Location location, String packageName, Set<Kind> kinds, boolean recurse)
-        throws IOException {
-      if (this.bootFileManger != null && location == StandardLocation.PLATFORM_CLASS_PATH) {
-        return this.bootFileManger.list(location, packageName, kinds, recurse);
-      }
-      return super.list(location, packageName, kinds, recurse);
     }
 
     @Override
@@ -455,11 +368,8 @@ public class BlazeJavacMain {
               if (name.startsWith("com.google.errorprone.")
                   || name.startsWith("com.google.common.collect.")
                   || name.startsWith("com.google.common.base.")
-                  || name.startsWith("com.google.common.graph.")
                   || name.startsWith("com.google.common.regex.")
                   || name.startsWith("org.checkerframework.errorprone.dataflow.")
-                  || name.startsWith("com.sun.source.")
-                  || name.startsWith("com.sun.tools.")
                   || name.startsWith("com.google.devtools.build.buildjar.javac.statistics.")) {
                 return Class.forName(name);
               }

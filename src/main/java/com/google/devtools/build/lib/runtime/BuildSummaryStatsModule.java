@@ -22,6 +22,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionResultReceivedEvent;
+import com.google.devtools.build.lib.actions.cache.PostableActionCacheStats;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
@@ -39,7 +40,6 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.ExecutionFinishedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetPendingExecutionEvent;
-import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -64,7 +64,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
   private long executionStartMillis;
   private long executionEndMillis;
   private SpawnStats spawnStats;
-  private Path profilePath;
+  private ProfilerStartedEvent profileEvent;
   private AtomicBoolean executionStarted;
 
   @Override
@@ -122,7 +122,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
 
   @Subscribe
   public void profileStarting(ProfilerStartedEvent event) {
-    this.profilePath = event.getProfilePath();
+    this.profileEvent = event;
   }
 
   @Subscribe
@@ -140,6 +140,11 @@ public class BuildSummaryStatsModule extends BlazeModule {
   @AllowConcurrentEvents
   public void actionCompletion(ActionCompletionEvent event) {
     spawnStats.incrementActionCount();
+  }
+
+  @Subscribe
+  public void actionCacheStats(PostableActionCacheStats event) {
+    spawnStats.recordActionCacheStats(event.asProto());
   }
 
   @Subscribe
@@ -180,16 +185,13 @@ public class BuildSummaryStatsModule extends BlazeModule {
           }
         }
       }
-      if (profilePath != null) {
+      if (profileEvent != null && profileEvent.getProfile() != null) {
         // This leads to missing the afterCommand profiles of the other modules in the profile.
         // Since the BEP currently shuts down at the BuildCompleteEvent, we cannot just move posting
         // the BuildToolLogs to afterCommand of this module.
         try {
           Profiler.instance().stop();
-          event
-              .getResult()
-              .getBuildToolLogCollection()
-              .addLocalFile(profilePath.getBaseName(), profilePath);
+          profileEvent.getProfile().publish(event.getResult().getBuildToolLogCollection());
         } catch (IOException e) {
           reporter.handle(Event.error("Error while writing profile file: " + e.getMessage()));
         }
@@ -216,6 +218,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
                     (now - commandStartMillis) / 1000.0,
                     overheadTime / 1000.0,
                     executionTime / 1000.0)));
+        logger.atInfo().log("Stats summary: %s", Joiner.on(", ").join(items));
       } else {
         reporter.handle(Event.info(Joiner.on(", ").join(items)));
         reporter.handle(Event.info(spawnSummaryString));
@@ -230,7 +233,6 @@ public class BuildSummaryStatsModule extends BlazeModule {
         eventBus.unregister(criticalPathComputer);
         criticalPathComputer = null;
       }
-      profilePath = null;
     }
   }
 }

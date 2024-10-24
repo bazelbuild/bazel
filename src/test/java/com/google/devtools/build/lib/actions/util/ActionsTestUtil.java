@@ -26,10 +26,12 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
 import com.google.devtools.build.lib.actions.ActionGraph;
@@ -41,12 +43,12 @@ import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -55,10 +57,12 @@ import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.MiddlemanType;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
+import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
+import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissDetail;
@@ -137,7 +141,8 @@ public final class ActionsTestUtil {
         eventHandler,
         actionKeyContext,
         fileOutErr,
-        execRoot,
+        new SingleBuildFileCache(
+            execRoot.getPathString(), execRoot.getFileSystem(), SyscallCache.NO_CACHE),
         outputMetadataStore,
         /* clientEnv= */ ImmutableMap.of());
   }
@@ -147,13 +152,12 @@ public final class ActionsTestUtil {
       ExtendedEventHandler eventHandler,
       ActionKeyContext actionKeyContext,
       FileOutErr fileOutErr,
-      Path execRoot,
+      InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
       Map<String, String> clientEnv) {
     return new ActionExecutionContext(
         executor,
-        new SingleBuildFileCache(
-            execRoot.getPathString(), execRoot.getFileSystem(), SyscallCache.NO_CACHE),
+        inputMetadataProvider,
         ActionInputPrefetcher.NONE,
         actionKeyContext,
         outputMetadataStore,
@@ -163,7 +167,7 @@ public final class ActionsTestUtil {
         eventHandler,
         ImmutableMap.copyOf(clientEnv),
         /* topLevelFilesets= */ ImmutableMap.of(),
-        (artifact, output) -> {},
+        treeArtifact -> ImmutableSortedSet.of(),
         /* actionFileSystem= */ null,
         /* skyframeDepsResult= */ null,
         DiscoveredModulesPruner.DEFAULT,
@@ -189,7 +193,7 @@ public final class ActionsTestUtil {
         eventHandler,
         /* clientEnv= */ ImmutableMap.of(),
         /* topLevelFilesets= */ ImmutableMap.of(),
-        (artifact, output) -> {},
+        treeArtifact -> ImmutableSortedSet.of(),
         /* actionFileSystem= */ null,
         /* skyframeDepsResult= */ null,
         DiscoveredModulesPruner.DEFAULT,
@@ -238,7 +242,7 @@ public final class ActionsTestUtil {
     return ActionExecutionValue.createFromOutputMetadataStore(
         artifactData,
         treeArtifactData,
-        /* outputSymlinks= */ ImmutableList.of(),
+        FilesetOutputTree.EMPTY,
         /* discoveredModules= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
 
@@ -260,6 +264,11 @@ public final class ActionsTestUtil {
     return root.isSourceRoot()
         ? new Artifact.SourceArtifact(root, execPath, ArtifactOwner.NULL_OWNER)
         : DerivedArtifact.create(root, execPath, NULL_ARTIFACT_OWNER);
+  }
+
+  public static SpecialArtifact createRunfilesArtifact(ArtifactRoot root, String execPath) {
+    return SpecialArtifact.create(
+        root, PathFragment.create(execPath), NULL_ARTIFACT_OWNER, SpecialArtifactType.RUNFILES);
   }
 
   public static SpecialArtifact createTreeArtifactWithGeneratingAction(
@@ -893,6 +902,11 @@ public final class ActionsTestUtil {
     public Path getPathFromSourceExecPath(Path execRoot, PathFragment execPath) {
       throw new UnsupportedOperationException();
     }
+
+    @Override
+    public boolean isDerivedArtifact(PathFragment execPath) {
+      throw new UnsupportedOperationException();
+    }
   }
 
   /**
@@ -918,6 +932,17 @@ public final class ActionsTestUtil {
       implements InputMetadataProvider, OutputMetadataStore {
     @Override
     public FileArtifactValue getInputMetadata(ActionInput input) throws IOException {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    @Nullable
+    public RunfilesArtifactValue getRunfilesMetadata(ActionInput input) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ImmutableList<RunfilesTree> getRunfilesTrees() {
       throw new UnsupportedOperationException();
     }
 

@@ -111,7 +111,7 @@ public class QueryTransitivePackagePreloader {
       throws QueryException {
     FailureDetails.FailureDetail failureDetail;
     if (!(exception instanceof DetailedException)) {
-      bugReporter.sendBugReport(
+      bugReporter.sendNonFatalBugReport(
           new IllegalStateException(
               "Non-detailed exception found for " + operation + ": " + resultForDebugging,
               exception));

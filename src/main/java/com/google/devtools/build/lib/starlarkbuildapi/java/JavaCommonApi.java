@@ -253,28 +253,28 @@ public interface JavaCommonApi<
               @ParamType(type = NoneType.class),
             },
             defaultValue = "None",
-            doc = "The output source jar. Optional. Defaults to `{output_jar}-src.jar` if unset."),
+            doc = "The output source jar. Defaults to `{output_jar}-src.jar` if unset."),
         @Param(
             name = "javac_opts",
             positional = false,
             named = true,
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
             defaultValue = "[]",
-            doc = "A list of the desired javac options. Optional."),
+            doc = "A list of the desired javac options."),
         @Param(
             name = "deps",
             positional = false,
             named = true,
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)},
             defaultValue = "[]",
-            doc = "A list of dependencies. Optional."),
+            doc = "A list of dependencies."),
         @Param(
             name = "runtime_deps",
             positional = false,
             named = true,
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)},
             defaultValue = "[]",
-            doc = "A list of runtime dependencies. Optional."),
+            doc = "A list of runtime dependencies."),
         @Param(
             name = "exports",
             positional = false,
@@ -283,7 +283,7 @@ public interface JavaCommonApi<
               @ParamType(type = Sequence.class, generic1 = JavaInfoApi.class),
             },
             defaultValue = "[]",
-            doc = "A list of exports. Optional."),
+            doc = "A list of exports."),
         @Param(
             name = "plugins",
             positional = false,
@@ -293,7 +293,7 @@ public interface JavaCommonApi<
               @ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)
             },
             defaultValue = "[]",
-            doc = "A list of plugins. Optional."),
+            doc = "A list of plugins."),
         @Param(
             name = "exported_plugins",
             positional = false,
@@ -303,7 +303,7 @@ public interface JavaCommonApi<
               @ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)
             },
             defaultValue = "[]",
-            doc = "A list of exported plugins. Optional."),
+            doc = "A list of exported plugins."),
         @Param(
             name = "native_libraries",
             positional = false,
@@ -336,8 +336,9 @@ public interface JavaCommonApi<
             named = true,
             doc =
                 "A string that specifies how to handle strict deps. Possible values: 'OFF', "
-                    + "'ERROR', 'WARN' and 'DEFAULT'. For more details see "
-                    + "${link user-manual#flag--strict_java_deps}. By default 'ERROR'."),
+                    + "'ERROR', 'WARN' and 'DEFAULT'. For more details see <a href=\""
+                    + "${link user-manual#flag--strict_java_deps}\"><code>--strict_java_deps<code>"
+                    + " flag</a>. By default 'ERROR'."),
         @Param(
             name = "java_toolchain",
             positional = false,
@@ -350,7 +351,7 @@ public interface JavaCommonApi<
             defaultValue = "None",
             doc =
                 "A BootClassPathInfo to be used for this compilation. If present, overrides the"
-                    + " bootclasspath associated with the provided java_toolchain. Optional."),
+                    + " bootclasspath associated with the provided java_toolchain."),
         @Param(
             name = "host_javabase",
             positional = false,
@@ -433,16 +434,14 @@ public interface JavaCommonApi<
             named = true,
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
             defaultValue = "[]",
-            doc = "Allow this library to access the given <module>/<package>. Optional."),
+            doc = "Allow this library to access the given <module>/<package>."),
         @Param(
             name = "add_opens",
             positional = false,
             named = true,
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
             defaultValue = "[]",
-            doc =
-                "Allow this library to reflectively access the given <module>/<package>."
-                    + " Optional."),
+            doc = "Allow this library to reflectively access the given <module>/<package>."),
       },
       useStarlarkThread = true)
   default JavaInfoT createJavaCompileAction(
@@ -523,7 +522,11 @@ public interface JavaCommonApi<
       Object injectingRuleKind,
       boolean enableDirectClasspath,
       Sequence<?> additionalInputs)
-      throws EvalException, TypeException, RuleErrorException, LabelSyntaxException;
+      throws EvalException,
+          TypeException,
+          RuleErrorException,
+          LabelSyntaxException,
+          InterruptedException;
 
   @StarlarkMethod(
       name = "create_compilation_action",
@@ -587,7 +590,11 @@ public interface JavaCommonApi<
       boolean enableDirectClasspath,
       Sequence<?> additionalInputs,
       Sequence<?> additionalOutputs)
-      throws EvalException, TypeException, RuleErrorException, LabelSyntaxException;
+      throws EvalException,
+          TypeException,
+          RuleErrorException,
+          LabelSyntaxException,
+          InterruptedException;
 
   @StarlarkMethod(
       name = "default_javac_opts",

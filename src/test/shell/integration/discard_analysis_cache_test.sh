@@ -98,6 +98,37 @@ function test_compile_helloworld() {
   expect_log 'hello!'
 }
 
+# Regression test for b/336514394
+function test_aspect_after_cache_discard() {
+  write_hello_world_files
+
+  mkdir -p aspect
+  cat > aspect/aspect.bzl << 'EOF' || fail "Couldn't write aspect.bzl"
+def _simple_aspect_impl(target, ctx):
+    return []
+
+simple_aspect = aspect(
+    implementation=_simple_aspect_impl,
+    attr_aspects = ["*"],
+)
+EOF
+  touch aspect/BUILD
+
+  # Build and then discard the cache.
+  bazel build \
+    --discard_analysis_cache \
+    --aspects=aspect/aspect.bzl%simple_aspect \
+    hello:hello >&$TEST_log \
+      || fail "Build failed"
+
+  # This should rebuild the cache as needed..
+  bazel build \
+    --discard_analysis_cache \
+    --aspects=aspect/aspect.bzl%simple_aspect \
+    hello:hello >&$TEST_log \
+      || fail "Second build failed"
+}
+
 function extract_histogram_count() {
   local histofile="$1"
   local item="$2"
@@ -168,11 +199,11 @@ EOF
   bazel build --discard_analysis_cache //foo:foo >& "$TEST_log" \
       || fail "Expected success"
   "$jmaptool" -histo:live "$server_pid" > histo.txt
-  cat histo.txt >> "$TEST_log"
+  #cat histo.txt >> "$TEST_log"
   ct_count="$(extract_histogram_count histo.txt 'RuleConfiguredTarget$')"
   aspect_count="$(extract_histogram_count histo.txt 'lib.packages.Aspect$')"
-  # One top-level configured target is allowed to stick around.
-  [[ "$ct_count" -le 1 ]] \
+  # Several top-level configured targets are allowed to stick around.
+  [[ "$ct_count" -le 17 ]] \
       || fail "Too many configured targets: $ct_count"
   [[ "$aspect_count" -eq 0 ]] || fail "Too many aspects: $aspect_count"
   bazel --batch clean >& "$TEST_log" || fail "Expected success"
@@ -191,7 +222,7 @@ EOF
   aspect_count="$(extract_histogram_count histo.txt 'lib.packages.Aspect$')"
   # One top-level aspect is allowed to stick around.
   [[ "$aspect_count" -le 1 ]] || fail "Too many aspects: $aspect_count"
-  [[ "$ct_count" -le 1 ]] || fail "Too many configured targets: $ct_count"
+  [[ "$ct_count" -le 17 ]] || fail "Too many configured targets: $ct_count"
 }
 
 run_suite "test for --discard_analysis_cache"

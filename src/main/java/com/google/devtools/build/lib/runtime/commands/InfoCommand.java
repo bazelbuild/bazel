@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
+import static com.google.devtools.build.lib.runtime.Command.BuildPhase.NONE;
+
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -73,6 +75,7 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
+import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -80,27 +83,24 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
-/**
- * Implementation of 'blaze info'.
- */
-@Command(name = "info",
-         // TODO(bazel-team): this is not really a build command, but needs access to the
-         // configuration options to do its job
-         builds = true,
-         allowResidue = true,
-         binaryStdOut = true,
-         help = "resource:info.txt",
-         shortDescription = "Displays runtime info about the %{product} server.",
-         options = { InfoCommand.Options.class },
-         completion = "info-key",
-         // We have InfoCommand inherit from {@link BuildCommand} because we want all
-         // configuration defaults specified in ~/.blazerc for {@code build} to apply to
-         // {@code info} too, even though it doesn't actually do a build.
-         //
-         // (Ideally there would be a way to make {@code info} inherit just the bare
-         // minimum of relevant options from {@code build}, i.e. those that affect the
-         // values it prints.  But there's no such mechanism.)
-         inherits = { BuildCommand.class })
+/** Implementation of 'blaze info'. */
+@Command(
+    name = "info",
+    buildPhase = NONE,
+    allowResidue = true,
+    binaryStdOut = true,
+    help = "resource:info.txt",
+    shortDescription = "Displays runtime info about the %{product} server.",
+    options = {InfoCommand.Options.class},
+    completion = "info-key",
+    // We have InfoCommand inherit from {@link BuildCommand} because we want all
+    // configuration defaults specified in ~/.blazerc for {@code build} to apply to
+    // {@code info} too, even though it doesn't actually do a build.
+    //
+    // (Ideally there would be a way to make {@code info} inherit just the bare
+    // minimum of relevant options from {@code build}, i.e. those that affect the
+    // values it prints.  But there's no such mechanism.)
+    inheritsOptionsFrom = {BuildCommand.class})
 public class InfoCommand implements BlazeCommand {
 
   /** Options for the info command. */
@@ -150,12 +150,12 @@ public class InfoCommand implements BlazeCommand {
                 // In order to be able to answer configuration-specific queries, we need to set up
                 // the package path. Since info inherits all the build options, all the necessary
                 // information is available here.
-                env.syncPackageLoading(optionsParsingResult);
+                ensureSyncPackageLoading(env, optionsParsingResult);
                 // TODO(bazel-team): What if there are multiple configurations? [multi-config]
                 BuildOptions buildOptions = runtime.createBuildOptions(optionsParsingResult);
                 env.getSkyframeExecutor().setBaselineConfiguration(buildOptions);
                 return env.getSkyframeExecutor()
-                    .getConfiguration(env.getReporter(), buildOptions, /*keepGoing=*/ true);
+                    .getConfiguration(env.getReporter(), buildOptions, /* keepGoing= */ true);
               } catch (InvalidConfigurationException e) {
                 env.getReporter().handle(Event.error(e.getMessage()));
                 throw new AbruptExitRuntimeException(e.getDetailedExitCode());
@@ -188,7 +188,11 @@ public class InfoCommand implements BlazeCommand {
           byte[] value;
           if (items.containsKey(key)) {
             try (SilentCloseable c = Profiler.instance().profile(key + ".infoItem")) {
-              value = items.get(key).get(configurationSupplier, env);
+              InfoItem infoItem = items.get(key);
+              if (infoItem.needsSyncPackageLoading()) {
+                ensureSyncPackageLoading(env, optionsParsingResult);
+              }
+              value = infoItem.get(configurationSupplier, env);
               if (residue.size() > 1) {
                 outErr.getOutputStream().write((key + ": ").getBytes(StandardCharsets.UTF_8));
               }
@@ -217,6 +221,9 @@ public class InfoCommand implements BlazeCommand {
           if (infoItem.isHidden()) {
             continue;
           }
+          if (infoItem.needsSyncPackageLoading()) {
+            ensureSyncPackageLoading(env, optionsParsingResult);
+          }
           outErr.getOutputStream().write(
               (infoItem.getName() + ": ").getBytes(StandardCharsets.UTF_8));
           try (SilentCloseable c = Profiler.instance().profile(infoItem.getName() + ".infoItem")) {
@@ -239,6 +246,13 @@ public class InfoCommand implements BlazeCommand {
           InterruptedFailureDetails.detailedExitCode("info interrupted"));
     }
     return BlazeCommandResult.success();
+  }
+
+  private static void ensureSyncPackageLoading(CommandEnvironment env, OptionsProvider options)
+      throws InterruptedException, AbruptExitException {
+    if (!env.hasSyncedPackageLoading()) {
+      env.syncPackageLoading(options);
+    }
   }
 
   private static BlazeCommandResult createFailureResult(

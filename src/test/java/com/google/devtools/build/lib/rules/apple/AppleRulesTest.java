@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.apple;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -43,59 +44,78 @@ public class AppleRulesTest extends AnalysisTestCase {
     MockObjcSupport.setup(mockToolsConfig);
     scratch.file(
         "test/aspect.bzl",
-        "foo = provider()",
-        "def _impl(target, ctx):",
-        "    return [foo(actions = target.actions)]",
-        "MyAspect = aspect(implementation=_impl)");
+        """
+        foo = provider()
+
+        def _impl(target, ctx):
+            return [foo(actions = target.actions)]
+
+        MyAspect = aspect(implementation = _impl)
+        """);
     scratch.file(
         "xcode/BUILD",
-        "xcode_version(",
-        "    name = 'version10_1_0',",
-        "    version = '10.1.0',",
-        "    aliases = ['10.1' ,'10.1.0'],",
-        "    default_ios_sdk_version = '12.1',",
-        "    default_tvos_sdk_version = '12.1',",
-        "    default_macos_sdk_version = '10.14',",
-        "    default_watchos_sdk_version = '5.1',",
-        ")",
-        "xcode_version(",
-        "    name = 'version10_2_1',",
-        "    version = '10.2.1',",
-        "    aliases = ['10.2.1' ,'10.2'],",
-        "    default_ios_sdk_version = '12.2',",
-        "    default_tvos_sdk_version = '12.2',",
-        "    default_macos_sdk_version = '10.14',",
-        "    default_watchos_sdk_version = '5.2',",
-        ")",
-        "available_xcodes(",
-        "    name= 'xcodes_a',",
-        "    versions = [':version10_1_0'],",
-        "    default = ':version10_1_0',",
-        ")",
-        "available_xcodes(",
-        "    name= 'xcodes_b',",
-        "    versions = [':version10_2_1'],",
-        "    default = ':version10_2_1',",
-        ")",
-        "xcode_config(",
-        "    name = 'local',",
-        "    local_versions = ':xcodes_a',",
-        "    remote_versions = ':xcodes_b',",
-        ")",
-        "xcode_config(",
-        "    name = 'mutual',",
-        "    local_versions = ':xcodes_b',",
-        "    remote_versions = ':xcodes_b',",
-        ")");
+        """
+        xcode_version(
+            name = "version10_1_0",
+            aliases = [
+                "10.1",
+                "10.1.0",
+            ],
+            default_ios_sdk_version = "12.1",
+            default_macos_sdk_version = "10.14",
+            default_tvos_sdk_version = "12.1",
+            default_watchos_sdk_version = "5.1",
+            version = "10.1.0",
+        )
+
+        xcode_version(
+            name = "version10_2_1",
+            aliases = [
+                "10.2.1",
+                "10.2",
+            ],
+            default_ios_sdk_version = "12.2",
+            default_macos_sdk_version = "10.14",
+            default_tvos_sdk_version = "12.2",
+            default_watchos_sdk_version = "5.2",
+            version = "10.2.1",
+        )
+
+        available_xcodes(
+            name = "xcodes_a",
+            default = ":version10_1_0",
+            versions = [":version10_1_0"],
+        )
+
+        available_xcodes(
+            name = "xcodes_b",
+            default = ":version10_2_1",
+            versions = [":version10_2_1"],
+        )
+
+        xcode_config(
+            name = "local",
+            local_versions = ":xcodes_a",
+            remote_versions = ":xcodes_b",
+        )
+
+        xcode_config(
+            name = "mutual",
+            local_versions = ":xcodes_b",
+            remote_versions = ":xcodes_b",
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "cc_library(",
-        "    name = 'xxx',",
-        "    srcs = ['dep1.cc'],",
-        "    hdrs = ['dep1.h'],",
-        "    includes = ['dep1/baz'],",
-        "    defines = ['DEP1'],",
-        ")");
+        """
+        cc_library(
+            name = "xxx",
+            srcs = ["dep1.cc"],
+            hdrs = ["dep1.h"],
+            defines = ["DEP1"],
+            includes = ["dep1/baz"],
+        )
+        """);
   }
 
   @Test
@@ -104,7 +124,6 @@ public class AppleRulesTest extends AnalysisTestCase {
         ImmutableList.<String>builder()
             .addAll(MockObjcSupport.requiredObjcCrosstoolFlagsNoXcodeConfig())
             .add("--xcode_version_config=//xcode:local")
-            .add("--cpu=darwin_x86_64")
             .build();
     useConfiguration(flags.toArray(new String[1]));
     AnalysisResult analysisResult =
@@ -114,7 +133,7 @@ public class AppleRulesTest extends AnalysisTestCase {
         Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
 
     StarlarkProvider.Key fooKey =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:aspect.bzl"), "foo");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:aspect.bzl")), "foo");
 
     StructImpl fooProvider = (StructImpl) configuredAspect.get(fooKey);
     assertThat(fooProvider.getValue("actions")).isNotNull();
@@ -139,36 +158,47 @@ public class AppleRulesTest extends AnalysisTestCase {
     // rationale).
     scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
-        "package_group(",
-        "    name = 'function_transition_allowlist',",
-        "    packages = ['//...'],",
-        ")",
-        "filegroup(",
-        "    name = 'srcs',",
-        "    srcs = glob(['**']),",
-        "    visibility = ['//tools/allowlists:__pkg__'],",
-        ")");
+        """
+        package_group(
+            name = "function_transition_allowlist",
+            packages = ["//..."],
+        )
+
+        filegroup(
+            name = "srcs",
+            srcs = glob(["**"]),
+            visibility = ["//tools/allowlists:__pkg__"],
+        )
+        """);
     scratch.file(
         "transition/transition.bzl",
-        "def _silly_transition_impl(settings, attr):",
-        "    version = str(settings['//command_line_option:ios_minimum_os'])",
-        "    next = version if version.endswith('.1') else version + '.1'",
-        "    return {'//command_line_option:ios_minimum_os': next}",
-        "silly_transition = transition(",
-        "    implementation = _silly_transition_impl,",
-        "    inputs = ['//command_line_option:ios_minimum_os'],",
-        "    outputs = ['//command_line_option:ios_minimum_os'],",
-        ")",
-        "def _my_rule_impl(ctx):",
-        "    return []",
-        "my_rule = rule(",
-        "    cfg = silly_transition,",
-        "    implementation = _my_rule_impl,",
-        ")");
+        """
+        def _silly_transition_impl(settings, attr):
+            version = str(settings["//command_line_option:ios_minimum_os"])
+            next = version if version.endswith(".1") else version + ".1"
+            return {"//command_line_option:ios_minimum_os": next}
+
+        silly_transition = transition(
+            implementation = _silly_transition_impl,
+            inputs = ["//command_line_option:ios_minimum_os"],
+            outputs = ["//command_line_option:ios_minimum_os"],
+        )
+
+        def _my_rule_impl(ctx):
+            return []
+
+        my_rule = rule(
+            cfg = silly_transition,
+            implementation = _my_rule_impl,
+        )
+        """);
     scratch.file(
         "transition/BUILD",
-        "load('//transition:transition.bzl', 'my_rule')",
-        "my_rule(name = 'xxx')");
+        """
+        load("//transition:transition.bzl", "my_rule")
+
+        my_rule(name = "xxx")
+        """);
 
     useConfiguration("--ios_minimum_os=10.0");
     AnalysisResult result = update("//transition:xxx");

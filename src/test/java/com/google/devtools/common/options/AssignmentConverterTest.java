@@ -61,6 +61,10 @@ public abstract class AssignmentConverterTest {
     assertThrows(OptionsParsingException.class, () -> convert(""));
   }
 
+  @Test
+  public void immutability() {
+    assertThrows(UnsupportedOperationException.class, () -> convert("A=B").setValue("C"));
+  }
 
   @RunWith(JUnit4.class)
   public static class MandatoryAssignmentConverterTest extends AssignmentConverterTest {

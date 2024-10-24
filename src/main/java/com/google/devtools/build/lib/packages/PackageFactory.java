@@ -18,10 +18,10 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
@@ -31,17 +31,16 @@ import com.google.devtools.build.lib.packages.Globber.BadGlobException;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
+import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -208,35 +207,19 @@ public final class PackageFactory {
     return ruleClassProvider;
   }
 
-  /**
-   * Retrieves the {@link Package.Builder} from the given {@link StarlarkThread}, or throws {@link
-   * EvalException} if unavailable.
-   */
-  // TODO(#19922): The name is a holdover from when we had PackageContext. Migrate this to a static
-  // fromOrFail method on Package.Builder or a new parent interface of it.
-  public static Package.Builder getContext(StarlarkThread thread) throws EvalException {
-    Package.Builder value = thread.getThreadLocal(Package.Builder.class);
-    if (value == null) {
-      // if PackageBuilder is missing, we're not called from a BUILD file. This happens if someone
-      // uses native.some_func() in the wrong place.
-      throw Starlark.errorf(
-          "The native module can be accessed only from a BUILD thread. "
-              + "Wrap the function in a macro and call it from a BUILD file");
-    }
-    return value;
-  }
-
   public Package.Builder newExternalPackageBuilder(
-      RootedPath workspacePath,
+      WorkspaceFileKey workspaceFileKey,
       String workspaceName,
       RepositoryMapping mainRepoMapping,
       StarlarkSemantics starlarkSemantics) {
     return Package.newExternalPackageBuilder(
         packageSettings,
-        workspacePath,
+        workspaceFileKey,
         workspaceName,
         mainRepoMapping,
         starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
+        starlarkSemantics.getBool(
+            BuildLanguageOptions.INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS),
         packageOverheadEstimator);
   }
 
@@ -252,11 +235,12 @@ public final class PackageFactory {
       Optional<String> associatedModuleVersion,
       StarlarkSemantics starlarkSemantics,
       RepositoryMapping repositoryMapping,
+      RepositoryMapping mainRepositoryMapping,
       @Nullable Semaphore cpuBoundSemaphore,
       @Nullable ImmutableMap<Location, String> generatorMap,
       @Nullable ConfigSettingVisibilityPolicy configSettingVisibilityPolicy,
       @Nullable Globber globber) {
-    return new Package.Builder(
+    return Package.newPackageBuilder(
         packageSettings,
         packageId,
         filename,
@@ -264,12 +248,16 @@ public final class PackageFactory {
         associatedModuleName,
         associatedModuleVersion,
         starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
+        starlarkSemantics.getBool(
+            BuildLanguageOptions.INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS),
         repositoryMapping,
+        mainRepositoryMapping,
         cpuBoundSemaphore,
         packageOverheadEstimator,
         generatorMap,
         configSettingVisibilityPolicy,
-        globber);
+        globber,
+        /* enableNameConflictChecking= */ true);
   }
 
   /** Returns a new {@link NonSkyframeGlobber}. */
@@ -277,14 +265,14 @@ public final class PackageFactory {
   public NonSkyframeGlobber createNonSkyframeGlobber(
       Path packageDirectory,
       PackageIdentifier packageId,
-      ImmutableSet<PathFragment> ignoredGlobPrefixes,
+      IgnoredSubdirectories ignoredSubdirectories,
       CachingPackageLocator locator,
       ThreadStateReceiver threadStateReceiverForMetrics) {
     return new NonSkyframeGlobber(
         new GlobCache(
             packageDirectory,
             packageId,
-            ignoredGlobPrefixes,
+            ignoredSubdirectories,
             locator,
             syscallCache,
             executor,
@@ -409,24 +397,19 @@ public final class PackageFactory {
 
     try (Mutability mu = Mutability.create("package", pkgBuilder.getFilename())) {
       Module module = Module.withPredeclared(semantics, predeclared);
-      StarlarkThread thread = new StarlarkThread(mu, semantics);
+      StarlarkThread thread =
+          StarlarkThread.create(
+              mu, semantics, /* contextDescription= */ "", pkgBuilder.getSymbolGenerator());
       thread.setLoader(loadedModules::get);
       thread.setPrintHandler(Event.makeDebugPrintHandler(pkgBuilder.getLocalEventHandler()));
-
-      new BazelStarlarkContext(
-              BazelStarlarkContext.Phase.LOADING,
-              new SymbolGenerator<>(pkgBuilder.getPackageIdentifier()))
-          .storeInThread(thread);
-
-      // TODO(#19922): Have Package.Builder inherit from BazelStarlarkContext and only store one
-      // thread-local object.
-      thread.setThreadLocal(Package.Builder.class, pkgBuilder);
+      pkgBuilder.storeInThread(thread);
 
       // TODO(b/291752414): The rule definition environment shouldn't be needed at BUILD evaluation
       // time EXCEPT for analysis_test, which needs the tools repository for use in
       // StarlarkRuleClassFunctions#createRule. So we set it here as a thread-local to be retrieved
       // by StarlarkTestingModule#analysisTest.
       thread.setThreadLocal(RuleDefinitionEnvironment.class, ruleClassProvider);
+      packageValidator.configureThreadWhileLoading(thread);
 
       try {
         Starlark.execFileProgram(buildFileProgram, module, thread);
@@ -556,13 +539,14 @@ public final class PackageFactory {
     StarlarkFile.setParseProfiler(
         new StarlarkFile.ParseProfiler() {
           @Override
-          public Object start(String filename) {
-            return Profiler.instance().profile(ProfilerTask.STARLARK_PARSER, filename);
+          public long start() {
+            return Profiler.nanoTimeMaybe();
           }
 
           @Override
-          public void end(Object span) {
-            ((SilentCloseable) span).close();
+          public void end(long startTimeNanos, String filename) {
+            Profiler.instance()
+                .completeTask(startTimeNanos, ProfilerTask.STARLARK_PARSER, filename);
           }
         });
 
@@ -570,18 +554,19 @@ public final class PackageFactory {
     StarlarkThread.setCallProfiler(
         new StarlarkThread.CallProfiler() {
           @Override
-          public Object start(StarlarkCallable fn) {
-            return Profiler.instance()
-                .profile(
+          public long start() {
+            return Profiler.nanoTimeMaybe();
+          }
+
+          @Override
+          public void end(long startTimeNanos, StarlarkCallable fn) {
+            Profiler.instance()
+                .completeTask(
+                    startTimeNanos,
                     fn instanceof StarlarkFunction
                         ? ProfilerTask.STARLARK_USER_FN
                         : ProfilerTask.STARLARK_BUILTIN_FN,
                     fn.getName());
-          }
-
-          @Override
-          public void end(Object span) {
-            ((SilentCloseable) span).close();
           }
         });
   }

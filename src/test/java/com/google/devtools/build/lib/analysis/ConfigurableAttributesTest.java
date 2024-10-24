@@ -31,10 +31,12 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Set;
 import org.junit.Before;
@@ -51,16 +53,20 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   private void writeConfigRules() throws Exception {
     scratch.file(
         "conditions/BUILD",
-        "config_setting(",
-        "    name = 'a',",
-        "    values = {'foo': 'a'})",
-        "config_setting(",
-        "    name = 'b',",
-        "    values = {'foo': 'b'})");
+        """
+        config_setting(
+            name = 'a',
+            values = {'foo': 'a'})
+        config_setting(
+            name = 'b',
+            values = {'foo': 'b'})
+        """);
   }
 
   private void writeHelloRules(boolean includeDefaultCondition) throws IOException {
-    scratch.file("java/hello/BUILD",
+    scratch.file(
+        "java/hello/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_binary', 'java_library')",
         "java_binary(",
         "    name = 'hello',",
         "    srcs = ['hello.java'],",
@@ -162,7 +168,13 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
               (builder, env) ->
                   builder
                       .add(attr("deps", LABEL_LIST).allowedFileTypes())
-                      .useToolchainResolution(ToolchainResolutionMode.DISABLED));
+                      .toolchainResolutionMode(ToolchainResolutionMode.DISABLED));
+
+  private static final MockRule RULE_WITH_STRING_LIST_DICT_ATTR =
+      () ->
+          MockRule.define(
+              "rule_with_string_list_dict_attr",
+              attr("string_list_dict_attr", Types.STRING_LIST_DICT));
 
   @Override
   protected ConfiguredRuleClassProvider createRuleClassProvider() {
@@ -173,7 +185,8 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
             .addRuleDefinition(RULE_WITH_BOOLEAN_ATTR)
             .addRuleDefinition(RULE_WITH_ALLOWED_VALUES)
             .addRuleDefinition(RULE_WITH_LABEL_DEFAULT)
-            .addRuleDefinition(RULE_WITH_NO_PLATFORM);
+            .addRuleDefinition(RULE_WITH_NO_PLATFORM)
+            .addRuleDefinition(RULE_WITH_STRING_LIST_DICT_ATTR);
     TestRuleClassProvider.addStandardRules(builder);
     // Allow use of --foo as a dummy flag
     builder.addConfigurationFragment(DummyTestFragment.class);
@@ -221,7 +234,9 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   @Test
   public void depsWithDuplicatesInDifferentBranches() throws Exception {
     writeConfigRules();
-    scratch.file("java/hello/BUILD",
+    scratch.file(
+        "java/hello/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_binary', 'java_library')",
         "java_binary(",
         "    name = 'hello',",
         "    srcs = ['hello.java'],",
@@ -253,7 +268,9 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   @Test
   public void depsWithDuplicatesInSameBranch() throws Exception {
     writeConfigRules();
-    scratch.file("java/hello/BUILD",
+    scratch.file(
+        "java/hello/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_binary', 'java_library')",
         "java_binary(",
         "    name = 'hello',",
         "    srcs = ['hello.java'],",
@@ -290,16 +307,19 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     writeConfigRules();
     scratch.file(
         "java/hello/BUILD",
-        "java_binary(",
-        "    name = 'hello',",
-        "    srcs = select({",
-        "        '//conditions:a': ['a.java'],",
-        "        '//conditions:b': ['b.java'],",
-        "        })",
-        "        + select({",
-        "        '//conditions:a': ['a.java'],",
-        "        '//conditions:b': ['c.java'],",
-        "    }))");
+        """
+        load("@rules_java//java:defs.bzl", "java_binary")
+        java_binary(
+            name = 'hello',
+            srcs = select({
+                '//conditions:a': ['a.java'],
+                '//conditions:b': ['b.java'],
+                })
+                + select({
+                '//conditions:a': ['a.java'],
+                '//conditions:b': ['c.java'],
+            }))
+        """);
 
     reporter.removeHandler(failFastHandler); // Expect errors.
     useConfiguration("--foo=a");
@@ -316,17 +336,21 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   @Test
   public void duplicatesInDifferentBranchesMultipleSelects() throws Exception {
     writeConfigRules();
-    scratch.file("java/hello/BUILD",
-        "java_binary(",
-        "    name = 'hello',",
-        "    srcs = select({",
-        "        '//conditions:a': ['a.java'],",
-        "        '//conditions:b': ['a.java'],",
-        "        })",
-        "        + select({",
-        "        '//conditions:a': ['b.java'],",
-        "        '//conditions:b': ['b.java'],",
-        "    }))");
+    scratch.file(
+        "java/hello/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_binary")
+        java_binary(
+            name = 'hello',
+            srcs = select({
+                '//conditions:a': ['a.java'],
+                '//conditions:b': ['a.java'],
+                })
+                + select({
+                '//conditions:a': ['b.java'],
+                '//conditions:b': ['b.java'],
+            }))
+        """);
 
     useConfiguration("--foo=a");
     getConfiguredTarget("//java/hello:hello");
@@ -339,17 +363,21 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   @Test
   public void duplicatesInSameBranchMultipleSelects() throws Exception {
     writeConfigRules();
-    scratch.file("java/hello/BUILD",
-        "java_binary(",
-        "    name = 'hello',",
-        "    srcs = select({",
-        "        '//conditions:a': ['a.java', 'a.java'],",
-        "        '//conditions:b': ['b.java'],",
-        "        })",
-        "        + select({",
-        "        '//conditions:a': ['c.java'],",
-        "        '//conditions:b': ['d.java'],",
-        "    }))");
+    scratch.file(
+        "java/hello/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_binary")
+        java_binary(
+            name = 'hello',
+            srcs = select({
+                '//conditions:a': ['a.java', 'a.java'],
+                '//conditions:b': ['b.java'],
+                })
+                + select({
+                '//conditions:a': ['c.java'],
+                '//conditions:b': ['d.java'],
+            }))
+        """);
 
     reporter.removeHandler(failFastHandler); // Expect errors.
     useConfiguration("--foo=a");
@@ -430,10 +458,13 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler); // Expect errors.
     scratch.file(
         "java/foo/BUILD",
-        "java_library(",
-        "    name = 'int_key',",
-        "    srcs = select({123: ['a.java']})",
-        ")");
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(
+            name = 'int_key',
+            srcs = select({123: ['a.java']})
+        )
+        """);
     assertTargetError(
         "//java/foo:int_key", "select: got int for dict key, want a Label or label string");
   }
@@ -443,10 +474,13 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler); // Expect errors.
     scratch.file(
         "java/foo/BUILD",
-        "java_library(",
-        "    name = 'bool_key',",
-        "    srcs = select({True: ['a.java']})",
-        ")");
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(
+            name = 'bool_key',
+            srcs = select({True: ['a.java']})
+        )
+        """);
     assertTargetError(
         "//java/foo:bool_key", "select: got bool for dict key, want a Label or label string");
   }
@@ -456,10 +490,13 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler); // Expect errors.
     scratch.file(
         "java/foo/BUILD",
-        "java_library(",
-        "    name = 'none_key',",
-        "    srcs = select({None: ['a.java']})",
-        ")");
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(
+            name = 'none_key',
+            srcs = select({None: ['a.java']})
+        )
+        """);
     assertTargetError(
         "//java/foo:none_key", "select: got NoneType for dict key, want a Label or label string");
   }
@@ -469,12 +506,14 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler); // Expect errors.
     scratch.file(
         "foo/BUILD",
-        "genrule(",
-        "    name = 'nothing',",
-        "    srcs = [],",
-        "    outs = ['notmuch'],",
-        "    cmd = select({})",
-        ")");
+        """
+        genrule(
+            name = 'nothing',
+            srcs = [],
+            outs = ['notmuch'],
+            cmd = select({})
+        )
+        """);
     assertTargetError(
         "//foo:nothing",
         "select({}) with an empty dictionary can never resolve because it includes no conditions "
@@ -489,7 +528,12 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler); // Expect errors.
     // Only create one of two necessary configurability rules:
     scratch.file(
-        "conditions/BUILD", "config_setting(", "    name = 'a',", "    values = {'foo': 'a'})");
+        "conditions/BUILD",
+        """
+        config_setting(
+            name = 'a',
+            values = {'foo': 'a'})
+        """);
     writeHelloRules(/*includeDefaultCondition=*/true);
     getConfiguredTarget("//java/hello:hello");
     assertContainsEvent("no such target '//conditions:b'");
@@ -503,12 +547,14 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler); // Expect errors.
     scratch.file(
         "conditions/BUILD",
-        "config_setting(",
-        "    name = 'a',",
-        "    values = {'foo': 'a'})",
-        "rule_with_output_attr(",
-        "    name = 'b',",
-        "    out = 'b.out')");
+        """
+        config_setting(
+            name = 'a',
+            values = {'foo': 'a'})
+        rule_with_output_attr(
+            name = 'b',
+            out = 'b.out')
+        """);
     writeHelloRules(/*includeDefaultCondition=*/true);
     assertThat(getConfiguredTarget("//java/hello:hello")).isNull();
     assertContainsEvent("//conditions:b is not a valid select() condition for //java/hello:hello");
@@ -518,12 +564,15 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   @Test
   public void configKeyNonexistentTarget() throws Exception {
     reporter.removeHandler(failFastHandler); // Expect errors.
-    scratch.file("foo/BUILD",
-        "genrule(",
-        "    name = 'g',",
-        "    outs = ['g.out'],",
-        "    cmd = select({':fake': ''})",
-        ")");
+    scratch.file(
+        "foo/BUILD",
+        """
+        genrule(
+            name = 'g',
+            outs = ['g.out'],
+            cmd = select({':fake': ''})
+        )
+        """);
     assertThat(getConfiguredTarget("//foo:g")).isNull();
     assertContainsEvent("//foo:fake is not a valid select() condition for //foo:g");
   }
@@ -532,17 +581,24 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   public void configKeyNonexistentTarget_otherPackage() throws Exception {
     reporter.removeHandler(failFastHandler); // Expect errors.
     scratch.file(
-        "conditions/BUILD", "config_setting(", "    name = 'a',", "    values = {'foo': 'a'})");
+        "conditions/BUILD",
+        """
+        config_setting(
+            name = 'a',
+            values = {'foo': 'a'})
+        """);
     scratch.file("bar/BUILD");
     scratch.file(
         "foo/BUILD",
-        "genrule(",
-        "    name = 'g',",
-        "    outs = ['g.out'],",
-        // With an invalid target and a real target, validate skyframe error handling.
-        // See http://b/162021059 for details.
-        "    cmd = select({'//bar:fake': '', '//conditions:a': ''})",
-        ")");
+        """
+        genrule(
+            name = 'g',
+            outs = ['g.out'],
+            # With an invalid target and a real target, validate skyframe error handling.
+            # See http://b/162021059 for details.
+            cmd = select({'//bar:fake': '', '//conditions:a': ''})
+        )
+        """);
     assertThat(getConfiguredTarget("//foo:g")).isNull();
     assertContainsEvent("bar/BUILD: no such target '//bar:fake'");
     assertContainsEvent("foo/BUILD:1:8: errors encountered resolving select() keys for //foo:g");
@@ -556,15 +612,17 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     writeHelloRules(/*includeDefaultCondition=*/true);
     scratch.file(
         "conditions/BUILD",
-        "config_setting(",
-        "    name = 'a',",
-        "    values = {",
-        "        'foo': 'a',",
-        "        'compilation_mode': 'dbg'",
-        "    })",
-        "config_setting(",
-        "    name = 'b',",
-        "    values = {'foo': 'b'})");
+        """
+        config_setting(
+            name = 'a',
+            values = {
+                'foo': 'a',
+                'compilation_mode': 'dbg'
+            })
+        config_setting(
+            name = 'b',
+            values = {'foo': 'b'})
+        """);
     checkRule(
         "//java/hello:hello",
         "--foo=a",
@@ -596,12 +654,14 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     // Rewrite the condition for //conditions:a.
     scratch.overwriteFile(
         "conditions/BUILD",
-        "config_setting(",
-        "    name = 'a',",
-        "    values = {'foo': 'c'})",
-        "config_setting(",
-        "    name = 'b',",
-        "    values = {'foo': 'b'})");
+        """
+        config_setting(
+            name = 'a',
+            values = {'foo': 'c'})
+        config_setting(
+            name = 'b',
+            values = {'foo': 'b'})
+        """);
 
     // Iteration 2: same exact analysis should now apply the default condition.
     invalidatePackages();
@@ -619,13 +679,16 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   @Test
   public void multipleMatches() throws Exception {
     reporter.removeHandler(failFastHandler); // Expect errors.
-    scratch.file("conditions/BUILD",
-        "config_setting(",
-        "    name = 'dup1',",
-        "    values = {'compilation_mode': 'opt'})",
-        "config_setting(",
-        "    name = 'dup2',",
-        "    values = {'define': 'foo=bar'})");
+    scratch.file(
+        "conditions/BUILD",
+        """
+        config_setting(
+            name = 'dup1',
+            values = {'compilation_mode': 'opt'})
+        config_setting(
+            name = 'dup2',
+            values = {'define': 'foo=bar'})
+        """);
     scratch.file("a/BUILD",
         "genrule(",
         "    name = 'gen',",
@@ -654,33 +717,39 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   public void multipleMatchesConditionAndSubcondition() throws Exception {
     scratch.file(
         "conditions/BUILD",
-        "config_setting(",
-        "    name = 'generic',",
-        "    values = {'compilation_mode': 'opt'})",
-        "config_setting(",
-        "    name = 'precise',",
-        "    values = {'compilation_mode': 'opt', 'define': 'foo=bar'})",
-        "config_setting(",
-        "    name = 'most_precise',",
-        "    values = {'compilation_mode': 'opt', 'define': 'foo=bar', 'foo': 'baz'})");
-        scratch.file("java/a/BUILD",
-            "java_binary(",
-            "    name = 'binary',",
-            "    srcs = ['binary.java'],",
-            "    deps = select({",
-            "        '//conditions:generic': [':generic'],",
-            "        '//conditions:precise': [':precise'],",
-            "        '//conditions:most_precise': [':most_precise'],",
-            "    }))",
-            "java_library(",
-            "    name = 'generic',",
-            "    srcs = ['generic.java'])",
-            "java_library(",
-            "    name = 'precise',",
-            "    srcs = ['precise.java'])",
-            "java_library(",
-            "    name = 'most_precise',",
-            "    srcs = ['most_precise.java'])");
+        """
+        config_setting(
+            name = 'generic',
+            values = {'compilation_mode': 'opt'})
+        config_setting(
+            name = 'precise',
+            values = {'compilation_mode': 'opt', 'define': 'foo=bar'})
+        config_setting(
+            name = 'most_precise',
+            values = {'compilation_mode': 'opt', 'define': 'foo=bar', 'foo': 'baz'})
+        """);
+    scratch.file(
+        "java/a/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_binary", "java_library")
+        java_binary(
+            name = 'binary',
+            srcs = ['binary.java'],
+            deps = select({
+                '//conditions:generic': [':generic'],
+                '//conditions:precise': [':precise'],
+                '//conditions:most_precise': [':most_precise'],
+            }))
+        java_library(
+            name = 'generic',
+            srcs = ['generic.java'])
+        java_library(
+            name = 'precise',
+            srcs = ['precise.java'])
+        java_library(
+            name = 'most_precise',
+            srcs = ['most_precise.java'])
+        """);
     checkRule(
         "//java/a:binary",
         ImmutableList.of("-c", "opt", "--define", "foo=bar", "--foo", "baz"),
@@ -695,12 +764,14 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler); // Expect errors.
     scratch.file(
         "conditions/BUILD",
-        "config_setting(",
-        "    name = 'dup1',",
-        "    values = {'compilation_mode': 'opt'})",
-        "config_setting(",
-        "    name = 'dup2',",
-        "    values = {'define': 'foo=bar'})");
+        """
+        config_setting(
+            name = 'dup1',
+            values = {'compilation_mode': 'opt'})
+        config_setting(
+            name = 'dup2',
+            values = {'define': 'foo=bar'})
+        """);
     scratch.file(
         "a/BUILD",
         "genrule(",
@@ -728,40 +799,46 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   public void multipleMatchesUnambiguous() throws Exception {
     scratch.file(
         "conditions/BUILD",
-        "config_setting(",
-        "    name = 'a',",
-        "    values = {'define': 'a=1'})",
-        "config_setting(",
-        "    name = 'b',",
-        "    values = {'compilation_mode': 'opt'})",
-        "config_setting(",
-        "    name = 'c',",
-        "    values = {'foo': 'baz'})",
-        "config_setting(",
-        "    name = 'b_a_c',", // Named to come alphabetically after a and b but before c.
-        "    values = {'define': 'a=1', 'foo': 'baz', 'compilation_mode': 'opt'})");
-    scratch.file("java/a/BUILD",
-        "java_binary(",
-        "    name = 'binary',",
-        "    srcs = ['binary.java'],",
-        "    deps = select({",
-        "        '//conditions:a': [':a'],",
-        "        '//conditions:b': [':b'],",
-        "        '//conditions:c': [':c'],",
-        "        '//conditions:b_a_c': [':b_a_c'],",
-        "    }))",
-        "java_library(",
-        "    name = 'a',",
-        "    srcs = ['a.java'])",
-        "java_library(",
-        "    name = 'b',",
-        "    srcs = ['b.java'])",
-        "java_library(",
-        "    name = 'c',",
-        "    srcs = ['c.java'])",
-        "java_library(",
-        "    name = 'b_a_c',",
-        "    srcs = ['b_a_c.java'])");
+        """
+        config_setting(
+            name = 'a',
+            values = {'define': 'a=1'})
+        config_setting(
+            name = 'b',
+            values = {'compilation_mode': 'opt'})
+        config_setting(
+            name = 'c',
+            values = {'foo': 'baz'})
+        config_setting(
+            name = 'b_a_c',  # Named to come alphabetically after a and b but before c.
+            values = {'define': 'a=1', 'foo': 'baz', 'compilation_mode': 'opt'})
+        """);
+    scratch.file(
+        "java/a/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_binary", "java_library")
+        java_binary(
+            name = 'binary',
+            srcs = ['binary.java'],
+            deps = select({
+                '//conditions:a': [':a'],
+                '//conditions:b': [':b'],
+                '//conditions:c': [':c'],
+                '//conditions:b_a_c': [':b_a_c'],
+            }))
+        java_library(
+            name = 'a',
+            srcs = ['a.java'])
+        java_library(
+            name = 'b',
+            srcs = ['b.java'])
+        java_library(
+            name = 'c',
+            srcs = ['c.java'])
+        java_library(
+            name = 'b_a_c',
+            srcs = ['b_a_c.java'])
+        """);
     checkRule(
         "//java/a:binary",
         ImmutableList.of("--define", "a=1", "--compilation_mode", "opt", "--foo", "baz"),
@@ -794,19 +871,23 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   @Test
   public void noMatchCustomErrorMessage() throws Exception {
     writeConfigRules();
-    scratch.file("java/hello/BUILD",
-        "java_binary(",
-        "    name = 'hello_default_no_match_error',",
-        "    srcs = select({",
-        "        '//conditions:a': ['not_chosen.java'],",
-        "    }))",
-        "java_binary(",
-        "    name = 'hello_custom_no_match_error',",
-        "    srcs = select({",
-        "        '//conditions:a': ['not_chosen.java'],",
-        "    },",
-        "    no_match_error = 'You always have to choose condition a!'",
-        "))");
+    scratch.file(
+        "java/hello/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_binary")
+        java_binary(
+            name = 'hello_default_no_match_error',
+            srcs = select({
+                '//conditions:a': ['not_chosen.java'],
+            }))
+        java_binary(
+            name = 'hello_custom_no_match_error',
+            srcs = select({
+                '//conditions:a': ['not_chosen.java'],
+            },
+            no_match_error = 'You always have to choose condition a!'
+        ))
+        """);
 
     reporter.removeHandler(failFastHandler);
     AnalysisFailureRecorder analysisFailureRecorder = new AnalysisFailureRecorder();
@@ -846,41 +927,46 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     writeConfigRules();
     scratch.file(
         "java/foo/rule.bzl",
-        "def _rule_impl(ctx):",
-        "    return []",
-        "myrule = rule(",
-        "    implementation = _rule_impl,",
-        "    attrs = {",
-        "        'deps': attr.label_keyed_string_dict()",
-        "    },",
-        ")");
+        """
+        def _rule_impl(ctx):
+            return []
+        myrule = rule(
+            implementation = _rule_impl,
+            attrs = {
+                'deps': attr.label_keyed_string_dict()
+            },
+        )
+        """);
     scratch.file(
         "java/foo/BUILD",
-        "load(':rule.bzl', 'myrule')",
-        "myrule(",
-        "    name = 'mytarget',",
-        "    deps = {':always': 'always'} | select({",
-        "        '//conditions:a': {':a': 'a'},",
-        "        '//conditions:b': {':b': 'b'},",
-        "    })",
-        ")",
-        "java_binary(",
-        "    name = 'binary',",
-        "    srcs = ['binary.java'],",
-        "    deps = [':always'] + select({",
-        "        '//conditions:a': [':a'],",
-        "        '//conditions:b': [':b'],",
-        "    })",
-        ")",
-        "java_library(",
-        "    name = 'always',",
-        "    srcs = ['always.java'])",
-        "java_library(",
-        "    name = 'a',",
-        "    srcs = ['a.java'])",
-        "java_library(",
-        "    name = 'b',",
-        "    srcs = ['b.java'])");
+        """
+        load("@rules_java//java:defs.bzl", "java_binary", "java_library")
+        load(':rule.bzl', 'myrule')
+        myrule(
+            name = 'mytarget',
+            deps = {':always': 'always'} | select({
+                '//conditions:a': {':a': 'a'},
+                '//conditions:b': {':b': 'b'},
+            })
+        )
+        java_binary(
+            name = 'binary',
+            srcs = ['binary.java'],
+            deps = [':always'] + select({
+                '//conditions:a': [':a'],
+                '//conditions:b': [':b'],
+            })
+        )
+        java_library(
+            name = 'always',
+            srcs = ['always.java'])
+        java_library(
+            name = 'a',
+            srcs = ['a.java'])
+        java_library(
+            name = 'b',
+            srcs = ['b.java'])
+        """);
 
     checkRule(
         "//java/foo:binary",
@@ -900,40 +986,45 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     writeConfigRules();
     scratch.file(
         "java/foo/rule.bzl",
-        "def _rule_impl(ctx):",
-        "    return []",
-        "myrule = rule(",
-        "    implementation = _rule_impl,",
-        "    attrs = {",
-        "        'deps': attr.label_keyed_string_dict()",
-        "    },",
-        ")");
+        """
+        def _rule_impl(ctx):
+            return []
+        myrule = rule(
+            implementation = _rule_impl,
+            attrs = {
+                'deps': attr.label_keyed_string_dict()
+            },
+        )
+        """);
     scratch.file(
         "java/foo/BUILD",
-        "load(':rule.bzl', 'myrule')",
-        "myrule(",
-        "    name = 'mytarget',",
-        "    deps = select({",
-        "        '//conditions:a': {':a': 'a'},",
-        "        '//conditions:b': {':b': 'b'},",
-        "    }) | {':always': 'always'}",
-        ")",
-        "java_binary(",
-        "    name = 'binary',",
-        "    srcs = ['binary.java'],",
-        "    deps = select({",
-        "        '//conditions:a': [':a'],",
-        "        '//conditions:b': [':b'],",
-        "    }) + [':always'])",
-        "java_library(",
-        "    name = 'always',",
-        "    srcs = ['always.java'])",
-        "java_library(",
-        "    name = 'a',",
-        "    srcs = ['a.java'])",
-        "java_library(",
-        "    name = 'b',",
-        "    srcs = ['b.java'])");
+        """
+        load("@rules_java//java:defs.bzl", "java_binary", "java_library")
+        load(':rule.bzl', 'myrule')
+        myrule(
+            name = 'mytarget',
+            deps = select({
+                '//conditions:a': {':a': 'a'},
+                '//conditions:b': {':b': 'b'},
+            }) | {':always': 'always'}
+        )
+        java_binary(
+            name = 'binary',
+            srcs = ['binary.java'],
+            deps = select({
+                '//conditions:a': [':a'],
+                '//conditions:b': [':b'],
+            }) + [':always'])
+        java_library(
+            name = 'always',
+            srcs = ['always.java'])
+        java_library(
+            name = 'a',
+            srcs = ['a.java'])
+        java_library(
+            name = 'b',
+            srcs = ['b.java'])
+        """);
 
     checkRule(
         "//java/foo:binary",
@@ -953,50 +1044,55 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     writeConfigRules();
     scratch.file(
         "java/foo/rule.bzl",
-        "def _rule_impl(ctx):",
-        "    return []",
-        "myrule = rule(",
-        "    implementation = _rule_impl,",
-        "    attrs = {",
-        "        'deps': attr.label_keyed_string_dict()",
-        "    },",
-        ")");
+        """
+        def _rule_impl(ctx):
+            return []
+        myrule = rule(
+            implementation = _rule_impl,
+            attrs = {
+                'deps': attr.label_keyed_string_dict()
+            },
+        )
+        """);
     scratch.file(
         "java/foo/BUILD",
-        "load(':rule.bzl', 'myrule')",
-        "myrule(",
-        "    name = 'mytarget',",
-        "    deps = select({",
-        "        '//conditions:a': {':a': 'a'},",
-        "        '//conditions:b': {':b': 'b'},",
-        "    }) | select({",
-        "        '//conditions:a': {':a2': 'a2'},",
-        "        '//conditions:b': {':b2': 'b2'},",
-        "    })",
-        ")",
-        "java_binary(",
-        "    name = 'binary',",
-        "    srcs = ['binary.java'],",
-        "    deps = select({",
-        "        '//conditions:a': [':a'],",
-        "        '//conditions:b': [':b'],",
-        "    }) + select({",
-        "        '//conditions:a': [':a2'],",
-        "        '//conditions:b': [':b2'],",
-        "    })",
-        ")",
-        "java_library(",
-        "    name = 'a',",
-        "    srcs = ['a.java'])",
-        "java_library(",
-        "    name = 'b',",
-        "    srcs = ['b.java'])",
-        "java_library(",
-        "    name = 'a2',",
-        "    srcs = ['a2.java'])",
-        "java_library(",
-        "    name = 'b2',",
-        "    srcs = ['b2.java'])");
+        """
+        load("@rules_java//java:defs.bzl", "java_binary", "java_library")
+        load(':rule.bzl', 'myrule')
+        myrule(
+            name = 'mytarget',
+            deps = select({
+                '//conditions:a': {':a': 'a'},
+                '//conditions:b': {':b': 'b'},
+            }) | select({
+                '//conditions:a': {':a2': 'a2'},
+                '//conditions:b': {':b2': 'b2'},
+            })
+        )
+        java_binary(
+            name = 'binary',
+            srcs = ['binary.java'],
+            deps = select({
+                '//conditions:a': [':a'],
+                '//conditions:b': [':b'],
+            }) + select({
+                '//conditions:a': [':a2'],
+                '//conditions:b': [':b2'],
+            })
+        )
+        java_library(
+            name = 'a',
+            srcs = ['a.java'])
+        java_library(
+            name = 'b',
+            srcs = ['b.java'])
+        java_library(
+            name = 'a2',
+            srcs = ['a2.java'])
+        java_library(
+            name = 'b2',
+            srcs = ['b2.java'])
+        """);
 
     checkRule(
         "//java/foo:binary",
@@ -1016,38 +1112,43 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     writeConfigRules();
     scratch.file(
         "java/foo/rule.bzl",
-        "def _rule_impl(ctx):",
-        "    outputs = []",
-        "    for target, value in ctx.attr.deps.items():",
-        "        output = ctx.actions.declare_file(target.label.name + value)",
-        "        ctx.actions.write(content = value, output = output)",
-        "        outputs.append(output)",
-        "    return [DefaultInfo(files=depset(outputs))]",
-        "myrule = rule(",
-        "    implementation = _rule_impl,",
-        "    attrs = {",
-        "        'deps': attr.label_keyed_string_dict()",
-        "    },",
-        ")");
+        """
+        def _rule_impl(ctx):
+            outputs = []
+            for target, value in ctx.attr.deps.items():
+                output = ctx.actions.declare_file(target.label.name + value)
+                ctx.actions.write(content = value, output = output)
+                outputs.append(output)
+            return [DefaultInfo(files=depset(outputs))]
+        myrule = rule(
+            implementation = _rule_impl,
+            attrs = {
+                'deps': attr.label_keyed_string_dict()
+            },
+        )
+        """);
     scratch.file(
         "java/foo/BUILD",
-        "load(':rule.bzl', 'myrule')",
-        "myrule(",
-        "    name = 'mytarget',",
-        "    deps = select({",
-        "        '//conditions:a': {':a': 'a'},",
-        "    }) | select({",
-        "        '//conditions:a': {':a': 'a2'},",
-        "    })",
-        ")",
-        "java_library(",
-        "    name = 'a',",
-        "    srcs = ['a.java']",
-        ")",
-        "filegroup(",
-        "    name = 'group',",
-        "    srcs = [':mytarget'],",
-        ")");
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        load(':rule.bzl', 'myrule')
+        myrule(
+            name = 'mytarget',
+            deps = select({
+                '//conditions:a': {':a': 'a'},
+            }) | select({
+                '//conditions:a': {':a': 'a2'},
+            })
+        )
+        java_library(
+            name = 'a',
+            srcs = ['a.java']
+        )
+        filegroup(
+            name = 'group',
+            srcs = [':mytarget'],
+        )
+        """);
 
     checkRule(
         "//java/foo:group",
@@ -1062,12 +1163,14 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     writeConfigRules();
     scratch.file(
         "foo/BUILD",
-        "rule_with_boolean_attr(",
-        "    name = 'binary',",
-        "    boolean_attr = 0 + select({",
-        "        '//conditions:a': 0,",
-        "        '//conditions:b': 1,",
-        "    }))");
+        """
+        rule_with_boolean_attr(
+            name = 'binary',
+            boolean_attr = 0 + select({
+                '//conditions:a': 0,
+                '//conditions:b': 1,
+            }))
+        """);
 
     reporter.removeHandler(failFastHandler);
     assertThat(getConfiguredTarget("//foo:binary")).isNull();
@@ -1077,14 +1180,18 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   @Test
   public void concatenationWithDifferentTypes() throws Exception {
     writeConfigRules();
-    scratch.file("java/foo/BUILD",
-        "java_binary(",
-        "    name = 'binary',",
-        "    srcs = select({",
-        "        '//conditions:a': ['a.java'],",
-        "        '//conditions:b': ['b.java'],",
-        "    }) + 'always.java'",
-        ")");
+    scratch.file(
+        "java/foo/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_binary")
+        java_binary(
+            name = 'binary',
+            srcs = select({
+                '//conditions:a': ['a.java'],
+                '//conditions:b': ['b.java'],
+            }) + 'always.java'
+        )
+        """);
 
     reporter.removeHandler(failFastHandler);
     assertThrows(NoSuchTargetException.class, () -> getTarget("//java/foo:binary"));
@@ -1095,13 +1202,17 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   public void selectsWithGlobs() throws Exception {
     writeConfigRules();
     scratch.file("java/foo/globbed/ceecee.java");
-    scratch.file("java/foo/BUILD",
-        "java_binary(",
-        "    name = 'binary',",
-        "    srcs = glob(['globbed/*.java']) + select({",
-        "        '//conditions:a': ['a.java'],",
-        "        '//conditions:b': ['b.java'],",
-        "    }))");
+    scratch.file(
+        "java/foo/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_binary")
+        java_binary(
+            name = 'binary',
+            srcs = glob(['globbed/*.java']) + select({
+                '//conditions:a': ['a.java'],
+                '//conditions:b': ['b.java'],
+            }))
+        """);
 
     useConfiguration("--foo=b");
     ConfiguredTarget binary = getConfiguredTarget("//java/foo:binary");
@@ -1117,14 +1228,16 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     writeConfigRules();
     scratch.file(
         "foo/BUILD",
-        "genrule(",
-        "    name = 'gen',",
-        "    srcs = [],",
-        "    outs = ['gen.out'],",
-        "    cmd = 'echo' + select({",
-        "        '//conditions:a': 'a',",
-        "        '//conditions:b': 'b',",
-        "    }) + glob(['globbed.java'], allow_empty = True))");
+        """
+        genrule(
+            name = 'gen',
+            srcs = [],
+            outs = ['gen.out'],
+            cmd = 'echo' + select({
+                '//conditions:a': 'a',
+                '//conditions:b': 'b',
+            }) + glob(['globbed.java'], allow_empty = True))
+        """);
 
     reporter.removeHandler(failFastHandler);
     assertThrows(NoSuchTargetException.class, () -> getTarget("//foo:binary"));
@@ -1135,13 +1248,17 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   public void globsInSelect() throws Exception {
     writeConfigRules();
     scratch.file("java/foo/globbed/ceecee.java");
-    scratch.file("java/foo/BUILD",
-        "java_binary(",
-        "    name = 'binary',",
-        "    srcs = ['binary.java'] + select({",
-        "        '//conditions:a': glob(['globbed/*.java']),",
-        "        '//conditions:b': ['b.java'],",
-        "    }))");
+    scratch.file(
+        "java/foo/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_binary")
+        java_binary(
+            name = 'binary',
+            srcs = ['binary.java'] + select({
+                '//conditions:a': glob(['globbed/*.java']),
+                '//conditions:b': ['b.java'],
+            }))
+        """);
 
     useConfiguration("--foo=a");
     ConfiguredTarget binary = getConfiguredTarget("//java/foo:binary");
@@ -1154,23 +1271,29 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
 
   @Test
   public void selectAcceptedInAttributeWithAllowedValues() throws Exception {
-    scratch.file("foo/BUILD",
-        "rule_with_allowed_values(",
-        "    name = 'rule',",
-        "    one_two = select({",
-        "        '//conditions:default': 'one',",
-        "    }))");
+    scratch.file(
+        "foo/BUILD",
+        """
+        rule_with_allowed_values(
+            name = 'rule',
+            one_two = select({
+                '//conditions:default': 'one',
+            }))
+        """);
     assertThat(getConfiguredTarget("//foo:rule")).isNotNull();
   }
 
   @Test
   public void selectWithNonAllowedValueCausesError() throws Exception {
-    scratch.file("foo/BUILD",
-        "rule_with_allowed_values(",
-        "    name = 'rule',",
-        "    one_two = select({",
-        "        '//conditions:default': 'TOTALLY_ILLEGAL_VALUE',",
-        "    }))");
+    scratch.file(
+        "foo/BUILD",
+        """
+        rule_with_allowed_values(
+            name = 'rule',
+            one_two = select({
+                '//conditions:default': 'TOTALLY_ILLEGAL_VALUE',
+            }))
+        """);
     reporter.removeHandler(failFastHandler); // Expect errors.
     getConfiguredTarget("//foo:rule");
     assertContainsEvent(
@@ -1180,13 +1303,16 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
 
   @Test
   public void selectWithMultipleNonAllowedValuesCausesMultipleErrors() throws Exception {
-    scratch.file("foo/BUILD",
-        "rule_with_allowed_values(",
-        "    name = 'rule',",
-        "    one_two = select({",
-        "        '//conditions:a': 'TOTALLY_ILLEGAL_VALUE',",
-        "        '//conditions:default': 'DIFFERENT_BUT_STILL_ILLEGAL',",
-        "    }))");
+    scratch.file(
+        "foo/BUILD",
+        """
+        rule_with_allowed_values(
+            name = 'rule',
+            one_two = select({
+                '//conditions:a': 'TOTALLY_ILLEGAL_VALUE',
+                '//conditions:default': 'DIFFERENT_BUT_STILL_ILLEGAL',
+            }))
+        """);
     reporter.removeHandler(failFastHandler); // Expect errors.
     getConfiguredTarget("//foo:rule");
     assertContainsEvent(
@@ -1199,23 +1325,29 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
 
   @Test
   public void selectConcatenationWithAllowedValues() throws Exception {
-    scratch.file("foo/BUILD",
-           "rule_with_allowed_values(",
-           "    name = 'rule',",
-           "    one_two = 'on' + select({",
-           "        '//conditions:default': 'e',",
-           "    }))");
+    scratch.file(
+        "foo/BUILD",
+        """
+        rule_with_allowed_values(
+            name = 'rule',
+            one_two = 'on' + select({
+                '//conditions:default': 'e',
+            }))
+        """);
     assertThat(getConfiguredTarget("//foo:rule")).isNotNull();
   }
 
   @Test
   public void selectConcatenationWithNonAllowedValues() throws Exception {
-    scratch.file("foo/BUILD",
-           "rule_with_allowed_values(",
-           "    name = 'rule',",
-           "    one_two = 'on' + select({",
-           "        '//conditions:default': 'o',",
-           "    }))");
+    scratch.file(
+        "foo/BUILD",
+        """
+        rule_with_allowed_values(
+            name = 'rule',
+            one_two = 'on' + select({
+                '//conditions:default': 'o',
+            }))
+        """);
     reporter.removeHandler(failFastHandler); // Expect errors.
     getConfiguredTarget("//foo:binary");
     assertContainsEvent(
@@ -1227,34 +1359,38 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   public void computedDefaultAttributesCanReferenceConfigurableAttributes() throws Exception {
     scratch.file(
         "test/selector_rules.bzl",
-        "def _impl(ctx):",
-        "  ctx.actions.write(",
-        "      output=ctx.outputs.out_file,",
-        "      content=ctx.attr.string_value,",
-        "  )",
-        "  return []",
-        "",
-        "def _derived_value(string_value):",
-        "  return Label(\"//test:%s\" % string_value)",
-        "",
-        "selector_rule = rule(",
-        "  attrs = {",
-        "      \"string_value\": attr.string(default = \"\"),",
-        "      \"out_file\": attr.output(),",
-        "      \"_derived\": attr.label(default = _derived_value),",
-        "  },",
-        "implementation = _impl,",
-        ")");
+        """
+        def _impl(ctx):
+          ctx.actions.write(
+              output=ctx.outputs.out_file,
+              content=ctx.attr.string_value,
+          )
+          return []
+
+        def _derived_value(string_value):
+          return Label("//test:%s" % string_value)
+
+        selector_rule = rule(
+          attrs = {
+              "string_value": attr.string(default = ""),
+              "out_file": attr.output(),
+              "_derived": attr.label(default = _derived_value),
+          },
+        implementation = _impl,
+        )
+        """);
     scratch.file("test/BUILD",
         "genrule(name = \"foo\", srcs = [], outs = [\"foo.out\"], cmd = \"\")");
     scratch.file(
         "foo/BUILD",
-        "load('//test:selector_rules.bzl', \"selector_rule\")",
-        "selector_rule(",
-        "    name = \"rule\",",
-        "    out_file = \"rule.out\",",
-        "    string_value = select({\"//conditions:default\": \"foo\"}),",
-        ")");
+        """
+        load('//test:selector_rules.bzl', "selector_rule")
+        selector_rule(
+            name = "rule",
+            out_file = "rule.out",
+            string_value = select({"//conditions:default": "foo"}),
+        )
+        """);
     getConfiguredTarget("//foo:rule");
     assertNoEvents();
   }
@@ -1262,14 +1398,17 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   @Test
   public void selectableDefaultValueWithTypeDefault() throws Exception {
     writeConfigRules();
-    scratch.file("srctest/BUILD",
-        "genrule(",
-        "    name = 'gen',",
-        "    cmd = '',",
-        "    outs = ['gen.out'],",
-        "    srcs = select({",
-        "        '//conditions:a': None,",
-        "    }))");
+    scratch.file(
+        "srctest/BUILD",
+        """
+        genrule(
+            name = 'gen',
+            cmd = '',
+            outs = ['gen.out'],
+            srcs = select({
+                '//conditions:a': None,
+            }))
+        """);
 
     useConfiguration("--foo=a");
     ConfiguredTargetAndData ctad = getConfiguredTargetAndData("//srctest:gen");
@@ -1280,15 +1419,18 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   @Test
   public void selectableDefaultValueWithRuleDefault() throws Exception {
     writeConfigRules();
-    scratch.file("foo/BUILD",
-        "rule_with_label_default(",
-        "    name = 'rule',",
-        "    dep = select({",
-        "        '//conditions:a': None,",
-        "    }))",
-        "rule_with_boolean_attr(",
-        "    name = 'default',",
-        "    boolean_attr = 1)");
+    scratch.file(
+        "foo/BUILD",
+        """
+        rule_with_label_default(
+            name = 'rule',
+            dep = select({
+                '//conditions:a': None,
+            }))
+        rule_with_boolean_attr(
+            name = 'default',
+            boolean_attr = 1)
+        """);
 
     useConfiguration("--foo=a");
     ConfiguredTargetAndData ctad = getConfiguredTargetAndData("//foo:rule");
@@ -1300,20 +1442,23 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   @Test
   public void noneValuesWithMultipleSelectsMixedValues() throws Exception {
     writeConfigRules();
-    scratch.file("a/BUILD",
-        "genrule(",
-        "    name = 'gen',",
-        "    srcs = [],",
-        "    outs = ['out'],",
-        "    cmd = '',",
-        "    message = select({",
-        "        '//conditions:a': 'defined message 1',",
-        "        '//conditions:b': None,",
-        "    }) + select({",
-        "        '//conditions:a': None,",
-        "        '//conditions:b': 'defined message 2',",
-        "    }),",
-        ")");
+    scratch.file(
+        "a/BUILD",
+        """
+        genrule(
+            name = 'gen',
+            srcs = [],
+            outs = ['out'],
+            cmd = '',
+            message = select({
+                '//conditions:a': 'defined message 1',
+                '//conditions:b': None,
+            }) + select({
+                '//conditions:a': None,
+                '//conditions:b': 'defined message 2',
+            }),
+        )
+        """);
 
     reporter.removeHandler(failFastHandler);
     useConfiguration("--define", "mode=a");
@@ -1323,13 +1468,16 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
 
   @Test
   public void emptySelectCannotBeConcatenated() throws Exception {
-    scratch.file("a/BUILD",
-        "genrule(",
-        "    name = 'gen',",
-        "    srcs = [],",
-        "    outs = ['out'],",
-        "    cmd = select({}) + ' always include'",
-        ")");
+    scratch.file(
+        "a/BUILD",
+        """
+        genrule(
+            name = 'gen',
+            srcs = [],
+            outs = ['out'],
+            cmd = select({}) + ' always include'
+        )
+        """);
 
     reporter.removeHandler(failFastHandler);
     assertThat(getConfiguredTarget("//a:gen")).isNull();
@@ -1343,25 +1491,27 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     // create some useful constraints and platforms.
     scratch.file(
         "conditions/BUILD",
-        "constraint_setting(name = 'fruit')",
-        "constraint_value(name = 'apple', constraint_setting = 'fruit')",
-        "constraint_value(name = 'banana', constraint_setting = 'fruit')",
-        "platform(",
-        "    name = 'apple_platform',",
-        "    constraint_values = [':apple'],",
-        ")",
-        "platform(",
-        "    name = 'banana_platform',",
-        "    constraint_values = [':banana'],",
-        ")",
-        "config_setting(",
-        "    name = 'a',",
-        "    constraint_values = [':apple']",
-        ")",
-        "config_setting(",
-        "    name = 'b',",
-        "    constraint_values = [':banana']",
-        ")");
+        """
+        constraint_setting(name = 'fruit')
+        constraint_value(name = 'apple', constraint_setting = 'fruit')
+        constraint_value(name = 'banana', constraint_setting = 'fruit')
+        platform(
+            name = 'apple_platform',
+            constraint_values = [':apple'],
+        )
+        platform(
+            name = 'banana_platform',
+            constraint_values = [':banana'],
+        )
+        config_setting(
+            name = 'a',
+            constraint_values = [':apple']
+        )
+        config_setting(
+            name = 'b',
+            constraint_values = [':banana']
+        )
+        """);
     scratch.file(
         "check/BUILD",
         "filegroup(name = 'adep', srcs = ['afile'])",
@@ -1386,35 +1536,41 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     // Tests select()ing directly on a constraint_value (with no intermediate config_setting).
     scratch.file(
         "conditions/BUILD",
-        "constraint_setting(name = 'fruit')",
-        "constraint_value(name = 'apple', constraint_setting = 'fruit')",
-        "constraint_value(name = 'banana', constraint_setting = 'fruit')",
-        "platform(",
-        "    name = 'apple_platform',",
-        "    constraint_values = [':apple'],",
-        ")",
-        "platform(",
-        "    name = 'banana_platform',",
-        "    constraint_values = [':banana'],",
-        ")");
+        """
+        constraint_setting(name = 'fruit')
+        constraint_value(name = 'apple', constraint_setting = 'fruit')
+        constraint_value(name = 'banana', constraint_setting = 'fruit')
+        platform(
+            name = 'apple_platform',
+            constraint_values = [':apple'],
+        )
+        platform(
+            name = 'banana_platform',
+            constraint_values = [':banana'],
+        )
+        """);
     scratch.file(
         "check/defs.bzl",
-        "def _impl(ctx):",
-        "  pass",
-        "simple_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {'srcs': attr.label_list(allow_files = True)}",
-        ")");
+        """
+        def _impl(ctx):
+          pass
+        simple_rule = rule(
+          implementation = _impl,
+          attrs = {'srcs': attr.label_list(allow_files = True)}
+        )
+        """);
     scratch.file(
         "check/BUILD",
-        "load('//check:defs.bzl', 'simple_rule')",
-        "filegroup(name = 'adep', srcs = ['afile'])",
-        "filegroup(name = 'bdep', srcs = ['bfile'])",
-        "simple_rule(name = 'hello',",
-        "    srcs = select({",
-        "        '//conditions:apple': [':adep'],",
-        "        '//conditions:banana': [':bdep'],",
-        "    }))");
+        """
+        load('//check:defs.bzl', 'simple_rule')
+        filegroup(name = 'adep', srcs = ['afile'])
+        filegroup(name = 'bdep', srcs = ['bfile'])
+        simple_rule(name = 'hello',
+            srcs = select({
+                '//conditions:apple': [':adep'],
+                '//conditions:banana': [':bdep'],
+            }))
+        """);
     checkRule(
         "//check:hello",
         "srcs",
@@ -1434,20 +1590,24 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     // Tests select()ing directly on a constraint_value (with no intermediate config_setting).
     scratch.file(
         "conditions/BUILD",
-        "constraint_setting(name = 'fruit')",
-        "constraint_value(name = 'apple', constraint_setting = 'fruit')",
-        "platform(",
-        "    name = 'apple_platform',",
-        "    constraint_values = [':apple'],",
-        ")");
+        """
+        constraint_setting(name = 'fruit')
+        constraint_value(name = 'apple', constraint_setting = 'fruit')
+        platform(
+            name = 'apple_platform',
+            constraint_values = [':apple'],
+        )
+        """);
     scratch.file(
         "check/BUILD",
-        "filegroup(name = 'adep', srcs = ['afile'])",
-        "rule_with_no_platform(name = 'hello',",
-        "    deps = select({",
-        "        '//conditions:apple': [':adep'],",
-        "    })",
-        ")");
+        """
+        filegroup(name = 'adep', srcs = ['afile'])
+        rule_with_no_platform(name = 'hello',
+            deps = select({
+                '//conditions:apple': [':adep'],
+            })
+        )
+        """);
     reporter.removeHandler(failFastHandler);
     useConfiguration("--platforms=//conditions:apple_platform");
     assertThat(getConfiguredTarget("//check:hello")).isNull();
@@ -1461,33 +1621,39 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     // (see Alias#useToolchainResolution(ToolchainResolutionMode.ENABLED_ONLY_FOR_COMMON_LOGIC).
     scratch.file(
         "conditions/BUILD",
-        "constraint_setting(name = 'fruit')",
-        "constraint_value(name = 'apple', constraint_setting = 'fruit')",
-        "constraint_value(name = 'banana', constraint_setting = 'fruit')",
-        "platform(",
-        "    name = 'apple_platform',",
-        "    constraint_values = [':apple'],",
-        ")");
+        """
+        constraint_setting(name = 'fruit')
+        constraint_value(name = 'apple', constraint_setting = 'fruit')
+        constraint_value(name = 'banana', constraint_setting = 'fruit')
+        platform(
+            name = 'apple_platform',
+            constraint_values = [':apple'],
+        )
+        """);
     scratch.file(
         "check/defs.bzl",
-        "def _impl(ctx):",
-        "  pass",
-        "simple_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {}",
-        ")");
+        """
+        def _impl(ctx):
+          pass
+        simple_rule = rule(
+          implementation = _impl,
+          attrs = {}
+        )
+        """);
     scratch.file(
         "check/BUILD",
-        "load('//check:defs.bzl', 'simple_rule')",
-        "filegroup(name = 'bdep', srcs = ['bfile'])",
-        "simple_rule(name = 'hello')",
-        "simple_rule(name = 'tere')",
-        "alias(",
-        "    name = 'selectable_alias',",
-        "    actual = select({",
-        "        '//conditions:apple': ':hello',",
-        "        '//conditions:banana': ':tere',",
-        "    }))");
+        """
+        load('//check:defs.bzl', 'simple_rule')
+        filegroup(name = 'bdep', srcs = ['bfile'])
+        simple_rule(name = 'hello')
+        simple_rule(name = 'tere')
+        alias(
+            name = 'selectable_alias',
+            actual = select({
+                '//conditions:apple': ':hello',
+                '//conditions:banana': ':tere',
+            }))
+        """);
     useConfiguration("--platforms=//conditions:apple_platform");
     assertThat(
             getConfiguredTarget("//check:selectable_alias")
@@ -1501,18 +1667,20 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   public void multipleMatchErrorWhenAliasResolvesToSameSetting() throws Exception {
     scratch.file(
         "a/BUILD",
-        "config_setting(",
-        "    name = 'foo',",
-        "    define_values = { 'foo': '1' })",
-        "alias(",
-        "    name = 'alias_to_foo',",
-        "    actual = ':foo')",
-        "rule_with_boolean_attr(",
-        "    name = 'binary',",
-        "    boolean_attr = select({",
-        "        ':foo': 0,",
-        "        'alias_to_foo': 1,",
-        "    }))");
+        """
+        config_setting(
+            name = 'foo',
+            define_values = { 'foo': '1' })
+        alias(
+            name = 'alias_to_foo',
+            actual = ':foo')
+        rule_with_boolean_attr(
+            name = 'binary',
+            boolean_attr = select({
+                ':foo': 0,
+                'alias_to_foo': 1,
+            }))
+        """);
     reporter.removeHandler(failFastHandler);
     assertThat(getConfiguredTarget("//a:binary")).isNull();
     assertContainsEvent(
@@ -1531,12 +1699,14 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     scratch.file("c/BUILD", "config_setting(name = 'foo', define_values = { 'foo': '1' })");
     scratch.file(
         "a/BUILD",
-        "rule_with_boolean_attr(",
-        "    name = 'binary',",
-        "    boolean_attr = select({",
-        "        '//c:foo': 0,",
-        "        '//conditions:default': 1",
-        "    }))");
+        """
+        rule_with_boolean_attr(
+            name = 'binary',
+            boolean_attr = select({
+                '//c:foo': 0,
+                '//conditions:default': 1
+            }))
+        """);
     reporter.removeHandler(failFastHandler);
     assertThat(getConfiguredTarget("//a:binary")).isNotNull();
     assertNoEvents();
@@ -1549,19 +1719,23 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "--incompatible_enforce_config_setting_visibility=false");
     scratch.file(
         "c/BUILD",
-        "config_setting(",
-        "    name = 'foo',",
-        "    define_values = { 'foo': '1' },",
-        "    visibility = ['//visibility:private']",
-        ")");
+        """
+        config_setting(
+            name = 'foo',
+            define_values = { 'foo': '1' },
+            visibility = ['//visibility:private']
+        )
+        """);
     scratch.file(
         "a/BUILD",
-        "rule_with_boolean_attr(",
-        "    name = 'binary',",
-        "    boolean_attr = select({",
-        "        '//c:foo': 0,",
-        "        '//conditions:default': 1",
-        "    }))");
+        """
+        rule_with_boolean_attr(
+            name = 'binary',
+            boolean_attr = select({
+                '//c:foo': 0,
+                '//conditions:default': 1
+            }))
+        """);
     reporter.removeHandler(failFastHandler);
     assertThat(getConfiguredTarget("//a:binary")).isNotNull();
     assertNoEvents();
@@ -1574,19 +1748,23 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "--incompatible_enforce_config_setting_visibility=false");
     scratch.file(
         "c/BUILD",
-        "config_setting(",
-        "    name = 'foo',",
-        "    define_values = { 'foo': '1' },",
-        "    visibility = ['//visibility:public']",
-        ")");
+        """
+        config_setting(
+            name = 'foo',
+            define_values = { 'foo': '1' },
+            visibility = ['//visibility:public']
+        )
+        """);
     scratch.file(
         "a/BUILD",
-        "rule_with_boolean_attr(",
-        "    name = 'binary',",
-        "    boolean_attr = select({",
-        "        '//c:foo': 0,",
-        "        '//conditions:default': 1",
-        "    }))");
+        """
+        rule_with_boolean_attr(
+            name = 'binary',
+            boolean_attr = select({
+                '//c:foo': 0,
+                '//conditions:default': 1
+            }))
+        """);
     reporter.removeHandler(failFastHandler);
     assertThat(getConfiguredTarget("//a:binary")).isNotNull();
     assertNoEvents();
@@ -1600,12 +1778,14 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     scratch.file("c/BUILD", "config_setting(name = 'foo', define_values = { 'foo': '1' })");
     scratch.file(
         "a/BUILD",
-        "rule_with_boolean_attr(",
-        "    name = 'binary',",
-        "    boolean_attr = select({",
-        "        '//c:foo': 0,",
-        "        '//conditions:default': 1",
-        "    }))");
+        """
+        rule_with_boolean_attr(
+            name = 'binary',
+            boolean_attr = select({
+                '//c:foo': 0,
+                '//conditions:default': 1
+            }))
+        """);
     reporter.removeHandler(failFastHandler);
     assertThat(getConfiguredTarget("//a:binary")).isNotNull();
     assertNoEvents();
@@ -1619,19 +1799,23 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "--incompatible_config_setting_private_default_visibility=false");
     scratch.file(
         "c/BUILD",
-        "config_setting(",
-        "    name = 'foo',",
-        "    define_values = { 'foo': '1' },",
-        "    visibility = ['//visibility:private']",
-        ")");
+        """
+        config_setting(
+            name = 'foo',
+            define_values = { 'foo': '1' },
+            visibility = ['//visibility:private']
+        )
+        """);
     scratch.file(
         "a/BUILD",
-        "rule_with_boolean_attr(",
-        "    name = 'binary',",
-        "    boolean_attr = select({",
-        "        '//c:foo': 0,",
-        "        '//conditions:default': 1",
-        "    }))");
+        """
+        rule_with_boolean_attr(
+            name = 'binary',
+            boolean_attr = select({
+                '//c:foo': 0,
+                '//conditions:default': 1
+            }))
+        """);
     reporter.removeHandler(failFastHandler);
     assertThat(getConfiguredTarget("//a:binary")).isNull();
     assertContainsEvent("'//c:foo' is not visible from\ntarget '//a:binary'");
@@ -1645,19 +1829,23 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "--incompatible_config_setting_private_default_visibility=false");
     scratch.file(
         "c/BUILD",
-        "config_setting(",
-        "    name = 'foo',",
-        "    define_values = { 'foo': '1' },",
-        "    visibility = ['//visibility:public']",
-        ")");
+        """
+        config_setting(
+            name = 'foo',
+            define_values = { 'foo': '1' },
+            visibility = ['//visibility:public']
+        )
+        """);
     scratch.file(
         "a/BUILD",
-        "rule_with_boolean_attr(",
-        "    name = 'binary',",
-        "    boolean_attr = select({",
-        "        '//c:foo': 0,",
-        "        '//conditions:default': 1",
-        "    }))");
+        """
+        rule_with_boolean_attr(
+            name = 'binary',
+            boolean_attr = select({
+                '//c:foo': 0,
+                '//conditions:default': 1
+            }))
+        """);
     reporter.removeHandler(failFastHandler);
     assertThat(getConfiguredTarget("//a:binary")).isNotNull();
     assertNoEvents();
@@ -1673,21 +1861,25 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "--incompatible_config_setting_private_default_visibility=false");
     scratch.file(
         "c/BUILD",
-        "alias(",
-        "    name = 'foo_alias',",
-        "    actual = ':foo')",
-        "config_setting(",
-        "    name = 'foo',",
-        "    define_values = { 'foo': '1' },",
-        ")");
+        """
+        alias(
+            name = 'foo_alias',
+            actual = ':foo')
+        config_setting(
+            name = 'foo',
+            define_values = { 'foo': '1' },
+        )
+        """);
     scratch.file(
         "a/BUILD",
-        "rule_with_boolean_attr(",
-        "    name = 'binary',",
-        "    boolean_attr = select({",
-        "        '//c:foo_alias': 0,",
-        "        '//conditions:default': 1",
-        "    }))");
+        """
+        rule_with_boolean_attr(
+            name = 'binary',
+            boolean_attr = select({
+                '//c:foo_alias': 0,
+                '//conditions:default': 1
+            }))
+        """);
     reporter.removeHandler(failFastHandler);
     assertThat(getConfiguredTarget("//a:binary")).isNotNull();
     assertNoEvents();
@@ -1703,24 +1895,28 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "--incompatible_config_setting_private_default_visibility=false");
     scratch.file(
         "c/BUILD",
-        "alias(",
-        "    name = 'foo_alias',",
-        "    actual = ':foo',",
-        // Current flag combo skips this and directly checks the config_setting's visibility.
-        "    visibility = ['//visibility:private']",
-        ")",
-        "config_setting(",
-        "    name = 'foo',",
-        "    define_values = { 'foo': '1' },",
-        ")");
+        """
+        alias(
+            name = 'foo_alias',
+            actual = ':foo',
+            # Current flag combo skips this and directly checks the config_setting's visibility.
+            visibility = ['//visibility:private']
+        )
+        config_setting(
+            name = 'foo',
+            define_values = { 'foo': '1' },
+        )
+        """);
     scratch.file(
         "a/BUILD",
-        "rule_with_boolean_attr(",
-        "    name = 'binary',",
-        "    boolean_attr = select({",
-        "        '//c:foo_alias': 0,",
-        "        '//conditions:default': 1",
-        "    }))");
+        """
+        rule_with_boolean_attr(
+            name = 'binary',
+            boolean_attr = select({
+                '//c:foo_alias': 0,
+                '//conditions:default': 1
+            }))
+        """);
     reporter.removeHandler(failFastHandler);
     assertThat(getConfiguredTarget("//a:binary")).isNotNull();
     assertNoEvents();
@@ -1736,25 +1932,29 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "--incompatible_config_setting_private_default_visibility=false");
     scratch.file(
         "c/BUILD",
-        "alias(",
-        "    name = 'foo_alias',",
-        "    actual = ':foo',",
-        // Current flag combo skips this and directly checks the config_setting's visibility.
-        "    visibility = ['//visibility:public']",
-        ")",
-        "config_setting(",
-        "    name = 'foo',",
-        "    define_values = { 'foo': '1' },",
-        "    visibility = ['//visibility:private']",
-        ")");
+        """
+        alias(
+            name = 'foo_alias',
+            actual = ':foo',
+            # Current flag combo skips this and directly checks the config_setting's visibility.
+            visibility = ['//visibility:public']
+        )
+        config_setting(
+            name = 'foo',
+            define_values = { 'foo': '1' },
+            visibility = ['//visibility:private']
+        )
+        """);
     scratch.file(
         "a/BUILD",
-        "rule_with_boolean_attr(",
-        "    name = 'binary',",
-        "    boolean_attr = select({",
-        "        '//c:foo_alias': 0,",
-        "        '//conditions:default': 1",
-        "    }))");
+        """
+        rule_with_boolean_attr(
+            name = 'binary',
+            boolean_attr = select({
+                '//c:foo_alias': 0,
+                '//conditions:default': 1
+            }))
+        """);
     reporter.removeHandler(failFastHandler);
     assertThat(getConfiguredTarget("//a:binary")).isNull();
     assertContainsEvent("'//c:foo' is not visible from\ntarget '//a:binary'");
@@ -1776,36 +1976,40 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     useConfiguration("--trim_test_configuration=true");
     scratch.file(
         "c/defs.bzl",
-        "def _impl(ctx):",
-        "    output = ctx.outputs.out",
-        "    ctx.actions.write(output = output, content = 'hi', is_executable = True)",
-        "    return [DefaultInfo(executable = output)]",
-        "",
-        "fake_test = rule(",
-        "    attrs = {",
-        "        'msg': attr.string(),",
-        "    },",
-        "    test = True,",
-        "    outputs = {'out': 'foo.out'},",
-        "    implementation = _impl,",
-        ")");
+        """
+        def _impl(ctx):
+            output = ctx.outputs.out
+            ctx.actions.write(output = output, content = 'hi', is_executable = True)
+            return [DefaultInfo(executable = output)]
+
+        fake_test = rule(
+            attrs = {
+                'msg': attr.string(),
+            },
+            test = True,
+            outputs = {'out': 'foo.out'},
+            implementation = _impl,
+        )
+        """);
     scratch.file(
         "c/BUILD",
-        "load(':defs.bzl', 'fake_test')",
-        "alias(",
-        "    name = 'foo_alias',",
-        "    actual = ':foo',",
-        ")",
-        "config_setting(",
-        "    name = 'foo',",
-        "    define_values = { 'foo': '1' },",
-        ")",
-        "fake_test(",
-        "    name = 'foo_test',",
-        "    msg = select({",
-        "        ':foo_alias': 'hi',",
-        "        '//conditions:default': 'there'",
-        "    }))");
+        """
+        load(':defs.bzl', 'fake_test')
+        alias(
+            name = 'foo_alias',
+            actual = ':foo',
+        )
+        config_setting(
+            name = 'foo',
+            define_values = { 'foo': '1' },
+        )
+        fake_test(
+            name = 'foo_test',
+            msg = select({
+                ':foo_alias': 'hi',
+                '//conditions:default': 'there'
+            }))
+        """);
     reporter.removeHandler(failFastHandler);
     assertThat(getConfiguredTarget("//c:foo_test")).isNotNull();
     assertNoEvents();
@@ -1820,12 +2024,14 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     scratch.file("c/BUILD", "config_setting(name = 'foo', define_values = { 'foo': '1' })");
     scratch.file(
         "a/BUILD",
-        "rule_with_boolean_attr(",
-        "    name = 'binary',",
-        "    boolean_attr = select({",
-        "        '//c:foo': 0,",
-        "        '//conditions:default': 1",
-        "    }))");
+        """
+        rule_with_boolean_attr(
+            name = 'binary',
+            boolean_attr = select({
+                '//c:foo': 0,
+                '//conditions:default': 1
+            }))
+        """);
     reporter.removeHandler(failFastHandler);
     assertThat(getConfiguredTarget("//a:binary")).isNull();
     assertContainsEvent("'//c:foo' is not visible from\ntarget '//a:binary'");
@@ -1839,19 +2045,23 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "--incompatible_config_setting_private_default_visibility=true");
     scratch.file(
         "c/BUILD",
-        "config_setting(",
-        "    name = 'foo',",
-        "    define_values = { 'foo': '1' },",
-        "    visibility = ['//visibility:private']",
-        ")");
+        """
+        config_setting(
+            name = 'foo',
+            define_values = { 'foo': '1' },
+            visibility = ['//visibility:private']
+        )
+        """);
     scratch.file(
         "a/BUILD",
-        "rule_with_boolean_attr(",
-        "    name = 'binary',",
-        "    boolean_attr = select({",
-        "        '//c:foo': 0,",
-        "        '//conditions:default': 1",
-        "    }))");
+        """
+        rule_with_boolean_attr(
+            name = 'binary',
+            boolean_attr = select({
+                '//c:foo': 0,
+                '//conditions:default': 1
+            }))
+        """);
     reporter.removeHandler(failFastHandler);
     assertThat(getConfiguredTarget("//a:binary")).isNull();
     assertContainsEvent("'//c:foo' is not visible from\ntarget '//a:binary'");
@@ -1865,19 +2075,23 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "--incompatible_config_setting_private_default_visibility=true");
     scratch.file(
         "c/BUILD",
-        "config_setting(",
-        "    name = 'foo',",
-        "    define_values = { 'foo': '1' },",
-        "    visibility = ['//visibility:public']",
-        ")");
+        """
+        config_setting(
+            name = 'foo',
+            define_values = { 'foo': '1' },
+            visibility = ['//visibility:public']
+        )
+        """);
     scratch.file(
         "a/BUILD",
-        "rule_with_boolean_attr(",
-        "    name = 'binary',",
-        "    boolean_attr = select({",
-        "        '//c:foo': 0,",
-        "        '//conditions:default': 1",
-        "    }))");
+        """
+        rule_with_boolean_attr(
+            name = 'binary',
+            boolean_attr = select({
+                '//c:foo': 0,
+                '//conditions:default': 1
+            }))
+        """);
     reporter.removeHandler(failFastHandler);
     assertThat(getConfiguredTarget("//a:binary")).isNotNull();
     assertNoEvents();
@@ -1889,42 +2103,120 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     scratch.file("java/BUILD");
     scratch.file(
         "java/macros.bzl",
-        "def my_java_binary(name, deps = [], **kwargs):",
-        "    native.java_binary(",
-        "        name = name,",
-        "        deps = select({",
-        "            Label('//conditions:a'): [Label('//java/foo:a')],",
-        "            '//conditions:b': [Label('//java/foo:b')],",
-        "        }) + select({",
-        "            '//conditions:a': [Label('//java/foo:a2')],",
-        "            Label('//conditions:b'): [Label('//java/foo:b2')],",
-        "        }),",
-        "        **kwargs,",
-        "    )");
+        analysisMock.javaSupport().getLoadStatementForRule("java_binary"),
+        """
+        def my_java_binary(name, deps = [], **kwargs):
+            java_binary(
+                name = name,
+                deps = select({
+                    Label('//conditions:a'): [Label('//java/foo:a')],
+                    '//conditions:b': [Label('//java/foo:b')],
+                }) + select({
+                    '//conditions:a': [Label('//java/foo:a2')],
+                    Label('//conditions:b'): [Label('//java/foo:b2')],
+                }),
+                **kwargs,
+            )
+        """);
     scratch.file(
         "java/foo/BUILD",
-        "load('//java:macros.bzl', 'my_java_binary')",
-        "my_java_binary(",
-        "    name = 'binary',",
-        "    srcs = ['binary.java'],",
-        ")",
-        "java_library(",
-        "    name = 'a',",
-        "    srcs = ['a.java'])",
-        "java_library(",
-        "    name = 'b',",
-        "    srcs = ['b.java'])",
-        "java_library(",
-        "    name = 'a2',",
-        "    srcs = ['a2.java'])",
-        "java_library(",
-        "    name = 'b2',",
-        "    srcs = ['b2.java'])");
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        load('//java:macros.bzl', 'my_java_binary')
+        my_java_binary(
+            name = 'binary',
+            srcs = ['binary.java'],
+        )
+        java_library(
+            name = 'a',
+            srcs = ['a.java'])
+        java_library(
+            name = 'b',
+            srcs = ['b.java'])
+        java_library(
+            name = 'a2',
+            srcs = ['a2.java'])
+        java_library(
+            name = 'b2',
+            srcs = ['b2.java'])
+        """);
 
     checkRule(
         "//java/foo:binary",
         "--foo=b",
         /*expected:*/ ImmutableList.of("bin java/foo/libb.jar", "bin java/foo/libb2.jar"),
         /*not expected:*/ ImmutableList.of("bin java/foo/liba.jar", "bin java/foo/liba2.jar"));
+  }
+
+  @Test
+  public void stringListDictTypeConcatConfigurable() throws Exception {
+    writeConfigRules();
+    scratch.file(
+        "foo/BUILD",
+        """
+        rule_with_string_list_dict_attr(
+            name = 'rule',
+            string_list_dict_attr =  {'a': ['a.out']} | select({
+                '//conditions:b': {'b': ['b.out']},
+            }))
+        """);
+
+    useConfiguration("--foo=b");
+    ConfiguredTargetAndData ctad = getConfiguredTargetAndData("//foo:rule");
+    AttributeMap attributes = getMapperFromConfiguredTargetAndTarget(ctad);
+    assertThat(attributes.get("string_list_dict_attr", Types.STRING_LIST_DICT))
+        .containsExactly("a", Arrays.asList("a.out"), "b", Arrays.asList("b.out"));
+  }
+
+  @Test
+  public void assigningSelectToNonconfigurableAttr_fails_evenIfSelectIsSimplifiableUnconditional()
+      throws Exception {
+    writeConfigRules();
+    scratch.file(
+        "foo/BUILD",
+        """
+        rule_with_output_attr(
+            name = "foo",
+            out = select({"//conditions:default": "default.out"}),
+        )
+        """);
+
+    reporter.removeHandler(failFastHandler); // Expect errors.
+    getConfiguredTarget("//foo");
+    assertContainsEvent("attribute \"out\" is not configurable");
+  }
+
+  @Test
+  public void incompatibleSimplifyUnconditionalSelectsInRuleAttrs_doesNotAffectConfiguredAttrValue()
+      throws Exception {
+    scratch.file(
+        "foo/BUILD",
+        """
+        cc_binary(
+            name = "foo",
+            srcs = select({"//conditions:default": ["foo.cc"]}),
+            link_extra_lib = select({"//conditions:default": None}),
+        )
+        """);
+    setBuildLanguageOptions("--incompatible_simplify_unconditional_selects_in_rule_attrs=false");
+    AttributeMap attributesFromUnsimplifiedSelects =
+        getMapperFromConfiguredTargetAndTarget(getConfiguredTargetAndData("//foo"));
+
+    assertThat(attributesFromUnsimplifiedSelects.get("srcs", BuildType.LABEL_LIST))
+        .containsExactly(Label.parseCanonicalUnchecked("//foo:foo.cc"));
+    assertThat(attributesFromUnsimplifiedSelects.get("link_extra_lib", BuildType.LABEL))
+        .isEqualTo(
+            attributesFromUnsimplifiedSelects
+                .getAttributeDefinition("link_extra_lib")
+                .getDefaultValueUnchecked());
+
+    setBuildLanguageOptions("--incompatible_simplify_unconditional_selects_in_rule_attrs=true");
+    AttributeMap attributesFromSimplifiedSelects =
+        getMapperFromConfiguredTargetAndTarget(getConfiguredTargetAndData("//foo"));
+
+    assertThat(attributesFromSimplifiedSelects.get("srcs", BuildType.LABEL_LIST))
+        .isEqualTo(attributesFromUnsimplifiedSelects.get("srcs", BuildType.LABEL_LIST));
+    assertThat(attributesFromSimplifiedSelects.get("link_extra_lib", BuildType.LABEL))
+        .isEqualTo(attributesFromUnsimplifiedSelects.get("link_extra_lib", BuildType.LABEL));
   }
 }

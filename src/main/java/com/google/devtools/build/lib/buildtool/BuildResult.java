@@ -17,11 +17,13 @@ package com.google.devtools.build.lib.buildtool;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileCompression;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildToolLogs;
@@ -33,6 +35,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import java.util.ArrayList;
@@ -55,6 +58,7 @@ public final class BuildResult {
   @Nullable private DetailedExitCode detailedExitCode;
 
   private BuildConfigurationValue configuration;
+  private ImmutableMap<PathFragment, PathFragment> convenienceSymlinks = ImmutableMap.of();
   private Collection<ConfiguredTarget> actualTargets;
   private Collection<ConfiguredTarget> testTargets;
   private Collection<ConfiguredTarget> successfulTargets;
@@ -159,6 +163,18 @@ public final class BuildResult {
   /** Returns the build configuration collection used for the build. */
   public BuildConfigurationValue getBuildConfiguration() {
     return configuration;
+  }
+
+  void setConvenienceSymlinks(ImmutableMap<PathFragment, PathFragment> convenienceSymlinks) {
+    this.convenienceSymlinks = convenienceSymlinks;
+  }
+
+  /**
+   * Returns the convenience symlinks for this build in name -> target format (eg blaze-out ->
+   * /symlink/target).
+   */
+  public ImmutableMap<PathFragment, PathFragment> getConvenienceSymlinks() {
+    return convenienceSymlinks;
   }
 
   /** @see #getActualTargets */
@@ -314,6 +330,7 @@ public final class BuildResult {
       return this;
     }
 
+    @CanIgnoreReturnValue
     public BuildToolLogCollection addLocalFile(String name, Path path) {
       return addLocalFile(name, path, LocalFileType.LOG, LocalFileCompression.NONE);
     }
@@ -321,15 +338,17 @@ public final class BuildResult {
     @CanIgnoreReturnValue
     public BuildToolLogCollection addLocalFile(
         String name, Path path, LocalFileType localFileType, LocalFileCompression compression) {
+      return addLocalFile(
+          name, new LocalFile(path, localFileType, compression, /* artifactMetadata= */ null));
+    }
+
+    @CanIgnoreReturnValue
+    public BuildToolLogCollection addLocalFile(String name, LocalFile localFile) {
       Preconditions.checkState(!frozen);
-      switch (compression) {
-        case GZIP:
-          name = name + ".gz";
-          break;
-        case NONE:
-          break;
+      if (localFile.compression == LocalFileCompression.GZIP) {
+        name += ".gz";
       }
-      this.localFiles.add(new LogFileEntry(name, path, localFileType, compression));
+      this.localFiles.add(new LogFileEntry(name, localFile));
       return this;
     }
 

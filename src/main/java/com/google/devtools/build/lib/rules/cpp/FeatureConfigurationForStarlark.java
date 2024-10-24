@@ -19,8 +19,12 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.FeatureConfigurationApi;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
 
 /**
  * Wrapper for {@link FeatureConfiguration}, {@link CppConfiguration}, and {@link BuildOptions}.
@@ -34,24 +38,13 @@ import net.starlark.java.eval.StarlarkSemantics;
 public class FeatureConfigurationForStarlark implements FeatureConfigurationApi {
 
   private final FeatureConfiguration featureConfiguration;
-  private final CppConfiguration cppConfiguration;
-  private final BuildOptions buildOptions;
 
-  public static FeatureConfigurationForStarlark from(
-      FeatureConfiguration featureConfiguration,
-      CppConfiguration cppConfiguration,
-      BuildOptions buildOptions) {
-    return new FeatureConfigurationForStarlark(
-        featureConfiguration, cppConfiguration, buildOptions);
+  public static FeatureConfigurationForStarlark from(FeatureConfiguration featureConfiguration) {
+    return new FeatureConfigurationForStarlark(featureConfiguration);
   }
 
-  private FeatureConfigurationForStarlark(
-      FeatureConfiguration featureConfiguration,
-      CppConfiguration cppConfiguration,
-      BuildOptions buildOptions) {
+  private FeatureConfigurationForStarlark(FeatureConfiguration featureConfiguration) {
     this.featureConfiguration = Preconditions.checkNotNull(featureConfiguration);
-    this.cppConfiguration = Preconditions.checkNotNull(cppConfiguration);
-    this.buildOptions = buildOptions;
   }
 
   public FeatureConfiguration getFeatureConfiguration() {
@@ -69,32 +62,30 @@ public class FeatureConfigurationForStarlark implements FeatureConfigurationApi 
   }
 
   @Override
-  public void debugPrint(Printer printer, StarlarkSemantics semantics) {
+  public void debugPrint(Printer printer, StarlarkThread thread) {
     printer.append("<FeatureConfiguration(");
     printer.append(Joiner.on(", ").join(featureConfiguration.getEnabledFeatureNames()));
     printer.append(")>");
   }
 
-  /**
-   * Get {@link CppConfiguration} that is threaded along with {@link FeatureConfiguration}. Do this
-   * only when you're completely aware of why this method was added and hlopko@ allowed you to.
-   *
-   * @deprecated will be removed soon by b/129045294.
-   */
-  @Deprecated
-  CppConfiguration
-      getCppConfigurationFromFeatureConfigurationCreatedForStarlark_andIKnowWhatImDoing() {
-    return cppConfiguration;
+  @StarlarkMethod(
+      name = "is_requested",
+      parameters = {@Param(name = "feature")},
+      documented = false,
+      useStarlarkThread = true)
+  public boolean isRequested(String feature, StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return featureConfiguration.getRequestedFeatures().contains(feature);
   }
 
-  /**
-   * Get {@link BuildOptions} that is threaded along with {@link FeatureConfiguration}. Do this only
-   * when you're completely aware of why this method was added and hlopko@ allowed you to.
-   *
-   * @deprecated will be removed soon by b/129045294.
-   */
-  @Deprecated
-  BuildOptions getBuildOptionsFromFeatureConfigurationCreatedForStarlark_andIKnowWhatImDoing() {
-    return buildOptions;
+  @StarlarkMethod(
+      name = "is_enabled",
+      parameters = {@Param(name = "feature")},
+      documented = false,
+      useStarlarkThread = true)
+  // TODO(b/339328480): collect all feature names in a single location
+  public boolean isEnabled(String feature, StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return featureConfiguration.isEnabled(feature);
   }
 }

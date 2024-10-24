@@ -19,7 +19,6 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
-import com.google.devtools.build.lib.actions.HasDigest;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -65,10 +64,9 @@ public final class SymlinkTreeHelperTest {
             PathFragment.create("from"), PathFragment.create("to"), execRoot);
 
     Map<PathFragment, PathFragment> symlinks =
-        SymlinkTreeHelper.processFilesetLinks(
-            ImmutableList.of(link), PathFragment.create("root"), execRoot);
+        SymlinkTreeHelper.processFilesetLinks(ImmutableList.of(link), "workspace", execRoot);
     assertThat(symlinks)
-        .containsExactly(PathFragment.create("root/from"), PathFragment.create("to"));
+        .containsExactly(PathFragment.create("workspace/from"), PathFragment.create("to"));
   }
 
   @Test
@@ -82,24 +80,24 @@ public final class SymlinkTreeHelperTest {
         FilesetOutputSymlink.createForTesting(
             PathFragment.create("foo"), PathFragment.create("/bar"), execRoot);
     FilesetOutputSymlink link3 =
-        FilesetOutputSymlink.createAlreadyRelativized(
-            PathFragment.create("rel"), PathFragment.create("path"), HasDigest.EMPTY, true);
+        FilesetOutputSymlink.createAlreadyRelativizedForTesting(
+            PathFragment.create("rel"), PathFragment.create("path"), true);
     FilesetOutputSymlink link4 =
-        FilesetOutputSymlink.createAlreadyRelativized(
-            PathFragment.create("rel2"), PathFragment.create("/path"), HasDigest.EMPTY, false);
+        FilesetOutputSymlink.createAlreadyRelativizedForTesting(
+            PathFragment.create("rel2"), PathFragment.create("/path"), false);
 
     Map<PathFragment, PathFragment> symlinks =
         SymlinkTreeHelper.processFilesetLinks(
-            ImmutableList.of(link1, link2, link3, link4), PathFragment.create("root2"), execRoot);
+            ImmutableList.of(link1, link2, link3, link4), "workspace2", execRoot);
     assertThat(symlinks)
         .containsExactly(
-            PathFragment.create("root2/from"),
+            PathFragment.create("workspace2/from"),
             PathFragment.create("to"),
-            PathFragment.create("root2/foo"),
+            PathFragment.create("workspace2/foo"),
             PathFragment.create("/bar"),
-            PathFragment.create("root2/rel"),
+            PathFragment.create("workspace2/rel"),
             execRoot.getRelative("path"),
-            PathFragment.create("root2/rel2"),
+            PathFragment.create("workspace2/rel2"),
             PathFragment.create("/path"));
   }
 }

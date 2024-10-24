@@ -23,8 +23,9 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.transitions.NoConfigTransition;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
-import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
 /**
@@ -37,10 +38,10 @@ public class EnvironmentRule implements RuleDefinition {
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder
-        .cfg(NoConfigTransition.createFactory())
-        .useToolchainResolution(ToolchainResolutionMode.DISABLED)
+        .cfg(NoConfigTransition.getFactory())
+        .toolchainResolutionMode(ToolchainResolutionMode.DISABLED)
         .override(
-            attr("tags", Type.STRING_LIST)
+            attr("tags", Types.STRING_LIST)
                 // No need to show up in ":all", etc. target patterns.
                 .value(ImmutableList.of("manual"))
                 .nonconfigurable("low-level attribute, used in TargetUtils without configurations"))
@@ -72,6 +73,9 @@ public class EnvironmentRule implements RuleDefinition {
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name(ConstraintConstants.ENVIRONMENT_RULE)
+        // Not allowed in symbolic macros: lazy expansion of symbolic macros could hide environment
+        // targets from environment groups.
+        .type(RuleClassType.BUILD_ONLY)
         .ancestors(BaseRuleClasses.NativeBuildRule.class)
         .factoryClass(Environment.class)
         .build();

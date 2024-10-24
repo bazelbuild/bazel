@@ -15,12 +15,14 @@
 package com.google.devtools.build.lib.bazel.repository.starlark;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -29,6 +31,7 @@ import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -56,36 +59,34 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
   protected void invalidatePackages() throws InterruptedException, AbruptExitException {
     // Repository shuffling breaks access to config-needed paths like //tools/jdk:toolchain and
     // these tests don't do anything interesting with configurations anyway. So exempt them.
-    invalidatePackages(/*alsoConfigs=*/ false);
+    invalidatePackages(/* alsoConfigs= */ false);
   }
 
   @Test
   public void testStarlarkLocalRepository() throws Exception {
     // A simple test that recreates local_repository with Starlark.
-    scratch.file("/repo2/WORKSPACE");
+    scratch.file("/repo2/MODULE.bazel", "module(name='repo2')");
     scratch.file("/repo2/bar.txt");
-    scratch.file("/repo2/BUILD", "filegroup(name='bar', srcs=['bar.txt'], path='foo')");
+    scratch.file("/repo2/BUILD", "filegroup(name='bar', srcs=['bar.txt'])");
     scratch.file(
         "def.bzl",
-        "def _impl(repository_ctx):",
-        "  repository_ctx.symlink(repository_ctx.attr.path, '')",
-        "",
-        "repo = repository_rule(",
-        "    implementation=_impl,",
-        "    local=True,",
-        "    attrs={'path': attr.string(mandatory=True)})");
+        """
+        def _impl(repository_ctx):
+            repository_ctx.symlink(repository_ctx.attr.path, "")
+
+        repo = repository_rule(
+            implementation = _impl,
+            local = True,
+            attrs = {"path": attr.string(mandatory = True)},
+        )
+        """);
     scratch.file(rootDirectory.getRelative("BUILD").getPathString());
     scratch.overwriteFile(
-        rootDirectory.getRelative("WORKSPACE").getPathString(),
-        new ImmutableList.Builder<String>()
-            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
-            .add("load('//:def.bzl', 'repo')")
-            .add("repo(name='foo', path='/repo2')")
-            .build());
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "repo = use_repo_rule('//:def.bzl', 'repo')",
+        "repo(name='foo', path='/repo2')");
     invalidatePackages();
-    ConfiguredTargetAndData target = getConfiguredTargetAndData("@foo//:bar");
-    Object path = target.getTargetForTesting().getAssociatedRule().getAttr("path");
-    assertThat(path).isEqualTo("foo");
+    getConfiguredTargetAndData("@@+_repo_rules+foo//:bar");
   }
 
   @Test
@@ -93,21 +94,29 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
     // It is possible to instantiate an unexported repository_rule,
     // even though it should not be (b/283533234).
     // This test exercises the heuristic for inferring the name of the rule class.
+    setBuildLanguageOptions("--enable_workspace");
     scratch.file("/repo/WORKSPACE");
     scratch.file("/repo/BUILD");
     scratch.file(
         "def.bzl",
-        "def _impl(ctx): pass",
-        "rule1 = repository_rule(implementation=_impl)",
-        "def f():",
-        "  # exported",
-        "  a = rule1(name='a')",
-        "  # unexported",
-        "  rule2 = repository_rule(implementation=_impl)",
-        "  b = rule2(name='b')",
-        "  fail('a.kind=%s b.kind=%s' % (",
-        "    native.existing_rule('a')['kind'],",
-        "    native.existing_rule('b')['kind']))");
+        """
+        def _impl(ctx):
+            pass
+
+        rule1 = repository_rule(implementation = _impl)
+
+        def f():
+            # exported
+            a = rule1(name = "a")
+
+            # unexported
+            rule2 = repository_rule(implementation = _impl)
+            b = rule2(name = "b")
+            fail("a.kind=%s b.kind=%s" % (
+                native.existing_rule("a")["kind"],
+                native.existing_rule("b")["kind"],
+            ))
+        """);
     scratch.file(rootDirectory.getRelative("BUILD").getPathString());
     scratch.overwriteFile(
         rootDirectory.getRelative("WORKSPACE").getPathString(), "load('//:def.bzl', 'f')", "f()");
@@ -121,68 +130,66 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
   @Test
   public void testfailWithIncompatibleUseCcConfigureFromRulesCcDoesNothing() throws Exception {
     // A simple test that recreates local_repository with Starlark.
-    scratch.file("/repo2/WORKSPACE");
+    scratch.file("/repo2/MODULE.bazel", "module(name='repo2')");
     scratch.file("/repo2/bar.txt");
-    scratch.file("/repo2/BUILD", "filegroup(name='bar', srcs=['bar.txt'], path='foo')");
+    scratch.file("/repo2/BUILD", "filegroup(name='bar', srcs=['bar.txt'])");
     scratch.file(
         "def.bzl",
-        "__do_not_use_fail_with_incompatible_use_cc_configure_from_rules_cc()",
-        "def _impl(repository_ctx):",
-        "  repository_ctx.symlink(repository_ctx.attr.path, '')",
-        "",
-        "repo = repository_rule(",
-        "    implementation=_impl,",
-        "    local=True,",
-        "    attrs={'path': attr.string(mandatory=True)})");
+        """
+        __do_not_use_fail_with_incompatible_use_cc_configure_from_rules_cc()
+
+        def _impl(repository_ctx):
+            repository_ctx.symlink(repository_ctx.attr.path, "")
+
+        repo = repository_rule(
+            implementation = _impl,
+            local = True,
+            attrs = {"path": attr.string(mandatory = True)},
+        )
+        """);
     scratch.file(rootDirectory.getRelative("BUILD").getPathString());
     scratch.overwriteFile(
-        rootDirectory.getRelative("WORKSPACE").getPathString(),
-        new ImmutableList.Builder<String>()
-            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
-            .add("load('//:def.bzl', 'repo')")
-            .add("repo(name='foo', path='/repo2')")
-            .build());
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "repo = use_repo_rule('//:def.bzl', 'repo')",
+        "repo(name='foo', path='/repo2')");
     invalidatePackages();
-    ConfiguredTargetAndData target = getConfiguredTargetAndData("@foo//:bar");
-    Object path = target.getTargetForTesting().getAssociatedRule().getAttr("path");
-    assertThat(path).isEqualTo("foo");
+    getConfiguredTargetAndData("@@+_repo_rules+foo//:bar");
   }
 
   @Test
   public void testStarlarkSymlinkFileFromRepository() throws Exception {
     // This test creates a symbolic link BUILD -> bar.txt.
-    scratch.file("/repo2/bar.txt", "filegroup(name='bar', srcs=['foo.txt'], path='foo')");
+    scratch.file("/repo2/bar.txt", "filegroup(name='bar', srcs=['foo.txt'])");
     scratch.file("/repo2/BUILD");
-    scratch.file("/repo2/WORKSPACE");
+    scratch.file("/repo2/MODULE.bazel", "module(name='repo2')");
     scratch.file(
         "def.bzl",
-        "def _impl(repository_ctx):",
-        "  repository_ctx.symlink(Label('@repo2//:bar.txt'), 'BUILD')",
-        "  repository_ctx.file('foo.txt', 'foo')",
-        "",
-        "repo = repository_rule(",
-        "    implementation=_impl,",
-        "    local=True)");
+        """
+        def _impl(repository_ctx):
+            repository_ctx.symlink(Label("@repo2//:bar.txt"), "BUILD")
+            repository_ctx.file("foo.txt", "foo")
+
+        repo = repository_rule(
+            implementation = _impl,
+            local = True,
+        )
+        """);
     scratch.file(rootDirectory.getRelative("BUILD").getPathString());
     scratch.overwriteFile(
-        rootDirectory.getRelative("WORKSPACE").getPathString(),
-        new ImmutableList.Builder<String>()
-            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
-            .add("local_repository(name='repo2', path='/repo2')")
-            .add("load('//:def.bzl', 'repo')")
-            .add("repo(name='foo')")
-            .build());
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "bazel_dep(name = 'repo2')",
+        "local_path_override(module_name = 'repo2', path = '/repo2')",
+        "repo = use_repo_rule('//:def.bzl', 'repo')",
+        "repo(name='foo')");
     invalidatePackages();
-    ConfiguredTargetAndData target = getConfiguredTargetAndData("@foo//:bar");
-    Object path = target.getTargetForTesting().getAssociatedRule().getAttr("path");
-    assertThat(path).isEqualTo("foo");
+    getConfiguredTargetAndData("@@+_repo_rules+foo//:bar");
   }
 
   @Test
   public void testStarlarkRepositoryTemplate() throws Exception {
-    scratch.file("/repo2/bar.txt", "filegroup(name='{target}', srcs=['foo.txt'], path='{path}')");
+    scratch.file("/repo2/bar.txt", "filegroup(name='{target}', srcs=['{path}'])");
     scratch.file("/repo2/BUILD");
-    scratch.file("/repo2/WORKSPACE");
+    scratch.file("/repo2/MODULE.bazel", "module(name='repo2')");
     scratch.file(
         "def.bzl",
         "def _impl(repository_ctx):",
@@ -195,25 +202,25 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
         "    local=True)");
     scratch.file(rootDirectory.getRelative("BUILD").getPathString());
     scratch.overwriteFile(
-        rootDirectory.getRelative("WORKSPACE").getPathString(),
-        new ImmutableList.Builder<String>()
-            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
-            .add("local_repository(name='repo2', path='/repo2')")
-            .add("load('//:def.bzl', 'repo')")
-            .add("repo(name='foo')")
-            .build());
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "bazel_dep(name = 'repo2')",
+        "local_path_override(module_name = 'repo2', path = '/repo2')",
+        "repo = use_repo_rule('//:def.bzl', 'repo')",
+        "repo(name='foo')");
     invalidatePackages();
-    ConfiguredTargetAndData target = getConfiguredTargetAndData("@foo//:bar");
-    Object path = target.getTargetForTesting().getAssociatedRule().getAttr("path");
-    assertThat(path).isEqualTo("foo");
+    ConfiguredTargetAndData target = getConfiguredTargetAndData("@@+_repo_rules+foo//:bar");
+    @SuppressWarnings("unchecked")
+    List<Label> srcs =
+        (List<Label>) target.getTargetForTesting().getAssociatedRule().getAttr("srcs", LABEL_LIST);
+    assertThat(srcs).containsExactly(Label.parseCanonical("@@+_repo_rules+foo//:foo"));
   }
 
   @Test
   public void testStarlarkRepositoryName() throws Exception {
     // Variation of the template rule to test the repository_ctx.name field.
-    scratch.file("/repo2/bar.txt", "filegroup(name='bar', srcs=['foo.txt'], path='{path}')");
+    scratch.file("/repo2/bar.txt", "filegroup(name='bar', srcs=['{path}'])");
     scratch.file("/repo2/BUILD");
-    scratch.file("/repo2/WORKSPACE");
+    scratch.file("/repo2/MODULE.bazel", "module(name='repo2')");
     scratch.file(
         "def.bzl",
         "def _impl(repository_ctx):",
@@ -226,25 +233,32 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
         "    local=True)");
     scratch.file(rootDirectory.getRelative("BUILD").getPathString());
     scratch.overwriteFile(
-        rootDirectory.getRelative("WORKSPACE").getPathString(),
-        new ImmutableList.Builder<String>()
-            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
-            .add("local_repository(name='repo2', path='/repo2')")
-            .add("load('//:def.bzl', 'repo')")
-            .add("repo(name='foobar')")
-            .build());
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "bazel_dep(name = 'repo2')",
+        "local_path_override(module_name = 'repo2', path = '/repo2')",
+        "repo = use_repo_rule('//:def.bzl', 'repo')",
+        "repo(name='foobar')");
     invalidatePackages();
-    ConfiguredTargetAndData target = getConfiguredTargetAndData("@foobar//:bar");
-    Object path = target.getTargetForTesting().getAssociatedRule().getAttr("path");
-    assertThat(path).isEqualTo("foobar");
+    ConfiguredTargetAndData target = getConfiguredTargetAndData("@@+_repo_rules+foobar//:bar");
+    @SuppressWarnings("unchecked")
+    List<Label> srcs =
+        (List<Label>) target.getTargetForTesting().getAssociatedRule().getAttr("srcs", LABEL_LIST);
+    assertThat(srcs)
+        .containsExactly(Label.parseCanonical("@@+_repo_rules+foobar//:+_repo_rules+foobar"));
   }
 
   @Test
   public void testCycleErrorWhenCallingRandomTarget() throws Exception {
+    setBuildLanguageOptions("--enable_workspace");
     reporter.removeHandler(failFastHandler);
     scratch.file("/repo2/data.txt", "data");
     scratch.file("/repo2/BUILD", "exports_files_(['data.txt'])");
-    scratch.file("/repo2/def.bzl", "def macro():", "  print('bleh')");
+    scratch.file(
+        "/repo2/def.bzl",
+        """
+        def macro():
+            print("bleh")
+        """);
     scratch.file("/repo2/WORKSPACE");
     scratch.overwriteFile(
         rootDirectory.getRelative("WORKSPACE").getPathString(),
@@ -270,10 +284,16 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testCycleErrorWhenCallingCycleTarget() throws Exception {
+    setBuildLanguageOptions("--enable_workspace");
     reporter.removeHandler(failFastHandler);
     scratch.file("/repo2/data.txt", "data");
     scratch.file("/repo2/BUILD", "exports_files_(['data.txt'])");
-    scratch.file("/repo2/def.bzl", "def macro():", "  print('bleh')");
+    scratch.file(
+        "/repo2/def.bzl",
+        """
+        def macro():
+            print("bleh")
+        """);
     scratch.file("/repo2/WORKSPACE");
     scratch.overwriteFile(
         rootDirectory.getRelative("WORKSPACE").getPathString(),
@@ -298,6 +318,7 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testCycleErrorInWorkspaceFileWithExternalRepo() throws Exception {
+    setBuildLanguageOptions("--enable_workspace");
     try (OutputStream output = scratch.resolve("WORKSPACE").getOutputStream(/* append= */ true)) {
       output.write(
           ("\nload('//foo:bar.bzl', 'foobar')" + "\ngit_repository(name = 'git_repo')")
@@ -307,8 +328,11 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
     scratch.file("foo/BUILD", "");
     scratch.file(
         "foo/bar.bzl",
-        "load('@git_repo//xyz:foo.bzl', 'rule_from_git')",
-        "rule_from_git(name = 'foobar')");
+        """
+        load("@git_repo//xyz:foo.bzl", "rule_from_git")
+
+        rule_from_git(name = "foobar")
+        """);
 
     invalidatePackages();
     AssertionError expected = assertThrows(AssertionError.class, () -> getTarget("@//:git_repo"));
@@ -323,10 +347,16 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testLoadDoesNotHideWorkspaceError() throws Exception {
+    setBuildLanguageOptions("--enable_workspace");
     reporter.removeHandler(failFastHandler);
     scratch.file("/repo2/data.txt", "data");
     scratch.file("/repo2/BUILD", "exports_files_(['data.txt'])");
-    scratch.file("/repo2/def.bzl", "def macro():", "  print('bleh')");
+    scratch.file(
+        "/repo2/def.bzl",
+        """
+        def macro():
+            print("bleh")
+        """);
     scratch.file("/repo2/WORKSPACE");
 
     scratch.overwriteFile(
@@ -351,7 +381,13 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testLoadDoesNotHideWorkspaceFunction() throws Exception {
-    scratch.file("def.bzl", "def macro():", "  print('bleh')");
+    setBuildLanguageOptions("--enable_workspace");
+    scratch.file(
+        "def.bzl",
+        """
+        def macro():
+            print("bleh")
+        """);
     scratch.overwriteFile(
         rootDirectory.getRelative("WORKSPACE").getPathString(),
         new ImmutableList.Builder<String>()
@@ -369,20 +405,24 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
   public void testStarlarkRepositoryCannotOverrideBuiltInAttribute() throws Exception {
     scratch.file(
         "def.bzl",
-        "def _impl(ctx):",
-        "  print(ctx.attr.name)",
-        "",
-        "repo = repository_rule(",
-        "    implementation=_impl,",
-        "    attrs={'name': attr.string(mandatory=True)})");
+        """
+        def _impl(ctx):
+            print(ctx.attr.name)
+
+        repo = repository_rule(
+            implementation = _impl,
+            attrs = {"name": attr.string(mandatory = True)},
+        )
+        """);
     scratch.file(rootDirectory.getRelative("BUILD").getPathString());
     scratch.overwriteFile(
-        rootDirectory.getRelative("WORKSPACE").getPathString(),
-        "load('//:def.bzl', 'repo')",
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "repo = use_repo_rule('//:def.bzl', 'repo')",
         "repo(name='foo')");
 
     invalidatePackages();
-    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("@foo//:bar"));
+    AssertionError e =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("@@+_repo_rules+foo//:bar"));
     assertThat(e)
         .hasMessageThat()
         .contains("There is already a built-in attribute 'name' " + "which cannot be overridden");
@@ -390,6 +430,14 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testMultipleLoadSameExtension() throws Exception {
+    setBuildLanguageOptions("--enable_workspace");
+    // certain prelude files require access to APIs that are allowlisted in the main repository
+    if (ruleClassProvider.getPreludeLabel() != null) {
+      scratch.overwriteFile(
+          rootDirectory
+              .getRelative(ruleClassProvider.getPreludeLabel().toPathFragment())
+              .getPathString());
+    }
     scratch.overwriteFile(
         rootDirectory.getRelative("WORKSPACE").getPathString(),
         new ImmutableList.Builder<String>()
@@ -418,16 +466,26 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testBindAndRepoSameNameDoesNotCrash() throws Exception {
+    setBuildLanguageOptions("--enable_workspace");
     reporter.removeHandler(failFastHandler);
     scratch.file("/repo2/data.txt", "data");
-    scratch.file("/repo2/BUILD", "load('@//:rulez.bzl', 'r')", "r(name = 'z')");
+    scratch.file(
+        "/repo2/BUILD",
+        """
+        load("@//:rulez.bzl", "r")
+
+        r(name = "z")
+        """);
     scratch.file("/repo2/WORKSPACE");
 
     scratch.file(
         "rulez.bzl",
-        "def _impl(ctx):",
-        "    pass",
-        "r = rule(_impl, attrs = { 'deps' : attr.label_list() })");
+        """
+        def _impl(ctx):
+            pass
+
+        r = rule(_impl, attrs = {"deps": attr.label_list()})
+        """);
     scratch.file("BUILD", "load(':rulez.bzl', 'r')", "r(name = 'x', deps = ['//external:zlib'])");
 
     scratch.overwriteFile(
@@ -452,33 +510,33 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "repo.bzl",
-        "def _impl(ctx):",
-        "    pass",
-        "",
-        "repo = repository_rule(implementation = _impl)");
+        """
+        def _impl(ctx):
+            pass
+
+        repo = repository_rule(implementation = _impl)
+        """);
     scratch.file("BUILD", "load('repo.bzl', 'repo')", "repo(name = 'repository_rule')");
 
     invalidatePackages();
     getConfiguredTarget("//:x");
-    assertContainsEvent("'repository rule repo' can only be called during workspace loading");
+    assertContainsEvent("repository rules can only be used while evaluating a WORKSPACE file");
   }
 
   @Test
   public void testPackageAndRepositoryNameFunctionsInExternalRepository() throws Exception {
     // @foo repo
-    scratch.file("/foo/WORKSPACE", "!"); // why is this unread file needed?
+    scratch.file("/foo/MODULE.bazel", "module(name='foo')");
     scratch.file("/foo/p/BUILD", "print('repo='+repository_name()+' pkg='+package_name())");
     // main repo
     scratch.overwriteFile(
-        "WORKSPACE",
-        new ImmutableList.Builder<String>()
-            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
-            .add("local_repository(name='foo', path='/foo')")
-            .build());
+        "MODULE.bazel",
+        "bazel_dep(name='foo')",
+        "local_path_override(module_name='foo', path='/foo')");
 
     invalidatePackages(); // why is this needed?
 
-    getConfiguredTarget("@foo//p:BUILD"); // (loadPackage(@foo//p) would suffice)
-    assertContainsEvent("repo=@foo pkg=p");
+    getConfiguredTarget("@@foo+//p:BUILD"); // (loadPackage(@foo//p) would suffice)
+    assertContainsEvent("repo=@foo+ pkg=p");
   }
 }

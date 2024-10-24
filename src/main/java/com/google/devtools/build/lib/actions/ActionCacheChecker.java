@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
@@ -488,7 +487,7 @@ public class ActionCacheChecker {
   }
 
   /**
-   * Checks whether {@code action} needs to be executed and returns a non-null Token if so.
+   * Checks whether {@code action} needs to be executed and returns a non-null {@link Token} if so.
    *
    * <p>The method checks if any of the action's inputs or outputs have changed. Returns a non-null
    * {@link Token} if the action needs to be executed, and null otherwise.
@@ -523,7 +522,7 @@ public class ActionCacheChecker {
       return null;
     }
     if (!cacheConfig.enabled()) {
-      return new Token(getKeyString(action));
+      return new Token(action);
     }
     NestedSet<Artifact> actionInputs = action.getInputs();
     // Resolve action inputs from cache, if necessary.
@@ -534,8 +533,8 @@ public class ActionCacheChecker {
           action.discoversInputs(),
           "Actions that don't know their inputs must discover them: %s",
           action);
-      if (action instanceof ActionCacheAwareAction
-          && ((ActionCacheAwareAction) action).storeInputsExecPathsInActionCache()) {
+      if (action instanceof ActionCacheAwareAction actionCacheAwareAction
+          && actionCacheAwareAction.storeInputsExecPathsInActionCache()) {
         actionInputs = NestedSetBuilder.wrap(Order.STABLE_ORDER, resolvedCacheArtifacts);
       } else {
         actionInputs =
@@ -551,9 +550,11 @@ public class ActionCacheChecker {
       cachedOutputMetadata = loadCachedOutputMetadata(action, entry, outputMetadataStore);
     }
 
+    Token token = new Token(action);
     if (mustExecute(
         action,
         entry,
+        token,
         handler,
         inputMetadataProvider,
         outputMetadataStore,
@@ -567,7 +568,7 @@ public class ActionCacheChecker {
       if (entry != null) {
         removeCacheEntry(action);
       }
-      return new Token(getKeyString(action));
+      return token;
     }
 
     if (!inputsKnown) {
@@ -586,6 +587,7 @@ public class ActionCacheChecker {
   private boolean mustExecute(
       Action action,
       @Nullable ActionCache.Entry entry,
+      Token token,
       EventHandler handler,
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
@@ -614,7 +616,9 @@ public class ActionCacheChecker {
       reportCorruptedCacheEntry(handler, action);
       actionCache.accountMiss(MissReason.CORRUPTED_CACHE_ENTRY);
       return true;
-    } else if (validateArtifacts(
+    }
+
+    if (validateArtifacts(
         entry,
         action,
         actionInputs,
@@ -626,11 +630,16 @@ public class ActionCacheChecker {
       reportChanged(handler, action);
       actionCache.accountMiss(MissReason.DIFFERENT_FILES);
       return true;
-    } else if (!entry.getActionKey().equals(action.getKey(actionKeyContext, artifactExpander))) {
+    }
+
+    String actionKey = action.getKey(actionKeyContext, artifactExpander);
+    token.actionKey = actionKey; // Save the action key for reuse in updateActionCache().
+    if (!entry.getActionKey().equals(actionKey)) {
       reportCommand(handler, action);
       actionCache.accountMiss(MissReason.DIFFERENT_ACTION_KEY);
       return true;
     }
+
     Map<String, String> usedEnvironment =
         computeUsedEnv(action, clientEnv, remoteDefaultPlatformProperties);
     if (!entry.sameActionProperties(usedEnvironment, outputPermissions)) {
@@ -718,12 +727,18 @@ public class ActionCacheChecker {
     }
     Map<String, String> usedEnvironment =
         computeUsedEnv(action, clientEnv, remoteDefaultPlatformProperties);
+
+    // We may already have the action key stored in the token if there was a previous (but out of
+    // date) cache entry for this action. If not, there's no need to store the action key in the
+    // token since we won't need it again.
+    String actionKey = token.actionKey;
+    if (actionKey == null) {
+      actionKey = action.getKey(actionKeyContext, artifactExpander);
+    }
+
     ActionCache.Entry entry =
         new ActionCache.Entry(
-            action.getKey(actionKeyContext, artifactExpander),
-            usedEnvironment,
-            action.discoversInputs(),
-            outputPermissions);
+            actionKey, usedEnvironment, action.discoversInputs(), outputPermissions);
     for (Artifact output : action.getOutputs()) {
       // Remove old records from the cache if they used different key.
       String execPath = output.getExecPathString();
@@ -748,8 +763,8 @@ public class ActionCacheChecker {
     }
 
     boolean storeAllInputsInActionCache =
-        action instanceof ActionCacheAwareAction
-            && ((ActionCacheAwareAction) action).storeInputsExecPathsInActionCache();
+        action instanceof ActionCacheAwareAction actionCacheAwareAction
+            && actionCacheAwareAction.storeInputsExecPathsInActionCache();
     ImmutableSet<Artifact> excludePathsFromActionCache =
         !storeAllInputsInActionCache && action.discoversInputs()
             ? action.getMandatoryInputs().toSet()
@@ -928,12 +943,6 @@ public class ActionCacheChecker {
         remoteArtifactChecker);
   }
 
-  /** Returns an action key. It is always set to the first output exec path string. */
-  private static String getKeyString(Action action) {
-    checkState(!action.getOutputs().isEmpty());
-    return action.getOutputs().iterator().next().getExecPathString();
-  }
-
   /**
    * In most cases, this method should not be called directly - reportXXX() methods should be used
    * instead. This is done to avoid cost associated with building the message.
@@ -971,10 +980,15 @@ public class ActionCacheChecker {
 
   /** Wrapper for all context needed by the ActionCacheChecker to handle a single action. */
   public static final class Token {
+
+    /** The primary output's path, used as the key for {@link ActionCache} . */
     private final String cacheKey;
 
-    private Token(String cacheKey) {
-      this.cacheKey = Preconditions.checkNotNull(cacheKey);
+    /** The result of calling {@link Action#getKey}, or {@code null} if it was not called. */
+    @Nullable private String actionKey;
+
+    private Token(Action action) {
+      this.cacheKey = action.getPrimaryOutput().getExecPathString();
     }
   }
 

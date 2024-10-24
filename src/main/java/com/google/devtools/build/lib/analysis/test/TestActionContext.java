@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis.test;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -107,7 +108,11 @@ public interface TestActionContext extends ActionContext {
   }
 
   /** Creates a cached test result. */
-  TestResult newCachedTestResult(Path execRoot, TestRunnerAction action, TestResultData cached)
+  TestResult newCachedTestResult(
+      Path execRoot,
+      TestRunnerAction action,
+      TestResultData cached,
+      ImmutableMultimap<String, Path> testOutputs)
       throws IOException;
 
   /** Returns the attempt group associaed with the given shard. */
@@ -155,12 +160,13 @@ public interface TestActionContext extends ActionContext {
   }
 
   /**
-   * An object representing a failed non-final attempt. This is only used for tests that are run
-   * multiple times. At this time, Bazel retries tests until the first passed attempt, or until the
-   * number of retries is exhausted - whichever comes first. This interface represents the result
-   * from a previous attempt, but never the final attempt, even if unsuccessful.
+   * The result of passing a {@link TestAttemptResult} through {@link
+   * TestRunnerSpawn#finalizeFailedTestAttempt}, which is later passed to {@link
+   * TestRunnerSpawn#finalizeTest} or {@link TestRunnerSpawn#finalizeCancelledTest}.
+   *
+   * <p>This exists so that implementations may replace or augment the result with their own data.
    */
-  interface FailedAttemptResult {}
+  interface ProcessedAttemptResult {}
 
   /** A delegate to run a test. This may include running multiple spawns, renaming outputs, etc. */
   interface TestRunnerSpawn {
@@ -176,16 +182,18 @@ public interface TestActionContext extends ActionContext {
     int getMaxAttempts(TestAttemptResult firstTestAttemptResult);
 
     /** Rename the output files if the test attempt failed, and post the test attempt result. */
-    FailedAttemptResult finalizeFailedTestAttempt(TestAttemptResult testAttemptResult, int attempt)
-        throws IOException;
+    ProcessedAttemptResult finalizeFailedTestAttempt(
+        TestAttemptResult testAttemptResult, int attempt)
+        throws IOException, ExecException, InterruptedException;
 
     /** Post the final test result based on the last attempt and the list of failed attempts. */
     void finalizeTest(
-        TestAttemptResult lastTestAttemptResult, List<FailedAttemptResult> failedAttempts)
-        throws IOException;
+        TestAttemptResult lastTestAttemptResult, List<ProcessedAttemptResult> failedAttempts)
+        throws IOException, ExecException, InterruptedException;
 
     /** Post the final test result based on the last attempt and the list of failed attempts. */
-    void finalizeCancelledTest(List<FailedAttemptResult> failedAttempts) throws IOException;
+    void finalizeCancelledTest(List<ProcessedAttemptResult> failedAttempts)
+        throws IOException, ExecException, InterruptedException;
 
     /**
      * Return a {@link TestRunnerSpawn} object if test fallback is enabled, or {@code null}
@@ -203,7 +211,8 @@ public interface TestActionContext extends ActionContext {
      * allows a test to run with a different strategy on flaky retries (for example, enabling test
      * fail-fast mode to save up resources).
      */
-    default TestRunnerSpawn getFlakyRetryRunner() throws ExecException, InterruptedException {
+    default TestRunnerSpawn getFlakyRetryRunner(List<SpawnResult> previousAttemptResults)
+        throws ExecException, InterruptedException {
       return this;
     }
   }

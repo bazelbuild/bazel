@@ -29,6 +29,10 @@ cd "$(dirname "$0")"
 # a chance of overriding this in case they want to do so.
 : ${VERBOSE:=no}
 
+# Reset MSYS path conversion on Windows.
+unset MSYS_NO_PATHCONV
+unset MSYS2_ARG_CONV_EXCL
+
 source scripts/bootstrap/buildenv.sh
 
 mkdir -p output
@@ -56,6 +60,10 @@ if [[ $PLATFORM == "darwin" ]] && \
   EXTRA_BAZEL_ARGS="${EXTRA_BAZEL_ARGS-} --define IPHONE_SDK=1"
 fi
 
+if [[ $PLATFORM == "windows" ]]; then
+  EXTRA_BAZEL_ARGS="${EXTRA_BAZEL_ARGS-} --cxxopt=/std:c++17 --host_cxxopt=/std:c++17"
+fi
+
 source scripts/bootstrap/bootstrap.sh
 
 new_step 'Building Bazel with Bazel'
@@ -65,8 +73,8 @@ log "Building output/bazel"
 # host.
 bazel_build "src:bazel_nojdk${EXE_EXT}" \
   --action_env=PATH \
-  --host_platform=@local_config_platform//:host \
-  --platforms=@local_config_platform//:host \
+  --host_platform=@platforms//host \
+  --platforms=@platforms//host \
   || fail "Could not build Bazel"
 bazel_bin_path="$(get_bazel_bin_path)/src/bazel_nojdk${EXE_EXT}"
 [ -e "$bazel_bin_path" ] \

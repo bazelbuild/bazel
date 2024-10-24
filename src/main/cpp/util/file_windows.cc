@@ -14,7 +14,6 @@
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
-#include <ctype.h>   // isalpha
 #include <wchar.h>   // wcslen
 #include <wctype.h>  // iswalpha
 #include <windows.h>
@@ -28,7 +27,6 @@
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/logging.h"
-#include "src/main/cpp/util/path.h"
 #include "src/main/cpp/util/path_platform.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/main/native/windows/file.h"
@@ -108,28 +106,54 @@ IPipe* CreatePipe() {
   return new WindowsPipe(read_handle, write_handle);
 }
 
-class WindowsFileMtime : public IFileMtime {
- public:
-  WindowsFileMtime()
-      : near_future_(GetFuture(9)), distant_future_(GetFuture(10)) {}
+static FILETIME GetNow() {
+  FILETIME now;
+  GetSystemTimeAsFileTime(&now);
+  return now;
+}
 
-  bool IsUntampered(const Path& path) override;
-  bool SetToNow(const Path& path) override;
-  bool SetToNowIfPossible(const Path& path) override;
-  bool SetToDistantFuture(const Path& path) override;
+static FILETIME GetYearsInFuture(WORD years) {
+  FILETIME result;
+  GetSystemTimeAsFileTime(&result);
 
- private:
-  // 9 years in the future.
-  const FILETIME near_future_;
-  // 10 years in the future.
-  const FILETIME distant_future_;
+  // 1 year in FILETIME.
+  constexpr ULONGLONG kOneYear = 365ULL * 24 * 60 * 60 * 10000000;
 
-  static FILETIME GetNow();
-  static FILETIME GetFuture(WORD years);
-  static bool Set(const Path& path, FILETIME time);
-};
+  ULARGE_INTEGER result_value;
+  result_value.LowPart = result.dwLowDateTime;
+  result_value.HighPart = result.dwHighDateTime;
+  result_value.QuadPart += kOneYear * years;
+  result.dwLowDateTime = result_value.LowPart;
+  result.dwHighDateTime = result_value.HighPart;
+  return result;
+}
 
-bool WindowsFileMtime::IsUntampered(const Path& path) {
+static bool SetMtime(const Path& path, FILETIME time) {
+  AutoHandle handle(::CreateFileW(
+      /* lpFileName */ path.AsNativePath().c_str(),
+      /* dwDesiredAccess */ FILE_WRITE_ATTRIBUTES,
+      /* dwShareMode */ FILE_SHARE_READ,
+      /* lpSecurityAttributes */ nullptr,
+      /* dwCreationDisposition */ OPEN_EXISTING,
+      /* dwFlagsAndAttributes */
+      IsDirectoryW(path.AsNativePath())
+          ? (FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS)
+          : FILE_ATTRIBUTE_NORMAL,
+      /* hTemplateFile */ nullptr));
+  if (!handle.IsValid()) {
+    return false;
+  }
+  return ::SetFileTime(
+             /* hFile */ handle,
+             /* lpCreationTime */ nullptr,
+             /* lpLastAccessTime */ nullptr,
+             /* lpLastWriteTime */ &time) == TRUE;
+}
+
+static const FILETIME kNearFuture = GetYearsInFuture(9);
+static const FILETIME kDistantFuture = GetYearsInFuture(10);
+
+bool IsUntampered(const Path& path) {
   if (path.IsEmpty() || path.IsNull()) {
     return false;
   }
@@ -166,22 +190,17 @@ bool WindowsFileMtime::IsUntampered(const Path& path) {
       return false;
     }
 
-    // Compare the mtime with `near_future_`, not with `GetNow()` or
-    // `distant_future_`.
-    // This way we don't need to call GetNow() every time we want to compare
-    // (and thus convert a SYSTEMTIME to FILETIME), and we also don't need to
-    // worry about potentially unreliable FILETIME equality check (in case it
-    // uses floats or something crazy).
-    return CompareFileTime(&near_future_, &info.ftLastWriteTime) == -1;
+    // Compare with kNearFuture, not with kDistantFuture.
+    // This way we don't need to worry about a potentially unreliable equality
+    // check if precision isn't preserved.
+    return CompareFileTime(&kNearFuture, &info.ftLastWriteTime) == -1;
   }
 }
 
-bool WindowsFileMtime::SetToNow(const Path& path) {
-  return Set(path, GetNow());
-}
+bool SetMtimeToNow(const Path& path) { return SetMtime(path, GetNow()); }
 
-bool WindowsFileMtime::SetToNowIfPossible(const Path& path) {
-  bool okay = this->SetToNow(path);
+bool SetMtimeToNowIfPossible(const Path& path) {
+  bool okay = SetMtimeToNow(path);
   if (!okay) {
     // `SetToNow` is backed by `CreateFileW` + `SetFileTime`; the former can
     // return `ERROR_ACCESS_DENIED` if there's a permissions issue:
@@ -193,55 +212,9 @@ bool WindowsFileMtime::SetToNowIfPossible(const Path& path) {
   return okay;
 }
 
-bool WindowsFileMtime::SetToDistantFuture(const Path& path) {
-  return Set(path, distant_future_);
+bool SetMtimeToDistantFuture(const Path& path) {
+  return SetMtime(path, kDistantFuture);
 }
-
-bool WindowsFileMtime::Set(const Path& path, FILETIME time) {
-  AutoHandle handle(::CreateFileW(
-      /* lpFileName */ path.AsNativePath().c_str(),
-      /* dwDesiredAccess */ FILE_WRITE_ATTRIBUTES,
-      /* dwShareMode */ FILE_SHARE_READ,
-      /* lpSecurityAttributes */ nullptr,
-      /* dwCreationDisposition */ OPEN_EXISTING,
-      /* dwFlagsAndAttributes */
-      IsDirectoryW(path.AsNativePath())
-          ? (FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS)
-          : FILE_ATTRIBUTE_NORMAL,
-      /* hTemplateFile */ nullptr));
-  if (!handle.IsValid()) {
-    return false;
-  }
-  return ::SetFileTime(
-             /* hFile */ handle,
-             /* lpCreationTime */ nullptr,
-             /* lpLastAccessTime */ nullptr,
-             /* lpLastWriteTime */ &time) == TRUE;
-}
-
-FILETIME WindowsFileMtime::GetNow() {
-  FILETIME now;
-  GetSystemTimeAsFileTime(&now);
-  return now;
-}
-
-FILETIME WindowsFileMtime::GetFuture(WORD years) {
-  FILETIME result;
-  GetSystemTimeAsFileTime(&result);
-
-  // 1 year in FILETIME.
-  constexpr ULONGLONG kOneYear = 365ULL * 24 * 60 * 60 * 10000000;
-
-  ULARGE_INTEGER result_value;
-  result_value.LowPart = result.dwLowDateTime;
-  result_value.HighPart = result.dwHighDateTime;
-  result_value.QuadPart += kOneYear * years;
-  result.dwLowDateTime = result_value.LowPart;
-  result.dwHighDateTime = result_value.HighPart;
-  return result;
-}
-
-IFileMtime* CreateFileMtime() { return new WindowsFileMtime(); }
 
 static bool OpenFileForReading(const Path& path, HANDLE* result) {
   *result = ::CreateFileW(
@@ -368,6 +341,8 @@ bool WriteFile(const void* data, size_t size, const Path& path,
   ::WriteFile(handle, data, size, &actually_written, nullptr);
   return actually_written == size;
 }
+
+void InitializeStdOutErrForUtf8() { SetConsoleOutputCP(CP_UTF8); }
 
 int WriteToStdOutErr(const void* data, size_t size, bool to_stdout) {
   DWORD written = 0;

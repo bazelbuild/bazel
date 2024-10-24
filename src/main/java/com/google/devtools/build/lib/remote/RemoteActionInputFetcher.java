@@ -26,8 +26,8 @@ import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
-import com.google.devtools.build.lib.remote.util.TempPathGenerator;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
+import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -43,13 +43,13 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
 
   private final String buildRequestId;
   private final String commandId;
-  private final RemoteCache remoteCache;
+  private final CombinedCache combinedCache;
 
   RemoteActionInputFetcher(
       Reporter reporter,
       String buildRequestId,
       String commandId,
-      RemoteCache remoteCache,
+      CombinedCache combinedCache,
       Path execRoot,
       TempPathGenerator tempPathGenerator,
       RemoteOutputChecker remoteOutputChecker,
@@ -64,7 +64,7 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
         outputPermissions);
     this.buildRequestId = Preconditions.checkNotNull(buildRequestId);
     this.commandId = Preconditions.checkNotNull(commandId);
-    this.remoteCache = Preconditions.checkNotNull(remoteCache);
+    this.combinedCache = Preconditions.checkNotNull(combinedCache);
   }
 
   @Override
@@ -74,7 +74,7 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
 
   @Override
   protected void prefetchVirtualActionInput(VirtualActionInput input) throws IOException {
-    input.atomicallyWriteRelativeTo(execRoot, ".fetcher");
+    input.atomicallyWriteRelativeTo(execRoot);
   }
 
   @Override
@@ -98,12 +98,12 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
 
     Digest digest = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
 
-    return remoteCache.downloadFile(
+    return combinedCache.downloadFile(
         context,
         execPath.getPathString(),
         tempPath,
         digest,
-        new RemoteCache.DownloadProgressReporter(
+        new CombinedCache.DownloadProgressReporter(
             progress -> progress.postTo(reporter, action),
             execPath.toString(),
             digest.getSizeBytes()));

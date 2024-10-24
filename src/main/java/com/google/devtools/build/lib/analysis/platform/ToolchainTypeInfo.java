@@ -64,11 +64,10 @@ public class ToolchainTypeInfo extends NativeInfo implements ToolchainTypeInfoAp
 
   @Override
   public boolean equals(Object other) {
-    if (!(other instanceof ToolchainTypeInfo)) {
+    if (!(other instanceof ToolchainTypeInfo otherToolchainTypeInfo)) {
       return false;
     }
 
-    ToolchainTypeInfo otherToolchainTypeInfo = (ToolchainTypeInfo) other;
     return Objects.equals(typeLabel, otherToolchainTypeInfo.typeLabel);
   }
 }

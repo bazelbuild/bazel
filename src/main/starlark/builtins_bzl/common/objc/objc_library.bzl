@@ -14,19 +14,17 @@
 
 """objc_library Starlark implementation replacing native"""
 
-load("@_builtins//:common/cc/cc_helper.bzl", "cc_helper")
-load("@_builtins//:common/objc/attrs.bzl", "common_attrs")
-load("@_builtins//:common/objc/compilation_support.bzl", "compilation_support")
-load("@_builtins//:common/objc/objc_common.bzl", "extensions", "objc_common")
-load("@_builtins//:common/objc/semantics.bzl", "semantics")
-load("@_builtins//:common/objc/transitions.bzl", "apple_crosstool_transition")
-load(":common/cc/cc_common.bzl", "cc_common")
+load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/cc/semantics.bzl", cc_semantics = "semantics")
+load(":common/objc/attrs.bzl", "common_attrs")
+load(":common/objc/compilation_support.bzl", "compilation_support")
+load(":common/objc/objc_common.bzl", "extensions", "objc_common")
 load(":common/objc/providers.bzl", "J2ObjcEntryClassInfo", "J2ObjcMappingFileInfo")
+load(":common/objc/semantics.bzl", "semantics")
 
 objc_internal = _builtins.internal.objc_internal
 coverage_common = _builtins.toplevel.coverage_common
-apple_common = _builtins.toplevel.apple_common
 
 def _attribute_error(attr_name, msg):
     fail("in attribute '" + attr_name + "': " + msg)
@@ -97,7 +95,7 @@ def _objc_library_impl(ctx):
         # TODO(cmita): Use ctx.coverage_instrumented() instead when rules_swift can access
         # cc_toolchain.coverage_files and the coverage_support_files parameter of
         # coverage_common.instrumented_files_info(...)
-        coverage_support_files = cc_toolchain.coverage_files() if ctx.configuration.coverage_enabled else depset([]),
+        coverage_support_files = cc_toolchain._coverage_files if ctx.configuration.coverage_enabled else depset([]),
         metadata_files = compilation_outputs.gcno_files() + compilation_outputs.pic_gcno_files(),
     )
 
@@ -132,6 +130,7 @@ depend on it. Libraries specified with <code>implementation_deps</code> are stil
 in binary targets that depend on this library."""),
         },
         common_attrs.ALWAYSLINK_RULE,
+        # TODO(b/288421584): necessary because IDE aspect can't see toolchains
         common_attrs.CC_TOOLCHAIN_RULE,
         common_attrs.COMPILING_RULE,
         common_attrs.COMPILE_DEPENDENCY_RULE,
@@ -140,6 +139,6 @@ in binary targets that depend on this library."""),
         common_attrs.SDK_FRAMEWORK_DEPENDER_RULE,
     ),
     fragments = ["objc", "apple", "cpp"],
-    cfg = None if cc_common.incompatible_disable_objc_library_transition() else apple_crosstool_transition,
-    toolchains = cc_helper.use_cpp_toolchain(),
+    cfg = semantics.apple_crosstool_transition,
+    toolchains = cc_helper.use_cpp_toolchain() + cc_semantics.get_runtimes_toolchain(),
 )

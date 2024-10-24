@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.merkletree;
 
-import static com.google.devtools.build.lib.util.StringUtil.decodeBytestringUtf8;
+import static com.google.devtools.build.lib.util.StringUtil.reencodeInternalToExternal;
 
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
@@ -23,6 +23,7 @@ import build.bazel.remote.execution.v2.SymlinkNode;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
@@ -227,17 +228,14 @@ public class MerkleTree {
       @Nullable SpawnScrubber spawnScrubber,
       DigestUtil digestUtil)
       throws IOException {
-    try (SilentCloseable c = Profiler.instance().profile("MerkleTree.build(ActionInput)")) {
-      DirectoryTree tree =
-          DirectoryTreeBuilder.fromActionInputs(
-              inputs,
-              inputMetadataProvider,
-              execRoot,
-              artifactPathResolver,
-              spawnScrubber,
-              digestUtil);
-      return build(tree, digestUtil);
-    }
+    return build(
+        inputs,
+        /* toolInputs= */ ImmutableSet.of(),
+        inputMetadataProvider,
+        execRoot,
+        artifactPathResolver,
+        spawnScrubber,
+        digestUtil);
   }
 
   /**
@@ -400,7 +398,7 @@ public class MerkleTree {
   private static FileNode buildProto(DirectoryTree.FileNode file) {
     var node =
         FileNode.newBuilder()
-            .setName(decodeBytestringUtf8(file.getPathSegment()))
+            .setName(reencodeInternalToExternal(file.getPathSegment()))
             .setDigest(file.getDigest())
             .setIsExecutable(file.isExecutable());
     if (file.isToolInput()) {
@@ -411,15 +409,15 @@ public class MerkleTree {
 
   private static DirectoryNode buildProto(String baseName, MerkleTree dir) {
     return DirectoryNode.newBuilder()
-        .setName(decodeBytestringUtf8(baseName))
+        .setName(reencodeInternalToExternal(baseName))
         .setDigest(dir.getRootDigest())
         .build();
   }
 
   private static SymlinkNode buildProto(DirectoryTree.SymlinkNode symlink) {
     return SymlinkNode.newBuilder()
-        .setName(decodeBytestringUtf8(symlink.getPathSegment()))
-        .setTarget(decodeBytestringUtf8(symlink.getTarget()))
+        .setName(reencodeInternalToExternal(symlink.getPathSegment()))
+        .setTarget(reencodeInternalToExternal(symlink.getTarget()))
         .build();
   }
 

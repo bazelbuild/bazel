@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
-import com.google.devtools.build.skyframe.SkyValue;
 import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 import javax.annotation.Nullable;
 
@@ -25,16 +24,22 @@ import javax.annotation.Nullable;
  */
 @AutoValue
 @GenerateTypeAdapter
-public abstract class RepoSpec implements SkyValue {
+public abstract class RepoSpec {
 
   /**
-   * The label string for the bzl file this repository rule is defined in, empty for native rule.
+   * The unambiguous canonical label string for the bzl file this repository rule is defined in,
+   * empty for native rule.
    */
   @Nullable
   public abstract String bzlFile();
 
   public abstract String ruleClassName();
 
+  /**
+   * All attribute values provided to the repository rule, except for the <code>name</code>
+   * attribute, which is set in {@link
+   * com.google.devtools.build.lib.skyframe.BzlmodRepoRuleFunction}.
+   */
   public abstract AttributeValues attributes();
 
   public static Builder builder() {
@@ -50,7 +55,7 @@ public abstract class RepoSpec implements SkyValue {
 
     public abstract Builder setAttributes(AttributeValues attributes);
 
-    public abstract RepoSpec build();
+    abstract RepoSpec build();
   }
 
   public boolean isNativeRepoRule() {

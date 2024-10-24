@@ -204,10 +204,6 @@ public class PrepareDepsOfPatternValue implements SkyValue {
         return interner.intern(new Key(arg));
       }
 
-      TargetPatternKey getTargetPatternKey() {
-        return arg;
-      }
-
       @Override
       public SkyFunctionName functionName() {
         return SkyFunctions.PREPARE_DEPS_OF_PATTERN;

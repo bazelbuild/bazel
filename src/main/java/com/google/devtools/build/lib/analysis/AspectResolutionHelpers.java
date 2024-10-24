@@ -23,30 +23,13 @@ import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
 import java.util.ArrayList;
 import javax.annotation.Nullable;
 
 /** Helpers for aspect resolution. */
 public final class AspectResolutionHelpers {
   private AspectResolutionHelpers() {}
-
-  public static boolean aspectMatchesConfiguredTarget(
-      ConfiguredTarget ct, boolean isRule, Aspect aspect) {
-    if (!aspect.getDefinition().applyToFiles()
-        && !aspect.getDefinition().applyToGeneratingRules()
-        && !isRule) {
-      return false;
-    }
-    if (ct.getConfigurationKey() == null) {
-      // Aspects cannot apply to PackageGroups or InputFiles, the only cases where this is null.
-      return false;
-    }
-    return ct.satisfies(aspect.getDefinition().getRequiredProviders());
-  }
-
-  public static boolean aspectMatchesConfiguredTarget(ConfiguredTargetAndData ctad, Aspect aspect) {
-    return aspectMatchesConfiguredTarget(ctad.getConfiguredTarget(), ctad.isTargetRule(), aspect);
-  }
 
   /**
    * Computes the set of aspects that could be applied to a dependency.
@@ -63,11 +46,20 @@ public final class AspectResolutionHelpers {
    * <p>The presence of an aspect here does not necessarily mean that it will be available on a
    * dependency: it can still be filtered out because it requires a provider that the configured
    * target it should be attached to it doesn't advertise. This is taken into account in {@link
-   * #computeAspectCollection} once the {@link ConfiguredTargetAndData} instances for the
-   * dependencies are known.
+   * #computeAspectCollection}.
    */
   public static ImmutableList<Aspect> computePropagatingAspects(
-      DependencyKind kind, ImmutableList<Aspect> aspectsPath, Rule rule) {
+      DependencyKind kind,
+      ImmutableList<Aspect> aspectsPath,
+      Rule rule,
+      @Nullable ToolchainCollection<UnloadedToolchainContext> baseTargetToolchainContext) {
+    if (DependencyKind.isBaseTargetToolchain(kind)) {
+      return computePropagatingAspectsToToolchainDep(
+          (DependencyKind.BaseTargetToolchainDependencyKind) kind,
+          aspectsPath,
+          baseTargetToolchainContext);
+    }
+
     Attribute attribute = kind.getAttribute();
     if (attribute == null) {
       return ImmutableList.of();
@@ -76,6 +68,42 @@ public final class AspectResolutionHelpers {
     collectPropagatingAspects(
         aspectsPath, attribute.getName(), kind.getOwningAspect(), aspectsBuilder);
     return aspectsBuilder.build();
+  }
+
+  /**
+   * Compute the set of aspects propagating to the given {@link BaseTargetToolchainDependencyKind}
+   * based on the {@code toolchains_aspects} of each aspect in the {@code aspectsPath}.
+   */
+  private static ImmutableList<Aspect> computePropagatingAspectsToToolchainDep(
+      DependencyKind.BaseTargetToolchainDependencyKind kind,
+      ImmutableList<Aspect> aspectsPath,
+      @Nullable ToolchainCollection<UnloadedToolchainContext> baseTargetToolchainContext) {
+    var toolchainContext = baseTargetToolchainContext.getToolchainContext(kind.getExecGroupName());
+    var toolchainType =
+        toolchainContext.requestedLabelToToolchainType().get(kind.getToolchainType());
+
+    // Since the label of the toolchain type can be an alias, we need to get all the labels that
+    // point to the same toolchain type to compare them against the toolchain types that the aspects
+    // can propagate.
+    var allToolchainTypelabels =
+        toolchainContext.requestedLabelToToolchainType().asMultimap().inverse().get(toolchainType);
+
+    var filteredAspectPath = new ArrayList<Aspect>();
+
+    int aspectsCount = aspectsPath.size();
+    for (int i = aspectsCount - 1; i >= 0; i--) {
+      Aspect aspect = aspectsPath.get(i);
+      if (allToolchainTypelabels.stream()
+              .anyMatch(label -> aspect.getDefinition().canPropagateToToolchainType(label))
+          || isAspectRequired(aspect, filteredAspectPath)) {
+        // Adds the aspect if it propagates to the toolchain type or it is
+        // required by an aspect already in the {@code filteredAspectPath}.
+        filteredAspectPath.add(aspect);
+      }
+    }
+    reverse(filteredAspectPath);
+
+    return ImmutableList.copyOf(filteredAspectPath);
   }
 
   /**

@@ -18,9 +18,10 @@ default_java_toolchain(
         "-XX:+TieredCompilation",
         "-XX:TieredStopAtLevel=1",
     ],
+    oneversion = None,  # avoid remote_java_tools dependency
     singlejar = ["//src/tools/singlejar:singlejar"],
-    source_version = "8",
+    source_version = "21",
     tags = ["manual"],
-    target_version = "8",
+    target_version = "21",
     visibility = ["//visibility:public"],
 )

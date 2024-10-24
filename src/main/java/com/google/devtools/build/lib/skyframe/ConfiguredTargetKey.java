@@ -36,7 +36,6 @@ import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.util.Objects;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -130,10 +129,9 @@ public class ConfiguredTargetKey implements ActionLookupKey {
     if (this == obj) {
       return true;
     }
-    if (!(obj instanceof ConfiguredTargetKey)) {
+    if (!(obj instanceof ConfiguredTargetKey other)) {
       return false;
     }
-    ConfiguredTargetKey other = (ConfiguredTargetKey) obj;
     return hashCode == other.hashCode
         && getLabel().equals(other.getLabel())
         && Objects.equals(configurationKey, other.configurationKey)
@@ -246,7 +244,8 @@ public class ConfiguredTargetKey implements ActionLookupKey {
   }
 
   /** A helper class to create instances of {@link ConfiguredTargetKey}. */
-  public static final class Builder implements Supplier<ConfiguredTargetKey> {
+  public static final class Builder
+      implements DeferredObjectCodec.DeferredValue<ConfiguredTargetKey> {
     private Label label = null;
     private BuildConfigurationKey configurationKey = null;
     private Label executionPlatformLabel = null;
@@ -312,9 +311,9 @@ public class ConfiguredTargetKey implements ActionLookupKey {
       return interner.intern(newKey);
     }
 
-    /** Implements the {@link Supplier} used for deserialization. */
+    /** Implements the {@link DeferredObjectCodec.DeferredValue} used for deserialization. */
     @Override
-    public ConfiguredTargetKey get() {
+    public ConfiguredTargetKey call() {
       return build();
     }
   }
@@ -338,9 +337,56 @@ public class ConfiguredTargetKey implements ActionLookupKey {
     return key.getOptions().checksum();
   }
 
+  public static ConfiguredTargetKeyValueSharingCodec valueSharingCodec() {
+    return ConfiguredTargetKeyValueSharingCodec.INSTANCE;
+  }
+
+  // TODO: b/359437873 - generate with @AutoCodec.
+  private static class ConfiguredTargetKeyValueSharingCodec
+      extends DeferredObjectCodec<ConfiguredTargetKey> {
+
+    private static final ConfiguredTargetKeyValueSharingCodec INSTANCE =
+        new ConfiguredTargetKeyValueSharingCodec();
+
+    @Override
+    public boolean autoRegister() {
+      return false;
+    }
+
+    @Override
+    public Class<ConfiguredTargetKey> getEncodedClass() {
+      return ConfiguredTargetKey.class;
+    }
+
+    @Override
+    public void serialize(
+        SerializationContext context, ConfiguredTargetKey key, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.putSharedValue(
+          key, /* distinguisher= */ null, ConfiguredTargetKeyCodec.INSTANCE, codedOut);
+    }
+
+    @Override
+    public DeferredValue<ConfiguredTargetKey> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      SimpleDeferredValue<ConfiguredTargetKey> value = SimpleDeferredValue.create();
+      context.getSharedValue(
+          codedIn,
+          /* distinguisher= */ null,
+          ConfiguredTargetKeyCodec.INSTANCE,
+          value,
+          SimpleDeferredValue::set);
+      return value;
+    }
+  }
+
   /** Codec for all {@link ConfiguredTargetKey} subtypes. */
   @Keep
   private static class ConfiguredTargetKeyCodec extends DeferredObjectCodec<ConfiguredTargetKey> {
+
+    private static final ConfiguredTargetKeyCodec INSTANCE = new ConfiguredTargetKeyCodec();
+
     @Override
     public Class<ConfiguredTargetKey> getEncodedClass() {
       return ConfiguredTargetKey.class;
@@ -357,13 +403,13 @@ public class ConfiguredTargetKey implements ActionLookupKey {
     }
 
     @Override
-    public Supplier<ConfiguredTargetKey> deserializeDeferred(
+    public DeferredValue<ConfiguredTargetKey> deserializeDeferred(
         AsyncDeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
       Builder builder = builder();
-      context.deserializeFully(codedIn, builder, LABEL_OFFSET);
-      context.deserializeFully(codedIn, builder, CONFIGURATION_KEY_OFFSET);
-      context.deserializeFully(codedIn, builder, EXECUTION_PLATFORM_LABEL_OFFSET);
+      context.deserialize(codedIn, builder, LABEL_OFFSET);
+      context.deserialize(codedIn, builder, CONFIGURATION_KEY_OFFSET);
+      context.deserialize(codedIn, builder, EXECUTION_PLATFORM_LABEL_OFFSET);
       return builder.setShouldApplyRuleTransition(codedIn.readBool());
     }
   }

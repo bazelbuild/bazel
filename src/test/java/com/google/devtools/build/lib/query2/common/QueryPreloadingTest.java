@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -35,6 +36,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.common.options.Options;
+import com.google.devtools.common.options.OptionsParser;
 import java.util.UUID;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -47,7 +49,11 @@ public class QueryPreloadingTest extends QueryPreloadingTestCase {
     reporter.removeHandler(failFastHandler); // expect errors
 
     scratch.file(
-        "pkg/BUILD", "sh_library(name = 'x', deps = ['//nopkg:y', 'z'])", "sh_library(name = 'z')");
+        "pkg/BUILD",
+        """
+        sh_library(name = 'x', deps = ['//nopkg:y', 'z'])
+        sh_library(name = 'z')
+        """);
 
     assertLabelsVisitedWithErrors(
         ImmutableSet.of("//pkg:x", "//pkg:z"), ImmutableSet.of("//pkg:x"));
@@ -90,7 +96,11 @@ public class QueryPreloadingTest extends QueryPreloadingTestCase {
 
     Path buildFile =
         scratch.file(
-            "pkg/BUILD", "sh_library(name = 'x', deps = ['z', 'z'])", "sh_library(name = 'z')");
+            "pkg/BUILD",
+            """
+            sh_library(name = 'x', deps = ['z', 'z'])
+            sh_library(name = 'z')
+            """);
 
     // We expect an error on "//pkg:x". However, we can still finish the evaluation and also return
     // "//pkg:z" even without keep_going.
@@ -105,7 +115,11 @@ public class QueryPreloadingTest extends QueryPreloadingTestCase {
     // Also make sure reloading works if the package has changed, but the names
     // of the targets have not.
     scratch.overwriteFile(
-        "pkg/BUILD", "sh_library(name = 'x', deps = ['z'])", "sh_library(name = 'z')");
+        "pkg/BUILD",
+        """
+        sh_library(name = 'x', deps = ['z'])
+        sh_library(name = 'z')
+        """);
     buildFile.setLastModifiedTime(buildFile.getLastModifiedTime() + 1);
     syncPackages();
     assertLabelsVisited(
@@ -124,14 +138,23 @@ public class QueryPreloadingTest extends QueryPreloadingTestCase {
     reporter.removeHandler(failFastHandler); // expect errors
 
     Path buildFile =
-        scratch.file("pkg/BUILD", "sh_library(name = 'x', deps = ['z'])", "sh_library(name = 'z')");
+        scratch.file(
+            "pkg/BUILD",
+            """
+            sh_library(name = 'x', deps = ['z'])
+            sh_library(name = 'z')
+            """);
     assertLabelsVisited(
         ImmutableSet.of("//pkg:x", "//pkg:z"),
         ImmutableSet.of("//pkg:x"),
         !KEEP_GOING);
 
     scratch.overwriteFile(
-        "pkg/BUILD", "sh_library(name = 'x', deps = ['z', 'z'])", "sh_library(name = 'z')");
+        "pkg/BUILD",
+        """
+        sh_library(name = 'x', deps = ['z', 'z'])
+        sh_library(name = 'z')
+        """);
     buildFile.setLastModifiedTime(buildFile.getLastModifiedTime() + 1);
     syncPackages();
     // We expect an error on "//pkg:x". However, we can still finish the evaluation and also return
@@ -157,8 +180,18 @@ public class QueryPreloadingTest extends QueryPreloadingTestCase {
     reporter.removeHandler(failFastHandler); // expect errors
 
     Path buildFile =
-        scratch.file("pkg/BUILD", "sh_library(name = 'x', deps = ['z'])", "sh_library(name = 'z')");
-    scratch.file("pkg2/BUILD", "sh_library(name = 'q', deps=['F','F'])", "sh_library(name = 'F')");
+        scratch.file(
+            "pkg/BUILD",
+            """
+            sh_library(name = 'x', deps = ['z'])
+            sh_library(name = 'z')
+            """);
+    scratch.file(
+        "pkg2/BUILD",
+        """
+        sh_library(name = 'q', deps=['F','F'])
+        sh_library(name = 'F')
+        """);
     assertLabelsVisited(
         ImmutableSet.of("//pkg:x", "//pkg:z"),
         ImmutableSet.of("//pkg:x"),
@@ -166,8 +199,10 @@ public class QueryPreloadingTest extends QueryPreloadingTestCase {
 
     scratch.overwriteFile(
         "pkg/BUILD",
-        "sh_library(name = 'x', deps = ['z'])",
-        "sh_library(name = 'z', deps = [ '//pkg2:q'])");
+        """
+        sh_library(name = 'x', deps = ['z'])
+        sh_library(name = 'z', deps = [ '//pkg2:q'])
+        """);
     buildFile.setLastModifiedTime(buildFile.getLastModifiedTime() + 1);
     syncPackages();
 
@@ -185,7 +220,12 @@ public class QueryPreloadingTest extends QueryPreloadingTestCase {
   @Test
   public void testAddDepInNewPkg() throws Exception {
     Path buildFile =
-        scratch.file("pkg/BUILD", "sh_library(name = 'x', deps = ['z'])", "sh_library(name = 'z')");
+        scratch.file(
+            "pkg/BUILD",
+            """
+            sh_library(name = 'x', deps = ['z'])
+            sh_library(name = 'z')
+            """);
     scratch.file("pkg2/BUILD", "sh_library(name = 'q')");
 
     assertLabelsVisited(
@@ -194,7 +234,11 @@ public class QueryPreloadingTest extends QueryPreloadingTestCase {
         !KEEP_GOING);
 
     scratch.overwriteFile(
-        "pkg/BUILD", "sh_library(name = 'x', deps = ['z', '//pkg2:q'])", "sh_library(name = 'z')");
+        "pkg/BUILD",
+        """
+        sh_library(name = 'x', deps = ['z', '//pkg2:q'])
+        sh_library(name = 'z')
+        """);
     buildFile.setLastModifiedTime(buildFile.getLastModifiedTime() + 1);
     syncPackages();
 
@@ -234,9 +278,11 @@ public class QueryPreloadingTest extends QueryPreloadingTestCase {
 
     scratch.file(
         "pkg/BUILD",
-        "sh_library(name = 'x', deps = ['//nopkg:y', 'z'])",
-        "sh_library(name = 'z')",
-        "sh_library(name = 'o', deps = ['//nopkg2:o'])");
+        """
+        sh_library(name = 'x', deps = ['//nopkg:y', 'z'])
+        sh_library(name = 'z')
+        sh_library(name = 'o', deps = ['//nopkg2:o'])
+        """);
 
     assertLabelsVisitedWithErrors(
         ImmutableSet.of("//pkg:x", "//pkg:z", "//pkg:o"), ImmutableSet.of("//pkg:x", "//pkg:o"));
@@ -248,7 +294,11 @@ public class QueryPreloadingTest extends QueryPreloadingTestCase {
   @Test
   public void testSubpackageBoundaryAdd() throws Exception {
     scratch.file(
-        "foo/BUILD", "sh_library(name = 'x', deps = ['//foo:y/z'])", "sh_library(name = 'y/z')");
+        "foo/BUILD",
+        """
+        sh_library(name = 'x', deps = ['//foo:y/z'])
+        sh_library(name = 'y/z')
+        """);
 
     assertLabelsVisited(
         ImmutableSet.of("//foo:x", "//foo:y/z"), ImmutableSet.of("//foo:x"), !KEEP_GOING);
@@ -270,7 +320,11 @@ public class QueryPreloadingTest extends QueryPreloadingTestCase {
   public void testSubpackageBoundaryDelete() throws Exception {
     reporter.removeHandler(failFastHandler); // expect errors
     scratch.file(
-        "foo/BUILD", "sh_library(name = 'x', deps = ['//foo:y/z'])", "sh_library(name = 'y/z')");
+        "foo/BUILD",
+        """
+        sh_library(name = 'x', deps = ['//foo:y/z'])
+        sh_library(name = 'y/z')
+        """);
     scratch.file("foo/y/BUILD", "sh_library(name = 'z')");
     assertLabelsVisitedWithErrors(ImmutableSet.of("//foo:x"), ImmutableSet.of("//foo:x"));
     assertContainsEvent("Label '//foo:y/z' crosses boundary of subpackage 'foo/y'");
@@ -302,7 +356,7 @@ public class QueryPreloadingTest extends QueryPreloadingTestCase {
     assertLabelsVisitedWithErrors(ImmutableSet.of("//foo:x"), ImmutableSet.of("//foo:x"));
     assertContainsEvent(
         "//foo:x: invalid label '//foo//y' in element 0 of attribute "
-            + "'deps' in 'sh_library' rule: invalid package name 'foo//y': "
+            + "'deps' of 'sh_library': invalid package name 'foo//y': "
             + "package names may not contain '//' path separators");
   }
 
@@ -327,9 +381,11 @@ public class QueryPreloadingTest extends QueryPreloadingTestCase {
     scratch.file("bad/BUILD", "this is a bad build file");
     scratch.file(
         "foo/BUILD",
-        "sh_library(name='x', ",
-        "           deps=['//bad:a', '//bad:b', '//bad:c',",
-        "                 '//bad:d', '//bad:e', '//bad:f'])");
+        """
+        sh_library(name='x',
+                   deps=['//bad:a', '//bad:b', '//bad:c',
+                         '//bad:d', '//bad:e', '//bad:f'])
+        """);
 
     try {
       // Used to get stuck.
@@ -351,8 +407,10 @@ public class QueryPreloadingTest extends QueryPreloadingTestCase {
 
     scratch.file(
         "foo/BUILD",
-        "package_group(name = 'pkgs', includes = ['//not/a/package:pkgs'])",
-        "sh_library(name = 'foo', visibility = [':pkgs'])");
+        """
+        package_group(name = 'pkgs', includes = ['//not/a/package:pkgs'])
+        sh_library(name = 'foo', visibility = [':pkgs'])
+        """);
 
     assertLabelsVisitedWithErrors(
         ImmutableSet.of("//foo:foo", "//foo:pkgs"), ImmutableSet.of("//foo:foo"));
@@ -366,9 +424,16 @@ public class QueryPreloadingTest extends QueryPreloadingTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "parent/BUILD",
-        "sh_library(name = 'parent', deps = ['//child:child'])",
-        "x = 1//0"); // dynamic error
-    scratch.file("child/BUILD", "sh_library(name = 'child')", "x = 1//0"); // dynamic error
+        """
+        sh_library(name = 'parent', deps = ['//child:child'])
+        x = 1//0
+        """); // dynamic error
+    scratch.file(
+        "child/BUILD",
+        """
+        sh_library(name = 'child')
+        x = 1//0
+        """); // dynamic error
     assertLabelsVisited(
         ImmutableSet.of("//parent:parent", "//child:child"),
         ImmutableSet.of("//parent:parent"),
@@ -401,6 +466,10 @@ public class QueryPreloadingTest extends QueryPreloadingTestCase {
     packageOptions.defaultVisibility = RuleVisibility.PRIVATE;
     packageOptions.showLoadingProgress = true;
     packageOptions.globbingThreads = 7;
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(BuildLanguageOptions.class).build();
+    parser.parse(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
+    BuildLanguageOptions options = parser.getOptions(BuildLanguageOptions.class);
     getSkyframeExecutor()
         .preparePackageLoading(
             new PathPackageLocator(
@@ -408,14 +477,19 @@ public class QueryPreloadingTest extends QueryPreloadingTestCase {
                 ImmutableList.of(Root.fromPath(rootDirectory)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
             packageOptions,
-            Options.getDefaults(BuildLanguageOptions.class),
+            options,
             UUID.randomUUID(),
             ImmutableMap.of(),
             QuiescingExecutorsImpl.forTesting(),
             new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
     this.visitor = getSkyframeExecutor().getQueryTransitivePackagePreloader();
-    scratch.file("pkg/BUILD", "sh_library(name = 'x', deps = ['z'])", "sh_library(name = 'z')");
+    scratch.file(
+        "pkg/BUILD",
+        """
+        sh_library(name = 'x', deps = ['z'])
+        sh_library(name = 'z')
+        """);
     assertLabelsVisited(
         ImmutableSet.of("//pkg:x", "//pkg:z"),
         ImmutableSet.of("//pkg:x"),
@@ -425,7 +499,12 @@ public class QueryPreloadingTest extends QueryPreloadingTestCase {
         ImmutableSet.of("//pkg:x"),
         !KEEP_GOING);
 
-    scratch.file("hassub/BUILD", "load('//sub:sub.bzl', 'fct')", "fct()");
+    scratch.file(
+        "hassub/BUILD",
+        """
+        load('//sub:sub.bzl', 'fct')
+        fct()
+        """);
     scratch.file("sub/BUILD", "exports_files(['sub'])");
     scratch.file("sub/sub.bzl", "def fct(): native.sh_library(name='zzz')");
 

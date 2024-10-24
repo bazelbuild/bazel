@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.query2;
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -30,8 +31,11 @@ import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
@@ -74,7 +78,6 @@ import com.google.devtools.build.lib.skyframe.SimplePackageIdentifierBatchingCal
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
@@ -86,6 +89,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Function;
@@ -115,6 +119,23 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
   private final Supplier<WalkableGraph> walkableGraphSupplier;
   protected WalkableGraph graph;
 
+  /**
+   * Stores every configuration in the transitive closure of the build graph as a map from its
+   * user-friendly hash to the configuration itself.
+   *
+   * <p>This is used to find configured targets in, e.g. {@code somepath} queries. Given {@code
+   * somepath(//foo, //bar)}, cquery finds the configured targets for {@code //foo} and {@code
+   * //bar} by creating a {@link ConfiguredTargetKey} from their labels and <i>some</i>
+   * configuration, then querying the {@link WalkableGraph} to find the matching configured target.
+   *
+   * <p>Having this map lets cquery choose from all available configurations in the graph,
+   * particularly including configurations that aren't the top-level.
+   *
+   * <p>This can also be used in cquery's {@code config} function to match against explicitly
+   * specified configs. This, in particular, is where having user-friendly hashes is invaluable.
+   */
+  protected final ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations;
+
   protected RecursivePackageProviderBackedTargetPatternResolver resolver;
 
   public PostAnalysisQueryEnvironment(
@@ -122,6 +143,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       ExtendedEventHandler eventHandler,
       Iterable<QueryFunction> extraFunctions,
       TopLevelConfigurations topLevelConfigurations,
+      ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations,
       TargetPattern.Parser mainRepoTargetParser,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
@@ -129,6 +151,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       LabelPrinter labelPrinter) {
     super(keepGoing, true, Rule.ALL_LABELS, eventHandler, settings, extraFunctions, labelPrinter);
     this.topLevelConfigurations = topLevelConfigurations;
+    this.transitiveConfigurations = transitiveConfigurations;
     this.mainRepoTargetParser = mainRepoTargetParser;
     this.pkgPath = pkgPath;
     this.walkableGraphSupplier = walkableGraphSupplier;
@@ -171,6 +194,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
             eventHandler,
             FilteringPolicies.NO_FILTER,
             MultisetSemaphore.unbounded(),
+            /* maxConcurrentGetTargetsTasks= */ Optional.empty(),
             SimplePackageIdentifierBatchingCallback::new);
     checkSettings(settings);
   }
@@ -234,15 +258,17 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
         ((ConfiguredTargetValue) getConfiguredTargetValue(key)).getConfiguredTarget());
   }
 
-  public InterruptibleSupplier<ImmutableSet<PathFragment>>
-      getIgnoredPackagePrefixesPathFragments() {
+  protected abstract boolean isAliasConfiguredTarget(T target);
+
+  public InterruptibleSupplier<IgnoredSubdirectories> getIgnoredPackagePrefixesPathFragments(
+      RepositoryName repositoryName) {
     return () -> {
       IgnoredPackagePrefixesValue ignoredPackagePrefixesValue =
           (IgnoredPackagePrefixesValue)
-              walkableGraphSupplier.get().getValue(IgnoredPackagePrefixesValue.key());
+              walkableGraphSupplier.get().getValue(IgnoredPackagePrefixesValue.key(repositoryName));
       return ignoredPackagePrefixesValue == null
-          ? ImmutableSet.of()
-          : ignoredPackagePrefixesValue.getPatterns();
+          ? IgnoredSubdirectories.EMPTY
+          : ignoredPackagePrefixesValue.asIgnoredSubdirectories();
     };
   }
 
@@ -367,11 +393,17 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       SkyKey child, Iterable<SkyKey> rdeps) throws InterruptedException {
     // Most rdeps will not be delegating. Performs an optimistic pass that avoids copying.
     boolean foundDelegatingRdep = false;
-    for (SkyKey rdep : rdeps) {
-      if (!rdep.functionName().equals(SkyFunctions.CONFIGURED_TARGET)) {
+    for (SkyKey rdepKey : rdeps) {
+      if (!rdepKey.functionName().equals(SkyFunctions.CONFIGURED_TARGET)) {
         continue;
       }
-      var actualParentKey = getConfiguredTargetKey(getValueFromKey(rdep));
+      T rdepValue = getValueFromKey(rdepKey);
+      if (rdepValue == null) {
+        // Cannot find the actual value, possibly because it failed during analysis.
+        // TODO: b/324419258 - Add a test for this case
+        continue;
+      }
+      var actualParentKey = getConfiguredTargetKey(rdepValue);
       if (actualParentKey.equals(child)) {
         // The parent has the same value as the child because it is delegating.
         foundDelegatingRdep = true;
@@ -390,18 +422,24 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       SkyKey child, Iterable<SkyKey> rdeps, Set<SkyKey> output) throws InterruptedException {
     // Checks the value of each rdep to see if it is delegating to `child`. If so, fetches its rdeps
     // and processes those, applying the same expansion as needed.
-    for (SkyKey rdep : rdeps) {
-      if (!rdep.functionName().equals(SkyFunctions.CONFIGURED_TARGET)) {
-        output.add(rdep);
+    for (SkyKey rdepKey : rdeps) {
+      if (!rdepKey.functionName().equals(SkyFunctions.CONFIGURED_TARGET)) {
+        output.add(rdepKey);
         continue;
       }
-      var actualParentKey = getConfiguredTargetKey(getValueFromKey(rdep));
+      T rdepValue = getValueFromKey(rdepKey);
+      if (rdepValue == null) {
+        // Cannot find the actual value, possibly because it failed during analysis.
+        // TODO: b/324419258 - Add a test for this case
+        continue;
+      }
+      var actualParentKey = getConfiguredTargetKey(rdepValue);
       if (!actualParentKey.equals(child)) {
-        output.add(rdep);
+        output.add(rdepKey);
         continue;
       }
-      // Otherwise `rdep` is delegating to child and needs to be unwound.
-      Iterable<SkyKey> rdepParents = graph.getReverseDeps(ImmutableList.of(rdep)).get(rdep);
+      // Otherwise `rdepKey` is delegating to child and needs to be unwound.
+      Iterable<SkyKey> rdepParents = graph.getReverseDeps(ImmutableList.of(rdepKey)).get(rdepKey);
       // Applies this recursively in case there are multiple layers of delegation.
       unwindReverseDependencyDelegationLayers(child, rdepParents, output);
     }
@@ -441,15 +479,18 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       }
     }
     if (settings.contains(Setting.NO_IMPLICIT_DEPS)) {
-      RuleConfiguredTarget ruleConfiguredTarget = getRuleConfiguredTarget(target);
-      if (ruleConfiguredTarget != null) {
         deps = deps.stream().filter(dep -> !dep.implicit).collect(Collectors.toList());
-      }
     }
     return getDependencies(deps);
   }
 
   protected abstract RuleConfiguredTarget getRuleConfiguredTarget(T target);
+
+  /**
+   * If {@code target} is an {@link OutputFileConfiguredTarget}, return the rule that produces it.
+   * Else returns null.
+   */
+  protected abstract RuleConfiguredTarget getOwningRuleforOutputConfiguredTarget(T target);
 
   /**
    * Returns targetified dependencies wrapped as {@link ClassifiedDependency} objects which include
@@ -515,17 +556,33 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
                 + " configurability team.",
             key);
 
-        boolean implicitConfiguredTarget =
-            // Check both the original guess key and the second correct key. In the case of the
-            // target platform, Util.findImplicitDeps also uses the original guess key.
-            implicitDeps == null
-                || implicitDeps.contains(key)
-                || implicitDeps.contains(getConfiguredTargetKey(dependency));
+        boolean implicitDep;
+        if (!(key.argument() instanceof ConfiguredTargetKey)) {
+          // All non-configured target deps are implicit.
+          implicitDep = true;
+        } else if (parent != null && isAliasConfiguredTarget(parent)) {
+          // Aliases have only one configured target dep: the ":actual" parameter.
+          implicitDep = false;
+        } else if (parent != null && getOwningRuleforOutputConfiguredTarget(parent) != null) {
+          // An output file's generating target is an explicit dep.
+          implicitDep =
+              getRuleConfiguredTarget(dependency) != null
+                  && !getRuleConfiguredTarget(dependency)
+                      .equals(getOwningRuleforOutputConfiguredTarget(parent));
+        } else if (implicitDeps == null) {
+          // No set of implicit deps available. Assume they're all implicit. This implies the parent
+          // isn't a rule configured target.
+          Verify.verify(!(parent instanceof RuleConfiguredTarget));
+          implicitDep = true;
+        } else {
+          // Check both the original guess key and the second correct key. In the case of the
+          // target platform, Util.findImplicitDeps also uses the original guess key.
+          implicitDep =
+              implicitDeps.contains(key)
+                  || implicitDeps.contains(getConfiguredTargetKey(dependency));
+        }
 
-        boolean implicit =
-            !(key.argument() instanceof ConfiguredTargetKey) || implicitConfiguredTarget;
-
-        values.add(new ClassifiedDependency<>(dependency, implicit));
+        values.add(new ClassifiedDependency<>(dependency, implicitDep));
         knownCtDeps.add(key);
       } else if (settings.contains(Setting.INCLUDE_ASPECTS)
           && key.functionName().equals(SkyFunctions.ASPECT)) {

@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppOptions.DynamicModeConverter;
-import com.google.devtools.build.lib.rules.cpp.CppOptions.LibcTopLabelConverter;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidConfigurationApi;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.EnumConverter;
@@ -87,9 +86,9 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
    * influences the output directory name: if it didn't, an Android and a non-Android configuration
    * would conflict if they had the same toolchain identifier.
    *
-   * <p>Note that this is not just a theoretical concern: even if {@code --crosstool_top} and {@code
-   * --android_crosstool_top} point to different labels, they may end up being redirected to the
-   * same thing, and this is exactly what happens on OSX X.
+   * <p>Note that this is not just a theoretical concern: even if the CC toolchains point to
+   * different labels, they may end up being redirected to the same thing, and this is exactly what
+   * happens on OSX X.
    */
   public enum ConfigurationDistinguisher implements StarlarkValue {
     MAIN(null),
@@ -207,35 +206,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         metadataTags = {OptionMetadataTag.INTERNAL})
     public ConfigurationDistinguisher configurationDistinguisher;
 
-    // TODO(blaze-configurability): Mark this as deprecated in favor of --android_platforms.
-    @Option(
-        name = "android_crosstool_top",
-        defaultValue = "//external:android/crosstool",
-        converter = EmptyToNullLabelConverter.class,
-        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-        effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.CHANGES_INPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
-        },
-        help = "The location of the C++ compiler used for Android builds.")
-    public Label androidCrosstoolTop;
-
-    // TODO(blaze-configurability): Mark this as deprecated in favor of --android_platforms.
-    @Option(
-        name = "android_cpu",
-        defaultValue = "armeabi-v7a",
-        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-        effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
-        },
-        help = "The Android target CPU.")
-    public String cpu;
-
-    // TODO(blaze-configurability): Mark this as deprecated in favor of --android_platforms.
     @Option(
         name = "android_compiler",
         defaultValue = "null",
@@ -247,20 +217,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         },
         help = "The Android target compiler.")
     public String cppCompiler;
-
-    // TODO(blaze-configurability): Mark this as deprecated in favor of the new min_sdk feature.
-    @Option(
-        name = "android_grte_top",
-        defaultValue = "null",
-        converter = LibcTopLabelConverter.class,
-        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-        effectTags = {
-          OptionEffectTag.CHANGES_INPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
-        },
-        help = "The Android target grte_top.")
-    public Label androidLibcTopLabel;
 
     @Option(
         name = "android_dynamic_mode",
@@ -278,41 +234,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
                 + "'fully' means all libraries will be linked dynamically. "
                 + "'off' means that all libraries will be linked in mostly static mode.")
     public DynamicMode dynamicMode;
-
-    // Label of filegroup combining all Android tools used as implicit dependencies of
-    // android_* rules
-    // TODO(blaze-configurability): Mark this as deprecated in favor of --android_platforms.
-    @Option(
-        name = "android_sdk",
-        defaultValue = "@bazel_tools//tools/android:sdk",
-        converter = LabelConverter.class,
-        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-        effectTags = {
-          OptionEffectTag.CHANGES_INPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
-        },
-        help = "Specifies Android SDK/platform that is used to build Android applications.")
-    public Label sdk;
-
-    // TODO(bazel-team): Maybe merge this with --android_cpu above.
-    // TODO(blaze-configurability): Mark this as deprecated in favor of --android_platforms.
-    @Option(
-        name = "fat_apk_cpu",
-        converter = Converters.CommaSeparatedOptionSetConverter.class,
-        defaultValue = "armeabi-v7a",
-        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-        effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
-        },
-        help =
-            "Setting this option enables fat APKs, which contain native binaries for all "
-                + "specified target architectures, e.g., --fat_apk_cpu=x86,armeabi-v7a. If this "
-                + "flag is specified, then --android_cpu is ignored for dependencies of "
-                + "android_binary rules.")
-    public List<String> fatApkCpus;
 
     @Option(
         name = "android_platforms",
@@ -335,11 +256,9 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
         effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+          OptionEffectTag.NO_OP,
         },
-        help = "Whether to create HWASAN splits.")
+        help = "No-op flag. Will be removed in a future release.")
     public boolean fatApkHwasan;
 
     // For desugaring lambdas when compiling Java 8 sources. Do not use on the command line.
@@ -563,6 +482,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
           OptionEffectTag.AFFECTS_OUTPUTS,
           OptionEffectTag.LOADING_AND_ANALYSIS,
         },
+        metadataTags = OptionMetadataTag.EXPERIMENTAL,
         help = "Enables resource shrinking for android_binary APKs that use ProGuard.")
     public boolean useExperimentalAndroidResourceShrinking;
 
@@ -723,6 +643,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
           OptionEffectTag.LOADING_AND_ANALYSIS,
           OptionEffectTag.LOSES_INCREMENTAL_STATE,
         },
+        metadataTags = OptionMetadataTag.EXPERIMENTAL,
         help = "The default value of the exports_manifest attribute on android_library.")
     public boolean exportsManifestDefault;
 
@@ -731,6 +652,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help =
             "Omit AndroidResourcesInfo provider from android_binary rules."
                 + " Propagating resources out to other binaries is usually unintentional.")
@@ -774,32 +696,13 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public boolean disableNativeAndroidRules;
 
     @Option(
-        name = "incompatible_enable_android_toolchain_resolution",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-        help =
-            "Use toolchain resolution to select the Android SDK for android rules (Starlark and"
-                + " native)")
-    public boolean incompatibleUseToolchainResolution;
-
-    @Option(
-        name = "android hwasan", // Space is so that this cannot be set on the command line
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {OptionMetadataTag.INTERNAL},
-        help = "Whether HWASAN is enabled.")
-    public boolean hwasan;
-
-    @Option(
         name = "experimental_filter_r_jars_from_android_test",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {
           OptionEffectTag.CHANGES_INPUTS,
         },
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help = "If enabled, R Jars will be filtered from the test apk built by android_test.")
     public boolean filterRJarsFromAndroidTest;
 
@@ -812,6 +715,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
           OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
           OptionEffectTag.ACTION_COMMAND_LINES
         },
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help =
             "If enabled, one version enforcement for android_test uses the binary_under_test's "
                 + "transitive classpath, otherwise it uses the deploy jar")
@@ -824,6 +728,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         effectTags = {
           OptionEffectTag.EXECUTION,
         },
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help = "Enable persistent aar extractor by using workers.")
     public boolean persistentAarExtractor;
 
@@ -1002,6 +907,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         effectTags = {
           OptionEffectTag.CHANGES_INPUTS,
         },
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help =
             "If enabled and the test instruments an application, all the R classes from the test's "
                 + "deploy jar will be removed.")
@@ -1014,6 +920,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         effectTags = {
           OptionEffectTag.CHANGES_INPUTS,
         },
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help =
             "If enabled and the android_test defines a binary_under_test, the class filterering "
                 + "applied to the test's deploy jar will always filter duplicate classes based "
@@ -1025,6 +932,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
         effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help =
             "Filter the ProGuard ProgramJar to remove any classes also present in the LibraryJar.")
     public boolean filterLibraryJarWithProgramJar;
@@ -1034,6 +942,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.CHANGES_INPUTS},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help = "Use R.txt from the merging action, instead of from the validation action.")
     public boolean useRTxtFromMergedResources;
 
@@ -1061,7 +970,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     @Option(
         name = "optimizing_dexer",
         defaultValue = "null",
-        converter = LabelConverter.class,
+        converter = EmptyToNullLabelConverter.class,
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
         help = "Specifies a binary to use to do dexing without sharding.")
@@ -1072,6 +981,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help =
             "Disables manifest merging when an android_binary has instruments set (i.e. is used "
                 + "for instrumentation testing).")
@@ -1082,25 +992,13 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.CHANGES_INPUTS},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help =
             "Get Java resources from _proguard.jar instead of _deploy.jar in android_binary when "
                 + "bundling the final APK.")
     public boolean getJavaResourcesFromOptimizedJar;
-
-    @Option(
-        name = "incompatible_android_platforms_transition_updated_affected",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
-        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-        help =
-            "If set to true, the AndroidPlatformsTransition will also update `affected by Starlark"
-                + " transition` with changed options to avoid potential action conflicts.")
-    public boolean androidPlatformsTransitionsUpdateAffected;
   }
 
-  private final Label sdk;
-  private final String cpu;
   private final ConfigurationDistinguisher configurationDistinguisher;
   private final boolean incrementalDexing;
   private final int incrementalDexingShardsAfterProguard;
@@ -1144,14 +1042,10 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final Label legacyMainDexListGenerator;
   private final Label optimizingDexer;
   private final boolean disableInstrumentationManifestMerging;
-  private final boolean incompatibleUseToolchainResolution;
-  private final boolean hwasan;
   private final boolean getJavaResourcesFromOptimizedJar;
 
   public AndroidConfiguration(BuildOptions buildOptions) throws InvalidConfigurationException {
     Options options = buildOptions.get(Options.class);
-    this.sdk = options.sdk;
-    this.cpu = options.cpu;
     this.configurationDistinguisher = options.configurationDistinguisher;
     this.incrementalDexing = options.incrementalDexing;
     this.incrementalDexingShardsAfterProguard = options.incrementalDexingShardsAfterProguard;
@@ -1204,8 +1098,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.legacyMainDexListGenerator = options.legacyMainDexListGenerator;
     this.optimizingDexer = options.optimizingDexer;
     this.disableInstrumentationManifestMerging = options.disableInstrumentationManifestMerging;
-    this.incompatibleUseToolchainResolution = options.incompatibleUseToolchainResolution;
-    this.hwasan = options.hwasan;
     this.getJavaResourcesFromOptimizedJar = options.getJavaResourcesFromOptimizedJar;
 
     if (incrementalDexingShardsAfterProguard < 0) {
@@ -1221,20 +1113,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
       throw new InvalidConfigurationException(
           "Java 8 library support requires --desugar_java8 to be enabled.");
     }
-  }
-
-  @Override
-  public String getCpu() {
-    return cpu;
-  }
-
-  @StarlarkConfigurationField(
-      name = "android_sdk_label",
-      doc = "Returns the target denoted by the value of the --android_sdk flag",
-      defaultLabel = AndroidRuleClasses.DEFAULT_SDK,
-      defaultInToolRepository = true)
-  public Label getSdk() {
-    return sdk;
   }
 
   /** Returns whether to use incremental dexing. */
@@ -1433,16 +1311,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   @Override
   public boolean persistentMultiplexDexDesugar() {
     return persistentMultiplexDexDesugar;
-  }
-
-  @Override
-  public boolean incompatibleUseToolchainResolution() {
-    return incompatibleUseToolchainResolution;
-  }
-
-  @Override
-  public boolean isHwasan() {
-    return hwasan;
   }
 
   @Override

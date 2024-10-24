@@ -190,8 +190,8 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
           licenseTypes.add(Ascii.toLowerCase(licenseType.toString()));
         }
         value = licenseTypes;
-      } else if (value instanceof TriState) {
-        value = ((TriState) value).toInt();
+      } else if (value instanceof TriState triState) {
+        value = triState.toInt();
       }
       return new Printer() {
         // Print labels in their canonical form.

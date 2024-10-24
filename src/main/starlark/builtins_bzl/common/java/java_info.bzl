@@ -16,7 +16,7 @@
 Definition of JavaInfo and JavaPluginInfo provider.
 """
 
-load(":common/cc/cc_common.bzl", "CcNativeLibraryInfo", "cc_common")
+load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/java/java_semantics.bzl", "semantics")
 
@@ -166,14 +166,14 @@ def merge(
         ),
         "plugins": plugin_info.plugins,
         "api_generating_plugins": plugin_info.api_generating_plugins,
-        "_neverlink": _neverlink,
+        "_neverlink": bool(_neverlink),
         "_constraints": depset(_constraints).to_list(),
         "annotation_processing": None,
         "compilation_info": None,
     }
 
     if _java_common_internal._google_legacy_api_enabled():
-        cc_info = _minimize_cc_info(cc_common.merge_cc_infos(cc_infos = [p.cc_link_params_info for p in providers]))
+        cc_info = semantics.minimize_cc_info(cc_common.merge_cc_infos(cc_infos = [p.cc_link_params_info for p in providers]))
         result.update(
             cc_link_params_info = cc_info,
             transitive_native_libraries = cc_info.transitive_native_libraries(),
@@ -498,12 +498,6 @@ def java_info_for_compilation(
 def _validate_provider_list(provider_list, what, expected_provider_type):
     _java_common_internal.check_provider_instances(provider_list, what, expected_provider_type)
 
-def _minimize_cc_info(cc_info):
-    return CcInfo(
-        linking_context = cc_info.linking_context,
-        cc_native_library_info = CcNativeLibraryInfo(libraries_to_link = cc_info.transitive_native_libraries()),
-    )
-
 def _compute_concatenated_deps(deps, runtime_deps, exports):
     deps_exports = []
     deps_exports.extend(deps)
@@ -625,7 +619,7 @@ def _javainfo_init_base(
             transitive = [dep._compile_time_java_dependencies for dep in exports] +
                          ([depset([compile_jdeps])] if compile_jdeps else []),
         ),
-        "_neverlink": neverlink,
+        "_neverlink": bool(neverlink),
         "compilation_info": None,
         "_constraints": [],
     }
@@ -633,7 +627,7 @@ def _javainfo_init_base(
     if _java_common_internal._google_legacy_api_enabled():
         transitive_cc_infos = [dep.cc_link_params_info for dep in concatenated_deps.runtimedeps_exports_deps]
         transitive_cc_infos.extend(native_libraries)
-        cc_info = _minimize_cc_info(cc_common.merge_cc_infos(cc_infos = transitive_cc_infos))
+        cc_info = semantics.minimize_cc_info(cc_common.merge_cc_infos(cc_infos = transitive_cc_infos))
         result.update(
             cc_link_params_info = cc_info,
             transitive_native_libraries = cc_info.transitive_native_libraries(),
@@ -769,8 +763,16 @@ def _javainfo_init(
 JavaInfo, _new_javainfo = provider(
     doc = "Info object encapsulating all information by java rules.",
     fields = {
-        "transitive_runtime_jars": "(depset[File]) A transitive set of jars required on the runtime classpath.",
-        "transitive_compile_time_jars": "(depset[File]) The transitive set of jars required to build the target.",
+        "transitive_runtime_jars": """(depset[File]) A transitive set of jars required on the
+        runtime classpath.
+        <p/>Note: for binary targets (such as java_binary and java_test), this is empty, since such
+        targets are not intended to be dependencies of other Java targets.
+        """,
+        "transitive_compile_time_jars": """(depset[File]) The transitive set of jars required to
+        build the target.
+        <p/>Note: for binary targets (such as java_binary and java_test), this is empty, since such
+        targets are not intended to be dependencies of other Java targets.
+        """,
         "compile_jars": """(depset[File]) The jars required directly at compile time. They can be interface jars
                 (ijar or hjar), regular jars or both, depending on whether rule
                 implementations chose to create interface jars or not.""",

@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.DigestUtils;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.protobuf.Message;
@@ -67,13 +68,27 @@ public class DigestUtil {
     return buildDigest(hashFn.getHashFunction().hashBytes(blob).toString(), blob.length);
   }
 
-  public Digest compute(Path file) throws IOException {
-    return compute(file, file.getFileSize());
+  /**
+   * Computes a digest for a file.
+   *
+   * <p>Prefer calling {@link #compute(Path, FileStatus)} when a recently obtained {@link
+   * FileStatus} is available.
+   *
+   * @param path the file path
+   */
+  public Digest compute(Path path) throws IOException {
+    return compute(path, path.stat());
   }
 
-  public Digest compute(Path file, long fileSize) throws IOException {
+  /**
+   * Computes a digest for a file.
+   *
+   * @param path the file path
+   * @param status a recently obtained file status, if available
+   */
+  public Digest compute(Path path, FileStatus status) throws IOException {
     return buildDigest(
-        DigestUtils.getDigestWithManualFallback(file, fileSize, xattrProvider), fileSize);
+        DigestUtils.getDigestWithManualFallback(path, xattrProvider, status), status.getSize());
   }
 
   public Digest compute(VirtualActionInput input) throws IOException {

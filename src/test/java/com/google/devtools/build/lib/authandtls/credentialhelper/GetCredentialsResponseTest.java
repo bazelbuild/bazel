@@ -20,6 +20,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
+import java.time.Instant;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -139,6 +140,48 @@ public class GetCredentialsResponseTest {
   }
 
   @Test
+  public void parseExpires() {
+    assertThat(
+            GSON.fromJson("{\"expires\": \"1970-09-29T11:46:29Z\"}", GetCredentialsResponse.class)
+                .getExpires())
+        .hasValue(Instant.ofEpochSecond(23456789));
+    assertThat(
+            GSON.fromJson(
+                    "{\"expires\": \"1970-09-29T11:46:29+00:00\"}", GetCredentialsResponse.class)
+                .getExpires())
+        .hasValue(Instant.ofEpochSecond(23456789));
+    assertThat(
+            GSON.fromJson(
+                    "{\"expires\": \"1970-09-29T13:46:29+02:00\"}", GetCredentialsResponse.class)
+                .getExpires())
+        .hasValue(Instant.ofEpochSecond(23456789));
+    assertThat(
+            GSON.fromJson(
+                    "{\"expires\": \"1970-09-28T23:46:29-12:00\"}", GetCredentialsResponse.class)
+                .getExpires())
+        .hasValue(Instant.ofEpochSecond(23456789));
+  }
+
+  @Test
+  public void parseInvalidExpires() {
+    assertThrows(
+        JsonSyntaxException.class,
+        () -> GSON.fromJson("{\"expires\": null}", GetCredentialsResponse.class));
+    assertThrows(
+        JsonSyntaxException.class,
+        () -> GSON.fromJson("{\"expires\": \"foo\"}", GetCredentialsResponse.class));
+    assertThrows(
+        JsonSyntaxException.class,
+        () -> GSON.fromJson("{\"expires\": []}", GetCredentialsResponse.class));
+    assertThrows(
+        JsonSyntaxException.class,
+        () -> GSON.fromJson("{\"expires\": 1}", GetCredentialsResponse.class));
+    assertThrows(
+        JsonSyntaxException.class,
+        () -> GSON.fromJson("{\"expires\": {}}", GetCredentialsResponse.class));
+  }
+
+  @Test
   public void serializeEmptyHeaders() {
     GetCredentialsResponse expectedResponse = GetCredentialsResponse.newBuilder().build();
     assertThat(GSON.toJson(expectedResponse)).isEqualTo("{}");
@@ -146,7 +189,8 @@ public class GetCredentialsResponseTest {
 
   @Test
   public void roundTrip() {
-    GetCredentialsResponse.Builder expectedResponseBuilder = GetCredentialsResponse.newBuilder();
+    GetCredentialsResponse.Builder expectedResponseBuilder =
+        GetCredentialsResponse.newBuilder().setExpires(Instant.ofEpochSecond(123456789));
     expectedResponseBuilder.headersBuilder().put("a", ImmutableList.of());
     expectedResponseBuilder.headersBuilder().put("b", ImmutableList.of("b"));
     expectedResponseBuilder.headersBuilder().put("c", ImmutableList.of("c", "c"));

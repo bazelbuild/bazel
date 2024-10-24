@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -51,10 +52,14 @@ public class JavaInfoRoundtripTest extends BuildViewTestCase {
 
     scratch.file(
         "javainfo/javainfo_to_dict.bzl",
-        "load('//tools/build_defs/inspect:struct_to_dict.bzl', 'struct_to_dict')",
-        "def _impl(ctx):",
-        "  return struct(result = struct_to_dict(ctx.attr.dep[JavaInfo], 10))",
-        "javainfo_to_dict = rule(_impl, attrs = {'dep' : attr.label()})");
+        """
+        load("//tools/build_defs/inspect:struct_to_dict.bzl", "struct_to_dict")
+        Info = provider()
+        def _impl(ctx):
+            return Info(result = struct_to_dict(ctx.attr.dep[JavaInfo], 10))
+
+        javainfo_to_dict = rule(_impl, attrs = {"dep": attr.label()})
+        """);
   }
 
   /** A simple rule that calls JavaInfo constructor using identical attribute as java_library. */
@@ -65,49 +70,52 @@ public class JavaInfoRoundtripTest extends BuildViewTestCase {
     }
     scratch.file(
         "foo/construct_javainfo.bzl",
-        "def _impl(ctx):",
-        "  OUTS = {",
-        "    'lib':'lib%s.jar',",
-        "    'hjar': 'lib%s-hjar.jar',",
-        "    'src': 'lib%s-src.jar',",
-        "    'compile_jdeps': 'lib%s-hjar.jdeps',",
-        "    'genclass': 'lib%s-gen.jar',",
-        "    'gensource': 'lib%s-gensrc.jar',",
-        "    'jdeps': 'lib%s.jdeps',",
-        "    'manifest': 'lib%s.jar_manifest_proto',",
-        "    'headers': 'lib%s-native-header.jar',",
-        "  }",
-        "  for file, name in OUTS.items():",
-        "     OUTS[file] = ctx.actions.declare_file(name % ctx.label.name)",
-        "     ctx.actions.write(OUTS[file], '')",
-        "  ",
-        "  java_info = JavaInfo(",
-        "     output_jar = OUTS['lib'],",
-        "     compile_jar = OUTS['hjar'],",
-        "     source_jar = OUTS['src'],",
-        "     compile_jdeps = OUTS['compile_jdeps'],",
-        "     generated_class_jar = ctx.attr.plugins and OUTS['genclass'] or None,",
-        "     generated_source_jar = ctx.attr.plugins and OUTS['gensource'] or None,",
-        "     manifest_proto = OUTS['manifest'],",
-        "     native_headers_jar = OUTS['headers'],",
-        "     deps = [d[JavaInfo] for d in ctx.attr.deps],",
-        "     runtime_deps = [d[JavaInfo] for d in ctx.attr.runtime_deps],",
-        "     exports = [d[JavaInfo] for d in ctx.attr.exports],",
-        "     jdeps = OUTS['jdeps'],",
-        "  )",
-        "  return [java_info]",
-        "",
-        "construct_javainfo = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'srcs': attr.label_list(allow_files = True),",
-        "    'deps': attr.label_list(),",
-        "    'runtime_deps': attr.label_list(),",
-        "    'exports': attr.label_list(),",
-        "    'plugins': attr.bool(default = False),",
-        "  },",
-        "  fragments = ['java'],",
-        ")");
+        """
+        load("@rules_java//java:defs.bzl", "JavaInfo")
+        def _impl(ctx):
+            OUTS = {
+                "lib": "lib%s.jar",
+                "hjar": "lib%s-hjar.jar",
+                "src": "lib%s-src.jar",
+                "compile_jdeps": "lib%s-hjar.jdeps",
+                "genclass": "lib%s-gen.jar",
+                "gensource": "lib%s-gensrc.jar",
+                "jdeps": "lib%s.jdeps",
+                "manifest": "lib%s.jar_manifest_proto",
+                "headers": "lib%s-native-header.jar",
+            }
+            for file, name in OUTS.items():
+                OUTS[file] = ctx.actions.declare_file(name % ctx.label.name)
+                ctx.actions.write(OUTS[file], "")
+
+            java_info = JavaInfo(
+                output_jar = OUTS["lib"],
+                compile_jar = OUTS["hjar"],
+                source_jar = OUTS["src"],
+                compile_jdeps = OUTS["compile_jdeps"],
+                generated_class_jar = ctx.attr.plugins and OUTS["genclass"] or None,
+                generated_source_jar = ctx.attr.plugins and OUTS["gensource"] or None,
+                manifest_proto = OUTS["manifest"],
+                native_headers_jar = OUTS["headers"],
+                deps = [d[JavaInfo] for d in ctx.attr.deps],
+                runtime_deps = [d[JavaInfo] for d in ctx.attr.runtime_deps],
+                exports = [d[JavaInfo] for d in ctx.attr.exports],
+                jdeps = OUTS["jdeps"],
+            )
+            return [java_info]
+
+        construct_javainfo = rule(
+            implementation = _impl,
+            attrs = {
+                "srcs": attr.label_list(allow_files = True),
+                "deps": attr.label_list(),
+                "runtime_deps": attr.label_list(),
+                "exports": attr.label_list(),
+                "plugins": attr.bool(default = False),
+            },
+            fragments = ["java"],
+        )
+        """);
   }
 
   /** For a given target providing JavaInfo returns a Starlark Dict with String values */
@@ -129,8 +137,9 @@ public class JavaInfoRoundtripTest extends BuildViewTestCase {
             "  name = 'javainfo',",
             "  dep = '//" + packageName + ':' + javaInfoTarget + "',",
             ")");
+    StarlarkInfo dictInfo = getStarlarkProvider(dictTarget, "Info");
     @SuppressWarnings("unchecked") // deserialization
-    Dict<Object, Object> javaInfo = (Dict<Object, Object>) dictTarget.get("result");
+    Dict<Object, Object> javaInfo = (Dict<Object, Object>) dictInfo.getValue("result");
     return deepStripAttributes(
         javaInfo,
         attr -> attr.startsWith("_") || ImmutableSet.of("to_proto", "to_json").contains(attr));
@@ -147,8 +156,8 @@ public class JavaInfoRoundtripTest extends BuildViewTestCase {
         builder.add(deepStripAttributes(item, shouldRemove));
       }
       return (T) StarlarkList.immutableCopyOf(builder.build());
-    } else if (obj instanceof Structure) {
-      for (String fieldName : ((Structure) obj).getFieldNames()) {
+    } else if (obj instanceof Structure structure) {
+      for (String fieldName : structure.getFieldNames()) {
         Dict.Builder<String, Object> builder = Dict.builder();
         if (!shouldRemove.test(fieldName)) {
           builder.put(
@@ -193,7 +202,10 @@ public class JavaInfoRoundtripTest extends BuildViewTestCase {
 
   @Test
   public void dictFromJavaInfo_nonEmpty() throws Exception {
-    scratch.overwriteFile("foo/BUILD", "java_library(name = 'java_lib', srcs = ['A.java'])");
+    scratch.overwriteFile(
+        "foo/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
+        "java_library(name = 'java_lib', srcs = ['A.java'])");
 
     Dict<Object, Object> javaInfo = getDictFromJavaInfo("foo", "java_lib");
 
@@ -203,10 +215,16 @@ public class JavaInfoRoundtripTest extends BuildViewTestCase {
   @Test
   public void dictFromJavaInfo_detectsDifference() throws Exception {
 
-    scratch.overwriteFile("foo/BUILD", "java_library(name = 'java_lib', srcs = ['A.java'])");
+    scratch.overwriteFile(
+        "foo/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
+        "java_library(name = 'java_lib', srcs = ['A.java'])");
     Dict<Object, Object> javaInfoA = getDictFromJavaInfo("foo", "java_lib");
 
-    scratch.overwriteFile("foo/BUILD", "java_library(name = 'java_lib2', srcs = ['A.java'])");
+    scratch.overwriteFile(
+        "foo/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
+        "java_library(name = 'java_lib2', srcs = ['A.java'])");
     Dict<Object, Object> javaInfoB = getDictFromJavaInfo("foo", "java_lib2");
 
     assertThat((Map<?, ?>) javaInfoA).isNotEqualTo(javaInfoB);
@@ -215,12 +233,21 @@ public class JavaInfoRoundtripTest extends BuildViewTestCase {
   @Test
   public void roundtripJavainfo_srcs() throws Exception {
 
-    scratch.overwriteFile("foo/BUILD", "java_library(name = 'java_lib', srcs = ['A.java'])");
+    scratch.overwriteFile(
+        "foo/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
+        "java_library(name = 'java_lib', srcs = ['A.java'])");
     Dict<Object, Object> javaInfoA = getDictFromJavaInfo("foo", "java_lib");
     scratch.overwriteFile(
         "foo/BUILD",
-        "load('//foo:construct_javainfo.bzl', 'construct_javainfo')",
-        "construct_javainfo(name = 'java_lib', srcs = ['A.java'])");
+        """
+        load("//foo:construct_javainfo.bzl", "construct_javainfo")
+
+        construct_javainfo(
+            name = "java_lib",
+            srcs = ["A.java"],
+        )
+        """);
     Dict<Object, Object> javaInfoB = getDictFromJavaInfo("foo", "java_lib");
 
     javaInfoA = removeCompilationInfo(javaInfoA);
@@ -229,24 +256,33 @@ public class JavaInfoRoundtripTest extends BuildViewTestCase {
 
   @Test
   public void roundtripJavaInfo_deps() throws Exception {
-    scratch.file("bar/BUILD", "java_library(name = 'javalib', srcs = ['A.java'])");
+    scratch.file(
+        "bar/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
+        "java_library(name = 'javalib', srcs = ['A.java'])");
 
     scratch.overwriteFile(
         "foo/BUILD",
-        "java_library(",
-        "  name = 'java_lib',",
-        "  srcs = ['A.java'],",
-        "  deps = ['//bar:javalib']",
-        ")");
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(
+            name = "java_lib",
+            srcs = ["A.java"],
+            deps = ["//bar:javalib"],
+        )
+        """);
     Dict<Object, Object> javaInfoA = getDictFromJavaInfo("foo", "java_lib");
     scratch.overwriteFile(
         "foo/BUILD",
-        "load('//foo:construct_javainfo.bzl', 'construct_javainfo')",
-        "construct_javainfo(",
-        "  name = 'java_lib', ",
-        "  srcs = ['A.java'], ",
-        "  deps = ['//bar:javalib'],",
-        ")");
+        """
+        load("//foo:construct_javainfo.bzl", "construct_javainfo")
+
+        construct_javainfo(
+            name = "java_lib",
+            srcs = ["A.java"],
+            deps = ["//bar:javalib"],
+        )
+        """);
     Dict<Object, Object> javaInfoB = getDictFromJavaInfo("foo", "java_lib");
 
     javaInfoA = removeCompilationInfo(javaInfoA);
@@ -255,24 +291,33 @@ public class JavaInfoRoundtripTest extends BuildViewTestCase {
 
   @Test
   public void roundtipJavaInfo_runtimeDeps() throws Exception {
-    scratch.file("bar/BUILD", "java_library(name = 'deplib', srcs = ['A.java'])");
+    scratch.file(
+        "bar/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
+        "java_library(name = 'deplib', srcs = ['A.java'])");
 
     scratch.overwriteFile(
         "foo/BUILD",
-        "java_library(",
-        "  name = 'java_lib',",
-        "  srcs = ['A.java'],",
-        "  runtime_deps = ['//bar:deplib']",
-        ")");
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(
+            name = "java_lib",
+            srcs = ["A.java"],
+            runtime_deps = ["//bar:deplib"],
+        )
+        """);
     Dict<Object, Object> javaInfoA = getDictFromJavaInfo("foo", "java_lib");
     scratch.overwriteFile(
         "foo/BUILD",
-        "load('//foo:construct_javainfo.bzl', 'construct_javainfo')",
-        "construct_javainfo(",
-        "  name = 'java_lib', ",
-        "  srcs = ['A.java'], ",
-        "  runtime_deps = ['//bar:deplib'],",
-        ")");
+        """
+        load("//foo:construct_javainfo.bzl", "construct_javainfo")
+
+        construct_javainfo(
+            name = "java_lib",
+            srcs = ["A.java"],
+            runtime_deps = ["//bar:deplib"],
+        )
+        """);
     Dict<Object, Object> javaInfoB = getDictFromJavaInfo("foo", "java_lib");
 
     javaInfoA = removeCompilationInfo(javaInfoA);
@@ -281,24 +326,33 @@ public class JavaInfoRoundtripTest extends BuildViewTestCase {
 
   @Test
   public void roundtipJavaInfo_exports() throws Exception {
-    scratch.file("bar/BUILD", "java_library(name = 'exportlib', srcs = ['A.java'])");
+    scratch.file(
+        "bar/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
+        "java_library(name = 'exportlib', srcs = ['A.java'])");
 
     scratch.overwriteFile(
         "foo/BUILD",
-        "java_library(",
-        "  name = 'java_lib',",
-        "  srcs = ['A.java'],",
-        "  exports = ['//bar:exportlib']",
-        ")");
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(
+            name = "java_lib",
+            srcs = ["A.java"],
+            exports = ["//bar:exportlib"],
+        )
+        """);
     Dict<Object, Object> javaInfoA = getDictFromJavaInfo("foo", "java_lib");
     scratch.overwriteFile(
         "foo/BUILD",
-        "load('//foo:construct_javainfo.bzl', 'construct_javainfo')",
-        "construct_javainfo(",
-        "  name = 'java_lib', ",
-        "  srcs = ['A.java'], ",
-        "  exports = ['//bar:exportlib'],",
-        ")");
+        """
+        load("//foo:construct_javainfo.bzl", "construct_javainfo")
+
+        construct_javainfo(
+            name = "java_lib",
+            srcs = ["A.java"],
+            exports = ["//bar:exportlib"],
+        )
+        """);
     Dict<Object, Object> javaInfoB = getDictFromJavaInfo("foo", "java_lib");
 
     javaInfoA = removeCompilationInfo(javaInfoA);
@@ -309,24 +363,31 @@ public class JavaInfoRoundtripTest extends BuildViewTestCase {
   public void roundtipJavaInfo_plugin() throws Exception {
     scratch.file(
         "bar/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_plugin')",
         "java_plugin(name = 'plugin', srcs = ['A.java'], processor_class = 'bar.Main')");
 
     scratch.overwriteFile(
         "foo/BUILD",
-        "java_library(",
-        "  name = 'java_lib',",
-        "  srcs = ['A.java'],",
-        "  plugins = ['//bar:plugin']",
-        ")");
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(
+            name = "java_lib",
+            srcs = ["A.java"],
+            plugins = ["//bar:plugin"],
+        )
+        """);
     Dict<Object, Object> javaInfoA = getDictFromJavaInfo("foo", "java_lib");
     scratch.overwriteFile(
         "foo/BUILD",
-        "load('//foo:construct_javainfo.bzl', 'construct_javainfo')",
-        "construct_javainfo(",
-        "  name = 'java_lib', ",
-        "  srcs = ['A.java'], ",
-        "  plugins = True,",
-        ")");
+        """
+        load("//foo:construct_javainfo.bzl", "construct_javainfo")
+
+        construct_javainfo(
+            name = "java_lib",
+            srcs = ["A.java"],
+            plugins = True,
+        )
+        """);
     Dict<Object, Object> javaInfoB = getDictFromJavaInfo("foo", "java_lib");
 
     javaInfoA = removeCompilationInfo(javaInfoA);

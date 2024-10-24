@@ -17,13 +17,11 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.query2.QueryEnvironmentFactory;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.query.output.OutputFormatter;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.function.Supplier;
 
 /**
  * Builder class to create a {@link BlazeRuntime} instance. This class is part of the module API,
@@ -42,7 +40,8 @@ public final class ServerBuilder {
   private final ImmutableMap.Builder<String, AuthHeadersProvider> authHeadersProvidersMap =
       ImmutableMap.builder();
   private RepositoryRemoteExecutorFactory repositoryRemoteExecutorFactory;
-  private Supplier<Downloader> downloaderSupplier = () -> null;
+  private final InstrumentationOutputFactory.Builder instrumentationOutputFactoryBuilder =
+      new InstrumentationOutputFactory.Builder();
 
   @VisibleForTesting
   public ServerBuilder() {}
@@ -80,10 +79,6 @@ public final class ServerBuilder {
 
   public RepositoryRemoteExecutorFactory getRepositoryRemoteExecutorFactory() {
     return repositoryRemoteExecutorFactory;
-  }
-
-  public Supplier<Downloader> getDownloaderSupplier() {
-    return downloaderSupplier;
   }
 
   /**
@@ -177,12 +172,6 @@ public final class ServerBuilder {
     return this;
   }
 
-  @CanIgnoreReturnValue
-  public ServerBuilder setDownloaderSupplier(Supplier<Downloader> downloaderSupplier) {
-    this.downloaderSupplier = downloaderSupplier;
-    return this;
-  }
-
   /**
    * Register a provider of authentication headers that blaze modules can use. See {@link
    * AuthHeadersProvider} for more details.
@@ -197,5 +186,21 @@ public final class ServerBuilder {
   /** Returns a map of all registered {@link AuthHeadersProvider}s. */
   public ImmutableMap<String, AuthHeadersProvider> getAuthHeadersProvidersMap() {
     return authHeadersProvidersMap.buildOrThrow();
+  }
+
+  /**
+   * Returns the builder for {@link InstrumentationOutputFactory} so that suppliers for different
+   * types of {@link InstrumentationOutputBuilder} can be added.
+   */
+  public InstrumentationOutputFactory.Builder getInstrumentationOutputFactoryBuilder() {
+    return instrumentationOutputFactoryBuilder;
+  }
+
+  /**
+   * Creates the {@link InstrumentationOutputFactory} so that user can choose to create the {@link
+   * InstrumentationOutputBuilder} object.
+   */
+  public InstrumentationOutputFactory createInstrumentationOutputFactory() {
+    return instrumentationOutputFactoryBuilder.build();
   }
 }

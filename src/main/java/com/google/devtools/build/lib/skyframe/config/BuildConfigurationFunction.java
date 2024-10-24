@@ -33,6 +33,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
 
@@ -66,47 +67,16 @@ public final class BuildConfigurationFunction implements SkyFunction {
     BuildConfigurationKey key = (BuildConfigurationKey) skyKey.argument();
 
     BuildOptions targetOptions = key.getOptions();
-    CoreOptions coreOptions = targetOptions.get(CoreOptions.class);
-    PlatformOptions platformOptions = null;
-    if (targetOptions.contains(PlatformOptions.class)) {
-      platformOptions = targetOptions.get(PlatformOptions.class);
-    }
-
-    BuildOptions baselineOptions = null;
-    if (coreOptions.useBaselineForOutputDirectoryNamingScheme()) {
-      boolean useDynamicBaseline =
-          coreOptions.outputDirectoryNamingScheme.equals(
-              CoreOptions.OutputDirectoryNamingScheme.DIFF_AGAINST_DYNAMIC_BASELINE);
-      boolean applyExecTransitionToBaseline = useDynamicBaseline && coreOptions.isExec;
-      // In practice, platforms should always be 'well-formed' and contain at most one Label.
-      Label newPlatform = null;
-      if (useDynamicBaseline
-          && coreOptions.platformInOutputDir
-          && platformOptions != null
-          && platformOptions.platforms != null // this may be overly defensive
-          && platformOptions.platforms.size() <= 1) {
-        newPlatform = platformOptions.computeTargetPlatform();
-      }
-      try {
-        var baselineOptionsValue =
-            (BaselineOptionsValue)
-                env.getValueOrThrow(
-                    BaselineOptionsValue.key(applyExecTransitionToBaseline, newPlatform),
-                    StarlarkExecTransitionLoadingException.class);
-        if (baselineOptionsValue == null) {
-          return null;
-        }
-        baselineOptions = baselineOptionsValue.toOptions();
-      } catch (StarlarkExecTransitionLoadingException e) {
-        throw new BuildConfigurationFunctionException(new InvalidConfigurationException(e));
-      }
+    Optional<BuildOptions> baselineOptions = getBaselineOptions(env, targetOptions);
+    if (baselineOptions == null) {
+      return null;
     }
 
     try {
       var configurationValue =
           BuildConfigurationValue.create(
               targetOptions,
-              baselineOptions,
+              baselineOptions.orElse(null),
               workspaceNameValue.getName(),
               starlarkSemantics.getBool(
                   BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT),
@@ -118,6 +88,59 @@ public final class BuildConfigurationFunction implements SkyFunction {
       return configurationValue;
     } catch (InvalidConfigurationException e) {
       throw new BuildConfigurationFunctionException(e);
+    }
+  }
+
+  /**
+   * Determine the baseline options to use for tracking changes.
+   *
+   * <p>Returns {@code null} if a Skyframe restart is needed, or an {@link Optional} with either the
+   * baseline options to use, or none if there is no valid baseline.
+   */
+  @Nullable
+  private static Optional<BuildOptions> getBaselineOptions(
+      Environment env, BuildOptions targetOptions)
+      throws InterruptedException, BuildConfigurationFunctionException {
+
+    if (targetOptions.hasNoConfig()) {
+      return Optional.empty();
+    }
+
+    CoreOptions coreOptions = targetOptions.get(CoreOptions.class);
+    if (!coreOptions.useBaselineForOutputDirectoryNamingScheme()) {
+      return Optional.empty();
+    }
+
+    var platformOptions = targetOptions.get(PlatformOptions.class);
+
+    // Determine whether this is part of the exec transition, or if we need to calculate a target
+    // platform.
+    boolean useDynamicBaseline =
+        coreOptions.outputDirectoryNamingScheme.equals(
+            CoreOptions.OutputDirectoryNamingScheme.DIFF_AGAINST_DYNAMIC_BASELINE);
+    boolean applyExecTransitionToBaseline = useDynamicBaseline && coreOptions.isExec;
+    // In practice, platforms should always be 'well-formed' and contain at most one Label.
+    Label newPlatform = null;
+    if (useDynamicBaseline
+        && coreOptions.platformInOutputDir
+        && platformOptions != null
+        && platformOptions.platforms != null // this may be overly defensive
+        && platformOptions.platforms.size() <= 1) {
+      newPlatform = platformOptions.computeTargetPlatform();
+    }
+
+    try {
+      var baselineOptionsValue =
+          (BaselineOptionsValue)
+              env.getValueOrThrow(
+                  BaselineOptionsValue.key(applyExecTransitionToBaseline, newPlatform),
+                  StarlarkExecTransitionLoadingException.class);
+      if (baselineOptionsValue == null) {
+        return null;
+      }
+      return Optional.of(baselineOptionsValue.toOptions());
+    } catch (StarlarkExecTransitionLoadingException e) {
+      throw new BuildConfigurationFunctionException(new InvalidConfigurationException(e));
     }
   }
 

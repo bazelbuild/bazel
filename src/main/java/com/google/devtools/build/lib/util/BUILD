@@ -1,5 +1,5 @@
-load("//src:build_defs.bzl", "java_11_library")
 load("@rules_java//java:defs.bzl", "java_library")
+load("//src:build_defs.bzl", "java_11_library")
 
 package(
     default_applicable_licenses = ["//:license"],
@@ -91,6 +91,17 @@ java_library(
 )
 
 java_library(
+    name = "script_util",
+    srcs = ["ScriptUtil.java"],
+    deps = [
+        ":os",
+        ":shell_escaper",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "command",
     srcs = [
         "CommandBuilder.java",
@@ -101,7 +112,7 @@ java_library(
     deps = [
         ":describable_execution_unit",
         ":os",
-        ":shell_escaper",
+        ":script_util",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -146,6 +157,32 @@ java_library(
 )
 
 java_library(
+    name = "shallow_object_size_computer",
+    srcs = ["ShallowObjectSizeComputer.java"],
+)
+
+java_library(
+    name = "object_graph_traverser",
+    srcs = ["ObjectGraphTraverser.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/collect",
+        "//third_party:flogger",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "memory_accountant",
+    srcs = ["MemoryAccountant.java"],
+    deps = [
+        ":object_graph_traverser",
+        ":shallow_object_size_computer",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "ram_resource_converter",
     srcs = [
         "RamResourceConverter.java",
@@ -169,10 +206,8 @@ java_11_library(
 java_library(
     name = "util",
     srcs = [
-        "AbstractIndexer.java",
         "AnsiStrippingOutputStream.java",
         "CPU.java",
-        "CanonicalStringIndexer.java",
         "ClassName.java",
         "DependencySet.java",
         "Either.java",
@@ -193,7 +228,6 @@ java_library(
         "RegexFilter.java",
         "ResourceFileLoader.java",
         "Sleeper.java",
-        "StreamWriter.java",
         "StringIndexer.java",
         "ThreadUtils.java",
         "TimeUtilities.java",
@@ -202,11 +236,11 @@ java_library(
     exports = [
         # vfs depends on the profiler and creates a cycle since we use Pair in profiler
         ":pair",
+        ":stream_writer",
     ],
     deps = [
         ":os",
         ":shell_escaper",
-        ":string",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -216,7 +250,14 @@ java_library(
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/protobuf:protobuf_java",
+        "@protobuf//:protobuf_java",
+    ],
+)
+
+java_11_library(
+    name = "stream_writer",
+    srcs = [
+        "StreamWriter.java",
     ],
 )
 
@@ -258,6 +299,7 @@ java_library(
     srcs = [
         "GccParamFileEscaper.java",
         "ShellEscaper.java",
+        "WindowsParamFileEscaper.java",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/concurrent",
@@ -269,14 +311,10 @@ java_library(
 java_library(
     name = "string",
     srcs = [
-        "StringCanonicalizer.java",
         "StringUtil.java",
         "StringUtilities.java",
     ],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//third_party:guava",
-    ],
+    deps = ["//third_party:guava"],
 )
 
 java_library(
@@ -328,7 +366,7 @@ java_library(
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/protobuf:protobuf_java",
+        "@protobuf//:protobuf_java",
     ],
 )
 
@@ -353,7 +391,9 @@ java_library(
     name = "heap_offset_helper",
     srcs = ["HeapOffsetHelper.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//third_party:flogger",
+        "//third_party:guava",
     ],
 )
 
@@ -364,5 +404,39 @@ java_library(
         ":abrupt_exit_exception",
         ":detailed_exit_code",
         "//src/main/protobuf:failure_details_java_proto",
+    ],
+)
+
+java_library(
+    name = "concurrency_meter",
+    srcs = ["ConcurrencyMeter.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/clock",
+        "//third_party:error_prone_annotations",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "blocker",
+    srcs = ["Blocker.java"],
+    add_exports = ["java.base/jdk.internal.misc"],
+)
+
+java_library(
+    name = "value_or_exception",
+    srcs = ["ValueOrException.java"],
+    deps = [
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "temp_path_generator",
+    srcs = ["TempPathGenerator.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:jsr305",
     ],
 )

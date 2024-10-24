@@ -20,26 +20,25 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import com.google.auto.value.AutoValue;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.bugreport.BugReporter;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetStore.FingerprintComputationResult;
+import com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint;
+import com.google.devtools.build.lib.skyframe.serialization.PutOperation;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationConstants;
-import com.google.protobuf.ByteString;
 import javax.annotation.Nullable;
 
 /**
- * A bidirectional, in-memory, weak cache for fingerprint ⟺ {@link NestedSet} associations.
+ * A bidirectional, in-memory, weak cache for fingerprint ⇔ {@link NestedSet} associations.
  *
  * <p>For use by {@link NestedSetStore} to minimize work during {@link NestedSet} (de)serialization.
  *
  * <p>The cache supports the possibility of semantically different arrays having the same serialized
- * representation. For this reason, a context object is included in the key for the fingerprint ⟹
+ * representation. For this reason, a context object is included in the key for the fingerprint ⇒
  * array mapping. This object should encapsulate all additional context necessary to deserialize a
- * {@link NestedSet} element. The array ⟹ fingerprint mapping, on the other hand, is expected to be
+ * {@link NestedSet} element. The array ⇒ fingerprint mapping, on the other hand, is expected to be
  * deterministic.
  */
 class NestedSetSerializationCache {
@@ -63,7 +62,7 @@ class NestedSetSerializationCache {
           .build();
 
   /** {@code Object[]} contents to fingerprint. Maintained for fast fingerprinting. */
-  private final Cache<Object[], FingerprintComputationResult> contentsToFingerprint =
+  private final Cache<Object[], PutOperation> contentsToFingerprint =
       Caffeine.newBuilder()
           .initialCapacity(SerializationConstants.DESERIALIZATION_POOL_SIZE)
           .weakKeys()
@@ -93,10 +92,10 @@ class NestedSetSerializationCache {
    */
   @Nullable
   Object putFutureIfAbsent(
-      ByteString fingerprint, SettableFuture<Object[]> future, Object context) {
+      PackedFingerprint fingerprint, SettableFuture<Object[]> future, Object context) {
     checkArgument(!future.isDone(), "Must pass a fresh future: %s", future);
     Object existing =
-        fingerprintToContents.asMap().putIfAbsent(FingerprintKey.of(fingerprint, context), future);
+        fingerprintToContents.asMap().putIfAbsent(new FingerprintKey(fingerprint, context), future);
     if (existing != null) {
       return existing;
     }
@@ -110,24 +109,23 @@ class NestedSetSerializationCache {
    * the future, when it completes.
    */
   private void unwrapWhenDone(
-      ByteString fingerprint, ListenableFuture<Object[]> futureContents, Object context) {
+      PackedFingerprint fingerprint, ListenableFuture<Object[]> futureContents, Object context) {
     Futures.addCallback(
         futureContents,
         new FutureCallback<Object[]>() {
           @Override
           public void onSuccess(Object[] contents) {
-            // Store a FingerprintComputationResult so that we can skip fingerprinting this array
-            // and writing it to storage (it's already there - we just fetched it). Also replace the
-            // cached future with the unwrapped contents, since the future may be GC'd. If there was
-            // a call to putIfAbsent with this fingerprint while the future was pending, we may
-            // overwrite a fingerprint ⟹ array mapping, but this is fine since both arrays have
-            // the same contents. In this case, it would be nice to also complete the other array's
-            // write future, but the semantics of SettableFuture makes this difficult (set after
-            // setFuture has no effect).
-            putIfAbsent(
-                contents,
-                FingerprintComputationResult.create(fingerprint, immediateVoidFuture()),
-                context);
+            // Store a PutOperation so that we can skip fingerprinting this array and writing it to
+            // storage (it's already there - we just fetched it). Also replace the cached future
+            // with the unwrapped contents, since the future may be GC'd. If there was a call to
+            // putIfAbsent with this fingerprint while the future was pending, we may overwrite a
+            // fingerprint ⇒ array mapping, but this is fine since both arrays have the same
+            // contents. In this case, it would be nice to also complete the other array's write
+            // future, but the semantics of SettableFuture makes this difficult (set after setFuture
+            // has no effect).
+            var unused =
+                putIfAbsent(
+                    contents, new PutOperation(fingerprint, immediateVoidFuture()), context);
           }
 
           @Override
@@ -146,7 +144,7 @@ class NestedSetSerializationCache {
    * if the given contents are not known.
    */
   @Nullable
-  FingerprintComputationResult fingerprintForContents(Object[] contents) {
+  PutOperation fingerprintForContents(Object[] contents) {
     return contentsToFingerprint.getIfPresent(contents);
   }
 
@@ -154,32 +152,21 @@ class NestedSetSerializationCache {
    * Ensures that a fingerprint ⟺ contents association is cached in both directions.
    *
    * <p>If the given fingerprint and array are already <em>fully</em> cached, returns the existing
-   * {@link FingerprintComputationResult}. Otherwise returns {@code null}.
+   * {@link PutOperation}. Otherwise returns {@code null}.
    *
    * <p>If the given fingerprint is only <em>partially</em> cached (meaning that {@link
    * #putFutureIfAbsent} has been called but the associated future has not yet completed), then the
    * cached future is overwritten in favor of the actual contents.
    */
   @Nullable
-  FingerprintComputationResult putIfAbsent(
-      Object[] contents, FingerprintComputationResult result, Object context) {
-    FingerprintComputationResult existingResult =
-        contentsToFingerprint.asMap().putIfAbsent(contents, result);
+  PutOperation putIfAbsent(Object[] contents, PutOperation result, Object context) {
+    PutOperation existingResult = contentsToFingerprint.asMap().putIfAbsent(contents, result);
     if (existingResult != null) {
       return existingResult;
     }
-    fingerprintToContents.put(FingerprintKey.of(result.fingerprint(), context), contents);
+    fingerprintToContents.put(new FingerprintKey(result.fingerprint(), context), contents);
     return null;
   }
 
-  @AutoValue
-  abstract static class FingerprintKey {
-    abstract ByteString fingerprint();
-
-    abstract Object context();
-
-    static FingerprintKey of(ByteString fingerprint, Object context) {
-      return new AutoValue_NestedSetSerializationCache_FingerprintKey(fingerprint, context);
-    }
-  }
+  record FingerprintKey(PackedFingerprint fingerprint, Object context) {}
 }

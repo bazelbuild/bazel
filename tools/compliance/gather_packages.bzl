@@ -20,8 +20,8 @@ load(
     "PackageInfo",
 )
 load("@rules_license//rules_gathering:trace.bzl", "TraceInfo")
-load(":user_filtered_rule_kinds.bzl", "user_aspect_filters")
 load(":to_json.bzl", "labels_to_json", "licenses_to_json", "package_infos_to_json")
+load(":user_filtered_rule_kinds.bzl", "user_aspect_filters")
 
 TransitivePackageInfo = provider(
     """Transitive list of all SBOM relevant dependencies.""",
@@ -133,7 +133,7 @@ def gather_package_common(target, ctx, provider_factory, metadata_providers, fil
     # A hack until https://github.com/bazelbuild/rules_license/issues/89 is
     # fully resolved. If exec is in the bin_dir path, then the current
     # configuration is probably cfg = exec.
-    if "-exec-" in ctx.bin_dir.path:
+    if "-exec" in ctx.bin_dir.path:
         return [NULL_INFO]
 
     # First we gather my direct license attachments

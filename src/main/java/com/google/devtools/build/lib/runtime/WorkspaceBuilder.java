@@ -29,6 +29,8 @@ import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutorFactory;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorFactory;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorRepositoryHelpersHolder;
+import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.SingleFileSystemSyscallCache;
 import com.google.devtools.build.lib.vfs.SyscallCache;
@@ -36,6 +38,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Map;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -63,6 +66,8 @@ public final class WorkspaceBuilder {
   private SyscallCache syscallCache;
 
   private boolean allowExternalRepositories = true;
+  @Nullable private Supplier<ObjectCodecRegistry> analysisCodecRegistrySupplier = null;
+  @Nullable private FingerprintValueService.Factory fingerprintValueServiceFactory = null;
 
   WorkspaceBuilder(BlazeDirectories directories, BinTools binTools) {
     this.directories = directories;
@@ -133,6 +138,8 @@ public final class WorkspaceBuilder {
         binTools,
         allocationTracker,
         singleFsSyscallCache,
+        analysisCodecRegistrySupplier,
+        fingerprintValueServiceFactory,
         allowExternalRepositories);
   }
 
@@ -230,6 +237,20 @@ public final class WorkspaceBuilder {
         this.skyKeyStateReceiver,
         skyKeyStateReceiver);
     this.skyKeyStateReceiver = skyKeyStateReceiver;
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public WorkspaceBuilder setAnalysisCodecRegistrySupplier(
+      Supplier<ObjectCodecRegistry> analysisCodecRegistrySupplier) {
+    this.analysisCodecRegistrySupplier = analysisCodecRegistrySupplier;
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public WorkspaceBuilder setFingerprintValueServiceFactory(
+      FingerprintValueService.Factory factory) {
+    this.fingerprintValueServiceFactory = factory;
     return this;
   }
 }

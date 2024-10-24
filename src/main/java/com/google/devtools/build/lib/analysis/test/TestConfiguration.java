@@ -28,7 +28,9 @@ import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.test.CoverageConfiguration.CoverageOptions;
 import com.google.devtools.build.lib.analysis.test.TestShardingStrategy.ShardingStrategyConverter;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.TestTimeout;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
@@ -52,7 +54,8 @@ public class TestConfiguration extends Fragment {
           // changes in --trim_test_configuration itself or related flags always prompt invalidation
           return true;
         }
-        Class<?> affectedOptionsClass = changedOption.getField().getDeclaringClass();
+        Class<? extends FragmentOptions> affectedOptionsClass =
+            changedOption.getDeclaringClass(FragmentOptions.class);
         if (!affectedOptionsClass.equals(TestOptions.class)
             && !affectedOptionsClass.equals(CoverageOptions.class)) {
           // options outside of TestOptions always prompt invalidation
@@ -85,15 +88,34 @@ public class TestConfiguration extends Fragment {
     public Map<TestTimeout, Duration> testTimeout;
 
     @Option(
-      name = "test_filter",
-      allowMultiple = false,
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Specifies a filter to forward to the test framework.  Used to limit "
-              + "the tests run. Note that this does not affect which targets are built."
-    )
+        name = "default_test_resources",
+        defaultValue = "null",
+        converter = TestResourcesConverter.class,
+        allowMultiple = true,
+        documentationCategory = OptionDocumentationCategory.TESTING,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "Override the default resources amount for tests. The expected format is"
+                + " <resource>=<value>. If a single positive number is specified as <value>"
+                + " it will override the default resources for all test sizes. If 4"
+                + " comma-separated numbers are specified, they will override the resource"
+                + " amount for respectively the small, medium, large, enormous test sizes."
+                + " Values can also be HOST_RAM/HOST_CPU, optionally followed"
+                + " by [-|*]<float> (eg. memory=HOST_RAM*.1,HOST_RAM*.2,HOST_RAM*.3,HOST_RAM*.4)."
+                + " The default test resources specified by this flag are overridden by explicit"
+                + " resources specified in tags.")
+    // We need to store these as Pair(s) instead of Map.Entry(s) so that they are serializable.
+    public List<Pair<String, Map<TestSize, Double>>> testResources;
+
+    @Option(
+        name = "test_filter",
+        allowMultiple = false,
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "Specifies a filter to forward to the test framework.  Used to limit "
+                + "the tests run. Note that this does not affect which targets are built.")
     public String testFilter;
 
     @Option(
@@ -107,20 +129,19 @@ public class TestConfiguration extends Fragment {
     public boolean testRunnerFailFast;
 
     @Option(
-      name = "cache_test_results",
-      defaultValue = "auto",
-      abbrev = 't', // it's useful to toggle this on/off quickly
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "If set to 'auto', Bazel reruns a test if and only if: "
-              + "(1) Bazel detects changes in the test or its dependencies, "
-              + "(2) the test is marked as external, "
-              + "(3) multiple test runs were requested with --runs_per_test, or"
-              + "(4) the test previously failed. "
-              + "If set to 'yes', Bazel caches all test results except for tests marked as "
-              + "external. If set to 'no', Bazel does not cache any test results."
-    )
+        name = "cache_test_results",
+        defaultValue = "auto",
+        abbrev = 't', // it's useful to toggle this on/off quickly
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "If set to 'auto', Bazel reruns a test if and only if: "
+                + "(1) Bazel detects changes in the test or its dependencies, "
+                + "(2) the test is marked as external, "
+                + "(3) multiple test runs were requested with --runs_per_test, or"
+                + "(4) the test previously failed. "
+                + "If set to 'yes', Bazel caches all test results except for tests marked as "
+                + "external. If set to 'no', Bazel does not cache any test results.")
     public TriState cacheTestResults;
 
     @Deprecated
@@ -155,6 +176,7 @@ public class TestConfiguration extends Fragment {
           OptionEffectTag.LOADING_AND_ANALYSIS,
           OptionEffectTag.LOSES_INCREMENTAL_STATE,
         },
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help =
             "When enabled, --trim_test_configuration will not trim the test configuration for rules"
                 + " marked testonly=1. This is meant to reduce action conflict issues when non-test"
@@ -223,6 +245,7 @@ public class TestConfiguration extends Fragment {
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help =
             "If true, then Blaze will cancel concurrently running tests on the first successful "
                 + "run. This is only useful in combination with --runs_per_test_detects_flakes.")
@@ -234,14 +257,13 @@ public class TestConfiguration extends Fragment {
         defaultValue = "@bazel_tools//tools/test:coverage_support",
         documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
         effectTags = {
-            OptionEffectTag.CHANGES_INPUTS,
-            OptionEffectTag.AFFECTS_OUTPUTS,
-            OptionEffectTag.LOADING_AND_ANALYSIS
+          OptionEffectTag.CHANGES_INPUTS,
+          OptionEffectTag.AFFECTS_OUTPUTS,
+          OptionEffectTag.LOADING_AND_ANALYSIS
         },
         help =
             "Location of support files that are required on the inputs of every test action "
-                + "that collects code coverage. Defaults to '//tools/test:coverage_support'."
-    )
+                + "that collects code coverage. Defaults to '//tools/test:coverage_support'.")
     public Label coverageSupport;
 
     @Option(
@@ -249,6 +271,7 @@ public class TestConfiguration extends Fragment {
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help =
             "If true, then Bazel fetches the entire coverage data directory for each test during a "
                 + "coverage run.")
@@ -270,12 +293,13 @@ public class TestConfiguration extends Fragment {
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
         effectTags = {OptionEffectTag.EXECUTION},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help = "If true, then Bazel will run coverage postprocessing for test in a new spawn.")
     public boolean splitCoveragePostProcessing;
 
     @Option(
         name = "zip_undeclared_test_outputs",
-        defaultValue = "true",
+        defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.TESTING,
         effectTags = {OptionEffectTag.TEST_RUNNER},
         help = "If true, undeclared test outputs will be archived in a zip file.")
@@ -303,21 +327,40 @@ public class TestConfiguration extends Fragment {
                 + "If false, a test runner that does not support sharding will lead to all tests "
                 + "running in each shard.")
     public boolean checkShardingSupport;
+
+    @Option(
+        name = "allow_local_tests",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.EXECUTION},
+        help = "If true, Bazel will allow local tests to run.")
+    public boolean allowLocalTests;
   }
 
   private final TestOptions options;
   private final ImmutableMap<TestTimeout, Duration> testTimeout;
   private final boolean shouldInclude;
+  private final ImmutableMap<TestSize, ImmutableMap<String, Double>> testResources;
 
   public TestConfiguration(BuildOptions buildOptions) {
-    this.shouldInclude = buildOptions.contains(TestOptions.class);
-    if (shouldInclude) {
-      TestOptions options = buildOptions.get(TestOptions.class);
-      this.options = options;
+    this.options = buildOptions.get(TestOptions.class);
+    if (options != null) {
+      this.shouldInclude = true;
       this.testTimeout = ImmutableMap.copyOf(options.testTimeout);
+      ImmutableMap.Builder<TestSize, ImmutableMap<String, Double>> testResources =
+          ImmutableMap.builderWithExpectedSize(TestSize.values().length);
+      for (TestSize size : TestSize.values()) {
+        ImmutableMap.Builder<String, Double> resources = ImmutableMap.builder();
+        for (Pair<String, Map<TestSize, Double>> resource : options.testResources) {
+          resources.put(resource.getFirst(), resource.getSecond().get(size));
+        }
+        testResources.put(size, resources.buildKeepingLast());
+      }
+      this.testResources = testResources.buildOrThrow();
     } else {
-      this.options = null;
+      this.shouldInclude = false;
       this.testTimeout = null;
+      this.testResources = ImmutableMap.of();
     }
   }
 
@@ -329,6 +372,11 @@ public class TestConfiguration extends Fragment {
   /** Returns test timeout mapping as set by --test_timeout options. */
   public ImmutableMap<TestTimeout, Duration> getTestTimeout() {
     return testTimeout;
+  }
+
+  /** Returns test resource mapping as set by --default_test_resources options. */
+  public ImmutableMap<String, Double> getTestResources(TestSize size) {
+    return testResources.getOrDefault(size, ImmutableMap.of());
   }
 
   public String getTestFilter() {
@@ -398,6 +446,10 @@ public class TestConfiguration extends Fragment {
 
   public boolean checkShardingSupport() {
     return options.checkShardingSupport;
+  }
+
+  public boolean allowLocalTests() {
+    return options.allowLocalTests;
   }
 
   /**

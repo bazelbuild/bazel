@@ -120,13 +120,21 @@ public final class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
   public void testLocationOfLabelThatIsNotAPrerequsite() throws Exception {
     scratch.file(
         "test/BUILD",
-        "exports_files(['exists'])",
-        "genrule(name = 'test1',",
-        "        outs = ['test1.out'],",
-        "        cmd = '$(location :exists)')",
-        "genrule(name = 'test2',",
-        "        outs = ['test2.out'],",
-        "        cmd = '$(location :doesnt_exist)')");
+        """
+        exports_files(["exists"])
+
+        genrule(
+            name = "test1",
+            outs = ["test1.out"],
+            cmd = "$(location :exists)",
+        )
+
+        genrule(
+            name = "test2",
+            outs = ["test2.out"],
+            cmd = "$(location :doesnt_exist)",
+        )
+        """);
 
     // $(location) of a non-prerequisite fails, even if the target exists:
 
@@ -145,9 +153,16 @@ public final class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
   public void testLocationOfMultiFileLabel() throws Exception {
     scratch.file(
         "deuce/BUILD",
-        "genrule(name = 'deuce',",
-        "        outs = ['out.1', 'out.2'],",
-        "        cmd = ':')");
+        """
+        genrule(
+            name = "deuce",
+            outs = [
+                "out.1",
+                "out.2",
+            ],
+            cmd = ":",
+        )
+        """);
     checkError(
         "test",
         "test1",
@@ -169,26 +184,38 @@ public final class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
   public void testLocationOfSourceLabel() throws Exception {
     scratch.file(
         "test1/BUILD",
-        "genrule(name = 'test1',",
-        "        srcs = ['src'],",
-        "        outs = ['out'],",
-        "        cmd = '$(location //test1:src)')");
+        """
+        genrule(
+            name = "test1",
+            srcs = ["src"],
+            outs = ["out"],
+            cmd = "$(location //test1:src)",
+        )
+        """);
     assertExpansionEquals("test1/src", "//test1");
 
     scratch.file(
         "test2/BUILD",
-        "genrule(name = 'test2',",
-        "        srcs = ['src'],",
-        "        outs = ['out'],",
-        "        cmd = '$(location src)')");
+        """
+        genrule(
+            name = "test2",
+            srcs = ["src"],
+            outs = ["out"],
+            cmd = "$(location src)",
+        )
+        """);
     assertExpansionEquals("test2/src", "//test2");
 
     scratch.file(
         "test3/BUILD",
-        "genrule(name = 'test3',",
-        "        srcs = ['src'],",
-        "        outs = ['out'],",
-        "        cmd = '$(location :src)')");
+        """
+        genrule(
+            name = "test3",
+            srcs = ["src"],
+            outs = ["out"],
+            cmd = "$(location :src)",
+        )
+        """);
     assertExpansionEquals("test3/src", "//test3");
   }
 
@@ -197,23 +224,35 @@ public final class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
     String gendir = targetConfig.getMakeVariableDefault("GENDIR");
     scratch.file(
         "test1/BUILD",
-        "genrule(name = 'test1',",
-        "        outs = ['out'],",
-        "        cmd = '$(location //test1:out)')");
+        """
+        genrule(
+            name = "test1",
+            outs = ["out"],
+            cmd = "$(location //test1:out)",
+        )
+        """);
     assertExpansionEquals(gendir + "/test1/out", "//test1");
 
     scratch.file(
         "test2/BUILD",
-        "genrule(name = 'test2',",
-        "        outs = ['out'],",
-        "        cmd = '$(location out)')");
+        """
+        genrule(
+            name = "test2",
+            outs = ["out"],
+            cmd = "$(location out)",
+        )
+        """);
     assertExpansionEquals(gendir + "/test2/out", "//test2");
 
     scratch.file(
         "test3/BUILD",
-        "genrule(name = 'test3',",
-        "        outs = ['out'],",
-        "        cmd = '$(location out)')");
+        """
+        genrule(
+            name = "test3",
+            outs = ["out"],
+            cmd = "$(location out)",
+        )
+        """);
     assertExpansionEquals(gendir + "/test3/out", "//test3");
   }
 
@@ -247,13 +286,21 @@ public final class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
   public void testLocationsOfLabelThatIsNotAPrerequsite() throws Exception {
     scratch.file(
         "test/BUILD",
-        "exports_files(['exists'])",
-        "genrule(name = 'test1',",
-        "        outs = ['test1.out'],",
-        "        cmd = '$(locations :exists)')",
-        "genrule(name = 'test2',",
-        "        outs = ['test2.out'],",
-        "        cmd = '$(locations :doesnt_exist)')");
+        """
+        exports_files(["exists"])
+
+        genrule(
+            name = "test1",
+            outs = ["test1.out"],
+            cmd = "$(locations :exists)",
+        )
+
+        genrule(
+            name = "test2",
+            outs = ["test2.out"],
+            cmd = "$(locations :doesnt_exist)",
+        )
+        """);
 
     // $(locations) of a non-prerequisite fails, even if the target exists:
 
@@ -273,14 +320,24 @@ public final class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
     String gendir = targetConfig.getMakeVariableDefault("GENDIR");
     scratch.file(
         "test/BUILD",
-        "genrule(name = 'x',",
-        "        srcs = ['src'],",
-        "        outs = ['out1', 'out2'],",
-        "        cmd = ':')",
-        "genrule(name = 'y',",
-        "        srcs = ['x'],",
-        "        outs = ['out'],",
-        "        cmd = '$(locations x)')");
+        """
+        genrule(
+            name = "x",
+            srcs = ["src"],
+            outs = [
+                "out1",
+                "out2",
+            ],
+            cmd = ":",
+        )
+
+        genrule(
+            name = "y",
+            srcs = ["x"],
+            outs = ["out"],
+            cmd = "$(locations x)",
+        )
+        """);
 
     assertExpansionEquals(gendir + "/test/out1 " + gendir + "/test/out2", "//test:y");
   }
@@ -290,18 +347,35 @@ public final class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
     String gendir = targetConfig.getMakeVariableDefault("GENDIR");
     scratch.file(
         "test/BUILD",
-        "genrule(name = 'x',",
-        "        srcs = ['src'],",
-        "        outs = ['out'],",
-        "        cmd = ':')",
-        "genrule(name = 'y',",
-        "        srcs = ['src'],",
-        "        outs = ['out1', 'out2'],",
-        "        cmd = ':')",
-        "genrule(name = 'r',",
-        "        srcs = ['x', 'y', 'z'],",
-        "        outs = ['res'],",
-        "        cmd = ' _ $(location x) _ $(locations y) _ ')");
+        """
+        genrule(
+            name = "x",
+            srcs = ["src"],
+            outs = ["out"],
+            cmd = ":",
+        )
+
+        genrule(
+            name = "y",
+            srcs = ["src"],
+            outs = [
+                "out1",
+                "out2",
+            ],
+            cmd = ":",
+        )
+
+        genrule(
+            name = "r",
+            srcs = [
+                "x",
+                "y",
+                "z",
+            ],
+            outs = ["res"],
+            cmd = " _ $(location x) _ $(locations y) _ ",
+        )
+        """);
 
     String expected =
         "_ " + gendir + "/test/out _ " + gendir + "/test/out1 " + gendir + "/test/out2 _ ";
@@ -312,26 +386,38 @@ public final class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
   public void testLocationsOfSourceLabel() throws Exception {
     scratch.file(
         "test1/BUILD",
-        "genrule(name = 'test1',",
-        "        srcs = ['src'],",
-        "        outs = ['out'],",
-        "        cmd = '$(locations //test1:src)')");
+        """
+        genrule(
+            name = "test1",
+            srcs = ["src"],
+            outs = ["out"],
+            cmd = "$(locations //test1:src)",
+        )
+        """);
     assertExpansionEquals("test1/src", "//test1");
 
     scratch.file(
         "test2/BUILD",
-        "genrule(name = 'test2',",
-        "        srcs = ['src'],",
-        "        outs = ['out'],",
-        "        cmd = '$(locations src)')");
+        """
+        genrule(
+            name = "test2",
+            srcs = ["src"],
+            outs = ["out"],
+            cmd = "$(locations src)",
+        )
+        """);
     assertExpansionEquals("test2/src", "//test2");
 
     scratch.file(
         "test3/BUILD",
-        "genrule(name = 'test3',",
-        "        srcs = ['src'],",
-        "        outs = ['out'],",
-        "        cmd = '$(location :src)')");
+        """
+        genrule(
+            name = "test3",
+            srcs = ["src"],
+            outs = ["out"],
+            cmd = "$(location :src)",
+        )
+        """);
     assertExpansionEquals("test3/src", "//test3");
   }
 
@@ -340,23 +426,35 @@ public final class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
     String gendir = targetConfig.getMakeVariableDefault("GENDIR");
     scratch.file(
         "test1/BUILD",
-        "genrule(name = 'test1',",
-        "        outs = ['out'],",
-        "        cmd = '$(locations //test1:out)')");
+        """
+        genrule(
+            name = "test1",
+            outs = ["out"],
+            cmd = "$(locations //test1:out)",
+        )
+        """);
     assertExpansionEquals(gendir + "/test1/out", "//test1");
 
     scratch.file(
         "test2/BUILD",
-        "genrule(name = 'test2',",
-        "        outs = ['out'],",
-        "        cmd = '$(locations out)')");
+        """
+        genrule(
+            name = "test2",
+            outs = ["out"],
+            cmd = "$(locations out)",
+        )
+        """);
     assertExpansionEquals(gendir + "/test2/out", "//test2");
 
     scratch.file(
         "test3/BUILD",
-        "genrule(name = 'test3',",
-        "        outs = ['out'],",
-        "        cmd = '$(locations out)')");
+        """
+        genrule(
+            name = "test3",
+            outs = ["out"],
+            cmd = "$(locations out)",
+        )
+        """);
     assertExpansionEquals(gendir + "/test3/out", "//test3");
   }
 
@@ -365,9 +463,13 @@ public final class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
     String expected = targetConfig.getMakeVariableDefault("GENDIR") + "/test/out";
     scratch.file(
         "test/BUILD",
-        "genrule(name = 'test',",
-        "        outs = ['out'],",
-        "        cmd = '$(OUTS) # $@')");
+        """
+        genrule(
+            name = "test",
+            outs = ["out"],
+            cmd = "$(OUTS) # $@",
+        )
+        """);
     assertExpansionEquals(expected + " # " + expected, "//test");
   }
 
@@ -377,10 +479,14 @@ public final class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
 
     scratch.file(
         "test/BUILD",
-        "genrule(name = 'test',",
-        "        srcs = ['src'],",
-        "        outs = ['out'],",
-        "        cmd = '$(SRCS) # $<')");
+        """
+        genrule(
+            name = "test",
+            srcs = ["src"],
+            outs = ["out"],
+            cmd = "$(SRCS) # $<",
+        )
+        """);
     assertExpansionEquals(expected + " # " + expected, "//test");
   }
 
@@ -388,9 +494,13 @@ public final class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
   public void testDollarDollar() throws Exception {
     scratch.file(
         "test/BUILD",
-        "genrule(name = 'test',",
-        "        outs = ['out'],",
-        "        cmd = '$$DOLLAR')");
+        """
+        genrule(
+            name = "test",
+            outs = ["out"],
+            cmd = "$$DOLLAR",
+        )
+        """);
     assertExpansionEquals("$DOLLAR", "//test");
   }
 
@@ -398,9 +508,13 @@ public final class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
   public void testDollarLessThanWithZeroInputs() throws Exception {
     scratch.file(
         "test/BUILD",
-        "genrule(name = 'test',",
-        "        outs = ['out'],",
-        "        cmd  = '$<')");
+        """
+        genrule(
+            name = "test",
+            outs = ["out"],
+            cmd = "$<",
+        )
+        """);
     assertExpansionFails("variable '$<' : no input file", "//test");
   }
 
@@ -408,10 +522,17 @@ public final class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
   public void testDollarLessThanWithMultipleInputs() throws Exception {
     scratch.file(
         "test/BUILD",
-        "genrule(name = 'test',",
-        "        srcs = ['src1', 'src2'],",
-        "        outs = ['out'],",
-        "        cmd  = '$<')");
+        """
+        genrule(
+            name = "test",
+            srcs = [
+                "src1",
+                "src2",
+            ],
+            outs = ["out"],
+            cmd = "$<",
+        )
+        """);
     assertExpansionFails("variable '$<' : more than one input file", "//test");
   }
 
@@ -419,9 +540,16 @@ public final class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
   public void testDollarAtWithMultipleOutputs() throws Exception {
     scratch.file(
         "test/BUILD",
-        "genrule(name = 'test',",
-        "        outs = ['out.1', 'out.2'],",
-        "        cmd  = '$@')");
+        """
+        genrule(
+            name = "test",
+            outs = [
+                "out.1",
+                "out.2",
+            ],
+            cmd = "$@",
+        )
+        """);
     assertExpansionFails("variable '$@' : more than one output file", "//test");
   }
 
@@ -429,10 +557,17 @@ public final class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
   public void testDollarAtWithZeroOutputs() throws Exception {
     scratch.file(
         "test/BUILD",
-        "genrule(name = 'test',",
-        "        srcs = ['src1', 'src2'],",
-        "        outs = [],",
-        "        cmd  = '$@')");
+        """
+        genrule(
+            name = "test",
+            srcs = [
+                "src1",
+                "src2",
+            ],
+            outs = [],
+            cmd = "$@",
+        )
+        """);
     assertExpansionFails("Genrules without outputs don't make sense", "//test");
   }
 
@@ -459,14 +594,20 @@ public final class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
   public void heuristicLabelExpansion_singletonFilegroupInTools_expandsToFile() throws Exception {
     scratch.file(
         "foo/BUILD",
-        "filegroup(name = 'fg', srcs = ['fg1.txt'])",
-        "genrule(",
-        "  name = 'gen',",
-        "  outs = ['gen.out'],",
-        "  tools = [':fg'],",
-        "  heuristic_label_expansion = True,",
-        "  cmd = 'cp :fg $@',",
-        ")");
+        """
+        filegroup(
+            name = "fg",
+            srcs = ["fg1.txt"],
+        )
+
+        genrule(
+            name = "gen",
+            outs = ["gen.out"],
+            cmd = "cp :fg $@",
+            heuristic_label_expansion = True,
+            tools = [":fg"],
+        )
+        """);
 
     assertThat(getGenruleCommand("//foo:gen")).contains("foo/fg1.txt");
   }
@@ -475,14 +616,20 @@ public final class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
   public void heuristicLabelExpansion_emptyFilegroupInTools_fails() throws Exception {
     scratch.file(
         "foo/BUILD",
-        "filegroup(name = 'fg', srcs = [])",
-        "genrule(",
-        "  name = 'gen',",
-        "  outs = ['gen.out'],",
-        "  tools = [':fg'],",
-        "  heuristic_label_expansion = True,",
-        "  cmd = 'cp :fg $@',",
-        ")");
+        """
+        filegroup(
+            name = "fg",
+            srcs = [],
+        )
+
+        genrule(
+            name = "gen",
+            outs = ["gen.out"],
+            cmd = "cp :fg $@",
+            heuristic_label_expansion = True,
+            tools = [":fg"],
+        )
+        """);
 
     assertExpansionFails("expands to 0 files", "//foo:gen");
   }
@@ -491,14 +638,23 @@ public final class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
   public void heuristicLabelExpansion_multiFilegroupInTools_fails() throws Exception {
     scratch.file(
         "foo/BUILD",
-        "filegroup(name = 'fg', srcs = ['fg1.txt', 'fg2.txt'])",
-        "genrule(",
-        "  name = 'gen',",
-        "  outs = ['gen.out'],",
-        "  tools = [':fg'],",
-        "  heuristic_label_expansion = True,",
-        "  cmd = 'cp :fg $@',",
-        ")");
+        """
+        filegroup(
+            name = "fg",
+            srcs = [
+                "fg1.txt",
+                "fg2.txt",
+            ],
+        )
+
+        genrule(
+            name = "gen",
+            outs = ["gen.out"],
+            cmd = "cp :fg $@",
+            heuristic_label_expansion = True,
+            tools = [":fg"],
+        )
+        """);
 
     assertExpansionFails("expands to 2 files", "//foo:gen");
   }

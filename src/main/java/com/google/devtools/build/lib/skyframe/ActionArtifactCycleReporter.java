@@ -54,12 +54,11 @@ public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
    * #shouldSkipOnPathToCycle}
    */
   private static String prettyPrint(SkyFunctionName skyFunctionName, Object arg) {
-    if (arg instanceof Artifact) {
-      return prettyPrintArtifact(((Artifact) arg));
+    if (arg instanceof Artifact artifact) {
+      return prettyPrintArtifact(artifact);
     } else if (arg instanceof ActionLookupData) {
       return "action from: " + arg;
-    } else if (arg instanceof TopLevelActionLookupKeyWrapper) {
-      TopLevelActionLookupKeyWrapper key = (TopLevelActionLookupKeyWrapper) arg;
+    } else if (arg instanceof TopLevelActionLookupKeyWrapper key) {
       if (skyFunctionName.equals(SkyFunctions.TARGET_COMPLETION)) {
         return "configured target: " + key.actionLookupKey().getLabel();
       }
@@ -88,13 +87,13 @@ public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
   @Override
   protected Label getLabel(SkyKey key) {
     Object arg = key.argument();
-    if (arg instanceof Artifact) {
-      return ((Artifact) arg).getOwner();
-    } else if (arg instanceof ActionLookupData) {
-      return ((ActionLookupData) arg).getLabel();
-    } else if (arg instanceof TopLevelActionLookupKeyWrapper) {
-      return ((TopLevelActionLookupKeyWrapper) arg).actionLookupKey().getLabel();
-    } else if (arg instanceof TestCompletionKey
+    if (arg instanceof Artifact artifact) {
+      return artifact.getOwner();
+    } else if (arg instanceof ActionLookupData actionLookupData) {
+      return actionLookupData.getLabel();
+    } else if (arg instanceof TopLevelActionLookupKeyWrapper topLevelActionLookupKeyWrapper) {
+      return topLevelActionLookupKeyWrapper.actionLookupKey().getLabel();
+    } else if (arg instanceof TestCompletionKey testCompletionKey
         && key.functionName().equals(SkyFunctions.TEST_COMPLETION)) {
       return ((TestCompletionKey) arg).configuredTargetKey().getLabel();
     }

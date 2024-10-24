@@ -34,6 +34,7 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -381,6 +382,28 @@ public class ExecutionOptions extends OptionsBase {
   public List<Map.Entry<String, Double>> localResources;
 
   @Option(
+      name = "experimental_cpu_load_scheduling",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "Enables the experimental local execution scheduling based on CPU load, not estimation of"
+              + " actions one by one.  Experimental scheduling have showed the large benefit on a"
+              + " large local builds on a powerful machines with the large number of cores."
+              + " Reccommended to use with --local_resources=cpu=HOST_CPUS")
+  public boolean experimentalCpuLoadScheduling;
+
+  @Option(
+      name = "experimental_cpu_load_scheduling_window_size",
+      defaultValue = "5000ms",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "The size of window during experimental scheduling of action based on CPU load. Make"
+              + " sense to define only when flag --experimental_cpu_load_scheduling is enabled.")
+  public Duration experimentalCpuLoadSchedulingWindowSize;
+
+  @Option(
       name = "local_test_jobs",
       defaultValue = "auto",
       documentationCategory = OptionDocumentationCategory.TESTING,
@@ -402,7 +425,7 @@ public class ExecutionOptions extends OptionsBase {
   @Option(
       name = "cache_computed_file_digests",
       defaultValue = "50000",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "If greater than 0, configures Bazel to cache file digests in memory based on their "
@@ -442,7 +465,9 @@ public class ExecutionOptions extends OptionsBase {
       converter = OptionsUtils.EmptyToNullPathFragmentConverter.class,
       help =
           "Log the executed spawns into this file as length-delimited SpawnExec protos, according"
-              + " to src/main/protobuf/spawn.proto. Related flags:"
+              + " to src/main/protobuf/spawn.proto. Prefer --execution_log_compact_file, which is"
+              + " significantly smaller and cheaper to produce. Related flags:"
+              + " --execution_log_compact_file (compact format; mutually exclusive),"
               + " --execution_log_json_file (text JSON format; mutually exclusive),"
               + " --execution_log_sort (whether to sort the execution log),"
               + " --subcommands (for displaying subcommands in terminal output).")
@@ -457,14 +482,18 @@ public class ExecutionOptions extends OptionsBase {
       converter = OptionsUtils.EmptyToNullPathFragmentConverter.class,
       help =
           "Log the executed spawns into this file as newline-delimited JSON representations of"
-              + " SpawnExec protos, according to src/main/protobuf/spawn.proto. Related flags:"
+              + " SpawnExec protos, according to src/main/protobuf/spawn.proto. Prefer"
+              + " --execution_log_compact_file, which is significantly smaller and cheaper to"
+              + " produce. Related flags:"
+              + " --execution_log_compact_file (compact format; mutually exclusive),"
               + " --execution_log_binary_file (binary protobuf format; mutually exclusive),"
               + " --execution_log_sort (whether to sort the execution log),"
               + " --subcommands (for displaying subcommands in terminal output).")
   public PathFragment executionLogJsonFile;
 
   @Option(
-      name = "experimental_execution_log_compact_file",
+      name = "execution_log_compact_file",
+      oldName = "experimental_execution_log_compact_file",
       defaultValue = "null",
       category = "verbosity",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -473,8 +502,7 @@ public class ExecutionOptions extends OptionsBase {
       help =
           "Log the executed spawns into this file as length-delimited ExecLogEntry protos,"
               + " according to src/main/protobuf/spawn.proto. The entire file is zstd compressed."
-              + " This is an experimental format under active development, and may change at any"
-              + " time. Related flags:"
+              + " Related flags:"
               + " --execution_log_binary_file (binary protobuf format; mutually exclusive),"
               + " --execution_log_json_file (text JSON format; mutually exclusive),"
               + " --subcommands (for displaying subcommands in terminal output).")
@@ -511,35 +539,28 @@ public class ExecutionOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
-          "If set to true, Bazel will use new exit code 39 instead of 34 if remote cache evicts"
-              + " blobs during the build.")
+          "If set to true, Bazel will use new exit code 39 instead of 34 if remote cache"
+              + "errors, including cache evictions, cause the build to fail.")
   public boolean useNewExitCodeForLostInputs;
 
   @Option(
+      // TODO: when this flag is moved to non-experimental, rename it to a more general name
+      // to reflect the new logic - it's not only about cache evictions.
       name = "experimental_remote_cache_eviction_retries",
-      defaultValue = "0",
+      defaultValue = "5",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.EXECUTION},
       help =
-          "The maximum number of attempts to retry if the build encountered remote cache eviction"
-              + " error. A non-zero value will implicitly set"
+          "The maximum number of attempts to retry if the build encountered a transient remote"
+              + " cache error that would otherwise fail the build. Applies for example when"
+              + " artifacts are evicted from the remote cache, or in certain cache failure"
+              + " conditions. A non-zero value will implicitly set"
               + " --incompatible_remote_use_new_exit_code_for_lost_inputs to true. A new invocation"
               + " id will be generated for each attempt. If you generate invocation id and provide"
               + " it to Bazel with --invocation_id, you should not use this flag. Instead, set flag"
               + " --incompatible_remote_use_new_exit_code_for_lost_inputs and check for the exit"
               + " code 39.")
-  public int remoteRetryOnCacheEviction;
-
-  // TODO(b/314282963) remove this after rollout.
-  @Option(
-      name = "experimental_clear_nested_sets_after_action_execution",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Clears the memoization in the input NestedSet of an action after its execution"
-              + " concludes in order to reclaim memory.")
-  public boolean clearNestedSetAfterActionExecution;
+  public int remoteRetryOnTransientCacheError;
 
   /** An enum for specifying different formats of test output. */
   public enum TestOutputFormat {

@@ -15,23 +15,25 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /** Extends {@link RuleContext} to provide all data available during the analysis of an aspect. */
 public final class AspectContext extends RuleContext {
@@ -45,22 +47,89 @@ public final class AspectContext extends RuleContext {
 
   private final ImmutableList<AspectDescriptor> aspectDescriptors;
 
-  // If (separate_aspect_deps) flag is disabled, holds all merged prerequisites otherwise it will
-  // only have the main aspect's prerequisites.
   private final PrerequisitesCollection mainAspectPrerequisites;
+
+  /**
+   * The toolchain contexts for the base target.
+   *
+   * <p>It only contains the providers created by the aspects that propagate to the toolchains.
+   */
+  @Nullable
+  private final ToolchainCollection<AspectBaseTargetResolvedToolchainContext>
+      baseTargetToolchainContexts;
+
+  /** Whether the target uses auto exec groups. */
+  private final boolean targetUsesAutoExecGroups;
 
   AspectContext(
       RuleContext.Builder builder,
       AspectAwareAttributeMapper aspectAwareAttributeMapper,
       PrerequisitesCollection ruleAndBaseAspectsPrerequisites,
       PrerequisitesCollection mainAspectPrerequisites,
-      ExecGroupCollection execGroupCollection) {
+      ExecGroupCollection execGroupCollection,
+      @Nullable
+          ToolchainCollection<AspectBaseTargetResolvedToolchainContext> baseTargetToolchainContexts,
+      boolean targetUsesAutoExecGroups) {
     super(
         builder, aspectAwareAttributeMapper, ruleAndBaseAspectsPrerequisites, execGroupCollection);
 
     this.aspects = builder.getAspects();
     this.aspectDescriptors = aspects.stream().map(Aspect::getDescriptor).collect(toImmutableList());
     this.mainAspectPrerequisites = mainAspectPrerequisites;
+    this.baseTargetToolchainContexts = baseTargetToolchainContexts;
+    this.targetUsesAutoExecGroups = targetUsesAutoExecGroups;
+  }
+
+  /**
+   * Returns the toolchain contexts for the base target. Can be null if no aspect in the {@code
+   * aspects} path propagate to the toolchains.
+   */
+  @Nullable
+  public ToolchainCollection<AspectBaseTargetResolvedToolchainContext>
+      getBaseTargetToolchainContexts() {
+    return baseTargetToolchainContexts;
+  }
+
+  /** Returns the labels of default the toolchain types that aspects have propagated. */
+  public ImmutableSet<Label> getRequestedToolchainTypesLabels() {
+    if (targetUsesAutoExecGroups) {
+      return baseTargetToolchainContexts.getContextMap().entrySet().stream()
+          .filter(e -> isAutomaticExecGroup(e.getKey()))
+          .flatMap(e -> e.getValue().requestedToolchainTypeLabels().keySet().stream())
+          .collect(toImmutableSet());
+    } else {
+      return baseTargetToolchainContexts
+          .getDefaultToolchainContext()
+          .requestedToolchainTypeLabels()
+          .keySet();
+    }
+  }
+
+  /**
+   * Returns the toolchain data for the given type, or {@code null} if the toolchain type was not
+   * required in this context.
+   */
+  @Nullable
+  public AspectBaseTargetResolvedToolchainContext.ToolchainAspectsProviders getToolchainTarget(
+      Label toolchainType) {
+    var execGroupContext = baseTargetToolchainContexts.getDefaultToolchainContext();
+    if (targetUsesAutoExecGroups) {
+      execGroupContext =
+          baseTargetToolchainContexts.getContextMap().entrySet().stream()
+              .filter(
+                  e ->
+                      isAutomaticExecGroup(e.getKey())
+                          && e.getValue().requestedToolchainTypeLabels().containsKey(toolchainType))
+              .findFirst()
+              .map(e -> e.getValue())
+              .orElse(null);
+      if (execGroupContext == null) {
+        return null;
+      }
+    }
+    return execGroupContext
+        .getToolchains()
+        .get(execGroupContext.requestedToolchainTypeLabels().get(toolchainType));
   }
 
   /**
@@ -90,72 +159,10 @@ public final class AspectContext extends RuleContext {
       Builder builder,
       AttributeMap ruleAttributes,
       ImmutableListMultimap<DependencyKind, ConfiguredTargetAndData> targetsMap,
-      ExecGroupCollection execGroupCollection) {
-
-    if (builder.separateAspectDeps()) {
-      return createAspectContextWithSeparatedPrerequisites(
-          builder, ruleAttributes, targetsMap, execGroupCollection);
-    } else {
-      return createAspectContextWithMergedPrerequisites(
-          builder, ruleAttributes, targetsMap, execGroupCollection);
-    }
-  }
-
-  /**
-   * Merges the rule prerequisites with the aspects prerequisites giving precedence to aspects
-   * prerequisites if any.
-   *
-   * <p>TODO(b/293304543) merging prerequisites should be not needed after completing the solution
-   * to isolate main aspect dependencies from the underlying rule and aspects dependencies.
-   */
-  private static AspectContext createAspectContextWithMergedPrerequisites(
-      RuleContext.Builder builder,
-      AttributeMap ruleAttributes,
-      ImmutableListMultimap<DependencyKind, ConfiguredTargetAndData> targetsMap,
-      ExecGroupCollection execGroupCollection) {
-
-    ImmutableSortedKeyListMultimap.Builder<String, ConfiguredTargetAndData>
-        attributeNameToTargetsMap = ImmutableSortedKeyListMultimap.builder();
-    HashSet<String> processedAttributes = new HashSet<>();
-
-    // add aspects prerequisites
-    for (Aspect aspect : builder.getAspects()) {
-      for (Attribute attribute : aspect.getDefinition().getAttributes().values()) {
-        DependencyKind key =
-            DependencyKind.AttributeDependencyKind.forAspect(attribute, aspect.getAspectClass());
-        if (targetsMap.containsKey(key)) {
-          if (processedAttributes.add(attribute.getName())) {
-            attributeNameToTargetsMap.putAll(attribute.getName(), targetsMap.get(key));
-          }
-        }
-      }
-    }
-
-    // add rule prerequisites
-    for (var entry : targetsMap.asMap().entrySet()) {
-      if (entry.getKey().getOwningAspect() == null) {
-        if (!processedAttributes.contains(entry.getKey().getAttribute().getName())) {
-          attributeNameToTargetsMap.putAll(
-              entry.getKey().getAttribute().getName(), entry.getValue());
-        }
-      }
-    }
-    AspectAwareAttributeMapper ruleAndAspectsAttributes =
-        new AspectAwareAttributeMapper(
-            ruleAttributes, mergeAspectsAttributes(builder.getAspects()));
-    PrerequisitesCollection mergedPrerequisitesCollection =
-        new PrerequisitesCollection(
-            attributeNameToTargetsMap.build(),
-            ruleAndAspectsAttributes,
-            builder.getErrorConsumer(),
-            builder.getRule(),
-            builder.getRuleClassNameForLogging());
-    return new AspectContext(
-        builder,
-        ruleAndAspectsAttributes,
-        /* ruleAndBaseAspectsPrerequisites= */ mergedPrerequisitesCollection,
-        /* mainAspectPrerequisites= */ mergedPrerequisitesCollection,
-        execGroupCollection);
+      ExecGroupCollection execGroupCollection,
+      ToolchainCollection<AspectBaseTargetResolvedToolchainContext> baseTargetToolchainContexts) {
+    return createAspectContextWithSeparatedPrerequisites(
+        builder, ruleAttributes, targetsMap, execGroupCollection, baseTargetToolchainContexts);
   }
 
   /**
@@ -163,16 +170,17 @@ public final class AspectContext extends RuleContext {
    * from the underlying rule and base aspects prerequisites.
    */
   private static AspectContext createAspectContextWithSeparatedPrerequisites(
-      RuleContext.Builder builder,
+      RuleContext.Builder ruleContextBuilder,
       AttributeMap ruleAttributes,
       ImmutableListMultimap<DependencyKind, ConfiguredTargetAndData> prerequisitesMap,
-      ExecGroupCollection execGroupCollection) {
+      ExecGroupCollection execGroupCollection,
+      ToolchainCollection<AspectBaseTargetResolvedToolchainContext> baseTargetToolchainContexts) {
     ImmutableSortedKeyListMultimap.Builder<String, ConfiguredTargetAndData>
         mainAspectPrerequisites = ImmutableSortedKeyListMultimap.builder();
     ImmutableSortedKeyListMultimap.Builder<String, ConfiguredTargetAndData>
         ruleAndBaseAspectsPrerequisites = ImmutableSortedKeyListMultimap.builder();
 
-    Aspect mainAspect = Iterables.getLast(builder.getAspects());
+    Aspect mainAspect = Iterables.getLast(ruleContextBuilder.getAspects());
 
     for (Map.Entry<DependencyKind, Collection<ConfiguredTargetAndData>> entry :
         prerequisitesMap.asMap().entrySet()) {
@@ -185,23 +193,32 @@ public final class AspectContext extends RuleContext {
       }
     }
 
+    boolean targetUsesAutoExecGroups =
+        ruleContextBuilder
+            .getRule()
+            .getRuleClassObject()
+            .getAutoExecGroupsMode()
+            .isEnabled(ruleAttributes, ruleContextBuilder.getConfiguration().useAutoExecGroups());
+
     return new AspectContext(
-        builder,
+        ruleContextBuilder,
         new AspectAwareAttributeMapper(
-            ruleAttributes, mergeAspectsAttributes(builder.getAspects())),
+            ruleAttributes, mergeAspectsAttributes(ruleContextBuilder.getAspects())),
         new PrerequisitesCollection(
             ruleAndBaseAspectsPrerequisites.build(),
-            mergeRuleAndBaseAspectsAttributes(ruleAttributes, builder.getAspects()),
-            builder.getErrorConsumer(),
-            builder.getRule(),
-            builder.getRuleClassNameForLogging()),
+            mergeRuleAndBaseAspectsAttributes(ruleAttributes, ruleContextBuilder.getAspects()),
+            ruleContextBuilder.getErrorConsumer(),
+            ruleContextBuilder.getRule(),
+            ruleContextBuilder.getRuleClassNameForLogging()),
         new PrerequisitesCollection(
             mainAspectPrerequisites.build(),
             mainAspect.getDefinition().getAttributes(),
-            builder.getErrorConsumer(),
-            builder.getRule(),
-            builder.getRuleClassNameForLogging()),
-        execGroupCollection);
+            ruleContextBuilder.getErrorConsumer(),
+            ruleContextBuilder.getRule(),
+            ruleContextBuilder.getRuleClassNameForLogging()),
+        execGroupCollection,
+        baseTargetToolchainContexts,
+        targetUsesAutoExecGroups);
   }
 
   private static AspectAwareAttributeMapper mergeRuleAndBaseAspectsAttributes(
@@ -252,6 +269,7 @@ public final class AspectContext extends RuleContext {
 
   @Override
   public boolean useAutoExecGroups() {
+    // TODO: b/370558813 - Use AutoExecGroupsMode for aspects, as well.
     ImmutableMap<String, Attribute> aspectAttributes =
         getMainAspect().getDefinition().getAttributes();
     if (aspectAttributes.containsKey("$use_auto_exec_groups")) {
@@ -263,16 +281,9 @@ public final class AspectContext extends RuleContext {
 
   @Override
   public ImmutableList<? extends TransitiveInfoCollection> getAllPrerequisites() {
-    boolean separateAspectDeps =
-        getAnalysisEnvironment()
-            .getStarlarkSemantics()
-            .getBool(BuildLanguageOptions.SEPARATE_ASPECT_DEPS);
-    if (separateAspectDeps) {
-      return Streams.concat(
-              mainAspectPrerequisites.getAllPrerequisites().stream(),
-              getRulePrerequisitesCollection().getAllPrerequisites().stream())
-          .collect(toImmutableList());
-    }
-    return super.getAllPrerequisites();
+    return Streams.concat(
+            mainAspectPrerequisites.getAllPrerequisites().stream(),
+            getRulePrerequisitesCollection().getAllPrerequisites().stream())
+        .collect(toImmutableList());
   }
 }

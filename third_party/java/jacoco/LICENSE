@@ -31,7 +31,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ASM
-ASM 9.4 is subject to the terms and conditions of the following license:
+ASM 9.6 is subject to the terms and conditions of the following license:
 
 ASM: a very small and fast Java bytecode manipulation framework
 Copyright (c) 2000-2011 INRIA, France Telecom
@@ -239,4 +239,3 @@ Copyright 2011 Mike Samuel et al
       defend, and hold each Contributor harmless for any liability
       incurred by, or claims asserted against, such Contributor by reason
       of your accepting any such warranty or additional liability.
-JaCoCo 0.8.9.202303300400Copyright © 2009, 2023 Mountainminds GmbH & Co. KG and Contributors

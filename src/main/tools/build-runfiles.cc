@@ -103,6 +103,39 @@ struct FileInfo {
 
 typedef std::map<std::string, FileInfo> FileInfoMap;
 
+// Replaces \s, \n, and \b with their respective characters.
+std::string Unescape(const std::string &path) {
+  std::string result;
+  result.reserve(path.size());
+  for (size_t i = 0; i < path.size(); ++i) {
+    if (path[i] == '\\' && i + 1 < path.size()) {
+      switch (path[i + 1]) {
+        case 's': {
+          result.push_back(' ');
+          break;
+        }
+        case 'n': {
+          result.push_back('\n');
+          break;
+        }
+        case 'b': {
+          result.push_back('\\');
+          break;
+        }
+        default: {
+          result.push_back(path[i]);
+          result.push_back(path[i + 1]);
+          break;
+        }
+      }
+      ++i;
+    } else {
+      result.push_back(path[i]);
+    }
+  }
+  return result;
+}
+
 class RunfilesCreator {
  public:
   explicit RunfilesCreator(const std::string &output_base)
@@ -157,15 +190,26 @@ class RunfilesCreator {
       if (buf[0] ==  '/') {
         DIE("paths must not be absolute: line %d: '%s'\n", lineno, buf);
       }
-      const char *s = strchr(buf, ' ');
-      if (!s) {
-        DIE("missing field delimiter at line %d: '%s'\n", lineno, buf);
-      } else if (strchr(s+1, ' ')) {
-        DIE("link or target filename contains space on line %d: '%s'\n",
-            lineno, buf);
+      std::string link;
+      std::string target;
+      if (buf[0] == ' ') {
+        // The link path contains escape sequences for spaces and backslashes.
+        char *s = strchr(buf + 1, ' ');
+        if (!s) {
+          DIE("missing field delimiter at line %d: '%s'\n", lineno, buf);
+        }
+        link = Unescape(std::string(buf + 1, s));
+        target = Unescape(s + 1);
+      } else {
+        // The line is of the form "foo /target/path", with only a single space
+        // in the link path.
+        const char *s = strchr(buf, ' ');
+        if (!s) {
+          DIE("missing field delimiter at line %d: '%s'\n", lineno, buf);
+        }
+        link = std::string(buf, s - buf);
+        target = s + 1;
       }
-      std::string link(buf, s-buf);
-      const char *target = s+1;
       if (!allow_relative && target[0] != '\0' && target[0] != '/'
           && target[1] != ':') {  // Match Windows paths, e.g. C:\foo or C:/foo.
         DIE("expected absolute path at line %d: '%s'\n", lineno, buf);

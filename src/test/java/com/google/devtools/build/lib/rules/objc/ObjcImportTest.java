@@ -49,22 +49,28 @@ public class ObjcImportTest extends ObjcRuleTestCase {
 
   private void addTrivialImportLibrary() throws IOException {
     scratch.file("imp/precomp_lib.a");
-    scratch.file("imp/BUILD",
-        "objc_import(",
-        "    name = 'imp',",
-        "    archives = ['precomp_lib.a'],",
-        ")");
+    scratch.file(
+        "imp/BUILD",
+        """
+        objc_import(
+            name = "imp",
+            archives = ["precomp_lib.a"],
+        )
+        """);
   }
 
   @Test
   public void testImportLibrariesProvidedTransitively() throws Exception {
     scratch.file("imp/this_library.a");
     addTrivialImportLibrary();
-    scratch.file("lib/BUILD",
-        "objc_library(",
-        "    name = 'lib',",
-        "    deps = ['//imp:imp'],",
-        ")");
+    scratch.file(
+        "lib/BUILD",
+        """
+        objc_library(
+            name = "lib",
+            deps = ["//imp"],
+        )
+        """);
 
     Artifact library =
         ccInfoForTarget("//lib:lib")
@@ -81,12 +87,15 @@ public class ObjcImportTest extends ObjcRuleTestCase {
     addAppleBinaryStarlarkRule(scratch);
     scratch.file(
         "bin/BUILD",
-        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
-        "apple_binary_starlark(",
-        "    name = 'bin',",
-        "    platform_type = 'ios',",
-        "    deps = ['//imp:imp'],",
-        ")");
+        """
+        load("//test_starlark:apple_binary_starlark.bzl", "apple_binary_starlark")
+
+        apple_binary_starlark(
+            name = "bin",
+            platform_type = "ios",
+            deps = ["//imp"],
+        )
+        """);
     CommandAction linkBinAction = linkAction("//bin:bin");
     verifyObjlist(linkBinAction, "imp/precomp_lib.a");
     assertThat(Artifact.asExecPaths(linkBinAction.getInputs())).contains("imp/precomp_lib.a");
@@ -99,12 +108,15 @@ public class ObjcImportTest extends ObjcRuleTestCase {
     addAppleBinaryStarlarkRule(scratch);
     scratch.file(
         "bin/BUILD",
-        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
-        "apple_binary_starlark(",
-        "    name = 'bin',",
-        "    platform_type = 'ios',",
-        "    deps = ['//imp:imp'],",
-        ")");
+        """
+        load("//test_starlark:apple_binary_starlark.bzl", "apple_binary_starlark")
+
+        apple_binary_starlark(
+            name = "bin",
+            platform_type = "ios",
+            deps = ["//imp"],
+        )
+        """);
     CommandAction linkBinAction = linkAction("//bin:bin");
     assertThat(Joiner.on("").join(linkBinAction.getArguments())).doesNotContain("-force_load");
   }
@@ -116,12 +128,15 @@ public class ObjcImportTest extends ObjcRuleTestCase {
     addAppleBinaryStarlarkRule(scratch);
     scratch.file(
         "bin/BUILD",
-        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
-        "apple_binary_starlark(",
-        "    name = 'bin',",
-        "    platform_type = 'ios',",
-        "    deps = ['//imp:imp'],",
-        ")");
+        """
+        load("//test_starlark:apple_binary_starlark.bzl", "apple_binary_starlark")
+
+        apple_binary_starlark(
+            name = "bin",
+            platform_type = "ios",
+            deps = ["//imp"],
+        )
+        """);
     CommandAction linkBinAction = linkAction("//bin:bin");
     assertThat(Joiner.on("").join(linkBinAction.getArguments()))
         .contains("-force_load imp/precomp_lib.a");
@@ -135,19 +150,24 @@ public class ObjcImportTest extends ObjcRuleTestCase {
     scratch.file("imp/precomp_lib.a");
     scratch.file(
         "imp/BUILD",
-        "objc_import(",
-        "    name = 'imp',",
-        "    archives = ['precomp_lib.a'],",
-        "    alwayslink = True,",
-        ")");
+        """
+        objc_import(
+            name = "imp",
+            archives = ["precomp_lib.a"],
+            alwayslink = True,
+        )
+        """);
     scratch.file(
         "bin/BUILD",
-        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
-        "apple_binary_starlark(",
-        "    name = 'bin',",
-        "    platform_type = 'ios',",
-        "    deps = ['//imp:imp'],",
-        ")");
+        """
+        load("//test_starlark:apple_binary_starlark.bzl", "apple_binary_starlark")
+
+        apple_binary_starlark(
+            name = "bin",
+            platform_type = "ios",
+            deps = ["//imp"],
+        )
+        """);
     CommandAction linkBinAction = linkAction("//bin:bin");
     assertThat(Joiner.on("").join(linkBinAction.getArguments()))
         .contains("-force_load imp/precomp_lib.a");
@@ -161,19 +181,24 @@ public class ObjcImportTest extends ObjcRuleTestCase {
     scratch.file("imp/precomp_lib.a");
     scratch.file(
         "imp/BUILD",
-        "objc_import(",
-        "    name = 'imp',",
-        "    archives = ['precomp_lib.a'],",
-        "    alwayslink = False,",
-        ")");
+        """
+        objc_import(
+            name = "imp",
+            archives = ["precomp_lib.a"],
+            alwayslink = False,
+        )
+        """);
     scratch.file(
         "bin/BUILD",
-        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
-        "apple_binary_starlark(",
-        "    name = 'bin',",
-        "    platform_type = 'ios',",
-        "    deps = ['//imp:imp'],",
-        ")");
+        """
+        load("//test_starlark:apple_binary_starlark.bzl", "apple_binary_starlark")
+
+        apple_binary_starlark(
+            name = "bin",
+            platform_type = "ios",
+            deps = ["//imp"],
+        )
+        """);
     CommandAction linkBinAction = linkAction("//bin:bin");
     assertThat(Joiner.on("").join(linkBinAction.getArguments())).doesNotContain("-force_load");
   }
@@ -190,12 +215,18 @@ public class ObjcImportTest extends ObjcRuleTestCase {
   @Test
   public void testDylibsProvided() throws Exception {
     scratch.file("imp/imp.a");
-    scratch.file("imp/BUILD",
-        "objc_import(",
-        "    name = 'imp',",
-        "    archives = ['imp.a'],",
-        "    sdk_dylibs = ['libdy1', 'libdy2'],",
-        ")");
+    scratch.file(
+        "imp/BUILD",
+        """
+        objc_import(
+            name = "imp",
+            archives = ["imp.a"],
+            sdk_dylibs = [
+                "libdy1",
+                "libdy2",
+            ],
+        )
+        """);
 
     CcLinkingContext ccLinkingContext = ccInfoForTarget("//imp:imp").getCcLinkingContext();
     assertThat(ccLinkingContext.getFlattenedUserLinkFlags()).containsExactly("-ldy1", "-ldy2");
@@ -232,16 +263,19 @@ public class ObjcImportTest extends ObjcRuleTestCase {
     scratch.file("imp/precomp_lib.a");
     scratch.file(
         "imp/BUILD",
-        "objc_import(",
-        "    name = 'imp_dep',",
-        "    archives = ['precomp_dep.a'],",
-        "    hdrs = ['precomp_dep.h'],",
-        ")",
-        "objc_import(",
-        "    name = 'imp',",
-        "    archives = ['precomp_lib.a'],",
-        "    deps = [':imp_dep'],",
-        ")");
+        """
+        objc_import(
+            name = "imp_dep",
+            hdrs = ["precomp_dep.h"],
+            archives = ["precomp_dep.a"],
+        )
+
+        objc_import(
+            name = "imp",
+            archives = ["precomp_lib.a"],
+            deps = [":imp_dep"],
+        )
+        """);
 
     assertThat(getArifactPathsOfLibraries(getConfiguredTarget("//imp:imp")))
         .containsExactly("imp/precomp_lib.a", "imp/precomp_dep.a");

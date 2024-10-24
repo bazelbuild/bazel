@@ -39,7 +39,7 @@ public abstract class InterningObjectCodec<T> implements ObjectCodec<T> {
 
   /** Performs the deserialization work. */
   public abstract T deserializeInterned(
-      FlatDeserializationContext context, CodedInputStream codedIn)
+      AsyncDeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException;
 
   /** Interns the result of {@link #deserializeInterned}. */

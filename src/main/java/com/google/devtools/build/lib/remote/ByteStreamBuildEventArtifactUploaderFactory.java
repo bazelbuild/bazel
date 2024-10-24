@@ -29,7 +29,7 @@ class ByteStreamBuildEventArtifactUploaderFactory implements BuildEventArtifactU
   private final Executor executor;
   private final ExtendedEventHandler reporter;
   private final boolean verboseFailures;
-  private final RemoteCache remoteCache;
+  private final CombinedCache combinedCache;
   private final String remoteInstanceName;
   private final String remoteBytestreamUriPrefix;
   private final String buildRequestId;
@@ -42,7 +42,7 @@ class ByteStreamBuildEventArtifactUploaderFactory implements BuildEventArtifactU
       Executor executor,
       ExtendedEventHandler reporter,
       boolean verboseFailures,
-      RemoteCache remoteCache,
+      CombinedCache combinedCache,
       String remoteInstanceName,
       String remoteBytestreamUriPrefix,
       String buildRequestId,
@@ -51,7 +51,7 @@ class ByteStreamBuildEventArtifactUploaderFactory implements BuildEventArtifactU
     this.executor = executor;
     this.reporter = reporter;
     this.verboseFailures = verboseFailures;
-    this.remoteCache = remoteCache;
+    this.combinedCache = combinedCache;
     this.remoteInstanceName = remoteInstanceName;
     this.remoteBytestreamUriPrefix = remoteBytestreamUriPrefix;
     this.buildRequestId = buildRequestId;
@@ -67,7 +67,7 @@ class ByteStreamBuildEventArtifactUploaderFactory implements BuildEventArtifactU
             executor,
             reporter,
             verboseFailures,
-            remoteCache.retain(),
+            combinedCache.retain(),
             remoteInstanceName,
             remoteBytestreamUriPrefix,
             buildRequestId,

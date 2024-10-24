@@ -50,10 +50,14 @@ public class ResolvedFileValue implements SkyValue {
       this.path = path;
     }
 
-    @VisibleForSerialization
-    @AutoCodec.Instantiator
-    static ResolvedFileKey create(RootedPath path) {
+    private static ResolvedFileKey create(RootedPath path) {
       return interner.intern(new ResolvedFileKey(path));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static ResolvedFileKey intern(ResolvedFileKey resolvedFileKey) {
+      return interner.intern(resolvedFileKey);
     }
 
     public RootedPath getPath() {
@@ -70,10 +74,9 @@ public class ResolvedFileValue implements SkyValue {
       if (this == obj) {
         return true;
       }
-      if (!(obj instanceof ResolvedFileKey)) {
+      if (!(obj instanceof ResolvedFileKey other)) {
         return false;
       }
-      ResolvedFileKey other = (ResolvedFileKey) obj;
       return Objects.equals(path, other.path);
     }
 

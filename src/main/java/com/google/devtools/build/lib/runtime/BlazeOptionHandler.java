@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.runtime.StarlarkOptionsParser.BuildSettingLoader;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Command.Code;
@@ -38,12 +39,14 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
+import com.google.devtools.common.options.OptionAndRawValue;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsBase;
@@ -85,7 +88,7 @@ public final class BlazeOptionHandler {
 
   // All options set on this pseudo command are inherited by all commands, with unrecognized options
   // being ignored as long as they are recognized by at least one (other) command.
-  private static final String COMMON_PSEUDO_COMMAND = "common";
+  static final String COMMON_PSEUDO_COMMAND = "common";
 
   private static final ImmutableSet<String> BUILD_COMMAND_ANCESTORS =
       ImmutableSet.of("build", COMMON_PSEUDO_COMMAND, ALWAYS_PSEUDO_COMMAND);
@@ -155,7 +158,7 @@ public final class BlazeOptionHandler {
           "The '"
               + commandAnnotation.name()
               + "' command is only supported from within a workspace"
-              + " (below a directory having a WORKSPACE file).\n"
+              + " (below a directory having a MODULE.bazel file).\n"
               + "See documentation at"
               + " https://bazel.build/concepts/build-ref#workspace";
       eventHandler.handle(Event.error(message));
@@ -163,32 +166,14 @@ public final class BlazeOptionHandler {
     }
 
     Path workspacePath = workspace.getWorkspace();
-    // TODO(kchodorow): Remove this once spaces are supported.
-    if (workspacePath.getPathString().contains(" ")) {
-      String message =
-          runtime.getProductName()
-              + " does not currently work properly from paths "
-              + "containing spaces ("
-              + workspacePath
-              + ").";
-      eventHandler.handle(Event.error(message));
-      return createDetailedExitCode(message, Code.SPACES_IN_WORKSPACE_PATH);
-    }
-
     if (workspacePath.getParentDirectory() != null) {
       Path doNotBuild =
           workspacePath.getParentDirectory().getRelative(BlazeWorkspace.DO_NOT_BUILD_FILE_NAME);
 
       if (doNotBuild.exists()) {
-        if (!commandAnnotation.canRunInOutputDirectory()) {
-          String message = getNotInRealWorkspaceError(doNotBuild);
-          eventHandler.handle(Event.error(message));
-          return createDetailedExitCode(message, Code.IN_OUTPUT_DIRECTORY);
-        } else {
-          eventHandler.handle(
-              Event.warn(
-                  runtime.getProductName() + " is run from output directory. This is unsound."));
-        }
+        String message = getNotInRealWorkspaceError(doNotBuild);
+        eventHandler.handle(Event.error(message));
+        return createDetailedExitCode(message, Code.IN_OUTPUT_DIRECTORY);
       }
     }
     return DetailedExitCode.success();
@@ -311,8 +296,8 @@ public final class BlazeOptionHandler {
         remainingCmdLine.build(),
         /* fallbackData= */ null);
 
-    if (commandAnnotation.builds()) {
-      // splits project files from targets in the traditional sense
+    if (commandAnnotation.buildPhase().analyzes()) {
+      // split project files from targets in the traditional sense.
       ProjectFileSupport.handleProjectFiles(
           eventHandler,
           runtime.getProjectFileProvider(),
@@ -413,24 +398,27 @@ public final class BlazeOptionHandler {
    */
   DetailedExitCode parseStarlarkOptions(CommandEnvironment env) {
     // For now, restrict starlark options to commands that already build to ensure that loading
-    // will work. We may want to open this up to other commands in the future. The "info"
-    // and "clean" commands have builds=true set in their annotation but don't actually do any
-    // building (b/120041419).
-    if (!commandAnnotation.builds()
-        || commandAnnotation.name().equals("info")
-        || commandAnnotation.name().equals("clean")) {
+    // will work. We may want to open this up to other commands in the future.
+    if (!commandAnnotation.buildPhase().analyzes()) {
       return DetailedExitCode.success();
     }
     try {
-      Preconditions.checkState(
-          StarlarkOptionsParser.newStarlarkOptionsParser(
-                  new SkyframeExecutorTargetLoader(env), optionsParser)
-              .parse());
+      BuildSettingLoader buildSettingLoader = new SkyframeExecutorTargetLoader(env);
+      StarlarkOptionsParser starlarkOptionsParser =
+          StarlarkOptionsParser.builder()
+              .buildSettingLoader(buildSettingLoader)
+              .nativeOptionsParser(optionsParser)
+              .build();
+      Preconditions.checkState(starlarkOptionsParser.parse());
     } catch (OptionsParsingException e) {
       String logMessage = "Error parsing Starlark options";
       logger.atInfo().withCause(e).log("%s", logMessage);
       return processOptionsParsingException(
           env.getReporter(), e, logMessage, Code.STARLARK_OPTIONS_PARSE_FAILURE);
+    } catch (InterruptedException e) {
+      String message = "Interrupted while parsing Starlark options";
+      env.getReporter().handle(Event.error(message));
+      return InterruptedFailureDetails.detailedExitCode(message);
     }
     return DetailedExitCode.success();
   }
@@ -441,7 +429,22 @@ public final class BlazeOptionHandler {
    *
    * @return {@code DetailedExitCode.success()} if everything went well, or some other value if not
    */
-  DetailedExitCode parseOptions(List<String> args, ExtendedEventHandler eventHandler) {
+  DetailedExitCode parseOptions(
+      List<String> args,
+      ExtendedEventHandler eventHandler,
+      ImmutableList.Builder<OptionAndRawValue> invocationPolicyFlagListBuilder) {
+    DetailedExitCode result =
+        parseOptionsInternal(args, eventHandler, invocationPolicyFlagListBuilder);
+    if (!result.isSuccess()) {
+      optionsParser.setError();
+    }
+    return result;
+  }
+
+  private DetailedExitCode parseOptionsInternal(
+      List<String> args,
+      ExtendedEventHandler eventHandler,
+      ImmutableList.Builder<OptionAndRawValue> invocationPolicyFlagListBuilder) {
     // The initialization code here was carefully written to parse the options early before we call
     // into the BlazeModule APIs, which means we must not generate any output to outErr, return, or
     // throw an exception. All the events happening here are instead stored in a temporary event
@@ -487,7 +490,8 @@ public final class BlazeOptionHandler {
       // BlazeCommand.editOptions, so the code needs to be safe regardless of the actual flag
       // values. At the time of this writing, editOptions was only used as a convenience feature or
       // to improve the user experience, but not required for safety or correctness.
-      optionsPolicyEnforcer.enforce(optionsParser, commandAnnotation.name());
+      optionsPolicyEnforcer.enforce(
+          optionsParser, commandAnnotation.name(), invocationPolicyFlagListBuilder);
       // Print warnings for odd options usage
       for (String warning : optionsParser.getWarnings()) {
         eventHandler.handle(Event.warn(warning));
@@ -542,7 +546,7 @@ public final class BlazeOptionHandler {
 
   private static void getCommandNamesToParseHelper(
       Command commandAnnotation, List<String> accumulator) {
-    for (Class<? extends BlazeCommand> base : commandAnnotation.inherits()) {
+    for (Class<? extends BlazeCommand> base : commandAnnotation.inheritsOptionsFrom()) {
       getCommandNamesToParseHelper(base.getAnnotation(Command.class), accumulator);
     }
     accumulator.add(commandAnnotation.name());

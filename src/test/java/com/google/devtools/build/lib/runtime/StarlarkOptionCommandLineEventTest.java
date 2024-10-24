@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth8.assertThat;
 
 import com.google.devtools.build.lib.bazel.BazelStartupOptionsModule.Options;
 import com.google.devtools.build.lib.runtime.CommandLineEvent.CanonicalCommandLineEvent;
@@ -74,17 +73,30 @@ public class StarlarkOptionCommandLineEventTest extends StarlarkOptionsTestCase 
             .build();
     scratch.file(
         "test/build_setting.bzl",
-        "def _build_setting_impl(ctx):",
-        "  return []",
-        "int_flag = rule(",
-        "  implementation = _build_setting_impl,",
-        "  build_setting = config.int(flag=True)",
-        ")");
+        """
+        def _build_setting_impl(ctx):
+            return []
+
+        int_flag = rule(
+            implementation = _build_setting_impl,
+            build_setting = config.int(flag = True),
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:build_setting.bzl', 'int_flag')",
-        "int_flag(name = 'cmdflag', build_setting_default = 10)",
-        "int_flag(name = 'bazelrcflag', build_setting_default = 20)");
+        """
+        load("//test:build_setting.bzl", "int_flag")
+
+        int_flag(
+            name = "cmdflag",
+            build_setting_default = 10,
+        )
+
+        int_flag(
+            name = "bazelrcflag",
+            build_setting_default = 20,
+        )
+        """);
 
     var unused =
         parseStarlarkOptions(
@@ -166,17 +178,30 @@ public class StarlarkOptionCommandLineEventTest extends StarlarkOptionsTestCase 
             .build();
     scratch.file(
         "test/build_setting.bzl",
-        "def _build_setting_impl(ctx):",
-        "  return []",
-        "int_flag = rule(",
-        "  implementation = _build_setting_impl,",
-        "  build_setting = config.int(flag=True)",
-        ")");
+        """
+        def _build_setting_impl(ctx):
+            return []
+
+        int_flag = rule(
+            implementation = _build_setting_impl,
+            build_setting = config.int(flag = True),
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:build_setting.bzl', 'int_flag')",
-        "int_flag(name = 'cmdflag', build_setting_default = 10)",
-        "int_flag(name = 'bazelrcflag', build_setting_default = 20)");
+        """
+        load("//test:build_setting.bzl", "int_flag")
+
+        int_flag(
+            name = "cmdflag",
+            build_setting_default = 10,
+        )
+
+        int_flag(
+            name = "bazelrcflag",
+            build_setting_default = 20,
+        )
+        """);
 
     var unused =
         parseStarlarkOptions(

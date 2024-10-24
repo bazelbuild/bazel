@@ -27,7 +27,6 @@ import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.util.Comparator;
-import java.util.function.Supplier;
 
 /**
  * Encodes an {@link ImmutableMap}, which may be an {@link ImmutableSortedMap}. The iteration order
@@ -45,12 +44,14 @@ import java.util.function.Supplier;
  * ImmutableSortedMap}, arbitrary otherwise, we avoid specifying the key type as a parameter.
  */
 @SuppressWarnings({"unchecked", "rawtypes"})
-final class ImmutableMapCodecs {
+public final class ImmutableMapCodecs {
 
   @SerializationConstant static final Comparator<?> ORDERING_NATURAL = Ordering.natural();
 
   // In practice, the natural comparator seems to always be Ordering.natural(), but be flexible.
   @SerializationConstant static final Comparator<?> COMPARATOR_NATURAL_ORDER = naturalOrder();
+
+  public static final ImmutableMapCodec IMMUTABLE_MAP_CODEC = new ImmutableMapCodec();
 
   @Keep // used reflectively
   private static class ImmutableMapCodec extends DeferredObjectCodec<ImmutableMap> {
@@ -68,7 +69,7 @@ final class ImmutableMapCodecs {
     }
 
     @Override
-    public Supplier<ImmutableMap> deserializeDeferred(
+    public DeferredValue<ImmutableMap> deserializeDeferred(
         AsyncDeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
       int size = codedIn.readInt32();
@@ -83,7 +84,6 @@ final class ImmutableMapCodecs {
       deserializeMapEntries(
           context,
           codedIn,
-          /* requiresFullValueDeserialization= */ false,
           buffer.keys,
           buffer.values);
       return buffer;
@@ -111,7 +111,7 @@ final class ImmutableMapCodecs {
     }
 
     @Override
-    public Supplier<ImmutableSortedMap> deserializeDeferred(
+    public DeferredValue<ImmutableSortedMap> deserializeDeferred(
         AsyncDeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
       int size = codedIn.readInt32();
@@ -123,11 +123,10 @@ final class ImmutableMapCodecs {
       }
 
       ImmutableSortedMapEntryBuffer buffer = new ImmutableSortedMapEntryBuffer(size);
-      context.deserializeFully(codedIn, buffer, COMPARATOR_OFFSET);
+      context.deserialize(codedIn, buffer, COMPARATOR_OFFSET);
       deserializeMapEntries(
           context,
           codedIn,
-          /* requiresFullValueDeserialization= */ false,
           buffer.keys,
           buffer.values);
       return buffer;
@@ -149,13 +148,13 @@ final class ImmutableMapCodecs {
   }
 
   private static class ImmutableMapEntryBuffer extends EntryBuffer
-      implements Supplier<ImmutableMap> {
+      implements DeferredObjectCodec.DeferredValue<ImmutableMap> {
     private ImmutableMapEntryBuffer(int size) {
       super(size);
     }
 
     @Override
-    public ImmutableMap get() {
+    public ImmutableMap call() {
       ImmutableMap.Builder builder = ImmutableMap.builderWithExpectedSize(size());
       for (int i = 0; i < size(); i++) {
         builder.put(keys[i], values[i]);
@@ -175,7 +174,7 @@ final class ImmutableMapCodecs {
   }
 
   private static class ImmutableSortedMapEntryBuffer extends EntryBuffer
-      implements Supplier<ImmutableSortedMap> {
+      implements DeferredObjectCodec.DeferredValue<ImmutableSortedMap> {
     private Comparator comparator;
 
     private ImmutableSortedMapEntryBuffer(int size) {
@@ -183,7 +182,7 @@ final class ImmutableMapCodecs {
     }
 
     @Override
-    public ImmutableSortedMap get() {
+    public ImmutableSortedMap call() {
       ImmutableSortedMap.Builder builder = new ImmutableSortedMap.Builder(comparator);
       for (int i = 0; i < size(); i++) {
         builder.put(keys[i], values[i]);

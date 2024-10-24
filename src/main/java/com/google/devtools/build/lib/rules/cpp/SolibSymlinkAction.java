@@ -27,10 +27,10 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
-import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.exec.SpawnLogContext;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.SymlinkAction;
 import com.google.devtools.build.lib.server.FailureDetails.SymlinkAction.Code;
@@ -73,7 +74,7 @@ public final class SolibSymlinkAction extends AbstractAction {
 
   @Override
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
-      throws ActionExecutionException {
+      throws ActionExecutionException, InterruptedException {
     Path mangledPath = actionExecutionContext.getInputPath(symlink);
     try {
       mangledPath.createSymbolicLink(actionExecutionContext.getInputPath(getPrimaryInput()));
@@ -91,13 +92,33 @@ public final class SolibSymlinkAction extends AbstractAction {
                   .build());
       throw new ActionExecutionException(message, e, this, false, code);
     }
+
+    SpawnLogContext logContext = actionExecutionContext.getContext(SpawnLogContext.class);
+    if (logContext != null) {
+      try {
+        logContext.logSymlinkAction(this);
+      } catch (IOException e) {
+        String message =
+            String.format(
+                "failed to log creation of _solib symbolic link '%s' to target '%s': %s",
+                symlink.prettyPrint(), getPrimaryInput(), e.getMessage());
+        DetailedExitCode code =
+            DetailedExitCode.of(
+                FailureDetail.newBuilder()
+                    .setMessage(message)
+                    .setSymlinkAction(
+                        SymlinkAction.newBuilder().setCode(Code.LINK_LOG_IO_EXCEPTION))
+                    .build());
+        throw new ActionExecutionException(message, e, this, false, code);
+      }
+    }
     return ActionResult.EMPTY;
   }
 
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable Artifact.ArtifactExpander artifactExpander,
+      @Nullable ArtifactExpander artifactExpander,
       Fingerprint fp) {
     fp.addPath(symlink.getExecPath());
     fp.addPath(getPrimaryInput().getExecPath());
@@ -123,7 +144,6 @@ public final class SolibSymlinkAction extends AbstractAction {
    * (by essentially "collecting" as many shared libraries as possible in the single directory),
    * since we will be paying quadratic price for each additional entry on the -rpath.
    *
-   * @param actionRegistry action registry of rule requesting symlink.
    * @param actionConstructionContext action construction context of rule requesting symlink
    * @param solibDir String giving the solib directory
    * @param library Shared library artifact that needs to be mangled.
@@ -132,7 +152,6 @@ public final class SolibSymlinkAction extends AbstractAction {
    * @return mangled symlink artifact.
    */
   public static Artifact getDynamicLibrarySymlink(
-      ActionRegistry actionRegistry,
       ActionConstructionContext actionConstructionContext,
       String solibDir,
       final Artifact library,
@@ -140,14 +159,13 @@ public final class SolibSymlinkAction extends AbstractAction {
       boolean prefixConsumer) {
     PathFragment mangledName =
         getMangledName(
-            actionRegistry.getOwner().getLabel(),
+            actionConstructionContext.getOwner().getLabel(),
             solibDir,
             actionConstructionContext.getConfiguration().getMnemonic(),
             library.getRootRelativePath(),
             preserveName,
             prefixConsumer);
-    return getDynamicLibrarySymlinkInternal(
-        actionRegistry, actionConstructionContext, library, mangledName);
+    return getDynamicLibrarySymlinkInternal(actionConstructionContext, library, mangledName);
   }
 
   /**
@@ -158,7 +176,6 @@ public final class SolibSymlinkAction extends AbstractAction {
    * (by essentially "collecting" as many shared libraries as possible in the single directory),
    * since we will be paying quadratic price for each additional entry on the -rpath.
    *
-   * @param actionRegistry action registry of rule requesting symlink.
    * @param actionConstructionContext action construction context of rule requesting symlink
    * @param solibDir String giving the solib directory
    * @param library Shared library artifact that needs to be linked.
@@ -166,7 +183,6 @@ public final class SolibSymlinkAction extends AbstractAction {
    * @return linked symlink artifact.
    */
   public static Artifact getDynamicLibrarySymlink(
-      ActionRegistry actionRegistry,
       ActionConstructionContext actionConstructionContext,
       String solibDir,
       final Artifact library,
@@ -178,8 +194,7 @@ public final class SolibSymlinkAction extends AbstractAction {
 
     PathFragment solibDirPath = PathFragment.create(solibDir);
     PathFragment linkName = solibDirPath.getRelative(path);
-    return getDynamicLibrarySymlinkInternal(
-        actionRegistry, actionConstructionContext, library, linkName);
+    return getDynamicLibrarySymlinkInternal(actionConstructionContext, library, linkName);
   }
 
   /**
@@ -197,7 +212,6 @@ public final class SolibSymlinkAction extends AbstractAction {
             solibDirOverride != null ? solibDirOverride : toolchainProvidedSolibDir);
     PathFragment symlinkName = solibDir.getRelative(library.getRootRelativePath().getBaseName());
     return getDynamicLibrarySymlinkInternal(
-        /* actionRegistry= */ ruleContext,
         /* actionConstructionContext= */ ruleContext,
         library,
         symlinkName);
@@ -208,7 +222,6 @@ public final class SolibSymlinkAction extends AbstractAction {
    * {@link #getDynamicLibrarySymlink} and the specialized {@link #getCppRuntimeSymlink}.
    */
   private static Artifact getDynamicLibrarySymlinkInternal(
-      ActionRegistry actionRegistry,
       ActionConstructionContext actionConstructionContext,
       Artifact library,
       PathFragment symlinkName) {
@@ -219,7 +232,7 @@ public final class SolibSymlinkAction extends AbstractAction {
     // Ignore libraries that are already represented by the symlinks.
     ArtifactRoot root = actionConstructionContext.getBinDirectory();
     Artifact symlink = actionConstructionContext.getShareableArtifact(symlinkName, root);
-    actionRegistry.registerAction(
+    actionConstructionContext.registerAction(
         new SolibSymlinkAction(actionConstructionContext.getActionOwner(), library, symlink));
     return symlink;
   }

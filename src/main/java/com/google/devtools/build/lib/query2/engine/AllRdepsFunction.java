@@ -61,8 +61,7 @@ public class AllRdepsFunction implements QueryFunction {
     OptionalInt maxDepth =
         args.size() == 1 ? OptionalInt.empty() : OptionalInt.of(args.get(1).getInteger());
     QueryExpression argumentExpression = args.get(0).getExpression();
-    if (env instanceof StreamableQueryEnvironment) {
-      StreamableQueryEnvironment<T> streamableEnv = (StreamableQueryEnvironment<T>) env;
+    if (env instanceof StreamableQueryEnvironment<T> streamableEnv) {
       return maxDepth.isPresent()
           ? streamableEnv.getAllRdepsBoundedParallel(
               argumentExpression, maxDepth.getAsInt(), context, callback)

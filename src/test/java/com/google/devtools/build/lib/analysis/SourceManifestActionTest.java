@@ -25,16 +25,15 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
-import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.SourceManifestAction.ManifestType;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
-import java.io.IOException;
 import java.io.Writer;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -54,38 +53,33 @@ import org.junit.runners.JUnit4;
 public final class SourceManifestActionTest extends BuildViewTestCase {
 
   private Map<PathFragment, Artifact> fakeManifest;
-
-  private Path pythonSourcePath;
-  private Artifact pythonSourceFile;
-  private Path buildFilePath;
   private Artifact buildFile;
   private Artifact relativeSymlink;
   private Artifact absoluteSymlink;
-
-  private Path manifestOutputPath;
   private Artifact manifestOutputFile;
 
   @Before
-  public final void createFiles() throws Exception  {
+  public void createFiles() throws Exception {
     analysisMock.pySupport().setup(mockToolsConfig);
     // Test with a raw manifest Action.
     fakeManifest = new LinkedHashMap<>();
     ArtifactRoot trivialRoot =
         ArtifactRoot.asSourceRoot(Root.fromPath(rootDirectory.getRelative("trivial")));
-    buildFilePath = scratch.file("trivial/BUILD",
-                                "py_binary(name='trivial', srcs =['trivial.py'])");
+    Path buildFilePath =
+        scratch.file("trivial/BUILD", "py_binary(name='trivial', srcs =['trivial.py'])");
     buildFile = ActionsTestUtil.createArtifact(trivialRoot, buildFilePath);
 
-    pythonSourcePath = scratch.file("trivial/trivial.py",
-                                   "#!/usr/bin/python \n print 'Hello World'");
-    pythonSourceFile = ActionsTestUtil.createArtifact(trivialRoot, pythonSourcePath);
+    Path pythonSourcePath =
+        scratch.file("trivial/trivial.py", "#!/usr/bin/python \n print 'Hello World'");
+    Artifact pythonSourceFile = ActionsTestUtil.createArtifact(trivialRoot, pythonSourcePath);
     fakeManifest.put(buildFilePath.relativeTo(rootDirectory), buildFile);
     fakeManifest.put(pythonSourcePath.relativeTo(rootDirectory), pythonSourceFile);
     ArtifactRoot outputDir =
         ArtifactRoot.asDerivedRoot(rootDirectory, RootType.Output, "blaze-output");
     outputDir.getRoot().asPath().createDirectoryAndParents();
-    manifestOutputPath = rootDirectory.getRelative("blaze-output/trivial.runfiles_manifest");
-    manifestOutputFile = ActionsTestUtil.createArtifact(outputDir, manifestOutputPath);
+    manifestOutputFile =
+        ActionsTestUtil.createArtifact(
+            outputDir, rootDirectory.getRelative("blaze-output/trivial.runfiles_manifest"));
 
     Path relativeSymlinkPath = outputDir.getRoot().asPath().getChild("relative_symlink");
     relativeSymlinkPath.createSymbolicLink(PathFragment.create("../some/relative/path"));
@@ -122,28 +116,29 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
     return new SourceManifestAction(type, NULL_ACTION_OWNER, manifestOutputFile, builder.build());
   }
 
-  /**
-   * Manifest writer that validates an expected call sequence.
-   */
-  private class MockManifestWriter implements SourceManifestAction.ManifestWriter {
-    private List<Map.Entry<PathFragment, Artifact>> expectedSequence = new ArrayList<>();
+  /** Manifest writer that validates an expected call sequence. */
+  private final class MockManifestWriter implements SourceManifestAction.ManifestWriter {
+    private final List<Map.Entry<PathFragment, Artifact>> expectedSequence = new ArrayList<>();
 
-    public MockManifestWriter() {
+    MockManifestWriter() {
       expectedSequence.addAll(fakeManifest.entrySet());
     }
 
     @Override
-    public void writeEntry(Writer manifestWriter, PathFragment rootRelativePath,
-        @Nullable Artifact symlink) throws IOException {
-      assertWithMessage("Expected manifest input to be exhausted").that(expectedSequence)
+    public void writeEntry(
+        Writer manifestWriter,
+        PathFragment rootRelativePath,
+        @Nullable PathFragment symlinkTarget) {
+      assertWithMessage("Expected manifest input to be exhausted")
+          .that(expectedSequence)
           .isNotEmpty();
       Map.Entry<PathFragment, Artifact> expectedEntry = expectedSequence.remove(0);
       assertThat(rootRelativePath)
           .isEqualTo(PathFragment.create("TESTING").getRelative(expectedEntry.getKey()));
-      assertThat(symlink).isEqualTo(expectedEntry.getValue());
+      assertThat(symlinkTarget).isEqualTo(expectedEntry.getValue().getPath().asFragment());
     }
 
-    public int unconsumedInputs() {
+    int unconsumedInputs() {
       return expectedSequence.size();
     }
 
@@ -190,9 +185,11 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
     String manifestContents = createSymlinkAction().getFileContents(reporter);
     assertThat(manifestContents)
         .isEqualTo(
-            "TESTING/trivial/BUILD /workspace/trivial/BUILD\n"
-                + "TESTING/trivial/__init__.py \n"
-                + "TESTING/trivial/trivial.py /workspace/trivial/trivial.py\n");
+            """
+            TESTING/trivial/BUILD /workspace/trivial/BUILD
+            TESTING/trivial/__init__.py\s
+            TESTING/trivial/trivial.py /workspace/trivial/trivial.py
+            """);
   }
 
   /**
@@ -204,9 +201,11 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
     String manifestContents = createSourceOnlyAction().getFileContents(reporter);
     assertThat(manifestContents)
         .isEqualTo(
-            "TESTING/trivial/BUILD\n"
-                + "TESTING/trivial/__init__.py\n"
-                + "TESTING/trivial/trivial.py\n");
+            """
+            TESTING/trivial/BUILD
+            TESTING/trivial/__init__.py
+            TESTING/trivial/trivial.py
+            """);
   }
 
   /**
@@ -238,7 +237,7 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testGetMnemonic() throws Exception {
+  public void testGetMnemonic() {
     assertThat(createSymlinkAction().getMnemonic()).isEqualTo("SourceSymlinkManifest");
     assertThat(createAction(ManifestType.SOURCE_SYMLINKS, false).getMnemonic())
         .isEqualTo("SourceSymlinkManifest");
@@ -246,7 +245,7 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testSymlinkProgressMessage() throws Exception {
+  public void testSymlinkProgressMessage() {
     String progress = createSymlinkAction().getProgressMessage();
     assertWithMessage("null action not found in " + progress)
         .that(progress.contains("//null/action:owner"))
@@ -254,7 +253,7 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testSymlinkProgressMessageNoPyInitFiles() throws Exception {
+  public void testSymlinkProgressMessageNoPyInitFiles() {
     String progress = createAction(ManifestType.SOURCE_SYMLINKS, false).getProgressMessage();
     assertWithMessage("null action not found in " + progress)
         .that(progress.contains("//null/action:owner"))
@@ -262,7 +261,7 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testSourceOnlyProgressMessage() throws Exception {
+  public void testSourceOnlyProgressMessage() {
     SourceManifestAction action =
         new SourceManifestAction(
             ManifestType.SOURCES_ONLY,
@@ -276,7 +275,7 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testRootSymlinksAffectKey() throws Exception {
+  public void testRootSymlinksAffectKey() {
     Artifact manifest1 = getBinArtifactWithNoOwner("manifest1");
     Artifact manifest2 = getBinArtifactWithNoOwner("manifest2");
 
@@ -303,7 +302,7 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
 
   // Regression test for b/116254698.
   @Test
-  public void testEmptyFilesAffectKey() throws Exception {
+  public void testEmptyFilesAffectKey() {
     Artifact manifest1 = getBinArtifactWithNoOwner("manifest1");
     Artifact manifest2 = getBinArtifactWithNoOwner("manifest2");
 
@@ -382,15 +381,88 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
 
     assertThat(action.getFileContents(reporter))
         .isEqualTo(
-            "TESTING/BUILD /workspace/trivial/BUILD\n"
-                + "TESTING/absolute_symlink /absolute/path\n"
-                + "TESTING/relative_symlink ../some/relative/path\n");
+            """
+            TESTING/BUILD /workspace/trivial/BUILD
+            TESTING/absolute_symlink /absolute/path
+            TESTING/relative_symlink ../some/relative/path
+            """);
   }
 
-  private String computeKey(SourceManifestAction action)
-      throws CommandLineExpansionException, InterruptedException {
+  @Test
+  public void testEscaping() throws Exception {
+    Artifact manifest = getBinArtifactWithNoOwner("manifest1");
+
+    ArtifactRoot trivialRoot =
+        ArtifactRoot.asSourceRoot(Root.fromPath(rootDirectory.getRelative("trivial")));
+    Path fileWithSpaceAndBackslashPath = scratch.file("trivial/file with sp\\ace", "foo");
+    Artifact fileWithSpaceAndBackslash =
+        ActionsTestUtil.createArtifact(trivialRoot, fileWithSpaceAndBackslashPath);
+    Path fileWithNewlineAndBackslashPath = scratch.file("trivial/file\nwith\\newline", "foo");
+    Artifact fileWithNewlineAndBackslash =
+        ActionsTestUtil.createArtifact(trivialRoot, fileWithNewlineAndBackslashPath);
+
+    SourceManifestAction action =
+        new SourceManifestAction(
+            ManifestType.SOURCE_SYMLINKS,
+            NULL_ACTION_OWNER,
+            manifest,
+            new Runfiles.Builder("TESTING", false)
+                .addSymlink(PathFragment.create("no/sp\\ace"), buildFile)
+                .addSymlink(PathFragment.create("also/no/sp\\ace"), fileWithSpaceAndBackslash)
+                .addSymlink(PathFragment.create("still/no/sp\\ace"), fileWithNewlineAndBackslash)
+                .addSymlink(PathFragment.create("with sp\\ace"), buildFile)
+                .addSymlink(PathFragment.create("also/with sp\\ace"), fileWithSpaceAndBackslash)
+                .addSymlink(PathFragment.create("more/with sp\\ace"), fileWithNewlineAndBackslash)
+                .addSymlink(PathFragment.create("with\nnew\\line"), buildFile)
+                .addSymlink(PathFragment.create("also/with\nnewline"), fileWithSpaceAndBackslash)
+                .addSymlink(PathFragment.create("more/with\nnewline"), fileWithNewlineAndBackslash)
+                .addSymlink(PathFragment.create("with\nnew\\line and space"), buildFile)
+                .addSymlink(
+                    PathFragment.create("also/with\nnewline and space"), fileWithSpaceAndBackslash)
+                .addSymlink(
+                    PathFragment.create("more/with\nnewline and space"),
+                    fileWithNewlineAndBackslash)
+                .build());
+    if (OS.getCurrent().equals(OS.WINDOWS)) {
+      assertThat(action.getFileContents(reporter))
+          .isEqualTo(
+              """
+              TESTING/also/no/sp/ace /workspace/trivial/file with sp/ace
+               TESTING/also/with\\nnewline /workspace/trivial/file with sp/ace
+               TESTING/also/with\\nnewline\\sand\\sspace /workspace/trivial/file with sp/ace
+               TESTING/also/with\\ssp/ace /workspace/trivial/file with sp/ace
+               TESTING/more/with\\nnewline /workspace/trivial/file\\nwith/newline
+               TESTING/more/with\\nnewline\\sand\\sspace /workspace/trivial/file\\nwith/newline
+               TESTING/more/with\\ssp/ace /workspace/trivial/file\\nwith/newline
+              TESTING/no/sp/ace /workspace/trivial/BUILD
+               TESTING/still/no/sp/ace /workspace/trivial/file\\nwith/newline
+               TESTING/with\\nnew/line /workspace/trivial/BUILD
+               TESTING/with\\nnew/line\\sand\\sspace /workspace/trivial/BUILD
+               TESTING/with\\ssp/ace /workspace/trivial/BUILD
+              """);
+    } else {
+      assertThat(action.getFileContents(reporter))
+          .isEqualTo(
+              """
+              TESTING/also/no/sp\\ace /workspace/trivial/file with sp\\ace
+               TESTING/also/with\\nnewline /workspace/trivial/file with sp\\bace
+               TESTING/also/with\\nnewline\\sand\\sspace /workspace/trivial/file with sp\\bace
+               TESTING/also/with\\ssp\\bace /workspace/trivial/file with sp\\bace
+               TESTING/more/with\\nnewline /workspace/trivial/file\\nwith\\bnewline
+               TESTING/more/with\\nnewline\\sand\\sspace /workspace/trivial/file\\nwith\\bnewline
+               TESTING/more/with\\ssp\\bace /workspace/trivial/file\\nwith\\bnewline
+              TESTING/no/sp\\ace /workspace/trivial/BUILD
+               TESTING/still/no/sp\\bace /workspace/trivial/file\\nwith\\bnewline
+               TESTING/with\\nnew\\bline /workspace/trivial/BUILD
+               TESTING/with\\nnew\\bline\\sand\\sspace /workspace/trivial/BUILD
+               TESTING/with\\ssp\\bace /workspace/trivial/BUILD
+              """);
+    }
+  }
+
+  private String computeKey(SourceManifestAction action) {
     Fingerprint fp = new Fingerprint();
-    action.computeKey(actionKeyContext, /*artifactExpander=*/ null, fp);
+    action.computeKey(actionKeyContext, /* artifactExpander= */ null, fp);
     return fp.hexDigestAndReset();
   }
 }

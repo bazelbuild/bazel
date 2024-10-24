@@ -18,16 +18,28 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
+import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.gson.Gson;
+import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 
-/** The result of {@link SingleExtensionUsagesFunction}. */
+/**
+ * The result of {@link SingleExtensionUsagesFunction}.
+ *
+ * <p>When adding or exposing new fields to extensions, make sure to update {@link
+ * #trimForEvaluation()} as well.
+ */
 @AutoValue
+@GenerateTypeAdapter
 public abstract class SingleExtensionUsagesValue implements SkyValue {
   /** All usages of this extension, by the key of the module where the usage occurs. */
   // Note: Equality of SingleExtensionUsagesValue does not check for equality of the order of the
@@ -45,13 +57,45 @@ public abstract class SingleExtensionUsagesValue implements SkyValue {
   /** The repo mappings to use for each module that used this extension. */
   public abstract ImmutableMap<ModuleKey, RepositoryMapping> getRepoMappings();
 
+  /** Maps an extension-local repo name to the canonical name of the repo it is overridden with. */
+  public abstract ImmutableMap<String, RepositoryName> getRepoOverrides();
+
   public static SingleExtensionUsagesValue create(
       ImmutableMap<ModuleKey, ModuleExtensionUsage> extensionUsages,
       String extensionUniqueName,
       ImmutableList<AbridgedModule> abridgedModules,
-      ImmutableMap<ModuleKey, RepositoryMapping> repoMappings) {
+      ImmutableMap<ModuleKey, RepositoryMapping> repoMappings,
+      ImmutableMap<String, RepositoryName> repoOverrides) {
     return new AutoValue_SingleExtensionUsagesValue(
-        extensionUsages, extensionUniqueName, abridgedModules, repoMappings);
+        extensionUsages, extensionUniqueName, abridgedModules, repoMappings, repoOverrides);
+  }
+
+  /**
+   * Turns the given usages value for a particular extension into a hash that can be compared for
+   * equality with another hash obtained in this way and compares equal only if the two values are
+   * equivalent for the purpose of evaluating the extension.
+   */
+  static byte[] hashForEvaluation(Gson gson, SingleExtensionUsagesValue usagesValue) {
+    return Hashing.sha256()
+        .hashUnencodedChars(gson.toJson(usagesValue.trimForEvaluation()))
+        .asBytes();
+  }
+
+  /**
+   * Returns a new value with only the information that influences the evaluation of the extension
+   * and isn't tracked elsewhere.
+   */
+  SingleExtensionUsagesValue trimForEvaluation() {
+    return SingleExtensionUsagesValue.create(
+        ImmutableMap.copyOf(
+            Maps.transformValues(getExtensionUsages(), ModuleExtensionUsage::trimForEvaluation)),
+        getExtensionUniqueName(),
+        getAbridgedModules(),
+        // repoMappings: The usage of repo mappings by the extension's implementation function is
+        // tracked on the level of individual entries and all label attributes are provided as
+        // `Label`, which exclusively reference canonical repository names.
+        ImmutableMap.of(),
+        getRepoOverrides());
   }
 
   public static Key key(ModuleExtensionId id) {
@@ -66,9 +110,14 @@ public abstract class SingleExtensionUsagesValue implements SkyValue {
       super(arg);
     }
 
-    @AutoCodec.Instantiator
-    static Key create(ModuleExtensionId arg) {
+    private static Key create(ModuleExtensionId arg) {
       return interner.intern(new Key(arg));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static Key intern(Key key) {
+      return interner.intern(key);
     }
 
     @Override

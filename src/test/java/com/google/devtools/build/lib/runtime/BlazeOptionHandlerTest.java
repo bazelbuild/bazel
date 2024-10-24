@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
@@ -427,7 +428,9 @@ public class BlazeOptionHandlerTest {
 
   @Test
   public void testParseOptions_argless() {
-    optionHandler.parseOptions(ImmutableList.of("build"), eventHandler);
+    DetailedExitCode unused =
+        optionHandler.parseOptions(
+            ImmutableList.of("build"), eventHandler, ImmutableList.builder());
     assertThat(eventHandler.getEvents()).isEmpty();
     assertThat(parser.getResidue()).isEmpty();
     assertThat(optionHandler.getRcfileNotes()).isEmpty();
@@ -435,7 +438,9 @@ public class BlazeOptionHandlerTest {
 
   @Test
   public void testParseOptions_residue() {
-    optionHandler.parseOptions(ImmutableList.of("build", "res"), eventHandler);
+    DetailedExitCode unused =
+        optionHandler.parseOptions(
+            ImmutableList.of("build", "res"), eventHandler, ImmutableList.builder());
     assertThat(eventHandler.getEvents()).isEmpty();
     assertThat(parser.getResidue()).contains("res");
     assertThat(optionHandler.getRcfileNotes()).isEmpty();
@@ -443,8 +448,11 @@ public class BlazeOptionHandlerTest {
 
   @Test
   public void testParseOptions_explicitOption() {
-    optionHandler.parseOptions(
-        ImmutableList.of("build", "--test_multiple_string=explicit"), eventHandler);
+    DetailedExitCode unused =
+        optionHandler.parseOptions(
+            ImmutableList.of("build", "--test_multiple_string=explicit"),
+            eventHandler,
+            ImmutableList.builder());
     assertThat(eventHandler.getEvents()).isEmpty();
     assertThat(parser.getResidue()).isEmpty();
     assertThat(optionHandler.getRcfileNotes()).isEmpty();
@@ -455,13 +463,15 @@ public class BlazeOptionHandlerTest {
 
   @Test
   public void testParseOptions_rcOption() {
-    optionHandler.parseOptions(
-        ImmutableList.of(
-            "build",
-            "--default_override=0:build=--test_multiple_string=rc_a",
-            "--default_override=0:build=--test_multiple_string=rc_b",
-            "--rc_source=/somewhere/.blazerc"),
-        eventHandler);
+    DetailedExitCode unused =
+        optionHandler.parseOptions(
+            ImmutableList.of(
+                "build",
+                "--default_override=0:build=--test_multiple_string=rc_a",
+                "--default_override=0:build=--test_multiple_string=rc_b",
+                "--rc_source=/somewhere/.blazerc"),
+            eventHandler,
+            ImmutableList.builder());
     assertThat(eventHandler.getEvents()).isEmpty();
     assertThat(parser.getResidue()).isEmpty();
     // Check that multiple options in the same rc chunk are collapsed into 1 announce_rc entry.
@@ -476,15 +486,17 @@ public class BlazeOptionHandlerTest {
 
   @Test
   public void testParseOptions_multipleRcs() {
-    optionHandler.parseOptions(
-        ImmutableList.of(
-            "build",
-            "--default_override=0:build=--test_multiple_string=rc1_a",
-            "--default_override=1:build=--test_multiple_string=rc2",
-            "--default_override=0:build=--test_multiple_string=rc1_b",
-            "--rc_source=/somewhere/.blazerc",
-            "--rc_source=/some/other/.blazerc"),
-        eventHandler);
+    DetailedExitCode unused =
+        optionHandler.parseOptions(
+            ImmutableList.of(
+                "build",
+                "--default_override=0:build=--test_multiple_string=rc1_a",
+                "--default_override=1:build=--test_multiple_string=rc2",
+                "--default_override=0:build=--test_multiple_string=rc1_b",
+                "--rc_source=/somewhere/.blazerc",
+                "--rc_source=/some/other/.blazerc"),
+            eventHandler,
+            ImmutableList.builder());
     assertThat(eventHandler.getEvents()).isEmpty();
     assertThat(parser.getResidue()).isEmpty();
     assertThat(optionHandler.getRcfileNotes())
@@ -502,17 +514,19 @@ public class BlazeOptionHandlerTest {
 
   @Test
   public void testParseOptions_multipleRcsWithMultipleCommands() {
-    optionHandler.parseOptions(
-        ImmutableList.of(
-            "build",
-            "--default_override=0:build=--test_multiple_string=rc1_a",
-            "--default_override=1:build=--test_multiple_string=rc2",
-            "--default_override=1:common=--test_multiple_string=rc2_common",
-            "--default_override=0:build=--test_multiple_string=rc1_b",
-            "--default_override=0:common=--test_multiple_string=rc1_common",
-            "--rc_source=/somewhere/.blazerc",
-            "--rc_source=/some/other/.blazerc"),
-        eventHandler);
+    DetailedExitCode unused =
+        optionHandler.parseOptions(
+            ImmutableList.of(
+                "build",
+                "--default_override=0:build=--test_multiple_string=rc1_a",
+                "--default_override=1:build=--test_multiple_string=rc2",
+                "--default_override=1:common=--test_multiple_string=rc2_common",
+                "--default_override=0:build=--test_multiple_string=rc1_b",
+                "--default_override=0:common=--test_multiple_string=rc1_common",
+                "--rc_source=/somewhere/.blazerc",
+                "--rc_source=/some/other/.blazerc"),
+            eventHandler,
+            ImmutableList.builder());
     assertThat(eventHandler.getEvents()).isEmpty();
     assertThat(parser.getResidue()).isEmpty();
     assertThat(optionHandler.getRcfileNotes())
@@ -536,13 +550,15 @@ public class BlazeOptionHandlerTest {
 
   @Test
   public void testParseOptions_rcOptionAndExplicit() {
-    optionHandler.parseOptions(
-        ImmutableList.of(
-            "build",
-            "--default_override=0:build=--test_multiple_string=rc",
-            "--rc_source=/somewhere/.blazerc",
-            "--test_multiple_string=explicit"),
-        eventHandler);
+    DetailedExitCode unused =
+        optionHandler.parseOptions(
+            ImmutableList.of(
+                "build",
+                "--default_override=0:build=--test_multiple_string=rc",
+                "--rc_source=/somewhere/.blazerc",
+                "--test_multiple_string=explicit"),
+            eventHandler,
+            ImmutableList.builder());
     assertThat(eventHandler.getEvents()).isEmpty();
     assertThat(parser.getResidue()).isEmpty();
     assertThat(optionHandler.getRcfileNotes())
@@ -556,15 +572,17 @@ public class BlazeOptionHandlerTest {
 
   @Test
   public void testParseOptions_multiCommandRcOptionAndExplicit() {
-    optionHandler.parseOptions(
-        ImmutableList.of(
-            "build",
-            "--default_override=0:build=--test_multiple_string=rc_build_1",
-            "--default_override=0:common=--test_multiple_string=rc_common",
-            "--default_override=0:build=--test_multiple_string=rc_build_2",
-            "--rc_source=/somewhere/.blazerc",
-            "--test_multiple_string=explicit"),
-        eventHandler);
+    DetailedExitCode unused =
+        optionHandler.parseOptions(
+            ImmutableList.of(
+                "build",
+                "--default_override=0:build=--test_multiple_string=rc_build_1",
+                "--default_override=0:common=--test_multiple_string=rc_common",
+                "--default_override=0:build=--test_multiple_string=rc_build_2",
+                "--rc_source=/somewhere/.blazerc",
+                "--test_multiple_string=explicit"),
+            eventHandler,
+            ImmutableList.builder());
     assertThat(eventHandler.getEvents()).isEmpty();
     assertThat(parser.getResidue()).isEmpty();
     assertThat(optionHandler.getRcfileNotes())
@@ -583,18 +601,20 @@ public class BlazeOptionHandlerTest {
 
   @Test
   public void testParseOptions_multipleRcsWithMultipleCommandsPlusExplicitOption() {
-    optionHandler.parseOptions(
-        ImmutableList.of(
-            "build",
-            "--default_override=0:build=--test_multiple_string=rc1_a",
-            "--default_override=1:build=--test_multiple_string=rc2",
-            "--test_multiple_string=explicit",
-            "--default_override=1:common=--test_multiple_string=rc2_common",
-            "--default_override=0:build=--test_multiple_string=rc1_b",
-            "--default_override=0:common=--test_multiple_string=rc1_common",
-            "--rc_source=/somewhere/.blazerc",
-            "--rc_source=/some/other/.blazerc"),
-        eventHandler);
+    DetailedExitCode unused =
+        optionHandler.parseOptions(
+            ImmutableList.of(
+                "build",
+                "--default_override=0:build=--test_multiple_string=rc1_a",
+                "--default_override=1:build=--test_multiple_string=rc2",
+                "--test_multiple_string=explicit",
+                "--default_override=1:common=--test_multiple_string=rc2_common",
+                "--default_override=0:build=--test_multiple_string=rc1_b",
+                "--default_override=0:common=--test_multiple_string=rc1_common",
+                "--rc_source=/somewhere/.blazerc",
+                "--rc_source=/some/other/.blazerc"),
+            eventHandler,
+            ImmutableList.builder());
     assertThat(eventHandler.getEvents()).isEmpty();
     assertThat(parser.getResidue()).isEmpty();
     assertThat(optionHandler.getRcfileNotes())
@@ -618,15 +638,17 @@ public class BlazeOptionHandlerTest {
 
   @Test
   public void testParseOptions_explicitConfig() {
-    optionHandler.parseOptions(
-        ImmutableList.of(
-            "build",
-            "--default_override=0:build=--test_multiple_string=rc",
-            "--default_override=0:build:conf=--test_multiple_string=config",
-            "--rc_source=/somewhere/.blazerc",
-            "--test_multiple_string=explicit",
-            "--config=conf"),
-        eventHandler);
+    DetailedExitCode unused =
+        optionHandler.parseOptions(
+            ImmutableList.of(
+                "build",
+                "--default_override=0:build=--test_multiple_string=rc",
+                "--default_override=0:build:conf=--test_multiple_string=config",
+                "--rc_source=/somewhere/.blazerc",
+                "--test_multiple_string=explicit",
+                "--config=conf"),
+            eventHandler,
+            ImmutableList.builder());
     assertThat(eventHandler.getEvents()).isEmpty();
     assertThat(parser.getResidue()).isEmpty();
     assertThat(optionHandler.getRcfileNotes())
@@ -644,15 +666,17 @@ public class BlazeOptionHandlerTest {
 
   @Test
   public void testParseOptions_rcSpecifiedConfig() {
-    optionHandler.parseOptions(
-        ImmutableList.of(
-            "build",
-            "--default_override=0:build=--config=conf",
-            "--default_override=0:build=--test_multiple_string=rc",
-            "--default_override=0:build:conf=--test_multiple_string=config",
-            "--rc_source=/somewhere/.blazerc",
-            "--test_multiple_string=explicit"),
-        eventHandler);
+    DetailedExitCode unused =
+        optionHandler.parseOptions(
+            ImmutableList.of(
+                "build",
+                "--default_override=0:build=--config=conf",
+                "--default_override=0:build=--test_multiple_string=rc",
+                "--default_override=0:build:conf=--test_multiple_string=config",
+                "--rc_source=/somewhere/.blazerc",
+                "--test_multiple_string=explicit"),
+            eventHandler,
+            ImmutableList.builder());
     assertThat(eventHandler.getEvents()).isEmpty();
     assertThat(parser.getResidue()).isEmpty();
     assertThat(optionHandler.getRcfileNotes())
@@ -670,18 +694,20 @@ public class BlazeOptionHandlerTest {
 
   @Test
   public void testParseOptions_recursiveConfig() {
-    optionHandler.parseOptions(
-        ImmutableList.of(
-            "build",
-            "--default_override=0:build=--config=conf",
-            "--default_override=0:build=--test_multiple_string=rc",
-            "--default_override=0:build:other=--test_multiple_string=other",
-            "--default_override=0:build:conf=--test_multiple_string=config1",
-            "--default_override=0:build:conf=--config=other",
-            "--default_override=0:common:other=--test_multiple_string=othercommon",
-            "--rc_source=/somewhere/.blazerc",
-            "--test_multiple_string=explicit"),
-        eventHandler);
+    DetailedExitCode unused =
+        optionHandler.parseOptions(
+            ImmutableList.of(
+                "build",
+                "--default_override=0:build=--config=conf",
+                "--default_override=0:build=--test_multiple_string=rc",
+                "--default_override=0:build:other=--test_multiple_string=other",
+                "--default_override=0:build:conf=--test_multiple_string=config1",
+                "--default_override=0:build:conf=--config=other",
+                "--default_override=0:common:other=--test_multiple_string=othercommon",
+                "--rc_source=/somewhere/.blazerc",
+                "--test_multiple_string=explicit"),
+            eventHandler,
+            ImmutableList.builder());
     assertThat(eventHandler.getEvents()).isEmpty();
     assertThat(parser.getResidue()).isEmpty();
     assertThat(optionHandler.getRcfileNotes())
@@ -705,17 +731,19 @@ public class BlazeOptionHandlerTest {
 
   @Test
   public void testParseOptions_recursiveConfigWithDifferentTokens() {
-    optionHandler.parseOptions(
-        ImmutableList.of(
-            "build",
-            "--default_override=0:build=--test_multiple_string=rc",
-            "--default_override=0:build:other=--test_multiple_string=other",
-            "--default_override=0:build:conf=--test_multiple_string=config1",
-            "--default_override=0:build:conf=--config",
-            "--default_override=0:build:conf=other",
-            "--rc_source=/somewhere/.blazerc",
-            "--config=conf"),
-        eventHandler);
+    DetailedExitCode unused =
+        optionHandler.parseOptions(
+            ImmutableList.of(
+                "build",
+                "--default_override=0:build=--test_multiple_string=rc",
+                "--default_override=0:build:other=--test_multiple_string=other",
+                "--default_override=0:build:conf=--test_multiple_string=config1",
+                "--default_override=0:build:conf=--config",
+                "--default_override=0:build:conf=other",
+                "--rc_source=/somewhere/.blazerc",
+                "--config=conf"),
+            eventHandler,
+            ImmutableList.builder());
 
     assertThat(eventHandler.getEvents())
         .containsExactly(
@@ -728,26 +756,28 @@ public class BlazeOptionHandlerTest {
 
   @Test
   public void testParseOptions_complexConfigOrder() {
-    optionHandler.parseOptions(
-        ImmutableList.of(
-            "build",
-            "--default_override=0:build=--test_multiple_string=rc1",
-            "--default_override=0:build=--config=foo",
-            "--default_override=0:build=--test_multiple_string=rc2",
-            "--default_override=0:common:baz=--test_multiple_string=baz1",
-            "--default_override=0:build:baz=--test_multiple_string=baz2",
-            "--default_override=0:common:foo=--test_multiple_string=foo1",
-            "--default_override=0:common:foo=--config=bar",
-            "--default_override=0:build:foo=--test_multiple_string=foo3",
-            "--default_override=0:common:foo=--test_multiple_string=foo2",
-            "--default_override=0:build:foo=--test_multiple_string=foo4",
-            "--default_override=0:common:bar=--test_multiple_string=bar1",
-            "--default_override=0:build:bar=--test_multiple_string=bar2",
-            "--rc_source=/somewhere/.blazerc",
-            "--test_multiple_string=explicit1",
-            "--config=baz",
-            "--test_multiple_string=explicit2"),
-        eventHandler);
+    DetailedExitCode unused =
+        optionHandler.parseOptions(
+            ImmutableList.of(
+                "build",
+                "--default_override=0:build=--test_multiple_string=rc1",
+                "--default_override=0:build=--config=foo",
+                "--default_override=0:build=--test_multiple_string=rc2",
+                "--default_override=0:common:baz=--test_multiple_string=baz1",
+                "--default_override=0:build:baz=--test_multiple_string=baz2",
+                "--default_override=0:common:foo=--test_multiple_string=foo1",
+                "--default_override=0:common:foo=--config=bar",
+                "--default_override=0:build:foo=--test_multiple_string=foo3",
+                "--default_override=0:common:foo=--test_multiple_string=foo2",
+                "--default_override=0:build:foo=--test_multiple_string=foo4",
+                "--default_override=0:common:bar=--test_multiple_string=bar1",
+                "--default_override=0:build:bar=--test_multiple_string=bar2",
+                "--rc_source=/somewhere/.blazerc",
+                "--test_multiple_string=explicit1",
+                "--config=baz",
+                "--test_multiple_string=explicit2"),
+            eventHandler,
+            ImmutableList.builder());
     assertThat(eventHandler.getEvents()).isEmpty();
     assertThat(parser.getResidue()).isEmpty();
     assertThat(optionHandler.getRcfileNotes())
@@ -787,18 +817,20 @@ public class BlazeOptionHandlerTest {
 
   @Test
   public void testParseOptions_repeatSubConfig() {
-    optionHandler.parseOptions(
-        ImmutableList.of(
-            "build",
-            "--default_override=0:build=--config=foo",
-            "--default_override=0:build=--test_multiple_string=rc",
-            "--default_override=0:build:foo=--test_multiple_string=foo",
-            "--default_override=0:build:foo=--config=bar",
-            "--default_override=0:build:foo=--config=bar",
-            "--default_override=0:build:bar=--test_multiple_string=bar",
-            "--rc_source=/somewhere/.blazerc",
-            "--test_multiple_string=explicit"),
-        eventHandler);
+    DetailedExitCode unused =
+        optionHandler.parseOptions(
+            ImmutableList.of(
+                "build",
+                "--default_override=0:build=--config=foo",
+                "--default_override=0:build=--test_multiple_string=rc",
+                "--default_override=0:build:foo=--test_multiple_string=foo",
+                "--default_override=0:build:foo=--config=bar",
+                "--default_override=0:build:foo=--config=bar",
+                "--default_override=0:build:bar=--test_multiple_string=bar",
+                "--rc_source=/somewhere/.blazerc",
+                "--test_multiple_string=explicit"),
+            eventHandler,
+            ImmutableList.builder());
     assertThat(parser.getResidue()).isEmpty();
     assertThat(eventHandler.getEvents())
         .containsExactly(
@@ -825,19 +857,21 @@ public class BlazeOptionHandlerTest {
 
   @Test
   public void testParseOptions_repeatConfig() {
-    optionHandler.parseOptions(
-        ImmutableList.of(
-            "build",
-            "--default_override=0:build:foo=--test_multiple_string=foo",
-            "--default_override=0:build:foo=--config=bar",
-            "--default_override=0:build:bar=--test_multiple_string=bar",
-            "--default_override=0:build:baz=--test_multiple_string=baz",
-            "--rc_source=/somewhere/.blazerc",
-            "--config=foo",
-            "--config=baz",
-            "--config=foo",
-            "--config=bar"),
-        eventHandler);
+    DetailedExitCode unused =
+        optionHandler.parseOptions(
+            ImmutableList.of(
+                "build",
+                "--default_override=0:build:foo=--test_multiple_string=foo",
+                "--default_override=0:build:foo=--config=bar",
+                "--default_override=0:build:bar=--test_multiple_string=bar",
+                "--default_override=0:build:baz=--test_multiple_string=baz",
+                "--rc_source=/somewhere/.blazerc",
+                "--config=foo",
+                "--config=baz",
+                "--config=foo",
+                "--config=bar"),
+            eventHandler,
+            ImmutableList.builder());
     assertThat(parser.getResidue()).isEmpty();
     assertThat(eventHandler.getEvents())
         .containsExactly(
@@ -868,16 +902,18 @@ public class BlazeOptionHandlerTest {
 
   @Test
   public void testParseOptions_configCycleLength1() {
-    optionHandler.parseOptions(
-        ImmutableList.of(
-            "build",
-            "--default_override=0:build=--config=foo",
-            "--default_override=0:build=--test_multiple_string=rc",
-            "--default_override=0:build:foo=--test_multiple_string=foo",
-            "--default_override=0:build:foo=--config=foo",
-            "--rc_source=/somewhere/.blazerc",
-            "--test_multiple_string=explicit"),
-        eventHandler);
+    DetailedExitCode unused =
+        optionHandler.parseOptions(
+            ImmutableList.of(
+                "build",
+                "--default_override=0:build=--config=foo",
+                "--default_override=0:build=--test_multiple_string=rc",
+                "--default_override=0:build:foo=--test_multiple_string=foo",
+                "--default_override=0:build:foo=--config=foo",
+                "--rc_source=/somewhere/.blazerc",
+                "--test_multiple_string=explicit"),
+            eventHandler,
+            ImmutableList.builder());
     assertThat(eventHandler.getEvents())
         .contains(
             Event.error(
@@ -887,18 +923,20 @@ public class BlazeOptionHandlerTest {
 
   @Test
   public void testParseOptions_configCycleLength2() {
-    optionHandler.parseOptions(
-        ImmutableList.of(
-            "build",
-            "--default_override=0:build=--config=foo",
-            "--default_override=0:build=--test_multiple_string=rc",
-            "--default_override=0:build:foo=--test_multiple_string=foo",
-            "--default_override=0:build:foo=--config=bar",
-            "--default_override=0:build:bar=--test_multiple_string=bar",
-            "--default_override=0:build:bar=--config=foo",
-            "--rc_source=/somewhere/.blazerc",
-            "--test_multiple_string=explicit"),
-        eventHandler);
+    DetailedExitCode unused =
+        optionHandler.parseOptions(
+            ImmutableList.of(
+                "build",
+                "--default_override=0:build=--config=foo",
+                "--default_override=0:build=--test_multiple_string=rc",
+                "--default_override=0:build:foo=--test_multiple_string=foo",
+                "--default_override=0:build:foo=--config=bar",
+                "--default_override=0:build:bar=--test_multiple_string=bar",
+                "--default_override=0:build:bar=--config=foo",
+                "--rc_source=/somewhere/.blazerc",
+                "--test_multiple_string=explicit"),
+            eventHandler,
+            ImmutableList.builder());
     assertThat(eventHandler.getEvents())
         .contains(
             Event.error(
@@ -908,19 +946,21 @@ public class BlazeOptionHandlerTest {
 
   @Test
   public void testParseOptions_recursiveConfigWasAlreadyPresent() {
-    optionHandler.parseOptions(
-        ImmutableList.of(
-            "build",
-            "--default_override=0:build=--config=other",
-            "--default_override=0:build=--config=conf",
-            "--default_override=0:build=--test_multiple_string=rc",
-            "--default_override=0:build:other=--test_multiple_string=other",
-            "--default_override=0:build:conf=--test_multiple_string=config1",
-            "--default_override=0:build:conf=--config=other",
-            "--default_override=0:common:other=--test_multiple_string=othercommon",
-            "--rc_source=/somewhere/.blazerc",
-            "--test_multiple_string=explicit"),
-        eventHandler);
+    DetailedExitCode unused =
+        optionHandler.parseOptions(
+            ImmutableList.of(
+                "build",
+                "--default_override=0:build=--config=other",
+                "--default_override=0:build=--config=conf",
+                "--default_override=0:build=--test_multiple_string=rc",
+                "--default_override=0:build:other=--test_multiple_string=other",
+                "--default_override=0:build:conf=--test_multiple_string=config1",
+                "--default_override=0:build:conf=--config=other",
+                "--default_override=0:common:other=--test_multiple_string=othercommon",
+                "--rc_source=/somewhere/.blazerc",
+                "--test_multiple_string=explicit"),
+            eventHandler,
+            ImmutableList.builder());
     assertThat(parser.getResidue()).isEmpty();
     assertThat(eventHandler.getEvents())
         .containsExactly(
@@ -988,7 +1028,8 @@ public class BlazeOptionHandlerTest {
             .add("--config=alpha")
             .build();
 
-    optionHandler.parseOptions(args, eventHandler);
+    DetailedExitCode unused =
+        optionHandler.parseOptions(args, eventHandler, ImmutableList.builder());
     assertThat(parser.getResidue()).isEmpty();
     assertThat(optionHandler.getRcfileNotes())
         .containsExactly(
@@ -1043,7 +1084,8 @@ public class BlazeOptionHandlerTest {
             .add("--config=gamma")
             .build();
 
-    optionHandler.parseOptions(args, eventHandler);
+    DetailedExitCode unused =
+        optionHandler.parseOptions(args, eventHandler, ImmutableList.builder());
     assertThat(parser.getResidue()).isEmpty();
 
     // Expect the second --config=gamma to have started a second chain, and get warnings about both.
@@ -1073,12 +1115,14 @@ public class BlazeOptionHandlerTest {
 
   @Test
   public void testWarningFlag() {
-    optionHandler.parseOptions(
-        ImmutableList.of(
-            "build",
-            "--unconditional_warning",
-            "You are forcing this warning to print for no apparent reason"),
-        eventHandler);
+    DetailedExitCode unused =
+        optionHandler.parseOptions(
+            ImmutableList.of(
+                "build",
+                "--unconditional_warning",
+                "You are forcing this warning to print for no apparent reason"),
+            eventHandler,
+            ImmutableList.builder());
     assertThat(eventHandler.getEvents())
         .containsExactly(
             Event.warn("You are forcing this warning to print for no apparent reason"));
@@ -1088,13 +1132,15 @@ public class BlazeOptionHandlerTest {
 
   @Test
   public void testWarningFlag_byConfig_notTriggered() {
-    optionHandler.parseOptions(
-        ImmutableList.of(
-            "build",
-            "--default_override=0:build:conf=--unconditional_warning="
-                + "config \"conf\" is deprecated, please stop using!",
-            "--rc_source=/somewhere/.blazerc"),
-        eventHandler);
+    DetailedExitCode unused =
+        optionHandler.parseOptions(
+            ImmutableList.of(
+                "build",
+                "--default_override=0:build:conf=--unconditional_warning="
+                    + "config \"conf\" is deprecated, please stop using!",
+                "--rc_source=/somewhere/.blazerc"),
+            eventHandler,
+            ImmutableList.builder());
     assertThat(eventHandler.getEvents()).isEmpty();
     assertThat(parser.getResidue()).isEmpty();
     assertThat(optionHandler.getRcfileNotes()).isEmpty();
@@ -1102,14 +1148,16 @@ public class BlazeOptionHandlerTest {
 
   @Test
   public void testWarningFlag_byConfig_triggered() {
-    optionHandler.parseOptions(
-        ImmutableList.of(
-            "build",
-            "--config=conf",
-            "--default_override=0:build:conf=--unconditional_warning="
-                + "config \"conf\" is deprecated, please stop using!",
-            "--rc_source=/somewhere/.blazerc"),
-        eventHandler);
+    DetailedExitCode unused =
+        optionHandler.parseOptions(
+            ImmutableList.of(
+                "build",
+                "--config=conf",
+                "--default_override=0:build:conf=--unconditional_warning="
+                    + "config \"conf\" is deprecated, please stop using!",
+                "--rc_source=/somewhere/.blazerc"),
+            eventHandler,
+            ImmutableList.builder());
     assertThat(eventHandler.getEvents())
         .containsExactly(Event.warn("config \"conf\" is deprecated, please stop using!"));
     assertThat(parser.getResidue()).isEmpty();
@@ -1121,14 +1169,16 @@ public class BlazeOptionHandlerTest {
 
   @Test
   public void testConfigAfterExplicit() {
-    optionHandler.parseOptions(
-        ImmutableList.of(
-            "build",
-            "--test_string=explicitValue",
-            "--config=conf",
-            "--default_override=0:build:conf=--test_string=fromConf",
-            "--rc_source=/somewhere/.blazerc"),
-        eventHandler);
+    DetailedExitCode unused =
+        optionHandler.parseOptions(
+            ImmutableList.of(
+                "build",
+                "--test_string=explicitValue",
+                "--config=conf",
+                "--default_override=0:build:conf=--test_string=fromConf",
+                "--rc_source=/somewhere/.blazerc"),
+            eventHandler,
+            ImmutableList.builder());
     TestOptions parseResult = parser.getOptions(TestOptions.class);
     // In the in-place expansion, the config's expansion has precedence, but issues a warning since
     // users might not know that their explicit value was overridden.
@@ -1147,14 +1197,16 @@ public class BlazeOptionHandlerTest {
 
   @Test
   public void testExplicitOverridesConfig() {
-    optionHandler.parseOptions(
-        ImmutableList.of(
-            "build",
-            "--config=conf",
-            "--test_string=explicitValue",
-            "--default_override=0:build:conf=--test_string=fromConf",
-            "--rc_source=/somewhere/.blazerc"),
-        eventHandler);
+    DetailedExitCode unused =
+        optionHandler.parseOptions(
+            ImmutableList.of(
+                "build",
+                "--config=conf",
+                "--test_string=explicitValue",
+                "--default_override=0:build:conf=--test_string=fromConf",
+                "--rc_source=/somewhere/.blazerc"),
+            eventHandler,
+            ImmutableList.builder());
     TestOptions parseResult = parser.getOptions(TestOptions.class);
     assertThat(eventHandler.getEvents()).isEmpty();
     assertThat(parseResult.testString).isEqualTo("explicitValue");

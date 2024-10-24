@@ -24,10 +24,9 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.MiddlemanType;
-import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -42,7 +41,8 @@ import net.starlark.java.syntax.Location;
 public class FakeOwner implements ActionExecutionMetadata {
   private final String mnemonic;
   private final String progressMessage;
-  @Nullable private final String ownerLabel;
+  private final String ownerLabel;
+  private final String ownerRuleKind;
   @Nullable private final Artifact primaryOutput;
   @Nullable private final PlatformInfo platform;
   private final ImmutableMap<String, String> execProperties;
@@ -52,6 +52,7 @@ public class FakeOwner implements ActionExecutionMetadata {
       String mnemonic,
       String progressMessage,
       String ownerLabel,
+      String ownerRuleKind,
       @Nullable Artifact primaryOutput,
       @Nullable PlatformInfo platform,
       ImmutableMap<String, String> execProperties,
@@ -59,6 +60,7 @@ public class FakeOwner implements ActionExecutionMetadata {
     this.mnemonic = mnemonic;
     this.progressMessage = progressMessage;
     this.ownerLabel = checkNotNull(ownerLabel);
+    this.ownerRuleKind = checkNotNull(ownerRuleKind);
     this.primaryOutput = primaryOutput;
     this.platform = platform;
     this.execProperties = execProperties;
@@ -71,6 +73,7 @@ public class FakeOwner implements ActionExecutionMetadata {
         mnemonic,
         progressMessage,
         ownerLabel,
+        /* ownerRuleKind= */ "dummy-target-kind",
         /* primaryOutput= */ null,
         platform,
         ImmutableMap.of(),
@@ -86,7 +89,7 @@ public class FakeOwner implements ActionExecutionMetadata {
     return ActionOwner.createDummy(
         Label.parseCanonicalUnchecked(ownerLabel),
         new Location("dummy-file", 0, 0),
-        /* targetKind= */ "dummy-target-kind",
+        ownerRuleKind,
         mnemonic,
         /* configurationChecksum= */ "configurationChecksum",
         new BuildConfigurationEvent(
@@ -134,12 +137,12 @@ public class FakeOwner implements ActionExecutionMetadata {
   }
 
   @Override
-  public NestedSet<Artifact> getSchedulingDependencies() {
+  public NestedSet<Artifact> getOriginalInputs() {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public RunfilesSupplier getRunfilesSupplier() {
+  public NestedSet<Artifact> getSchedulingDependencies() {
     throw new UnsupportedOperationException();
   }
 

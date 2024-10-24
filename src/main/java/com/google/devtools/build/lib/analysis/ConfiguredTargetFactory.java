@@ -19,15 +19,17 @@ import static java.util.stream.Collectors.joining;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Supplier;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.FailAction;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection.InvalidExecGroupException;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
@@ -46,7 +48,6 @@ import com.google.devtools.build.lib.analysis.test.AnalysisFailurePropagationExc
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -60,7 +61,6 @@ import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.PackageGroupsRuleVisibility;
-import com.google.devtools.build.lib.packages.PackageSpecification;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -68,12 +68,14 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.TargetRecorder.MacroNamespaceViolationException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
 import com.google.devtools.build.lib.server.FailureDetails.FailAction.Code;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.IncrementalArtifactConflictFinder;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -90,21 +92,17 @@ import net.starlark.java.eval.Mutability;
 @ThreadSafe
 public final class ConfiguredTargetFactory {
 
-  private static final NestedSet<PackageGroupContents> PUBLIC_VISIBILITY =
-      NestedSetBuilder.create(
-          Order.STABLE_ORDER,
-          PackageGroupContents.create(ImmutableList.of(PackageSpecification.everything())));
-
-  private static final NestedSet<PackageGroupContents> PRIVATE_VISIBILITY =
-      NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-
   // This class is not meant to be outside of the analysis phase machinery and is only public
   // in order to be accessible from the .view.skyframe package.
 
   private final ConfiguredRuleClassProvider ruleClassProvider;
+  private final Supplier<IncrementalArtifactConflictFinder> conflictFinder;
 
-  public ConfiguredTargetFactory(ConfiguredRuleClassProvider ruleClassProvider) {
+  public ConfiguredTargetFactory(
+      ConfiguredRuleClassProvider ruleClassProvider,
+      Supplier<IncrementalArtifactConflictFinder> conflictFinder) {
     this.ruleClassProvider = ruleClassProvider;
+    this.conflictFinder = conflictFinder;
   }
 
   /**
@@ -115,12 +113,22 @@ public final class ConfiguredTargetFactory {
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
       EventHandler reporter,
       Target target) {
+    // Targets declared inside symbolic macros already have a RuleVisibility that includes the
+    // target's declaration location. Targets that are *not* declared inside symbolic macros do not
+    // necessarily have their declaration location (i.e. the package they live in) in their
+    // RuleVisibility, but CommonPrerequisiteValidator takes that into account. See also javadoc of
+    // Rule#getRuleVisibility.
+    //
+    // TODO: #19922 - Ideally we'd just put the location into the visibility attribute even for
+    // targets not declared in symbolic macros. But this has a wide user-facing blast radius since
+    // it changes all existing targets' visibilities (when inspected via existing_rules(),
+    // `bazel query`, etc.).
     RuleVisibility ruleVisibility = target.getVisibility();
     if (ruleVisibility.equals(RuleVisibility.PUBLIC)) {
-      return PUBLIC_VISIBILITY;
+      return VisibilityProvider.PUBLIC_VISIBILITY;
     }
     if (ruleVisibility.equals(RuleVisibility.PRIVATE)) {
-      return PRIVATE_VISIBILITY;
+      return VisibilityProvider.PRIVATE_VISIBILITY;
     }
     checkState(ruleVisibility instanceof PackageGroupsRuleVisibility, ruleVisibility);
     PackageGroupsRuleVisibility packageGroupsVisibility =
@@ -209,11 +217,22 @@ public final class ConfiguredTargetFactory {
       }
     }
 
+    // Enforce that targets whose names are outside their declaring macro's namespace cannot be
+    // analyzed. (createRule() already enforces this above for rule targets, with optional error
+    // interception through analysis_test.)
+    try {
+      target.getPackage().checkMacroNamespaceCompliance(target);
+    } catch (MacroNamespaceViolationException e) {
+      analysisEnvironment
+          .getEventHandler()
+          .handle(Event.error(target.getLocation(), e.getMessage()));
+      return null;
+    }
+
     // Visibility, like all package groups, doesn't have a configuration
     NestedSet<PackageGroupContents> visibility =
         convertVisibility(prerequisiteMap, analysisEnvironment.getEventHandler(), target);
-    if (target instanceof OutputFile) {
-      OutputFile outputFile = (OutputFile) target;
+    if (target instanceof OutputFile outputFile) {
       TargetContext targetContext =
           new TargetContext(
               analysisEnvironment,
@@ -243,8 +262,7 @@ public final class ConfiguredTargetFactory {
       }
       Artifact artifact = rule.findArtifactByOutputLabel(outputFile.getLabel());
       return new OutputFileConfiguredTarget(targetContext, artifact, rule);
-    } else if (target instanceof InputFile) {
-      InputFile inputFile = (InputFile) target;
+    } else if (target instanceof InputFile inputFile) {
       TargetContext targetContext =
           new TargetContext(
               analysisEnvironment,
@@ -264,8 +282,7 @@ public final class ConfiguredTargetFactory {
                   .setConfiguration(config)
                   .build());
       return new InputFileConfiguredTarget(targetContext, artifact);
-    } else if (target instanceof PackageGroup) {
-      PackageGroup packageGroup = (PackageGroup) target;
+    } else if (target instanceof PackageGroup packageGroup) {
       TargetContext targetContext =
           new TargetContext(
               analysisEnvironment,
@@ -326,6 +343,7 @@ public final class ConfiguredTargetFactory {
                         prerequisiteMap.values(), ConfiguredTargetAndData::getConfiguredTarget),
                     starlarkExecTransition))
             .setTransitivePackagesForRunfileRepoMappingManifest(transitivePackages)
+            .setConflictFinder(conflictFinder)
             .build();
 
     ImmutableList<NestedSet<AnalysisFailure>> analysisFailures =
@@ -334,6 +352,13 @@ public final class ConfiguredTargetFactory {
       return erroredConfiguredTargetWithFailures(ruleContext, analysisFailures);
     }
     if (ruleContext.hasErrors()) {
+      return erroredConfiguredTarget(ruleContext, null);
+    }
+
+    try {
+      rule.getPackage().checkMacroNamespaceCompliance(rule);
+    } catch (MacroNamespaceViolationException e) {
+      ruleContext.ruleError(e.getMessage());
       return erroredConfiguredTarget(ruleContext, null);
     }
 
@@ -376,16 +401,17 @@ public final class ConfiguredTargetFactory {
         final boolean isDefaultExecutableCreated;
         @Nullable final RequiredConfigFragmentsProvider requiredConfigFragmentsProvider;
         try {
+          // must be called before any calls to ruleContext.getStarlarkRuleContext()
           ruleContext.initStarlarkRuleContext();
           // TODO(bazel-team): maybe merge with RuleConfiguredTargetBuilder?
           rawProviders = StarlarkRuleConfiguredTargetUtil.evalRule(ruleContext, ruleClass);
-        } finally {
           // TODO(b/268525292): isDefaultExecutableCreated is set to True when
           // ctx.outputs.executable
           // is accessed in the implementation. This fragile mechanism should be revised and removed
           isDefaultExecutableCreated =
               ruleContext.getStarlarkRuleContext().isDefaultExecutableCreated();
           requiredConfigFragmentsProvider = ruleContext.getRequiredConfigFragments();
+        } finally {
           ruleContext.close();
         }
         if (rawProviders == null) {
@@ -411,7 +437,11 @@ public final class ConfiguredTargetFactory {
                       "No configured target factory for %s",
                       ruleClass)
                   .create(ruleContext);
-
+          if (target != null) {
+            // If a configured target is created, check that all advertised providers are returned.
+            validateRuleAdvertisedProviders(
+                ruleContext, target, ruleClass.getAdvertisedProviders());
+          }
         } finally {
           // close() is required if the native rule created StarlarkRuleContext to perform any
           // Starlark evaluation, i.e. using the @_builtins mechanism.
@@ -423,6 +453,35 @@ public final class ConfiguredTargetFactory {
       }
     } catch (RuleErrorException ruleErrorException) {
       return erroredConfiguredTarget(ruleContext, null);
+    }
+  }
+
+  /**
+   * Checks that all the rule advertised providers are returned in the configured target and add
+   * error to {@code ruleContext} if not.
+   */
+  private static void validateRuleAdvertisedProviders(
+      RuleContext ruleContext,
+      ConfiguredTarget configuredTarget,
+      AdvertisedProviderSet advertisedProviders) {
+    for (StarlarkProviderIdentifier providerId : advertisedProviders.getStarlarkProviders()) {
+      if (configuredTarget.get(providerId) == null) {
+        ruleContext.ruleError(
+            String.format(
+                "rule advertised the '%s' provider, but this provider was not among those"
+                    + " returned",
+                providerId));
+      }
+    }
+
+    for (Class<?> klass : advertisedProviders.getBuiltinProviders()) {
+      if (configuredTarget.getProvider(klass.asSubclass(TransitiveInfoProvider.class)) == null) {
+        ruleContext.ruleError(
+            String.format(
+                "rule advertised the '%s' provider, but this provider was not among those"
+                    + " returned",
+                klass.getSimpleName()));
+      }
     }
   }
 
@@ -563,6 +622,8 @@ public final class ConfiguredTargetFactory {
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
       ConfigConditions configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
+      @Nullable
+          ToolchainCollection<AspectBaseTargetResolvedToolchainContext> baseTargetToolchainContexts,
       @Nullable ExecGroupCollection.Builder execGroupCollectionBuilder,
       BuildConfigurationValue aspectConfiguration,
       @Nullable NestedSet<Package> transitivePackages,
@@ -583,6 +644,7 @@ public final class ConfiguredTargetFactory {
             .setPrerequisites(removeToolchainDeps(prerequisiteMap))
             .setConfigConditions(configConditions)
             .setToolchainContexts(toolchainContexts)
+            .setBaseTargetToolchainContexts(baseTargetToolchainContexts)
             .setExecGroupCollectionBuilder(execGroupCollectionBuilder)
             .setExecProperties(ImmutableMap.of())
             .setRequiredConfigFragments(
@@ -599,6 +661,7 @@ public final class ConfiguredTargetFactory {
                         ImmutableList.of(configuredTarget)),
                     starlarkExecTransition))
             .setTransitivePackagesForRunfileRepoMappingManifest(transitivePackages)
+            .setConflictFinder(conflictFinder)
             .build();
 
     // If allowing analysis failures, targets should be created as normal as possible, and errors
@@ -621,6 +684,12 @@ public final class ConfiguredTargetFactory {
             ruleContext,
             aspect.getParameters(),
             ruleClassProvider.getToolsRepository());
+
+    if (ruleContext.getConflictFinder() != null && configuredAspect != null) {
+      for (ActionAnalysisMetadata action : configuredAspect.getActions()) {
+        ruleContext.getConflictFinder().conflictCheckPerAction(action);
+      }
+    }
     if (configuredAspect == null) {
       return erroredConfiguredAspect(ruleContext, null);
     } else if (configuredAspect.get(AnalysisFailureInfo.STARLARK_CONSTRUCTOR) != null) {

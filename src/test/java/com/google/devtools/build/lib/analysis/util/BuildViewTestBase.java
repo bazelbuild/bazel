@@ -39,19 +39,32 @@ import java.util.regex.Pattern;
 public abstract class BuildViewTestBase extends AnalysisTestCase {
 
   protected final void setupDummyRule() throws Exception {
-    scratch.file("pkg/BUILD",
-                "testing_dummy_rule(name='foo', ",
-                "                   srcs=['a.src'],",
-                "                   outs=['a.out'])");
+    scratch.file(
+        "pkg/BUILD",
+        """
+        testing_dummy_rule(
+            name = "foo",
+            srcs = ["a.src"],
+            outs = ["a.out"],
+        )
+        """);
   }
 
   protected void runAnalysisWithOutputFilter(Pattern outputFilter) throws Exception {
     scratch.file("java/a/BUILD",
         "exports_files(['A.java'])");
-    scratch.file("java/b/BUILD",
-        "java_library(name = 'b', srcs = ['//java/a:A.java'])");
-    scratch.file("java/c/BUILD",
-        "java_library(name = 'c', exports = ['//java/b:b'])");
+    scratch.file(
+        "java/b/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(name = 'b', srcs = ['//java/a:A.java'])
+        """);
+    scratch.file(
+        "java/c/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(name = 'c', exports = ['//java/b:b'])
+        """);
     reporter.setOutputFilter(RegexOutputFilter.forPattern(outputFilter));
     update("//java/c:c");
   }
@@ -66,17 +79,37 @@ public abstract class BuildViewTestBase extends AnalysisTestCase {
   protected void runTestDepOnGoodTargetInBadPkgAndTransitiveCycle(boolean incremental)
       throws Exception {
     reporter.removeHandler(failFastHandler);
-    scratch.file("parent/BUILD",
-        "sh_library(name = 'foo',",
-        "           srcs = ['//badpkg:okay-target', '//okaypkg:transitively-a-cycle'])");
+    scratch.file(
+        "parent/BUILD",
+        """
+        sh_library(
+            name = "foo",
+            srcs = [
+                "//badpkg:okay-target",
+                "//okaypkg:transitively-a-cycle",
+            ],
+        )
+        """);
     Path symlinkcycleBuildFile = scratch.file("symlinkcycle/BUILD",
         "sh_library(name = 'cycle', srcs = glob(['*.sh']))");
     Path dirPath = symlinkcycleBuildFile.getParentDirectory();
     dirPath.getRelative("foo.sh").createSymbolicLink(PathFragment.create("foo.sh"));
-    scratch.file("okaypkg/BUILD",
-        "sh_library(name = 'transitively-a-cycle',",
-        "           srcs = ['//symlinkcycle:cycle'])");
-    Path badpkgBuildFile = scratch.file("badpkg/BUILD", "exports_files(['okay-target'])", "fail()");
+    scratch.file(
+        "okaypkg/BUILD",
+        """
+        sh_library(
+            name = "transitively-a-cycle",
+            srcs = ["//symlinkcycle:cycle"],
+        )
+        """);
+    Path badpkgBuildFile =
+        scratch.file(
+            "badpkg/BUILD",
+            """
+            exports_files(["okay-target"])
+
+            fail()
+            """);
     if (incremental) {
       update(defaultFlags().with(Flag.KEEP_GOING), "//okaypkg:transitively-a-cycle");
       assertContainsEvent("circular symlinks detected");

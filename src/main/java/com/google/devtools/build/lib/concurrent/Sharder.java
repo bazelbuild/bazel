@@ -14,11 +14,13 @@
 package com.google.devtools.build.lib.concurrent;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
-import java.util.Collections;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * A class to build shards (work queues) for a given task.
@@ -28,8 +30,8 @@ import java.util.List;
  * @param <T> the type of collection over which we're sharding
  */
 public final class Sharder<T> implements Iterable<List<T>> {
-  private final List<List<T>> shards;
-  private int nextShard = 0;
+  private final ImmutableList<List<T>> shards;
+  private final AtomicInteger count = new AtomicInteger();
 
   public Sharder(int maxNumShards, int expectedTotalSize) {
     Preconditions.checkArgument(maxNumShards > 0);
@@ -37,24 +39,33 @@ public final class Sharder<T> implements Iterable<List<T>> {
     this.shards = immutableListOfLists(maxNumShards, expectedTotalSize / maxNumShards);
   }
 
+  /**
+   * Adds an item to a shard.
+   *
+   * <p>May safely be called concurrently by multiple threads.
+   */
+  @ThreadSafe
   public void add(T item) {
-    shards.get(nextShard).add(item);
-    nextShard = (nextShard + 1) % shards.size();
+    int nextShardIndex = count.incrementAndGet() % shards.size();
+    List<T> shard = shards.get(nextShardIndex);
+    synchronized (shard) {
+      shard.add(item);
+    }
   }
 
   /**
    * Returns an immutable list of mutable lists.
    *
    * @param numLists the number of top-level lists.
-   * @param expectedSize the exepected size of each mutable list.
+   * @param expectedSize the expected size of each mutable list.
    * @return a list of lists.
    */
-  private static <T> List<List<T>> immutableListOfLists(int numLists, int expectedSize) {
-    List<List<T>> list = Lists.newArrayListWithCapacity(numLists);
+  private static <T> ImmutableList<List<T>> immutableListOfLists(int numLists, int expectedSize) {
+    var outerList = ImmutableList.<List<T>>builderWithExpectedSize(numLists);
     for (int i = 0; i < numLists; i++) {
-      list.add(Lists.<T>newArrayListWithExpectedSize(expectedSize));
+      outerList.add(new ArrayList<>(expectedSize));
     }
-    return Collections.unmodifiableList(list);
+    return outerList.build();
   }
 
   @Override

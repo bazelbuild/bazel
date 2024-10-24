@@ -22,7 +22,6 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.runtime.MemoryPressure.MemoryPressureStats;
 import com.google.devtools.build.lib.runtime.MemoryPressureEvent;
 import com.google.devtools.build.lib.runtime.MemoryPressureOptions;
-import com.google.devtools.build.lib.runtime.MemoryPressureStatCollector;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 
 /**
@@ -41,7 +40,7 @@ import com.google.devtools.build.lib.vfs.SyscallCache;
  * performance of Blaze's SkyFunctions and (ii) using SkyKeyComputeState but then GC thrashing and
  * suffering when Blaze is memory constrained. Instead, we get the best of both worlds.
  */
-public final class HighWaterMarkLimiter implements MemoryPressureStatCollector {
+public final class HighWaterMarkLimiter {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final SkyframeExecutor skyframeExecutor;
@@ -99,12 +98,13 @@ public final class HighWaterMarkLimiter implements MemoryPressureStatCollector {
     syscallCache.clear();
   }
 
-  @Override
-  public void addStatsAndReset(MemoryPressureStats.Builder stats) {
-    stats
+  /** Returns {@link MemoryPressureStats} about the number of cache drops. */
+  public MemoryPressureStats getStats() {
+    return MemoryPressureStats.newBuilder()
         .setMinorGcDrops(
             options.skyframeHighWaterMarkMinorGcDropsPerInvocation - minorGcDropsRemaining)
         .setFullGcDrops(
-            options.skyframeHighWaterMarkFullGcDropsPerInvocation - fullGcDropsRemaining);
+            options.skyframeHighWaterMarkFullGcDropsPerInvocation - fullGcDropsRemaining)
+        .build();
   }
 }

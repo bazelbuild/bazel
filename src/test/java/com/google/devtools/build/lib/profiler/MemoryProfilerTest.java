@@ -29,6 +29,7 @@ import java.lang.management.MemoryUsage;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -37,11 +38,14 @@ import org.mockito.Mockito;
 /** Tests for {@link MemoryProfiler}. */
 @RunWith(JUnit4.class)
 public class MemoryProfilerTest {
+
+  private static final Pattern NO_OP_PATTERN = Pattern.compile("no_match");
+
   @Test
   public void profilerDoesOneGcAndNoSleepNormally() throws Exception {
     MemoryProfiler profiler = MemoryProfiler.instance();
     profiler.setStableMemoryParameters(
-        new MemoryProfileStableHeapParameters.Converter().convert("1,10"));
+        new MemoryProfileStableHeapParameters.Converter().convert("1,10"), NO_OP_PATTERN);
     profiler.start(ByteStreams.nullOutputStream());
     MemoryMXBean bean = Mockito.mock(MemoryMXBean.class);
     MemoryUsage heapUsage = new MemoryUsage(0, 0, 0, 0);
@@ -64,7 +68,7 @@ public class MemoryProfilerTest {
   public void profilerDoesOneGcAndNoSleepExceptInFinish() throws Exception {
     MemoryProfiler profiler = MemoryProfiler.instance();
     profiler.setStableMemoryParameters(
-        new MemoryProfileStableHeapParameters.Converter().convert("3,10"));
+        new MemoryProfileStableHeapParameters.Converter().convert("3,10"), NO_OP_PATTERN);
     profiler.start(ByteStreams.nullOutputStream());
     MemoryMXBean bean = Mockito.mock(MemoryMXBean.class);
     MemoryUsage emptyHeap = new MemoryUsage(0, 0, 0, 0);
@@ -102,7 +106,7 @@ public class MemoryProfilerTest {
   public void profilerHasMultiplePairs() throws Exception {
     MemoryProfiler profiler = MemoryProfiler.instance();
     profiler.setStableMemoryParameters(
-        new MemoryProfileStableHeapParameters.Converter().convert("2,1,3,4,5,6"));
+        new MemoryProfileStableHeapParameters.Converter().convert("2,1,3,4,5,6"), NO_OP_PATTERN);
     profiler.start(ByteStreams.nullOutputStream());
     MemoryMXBean bean = Mockito.mock(MemoryMXBean.class);
 
@@ -145,7 +149,8 @@ public class MemoryProfilerTest {
             OptionsParsingException.class,
             () ->
                 profiler.setStableMemoryParameters(
-                    new MemoryProfileStableHeapParameters.Converter().convert("1,10,7")));
+                    new MemoryProfileStableHeapParameters.Converter().convert("1,10,7"),
+                    NO_OP_PATTERN));
     assertThat(e)
         .hasMessageThat()
         .contains("Expected even number of comma-separated integer values");
@@ -160,7 +165,8 @@ public class MemoryProfilerTest {
             () ->
                 profiler.setStableMemoryParameters(
                     new MemoryProfileStableHeapParameters.Converter()
-                        .convert("1,10,74,22,horse,goat")));
+                        .convert("1,10,74,22,horse,goat"),
+                    NO_OP_PATTERN));
     assertThat(e)
         .hasMessageThat()
         .contains(

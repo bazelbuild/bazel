@@ -13,13 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
@@ -79,7 +81,7 @@ public class GlobCache {
 
   private final CachingPackageLocator packageLocator;
 
-  private final ImmutableSet<PathFragment> ignoredGlobPrefixes;
+  private final IgnoredSubdirectories ignoredSubdirectories;
 
   /**
    * Create a glob expansion cache.
@@ -96,7 +98,7 @@ public class GlobCache {
   public GlobCache(
       final Path packageDirectory,
       final PackageIdentifier packageId,
-      final ImmutableSet<PathFragment> ignoredGlobPrefixes,
+      final IgnoredSubdirectories ignoredSubdirectories,
       final CachingPackageLocator locator,
       SyscallCache syscallCache,
       Executor globExecutor,
@@ -118,7 +120,7 @@ public class GlobCache {
 
     Preconditions.checkNotNull(locator);
     this.packageLocator = locator;
-    this.ignoredGlobPrefixes = ignoredGlobPrefixes;
+    this.ignoredSubdirectories = ignoredSubdirectories;
   }
 
   private boolean globCacheShouldTraverseDirectory(Path directory) {
@@ -129,10 +131,8 @@ public class GlobCache {
     PathFragment subPackagePath =
         packageId.getPackageFragment().getRelative(directory.relativeTo(packageDirectory));
 
-    for (PathFragment ignoredPrefix : ignoredGlobPrefixes) {
-      if (subPackagePath.startsWith(ignoredPrefix)) {
-        return false;
-      }
+    if (ignoredSubdirectories.matchingEntry(subPackagePath) != null) {
+      return false;
     }
 
     return !isSubPackage(PackageIdentifier.create(packageId.getRepository(), subPackagePath));
@@ -239,7 +239,9 @@ public class GlobCache {
       return future.get();
     } catch (ExecutionException e) {
       Throwable cause = e.getCause();
-      Throwables.propagateIfPossible(cause, IOException.class, InterruptedException.class);
+      throwIfInstanceOf(cause, IOException.class);
+      throwIfInstanceOf(cause, InterruptedException.class);
+      throwIfUnchecked(cause);
       throw new RuntimeException(e);
     }
   }
@@ -349,21 +351,17 @@ public class GlobCache {
 
     @Override
     public boolean shouldIncludePathInResult(Path path, boolean isDirectory) {
-      switch (globberOperation) {
-        case FILES_AND_DIRS:
-          return !isDirectory || !isSubPackage(path);
-        case SUBPACKAGES:
+      return switch (globberOperation) {
+        case FILES_AND_DIRS -> !isDirectory || !isSubPackage(path);
+        case SUBPACKAGES -> {
           // no files, or root pkg
           if (!isDirectory || path.equals(packageDirectory)) {
-            return false;
+            yield false;
           }
-          return isSubPackage(path);
-
-        case FILES:
-          return !isDirectory;
-      }
-      throw new IllegalStateException(
-          "Unexpected unhandled Globber.Operation enum value: " + globberOperation);
+          yield isSubPackage(path);
+        }
+        case FILES -> !isDirectory;
+      };
     }
   }
 }

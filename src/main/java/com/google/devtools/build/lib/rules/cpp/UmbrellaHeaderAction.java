@@ -20,15 +20,13 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.DeterministicWriter;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.IOException;
-import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -58,8 +56,7 @@ public final class UmbrellaHeaderAction extends AbstractFileWriteAction {
         NestedSetBuilder.<Artifact>stableOrder()
             .addAll(Iterables.filter(publicHeaders, Artifact::isTreeArtifact))
             .build(),
-        umbrellaHeader,
-        /*makeExecutable=*/ false);
+        umbrellaHeader);
     this.umbrellaHeader = umbrellaHeader;
     this.publicHeaders = ImmutableList.copyOf(publicHeaders);
     this.additionalExportedHeaders = ImmutableList.copyOf(additionalExportedHeaders);
@@ -68,19 +65,16 @@ public final class UmbrellaHeaderAction extends AbstractFileWriteAction {
   @Override
   public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx)  {
     final ArtifactExpander artifactExpander = ctx.getArtifactExpander();
-    return new DeterministicWriter() {
-      @Override
-      public void writeOutputFile(OutputStream out) throws IOException {
-        StringBuilder content = new StringBuilder();
-        HashSet<PathFragment> deduper = new HashSet<>();
-        for (Artifact artifact : expandedHeaders(artifactExpander, publicHeaders)) {
-          appendHeader(content, artifact.getExecPath(), deduper);
-        }
-        for (PathFragment additionalExportedHeader : additionalExportedHeaders) {
-          appendHeader(content, additionalExportedHeader, deduper);
-        }
-        out.write(content.toString().getBytes(StandardCharsets.ISO_8859_1));
+    return out -> {
+      StringBuilder content = new StringBuilder();
+      HashSet<PathFragment> deduper = new HashSet<>();
+      for (Artifact artifact : expandedHeaders(artifactExpander, publicHeaders)) {
+        appendHeader(content, artifact.getExecPath(), deduper);
       }
+      for (PathFragment additionalExportedHeader : additionalExportedHeaders) {
+        appendHeader(content, additionalExportedHeader, deduper);
+      }
+      out.write(content.toString().getBytes(StandardCharsets.ISO_8859_1));
     };
   }
 
@@ -89,7 +83,7 @@ public final class UmbrellaHeaderAction extends AbstractFileWriteAction {
     List<Artifact> expandedHeaders = new ArrayList<>();
     for (Artifact unexpandedHeader : unexpandedHeaders) {
       if (unexpandedHeader.isTreeArtifact()) {
-        artifactExpander.expand(unexpandedHeader, expandedHeaders);
+        expandedHeaders.addAll(artifactExpander.tryExpandTreeArtifact(unexpandedHeader));
       } else {
         expandedHeaders.add(unexpandedHeader);
       }
@@ -97,8 +91,8 @@ public final class UmbrellaHeaderAction extends AbstractFileWriteAction {
     return ImmutableList.copyOf(expandedHeaders);
   }
 
-  private void appendHeader(StringBuilder content, PathFragment path, 
-      HashSet<PathFragment> deduper) {
+  private static void appendHeader(
+      StringBuilder content, PathFragment path, HashSet<PathFragment> deduper) {
     if (deduper.contains(path)) {
       return;
     }
@@ -107,7 +101,7 @@ public final class UmbrellaHeaderAction extends AbstractFileWriteAction {
     content.append("#include \"").append(path).append("\"");
     content.append("\n");
   }
-  
+
   @Override
   public String getMnemonic() {
     return "UmbrellaHeader";
@@ -116,7 +110,7 @@ public final class UmbrellaHeaderAction extends AbstractFileWriteAction {
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable Artifact.ArtifactExpander artifactExpander,
+      @Nullable ArtifactExpander artifactExpander,
       Fingerprint fp) {
     fp.addString(GUID);
     fp.addPath(umbrellaHeader.getExecPath());

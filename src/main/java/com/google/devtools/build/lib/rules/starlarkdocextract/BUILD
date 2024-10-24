@@ -13,7 +13,10 @@ filegroup(
 
 java_library(
     name = "starlarkdocextract",
-    srcs = glob(["*.java"]),
+    srcs = [
+        "StarlarkDocExtract.java",
+        "StarlarkDocExtractRule.java",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -22,8 +25,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:file_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
-        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:module_extension",
-        "//src/main/java/com/google/devtools/build/lib/bazel/repository/starlark",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/packages",
@@ -31,14 +32,16 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_failed_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:repository_mapping_value",
+        "//src/main/java/com/google/devtools/build/lib/starlarkdocextract:extractionexception",
+        "//src/main/java/com/google/devtools/build/lib/starlarkdocextract:labelrenderer",
+        "//src/main/java/com/google/devtools/build/lib/starlarkdocextract:moduleinfoextractor",
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
-        "//src/main/java/com/google/devtools/build/skydoc/rendering:rendering_util",
-        "//src/main/java/com/google/devtools/build/skydoc/rendering/proto:stardoc_output_java_proto",
-        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/eval",
+        "//src/main/protobuf:stardoc_output_java_proto",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/protobuf:protobuf_java",
+        "@protobuf//:protobuf_java",
     ],
 )

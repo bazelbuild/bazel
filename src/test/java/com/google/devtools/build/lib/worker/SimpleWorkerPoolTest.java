@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.worker;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.worker.TestUtils.createWorkerKey;
+import static com.google.devtools.build.lib.worker.WorkerTestUtils.createWorkerKey;
 
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -36,16 +36,17 @@ public final class SimpleWorkerPoolTest {
   private static FileSystem fileSystem;
 
   private static class TestWorker extends SingleplexWorker {
-    TestWorker(WorkerKey workerKey, int workerId, Path workDir, Path logFile) {
-      super(workerKey, workerId, workDir, logFile);
+    TestWorker(
+        WorkerKey workerKey, int workerId, Path workDir, Path logFile, WorkerOptions options) {
+      super(workerKey, workerId, workDir, logFile, options, null);
     }
   }
 
   private static class TestWorkerFactory extends WorkerFactory {
     private int workerIds = 1;
 
-    public TestWorkerFactory(Path workerBaseDir) {
-      super(workerBaseDir);
+    public TestWorkerFactory(Path workerBaseDir, WorkerOptions workerOptions) {
+      super(workerBaseDir, workerOptions);
     }
 
     @Override
@@ -55,7 +56,8 @@ public final class SimpleWorkerPoolTest {
               workerKey,
               workerIds++,
               fileSystem.getPath("/workDir"),
-              fileSystem.getPath("/logDir")));
+              fileSystem.getPath("/logDir"),
+              workerOptions));
     }
 
     @Override
@@ -67,7 +69,7 @@ public final class SimpleWorkerPoolTest {
   @Before
   public void setUp() throws Exception {
     fileSystem = new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.SHA256);
-    workerFactory = new TestWorkerFactory(null);
+    workerFactory = new TestWorkerFactory(null, new WorkerOptions());
   }
 
   @Test

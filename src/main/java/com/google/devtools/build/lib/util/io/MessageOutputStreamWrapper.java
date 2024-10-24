@@ -11,30 +11,33 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.util.io;
 
-import com.google.common.base.Preconditions;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.protobuf.Message;
 import com.google.protobuf.util.JsonFormat;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
 
 /** Creates a MessageOutputStream from an OutputStream. */
 public class MessageOutputStreamWrapper {
-  /** Outputs the messages in delimited protobuf binary format. */
+
+  private MessageOutputStreamWrapper() {}
+
+  /** Writes the messages in length-delimited protobuf wire format. */
   public static class BinaryOutputStreamWrapper<T extends Message>
       implements MessageOutputStream<T> {
     private final OutputStream stream;
 
     public BinaryOutputStreamWrapper(OutputStream stream) {
-      this.stream = Preconditions.checkNotNull(stream);
+      this.stream = checkNotNull(stream);
     }
 
     @Override
     public void write(T m) throws IOException {
-      Preconditions.checkNotNull(m);
+      checkNotNull(m);
       m.writeDelimitedTo(stream);
     }
 
@@ -44,20 +47,21 @@ public class MessageOutputStreamWrapper {
     }
   }
 
-  /** Outputs the messages in JSON text format. */
+  /** Writes the messages in concatenated JSON text format. */
   public static class JsonOutputStreamWrapper<T extends Message> implements MessageOutputStream<T> {
+    private static final JsonFormat.Printer PRINTER =
+        JsonFormat.printer().alwaysPrintFieldsWithNoPresence();
+
     private final OutputStream stream;
-    private final JsonFormat.Printer printer = JsonFormat.printer().includingDefaultValueFields();
 
     public JsonOutputStreamWrapper(OutputStream stream) {
-      Preconditions.checkNotNull(stream);
-      this.stream = stream;
+      this.stream = checkNotNull(stream);
     }
 
     @Override
     public void write(T m) throws IOException {
-      Preconditions.checkNotNull(m);
-      stream.write(printer.print(m).getBytes(StandardCharsets.UTF_8));
+      checkNotNull(m);
+      stream.write(PRINTER.print(m).getBytes(UTF_8));
     }
 
     @Override

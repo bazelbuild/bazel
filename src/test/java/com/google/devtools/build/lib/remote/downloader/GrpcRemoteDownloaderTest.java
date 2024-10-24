@@ -17,10 +17,12 @@ package com.google.devtools.build.lib.remote.downloader;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Collections.singletonList;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import build.bazel.remote.asset.v1.FetchBlobRequest;
 import build.bazel.remote.asset.v1.FetchBlobResponse;
@@ -29,6 +31,7 @@ import build.bazel.remote.asset.v1.Qualifier;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.ServerCapabilities;
+import com.google.auth.Credentials;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
@@ -39,6 +42,7 @@ import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyT
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.UnrecoverableHttpException;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.remote.ChannelConnectionWithServerCapabilitiesFactory;
 import com.google.devtools.build.lib.remote.ReferenceCountedChannel;
@@ -51,6 +55,7 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
 import com.google.devtools.build.lib.remote.util.TestUtils;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
+import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -58,6 +63,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.util.Timestamps;
 import io.grpc.CallCredentials;
 import io.grpc.ManagedChannel;
 import io.grpc.Server;
@@ -68,7 +74,10 @@ import io.grpc.util.MutableHandlerRegistry;
 import io.reactivex.rxjava3.core.Single;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
 import java.net.URL;
+import java.time.Duration;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -84,6 +93,8 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link GrpcRemoteDownloader}. */
 @RunWith(JUnit4.class)
 public class GrpcRemoteDownloaderTest {
+
+  private static final ManualClock clock = new ManualClock();
 
   private static final DigestUtil DIGEST_UTIL =
       new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
@@ -112,6 +123,8 @@ public class GrpcRemoteDownloaderTest {
     context = RemoteActionExecutionContext.create(metadata);
 
     retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
+
+    BlazeClock.setClock(clock);
   }
 
   @After
@@ -160,6 +173,7 @@ public class GrpcRemoteDownloaderTest {
         Optional.<CallCredentials>empty(),
         retrier,
         cacheClient,
+        DIGEST_UTIL.getDigestFunction(),
         remoteOptions,
         /* verboseFailures= */ false,
         fallbackDownloader);
@@ -205,6 +219,9 @@ public class GrpcRemoteDownloaderTest {
             assertThat(request)
                 .isEqualTo(
                     FetchBlobRequest.newBuilder()
+                        .setDigestFunction(DIGEST_UTIL.getDigestFunction())
+                        .setOldestContentAccepted(
+                            Timestamps.fromMillis(clock.advance(Duration.ofHours(1))))
                         .addUris("http://example.com/content.txt")
                         .build());
             responseObserver.onNext(
@@ -270,6 +287,7 @@ public class GrpcRemoteDownloaderTest {
             assertThat(request)
                 .isEqualTo(
                     FetchBlobRequest.newBuilder()
+                        .setDigestFunction(DIGEST_UTIL.getDigestFunction())
                         .addUris("http://example.com/content.txt")
                         .addQualifiers(
                             Qualifier.newBuilder()
@@ -308,6 +326,7 @@ public class GrpcRemoteDownloaderTest {
             assertThat(request)
                 .isEqualTo(
                     FetchBlobRequest.newBuilder()
+                        .setDigestFunction(DIGEST_UTIL.getDigestFunction())
                         .addUris("http://example.com/content.txt")
                         .addQualifiers(
                             Qualifier.newBuilder()
@@ -344,6 +363,7 @@ public class GrpcRemoteDownloaderTest {
     FetchBlobRequest request =
         GrpcRemoteDownloader.newFetchBlobRequest(
             "instance name",
+            false,
             ImmutableList.of(
                 new URL("http://example.com/a"),
                 new URL("http://example.com/b"),
@@ -351,12 +371,18 @@ public class GrpcRemoteDownloaderTest {
             Optional.<Checksum>of(
                 Checksum.fromSubresourceIntegrity(
                     "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")),
-            "canonical ID");
+            "canonical ID",
+            DIGEST_UTIL.getDigestFunction(),
+            ImmutableMap.of(
+                "Authorization", ImmutableList.of("Basic Zm9vOmJhcg=="),
+                "X-Custom-Token", ImmutableList.of("foo", "bar")),
+            StaticCredentials.EMPTY);
 
     assertThat(request)
         .isEqualTo(
             FetchBlobRequest.newBuilder()
                 .setInstanceName("instance name")
+                .setDigestFunction(DIGEST_UTIL.getDigestFunction())
                 .addUris("http://example.com/a")
                 .addUris("http://example.com/b")
                 .addUris("file:/not/limited/to/http")
@@ -364,6 +390,121 @@ public class GrpcRemoteDownloaderTest {
                     Qualifier.newBuilder()
                         .setName("checksum.sri")
                         .setValue("sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="))
+                .addQualifiers(
+                    Qualifier.newBuilder().setName("bazel.canonical_id").setValue("canonical ID"))
+                .addQualifiers(
+                    Qualifier.newBuilder()
+                        .setName("http_header:Authorization")
+                        .setValue("Basic Zm9vOmJhcg=="))
+                .addQualifiers(
+                    Qualifier.newBuilder()
+                        .setName("http_header:X-Custom-Token")
+                        .setValue("foo,bar"))
+                .build());
+  }
+
+  @Test
+  public void testFetchBlobRequest_withCredentialsPropagation() throws Exception {
+    var shouldPropagateCredentials = true;
+    var url = new URL("http://example.com/a");
+
+    Credentials credentials = mock(Credentials.class);
+    when(credentials.hasRequestMetadata()).thenReturn(true);
+    Map<String, List<String>> headers = new HashMap<>();
+    headers.put("CredKey", singletonList("CredValue"));
+    when(credentials.getRequestMetadata(url.toURI())).thenReturn(headers);
+
+    FetchBlobRequest request =
+        GrpcRemoteDownloader.newFetchBlobRequest(
+            "instance name",
+            shouldPropagateCredentials,
+            ImmutableList.of(url),
+            Optional.<Checksum>of(
+                Checksum.fromSubresourceIntegrity(
+                    "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")),
+            "canonical ID",
+            DIGEST_UTIL.getDigestFunction(),
+            ImmutableMap.of(),
+            credentials);
+
+    assertThat(request)
+        .isEqualTo(
+            FetchBlobRequest.newBuilder()
+                .setInstanceName("instance name")
+                .setDigestFunction(DIGEST_UTIL.getDigestFunction())
+                .addUris("http://example.com/a")
+                .addQualifiers(
+                    Qualifier.newBuilder()
+                        .setName("http_header_url:0:CredKey")
+                        .setValue("CredValue"))
+                .addQualifiers(
+                    Qualifier.newBuilder()
+                        .setName("checksum.sri")
+                        .setValue("sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="))
+                .addQualifiers(
+                    Qualifier.newBuilder().setName("bazel.canonical_id").setValue("canonical ID"))
+                .build());
+  }
+
+  @Test
+  public void testFetchBlobRequest_withoutCredentialsPropagation() throws Exception {
+    var shouldPropagateCredentials = false;
+    var url = new URI("http://example.com/a").toURL();
+
+    Credentials credentials = mock(Credentials.class);
+    when(credentials.hasRequestMetadata()).thenReturn(true);
+    Map<String, List<String>> headers = new HashMap<>();
+    headers.put("CredKey", ImmutableList.of("CredValue"));
+    when(credentials.getRequestMetadata(url.toURI())).thenReturn(headers);
+
+    FetchBlobRequest request =
+        GrpcRemoteDownloader.newFetchBlobRequest(
+            "instance name",
+            shouldPropagateCredentials,
+            ImmutableList.of(url),
+            Optional.<Checksum>of(
+                Checksum.fromSubresourceIntegrity(
+                    "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")),
+            "canonical ID",
+            DIGEST_UTIL.getDigestFunction(),
+            ImmutableMap.of(),
+            credentials);
+
+    assertThat(request)
+        .isEqualTo(
+            FetchBlobRequest.newBuilder()
+                .setInstanceName("instance name")
+                .setDigestFunction(DIGEST_UTIL.getDigestFunction())
+                .addUris("http://example.com/a")
+                .addQualifiers(
+                    Qualifier.newBuilder()
+                        .setName("checksum.sri")
+                        .setValue("sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="))
+                .addQualifiers(
+                    Qualifier.newBuilder().setName("bazel.canonical_id").setValue("canonical ID"))
+                .build());
+  }
+
+  @Test
+  public void testFetchBlobRequest_withoutChecksum() throws Exception {
+    FetchBlobRequest request =
+        GrpcRemoteDownloader.newFetchBlobRequest(
+            "instance name",
+            false,
+            ImmutableList.of(new URI("http://example.com/").toURL()),
+            Optional.<Checksum>empty(),
+            "canonical ID",
+            DIGEST_UTIL.getDigestFunction(),
+            ImmutableMap.of(),
+            StaticCredentials.EMPTY);
+
+    assertThat(request)
+        .isEqualTo(
+            FetchBlobRequest.newBuilder()
+                .setInstanceName("instance name")
+                .setDigestFunction(DIGEST_UTIL.getDigestFunction())
+                .setOldestContentAccepted(Timestamps.fromMillis(clock.advance(Duration.ofHours(1))))
+                .addUris("http://example.com/")
                 .addQualifiers(
                     Qualifier.newBuilder().setName("bazel.canonical_id").setValue("canonical ID"))
                 .build());

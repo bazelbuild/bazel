@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
-import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
@@ -47,12 +46,12 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.exec.BlazeExecutor;
+import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import org.junit.Test;
@@ -121,13 +120,12 @@ public class ExtraActionTest extends FoundationTestCase {
         new ExtraAction(
             NULL_ACTION_OWNER,
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-            EmptyRunfilesSupplier.INSTANCE,
             ImmutableSet.of(
                 (Artifact.DerivedArtifact)
                     ActionsTestUtil.createArtifact(out, scratch.file("/out/test.out"))),
             new NullAction(),
             false,
-            CommandLine.of(Arrays.asList("one", "two", "thee")),
+            CommandLine.of(ImmutableList.of("one", "two", "thee")),
             ActionEnvironment.create(ImmutableMap.of("TEST", "TEST_VALUE")),
             ImmutableMap.of(),
             "Executing extra action bla bla",
@@ -160,7 +158,7 @@ public class ExtraActionTest extends FoundationTestCase {
         extraAction.execute(
             new ActionExecutionContext(
                 testExecutor,
-                /* inputMetadataProvider= */ null,
+                new FakeActionInputFileCache(),
                 ActionInputPrefetcher.NONE,
                 actionKeyContext,
                 /* outputMetadataStore= */ null,
@@ -192,12 +190,10 @@ public class ExtraActionTest extends FoundationTestCase {
     when(shadowedAction.discoversInputs()).thenReturn(true);
     when(shadowedAction.getInputs()).thenReturn(NestedSetBuilder.emptySet(Order.STABLE_ORDER));
     when(shadowedAction.inputsKnown()).thenReturn(true);
-    when(shadowedAction.getRunfilesSupplier()).thenReturn(EmptyRunfilesSupplier.INSTANCE);
     ExtraAction extraAction =
         new ExtraAction(
             NULL_ACTION_OWNER,
             NestedSetBuilder.create(Order.STABLE_ORDER, extraIn),
-            EmptyRunfilesSupplier.INSTANCE,
             ImmutableSet.of(
                 (Artifact.DerivedArtifact)
                     ActionsTestUtil.createArtifact(out, scratch.file("/out/test.out"))),

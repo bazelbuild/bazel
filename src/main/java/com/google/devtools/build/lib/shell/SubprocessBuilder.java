@@ -125,7 +125,7 @@ public class SubprocessBuilder {
 
   /**
    * Sets the environment passed to the child process. If null, inherit the environment of the
-   * server.
+   * parent. The default is to inherit.
    */
   @CanIgnoreReturnValue
   public SubprocessBuilder setEnv(@Nullable Map<String, String> env) {
@@ -183,21 +183,6 @@ public class SubprocessBuilder {
 
   public File getStderrFile() {
     return stderrFile;
-  }
-
-  /**
-   * Tells the object what to do with stderr: either stream as a {@code InputStream} or discard.
-   *
-   * <p>It can also be redirected to a file using {@link #setStderr(File)}.
-   */
-  @CanIgnoreReturnValue
-  public SubprocessBuilder setStderr(StreamAction action) {
-    if (action == StreamAction.REDIRECT) {
-      throw new IllegalStateException();
-    }
-    this.stderrAction = action;
-    this.stderrFile = null;
-    return this;
   }
 
   /**

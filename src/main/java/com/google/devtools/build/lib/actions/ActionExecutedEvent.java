@@ -165,29 +165,21 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
     ImmutableList.Builder<LocalFile> localFiles = ImmutableList.builder();
     // TODO(b/199940216): thread file metadata through here when possible.
     if (stdout != null) {
-      localFiles.add(
-          new LocalFile(
-              stdout, LocalFileType.STDOUT, /*artifact=*/ null, /*artifactMetadata=*/ null));
+      localFiles.add(new LocalFile(stdout, LocalFileType.STDOUT, /* artifactMetadata= */ null));
     }
     if (stderr != null) {
-      localFiles.add(
-          new LocalFile(
-              stderr, LocalFileType.STDERR, /*artifact=*/ null, /*artifactMetadata=*/ null));
+      localFiles.add(new LocalFile(stderr, LocalFileType.STDERR, /* artifactMetadata= */ null));
     }
     for (MetadataLog actionMetadataLog : actionMetadataLogs) {
       localFiles.add(
           new LocalFile(
-              actionMetadataLog.getFilePath(),
-              LocalFileType.LOG,
-              /*artifact=*/ null,
-              /*artifactMetadata=*/ null));
+              actionMetadataLog.getFilePath(), LocalFileType.LOG, /* artifactMetadata= */ null));
     }
     if (exception == null) {
       localFiles.add(
           new LocalFile(
               primaryOutput,
               LocalFileType.forArtifact(outputArtifact, primaryOutputMetadata),
-              outputArtifact,
               primaryOutputMetadata));
     }
     return localFiles.build();
@@ -262,8 +254,8 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
       }
     }
     try {
-      if (action instanceof CommandAction) {
-        actionBuilder.addAllCommandLine(((CommandAction) action).getArguments());
+      if (action instanceof CommandAction commandAction) {
+        actionBuilder.addAllCommandLine(commandAction.getArguments());
       }
     } catch (CommandLineExpansionException e) {
       // Command-line not available, so just not report it

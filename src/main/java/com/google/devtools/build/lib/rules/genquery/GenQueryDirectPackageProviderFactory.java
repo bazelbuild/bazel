@@ -314,8 +314,7 @@ public class GenQueryDirectPackageProviderFactory implements GenQueryPackageProv
         if (target == null) {
           try {
             Object o = TargetLoadingUtil.loadTarget(env, label);
-            if (o instanceof TargetAndErrorIfAny) {
-              TargetAndErrorIfAny targetAndErrorIfAny = (TargetAndErrorIfAny) o;
+            if (o instanceof TargetAndErrorIfAny targetAndErrorIfAny) {
               if (!targetAndErrorIfAny.isPackageLoadedSuccessfully()) {
                 throw BrokenQueryScopeException.of(targetAndErrorIfAny.getErrorLoadingTarget());
               }
@@ -394,9 +393,7 @@ public class GenQueryDirectPackageProviderFactory implements GenQueryPackageProv
               fromRule.getLabel(),
               toLabel);
       AdvertisedProviderSet advertisedProviderSet =
-          toTarget instanceof Rule
-              ? ((Rule) toTarget).getRuleClassObject().getAdvertisedProviders()
-              : null;
+          toTarget instanceof Rule rule ? rule.getRuleClassObject().getAdvertisedProviders() : null;
       if (advertisedProviderSet != null
           && AspectDefinition.satisfies(aspect, advertisedProviderSet)) {
         return true;

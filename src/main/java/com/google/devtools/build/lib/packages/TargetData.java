@@ -94,7 +94,7 @@ public interface TargetData {
   /**
    * True if the underlying target advertises the required providers.
    *
-   * <p>This is used to determine whether an aspect should propagate to this configured target.
+   * <p>This is used to determine whether an aspect should propagate to this target.
    */
   default boolean satisfies(RequiredProviders required) {
     return false;
@@ -104,6 +104,11 @@ public interface TargetData {
   @Nullable
   default TestTimeout getTestTimeout() {
     return null;
+  }
+
+  /** Whether this target can be made available during dependency resolution. */
+  default boolean isForDependencyResolution() {
+    return false;
   }
 
   default AdvertisedProviderSet getAdvertisedProviders() {

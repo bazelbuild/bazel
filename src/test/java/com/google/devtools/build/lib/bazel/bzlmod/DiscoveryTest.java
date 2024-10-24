@@ -23,13 +23,16 @@ import com.google.auto.value.AutoValue;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.FileValue;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.InterimModuleBuilder;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
+import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -91,11 +94,17 @@ public class DiscoveryTest extends FoundationTestCase {
     static final SkyFunctionName FUNCTION_NAME = SkyFunctionName.createHermetic("test_discovery");
     static final SkyKey KEY = () -> FUNCTION_NAME;
 
-    static DiscoveryValue create(ImmutableMap<ModuleKey, InterimModule> depGraph) {
-      return new AutoValue_DiscoveryTest_DiscoveryValue(depGraph);
+    static DiscoveryValue create(
+        ImmutableMap<ModuleKey, InterimModule> depGraph,
+        ImmutableMap<String, Optional<String>> registryFileHashes) {
+      return new AutoValue_DiscoveryTest_DiscoveryValue(depGraph, registryFileHashes);
     }
 
     abstract ImmutableMap<ModuleKey, InterimModule> getDepGraph();
+
+    // Uses Optional<String> rather than Optional<Checksum> for easier testing (Checksum doesn't
+    // implement equals()).
+    abstract ImmutableMap<String, Optional<String>> getRegistryFileHashes();
   }
 
   static class DiscoveryFunction implements SkyFunction {
@@ -107,14 +116,21 @@ public class DiscoveryTest extends FoundationTestCase {
       if (root == null) {
         return null;
       }
-      ImmutableMap<ModuleKey, InterimModule> depGraph;
+      Discovery.Result discoveryResult;
       try {
-        depGraph = Discovery.run(env, root);
+        discoveryResult = Discovery.run(env, root);
       } catch (ExternalDepsException e) {
         throw new BazelModuleResolutionFunction.BazelModuleResolutionFunctionException(
             e, SkyFunctionException.Transience.PERSISTENT);
       }
-      return depGraph == null ? null : DiscoveryValue.create(depGraph);
+      return discoveryResult == null
+          ? null
+          : DiscoveryValue.create(
+              discoveryResult.depGraph(),
+              ImmutableMap.copyOf(
+                  Maps.transformValues(
+                      discoveryResult.registryFileHashes(),
+                      value -> value.map(Checksum::toString))));
     }
   }
 
@@ -159,7 +175,7 @@ public class DiscoveryTest extends FoundationTestCase {
     evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
-                .put(FileValue.FILE, new FileFunction(packageLocator, directories))
+                .put(SkyFunctions.FILE, new FileFunction(packageLocator, directories))
                 .put(
                     FileStateKey.FILE_STATE,
                     new FileStateFunction(
@@ -168,9 +184,13 @@ public class DiscoveryTest extends FoundationTestCase {
                         SyscallCache.NO_CACHE,
                         externalFilesHelper))
                 .put(DiscoveryValue.FUNCTION_NAME, new DiscoveryFunction())
+                .put(SkyFunctions.BAZEL_LOCK_FILE, new BazelLockFileFunction(rootDirectory))
                 .put(
                     SkyFunctions.MODULE_FILE,
-                    new ModuleFileFunction(registryFactory, workspaceRoot, builtinModules))
+                    new ModuleFileFunction(
+                        ruleClassProvider.getBazelStarlarkEnvironment(),
+                        workspaceRoot,
+                        builtinModules))
                 .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
                 .put(
                     SkyFunctions.REPOSITORY_DIRECTORY,
@@ -184,7 +204,11 @@ public class DiscoveryTest extends FoundationTestCase {
                 .put(
                     BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
                     new BzlmodRepoRuleFunction(ruleClassProvider, directories))
-                .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction(registryFactory))
+                .put(
+                    SkyFunctions.REGISTRY,
+                    new RegistryFunction(registryFactory, directories.getWorkspace()))
+                .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction())
+                .put(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction())
                 .put(
                     SkyFunctions.MODULE_EXTENSION_REPO_MAPPING_ENTRIES,
                     new ModuleExtensionRepoMappingEntriesFunction())
@@ -200,6 +224,8 @@ public class DiscoveryTest extends FoundationTestCase {
     RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
     RepositoryDelegatorFunction.FORCE_FETCH.set(
         differencer, RepositoryDelegatorFunction.FORCE_FETCH_DISABLED);
+    RepositoryDelegatorFunction.VENDOR_DIRECTORY.set(differencer, Optional.empty());
+
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, packageLocator.get());
     RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(
         differencer, Optional.empty());
@@ -207,6 +233,7 @@ public class DiscoveryTest extends FoundationTestCase {
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());
     YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
+    BazelLockFileFunction.LOCKFILE_MODE.set(differencer, LockfileMode.UPDATE);
   }
 
   @Test
@@ -229,7 +256,7 @@ public class DiscoveryTest extends FoundationTestCase {
                 createModuleKey("ddd", "3.0"),
                 // Add a random override here; it should be ignored
                 "module(name='ddd', version='3.0');local_path_override(module_name='ff',path='f')");
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
 
     EvaluationResult<DiscoveryValue> result =
         evaluator.evaluate(ImmutableList.of(DiscoveryValue.KEY), evaluationContext);
@@ -253,6 +280,15 @@ public class DiscoveryTest extends FoundationTestCase {
                 .setRegistry(registry)
                 .buildEntry(),
             InterimModuleBuilder.create("ddd", "3.0").setRegistry(registry).buildEntry());
+    assertThat(discoveryValue.getRegistryFileHashes())
+        .containsExactly(
+            registry.getUrl() + "/modules/bbb/1.0/MODULE.bazel",
+            Optional.of("3f48e6d8694e0aa0d16617fd97b7d84da0e17ee9932c18cbc71888c12563372d"),
+            registry.getUrl() + "/modules/ccc/2.0/MODULE.bazel",
+            Optional.of("e613d4192495192c3d46ee444dc9882a176a9e7a243d1b5a840ab0f01553e8d6"),
+            registry.getUrl() + "/modules/ddd/3.0/MODULE.bazel",
+            Optional.of("f80d91453520d193b0b79f1501eb902b5b01a991762cc7fb659fc580b95648fd"))
+        .inOrder();
   }
 
   @Test
@@ -271,7 +307,7 @@ public class DiscoveryTest extends FoundationTestCase {
                 "bazel_dep(name='ccc',version='2.0',dev_dependency=True)")
             .addModule(createModuleKey("ccc", "1.0"), "module(name='ccc', version='1.0')")
             .addModule(createModuleKey("ccc", "2.0"), "module(name='ccc', version='2.0')");
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
 
     EvaluationResult<DiscoveryValue> result =
         evaluator.evaluate(ImmutableList.of(DiscoveryValue.KEY), evaluationContext);
@@ -306,7 +342,7 @@ public class DiscoveryTest extends FoundationTestCase {
                 "bazel_dep(name='ccc',version='2.0',dev_dependency=True)")
             .addModule(createModuleKey("ccc", "1.0"), "module(name='ccc', version='1.0')")
             .addModule(createModuleKey("ccc", "2.0"), "module(name='ccc', version='2.0')");
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, true);
 
     EvaluationResult<DiscoveryValue> result =
@@ -339,7 +375,7 @@ public class DiscoveryTest extends FoundationTestCase {
             .addModule(
                 createModuleKey("ccc", "2.0"),
                 "module(name='ccc', version='2.0');bazel_dep(name='bbb',version='1.0')");
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
 
     EvaluationResult<DiscoveryValue> result =
         evaluator.evaluate(ImmutableList.of(DiscoveryValue.KEY), evaluationContext);
@@ -376,7 +412,7 @@ public class DiscoveryTest extends FoundationTestCase {
                 createModuleKey("bbb", "1.0"),
                 "module(name='bbb', version='1.0');bazel_dep(name='aaa',version='2.0')")
             .addModule(createModuleKey("aaa", "2.0"), "module(name='aaa', version='2.0')");
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
 
     EvaluationResult<DiscoveryValue> result =
         evaluator.evaluate(ImmutableList.of(DiscoveryValue.KEY), evaluationContext);
@@ -412,7 +448,7 @@ public class DiscoveryTest extends FoundationTestCase {
                 "module(name='bbb', version='0.1');bazel_dep(name='ccc',version='1.0')")
             .addModule(createModuleKey("ccc", "1.0"), "module(name='ccc', version='1.0');")
             .addModule(createModuleKey("ccc", "2.0"), "module(name='ccc', version='2.0');");
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
 
     EvaluationResult<DiscoveryValue> result =
         evaluator.evaluate(ImmutableList.of(DiscoveryValue.KEY), evaluationContext);
@@ -454,7 +490,7 @@ public class DiscoveryTest extends FoundationTestCase {
         "module(name='aaa',version='0.1')",
         "bazel_dep(name='bbb',version='0.1')",
         "single_version_override(module_name='ccc',registry='" + registry2.getUrl() + "')");
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry1.getUrl()));
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry1.getUrl()));
 
     EvaluationResult<DiscoveryValue> result =
         evaluator.evaluate(ImmutableList.of(DiscoveryValue.KEY), evaluationContext);
@@ -496,7 +532,7 @@ public class DiscoveryTest extends FoundationTestCase {
                 createModuleKey("bbb", "0.1"),
                 "module(name='bbb', version='0.1');bazel_dep(name='ccc',version='1.0')")
             .addModule(createModuleKey("ccc", "1.0"), "module(name='ccc', version='1.0');");
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
 
     EvaluationResult<DiscoveryValue> result =
         evaluator.evaluate(ImmutableList.of(DiscoveryValue.KEY), evaluationContext);
@@ -518,6 +554,11 @@ public class DiscoveryTest extends FoundationTestCase {
             InterimModuleBuilder.create("ccc", "2.0")
                 .setKey(createModuleKey("ccc", ""))
                 .buildEntry());
+    assertThat(discoveryValue.getRegistryFileHashes())
+        .containsExactly(
+            registry.getUrl() + "/modules/bbb/0.1/MODULE.bazel",
+            Optional.of("3f9e1a600b4adeee1c1a92b92df9d086eca4bbdde656c122872f48f8f3b874a3"))
+        .inOrder();
   }
 
   @Test
@@ -546,7 +587,7 @@ public class DiscoveryTest extends FoundationTestCase {
             .newFakeRegistry("/foo")
             .addModule(createModuleKey("foo", "1.0"), "module(name='foo', version='1.0')")
             .addModule(createModuleKey("foo", "2.0"), "module(name='foo', version='2.0')");
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
 
     EvaluationResult<DiscoveryValue> result =
         evaluator.evaluate(ImmutableList.of(DiscoveryValue.KEY), evaluationContext);
@@ -580,5 +621,13 @@ public class DiscoveryTest extends FoundationTestCase {
                 .addDep("local_config_platform", createModuleKey("local_config_platform", ""))
                 .setRegistry(registry)
                 .buildEntry());
+
+    assertThat(discoveryValue.getRegistryFileHashes())
+        .containsExactly(
+            registry.getUrl() + "/modules/foo/2.0/MODULE.bazel",
+            Optional.of("76ecb05b455aecab4ec958c1deb17e4cbbe6e708d9c4e85fceda2317f6c86d7b"),
+            registry.getUrl() + "/modules/foo/1.0/MODULE.bazel",
+            Optional.of("4d887e8dfc1863861e3aa5601eeeebca5d8f110977895f1de4bdb2646e546fb5"))
+        .inOrder();
   }
 }

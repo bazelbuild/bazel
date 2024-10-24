@@ -58,8 +58,6 @@ msys*)
 esac
 
 if $is_windows; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
   # Enable symlink runfiles tree to make bazel run work
   add_to_bazelrc "build --enable_runfiles"
 fi
@@ -68,7 +66,6 @@ fi
 #
 # Unpacks the test Git repositories in the test temporary directory.
 function set_up() {
-  bazel clean --expunge
   local repos_dir=$TEST_TMPDIR/repos
   if [ -e "$repos_dir" ]; then
     rm -rf $repos_dir
@@ -85,11 +82,18 @@ function set_up() {
   tar zxf refetch-repo.tar.gz
   tar zxf strip-prefix-repo.tar.gz
 
+  setup_module_dot_bazel
+
   # Fix environment variables for a hermetic use of git.
   export GIT_CONFIG_NOSYSTEM=1
   export GIT_CONFIG_NOGLOBAL=1
   export HOME=
   export XDG_CONFIG_HOME=
+}
+
+# Shutdown Bazel so that we can safely delete files on Windows
+function tear_down() {
+  bazel shutdown
 }
 
 function get_pluto_repo() {
@@ -102,7 +106,7 @@ function get_pluto_repo() {
 # following files:
 #
 # pluto/
-#   WORKSPACE
+#   MODULE.bazel
 #   BUILD
 #   info
 #
@@ -111,14 +115,14 @@ function get_pluto_repo() {
 #
 # pluto/
 #   pluto/
-#     WORKSPACE
+#     MODULE.bazel
 #     BUILD
 #     info
 #
 # In each case, set up workspace with the following files:
 #
 # $WORKSPACE_DIR/
-#   WORKSPACE
+#   MODULE.bazel
 #   planets/
 #     BUILD
 #     planet_info.sh
@@ -133,9 +137,8 @@ function do_git_repository_test() {
   [ $# -eq 2 ] && strip_prefix="strip_prefix=\"$2\","
   [ $# -eq 3 ] && shallow_since="shallow_since=\"$3\","
   # Create a workspace that clones the repository at the first commit.
-  cd $WORKSPACE_DIR
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+  cat >> MODULE.bazel <<EOF
+git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(
     name = "pluto",
     remote = "$pluto_repo_dir",
@@ -155,7 +158,7 @@ EOF
 
   cat > planets/planet_info.sh <<EOF
 #!/bin/sh
-cat ../pluto/info
+cat ../+_repo_rules+pluto/info
 EOF
   chmod +x planets/planet_info.sh
 
@@ -163,7 +166,7 @@ EOF
     || echo "Expected build/run to succeed"
   expect_log "Pluto is a dwarf planet"
 
-  git_repos_count=$(find $(bazel info output_base)/external/pluto -type d -name .git | wc -l)
+  git_repos_count=$(find $(bazel info output_base)/external/+_repo_rules+pluto -type d -name .git | wc -l)
   assert_equals $git_repos_count 0
 }
 
@@ -215,7 +218,7 @@ function test_new_git_repository_with_build_file_content_strip_prefix() {
 # Set up workspace with the following files:
 #
 # $WORKSPACE_DIR/
-#   WORKSPACE
+#   MODULE.bazel
 #   pluto.BUILD
 #   planets/
 #     BUILD
@@ -229,11 +232,10 @@ function do_new_git_repository_test() {
   [ $# -eq 3 ] && strip_prefix="strip_prefix=\"$3\","
 
   # Create a workspace that clones the repository at the first commit.
-  cd $WORKSPACE_DIR
 
   if [ "$2" == "build_file" ] ; then
-    cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load('@bazel_tools//tools/build_defs/repo:git.bzl', 'new_git_repository')
+    cat >> MODULE.bazel <<EOF
+new_git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'new_git_repository')
 new_git_repository(
     name = "pluto",
     remote = "$pluto_repo_dir",
@@ -254,8 +256,8 @@ filegroup(
 )
 EOF
   else
-    cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load('@bazel_tools//tools/build_defs/repo:git.bzl', 'new_git_repository')
+    cat >> MODULE.bazel <<EOF
+new_git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'new_git_repository')
 new_git_repository(
     name = "pluto",
     remote = "$pluto_repo_dir",
@@ -282,7 +284,7 @@ EOF
 
   cat > planets/planet_info.sh <<EOF
 #!/bin/sh
-cat ../pluto/info
+cat ../+_repo_rules+pluto/info
 EOF
   chmod +x planets/planet_info.sh
 
@@ -294,7 +296,7 @@ EOF
       expect_log "Pluto is a dwarf planet"
   fi
 
-  git_repos_count=$(find $(bazel info output_base)/external/pluto -type d -name .git | wc -l)
+  git_repos_count=$(find $(bazel info output_base)/external/+_repo_rules+pluto -type d -name .git | wc -l)
   assert_equals $git_repos_count 0
 }
 
@@ -313,7 +315,7 @@ EOF
 # Set up workspace with the following files:
 #
 # $WORKSPACE_DIR/
-#   WORKSPACE
+#   MODULE.bazel
 #   outer_planets.BUILD
 #   planets/
 #     BUILD
@@ -325,9 +327,8 @@ function test_new_git_repository_submodules() {
   local outer_planets_repo_dir=$TEST_TMPDIR/repos/outer-planets
 
   # Create a workspace that clones the outer_planets repository.
-  cd $WORKSPACE_DIR
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load('@bazel_tools//tools/build_defs/repo:git.bzl', 'new_git_repository')
+  cat >> MODULE.bazel <<EOF
+new_git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'new_git_repository')
 new_git_repository(
     name = "outer_planets",
     remote = "$outer_planets_repo_dir",
@@ -368,8 +369,8 @@ EOF
 
   cat > planets/planet_info.sh <<EOF
 #!/bin/sh
-cat ../outer_planets/neptune/info
-cat ../outer_planets/pluto/info
+cat ../+_repo_rules+outer_planets/neptune/info
+cat ../+_repo_rules+outer_planets/pluto/info
 EOF
   chmod +x planets/planet_info.sh
 
@@ -383,9 +384,8 @@ function test_new_git_repository_submodules_with_recursive_init_modules() {
   local outer_planets_repo_dir=$TEST_TMPDIR/repos/outer-planets
 
   # Create a workspace that clones the outer_planets repository.
-  cd $WORKSPACE_DIR
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load('@bazel_tools//tools/build_defs/repo:git.bzl', 'new_git_repository')
+  cat >> MODULE.bazel <<EOF
+new_git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'new_git_repository')
 new_git_repository(
     name = "outer_planets",
     remote = "$outer_planets_repo_dir",
@@ -426,8 +426,8 @@ EOF
 
   cat > planets/planet_info.sh <<EOF
 #!/bin/sh
-cat ../outer_planets/neptune/info
-cat ../outer_planets/pluto/info
+cat ../+_repo_rules+outer_planets/neptune/info
+cat ../+_repo_rules+outer_planets/pluto/info
 EOF
   chmod +x planets/planet_info.sh
 
@@ -440,146 +440,146 @@ EOF
 function test_git_repository_not_refetched_on_server_restart() {
   local repo_dir=$TEST_TMPDIR/repos/refetch
 
-  cd $WORKSPACE_DIR
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+  rm MODULE.bazel
+  cat >> MODULE.bazel <<EOF
+git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(name='g', remote='$repo_dir', commit='22095302abaf776886879efa5129aa4d44c53017', verbose=True)
 EOF
 
   # Use batch to force server restarts.
   bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
-  assert_contains "GIT 1" bazel-genfiles/external/g/go
+  assert_contains "GIT 1" bazel-genfiles/external/+_repo_rules+g/go
 
   # Without changing anything, restart the server, which should not cause the checkout to be re-cloned.
   bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
   expect_not_log "Cloning"
-  assert_contains "GIT 1" bazel-genfiles/external/g/go
+  assert_contains "GIT 1" bazel-genfiles/external/+_repo_rules+g/go
 
   # Change the commit id, which should cause the checkout to be re-cloned.
-  rm WORKSPACE
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+  rm MODULE.bazel
+  cat >> MODULE.bazel <<EOF
+git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(name='g', remote='$repo_dir', commit='db134ae9b644d8237954a8e6f1ef80fcfd85d521', verbose=True)
 EOF
 
   bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
-  assert_contains "GIT 2" bazel-genfiles/external/g/go
+  assert_contains "GIT 2" bazel-genfiles/external/+_repo_rules+g/go
 
-  # Change the WORKSPACE but not the commit id, which should not cause the checkout to be re-cloned.
-  rm WORKSPACE
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+  # Change the MODULE.bazel but not the commit id, which should not cause the checkout to be re-cloned.
+  rm MODULE.bazel
+  cat >> MODULE.bazel <<EOF
 # This comment line is to change the line numbers, which should not cause Bazel
 # to refetch the repository
-load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(name='g', remote='$repo_dir', commit='db134ae9b644d8237954a8e6f1ef80fcfd85d521', verbose=True)
 EOF
 
   bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
   expect_not_log "Cloning"
-  assert_contains "GIT 2" bazel-genfiles/external/g/go
+  assert_contains "GIT 2" bazel-genfiles/external/+_repo_rules+g/go
 }
 
 function test_git_repository_not_refetched_on_server_restart_strip_prefix() {
   local repo_dir=$TEST_TMPDIR/repos/refetch
   # Change the strip_prefix which should cause a new checkout
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+  rm MODULE.bazel
+  cat >> MODULE.bazel <<EOF
+git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(name='g', remote='$repo_dir', commit='17ea13b242e4cbcc27a6ef745939ebb7dcccea10', verbose=True)
 EOF
   bazel --batch build @g//gdir:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
-  assert_contains "GIT 2" bazel-genfiles/external/g/gdir/go
+  assert_contains "GIT 2" bazel-genfiles/external/+_repo_rules+g/gdir/go
 
-  rm WORKSPACE
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+  rm MODULE.bazel
+  cat >> MODULE.bazel <<EOF
+git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(name='g', remote='$repo_dir', commit='17ea13b242e4cbcc27a6ef745939ebb7dcccea10', verbose=True, strip_prefix="gdir")
 EOF
   bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
-  assert_contains "GIT 2" bazel-genfiles/external/g/go
+  assert_contains "GIT 2" bazel-genfiles/external/+_repo_rules+g/go
 }
 
 
 function test_git_repository_refetched_when_commit_changes() {
   local repo_dir=$TEST_TMPDIR/repos/refetch
 
-  cd $WORKSPACE_DIR
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+  rm MODULE.bazel
+  cat >> MODULE.bazel <<EOF
+git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(name='g', remote='$repo_dir', commit='22095302abaf776886879efa5129aa4d44c53017', verbose=True)
 EOF
 
   bazel build @g//:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
-  assert_contains "GIT 1" bazel-genfiles/external/g/go
+  assert_contains "GIT 1" bazel-genfiles/external/+_repo_rules+g/go
 
   # Change the commit id, which should cause the checkout to be re-cloned.
-  rm WORKSPACE
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+  rm MODULE.bazel
+  cat >> MODULE.bazel <<EOF
+git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(name='g', remote='$repo_dir', commit='db134ae9b644d8237954a8e6f1ef80fcfd85d521', verbose=True)
 EOF
 
   bazel build @g//:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
-  assert_contains "GIT 2" bazel-genfiles/external/g/go
+  assert_contains "GIT 2" bazel-genfiles/external/+_repo_rules+g/go
 }
 
 function test_git_repository_and_nofetch() {
   local repo_dir=$TEST_TMPDIR/repos/refetch
 
-  cd $WORKSPACE_DIR
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+  rm MODULE.bazel
+  cat >> MODULE.bazel <<EOF
+git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(name='g', remote='$repo_dir', commit='22095302abaf776886879efa5129aa4d44c53017')
 EOF
 
   bazel build --nofetch @g//:g >& $TEST_log && fail "Build succeeded"
   expect_log "fetching repositories is disabled"
   bazel build @g//:g >& $TEST_log || fail "Build failed"
-  assert_contains "GIT 1" bazel-genfiles/external/g/go
+  assert_contains "GIT 1" bazel-genfiles/external/+_repo_rules+g/go
 
-  rm WORKSPACE
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+  rm MODULE.bazel
+  cat >> MODULE.bazel <<EOF
+git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(name='g', remote='$repo_dir', commit='db134ae9b644d8237954a8e6f1ef80fcfd85d521')
 EOF
 
   bazel build --nofetch @g//:g >& $TEST_log || fail "Build failed"
-  expect_log "External repository 'g' is not up-to-date"
-  assert_contains "GIT 1" bazel-genfiles/external/g/go
+  expect_log "External repository '+_repo_rules+g' is not up-to-date"
+  assert_contains "GIT 1" bazel-genfiles/external/+_repo_rules+g/go
   bazel build  @g//:g >& $TEST_log || fail "Build failed"
-  assert_contains "GIT 2" bazel-genfiles/external/g/go
+  assert_contains "GIT 2" bazel-genfiles/external/+_repo_rules+g/go
 
-  rm WORKSPACE
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+  rm MODULE.bazel
+  cat >> MODULE.bazel <<EOF
+git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(name='g', remote='$repo_dir', commit='17ea13b242e4cbcc27a6ef745939ebb7dcccea10', strip_prefix="gdir")
 EOF
 
   bazel build --nofetch @g//:g >& $TEST_log || fail "Build failed"
-  expect_log "External repository 'g' is not up-to-date"
+  expect_log "External repository '+_repo_rules+g' is not up-to-date"
   bazel build  @g//:g >& $TEST_log || fail "Build failed"
-  assert_contains "GIT 2" bazel-genfiles/external/g/go
+  assert_contains "GIT 2" bazel-genfiles/external/+_repo_rules+g/go
 
 }
 
 # Helper function for setting up the workspace as follows
 #
 # $WORKSPACE_DIR/
-#   WORKSPACE
+#   MODULE.bazel
 #   planets/
 #     planet_info.sh
 #     BUILD
 function setup_error_test() {
-  cd $WORKSPACE_DIR
   mkdir -p planets
   cat > planets/planet_info.sh <<EOF
 #!/bin/sh
-cat external/pluto/info
+cat external/+_repo_rules+pluto/info
 EOF
 
   cat > planets/BUILD <<EOF
@@ -597,7 +597,7 @@ EOF
 # following files:
 #
 # pluto/
-#   WORKSPACE
+#   MODULE.bazel
 #   BUILD
 #   info
 function test_git_repository_both_commit_tag_error() {
@@ -606,9 +606,8 @@ function test_git_repository_both_commit_tag_error() {
   # Commit corresponds to tag 1-build. See testdata/pluto.git_log.
   local commit_hash="52f9a3f87a2dd17ae0e5847bbae9734f09354afd"
 
-  cd $WORKSPACE_DIR
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+  cat >> MODULE.bazel <<EOF
+git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(
     name = "pluto",
     remote = "$pluto_repo_dir",
@@ -628,16 +627,15 @@ EOF
 # following files:
 #
 # pluto/
-#   WORKSPACE
+#   MODULE.bazel
 #   BUILD
 #   info
 function test_git_repository_no_commit_tag_error() {
   setup_error_test
   local pluto_repo_dir=$(get_pluto_repo)
 
-  cd $WORKSPACE_DIR
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+  cat >> MODULE.bazel <<EOF
+git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(
     name = "pluto",
     remote = "$pluto_repo_dir",
@@ -655,9 +653,8 @@ function test_invalid_strip_prefix_error() {
   setup_error_test
   local pluto_repo_dir=$(get_pluto_repo)
 
-  cd $WORKSPACE_DIR
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+  cat >> MODULE.bazel <<EOF
+git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(
     name = "pluto",
     remote = "$pluto_repo_dir",
@@ -678,9 +675,8 @@ function test_git_repository_shallow_since_with_tag_error() {
   setup_error_test
   local pluto_repo_dir=$(get_pluto_repo)
 
-  cd $WORKSPACE_DIR
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+  cat >> MODULE.bazel <<EOF
+git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(
     name = "pluto",
     remote = "$pluto_repo_dir",
@@ -702,25 +698,27 @@ EOF
 # strip-prefix
 # └── prefix-foo
 #     ├── BUILD
-#     ├── WORKSPACE
+#     ├── MODULE.bazel
 #     └── defs.bzl
 function test_git_repository_with_strip_prefix_for_load_statement() {
   setup_error_test
   local strip_prefix_repo_dir=$TEST_TMPDIR/repos/strip-prefix
 
-  cd $WORKSPACE_DIR
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
+  cat >> MODULE.bazel <<EOF
+git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 git_repository(
     name = "foo",
     remote = "$strip_prefix_repo_dir",
     commit = "f8167a60de4460e89601724fb13b4fc505da3f3d",
     strip_prefix = "prefix-foo",
 )
+EOF
+
+  cat > BUILD <<EOF
 load("@foo//:defs.bzl", "FOO")
 EOF
 
-  bazel info >& $TEST_log || fail "Expect bazel info to succeed."
+  bazel build //:all >& $TEST_log || fail "Expect bazel build to succeed."
 }
 
 run_suite "Starlark git_repository tests"

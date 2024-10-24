@@ -82,7 +82,7 @@ class ActionGraphSummaryOutputFormatterCallback extends AqueryThreadsafeCallback
   }
 
   private void processAction(ActionAnalysisMetadata action) throws InterruptedException {
-    if (!AqueryUtils.matchesAqueryFilters(action, actionFilters)) {
+    if (!AqueryUtils.matchesAqueryFilters(action, actionFilters, options.includePrunedInputs)) {
       return;
     }
 

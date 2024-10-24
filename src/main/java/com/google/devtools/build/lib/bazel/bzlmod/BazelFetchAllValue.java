@@ -16,6 +16,8 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -36,8 +38,10 @@ public abstract class BazelFetchAllValue implements SkyValue {
     return BazelFetchAllValue.Key.create(configureEnabled);
   }
 
-  public static BazelFetchAllValue create() {
-    return new AutoValue_BazelFetchAllValue();
+  public abstract ImmutableList<RepositoryName> getReposToVendor();
+
+  public static BazelFetchAllValue create(ImmutableList<RepositoryName> reposToVendor) {
+    return new AutoValue_BazelFetchAllValue(reposToVendor);
   }
 
   /** Key type for BazelFetchAllValue. */

@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 import java.util.Optional;
 import java.util.function.UnaryOperator;
 import javax.annotation.Nullable;
@@ -38,7 +37,6 @@ import javax.annotation.Nullable;
  * each dep, the {@code compatibility_level}, the {@code registry} the module comes from, etc.
  */
 @AutoValue
-@GenerateTypeAdapter
 public abstract class InterimModule extends ModuleBase {
 
   /**
@@ -49,9 +47,6 @@ public abstract class InterimModule extends ModuleBase {
 
   /** List of bazel compatible versions that would run/fail this module */
   public abstract ImmutableList<String> getBazelCompatibility();
-
-  /** The reason why this module was yanked or empty if it hasn't been yanked. */
-  public abstract Optional<String> getYankedInfo();
 
   /** The specification of a dependency. */
   @AutoValue
@@ -67,11 +62,11 @@ public abstract class InterimModule extends ModuleBase {
     }
 
     public static DepSpec fromModuleKey(ModuleKey key) {
-      return create(key.getName(), key.getVersion(), -1);
+      return create(key.name(), key.version(), -1);
     }
 
     public final ModuleKey toModuleKey() {
-      return ModuleKey.create(getName(), getVersion());
+      return new ModuleKey(getName(), getVersion());
     }
   }
 
@@ -105,8 +100,7 @@ public abstract class InterimModule extends ModuleBase {
         .setName("")
         .setVersion(Version.EMPTY)
         .setKey(ModuleKey.ROOT)
-        .setCompatibilityLevel(0)
-        .setYankedInfo(Optional.empty());
+        .setCompatibilityLevel(0);
   }
 
   /**
@@ -137,11 +131,6 @@ public abstract class InterimModule extends ModuleBase {
     /** Optional; defaults to {@link #setName}. */
     public abstract Builder setRepoName(String value);
 
-    /** Optional; defaults to {@link Optional#empty()}. */
-    public abstract Builder setYankedInfo(Optional<String> value);
-
-    public abstract Builder setBazelCompatibility(ImmutableList<String> value);
-
     abstract ImmutableList.Builder<String> bazelCompatibilityBuilder();
 
     @CanIgnoreReturnValue
@@ -150,8 +139,6 @@ public abstract class InterimModule extends ModuleBase {
       return this;
     }
 
-    public abstract Builder setExecutionPlatformsToRegister(ImmutableList<String> value);
-
     abstract ImmutableList.Builder<String> executionPlatformsToRegisterBuilder();
 
     @CanIgnoreReturnValue
@@ -159,8 +146,6 @@ public abstract class InterimModule extends ModuleBase {
       executionPlatformsToRegisterBuilder().addAll(values);
       return this;
     }
-
-    public abstract Builder setToolchainsToRegister(ImmutableList<String> value);
 
     abstract ImmutableList.Builder<String> toolchainsToRegisterBuilder();
 
@@ -173,22 +158,6 @@ public abstract class InterimModule extends ModuleBase {
     public abstract Builder setOriginalDeps(ImmutableMap<String, DepSpec> value);
 
     public abstract Builder setDeps(ImmutableMap<String, DepSpec> value);
-
-    abstract ImmutableMap.Builder<String, DepSpec> depsBuilder();
-
-    @CanIgnoreReturnValue
-    public Builder addDep(String depRepoName, DepSpec depSpec) {
-      depsBuilder().put(depRepoName, depSpec);
-      return this;
-    }
-
-    abstract ImmutableMap.Builder<String, DepSpec> originalDepsBuilder();
-
-    @CanIgnoreReturnValue
-    public Builder addOriginalDep(String depRepoName, DepSpec depSpec) {
-      originalDepsBuilder().put(depRepoName, depSpec);
-      return this;
-    }
 
     public abstract Builder setRegistry(Registry value);
 
@@ -216,5 +185,69 @@ public abstract class InterimModule extends ModuleBase {
       }
       return autoBuild();
     }
+  }
+
+  /**
+   * Builds a {@link Module} from an {@link InterimModule}, discarding unnecessary fields and adding
+   * extra necessary ones (such as the repo spec).
+   *
+   * @param remoteRepoSpec the {@link RepoSpec} for the module obtained from a registry or null if
+   *     the module has a non-registry override
+   */
+  static Module toModule(
+      InterimModule interim, @Nullable ModuleOverride override, @Nullable RepoSpec remoteRepoSpec) {
+    return Module.builder()
+        .setName(interim.getName())
+        .setVersion(interim.getVersion())
+        .setKey(interim.getKey())
+        .setRepoName(interim.getRepoName())
+        .setExecutionPlatformsToRegister(interim.getExecutionPlatformsToRegister())
+        .setToolchainsToRegister(interim.getToolchainsToRegister())
+        .setDeps(ImmutableMap.copyOf(Maps.transformValues(interim.getDeps(), DepSpec::toModuleKey)))
+        .setRepoSpec(maybeAppendAdditionalPatches(remoteRepoSpec, override))
+        .setExtensionUsages(interim.getExtensionUsages())
+        .build();
+  }
+
+  private static RepoSpec maybeAppendAdditionalPatches(
+      @Nullable RepoSpec repoSpec, @Nullable ModuleOverride override) {
+    if (!(override instanceof SingleVersionOverride singleVersion)) {
+      return repoSpec;
+    }
+    if (singleVersion.getPatches().isEmpty()) {
+      return repoSpec;
+    }
+    ImmutableMap.Builder<String, Object> attrBuilder = ImmutableMap.builder();
+    attrBuilder.putAll(repoSpec.attributes().attributes());
+    attrBuilder.put("patches", singleVersion.getPatches());
+    attrBuilder.put("patch_cmds", singleVersion.getPatchCmds());
+    attrBuilder.put("patch_args", ImmutableList.of("-p" + singleVersion.getPatchStrip()));
+    return RepoSpec.builder()
+        .setBzlFile(repoSpec.bzlFile())
+        .setRuleClassName(repoSpec.ruleClassName())
+        .setAttributes(AttributeValues.create(attrBuilder.buildOrThrow()))
+        .build();
+  }
+
+  static UnaryOperator<DepSpec> applyOverrides(
+      ImmutableMap<String, ModuleOverride> overrides, String rootModuleName) {
+    return depSpec -> {
+      if (rootModuleName.equals(depSpec.getName())) {
+        return DepSpec.fromModuleKey(ModuleKey.ROOT);
+      }
+
+      Version newVersion = depSpec.getVersion();
+      @Nullable ModuleOverride override = overrides.get(depSpec.getName());
+      if (override instanceof NonRegistryOverride) {
+        newVersion = Version.EMPTY;
+      } else if (override instanceof SingleVersionOverride singleVersionOverride) {
+        Version overrideVersion = singleVersionOverride.getVersion();
+        if (!overrideVersion.isEmpty()) {
+          newVersion = overrideVersion;
+        }
+      }
+
+      return DepSpec.create(depSpec.getName(), newVersion, depSpec.getMaxCompatibilityLevel());
+    };
   }
 }

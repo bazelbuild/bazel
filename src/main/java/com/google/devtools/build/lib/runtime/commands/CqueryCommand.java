@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
+import static com.google.devtools.build.lib.runtime.Command.BuildPhase.ANALYZES;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
@@ -56,17 +58,18 @@ import java.util.Set;
 /** Handles the 'cquery' command on the Blaze command line. */
 @Command(
     name = "cquery",
-    builds = true,
+    buildPhase = ANALYZES,
     // We inherit from TestCommand so that we pick up changes like `test --test_arg=foo` in .bazelrc
     // files.
     // Without doing this, there is no easy way to use the output of cquery to determine whether a
     // test has changed between two invocations, because the testrunner action is not easily
     // introspectable.
-    inherits = {TestCommand.class},
+    inheritsOptionsFrom = {TestCommand.class},
     options = {CqueryOptions.class},
     usesConfigurationOptions = true,
     shortDescription = "Loads, analyzes, and queries the specified targets w/ configurations.",
     allowResidue = true,
+    binaryStdOut = true,
     completion = "label",
     help = "resource:cquery.txt")
 public final class CqueryCommand implements BlazeCommand {

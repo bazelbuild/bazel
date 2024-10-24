@@ -60,7 +60,7 @@ public class DynamicExecutionOptions extends OptionsBase {
       name = "internal_spawn_scheduler",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
-      defaultValue = "false",
+      defaultValue = "true",
       help =
           "Placeholder option so that we can tell in Blaze whether the spawn scheduler was "
               + "enabled.")

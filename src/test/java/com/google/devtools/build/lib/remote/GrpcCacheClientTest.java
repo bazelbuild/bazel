@@ -22,6 +22,7 @@ import static org.junit.Assert.fail;
 import static org.mockito.AdditionalAnswers.answerVoid;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 
 import build.bazel.remote.execution.v2.Action;
@@ -51,13 +52,16 @@ import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
+import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
+import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
@@ -65,6 +69,8 @@ import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.events.NullEventHandler;
+import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
 import com.google.devtools.build.lib.remote.Retrier.Backoff;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
@@ -86,6 +92,8 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import com.google.gson.JsonObject;
 import com.google.protobuf.ByteString;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import io.grpc.BindableService;
 import io.grpc.CallCredentials;
 import io.grpc.CallOptions;
@@ -124,14 +132,13 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
 /** Tests for {@link GrpcCacheClient}. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class GrpcCacheClientTest {
   private static final DigestUtil DIGEST_UTIL =
       new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
@@ -257,7 +264,9 @@ public class GrpcCacheClientTest {
     RequestMetadata metadata =
         TracingMetadataUtils.buildMetadata(
             "none", "none", Digest.getDefaultInstance().getHash(), null);
-    context = RemoteActionExecutionContext.create(metadata);
+    context =
+        RemoteActionExecutionContext.create(
+            mock(Spawn.class), mock(SpawnExecutionContext.class), metadata);
     retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
   }
 
@@ -276,7 +285,8 @@ public class GrpcCacheClientTest {
   public void testVirtualActionInputSupport() throws Exception {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     RemoteExecutionCache client =
-        new RemoteExecutionCache(newClient(options), options, DIGEST_UTIL);
+        new RemoteExecutionCache(
+            newClient(options), /* diskCacheClient= */ null, options, DIGEST_UTIL);
     PathFragment execPath = PathFragment.create("my/exec/path");
     VirtualActionInput virtualActionInput =
         ActionsTestUtil.createVirtualActionInput(execPath, "hello");
@@ -334,7 +344,8 @@ public class GrpcCacheClientTest {
         });
 
     // Upload all missing inputs (that is, the virtual action input from above)
-    client.ensureInputsPresent(context, merkleTree, ImmutableMap.of(), /*force=*/ true);
+    client.ensureInputsPresent(
+        context, merkleTree, ImmutableMap.of(), /* force= */ true, new Reporter(new EventBus()));
   }
 
   @Test
@@ -466,7 +477,8 @@ public class GrpcCacheClientTest {
     // arrange
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     GrpcCacheClient client = newClient(remoteOptions);
-    RemoteCache remoteCache = new RemoteCache(client, remoteOptions, DIGEST_UTIL);
+    CombinedCache combinedCache =
+        new CombinedCache(client, /* diskCacheClient= */ null, remoteOptions, DIGEST_UTIL);
 
     Digest fooDigest = DIGEST_UTIL.computeAsUtf8("foo-contents");
     Digest barDigest = DIGEST_UTIL.computeAsUtf8("bar-contents");
@@ -475,9 +487,10 @@ public class GrpcCacheClientTest {
         new FakeImmutableCacheByteStreamImpl(fooDigest, "foo-contents", barDigest, "bar-contents"));
 
     // act
-    getFromFuture(remoteCache.downloadFile(context, execRoot.getRelative("a/foo"), fooDigest));
-    getFromFuture(remoteCache.downloadFile(context, execRoot.getRelative("b/empty"), emptyDigest));
-    getFromFuture(remoteCache.downloadFile(context, execRoot.getRelative("a/bar"), barDigest));
+    getFromFuture(combinedCache.downloadFile(context, execRoot.getRelative("a/foo"), fooDigest));
+    getFromFuture(
+        combinedCache.downloadFile(context, execRoot.getRelative("b/empty"), emptyDigest));
+    getFromFuture(combinedCache.downloadFile(context, execRoot.getRelative("a/bar"), barDigest));
 
     // assert
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/foo"))).isEqualTo(fooDigest);
@@ -489,7 +502,8 @@ public class GrpcCacheClientTest {
   public void testUploadDirectory() throws Exception {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     GrpcCacheClient client = newClient(remoteOptions);
-    RemoteCache remoteCache = new RemoteCache(client, remoteOptions, DIGEST_UTIL);
+    CombinedCache combinedCache =
+        new CombinedCache(client, /* diskCacheClient= */ null, remoteOptions, DIGEST_UTIL);
 
     final Digest fooDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("a/foo"), "xyz");
@@ -536,7 +550,7 @@ public class GrpcCacheClientTest {
           }
         });
 
-    ActionResult result = uploadDirectory(remoteCache, ImmutableList.<Path>of(fooFile, barDir));
+    ActionResult result = uploadDirectory(combinedCache, ImmutableList.<Path>of(fooFile, barDir));
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     // output files will have permission 0555 after action execution regardless the current
     // permission
@@ -557,7 +571,8 @@ public class GrpcCacheClientTest {
   public void testUploadDirectoryEmpty() throws Exception {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     GrpcCacheClient client = newClient(remoteOptions);
-    RemoteCache remoteCache = new RemoteCache(client, remoteOptions, DIGEST_UTIL);
+    CombinedCache combinedCache =
+        new CombinedCache(client, /* diskCacheClient= */ null, remoteOptions, DIGEST_UTIL);
 
     final Digest barDigest =
         fakeFileCache.createScratchInputDirectory(
@@ -586,7 +601,7 @@ public class GrpcCacheClientTest {
           }
         });
 
-    ActionResult result = uploadDirectory(remoteCache, ImmutableList.<Path>of(barDir));
+    ActionResult result = uploadDirectory(combinedCache, ImmutableList.<Path>of(barDir));
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     expectedResult
         .addOutputDirectoriesBuilder()
@@ -600,7 +615,8 @@ public class GrpcCacheClientTest {
   public void testUploadDirectoryNested() throws Exception {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     GrpcCacheClient client = newClient(remoteOptions);
-    RemoteCache remoteCache = new RemoteCache(client, remoteOptions, DIGEST_UTIL);
+    CombinedCache combinedCache =
+        new CombinedCache(client, /* diskCacheClient= */ null, remoteOptions, DIGEST_UTIL);
 
     final Digest wobbleDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("bar/test/wobble"), "xyz");
@@ -608,7 +624,12 @@ public class GrpcCacheClientTest {
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("bar/qux"), "abc");
     final Directory testDirMessage =
         Directory.newBuilder()
-            .addFiles(FileNode.newBuilder().setName("wobble").setDigest(wobbleDigest).build())
+            .addFiles(
+                FileNode.newBuilder()
+                    .setName("wobble")
+                    .setDigest(wobbleDigest)
+                    .setIsExecutable(true)
+                    .build())
             .build();
     final Digest testDigest = DIGEST_UTIL.compute(testDirMessage);
     final Tree barTree =
@@ -617,9 +638,9 @@ public class GrpcCacheClientTest {
                 Directory.newBuilder()
                     .addFiles(
                         FileNode.newBuilder()
-                            .setIsExecutable(true)
                             .setName("qux")
-                            .setDigest(quxDigest))
+                            .setDigest(quxDigest)
+                            .setIsExecutable(true))
                     .addDirectories(
                         DirectoryNode.newBuilder().setName("test").setDigest(testDigest)))
             .addChildren(testDirMessage)
@@ -652,7 +673,7 @@ public class GrpcCacheClientTest {
           }
         });
 
-    ActionResult result = uploadDirectory(remoteCache, ImmutableList.of(barDir));
+    ActionResult result = uploadDirectory(combinedCache, ImmutableList.of(barDir));
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     expectedResult
         .addOutputDirectoriesBuilder()
@@ -663,7 +684,7 @@ public class GrpcCacheClientTest {
   }
 
   private ActionResult upload(
-      RemoteCache remoteCache,
+      CombinedCache combinedCache,
       ActionKey actionKey,
       Action action,
       Command command,
@@ -671,9 +692,9 @@ public class GrpcCacheClientTest {
       throws Exception {
     UploadManifest uploadManifest =
         UploadManifest.create(
-            remoteCache.options,
-            remoteCache.getCacheCapabilities(),
-            remoteCache.digestUtil,
+            combinedCache.options,
+            combinedCache.getRemoteCacheCapabilities(),
+            combinedCache.digestUtil,
             remotePathResolver,
             actionKey,
             action,
@@ -683,15 +704,15 @@ public class GrpcCacheClientTest {
             /* exitCode= */ 0,
             /* startTime= */ null,
             /* wallTimeInMs= */ 0);
-    return uploadManifest.upload(context, remoteCache, NullEventHandler.INSTANCE);
+    return uploadManifest.upload(context, combinedCache, NullEventHandler.INSTANCE);
   }
 
-  private ActionResult uploadDirectory(RemoteCache remoteCache, List<Path> outputs)
+  private ActionResult uploadDirectory(CombinedCache combinedCache, List<Path> outputs)
       throws Exception {
     Action action = Action.getDefaultInstance();
     ActionKey actionKey = DIGEST_UTIL.computeActionKey(action);
     Command cmd = Command.getDefaultInstance();
-    return upload(remoteCache, actionKey, action, cmd, outputs);
+    return upload(combinedCache, actionKey, action, cmd, outputs);
   }
 
   @Test
@@ -758,18 +779,22 @@ public class GrpcCacheClientTest {
     serviceRegistry.addService(ServerInterceptors.intercept(actionCache, interceptor));
 
     GrpcCacheClient client = newClient(remoteOptions);
-    RemoteCache remoteCache = new RemoteCache(client, remoteOptions, DIGEST_UTIL);
-    remoteCache.downloadActionResult(
-        context,
-        DIGEST_UTIL.asActionKey(DIGEST_UTIL.computeAsUtf8("key")),
-        /* inlineOutErr= */ false);
+    CombinedCache combinedCache =
+        new CombinedCache(client, /* diskCacheClient= */ null, remoteOptions, DIGEST_UTIL);
+    var unused =
+        combinedCache.downloadActionResult(
+            context,
+            DIGEST_UTIL.asActionKey(DIGEST_UTIL.computeAsUtf8("key")),
+            /* inlineOutErr= */ false,
+            /* inlineOutputFiles= */ ImmutableSet.of());
   }
 
   @Test
   public void testUpload() throws Exception {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     GrpcCacheClient client = newClient(remoteOptions);
-    RemoteCache remoteCache = new RemoteCache(client, remoteOptions, DIGEST_UTIL);
+    CombinedCache combinedCache =
+        new CombinedCache(client, /* diskCacheClient= */ null, remoteOptions, DIGEST_UTIL);
 
     final Digest fooDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("a/foo"), "xyz");
@@ -817,7 +842,7 @@ public class GrpcCacheClientTest {
 
     ActionResult result =
         upload(
-            remoteCache,
+            combinedCache,
             DIGEST_UTIL.asActionKey(actionDigest),
             action,
             command,
@@ -845,7 +870,8 @@ public class GrpcCacheClientTest {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     remoteOptions.maxOutboundMessageSize = 80; // Enough for one digest, but not two.
     GrpcCacheClient client = newClient(remoteOptions);
-    RemoteCache remoteCache = new RemoteCache(client, remoteOptions, DIGEST_UTIL);
+    CombinedCache combinedCache =
+        new CombinedCache(client, /* diskCacheClient= */ null, remoteOptions, DIGEST_UTIL);
 
     final Digest fooDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("a/foo"), "xyz");
@@ -884,7 +910,7 @@ public class GrpcCacheClientTest {
 
     ActionResult result =
         upload(
-            remoteCache,
+            combinedCache,
             DIGEST_UTIL.asActionKey(actionDigest),
             action,
             command,
@@ -910,7 +936,8 @@ public class GrpcCacheClientTest {
   public void testUploadCacheMissesWithRetries() throws Exception {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     GrpcCacheClient client = newClient(remoteOptions);
-    RemoteCache remoteCache = new RemoteCache(client, remoteOptions, DIGEST_UTIL);
+    CombinedCache combinedCache =
+        new CombinedCache(client, /* diskCacheClient= */ null, remoteOptions, DIGEST_UTIL);
 
     final Digest fooDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("a/foo"), "xyz");
@@ -1048,12 +1075,13 @@ public class GrpcCacheClientTest {
                 }))
         .when(mockByteStreamImpl)
         .queryWriteStatus(any(), any());
-    upload(
-        remoteCache,
-        actionKey,
-        Action.getDefaultInstance(),
-        Command.getDefaultInstance(),
-        ImmutableList.<Path>of(fooFile, barFile, bazFile, foobarFile));
+    var unused =
+        upload(
+            combinedCache,
+            actionKey,
+            Action.getDefaultInstance(),
+            Command.getDefaultInstance(),
+            ImmutableList.<Path>of(fooFile, barFile, bazFile, foobarFile));
     // 4 times for the errors, 4 times for the successful uploads.
     Mockito.verify(mockByteStreamImpl, Mockito.times(8))
         .write(ArgumentMatchers.<StreamObserver<WriteResponse>>any());
@@ -1076,7 +1104,11 @@ public class GrpcCacheClientTest {
         });
     assertThat(
             getFromFuture(
-                client.downloadActionResult(context, actionKey, /* inlineOutErr= */ false)))
+                client.downloadActionResult(
+                    context,
+                    actionKey,
+                    /* inlineOutErr= */ false,
+                    /* inlineOutputFiles= */ ImmutableSet.of())))
         .isNull();
   }
 
@@ -1202,6 +1234,7 @@ public class GrpcCacheClientTest {
       throws IOException, InterruptedException {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     options.cacheCompression = true;
+    options.cacheCompressionThreshold = 0;
     final GrpcCacheClient client = newClient(options);
     final Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
     ByteString chunk1 = ByteString.copyFrom(Zstd.compress("abc".getBytes(UTF_8)));
@@ -1240,36 +1273,42 @@ public class GrpcCacheClientTest {
   }
 
   @Test
-  public void testCompressedDownload() throws IOException, InterruptedException {
+  public void testCompressedDownload(@TestParameter boolean overThreshold)
+      throws IOException, InterruptedException {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     options.cacheCompression = true;
+    options.cacheCompressionThreshold = 100;
     final GrpcCacheClient client = newClient(options);
-    final byte[] data = "abcdefg".getBytes(UTF_8);
+    final byte[] data =
+        overThreshold ? "0123456789".repeat(10).getBytes(UTF_8) : "0123456789".getBytes(UTF_8);
     final Digest digest = DIGEST_UTIL.compute(data);
-    final byte[] compressed = Zstd.compress(data);
+    final byte[] bytes = overThreshold ? Zstd.compress(data) : data;
 
     serviceRegistry.addService(
         new ByteStreamImplBase() {
           @Override
           public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
             assertThat(request.getResourceName()).contains(digest.getHash());
+            if (overThreshold) {
+              assertThat(request.getResourceName()).contains("compressed-blobs/zstd");
+            } else {
+              assertThat(request.getResourceName()).doesNotContain("compressed-blobs/zstd");
+            }
             responseObserver.onNext(
                 ReadResponse.newBuilder()
-                    .setData(ByteString.copyFrom(Arrays.copyOf(compressed, compressed.length / 3)))
+                    .setData(ByteString.copyFrom(Arrays.copyOf(bytes, bytes.length / 3)))
                     .build());
             responseObserver.onNext(
                 ReadResponse.newBuilder()
                     .setData(
                         ByteString.copyFrom(
-                            Arrays.copyOfRange(
-                                compressed, compressed.length / 3, compressed.length / 3 * 2)))
+                            Arrays.copyOfRange(bytes, bytes.length / 3, bytes.length / 3 * 2)))
                     .build());
             responseObserver.onNext(
                 ReadResponse.newBuilder()
                     .setData(
                         ByteString.copyFrom(
-                            Arrays.copyOfRange(
-                                compressed, compressed.length / 3 * 2, compressed.length)))
+                            Arrays.copyOfRange(bytes, bytes.length / 3 * 2, bytes.length)))
                     .build());
             responseObserver.onCompleted();
           }

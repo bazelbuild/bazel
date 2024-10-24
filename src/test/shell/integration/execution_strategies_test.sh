@@ -53,11 +53,6 @@ msys*|mingw*|cygwin*)
   ;;
 esac
 
-if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 # Tests that you can set the spawn strategy flags to a list of strategies.
 function test_multiple_strategies() {
   SERVER_LOG=$(bazel info server_log)
@@ -232,6 +227,12 @@ EOF
 
   expect_not_log '^local$'
   expect_log '^remote$'
+}
+
+function test_internal_spawn_scheduler() {
+  # This is just a basic test to see whether the dynamic scheduler is setting
+  # up the correct local and remote strategies on all platforms.
+  bazel build --internal_spawn_scheduler &>"$TEST_log" || fail "build failed"
 }
 
 run_suite "Tests for the execution strategy selection."

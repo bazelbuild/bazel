@@ -110,11 +110,9 @@ public abstract class ValueWithMetadata implements SkyValue {
       if (this == o) {
         return true;
       }
-      if (!(o instanceof ValueWithEvents)) {
+      if (!(o instanceof ValueWithEvents that)) {
         return false;
       }
-
-      ValueWithEvents that = (ValueWithEvents) o;
 
       // Shallow equals is a middle ground between using default equals, which might miss
       // nested sets with the same elements, and deep equality checking, which would be expensive.
@@ -225,15 +223,15 @@ public abstract class ValueWithMetadata implements SkyValue {
 
   @Nullable
   public static SkyValue justValue(SkyValue value) {
-    if (value instanceof ValueWithMetadata) {
-      return ((ValueWithMetadata) value).value;
+    if (value instanceof ValueWithMetadata valueWithMetadata) {
+      return valueWithMetadata.value;
     }
     return value;
   }
 
   public static ValueWithMetadata wrapWithMetadata(SkyValue value) {
-    if (value instanceof ValueWithMetadata) {
-      return (ValueWithMetadata) value;
+    if (value instanceof ValueWithMetadata valueWithMetadata) {
+      return valueWithMetadata;
     }
     return ValueWithEvents.createValueWithEvents(value, NO_EVENTS);
   }
@@ -247,8 +245,8 @@ public abstract class ValueWithMetadata implements SkyValue {
   }
 
   public static NestedSet<Reportable> getEvents(SkyValue value) {
-    if (value instanceof ValueWithMetadata) {
-      return ((ValueWithMetadata) value).getTransitiveEvents();
+    if (value instanceof ValueWithMetadata valueWithMetadata) {
+      return valueWithMetadata.getTransitiveEvents();
     }
     return NO_EVENTS;
   }

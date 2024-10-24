@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
+import static com.google.devtools.build.lib.runtime.Command.BuildPhase.EXECUTES;
+
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
@@ -32,6 +34,8 @@ import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
+import com.google.devtools.build.lib.skyframe.SkyfocusOptions;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.List;
@@ -42,7 +46,7 @@ import java.util.List;
  */
 @Command(
     name = "build",
-    builds = true,
+    buildPhase = EXECUTES,
     options = {
       BuildRequestOptions.class,
       ExecutionOptions.class,
@@ -52,7 +56,9 @@ import java.util.List;
       LoadingOptions.class,
       KeepGoingOption.class,
       LoadingPhaseThreadsOption.class,
-      BuildEventProtocolOptions.class
+      BuildEventProtocolOptions.class,
+      SkyfocusOptions.class,
+      RemoteAnalysisCachingOptions.class,
     },
     usesConfigurationOptions = true,
     shortDescription = "Builds the specified targets.",

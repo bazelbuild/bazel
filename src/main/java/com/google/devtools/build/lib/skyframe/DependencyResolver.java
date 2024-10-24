@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.AnalysisRootCauseEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolutionHelpers;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection;
@@ -37,14 +38,16 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
 import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader;
 import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader.StarlarkExecTransitionLoadingException;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
-import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionCollector;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory.TransitionCreationException;
+import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker;
 import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker.IncompatibleTargetException;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.producers.DependencyContext;
@@ -53,8 +56,10 @@ import com.google.devtools.build.lib.analysis.producers.DependencyContextProduce
 import com.google.devtools.build.lib.analysis.producers.DependencyContextProducerWithCompatibilityCheck;
 import com.google.devtools.build.lib.analysis.producers.DependencyError;
 import com.google.devtools.build.lib.analysis.producers.DependencyMapProducer;
+import com.google.devtools.build.lib.analysis.producers.DependencyMapProducer.MaterializerException;
 import com.google.devtools.build.lib.analysis.producers.MissingEdgeError;
 import com.google.devtools.build.lib.analysis.producers.PrerequisiteParameters;
+import com.google.devtools.build.lib.analysis.producers.TargetAndConfigurationProducer;
 import com.google.devtools.build.lib.analysis.producers.UnloadedToolchainContextsInputs;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
@@ -68,19 +73,15 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
-import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.ReportedException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.UnreportedException;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingException;
-import com.google.devtools.build.lib.skyframe.toolchains.ToolchainContextKey;
+import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
+import com.google.devtools.build.lib.skyframe.toolchains.ToolchainContextUtil;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainException;
 import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -395,7 +396,8 @@ public final class DependencyResolver {
               starlarkExecTransition.orElse(null),
               env,
               listener,
-              /* baseTargetPrerequisitesSupplier= */ null);
+              /* baseTargetPrerequisitesSupplier= */ null,
+              /* baseTargetUnloadedToolchainContexts= */ null);
       if (!transitiveRootCauses.isEmpty()) {
         NestedSet<Cause> causes = transitiveRootCauses.build();
         // TODO(bazel-team): consider reporting the error in this class vs. exporting it for
@@ -494,8 +496,7 @@ public final class DependencyResolver {
   private void handleException(ExtendedEventHandler listener, Target target, Exception untyped)
       throws ReportedException {
 
-    if (untyped instanceof DependencyEvaluationException) {
-      DependencyEvaluationException e = (DependencyEvaluationException) untyped;
+    if (untyped instanceof DependencyEvaluationException e) {
       String errorMessage = e.getMessage();
       if (!e.depReportedOwnError()) {
         listener.handle(Event.error(e.getLocation(), e.getMessage()));
@@ -531,15 +532,13 @@ public final class DependencyResolver {
                   errorMessage,
                   null,
                   e.getDetailedExitCode()));
-    } else if (untyped instanceof ConfiguredValueCreationException) {
-      ConfiguredValueCreationException e = (ConfiguredValueCreationException) untyped;
+    } else if (untyped instanceof ConfiguredValueCreationException e) {
       if (!e.getMessage().isEmpty()) {
         // Report the error to the user.
         listener.handle(Event.error(e.getLocation(), e.getMessage()));
       }
       throw new ReportedException(e);
-    } else if (untyped instanceof AspectCreationException) {
-      AspectCreationException e = (AspectCreationException) untyped;
+    } else if (untyped instanceof AspectCreationException e) {
       if (!e.getMessage().isEmpty()) {
         // Report the error to the user.
         listener.handle(Event.error(null, e.getMessage()));
@@ -551,40 +550,26 @@ public final class DependencyResolver {
               e.getMessage(),
               e.getCauses(),
               e.getDetailedExitCode()));
-    } else if (untyped instanceof ToolchainException) {
-      ToolchainException e = (ToolchainException) untyped;
+    } else if (untyped instanceof ToolchainException e) {
       ConfiguredValueCreationException cvce =
           e.asConfiguredValueCreationException(targetAndConfiguration);
       listener.handle(Event.error(target.getLocation(), cvce.getMessage()));
       throw new ReportedException(cvce);
+    } else if (untyped instanceof StarlarkExecTransitionLoadingException e) {
+      if (!e.getMessage().isEmpty()) {
+        // Report the error to the user.
+        listener.handle(Event.error(null, e.getMessage()));
+      }
+      throw new ReportedException(
+          new ConfiguredValueCreationException(
+              targetAndConfiguration.getTarget(),
+              configurationId(targetAndConfiguration.getConfiguration()),
+              e.getMessage(),
+              /* rootCauses= */ null,
+              /* detailedExitCode= */ null));
     } else {
       throw new IllegalStateException("unexpected exception with no appropriate handler", untyped);
     }
-  }
-
-  /**
-   * Returns the target-specific execution platform constraints, based on the rule definition and
-   * any constraints added by the target, including those added for the target on the command line.
-   */
-  public static ImmutableSet<Label> getExecutionPlatformConstraints(
-      Rule rule, @Nullable PlatformConfiguration platformConfiguration) {
-    if (platformConfiguration == null) {
-      return ImmutableSet.of(); // See NoConfigTransition.
-    }
-    NonconfigurableAttributeMapper mapper = NonconfigurableAttributeMapper.of(rule);
-    ImmutableSet.Builder<Label> execConstraintLabels = new ImmutableSet.Builder<>();
-
-    execConstraintLabels.addAll(rule.getRuleClassObject().getExecutionPlatformConstraints());
-    if (rule.getRuleClassObject()
-        .hasAttr(RuleClass.EXEC_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST)) {
-      execConstraintLabels.addAll(
-          mapper.get(RuleClass.EXEC_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST));
-    }
-
-    execConstraintLabels.addAll(
-        platformConfiguration.getAdditionalExecutionConstraintsFor(rule.getLabel()));
-
-    return execConstraintLabels.build();
   }
 
   /**
@@ -605,6 +590,9 @@ public final class DependencyResolver {
    * @param baseTargetPrerequisitesSupplier not null only in case of aspect evaluation. It provides
    *     a way to get the {@link ConfiguredTargetValue}s and {@link BuildConfigurationValue}s of the
    *     underlying target dependencies without creating a dependency edge from the aspect to them.
+   * @param baseTargetUnloadedToolchainContexts not null only in case of aspect evaluation. It's the
+   *     {@link UnloadedToolchainContext}s of the underlying target to support aspects toolchains
+   *     propagation.
    */
   // TODO(b/213351014): Make the control flow of this helper function more readable. This will
   //   involve making a corresponding change to State to match the control flow.
@@ -617,7 +605,8 @@ public final class DependencyResolver {
       @Nullable StarlarkAttributeTransitionProvider starlarkTransitionProvider,
       LookupEnvironment env,
       ExtendedEventHandler listener,
-      @Nullable BaseTargetPrerequisitesSupplier baseTargetPrerequisitesSupplier)
+      @Nullable BaseTargetPrerequisitesSupplier baseTargetPrerequisitesSupplier,
+      @Nullable ToolchainCollection<UnloadedToolchainContext> baseTargetUnloadedToolchainContexts)
       throws DependencyEvaluationException,
           ConfiguredValueCreationException,
           AspectCreationException,
@@ -641,7 +630,8 @@ public final class DependencyResolver {
                   ctgValue,
                   aspects,
                   dependencyContext.configConditions().asProviders(),
-                  toolchainContexts);
+                  toolchainContexts,
+                  baseTargetUnloadedToolchainContexts);
         } catch (DependencyResolutionHelpers.Failure e) {
           throw handleDependencyRootCauseError(ctgValue, e.getLocation(), e.getMessage(), listener);
         }
@@ -658,7 +648,8 @@ public final class DependencyResolver {
                         dependencyLabels.attributeMap(),
                         state.transitiveState,
                         state.storedEvents,
-                        baseTargetPrerequisitesSupplier),
+                        baseTargetPrerequisitesSupplier,
+                        baseTargetUnloadedToolchainContexts),
                     dependencyLabels.labels(),
                     (DependencyMapProducer.ResultSink) state));
       }
@@ -691,6 +682,11 @@ public final class DependencyResolver {
               OptionsParsingException e = error.dependencyOptionsParsing();
               throw new ConfiguredValueCreationException(ctgValue.getTarget(), e.getMessage());
             }
+          case MATERIALIZER:
+            {
+              MaterializerException e = error.materializer();
+              throw new ConfiguredValueCreationException(ctgValue.getTarget(), e.getMessage());
+            }
           case INVALID_VISIBILITY:
             {
               InvalidVisibilityDependencyException e = error.invalidVisibility();
@@ -705,8 +701,17 @@ public final class DependencyResolver {
           case ASPECT_CREATION:
             throw error.aspectCreation();
           case PLATFORM_MAPPING:
-            PlatformMappingException e = error.platformMapping();
-            throw new ConfiguredValueCreationException(ctgValue.getTarget(), e.getMessage());
+            PlatformMappingException platformMappingException = error.platformMapping();
+            throw new ConfiguredValueCreationException(
+                ctgValue.getTarget(), platformMappingException.getMessage());
+          case INVALID_PLATFORM:
+            InvalidPlatformException invalidPlatformException = error.invalidPlatform();
+            throw new ConfiguredValueCreationException(
+                ctgValue.getTarget(), invalidPlatformException.getMessage());
+          case TRANSITION_CREATION:
+            TransitionCreationException transitionCreationException = error.transitionCreation();
+            throw new ConfiguredValueCreationException(
+                ctgValue.getTarget(), transitionCreationException.getMessage());
         }
       }
       if (!state.transitiveState.hasRootCause() && state.dependencyMap == null) {
@@ -720,78 +725,25 @@ public final class DependencyResolver {
     }
   }
 
-  static ToolchainContextKey createDefaultToolchainContextKey(
-      BuildConfigurationKey configurationKey,
-      ImmutableSet<Label> defaultExecConstraintLabels,
-      boolean debugTarget,
-      boolean useAutoExecGroups,
-      ImmutableSet<ToolchainTypeRequirement> toolchainTypes,
-      @Nullable Label parentExecutionPlatformLabel) {
-    ToolchainContextKey.Builder toolchainContextKeyBuilder =
-        ToolchainContextKey.key()
-            .configurationKey(configurationKey)
-            .execConstraintLabels(defaultExecConstraintLabels)
-            .debugTarget(debugTarget);
-
-    // Add toolchain types only if automatic exec groups are not created for this target.
-    if (!useAutoExecGroups) {
-      toolchainContextKeyBuilder.toolchainTypes(toolchainTypes);
-    }
-
-    if (parentExecutionPlatformLabel != null) {
-      // Find out what execution platform the parent used, and force that.
-      // This should only be set for direct toolchain dependencies.
-      toolchainContextKeyBuilder.forceExecutionPlatform(parentExecutionPlatformLabel);
-    }
-    return toolchainContextKeyBuilder.build();
-  }
-
-  @VisibleForTesting // private
   public static UnloadedToolchainContextsInputs getUnloadedToolchainContextsInputs(
       TargetAndConfiguration targetAndConfiguration,
       @Nullable Label parentExecutionPlatformLabel,
       RuleClassProvider ruleClassProvider,
       ExtendedEventHandler listener)
       throws InterruptedException {
-    var target = targetAndConfiguration.getTarget();
-    if (!(target instanceof Rule)) {
+    if (targetAndConfiguration.getConfiguration() == null) {
       return UnloadedToolchainContextsInputs.empty();
     }
-
-    Rule rule = (Rule) target;
-    var configuration = targetAndConfiguration.getConfiguration();
-    boolean useAutoExecGroups =
-        rule.isAttrDefined("$use_auto_exec_groups", Type.BOOLEAN)
-            ? (boolean) rule.getAttr("$use_auto_exec_groups")
-            : configuration.useAutoExecGroups();
-    var platformConfig = configuration.getFragment(PlatformConfiguration.class);
-    var defaultExecConstraintLabels = getExecutionPlatformConstraints(rule, platformConfig);
-    var ruleClass = rule.getRuleClassObject();
-    var processedExecGroups =
-        ExecGroupCollection.process(
-            ruleClass.getExecGroups(),
-            defaultExecConstraintLabels,
-            ruleClass.getToolchainTypes(),
-            useAutoExecGroups);
-
-    if (platformConfig == null || !rule.useToolchainResolution()) {
-      return UnloadedToolchainContextsInputs.create(
-          processedExecGroups, /* targetToolchainContextKey= */ null);
-    }
-
-    return UnloadedToolchainContextsInputs.create(
-        processedExecGroups,
-        createDefaultToolchainContextKey(
-            computeToolchainConfigurationKey(
-                configuration,
-                ((ConfiguredRuleClassProvider) ruleClassProvider)
-                    .getToolchainTaggedTrimmingTransition(),
-                listener),
-            defaultExecConstraintLabels,
-            /* debugTarget= */ platformConfig.debugToolchainResolution(rule.getLabel()),
-            /* useAutoExecGroups= */ useAutoExecGroups,
-            ruleClass.getToolchainTypes(),
-            parentExecutionPlatformLabel));
+    return ToolchainContextUtil.getUnloadedToolchainContextsInputs(
+        targetAndConfiguration.getTarget(),
+        targetAndConfiguration.getConfiguration().getOptions().get(CoreOptions.class),
+        targetAndConfiguration.getConfiguration().getFragment(PlatformConfiguration.class),
+        parentExecutionPlatformLabel,
+        computeToolchainConfigurationKey(
+            targetAndConfiguration.getConfiguration(),
+            ((ConfiguredRuleClassProvider) ruleClassProvider)
+                .getToolchainTaggedTrimmingTransition(),
+            listener));
   }
 
   private static BuildConfigurationKey computeToolchainConfigurationKey(

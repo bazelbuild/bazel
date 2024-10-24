@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.rules.java.JavaTestUtil;
 import java.util.Arrays;
 import java.util.List;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -60,13 +59,6 @@ public final class JavaConfiguredTargetsTest extends BuildViewTestCase {
 
   @Override
   protected void useConfiguration(String... args) throws Exception {
-    super.useConfiguration(
-        ObjectArrays.concat(
-            args, "--platforms=//" + PLATFORMS_PACKAGE_PATH + ":" + targetPlatform));
-  }
-
-  @Before
-  public void setup() throws Exception {
     JavaTestUtil.setupPlatform(
         getAnalysisMock(),
         mockToolsConfig,
@@ -75,19 +67,25 @@ public final class JavaConfiguredTargetsTest extends BuildViewTestCase {
         targetPlatform,
         targetOs,
         targetCpu);
+    super.useConfiguration(
+        ObjectArrays.concat(
+            args, "--platforms=//" + PLATFORMS_PACKAGE_PATH + ":" + targetPlatform));
   }
 
   @Test
   public void testResourceStripPrefix() throws Exception {
     scratch.file(
         "a/BUILD",
-        "java_binary(",
-        "   name = 'bin',",
-        "   srcs = ['Foo.java'],",
-        "   resources = ['path/to/strip/bar.props'],",
-        "   main_class = 'Foo',",
-        "   resource_strip_prefix = 'a/path/to/strip'",
-        ")");
+        """
+        load("@rules_java//java:defs.bzl", "java_binary")
+        java_binary(
+            name = "bin",
+            srcs = ["Foo.java"],
+            main_class = "Foo",
+            resource_strip_prefix = "a/path/to/strip",
+            resources = ["path/to/strip/bar.props"],
+        )
+        """);
 
     ConfiguredTarget target = getConfiguredTarget("//a:bin");
 
@@ -101,6 +99,7 @@ public final class JavaConfiguredTargetsTest extends BuildViewTestCase {
   public void javaTestSetsSecurityManagerPropertyOnVersion17() throws Exception {
     scratch.file(
         "a/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_test', 'java_runtime')",
         "java_runtime(",
         "    name = 'jvm',",
         "    java = 'java_home/bin/java',",
@@ -127,7 +126,13 @@ public final class JavaConfiguredTargetsTest extends BuildViewTestCase {
   // regression test for https://github.com/bazelbuild/bazel/issues/20378
   @Test
   public void javaTestInvalidTestClassAtRootPackage() throws Exception {
-    scratch.file("BUILD", "java_test(name = 'some_test', srcs = ['SomeTest.java'])");
+    scratch.file(
+        "BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_test")
+        java_test(name = 'some_test', srcs = ['SomeTest.java'])
+        """);
+    invalidatePackages();
 
     AssertionError error =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//:some_test"));

@@ -18,9 +18,13 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.events.EventCollector;
+import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
@@ -68,6 +72,16 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
             Root.fromPath(rootDirectory));
     return SkyframeExecutorTestUtils.evaluate(
         getSkyframeExecutor(), key, /*keepGoing=*/ false, reporter);
+  }
+
+  @Override
+  public final void initializeLogging() throws Exception {
+    // Override initializeLogging to only collect errors.
+    // TODO: make FoundationTestCase.initializeLogging() final when this is no longer needed.
+    eventCollector = new EventCollector(EventKind.ERRORS);
+    eventBus = new EventBus();
+    reporter = new Reporter(eventBus, eventCollector);
+    reporter.addHandler(failFastHandler);
   }
 
   @Test
@@ -251,6 +265,62 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     Package pkg = evaluationResult.get(key).getPackage();
     assertThat(pkg.containsErrors()).isTrue();
     assertContainsEvent("error parsing target pattern");
+  }
+
+  @Test
+  public void testRegisterToolchains_singlePackageRestriction() throws Exception {
+    setBuildLanguageOptions("--experimental_single_package_toolchain_binding");
+
+    String[] lines = {
+      "register_toolchains('//foo:all')",
+      "register_toolchains('//bar:bar')",
+      "register_toolchains('//pkg/to/baz')"
+    };
+    createWorkspaceFile(lines);
+
+    SkyKey key = ExternalPackageFunction.key();
+    EvaluationResult<PackageValue> evaluationResult = eval(key);
+    Package pkg = evaluationResult.get(key).getPackage();
+    assertThat(pkg.containsErrors()).isFalse();
+  }
+
+  @Test
+  public void testRegisterToolchains_singlePackageRestriction_underDir() throws Exception {
+    // Test intentionally introduces errors.
+    reporter.removeHandler(failFastHandler);
+
+    setBuildLanguageOptions("--experimental_single_package_toolchain_binding");
+
+    String[] lines = {"register_toolchains('//foo/...')"};
+    createWorkspaceFile(lines);
+
+    SkyKey key = ExternalPackageFunction.key();
+    EvaluationResult<PackageValue> evaluationResult = eval(key);
+    Package pkg = evaluationResult.get(key).getPackage();
+    assertThat(pkg.containsErrors()).isTrue();
+    assertContainsEvent(
+        "invalid target pattern \"//foo/...\": register_toolchain target patterns "
+            + "may only refer to targets within a single package");
+  }
+
+  @Test
+  public void testRegisterToolchains_singlePackageRestriction_pathSyntax() throws Exception {
+    // Test intentionally introduces errors.
+    reporter.removeHandler(failFastHandler);
+
+    setBuildLanguageOptions("--experimental_single_package_toolchain_binding");
+
+    String[] lines = {"register_toolchains('foo/bar')"};
+    createWorkspaceFile(lines);
+
+    SkyKey key = ExternalPackageFunction.key();
+    EvaluationResult<PackageValue> evaluationResult = eval(key);
+    Package pkg = evaluationResult.get(key).getPackage();
+    assertThat(pkg.containsErrors()).isTrue();
+    assertContainsEvent(
+        "invalid target pattern \"foo/bar\": register_toolchain target patterns may only refer "
+            + "to targets with a declared package (relative path syntax omitting ':' is "
+            + "ambiguous)");
   }
 
   @Test

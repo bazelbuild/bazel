@@ -19,9 +19,9 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -31,6 +31,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
@@ -71,7 +72,8 @@ final class HeaderDiscovery {
       NestedSet<Artifact> allowedDerivedInputs,
       Path execRoot,
       ArtifactResolver artifactResolver,
-      boolean siblingRepositoryLayout)
+      boolean siblingRepositoryLayout,
+      PathMapper pathMapper)
       throws ActionExecutionException {
     Map<PathFragment, Artifact> regularDerivedArtifacts = new HashMap<>();
     Map<PathFragment, SpecialArtifact> treeArtifacts = new HashMap<>();
@@ -89,9 +91,9 @@ final class HeaderDiscovery {
       // whose path changed, that is not taken into account by the action cache, and it will get an
       // action cache hit using the remaining un-renamed artifact.
       if (a.isTreeArtifact()) {
-        treeArtifacts.putIfAbsent(a.getExecPath(), (SpecialArtifact) a);
+        treeArtifacts.putIfAbsent(pathMapper.map(a.getExecPath()), (SpecialArtifact) a);
       } else {
-        regularDerivedArtifacts.putIfAbsent(a.getExecPath(), a);
+        regularDerivedArtifacts.putIfAbsent(pathMapper.map(a.getExecPath()), a);
       }
     }
 
@@ -105,7 +107,8 @@ final class HeaderDiscovery {
         treeArtifacts,
         execRoot,
         artifactResolver,
-        siblingRepositoryLayout);
+        siblingRepositoryLayout,
+        pathMapper);
   }
 
   private static NestedSet<Artifact> runDiscovery(
@@ -118,9 +121,34 @@ final class HeaderDiscovery {
       Map<PathFragment, SpecialArtifact> treeArtifacts,
       Path execRoot,
       ArtifactResolver artifactResolver,
-      boolean siblingRepositoryLayout)
+      boolean siblingRepositoryLayout,
+      PathMapper pathMapper)
       throws ActionExecutionException {
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.stableOrder();
+
+    // This is a very special case: in certain corner cases (notably, protobuf), the WORKSPACE file
+    // contains a local_repository that has the same name and path as the main repository. In this
+    // case, if sibling repository layout is active, files in that local repository have the same
+    // absolute execpath as files in the main repository but not the same *relative* execpath (e.g.
+    // a:b would be ../repo/a/b in the local_repository and a/b in the main repository)
+    //
+    // This would mean that artifacts coming from the local repository would be discovered as ones
+    // in the main repository, thus resulting in "undeclared dependency" errors. The way this flag
+    // hacks around this is by pretending that such artifacts are always in the local_repository if
+    // the action is in it. This of course breaks horribly if there are artifacts from *both*
+    // repositories on the inputs.
+    //
+    // Protobuf uses this to work around the fact that @bazel_tools depends on it (see
+    // https://github.com/bazelbuild/bazel/issues/19973). The fix is either to cut that dependency
+    // or to migrate to bzlmod.
+    boolean ignoreMainRepository =
+        siblingRepositoryLayout
+            && action
+                .getOwner()
+                .getLabel()
+                .getRepository()
+                .getName()
+                .equals(execRoot.getBaseName());
 
     // Check inclusions.
     IncludeProblems absolutePathProblems = new IncludeProblems();
@@ -132,10 +160,9 @@ final class HeaderDiscovery {
         if (FileSystemUtils.startsWithAny(execPath, permittedSystemIncludePrefixes)) {
           continue;
         }
-        // Since gcc is given only relative paths on the command line, non-builtin include paths
-        // here should never be absolute. If they are, it's probably due to a non-hermetic #include,
-        // and we should stop the build with an error.
-        if (execPath.startsWith(execRoot)) {
+        if (execPath.startsWith(execRoot)
+            && (!ignoreMainRepository
+                || artifactResolver.isDerivedArtifact(execPath.relativeTo(execRoot)))) {
           execPathFragment = execPath.relativeTo(execRoot); // funky but tolerable path
         } else if (siblingRepositoryLayout && execPath.startsWith(execRoot.getParentDirectory())) {
           // for --experimental_sibling_repository_layout
@@ -143,16 +170,23 @@ final class HeaderDiscovery {
               LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX.getRelative(
                   execPath.relativeTo(execRoot.getParentDirectory()));
         } else {
+          // Since gcc is given only relative paths on the command line, non-builtin include paths
+          // here should never be absolute. If they are, it's probably due to a non-hermetic
+          // #include,
+          // and we should stop the build with an error.
           absolutePathProblems.add(execPathFragment.getPathString());
           continue;
         }
       }
       Artifact artifact = regularDerivedArtifacts.get(execPathFragment);
       if (artifact == null) {
-        RepositoryName repository =
-            PackageIdentifier.discoverFromExecPath(execPathFragment, false, siblingRepositoryLayout)
-                .getRepository();
-        artifact = artifactResolver.resolveSourceArtifact(execPathFragment, repository);
+        Optional<PackageIdentifier> pkgId =
+            PackageIdentifier.discoverFromExecPath(
+                execPathFragment, false, siblingRepositoryLayout);
+        if (pkgId.isPresent()) {
+          artifact =
+              artifactResolver.resolveSourceArtifact(execPathFragment, pkgId.get().getRepository());
+        }
       }
       if (artifact != null) {
         // We don't need to add the sourceFile itself as it is a mandatory input.
@@ -160,9 +194,16 @@ final class HeaderDiscovery {
           inputs.add(artifact);
         }
         continue;
+      } else if (execPathFragment.getFileExtension().equals("cppmap")) {
+        // Transitive cppmap files are added to the dotd files of compiles even
+        // though they are not required for compilation. Since they're not
+        // explicit inputs to the action this only happens when sandboxing is
+        // disabled.
+        continue;
       }
 
-      SpecialArtifact treeArtifact = findOwningTreeArtifact(execPathFragment, treeArtifacts);
+      SpecialArtifact treeArtifact =
+          findOwningTreeArtifact(execPathFragment, treeArtifacts, pathMapper);
       if (treeArtifact != null) {
         inputs.add(treeArtifact);
       } else {
@@ -196,7 +237,9 @@ final class HeaderDiscovery {
 
   @Nullable
   private static SpecialArtifact findOwningTreeArtifact(
-      PathFragment execPath, Map<PathFragment, SpecialArtifact> treeArtifacts) {
+      PathFragment execPath,
+      Map<PathFragment, SpecialArtifact> treeArtifacts,
+      PathMapper pathMapper) {
     // Check the map for the exec path's parent directory first. If the exec path matches a direct
     // child of a tree artifact (a common case), we can skip the full iteration below.
     PathFragment dir = execPath.getParentDirectory();
@@ -207,7 +250,7 @@ final class HeaderDiscovery {
 
     // Search for any tree artifact that encloses the exec path.
     return treeArtifacts.values().stream()
-        .filter(a -> dir.startsWith(a.getExecPath()))
+        .filter(a -> dir.startsWith(pathMapper.map(a.getExecPath())))
         .findAny()
         .orElse(null);
   }

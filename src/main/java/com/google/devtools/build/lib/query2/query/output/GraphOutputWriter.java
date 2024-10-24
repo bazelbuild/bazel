@@ -13,13 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.query.output;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.EquivalenceRelation;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.DotOutputVisitor;
@@ -30,12 +31,16 @@ import com.google.devtools.build.lib.packages.Target;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -166,10 +171,8 @@ public final class GraphOutputWriter<T> {
 
   private void outputFactored(
       Digraph<T> graph, ConditionalEdges conditionalEdges, PrintWriter out) {
-    EquivalenceRelation<Node<T>> equivalenceRelation = createEquivalenceRelation();
 
-    Collection<Set<Node<T>>> partition =
-        CollectionUtils.partition(graph.getNodes(), equivalenceRelation);
+    Collection<Set<Node<T>>> partition = partitionFactored(graph);
     if (sortLabels) {
       partition = orderPartition(partition);
     }
@@ -229,40 +232,122 @@ public final class GraphOutputWriter<T> {
   }
 
   /**
-   * Returns an equivalence relation for nodes in the specified graph.
+   * Partitions the graph into equivalence classes of topologically equivalent nodes.
    *
-   * <p>Two nodes are considered equal iff they have equal topology (predecessors and successors).
+   * <p>Algorithm: Visit each node, comparing children with each other based on the eq relation to
+   * put them into their eq classes. Compare top-level nodes as well as though they were children of
+   * a fake root node.
    *
-   * <p>TODO(bazel-team): Make this a method of Digraph.
+   * <p>Invariant: Two nodes are in the same equivalence class -> they have the same parents (and
+   * children).
+   *
+   * <p>Contrapositive: If two nodes do not have the same parents (or children) -> they are not in
+   * the same equivalence class.
+   *
+   * <p>Because of the contrapositive, we only need to compare children nodes of each parent node
+   * (rather than each node with every other node). This allows us to significantly reduce the
+   * number of comparisons between nodes.
+   *
+   * @param graph the graph to partition.
+   * @return a collection of equivalence classes (sets of nodes).
    */
-  @SuppressWarnings("ReferenceEquality")
-  private static <LABEL> EquivalenceRelation<Node<LABEL>> createEquivalenceRelation() {
-    return new EquivalenceRelation<Node<LABEL>>() {
-      @Override
-      public int compare(Node<LABEL> x, Node<LABEL> y) {
-        if (x == y) {
+  private ImmutableList<Set<Node<T>>> partitionFactored(Digraph<T> graph) {
+    // Two nodes are equivalent iff they have the same successors and predecessors.
+    EquivalenceRelation<Node<T>> equivalenceRelation =
+        (x, y) -> {
+          if (Objects.equals(x, y)) {
+            return 0;
+          }
+
+          if (x.numPredecessors() != y.numPredecessors()
+              || x.numSuccessors() != y.numSuccessors()) {
+            return -1;
+          }
+
+          Set<Node<T>> xpred = new HashSet<>(x.getPredecessors());
+          Set<Node<T>> ypred = new HashSet<>(y.getPredecessors());
+          if (!xpred.equals(ypred)) {
+            return -1;
+          }
+
+          Set<Node<T>> xsucc = new HashSet<>(x.getSuccessors());
+          Set<Node<T>> ysucc = new HashSet<>(y.getSuccessors());
+          if (!xsucc.equals(ysucc)) {
+            return -1;
+          }
+
           return 0;
-        }
+        };
 
-        if (x.numPredecessors() != y.numPredecessors() || x.numSuccessors() != y.numSuccessors()) {
-          return -1;
-        }
+    // Keep a map of equivalence classes that each node belongs to, so that we know whether a node
+    // already belongs to one.
+    HashMap<Node<T>, Set<Node<T>>> eqClasses = new HashMap<>();
+    ArrayDeque<Node<T>> queue = new ArrayDeque<>(graph.getRoots());
+    Set<Node<T>> enqueued = new HashSet<>(graph.getRoots());
 
-        Set<Node<LABEL>> xpred = new HashSet<>(x.getPredecessors());
-        Set<Node<LABEL>> ypred = new HashSet<>(y.getPredecessors());
-        if (!xpred.equals(ypred)) {
-          return -1;
-        }
+    // Top-level nodes need to be compared amongst each other because they can form an equivalence
+    // class amongst themselves too.
+    processSuccessors(ImmutableList.copyOf(queue), eqClasses, equivalenceRelation);
 
-        Set<Node<LABEL>> xsucc = new HashSet<>(x.getSuccessors());
-        Set<Node<LABEL>> ysucc = new HashSet<>(y.getSuccessors());
-        if (!xsucc.equals(ysucc)) {
-          return -1;
+    while (!queue.isEmpty()) {
+      Node<T> node = queue.removeFirst();
+      List<Node<T>> successors = new ArrayList<>(node.getSuccessors());
+      processSuccessors(successors, eqClasses, equivalenceRelation);
+      for (Node<T> child : node.getSuccessors()) {
+        // We don't want the queue to grow to O(E); also, there is no need to visit children twice.
+        if (!enqueued.contains(child)) {
+          queue.add(child);
+          enqueued.add(child);
         }
-
-        return 0;
       }
-    };
+    }
+
+    return eqClasses.values().stream().distinct().collect(toImmutableList());
+  }
+
+  /**
+   * Compares a list of successors of a parent node amongst each other and adds them to their
+   * equivalence classes.
+   *
+   * @param successors list of successors to compare.
+   * @param eqClasses map containing the equivalence class that a node belongs to.
+   * @param equivalenceRelation the equivalence relation by which the equivalence classes are *
+   *     defined.
+   */
+  private void processSuccessors(
+      List<Node<T>> successors,
+      Map<Node<T>, Set<Node<T>>> eqClasses,
+      EquivalenceRelation<Node<T>> equivalenceRelation) {
+    int numSuccessors = successors.size();
+
+    for (int i = 0; i < numSuccessors; i++) {
+      Node<T> child = successors.get(i);
+      if (eqClasses.containsKey(child)) {
+        // This child has already been added to an equivalence class, there is no need to compare
+        // because all members in that equivalence class would have already been added.
+        continue;
+      }
+
+      // Put the child in its own equivalence class and compare with its siblings.
+      Set<Node<T>> eqClass = new HashSet<>();
+      eqClass.add(child);
+      eqClasses.put(child, eqClass);
+
+      // Start at i+1, since j <= i has already been checked.
+      for (int j = i + 1; j < numSuccessors; j++) {
+        Node<T> sibling = successors.get(j);
+        if (eqClasses.containsKey(sibling)) {
+          // The sibling has already been added to another equivalence class, no need to compare.
+          continue;
+        }
+
+        // This is expensive, so we want to minimize this as much as possible.
+        if (equivalenceRelation.compare(child, sibling) == 0) {
+          eqClass.add(sibling);
+          eqClasses.put(sibling, eqClass);
+        }
+      }
+    }
   }
 
   private String getConditionsGraphLabel(

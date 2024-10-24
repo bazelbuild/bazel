@@ -20,12 +20,14 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
-import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
+import com.google.devtools.build.lib.packages.TargetRecorder.NameConflictException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
@@ -83,8 +85,26 @@ public class RuleFactory {
           ruleClass + " cannot be in the WORKSPACE file " + "(used by " + label + ")");
     }
 
-    BuildLangTypedAttributeValuesMap attributes =
-        generatorAttributesForMacros(pkgBuilder, attributeValues, callstack);
+    // Add the generator_name attribute, and possibly append the declaration location to the
+    // visibility attribute.
+    BuildLangTypedAttributeValuesMap processedAttributes;
+    @Nullable String generatorName = getGeneratorName(pkgBuilder, attributeValues, callstack);
+    @Nullable List<Label> modifiedVisibility = getModifiedVisibility(pkgBuilder, attributeValues);
+    // Don't bother copying anything if nothing changed.
+    if (generatorName != null || modifiedVisibility != null) {
+      ImmutableMap.Builder<String, Object> builder =
+          ImmutableMap.builderWithExpectedSize(attributeValues.attributeValues.size() + 2);
+      builder.putAll(attributeValues.attributeValues);
+      if (generatorName != null) {
+        builder.put("generator_name", generatorName);
+      }
+      if (modifiedVisibility != null) {
+        builder.put("visibility", modifiedVisibility);
+      }
+      processedAttributes = new BuildLangTypedAttributeValuesMap(builder.buildKeepingLast());
+    } else {
+      processedAttributes = attributeValues;
+    }
 
     // The raw stack is of the form [<toplevel>@BUILD:1, macro@lib.bzl:1, cc_library@<builtin>].
     // Pop the innermost frame for the rule, since it's obvious.
@@ -92,7 +112,7 @@ public class RuleFactory {
 
     try {
       return ruleClass.createRule(
-          pkgBuilder, label, attributes, failOnUnknownAttributes, callstack);
+          pkgBuilder, label, processedAttributes, failOnUnknownAttributes, callstack);
     } catch (LabelSyntaxException | CannotPrecomputeDefaultsException e) {
       throw new RuleFactory.InvalidRuleException(ruleClass + " " + e.getMessage());
     }
@@ -207,45 +227,91 @@ public class RuleFactory {
   }
 
   /**
-   * If the rule was created by a macro, sets the appropriate value for the generator_name attribute
-   * and returns all attributes.
+   * Given the call stack and attribute values of a rule being instantiated, computes and returns
+   * the value of the special {@code generator_name} attribute to be added, or returns null if it
+   * shouldn't be added.
    *
-   * <p>Otherwise, it returns the given attributes without any changes.
+   * <p>The {@code generator_name} attribute is set for targets instantiated within a legacy macro
+   * (and which are not also within a symbolic macro). Its value is the name argument of the
+   * top-level macro on the call stack, if its value can be determined statically (see {@link
+   * PackageFactory#checkBuildSyntax}), or just the name of the target otherwise.
    */
-  private static BuildLangTypedAttributeValuesMap generatorAttributesForMacros(
+  // TODO: #19922 - Should we set generator_name on targets created by a symbolic macro instantiated
+  // within a legacy macro? Otherwise tooling may think those targets were not created in a macro.
+  @Nullable
+  private static String getGeneratorName(
       Package.Builder pkgBuilder,
       BuildLangTypedAttributeValuesMap args,
       ImmutableList<CallStackEntry> stack) {
-    // The "generator" of a rule is the function (sometimes called "macro") outermost in the call
-    // stack. For rules with generators, the stack must contain at least two entries:
-    // 0: the outermost function (e.g. a BUILD file),
-    // 1: the function called by it (e.g. a "macro" in a .bzl file).
+    // The "generator" of a rule is the function outermost in the call stack (regardless of whether
+    // or not it was passed a "name" parameter). For rules with generators, the stack must contain
+    // at least two entries:
+    //   0: the outermost function (e.g. a BUILD file),
+    //   1: the function called by it (e.g. a "macro" in a .bzl file).
     // optionally followed by other Starlark or built-in functions, and finally the rule
     // instantiation function.
     if (stack.size() < 2 || !stack.get(1).location.file().endsWith(".bzl")) {
-      // Not instantiated by a Starlark macro.
-      // (Edge case not handled: BUILD file calls helper(cc_library) defined in an .scl file, and
-      // helper instantiates the rule that's passed as an argument.)
-      return args;
+      // Not instantiated by a legacy macro.
+      // TODO: #19922 - This stack inspection logic doesn't work for symbolic macros, where it will
+      // likely incorrectly discriminate between targets created in the implementation function
+      // directly and targets created in a helper function called from the implementation function.
+      // TODO(bazel-team): Tolerate ".scl" extension in the above if? An .scl file can instantiate a
+      // rule if the rule function is passed as an argument.
+      return null;
     }
 
     if (args.containsAttributeNamed("generator_name")) {
-      // generator_name is explicitly set. Return early to avoid a map key conflict.
+      // generator_name is explicitly set. Don't override it.
       // TODO(b/274802222): Should this be prohibited?
-      return args;
+      return null;
     }
-
-    ImmutableMap.Builder<String, Object> builder =
-        ImmutableMap.builderWithExpectedSize(args.attributeValues.size() + 1);
-    builder.putAll(args.attributeValues);
 
     String generatorName = pkgBuilder.getGeneratorNameByLocation(stack.get(0).location);
     if (generatorName == null) {
+      // Fall back on target name (meh).
       generatorName = (String) args.getAttributeValue("name");
     }
-    builder.put("generator_name", generatorName);
+    return generatorName;
+  }
 
-    return new BuildLangTypedAttributeValuesMap(builder.buildOrThrow());
+  /**
+   * Given the attribute values of the rule being instantiated, computes and returns the new value
+   * for its visibility attribute, or null if no change is needed.
+   *
+   * <p>For targets created inside one or more symbolic macros, the new visibility value is whatever
+   * the original visibility attribute was (possibly the package's default visibility), unioned with
+   * the package where the innermost currently executing symbolic macro was exported.
+   *
+   * <p>For targets not created inside one or more symbolic macros, no change is made to the
+   * visibility attribute. The visibility check will account for this by permitting access to the
+   * target from locations in the same package as the target.
+   */
+  @Nullable
+  private static List<Label> getModifiedVisibility(
+      Package.Builder pkgBuilder, BuildLangTypedAttributeValuesMap args) {
+    MacroInstance currentMacro = pkgBuilder.currentMacro();
+    if (currentMacro == null) {
+      return null;
+    }
+
+    RuleVisibility visibility = null;
+    Object uncheckedVisibilityAttr = args.getAttributeValue("visibility");
+    if (uncheckedVisibilityAttr == null) {
+      visibility = RuleVisibility.PRIVATE;
+    } else {
+      try {
+        List<Label> visibilityAttr =
+            BuildType.LABEL_LIST.convert(
+                uncheckedVisibilityAttr, "visibility attribute", pkgBuilder.getLabelConverter());
+        visibility = RuleVisibility.parse(visibilityAttr);
+      } catch (EvalException ex) {
+        // Can't modify the visibility attribute because it's invalid. Let it be caught in
+        // RuleClass#populateDefinedRuleAttributeValues.
+        return null;
+      }
+    }
+
+    return currentMacro.concatDefinitionLocationToVisibility(visibility).getDeclaredLabels();
   }
 
   /**
@@ -257,7 +323,8 @@ public class RuleFactory {
     for (String ruleClassName : ruleClassMap.keySet()) {
       RuleClass cl = ruleClassMap.get(ruleClassName);
       if (cl.getRuleClassType() == RuleClassType.NORMAL
-          || cl.getRuleClassType() == RuleClassType.TEST) {
+          || cl.getRuleClassType() == RuleClassType.TEST
+          || cl.getRuleClassType() == RuleClassType.BUILD_ONLY) {
         result.put(ruleClassName, new BuiltinRuleFunction(cl));
       }
     }
@@ -280,9 +347,11 @@ public class RuleFactory {
       if (!args.isEmpty()) {
         throw Starlark.errorf("unexpected positional arguments");
       }
-      BazelStarlarkContext.checkLoadingOrWorkspacePhase(thread, ruleClass.getName());
       try {
-        Package.Builder pkgBuilder = PackageFactory.getContext(thread);
+        Package.Builder pkgBuilder =
+            ruleClass.getRuleClassType() != RuleClassType.BUILD_ONLY
+                ? Package.Builder.fromOrFail(thread, "rules")
+                : Package.Builder.fromOrFailAllowBuildOnly(thread, ruleClass.getName() + " rule");
         RuleFactory.createAndAddRule(
             pkgBuilder,
             ruleClass,
@@ -291,7 +360,7 @@ public class RuleFactory {
                 .getSemantics()
                 .getBool(BuildLanguageOptions.INCOMPATIBLE_FAIL_ON_UNKNOWN_ATTRIBUTES),
             thread.getCallStack());
-      } catch (RuleFactory.InvalidRuleException | Package.NameConflictException e) {
+      } catch (RuleFactory.InvalidRuleException | NameConflictException e) {
         throw new EvalException(e);
       }
       return Starlark.NONE;

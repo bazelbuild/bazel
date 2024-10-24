@@ -22,16 +22,19 @@ public final class ActionCompletionEvent implements Postable {
   private final long relativeActionStartTimeNanos;
   private final long finishTimeNanos;
   private final Action action;
+  private final InputMetadataProvider inputMetadataProvider;
   private final ActionLookupData actionLookupData;
 
   public ActionCompletionEvent(
       long relativeActionStartTimeNanos,
       long finishTimeNanos,
       Action action,
+      InputMetadataProvider inputMetadataProvider,
       ActionLookupData actionLookupData) {
     this.relativeActionStartTimeNanos = relativeActionStartTimeNanos;
     this.finishTimeNanos = finishTimeNanos;
     this.action = action;
+    this.inputMetadataProvider = inputMetadataProvider;
     this.actionLookupData = actionLookupData;
   }
 
@@ -40,6 +43,11 @@ public final class ActionCompletionEvent implements Postable {
    */
   public Action getAction() {
     return action;
+  }
+
+  /** Returns the metadata provider describing the inputs of the action. */
+  public InputMetadataProvider getInputMetadataProvider() {
+    return inputMetadataProvider;
   }
 
   public long getRelativeActionStartTimeNanos() {

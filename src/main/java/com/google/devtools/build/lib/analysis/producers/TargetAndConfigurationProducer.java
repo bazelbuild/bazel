@@ -19,10 +19,8 @@ import static com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil.co
 
 import com.google.auto.value.AutoOneOf;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
-import com.google.devtools.build.lib.analysis.ExecGroupCollection;
 import com.google.devtools.build.lib.analysis.InconsistentNullConfigException;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
@@ -36,32 +34,26 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationTransitionEven
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
-import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
-import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.analysis.platform.PlatformValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
-import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
-import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
@@ -69,7 +61,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingException;
 import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
-import com.google.devtools.build.lib.skyframe.toolchains.ToolchainContextKey;
+import com.google.devtools.build.lib.skyframe.toolchains.ToolchainContextUtil;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.state.StateMachine;
@@ -91,6 +83,7 @@ public final class TargetAndConfigurationProducer
         StateMachine.ValueOrExceptionSink<InvalidConfigurationException>,
         Consumer<SkyValue>,
         TargetProducer.ResultSink {
+
   /** Accepts results of this producer. */
   public interface ResultSink {
     void acceptTargetAndConfiguration(TargetAndConfiguration value, ConfiguredTargetKey fullKey);
@@ -267,27 +260,39 @@ public final class TargetAndConfigurationProducer
       implements StateMachine,
           TransitionApplier.ResultSink,
           ConfigConditionsProducer.ResultSink,
-          PlatformInfoProducer.ResultSink {
+          PlatformProducer.ResultSink {
     // -------------------- Internal State --------------------
     @Nullable private PlatformInfo platformInfo;
     private ConfigConditions configConditions;
     private ConfigurationTransition ruleTransition;
     private BuildConfigurationKey configurationKey;
-        
+
     @Override
     public StateMachine step(Tasks tasks) throws InterruptedException {
-
-      UnloadedToolchainContextsInputs unloadedToolchainContextsInputs =
-          getUnloadedToolchainContextsInputs(
-              target, preRuleTransitionKey.getExecutionPlatformLabel());
+      UnloadedToolchainContextsInputs unloadedToolchainContextsInputs;
+      PlatformConfiguration platformConfiguration = null;
+      var platformOptions =
+          preRuleTransitionKey.getConfigurationKey().getOptions().get(PlatformOptions.class);
+      if (platformOptions == null) {
+        unloadedToolchainContextsInputs = UnloadedToolchainContextsInputs.empty();
+      } else {
+        platformConfiguration = new PlatformConfiguration(platformOptions);
+        unloadedToolchainContextsInputs =
+            ToolchainContextUtil.getUnloadedToolchainContextsInputs(
+                target,
+                preRuleTransitionKey.getConfigurationKey().getOptions().get(CoreOptions.class),
+                platformConfiguration,
+                preRuleTransitionKey.getExecutionPlatformLabel(),
+                computeToolchainConfigurationKey(
+                    preRuleTransitionKey.getConfigurationKey().getOptions(),
+                    toolchainTaggedTrimmingTransition));
+      }
 
       if (unloadedToolchainContextsInputs.targetToolchainContextKey() != null) {
-        PlatformConfiguration platformConfiguration =
-            new PlatformConfiguration(preRuleTransitionKey.getConfigurationKey().getOptions());
         tasks.enqueue(
-            new PlatformInfoProducer(
+            new PlatformProducer(
                 platformConfiguration.getTargetPlatform(),
-                (PlatformInfoProducer.ResultSink) this,
+                (PlatformProducer.ResultSink) this,
                 this::computeConfigConditions));
       } else {
         this.platformInfo = null;
@@ -295,85 +300,6 @@ public final class TargetAndConfigurationProducer
       }
 
       return DONE;
-    }
-
-    // TODO: @aranguyen b/297077082
-    public UnloadedToolchainContextsInputs getUnloadedToolchainContextsInputs(
-        Target target, @Nullable Label parentExecutionPlatformLabel) throws InterruptedException {
-      if (!(target instanceof Rule)) {
-        return UnloadedToolchainContextsInputs.empty();
-      }
-
-      Rule rule = (Rule) target;
-
-      if (!preRuleTransitionKey
-          .getConfigurationKey()
-          .getOptions()
-          .contains(PlatformOptions.class)) {
-        return UnloadedToolchainContextsInputs.empty();
-      }
-      PlatformConfiguration platformConfiguration =
-          new PlatformConfiguration(preRuleTransitionKey.getConfigurationKey().getOptions());
-      var defaultExecConstraintLabels =
-          getExecutionPlatformConstraints(rule, platformConfiguration);
-      var ruleClass = rule.getRuleClassObject();
-      boolean useAutoExecGroups =
-          rule.isAttrDefined("$use_auto_exec_groups", Type.BOOLEAN)
-              ? (boolean) rule.getAttr("$use_auto_exec_groups")
-              : preRuleTransitionKey
-                  .getConfigurationKey()
-                  .getOptions()
-                  .get(CoreOptions.class)
-                  .useAutoExecGroups;
-
-      var processedExecGroups =
-          ExecGroupCollection.process(
-              ruleClass.getExecGroups(),
-              defaultExecConstraintLabels,
-              ruleClass.getToolchainTypes(),
-              useAutoExecGroups);
-
-      if (!rule.useToolchainResolution()) {
-        return UnloadedToolchainContextsInputs.create(processedExecGroups, null);
-      }
-
-      return UnloadedToolchainContextsInputs.create(
-          processedExecGroups,
-          createDefaultToolchainContextKey(
-              computeToolchainConfigurationKey(
-                  preRuleTransitionKey.getConfigurationKey().getOptions(),
-                  toolchainTaggedTrimmingTransition),
-              defaultExecConstraintLabels,
-              /* debugTarget= */ platformConfiguration.debugToolchainResolution(rule.getLabel()),
-              /* useAutoExecGroups= */ useAutoExecGroups,
-              ruleClass.getToolchainTypes(),
-              parentExecutionPlatformLabel));
-    }
-
-    public ToolchainContextKey createDefaultToolchainContextKey(
-        BuildConfigurationKey configurationKey,
-        ImmutableSet<Label> defaultExecConstraintLabels,
-        boolean debugTarget,
-        boolean useAutoExecGroups,
-        ImmutableSet<ToolchainTypeRequirement> toolchainTypes,
-        @Nullable Label parentExecutionPlatformLabel) {
-      ToolchainContextKey.Builder toolchainContextKeyBuilder =
-          ToolchainContextKey.key()
-              .configurationKey(configurationKey)
-              .execConstraintLabels(defaultExecConstraintLabels)
-              .debugTarget(debugTarget);
-
-      // Add toolchain types only if automatic exec groups are not created for this target.
-      if (!useAutoExecGroups) {
-        toolchainContextKeyBuilder.toolchainTypes(toolchainTypes);
-      }
-
-      if (parentExecutionPlatformLabel != null) {
-        // Find out what execution platform the parent used, and force that.
-        // This should only be set for direct toolchain dependencies.
-        toolchainContextKeyBuilder.forceExecutionPlatform(parentExecutionPlatformLabel);
-      }
-      return toolchainContextKeyBuilder.build();
     }
 
     private BuildConfigurationKey computeToolchainConfigurationKey(
@@ -409,27 +335,6 @@ public final class TargetAndConfigurationProducer
       return BuildConfigurationKey.create(toolchainOptions);
     }
 
-    private ImmutableSet<Label> getExecutionPlatformConstraints(
-        Rule rule, @Nullable PlatformConfiguration platformConfiguration) {
-      if (platformConfiguration == null) {
-        return ImmutableSet.of(); // See NoConfigTransition.
-      }
-      NonconfigurableAttributeMapper mapper = NonconfigurableAttributeMapper.of(rule);
-      ImmutableSet.Builder<Label> execConstraintLabels = new ImmutableSet.Builder<>();
-
-      execConstraintLabels.addAll(rule.getRuleClassObject().getExecutionPlatformConstraints());
-      if (rule.getRuleClassObject()
-          .hasAttr(RuleClass.EXEC_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST)) {
-        execConstraintLabels.addAll(
-            mapper.get(RuleClass.EXEC_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST));
-      }
-
-      execConstraintLabels.addAll(
-          platformConfiguration.getAdditionalExecutionConstraintsFor(rule.getLabel()));
-
-      return execConstraintLabels.build();
-    }
-
     @CanIgnoreReturnValue
     public StateMachine computeConfigConditions(Tasks tasks) {
       // TODO @aranguyen b/297077082
@@ -455,40 +360,26 @@ public final class TargetAndConfigurationProducer
       emitErrorMessage(e.getMessage());
     }
 
+    // Keep in sync with CqueryTransitionResolver.getRuleTransition.
     public StateMachine computeTransition(Tasks tasks) {
       if (configConditions == null) {
         return DONE;
       }
 
-      // logic to compute transition with ConfigConditions
+      TransitionFactory<RuleTransitionData> transitionFactory =
+          target.getAssociatedRule().getRuleClassObject().getTransitionFactory();
+      if (trimmingTransitionFactory != null) {
+        transitionFactory =
+            ComposingTransitionFactory.of(transitionFactory, trimmingTransitionFactory);
+      }
+
       var transitionData =
           RuleTransitionData.create(
               target.getAssociatedRule(),
               configConditions.asProviders(),
               preRuleTransitionKey.getConfigurationKey().getOptionsChecksum());
 
-      ConfigurationTransition transition = null;
-
-      TransitionFactory<RuleTransitionData> transitionFactory =
-          target.getAssociatedRule().getRuleClassObject().getTransitionFactory();
-      if (transitionFactory != null) {
-        transition = transitionFactory.create(transitionData);
-      }
-
-      if (trimmingTransitionFactory != null) {
-        var trimmingTransition = trimmingTransitionFactory.create(transitionData);
-        if (transition != null) {
-          transition = ComposingTransition.of(transition, trimmingTransition);
-        } else {
-          transition = trimmingTransition;
-        }
-      }
-
-      if (transition == null) {
-        lookUpConfigurationValue(tasks);
-        return DONE;
-      }
-
+      ConfigurationTransition transition = transitionFactory.create(transitionData);
       this.ruleTransition = transition;
 
       return new TransitionApplier(
@@ -517,7 +408,7 @@ public final class TargetAndConfigurationProducer
     }
 
     @Override
-    public void acceptTransitionError(OptionsParsingException e) {
+    public void acceptOptionsParsingError(OptionsParsingException e) {
       emitErrorMessage(e.getMessage());
     }
 
@@ -527,8 +418,13 @@ public final class TargetAndConfigurationProducer
     }
 
     @Override
-    public void acceptPlatformInfo(PlatformInfo info) {
-      this.platformInfo = info;
+    public void acceptPlatformFlagsError(InvalidPlatformException e) {
+      emitErrorMessage(e.getMessage());
+    }
+
+    @Override
+    public void acceptPlatformValue(PlatformValue value) {
+      this.platformInfo = value.platformInfo();
     }
 
     @Override
@@ -615,12 +511,17 @@ public final class TargetAndConfigurationProducer
       }
 
       @Override
-      public void acceptTransitionError(OptionsParsingException e) {
+      public void acceptOptionsParsingError(OptionsParsingException e) {
         emitErrorMessage(e.getMessage());
       }
 
       @Override
       public void acceptPlatformMappingError(PlatformMappingException e) {
+        emitErrorMessage(e.getMessage());
+      }
+
+      @Override
+      public void acceptPlatformFlagsError(InvalidPlatformException e) {
         emitErrorMessage(e.getMessage());
       }
 
@@ -682,32 +583,5 @@ public final class TargetAndConfigurationProducer
             .setAnalysis(
                 Analysis.newBuilder().setCode(Analysis.Code.CONFIGURED_VALUE_CREATION_FAILED))
             .build());
-  }
-
-  // Public for Cquery.
-  // TODO: @aranguyen keep cquery in sync with ConfiguredTargetFunction
-  @Nullable
-  public static ConfigurationTransition computeTransition(
-      Rule rule, @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory) {
-    var transitionData = RuleTransitionData.create(rule, /* configConditions= */ null, "");
-
-    ConfigurationTransition transition = null;
-
-    TransitionFactory<RuleTransitionData> transitionFactory =
-        rule.getRuleClassObject().getTransitionFactory();
-    if (transitionFactory != null) {
-      transition = transitionFactory.create(transitionData);
-    }
-    boolean isAlias = rule.getAssociatedRule().getName().equals("alias");
-    if (trimmingTransitionFactory != null && !isAlias) {
-      var trimmingTransition = trimmingTransitionFactory.create(transitionData);
-      if (transition != null) {
-        transition = ComposingTransition.of(transition, trimmingTransition);
-      } else {
-        transition = trimmingTransition;
-      }
-    }
-
-    return transition;
   }
 }

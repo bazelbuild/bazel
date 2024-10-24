@@ -1,5 +1,0 @@
-android_merged_manifest=%android_merged_manifest%
-android_merged_resources=%android_merged_resources%
-android_merged_assets=%android_merged_assets%
-android_custom_package=%android_custom_package%
-android_resource_apk=%android_resource_apk%

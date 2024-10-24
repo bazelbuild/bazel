@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.NullEventHandler;
-import com.google.devtools.build.lib.packages.Package.NameConflictException;
+import com.google.devtools.build.lib.packages.TargetRecorder.NameConflictException;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.vfs.Path;
@@ -98,8 +98,7 @@ public class WorkspaceFactory {
    */
   public void execute(
       StarlarkFile file, // becomes resolved as a side effect
-      Map<String, Module> additionalLoadedModules,
-      WorkspaceFileValue.WorkspaceFileKey workspaceFileKey)
+      Map<String, Module> additionalLoadedModules)
       throws InterruptedException {
     loadedModules.putAll(additionalLoadedModules);
 
@@ -115,18 +114,15 @@ public class WorkspaceFactory {
       Program prog = Program.compileFile(file, module);
 
       // create thread
-      StarlarkThread thread = new StarlarkThread(mutability, starlarkSemantics);
+      StarlarkThread thread =
+          StarlarkThread.create(
+              mutability,
+              starlarkSemantics,
+              /* contextDescription= */ "",
+              builder.getSymbolGenerator());
       thread.setLoader(loadedModules::get);
       thread.setPrintHandler(Event.makeDebugPrintHandler(builder.getLocalEventHandler()));
-      thread.setThreadLocal(Package.Builder.class, builder);
-
-      // The workspace environment doesn't need the tools repository or the fragment map
-      // because executing workspace rules happens before analysis and it doesn't need a
-      // repository mapping because calls to the Label constructor in the WORKSPACE file
-      // are, by definition, not in an external repository and so they don't need the mapping
-      new BazelStarlarkContext(
-              BazelStarlarkContext.Phase.WORKSPACE, new SymbolGenerator<>(workspaceFileKey))
-          .storeInThread(thread);
+      builder.storeInThread(thread);
 
       try {
         Starlark.execFileProgram(prog, module, thread);
@@ -248,7 +244,8 @@ public class WorkspaceFactory {
           throw new EvalException("unexpected positional arguments");
         }
         try {
-          Package.Builder builder = PackageFactory.getContext(thread);
+          Package.Builder builder =
+              Package.Builder.fromOrFailAllowWorkspaceOnly(thread, "repository rules");
           // TODO(adonovan): this cast doesn't look safe!
           String externalRepoName = (String) kwargs.get("name");
           if (!allowOverride
@@ -265,17 +262,15 @@ public class WorkspaceFactory {
           WorkspaceFactoryHelper.addMainRepoEntry(builder, externalRepoName);
           WorkspaceFactoryHelper.addRepoMappings(builder, kwargs, externalRepoName);
           RuleClass ruleClass = ruleClassMap.get(ruleClassName);
-          RuleClass bindRuleClass = ruleClassMap.get("bind");
           Rule rule =
               WorkspaceFactoryHelper.createAndAddRepositoryRule(
                   builder,
                   ruleClass,
-                  bindRuleClass,
                   WorkspaceFactoryHelper.getFinalKwargs(kwargs),
                   thread.getCallStack());
           RepositoryName.validateUserProvidedRepoName(rule.getName());
         } catch (RuleFactory.InvalidRuleException
-            | Package.NameConflictException
+            | NameConflictException
             | LabelSyntaxException e) {
           throw new EvalException(e);
         }

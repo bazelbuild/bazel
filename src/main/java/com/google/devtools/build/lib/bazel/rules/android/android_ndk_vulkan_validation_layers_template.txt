@@ -1,4 +1,0 @@
-cc_library(
-    name = "vulkan_validation_layers_%toolchainName%",
-    srcs = glob(["ndk/sources/third_party/vulkan/src/build-android/jniLibs/%cpu%/libVkLayer_*.so"], allow_empty = True),
-)

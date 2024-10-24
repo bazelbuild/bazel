@@ -1,0 +1,99 @@
+// Copyright 2024 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+package com.google.devtools.build.lib.analysis.util;
+
+
+import com.google.devtools.build.lib.packages.util.MockToolsConfig;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.IOException;
+import java.util.function.Function;
+
+public abstract class AbstractMockJavaSupport {
+
+  public static final AbstractMockJavaSupport BAZEL =
+      new AbstractMockJavaSupport() {
+        @Override
+        public void setupRulesJava(
+            MockToolsConfig config, Function<String, String> runfilesResolver) throws IOException {
+          config.create("rules_java_workspace/WORKSPACE", "workspace(name = 'rules_java')");
+          config.create("rules_java_workspace/MODULE.bazel", "module(name = 'rules_java')");
+          PathFragment rulesJavaRoot =
+              PathFragment.create(runfilesResolver.apply("rules_java/java/defs.bzl"))
+                  .getParentDirectory()
+                  .getParentDirectory();
+          config.copyDirectory(
+              rulesJavaRoot.getRelative("java"),
+              "rules_java_workspace/java",
+              Integer.MAX_VALUE,
+              true);
+          config.copyTool(
+              rulesJavaRoot.getRelative("toolchains/java_toolchain_alias.bzl"),
+              "rules_java_workspace/toolchains/java_toolchain_alias.bzl");
+          // mocks
+          config.create("rules_java_workspace/toolchains/BUILD");
+          config.create(
+              "rules_java_workspace/toolchains/local_java_repository.bzl",
+              """
+              def local_java_repository(**attrs):
+                  pass
+              """);
+          config.create(
+              "rules_java_workspace/toolchains/jdk_build_file.bzl", "JDK_BUILD_TEMPLATE = ''");
+          config.overwrite(
+              "rules_java_workspace/java/repositories.bzl",
+              """
+              def rules_java_dependencies():
+                  pass
+
+              def rules_java_toolchains():
+                  native.register_toolchains("//java/toolchains/runtime:all")
+                  native.register_toolchains("//java/toolchains/javac:all")
+              """);
+
+          config.overwrite(
+              "rules_java_workspace/java/toolchains/runtime/BUILD",
+              """
+              toolchain_type(name = "toolchain_type")
+
+              toolchain(
+                  name = "local_jdk",
+                  toolchain = "@bazel_tools//tools/jdk:jdk",
+                  toolchain_type = "@rules_java//java/toolchains/runtime:toolchain_type",
+              )
+              """);
+          config.overwrite(
+              "rules_java_workspace/java/toolchains/javac/BUILD",
+              """
+              toolchain_type(name = "toolchain_type")
+
+              toolchain(
+                  name = "javac_toolchain",
+                  toolchain = "@bazel_tools//tools/jdk:toolchain",
+                  toolchain_type = "@rules_java//java/toolchains/javac:toolchain_type",
+              )
+              """);
+        }
+
+        @Override
+        public String getLoadStatementForRule(String ruleName) {
+          return "load('@rules_java//java:" + ruleName + ".bzl', '" + ruleName + "')";
+        }
+      };
+
+  public abstract void setupRulesJava(
+      MockToolsConfig mockToolsConfig, Function<String, String> runfilesResolver)
+      throws IOException;
+
+  public abstract String getLoadStatementForRule(String ruleName);
+}

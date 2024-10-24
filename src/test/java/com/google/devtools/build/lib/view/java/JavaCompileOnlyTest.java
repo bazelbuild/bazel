@@ -35,33 +35,53 @@ public class JavaCompileOnlyTest extends CompileOnlyTestCase {
   public void testJavaCompileOnly() throws Exception {
     scratch.file(
         "java/main/BUILD",
-        "java_binary(name = 'main',",
-        "            deps = ['//java/hello_library'],",
-        "            srcs = ['Main.java'],",
-        "            main_class = 'main.Main',",
-        "            deploy_manifest_lines = ['k1: v1', 'k2: v2'])");
+        """
+        load("@rules_java//java:defs.bzl", "java_binary")
+        java_binary(
+            name = "main",
+            srcs = ["Main.java"],
+            deploy_manifest_lines = [
+                "k1: v1",
+                "k2: v2",
+            ],
+            main_class = "main.Main",
+            deps = ["//java/hello_library"],
+        )
+        """);
     scratch.file(
         "java/hello_library/BUILD",
-        "java_library(name = 'hello_library',",
-        "             srcs = ['HelloLibrary.java'])");
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(
+            name = "hello_library",
+            srcs = ["HelloLibrary.java"],
+        )
+        """);
     scratch.file(
         "java/main/Main.java",
-        "package main;",
-        "import hello_library.HelloLibrary;",
-        "public class Main {",
-        "  public static void main(String[] args) {",
-        "    HelloLibrary.funcHelloLibrary();",
-        "    System.out.println(\"Hello, world!\");",
-        "  }",
-        "}");
+        """
+        package main;
+
+        import hello_library.HelloLibrary;
+
+        public class Main {
+          public static void main(String[] args) {
+            HelloLibrary.funcHelloLibrary();
+            System.out.println("Hello, world!");
+          }
+        }
+        """);
     scratch.file(
         "java/hello_library/HelloLibrary.java",
-        "package hello_library;",
-        "public class HelloLibrary {",
-        "  public static void funcHelloLibrary() {",
-        "    System.out.println(\"Hello, library!\");",
-        "  }",
-        "}");
+        """
+        package hello_library;
+
+        public class HelloLibrary {
+          public static void funcHelloLibrary() {
+            System.out.println("Hello, library!");
+          }
+        }
+        """);
 
     ConfiguredTarget target = getConfiguredTarget("//java/main:main");
 

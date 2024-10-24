@@ -58,13 +58,6 @@ msys*)
   ;;
 esac
 
-if "$is_windows"; then
-  # Disable MSYS path conversion that converts path-looking command arguments to
-  # Windows paths (even if they arguments are not in fact paths).
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 #### TESTS #############################################################
 
 function test_plain_outputs() {
@@ -197,9 +190,16 @@ EOF
   cat >$pkg/BUILD <<EOF
 load(':rule.bzl', 'demo_rule')
 
+# Needed to avoid the select() being eliminated as trivial.
+config_setting(
+    name = 'config',
+    values = {'defines': 'something'},
+)
+
 demo_rule(
   name = 'demo',
   foo = select({
+    ':config': 'selectable_str',
     '//conditions:default': 'selectable_str',
   }))
 EOF

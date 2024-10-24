@@ -60,11 +60,11 @@ public abstract class ModuleExtensionId {
 
     @Override
     public final String toString() {
-      return getModule() + "~" + getUsageExportedName();
+      return getModule() + "+" + getUsageExportedName();
     }
 
     public static IsolationKey fromString(String s) throws Version.ParseException {
-      List<String> isolationKeyParts = Splitter.on("~").splitToList(s);
+      List<String> isolationKeyParts = Splitter.on("+").splitToList(s);
       return ModuleExtensionId.IsolationKey.create(
           ModuleKey.fromString(isolationKeyParts.get(0)), isolationKeyParts.get(1));
     }

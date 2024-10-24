@@ -15,14 +15,17 @@
 
 package com.google.devtools.build.lib.bazel;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.CharMatcher;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -34,28 +37,31 @@ import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelpe
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperEnvironment;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperProvider;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
-import com.google.devtools.build.lib.bazel.bzlmod.AttributeValues;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelFetchAllFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelModTidyFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorFunction;
-import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule.ResolutionReason;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.LocalPathOverride;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionRepoMappingEntriesFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleOverride;
 import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
-import com.google.devtools.build.lib.bazel.bzlmod.RegistryFactory;
 import com.google.devtools.build.lib.bazel.bzlmod.RegistryFactoryImpl;
-import com.google.devtools.build.lib.bazel.bzlmod.RepoSpec;
+import com.google.devtools.build.lib.bazel.bzlmod.RegistryFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.RepoSpecFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionEvalFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionUsagesFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.VendorFileFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.VendorManager;
+import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
 import com.google.devtools.build.lib.bazel.commands.FetchCommand;
 import com.google.devtools.build.lib.bazel.commands.ModCommand;
 import com.google.devtools.build.lib.bazel.commands.SyncCommand;
+import com.google.devtools.build.lib.bazel.commands.VendorCommand;
 import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformFunction;
 import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformRule;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
@@ -63,18 +69,15 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCom
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.RepositoryOverride;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.WorkerForRepoFetching;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
-import com.google.devtools.build.lib.bazel.repository.downloader.DelegatingDownloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
-import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.UrlRewriter;
 import com.google.devtools.build.lib.bazel.repository.downloader.UrlRewriterParseException;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
-import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryFunction;
-import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRule;
-import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryFunction;
-import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRule;
+import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
@@ -87,7 +90,6 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryDirtine
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
-import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.InfoItem;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
@@ -107,7 +109,9 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutorRepositoryHelpersH
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -116,12 +120,11 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
+import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -132,42 +135,43 @@ public class BazelRepositoryModule extends BlazeModule {
   public static final String DEFAULT_CACHE_LOCATION = "cache/repos/v1";
 
   // Default list of registries.
-  public static final ImmutableList<String> DEFAULT_REGISTRIES =
-      ImmutableList.of("https://bcr.bazel.build/");
+  public static final ImmutableSet<String> DEFAULT_REGISTRIES =
+      ImmutableSet.of("https://bcr.bazel.build/");
 
   // A map of repository handlers that can be looked up by rule class name.
   private final ImmutableMap<String, RepositoryFunction> repositoryHandlers;
   private final AtomicBoolean isFetch = new AtomicBoolean(false);
   private final StarlarkRepositoryFunction starlarkRepositoryFunction;
   private final RepositoryCache repositoryCache = new RepositoryCache();
-  private final HttpDownloader httpDownloader = new HttpDownloader();
-  private final DelegatingDownloader delegatingDownloader =
-      new DelegatingDownloader(httpDownloader);
-  private final DownloadManager downloadManager =
-      new DownloadManager(repositoryCache, delegatingDownloader);
   private final MutableSupplier<Map<String, String>> clientEnvironmentSupplier =
       new MutableSupplier<>();
   private ImmutableMap<RepositoryName, PathFragment> overrides = ImmutableMap.of();
   private ImmutableMap<String, ModuleOverride> moduleOverrides = ImmutableMap.of();
   private Optional<RootedPath> resolvedFileReplacingWorkspace = Optional.empty();
   private FileSystem filesystem;
-  private List<String> registries;
+  private ImmutableSet<String> registries;
   private final AtomicBoolean ignoreDevDeps = new AtomicBoolean(false);
   private CheckDirectDepsMode checkDirectDepsMode = CheckDirectDepsMode.WARNING;
   private BazelCompatibilityMode bazelCompatibilityMode = BazelCompatibilityMode.ERROR;
   private LockfileMode bazelLockfileMode = LockfileMode.UPDATE;
+  private Clock clock;
+  private Instant lastRegistryInvalidation = Instant.EPOCH;
+
+  private Optional<Path> vendorDirectory = Optional.empty();
   private List<String> allowedYankedVersions = ImmutableList.of();
+  private boolean disableNativeRepoRules;
   private SingleExtensionEvalFunction singleExtensionEvalFunction;
-  private final ExecutorService repoFetchingWorkerThreadPool =
-      Executors.newFixedThreadPool(
-          100, new ThreadFactoryBuilder().setNameFormat("repo-fetching-worker-%d").build());
+
+  private final VendorCommand vendorCommand = new VendorCommand(clientEnvironmentSupplier);
+  private final RegistryFactoryImpl registryFactory =
+      new RegistryFactoryImpl(clientEnvironmentSupplier);
 
   @Nullable private CredentialModule credentialModule;
 
   private ImmutableMap<String, NonRegistryOverride> builtinModules = null;
 
   public BazelRepositoryModule() {
-    this.starlarkRepositoryFunction = new StarlarkRepositoryFunction(downloadManager);
+    this.starlarkRepositoryFunction = new StarlarkRepositoryFunction();
     this.repositoryHandlers = repositoryRules();
   }
 
@@ -189,8 +193,6 @@ public class BazelRepositoryModule extends BlazeModule {
     return ImmutableMap.<String, RepositoryFunction>builder()
         .put(LocalRepositoryRule.NAME, new LocalRepositoryFunction())
         .put(NewLocalRepositoryRule.NAME, new NewLocalRepositoryFunction())
-        .put(AndroidSdkRepositoryRule.NAME, new AndroidSdkRepositoryFunction())
-        .put(AndroidNdkRepositoryRule.NAME, new AndroidNdkRepositoryFunction())
         .put(LocalConfigPlatformRule.NAME, new LocalConfigPlatformFunction())
         .buildOrThrow();
   }
@@ -216,6 +218,7 @@ public class BazelRepositoryModule extends BlazeModule {
     builder.addCommands(new FetchCommand());
     builder.addCommands(new ModCommand());
     builder.addCommands(new SyncCommand());
+    builder.addCommands(vendorCommand);
     builder.addInfoItems(new RepositoryCacheInfoItem(repositoryCache));
   }
 
@@ -238,60 +241,39 @@ public class BazelRepositoryModule extends BlazeModule {
             clientEnvironmentSupplier,
             directories,
             BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER);
-    RegistryFactory registryFactory =
-        new RegistryFactoryImpl(
-            directories.getWorkspace(), downloadManager, clientEnvironmentSupplier);
     singleExtensionEvalFunction =
-        new SingleExtensionEvalFunction(directories, clientEnvironmentSupplier, downloadManager);
+        new SingleExtensionEvalFunction(directories, clientEnvironmentSupplier);
 
     if (builtinModules == null) {
-      builtinModules =
-          ImmutableMap.of(
-              // @bazel_tools is a special repo that we pull from the extracted install dir.
-              "bazel_tools",
-              LocalPathOverride.create(
-                  directories.getEmbeddedBinariesRoot().getChild("embedded_tools").getPathString()),
-              // @local_config_platform is currently generated by the native repo rule
-              // local_config_platform
-              // It has to be a special repo for now because:
-              //   - It's embedded in local_config_platform.WORKSPACE and depended on by many
-              // toolchains.
-              //   - The canonical name "local_config_platform" is hardcoded in Bazel code.
-              //     See {@link PlatformOptions}
-              "local_config_platform",
-              new NonRegistryOverride() {
-                @Override
-                public RepoSpec getRepoSpec(RepositoryName repoName) {
-                  return RepoSpec.builder()
-                      .setRuleClassName("local_config_platform")
-                      .setAttributes(
-                          AttributeValues.create(ImmutableMap.of("name", repoName.getName())))
-                      .build();
-                }
-
-                @Override
-                public ResolutionReason getResolutionReason() {
-                  // NOTE: It is not exactly a LOCAL_PATH_OVERRIDE, but there is no inspection
-                  // ResolutionReason for builtin modules
-                  return ResolutionReason.LOCAL_PATH_OVERRIDE;
-                }
-              });
+      builtinModules = ModuleFileFunction.getBuiltinModules(directories.getEmbeddedBinariesRoot());
     }
 
     builder
         .addSkyFunction(SkyFunctions.REPOSITORY_DIRECTORY, repositoryDelegatorFunction)
         .addSkyFunction(
             SkyFunctions.MODULE_FILE,
-            new ModuleFileFunction(registryFactory, directories.getWorkspace(), builtinModules))
+            new ModuleFileFunction(
+                runtime.getRuleClassProvider().getBazelStarlarkEnvironment(),
+                directories.getWorkspace(),
+                builtinModules))
         .addSkyFunction(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction())
         .addSkyFunction(
             SkyFunctions.BAZEL_LOCK_FILE, new BazelLockFileFunction(directories.getWorkspace()))
         .addSkyFunction(SkyFunctions.BAZEL_FETCH_ALL, new BazelFetchAllFunction())
+        .addSkyFunction(SkyFunctions.BAZEL_MOD_TIDY, new BazelModTidyFunction())
         .addSkyFunction(SkyFunctions.BAZEL_MODULE_INSPECTION, new BazelModuleInspectorFunction())
         .addSkyFunction(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
+        .addSkyFunction(SkyFunctions.SINGLE_EXTENSION, new SingleExtensionFunction())
         .addSkyFunction(SkyFunctions.SINGLE_EXTENSION_EVAL, singleExtensionEvalFunction)
         .addSkyFunction(SkyFunctions.SINGLE_EXTENSION_USAGES, new SingleExtensionUsagesFunction())
-        .addSkyFunction(SkyFunctions.REPO_SPEC, new RepoSpecFunction(registryFactory))
+        .addSkyFunction(
+            SkyFunctions.REGISTRY,
+            new RegistryFunction(registryFactory, directories.getWorkspace()))
+        .addSkyFunction(SkyFunctions.REPO_SPEC, new RepoSpecFunction())
+        .addSkyFunction(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction())
+        .addSkyFunction(
+            SkyFunctions.VENDOR_FILE,
+            new VendorFileFunction(runtime.getRuleClassProvider().getBazelStarlarkEnvironment()))
         .addSkyFunction(
             SkyFunctions.MODULE_EXTENSION_REPO_MAPPING_ENTRIES,
             new ModuleExtensionRepoMappingEntriesFunction());
@@ -320,6 +302,12 @@ public class BazelRepositoryModule extends BlazeModule {
 
   @Override
   public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
+    DownloadManager downloadManager =
+        new DownloadManager(repositoryCache, env.getDownloaderDelegate(), env.getHttpDownloader());
+    this.starlarkRepositoryFunction.setDownloadManager(downloadManager);
+    this.vendorCommand.setDownloadManager(downloadManager);
+    this.registryFactory.setDownloadManager(downloadManager);
+
     clientEnvironmentSupplier.set(env.getRepoEnv());
     PackageOptions pkgOptions = env.getOptions().getOptions(PackageOptions.class);
     isFetch.set(pkgOptions != null && pkgOptions.fetch);
@@ -329,26 +317,17 @@ public class BazelRepositoryModule extends BlazeModule {
     starlarkRepositoryFunction.setProcessWrapper(processWrapper);
     starlarkRepositoryFunction.setSyscallCache(env.getSyscallCache());
     singleExtensionEvalFunction.setProcessWrapper(processWrapper);
+    singleExtensionEvalFunction.setDownloadManager(downloadManager);
 
     RepositoryOptions repoOptions = env.getOptions().getOptions(RepositoryOptions.class);
     if (repoOptions != null) {
-      switch (repoOptions.workerForRepoFetching) {
-        case OFF:
-          starlarkRepositoryFunction.setWorkerExecutorService(null);
-          break;
-        case PLATFORM:
-          starlarkRepositoryFunction.setWorkerExecutorService(repoFetchingWorkerThreadPool);
-          break;
-        case VIRTUAL:
-          throw new AbruptExitException(
-              detailedExitCode(
-                  "using a virtual worker thread for repo fetching is not yet supported",
-                  Code.BAD_DOWNLOADER_CONFIG));
-      }
+      starlarkRepositoryFunction.setUseWorkers(
+          repoOptions.workerForRepoFetching != WorkerForRepoFetching.OFF);
       downloadManager.setDisableDownload(repoOptions.disableDownload);
       if (repoOptions.repositoryDownloaderRetries >= 0) {
         downloadManager.setRetries(repoOptions.repositoryDownloaderRetries);
       }
+      disableNativeRepoRules = repoOptions.disableNativeRepoRules;
 
       repositoryCache.setHardlink(repoOptions.useHardlinks);
       if (repoOptions.experimentalScaleTimeouts > 0.0) {
@@ -406,7 +385,8 @@ public class BazelRepositoryModule extends BlazeModule {
       }
       try {
         UrlRewriter rewriter =
-            UrlRewriter.getDownloaderUrlRewriter(repoOptions.downloaderConfig, env.getReporter());
+            UrlRewriter.getDownloaderUrlRewriter(
+                env.getWorkspace(), repoOptions.downloaderConfig, env.getReporter());
         downloadManager.setUrlRewriter(rewriter);
       } catch (UrlRewriterParseException e) {
         // It's important that the build stops ASAP, because this config file may be required for
@@ -468,22 +448,16 @@ public class BazelRepositoryModule extends BlazeModule {
         downloadManager.setDistdir(ImmutableList.of());
       }
 
-      if (repoOptions.httpTimeoutScaling > 0) {
-        httpDownloader.setTimeoutScaling((float) repoOptions.httpTimeoutScaling);
-      } else {
-        env.getReporter()
-            .handle(Event.warn("Ignoring request to scale http timeouts by a non-positive factor"));
-        httpDownloader.setTimeoutScaling(1.0f);
-      }
-      httpDownloader.setMaxAttempts(repoOptions.httpConnectorAttempts);
-      httpDownloader.setMaxRetryTimeout(repoOptions.httpConnectorRetryMaxTimeout);
-
       if (repoOptions.repositoryOverrides != null) {
         // To get the usual latest-wins semantics, we need a mutable map, as the builder
         // of an immutable map does not allow redefining the values of existing keys.
         // We use a LinkedHashMap to preserve the iteration order.
         Map<RepositoryName, PathFragment> overrideMap = new LinkedHashMap<>();
         for (RepositoryOverride override : repoOptions.repositoryOverrides) {
+          if (override.path().isEmpty()) {
+            overrideMap.remove(override.repositoryName());
+            continue;
+          }
           String repoPath = getAbsolutePath(override.path(), env);
           overrideMap.put(override.repositoryName(), PathFragment.create(repoPath));
         }
@@ -498,6 +472,10 @@ public class BazelRepositoryModule extends BlazeModule {
       if (repoOptions.moduleOverrides != null) {
         Map<String, ModuleOverride> moduleOverrideMap = new LinkedHashMap<>();
         for (RepositoryOptions.ModuleOverride override : repoOptions.moduleOverrides) {
+          if (override.path().isEmpty()) {
+            moduleOverrideMap.remove(override.moduleName());
+            continue;
+          }
           String modulePath = getAbsolutePath(override.path(), env);
           moduleOverrideMap.put(override.moduleName(), LocalPathOverride.create(modulePath));
         }
@@ -515,9 +493,41 @@ public class BazelRepositoryModule extends BlazeModule {
       bazelCompatibilityMode = repoOptions.bazelCompatibilityMode;
       bazelLockfileMode = repoOptions.lockfileMode;
       allowedYankedVersions = repoOptions.allowedYankedVersions;
+      if (env.getWorkspace() != null) {
+        vendorDirectory =
+            Optional.ofNullable(repoOptions.vendorDirectory)
+                .map(vendorDirectory -> env.getWorkspace().getRelative(vendorDirectory));
+
+        if (vendorDirectory.isPresent()) {
+          try {
+            Path externalRoot =
+                env.getOutputBase().getRelative(LabelConstants.EXTERNAL_PATH_PREFIX);
+            FileSystemUtils.ensureSymbolicLink(
+                vendorDirectory.get().getChild(VendorManager.EXTERNAL_ROOT_SYMLINK_NAME),
+                externalRoot);
+            if (OS.getCurrent() == OS.WINDOWS) {
+              // On Windows, symlinks are resolved differently.
+              // Given <external>/repo_foo/link,
+              // where <external>/repo_foo points to <vendor dir>/repo_foo in vendor mode
+              // and repo_foo/link points to a relative path ../bazel-external/repo_bar/data.
+              // Windows won't resolve `repo_foo` before resolving `link`, which causes
+              // <external>/repo_foo/link to be resolved to <external>/bazel-external/repo_bar/data
+              // To work around this, we create a symlink <external>/bazel-external -> <external>.
+              FileSystemUtils.ensureSymbolicLink(
+                  externalRoot.getChild(VendorManager.EXTERNAL_ROOT_SYMLINK_NAME), externalRoot);
+            }
+          } catch (IOException e) {
+            env.getReporter()
+                .handle(
+                    Event.error(
+                        "Failed to create symlink to external repo root under vendor directory: "
+                            + e.getMessage()));
+          }
+        }
+      }
 
       if (repoOptions.registries != null && !repoOptions.registries.isEmpty()) {
-        registries = repoOptions.registries;
+        registries = normalizeRegistries(repoOptions.registries);
       } else {
         registries = DEFAULT_REGISTRIES;
       }
@@ -543,8 +553,30 @@ public class BazelRepositoryModule extends BlazeModule {
       }
       starlarkRepositoryFunction.setRepositoryRemoteExecutor(remoteExecutor);
       singleExtensionEvalFunction.setRepositoryRemoteExecutor(remoteExecutor);
-      delegatingDownloader.setDelegate(env.getRuntime().getDownloaderSupplier().get());
+
+      clock = env.getClock();
+      try {
+        var lastRegistryInvalidationValue =
+            (PrecomputedValue)
+                env.getSkyframeExecutor()
+                    .getEvaluator()
+                    .getExistingValue(RegistryFunction.LAST_INVALIDATION.getKey());
+        if (lastRegistryInvalidationValue != null) {
+          lastRegistryInvalidation = (Instant) lastRegistryInvalidationValue.get();
+        }
+      } catch (InterruptedException e) {
+        // Not thrown in Bazel.
+        throw new IllegalStateException(e);
+      }
     }
+  }
+
+  private static ImmutableSet<String> normalizeRegistries(List<String> registries) {
+    // Ensure that registries aren't duplicated even after `/modules/...` paths are appended to
+    // them.
+    return registries.stream()
+        .map(url -> CharMatcher.is('/').trimTrailingFrom(url))
+        .collect(toImmutableSet());
   }
 
   /**
@@ -566,6 +598,10 @@ public class BazelRepositoryModule extends BlazeModule {
 
   @Override
   public ImmutableList<Injected> getPrecomputedValues() {
+    Instant now = clock.now();
+    if (now.isAfter(lastRegistryInvalidation.plus(RegistryFunction.INVALIDATION_INTERVAL))) {
+      lastRegistryInvalidation = now;
+    }
     return ImmutableList.of(
         PrecomputedValue.injected(RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, overrides),
         PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, moduleOverrides),
@@ -587,12 +623,17 @@ public class BazelRepositoryModule extends BlazeModule {
         PrecomputedValue.injected(
             BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE, bazelCompatibilityMode),
         PrecomputedValue.injected(BazelLockFileFunction.LOCKFILE_MODE, bazelLockfileMode),
+        PrecomputedValue.injected(RepositoryDelegatorFunction.IS_VENDOR_COMMAND, false),
+        PrecomputedValue.injected(RepositoryDelegatorFunction.VENDOR_DIRECTORY, vendorDirectory),
         PrecomputedValue.injected(
-            YankedVersionsUtil.ALLOWED_YANKED_VERSIONS, allowedYankedVersions));
+            YankedVersionsUtil.ALLOWED_YANKED_VERSIONS, allowedYankedVersions),
+        PrecomputedValue.injected(
+            RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES, disableNativeRepoRules),
+        PrecomputedValue.injected(RegistryFunction.LAST_INVALIDATION, lastRegistryInvalidation));
   }
 
   @Override
-  public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
+  public Iterable<Class<? extends OptionsBase>> getCommonCommandOptions() {
     return ImmutableList.of(RepositoryOptions.class);
   }
 }

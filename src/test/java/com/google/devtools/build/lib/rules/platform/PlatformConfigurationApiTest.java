@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.platform;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -34,18 +35,28 @@ public class PlatformConfigurationApiTest extends BuildViewTestCase {
 
     scratch.file(
         "verify/verify.bzl",
-        "result = provider()",
-        "def _impl(ctx):",
-        "  platformConfig = ctx.fragments.platform",
-        "  host_platform = platformConfig.host_platform",
-        "  return [result(",
-        "    host_platform = host_platform,",
-        "  )]",
-        "verify = rule(",
-        "  implementation = _impl,",
-        "  fragments = ['platform'],",
-        ")");
-    scratch.file("verify/BUILD", "load(':verify.bzl', 'verify')", "verify(name = 'verify')");
+        """
+        result = provider()
+
+        def _impl(ctx):
+            platformConfig = ctx.fragments.platform
+            host_platform = platformConfig.host_platform
+            return [result(
+                host_platform = host_platform,
+            )]
+
+        verify = rule(
+            implementation = _impl,
+            fragments = ["platform"],
+        )
+        """);
+    scratch.file(
+        "verify/BUILD",
+        """
+        load(":verify.bzl", "verify")
+
+        verify(name = "verify")
+        """);
 
     useConfiguration("--host_platform=//platforms:test_platform");
 
@@ -53,7 +64,8 @@ public class PlatformConfigurationApiTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
-                new StarlarkProvider.Key(Label.parseCanonical("//verify:verify.bzl"), "result"));
+                new StarlarkProvider.Key(
+                    keyForBuild(Label.parseCanonical("//verify:verify.bzl")), "result"));
 
     Label hostPlatform = (Label) info.getValue("host_platform");
     assertThat(hostPlatform).isEqualTo(Label.parseCanonicalUnchecked("//platforms:test_platform"));
@@ -65,18 +77,28 @@ public class PlatformConfigurationApiTest extends BuildViewTestCase {
 
     scratch.file(
         "verify/verify.bzl",
-        "result = provider()",
-        "def _impl(ctx):",
-        "  platformConfig = ctx.fragments.platform",
-        "  target_platform = platformConfig.platform",
-        "  return [result(",
-        "    target_platform = target_platform,",
-        "  )]",
-        "verify = rule(",
-        "  implementation = _impl,",
-        "  fragments = ['platform'],",
-        ")");
-    scratch.file("verify/BUILD", "load(':verify.bzl', 'verify')", "verify(name = 'verify')");
+        """
+        result = provider()
+
+        def _impl(ctx):
+            platformConfig = ctx.fragments.platform
+            target_platform = platformConfig.platform
+            return [result(
+                target_platform = target_platform,
+            )]
+
+        verify = rule(
+            implementation = _impl,
+            fragments = ["platform"],
+        )
+        """);
+    scratch.file(
+        "verify/BUILD",
+        """
+        load(":verify.bzl", "verify")
+
+        verify(name = "verify")
+        """);
 
     useConfiguration("--platforms=//platforms:test_platform");
 
@@ -84,7 +106,8 @@ public class PlatformConfigurationApiTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
-                new StarlarkProvider.Key(Label.parseCanonical("//verify:verify.bzl"), "result"));
+                new StarlarkProvider.Key(
+                    keyForBuild(Label.parseCanonical("//verify:verify.bzl")), "result"));
 
     Label targetPlatform = (Label) info.getValue("target_platform");
     assertThat(targetPlatform)

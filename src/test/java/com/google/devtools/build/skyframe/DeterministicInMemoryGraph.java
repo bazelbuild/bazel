@@ -94,4 +94,9 @@ class DeterministicInMemoryGraph extends DeterministicHelper.DeterministicProces
   public InMemoryNodeEntry getIfPresent(SkyKey key) {
     return ((InMemoryGraph) delegate).getIfPresent(key);
   }
+
+  @Override
+  public void shrinkNodeMap() {
+    ((InMemoryGraph) delegate).shrinkNodeMap();
+  }
 }

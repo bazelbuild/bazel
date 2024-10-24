@@ -58,7 +58,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.SeekableByteChannel;
 import java.util.Collection;
 import java.util.HashMap;
@@ -68,7 +67,7 @@ import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /**
- * An action filesystem suitable for use when building with remote caching or execution.
+ * An action filesystem suitable for use when building with disk/remote caching or execution.
  *
  * <p>It acts as a union filesystem over three different sources:
  *
@@ -91,17 +90,21 @@ import javax.annotation.Nullable;
  * to an input. Most operations call resolveSymbolicLinks upfront (which is able to canonicalize
  * paths taking every source into account) and only then delegate to the underlying sources.
  *
- * <p>The implementation assumes that an action never modifies its input files, but may otherwise
- * modify any path in the output tree, including modifications that undo previous ones (e.g.,
- * writing to a path and then moving it elsewhere). No effort is made to detect irreconcilable
- * differences between sources (e.g., distinct files of the same name in two different sources).
+ * <p>The implementation assumes that an action never modifies its input paths, but may otherwise
+ * modify any path in the output tree. Concurrent operations are supported as long as they don't
+ * affect filesystem structure (i.e., create, move or delete paths). Otherwise, they might fail or
+ * produce inconsistent results. No effort is made to detect irreconcilable differences between
+ * sources, such as the same path existing in multiple underlying sources with different type or
+ * contents.
  */
-public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
+public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat
+    implements PathCanonicalizer.Resolver {
   private final PathFragment execRoot;
   private final PathFragment outputBase;
   private final InputMetadataProvider fileCache;
   private final ActionInputMap inputArtifactData;
   private final TreeArtifactDirectoryCache inputTreeArtifactDirectoryCache;
+  private final PathCanonicalizer pathCanonicalizer;
   private final ImmutableMap<PathFragment, Artifact> outputMapping;
   private final RemoteActionInputFetcher inputFetcher;
   private final FileSystem localFs;
@@ -109,21 +112,21 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
 
   @Nullable private ActionExecutionMetadata action = null;
 
-  /** Describes how to handle symlinks when calling {@link #statUnchecked}. */
+  /** Describes how to handle symlinks when calling {@link #statInternal}. */
   private enum FollowMode {
-    /** Dereference the entire path. This is equivalent to {@link Symlinks.FOLLOW}. */
+    /** Canonicalize the entire path. This is equivalent to {@link Symlinks.FOLLOW}. */
     FOLLOW_ALL,
-    /** Dereference the parent path. This is equivalent to {@link Symlinks.NOFOLLOW}. */
+    /** Canonicalize the parent path. This is equivalent to {@link Symlinks.NOFOLLOW}. */
     FOLLOW_PARENT,
-    /** Do not dereference. This is only used internally to resolve symlinks efficiently. */
+    /** Do not canonicalize. This is only used internally to resolve symlinks efficiently. */
     FOLLOW_NONE
   };
 
-  /** Describes which sources to consider when statting a file. */
+  /** Describes which sources to consider when calling {@link #statInternal}. */
   private enum StatSources {
-    /** Consider all sources (action input map, in-memory filesystem and local filesystem). */
+    /** Consider all sources (action input map, remote output tree and local filesystem). */
     ALL,
-    /** Consider only in-memory sources (action input map and in-memory filesystem). */
+    /** Consider only in-memory sources (action input map and remote output tree). */
     IN_MEMORY_ONLY,
   }
 
@@ -241,6 +244,7 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
     this.outputBase = execRoot.getRelative(checkNotNull(relativeOutputPath, "relativeOutputPath"));
     this.inputArtifactData = checkNotNull(inputArtifactData, "inputArtifactData");
     this.inputTreeArtifactDirectoryCache = new TreeArtifactDirectoryCache();
+    this.pathCanonicalizer = new PathCanonicalizer(this);
     this.outputMapping =
         stream(outputArtifacts).collect(toImmutableMap(Artifact::getExecPath, a -> a));
     this.fileCache = checkNotNull(fileCache, "fileCache");
@@ -286,13 +290,9 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
 
   private boolean isRemote(PathFragment path) throws IOException {
     // Files in the local filesystem are non-remote by definition, so stat only in-memory sources.
-    try {
-      var status = statUnchecked(path, FollowMode.FOLLOW_ALL, StatSources.IN_MEMORY_ONLY);
-      return (status instanceof FileStatusWithMetadata)
-          && ((FileStatusWithMetadata) status).getMetadata().isRemote();
-    } catch (FileNotFoundException e) {
-      return false;
-    }
+    var status = statInternal(path, FollowMode.FOLLOW_ALL, StatSources.IN_MEMORY_ONLY);
+    return status instanceof FileStatusWithMetadata fileStatusWithMetadata
+        && fileStatusWithMetadata.getMetadata().isRemote();
   }
 
   public void updateContext(ActionExecutionMetadata action) {
@@ -315,11 +315,53 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
+  protected Path resolveSymbolicLinks(PathFragment path) throws IOException {
+    return getPath(pathCanonicalizer.resolveSymbolicLinks(path));
+  }
+
+  @Override
+  @Nullable
+  public PathFragment resolveOneLink(PathFragment path) throws IOException {
+    // The base implementation attempts to readSymbolicLink first and falls back to stat, but that
+    // unnecessarily allocates a NotASymlinkException in the overwhelmingly likely non-symlink case.
+    // It's more efficient to stat unconditionally.
+    //
+    // The parent path has already been canonicalized, so FOLLOW_NONE is effectively the same as
+    // FOLLOW_PARENT, but much more efficient as it doesn't call stat recursively.
+    var stat = statInternal(path, FollowMode.FOLLOW_NONE, StatSources.ALL);
+    if (stat == null) {
+      throw new FileNotFoundException(path.getPathString() + " (No such file or directory)");
+    }
+    return stat.isSymbolicLink() ? readSymbolicLink(path) : null;
+  }
+
+  // Like resolveSymbolicLinks(), except that only the parent path is canonicalized.
+  private PathFragment resolveSymbolicLinksForParent(PathFragment path) throws IOException {
+    PathFragment parentPath = path.getParentDirectory();
+    if (parentPath != null) {
+      return resolveSymbolicLinks(parentPath).asFragment().getChild(path.getBaseName());
+    }
+    return path;
+  }
+
+  @Override
   protected boolean delete(PathFragment path) throws IOException {
+    try {
+      path = resolveSymbolicLinksForParent(path);
+    } catch (FileNotFoundException ignored) {
+      // Failure to delete a nonexistent path is not an error.
+      return false;
+    }
+
+    // No action implementations call renameTo concurrently with other filesystem operations, so
+    // there's no risk of a race condition below.
+    pathCanonicalizer.clearPrefix(path);
+
     boolean deleted = localFs.getPath(path).delete();
     if (isOutput(path)) {
       deleted = remoteOutputTree.getPath(path).delete() || deleted;
     }
+
     return deleted;
   }
 
@@ -335,12 +377,6 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
   protected OutputStream getOutputStream(PathFragment path, boolean append, boolean internal)
       throws IOException {
     return localFs.getPath(path).getOutputStream(append, internal);
-  }
-
-  @Override
-  protected ReadableByteChannel createReadableByteChannel(PathFragment path) throws IOException {
-    downloadFileIfRemote(path);
-    return localFs.getPath(path).createReadableByteChannel();
   }
 
   @Override
@@ -384,18 +420,15 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
+  @Nullable
   protected byte[] getFastDigest(PathFragment path) throws IOException {
     path = resolveSymbolicLinks(path).asFragment();
     // Try to obtain a fast digest through a stat. This is only possible for in-memory files.
     // The parent path has already been canonicalized by resolveSymbolicLinks, so FOLLOW_NONE is
     // effectively the same as FOLLOW_PARENT, but more efficient.
-    try {
-      var status = statUnchecked(path, FollowMode.FOLLOW_NONE, StatSources.IN_MEMORY_ONLY);
-      if (status instanceof FileStatusWithDigest) {
-        return ((FileStatusWithDigest) status).getDigest();
-      }
-    } catch (FileNotFoundException e) {
-      // Intentionally ignored.
+    var status = statInternal(path, FollowMode.FOLLOW_NONE, StatSources.IN_MEMORY_ONLY);
+    if (status instanceof FileStatusWithDigest fileStatusWithDigest) {
+      return fileStatusWithDigest.getDigest();
     }
     return localFs.getPath(path).getFastDigest();
   }
@@ -406,13 +439,9 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
     // Try to obtain a fast digest through a stat. This is only possible for in-memory files.
     // The parent path has already been canonicalized by resolveSymbolicLinks, so FOLLOW_NONE is
     // effectively the same as FOLLOW_PARENT, but more efficient.
-    try {
-      var status = statUnchecked(path, FollowMode.FOLLOW_NONE, StatSources.IN_MEMORY_ONLY);
-      if (status instanceof FileStatusWithDigest) {
-        return ((FileStatusWithDigest) status).getDigest();
-      }
-    } catch (FileNotFoundException e) {
-      // Intentionally ignored.
+    var status = statInternal(path, FollowMode.FOLLOW_NONE, StatSources.IN_MEMORY_ONLY);
+    if (status instanceof FileStatusWithDigest fileStatusWithDigest) {
+      return fileStatusWithDigest.getDigest();
     }
     return localFs.getPath(path).getDigest();
   }
@@ -492,16 +521,13 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
 
   @Override
   protected PathFragment readSymbolicLink(PathFragment path) throws IOException {
-    PathFragment parentPath = path.getParentDirectory();
-    if (parentPath != null) {
-      path = resolveSymbolicLinks(parentPath).asFragment().getChild(path.getBaseName());
-    }
+    path = resolveSymbolicLinksForParent(path);
 
     if (path.startsWith(execRoot)) {
       var execPath = path.relativeTo(execRoot);
       var metadata = inputArtifactData.getMetadata(execPath);
-      if (metadata instanceof UnresolvedSymlinkArtifactValue) {
-        return PathFragment.create(((UnresolvedSymlinkArtifactValue) metadata).getSymlinkTarget());
+      if (metadata instanceof UnresolvedSymlinkArtifactValue unresolvedSymlinkArtifactValue) {
+        return PathFragment.create(unresolvedSymlinkArtifactValue.getSymlinkTarget());
       }
       if (metadata != null) {
         // Other input artifacts are never symlinks.
@@ -527,29 +553,13 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
   @Override
   protected void createSymbolicLink(PathFragment linkPath, PathFragment targetFragment)
       throws IOException {
-    PathFragment parentPath = linkPath.getParentDirectory();
-    if (parentPath != null) {
-      linkPath = resolveSymbolicLinks(parentPath).asFragment().getChild(linkPath.getBaseName());
-    }
+    linkPath = resolveSymbolicLinksForParent(linkPath);
 
     if (isOutput(linkPath)) {
       remoteOutputTree.getPath(linkPath).createSymbolicLink(targetFragment);
     }
 
     localFs.getPath(linkPath).createSymbolicLink(targetFragment);
-  }
-
-  @Nullable
-  @Override
-  protected PathFragment resolveOneLink(PathFragment path) throws IOException {
-    // The base implementation attempts to readSymbolicLink first and falls back to stat, but that
-    // unnecessarily allocates a NotASymlinkException in the overwhelmingly likely non-symlink case.
-    // It's more efficient to stat unconditionally.
-    //
-    // The parent path has already been canonicalized, so FOLLOW_NONE is effectively the same as
-    // FOLLOW_PARENT, but much more efficient as it doesn't call stat recursively.
-    var stat = statUnchecked(path, FollowMode.FOLLOW_NONE, StatSources.ALL);
-    return stat.isSymbolicLink() ? readSymbolicLink(path) : null;
   }
 
   @Override
@@ -573,42 +583,57 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
     }
   }
 
+  @Override
+  protected FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
+    FileStatus stat = statIfFound(path, followSymlinks);
+    if (stat == null) {
+      throw new FileNotFoundException(path.getPathString() + " (No such file or directory)");
+    }
+    return stat;
+  }
+
   @Nullable
   @Override
   protected FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
-    try {
-      return stat(path, followSymlinks);
-    } catch (FileNotFoundException e) {
-      return null;
-    }
+    return statInternal(
+        path, followSymlinks ? FollowMode.FOLLOW_ALL : FollowMode.FOLLOW_PARENT, StatSources.ALL);
   }
 
   @Nullable
   @Override
   protected FileStatus statNullable(PathFragment path, boolean followSymlinks) {
     try {
-      return stat(path, followSymlinks);
+      return statIfFound(path, followSymlinks);
     } catch (IOException e) {
       return null;
     }
   }
 
-  @Override
-  protected FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
-    return statUnchecked(
-        path, followSymlinks ? FollowMode.FOLLOW_ALL : FollowMode.FOLLOW_PARENT, StatSources.ALL);
-  }
-
-  private FileStatus statUnchecked(
-      PathFragment path, FollowMode followMode, StatSources statSources) throws IOException {
+  /**
+   * Internal stat implementation.
+   *
+   * @param path the path to stat
+   * @param followMode whether and how to canonicalize the path
+   * @param statSources which sources to consider
+   * @return the file status on success, or null if the file was not found in any of the sources
+   *     under consideration
+   * @throws IOException if an error other than file not found occurred
+   */
+  @Nullable
+  private FileStatus statInternal(PathFragment path, FollowMode followMode, StatSources statSources)
+      throws IOException {
     // Canonicalize the path.
-    if (followMode == FollowMode.FOLLOW_ALL) {
-      path = resolveSymbolicLinks(path).asFragment();
-    } else if (followMode == FollowMode.FOLLOW_PARENT) {
-      PathFragment parent = path.getParentDirectory();
-      if (parent != null) {
-        path = resolveSymbolicLinks(parent).asFragment().getChild(path.getBaseName());
+    try {
+      if (followMode == FollowMode.FOLLOW_ALL) {
+        path = resolveSymbolicLinks(path).asFragment();
+      } else if (followMode == FollowMode.FOLLOW_PARENT) {
+        PathFragment parent = path.getParentDirectory();
+        if (parent != null) {
+          path = resolveSymbolicLinks(parent).asFragment().getChild(path.getBaseName());
+        }
       }
+    } catch (FileNotFoundException e) {
+      return null;
     }
 
     // Since the path has been canonicalized, the operations below never need to follow symlinks.
@@ -624,14 +649,16 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
       }
     }
 
-    try {
-      return remoteOutputTree.stat(path, /* followSymlinks= */ false);
-    } catch (FileNotFoundException e) {
-      if (statSources == StatSources.ALL) {
-        return localFs.getPath(path).stat(Symlinks.NOFOLLOW);
-      }
-      throw e;
+    FileStatus stat = remoteOutputTree.statIfFound(path, /* followSymlinks= */ false);
+    if (stat != null) {
+      return stat;
     }
+
+    if (statSources == StatSources.ALL) {
+      return localFs.getPath(path).statIfFound(Symlinks.NOFOLLOW);
+    }
+
+    return null;
   }
 
   private static FileStatusWithMetadata statFromMetadata(FileArtifactValue m) {
@@ -738,20 +765,28 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
-  public void renameTo(PathFragment sourcePath, PathFragment targetPath) throws IOException {
-    checkArgument(isOutput(sourcePath), "sourcePath must be an output path");
-    checkArgument(isOutput(targetPath), "targetPath must be an output path");
+  public void renameTo(PathFragment srcPath, PathFragment dstPath) throws IOException {
+    srcPath = resolveSymbolicLinksForParent(srcPath);
+    dstPath = resolveSymbolicLinksForParent(dstPath);
+
+    checkArgument(isOutput(srcPath), "srcPath must be an output path");
+    checkArgument(isOutput(dstPath), "dstPath must be an output path");
+
+    // No action implementations call renameTo concurrently with other filesystem operations, so
+    // there's no risk of a race condition below.
+    pathCanonicalizer.clearPrefix(srcPath);
+    pathCanonicalizer.clearPrefix(dstPath);
 
     FileNotFoundException remoteException = null;
     try {
-      remoteOutputTree.renameTo(sourcePath, targetPath);
+      remoteOutputTree.renameTo(srcPath, dstPath);
     } catch (FileNotFoundException e) {
       remoteException = e;
     }
 
     FileNotFoundException localException = null;
     try {
-      localFs.renameTo(sourcePath, targetPath);
+      localFs.renameTo(srcPath, dstPath);
     } catch (FileNotFoundException e) {
       localException = e;
     }
@@ -799,7 +834,7 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
     path = resolveSymbolicLinks(path).asFragment();
 
     HashMap<String, Dirent> entries = new HashMap<>();
-    boolean found = false;
+    boolean exists = false;
 
     if (path.startsWith(execRoot)) {
       var execPath = path.relativeTo(execRoot);
@@ -808,31 +843,38 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
         for (var entry : treeEntries) {
           entries.put(entry.getName(), entry);
         }
-        found = true;
+        exists = true;
       }
     }
 
-    if (isOutput(path)) {
+    // Since actions are assumed not to modify their inputs, a directory belonging to an input tree
+    // artifact cannot also contain an output, so we can safely skip the other sources.
+    if (!exists) {
+      if (isOutput(path)) {
+        try {
+          for (var entry : remoteOutputTree.getPath(path).readdir(Symlinks.NOFOLLOW)) {
+            entry = maybeFollowSymlinkForDirent(path, entry, followSymlinks);
+            entries.put(entry.getName(), entry);
+          }
+          exists = true;
+        } catch (FileNotFoundException ignored) {
+          // Will be rethrown below if directory does not exist in any of the sources.
+        }
+      }
+
       try {
-        for (var entry : remoteOutputTree.getPath(path).readdir(Symlinks.NOFOLLOW)) {
+        for (var entry : localFs.getPath(path).readdir(Symlinks.NOFOLLOW)) {
           entry = maybeFollowSymlinkForDirent(path, entry, followSymlinks);
           entries.put(entry.getName(), entry);
         }
-        found = true;
+        exists = true;
       } catch (FileNotFoundException ignored) {
-        // Will be rethrown below if directory exists on neither side.
+        // Will be rethrown below if directory does not exist in any of the sources.
       }
     }
 
-    try {
-      for (var entry : localFs.getPath(path).readdir(Symlinks.NOFOLLOW)) {
-        entry = maybeFollowSymlinkForDirent(path, entry, followSymlinks);
-        entries.put(entry.getName(), entry);
-      }
-    } catch (FileNotFoundException e) {
-      if (!found) {
-        throw e;
-      }
+    if (!exists) {
+      throw new FileNotFoundException(path.getPathString() + " (No such file or directory)");
     }
 
     // Sort entries to get a deterministic order.
@@ -850,9 +892,6 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
     }
     PathFragment path = dirPath.getChild(entry.getName());
     FileStatus st = statNullable(path, /* followSymlinks= */ true);
-    if (st == null) {
-      return new Dirent(entry.getName(), Dirent.Type.UNKNOWN);
-    }
     return new Dirent(entry.getName(), direntFromStat(st));
   }
 
@@ -892,11 +931,10 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
       InMemoryContentInfo node = getOrCreateWritableInode(path);
       // If a node was already existed and is not a remote file node (i.e. directory or symlink node
       // ), throw an error.
-      if (!(node instanceof RemoteInMemoryFileInfo)) {
+      if (!(node instanceof RemoteInMemoryFileInfo remoteInMemoryFileInfo)) {
         throw new IOException("Could not inject into " + node);
       }
 
-      RemoteInMemoryFileInfo remoteInMemoryFileInfo = (RemoteInMemoryFileInfo) node;
       remoteInMemoryFileInfo.set(metadata);
     }
 
@@ -926,6 +964,11 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
 
     @Override
     public InputStream getInputStream() throws IOException {
+      throw new IllegalStateException("Shouldn't be called directly");
+    }
+
+    @Override
+    public SeekableByteChannel createReadWriteByteChannel() throws IOException {
       throw new IllegalStateException("Shouldn't be called directly");
     }
 

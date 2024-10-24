@@ -33,7 +33,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionCacheChecker.Token;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -1567,6 +1566,11 @@ public class ActionCacheCheckerTest {
     }
 
     @Override
+    public int size() {
+      return delegate.size();
+    }
+
+    @Override
     public void accountHit() {
       delegate.accountHit();
     }
@@ -1622,10 +1626,9 @@ public class ActionCacheCheckerTest {
     @Override
     public FileArtifactValue getOutputMetadata(ActionInput input)
         throws IOException, InterruptedException {
-      if (!(input instanceof Artifact)) {
+      if (!(input instanceof Artifact output)) {
         return null;
       }
-      Artifact output = (Artifact) input;
 
       if (output.isTreeArtifact()) {
         TreeArtifactValue treeArtifactValue = getTreeArtifactValue((SpecialArtifact) output);
@@ -1655,7 +1658,7 @@ public class ActionCacheCheckerTest {
       if (treeDir.exists()) {
         TreeArtifactValue.visitTree(
             treeDir,
-            (parentRelativePath, type) -> {
+            (parentRelativePath, type, traversedSymlink) -> {
               if (type == Dirent.Type.DIRECTORY) {
                 return;
               }

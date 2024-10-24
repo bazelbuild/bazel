@@ -73,10 +73,9 @@ public final class MaybeCompleteSet<T> {
     if (this == o) {
       return true;
     }
-    if (!(o instanceof MaybeCompleteSet)) {
+    if (!(o instanceof MaybeCompleteSet<?> that)) {
       return false;
     }
-    MaybeCompleteSet<?> that = (MaybeCompleteSet<?>) o;
     return Objects.equal(internalSet, that.internalSet);
   }
 

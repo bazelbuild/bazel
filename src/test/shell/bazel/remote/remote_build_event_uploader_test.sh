@@ -45,8 +45,7 @@ source "$(rlocation "io_bazel/src/test/shell/bazel/remote/remote_utils.sh")" \
   || { echo "remote_utils.sh not found!" >&2; exit 1; }
 
 function set_up() {
-  start_worker \
-        --incompatible_remote_symlinks
+  start_worker
 }
 
 function tear_down() {
@@ -64,8 +63,6 @@ msys*|mingw*|cygwin*)
 esac
 
 if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
   declare -r EXE_EXT=".exe"
 else
   declare -r EXE_EXT=""
@@ -270,10 +267,10 @@ EOF
       --build_event_json_file=$BEP_JSON \
       //a:foo >& $TEST_log || fail "Failed to build"
 
-  expect_bes_file_not_uploaded foo.txt
+  expect_bes_file_uploaded foo.txt
   expect_bes_file_uploaded command.profile.gz
   remote_cas_files="$(count_remote_cas_files)"
-  [[ "$remote_cas_files" == 1 ]] || fail "Expected 1 remote cas entries, not $remote_cas_files"
+  [[ "$remote_cas_files" == 2 ]] || fail "Expected 2 remote cas entries, not $remote_cas_files"
   disk_cas_files="$(count_disk_cas_files $cache_dir)"
   # foo.txt, stdout and stderr for action 'foo'
   [[ "$disk_cas_files" == 3 ]] || fail "Expected 3 disk cas entries, not $disk_cas_files"
@@ -540,7 +537,27 @@ EOF
       --build_event_json_file=$BEP_JSON \
       //a:foo >& $TEST_log || fail "Failed to build"
 
-  expect_bes_file_uploaded "mycommand.profile.gz"
+  expect_bes_file_uploaded "command.profile.gz"
+}
+
+function test_upload_minimal_upload_compact_exec_log() {
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = 'foo',
+  outs = ["foo.txt"],
+  cmd = "echo \"foo bar\" > \$@",
+)
+EOF
+
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_build_event_upload=minimal \
+      --experimental_execution_log_compact_file=myexeclog \
+      --build_event_json_file=$BEP_JSON \
+      //a:foo >& $TEST_log || fail "Failed to build"
+
+  expect_bes_file_uploaded "execution_log.binpb.zst"
 }
 
 function test_upload_all_upload_profile() {
@@ -560,7 +577,27 @@ EOF
       --build_event_json_file=$BEP_JSON \
       //a:foo >& $TEST_log || fail "Failed to build"
 
-  expect_bes_file_uploaded "mycommand.profile.gz"
+  expect_bes_file_uploaded "command.profile.gz"
+}
+
+function test_upload_upload_uncompressed_profile() {
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = 'foo',
+  outs = ["foo.txt"],
+  cmd = "echo \"foo bar\" > \$@",
+)
+EOF
+
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_build_event_upload=all \
+      --profile=mycommand.profile \
+      --build_event_json_file=$BEP_JSON \
+      //a:foo >& $TEST_log || fail "Failed to build"
+
+  expect_bes_file_uploaded "command.profile.json"
 }
 
 run_suite "Remote build event uploader tests"

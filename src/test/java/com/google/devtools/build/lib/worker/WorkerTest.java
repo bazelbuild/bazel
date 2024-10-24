@@ -29,11 +29,11 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import com.google.devtools.build.lib.worker.TestUtils.FakeSubprocess;
-import com.google.devtools.build.lib.worker.TestUtils.TestWorker;
 import com.google.devtools.build.lib.worker.WorkerProtocol.Input;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
+import com.google.devtools.build.lib.worker.WorkerTestUtils.FakeSubprocess;
+import com.google.devtools.build.lib.worker.WorkerTestUtils.TestWorker;
 import com.google.protobuf.ByteString;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -50,6 +50,7 @@ public final class WorkerTest {
   final FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
 
   private TestWorker workerForCleanup = null;
+  private final WorkerOptions options = new WorkerOptions();
 
   @After
   public void destroyWorker() throws IOException {
@@ -70,7 +71,7 @@ public final class WorkerTest {
     Preconditions.checkState(
         workerForCleanup == null, "createTestWorker can only be called once per test");
 
-    WorkerKey key = TestUtils.createWorkerKey(protocolFormat, fs);
+    WorkerKey key = WorkerTestUtils.createWorkerKey(protocolFormat, fs);
 
     FakeSubprocess fakeSubprocess = new FakeSubprocess(outputStreamBytes);
 
@@ -78,7 +79,8 @@ public final class WorkerTest {
     int workerId = 1;
     Path logFile = workerBaseDir.getRelative("test-log-file.log");
 
-    TestWorker worker = new TestWorker(key, workerId, key.getExecRoot(), logFile, fakeSubprocess);
+    TestWorker worker =
+        new TestWorker(key, workerId, key.getExecRoot(), logFile, fakeSubprocess, options);
 
     SandboxInputs sandboxInputs = null;
     SandboxOutputs sandboxOutputs = null;

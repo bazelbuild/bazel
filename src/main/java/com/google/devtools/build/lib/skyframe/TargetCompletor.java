@@ -27,21 +27,18 @@ import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.skyframe.CompletionFunction.Completor;
 import com.google.devtools.build.lib.skyframe.TargetCompletionValue.TargetCompletionKey;
+import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
 /** Manages completing builds for configured targets. */
-class TargetCompletor
-    implements Completor<
-        ConfiguredTargetValue,
-        TargetCompletionValue,
-        TargetCompletionKey,
-        ConfiguredTargetAndData> {
+final class TargetCompletor
+    implements Completor<ConfiguredTargetValue, TargetCompletionValue, TargetCompletionKey> {
 
   private final SkyframeActionExecutor skyframeActionExecutor;
 
@@ -49,13 +46,17 @@ class TargetCompletor
       PathResolverFactory pathResolverFactory,
       SkyframeActionExecutor skyframeActionExecutor,
       MetadataConsumerForMetrics.FilesMetricConsumer topLevelArtifactsMetric,
-      BugReporter bugReporter) {
+      ActionRewindStrategy actionRewindStrategy,
+      BugReporter bugReporter,
+      Supplier<Boolean> isSkymeld) {
     return new CompletionFunction<>(
         pathResolverFactory,
         new TargetCompletor(skyframeActionExecutor),
         skyframeActionExecutor,
         topLevelArtifactsMetric,
-        bugReporter);
+        actionRewindStrategy,
+        bugReporter,
+        isSkymeld);
   }
 
   private TargetCompletor(SkyframeActionExecutor announceTargetSummaries) {
@@ -65,23 +66,20 @@ class TargetCompletor
 
   @Override
   public Event getRootCauseError(
-      ConfiguredTargetValue ctValue, TargetCompletionKey key, LabelCause rootCause, Environment env)
+      TargetCompletionKey key, ConfiguredTargetValue value, LabelCause rootCause, Environment env)
       throws InterruptedException {
-    ConfiguredTargetAndData configuredTargetAndData =
-        ConfiguredTargetAndData.fromConfiguredTargetInSkyframe(ctValue.getConfiguredTarget(), env);
     return Event.error(
-        configuredTargetAndData == null ? null : configuredTargetAndData.getLocation(),
+        getLocationIdentifier(key, value, env),
         String.format("%s: %s", key.actionLookupKey().getLabel(), rootCause.getMessage()));
   }
 
-  @Nullable
   @Override
   public Location getLocationIdentifier(
-      ConfiguredTargetValue value, TargetCompletionKey key, Environment env)
+      TargetCompletionKey key, ConfiguredTargetValue value, Environment env)
       throws InterruptedException {
-    ConfiguredTargetAndData configuredTargetAndData =
-        ConfiguredTargetAndData.fromConfiguredTargetInSkyframe(value.getConfiguredTarget(), env);
-    return configuredTargetAndData == null ? null : configuredTargetAndData.getLocation();
+    return ConfiguredTargetAndData.fromExistingConfiguredTargetInSkyframe(
+            value.getConfiguredTarget(), env)
+        .getLocation();
   }
 
   @Override
@@ -90,24 +88,17 @@ class TargetCompletor
   }
 
   @Override
-  @Nullable
-  public ConfiguredTargetAndData getFailureData(
-      TargetCompletionKey key, ConfiguredTargetValue value, Environment env)
-      throws InterruptedException {
-    ConfiguredTarget target = value.getConfiguredTarget();
-    return ConfiguredTargetAndData.fromConfiguredTargetInSkyframe(target, env);
-  }
-
-  @Override
-  @Nullable
-  public ExtendedEventHandler.Postable createFailed(
+  public TargetCompleteEvent createFailed(
       TargetCompletionKey skyKey,
+      ConfiguredTargetValue value,
       NestedSet<Cause> rootCauses,
       CompletionContext ctx,
       ImmutableMap<String, ArtifactsInOutputGroup> outputs,
-      ConfiguredTargetAndData configuredTargetAndData) {
+      Environment env)
+      throws InterruptedException {
     return TargetCompleteEvent.createFailed(
-        configuredTargetAndData,
+        ConfiguredTargetAndData.fromExistingConfiguredTargetInSkyframe(
+            value.getConfiguredTarget(), env),
         ctx,
         rootCauses,
         outputs,
@@ -125,10 +116,7 @@ class TargetCompletor
       throws InterruptedException {
     ConfiguredTarget target = value.getConfiguredTarget();
     ConfiguredTargetAndData configuredTargetAndData =
-        ConfiguredTargetAndData.fromConfiguredTargetInSkyframe(target, env);
-    if (configuredTargetAndData == null) {
-      return null;
-    }
+        ConfiguredTargetAndData.fromExistingConfiguredTargetInSkyframe(target, env);
     if (skyKey.willTest()) {
       return TargetCompleteEvent.successfulBuildSchedulingTest(
           configuredTargetAndData,

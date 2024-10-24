@@ -102,8 +102,8 @@ public abstract class FileType implements Predicate<String> {
 
     @Override
     public boolean equals(Object obj) {
-      return (obj instanceof ListFileType
-          && this.extensions.equals(((ListFileType) obj).extensions));
+      return obj instanceof ListFileType listFileType
+          && this.extensions.equals(listFileType.extensions);
     }
   }
 

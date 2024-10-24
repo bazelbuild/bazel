@@ -123,10 +123,8 @@ public abstract class JavaToolchainTool {
       throws RuleErrorException {
     inputs.addTransitive(data());
     Artifact executable = tool().getExecutable();
-    // The runfiles of the tool are not added. If this is desired, an appropriate RunfilesSupplier
-    // needs to be returned in the getRunfilesSupplier() method of the action that uses this tool or
-    // the artifacts in the runfiles need to be added to the inputs of the action (the latter will
-    // not result in a separate runfiles tree, though)
+    // The runfiles of the tool are not added. If this is desired, add getFilesToRun() to inputs
+    // instead.
     inputs.add(executable);
     if (executable.getExtension().equals("jar")) {
       inputs.addTransitive(toolchain.getJavaRuntime().javaBaseInputs());

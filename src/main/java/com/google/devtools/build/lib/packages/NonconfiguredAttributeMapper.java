@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Preconditions;
+import javax.annotation.Nullable;
 
 /**
  * {@link AttributeMap} implementation that triggers an {@link IllegalStateException} if called on
@@ -43,9 +44,14 @@ public class NonconfiguredAttributeMapper extends AbstractAttributeMapper {
     return new NonconfiguredAttributeMapper(rule);
   }
 
+  @Nullable
   @Override
   public <T> T get(String attributeName, com.google.devtools.build.lib.packages.Type<T> type) {
-    if (getAttributeDefinition(attributeName).isConfigurable()) {
+    Attribute attribute = getAttributeDefinition(attributeName);
+    if (attribute == null) {
+      return null;
+    }
+    if (attribute.isConfigurable()) {
       Preconditions.checkState(
           getSelectorList(attributeName, type) == null,
           "Attribute '%s' is configured - not allowed here",

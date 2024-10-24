@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -50,20 +52,6 @@ public abstract class JavaPluginInfo extends NativeInfo
       new AutoValue_JavaPluginInfo(
           ImmutableList.of(), JavaPluginData.empty(), JavaPluginData.empty());
 
-  public static ImmutableList<JavaPluginInfo> wrapSequence(Sequence<?> sequence, String what)
-      throws EvalException {
-    ImmutableList.Builder<JavaPluginInfo> builder = ImmutableList.builder();
-    Sequence<Info> plugins = Sequence.cast(sequence, Info.class, what);
-    for (int i = 0; i < plugins.size(); i++) {
-      try {
-        builder.add(PROVIDER.wrap(plugins.get(i)));
-      } catch (RuleErrorException e) {
-        throw Starlark.errorf("at index %s of %s, %s", i, what, e.getMessage());
-      }
-    }
-    return builder.build();
-  }
-
   @Override
   public Provider getProvider() {
     return PROVIDER;
@@ -73,7 +61,9 @@ public abstract class JavaPluginInfo extends NativeInfo
   public static class Provider extends StarlarkProviderWrapper<JavaPluginInfo>
       implements com.google.devtools.build.lib.packages.Provider {
     private Provider() {
-      super(Label.parseCanonicalUnchecked("@_builtins//:common/java/java_info.bzl"), PROVIDER_NAME);
+      super(
+          keyForBuiltins(Label.parseCanonicalUnchecked("@_builtins//:common/java/java_info.bzl")),
+          PROVIDER_NAME);
     }
 
     @Override
@@ -96,8 +86,8 @@ public abstract class JavaPluginInfo extends NativeInfo
       if (value instanceof JavaInfo) {
         // needed because currently native JavaInfo extends JavaPluginInfo
         throw new RuleErrorException("got element of type JavaInfo, want JavaPluginInfo");
-      } else if (value instanceof JavaPluginInfo) {
-        return (JavaPluginInfo) value;
+      } else if (value instanceof JavaPluginInfo javaPluginInfo) {
+        return javaPluginInfo;
       } else if (value instanceof StructImpl) {
         try {
           StructImpl info = (StructImpl) value;
@@ -154,10 +144,9 @@ public abstract class JavaPluginInfo extends NativeInfo
     }
 
     public static JavaPluginData wrap(Object obj) throws EvalException, RuleErrorException {
-      if (obj instanceof JavaPluginData) {
-        return (JavaPluginData) obj;
-      } else if (obj instanceof StructImpl) {
-        StructImpl struct = (StructImpl) obj;
+      if (obj instanceof JavaPluginData javaPluginData) {
+        return javaPluginData;
+      } else if (obj instanceof StructImpl struct) {
         return JavaPluginData.create(
             Depset.cast(struct.getValue("processor_classes"), String.class, "processor_classes"),
             Depset.cast(struct.getValue("processor_jars"), Artifact.class, "processor_jars"),
@@ -194,26 +183,6 @@ public abstract class JavaPluginInfo extends NativeInfo
 
     public boolean isEmpty() {
       return processorClasses().isEmpty() && processorClasspath().isEmpty() && data().isEmpty();
-    }
-
-    private JavaPluginData disableAnnotationProcessing() {
-      return JavaPluginData.create(
-          /* processorClasses= */ NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
-          // Preserve the processor path, since it may contain Error Prone plugins which
-          // will be service-loaded by JavaBuilder.
-          processorClasspath(),
-          // Preserve data, which may be used by Error Prone plugins.
-          data());
-    }
-
-    @Override
-    public String toProto() throws EvalException {
-      throw Starlark.errorf("unsupported method");
-    }
-
-    @Override
-    public String toJson() throws EvalException {
-      throw Starlark.errorf("unsupported method");
     }
   }
 
@@ -270,15 +239,6 @@ public abstract class JavaPluginInfo extends NativeInfo
   public boolean hasProcessors() {
     // apiGeneratingPlugins is a subset of plugins, so checking if plugins is empty is sufficient
     return !plugins().processorClasses().isEmpty();
-  }
-
-  /**
-   * Returns a copy of this {@code JavaPluginInfo} with annotation processors disabled. Does not
-   * remove the processor path or data, which may be needed for Error Prone plugins.
-   */
-  public JavaPluginInfo disableAnnotationProcessing() {
-    return JavaPluginInfo.create(
-        plugins().disableAnnotationProcessing(), /* generatesApi= */ false, getJavaOutputs());
   }
 
   /**

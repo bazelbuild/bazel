@@ -14,9 +14,11 @@
 package net.starlark.java.eval;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import java.util.ArrayList;
 import java.util.List;
+import net.starlark.java.syntax.SyntaxError;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -29,27 +31,32 @@ public final class FunctionTest {
 
   @Test
   public void testDef() throws Exception {
-    ev.exec("def f(a, b=1, *args, c, d=2, **kwargs): pass");
+    ev.exec("def f(a, b=1, *args, c, d=2, e=3, **kwargs): pass");
     StarlarkFunction f = (StarlarkFunction) ev.lookup("f");
     assertThat(f).isNotNull();
     assertThat(f.getName()).isEqualTo("f");
     assertThat(f.getParameterNames())
-        .containsExactly("a", "b", "c", "d", "args", "kwargs")
+        .containsExactly("a", "b", "c", "d", "e", "args", "kwargs")
         .inOrder();
+    assertThat(f.getNumOrdinaryParameters()).isEqualTo(2); // a, b
+    assertThat(f.getNumKeywordOnlyParameters()).isEqualTo(3); // c, d, e
     assertThat(f.hasVarargs()).isTrue();
     assertThat(f.hasKwargs()).isTrue();
     assertThat(getDefaults(f))
-        .containsExactly(null, StarlarkInt.of(1), null, StarlarkInt.of(2), null, null)
+        .containsExactly(
+            null, StarlarkInt.of(1), null, StarlarkInt.of(2), StarlarkInt.of(3), null, null)
         .inOrder();
 
     // same, sans varargs
-    ev.exec("def g(a, b=1, *, c, d=2, **kwargs): pass");
+    ev.exec("def g(a, b=1, *, c, d=2, e=3, **kwargs): pass");
     StarlarkFunction g = (StarlarkFunction) ev.lookup("g");
-    assertThat(g.getParameterNames()).containsExactly("a", "b", "c", "d", "kwargs").inOrder();
+    assertThat(g.getParameterNames()).containsExactly("a", "b", "c", "d", "e", "kwargs").inOrder();
+    assertThat(g.getNumOrdinaryParameters()).isEqualTo(2); // a, b
+    assertThat(g.getNumKeywordOnlyParameters()).isEqualTo(3); // c, d, e
     assertThat(g.hasVarargs()).isFalse();
     assertThat(g.hasKwargs()).isTrue();
     assertThat(getDefaults(g))
-        .containsExactly(null, StarlarkInt.of(1), null, StarlarkInt.of(2), null)
+        .containsExactly(null, StarlarkInt.of(1), null, StarlarkInt.of(2), StarlarkInt.of(3), null)
         .inOrder();
   }
 
@@ -572,5 +579,84 @@ public final class FunctionTest {
     ev.checkEvalError(
         "g() does not accept positional arguments, but got 3", //
         "g(1, 2 ,3)");
+  }
+
+  @Test
+  public void aliasing_keepsOriginalName() throws Exception {
+    ev.exec(
+        """
+        _y = 10
+
+        def _f(x):
+          return x * _y
+
+        g = _f""");
+    var f = (StarlarkFunction) ev.lookup("_f");
+    assertThat(ev.lookup("g")).isSameInstanceAs(f); // "g" is an alias for "_f"
+
+    SymbolGenerator.Symbol<?> id = f.getToken();
+    assertThat(id.isGlobal()).isTrue();
+
+    SymbolGenerator.GlobalSymbol<?> globalId = (SymbolGenerator.GlobalSymbol<?>) id;
+    assertThat(globalId.getName()).isEqualTo("_f");
+  }
+
+  @Test
+  public void exportedLambdas_haveGlobalIds() throws Exception {
+    ev.exec(
+        """
+        x = lambda v: "--" + v
+        y = x""");
+    var x = (StarlarkFunction) ev.lookup("x");
+    assertThat(ev.lookup("y")).isSameInstanceAs(x); // "y" is an alias for "x"
+
+    SymbolGenerator.Symbol<?> id = x.getToken();
+    assertThat(id.isGlobal()).isTrue();
+    SymbolGenerator.GlobalSymbol<?> globalId = (SymbolGenerator.GlobalSymbol<?>) id;
+    assertThat(globalId.getName()).isEqualTo("x");
+  }
+
+  @Test
+  public void localLambdas_haveLocalIds() throws Exception {
+    ev.exec(
+        """
+        x = (lambda v: v + 1,)
+        """);
+    var x = (Tuple) ev.lookup("x");
+    var lambda = (StarlarkFunction) x.get(0);
+
+    SymbolGenerator.Symbol<?> id = lambda.getToken();
+    assertThat(id.isGlobal()).isFalse();
+  }
+
+  @Test
+  public void innerLambdas_canBePublished() throws Exception {
+    ev.exec(
+        """
+        x = (lambda v: v + 1,)
+        y = x[0]
+        """);
+    var x = (Tuple) ev.lookup("x");
+    var y = (StarlarkFunction) ev.lookup("y");
+    assertThat(x.get(0)).isSameInstanceAs(y);
+
+    SymbolGenerator.Symbol<?> id = y.getToken();
+    assertThat(id.isGlobal()).isTrue();
+    SymbolGenerator.GlobalSymbol<?> globalId = (SymbolGenerator.GlobalSymbol<?>) id;
+    assertThat(globalId.getName()).isEqualTo("y");
+  }
+
+  @Test
+  public void globalFunctionReassignment_fails() throws Exception {
+    var thrown =
+        assertThrows(
+            SyntaxError.Exception.class,
+            () ->
+                ev.exec(
+                    """
+                    x = lambda v: v + 1
+                    x = lambda v: v + 2
+                    """));
+    assertThat(thrown).hasMessageThat().contains("'x' redeclared at top level");
   }
 }

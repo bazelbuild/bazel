@@ -53,10 +53,10 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     return getConfiguredTarget("//pkg:" + targetName);
   }
 
-  private CppLinkAction getLinkAction() throws Exception {
+  private SpawnAction getLinkAction() throws Exception {
     ConfiguredTarget pkg = getCurrentTarget();
     Artifact pkgArtifact = getFilesToBuild(pkg).getSingleton();
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(pkgArtifact);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(pkgArtifact);
     assertThat(linkAction.getOutputs()).containsExactly(pkgArtifact);
     return linkAction;
   }
@@ -71,8 +71,8 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     return pkgArtifact.getRoot().getExecPathString();
   }
 
-  private CppLinkAction getIndexAction(LtoBackendAction backendAction) throws Exception {
-    return (CppLinkAction)
+  private SpawnAction getIndexAction(LtoBackendAction backendAction) throws Exception {
+    return (SpawnAction)
         getPredecessorByInputName(
             backendAction,
             (backendAction.getPrimaryOutput().getExecPathString() + ".thinlto.bc")
@@ -83,8 +83,17 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
   public void createBasePkg() throws IOException {
     scratch.overwriteFile(
         "base/BUILD",
-        "cc_library(name = 'system_malloc', visibility = ['//visibility:public'])",
-        "cc_library(name = 'empty_lib', visibility = ['//visibility:public'])");
+        """
+        cc_library(
+            name = "system_malloc",
+            visibility = ["//visibility:public"],
+        )
+
+        cc_library(
+            name = "empty_lib",
+            visibility = ["//visibility:public"],
+        )
+        """);
   }
   
   public void createBuildFiles(String... extraCcBinaryParameters) throws Exception {
@@ -261,7 +270,6 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
   public void testActionGraph() throws Exception {
     createBuildFiles();
     setupThinLTOCrosstool(CppRuleClasses.SUPPORTS_PIC);
-    useConfiguration("--noincompatible_make_thinlto_command_lines_standalone");
 
     /*
     We follow the chain from the final product backwards.
@@ -272,13 +280,13 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     .o <= [CppCompile] .cc
     */
     ConfiguredTarget pkg = getCurrentTarget();
-    CppLinkAction linkAction = getLinkAction();
+    SpawnAction linkAction = getLinkAction();
     String rootExecPath = getRootExecPath();
 
     assertThat(ActionsTestUtil.getFirstArtifactEndingWith(linkAction.getInputs(), "linkstamp.o"))
         .isNotNull();
 
-    List<String> commandLine = linkAction.getLinkCommandLineForTesting().arguments();
+    List<String> commandLine = linkAction.getArguments();
     String prefix =
         getTargetConfiguration().getOutputDirectory(RepositoryName.MAIN).getExecPathString();
     assertThat(commandLine)
@@ -298,7 +306,6 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
         .containsAtLeast(
             "bin pkg/bin.lto-obj/" + rootExecPath + "/pkg/_objs/bin/binfile.pic.o",
             "bin pkg/bin.lto-obj/" + rootExecPath + "/pkg/_objs/lib/libfile.pic.o",
-            "bin pkg/bin-2.params",
             "bin pkg/bin-lto-final.params");
 
     LtoBackendAction backendAction =
@@ -324,7 +331,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
                 + "/pkg/_objs/bin/binfile.pic.o",
             "thinlto_input_bitcode_file=" + prefix + "/bin/pkg/_objs/bin/binfile.pic.o");
 
-    CppLinkAction indexAction = getIndexAction(backendAction);
+    SpawnAction indexAction = getIndexAction(backendAction);
 
     RuleConfiguredTargetValue configuredTargetValue =
         (RuleConfiguredTargetValue)
@@ -345,18 +352,6 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     assertThat(indexAction.getInputs().toList())
         .containsNoneIn(linkstampCompileAction.getOutputs());
 
-    assertThat(indexAction.getArguments())
-        .containsAtLeast(
-            "param_file=" + prefix + "/bin/pkg/bin-lto-final.params",
-            "prefix_replace="
-                + ";"
-                + prefix
-                + "/bin/pkg/bin.lto/"
-                + ";"
-                + prefix
-                + "/bin/pkg/bin.lto-obj/",
-            "thinlto_merged_object_file=" + prefix + "/bin/pkg/bin.lto.merged.o",
-            "object_suffix_replace=.indexing.o;.o");
     assertThat(indexAction.getArguments())
         .doesNotContain("thinlto_param_file=" + prefix + "/bin/pkg/bin-lto-final.params");
 
@@ -389,7 +384,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     setupThinLTOCrosstool(CppRuleClasses.SUPPORTS_PIC);
     useConfiguration();
 
-    CppLinkAction linkAction = getLinkAction();
+    SpawnAction linkAction = getLinkAction();
     String rootExecPath = getRootExecPath();
 
     Action backendAction =
@@ -405,7 +400,6 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
         CppRuleClasses.SUPPORTS_DYNAMIC_LINKER,
         CppRuleClasses.SUPPORTS_PIC,
         CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES);
-    useConfiguration("--noincompatible_make_thinlto_command_lines_standalone");
 
     /*
     We follow the chain from the final product backwards to verify intermediate actions.
@@ -418,10 +412,10 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     {.o.thinlto.bc,.o.imports} <=[LTOIndexing]=
     .o <= [CppCompile] .cc
     */
-    CppLinkAction linkAction = getLinkAction();
+    SpawnAction linkAction = getLinkAction();
     String rootExecPath = getRootExecPath();
 
-    List<String> commandLine = linkAction.getLinkCommandLineForTesting().arguments();
+    List<String> commandLine = linkAction.getArguments();
     String prefix =
         getTargetConfiguration().getOutputDirectory(RepositoryName.MAIN).getExecPathString();
 
@@ -438,15 +432,14 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
         .containsAtLeast(
             "bin pkg/bin.lto-obj/" + rootExecPath + "/pkg/_objs/bin/binfile.pic.o",
             "bin _solib_k8/libpkg_Sliblib.ifso",
-            "bin pkg/bin-2.params",
             "bin pkg/bin-lto-final.params");
 
     SolibSymlinkAction solibSymlinkAction =
         (SolibSymlinkAction) getPredecessorByInputName(linkAction, "_solib_k8/libpkg_Sliblib.ifso");
     assertThat(solibSymlinkAction.getMnemonic()).isEqualTo("SolibSymlink");
 
-    CppLinkAction libLinkAction =
-        (CppLinkAction) getPredecessorByInputName(solibSymlinkAction, "bin/pkg/liblib.ifso");
+    SpawnAction libLinkAction =
+        (SpawnAction) getPredecessorByInputName(solibSymlinkAction, "bin/pkg/liblib.ifso");
     assertThat(libLinkAction.getMnemonic()).isEqualTo("CppLink");
 
     LtoBackendAction backendAction =
@@ -474,23 +467,11 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
                 + "/pkg/_objs/lib/libfile.pic.o",
             "thinlto_input_bitcode_file=" + prefix + "/bin/pkg/_objs/lib/libfile.pic.o");
 
-    CppLinkAction indexAction =
-        (CppLinkAction)
+    SpawnAction indexAction =
+        (SpawnAction)
             getPredecessorByInputName(
                 backendAction,
                 "pkg/liblib.so.lto/" + rootExecPath + "/pkg/_objs/lib/libfile.pic.o.thinlto.bc");
-
-    assertThat(indexAction.getArguments())
-        .containsAtLeast(
-            "param_file=" + prefix + "/bin/pkg/liblib.so-lto-final.params",
-            "prefix_replace="
-                + ";"
-                + prefix
-                + "/bin/pkg/liblib.so.lto/"
-                + ";"
-                + prefix
-                + "/bin/pkg/liblib.so.lto-obj/",
-            "object_suffix_replace=.indexing.o;.o");
 
     assertThat(artifactsToStrings(indexAction.getOutputs()))
         .containsAtLeast(
@@ -521,10 +502,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
 
   /** Helper method that checks that a .dwp has the expected generating action structure. */
   private void validateDwp(
-      RuleContext ruleContext,
-      Artifact dwpFile,
-      CcToolchainProvider toolchain,
-      List<String> expectedInputs)
+      Artifact dwpFile, CcToolchainProvider toolchain, List<String> expectedInputs)
       throws Exception {
     SpawnAction dwpAction = (SpawnAction) getGeneratingAction(dwpFile);
     String dwpToolPath =
@@ -532,8 +510,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
             toolchain.getToolPaths(),
             Tool.DWP,
             toolchain.getCcToolchainLabel(),
-            toolchain.getToolchainIdentifier(),
-            ruleContext);
+            toolchain.getToolchainIdentifier());
     assertThat(dwpAction.getMnemonic()).isEqualTo("CcGenerateDwp");
     assertThat(dwpToolPath).isEqualTo(dwpAction.getCommandFilename());
     List<String> commandArgs = dwpAction.getArguments();
@@ -582,7 +559,6 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     RuleContext ruleContext = getRuleContext(pkg);
     CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
     validateDwp(
-        ruleContext,
         dwpFile,
         toolchain,
         ImmutableList.of(
@@ -602,15 +578,15 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
 
     ConfiguredTarget pkg = getConfiguredTarget("//pkg:bin");
     Artifact pkgArtifact = getFilesToBuild(pkg).getSingleton();
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(pkgArtifact);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(pkgArtifact);
     String rootExecPath = pkgArtifact.getRoot().getExecPathString();
 
     SolibSymlinkAction solibSymlinkAction =
         (SolibSymlinkAction) getPredecessorByInputName(linkAction, "_solib_k8/libpkg_Sliblib.ifso");
     assertThat(solibSymlinkAction.getMnemonic()).isEqualTo("SolibSymlink");
 
-    CppLinkAction libLinkAction =
-        (CppLinkAction) getPredecessorByInputName(solibSymlinkAction, "bin/pkg/liblib.ifso");
+    SpawnAction libLinkAction =
+        (SpawnAction) getPredecessorByInputName(solibSymlinkAction, "bin/pkg/liblib.ifso");
     assertThat(libLinkAction.getMnemonic()).isEqualTo("CppLink");
 
     LtoBackendAction backendAction =
@@ -632,7 +608,6 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     RuleContext ruleContext = getRuleContext(pkg);
     CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
     validateDwp(
-        ruleContext,
         dwpFile,
         toolchain,
         ImmutableList.of(
@@ -654,7 +629,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     Artifact pkgArtifact = getFilesToBuild(pkg).getSingleton();
     String rootExecPath = pkgArtifact.getRoot().getExecPathString();
 
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(pkgArtifact);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(pkgArtifact);
 
     // All backends should be shared non-LTO in this case
     LtoBackendAction backendAction =
@@ -689,7 +664,6 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     RuleContext ruleContext = getRuleContext(pkg);
     CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
     validateDwp(
-        ruleContext,
         dwpFile,
         toolchain,
         ImmutableList.of(
@@ -712,11 +686,11 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
 
     ConfiguredTarget pkg = getConfiguredTarget("//pkg:bin_test");
     Artifact pkgArtifact = getFilesToBuild(pkg).getSingleton();
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(pkgArtifact);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(pkgArtifact);
 
     ConfiguredTarget pkg2 = getConfiguredTarget("//pkg:bin_test2");
     Artifact pkgArtifact2 = getFilesToBuild(pkg2).getSingleton();
-    CppLinkAction linkAction2 = (CppLinkAction) getGeneratingAction(pkgArtifact2);
+    SpawnAction linkAction2 = (SpawnAction) getGeneratingAction(pkgArtifact2);
 
     // All backends should be shared non-LTO in this case
     String rootExecPath1 = pkgArtifact.getRoot().getExecPathString();
@@ -756,7 +730,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     ConfiguredTarget pkg = getConfiguredTarget("//pkg:bin");
     Artifact pkgArtifact = getFilesToBuild(pkg).getSingleton();
     String rootExecPath = pkgArtifact.getRoot().getExecPathString();
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(pkgArtifact);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(pkgArtifact);
 
     LtoBackendAction backendAction =
         (LtoBackendAction)
@@ -778,7 +752,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     Artifact pkgArtifact = getFilesToBuild(pkg).getSingleton();
     String rootExecPath = pkgArtifact.getRoot().getExecPathString();
 
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(pkgArtifact);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(pkgArtifact);
 
     LtoBackendAction backendAction =
         (LtoBackendAction)
@@ -800,11 +774,18 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
   public void testFdoInstrument() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "package(features = ['thin_lto', 'use_lto_native_object_directory'])",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          malloc = '//base:system_malloc')");
+        """
+        package(features = [
+            "thin_lto",
+            "use_lto_native_object_directory",
+        ])
+
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            malloc = "//base:system_malloc",
+        )
+        """);
 
     scratch.file("pkg/binfile.cc", "int main() {}");
 
@@ -816,7 +797,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     Artifact pkgArtifact = getFilesToBuild(pkg).getSingleton();
     String rootExecPath = pkgArtifact.getRoot().getExecPathString();
 
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(pkgArtifact);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(pkgArtifact);
     assertThat(linkAction.getOutputs()).containsExactly(pkgArtifact);
 
     LtoBackendAction backendAction =
@@ -835,8 +816,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     createBuildFiles();
 
     setupThinLTOCrosstool(CppRuleClasses.SUPPORTS_PIC);
-    useConfiguration(
-        "--ltoindexopt=anltoindexopt", "--noincompatible_make_thinlto_command_lines_standalone");
+    useConfiguration("--ltoindexopt=anltoindexopt");
 
     /*
     We follow the chain from the final product backwards.
@@ -851,7 +831,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     Artifact pkgArtifact = getFilesToBuild(pkg).getSingleton();
     String rootExecPath = pkgArtifact.getRoot().getExecPathString();
 
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(pkgArtifact);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(pkgArtifact);
     assertThat(linkAction.getOutputs()).containsExactly(pkgArtifact);
 
     LtoBackendAction backendAction =
@@ -860,8 +840,8 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
                 linkAction, "pkg/bin.lto-obj/" + rootExecPath + "/pkg/_objs/bin/binfile.pic.o");
     assertThat(backendAction.getMnemonic()).isEqualTo("CcLtoBackendCompile");
 
-    CppLinkAction indexAction =
-        (CppLinkAction)
+    SpawnAction indexAction =
+        (SpawnAction)
             getPredecessorByInputName(
                 backendAction,
                 "pkg/bin.lto/" + rootExecPath + "/pkg/_objs/bin/binfile.pic.o.thinlto.bc");
@@ -893,7 +873,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     Artifact pkgArtifact = getFilesToBuild(pkg).getSingleton();
     String rootExecPath = pkgArtifact.getRoot().getExecPathString();
 
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(pkgArtifact);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(pkgArtifact);
     assertThat(linkAction.getOutputs()).containsExactly(pkgArtifact);
 
     LtoBackendAction backendAction =
@@ -902,8 +882,8 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
                 linkAction, "pkg/bin.lto-obj/" + rootExecPath + "/pkg/_objs/bin/binfile.pic.o");
     assertThat(backendAction.getMnemonic()).isEqualTo("CcLtoBackendCompile");
 
-    CppLinkAction indexAction =
-        (CppLinkAction)
+    SpawnAction indexAction =
+        (SpawnAction)
             getPredecessorByInputName(
                 backendAction,
                 "pkg/bin.lto/" + rootExecPath + "/pkg/_objs/bin/binfile.pic.o.thinlto.bc");
@@ -930,7 +910,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     Artifact pkgArtifact = getFilesToBuild(pkg).getSingleton();
     String rootExecPath = pkgArtifact.getRoot().getExecPathString();
 
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(pkgArtifact);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(pkgArtifact);
     assertThat(linkAction.getOutputs()).containsExactly(pkgArtifact);
 
     LtoBackendAction backendAction =
@@ -960,7 +940,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     Artifact pkgArtifact = getFilesToBuild(pkg).getSingleton();
     String rootExecPath = pkgArtifact.getRoot().getExecPathString();
 
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(pkgArtifact);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(pkgArtifact);
     assertThat(linkAction.getOutputs()).containsExactly(pkgArtifact);
 
     LtoBackendAction backendAction =
@@ -996,7 +976,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     Artifact pkgArtifact = getFilesToBuild(pkg).getSingleton();
     String rootExecPath = pkgArtifact.getRoot().getExecPathString();
 
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(pkgArtifact);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(pkgArtifact);
     assertThat(linkAction.getOutputs()).containsExactly(pkgArtifact);
 
     LtoBackendAction backendAction =
@@ -1028,7 +1008,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     Artifact pkgArtifact = getFilesToBuild(pkg).getSingleton();
     String rootExecPath = pkgArtifact.getRoot().getExecPathString();
 
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(pkgArtifact);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(pkgArtifact);
     assertThat(linkAction.getOutputs()).containsExactly(pkgArtifact);
 
     LtoBackendAction backendAction =
@@ -1059,7 +1039,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     Artifact pkgArtifact = getFilesToBuild(pkg).getSingleton();
     String rootExecPath = pkgArtifact.getRoot().getExecPathString();
 
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(pkgArtifact);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(pkgArtifact);
     assertThat(linkAction.getOutputs()).containsExactly(pkgArtifact);
 
     LtoBackendAction backendAction =
@@ -1096,7 +1076,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     {.o.thinlto.bc,.o.imports} <=[LTOIndexing]=
     .o <= [CppCompile] .cc
     */
-    CppLinkAction indexAction =
+    SpawnAction indexAction =
         getIndexAction(
             getBackendAction("pkg/bin.lto-obj/" + rootExecPath + "/pkg/_objs/bin/binfile.pic.o"));
 
@@ -1114,11 +1094,18 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
   public void testAutoFdo() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "package(features = ['thin_lto', 'use_lto_native_object_directory'])",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          malloc = '//base:system_malloc')");
+        """
+        package(features = [
+            "thin_lto",
+            "use_lto_native_object_directory",
+        ])
+
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            malloc = "//base:system_malloc",
+        )
+        """);
 
     scratch.file("pkg/binfile.cc", "int main() {}");
     scratch.file("pkg/profile.afdo", "");
@@ -1129,7 +1116,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     Artifact binArtifact = getFilesToBuild(getConfiguredTarget("//pkg:bin")).getSingleton();
     String rootExecPath = binArtifact.getRoot().getExecPathString();
 
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binArtifact);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(binArtifact);
     assertThat(linkAction.getOutputs()).containsExactly(binArtifact);
 
     LtoBackendAction backendAction =
@@ -1175,10 +1162,13 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
   public void testAutoFdoNoImplicitThinLto() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          malloc = '//base:system_malloc')");
+        """
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            malloc = "//base:system_malloc",
+        )
+        """);
 
     scratch.file("pkg/binfile.cc", "int main() {}");
     scratch.file("pkg/profile.afdo", "");
@@ -1189,7 +1179,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     Artifact binArtifact = getFilesToBuild(getConfiguredTarget("//pkg:bin")).getSingleton();
     String rootExecPath = binArtifact.getRoot().getExecPathString();
 
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binArtifact);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(binArtifact);
     assertThat(linkAction.getOutputs()).containsExactly(binArtifact);
 
     LtoBackendAction backendAction =
@@ -1205,10 +1195,13 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
   public void testAutoFdoImplicitThinLto() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          malloc = '//base:system_malloc')");
+        """
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            malloc = "//base:system_malloc",
+        )
+        """);
 
     scratch.file("pkg/binfile.cc", "int main() {}");
     scratch.file("pkg/profile.afdo", "");
@@ -1223,7 +1216,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     Artifact binArtifact = getFilesToBuild(getConfiguredTarget("//pkg:bin")).getSingleton();
     String rootExecPath = binArtifact.getRoot().getExecPathString();
 
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binArtifact);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(binArtifact);
     assertThat(linkAction.getOutputs()).containsExactly(binArtifact);
 
     LtoBackendAction backendAction =
@@ -1242,10 +1235,13 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
   public void testAutoFdoImplicitThinLtoDisabledOption() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          malloc = '//base:system_malloc')");
+        """
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            malloc = "//base:system_malloc",
+        )
+        """);
 
     scratch.file("pkg/binfile.cc", "int main() {}");
     scratch.file("pkg/profile.afdo", "");
@@ -1261,7 +1257,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     Artifact binArtifact = getFilesToBuild(getConfiguredTarget("//pkg:bin")).getSingleton();
     String rootExecPath = binArtifact.getRoot().getExecPathString();
 
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binArtifact);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(binArtifact);
     assertThat(linkAction.getOutputs()).containsExactly(binArtifact);
 
     LtoBackendAction backendAction =
@@ -1280,11 +1276,17 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
   public void testAutoFdoImplicitThinLtoDisabledRule() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          features = ['-thin_lto', 'use_lto_native_object_directory'],",
-        "          malloc = '//base:system_malloc')");
+        """
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            features = [
+                "-thin_lto",
+                "use_lto_native_object_directory",
+            ],
+            malloc = "//base:system_malloc",
+        )
+        """);
 
     scratch.file("pkg/binfile.cc", "int main() {}");
     scratch.file("pkg/profile.afdo", "");
@@ -1298,7 +1300,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     Artifact binArtifact = getFilesToBuild(getConfiguredTarget("//pkg:bin")).getSingleton();
     String rootExecPath = binArtifact.getRoot().getExecPathString();
 
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binArtifact);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(binArtifact);
     assertThat(linkAction.getOutputs()).containsExactly(binArtifact);
 
     LtoBackendAction backendAction =
@@ -1317,11 +1319,18 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
   public void testAutoFdoImplicitThinLtoDisabledPackage() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "package(features = ['-thin_lto', 'use_lto_native_object_directory'])",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          malloc = '//base:system_malloc')");
+        """
+        package(features = [
+            "-thin_lto",
+            "use_lto_native_object_directory",
+        ])
+
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            malloc = "//base:system_malloc",
+        )
+        """);
 
     scratch.file("pkg/binfile.cc", "int main() {}");
     scratch.file("pkg/profile.afdo", "");
@@ -1335,7 +1344,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     Artifact binArtifact = getFilesToBuild(getConfiguredTarget("//pkg:bin")).getSingleton();
     String rootExecPath = binArtifact.getRoot().getExecPathString();
 
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binArtifact);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(binArtifact);
     assertThat(linkAction.getOutputs()).containsExactly(binArtifact);
 
     LtoBackendAction backendAction =
@@ -1360,10 +1369,13 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
   public void testFdoNoImplicitThinLto() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          malloc = '//base:system_malloc')");
+        """
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            malloc = "//base:system_malloc",
+        )
+        """);
 
     scratch.file("pkg/binfile.cc", "int main() {}");
     scratch.file("pkg/profile.zip", "");
@@ -1374,7 +1386,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     Artifact binArtifact = getFilesToBuild(getConfiguredTarget("//pkg:bin")).getSingleton();
     String rootExecPath = binArtifact.getRoot().getExecPathString();
 
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binArtifact);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(binArtifact);
     assertThat(linkAction.getOutputs()).containsExactly(binArtifact);
 
     LtoBackendAction backendAction =
@@ -1390,10 +1402,13 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
   public void testFdoImplicitThinLto() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          malloc = '//base:system_malloc')");
+        """
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            malloc = "//base:system_malloc",
+        )
+        """);
 
     scratch.file("pkg/binfile.cc", "int main() {}");
     scratch.file("pkg/profile.zip", "");
@@ -1408,7 +1423,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     Artifact binArtifact = getFilesToBuild(getConfiguredTarget("//pkg:bin")).getSingleton();
     String rootExecPath = binArtifact.getRoot().getExecPathString();
 
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binArtifact);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(binArtifact);
     assertThat(linkAction.getOutputs()).containsExactly(binArtifact);
 
     LtoBackendAction backendAction =
@@ -1427,10 +1442,13 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
   public void testFdoImplicitThinLtoDisabledOption() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          malloc = '//base:system_malloc')");
+        """
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            malloc = "//base:system_malloc",
+        )
+        """);
 
     scratch.file("pkg/binfile.cc", "int main() {}");
     scratch.file("pkg/profile.zip", "");
@@ -1446,7 +1464,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     Artifact binArtifact = getFilesToBuild(getConfiguredTarget("//pkg:bin")).getSingleton();
     String rootExecPath = binArtifact.getRoot().getExecPathString();
 
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binArtifact);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(binArtifact);
     assertThat(linkAction.getOutputs()).containsExactly(binArtifact);
 
     LtoBackendAction backendAction =
@@ -1465,11 +1483,17 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
   public void testFdoImplicitThinLtoDisabledRule() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          features = ['-thin_lto', 'use_lto_native_object_directory'],",
-        "          malloc = '//base:system_malloc')");
+        """
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            features = [
+                "-thin_lto",
+                "use_lto_native_object_directory",
+            ],
+            malloc = "//base:system_malloc",
+        )
+        """);
 
     scratch.file("pkg/binfile.cc", "int main() {}");
     scratch.file("pkg/profile.zip", "");
@@ -1483,7 +1507,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     Artifact binArtifact = getFilesToBuild(getConfiguredTarget("//pkg:bin")).getSingleton();
     String rootExecPath = binArtifact.getRoot().getExecPathString();
 
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binArtifact);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(binArtifact);
     assertThat(linkAction.getOutputs()).containsExactly(binArtifact);
 
     LtoBackendAction backendAction =
@@ -1503,11 +1527,18 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     setupThinLTOCrosstool();
     scratch.file(
         "pkg/BUILD",
-        "package(features = ['-thin_lto', 'use_lto_native_object_directory'])",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          malloc = '//base:system_malloc')");
+        """
+        package(features = [
+            "-thin_lto",
+            "use_lto_native_object_directory",
+        ])
+
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            malloc = "//base:system_malloc",
+        )
+        """);
 
     scratch.file("pkg/binfile.cc", "int main() {}");
     scratch.file("pkg/profile.zip", "");
@@ -1521,7 +1552,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     Artifact binArtifact = getFilesToBuild(getConfiguredTarget("//pkg:bin")).getSingleton();
     String rootExecPath = binArtifact.getRoot().getExecPathString();
 
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binArtifact);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(binArtifact);
     assertThat(linkAction.getOutputs()).containsExactly(binArtifact);
 
     LtoBackendAction backendAction =
@@ -1547,10 +1578,17 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
   public void testXBinaryFdoNoImplicitThinLto() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ])",
-        "fdo_profile(name='out.xfdo', profile='profiles.xfdo')");
+        """
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+        )
+
+        fdo_profile(
+            name = "out.xfdo",
+            profile = "profiles.xfdo",
+        )
+        """);
 
     scratch.file("pkg/binfile.cc", "int main() {}");
 
@@ -1560,7 +1598,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     Artifact binArtifact = getFilesToBuild(getConfiguredTarget("//pkg:bin")).getSingleton();
     String rootExecPath = binArtifact.getRoot().getExecPathString();
 
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binArtifact);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(binArtifact);
     assertThat(linkAction.getOutputs()).containsExactly(binArtifact);
 
     LtoBackendAction backendAction =
@@ -1576,10 +1614,17 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
   public void testXBinaryFdoImplicitThinLto() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ])",
-        "fdo_profile(name='out.xfdo', profile='profiles.xfdo')");
+        """
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+        )
+
+        fdo_profile(
+            name = "out.xfdo",
+            profile = "profiles.xfdo",
+        )
+        """);
 
     scratch.file("pkg/binfile.cc", "int main() {}");
 
@@ -1593,7 +1638,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     Artifact binArtifact = getFilesToBuild(getConfiguredTarget("//pkg:bin")).getSingleton();
     String rootExecPath = binArtifact.getRoot().getExecPathString();
 
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binArtifact);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(binArtifact);
     assertThat(linkAction.getOutputs()).containsExactly(binArtifact);
 
     LtoBackendAction backendAction =
@@ -1612,10 +1657,17 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
   public void testXBinaryFdoImplicitThinLtoDisabledOption() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ])",
-        "fdo_profile(name='out.xfdo', profile='profiles.xfdo')");
+        """
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+        )
+
+        fdo_profile(
+            name = "out.xfdo",
+            profile = "profiles.xfdo",
+        )
+        """);
 
     scratch.file("pkg/binfile.cc", "int main() {}");
 
@@ -1630,7 +1682,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     Artifact binArtifact = getFilesToBuild(getConfiguredTarget("//pkg:bin")).getSingleton();
     String rootExecPath = binArtifact.getRoot().getExecPathString();
 
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binArtifact);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(binArtifact);
     assertThat(linkAction.getOutputs()).containsExactly(binArtifact);
 
     LtoBackendAction backendAction =
@@ -1649,11 +1701,21 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
   public void testXBinaryFdoImplicitThinLtoDisabledRule() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          features = ['-thin_lto', 'use_lto_native_object_directory'])",
-        "fdo_profile(name='out.xfdo', profile='profiles.xfdo')");
+        """
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            features = [
+                "-thin_lto",
+                "use_lto_native_object_directory",
+            ],
+        )
+
+        fdo_profile(
+            name = "out.xfdo",
+            profile = "profiles.xfdo",
+        )
+        """);
 
     scratch.file("pkg/binfile.cc", "int main() {}");
 
@@ -1666,7 +1728,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     Artifact binArtifact = getFilesToBuild(getConfiguredTarget("//pkg:bin")).getSingleton();
     String rootExecPath = binArtifact.getRoot().getExecPathString();
 
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binArtifact);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(binArtifact);
     assertThat(linkAction.getOutputs()).containsExactly(binArtifact);
 
     LtoBackendAction backendAction =
@@ -1685,11 +1747,22 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
   public void testXBinaryFdoImplicitThinLtoDisabledPackage() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "package(features = ['-thin_lto', 'use_lto_native_object_directory'])",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ])",
-        "fdo_profile(name='out.xfdo', profile='profiles.xfdo')");
+        """
+        package(features = [
+            "-thin_lto",
+            "use_lto_native_object_directory",
+        ])
+
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+        )
+
+        fdo_profile(
+            name = "out.xfdo",
+            profile = "profiles.xfdo",
+        )
+        """);
 
     scratch.file("pkg/binfile.cc", "int main() {}");
 
@@ -1702,7 +1775,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     Artifact binArtifact = getFilesToBuild(getConfiguredTarget("//pkg:bin")).getSingleton();
     String rootExecPath = binArtifact.getRoot().getExecPathString();
 
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binArtifact);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(binArtifact);
     assertThat(linkAction.getOutputs()).containsExactly(binArtifact);
 
     LtoBackendAction backendAction =
@@ -1717,12 +1790,23 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
   public void testXBinaryFdo() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "package(features = ['thin_lto', 'use_lto_native_object_directory'])",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          malloc = '//base:system_malloc')",
-        "fdo_profile(name='out.xfdo', profile='profiles.xfdo')");
+        """
+        package(features = [
+            "thin_lto",
+            "use_lto_native_object_directory",
+        ])
+
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            malloc = "//base:system_malloc",
+        )
+
+        fdo_profile(
+            name = "out.xfdo",
+            profile = "profiles.xfdo",
+        )
+        """);
 
     scratch.file("pkg/binfile.cc", "int main() {}");
 
@@ -1732,7 +1816,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     Artifact binArtifact = getFilesToBuild(getConfiguredTarget("//pkg:bin")).getSingleton();
     String rootExecPath = binArtifact.getRoot().getExecPathString();
 
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binArtifact);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(binArtifact);
     assertThat(linkAction.getOutputs()).containsExactly(binArtifact);
 
     LtoBackendAction backendAction =
@@ -1755,11 +1839,18 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
   public void testXBinaryFdoNoAutoFdoOrFdoImplicitThinLto() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          malloc = '//base:system_malloc')",
-        "fdo_profile(name='out.xfdo', profile='profiles.xfdo')");
+        """
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            malloc = "//base:system_malloc",
+        )
+
+        fdo_profile(
+            name = "out.xfdo",
+            profile = "profiles.xfdo",
+        )
+        """);
 
     scratch.file("pkg/binfile.cc", "int main() {}");
 
@@ -1779,7 +1870,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     Artifact binArtifact = getFilesToBuild(getConfiguredTarget("//pkg:bin")).getSingleton();
     String rootExecPath = binArtifact.getRoot().getExecPathString();
 
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binArtifact);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(binArtifact);
     assertThat(linkAction.getOutputs()).containsExactly(binArtifact);
 
     LtoBackendAction backendAction =
@@ -1816,12 +1907,12 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     Artifact binArtifact = getFilesToBuild(getCurrentTarget()).getSingleton();
     String rootExecPath = binArtifact.getRoot().getExecPathString();
 
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binArtifact);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(binArtifact);
     assertThat(linkAction.getOutputs()).containsExactly(binArtifact);
     assertThat(ActionsTestUtil.baseArtifactNames(linkAction.getInputs()))
         .contains("ld_profile.txt");
 
-    List<String> commandLine = linkAction.getLinkCommandLineForTesting().arguments();
+    List<String> commandLine = linkAction.getArguments();
     assertThat(commandLine.toString())
         .containsMatch("-Wl,--symbol-ordering-file=.*/ld_profile.txt");
 
@@ -1839,7 +1930,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     assertThat(ActionsTestUtil.baseArtifactNames(backendAction.getInputs()))
         .contains("cc_profile.txt");
 
-    CppLinkAction indexAction = getIndexAction(backendAction);
+    SpawnAction indexAction = getIndexAction(backendAction);
     assertThat(ActionsTestUtil.baseArtifactNames(indexAction.getInputs()))
         .doesNotContain("ld_profile.txt");
   }
@@ -1857,12 +1948,12 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     Artifact binArtifact = getFilesToBuild(getCurrentTarget()).getSingleton();
     String rootExecPath = binArtifact.getRoot().getExecPathString();
 
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binArtifact);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(binArtifact);
     LtoBackendAction backendAction =
         (LtoBackendAction)
             getPredecessorByInputName(
                 linkAction, "pkg/bin.lto-obj/" + rootExecPath + "/pkg/_objs/bin/binfile.o");
-    CppLinkAction indexAction = getIndexAction(backendAction);
+    SpawnAction indexAction = getIndexAction(backendAction);
     CppCompileAction bitcodeAction =
         (CppCompileAction)
             getPredecessorByInputName(indexAction, "pkg/_objs/bin/binfile.indexing.o");
@@ -1894,12 +1985,12 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     Artifact binArtifact = getFilesToBuild(getCurrentTarget()).getSingleton();
     String rootExecPath = binArtifact.getRoot().getExecPathString();
 
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binArtifact);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(binArtifact);
     LtoBackendAction backendAction =
         (LtoBackendAction)
             getPredecessorByInputName(
                 linkAction, "pkg/bin.lto-obj/" + rootExecPath + "/pkg/_objs/bin/binfile.o");
-    CppLinkAction indexAction = getIndexAction(backendAction);
+    SpawnAction indexAction = getIndexAction(backendAction);
     assertThat(artifactsToStrings(indexAction.getInputs()))
         .containsAtLeast(
             "bin pkg/_objs/bin/binfile.indexing.o", "bin pkg/_objs/lib/libfile.indexing.o");
@@ -1949,12 +2040,12 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
         "--compilation_mode=opt");
     Artifact binArtifact = getFilesToBuild(getCurrentTarget()).getSingleton();
     String rootExecPath = binArtifact.getRoot().getExecPathString();
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binArtifact);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(binArtifact);
     LtoBackendAction backendAction =
         (LtoBackendAction)
             getPredecessorByInputName(
                 linkAction, "pkg/bin.lto-obj/" + rootExecPath + "/pkg/_objs/bin/binfile.o");
-    CppLinkAction indexAction = getIndexAction(backendAction);
+    SpawnAction indexAction = getIndexAction(backendAction);
     assertThat(artifactsToStrings(indexAction.getInputs()))
         .contains("bin pkg/_objs/lib/libfile.indexing.o");
 
@@ -1964,11 +2055,11 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
 
     Action genruleAction = getPredecessorByInputName(bitcodeAction, "pkg/libfile.cc");
 
-    CppLinkAction hostLinkAction =
-        (CppLinkAction) getPredecessorByInputName(genruleAction, "pkg/gen_lib");
+    SpawnAction hostLinkAction =
+        (SpawnAction) getPredecessorByInputName(genruleAction, "pkg/gen_lib");
     assertThat(ActionsTestUtil.baseArtifactNames(hostLinkAction.getInputs()))
         .doesNotContain("ld_profile.txt");
-    assertThat(hostLinkAction.getLinkCommandLineForTesting().arguments().toString())
+    assertThat(hostLinkAction.getArguments().toString())
         .doesNotContainMatch("-Wl,--symbol-ordering-file=.*/ld_profile.txt");
 
     // The hostLinkAction inputs has a different root from the backendAction.
@@ -1984,11 +2075,11 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     assertThat(Joiner.on(" ").join(hostBackendAction.getArguments()))
         .doesNotContainMatch("-fbasic-block-sections");
 
-    CppLinkAction hostIndexAction = getIndexAction(hostBackendAction);
+    SpawnAction hostIndexAction = getIndexAction(hostBackendAction);
     assertThat(hostIndexAction).isNotNull();
     assertThat(ActionsTestUtil.baseArtifactNames(hostIndexAction.getInputs()))
         .doesNotContain("ld_profile.txt");
-    assertThat(hostIndexAction.getLinkCommandLineForTesting().arguments().toString())
+    assertThat(hostIndexAction.getArguments().toString())
         .doesNotContainMatch("-Wl,--symbol-ordering-file=.*/ld_profile.txt");
 
     CppCompileAction hostBitcodeAction =
@@ -2000,33 +2091,24 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
         .doesNotContainMatch("-fbasic-block-sections=");
   }
 
-  private void testPropellerOptimizeOption(boolean label) throws Exception {
+  @Test
+  public void testPropellerOptimizeOptionFromLabel() throws Exception {
     createBuildFiles();
-
-    if (label) {
-      scratch.file(
-          "fdo/BUILD",
-          "propeller_optimize(name='test_propeller_optimize', cc_profile=':cc_profile.txt',"
-              + " ld_profile=':ld_profile.txt')");
-    } else {
-      scratch.file(
-          "fdo/BUILD",
-          "propeller_optimize(name='test_propeller_optimize',"
-              + "absolute_cc_profile='/tmp/cc_profile.txt',"
-              + "absolute_ld_profile='/tmp/ld_profile.txt')");
-    }
+    scratch.file(
+        "fdo/BUILD",
+        "propeller_optimize(name='test_propeller_optimize', cc_profile=':cc_profile.txt',"
+            + " ld_profile=':ld_profile.txt')");
     setupThinLTOCrosstool(CppRuleClasses.SUPPORTS_PIC, CppRuleClasses.AUTOFDO);
-
     useConfiguration(
         "--propeller_optimize=//fdo:test_propeller_optimize", "--compilation_mode=opt");
 
     Artifact binArtifact = getFilesToBuild(getCurrentTarget()).getSingleton();
     String rootExecPath = binArtifact.getRoot().getExecPathString();
 
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binArtifact);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(binArtifact);
     assertThat(linkAction.getOutputs()).containsExactly(binArtifact);
 
-    List<String> commandLine = linkAction.getLinkCommandLineForTesting().arguments();
+    List<String> commandLine = linkAction.getArguments();
     assertThat(commandLine.toString())
         .containsMatch("-Wl,--symbol-ordering-file=.*/ld_profile.txt");
 
@@ -2045,27 +2127,9 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
         .contains("cc_profile.txt");
   }
 
-  @Test
-  public void testPropellerOptimizeOptionFromAbsolutePath() throws Exception {
-    testPropellerOptimizeOption(false);
-  }
-
-  @Test
-  public void testPropellerOptimizeOptionFromLabel() throws Exception {
-    testPropellerOptimizeOption(true);
-  }
-
-  private void testLLVMCachePrefetchBackendOption(String extraOption, boolean asLabel)
-      throws Exception {
+  private void testLLVMCachePrefetchBackendOption(String extraOption) throws Exception {
     createBuildFiles();
-    if (asLabel) {
-      scratch.file(
-          "fdo/BUILD", "fdo_prefetch_hints(name='test_profile', profile=':prefetch.afdo')");
-    } else {
-      scratch.file(
-          "fdo/BUILD",
-          "fdo_prefetch_hints(name='test_profile', absolute_path_profile='/tmp/prefetch.afdo')");
-    }
+    scratch.file("fdo/BUILD", "fdo_prefetch_hints(name='test_profile', profile=':prefetch.afdo')");
 
     setupThinLTOCrosstool(CppRuleClasses.SUPPORTS_PIC, CppRuleClasses.AUTOFDO);
     useConfiguration(
@@ -2075,33 +2139,20 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     LtoBackendAction backendAction =
         getBackendAction("pkg/bin.lto-obj/" + rootExecPath + "/pkg/_objs/bin/binfile.o");
 
-    String expectedCompilerFlag =
-        "-prefetch-hints-file="
-            + (asLabel ? ".*/prefetch.afdo" : "(blaze|bazel)-out/.*/fdo/.*/prefetch.afdo");
     assertThat(Joiner.on(" ").join(backendAction.getArguments()))
-        .containsMatch("-mllvm " + expectedCompilerFlag);
+        .containsMatch("-mllvm -prefetch-hints-file=.*/prefetch.afdo");
 
     assertThat(ActionsTestUtil.baseArtifactNames(backendAction.getInputs()))
         .contains("prefetch.afdo");
   }
 
   @Test
-  public void testFdoCachePrefetchLLVMOptionsToBackendFromPath() throws Exception {
-    testLLVMCachePrefetchBackendOption("", false);
-  }
-
-  @Test
-  public void testFdoCachePrefetchAndFdoLLVMOptionsToBackendFromPath() throws Exception {
-    testLLVMCachePrefetchBackendOption("--fdo_optimize=/profile.zip", false);
-  }
-
-  @Test
   public void testFdoCachePrefetchLLVMOptionsToBackendFromLabel() throws Exception {
-    testLLVMCachePrefetchBackendOption("", true);
+    testLLVMCachePrefetchBackendOption("");
   }
 
   @Test
   public void testFdoCachePrefetchAndFdoLLVMOptionsToBackendFromLabel() throws Exception {
-    testLLVMCachePrefetchBackendOption("--fdo_optimize=/profile.zip", true);
+    testLLVMCachePrefetchBackendOption("--fdo_optimize=/profile.zip");
   }
 }

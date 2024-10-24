@@ -109,6 +109,7 @@ public class PlatformTestCase extends BuildViewTestCase {
     private Label parentLabel = null;
     private String remoteExecutionProperties = "";
     private ImmutableMap<String, String> execProperties;
+    private List<String> flags = new ArrayList<>();
 
     public PlatformBuilder(String name) {
       this.label = Label.parseCanonicalUnchecked(name);
@@ -138,6 +139,12 @@ public class PlatformTestCase extends BuildViewTestCase {
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public PlatformBuilder addFlags(String... flags) {
+      this.flags.addAll(ImmutableList.copyOf(flags));
+      return this;
+    }
+
     public List<String> lines() {
       ImmutableList.Builder<String> lines = ImmutableList.builder();
 
@@ -159,6 +166,13 @@ public class PlatformTestCase extends BuildViewTestCase {
           lines.add("    \"" + entry.getKey() + "\": \"" + entry.getValue() + "\",");
         }
         lines.add("  }");
+      }
+      if (!flags.isEmpty()) {
+        lines.add("  flags = [");
+        for (String flag : flags) {
+          lines.add("    '" + flag + "',");
+        }
+        lines.add("  ],");
       }
       lines.add(")");
 

@@ -14,9 +14,10 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -95,7 +96,7 @@ public class ConfiguredTargetAndData {
     if (!checkConsistency) {
       return;
     }
-    Preconditions.checkState(
+    checkState(
         configuredTarget.getLabel().equals(target.getLabel()),
         "Unable to construct ConfiguredTargetAndData:"
             + " ConfiguredTarget's label %s is not equal to Target's label %s",
@@ -103,13 +104,13 @@ public class ConfiguredTargetAndData {
         target.getLabel());
     BuildConfigurationKey innerConfigurationKey = configuredTarget.getConfigurationKey();
     if (configuration == null) {
-      Preconditions.checkState(
+      checkState(
           innerConfigurationKey == null,
           "Non-null configuration key for %s but configuration is null (%s)",
           configuredTarget,
           target);
     } else {
-      Preconditions.checkState(
+      checkState(
           innerConfigurationKey.getOptions().equals(configuration.getOptions()),
           "Configurations don't match: %s %s (%s %s)",
           innerConfigurationKey,
@@ -119,8 +120,13 @@ public class ConfiguredTargetAndData {
     }
   }
 
-  @Nullable
-  static ConfiguredTargetAndData fromConfiguredTargetInSkyframe(
+  /**
+   * Wraps an existing {@link ConfiguredTarget} by looking up auxiliary data in Skyframe.
+   *
+   * <p>Assumes that since the given {@link ConfiguredTarget} is done, then its associated {@link
+   * PackageValue} and {@link BuildConfigurationValue} (if applicable) are done too.
+   */
+  static ConfiguredTargetAndData fromExistingConfiguredTargetInSkyframe(
       ConfiguredTarget ct, SkyFunction.Environment env) throws InterruptedException {
     BuildConfigurationValue configuration = null;
     ImmutableSet<SkyKey> packageAndMaybeConfiguration;
@@ -135,15 +141,11 @@ public class ConfiguredTargetAndData {
         env.getValuesAndExceptions(packageAndMaybeConfiguration);
     // Don't test env.valuesMissing(), because values may already be missing from the caller.
     PackageValue packageValue = (PackageValue) packageAndMaybeConfigurationValues.get(packageKey);
-    if (packageValue == null) {
-      return null;
-    }
+    checkNotNull(packageValue, "Missing package for %s", ct);
     if (configurationKeyMaybe != null) {
       configuration =
           (BuildConfigurationValue) packageAndMaybeConfigurationValues.get(configurationKeyMaybe);
-      if (configuration == null) {
-        return null;
-      }
+      checkNotNull(configuration, "Missing configuration for %s", ct);
     }
     try {
       return new ConfiguredTargetAndData(
@@ -205,6 +207,10 @@ public class ConfiguredTargetAndData {
 
   public String getTargetKind() {
     return target.getTargetKind();
+  }
+
+  public boolean isForDependencyResolution() {
+    return target.isForDependencyResolution();
   }
 
   /** Returns the rule class name if the target is a rule and "" otherwise. */

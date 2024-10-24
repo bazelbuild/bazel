@@ -118,10 +118,10 @@ import java.util.stream.Collectors;
  * Runfiles#preload(Map)} and immutably encapsulate all data required to look up runfiles with the
  * repository mapping of any Bazel repository specified at a later time.
  *
- * <p>Creating {@link Runfiles} instances can be costly, so applications should try to create as few
- * instances as possible. {@link Runfiles#preload()}, but not {@link Runfiles#preload(Map)}, returns
- * a single global, softly cached instance of {@link Preloaded} that is constructed based on the
- * JVM's environment variables.
+ * <p>Creating {@link Preloaded} instances can be costly, so applications should try to create as
+ * few instances as possible. {@link Runfiles#preload()}, but not {@link Runfiles#preload(Map)},
+ * returns a single global, softly cached instance of {@link Preloaded} that is constructed based on
+ * the JVM's environment variables.
  *
  * <p>Instance of {@link Runfiles} are only meant to be used by code located in a single Bazel
  * repository and should not be passed around. They are created by calling {@link
@@ -490,11 +490,36 @@ public final class Runfiles {
       try (BufferedReader r =
           new BufferedReader(
               new InputStreamReader(new FileInputStream(path), StandardCharsets.UTF_8))) {
-        String line = null;
+        String line;
         while ((line = r.readLine()) != null) {
-          int index = line.indexOf(' ');
-          String runfile = (index == -1) ? line : line.substring(0, index);
-          String realPath = (index == -1) ? line : line.substring(index + 1);
+          String runfile;
+          String realPath;
+          if (line.startsWith(" ")) {
+            // In lines starting with a space, the runfile path contains spaces and backslashes
+            // escaped with a backslash. The real path is the rest of the line after the first
+            // unescaped space.
+            int firstSpace = line.indexOf(' ', 1);
+            if (firstSpace == -1) {
+              throw new IOException(
+                  "Invalid runfiles manifest line, expected at least one space after the leading"
+                      + " space: "
+                      + line);
+            }
+            runfile =
+                line.substring(1, firstSpace)
+                    .replace("\\s", " ")
+                    .replace("\\n", "\n")
+                    .replace("\\b", "\\");
+            realPath = line.substring(firstSpace + 1).replace("\\n", "\n").replace("\\b", "\\");
+          } else {
+            int firstSpace = line.indexOf(' ');
+            if (firstSpace == -1) {
+              throw new IOException(
+                  "Invalid runfiles manifest line, expected at least one space: " + line);
+            }
+            runfile = line.substring(0, firstSpace);
+            realPath = line.substring(firstSpace + 1);
+          }
           result.put(runfile, realPath);
         }
       }

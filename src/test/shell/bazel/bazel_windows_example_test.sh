@@ -58,23 +58,17 @@ msys*)
   ;;
 esac
 
-if "$is_windows"; then
-  # Disable MSYS path conversion that converts path-looking command arguments to
-  # Windows paths (even if they arguments are not in fact paths).
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 if ! "$is_windows"; then
   echo "This test suite requires running on Windows. But now is ${PLATFORM}" >&2
   exit 0
 fi
 
+setup_localjdk_javabase
+
 function set_up() {
   copy_examples
   setup_bazelrc
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
+  add_platforms "MODULE.bazel"
   mkdir platforms
   cat >platforms/BUILD <<EOF
 platform(
@@ -93,6 +87,12 @@ platform(
         "@bazel_tools//tools/cpp:msys",
     ],
 )
+EOF
+
+  add_rules_cc "MODULE.bazel"
+  cat >> MODULE.bazel <<EOF
+cc_configure = use_extension("@rules_cc//cc:extensions.bzl", "cc_configure_extension")
+use_repo(cc_configure, "local_config_cc")
 EOF
 }
 
@@ -228,6 +228,7 @@ EOF
 }
 
 function test_java() {
+  add_rules_java "MODULE.bazel"
   local java_pkg=examples/java-native/src/main/java/com/example/myproject
 
   assert_build_output ./bazel-bin/${java_pkg}/libhello-lib.jar ${java_pkg}:hello-lib
@@ -268,6 +269,7 @@ function test_java_with_jar_under_different_drive() {
 
   trap delete_tmp_drive EXIT
 
+  add_rules_java "MODULE.bazel"
   local java_pkg=examples/java-native/src/main/java/com/example/myproject
   bazel --output_user_root=${TMP_DRIVE}:/tmp build ${java_pkg}:hello-world
 
@@ -279,6 +281,7 @@ function test_java_test() {
   local java_native_tests=//examples/java-native/src/test/java/com/example/myproject
   local java_native_main=//examples/java-native/src/main/java/com/example/myproject
 
+  add_rules_java "MODULE.bazel"
   assert_build "-- //examples/java-native/... -${java_native_main}:hello-error-prone"
   assert_build_fails "${java_native_main}:hello-error-prone" \
       "Did you mean 'result = b == -1;'?"
@@ -291,8 +294,11 @@ function test_java_test() {
 function test_native_python() {
   # On windows, we build a python executable zip as the python binary
   assert_build //examples/py_native:bin
-  # run the python package directly
-  ./bazel-bin/examples/py_native/bin >& $TEST_log \
+  # run the python package directly, clearing out runfiles variables to
+  # ensure that the binary finds its own runfiles correctly
+  env -u RUNFILES_DIR -u RUNFILES_MANIFEST_FILE -u RUNFILES_MANIFEST_ONLY \
+    -u JAVA_RUNFILES -u PYTHON_RUNFILES \
+    ./bazel-bin/examples/py_native/bin >& $TEST_log \
     || fail "//examples/py_native:bin execution failed"
   expect_log "Fib(5) == 8"
   # Using python <zipfile> to run the python package

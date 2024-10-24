@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
-import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.Configuration;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.CqueryResult;
@@ -27,6 +26,9 @@ import com.google.devtools.build.lib.analysis.AnalysisProtosV2.CqueryResultOrBui
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.output.ConfigurationForOutput;
+import com.google.devtools.build.lib.analysis.config.output.FragmentForOutput;
+import com.google.devtools.build.lib.analysis.config.output.FragmentOptionsForOutput;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -35,13 +37,12 @@ import com.google.devtools.build.lib.packages.AttributeFormatter;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.cquery.CqueryOptions.Transitions;
-import com.google.devtools.build.lib.query2.cquery.CqueryTransitionResolver.EvaluateException;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
+import com.google.devtools.build.lib.query2.proto.proto2api.Build.ConfiguredRuleInput;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.QueryResult;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
 import com.google.devtools.build.lib.query2.query.output.ProtoOutputFormatter;
@@ -54,7 +55,7 @@ import com.google.protobuf.util.JsonFormat;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Comparator;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -81,7 +82,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
   }
 
   private static class ConfigurationCache {
-    private final Map<BuildConfigurationEvent, Integer> cache = new HashMap<>();
+    private final Map<BuildConfigurationValue, Integer> cache = new LinkedHashMap<>();
     private final Function<BuildConfigurationKey, BuildConfigurationValue> configurationGetter;
 
     private ConfigurationCache(
@@ -89,35 +90,65 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
       this.configurationGetter = configurationGetter;
     }
 
-    public int getId(BuildConfigurationEvent buildConfigurationEvent) {
-      return cache.computeIfAbsent(buildConfigurationEvent, event -> cache.size() + 1);
+    public int getId(BuildConfigurationValue buildConfigurationValue) {
+      return cache.computeIfAbsent(buildConfigurationValue, event -> cache.size() + 1);
     }
 
     public int getId(BuildOptions options) {
       BuildConfigurationValue configurationValue =
           configurationGetter.apply(BuildConfigurationKey.create(options));
-      BuildConfigurationEvent buildConfigurationEvent = configurationValue.toBuildEvent();
-      return getId(buildConfigurationEvent);
+      return getId(configurationValue);
     }
 
     public ImmutableList<Configuration> getConfigurations() {
       return cache.entrySet().stream()
-          .map(
-              entry -> {
-                BuildConfigurationEvent event = entry.getKey();
-                String checksum = event.getEventId().getConfiguration().getId();
-                BuildEventStreamProtos.Configuration configProto =
-                    event.asStreamProto(/* unusedConverters= */ null).getConfiguration();
-
-                return AnalysisProtosV2.Configuration.newBuilder()
-                    .setChecksum(checksum)
-                    .setMnemonic(configProto.getMnemonic())
-                    .setPlatformName(configProto.getPlatformName())
-                    .setId(entry.getValue())
-                    .setIsTool(configProto.getIsTool())
-                    .build();
-              })
+          .map(v -> createConfigurationProto(v.getKey(), v.getValue()))
           .collect(toImmutableList());
+    }
+
+    private Configuration createConfigurationProto(
+        BuildConfigurationValue configurationValue, int id) {
+      ConfigurationForOutput configurationForOutput =
+          ConfigurationForOutput.getConfigurationForOutput(configurationValue);
+      Configuration.Builder configBuilder = Configuration.newBuilder();
+
+      for (FragmentForOutput fragmentForOutput : configurationForOutput.getFragments()) {
+        AnalysisProtosV2.Fragment.Builder fragment = AnalysisProtosV2.Fragment.newBuilder();
+        fragment.setName(fragmentForOutput.getName());
+        fragmentForOutput.getFragmentOptions().forEach(fragment::addFragmentOptionNames);
+        configBuilder.addFragments(fragment);
+      }
+
+      for (FragmentOptionsForOutput fragmentOptionsForOutput :
+          configurationForOutput.getFragmentOptions()) {
+        AnalysisProtosV2.FragmentOptions.Builder fragmentOptions =
+            AnalysisProtosV2.FragmentOptions.newBuilder()
+                .setName(fragmentOptionsForOutput.getName());
+        for (Map.Entry<String, String> option : fragmentOptionsForOutput.getOptions().entrySet()) {
+          AnalysisProtosV2.Option optionProto =
+              AnalysisProtosV2.Option.newBuilder()
+                  .setName(option.getKey())
+                  .setValue(option.getValue())
+                  .build();
+          fragmentOptions.addOptions(optionProto);
+        }
+        configBuilder.addFragmentOptions(fragmentOptions.build());
+      }
+
+      String checksum = configurationValue.getEventId().getConfiguration().getId();
+      BuildEventStreamProtos.Configuration configProto =
+          configurationValue
+              .toBuildEvent()
+              .asStreamProto(/* unusedConverters= */ null)
+              .getConfiguration();
+
+      return configBuilder
+          .setChecksum(checksum)
+          .setMnemonic(configProto.getMnemonic())
+          .setPlatformName(configProto.getPlatformName())
+          .setId(id)
+          .setIsTool(configProto.getIsTool())
+          .build();
     }
   }
 
@@ -128,7 +159,6 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
   private final ConfigurationCache configurationCache =
       new ConfigurationCache(this::getConfiguration);
   private final JsonFormat.Printer jsonPrinter = JsonFormat.printer();
-  private final RuleClassProvider ruleClassProvider;
 
   private final Map<Label, Target> partialResultMap;
   private final LabelPrinter labelPrinter;
@@ -142,13 +172,11 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
       TargetAccessor<CqueryNode> accessor,
       AspectResolver resolver,
       OutputType outputType,
-      RuleClassProvider ruleClassProvider,
       LabelPrinter labelPrinter) {
     super(eventHandler, options, out, skyframeExecutor, accessor, /* uniquifyResults= */ false);
     this.outputType = outputType;
     this.skyframeExecutor = skyframeExecutor;
     this.resolver = resolver;
-    this.ruleClassProvider = ruleClassProvider;
     this.partialResultMap = Maps.newHashMap();
     this.labelPrinter = labelPrinter;
   }
@@ -183,9 +211,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
     //   4.--output=streamed_proto --noproto:include_configurations =>
     //        Writes multiple length delimited QueryResult protos, each containing a single Target.
     switch (outputType) {
-      case BINARY:
-      case TEXT:
-      case JSON:
+      case BINARY, TEXT, JSON -> {
         // Only at the end, we write the entire CqueryResult / QueryResult is written all together.
         if (options.protoIncludeConfigurations) {
           cqueryResultBuilder.addAllConfigurations(configurationCache.getConfigurations());
@@ -194,8 +220,8 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
             options.protoIncludeConfigurations
                 ? cqueryResultBuilder.build()
                 : queryResultFromCqueryResult(cqueryResultBuilder));
-        break;
-      case DELIMITED_BINARY:
+      }
+      case DELIMITED_BINARY -> {
         if (options.protoIncludeConfigurations) {
           // The wrapped CqueryResult + ConfiguredTarget are already written in
           // {@link #processOutput}, so we just need to write the Configuration(s) each wrapped in
@@ -207,7 +233,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
                     .build());
           }
         }
-        break;
+      }
     }
 
     outputStream.flush();
@@ -216,19 +242,13 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
 
   private void writeData(Message message) throws IOException {
     switch (outputType) {
-      case BINARY:
-        message.writeTo(outputStream);
-        break;
-      case DELIMITED_BINARY:
-        message.writeDelimitedTo(outputStream);
-        break;
-      case TEXT:
-        TextFormat.printer().print(message, printStream);
-        break;
-      case JSON:
+      case BINARY -> message.writeTo(outputStream);
+      case DELIMITED_BINARY -> message.writeDelimitedTo(outputStream);
+      case TEXT -> TextFormat.printer().print(message, printStream);
+      case JSON -> {
         jsonPrinter.appendTo(message, printStream);
         printStream.append('\n');
-        break;
+      }
     }
   }
 
@@ -242,21 +262,11 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
       throws InterruptedException, IOException {
     partialResult.forEach(
         kct -> partialResultMap.put(kct.getOriginalLabel(), accessor.getTarget(kct)));
-
-    CqueryTransitionResolver transitionResolver =
-        new CqueryTransitionResolver(
-            eventHandler,
-            accessor,
-            this,
-            ruleClassProvider,
-            skyframeExecutor.getSkyframeBuildView().getStarlarkTransitionCache());
-
     ConfiguredProtoOutputFormatter formatter = new ConfiguredProtoOutputFormatter();
     formatter.setOptions(options, resolver, skyframeExecutor.getDigestFunction().getHashFunction());
     for (CqueryNode keyedConfiguredTarget : partialResult) {
       AnalysisProtosV2.ConfiguredTarget.Builder builder =
           AnalysisProtosV2.ConfiguredTarget.newBuilder();
-
       // Re: testing. Since this formatter relies on the heavily tested ProtoOutputFormatter class
       // for all its work with targets, ProtoOutputFormatterCallbackTest doesn't test any of the
       // logic in this next line. If this were to change (i.e. we manipulate targets any further),
@@ -266,32 +276,27 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
       Build.Target.Builder targetBuilder =
           formatter.toTargetProtoBuffer(target, labelPrinter).toBuilder();
       if (target instanceof Rule && !Transitions.NONE.equals(options.transitions)) {
-        try {
-          for (CqueryTransitionResolver.ResolvedTransition resolvedTransition :
-              transitionResolver.dependencies(keyedConfiguredTarget)) {
-            if (resolvedTransition.options().isEmpty()) {
-              targetBuilder
-                  .getRuleBuilder()
-                  .addConfiguredRuleInput(
-                      Build.ConfiguredRuleInput.newBuilder()
-                          .setLabel(labelPrinter.toString(resolvedTransition.label())));
-            } else {
-              for (BuildOptions options : resolvedTransition.options()) {
-                int configurationId = configurationCache.getId(options);
-
-                targetBuilder
-                    .getRuleBuilder()
-                    .addConfiguredRuleInput(
-                        Build.ConfiguredRuleInput.newBuilder()
-                            .setLabel(labelPrinter.toString(resolvedTransition.label()))
-                            .setConfigurationChecksum(options.checksum())
-                            .setConfigurationId(configurationId));
-              }
-            }
+        // To set configured_rule_input dependencies, use ConfiguredTargetAccessor.getPrerequisites.
+        // Note that both that and CqueryTransitionResolver can get a target's direct deps. We use
+        // the former because it implements cquery's "canonical" view of the dependency graph, which
+        // might not match the underlying Skyframe graph. For example, without
+        // QueryEnvironment.Setting#EXPLICIT_ASPECTS, if CT //foo depends on aspect A which has
+        // implicit dep //dep, cquery outputs //dep as a direct dep of //foo. Even though this isn't
+        // technically true according to the Skyframe graph. If we used CqueryTransitionResolver,
+        // which directly queries Skyframe, it wouldn't return //dep.
+        //
+        // cquery users should always view the graph according to cquery's canonical interpretation.
+        for (CqueryNode dep : accessor.getPrerequisites(keyedConfiguredTarget)) {
+          ConfiguredRuleInput.Builder configuredRuleInput =
+              Build.ConfiguredRuleInput.newBuilder()
+                  .setLabel(labelPrinter.toString(dep.getOriginalLabel()));
+          if (dep.getConfigurationChecksum() != null) {
+            configuredRuleInput
+                .setConfigurationChecksum(dep.getConfigurationChecksum())
+                .setConfigurationId(
+                    configurationCache.getId(dep.getConfigurationKey().getOptions()));
           }
-        } catch (EvaluateException e) {
-          // This is an abuse of InterruptedException.
-          throw new InterruptedException(e.getMessage());
+          targetBuilder.getRuleBuilder().addConfiguredRuleInput(configuredRuleInput);
         }
       }
 
@@ -307,9 +312,8 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
         if (configuredTargetKey != null) {
           BuildConfigurationKey configurationKey = configuredTargetKey.getConfigurationKey();
           if (configurationKey != null) {
-            BuildConfigurationEvent buildConfigurationEvent =
-                getConfiguration(configurationKey).toBuildEvent();
-            int id = configurationCache.getId(buildConfigurationEvent);
+            BuildConfigurationValue configuration = getConfiguration(configurationKey);
+            int id = configurationCache.getId(configuration);
             builder.setConfigurationId(id);
           }
         }

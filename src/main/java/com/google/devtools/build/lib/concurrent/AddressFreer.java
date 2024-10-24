@@ -19,6 +19,7 @@ import java.lang.ref.Cleaner;
 import sun.misc.Unsafe;
 
 /** Used to cleanup memory allocated by {@link Unsafe#allocateMemory} using {@link Cleaner}. */
+@SuppressWarnings("SunApi") // TODO: b/359688989 - clean this up
 final class AddressFreer implements Runnable {
   private final long address;
 

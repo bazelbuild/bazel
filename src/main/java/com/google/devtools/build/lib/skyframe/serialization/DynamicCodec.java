@@ -20,7 +20,7 @@ import static com.google.devtools.build.lib.skyframe.serialization.CodecHelpers.
 import static com.google.devtools.build.lib.unsafe.UnsafeProvider.unsafe;
 
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.skyframe.serialization.FlatDeserializationContext.FieldSetter;
+import com.google.devtools.build.lib.skyframe.serialization.AsyncDeserializationContext.FieldSetter;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -29,8 +29,12 @@ import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 /** A codec that serializes arbitrary types. */
+@SuppressWarnings("SunApi") // TODO: b/331765692 - clean this up
 public final class DynamicCodec extends AsyncObjectCodec<Object> {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
@@ -39,8 +43,30 @@ public final class DynamicCodec extends AsyncObjectCodec<Object> {
   private final FieldHandler[] handlers;
 
   public DynamicCodec(Class<?> type) {
+    this(type, getFieldHandlers(type));
+  }
+
+  @SuppressWarnings("AvoidObjectArrays") // less overhead
+  private DynamicCodec(Class<?> type, FieldHandler[] handlers) {
     this.type = type;
-    this.handlers = getFieldHandlers(type);
+    this.handlers = handlers;
+  }
+
+  /** Creates a codec instance with custom handlers for specified fields. */
+  public static DynamicCodec createWithOverrides(
+      Class<?> type, Map<Field, FieldHandler> overrides) {
+    LinkedHashMap<Field, FieldHandler> handlers = getFieldHandlerMap(type);
+    for (Map.Entry<Field, FieldHandler> override : overrides.entrySet()) {
+      FieldHandler previous = handlers.put(override.getKey(), override.getValue());
+      if (previous == null) {
+        throw new IllegalArgumentException(
+            String.format(
+                "An override was specified for %s but no such field was present in the default"
+                    + " dynamic codec for %s.",
+                override.getKey(), type));
+      }
+    }
+    return new DynamicCodec(type, handlers.values().toArray(FieldHandler[]::new));
   }
 
   @Override
@@ -91,12 +117,27 @@ public final class DynamicCodec extends AsyncObjectCodec<Object> {
   }
 
   /** Handles serialization of a field. */
-  private interface FieldHandler {
+  public interface FieldHandler {
     void serialize(SerializationContext context, CodedOutputStream codedOut, Object obj)
         throws SerializationException, IOException;
 
     void deserialize(AsyncDeserializationContext context, CodedInputStream codedIn, Object obj)
         throws SerializationException, IOException;
+  }
+
+  /**
+   * Computes the default {@link FieldHandler}s that would be used for the given type.
+   *
+   * <p>The entries are ordered by {@link FieldComparator} for determinism. The returned value is a
+   * fresh copy that the caller may freely modify.
+   */
+  @SuppressWarnings("NonApiType") // type communicates fixed ordering
+  public static <T> LinkedHashMap<Field, FieldHandler> getFieldHandlerMap(Class<T> type) {
+    LinkedHashMap<Field, FieldHandler> handlers = new LinkedHashMap<>();
+    for (Field field : getSerializableFields(type)) {
+      handlers.put(field, getHandlerForField(field));
+    }
+    return handlers;
   }
 
   private static final class BooleanHandler implements FieldHandler {
@@ -326,13 +367,22 @@ public final class DynamicCodec extends AsyncObjectCodec<Object> {
     public void deserialize(
         AsyncDeserializationContext context, CodedInputStream codedIn, Object obj)
         throws IOException, SerializationException {
-      arrayProcessor.deserialize(context, codedIn, type, obj, offset);
+      unsafe().putObject(obj, offset, arrayProcessor.deserialize(context, codedIn, type));
     }
   }
 
   private static <T> FieldHandler[] getFieldHandlers(Class<T> type) {
-    // NB: it's tempting to try to simplify this by ordering by offset, but it looks like offsets
-    // are not guaranteed to be stable, which is needed for deterministic serialization.
+    List<Field> fields = getSerializableFields(type);
+
+    FieldHandler[] handlers = new FieldHandler[fields.size()];
+    int i = 0;
+    for (Field field : fields) {
+      handlers[i++] = getHandlerForField(field);
+    }
+    return handlers;
+  }
+
+  private static <T> List<Field> getSerializableFields(Class<T> type) {
     ArrayList<Field> fields = new ArrayList<>();
     for (Class<? super T> next = type; next != null; next = next.getSuperclass()) {
       for (Field field : next.getDeclaredFields()) {
@@ -342,42 +392,40 @@ public final class DynamicCodec extends AsyncObjectCodec<Object> {
         fields.add(field);
       }
     }
+    // NB: it's tempting to try to simplify this by ordering by offset, but it looks like offsets
+    // are not guaranteed to be stable, which is needed for deterministic serialization.
     Collections.sort(fields, new FieldComparator());
-    FieldHandler[] handlers = new FieldHandler[fields.size()];
-    int i = 0;
-    for (Field field : fields) {
-      long offset = unsafe().objectFieldOffset(field);
-      Class<?> fieldType = field.getType();
-      FieldHandler handler;
-      if (fieldType.isPrimitive()) {
-        if (fieldType.equals(boolean.class)) {
-          handler = new BooleanHandler(offset);
-        } else if (fieldType.equals(byte.class)) {
-          handler = new ByteHandler(offset);
-        } else if (fieldType.equals(short.class)) {
-          handler = new ShortHandler(offset);
-        } else if (fieldType.equals(char.class)) {
-          handler = new CharHandler(offset);
-        } else if (fieldType.equals(int.class)) {
-          handler = new IntHandler(offset);
-        } else if (fieldType.equals(long.class)) {
-          handler = new LongHandler(offset);
-        } else if (fieldType.equals(float.class)) {
-          handler = new FloatHandler(offset);
-        } else if (fieldType.equals(double.class)) {
-          handler = new DoubleHandler(offset);
-        } else {
-          throw new UnsupportedOperationException(
-              "Unexpected primitive field type " + fieldType + " for " + type);
-        }
-      } else if (fieldType.isArray()) {
-        handler = new ArrayHandler(fieldType, offset);
+    return fields;
+  }
+
+  private static FieldHandler getHandlerForField(Field field) {
+    long offset = unsafe().objectFieldOffset(field);
+    Class<?> fieldType = field.getType();
+    if (fieldType.isPrimitive()) {
+      if (fieldType.equals(boolean.class)) {
+        return new BooleanHandler(offset);
+      } else if (fieldType.equals(byte.class)) {
+        return new ByteHandler(offset);
+      } else if (fieldType.equals(short.class)) {
+        return new ShortHandler(offset);
+      } else if (fieldType.equals(char.class)) {
+        return new CharHandler(offset);
+      } else if (fieldType.equals(int.class)) {
+        return new IntHandler(offset);
+      } else if (fieldType.equals(long.class)) {
+        return new LongHandler(offset);
+      } else if (fieldType.equals(float.class)) {
+        return new FloatHandler(offset);
+      } else if (fieldType.equals(double.class)) {
+        return new DoubleHandler(offset);
       } else {
-        handler = new ObjectHandler(fieldType, offset);
+        throw new UnsupportedOperationException(
+            "Unexpected primitive field type " + fieldType + " for " + field.getDeclaringClass());
       }
-      handlers[i++] = handler;
+    } else if (fieldType.isArray()) {
+      return new ArrayHandler(fieldType, offset);
     }
-    return handlers;
+    return new ObjectHandler(fieldType, offset);
   }
 
   private static final class FieldComparator implements Comparator<Field> {

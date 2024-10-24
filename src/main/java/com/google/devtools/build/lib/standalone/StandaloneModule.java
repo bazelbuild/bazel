@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.rules.test.ExclusiveTestStrategy;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
+import com.google.devtools.build.lib.runtime.TestSummaryOptions;
 import com.google.devtools.build.lib.vfs.Path;
 
 /**
@@ -56,11 +57,13 @@ public class StandaloneModule extends BlazeModule {
     registryBuilder.register(CppIncludeScanningContext.class, new DummyCppIncludeScanningContext());
 
     ExecutionOptions executionOptions = env.getOptions().getOptions(ExecutionOptions.class);
+    TestSummaryOptions testSummaryOptions = env.getOptions().getOptions(TestSummaryOptions.class);
     Path testTmpRoot =
         TestStrategy.getTmpRoot(env.getWorkspace(), env.getExecRoot(), executionOptions);
     TestActionContext testStrategy =
         new StandaloneTestStrategy(
             executionOptions,
+            testSummaryOptions,
             env.getBlazeWorkspace().getBinTools(),
             testTmpRoot);
     registryBuilder.register(TestActionContext.class, testStrategy, "standalone");

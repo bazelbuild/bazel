@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.BatchCallback;
 import com.google.devtools.build.lib.cmdline.BatchCallback.NullCallback;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.QueryExceptionMarkerInterface;
@@ -102,13 +103,10 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
     // since it has to iterate over those exclusions to see if they fully exclude the directory even
     // though TargetPatternKey guarantees that the exclusions will not fully exclude the directory.
     ImmutableSet<PathFragment> excludedPatterns = patternKey.getExcludedSubdirectories();
-    ImmutableSet<PathFragment> ignoredPatterns = repositoryIgnoredPrefixes.getPatterns();
-    ImmutableSet<PathFragment> repositoryIgnoredPatterns =
-        ImmutableSet.<PathFragment>builderWithExpectedSize(
-                excludedPatterns.size() + ignoredPatterns.size())
-            .addAll(excludedPatterns)
-            .addAll(ignoredPatterns)
-            .build();
+    IgnoredSubdirectories repositoryIgnoredPatterns =
+        repositoryIgnoredPrefixes
+            .asIgnoredSubdirectories()
+            .union(IgnoredSubdirectories.of(excludedPatterns));
 
     DepsOfPatternPreparer preparer = new DepsOfPatternPreparer(env, pkgPath.get());
 
@@ -302,7 +300,7 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
         String originalPattern,
         String directory,
         boolean rulesOnly,
-        ImmutableSet<PathFragment> repositoryIgnoredSubdirectories,
+        IgnoredSubdirectories repositoryIgnoredSubdirectories,
         ImmutableSet<PathFragment> excludedSubdirectories,
         BatchCallback<Void, E> callback,
         Class<E> exceptionClass)
@@ -342,7 +340,7 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
 
     private ImmutableList<SkyKey> getDeps(
         RepositoryName repository,
-        ImmutableSet<PathFragment> repositoryIgnoredSubdirectories,
+        IgnoredSubdirectories repositoryIgnoredSubdirectories,
         FilteringPolicy policy,
         RootedPath rootedPath) {
       List<SkyKey> keys = new ArrayList<>();

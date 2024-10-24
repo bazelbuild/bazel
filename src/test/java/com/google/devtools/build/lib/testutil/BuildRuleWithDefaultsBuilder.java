@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.packages.Type.ListType;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
@@ -225,7 +226,7 @@ public class BuildRuleWithDefaultsBuilder extends BuildRuleBuilder {
             populateBooleanAttribute(attribute);
           } else if (attribute.getType() == Type.INTEGER) {
             populateIntegerAttribute(attribute);
-          } else if (attribute.getType() == Type.STRING_LIST) {
+          } else if (attribute.getType() == Types.STRING_LIST) {
             populateStringListAttribute(attribute);
           }
         }

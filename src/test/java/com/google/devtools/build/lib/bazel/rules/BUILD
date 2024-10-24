@@ -1,4 +1,4 @@
-load("@rules_java//java:defs.bzl", "java_test")
+load("@rules_java//java:defs.bzl", "java_library", "java_test")
 
 package(
     default_applicable_licenses = ["//:license"],
@@ -10,7 +10,6 @@ filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["*"]) + [
-        "//src/test/java/com/google/devtools/build/lib/bazel/rules/android:srcs",
         "//src/test/java/com/google/devtools/build/lib/bazel/rules/genrule:srcs",
         "//src/test/java/com/google/devtools/build/lib/bazel/rules/java:srcs",
         "//src/test/java/com/google/devtools/build/lib/bazel/rules/python:srcs",

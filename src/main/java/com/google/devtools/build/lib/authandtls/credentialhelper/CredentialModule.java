@@ -17,24 +17,20 @@ package com.google.devtools.build.lib.authandtls.credentialhelper;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.common.options.OptionsBase;
 import java.net.URI;
-import java.time.Duration;
 
 /** A module whose sole purpose is to hold the credential cache which is shared by other modules. */
 public class CredentialModule extends BlazeModule {
-  private final Cache<URI, ImmutableMap<String, ImmutableList<String>>> credentialCache =
-      Caffeine.newBuilder()
-          .expireAfterWrite(Duration.ZERO)
-          .ticker(SystemMillisTicker.INSTANCE)
-          .build();
+  private final CredentialCacheExpiry cacheExpiry = new CredentialCacheExpiry();
+  private final Cache<URI, GetCredentialsResponse> credentialCache =
+      Caffeine.newBuilder().ticker(SystemMillisTicker.INSTANCE).expireAfter(cacheExpiry).build();
 
   /** Returns the credential cache. */
-  public Cache<URI, ImmutableMap<String, ImmutableList<String>>> getCredentialCache() {
+  public Cache<URI, GetCredentialsResponse> getCredentialCache() {
     return credentialCache;
   }
 
@@ -47,11 +43,7 @@ public class CredentialModule extends BlazeModule {
   public void beforeCommand(CommandEnvironment env) {
     // Update the cache expiration policy according to the command options.
     AuthAndTLSOptions authAndTlsOptions = env.getOptions().getOptions(AuthAndTLSOptions.class);
-    credentialCache
-        .policy()
-        .expireAfterWrite()
-        .get()
-        .setExpiresAfter(authAndTlsOptions.credentialHelperCacheTimeout);
+    cacheExpiry.setDefaultCacheDuration(authAndTlsOptions.credentialHelperCacheTimeout);
 
     // Clear the cache on clean.
     if (env.getCommand().name().equals("clean")) {

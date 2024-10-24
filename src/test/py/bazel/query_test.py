@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+import tempfile
 from absl.testing import absltest
 from src.test.py.bazel import test_base
 
@@ -39,13 +41,15 @@ class QueryTest(test_base.TestBase):
                             '//foo:dep-rule')
 
   def testQueryFilesUsedByRepositoryRules(self):
+    self.DisableBzlmod()
     self.ScratchFile('MODULE.bazel')
     self._AssertQueryOutputContains(
         "kind('source file', deps(//external:*))",
-        '@bazel_tools//tools/genrule:genrule-setup.sh',
+        '@bazel_tools//tools/build_defs/build_info/templates:volatile_file.h.template',
     )
 
   def testBuildFilesForExternalRepos_Simple(self):
+    self.DisableBzlmod()
     self.ScratchFile('MODULE.bazel')
     self.ScratchFile('WORKSPACE', [
         'load("//:deps.bzl", "repos")',
@@ -65,6 +69,7 @@ class QueryTest(test_base.TestBase):
                                     '//:BUILD.bazel')
 
   def testBuildFilesForExternalRepos_IndirectLoads(self):
+    self.DisableBzlmod()
     self.ScratchFile('MODULE.bazel')
     self.ScratchFile('WORKSPACE', [
         'load("//:deps.bzl", "repos")',
@@ -96,6 +101,7 @@ class QueryTest(test_base.TestBase):
         '//:deps.bzl', '//:private_deps.bzl', '//:BUILD.bazel')
 
   def testBuildFilesForExternalRepos_NoDuplicates(self):
+    self.DisableBzlmod()
     self.ScratchFile('MODULE.bazel')
     self.ScratchFile('WORKSPACE', [
         'load("//:deps.bzl", "repos")',
@@ -128,6 +134,20 @@ class QueryTest(test_base.TestBase):
         continue
       self.assertNotIn(item, result)
       result.add(item)
+
+  def testQueryWithDifferentOutputBaseAfterBuilding(self):
+    output_base = tempfile.mkdtemp(dir=os.getenv('TEST_TMPDIR'))
+
+    self.ScratchFile('MODULE.bazel')
+    self.ScratchFile(
+        'BUILD',
+        [
+            'py_binary(name="a", srcs=["a.py"])',
+        ],
+    )
+    self.ScratchFile('a.py')
+    self.RunBazel(['build', '//...'])
+    self.RunBazel([f'--output_base={output_base}', 'query', '//...'])
 
   def _AssertQueryOutput(self, query_expr, *expected_results):
     _, stdout, _ = self.RunBazel(['query', query_expr])

@@ -65,8 +65,6 @@ msys*|mingw*|cygwin*)
 esac
 
 if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
   declare -r EXE_EXT=".exe"
 else
   declare -r EXE_EXT=""
@@ -99,10 +97,8 @@ function test_credential_helper_remote_cache() {
 
   bazel build \
       --remote_cache=grpc://localhost:${worker_port} \
-      //a:a >& $TEST_log || fail "Build without credentials should have succeeded"
+      //a:a >& $TEST_log && fail "Build without credentials should have failed"
   expect_log "Failed to query remote execution capabilities"
-
-  bazel clean
 
   # Helper shouldn't have been called yet.
   expect_credential_helper_calls 0
@@ -176,6 +172,44 @@ function test_credential_helper_clear_cache() {
 
   # Build after clean should have called helper again.
   expect_credential_helper_calls 10
+}
+
+function test_remote_grpc_cache_with_legacy_api() {
+  stop_worker
+  start_worker --legacy_api
+
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = 'foo',
+  outs = ["foo.txt"],
+  cmd = "touch \$@",
+)
+EOF
+
+  bazel build \
+      --remote_cache=grpc://localhost:${worker_port} \
+      //a:foo \
+      || fail "Failed to build //a:foo with legacy api Remote Cache"
+}
+
+function test_remote_executor_with_legacy_api() {
+  stop_worker
+  start_worker --legacy_api
+
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = 'foo',
+  outs = ["foo.txt"],
+  cmd = "touch \$@",
+)
+EOF
+
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      //a:foo \
+      || fail "Failed to build //a:foo with legacy api Remote Executor"
 }
 
 function test_remote_grpc_cache_with_protocol() {
@@ -273,13 +307,6 @@ EOF
 }
 
 function test_cc_binary() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
-    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
-    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
-    # action executors in order to select the appropriate Xcode toolchain.
-    return 0
-  fi
-
   mkdir -p a
   cat > a/BUILD <<EOF
 package(default_visibility = ["//visibility:public"])
@@ -301,19 +328,12 @@ EOF
       --remote_executor=grpc://localhost:${worker_port} \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote execution"
-  expect_log "7 processes: 5 internal, 2 remote"
+  expect_log "[0-9] processes: [0-9] internal, 2 remote\\."
   diff bazel-bin/a/test ${TEST_TMPDIR}/test_expected \
       || fail "Remote execution generated different result"
 }
 
 function test_cc_test() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
-    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
-    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
-    # action executors in order to select the appropriate Xcode toolchain.
-    return 0
-  fi
-
   mkdir -p a
   cat > a/BUILD <<EOF
 package(default_visibility = ["//visibility:public"])
@@ -336,13 +356,6 @@ EOF
 }
 
 function test_cc_test_split_xml() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
-    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
-    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
-    # action executors in order to select the appropriate Xcode toolchain.
-    return 0
-  fi
-
   mkdir -p a
   cat > a/BUILD <<EOF
 package(default_visibility = ["//visibility:public"])
@@ -1208,9 +1221,6 @@ EOF
 
 function test_nobuild_runfile_links() {
   mkdir data && echo "hello" > data/hello && echo "world" > data/world
-    cat > WORKSPACE <<EOF
-workspace(name = "foo")
-EOF
 
   cat > test.sh <<'EOF'
 #!/bin/bash
@@ -1290,7 +1300,7 @@ EOF
 
   # The same value of --remote_default_platform_properties should NOT invalidate SkyFrames on-disk cache
   #  and the action should not be re-run.
-  expect_log "1 process: 1 internal"
+  expect_log "1 process: .*1 internal"
 
   bazel build \
     --remote_executor=grpc://localhost:${worker_port} \
@@ -1340,7 +1350,7 @@ EOF
 
   # Changing --remote_default_platform_properties value does not invalidate SkyFrames
   # given its is superseded by the platform exec_properties.
-  expect_log "1 process: 1 internal."
+  expect_log "1 process: .*1 internal."
 }
 
 function test_platform_default_properties_invalidation_with_platform_remote_execution_properties() {
@@ -1835,8 +1845,8 @@ foo_configure = repository_rule(
 )
 EOF
 
-  cat > WORKSPACE <<'EOF'
-load("//:test.bzl", "foo_configure")
+  cat > MODULE.bazel <<'EOF'
+foo_configure = use_repo_rule("//:test.bzl", "foo_configure")
 
 foo_configure(
   name = "default_foo",
@@ -1873,8 +1883,8 @@ foo_configure = repository_rule(
 )
 EOF
 
-  cat > WORKSPACE <<'EOF'
-load("//:test.bzl", "foo_configure")
+  cat > MODULE.bazel <<'EOF'
+foo_configure = use_repo_rule("//:test.bzl", "foo_configure")
 
 foo_configure(
   name = "default_foo",
@@ -1906,8 +1916,8 @@ foo_configure = repository_rule(
 )
 EOF
 
-  cat > WORKSPACE <<'EOF'
-load("//:test.bzl", "foo_configure")
+  cat > MODULE.bazel <<'EOF'
+foo_configure = use_repo_rule("//:test.bzl", "foo_configure")
 
 foo_configure(
   name = "default_foo",
@@ -1964,8 +1974,9 @@ local_foo_configure = repository_rule(
 )
 EOF
 
-  cat > WORKSPACE <<'EOF'
-load("//:test.bzl", "remote_foo_configure", "local_foo_configure")
+  cat > MODULE.bazel <<'EOF'
+local_foo_configure = use_repo_rule("//:test.bzl", "local_foo_configure")
+remote_foo_configure = use_repo_rule("//:test.bzl", "remote_foo_configure")
 
 remote_foo_configure(
   name = "remote_foo",
@@ -2002,7 +2013,6 @@ EOF
 
 function test_remote_cache_intermediate_outputs() {
   # test that remote cache is hit when intermediate output is not executable
-  touch WORKSPACE
   cat > BUILD <<'EOF'
 genrule(
   name = "dep",
@@ -2196,7 +2206,6 @@ end_of_record"
 }
 
 function generate_empty_tree_artifact_as_inputs() {
-  touch WORKSPACE
   mkdir -p pkg
 
   cat > pkg/def.bzl <<'EOF'
@@ -2274,7 +2283,6 @@ function test_empty_tree_artifact_as_inputs_remote_cache() {
 }
 
 function generate_tree_artifact_output() {
-  touch WORKSPACE
   mkdir -p pkg
 
   cat > pkg/def.bzl <<'EOF'
@@ -2401,13 +2409,6 @@ EOF
 # Older versions of gcov are not supported with bazel coverage and so will be skipped.
 # See the above `test_java_rbe_coverage_produces_report` for more information.
 function test_cc_rbe_coverage_produces_report() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
-    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
-    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
-    # action executors in order to select the appropriate Xcode toolchain.
-    return 0
-  fi
-
   # Check to see if intermediate files are supported, otherwise skip.
   gcov --help | grep "\-i," || return 0
 
@@ -2525,13 +2526,6 @@ EOF
 # returned non-empty.
 # See the above `test_java_rbe_coverage_produces_report` for more information.
 function test_cc_rbe_coverage_produces_report_with_llvm() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
-    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
-    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
-    # action executors in order to select the appropriate Xcode toolchain.
-    return 0
-  fi
-
   local -r clang=$(which clang)
   if [[ ! -x "${clang}" ]]; then
     echo "clang not installed. Skipping"
@@ -2802,22 +2796,11 @@ EOF
 # non-Windows systems, file paths) are UTF-8, but stores them internally by
 # parsing the raw UTF-8 bytes as if they were ISO-8859-1 characters.
 #
-# This test verifies that the inverse transformation is applied when sending
+# These tests verify that the inverse transformation is applied when sending
 # these inputs through the remote execution protocol. The Protobuf libraries
 # for Java assume that `String` values are encoded in UTF-16, and passing
 # raw bytes will cause double-encoding.
-function test_unicode() {
-  # The in-tree remote execution worker only supports non-ASCII paths when
-  # running in a UTF-8 locale.
-  if ! "$is_windows"; then
-    if ! has_utf8_locale; then
-      echo "Skipping test due to lack of UTF-8 locale."
-      echo "Available locales:"
-      locale -a
-      return
-    fi
-  fi
-
+function setup_unicode() {
   # Restart the remote execution worker with LC_ALL set.
   tear_down
   LC_ALL=en_US.UTF-8 set_up
@@ -2826,31 +2809,47 @@ function test_unicode() {
   # consistent behavior on Windows where file paths are Unicode but Starlark
   # strings are UTF-8.
   cat > BUILD <<EOF
-load("//:rules.bzl", "test_unicode")
+load("//:rules.bzl", "test_unicode", "test_symlink")
 test_unicode(
   name = "test_unicode",
   inputs = glob(["inputs/**/A_*"]) + [
     "inputs/入力/B_🌱.txt",
+    ":test_symlink",
   ],
+)
+
+test_symlink(
+  name = "test_symlink",
 )
 EOF
 
   cat > rules.bzl <<'EOF'
+def _test_symlink(ctx):
+  out = ctx.actions.declare_symlink("inputs/入力/GEN_🌱.symlink")
+  ctx.actions.symlink(output = out, target_path = "入力/B_🌱.txt")
+  return [DefaultInfo(files = depset([out]))]
+
+test_symlink = rule(
+  implementation = _test_symlink,
+)
+
 def _test_unicode(ctx):
   out_dir = ctx.actions.declare_directory(ctx.attr.name + "_outs/出力/🌱.d")
   out_file = ctx.actions.declare_file(ctx.attr.name + "_outs/出力/🌱.txt")
+  out_symlink = ctx.actions.declare_symlink(ctx.attr.name + "_outs/出力/🌱.symlink")
   out_report = ctx.actions.declare_file(ctx.attr.name + "_report.txt")
+  in_symlink = [f for f in ctx.files.inputs if not f.is_source][0]
   ctx.actions.run_shell(
     inputs = ctx.files.inputs,
-    outputs = [out_dir, out_file, out_report],
+    outputs = [out_dir, out_file, out_symlink, out_report],
     command = """
 set -eu
 
-report="$3"
+report="$4"
 touch "${report}"
 
 echo '[input tree]' >> "${report}"
-find inputs | sort >> "${report}"
+find -L inputs | sort >> "${report}"
 echo '' >> "${report}"
 
 echo '[input file A]' >> "${report}"
@@ -2861,6 +2860,10 @@ echo '[input file B]' >> "${report}"
 cat $'inputs/\\xe5\\x85\\xa5\\xe5\\x8a\\x9b/B_\\xf0\\x9f\\x8c\\xb1.txt' >> "${report}"
 echo '' >> "${report}"
 
+echo '[input symlink]' >> "${report}"
+readlink "$5" >> "${report}"
+echo '' >> "${report}"
+
 echo '[environment]' >> "${report}"
 env | grep -v BASH_EXECUTION_STRING | grep TEST_UNICODE_ >> "${report}"
 echo '' >> "${report}"
@@ -2868,11 +2871,12 @@ echo '' >> "${report}"
 mkdir -p "$1"
 echo 'output dir content' > "$1"/dir_content.txt
 echo 'output file content' > "$2"
+ln -s $(basename $(dirname "$2"))/$(basename "$2") "$3"
 """,
-    arguments = [out_dir.path, out_file.path, out_report.path],
+    arguments = [out_dir.path, out_file.path, out_symlink.path, out_report.path, in_symlink.path],
     env = {"TEST_UNICODE_🌱": "🌱"},
   )
-  return DefaultInfo(files=depset([out_dir, out_file, out_report]))
+  return DefaultInfo(files=depset([out_dir, out_file, out_symlink, out_report]))
 
 test_unicode = rule(
   implementation = _test_unicode,
@@ -2886,23 +2890,9 @@ EOF
   mkdir -p $'inputs/\xe5\x85\xa5\xe5\x8a\x9b'
   echo 'input content A' > $'inputs/\xe5\x85\xa5\xe5\x8a\x9b/A_\xf0\x9f\x8c\xb1.txt'
   echo 'input content B' > $'inputs/\xe5\x85\xa5\xe5\x8a\x9b/B_\xf0\x9f\x8c\xb1.txt'
+}
 
-  # On UNIX platforms, Bazel assumes that file paths are encoded in UTF-8. The
-  # system must have either an ISO-8859-1 or UTF-8 locale available so that
-  # Bazel can read the original bytes of the file path.
-  #
-  # If no ISO-8859-1 locale is available, the JVM might fall back to US-ASCII
-  # rather than trying UTF-8. Setting `LC_ALL=en_US.UTF-8` prevents this.
-  bazel shutdown
-  LC_ALL=en_US.UTF-8 bazel build \
-      --remote_executor=grpc://localhost:${worker_port} \
-      //:test_unicode >& $TEST_log \
-      || fail "Failed to build //:test_unicode with remote execution"
-  expect_log "2 processes: 1 internal, 1 remote."
-
-  # Don't leak LC_ALL into other tests.
-  bazel shutdown
-
+function verify_unicode() {
   # Expect action outputs with correct structure and content.
   mkdir -p ${TEST_TMPDIR}/$'test_unicode_outs/\xe5\x87\xba\xe5\x8a\x9b/\xf0\x9f\x8c\xb1.d'
   cat > ${TEST_TMPDIR}/$'test_unicode_outs/\xe5\x87\xba\xe5\x8a\x9b/\xf0\x9f\x8c\xb1.d/dir_content.txt' <<EOF
@@ -2911,9 +2901,11 @@ EOF
   cat > ${TEST_TMPDIR}/$'test_unicode_outs/\xe5\x87\xba\xe5\x8a\x9b/\xf0\x9f\x8c\xb1.txt' <<EOF
 output file content
 EOF
+  ln -f -s $'\xe5\x87\xba\xe5\x8a\x9b/\xf0\x9f\x8c\xb1.txt' \
+      ${TEST_TMPDIR}/$'test_unicode_outs/\xe5\x87\xba\xe5\x8a\x9b/\xf0\x9f\x8c\xb1.symlink'
 
-  diff -r bazel-bin/test_unicode_outs ${TEST_TMPDIR}/test_unicode_outs \
-      || fail "Remote execution generated different result"
+  diff -r --no-dereference bazel-bin/test_unicode_outs ${TEST_TMPDIR}/test_unicode_outs \
+      || fail "Unexpected outputs"
 
   cat > ${TEST_TMPDIR}/test_report_expected <<EOF
 [input tree]
@@ -2928,16 +2920,102 @@ input content A
 [input file B]
 input content B
 
+[input symlink]
+入力/B_🌱.txt
+
 [environment]
 TEST_UNICODE_🌱=🌱
 
 EOF
   diff bazel-bin/test_unicode_report.txt ${TEST_TMPDIR}/test_report_expected \
-      || fail "Remote execution generated different result"
+      || fail "Unexpected report"
+}
+
+function test_unicode_execution() {
+  # The in-tree remote execution worker only supports non-ASCII paths when
+  # running in a UTF-8 locale.
+  if ! "$is_windows"; then
+    if ! has_utf8_locale; then
+      echo "Skipping test due to lack of UTF-8 locale."
+      echo "Available locales:"
+      locale -a
+      return
+    fi
+  fi
+
+  setup_unicode
+
+  # On UNIX platforms, Bazel assumes that file paths are encoded in UTF-8. The
+  # system must have either an ISO-8859-1 or UTF-8 locale available so that
+  # Bazel can read the original bytes of the file path.
+  #
+  # If no ISO-8859-1 locale is available, the JVM might fall back to US-ASCII
+  # rather than trying UTF-8. Setting `LC_ALL=en_US.UTF-8` prevents this.
+  bazel shutdown
+  LC_ALL=en_US.UTF-8 bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      //:test_unicode >& $TEST_log \
+      || fail "Failed to build //:test_unicode with remote execution"
+  expect_log "3 processes: 2 internal, 1 remote."
+
+  # Don't leak LC_ALL into other tests.
+  bazel shutdown
+
+  verify_unicode
+}
+
+function test_unicode_cache() {
+  # The in-tree remote execution worker only supports non-ASCII paths when
+  # running in a UTF-8 locale.
+  if ! "$is_windows"; then
+    if ! has_utf8_locale; then
+      echo "Skipping test due to lack of UTF-8 locale."
+      echo "Available locales:"
+      locale -a
+      return
+    fi
+  fi
+
+  setup_unicode
+
+  # On UNIX platforms, Bazel assumes that file paths are encoded in UTF-8. The
+  # system must have either an ISO-8859-1 or UTF-8 locale available so that
+  # Bazel can read the original bytes of the file path.
+  #
+  # If no ISO-8859-1 locale is available, the JVM might fall back to US-ASCII
+  # rather than trying UTF-8. Setting `LC_ALL=en_US.UTF-8` prevents this.
+  bazel shutdown
+
+  # Populate the cache.
+  LC_ALL=en_US.UTF-8 bazel build \
+      --remote_cache=grpc://localhost:${worker_port} \
+      //:test_unicode >& $TEST_log \
+      || fail "Failed to build //:test_unicode to populate the cache"
+  expect_not_log "WARNING: Remote cache:"
+
+  # Don't leak LC_ALL into other tests.
+  bazel shutdown
+
+  verify_unicode
+
+  # Use the cache.
+  LC_ALL=en_US.UTF-8 bazel clean
+  LC_ALL=en_US.UTF-8 bazel build \
+      --remote_cache=grpc://localhost:${worker_port} \
+      //:test_unicode >& $TEST_log \
+      || fail "Failed to build //:test_unicode with remote cache"
+  expect_not_log "WARNING: Remote cache:"
+  expect_log "3 processes: 1 remote cache hit, 2 internal."
+
+  # Don't leak LC_ALL into other tests.
+  bazel shutdown
+
+  verify_unicode
 }
 
 function setup_external_cc_test() {
-  cat >> WORKSPACE <<'EOF'
+  cat >> MODULE.bazel <<'EOF'
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
   name = "other_repo",
   path = "other_repo",
@@ -2945,7 +3023,7 @@ local_repository(
 EOF
 
   mkdir -p other_repo
-  touch other_repo/WORKSPACE
+  touch other_repo/REPO.bazel
 
   mkdir -p other_repo/lib
   cat > other_repo/lib/BUILD <<'EOF'
@@ -2983,13 +3061,6 @@ EOF
 }
 
 function test_external_cc_test() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
-    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
-    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
-    # action executors in order to select the appropriate Xcode toolchain.
-    return 0
-  fi
-
   setup_external_cc_test
 
   bazel test \
@@ -2999,13 +3070,6 @@ function test_external_cc_test() {
 }
 
 function test_external_cc_test_sibling_repository_layout() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
-    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
-    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
-    # action executors in order to select the appropriate Xcode toolchain.
-    return 0
-  fi
-
   setup_external_cc_test
 
   bazel test \
@@ -3113,7 +3177,9 @@ function test_unresolved_symlink_spawn_absolute() {
 function setup_cc_binary_tool_with_dynamic_deps() {
   local repo=$1
 
-  cat >> WORKSPACE <<'EOF'
+  cat >> MODULE.bazel <<'EOF'
+bazel_dep(name = "apple_support", version = "1.17.0")
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
   name = "other_repo",
   path = "other_repo",
@@ -3121,7 +3187,7 @@ local_repository(
 EOF
 
   mkdir -p $repo
-  touch $repo/WORKSPACE
+  touch $repo/REPO.bazel
 
   mkdir -p $repo/lib
   # Use a comma in the target name as that is known to be problematic whith -Wl,
@@ -3175,62 +3241,38 @@ EOF
 }
 
 function test_cc_binary_tool_with_dynamic_deps() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
-    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
-    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
-    # action executors in order to select the appropriate Xcode toolchain.
-    return 0
-  fi
-
   setup_cc_binary_tool_with_dynamic_deps .
 
   bazel build \
+      --incompatible_macos_set_install_name \
       --remote_executor=grpc://localhost:${worker_port} \
       //pkg:rule >& $TEST_log || fail "Build should succeed"
 }
 
 function test_cc_binary_tool_with_dynamic_deps_sibling_repository_layout() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
-    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
-    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
-    # action executors in order to select the appropriate Xcode toolchain.
-    return 0
-  fi
-
   setup_cc_binary_tool_with_dynamic_deps .
 
   bazel build \
+      --incompatible_macos_set_install_name \
       --experimental_sibling_repository_layout \
       --remote_executor=grpc://localhost:${worker_port} \
       //pkg:rule >& $TEST_log || fail "Build should succeed"
 }
 
 function test_external_cc_binary_tool_with_dynamic_deps() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
-    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
-    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
-    # action executors in order to select the appropriate Xcode toolchain.
-    return 0
-  fi
-
   setup_cc_binary_tool_with_dynamic_deps other_repo
 
   bazel build \
+      --incompatible_macos_set_install_name \
       --remote_executor=grpc://localhost:${worker_port} \
       @other_repo//pkg:rule >& $TEST_log || fail "Build should succeed"
 }
 
 function test_external_cc_binary_tool_with_dynamic_deps_sibling_repository_layout() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
-    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
-    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
-    # action executors in order to select the appropriate Xcode toolchain.
-    return 0
-  fi
-
   setup_cc_binary_tool_with_dynamic_deps other_repo
 
   bazel build \
+      --incompatible_macos_set_install_name \
       --experimental_sibling_repository_layout \
       --remote_executor=grpc://localhost:${worker_port} \
       @other_repo//pkg:rule >& $TEST_log || fail "Build should succeed"
@@ -3260,6 +3302,29 @@ EOF
       --incompatible_check_sharding_support \
       --remote_download_minimal \
       //:x  &> $TEST_log || fail "expected success"
+}
+
+function test_premature_exit_file_checked_remote_download_minimal() {
+  cat <<'EOF' > BUILD
+sh_test(
+    name = 'x',
+    srcs = ['x.sh'],
+)
+EOF
+  cat <<'EOF' > x.sh
+#!/bin/sh
+touch "$TEST_PREMATURE_EXIT_FILE"
+echo "fake pass"
+exit 0
+EOF
+  chmod +x x.sh
+
+  bazel test \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      --test_output=errors \
+      //:x  &> $TEST_log && fail "expected failure"
+  expect_log "-- Test exited prematurely (TEST_PREMATURE_EXIT_FILE exists) --"
 }
 
 function test_cache_key_scrubbing() {
@@ -3294,28 +3359,332 @@ EOF
   bazel build --experimental_remote_scrubbing_config=scrubbing.cfg \
         --//:src=//:foo :gen &> $TEST_log \
         || fail "failed to build with input foo and no cache"
-    expect_log "2 processes: 1 internal, 1 .*-sandbox"
+  expect_log "2 processes: 1 internal, 1 .*-sandbox"
 
   bazel build --experimental_remote_scrubbing_config=scrubbing.cfg \
       --//:src=//:bar :gen &> $TEST_log \
       || fail "failed to build with input bar and no cache"
   expect_log "2 processes: 1 internal, 1 .*-sandbox"
 
-  # Now build with a cache. Even though Bazel considers the actions distinct,
-  # they will be looked up in the remote cache using the scrubbed key, so one
-  # can serve as a cache hit for the other.
+  # Now build with a disk cache. Even though Bazel considers the actions to be
+  # distinct, they will be looked up in the remote cache using the scrubbed key,
+  # so one can serve as a cache hit for the other.
 
   CACHEDIR=$(mktemp -d)
 
   bazel build --experimental_remote_scrubbing_config=scrubbing.cfg \
         --disk_cache=$CACHEDIR --//:src=//:foo :gen &> $TEST_log \
-        || fail "failed to build with input foo and a cache"
+        || fail "failed to build with input foo and a disk cache miss"
   expect_log "2 processes: 1 internal, 1 .*-sandbox"
 
   bazel build --experimental_remote_scrubbing_config=scrubbing.cfg \
       --disk_cache=$CACHEDIR --//:src=//:bar :gen &> $TEST_log \
-      || fail "failed to build with input bar and a cache"
+      || fail "failed to build with input bar and a disk cache hit"
   expect_log "2 processes: 1 disk cache hit, 1 internal"
+
+  # Now build with remote execution enabled. The first action should fall back
+  # to local execution. The second action should be able to hit the remote cache
+  # as it was cached by its scrubbed key.
+
+  bazel build --experimental_remote_scrubbing_config=scrubbing.cfg \
+        --remote_executor=grpc://localhost:${worker_port} --//:src=//:foo \
+        :gen &> $TEST_log \
+        || fail "failed to build with input foo and remote execution"
+  expect_log "will be executed locally instead"
+  expect_log "2 processes: 1 internal, 1 .*-sandbox"
+
+  bazel build --experimental_remote_scrubbing_config=scrubbing.cfg \
+      --remote_executor=grpc://localhost:${worker_port} --//:src=//:bar \
+      :gen &> $TEST_log \
+      || fail "failed to build with input bar and a remote cache hit"
+  expect_log "will be executed locally instead"
+  expect_log "2 processes: 1 remote cache hit, 1 internal"
+}
+
+function test_platform_no_remote_exec() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+platform(
+    name = "no_remote_exec_platform",
+    exec_properties = {
+        "foo": "bar",
+        "no-remote-exec": "true",
+    },
+)
+
+genrule(
+    name = "foo",
+    srcs = [],
+    outs = ["foo.txt"],
+    cmd = "echo \"foo\" > \"$@\"",
+)
+EOF
+
+  bazel build \
+    --extra_execution_platforms=//a:no_remote_exec_platform \
+    --spawn_strategy=remote,local \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:foo >& $TEST_log || fail "Failed to build //a:foo"
+
+  expect_log "1 local"
+  expect_not_log "1 remote"
+
+  bazel clean
+
+  bazel build \
+    --extra_execution_platforms=//a:no_remote_exec_platform \
+    --spawn_strategy=remote,local \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:foo >& $TEST_log || fail "Failed to build //a:foo"
+
+  expect_log "1 remote cache hit"
+  expect_not_log "1 local"
+}
+
+function test_platform_no_remote_exec_test_action() {
+  add_platforms "MODULE.bazel"
+  mkdir -p a
+  cat > a/test.sh <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+  chmod 755 a/test.sh
+  cat > a/BUILD <<'EOF'
+constraint_setting(name = "foo")
+
+constraint_value(
+    name = "has_foo",
+    constraint_setting = ":foo",
+    visibility = ["//visibility:public"],
+)
+
+platform(
+    name = "host",
+    constraint_values = [":has_foo"],
+    exec_properties = {
+        "no-remote-exec": "1",
+    },
+    parents = ["@bazel_tools//tools:host_platform"],
+    visibility = ["//visibility:public"],
+)
+
+platform(
+    name = "remote",
+    constraint_values = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:linux",
+    ],
+    exec_properties = {
+        "OSFamily": "Linux",
+        "dockerNetwork": "off",
+    },
+)
+
+sh_test(
+    name = "test",
+    srcs = ["test.sh"],
+    exec_compatible_with = [":has_foo"],
+)
+
+sh_test(
+    name = "test2",
+    srcs = ["test.sh"],
+    exec_compatible_with = [":has_foo"],
+    target_compatible_with = [":has_foo"],
+)
+EOF
+
+  # A test target includes 2 actions: 1 build action (a) and 1 test action (b)
+  # This test currently demonstrates that:
+  #  - (b) would always be executed on Bazel's target platform, set by "--platforms=" flag.
+  #  - Regardless of 'no-remote-exec' set on (b)'s platform, (b) would still be executed remotely.
+  #    The remote test action will be sent with `"no-remote-exec": "1"` in it's platform.
+  #
+  # TODO: Make this test's result consistent with 'test_platform_no_remote_exec'.
+  # Test action (b) should be executed locally instead of remotely in this setup.
+
+  bazel test \
+    --extra_execution_platforms=//a:remote,//a:host \
+    --platforms=//a:remote \
+    --spawn_strategy=remote,local \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:test >& $TEST_log || fail "Failed to test //a:test"
+  expect_log "1 local, 1 remote"
+
+  bazel test \
+    --extra_execution_platforms=//a:remote,//a:host \
+    --platforms=//a:host \
+    --spawn_strategy=remote,local \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:test2 >& $TEST_log || fail "Failed to test //a:test2"
+  expect_log "1 local, 1 remote"
+
+  bazel clean
+
+  bazel test \
+    --extra_execution_platforms=//a:remote,//a:host \
+    --platforms=//a:remote \
+    --spawn_strategy=remote,local \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:test >& $TEST_log || fail "Failed to test //a:test"
+  expect_log "2 remote cache hit"
+
+  bazel test \
+    --extra_execution_platforms=//a:remote,//a:host \
+    --platforms=//a:host \
+    --spawn_strategy=remote,local \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:test2 >& $TEST_log || fail "Failed to test //a:test2"
+  expect_log "2 remote cache hit"
+}
+
+function setup_inlined_outputs() {
+  mkdir -p a
+  cat > a/input.txt <<'EOF'
+input
+EOF
+  cat > a/script.sh <<'EOF'
+#!/bin/sh
+cat $1 $1 > $2
+echo "$1" > $3
+EOF
+  chmod +x a/script.sh
+  cat > a/defs.bzl <<EOF
+def _my_rule_impl(ctx):
+  out = ctx.actions.declare_file(ctx.label.name)
+  unused = ctx.actions.declare_file(ctx.label.name + ".unused")
+  args = ctx.actions.args()
+  args.add(ctx.file.input)
+  args.add(out)
+  args.add(unused)
+  ctx.actions.run(
+    executable = ctx.executable._script,
+    inputs = [ctx.file.input],
+    outputs = [out, unused],
+    arguments = [args],
+    unused_inputs_list = unused,
+    execution_requirements = {
+      "supports-path-mapping": "",
+    },
+  )
+  return [DefaultInfo(files = depset([out]))]
+
+my_rule = rule(
+  implementation = _my_rule_impl,
+  attrs = {
+    "input": attr.label(allow_single_file = True),
+    "_script": attr.label(cfg = "exec", executable = True, default = ":script"),
+  },
+)
+EOF
+  cat > a/BUILD <<'EOF'
+load("//a:defs.bzl", "my_rule")
+
+my_rule(
+  name = "my_rule",
+  input = "input.txt",
+)
+
+sh_binary(
+  name = "script",
+  srcs = ["script.sh"],
+)
+EOF
+}
+
+function test_remote_cache_inlined_output() {
+  setup_inlined_outputs
+
+  # Populate the cache.
+  bazel build \
+    --remote_cache=grpc://localhost:${worker_port} \
+    //a:my_rule >& $TEST_log || fail "Failed to build //a:my_rule"
+  expect_not_log "WARNING: Remote Cache:"
+  bazel clean --expunge
+  bazel shutdown
+
+  bazel build \
+    --remote_cache=grpc://localhost:${worker_port} \
+    --remote_grpc_log=grpc.log \
+    //a:my_rule >& $TEST_log || fail "Failed to build //a:my_rule"
+  expect_log "1 remote cache hit"
+  expect_not_log "WARNING: Remote Cache:"
+  assert_contains "input
+input" bazel-bin/a/my_rule
+
+  cat grpc.log > $TEST_log
+  # Assert that only the output is download as the unused_inputs_list is inlined.
+  # sha256 of "input\ninput\n"
+  expect_log "blobs/c88bd120ac840aa8d8a8fcedb6d620cd49c013730d387eb52be0c113bbcab640/12"
+  expect_log_n "google.bytestream.ByteStream/Read" 1
+
+  # Verify that the unused_inputs_list content is correct.
+  cat > a/input.txt <<'EOF'
+modified
+EOF
+
+  bazel build \
+    --remote_cache=grpc://localhost:${worker_port} \
+    //a:my_rule >& $TEST_log || fail "Failed to build //a:my_rule"
+  assert_contains "input" bazel-bin/a/my_rule
+}
+
+function test_remote_execution_inlined_output() {
+  setup_inlined_outputs
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_grpc_log=grpc.log \
+    //a:my_rule >& $TEST_log || fail "Failed to build //a:my_rule"
+  expect_log "1 remote"
+  assert_contains "input
+input" bazel-bin/a/my_rule
+
+  cat grpc.log > $TEST_log
+  # Assert that only the output is download as the unused_inputs_list is inlined.
+  # sha256 of "input\ninput\n"
+  expect_log "blobs/c88bd120ac840aa8d8a8fcedb6d620cd49c013730d387eb52be0c113bbcab640/12"
+  expect_log_n "google.bytestream.ByteStream/Read" 1
+
+  # Verify that the unused_inputs_list content is correct.
+  cat > a/input.txt <<'EOF'
+modified
+EOF
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:my_rule >& $TEST_log || fail "Failed to build //a:my_rule"
+  assert_contains "input" bazel-bin/a/my_rule
+}
+
+function test_remote_execution_inlined_output_with_path_mapping() {
+  setup_inlined_outputs
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_grpc_log=grpc.log \
+    --experimental_output_paths=strip \
+    //a:my_rule >& $TEST_log || fail "Failed to build //a:my_rule"
+  expect_log "1 remote"
+  assert_contains "input
+input" bazel-bin/a/my_rule
+
+  cat grpc.log > $TEST_log
+  # Assert that only the output is download as the unused_inputs_list is inlined.
+  # sha256 of "input\ninput\n"
+  expect_log "blobs/c88bd120ac840aa8d8a8fcedb6d620cd49c013730d387eb52be0c113bbcab640/12"
+  expect_log_n "google.bytestream.ByteStream/Read" 1
+
+  # Verify that the unused_inputs_list content is correct.
+  cat > a/input.txt <<'EOF'
+modified
+EOF
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_output_paths=strip \
+    //a:my_rule >& $TEST_log || fail "Failed to build //a:my_rule"
+  assert_contains "input" bazel-bin/a/my_rule
 }
 
 run_suite "Remote execution and remote cache tests"

@@ -104,7 +104,10 @@ public class CircularDependencyTest extends BuildViewTestCase {
   public void testOneRuleImplicitCycleJava() throws Exception {
     Package pkg =
         createScratchPackageForImplicitCycle(
-            "cycle", "java_library(name='jcyc',", "      srcs = ['libjcyc.jar', 'foo.java'])");
+            "cycle",
+            "load('@rules_java//java:defs.bzl', 'java_library')",
+            "java_library(name='jcyc',",
+            "      srcs = ['libjcyc.jar', 'foo.java'])");
     assertThrows(NoSuchTargetException.class, () -> pkg.getTarget("jcyc"));
     assertThat(pkg.containsErrors()).isTrue();
     assertContainsEvent("rule 'jcyc' has file 'libjcyc.jar' as both an" + " input and an output");
@@ -146,7 +149,19 @@ public class CircularDependencyTest extends BuildViewTestCase {
   public void testTwoRuleCycle2() throws Exception {
     reporter.removeHandler(failFastHandler); // expect errors
     scratch.file(
-        "x/BUILD", "java_library(name='x', deps=['y'])", "java_library(name='y', deps=['x'])");
+        "x/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(
+            name = "x",
+            deps = ["y"],
+        )
+
+        java_library(
+            name = "y",
+            deps = ["x"],
+        )
+        """);
     getConfiguredTarget("//x");
     assertContainsEvent("in java_library rule //x:x: cycle in dependency graph");
   }
@@ -185,8 +200,22 @@ public class CircularDependencyTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler); // expect errors
     scratch.file(
         "x/BUILD",
-        "genrule(name='b', srcs=['c'], tools=['c'], outs=['b.out'], cmd=':')",
-        "genrule(name='c', srcs=['b.out'], outs=[], cmd=':')");
+        """
+        genrule(
+            name = "b",
+            srcs = ["c"],
+            outs = ["b.out"],
+            cmd = ":",
+            tools = ["c"],
+        )
+
+        genrule(
+            name = "c",
+            srcs = ["b.out"],
+            outs = [],
+            cmd = ":",
+        )
+        """);
     getConfiguredTarget("//x:b"); // doesn't crash!
     assertContainsEvent("cycle in dependency graph");
   }
@@ -196,31 +225,51 @@ public class CircularDependencyTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "x/BUILD",
-        "load('//x:x.bzl', 'aspected', 'plain')",
-        // Using data= makes the dependency graph clearer because then the aspect does not propagate
-        // from aspectdep through a to b (and c)
-        "plain(name = 'a', noaspect_deps = [':b'])",
-        "aspected(name = 'b', aspect_deps = ['c'])",
-        "plain(name = 'c')",
-        "plain(name = 'aspectdep', aspect_deps = ['a'])");
+        """
+        load("//x:x.bzl", "aspected", "plain")
+
+        # Using data= makes the dependency graph clearer because then the aspect does not propagate
+        # from aspectdep through a to b (and c)
+        plain(
+            name = "a",
+            noaspect_deps = [":b"],
+        )
+
+        aspected(
+            name = "b",
+            aspect_deps = ["c"],
+        )
+
+        plain(name = "c")
+
+        plain(
+            name = "aspectdep",
+            aspect_deps = ["a"],
+        )
+        """);
 
     scratch.file(
         "x/x.bzl",
-        "def _impl(ctx):",
-        "    return []",
-        "",
-        "rule_aspect = aspect(",
-        "    implementation = _impl,",
-        "    attr_aspects = ['aspect_deps'],",
-        "    attrs = { '_implicit': attr.label(default = Label('//x:aspectdep')) })",
-        "",
-        "plain = rule(",
-        "    implementation = _impl,",
-        "    attrs = { 'aspect_deps': attr.label_list(), 'noaspect_deps': attr.label_list() })",
-        "",
-        "aspected = rule(",
-        "    implementation = _impl,",
-        "    attrs = { 'aspect_deps': attr.label_list(aspects = [rule_aspect]) })");
+        """
+        def _impl(ctx):
+            return []
+
+        rule_aspect = aspect(
+            implementation = _impl,
+            attr_aspects = ["aspect_deps"],
+            attrs = {"_implicit": attr.label(default = Label("//x:aspectdep"))},
+        )
+
+        plain = rule(
+            implementation = _impl,
+            attrs = {"aspect_deps": attr.label_list(), "noaspect_deps": attr.label_list()},
+        )
+
+        aspected = rule(
+            implementation = _impl,
+            attrs = {"aspect_deps": attr.label_list(aspects = [rule_aspect])},
+        )
+        """);
 
     getConfiguredTarget("//x:a");
     assertContainsEvent("cycle in dependency graph");
@@ -261,7 +310,7 @@ public class CircularDependencyTest extends BuildViewTestCase {
                   .mandatory()
                   .allowedFileTypes()
                   .cfg(
-                      new TransitionFactory<AttributeTransitionData>() {
+                      new TransitionFactory<>() {
                         @Override
                         public SplitTransition create(AttributeTransitionData data) {
                           return new SplitTransition() {
@@ -285,6 +334,11 @@ public class CircularDependencyTest extends BuildViewTestCase {
                               return ImmutableMap.of("define_cleaner", newOptions.underlying());
                             }
                           };
+                        }
+
+                        @Override
+                        public TransitionType transitionType() {
+                          return TransitionType.ATTRIBUTE;
                         }
 
                         @Override
@@ -324,9 +378,22 @@ public class CircularDependencyTest extends BuildViewTestCase {
     scratch.file("a/BUILD", "normal_dep(name = 'a', dep = '//b')");
     scratch.file(
         "b/BUILD",
-        "config_setting(name = 'cycle', define_values = {'CYCLE_ON': 'yes'})",
-        "normal_dep(name = 'stop')",
-        "normal_dep(name = 'b', dep = select({':cycle': '//c', '//conditions:default': ':stop'}))");
+        """
+        config_setting(
+            name = "cycle",
+            define_values = {"CYCLE_ON": "yes"},
+        )
+
+        normal_dep(name = "stop")
+
+        normal_dep(
+            name = "b",
+            dep = select({
+                ":cycle": "//c",
+                "//conditions:default": ":stop",
+            }),
+        )
+        """);
     scratch.file("c/BUILD", "define_clearer(name = 'c', dep = '//a', define = 'CYCLE_ON')");
 
     useConfiguration("--define=CYCLE_ON=yes");
@@ -338,9 +405,13 @@ public class CircularDependencyTest extends BuildViewTestCase {
   public void testInvalidVisibility() throws Exception {
     scratch.file(
         "a/BUILD",
-        "cc_library(name='rule1',",
-        "           deps=['//b:rule2'],",
-        "           visibility=['//b:rule2'])");
+        """
+        cc_library(
+            name = "rule1",
+            visibility = ["//b:rule2"],
+            deps = ["//b:rule2"],
+        )
+        """);
     scratch.file("b/BUILD", "cc_library(name='rule2')");
 
     AssertionError expected =
@@ -355,19 +426,33 @@ public class CircularDependencyTest extends BuildViewTestCase {
   public void testInvalidVisibilityWithSelect() throws Exception {
     scratch.file(
         "a/BUILD",
-        "cc_library(name='rule1',",
-        "           deps=['//b:rule2'],",
-        "           visibility=['//b:rule2'])");
+        """
+        cc_library(
+            name = "rule1",
+            visibility = ["//b:rule2"],
+            deps = ["//b:rule2"],
+        )
+        """);
     scratch.file(
         "b/BUILD",
-        "config_setting(name = 'fastbuild', values = {'compilation_mode': 'fastbuild'})",
-        "cc_library(name='rule2',",
-        "           hdrs = select({",
-        "              ':fastbuild': glob([",
-        "                   '*.h',",
-        "               ], allow_empty = True),",
-        "           }),",
-        ")");
+        """
+        config_setting(
+            name = "fastbuild",
+            values = {"compilation_mode": "fastbuild"},
+        )
+
+        cc_library(
+            name = "rule2",
+            hdrs = select({
+                ":fastbuild": glob(
+                    [
+                        "*.h",
+                    ],
+                    allow_empty = True,
+                ),
+            }),
+        )
+        """);
 
     AssertionError expected =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//a:rule1"));

@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.runtime.BlazeModule;
-import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.InfoItem;
 import com.google.devtools.build.lib.runtime.ServerBuilder;
@@ -288,7 +287,7 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
     }
 
     @Override
-    public ImmutableList<Class<? extends OptionsBase>> getCommandOptions(Command command) {
+    public ImmutableList<Class<? extends OptionsBase>> getCommonCommandOptions() {
       return ImmutableList.of(Options.class);
     }
 

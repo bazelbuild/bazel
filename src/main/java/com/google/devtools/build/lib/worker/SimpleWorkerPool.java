@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.worker;
 
-import com.google.common.base.Throwables;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
+
 import com.google.common.flogger.GoogleLogger;
 import java.io.IOException;
 import java.util.HashMap;
@@ -84,7 +86,9 @@ final class SimpleWorkerPool extends GenericKeyedObjectPool<WorkerKey, Worker> {
     try {
       return super.borrowObject(key);
     } catch (Throwable t) {
-      Throwables.propagateIfPossible(t, IOException.class, InterruptedException.class);
+      throwIfInstanceOf(t, IOException.class);
+      throwIfInstanceOf(t, InterruptedException.class);
+      throwIfUnchecked(t);
       throw new RuntimeException("unexpected", t);
     }
   }
@@ -98,7 +102,8 @@ final class SimpleWorkerPool extends GenericKeyedObjectPool<WorkerKey, Worker> {
         updateShrunkBy(key, obj.getWorkerId());
       }
     } catch (Throwable t) {
-      Throwables.propagateIfPossible(t, InterruptedException.class);
+      throwIfInstanceOf(t, InterruptedException.class);
+      throwIfUnchecked(t);
       throw new RuntimeException("unexpected", t);
     }
   }
@@ -116,6 +121,10 @@ final class SimpleWorkerPool extends GenericKeyedObjectPool<WorkerKey, Worker> {
     return getMaxTotalPerKey() - shrunkBy.getOrDefault(key, 0);
   }
 
+  public synchronized boolean hasAvailableQuota(WorkerKey key) {
+    return getMaxTotalPerKey(key) - getNumActive(key) > 0;
+  }
+
   private synchronized void updateShrunkBy(WorkerKey workerKey, int workerId) {
     int currentValue = shrunkBy.getOrDefault(workerKey, 0);
     if (getMaxTotalPerKey() - currentValue > 1) {
@@ -129,6 +138,7 @@ final class SimpleWorkerPool extends GenericKeyedObjectPool<WorkerKey, Worker> {
   void clearShrunkBy() {
     shrunkBy = new HashMap<>();
   }
+
 
   /**
    * Our own configuration class for the {@code SimpleWorkerPool} that correctly implements {@code

@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.android;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import org.junit.Before;
@@ -24,7 +25,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link AndroidStarlarkCommon}. */
 @RunWith(JUnit4.class)
-public class AndroidStarlarkCommonTest extends AndroidBuildViewTestCase {
+public class AndroidStarlarkCommonTest extends BuildViewTestCase {
 
   @Before
   public void setupCcToolchain() throws Exception {
@@ -37,36 +38,45 @@ public class AndroidStarlarkCommonTest extends AndroidBuildViewTestCase {
         "--experimental_enable_android_migration_apis", "--experimental_google_legacy_api");
     scratch.file(
         "java/android/compatible.bzl",
-        "def _impl(ctx):",
-        "    return [",
-        "        android_common.enable_implicit_sourceless_deps_exports_compatibility(",
-        "            ctx.attr.dep[JavaInfo],",
-        "        ),",
-        "    ]",
-        "my_rule = rule(",
-        "    implementation = _impl,",
-        "    attrs = dict(",
-        "        dep = attr.label(),",
-        "    ),",
-        ")");
+        """
+        def _impl(ctx):
+            return [
+                android_common.enable_implicit_sourceless_deps_exports_compatibility(
+                    ctx.attr.dep[JavaInfo],
+                ),
+            ]
+
+        my_rule = rule(
+            implementation = _impl,
+            attrs = dict(
+                dep = attr.label(),
+            ),
+        )
+        """);
     scratch.file("java/android/Foo.java", "public class Foo {}");
     scratch.file("java/android/MyPlugin.java", "public class MyPlugin {}");
     scratch.file(
         "java/android/BUILD",
-        "load(':compatible.bzl', 'my_rule')",
-        "java_plugin(",
-        "    name = 'my_plugin',",
-        "    srcs = ['MyPlugin.java'],",
-        ")",
-        "java_library(",
-        "    name = 'foo',",
-        "    srcs = ['Foo.java'],",
-        "    exported_plugins = [':my_plugin'],",
-        ")",
-        "my_rule(",
-        "    name = 'bar',",
-        "    dep = ':foo',",
-        ")");
+        """
+        load("@rules_java//java:defs.bzl", "java_library", "java_plugin")
+        load(":compatible.bzl", "my_rule")
+
+        java_plugin(
+            name = "my_plugin",
+            srcs = ["MyPlugin.java"],
+        )
+
+        java_library(
+            name = "foo",
+            srcs = ["Foo.java"],
+            exported_plugins = [":my_plugin"],
+        )
+
+        my_rule(
+            name = "bar",
+            dep = ":foo",
+        )
+        """);
     JavaInfo fooJavaInfo = getConfiguredTarget("//java/android:foo").get(JavaInfo.PROVIDER);
     JavaInfo barJavaInfo = getConfiguredTarget("//java/android:bar").get(JavaInfo.PROVIDER);
     assertThat(barJavaInfo.getProvider(JavaCompilationArgsProvider.class))

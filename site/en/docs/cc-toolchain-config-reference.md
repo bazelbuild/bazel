@@ -701,7 +701,7 @@ Note: The **Action** column indicates the relevant action type, if applicable.
   <tr>
    <td><strong><code>output_file</code></strong>
    </td>
-   <td>compile</td>
+   <td>compile, strip</td>
    <td>Compilation output.
    </td>
   </tr>
@@ -796,7 +796,7 @@ Note: The **Action** column indicates the relevant action type, if applicable.
    </td>
   </tr>
   <tr>
-   <td><strong><code>stripotps</code></strong>
+   <td><strong><code>stripopts</code></strong>
    </td>
    <td>strip</td>
    <td>Sequence of <code>stripopts</code>.
@@ -989,7 +989,7 @@ Note: The **Action** column indicates the relevant action type, if applicable.
    </td>
   </tr>
   <tr>
-   <td><strong><code>csfdo_instrument_path</code></strong>
+   <td><strong><code>cs_fdo_instrument_path</code></strong>
    </td>
    <td>compile, link</td>
    <td> Path to the directory that stores context sensitive FDO

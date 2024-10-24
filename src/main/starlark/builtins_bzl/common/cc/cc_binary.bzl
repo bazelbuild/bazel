@@ -16,21 +16,23 @@
 
 load(":common/cc/attrs.bzl", "cc_binary_attrs")
 load(":common/cc/cc_common.bzl", "cc_common")
+load(":common/cc/cc_debug_helper.bzl", "create_debug_packager_actions")
 load(":common/cc/cc_helper.bzl", "cc_helper", "linker_mode")
 load(":common/cc/cc_info.bzl", "CcInfo")
-load(":common/cc/cc_shared_library.bzl", "GraphNodeInfo", "add_unused_dynamic_deps", "build_exports_map_from_only_dynamic_deps", "build_link_once_static_libs_map", "cc_shared_library_initializer", "merge_cc_shared_library_infos", "separate_static_and_dynamic_link_libraries", "sort_linker_inputs", "throw_linked_but_not_exported_errors")
+load(":common/cc/cc_shared_library.bzl", "GraphNodeInfo", "add_unused_dynamic_deps", "build_exports_map_from_only_dynamic_deps", "build_link_once_static_libs_map", "dynamic_deps_initializer", "merge_cc_shared_library_infos", "separate_static_and_dynamic_link_libraries", "sort_linker_inputs", "throw_linked_but_not_exported_errors")
 load(":common/cc/semantics.bzl", "semantics")
 
 DebugPackageInfo = _builtins.toplevel.DebugPackageInfo
 cc_internal = _builtins.internal.cc_internal
 StaticallyLinkedMarkerInfo = _builtins.internal.StaticallyLinkedMarkerProvider
 
+# TODO(blaze-team): cleanup lint target types
 _EXECUTABLE = "executable"
 _DYNAMIC_LIBRARY = "dynamic_library"
 
 _IOS_SIMULATOR_TARGET_CPUS = ["ios_x86_64", "ios_i386", "ios_sim_arm64"]
 _IOS_DEVICE_TARGET_CPUS = ["ios_armv6", "ios_arm64", "ios_armv7", "ios_armv7s", "ios_arm64e"]
-_VISIONOS_SIMULATOR_TARGET_CPUS = ["visionos_x86_64", "visionos_sim_arm64"]
+_VISIONOS_SIMULATOR_TARGET_CPUS = ["visionos_sim_arm64"]
 _VISIONOS_DEVICE_TARGET_CPUS = ["visionos_arm64"]
 _WATCHOS_SIMULATOR_TARGET_CPUS = ["watchos_i386", "watchos_x86_64", "watchos_arm64"]
 _WATCHOS_DEVICE_TARGET_CPUS = ["watchos_armv7k", "watchos_arm64_32"]
@@ -43,118 +45,6 @@ def _strip_extension(file):
     if file.extension == "":
         return file.basename
     return file.basename[:-(1 + len(file.extension))]
-
-def _new_dwp_action(ctx, cc_toolchain, dwp_tools):
-    return {
-        "tools": dwp_tools,
-        "executable": cc_toolchain.tool_paths().get("dwp", None),
-        "arguments": ctx.actions.args(),
-        "inputs": [],
-        "outputs": [],
-    }
-
-def _get_intermediate_dwp_file(ctx, dwp_output, order_number):
-    output_path = dwp_output.short_path
-
-    # Since it is a dwp_output we can assume that it always
-    # ends with .dwp suffix, because it is declared so in outputs
-    # attribute.
-    extension_stripped_output_path = output_path[0:len(output_path) - 4]
-    intermediate_path = extension_stripped_output_path + "-" + str(order_number) + ".dwp"
-
-    return ctx.actions.declare_file("_dwps/" + intermediate_path)
-
-def _create_intermediate_dwp_packagers(ctx, dwp_output, cc_toolchain, dwp_files, dwo_files, intermediate_dwp_count):
-    intermediate_outputs = dwo_files
-
-    # This long loop is a substitution for recursion, which is not currently supported in Starlark.
-    for _ in range(2147483647):
-        packagers = []
-        current_packager = _new_dwp_action(ctx, cc_toolchain, dwp_files)
-        inputs_for_current_packager = 0
-
-        # Step 1: generate our batches. We currently break into arbitrary batches of fixed maximum
-        # input counts, but we can always apply more intelligent heuristics if the need arises.
-        for dwo_file in intermediate_outputs:
-            if inputs_for_current_packager == 100:
-                packagers.append(current_packager)
-                current_packager = _new_dwp_action(ctx, cc_toolchain, dwp_files)
-                inputs_for_current_packager = 0
-            current_packager["inputs"].append(dwo_file)
-
-            # add_all expands all directories to their contained files, see
-            # https://bazel.build/rules/lib/builtins/Args#add_all. add doesn't
-            # do that, so using add_all on the one-item list here allows us to
-            # find dwo files in directories.
-            current_packager["arguments"].add_all([dwo_file])
-            inputs_for_current_packager += 1
-
-        packagers.append(current_packager)
-
-        # Step 2: given the batches, create the actions.
-        if len(packagers) > 1:
-            # If we have multiple batches, make them all intermediate actions, then pipe their outputs
-            # into an additional level.
-            intermediate_outputs = []
-            for packager in packagers:
-                intermediate_output = _get_intermediate_dwp_file(ctx, dwp_output, intermediate_dwp_count)
-                intermediate_dwp_count += 1
-                packager["outputs"].append(intermediate_output)
-                packager["arguments"].add("-o", intermediate_output)
-                ctx.actions.run(
-                    mnemonic = "CcGenerateIntermediateDwp",
-                    tools = packager["tools"],
-                    executable = packager["executable"],
-                    toolchain = cc_helper.CPP_TOOLCHAIN_TYPE,
-                    arguments = [packager["arguments"]],
-                    inputs = packager["inputs"],
-                    outputs = packager["outputs"],
-                )
-                intermediate_outputs.append(intermediate_output)
-        else:
-            return packagers[0]
-
-    # This is to fix buildifier errors, even though we should never reach this part of the code.
-    return None
-
-def _create_debug_packager_actions(ctx, cc_toolchain, dwp_output, dwo_files):
-    # No inputs? Just generate a trivially empty .dwp.
-    #
-    # Note this condition automatically triggers for any build where fission is disabled.
-    # Because rules referencing .dwp targets may be invoked with or without fission, we need
-    # to support .dwp generation even when fission is disabled. Since no actual functionality
-    # is expected then, an empty file is appropriate.
-    dwo_files_list = dwo_files.to_list()
-    if len(dwo_files_list) == 0:
-        ctx.actions.write(dwp_output, "", False)
-        return
-
-    # We apply a hierarchical action structure to limit the maximum number of inputs to any
-    # single action.
-    #
-    # While the dwp tool consumes .dwo files, it can also consume intermediate .dwp files,
-    # allowing us to split a large input set into smaller batches of arbitrary size and order.
-    # Aside from the parallelism performance benefits this offers, this also reduces input
-    # size requirements: if a.dwo, b.dwo, c.dwo, and e.dwo are each 1 KB files, we can apply
-    # two intermediate actions DWP(a.dwo, b.dwo) --> i1.dwp and DWP(c.dwo, e.dwo) --> i2.dwp.
-    # When we then apply the final action DWP(i1.dwp, i2.dwp) --> finalOutput.dwp, the inputs
-    # to this action will usually total far less than 4 KB.
-    #
-    # The actions form an n-ary tree with n == MAX_INPUTS_PER_DWP_ACTION. The tree is fuller
-    # at the leaves than the root, but that both increases parallelism and reduces the final
-    # action's input size.
-    packager = _create_intermediate_dwp_packagers(ctx, dwp_output, cc_toolchain, cc_toolchain.dwp_files(), dwo_files_list, 1)
-    packager["outputs"].append(dwp_output)
-    packager["arguments"].add("-o", dwp_output)
-    ctx.actions.run(
-        mnemonic = "CcGenerateDwp",
-        tools = packager["tools"],
-        executable = packager["executable"],
-        toolchain = cc_helper.CPP_TOOLCHAIN_TYPE,
-        arguments = [packager["arguments"]],
-        inputs = packager["inputs"],
-        outputs = packager["outputs"],
-    )
 
 def _get_non_data_deps(ctx):
     return ctx.attr.srcs + ctx.attr.deps
@@ -319,31 +209,10 @@ def _get_providers(ctx):
     all_deps = ctx.attr.deps + semantics.get_cc_runtimes(ctx, _is_link_shared(ctx))
     return [dep[CcInfo] for dep in all_deps if CcInfo in dep]
 
-def _collect_transitive_dwo_artifacts(cc_compilation_outputs, cc_debug_context, linking_mode, use_pic, lto_backend_artifacts):
-    dwo_files = []
-    transitive_dwo_files = depset()
-    if use_pic:
-        dwo_files.extend(cc_compilation_outputs.pic_dwo_files())
-    else:
-        dwo_files.extend(cc_compilation_outputs.dwo_files())
-
-    if lto_backend_artifacts != None:
-        for lto_backend_artifact in lto_backend_artifacts:
-            if lto_backend_artifact.dwo_file() != None:
-                dwo_files.append(lto_backend_artifact.dwo_file())
-
-    if linking_mode != linker_mode.LINKING_DYNAMIC:
-        if use_pic:
-            transitive_dwo_files = cc_debug_context.pic_files
-        else:
-            transitive_dwo_files = cc_debug_context.files
-    return depset(dwo_files, transitive = [transitive_dwo_files])
-
 def _filter_libraries_that_are_linked_dynamically(ctx, feature_configuration, cc_linking_context):
-    merged_cc_shared_library_infos = merge_cc_shared_library_infos(ctx)
-    link_once_static_libs_map = build_link_once_static_libs_map(merged_cc_shared_library_infos)
-    transitive_exports = build_exports_map_from_only_dynamic_deps(merged_cc_shared_library_infos)
-    static_linker_inputs = []
+    merged_cc_shared_library_infos_list = merge_cc_shared_library_infos(ctx).to_list()
+    link_once_static_libs_map = build_link_once_static_libs_map(merged_cc_shared_library_infos_list)
+    transitive_exports = build_exports_map_from_only_dynamic_deps(merged_cc_shared_library_infos_list)
     linker_inputs = cc_linking_context.linker_inputs.to_list()
 
     all_deps = ctx.attr._deps_analyzed_by_graph_structure_aspect
@@ -363,7 +232,7 @@ def _filter_libraries_that_are_linked_dynamically(ctx, feature_configuration, cc
         topologically_sorted_labels,
         unused_dynamic_linker_inputs,
     ) = separate_static_and_dynamic_link_libraries(
-        ctx,
+        ctx.attr.dynamic_deps,
         graph_structure_aspect_nodes,
         can_be_linked_dynamically,
     )
@@ -415,22 +284,20 @@ def _create_transitive_linking_actions(
         ctx,
         cc_toolchain,
         feature_configuration,
-        cpp_config,
         precompiled_files,
         cc_compilation_outputs,
         additional_linker_inputs,
         cc_linking_outputs,
-        compilation_context,
         binary,
         deps_cc_linking_context,
         extra_link_time_libraries_depset,
         link_compile_output_separately,
         linking_mode,
         link_target_type,
-        pdb_file,
-        win_def_file,
         additional_linkopts,
-        additional_make_variable_substitutions):
+        additional_make_variable_substitutions,
+        link_variables,
+        additional_outputs):
     cc_compilation_outputs_with_only_objects = cc_common.create_compilation_outputs(objects = None, pic_objects = None)
     deps_cc_info = CcInfo(linking_context = deps_cc_linking_context)
     libraries_for_current_cc_linking_context = []
@@ -516,21 +383,16 @@ def _create_transitive_linking_actions(
         output_type = link_target_type,
         main_output = binary,
         never_link = True,
-        pdb_file = pdb_file,
-        win_def_file = win_def_file,
+        variables_extension = link_variables,
+        additional_outputs = additional_outputs,
     )
     cc_launcher_info = cc_internal.create_cc_launcher_info(cc_info = cc_info_without_extra_link_time_libraries, compilation_outputs = cc_compilation_outputs_with_only_objects)
     return (cc_linking_outputs, cc_launcher_info, cc_linking_context)
 
-def _use_pic(ctx, cc_toolchain, cpp_config, feature_configuration):
+def _use_pic(ctx, cc_toolchain, feature_configuration):
     if _is_link_shared(ctx):
         return cc_toolchain.needs_pic_for_dynamic_libraries(feature_configuration = feature_configuration)
-    return cpp_config.force_pic() or (
-        cc_toolchain.needs_pic_for_dynamic_libraries(feature_configuration = feature_configuration) and (
-            ctx.var["COMPILATION_MODE"] != "opt" or
-            cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "prefer_pic_for_opt_binaries")
-        )
-    )
+    return cc_helper.should_use_pic(ctx, cc_toolchain, feature_configuration)
 
 def _collect_linking_context(ctx):
     cc_infos = _get_providers(ctx)
@@ -572,8 +434,6 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
       Appropriate providers for cc_binary/cc_test.
     """
     cc_helper.check_srcs_extensions(ctx, ALLOWED_SRC_FILES, "cc_binary", True)
-    common = cc_internal.create_common(ctx = ctx)
-    semantics.validate_deps(ctx)
 
     if len(ctx.attr.dynamic_deps) > 0:
         cc_common.check_experimental_cc_shared_library()
@@ -626,8 +486,13 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
         requested_features = features,
         unsupported_features = disabled_features,
     )
+
+    cc_helper.check_cpp_modules(ctx, feature_configuration)
+
     all_deps = ctx.attr.deps + semantics.get_cc_runtimes(ctx, _is_link_shared(ctx))
     compilation_context_deps = [dep[CcInfo].compilation_context for dep in all_deps if CcInfo in dep]
+
+    runtimes_copts = semantics.get_cc_runtimes_copts(ctx)
 
     additional_make_variable_substitutions = cc_helper.get_toolchain_global_make_variables(cc_toolchain)
     additional_make_variable_substitutions.update(cc_helper.get_cc_flags_make_variable(ctx, feature_configuration, cc_toolchain))
@@ -637,7 +502,9 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
         actions = ctx.actions,
         feature_configuration = feature_configuration,
         cc_toolchain = cc_toolchain,
-        user_compile_flags = cc_helper.get_copts(ctx, feature_configuration, additional_make_variable_substitutions),
+        user_compile_flags = runtimes_copts + cc_helper.get_copts(ctx, feature_configuration, additional_make_variable_substitutions, attr = "copts"),
+        conly_flags = cc_helper.get_copts(ctx, feature_configuration, additional_make_variable_substitutions, attr = "conlyopts"),
+        cxx_flags = cc_helper.get_copts(ctx, feature_configuration, additional_make_variable_substitutions, attr = "cxxopts"),
         defines = cc_helper.defines(ctx, additional_make_variable_substitutions),
         local_defines = cc_helper.local_defines(ctx, additional_make_variable_substitutions) + cc_helper.get_local_defines_for_runfiles_lookup(ctx, ctx.attr.deps),
         system_includes = cc_helper.system_include_dirs(ctx, additional_make_variable_substitutions),
@@ -645,6 +512,7 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
         public_hdrs = cc_helper.get_public_hdrs(ctx),
         copts_filter = cc_helper.copts_filter(ctx, additional_make_variable_substitutions),
         srcs = cc_helper.get_srcs(ctx),
+        module_interfaces = cc_helper.get_cpp_module_interfaces(ctx),
         compilation_contexts = compilation_context_deps,
         code_coverage_enabled = cc_helper.is_code_coverage_enabled(ctx = ctx),
     )
@@ -653,7 +521,9 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
         pic_objects = depset(precompiled_files[1]),  # pic_objects
     )
     cc_compilation_outputs = cc_common.merge_compilation_outputs(compilation_outputs = [compilation_outputs, precompiled_file_objects])
-    additional_linker_inputs = ctx.files.additional_linker_inputs
+    additional_linker_inputs = list(ctx.files.additional_linker_inputs)
+    additional_linker_outputs = []
+    link_variables = {}
 
     # Allows the dynamic library generated for code of test targets to be linked separately.
     link_compile_output_separately = ctx.attr._is_test and linking_mode == linker_mode.LINKING_DYNAMIC and cpp_config.dynamic_mode() == "DEFAULT" and ("dynamic_link_test_srcs" in ctx.features)
@@ -689,7 +559,7 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
     is_static_mode = linking_mode != linker_mode.LINKING_DYNAMIC
     deps_cc_linking_context = _collect_linking_context(ctx)
     generated_def_file = None
-    win_def_file = None
+
     if _is_link_shared(ctx):
         if is_windows_enabled:
             # Make copy of a list, to avoid mutating frozen values.
@@ -709,14 +579,22 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
                 generated_def_file = cc_helper.generate_def_file(ctx, def_parser, object_files, binary.basename)
             custom_win_def_file = ctx.file.win_def_file
             win_def_file = cc_helper.get_windows_def_file_for_linking(ctx, custom_win_def_file, generated_def_file, feature_configuration)
+            link_variables["def_file_path"] = win_def_file.path
+            additional_linker_inputs.append(win_def_file)
 
-    use_pic = _use_pic(ctx, cc_toolchain, cpp_config, feature_configuration)
+    use_pic = _use_pic(ctx, cc_toolchain, feature_configuration)
 
     # On Windows, if GENERATE_PDB_FILE feature is enabled
     # then a pdb file will be built along with the executable.
     pdb_file = None
     if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "generate_pdb_file"):
         pdb_file = ctx.actions.declare_file(_strip_extension(binary) + ".pdb", sibling = binary)
+        additional_linker_outputs.append(pdb_file)
+
+    linkmap = None
+    if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "generate_linkmap"):
+        linkmap = ctx.actions.declare_file(binary.basename + ".map", sibling = binary)
+        additional_linker_outputs.append(linkmap)
 
     extra_link_time_libraries = deps_cc_linking_context.extra_link_time_libraries()
     linker_inputs_extra = depset()
@@ -728,22 +606,20 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
         ctx,
         cc_toolchain,
         feature_configuration,
-        cpp_config,
         precompiled_files,
         cc_compilation_outputs,
         additional_linker_inputs,
         cc_linking_outputs,
-        compilation_context,
         binary,
         deps_cc_linking_context,
         linker_inputs_extra,
         link_compile_output_separately,
         linking_mode,
         link_target_type,
-        pdb_file,
-        win_def_file,
         additional_linkopts,
         additional_make_variable_substitutions,
+        link_variables,
+        additional_linker_outputs,
     )
 
     cc_linking_outputs_binary_library = cc_linking_outputs_binary.library_to_link
@@ -767,15 +643,17 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
     # Create the stripped binary but don't add it to filesToBuild; it's only built when requested.
     stripped_file = ctx.outputs.stripped_binary
     cc_helper.create_strip_action(ctx, cc_toolchain, cpp_config, binary, stripped_file, feature_configuration)
-    dwo_files = _collect_transitive_dwo_artifacts(
-        cc_compilation_outputs,
-        cc_helper.merge_cc_debug_contexts(cc_compilation_outputs, _get_providers(ctx)),
-        linking_mode,
-        use_pic,
-        cc_linking_outputs_binary.all_lto_artifacts(),
-    )
     dwp_file = ctx.outputs.dwp_file
-    _create_debug_packager_actions(ctx, cc_toolchain, dwp_file, dwo_files)
+    create_debug_packager_actions(
+        ctx,
+        cc_toolchain,
+        dwp_file,
+        cc_compilation_outputs = cc_compilation_outputs,
+        cc_debug_context = cc_helper.merge_cc_debug_contexts(cc_compilation_outputs, _get_providers(ctx)),
+        linking_mode = linking_mode,
+        use_pic = use_pic,
+        lto_artifacts = cc_linking_outputs_binary.all_lto_artifacts(),
+    )
     explicit_dwp_file = dwp_file
     if not cc_helper.should_create_per_object_debug_info(feature_configuration, cpp_config):
         explicit_dwp_file = None
@@ -836,6 +714,8 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
         output_groups["pdb_file"] = depset([pdb_file])
     if generated_def_file != None:
         output_groups["def_file"] = depset([generated_def_file])
+    if linkmap:
+        output_groups["linkmap"] = depset([linkmap])
 
     if cc_linking_outputs_binary_library != None:
         # For consistency and readability.
@@ -917,7 +797,7 @@ def _impl(ctx):
 
 cc_binary = rule(
     implementation = _impl,
-    initializer = cc_shared_library_initializer,
+    initializer = dynamic_deps_initializer,
     doc = """
 <p>It produces an executable binary.</p>
 

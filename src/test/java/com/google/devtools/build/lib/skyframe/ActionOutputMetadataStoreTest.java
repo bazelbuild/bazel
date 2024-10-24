@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.HasDigest;
 import com.google.devtools.build.lib.actions.HasDigest.ByteStringDigest;
 import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
@@ -82,6 +83,10 @@ public final class ActionOutputMetadataStoreTest {
     FULLY_LOCAL,
     FULLY_REMOTE,
     MIXED;
+
+    boolean isPartiallyRemote() {
+      return this == FULLY_REMOTE || this == MIXED;
+    }
   }
 
   private final Map<Path, Integer> chmodCalls = Maps.newConcurrentMap();
@@ -260,6 +265,20 @@ public final class ActionOutputMetadataStoreTest {
   }
 
   @Test
+  public void withDanglingSymlinkInTreeArtifactFailsWithException() throws Exception {
+    SpecialArtifact treeArtifact =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, "foo/bar");
+    TreeFileArtifact child = TreeFileArtifact.createTreeOutput(treeArtifact, "child");
+    treeArtifact.getPath().createDirectoryAndParents();
+    child.getPath().createSymbolicLink(PathFragment.create("/does_not_exist"));
+
+    ActionOutputMetadataStore store = createStore(/* outputs= */ ImmutableSet.of(treeArtifact));
+
+    IOException e = assertThrows(IOException.class, () -> store.getOutputMetadata(treeArtifact));
+    assertThat(e).hasMessageThat().contains("dangling symbolic link");
+  }
+
+  @Test
   public void resettingOutputs() throws Exception {
     PathFragment path = PathFragment.create("foo/bar");
     Artifact artifact = ActionsTestUtil.createArtifactWithRootRelativePath(outputRoot, path);
@@ -377,7 +396,7 @@ public final class ActionOutputMetadataStoreTest {
     // child is missing, getExistingFileArtifactValue will throw.
     ActionExecutionValue actionExecutionValue =
         ActionExecutionValue.createFromOutputMetadataStore(
-            store, /* outputSymlinks= */ ImmutableList.of(), new NullAction());
+            store, FilesetOutputTree.EMPTY, new NullAction());
     tree.getChildren().forEach(actionExecutionValue::getExistingFileArtifactValue);
   }
 
@@ -418,25 +437,21 @@ public final class ActionOutputMetadataStoreTest {
         .getPath(outputArtifact.getPath().getPathString())
         .createSymbolicLink(targetArtifact.getPath().asFragment());
 
-    PathFragment expectedMaterializationExecPath =
-        location == FileLocation.REMOTE && preexistingPath != null
-            ? preexistingPath
-            : targetArtifact.getExecPath();
+    PathFragment expectedMaterializationExecPath = null;
+    if (location == FileLocation.REMOTE) {
+      expectedMaterializationExecPath =
+          preexistingPath != null ? preexistingPath : targetArtifact.getExecPath();
+    }
 
     assertThat(store.getOutputMetadata(outputArtifact))
         .isEqualTo(createFileMetadataForSymlinkTest(location, expectedMaterializationExecPath));
   }
 
-  private FileArtifactValue createFileMetadataForSymlinkTest(
+  private static FileArtifactValue createFileMetadataForSymlinkTest(
       FileLocation location, @Nullable PathFragment materializationExecPath) {
     switch (location) {
       case LOCAL:
-        FileArtifactValue target =
-            FileArtifactValue.createForNormalFile(new byte[] {1, 2, 3}, /* proxy= */ null, 10);
-        return materializationExecPath == null
-            ? target
-            : FileArtifactValue.createForResolvedSymlink(
-                materializationExecPath, target, target.getDigest());
+        return FileArtifactValue.createForNormalFile(new byte[] {1, 2, 3}, /* proxy= */ null, 10);
       case REMOTE:
         return RemoteFileArtifactValue.create(
             new byte[] {1, 2, 3}, 10, 1, -1, materializationExecPath);
@@ -481,8 +496,11 @@ public final class ActionOutputMetadataStoreTest {
         .getPath(outputArtifact.getPath().getPathString())
         .createSymbolicLink(targetArtifact.getPath().asFragment());
 
-    PathFragment expectedMaterializationExecPath =
-        preexistingPath != null ? preexistingPath : targetArtifact.getExecPath();
+    PathFragment expectedMaterializationExecPath = null;
+    if (composition.isPartiallyRemote()) {
+      expectedMaterializationExecPath =
+          preexistingPath != null ? preexistingPath : targetArtifact.getExecPath();
+    }
 
     assertThat(store.getTreeArtifactValue(outputArtifact))
         .isEqualTo(
@@ -490,7 +508,7 @@ public final class ActionOutputMetadataStoreTest {
                 outputArtifact, composition, expectedMaterializationExecPath));
   }
 
-  private TreeArtifactValue createTreeMetadataForSymlinkTest(
+  private static TreeArtifactValue createTreeMetadataForSymlinkTest(
       SpecialArtifact parent,
       TreeComposition composition,
       @Nullable PathFragment materializationExecPath) {
@@ -549,8 +567,8 @@ public final class ActionOutputMetadataStoreTest {
     Artifact artifact =
         ActionsTestUtil.createArtifactWithRootRelativePath(
             outputRoot, PathFragment.create("foo/bar"));
-    ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets =
-        ImmutableMap.of(artifact, symlinks);
+    ImmutableMap<Artifact, FilesetOutputTree> expandedFilesets =
+        ImmutableMap.of(artifact, FilesetOutputTree.create(symlinks));
 
     ActionInputMetadataProvider inputMetadataProvider =
         new ActionInputMetadataProvider(
@@ -567,9 +585,10 @@ public final class ActionOutputMetadataStoreTest {
   private FilesetOutputSymlink createFilesetOutputSymlink(HasDigest digest, String identifier) {
     return FilesetOutputSymlink.create(
         PathFragment.create(identifier + "_symlink"),
-        PathFragment.create(identifier),
+        execRoot.getRelative(identifier).asFragment(),
         digest,
-        execRoot.asFragment());
+        execRoot.asFragment(),
+        /* enclosingTreeArtifact= */ null);
   }
 
   private ActionInput createInput(String identifier) {
@@ -811,7 +830,7 @@ public final class ActionOutputMetadataStoreTest {
 
     var symlinkMetadata = store.getOutputMetadata(symlink);
 
-    assertThat(symlinkMetadata.getDigest()).isEqualTo(targetMetadata.getDigest());
+    assertThat(symlinkMetadata).isEqualTo(targetMetadata);
     assertThat(DigestUtils.getCacheStats().hitCount()).isEqualTo(1);
   }
 }

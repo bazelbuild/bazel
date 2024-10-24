@@ -26,6 +26,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget.MergingException;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleConfiguredTargetUtil;
 import com.google.devtools.build.lib.collect.ImmutableSharedKeyMap;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -178,7 +179,7 @@ public abstract class OutputGroupInfo extends StructImpl
    * disjoint, except for the special validation output group, which is always merged.
    */
   @Nullable
-  public static OutputGroupInfo merge(List<OutputGroupInfo> providers) throws DuplicateException {
+  public static OutputGroupInfo merge(List<OutputGroupInfo> providers) throws MergingException {
     if (providers.isEmpty()) {
       return null;
     }
@@ -186,29 +187,21 @@ public abstract class OutputGroupInfo extends StructImpl
       return providers.get(0);
     }
 
-    Map<String, NestedSet<Artifact>> outputGroups = new TreeMap<>();
+    Map<String, NestedSetBuilder<Artifact>> outputGroupBuilders = new TreeMap<>();
     for (OutputGroupInfo provider : providers) {
       for (String group : provider) {
-        if (group.equals(VALIDATION)) {
-          continue;
-        }
-        if (outputGroups.put(group, provider.getOutputGroup(group)) != null) {
-          throw new DuplicateException("Output group " + group + " provided twice");
-        }
+        NestedSetBuilder<Artifact> builder =
+            outputGroupBuilders.computeIfAbsent(group, g -> NestedSetBuilder.stableOrder());
+        builder.addTransitive(provider.getOutputGroup(group));
       }
     }
-    // Allow both an aspect and the rule to use validation actions.
-    NestedSetBuilder<Artifact> validationOutputs = NestedSetBuilder.stableOrder();
-    for (OutputGroupInfo provider : providers) {
-      try {
-        validationOutputs.addTransitive(provider.getOutputGroup(VALIDATION));
-      } catch (IllegalArgumentException e) {
-        // Thrown if nested set orders aren't compatible.
-        throw new DuplicateException(
-            "Output group " + VALIDATION + " provided twice with incompatible depset orders");
-      }
+
+    ImmutableMap.Builder<String, NestedSet<Artifact>> outputGroups = ImmutableMap.builder();
+    for (var entry : outputGroupBuilders.entrySet()) {
+      outputGroups.put(entry.getKey(), entry.getValue().build());
     }
-    return createInternal(ImmutableMap.copyOf(outputGroups));
+
+    return createInternal(outputGroups.buildOrThrow());
   }
 
   public static ImmutableSortedSet<String> determineOutputGroups(
@@ -252,13 +245,11 @@ public abstract class OutputGroupInfo extends StructImpl
 
     // Add the validation output group regardless of the additions and subtractions above.
     switch (validationMode) {
-      case OUTPUT_GROUP:
-        current.add(VALIDATION);
-        break;
-      case ASPECT:
-        current.add(VALIDATION_TOP_LEVEL);
-        break;
-      case OFF: // fall out
+      case OUTPUT_GROUP -> current.add(VALIDATION);
+      case ASPECT -> current.add(VALIDATION_TOP_LEVEL);
+      case OFF -> {
+        // fall out
+      }
     }
 
     // The `test` command ultimately requests artifacts from the `default` output group in order to
@@ -275,16 +266,12 @@ public abstract class OutputGroupInfo extends StructImpl
     if (files.isEmpty()) {
       return EmptyFiles.of(ImmutableSet.of(group));
     }
-    switch (group) {
-      case HIDDEN_TOP_LEVEL:
-        return new HiddenTopLevelOnly(files);
-      case VALIDATION:
-        return new ValidationOnly(files);
-      case DEFAULT:
-        return new DefaultOnly(files);
-      default:
-        return new OtherGroupOnly(group, files);
-    }
+    return switch (group) {
+      case HIDDEN_TOP_LEVEL -> new HiddenTopLevelOnly(files);
+      case VALIDATION -> new ValidationOnly(files);
+      case DEFAULT -> new DefaultOnly(files);
+      default -> new OtherGroupOnly(group, files);
+    };
   }
 
   static OutputGroupInfo fromBuilders(SortedMap<String, NestedSetBuilder<Artifact>> builders) {
@@ -409,10 +396,9 @@ public abstract class OutputGroupInfo extends StructImpl
       if (this == o) {
         return true;
       }
-      if (!(o instanceof EmptyFiles)) {
+      if (!(o instanceof EmptyFiles other)) {
         return false;
       }
-      EmptyFiles other = (EmptyFiles) o;
       return groups.equals(other.groups);
     }
 

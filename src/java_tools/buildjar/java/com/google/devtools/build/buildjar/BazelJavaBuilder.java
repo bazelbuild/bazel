@@ -31,6 +31,7 @@ import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.io.Writer;
 import java.nio.charset.Charset;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
@@ -46,7 +47,12 @@ public class BazelJavaBuilder {
     if (args.length == 1 && args[0].equals("--persistent_worker")) {
       WorkRequestHandler workerHandler =
           new WorkRequestHandlerBuilder(
-                  builder::parseAndBuild,
+                  new WorkRequestHandler.WorkRequestCallback(
+                      (workRequest, printWriter) ->
+                          builder.parseAndBuild(
+                              workRequest.getArgumentsList(),
+                              Path.of(workRequest.getSandboxDir()),
+                              printWriter)),
                   System.err,
                   new ProtoWorkerMessageProcessor(System.in, System.out))
               .setCpuUsageBeforeGc(Duration.ofSeconds(10))
@@ -66,7 +72,7 @@ public class BazelJavaBuilder {
           new PrintWriter(new OutputStreamWriter(System.err, Charset.defaultCharset()));
       int returnCode;
       try {
-        returnCode = builder.parseAndBuild(Arrays.asList(args), pw);
+        returnCode = builder.parseAndBuild(Arrays.asList(args), Path.of(""), pw);
       } finally {
         pw.flush();
       }
@@ -74,9 +80,9 @@ public class BazelJavaBuilder {
     }
   }
 
-  public int parseAndBuild(List<String> args, PrintWriter pw) {
+  public int parseAndBuild(List<String> args, Path workDir, PrintWriter pw) {
     try {
-      JavaLibraryBuildRequest build = parse(args);
+      JavaLibraryBuildRequest build = parse(args, workDir);
       try (SimpleJavaLibraryBuilder builder =
           build.getDependencyModule().reduceClasspath()
               ? new ReducedClasspathJavaLibraryBuilder()
@@ -122,12 +128,13 @@ public class BazelJavaBuilder {
    * @throws InvalidCommandLineException on any command line error
    */
   @VisibleForTesting
-  public JavaLibraryBuildRequest parse(List<String> args)
+  public JavaLibraryBuildRequest parse(List<String> args, Path workDir)
       throws IOException, InvalidCommandLineException {
     OptionsParser optionsParser =
         new OptionsParser(args, JavacOptions.createWithWarningsAsErrorsDefault(ImmutableList.of()));
     ImmutableList<BlazeJavaCompilerPlugin> plugins =
         ImmutableList.of(new ErrorPronePlugin(BazelScannerSuppliers.bazelChecks()));
-    return new JavaLibraryBuildRequest(optionsParser, plugins, new DependencyModule.Builder());
+    return new JavaLibraryBuildRequest(
+        optionsParser, plugins, new DependencyModule.Builder(), workDir);
   }
 }

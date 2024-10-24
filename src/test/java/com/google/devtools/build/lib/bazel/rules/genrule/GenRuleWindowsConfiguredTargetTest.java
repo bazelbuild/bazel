@@ -76,11 +76,15 @@ public class GenRuleWindowsConfiguredTargetTest extends BuildViewTestCase {
   public void testCmdBatchIsPreferred() throws Exception {
     scratch.file(
         "genrule1/BUILD",
-        "genrule(name = 'hello_world',",
-        "outs = ['message.txt'],",
-        "cmd  = 'echo \"Hello, default cmd.\" >$(location message.txt)',",
-        "cmd_bash  = 'echo \"Hello, Bash cmd.\" >$(location message.txt)',",
-        "cmd_bat  = 'echo \"Hello, Batch cmd.\" >$(location message.txt)')");
+        """
+        genrule(
+            name = "hello_world",
+            outs = ["message.txt"],
+            cmd = 'echo "Hello, default cmd." >$(location message.txt)',
+            cmd_bash = 'echo "Hello, Bash cmd." >$(location message.txt)',
+            cmd_bat = 'echo "Hello, Batch cmd." >$(location message.txt)',
+        )
+        """);
 
     Artifact messageArtifact = getFileConfiguredTarget("//genrule1:message.txt").getArtifact();
     SpawnAction shellAction = (SpawnAction) getGeneratingAction(messageArtifact);
@@ -99,12 +103,16 @@ public class GenRuleWindowsConfiguredTargetTest extends BuildViewTestCase {
   public void testCmdPsIsPreferred() throws Exception {
     scratch.file(
         "genrule1/BUILD",
-        "genrule(name = 'hello_world',",
-        "outs = ['message.txt'],",
-        "cmd  = 'echo \"Hello, default cmd.\" >$(location message.txt)',",
-        "cmd_bash  = 'echo \"Hello, Bash cmd.\" >$(location message.txt)',",
-        "cmd_bat  = 'echo \"Hello, Batch cmd.\" >$(location message.txt)',",
-        "cmd_ps  = 'echo \"Hello, Powershell cmd.\" >$(location message.txt)')");
+        """
+        genrule(
+            name = "hello_world",
+            outs = ["message.txt"],
+            cmd = 'echo "Hello, default cmd." >$(location message.txt)',
+            cmd_bash = 'echo "Hello, Bash cmd." >$(location message.txt)',
+            cmd_bat = 'echo "Hello, Batch cmd." >$(location message.txt)',
+            cmd_ps = 'echo "Hello, Powershell cmd." >$(location message.txt)',
+        )
+        """);
 
     Artifact messageArtifact = getFileConfiguredTarget("//genrule1:message.txt").getArtifact();
     SpawnAction shellAction = (SpawnAction) getGeneratingAction(messageArtifact);
@@ -126,6 +134,10 @@ public class GenRuleWindowsConfiguredTargetTest extends BuildViewTestCase {
         "outs = ['message.txt'],",
         "cmd_bat  = ' && '.join([\"echo \\\"Hello, Batch cmd, %s.\\\" >$(location message.txt)\" %"
             + " i for i in range(1, 1000)]),)");
+    useConfiguration(
+        "--platforms=//platforms:windows",
+        "--host_platform=//platforms:windows",
+        "--experimental_platform_in_output_dir");
 
     Artifact messageArtifact = getFileConfiguredTarget("//genrule1:message.txt").getArtifact();
     SpawnAction shellAction = (SpawnAction) getGeneratingAction(messageArtifact);
@@ -133,7 +145,7 @@ public class GenRuleWindowsConfiguredTargetTest extends BuildViewTestCase {
     assertThat(shellAction).isNotNull();
     assertThat(shellAction.getOutputs()).containsExactly(messageArtifact);
 
-    String expected = "bazel-out\\k8-fastbuild\\bin\\genrule1\\hello_world.genrule_script.bat";
+    String expected = "bazel-out\\windows-fastbuild\\bin\\genrule1\\hello_world.genrule_script.bat";
     assertThat(shellAction.getArguments().get(0)).isEqualTo("cmd.exe");
     int last = shellAction.getArguments().size() - 1;
     assertThat(shellAction.getArguments().get(last - 1)).isEqualTo("/c");
@@ -148,6 +160,10 @@ public class GenRuleWindowsConfiguredTargetTest extends BuildViewTestCase {
         "outs = ['message.txt'],",
         "cmd_ps  = '; '.join([\"echo \\\"Hello, Powershell cmd, %s.\\\" >$(location message.txt)\""
             + " % i for i in range(1, 1000)]),)");
+    useConfiguration(
+        "--platforms=//platforms:windows",
+        "--host_platform=//platforms:windows",
+        "--experimental_platform_in_output_dir");
 
     Artifact messageArtifact = getFileConfiguredTarget("//genrule1:message.txt").getArtifact();
     SpawnAction shellAction = (SpawnAction) getGeneratingAction(messageArtifact);
@@ -155,7 +171,8 @@ public class GenRuleWindowsConfiguredTargetTest extends BuildViewTestCase {
     assertThat(shellAction).isNotNull();
     assertThat(shellAction.getOutputs()).containsExactly(messageArtifact);
 
-    String expected = ".\\bazel-out\\k8-fastbuild\\bin\\genrule1\\hello_world.genrule_script.ps1";
+    String expected =
+        ".\\bazel-out\\windows-fastbuild\\bin\\genrule1\\hello_world.genrule_script.ps1";
     assertThat(shellAction.getArguments().get(0)).isEqualTo("powershell.exe");
     assertThat(shellAction.getArguments().get(1)).isEqualTo("/c");
     assertPowershellCommandEquals(expected, shellAction.getArguments().get(2));
@@ -165,10 +182,14 @@ public class GenRuleWindowsConfiguredTargetTest extends BuildViewTestCase {
   public void testCmdBashIsPreferred() throws Exception {
     scratch.file(
         "genrule1/BUILD",
-        "genrule(name = 'hello_world',",
-        "outs = ['message.txt'],",
-        "cmd  = 'echo \"Hello, default cmd.\" >$(location message.txt)',",
-        "cmd_bash  = 'echo \"Hello, Bash cmd.\" >$(location message.txt)')");
+        """
+        genrule(
+            name = "hello_world",
+            outs = ["message.txt"],
+            cmd = 'echo "Hello, default cmd." >$(location message.txt)',
+            cmd_bash = 'echo "Hello, Bash cmd." >$(location message.txt)',
+        )
+        """);
 
     Artifact messageArtifact = getFileConfiguredTarget("//genrule1:message.txt").getArtifact();
     SpawnAction shellAction = (SpawnAction) getGeneratingAction(messageArtifact);
@@ -177,7 +198,7 @@ public class GenRuleWindowsConfiguredTargetTest extends BuildViewTestCase {
     assertThat(shellAction.getOutputs()).containsExactly(messageArtifact);
 
     String expected = "echo \"Hello, Bash cmd.\" >" + messageArtifact.getExecPathString();
-    assertThat(shellAction.getArguments().get(0)).isEqualTo("c:/tools/msys64/usr/bin/bash.exe");
+    assertThat(shellAction.getArguments().get(0)).isEqualTo("c:/msys64/usr/bin/bash.exe");
     assertThat(shellAction.getArguments().get(1)).isEqualTo("-c");
     assertBashCommandEquals(expected, shellAction.getArguments().get(2));
   }
@@ -194,10 +215,10 @@ public class GenRuleWindowsConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testMissingCmdAttributeErrorOnNonWindowsPlatform() throws Exception {
-    scratch.overwriteFile(
-        "platforms/BUILD",
+    scratch.file(
+        "newplatforms/BUILD",
         "platform(name = 'nonwindows', constraint_values = ['@platforms//os:linux'])");
-    useConfiguration("--host_platform=//platforms:nonwindows");
+    useConfiguration("--host_platform=//newplatforms:nonwindows");
 
     checkError(
         "foo",

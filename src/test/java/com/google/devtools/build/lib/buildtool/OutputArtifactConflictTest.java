@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.TruthJUnit.assume;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertNoEvents;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
@@ -21,9 +22,9 @@ import static org.junit.Assert.fail;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.Subscribe;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
-import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.analysis.AnalysisFailureEvent;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.TargetCompletedId;
@@ -42,6 +43,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -49,10 +51,13 @@ import org.junit.runner.RunWith;
 @RunWith(TestParameterInjector.class)
 public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
 
+  @TestParameter boolean skymeld;
+  @TestParameter boolean minimizeMemory;
+
   static class AnalysisFailureEventListener extends BlazeModule {
 
     private final List<TargetCompletedId> eventIds = new ArrayList<>();
-    private final List<String> failedTargetNames = new ArrayList<>();
+    private final List<String> analysisFailures = new ArrayList<>();
 
     @Override
     public void beforeCommand(CommandEnvironment env) {
@@ -62,7 +67,7 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
     @Subscribe
     public void onAnalysisFailure(AnalysisFailureEvent event) {
       eventIds.add(event.getEventId().getTargetCompleted());
-      failedTargetNames.add(event.getFailedTarget().getLabel().toString());
+      analysisFailures.add(event.getFailedTarget().getLabel().toString());
     }
   }
 
@@ -73,28 +78,45 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
     return super.getRuntimeBuilder().addBlazeModule(eventListener);
   }
 
+  @Before
+  public void setup() {
+    addOptions("--experimental_merged_skyframe_analysis_execution=" + skymeld);
+    if (minimizeMemory) {
+      addOptions(
+          "--notrack_incremental_state",
+          "--discard_analysis_cache",
+          "--nokeep_state_after_build",
+          "--heuristically_drop_nodes",
+          "--nouse_action_cache");
+    }
+  }
+
   private void writeConflictBzl() throws IOException {
     write(
         "foo/conflict.bzl",
-        "def _conflict_impl(ctx):",
-        "  inputs = depset(",
-        "    ctx.files.srcs, transitive = [dep[DefaultInfo].files for dep in ctx.attr.deps])",
-        "  conflict_output = ctx.actions.declare_file('conflict_output')",
-        "  other = ctx.actions.declare_file('other' + ctx.attr.name)",
-        "  ctx.actions.run_shell(",
-        "    inputs = inputs,",
-        "    outputs = [conflict_output, other],",
-        "    command = 'touch %s %s' % (conflict_output.path, other.path)",
-        "  )",
-        "  return [DefaultInfo(files = depset([conflict_output, other]))]",
-        "",
-        "my_rule = rule(",
-        "  implementation=_conflict_impl,",
-        "  attrs = {",
-        "    'srcs': attr.label_list(allow_files = True),",
-        "    'deps': attr.label_list(providers = [DefaultInfo]),",
-        "  }",
-        ")");
+        """
+        def _conflict_impl(ctx):
+            inputs = depset(
+                ctx.files.srcs,
+                transitive = [dep[DefaultInfo].files for dep in ctx.attr.deps],
+            )
+            conflict_output = ctx.actions.declare_file("conflict_output")
+            other = ctx.actions.declare_file("other" + ctx.attr.name)
+            ctx.actions.run_shell(
+                inputs = inputs,
+                outputs = [conflict_output, other],
+                command = "touch %s %s" % (conflict_output.path, other.path),
+            )
+            return [DefaultInfo(files = depset([conflict_output, other]))]
+
+        my_rule = rule(
+            implementation = _conflict_impl,
+            attrs = {
+                "srcs": attr.label_list(allow_files = True),
+                "deps": attr.label_list(providers = [DefaultInfo]),
+            },
+        )
+        """);
   }
 
   /**
@@ -115,11 +137,7 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
 
   @Test
   public void testArtifactPrefix(
-      @TestParameter boolean keepGoing,
-      @TestParameter boolean modifyBuildFile,
-      @TestParameter boolean mergedAnalysisExecution)
-      throws Exception {
-    addOptions("--experimental_merged_skyframe_analysis_execution=" + mergedAnalysisExecution);
+      @TestParameter boolean keepGoing, @TestParameter boolean modifyBuildFile) throws Exception {
     write("x/y/BUILD", "genrule(name = 'y', outs = ['whatever'], cmd = 'touch $@')");
     if (modifyBuildFile) {
       write("x/BUILD", "genrule(name = 'y', outs = ['not_y'], cmd = 'touch $@')");
@@ -131,7 +149,7 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
     }
 
     assertNoEvents(events.errors());
-    assertThat(eventListener.failedTargetNames).isEmpty();
+    assertThat(eventListener.analysisFailures).isEmpty();
 
     addOptions("--keep_going=" + keepGoing);
     Code errorCode = assertThrowsExceptionWhenBuildingTargets(keepGoing, "//x/y:y", "//x:y");
@@ -139,9 +157,9 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
         .isEqualTo(keepGoing ? Code.NOT_ALL_TARGETS_ANALYZED : Code.ARTIFACT_PREFIX_CONFLICT);
 
     if (keepGoing) {
-      assertThat(eventListener.failedTargetNames).containsExactly("//x:y", "//x/y:y");
+      assertThat(eventListener.analysisFailures).containsExactly("//x:y", "//x/y:y");
     } else {
-      assertThat(eventListener.failedTargetNames).containsAnyOf("//x:y", "//x/y:y");
+      assertThat(eventListener.analysisFailures).containsAnyOf("//x:y", "//x/y:y");
     }
 
     events.assertContainsError("One of the output paths '" + TestConstants.PRODUCT_NAME + "-out/");
@@ -153,11 +171,7 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
 
   @Test
   public void testAspectArtifactSharesPrefixWithTargetArtifact(
-      @TestParameter boolean keepGoing,
-      @TestParameter boolean modifyBuildFile,
-      @TestParameter boolean mergedAnalysisExecution)
-      throws Exception {
-    addOptions("--experimental_merged_skyframe_analysis_execution=" + mergedAnalysisExecution);
+      @TestParameter boolean keepGoing, @TestParameter boolean modifyBuildFile) throws Exception {
     if (modifyBuildFile) {
       write("x/BUILD", "genrule(name = 'y', outs = ['y.out'], cmd = 'touch $@')");
     } else {
@@ -166,24 +180,26 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
     write("x/y/BUILD", "genrule(name = 'y', outs = ['whatever'], cmd = 'touch $@')");
     write(
         "x/aspect.bzl",
-        "def _aspect_impl(target, ctx):",
-        "    if not getattr(ctx.rule.attr, 'outs', None):",
-        "        return struct(output_groups = {})",
-        "    conflict_outputs = list()",
-        "    for out in ctx.rule.attr.outs:",
-        "        if out.name[1:] == '.bad':",
-        "            aspect_out = ctx.actions.declare_file(out.name[:1])",
-        "            conflict_outputs.append(aspect_out)",
-        "            cmd = 'echo %s > %s' % (out.name, aspect_out.path)",
-        "            ctx.actions.run_shell(",
-        "                outputs = [aspect_out],",
-        "                command = cmd,",
-        "            )",
-        "    return [OutputGroupInfo(",
-        "        files = depset(conflict_outputs)",
-        "    )]",
-        "",
-        "my_aspect = aspect(implementation = _aspect_impl)");
+        """
+        def _aspect_impl(target, ctx):
+            if not getattr(ctx.rule.attr, "outs", None):
+                return  [OutputGroupInfo()]
+            conflict_outputs = list()
+            for out in ctx.rule.attr.outs:
+                if out.name[1:] == ".bad":
+                    aspect_out = ctx.actions.declare_file(out.name[:1])
+                    conflict_outputs.append(aspect_out)
+                    cmd = "echo %s > %s" % (out.name, aspect_out.path)
+                    ctx.actions.run_shell(
+                        outputs = [aspect_out],
+                        command = cmd,
+                    )
+            return [OutputGroupInfo(
+                files = depset(conflict_outputs),
+            )]
+
+        my_aspect = aspect(implementation = _aspect_impl)
+        """);
 
     if (modifyBuildFile) {
       buildTarget("//x/y", "//x:y");
@@ -192,7 +208,7 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
       buildTarget("//x/y");
     }
     assertNoEvents(events.errors());
-    assertThat(eventListener.failedTargetNames).isEmpty();
+    assertThat(eventListener.analysisFailures).isEmpty();
 
     addOptions("--aspects=//x:aspect.bzl%my_aspect", "--output_groups=files");
     addOptions("--keep_going=" + keepGoing);
@@ -203,74 +219,107 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
     events.assertContainsError("/bin/x/y/whatever' (belonging to //x/y:y)");
     events.assertContainsError("/bin/x/y' (belonging to //x:y)");
     events.assertContainsError("is a prefix of the other");
+    assertThat(events.errors()).hasSize(1);
+    assertThat(eventListener.analysisFailures).containsAnyOf("//x:y", "//x/y:y");
 
+    // We can't be sure if aspect(//x:y) or //x/y:y would trigger the conflict.
+    skipTheRestIfSkymeldAndMinimizeMemory();
     // As we have --output_groups=file, the CTs won't actually be built. Only the
     // AnalysisFailureEvent from Aspect(//x:y) is expected even though there are 2 conflicting
     // actions.
-    assertThat(events.errors()).hasSize(1);
-    assertThat(eventListener.failedTargetNames).containsExactly("//x:y");
     assertThat(eventListener.eventIds.get(0).getAspect()).isEqualTo("//x:aspect.bzl%my_aspect");
   }
 
   @Test
   public void testAspectArtifactPrefix(
-      @TestParameter boolean keepGoing,
-      @TestParameter boolean modifyBuildFile,
-      @TestParameter boolean mergedAnalysisExecution)
-      throws Exception {
-    addOptions("--experimental_merged_skyframe_analysis_execution=" + mergedAnalysisExecution);
+      @TestParameter boolean keepGoing, @TestParameter boolean modifyBuildFile) throws Exception {
     if (modifyBuildFile) {
       write(
           "x/BUILD",
-          "genrule(name = 'y', outs = ['y.out'], cmd = 'touch $@')",
-          "genrule(name = 'ydir', outs = ['y.dir'], cmd = 'touch $@')");
+          """
+          genrule(
+              name = "y",
+              outs = ["y.out"],
+              cmd = "touch $@",
+          )
+
+          genrule(
+              name = "ydir",
+              outs = ["y.dir"],
+              cmd = "touch $@",
+          )
+          """);
     } else {
       write(
           "x/BUILD",
-          "genrule(name = 'y', outs = ['y.bad'], cmd = 'touch $@')",
-          "genrule(name = 'ydir', outs = ['y.dir'], cmd = 'touch $@')");
+          """
+          genrule(
+              name = "y",
+              outs = ["y.bad"],
+              cmd = "touch $@",
+          )
+
+          genrule(
+              name = "ydir",
+              outs = ["y.dir"],
+              cmd = "touch $@",
+          )
+          """);
     }
     write(
         "x/aspect.bzl",
-        "def _aspect_impl(target, ctx):",
-        "    if not getattr(ctx.rule.attr, 'outs', None):",
-        "        return struct(output_groups = {})",
-        "    conflict_outputs = list()",
-        "    for out in ctx.rule.attr.outs:",
-        "        if out.name[1:] == '.bad':",
-        "            aspect_out = ctx.actions.declare_file(out.name[:1])",
-        "            conflict_outputs.append(aspect_out)",
-        "            cmd = 'echo %s > %s' % (out.name, aspect_out.path)",
-        "            ctx.actions.run_shell(",
-        "                outputs = [aspect_out],",
-        "                command = cmd,",
-        "            )",
-        "        elif out.name[1:] == '.dir':",
-        "            aspect_out = ctx.actions.declare_file(out.name[:1] + '/' + out.name)",
-        "            conflict_outputs.append(aspect_out)",
-        "            out_dir = aspect_out.path[:len(aspect_out.path) - len(out.name) + 1]",
-        "            cmd = 'mkdir %s && echo %s > %s' % (out_dir, out.name, aspect_out.path)",
-        "            ctx.actions.run_shell(",
-        "                outputs = [aspect_out],",
-        "                command = cmd,",
-        "            )",
-        "    return [OutputGroupInfo(",
-        "        files = depset(conflict_outputs)",
-        "    )]",
-        "",
-        "my_aspect = aspect(implementation = _aspect_impl)");
+        """
+        def _aspect_impl(target, ctx):
+            if not getattr(ctx.rule.attr, "outs", None):
+                return [OutputGroupInfo()]
+            conflict_outputs = list()
+            for out in ctx.rule.attr.outs:
+                if out.name[1:] == ".bad":
+                    aspect_out = ctx.actions.declare_file(out.name[:1])
+                    conflict_outputs.append(aspect_out)
+                    cmd = "echo %s > %s" % (out.name, aspect_out.path)
+                    ctx.actions.run_shell(
+                        outputs = [aspect_out],
+                        command = cmd,
+                    )
+                elif out.name[1:] == ".dir":
+                    aspect_out = ctx.actions.declare_file(out.name[:1] + "/" + out.name)
+                    conflict_outputs.append(aspect_out)
+                    out_dir = aspect_out.path[:len(aspect_out.path) - len(out.name) + 1]
+                    cmd = "mkdir %s && echo %s > %s" % (out_dir, out.name, aspect_out.path)
+                    ctx.actions.run_shell(
+                        outputs = [aspect_out],
+                        command = cmd,
+                    )
+            return [OutputGroupInfo(
+                files = depset(conflict_outputs),
+            )]
+
+        my_aspect = aspect(implementation = _aspect_impl)
+        """);
 
     if (modifyBuildFile) {
       buildTarget("//x:y", "//x:ydir");
       write(
           "x/BUILD",
-          "genrule(name = 'y', outs = ['y.bad'], cmd = 'touch $@')",
-          "genrule(name = 'ydir', outs = ['y.dir'], cmd = 'touch $@')");
+          """
+          genrule(
+              name = "y",
+              outs = ["y.bad"],
+              cmd = "touch $@",
+          )
+
+          genrule(
+              name = "ydir",
+              outs = ["y.dir"],
+              cmd = "touch $@",
+          )
+          """);
     } else {
       buildTarget("//x:y");
     }
     assertNoEvents(events.errors());
-    assertThat(eventListener.failedTargetNames).isEmpty();
+    assertThat(eventListener.analysisFailures).isEmpty();
 
     addOptions("--aspects=//x:aspect.bzl%my_aspect", "--output_groups=files");
     addOptions("--keep_going=" + keepGoing);
@@ -284,46 +333,54 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
     assertThat(events.errors()).hasSize(1);
     assertThat(eventListener.eventIds.get(0).getAspect()).isEqualTo("//x:aspect.bzl%my_aspect");
     if (keepGoing) {
-      assertThat(eventListener.failedTargetNames).containsExactly("//x:y", "//x:ydir");
+      assertThat(eventListener.analysisFailures).containsExactly("//x:y", "//x:ydir");
     } else {
-      assertThat(eventListener.failedTargetNames).containsAnyOf("//x:y", "//x:ydir");
+      assertThat(eventListener.analysisFailures).containsAnyOf("//x:y", "//x:ydir");
     }
   }
 
   @Test
-  public void testInvalidatedConflict(@TestParameter boolean mergedAnalysisExecution)
-      throws Exception {
-    addOptions("--experimental_merged_skyframe_analysis_execution=" + mergedAnalysisExecution);
+  public void testInvalidatedConflict() throws Exception {
     writeConflictBzl();
     write(
         "foo/BUILD",
-        "load('//foo:conflict.bzl', 'my_rule')",
-        "my_rule(name = 'first')",
-        "my_rule(name = 'second')");
+        """
+        load("//foo:conflict.bzl", "my_rule")
+
+        my_rule(name = "first")
+
+        my_rule(name = "second")
+        """);
 
     assertThrows(
         ViewCreationFailedException.class, () -> buildTarget("//foo:first", "//foo:second"));
-    assertThat(eventListener.failedTargetNames).containsAnyOf("//foo:first", "//foo:second");
+    assertThat(eventListener.analysisFailures).containsAnyOf("//foo:first", "//foo:second");
 
-    write("foo/BUILD", "load('//foo:conflict.bzl', 'my_rule')", "my_rule(name = 'first')");
-    events.clear();
+    write(
+        "foo/BUILD",
+        """
+        load("//foo:conflict.bzl", "my_rule")
+
+        my_rule(name = "first")
+        """);
     buildTarget("//foo:first");
 
     events.assertNoWarningsOrErrors();
   }
 
   @Test
-  public void testNewTargetConflict(
-      @TestParameter boolean keepGoing, @TestParameter boolean mergedAnalysisExecution)
-      throws Exception {
-    addOptions("--experimental_merged_skyframe_analysis_execution=" + mergedAnalysisExecution);
+  public void testNewTargetConflict(@TestParameter boolean keepGoing) throws Exception {
     addOptions("--keep_going=" + keepGoing);
     writeConflictBzl();
     write(
         "foo/BUILD",
-        "load('//foo:conflict.bzl', 'my_rule')",
-        "my_rule(name = 'first')",
-        "my_rule(name = 'second')");
+        """
+        load("//foo:conflict.bzl", "my_rule")
+
+        my_rule(name = "first")
+
+        my_rule(name = "second")
+        """);
     buildTarget("//foo:first");
     events.assertNoWarningsOrErrors();
 
@@ -333,29 +390,30 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
         .isEqualTo(keepGoing ? Code.NOT_ALL_TARGETS_ANALYZED : Code.ACTION_CONFLICT);
     events.assertContainsError(
         "file 'foo/conflict_output' is generated by these conflicting actions:");
-    assertThat(eventListener.failedTargetNames).hasSize(1);
-    assertThat(eventListener.failedTargetNames).containsAnyOf("//foo:first", "//foo:second");
+    assertThat(eventListener.analysisFailures).hasSize(1);
+    assertThat(eventListener.analysisFailures).containsAnyOf("//foo:first", "//foo:second");
   }
 
   @Test
-  public void testTwoOverlappingBuildsHasNoConflict(
-      @TestParameter boolean keepGoing, @TestParameter boolean mergedAnalysisExecution)
+  public void testTwoOverlappingBuildsHasNoConflict(@TestParameter boolean keepGoing)
       throws Exception {
-    addOptions("--experimental_merged_skyframe_analysis_execution=" + mergedAnalysisExecution);
     addOptions("--keep_going=" + keepGoing);
     writeConflictBzl();
     write(
         "foo/BUILD",
-        "load('//foo:conflict.bzl', 'my_rule')",
-        "my_rule(name = 'first')",
-        "my_rule(name = 'second')");
+        """
+        load("//foo:conflict.bzl", "my_rule")
+
+        my_rule(name = "first")
+
+        my_rule(name = "second")
+        """);
 
     // Verify that together they fail, even though no new targets have been analyzed
     Code errorCode =
         assertThrowsExceptionWhenBuildingTargets(keepGoing, "//foo:first", "//foo:second");
     assertThat(errorCode)
         .isEqualTo(keepGoing ? Code.NOT_ALL_TARGETS_ANALYZED : Code.ACTION_CONFLICT);
-    events.clear();
 
     // Verify that they still don't fail individually, so no state remains
     buildTarget("//foo:first");
@@ -365,24 +423,36 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void testFailingTargetsDoNotCauseActionConflicts(
-      @TestParameter boolean mergedAnalysisExecution) throws Exception {
-    addOptions("--experimental_merged_skyframe_analysis_execution=" + mergedAnalysisExecution);
+  public void testFailingTargetsDoNotCauseActionConflicts() throws Exception {
+    addOptions("--keep_going");
     write(
         "x/bad_rule.bzl",
-        "def _impl(ctx):",
-        "  return list().this_method_does_not_exist()",
-        "bad_rule = rule(_impl, attrs = {'deps': attr.label_list()})");
+        """
+        def _impl(ctx):
+            return list().this_method_does_not_exist()
+
+        bad_rule = rule(_impl, attrs = {"deps": attr.label_list()})
+        """);
     write(
         "x/BUILD",
-        "load('//x:bad_rule.bzl', 'bad_rule')",
-        "cc_binary(name = 'y', srcs = ['y.cc'], malloc = '//base:system_malloc')",
-        "bad_rule(name = 'bad', deps = [':y'])");
+        """
+        load("//x:bad_rule.bzl", "bad_rule")
+
+        cc_binary(
+            name = "y",
+            srcs = ["y.cc"],
+            malloc = "//base:system_malloc",
+        )
+
+        bad_rule(
+            name = "bad",
+            deps = [":y"],
+        )
+        """);
     write("x/y/y.cc", "");
     write("x/y/BUILD", "cc_library(name = 'y', srcs=['y.cc'])");
     write("x/y.cc", "int main() { return 0; }");
 
-    runtimeWrapper.addOptions("--keep_going");
     try {
       buildTarget("//x:y", "//x/y");
       fail();
@@ -395,18 +465,20 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
 
   // Regression test for b/184944522.
   @Test
-  public void testConflictErrorAndAnalysisError(@TestParameter boolean mergedAnalysisExecution)
-      throws Exception {
-    addOptions("--experimental_merged_skyframe_analysis_execution=" + mergedAnalysisExecution);
+  public void testConflictErrorAndAnalysisError() throws Exception {
+    addOptions("--keep_going");
     writeConflictBzl();
     write(
         "foo/BUILD",
-        "load('//foo:conflict.bzl', 'my_rule')",
-        "my_rule(name = 'first')",
-        "my_rule(name = 'second')");
+        """
+        load("//foo:conflict.bzl", "my_rule")
+
+        my_rule(name = "first")
+
+        my_rule(name = "second")
+        """);
     write("x/BUILD", "sh_library(name = 'x', deps = ['//y:y'])");
     write("y/BUILD", "sh_library(name = 'y', visibility = ['//visibility:private'])");
-    addOptions("--keep_going");
 
     assertThrows(
         BuildFailedException.class, () -> buildTarget("//x:x", "//foo:first", "//foo:second"));
@@ -414,42 +486,53 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
         "file 'foo/conflict_output' is generated by these conflicting actions:");
     // When targets have conflicting artifacts, one of them "wins" and is successfully built. All
     // of the other targets with conflicting artifacts fail.
-    assertThat(eventListener.failedTargetNames).contains("//x:x");
-    assertThat(eventListener.failedTargetNames).hasSize(2);
-    assertThat(eventListener.failedTargetNames).containsAnyOf("//foo:first", "//foo:second");
+    assertThat(eventListener.analysisFailures).contains("//x:x");
+    assertThat(eventListener.analysisFailures).hasSize(2);
+    assertThat(eventListener.analysisFailures).containsAnyOf("//foo:first", "//foo:second");
   }
 
   // Verify that an aspect whose analysis is unfinished doesn't fail the conflict reporting process.
   @Test
   public void testConflictErrorAndUnfinishedAspectAnalysis_mergedAnalysisExecution(
       @TestParameter boolean keepGoing) throws Exception {
-    addOptions("--experimental_merged_skyframe_analysis_execution");
     addOptions("--keep_going=" + keepGoing);
     write(
         "x/aspect.bzl",
-        "def _aspect_impl(target, ctx):",
-        "    if not getattr(ctx.rule.attr, 'outs', None):",
-        "        return struct(output_groups = {})",
-        "    conflict_outputs = list()",
-        "    for out in ctx.rule.attr.outs:",
-        "        if out.name[1:] == '.bad':",
-        "            aspect_out = ctx.actions.declare_file(out.name[:1])",
-        "            conflict_outputs.append(aspect_out)",
-        "            cmd = 'echo %s > %s' % (out.name, aspect_out.path)",
-        "            ctx.actions.run_shell(",
-        "                outputs = [aspect_out],",
-        "                command = cmd,",
-        "            )",
-        "    return [OutputGroupInfo(",
-        "        files = depset(conflict_outputs)",
-        "    )]",
-        "",
-        "my_aspect = aspect(implementation = _aspect_impl)");
+        """
+        def _aspect_impl(target, ctx):
+            if not getattr(ctx.rule.attr, "outs", None):
+                return [OutputGroupInfo()]
+            conflict_outputs = list()
+            for out in ctx.rule.attr.outs:
+                if out.name[1:] == ".bad":
+                    aspect_out = ctx.actions.declare_file(out.name[:1])
+                    conflict_outputs.append(aspect_out)
+                    cmd = "echo %s > %s" % (out.name, aspect_out.path)
+                    ctx.actions.run_shell(
+                        outputs = [aspect_out],
+                        command = cmd,
+                    )
+            return [OutputGroupInfo(
+                files = depset(conflict_outputs),
+            )]
+
+        my_aspect = aspect(implementation = _aspect_impl)
+        """);
 
     write(
         "x/BUILD",
-        "genrule(name = 'y', outs = ['y.bad'], cmd = 'touch $@')",
-        "sh_library(name = 'fail_analysis', deps = ['//private:y'])");
+        """
+        genrule(
+            name = "y",
+            outs = ["y.bad"],
+            cmd = "touch $@",
+        )
+
+        sh_library(
+            name = "fail_analysis",
+            deps = ["//private:y"],
+        )
+        """);
     write("x/y/BUILD", "genrule(name = 'y', outs = ['whatever'], cmd = 'touch $@')");
     write("private/BUILD", "sh_library(name = 'y', visibility = ['//visibility:private'])");
     addOptions("--aspects=//x:aspect.bzl%my_aspect", "--output_groups=files");
@@ -466,11 +549,17 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
       events.assertContainsError("is a prefix of the other");
       events.assertContainsError("Analysis of target '//x:fail_analysis' failed");
 
-      assertThat(eventListener.failedTargetNames).containsExactly("//x:y", "//x:fail_analysis");
+      assertThat(eventListener.analysisFailures).containsAtLeast("//x:y", "//x:fail_analysis");
+    } else if (minimizeMemory) {
+      assertThat(errorCode)
+          .isAnyOf(Code.ARTIFACT_PREFIX_CONFLICT, Code.CONFIGURED_VALUE_CREATION_FAILED);
+      // When in minimize-memory mode, the action conflicts are counted as failed analysis, since
+      // conflict checking happens during the analysis of each target.
+      assertThat(eventListener.analysisFailures)
+          .containsAnyOf("//x:y", "//x/y:y", "//x:fail_analysis");
     } else {
       assertThat(errorCode)
           .isAnyOf(Code.ARTIFACT_PREFIX_CONFLICT, Code.CONFIGURED_VALUE_CREATION_FAILED);
-      assertThat(eventListener.failedTargetNames).containsAnyOf("//x:y", "//x:fail_analysis");
     }
   }
 
@@ -486,7 +575,7 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
   @Test
   public void unusedActionsStillConflict() throws Exception {
     // TODO(b/245923465) Limitation with Skymeld.
-    addOptions("--noexperimental_merged_skyframe_analysis_execution");
+    assume().that(skymeld).isFalse();
     write(
         "foo/aspect.bzl",
         "def _aspect1_impl(target, ctx):",
@@ -522,9 +611,19 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
             + " [aspect1, aspect2])})");
     write(
         "foo/BUILD",
-        "load('//foo:aspect.bzl', 'bad_rule')",
-        "sh_library(name = 'dep', srcs = ['dep.sh'])",
-        "bad_rule(name = 'foo', deps = [':dep'])");
+        """
+        load("//foo:aspect.bzl", "bad_rule")
+
+        sh_library(
+            name = "dep",
+            srcs = ["dep.sh"],
+        )
+
+        bad_rule(
+            name = "foo",
+            deps = [":dep"],
+        )
+        """);
     addOptions("--keep_going");
     // If Bazel decides to permit this scenario, the build should succeed instead of throwing here.
     BuildFailedException buildFailedException =
@@ -546,15 +645,17 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void testMultipleConflictErrors(@TestParameter boolean mergedAnalysisExecution)
-      throws Exception {
-    addOptions("--experimental_merged_skyframe_analysis_execution=" + mergedAnalysisExecution);
+  public void testMultipleConflictErrors() throws Exception {
     writeConflictBzl();
     write(
         "foo/BUILD",
-        "load('//foo:conflict.bzl', 'my_rule')",
-        "my_rule(name = 'first')",
-        "my_rule(name = 'second')");
+        """
+        load("//foo:conflict.bzl", "my_rule")
+
+        my_rule(name = "first")
+
+        my_rule(name = "second")
+        """);
     write("x/BUILD", "genrule(name = 'y', outs = ['y'], cmd = 'touch $@')");
     write("x/y/BUILD", "genrule(name = 'y', outs = ['whatever'], cmd = 'touch $@')");
 
@@ -570,76 +671,71 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
     events.assertContainsError("is a prefix of the other");
     // When targets have conflicting artifacts, one of them "wins" and is successfully built. All
     // of the other targets with conflicting artifacts fail.
-    assertThat(eventListener.failedTargetNames).containsAtLeast("//x:y", "//x/y:y");
-    assertThat(eventListener.failedTargetNames).hasSize(3);
-    assertThat(eventListener.failedTargetNames).containsAnyOf("//foo:first", "//foo:second");
+    assertThat(eventListener.analysisFailures).containsAtLeast("//x:y", "//x/y:y");
+    assertThat(eventListener.analysisFailures).hasSize(3);
+    assertThat(eventListener.analysisFailures).containsAnyOf("//foo:first", "//foo:second");
   }
 
   @Test
-  public void repeatedConflictBuild(@TestParameter boolean mergedAnalysisExecution)
-      throws Exception {
-    addOptions("--experimental_merged_skyframe_analysis_execution=" + mergedAnalysisExecution);
+  public void repeatedConflictBuild() throws Exception {
     writeConflictBzl();
     write(
         "foo/BUILD",
-        "load('//foo:conflict.bzl', 'my_rule')",
-        "my_rule(name = 'first')",
-        "my_rule(name = 'second')");
+        """
+        load("//foo:conflict.bzl", "my_rule")
+
+        my_rule(name = "first")
+
+        my_rule(name = "second")
+        """);
     ViewCreationFailedException e =
         assertThrows(
             ViewCreationFailedException.class, () -> buildTarget("//foo:first", "//foo:second"));
-    assertThat(e)
-        .hasCauseThat()
-        .hasCauseThat()
-        .isInstanceOf(MutableActionGraph.ActionConflictException.class);
-    assertThat(eventListener.failedTargetNames).containsAnyOf("//foo:first", "//foo:second");
-    eventListener.failedTargetNames.clear();
+    assertThat(e).hasCauseThat().isInstanceOf(ActionConflictException.class);
+    assertThat(eventListener.analysisFailures).containsAnyOf("//foo:first", "//foo:second");
+    eventListener.analysisFailures.clear();
 
     e =
         assertThrows(
             ViewCreationFailedException.class, () -> buildTarget("//foo:first", "//foo:second"));
-    assertThat(e)
-        .hasCauseThat()
-        .hasCauseThat()
-        .isInstanceOf(MutableActionGraph.ActionConflictException.class);
-    assertThat(eventListener.failedTargetNames).containsAnyOf("//foo:first", "//foo:second");
+    assertThat(e).hasCauseThat().isInstanceOf(ActionConflictException.class);
+    assertThat(eventListener.analysisFailures).containsAnyOf("//foo:first", "//foo:second");
   }
 
   @Test
-  public void testConflictAfterNullBuild(
-      @TestParameter boolean keepGoing, @TestParameter boolean mergedAnalysisExecution)
-      throws Exception {
-    addOptions("--experimental_merged_skyframe_analysis_execution=" + mergedAnalysisExecution);
+  public void testConflictAfterNullBuild(@TestParameter boolean keepGoing) throws Exception {
     addOptions("--aspects=//x:aspect.bzl%my_aspect", "--output_groups=files");
     addOptions("--keep_going=" + keepGoing);
     write("x/BUILD", "genrule(name = 'y', outs = ['y.out'], cmd = 'touch $@')");
     write("x/y/BUILD", "genrule(name = 'y', outs = ['whatever'], cmd = 'touch $@')");
     write(
         "x/aspect.bzl",
-        "def _aspect_impl(target, ctx):",
-        "    if not getattr(ctx.rule.attr, 'outs', None):",
-        "        return struct(output_groups = {})",
-        "    conflict_outputs = list()",
-        "    for out in ctx.rule.attr.outs:",
-        "        if out.name[1:] == '.bad':",
-        "            aspect_out = ctx.actions.declare_file(out.name[:1])",
-        "            conflict_outputs.append(aspect_out)",
-        "            cmd = 'echo %s > %s' % (out.name, aspect_out.path)",
-        "            ctx.actions.run_shell(",
-        "                outputs = [aspect_out],",
-        "                command = cmd,",
-        "            )",
-        "    return [OutputGroupInfo(",
-        "        files = depset(conflict_outputs)",
-        "    )]",
-        "",
-        "my_aspect = aspect(implementation = _aspect_impl)");
+        """
+        def _aspect_impl(target, ctx):
+            if not getattr(ctx.rule.attr, "outs", None):
+                return [OutputGroupInfo()]
+            conflict_outputs = list()
+            for out in ctx.rule.attr.outs:
+                if out.name[1:] == ".bad":
+                    aspect_out = ctx.actions.declare_file(out.name[:1])
+                    conflict_outputs.append(aspect_out)
+                    cmd = "echo %s > %s" % (out.name, aspect_out.path)
+                    ctx.actions.run_shell(
+                        outputs = [aspect_out],
+                        command = cmd,
+                    )
+            return [OutputGroupInfo(
+                files = depset(conflict_outputs),
+            )]
+
+        my_aspect = aspect(implementation = _aspect_impl)
+        """);
     // First build: no conflict expected.
     buildTarget("//x/y", "//x:y");
     // Null build
     buildTarget("//x/y", "//x:y");
     assertNoEvents(events.errors());
-    assertThat(eventListener.failedTargetNames).isEmpty();
+    assertThat(eventListener.analysisFailures).isEmpty();
 
     // Modify BUILD file to introduce a conflict.
     write("x/BUILD", "genrule(name = 'y', outs = ['y.bad'], cmd = 'touch $@')");
@@ -652,7 +748,9 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
     events.assertContainsError("/bin/x/y' (belonging to //x:y)");
     events.assertContainsError("is a prefix of the other");
     assertThat(events.errors()).hasSize(1);
-    assertThat(eventListener.failedTargetNames).containsExactly("//x:y");
+    assertThat(eventListener.analysisFailures).containsAnyOf("//x:y", "//x/y:y");
+    // We don't know if the conflict is triggered by the aspect(//x:y) or //x/y:y
+    skipTheRestIfSkymeldAndMinimizeMemory();
     assertThat(eventListener.eventIds.get(0).getAspect()).isEqualTo("//x:aspect.bzl%my_aspect");
   }
 
@@ -662,19 +760,25 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
   //
   // The overall build would still fail in both cases.
   @Test
-  public void testTwoConflictingTargets_keepGoing_behaviorDifferences(
-      @TestParameter boolean mergedAnalysisExecution) throws Exception {
+  public void testTwoConflictingTargets_keepGoing_behaviorDifferences() throws Exception {
     addOptions("--keep_going");
-    addOptions("--experimental_merged_skyframe_analysis_execution=" + mergedAnalysisExecution);
     write("x/BUILD", "genrule(name = 'y', outs = ['y'], cmd = 'touch $@')");
     write("x/y/BUILD", "genrule(name = 'y', outs = ['whatever'], cmd = 'touch $@')");
 
     Code errorCode =
         assertThrowsExceptionWhenBuildingTargets(/*keepGoing=*/ true, "//x:y", "//x/y:y");
+
+    assertThat(errorCode).isEqualTo(Code.NOT_ALL_TARGETS_ANALYZED);
+
+    if (minimizeMemory) {
+      // The states might have been dropped, so we can't check further here.
+      return;
+    }
+
     Path outputXY = Iterables.getOnlyElement(getArtifacts("//x:y")).getPath();
     Path outputXYY = Iterables.getOnlyElement(getArtifacts("//x/y:y")).getPath();
 
-    if (mergedAnalysisExecution) {
+    if (skymeld) {
       // Verify that these 2 conflicting artifacts can't both exist.
       assertThat(outputXYY.isFile() && outputXY.isFile()).isFalse();
     } else {
@@ -682,68 +786,87 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
       assertThat(outputXY.exists()).isFalse();
       assertThat(outputXYY.exists()).isFalse();
     }
-    assertThat(errorCode).isEqualTo(Code.NOT_ALL_TARGETS_ANALYZED);
   }
 
   @Test
-  public void dependencyHasConflict_keepGoing_bothTopLevelTargetsFail(
-      @TestParameter boolean mergedAnalysisExecution) throws Exception {
+  public void dependencyHasConflict_keepGoing_bothTopLevelTargetsFail() throws Exception {
     addOptions("--keep_going");
-    addOptions("--experimental_merged_skyframe_analysis_execution=" + mergedAnalysisExecution);
     writeConflictBzl();
     write(
         "foo/dummy.bzl",
-        "def _path(file):",
-        "  return file.path",
-        "def _impl(ctx):",
-        "  inputs = depset(",
-        "    ctx.files.srcs, transitive = [dep[DefaultInfo].files for dep in ctx.attr.deps])",
-        "  output = ctx.actions.declare_file(ctx.attr.name + '.out')",
-        "  command = 'echo $@ > %s' % (output.path)",
-        "  args = ctx.actions.args()",
-        "  args.add_all(inputs, map_each=_path)",
-        "  ctx.actions.run_shell(",
-        "    inputs = inputs,",
-        "    outputs = [output],",
-        "    command = command,",
-        "    arguments = [args]",
-        "  )",
-        "  return [DefaultInfo(files = depset([output]))]",
-        "",
-        "dummy = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'srcs': attr.label_list(allow_files = True),",
-        "    'deps': attr.label_list(providers = [DefaultInfo]),",
-        "  }",
-        ")");
+        """
+        def _path(file):
+            return file.path
+
+        def _impl(ctx):
+            inputs = depset(
+                ctx.files.srcs,
+                transitive = [dep[DefaultInfo].files for dep in ctx.attr.deps],
+            )
+            output = ctx.actions.declare_file(ctx.attr.name + ".out")
+            command = "echo $@ > %s" % (output.path)
+            args = ctx.actions.args()
+            args.add_all(inputs, map_each = _path)
+            ctx.actions.run_shell(
+                inputs = inputs,
+                outputs = [output],
+                command = command,
+                arguments = [args],
+            )
+            return [DefaultInfo(files = depset([output]))]
+
+        dummy = rule(
+            implementation = _impl,
+            attrs = {
+                "srcs": attr.label_list(allow_files = True),
+                "deps": attr.label_list(providers = [DefaultInfo]),
+            },
+        )
+        """);
     write(
         "foo/BUILD",
-        "load('//foo:conflict.bzl', 'my_rule')",
-        "load('//foo:dummy.bzl', 'dummy')",
-        "my_rule(name = 'conflict_first')",
-        "my_rule(name = 'conflict_second', deps = [':conflict_first'])",
-        "dummy(name = 'top_level_a', deps = [':conflict_second'])",
-        "dummy(name = 'top_level_b', deps = [':conflict_second'])");
+        """
+        load("//foo:conflict.bzl", "my_rule")
+        load("//foo:dummy.bzl", "dummy")
+
+        my_rule(name = "conflict_first")
+
+        my_rule(
+            name = "conflict_second",
+            deps = [":conflict_first"],
+        )
+
+        dummy(
+            name = "top_level_a",
+            deps = [":conflict_second"],
+        )
+
+        dummy(
+            name = "top_level_b",
+            deps = [":conflict_second"],
+        )
+        """);
     assertThrows(
         BuildFailedException.class, () -> buildTarget("//foo:top_level_a", "//foo:top_level_b"));
     events.assertContainsError(
         "file 'foo/conflict_output' is generated by these conflicting actions:");
-    assertThat(eventListener.failedTargetNames)
+    assertThat(eventListener.analysisFailures)
         .containsExactly("//foo:top_level_a", "//foo:top_level_b");
   }
 
   @Test
-  public void conflict_noTrackIncrementalState_detected(
-      @TestParameter boolean mergedAnalysisExecution) throws Exception {
-    addOptions("--experimental_merged_skyframe_analysis_execution=" + mergedAnalysisExecution);
-    addOptions("--notrack_incremental_state");
+  public void conflict_noTrackIncrementalState_detected() throws Exception {
+    assume().that(minimizeMemory).isTrue();
     writeConflictBzl();
     write(
         "foo/BUILD",
-        "load('//foo:conflict.bzl', 'my_rule')",
-        "my_rule(name = 'first')",
-        "my_rule(name = 'second')");
+        """
+        load("//foo:conflict.bzl", "my_rule")
+
+        my_rule(name = "first")
+
+        my_rule(name = "second")
+        """);
 
     assertThrows(
         ViewCreationFailedException.class, () -> buildTarget("//foo:first", "//foo:second"));
@@ -752,24 +875,29 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void directoryWithNestedFile(@TestParameter boolean mergedAnalysisExecution)
-      throws Exception {
+  public void directoryWithNestedFile() throws Exception {
     write(
         "foo/conflict.bzl",
-        "def _impl(ctx):",
-        "  dir = ctx.actions.declare_directory(ctx.label.name + '.dir')",
-        "  file = ctx.actions.declare_file(ctx.label.name + '.dir/file.txt')",
-        "  ctx.actions.run_shell(",
-        "    outputs = [dir, file],",
-        "    command = 'mkdir -p $1 && touch $2',",
-        "    arguments = [dir.path, file.path],",
-        "  )",
-        "  return [DefaultInfo(files = depset([dir, file]))]",
-        "",
-        "my_rule = rule(implementation = _impl)");
-    write("foo/BUILD", "load(':conflict.bzl', 'my_rule')", "my_rule(name = 'bar')");
+        """
+        def _impl(ctx):
+            dir = ctx.actions.declare_directory(ctx.label.name + ".dir")
+            file = ctx.actions.declare_file(ctx.label.name + ".dir/file.txt")
+            ctx.actions.run_shell(
+                outputs = [dir, file],
+                command = "mkdir -p $1 && touch $2",
+                arguments = [dir.path, file.path],
+            )
+            return [DefaultInfo(files = depset([dir, file]))]
 
-    addOptions("--experimental_merged_skyframe_analysis_execution=" + mergedAnalysisExecution);
+        my_rule = rule(implementation = _impl)
+        """);
+    write(
+        "foo/BUILD",
+        """
+        load(":conflict.bzl", "my_rule")
+
+        my_rule(name = "bar")
+        """);
 
     assertThrows(ViewCreationFailedException.class, () -> buildTarget("//foo:bar"));
     events.assertContainsError("One of the output paths");
@@ -777,27 +905,36 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void directoryWithNestedDirectory(@TestParameter boolean mergedAnalysisExecution)
-      throws Exception {
+  public void directoryWithNestedDirectory() throws Exception {
     write(
         "foo/conflict.bzl",
-        "def _impl(ctx):",
-        "  dir = ctx.actions.declare_directory(ctx.label.name + '.dir')",
-        "  subdir = ctx.actions.declare_directory(ctx.label.name + '.dir/subdir')",
-        "  ctx.actions.run_shell(",
-        "    outputs = [dir, subdir],",
-        "    command = 'mkdir -p $1 && mkdir -p $2',",
-        "    arguments = [dir.path, subdir.path],",
-        "  )",
-        "  return [DefaultInfo(files = depset([dir, subdir]))]",
-        "",
-        "my_rule = rule(implementation = _impl)");
-    write("foo/BUILD", "load(':conflict.bzl', 'my_rule')", "my_rule(name = 'bar')");
+        """
+        def _impl(ctx):
+            dir = ctx.actions.declare_directory(ctx.label.name + ".dir")
+            subdir = ctx.actions.declare_directory(ctx.label.name + ".dir/subdir")
+            ctx.actions.run_shell(
+                outputs = [dir, subdir],
+                command = "mkdir -p $1 && mkdir -p $2",
+                arguments = [dir.path, subdir.path],
+            )
+            return [DefaultInfo(files = depset([dir, subdir]))]
 
-    addOptions("--experimental_merged_skyframe_analysis_execution=" + mergedAnalysisExecution);
+        my_rule = rule(implementation = _impl)
+        """);
+    write(
+        "foo/BUILD",
+        """
+        load(":conflict.bzl", "my_rule")
+
+        my_rule(name = "bar")
+        """);
 
     assertThrows(ViewCreationFailedException.class, () -> buildTarget("//foo:bar"));
     events.assertContainsError("One of the output paths");
     events.assertContainsError("is a prefix of the other");
+  }
+
+  private void skipTheRestIfSkymeldAndMinimizeMemory() {
+    assume().that(skymeld && minimizeMemory).isFalse();
   }
 }

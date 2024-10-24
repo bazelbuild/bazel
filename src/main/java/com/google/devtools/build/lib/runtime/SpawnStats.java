@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multiset;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -39,6 +40,7 @@ public class SpawnStats {
   private final ConcurrentHashMap<String, String> runnerExecKinds = new ConcurrentHashMap<>();
   private final AtomicLong totalWallTimeMillis = new AtomicLong();
   private final AtomicInteger totalNumberOfActions = new AtomicInteger();
+  private int actionCacheHitCount = 0;
 
   public void countActionResult(ActionResult actionResult) {
     for (SpawnResult r : actionResult.spawnResults()) {
@@ -66,6 +68,10 @@ public class SpawnStats {
     return totalWallTimeMillis.get();
   }
 
+  public void recordActionCacheStats(ActionCacheStatistics actionCacheStatistics) {
+    actionCacheHitCount = actionCacheStatistics.getHits();
+  }
+
   /*
    * Returns a human-readable summary of spawns counted.
    */
@@ -83,6 +89,9 @@ public class SpawnStats {
     result.put("total", numActionsTotal);
 
     // First report cache results.
+    if (actionCacheHitCount > 0) {
+      result.put("action cache hit", actionCacheHitCount);
+    }
     for (String s : reportFirst) {
       int count = runners.setCount(s, 0);
       if (count > 0) {

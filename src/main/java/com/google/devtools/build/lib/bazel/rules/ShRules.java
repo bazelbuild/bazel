@@ -14,10 +14,10 @@
 package com.google.devtools.build.lib.bazel.rules;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
 import com.google.devtools.build.lib.bazel.rules.sh.BazelShBinaryRule;
-import com.google.devtools.build.lib.bazel.rules.sh.BazelShLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.sh.BazelShRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.sh.BazelShTestRule;
 import com.google.devtools.build.lib.rules.core.CoreRules;
@@ -37,7 +37,7 @@ public class ShRules implements RuleSet {
   @Override
   public void init(ConfiguredRuleClassProvider.Builder builder) {
     builder.addRuleDefinition(new BazelShRuleClasses.ShRule());
-    builder.addRuleDefinition(new BazelShLibraryRule());
+    builder.addRuleDefinition(new BaseRuleClasses.EmptyRule("sh_library") {});
     builder.addRuleDefinition(new BazelShBinaryRule());
     builder.addRuleDefinition(new BazelShTestRule());
     try {

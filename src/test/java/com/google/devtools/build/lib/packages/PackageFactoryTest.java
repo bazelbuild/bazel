@@ -20,15 +20,16 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.analysis.config.FeatureSet;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.License.LicenseType;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
@@ -166,8 +167,10 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "has_dupe/BUILD",
-        "cc_library(name='dep')",
-        "cc_library(name='has_dupe', deps=[':dep', ':dep'])");
+        """
+        cc_library(name='dep')
+        cc_library(name='has_dupe', deps=[':dep', ':dep'])
+        """);
 
     Package pkg = loadPackage("has_dupe");
     assertContainsEvent(
@@ -203,8 +206,10 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "fruit/kiwi/BUILD",
-        "genrule(name='kiwi1', srcs=[], outs=['a'], cmd='')",
-        "genrule(name='kiwi2', srcs=[], outs=['a/b'], cmd='')");
+        """
+        genrule(name='kiwi1', srcs=[], outs=['a'], cmd='')
+        genrule(name='kiwi2', srcs=[], outs=['a/b'], cmd='')
+        """);
     loadPackage("fruit/kiwi");
     assertContainsEvent(
         "output file 'a/b' of rule 'kiwi2' conflicts with output file 'a' of rule 'kiwi1'");
@@ -215,8 +220,10 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "fruit/kiwi/BUILD",
-        "genrule(name='kiwi1', srcs=[], outs=['a/b'], cmd='')",
-        "genrule(name='kiwi2', srcs=[], outs=['a'], cmd='')");
+        """
+        genrule(name='kiwi1', srcs=[], outs=['a/b'], cmd='')
+        genrule(name='kiwi2', srcs=[], outs=['a'], cmd='')
+        """);
     loadPackage("fruit/kiwi");
     assertContainsEvent(
         "output file 'a' of rule 'kiwi2' conflicts with output file 'a/b' of rule 'kiwi1'");
@@ -238,11 +245,12 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "duplicaterulename/BUILD",
-        "proto_library(name = 'spellcheck_proto',",
-        "         srcs = ['spellcheck.proto'],",
-        "         cc_api_version = 2)",
-        "cc_library(name = 'spellcheck_proto')", // conflict error stops execution
-        "x = 1//0"); // not reached
+        """
+        proto_library(name = 'spellcheck_proto',
+                 srcs = ['spellcheck.proto'])
+        cc_library(name = 'spellcheck_proto')  # conflict error stops execution
+        x = 1//0  # not reached
+        """);
     Package pkg = loadPackage("duplicaterulename");
     assertContainsEvent(
         "cc_library rule 'spellcheck_proto' conflicts with" + " existing proto_library rule");
@@ -317,12 +325,13 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "dup/BUILD",
-        "proto_library(name = 'dup_proto',",
-        "              srcs  = ['dup.proto'],",
-        "              cc_api_version = 2)",
-        "",
-        "cc_library(name = 'dup_proto',",
-        "           srcs = ['dup.pb.cc', 'dup.pb.h'])");
+        """
+        proto_library(name = 'dup_proto',
+                      srcs  = ['dup.proto'])
+
+        cc_library(name = 'dup_proto',
+                   srcs = ['dup.pb.cc', 'dup.pb.h'])
+        """);
     Package pkg = loadPackage("dup");
     assertContainsEvent("cc_library rule 'dup_proto' conflicts with existing proto_library rule");
     assertThat(pkg.containsErrors()).isTrue();
@@ -346,14 +355,16 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     // "out2" still has rule1 as its getGeneratingRule().
     scratch.file(
         "conflict/BUILD",
-        "genrule(name = 'rule1',",
-        "        cmd = '',",
-        "        srcs = ['in1', 'in2'],",
-        "        outs = ['out1', 'out2'])",
-        "genrule(name = 'rule2',",
-        "        cmd = '',",
-        "        srcs = ['in3', 'in4'],",
-        "        outs = ['out3', 'out2'])");
+        """
+        genrule(name = 'rule1',
+                cmd = '',
+                srcs = ['in1', 'in2'],
+                outs = ['out1', 'out2'])
+        genrule(name = 'rule2',
+                cmd = '',
+                srcs = ['in3', 'in4'],
+                outs = ['out3', 'out2'])
+        """);
     Package pkg = loadPackage("conflict");
     assertContainsEvent(
         "generated file 'out2' in rule 'rule2' "
@@ -391,14 +402,16 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "error/BUILD",
-        "genrule(name = 'rule1',",
-        "        cmd = ':',",
-        "        outs = ['out.1'])",
-        "list = ['bad']",
-        "x = 1//0", // dynamic error
-        "genrule(name = 'rule2',",
-        "        cmd = ':',",
-        "        outs = list)");
+        """
+        genrule(name = 'rule1',
+                cmd = ':',
+                outs = ['out.1'])
+        list = ['bad']
+        x = 1//0  # dynamic error
+        genrule(name = 'rule2',
+                cmd = ':',
+                outs = list)
+        """);
     Package pkg = loadPackage("error");
     assertContainsEvent("division by zero");
 
@@ -455,25 +468,27 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   public void testTestSuitesImplicitlyDependOnAllRulesInPackage() throws Exception {
     scratch.file(
         "x/BUILD",
-        "java_test(name='j', tags = ['nodeployjar'])",
-        "test_suite(name='t1')",
-        "test_suite(name='t2', tests=[])",
-        "test_suite(name='t3', tests=['//foo'])",
-        "test_suite(name='t4', tests=['//foo'])",
-        "cc_test(name='c')");
+        """
+        sh_test(name='s', srcs = ['foo.sh'])
+        test_suite(name='t1')
+        test_suite(name='t2', tests=[])
+        test_suite(name='t3', tests=['//foo'])
+        test_suite(name='t4', tests=['//foo'])
+        cc_test(name='c')
+        """);
     Package pkg = loadPackage("x");
 
     // Things to note:
     // - The '$implicit_tests' attribute is unset unless the 'tests' attribute is unset or empty.
-    // - The '$implicit_tests' attribute's value for t1 and t2 is magically able to contain both j
+    // - The '$implicit_tests' attribute's value for t1 and t2 is magically able to contain both s
     //    and c, even though c is instantiated after t1 and t2 are.
 
     assertThat(attributes(pkg.getRule("t1")).get("$implicit_tests", BuildType.LABEL_LIST))
         .containsExactlyElementsIn(
-            Sets.newHashSet(Label.parseCanonical("//x:c"), Label.parseCanonical("//x:j")));
+            Sets.newHashSet(Label.parseCanonical("//x:c"), Label.parseCanonical("//x:s")));
     assertThat(attributes(pkg.getRule("t2")).get("$implicit_tests", BuildType.LABEL_LIST))
         .containsExactlyElementsIn(
-            Sets.newHashSet(Label.parseCanonical("//x:c"), Label.parseCanonical("//x:j")));
+            Sets.newHashSet(Label.parseCanonical("//x:c"), Label.parseCanonical("//x:s")));
     assertThat(attributes(pkg.getRule("t3")).get("$implicit_tests", BuildType.LABEL_LIST))
         .isEmpty();
     assertThat(attributes(pkg.getRule("t4")).get("$implicit_tests", BuildType.LABEL_LIST))
@@ -488,10 +503,14 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
 
     // Install a validator.
     this.validator =
-        (pkg2, eventHandler) -> {
-          if (pkg2.getName().equals("x")) {
-            eventHandler.handle(Event.warn("warning event"));
-            throw new InvalidPackageException(pkg2.getPackageIdentifier(), "nope");
+        new PackageValidator() {
+          @Override
+          public void validate(Package pkg2, ExtendedEventHandler eventHandler)
+              throws InvalidPackageException {
+            if (pkg2.getName().equals("x")) {
+              eventHandler.handle(Event.warn("warning event"));
+              throw new InvalidPackageException(pkg2.getPackageIdentifier(), "nope");
+            }
           }
         };
 
@@ -512,8 +531,10 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     emptyFile("fruit/data/berry/blue");
     scratch.file(
         "fruit/BUILD",
-        "cc_library(name = 'yes', srcs = glob(['data/*']))",
-        "cc_library(name = 'no',  srcs = glob(['data/*'], exclude_directories=0))");
+        """
+        cc_library(name = 'yes', srcs = glob(['data/*']))
+        cc_library(name = 'no',  srcs = glob(['data/*'], exclude_directories=0))
+        """);
     Package pkg = loadPackage("fruit");
     assertNoEvents();
     List<Label> yesFiles = attributes(pkg.getRule("yes")).get("srcs", BuildType.LABEL_LIST);
@@ -542,8 +563,10 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     emptyFile("rg/foo/wiz/quid/gav.cc");
     scratch.file(
         "rg/BUILD",
-        "cc_library(name = 'ri', srcs = glob(['**/*.cc']))",
-        "cc_library(name = 're', srcs = glob(['*.cc'], exclude=['**/*.c']))");
+        """
+        cc_library(name = 'ri', srcs = glob(['**/*.cc']))
+        cc_library(name = 're', srcs = glob(['*.cc'], exclude=['**/*.c']))
+        """);
     Package pkg = loadPackage("rg");
     assertNoEvents();
 
@@ -744,8 +767,11 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     scratch.file("p/@f.txt");
     scratch.file(
         "p/BUILD",
-        "name = glob(['*.txt'])[0]",
-        "name == ':@f.txt' or fail('got %s' % name)"); // observe prepended colon
+        """
+        name = glob(['*.txt'])[0]
+        name == ':@f.txt' or fail('got %s' % name)
+        """); // observe
+    // prepended colon
     loadPackage("p"); // no error
   }
 
@@ -883,9 +909,11 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   public void testDefaultTestonlyPropagation() throws Exception {
     scratch.file(
         "foo/BUILD",
-        "package(default_testonly = 1)",
-        "sh_library(name = 'foo', srcs=['b'])",
-        "sh_library(name = 'bar', srcs=['b'], testonly = 0)");
+        """
+        package(default_testonly = 1)
+        sh_library(name = 'foo', srcs=['b'])
+        sh_library(name = 'bar', srcs=['b'], testonly = 0)
+        """);
     Package pkg = loadPackage("foo");
 
     Rule fooRule = (Rule) pkg.getTarget("foo");
@@ -921,9 +949,11 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   public void testPackageFeatures() throws Exception {
     scratch.file(
         "a/BUILD",
-        "sh_library(name='before')",
-        "package(features=['b', 'c'])",
-        "sh_library(name='after')");
+        """
+        sh_library(name='before')
+        package(features=['b', 'c'])
+        sh_library(name='after')
+        """);
     Package pkg = loadPackage("a");
     assertThat(pkg.getPackageArgs().features())
         .isEqualTo(FeatureSet.parse(ImmutableList.of("b", "c")));
@@ -1147,155 +1177,687 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
 
   /**
    * Defines a symbolic macro "my_macro" in //pkg:my_macro.bzl, and enables the experimental flag.
+   *
+   * <p>The macro does not define any targets.
    */
-  private void defineMacroBzl() throws Exception {
-    setBuildLanguageOptions("--experimental_enable_first_class_macros");
+  private void defineEmptyMacroBzl() throws Exception {
     scratch.file(
-        "pkg/my_macro.bzl", //
-        "def _impl(name):",
-        "    pass",
-        "my_macro = macro(implementation = _impl)");
+        "pkg/my_macro.bzl",
+        """
+        def _impl(name, visibility):
+            pass
+        my_macro = macro(implementation = _impl)
+        """);
   }
 
   @Test
-  public void testSymbolicMacro_duplicateMacroNames() throws Exception {
-    defineMacroBzl();
+  public void testSymbolicMacro_duplicateMacroNamesDisallowed() throws Exception {
+    // However, note that duplicates are allowed if one is a submacro of the other.
+    // See SymbolicMacroTest#submacroMayHaveSameNameAsAncestorMacros for coverage of that.
+    defineEmptyMacroBzl();
     expectEvalError(
-        "macro 'foo' conflicts with existing macro",
-        "load(':my_macro.bzl', 'my_macro')",
-        "my_macro(name = 'foo')",
-        "my_macro(name = 'foo')");
+        "macro 'foo' conflicts with an existing macro (and was not created by it)",
+        """
+        load(":my_macro.bzl", "my_macro")
+        my_macro(name = "foo")
+        my_macro(name = "foo")
+        """);
   }
 
   @Test
-  public void testSymbolicMacro_ruleConflictsWithMacro() throws Exception {
-    defineMacroBzl();
+  public void testSymbolicMacro_macroAndRuleClash_macroDeclaredFirst() throws Exception {
+    defineEmptyMacroBzl();
     expectEvalError(
-        "cc_library rule 'foo' conflicts with existing macro",
-        "load(':my_macro.bzl', 'my_macro')",
-        "my_macro(name = 'foo')",
-        "cc_library(name = 'foo')");
+        "target 'foo' conflicts with an existing macro (and was not created by it)",
+        """
+        load(":my_macro.bzl", "my_macro")
+        my_macro(name = "foo")
+        cc_library(name = "foo")
+        """);
   }
 
   @Test
-  public void testSymbolicMacro_macroConflictsWithRule() throws Exception {
-    defineMacroBzl();
+  public void testSymbolicMacro_macroAndRuleClash_ruleDeclaredFirst() throws Exception {
+    defineEmptyMacroBzl();
     expectEvalError(
-        "macro 'foo' conflicts with existing cc_library rule",
-        "load(':my_macro.bzl', 'my_macro')",
-        "cc_library(name = 'foo')",
-        "my_macro(name = 'foo')");
+        "macro 'foo' conflicts with an existing target",
+        """
+        load(":my_macro.bzl", "my_macro")
+        cc_library(name = "foo")
+        my_macro(name = "foo")
+        """);
   }
 
   @Test
-  public void testSymbolicMacro_outputConflictsWithMacro() throws Exception {
-    defineMacroBzl();
+  public void testSymbolicMacro_macroAndOutputClash_macroDeclaredFirst() throws Exception {
+    defineEmptyMacroBzl();
     expectEvalError(
-        "generated file 'foo' in rule 'gen' conflicts with existing macro",
-        "load(':my_macro.bzl', 'my_macro')",
-        "my_macro(name = 'foo')",
-        "genrule(name = 'gen', outs = ['foo'], cmd = '')");
+        "target 'foo' conflicts with an existing macro (and was not created by it)",
+        """
+        load(":my_macro.bzl", "my_macro")
+        my_macro(name = "foo")
+        genrule(name = "gen", outs = ["foo"], cmd = "")
+        """);
   }
 
   @Test
-  public void testSymbolicMacro_macroConflictsWithOutput() throws Exception {
-    defineMacroBzl();
+  public void testSymbolicMacro_macroAndOutputClash_outputDeclaredFirst() throws Exception {
+    defineEmptyMacroBzl();
     expectEvalError(
-        "macro 'foo' conflicts with existing generated file from rule 'gen'",
-        "load(':my_macro.bzl', 'my_macro')",
-        "genrule(name = 'gen', outs = ['foo'], cmd = '')",
-        "my_macro(name = 'foo')");
+        "macro 'foo' conflicts with an existing target",
+        """
+        load(":my_macro.bzl", "my_macro")
+        genrule(name = "gen", outs = ["foo"], cmd = "")
+        my_macro(name = "foo")
+        """);
   }
 
   @Test
   public void testSymbolicMacro_macroMayCollideWithPrefixOfOutput() throws Exception {
-    // TODO(bazel-team): This test case verifies an existing but possibly undesirable behavior.
-    // Currently we only prevent output file prefixes from colliding with other output files, and
-    // don't check if they collide with other types of targets. If we become more restrictive in the
-    // future, we should also ensure they can't collide with macros.
-    defineMacroBzl();
+    // TODO(#19922): Currently we only prevent output file prefixes from colliding with other output
+    // files, and don't check if they collide with other types of targets. If we become more
+    // restrictive in the future, and to the extent we restrict collisions between macro names and
+    // target names (i.e., exclusive prefixes), we should also ensure output prefixes can't collide
+    // with macros.
+    defineEmptyMacroBzl();
     expectEvalSuccess(
-        "load(':my_macro.bzl', 'my_macro')",
-        "my_macro(name = 'foo')",
-        "genrule(name = 'gen', outs = ['foo/bar'], cmd = '')");
+        """
+        load(":my_macro.bzl", "my_macro")
+        my_macro(name = "foo")
+        genrule(name = "gen", outs = ["foo/bar"], cmd = "")
+        """);
   }
 
   @Test
-  public void testSymbolicMacro_environmentGroupConflictsWithMacro() throws Exception {
-    defineMacroBzl();
+  public void testSymbolicMacro_macroAndEnvironmentGroupClash_macroDeclaredFirst()
+      throws Exception {
+    defineEmptyMacroBzl();
     expectEvalError(
-        "environment group 'foo' conflicts with existing macro",
-        "load(':my_macro.bzl', 'my_macro')",
-        "my_macro(name = 'foo')",
-        "environment(name = 'env')",
-        "environment_group(name='foo', environments = [':env'], defaults = [':env'])");
+        "target 'foo' conflicts with an existing macro (and was not created by it)",
+        """
+        load(":my_macro.bzl", "my_macro")
+        my_macro(name = "foo")
+        environment(name = "env")
+        environment_group(name="foo", environments = [":env"], defaults = [":env"])
+        """);
   }
 
   @Test
-  public void testSymbolicMacro_macroConflictsWithEnvironmentGroup() throws Exception {
-    defineMacroBzl();
+  public void testSymbolicMacro_macroAndEnvironmentGroupClash_environmentGroupDeclaredFirst()
+      throws Exception {
+    defineEmptyMacroBzl();
     expectEvalError(
-        "macro 'foo' conflicts with existing environment group",
-        "load(':my_macro.bzl', 'my_macro')",
-        "environment(name = 'env')",
-        "environment_group(name='foo', environments = [':env'], defaults = [':env'])",
-        "my_macro(name = 'foo')");
+        "macro 'foo' conflicts with an existing target",
+        """
+        load(":my_macro.bzl", "my_macro")
+        environment(name = "env")
+        environment_group(name="foo", environments = [":env"], defaults = [":env"])
+        my_macro(name = "foo")
+        """);
   }
 
   @Test
-  public void testSymbolicMacro_packageGroupConflictsWithMacro() throws Exception {
-    defineMacroBzl();
+  public void testSymbolicMacro_macroAndPackageGroupClash_macroDeclaredFirst() throws Exception {
+    defineEmptyMacroBzl();
     expectEvalError(
-        "package group 'foo' conflicts with existing macro",
-        "load(':my_macro.bzl', 'my_macro')",
-        "my_macro(name = 'foo')",
-        "package_group(name = 'foo')");
+        "target 'foo' conflicts with an existing macro (and was not created by it)",
+        """
+        load(":my_macro.bzl", "my_macro")
+        my_macro(name = "foo")
+        package_group(name = "foo")
+        """);
   }
 
   @Test
-  public void testSymbolicMacro_macroConflictsWithPackageGroup() throws Exception {
-    defineMacroBzl();
+  public void testSymbolicMacro_macroAndPackageGroupClash_packageGroupDeclaredFirst()
+      throws Exception {
+    defineEmptyMacroBzl();
     expectEvalError(
-        "macro 'foo' conflicts with existing package group",
-        "load(':my_macro.bzl', 'my_macro')",
-        "package_group(name = 'foo')",
-        "my_macro(name = 'foo')");
+        "macro 'foo' conflicts with an existing target",
+        """
+        load(":my_macro.bzl", "my_macro")
+        package_group(name = "foo")
+        my_macro(name = "foo")
+        """);
   }
 
   @Test
-  public void testSymbolicMacro_inputConflictsWithMacro() throws Exception {
-    defineMacroBzl();
+  public void testSymbolicMacro_macroAndInputClash_macroDeclaredFirst() throws Exception {
+    defineEmptyMacroBzl();
     expectEvalError(
-        "source file 'foo' conflicts with existing macro",
-        "load(':my_macro.bzl', 'my_macro')",
-        "my_macro(name = 'foo')",
-        "exports_files(['foo'])");
+        "target 'foo' conflicts with an existing macro (and was not created by it)",
+        """
+        load(":my_macro.bzl", "my_macro")
+        my_macro(name = "foo")
+        exports_files(["foo"])
+        """);
   }
 
   @Test
-  public void testSymbolicMacro_macroConflictsWithInput() throws Exception {
-    defineMacroBzl();
+  public void testSymbolicMacro_macroAndInputClash_inputDeclaredFirst() throws Exception {
+    defineEmptyMacroBzl();
     expectEvalError(
-        "macro 'foo' conflicts with existing source file",
-        "load(':my_macro.bzl', 'my_macro')",
-        "exports_files(['foo'])",
-        "my_macro(name = 'foo')");
+        "macro 'foo' conflicts with an existing target",
+        """
+        load(":my_macro.bzl", "my_macro")
+        exports_files(["foo"])
+        my_macro(name = "foo")
+        """);
   }
 
   @Test
-  public void testSymbolicMacro_macroPreventsImplicitCreationOfInputFile() throws Exception {
-    defineMacroBzl();
+  public void testSymbolicMacro_implicitlyCreatedInput_isCreatedEvenInsideMacroNamespace()
+      throws Exception {
+    scratch.file(
+        "pkg/my_macro.bzl",
+        """
+        def _impl(name, visibility):
+            pass
+        my_macro = macro(implementation = _impl)
+        """);
     scratch.file(
         "pkg/BUILD",
-        "load(':my_macro.bzl', 'my_macro')",
-        "my_macro(name = 'foo')",
-        "cc_library(",
-        "    name = 'lib',",
-        "    srcs = ['foo', 'bar'],",
-        ")");
-    Package pkg = loadPackage("pkg");
-    assertThat(pkg.getTarget("bar")).isInstanceOf(InputFile.class);
+        """
+        load(":my_macro.bzl", "my_macro")
+        my_macro(name = "foo")
+        cc_library(
+            name = "toplevel_target",
+            srcs = ["foo_implicit"],
+        )
+        """);
+
+    Package pkg = loadPackageAndAssertSuccess("pkg");
+    assertThat(pkg.getTarget("foo_implicit")).isInstanceOf(InputFile.class);
+  }
+
+  @Test
+  public void testSymbolicMacro_implicitlyCreatedInput_isNotCreatedIfMacroDeclaresTarget()
+      throws Exception {
+    scratch.file(
+        "pkg/my_macro.bzl",
+        """
+        def _impl(name, visibility):
+            native.cc_library(name = name + "_declared_target")
+            native.cc_library(name = "illegally_named_target")
+        my_macro = macro(implementation = _impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":my_macro.bzl", "my_macro")
+        my_macro(name = "foo")
+        cc_library(
+            name = "toplevel_target",
+            srcs = [
+                "foo_declared_target",
+                "illegally_named_target",
+            ],
+        )
+        """);
+
+    Package pkg = loadPackageAndAssertSuccess("pkg");
+    assertThat(pkg.getTarget("foo_declared_target")).isInstanceOf(Rule.class);
+    // This target doesn't lie within the macro's namespace and so can't be analyzed, but it still
+    // exists and prevents input file creation. (Under a lazy macro evaluation model, we would
+    // potentially create an InputFile for it but later discover a name clash if the macro is
+    // evaluated.)
+    // TODO: #23852 - Test behavior under lazy macro evaluation when implemented.
+    assertThat(pkg.getTarget("illegally_named_target")).isInstanceOf(Rule.class);
+  }
+
+  @Test
+  public void testSymbolicMacro_implicitlyCreatedInput_isNotCreatedIfMacroNameMatchesExactly()
+      throws Exception {
+    scratch.file(
+        "pkg/my_macro.bzl",
+        """
+        def _impl(name, visibility):
+            pass
+        my_macro = macro(implementation = _impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":my_macro.bzl", "my_macro")
+        my_macro(name = "foo")
+        cc_library(
+            name = "toplevel_target",
+            srcs = ["foo"],
+        )
+        """);
+
+    Package pkg = loadPackageAndAssertSuccess("pkg");
     assertThat(pkg.getTargets()).doesNotContainKey("foo");
+  }
+
+  @Test
+  public void testSymbolicMacro_implicitlyCreatedInput_isCreatedByUsageInMacroAttr()
+      throws Exception {
+    // A usage in a macro, provided it is top-level, is sufficient to cause an input file to be
+    // implicitly created, even if that input file is not also referred to by any actual targets.
+    scratch.file(
+        "pkg/my_macro.bzl",
+        """
+        def _impl(name, visibility, src):
+            pass
+        my_macro = macro(
+            implementation = _impl,
+            attrs = {"src": attr.label()},
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":my_macro.bzl", "my_macro")
+        my_macro(
+            name = "foo",
+            src = "//pkg:input",
+        )
+        """);
+
+    Package pkg = loadPackageAndAssertSuccess("pkg");
+    assertThat(pkg.getTarget("input")).isInstanceOf(InputFile.class);
+  }
+
+  @Test
+  public void testSymbolicMacro_implicitlyCreatedInput_isNotCreatedByUsageInMacroBody()
+      throws Exception {
+    // A usage in the body of a macro (whether the declaration is for a target or submacro), does
+    // not by itself cause an input file to be implicitly created.
+    scratch.file(
+        "pkg/my_macro.bzl",
+        """
+        def _sub_impl(name, visibility):
+            native.cc_library(
+                name = name,
+                srcs = ["//pkg:input"],
+            )
+        my_submacro = macro(implementation = _sub_impl)
+
+        def _impl(name, visibility):
+            native.cc_library(
+                name = name,
+                srcs = ["//pkg:input"],
+            )
+            my_submacro(name = name + "_submacro")
+        my_macro = macro(implementation = _impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":my_macro.bzl", "my_macro")
+        my_macro(name = "foo")
+        """);
+
+    Package pkg = loadPackageAndAssertSuccess("pkg");
+    assertThat(pkg.getTargets()).doesNotContainKey("input");
+  }
+
+  @Test
+  public void testSymbolicMacro_deferredEvaluationExpandsTransitively() throws Exception {
+    scratch.file(
+        "pkg/my_macro.bzl",
+        """
+        def _inner_impl(name, visibility):
+            native.cc_library(name = name)
+        inner_macro = macro(implementation=_inner_impl, finalizer = True)
+
+        def _middle_impl(name, visibility):
+            inner_macro(name = name)
+        middle_macro = macro(implementation=_middle_impl, finalizer = True)
+
+        def _outer_impl(name, visibility):
+            middle_macro(name = name)
+        outer_macro = macro(implementation=_outer_impl, finalizer = True)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":my_macro.bzl", "outer_macro")
+        outer_macro(name = "abc")
+        """);
+
+    Package pkg = loadPackageAndAssertSuccess("pkg");
+    assertThat(pkg.getTargets()).containsKey("abc");
+    assertThat(pkg.getMacrosById().keySet()).containsExactly("abc:1", "abc:2", "abc:3");
+  }
+
+  private void defineRecursiveMacro(boolean deferredEvaluation) throws Exception {
+    scratch.file(
+        "pkg/recursive_macro.bzl",
+        String.format(
+            """
+            def _impl(name, visibility, height):
+                if height == 0:
+                    native.cc_library(name = name)
+                else:
+                    recursive_macro(
+                        name = name + "_x",
+                        height = height - 1,
+                    )
+
+            recursive_macro = macro(
+                implementation = _impl,
+                attrs = {
+                    "height": attr.int(configurable=False),
+                },
+                finalizer = %s,
+            )
+            """,
+            deferredEvaluation ? "True" : "False"));
+  }
+
+  @Test
+  public void testSymbolicMacro_recursionProhibitedWithEagerEvaluation() throws Exception {
+    defineRecursiveMacro(/* deferredEvaluation= */ false);
+    expectEvalError(
+        """
+        macro 'abc_x' is a direct recursive call of 'abc'. Macro instantiation traceback (most \
+        recent call last):
+        \tPackage //pkg, macro 'abc' of type //pkg:recursive_macro.bzl%recursive_macro
+        \tPackage //pkg, macro 'abc_x' of type //pkg:recursive_macro.bzl%recursive_macro""",
+        """
+        load(":recursive_macro.bzl", "recursive_macro")
+        recursive_macro(
+            name = "abc",
+            height = 3,
+        )
+        """);
+  }
+
+  @Test
+  public void testSymbolicMacro_recursionProhibitedWithDeferredEvaluation() throws Exception {
+    defineRecursiveMacro(/* deferredEvaluation= */ true);
+    expectEvalError(
+        """
+        macro 'abc_x' is a direct recursive call of 'abc'. Macro instantiation traceback (most \
+        recent call last):
+        \tPackage //pkg, macro 'abc' of type //pkg:recursive_macro.bzl%recursive_macro
+        \tPackage //pkg, macro 'abc_x' of type //pkg:recursive_macro.bzl%recursive_macro""",
+        """
+        load(":recursive_macro.bzl", "recursive_macro")
+        recursive_macro(
+            name = "abc",
+            height = 3,
+        )
+        """);
+  }
+
+  @Test
+  public void testSymbolicMacro_indirectRecursionAlsoProhibited() throws Exception {
+    // Define a pair of macros where A calls B calls A (and then would stop, if allowed to get that
+    // far). Wrap it in a different entry point to test that the non-cyclic part is included in the
+    // traceback.
+    scratch.file(
+        "pkg/recursive_macro.bzl",
+        """
+        def _A_impl(name, visibility, stop):
+            if stop:
+                native.cc_library(name = name)
+            else:
+                macro_B(name = name + "_B")
+
+        macro_A = macro(
+            implementation = _A_impl,
+            attrs = {
+                "stop": attr.bool(default=False, configurable=False),
+            },
+        )
+
+        def _B_impl(name, visibility):
+            macro_A(
+                name = name + "_A",
+                stop = True,
+            )
+
+        macro_B = macro(implementation = _B_impl)
+
+        def _main_impl(name, visibility):
+            macro_A(name = name)
+
+        main_macro = macro(implementation = _main_impl)
+        """);
+    expectEvalError(
+        """
+        macro 'abc_B_A' is an indirect recursive call of 'abc'. Macro instantiation traceback \
+        (most recent call last):
+        \tPackage //pkg, macro 'abc' of type //pkg:recursive_macro.bzl%main_macro
+        \tPackage //pkg, macro 'abc' of type //pkg:recursive_macro.bzl%macro_A
+        \tPackage //pkg, macro 'abc_B' of type //pkg:recursive_macro.bzl%macro_B
+        \tPackage //pkg, macro 'abc_B_A' of type //pkg:recursive_macro.bzl%macro_A""",
+        """
+        load(":recursive_macro.bzl", "main_macro")
+        main_macro(name = "abc")
+        """);
+  }
+
+  // TODO: #19922 - Add tests for graceful failure when the macro stack is too deep or there are too
+  // many macros overall, for both eager and deferred evaluation.
+
+  /**
+   * Asserts that the target's RuleVisibility contains exactly the given labels.
+   *
+   * <p>For rule targets, this is effectively its visibility attribute, as possibly modified by the
+   * munging to include the declaration location.
+   */
+  private void assertVisibilityIs(Target target, String... visibilityLabels) {
+    ImmutableList.Builder<Label> labels = ImmutableList.builder();
+    for (String item : visibilityLabels) {
+      labels.add(Label.parseCanonicalUnchecked(item));
+    }
+    assertThat(target.getVisibility().getDeclaredLabels())
+        // Values are sorted by virtue of visibility being a label_list.
+        .containsExactlyElementsIn(labels.build());
+  }
+
+  private void enableMacrosAndUsePrivateVisibility() throws Exception {
+    // BuildViewTestCase makes everything public by default.
+    setPackageOptions("--default_visibility=private");
+  }
+
+  @Test
+  public void testDeclarationVisibilityUnioning_onlyOccursWithinMacros() throws Exception {
+    enableMacrosAndUsePrivateVisibility();
+    scratch.file("lib/BUILD");
+    scratch.file(
+        "lib/macro.bzl",
+        """
+        def _impl(name, visibility):
+            native.cc_library(
+                name = name,
+                visibility = ["//other_pkg:__pkg__"],
+            )
+        my_macro = macro(implementation = _impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("//lib:macro.bzl", "my_macro")
+
+        cc_library(
+            name = "foo",
+            visibility = ["//other_pkg:__pkg__"],
+        )
+        my_macro(name = "bar")
+        """);
+
+    Package pkg = loadPackageAndAssertSuccess("pkg");
+    assertVisibilityIs(pkg.getTarget("foo"), "//other_pkg:__pkg__");
+    assertVisibilityIs(pkg.getTarget("bar"), "//other_pkg:__pkg__", "//lib:__pkg__");
+  }
+
+  @Test
+  public void testDeclarationVisibilityUnioning_usesInnermostMacroLocation() throws Exception {
+    enableMacrosAndUsePrivateVisibility();
+    scratch.file("inner/BUILD");
+    scratch.file(
+        "inner/macro.bzl",
+        """
+        def _impl(name, visibility):
+            native.cc_library(
+                name = name,
+                visibility = ["//other_pkg:__pkg__"],
+            )
+        inner_macro = macro(implementation = _impl)
+        """);
+    scratch.file("outer/BUILD");
+    scratch.file(
+        "outer/macro.bzl",
+        """
+        load("//inner:macro.bzl", "inner_macro")
+        def _impl(name, visibility):
+            inner_macro(name = name)
+        outer_macro = macro(implementation = _impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("//outer:macro.bzl", "outer_macro")
+
+        outer_macro(name = "foo")
+        """);
+
+    Package pkg = loadPackageAndAssertSuccess("pkg");
+    assertVisibilityIs(pkg.getTarget("foo"), "//other_pkg:__pkg__", "//inner:__pkg__");
+  }
+
+  @Test
+  public void testDeclarationVisibilityUnioning_doesNotApplyPackageDefaultVisibility()
+      throws Exception {
+    enableMacrosAndUsePrivateVisibility();
+    scratch.file("lib/BUILD");
+    scratch.file(
+        "lib/macro.bzl",
+        """
+        def _impl(name, visibility):
+            native.cc_library(name = name)
+        my_macro = macro(implementation = _impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("//lib:macro.bzl", "my_macro")
+        package(default_visibility = ["//other_pkg:__pkg__"])
+
+        cc_library(name = "foo")
+        my_macro(name = "bar")
+        """);
+
+    Package pkg = loadPackageAndAssertSuccess("pkg");
+    assertVisibilityIs(pkg.getTarget("foo"), "//other_pkg:__pkg__");
+    assertVisibilityIs(pkg.getTarget("bar"), "//lib:__pkg__");
+  }
+
+  @Test
+  public void testDeclarationVisibilityUnioning_worksWithPublicPrivateAndDuplicateVisibilities()
+      throws Exception {
+    enableMacrosAndUsePrivateVisibility();
+    scratch.file("lib/BUILD");
+    scratch.file(
+        "lib/macro.bzl",
+        """
+        def _impl(name, visibility):
+            native.cc_library(
+                name = name + "_public",
+                visibility = ["//visibility:public"],
+            )
+            native.cc_library(
+                name = name + "_private",
+                visibility = ["//visibility:private"],
+            )
+            native.cc_library(
+                name = name + "_selfvisible",
+                visibility = ["//lib:__pkg__"],
+            )
+        my_macro = macro(implementation = _impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("//lib:macro.bzl", "my_macro")
+
+        my_macro(name = "foo")
+        """);
+
+    Package pkg = loadPackageAndAssertSuccess("pkg");
+    assertVisibilityIs(pkg.getTarget("foo_public"), "//visibility:public");
+    assertVisibilityIs(pkg.getTarget("foo_private"), "//lib:__pkg__");
+    // The visibility concatenation operation does not add any label that would duplicate an
+    // existing one. (Note that we can't eliminate *all* possible redundancy, since the visibility
+    // list's semantics depend on expanding package_groups.)
+    assertVisibilityIs(pkg.getTarget("foo_selfvisible"), "//lib:__pkg__");
+  }
+
+  @Test
+  public void testDeclarationVisibilityUnioning_appliesToExportsFiles() throws Exception {
+    enableMacrosAndUsePrivateVisibility();
+    scratch.file("lib/BUILD");
+    scratch.file(
+        "lib/macro.bzl",
+        """
+        def _impl(name, visibility):
+            native.exports_files([name + "_exported"])
+            native.exports_files([name + "_internal"], visibility = ["//visibility:private"])
+        my_macro = macro(implementation = _impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("//lib:macro.bzl", "my_macro")
+
+        my_macro(name = "foo")
+        """);
+
+    Package pkg = loadPackageAndAssertSuccess("pkg");
+    assertVisibilityIs(pkg.getTarget("foo_exported"), "//visibility:public");
+    assertVisibilityIs(pkg.getTarget("foo_internal"), "//lib:__pkg__");
+  }
+
+  @Test
+  public void testDeclarationVisibilityUnioning_hasNoEffectOnPackageGroups() throws Exception {
+    enableMacrosAndUsePrivateVisibility();
+    scratch.file("lib/BUILD");
+    scratch.file(
+        "lib/macro.bzl",
+        """
+        def _impl(name, visibility):
+            native.package_group(name = name)
+        my_macro = macro(implementation = _impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("//lib:macro.bzl", "my_macro")
+
+        my_macro(name = "foo")
+        """);
+
+    Package pkg = loadPackageAndAssertSuccess("pkg");
+    assertVisibilityIs(pkg.getTarget("foo"), "//visibility:public");
+  }
+
+  @Test
+  public void testDeclarationVisibilityUnioning_failsGracefullyOnInvalidVisibility()
+      throws Exception {
+    enableMacrosAndUsePrivateVisibility();
+    scratch.file("lib/BUILD");
+    scratch.file(
+        "lib/macro.bzl",
+        """
+        def _impl(name, visibility):
+            native.cc_library(
+                name = name,
+                visibility = ["//visibility:not_a_valid_specifier"],
+            )
+        my_macro = macro(implementation = _impl)
+        """);
+    expectEvalError(
+        "//pkg:foo Invalid visibility label '//visibility:not_a_valid_specifier'",
+        """
+        load("//lib:macro.bzl", "my_macro")
+
+        my_macro(name = "foo")
+        """);
   }
 
   @Test
@@ -1414,7 +1976,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
           new GlobCache(
               pkg.getFilename().asPath().getParentDirectory(),
               pkg.getPackageIdentifier(),
-              ImmutableSet.of(),
+              IgnoredSubdirectories.EMPTY,
               // a package locator that finds no packages
               new CachingPackageLocator() {
                 @Override
@@ -1543,5 +2105,11 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
 
   private Package loadPackage(String pkgid) throws Exception {
     return getTarget("//" + pkgid + ":BUILD").getPackage();
+  }
+
+  private Package loadPackageAndAssertSuccess(String pkgid) throws Exception {
+    Package pkg = loadPackage(pkgid);
+    assertThat(pkg.containsErrors()).isFalse();
+    return pkg;
   }
 }

@@ -260,39 +260,55 @@ class RunfilesTest(test_base.TestBase):
   def testLegacyExternalRunfilesOption(self):
     self.DisableBzlmod()
     self.ScratchDir("A")
-    self.ScratchFile("A/WORKSPACE")
-    self.ScratchFile("A/BUILD", [
-        "py_library(",
-        "  name = 'lib',",
-        "  srcs = ['lib.py'],",
-        "  visibility = ['//visibility:public'],",
-        ")",
-    ])
+    self.ScratchFile("A/WORKSPACE", self.WorkspaceContent())
+    self.ScratchFile(
+        "A/BUILD",
+        [
+            "load('@rules_python//python:py_library.bzl', 'py_library')",
+            "py_library(",
+            "  name = 'lib',",
+            "  srcs = ['lib.py'],",
+            "  visibility = ['//visibility:public'],",
+            ")",
+        ],
+    )
     self.ScratchFile("A/lib.py")
     work_dir = self.ScratchDir("B")
-    self.ScratchFile("B/WORKSPACE",
-                     ["local_repository(name = 'A', path='../A')"])
+    self.ScratchFile(
+        "B/WORKSPACE",
+        self.WorkspaceContent() + ["local_repository(name = 'A', path='../A')"],
+    )
     self.ScratchFile("B/bin.py")
-    self.ScratchFile("B/BUILD", [
-        "py_binary(",
-        "  name = 'bin',",
-        "  srcs = ['bin.py'],",
-        "  deps = ['@A//:lib'],",
-        ")",
-        "",
-        "genrule(",
-        "  name = 'gen',",
-        "  outs = ['output'],",
-        "  cmd = 'echo $(location //:bin) > $@',",
-        "  tools = ['//:bin'],",
-        ")",
-    ])
+    self.ScratchFile(
+        "B/BUILD",
+        [
+            "load('@rules_python//python:py_binary.bzl', 'py_binary')",
+            "py_binary(",
+            "  name = 'bin',",
+            "  srcs = ['bin.py'],",
+            "  deps = ['@A//:lib'],",
+            ")",
+            "",
+            "genrule(",
+            "  name = 'gen',",
+            "  outs = ['output'],",
+            "  cmd = 'echo $(location //:bin) > $@',",
+            "  tools = ['//:bin'],",
+            ")",
+        ],
+    )
 
     _, stdout, _ = self.RunBazel(args=["info", "output_path"], cwd=work_dir)
     bazel_output = stdout[0]
 
     self.RunBazel(
-        args=["build", "--nolegacy_external_runfiles", ":gen"], cwd=work_dir
+        args=[
+            "build",
+            "--nolegacy_external_runfiles",
+            "--incompatible_autoload_externally=",
+            ":gen",
+        ],
+        cwd=work_dir,
     )
     [exec_dir] = [f for f in os.listdir(bazel_output) if "exec" in f]
     if self.IsWindows():
@@ -308,8 +324,10 @@ class RunfilesTest(test_base.TestBase):
     self.ScratchFile("A/REPO.bazel")
     self.ScratchFile("A/p/BUILD", ["exports_files(['foo.txt'])"])
     self.ScratchFile("A/p/foo.txt", ["Hello, World!"])
-    self.ScratchFile("MODULE.bazel")
-    self.ScratchFile("WORKSPACE", ["local_repository(name = 'A', path='A')"])
+    self.ScratchFile("MODULE.bazel", [
+        'local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")',  # pylint: disable=line-too-long
+        'local_repository(name = "A", path = "A")',
+    ])
     self.ScratchFile("pkg/BUILD", [
         "py_binary(",
         "  name = 'bin',",
@@ -333,7 +351,7 @@ class RunfilesTest(test_base.TestBase):
         "for arg in sys.argv[1:]:",
         "  print(open(r.Rlocation(arg)).read().strip())",
     ])
-    _, stdout, _ = self.RunBazel(["run", "//pkg:bin"], allow_failure=True)
+    _, stdout, _ = self.RunBazel(["run", "//pkg:bin"])
     if len(stdout) != 2:
       self.fail("stdout: %s" % stdout)
     self.assertEqual(stdout[0], "Hello, Bazel!")
@@ -476,6 +494,140 @@ class RunfilesTest(test_base.TestBase):
     self.ScratchFile(".bazelrc", ["common --spawn_strategy=local"])
     self.RunBazel(
         ["test", ":test", "--nobuild_runfile_links", "--noenable_runfiles"]
+    )
+
+  def testWrappedShBinary(self):
+    self.writeWrapperRule()
+    self.ScratchFile("MODULE.bazel")
+    self.ScratchFile(
+        "BUILD",
+        [
+            "sh_binary(",
+            "  name = 'binary',",
+            "  srcs = ['binary.sh'],",
+            "  visibility = ['//visibility:public'],",
+            ")",
+        ],
+    )
+    self.ScratchFile(
+        "binary.sh",
+        [
+            "echo Hello, World!",
+        ],
+        executable=True,
+    )
+
+    _, stdout, _ = self.RunBazel(["run", "//wrapped"])
+    self.assertEqual(stdout, ["Hello, World!"])
+
+  def disabledWrappedPyBinary(self):
+    # https://github.com/bazelbuild/rules_python/issues/2250
+    # wrapping py_binary fails with rules_python 0.36.0 on Windows
+    self.writeWrapperRule()
+    self.ScratchFile("MODULE.bazel")
+    self.ScratchFile(
+        "BUILD",
+        [
+            "py_binary(",
+            "  name = 'binary',",
+            "  srcs = ['binary.py'],",
+            "  visibility = ['//visibility:public'],",
+            ")",
+        ],
+    )
+    self.ScratchFile(
+        "binary.py",
+        [
+            "print('Hello, World!')",
+        ],
+    )
+
+    _, stdout, _ = self.RunBazel(["run", "//wrapped"])
+    self.assertEqual(stdout, ["Hello, World!"])
+
+  def testWrappedJavaBinary(self):
+    self.writeWrapperRule()
+    self.ScratchFile("MODULE.bazel")
+    self.ScratchFile(
+        "BUILD",
+        [
+            "java_binary(",
+            "  name = 'binary',",
+            "  srcs = ['Binary.java'],",
+            "  main_class = 'Binary',",
+            "  visibility = ['//visibility:public'],",
+            ")",
+        ],
+    )
+    self.ScratchFile(
+        "Binary.java",
+        [
+            "public class Binary {",
+            "  public static void main(String[] args) {",
+            '    System.out.println("Hello, World!");',
+            "  }",
+            "}",
+        ],
+    )
+
+    _, stdout, _ = self.RunBazel(["run", "//wrapped"])
+    self.assertEqual(stdout, ["Hello, World!"])
+
+  def writeWrapperRule(self):
+    self.ScratchFile("rules/BUILD")
+    self.ScratchFile(
+        "rules/wrapper.bzl",
+        [
+            "def _wrapper_impl(ctx):",
+            "    target = ctx.attr.target",
+            (
+                "    original_executable ="
+                " target[DefaultInfo].files_to_run.executable"
+            ),
+            (
+                "    executable ="
+                " ctx.actions.declare_file(original_executable.basename)"
+            ),
+            (
+                "    ctx.actions.symlink(output = executable, target_file ="
+                " original_executable)"
+            ),
+            (
+                "    data_runfiles ="
+                " ctx.runfiles([executable]).merge(target[DefaultInfo].data_runfiles)"
+            ),
+            (
+                "    default_runfiles ="
+                " ctx.runfiles([executable]).merge(target[DefaultInfo].default_runfiles)"
+            ),
+            "    return [",
+            "        DefaultInfo(",
+            "            executable = executable,",
+            "            files = target[DefaultInfo].files,",
+            "            data_runfiles = data_runfiles,",
+            "            default_runfiles = default_runfiles,",
+            "        ),    ]",
+            "wrapper = rule(",
+            "    implementation = _wrapper_impl,",
+            "    attrs = {",
+            "        'target': attr.label(",
+            "            cfg = 'target',",
+            "            executable = True,",
+            "        ),",
+            "    },",
+            "    executable = True,",
+            ")",
+        ],
+    )
+    self.ScratchFile(
+        "wrapped/BUILD",
+        [
+            "load('//rules:wrapper.bzl', 'wrapper')",
+            "wrapper(",
+            "  name = 'wrapped',",
+            "  target = '//:binary',",
+            ")",
+        ],
     )
 
 

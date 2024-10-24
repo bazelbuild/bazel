@@ -306,6 +306,18 @@ public class CommonQueryOptions extends OptionsBase {
               + "that the attribute came from (empty string if it did not).")
   public boolean protoIncludeAttributeSourceAspects;
 
+  @Option(
+      name = "proto:rule_classes",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "Populate the rule_class_key field of each rule; and for the first rule with a given"
+              + " rule_class_key, also populate its rule_class_info proto field. The rule_class_key"
+              + " field uniquely identifies a rule class, and the rule_class_info field is a"
+              + " Stardoc-format rule class API definition.")
+  public boolean protoRuleClasses;
+
   /** An enum converter for {@code AspectResolver.Mode} . Should be used internally only. */
   public static class AspectResolutionModeConverter extends EnumConverter<Mode> {
     public AspectResolutionModeConverter() {

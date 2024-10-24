@@ -14,13 +14,10 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertContainsEvent;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertDoesNotContainEvent;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.testing.junit.testparameterinjector.TestParameter;
@@ -35,8 +32,8 @@ import org.junit.runner.RunWith;
 public final class TrackSourceDirectoriesIntegrationTest extends BuildIntegrationTestCase {
 
   @Override
-  protected EventCollectionApparatus createEvents() {
-    return new EventCollectionApparatus(ImmutableSet.of(EventKind.FINISH));
+  protected ImmutableSet<EventKind> additionalEventsToCollect() {
+    return ImmutableSet.of(EventKind.FINISH);
   }
 
   @BeforeClass
@@ -51,25 +48,27 @@ public final class TrackSourceDirectoriesIntegrationTest extends BuildIntegratio
     write("pkg/dir/file", "foo");
     write(
         "pkg/BUILD",
-        "genrule(",
-        "    name = 'a',",
-        "    srcs = ['dir'],",
-        "    outs = ['out'],",
-        "    cmd = 'touch $@',",
-        ")");
+        """
+        genrule(
+            name = "a",
+            srcs = ["dir"],
+            outs = ["out"],
+            cmd = "touch $@",
+        )
+        """);
 
     String testTarget = "//pkg:a";
     String testTargetRebuildsEvent = "Executing genrule " + testTarget;
 
     // Initial build
     buildTarget(testTarget);
-    assertContainsEvent(events.collector(), testTargetRebuildsEvent);
+    assertContainsEvent(testTargetRebuildsEvent);
     events.collector().clear();
 
     // Verify that the target doesn't rebuild without changes.
     buildTarget(testTarget);
 
-    assertDoesNotContainEvent(events.collector(), testTargetRebuildsEvent);
+    assertDoesNotContainEvent(testTargetRebuildsEvent);
   }
 
   private enum Change {
@@ -115,25 +114,27 @@ public final class TrackSourceDirectoriesIntegrationTest extends BuildIntegratio
     write("pkg/dir/file", "foo");
     write(
         "pkg/BUILD",
-        "genrule(",
-        "    name = 'a',",
-        "    srcs = ['dir'],",
-        "    outs = ['out'],",
-        "    cmd = 'touch $@',",
-        ")");
+        """
+        genrule(
+            name = "a",
+            srcs = ["dir"],
+            outs = ["out"],
+            cmd = "touch $@",
+        )
+        """);
 
     String testTarget = "//pkg:a";
     String testTargetRebuildsEvent = "Executing genrule " + testTarget;
 
     // Initial build
     buildTarget(testTarget);
-    assertContainsEvent(events.collector(), testTargetRebuildsEvent);
+    assertContainsEvent(testTargetRebuildsEvent);
     events.collector().clear();
 
     // Change source directory and verify that the target is rebuilt as expected.
     change.apply(getWorkspace().getRelative("pkg/dir"));
     buildTarget(testTarget);
 
-    assertContainsEvent(events.collector(), testTargetRebuildsEvent);
+    assertContainsEvent(testTargetRebuildsEvent);
   }
 }

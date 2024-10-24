@@ -156,7 +156,7 @@ Example:
 <code class="lang-starlark">
 java_library(
     name = "lib",
-    deps = [":foo"],
+    runtime_deps = [":foo"],
 )
 
 java_lite_proto_library(

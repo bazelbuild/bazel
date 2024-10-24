@@ -19,6 +19,8 @@ syntax = "proto2";
 
 package blaze_query;
 
+import "src/main/protobuf/stardoc_output.proto";
+
 // option cc_api_version = 2;
 // option java_api_version = 1;
 option java_package = "com.google.devtools.build.lib.query2.proto.proto2api";
@@ -286,7 +288,11 @@ message Rule {
   // The name of the rule (formatted as an absolute label, e.g. //foo/bar:baz).
   required string name = 1;
 
-  // The rule class (e.g., java_library)
+  // The rule class name (e.g., java_library).
+  //
+  // Note that the rule class name may not uniquely identify a rule class, since
+  // two different .bzl files may define different rule classes with the same
+  // name. To uniquely identify the rule class, see rule_class_key field below.
   required string rule_class = 2;
 
   // The BUILD file and line number of the location (formatted as
@@ -336,11 +342,35 @@ message Rule {
   // enabled on the command line with the --proto:definition_stack flag or the
   // rule is a native one.
   repeated string definition_stack = 14;
+
+  // A key uniquely identifying the rule's rule class. Stable between repeated
+  // blaze query invocations (assuming that there are no changes to Starlark
+  // files and the same blaze binary is invoked with the same options).
+  //
+  // Requires --proto:rule_classes=true
+  optional string rule_class_key = 16;
+
+  // Stardoc-format rule class API definition for this rule. Includes both
+  // Starlark-defined and native (including inherited) attributes; does not
+  // include hidden or explicitly undocumented attributes.
+  //
+  // Populated only for the first rule in the stream with a given
+  // rule_class_key.
+  //
+  // Requires --proto:rule_classes=true
+  optional stardoc_output.RuleInfo rule_class_info = 17;
 }
 
+// Direct dependencies of a rule in <depLabel, depConfiguration> form.
 message ConfiguredRuleInput {
+  // Dep's target label.
   optional string label = 1;
+  // Dep's configuration if the dep isn't a source file, else unset.
   optional string configuration_checksum = 2;
+  // Reference to this dep's configuration if --proto:include_configurations is
+  // set: see
+  // https://github.com/bazelbuild/bazel/blob/7278be3f9b0c26842ecb8225f0215c1e4aede5a9/src/main/protobuf/analysis_v2.proto#L189.
+  // If this dep is a source file, this is unset.
   optional uint32 configuration_id = 3;
 }
 

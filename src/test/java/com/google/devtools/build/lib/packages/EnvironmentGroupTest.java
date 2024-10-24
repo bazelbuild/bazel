@@ -37,15 +37,34 @@ public class EnvironmentGroupTest extends PackageLoadingTestCase {
   public final void createPackage() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "environment(name='foo', fulfills = [':bar', ':baz'])",
-        "environment(name='bar', fulfills = [':baz'])",
-        "environment(name='baz')",
-        "environment(name='not_in_group')",
-        "environment_group(",
-        "    name = 'group',",
-        "    environments = [':foo', ':bar', ':baz'],",
-        "    defaults = [':foo'],",
-        ")");
+        """
+        environment(
+            name = "foo",
+            fulfills = [
+                ":bar",
+                ":baz",
+            ],
+        )
+
+        environment(
+            name = "bar",
+            fulfills = [":baz"],
+        )
+
+        environment(name = "baz")
+
+        environment(name = "not_in_group")
+
+        environment_group(
+            name = "group",
+            defaults = [":foo"],
+            environments = [
+                ":foo",
+                ":bar",
+                ":baz",
+            ],
+        )
+        """);
     group = (EnvironmentGroup) getTarget("//pkg:group");
   }
 

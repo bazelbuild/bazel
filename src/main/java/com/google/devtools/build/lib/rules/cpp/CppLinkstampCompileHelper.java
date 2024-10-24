@@ -21,28 +21,21 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
-import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder.LinkActionConstruction;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.regex.Pattern;
-import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.EvalException;
 
 /** Handles creation of CppCompileAction used to compile linkstamp sources. */
 public final class CppLinkstampCompileHelper {
 
   /** Creates {@link CppCompileAction} to compile linkstamp source. */
   public static CppCompileAction createLinkstampCompileAction(
-      RuleErrorConsumer ruleErrorConsumer,
-      ActionConstructionContext actionConstructionContext,
-      BuildConfigurationValue configuration,
+      LinkActionConstruction linkActionConstruction,
       Artifact sourceFile,
       Artifact outputFile,
       NestedSet<Artifact> compilationInputs,
@@ -52,22 +45,22 @@ public final class CppLinkstampCompileHelper {
       Iterable<String> additionalLinkstampDefines,
       CcToolchainProvider ccToolchainProvider,
       boolean codeCoverageEnabled,
-      CppConfiguration cppConfiguration,
       String fdoBuildStamp,
       FeatureConfiguration featureConfiguration,
       boolean needsPic,
       String labelReplacement,
       String outputReplacement,
       CppSemantics semantics)
-      throws RuleErrorException, InterruptedException {
+      throws EvalException {
     CppCompileActionBuilder builder =
         new CppCompileActionBuilder(
-                actionConstructionContext, ccToolchainProvider, configuration, semantics)
+                linkActionConstruction.getContext(),
+                ccToolchainProvider,
+                linkActionConstruction.getConfig(),
+                semantics)
             .addMandatoryInputs(compilationInputs)
             .setVariables(
                 getVariables(
-                    ((RuleContext) actionConstructionContext).getStarlarkThread(),
-                    ruleErrorConsumer,
                     sourceFile,
                     outputFile,
                     labelReplacement,
@@ -75,8 +68,6 @@ public final class CppLinkstampCompileHelper {
                     additionalLinkstampDefines,
                     buildInfoHeaderArtifacts,
                     featureConfiguration,
-                    configuration.getOptions(),
-                    cppConfiguration,
                     ccToolchainProvider,
                     needsPic,
                     fdoBuildStamp,
@@ -93,7 +84,7 @@ public final class CppLinkstampCompileHelper {
             .setActionName(CppActionNames.LINKSTAMP_COMPILE);
 
     semantics.finalizeCompileActionBuilder(
-        configuration, featureConfiguration, builder, ruleErrorConsumer);
+        linkActionConstruction.getConfig(), featureConfiguration, builder);
     return builder.buildOrThrowIllegalStateException();
   }
 
@@ -103,7 +94,8 @@ public final class CppLinkstampCompileHelper {
       Iterable<String> additionalLinkstampDefines,
       CcToolchainProvider ccToolchainProvider,
       String fdoBuildStamp,
-      boolean codeCoverageEnabled) {
+      boolean codeCoverageEnabled)
+      throws EvalException {
     String labelPattern = Pattern.quote("${LABEL}");
     String outputPathPattern = Pattern.quote("${OUTPUT_PATH}");
     ImmutableList.Builder<String> defines =
@@ -137,8 +129,6 @@ public final class CppLinkstampCompileHelper {
   }
 
   private static CcToolchainVariables getVariables(
-      StarlarkThread thread,
-      RuleErrorConsumer ruleErrorConsumer,
       Artifact sourceFile,
       Artifact outputFile,
       String labelReplacement,
@@ -146,27 +136,22 @@ public final class CppLinkstampCompileHelper {
       Iterable<String> additionalLinkstampDefines,
       ImmutableList<Artifact> buildInfoHeaderArtifacts,
       FeatureConfiguration featureConfiguration,
-      BuildOptions buildOptions,
-      CppConfiguration cppConfiguration,
       CcToolchainProvider ccToolchainProvider,
       boolean needsPic,
       String fdoBuildStamp,
       boolean codeCoverageEnabled,
       CppSemantics semantics)
-      throws RuleErrorException, InterruptedException {
+      throws EvalException {
     // TODO(b/34761650): Remove all this hardcoding by separating a full blown compile action.
     Preconditions.checkArgument(
         featureConfiguration.actionIsConfigured(CppActionNames.LINKSTAMP_COMPILE));
 
     return CompileBuildVariables.setupVariablesOrReportRuleError(
-        thread,
-        ruleErrorConsumer,
         featureConfiguration,
         ccToolchainProvider,
-        buildOptions,
-        cppConfiguration,
-        sourceFile.getExecPathString(),
-        outputFile.getExecPathString(),
+        sourceFile,
+        outputFile,
+        /* isCodeCoverageEnabled= */ false,
         /* gcnoFile= */ null,
         /* isUsingFission= */ false,
         /* dwoFile= */ null,
@@ -175,12 +160,12 @@ public final class CppLinkstampCompileHelper {
             .map(Artifact::getExecPathString)
             .collect(toImmutableList()),
         CcCompilationHelper.getCoptsFromOptions(
-            cppConfiguration, semantics, sourceFile.getExecPathString()),
+            ccToolchainProvider.getCppConfiguration(), semantics, sourceFile.getExecPathString()),
         /* cppModuleMap= */ null,
         needsPic,
         fdoBuildStamp,
-        /* dotdFileExecPath= */ null,
-        /* diagnosticsFileExecPath= */ null,
+        /* dotdFile= */ null,
+        /* diagnosticsFile= */ null,
         /* variablesExtensions= */ ImmutableList.of(),
         /* additionalBuildVariables= */ ImmutableMap.of(),
         /* directModuleMaps= */ ImmutableList.of(),

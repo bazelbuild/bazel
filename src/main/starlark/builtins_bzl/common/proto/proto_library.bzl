@@ -163,8 +163,7 @@ def _write_descriptor_set(ctx, proto_info, deps, exports, descriptor_set):
     args = ctx.actions.args()
     if ctx.fragments.proto.experimental_proto_descriptorsets_include_source_info():
         args.add("--include_source_info")
-    if hasattr(ctx.attr, "_retain_options") and ctx.attr._retain_options:
-        args.add("--retain_options")
+    args.add("--retain_options")
 
     strict_deps_mode = ctx.fragments.proto.strict_proto_deps()
     strict_deps = strict_deps_mode != "OFF" and strict_deps_mode != "DEFAULT"
@@ -236,8 +235,8 @@ proto_library = rule(
     # TODO(b/311576642): proto_common docs are missing
     # TODO(b/311576642): ProtoInfo link doesn't work and docs are missing
     doc = """
-<p>If using Bazel, please load the rule from <a href="https://github.com/bazelbuild/rules_proto">
-https://github.com/bazelbuild/rules_proto</a>.
+<p>If using Bazel, please load the rule from <a href="https://github.com/google/protobuf">
+https://github.com/google/protobuf</a>.
 
 <p>Use <code>proto_library</code> to define libraries of protocol buffers which
 may be used from multiple languages. A <code>proto_library</code> may be listed
@@ -336,7 +335,7 @@ lang_proto_library that is not in one of the listed packages.""",
             cfg = "exec",
             executable = True,
             allow_files = True,
-            default = configuration_field("proto", "proto_compiler"),
+            default = semantics.PROTOC_MINIMAL if hasattr(semantics, "PROTOC_MINIMAL") else configuration_field("proto", "proto_compiler"),
         ),
     }),
     fragments = ["proto"],

@@ -34,15 +34,11 @@ import java.util.Collection;
 public class ExecRequestEvent implements BuildEvent {
 
   private final ExecRequest execRequest;
+  private final ImmutableList<ByteString> redactedArgv;
 
-  private final ImmutableList<ByteString> argv;
-  private final boolean runBuiltTarget;
-
-  public ExecRequestEvent(
-      ExecRequest execRequest, ImmutableList<ByteString> argv, boolean runBuiltTarget) {
+  public ExecRequestEvent(ExecRequest execRequest, ImmutableList<ByteString> redactedArgv) {
     this.execRequest = execRequest;
-    this.argv = argv;
-    this.runBuiltTarget = runBuiltTarget;
+    this.redactedArgv = redactedArgv;
   }
 
   @Override
@@ -50,7 +46,6 @@ public class ExecRequestEvent implements BuildEvent {
     BuildEventStreamProtos.ExecRequestConstructed.Builder builder =
         BuildEventStreamProtos.ExecRequestConstructed.newBuilder();
     builder.setWorkingDirectory(execRequest.getWorkingDirectory());
-    builder.addAllArgv(argv);
     for (CommandProtos.EnvironmentVariable environmentVariable :
         execRequest.getEnvironmentVariableList()) {
       builder.addEnvironmentVariable(
@@ -61,7 +56,9 @@ public class ExecRequestEvent implements BuildEvent {
     for (ByteString envVarToClear : execRequest.getEnvironmentVariableToClearList()) {
       builder.addEnvironmentVariableToClear(envVarToClear);
     }
-    builder.setShouldExec(runBuiltTarget);
+    builder.setShouldExec(execRequest.getShouldExec());
+    // Use the event's redacted argv instead of the ExecRequest's argv.
+    builder.addAllArgv(redactedArgv);
     return GenericBuildEvent.protoChaining(this).setExecRequest(builder.build()).build();
   }
 

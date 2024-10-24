@@ -20,13 +20,14 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -45,6 +46,7 @@ import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
@@ -61,6 +63,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
+import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -363,13 +366,20 @@ public class IncrementalLoadingTest {
 
   @Test
   public void testChangedExternalFile() throws Exception {
-    tester.addFile("a/BUILD",
-        "load('//a:b.bzl', 'b')",
-        "b()");
+    tester.addFile(
+        "a/BUILD",
+        """
+        load("//a:b.bzl", "b")
 
-    tester.addFile("/b.bzl",
-        "def b():",
-        "  pass");
+        b()
+        """);
+
+    tester.addFile(
+        "/b.bzl",
+        """
+        def b():
+            pass
+        """);
     tester.addSymlink("a/b.bzl", "/b.bzl");
     tester.sync();
     tester.getTarget("//a:BUILD");
@@ -413,7 +423,8 @@ public class IncrementalLoadingTest {
     private class ManualDiffAwarenessFactory implements DiffAwareness.Factory {
       @Nullable
       @Override
-      public DiffAwareness maybeCreate(Root pathEntry, ImmutableSet<Path> ignoredPaths) {
+      public DiffAwareness maybeCreate(
+          Root pathEntry, IgnoredSubdirectories ignoredPaths, OptionsProvider optionsProvider) {
         return pathEntry.asPath().equals(workspace) ? new ManualDiffAwareness() : null;
       }
     }
@@ -427,7 +438,8 @@ public class IncrementalLoadingTest {
     private boolean everythingModified = false;
     private ModifiedFileSet modifiedFileSet;
 
-    PackageLoadingTester(FileSystem fs, ManualClock clock) throws IOException {
+    PackageLoadingTester(FileSystem fs, ManualClock clock)
+        throws IOException, OptionsParsingException {
       this.clock = clock;
       workspace = fs.getPath("/workspace");
       workspace.createDirectory();
@@ -445,7 +457,16 @@ public class IncrementalLoadingTest {
               loadingMock.getProductName());
       ConfiguredRuleClassProvider ruleClassProvider = loadingMock.createRuleClassProvider();
       PackageFactory pkgFactory =
-          loadingMock.getPackageFactoryBuilderForTesting(directories).build(ruleClassProvider, fs);
+          loadingMock
+              .getPackageFactoryBuilderForTesting(directories)
+              .setExtraSkyFunctions(
+                  ImmutableMap.of(
+                      SkyFunctions.MODULE_FILE,
+                      new ModuleFileFunction(
+                          ruleClassProvider.getBazelStarlarkEnvironment(),
+                          directories.getWorkspace(),
+                          ImmutableMap.of())))
+              .build(ruleClassProvider, fs);
       skyframeExecutor =
           BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
               .setPkgFactory(pkgFactory)
@@ -463,15 +484,18 @@ public class IncrementalLoadingTest {
       skyframeExecutor.injectExtraPrecomputedValues(
           ImmutableList.of(
               PrecomputedValue.injected(
-                  RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE,
-                  Optional.empty())));
+                  RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
+              PrecomputedValue.injected(
+                  RepositoryDelegatorFunction.VENDOR_DIRECTORY, Optional.empty())));
+      BuildLanguageOptions buildLanguageOptions = Options.getDefaults(BuildLanguageOptions.class);
+      buildLanguageOptions.incompatibleAutoloadExternally = ImmutableList.of();
       skyframeExecutor.preparePackageLoading(
           new PathPackageLocator(
               outputBase,
               ImmutableList.of(Root.fromPath(workspace)),
               BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
           packageOptions,
-          Options.getDefaults(BuildLanguageOptions.class),
+          buildLanguageOptions,
           UUID.randomUUID(),
           ImmutableMap.of(),
           QuiescingExecutorsImpl.forTesting(),
@@ -556,13 +580,15 @@ public class IncrementalLoadingTest {
       packageOptions.defaultVisibility = RuleVisibility.PUBLIC;
       packageOptions.showLoadingProgress = true;
       packageOptions.globbingThreads = 7;
+      BuildLanguageOptions buildLanguageOptions = Options.getDefaults(BuildLanguageOptions.class);
+      buildLanguageOptions.incompatibleAutoloadExternally = ImmutableList.of();
       skyframeExecutor.preparePackageLoading(
           new PathPackageLocator(
               outputBase,
               ImmutableList.of(Root.fromPath(workspace)),
               BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
           packageOptions,
-          Options.getDefaults(BuildLanguageOptions.class),
+          buildLanguageOptions,
           UUID.randomUUID(),
           ImmutableMap.of(),
           QuiescingExecutorsImpl.forTesting(),

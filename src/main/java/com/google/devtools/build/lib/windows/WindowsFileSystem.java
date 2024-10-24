@@ -70,13 +70,6 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   }
 
   @Override
-  public void renameTo(PathFragment sourcePath, PathFragment targetPath) throws IOException {
-    // Make sure the target path doesn't exist to avoid permission denied error on Windows.
-    delete(targetPath);
-    super.renameTo(sourcePath, targetPath);
-  }
-
-  @Override
   protected void createSymbolicLink(PathFragment linkPath, PathFragment targetFragment)
       throws IOException {
     PathFragment targetPath =
@@ -86,15 +79,15 @@ public class WindowsFileSystem extends JavaIoFileSystem {
     try {
       java.nio.file.Path link = getIoFile(linkPath).toPath();
       java.nio.file.Path target = getIoFile(targetPath).toPath();
-      // Still Create a dangling junction if the target doesn't exist.
-      if (!target.toFile().exists() || target.toFile().isDirectory()) {
+      if (target.toFile().isDirectory()) {
+        WindowsFileOperations.createJunction(link.toString(), target.toString());
+      } else if (createSymbolicLinks) {
+        WindowsFileOperations.createSymlink(link.toString(), target.toString());
+      } else if (!target.toFile().exists()) {
+        // Still Create a dangling junction if the target doesn't exist.
         WindowsFileOperations.createJunction(link.toString(), target.toString());
       } else {
-        if (createSymbolicLinks) {
-          WindowsFileOperations.createSymlink(link.toString(), target.toString());
-        } else {
-          Files.copy(target, link);
-        }
+        Files.copy(target, link);
       }
     } catch (java.nio.file.FileAlreadyExistsException e) {
       throw new IOException(linkPath + ERR_FILE_EXISTS, e);

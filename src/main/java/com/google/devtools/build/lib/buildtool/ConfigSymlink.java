@@ -42,7 +42,7 @@ class ConfigSymlink implements SymlinkDefinition {
   }
 
   @Override
-  public String getLinkName(String symlinkPrefix, String productName, String workspaceBaseName) {
+  public String getLinkName(String symlinkPrefix, String workspaceBaseName) {
     return symlinkPrefix + suffix;
   }
 

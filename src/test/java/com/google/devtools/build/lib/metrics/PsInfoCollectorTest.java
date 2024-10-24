@@ -21,13 +21,14 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.clock.Clock;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Unit tests for the PsInfoCollector. */
 @RunWith(JUnit4.class)
 public final class PsInfoCollectorTest {
 
@@ -54,6 +55,7 @@ public final class PsInfoCollectorTest {
 
   @Test
   public void testCollectStats_multipleSubprocesses() {
+    Clock clock = BlazeClock.instance();
     // pstree of these processes
     // 0-+-1---3-+-7
     //   |       `-8
@@ -87,7 +89,7 @@ public final class PsInfoCollectorTest {
     ImmutableSet<Long> pids = ImmutableSet.of(1L, 2L, 5L, 6L);
     when(spyCollector.collectDataFromPs()).thenReturn(psInfos);
 
-    PsInfoCollector.ResourceSnapshot resourceSnapshot = spyCollector.collectResourceUsage(pids);
+    ResourceSnapshot resourceSnapshot = spyCollector.collectResourceUsage(pids, clock);
 
     ImmutableMap<Long, Integer> expectedMemoryUsageByPid =
         ImmutableMap.of(1L, 3216 + 1234 + 2345 + 3456, 2L, 4232 + 1001 + 1032, 5L, 40000);

@@ -13,26 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.rules;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses.EmptyRule;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
-import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppSemantics;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
-import com.google.devtools.build.lib.rules.apple.AvailableXcodesRule;
-import com.google.devtools.build.lib.rules.apple.XcodeVersionRule;
 import com.google.devtools.build.lib.rules.core.CoreRules;
-import com.google.devtools.build.lib.rules.objc.AppleCcToolchainRule;
 import com.google.devtools.build.lib.rules.objc.AppleStarlarkCommon;
-import com.google.devtools.build.lib.rules.objc.AppleToolchain;
-import com.google.devtools.build.lib.rules.objc.BazelXcodeConfig;
 import com.google.devtools.build.lib.rules.objc.J2ObjcConfiguration;
 import com.google.devtools.build.lib.rules.objc.ObjcConfiguration;
-import com.google.devtools.build.lib.rules.objc.XcodeConfigAlias.XcodeConfigAliasRule;
-import com.google.devtools.build.lib.rules.objc.XcodeConfigRule;
 import com.google.devtools.build.lib.starlarkbuildapi.objc.AppleBootstrap;
 
 /** Rules for Objective-C support in Bazel. */
@@ -45,25 +34,20 @@ public class ObjcRules implements RuleSet {
 
   @Override
   public void init(ConfiguredRuleClassProvider.Builder builder) {
-    RepositoryName toolsRepository = checkNotNull(builder.getToolsRepository());
-
     builder.addConfigurationFragment(ObjcConfiguration.class);
     builder.addConfigurationFragment(AppleConfiguration.class);
     // j2objc shouldn't be here!
     builder.addConfigurationFragment(J2ObjcConfiguration.class);
-    builder.addRuleDefinition(new EmptyRule("j2objc_library") {});
 
-    builder.addRuleDefinition(new AppleCcToolchainRule());
-    builder.addRuleDefinition(new AppleToolchain.RequiresXcodeConfigRule(toolsRepository));
     builder.addRuleDefinition(new EmptyRule("objc_import") {});
     builder.addRuleDefinition(new EmptyRule("objc_library") {});
-    builder.addRuleDefinition(new XcodeConfigRule(BazelXcodeConfig.class));
-    builder.addRuleDefinition(new XcodeConfigAliasRule());
-    builder.addRuleDefinition(new AvailableXcodesRule());
-    builder.addRuleDefinition(new XcodeVersionRule());
+    builder.addRuleDefinition(new EmptyRule("available_xcodes") {});
+    builder.addRuleDefinition(new EmptyRule("xcode_config") {});
+    builder.addRuleDefinition(new EmptyRule("xcode_config_alias") {});
+    builder.addRuleDefinition(new EmptyRule("xcode_version") {});
 
-    builder.addStarlarkBootstrap(
-        new AppleBootstrap(new AppleStarlarkCommon(BazelCppSemantics.OBJC)));
+    builder.addStarlarkBuiltinsInternal("apple_common", new AppleStarlarkCommon());
+    builder.addStarlarkBootstrap(new AppleBootstrap());
   }
 
   @Override

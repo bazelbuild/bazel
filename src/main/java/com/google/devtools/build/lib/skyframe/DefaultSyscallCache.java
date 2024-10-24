@@ -161,8 +161,8 @@ public final class DefaultSyscallCache implements SyscallCache {
   @SuppressWarnings("unchecked")
   public Collection<Dirent> readdir(Path path) throws IOException {
     Object result = readdirCache.get(path);
-    if (result instanceof IOException) {
-      throw (IOException) result;
+    if (result instanceof IOException ioException) {
+      throw ioException;
     }
     return (Collection<Dirent>) result; // unchecked cast
   }
@@ -173,14 +173,14 @@ public final class DefaultSyscallCache implements SyscallCache {
     // Try to load a Symlinks.NOFOLLOW result first. Symlinks are rare and this enables sharing the
     // cache for all non-symlink paths.
     Object result = statCache.get(Pair.of(path, Symlinks.NOFOLLOW));
-    if (result instanceof IOException) {
-      throw (IOException) result;
+    if (result instanceof IOException ioException) {
+      throw ioException;
     }
     FileStatus status = (FileStatus) result;
     if (status != NO_STATUS && symlinks == Symlinks.FOLLOW && status.isSymbolicLink()) {
       result = statCache.get(Pair.of(path, Symlinks.FOLLOW));
-      if (result instanceof IOException) {
-        throw (IOException) result;
+      if (result instanceof IOException ioException) {
+        throw ioException;
       }
       status = (FileStatus) result;
     }
@@ -220,15 +220,15 @@ public final class DefaultSyscallCache implements SyscallCache {
     // stat.
     Object result = readdirCache.getIfPresent(parent);
     if (result != null && !(result instanceof IOException)) {
+      String baseName = path.getBaseName();
       for (Dirent dirent : (Collection<Dirent>) result) { // unchecked cast
         // TODO(djasper): Dealing with filesystem case is a bit of a code smell. Figure out a better
         // way to store Dirents, e.g. with names normalized.
-        if (path.getFileSystem().isFilePathCaseSensitive()
-            && !dirent.getName().equals(path.getBaseName())) {
+        if (path.getFileSystem().isFilePathCaseSensitive() && !dirent.getName().equals(baseName)) {
           continue;
         }
         if (!path.getFileSystem().isFilePathCaseSensitive()
-            && !dirent.getName().equalsIgnoreCase(path.getBaseName())) {
+            && !dirent.getName().equalsIgnoreCase(baseName)) {
           continue;
         }
         if (dirent.getType() == Dirent.Type.SYMLINK && symlinks == Symlinks.FOLLOW) {

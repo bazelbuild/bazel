@@ -13,11 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.autocodec;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.collect.ImmutableList;
 import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import java.io.IOException;
+import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -135,6 +139,73 @@ final class TypeOperations {
     // `DeclaredType.asElement` can return a `TypeParameterElement` instance if `mirror` is a
     // generic type parameter, which isn't possible here.
     return (TypeElement) ((DeclaredType) mirror).asElement();
+  }
+
+  enum Relation {
+    INSTANCE_OF,
+    EQUAL_TO,
+    SUPERTYPE_OF,
+    UNRELATED_TO
+  }
+
+  @Nullable
+  static Relation findRelationWithGenerics(
+      TypeMirror type1, TypeMirror type2, ProcessingEnvironment env) {
+    if (type1.getKind() == TypeKind.TYPEVAR
+        || type1.getKind() == TypeKind.WILDCARD
+        || type2.getKind() == TypeKind.TYPEVAR
+        || type2.getKind() == TypeKind.WILDCARD) {
+      return Relation.EQUAL_TO;
+    }
+    if (env.getTypeUtils().isAssignable(type1, type2)) {
+      if (env.getTypeUtils().isAssignable(type2, type1)) {
+        return Relation.EQUAL_TO;
+      }
+      return Relation.INSTANCE_OF;
+    }
+    if (env.getTypeUtils().isAssignable(type2, type1)) {
+      return Relation.SUPERTYPE_OF;
+    }
+    // From here on out, we can't detect subtype/supertype, we're only checking for equality.
+    TypeMirror erasedType1 = env.getTypeUtils().erasure(type1);
+    TypeMirror erasedType2 = env.getTypeUtils().erasure(type2);
+    if (!env.getTypeUtils().isSameType(erasedType1, erasedType2)) {
+      // Technically, there could be a relationship, but it's too hard to figure out for now.
+      return Relation.UNRELATED_TO;
+    }
+    List<? extends TypeMirror> genericTypes1 = ((DeclaredType) type1).getTypeArguments();
+    List<? extends TypeMirror> genericTypes2 = ((DeclaredType) type2).getTypeArguments();
+    checkState(
+        genericTypes1.size() == genericTypes2.size(),
+        "%s and %s had same erased type but a different number of generic parameters %s vs %s",
+        type1,
+        type2,
+        genericTypes1,
+        genericTypes2);
+    for (int i = 0; i < genericTypes1.size(); i++) {
+      Relation result = findRelationWithGenerics(genericTypes1.get(i), genericTypes2.get(i), env);
+      if (result != Relation.EQUAL_TO) {
+        return Relation.UNRELATED_TO;
+      }
+    }
+    return Relation.EQUAL_TO;
+  }
+
+  /**
+   * Collects {@code type} and its supertypes.
+   *
+   * <p>The first element is the type itself with each additional element representing the next
+   * superclass. {@code Object} is ignored.
+   */
+  static ImmutableList<TypeElement> getClassLineage(TypeElement type, ProcessingEnvironment env) {
+    checkArgument(type.asType() instanceof DeclaredType, "%s must be a class", type);
+    var types = ImmutableList.<TypeElement>builder();
+    for (TypeElement next = type;
+        next != null && !matchesType(next.asType(), Object.class, env);
+        next = getSuperclass(next)) {
+      types.add(next);
+    }
+    return types.build();
   }
 
   static TypeMirror resolveBaseArrayComponentType(TypeMirror type) {

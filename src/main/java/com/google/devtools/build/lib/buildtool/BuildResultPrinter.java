@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.AspectCollection;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -91,32 +92,20 @@ class BuildResultPrinter {
     BlazeRuntime runtime = env.getRuntime();
     String productName = runtime.getProductName();
     PathPrettyPrinter prettyPrinter =
-        OutputDirectoryLinksUtils.getPathPrettyPrinter(
-            runtime.getRuleClassProvider().getSymlinkDefinitions(),
+        new PathPrettyPrinter(
             request.getBuildOptions().getSymlinkPrefix(productName),
-            productName,
-            env.getWorkspace());
+            result.getConvenienceSymlinks());
     OutErr outErr = request.getOutErr();
 
-    // Splits aspects based on whether they are validation aspects.
-    final ImmutableSet<AspectKey> aspectsToPrint;
-    final ImmutableList<AspectKey> validationAspects;
-    if (request.useValidationAspect()) {
-      var aspectsToPrintBuilder = ImmutableSet.<AspectKey>builder();
-      var validationAspectsBuilder = ImmutableList.<AspectKey>builder();
-      for (AspectKey key : aspects.keySet()) {
-        if (Objects.equals(key.getAspectClass().getName(), BuildRequest.VALIDATION_ASPECT_NAME)) {
-          validationAspectsBuilder.add(key);
-        } else {
-          aspectsToPrintBuilder.add(key);
-        }
-      }
-      aspectsToPrint = aspectsToPrintBuilder.build();
-      validationAspects = validationAspectsBuilder.build();
-    } else {
-      aspectsToPrint = aspects.keySet();
-      validationAspects = ImmutableList.of();
-    }
+    // Filter and split aspects to display.
+    ImmutableSet<String> aspectsToIgnore =
+        ImmutableSet.copyOf(request.getBuildOptions().hideAspectResults);
+    PartitionedAspectKeys partitionedAspectKeys =
+        partitionAspectKeys(
+            request.useValidationAspect(),
+            aspects.keySet().stream()
+                .filter(k -> !aspectsToIgnore.contains(k.getAspectClass().getName()))
+                .collect(toImmutableSet()));
 
     Collection<ConfiguredTarget> targetsToPrint = filterTargetsToPrint(configuredTargets);
     TopLevelArtifactContext context = request.getTopLevelArtifactContext();
@@ -136,7 +125,7 @@ class BuildResultPrinter {
             result,
             context,
             configuredTargetsToSkip,
-            validationAspects,
+            partitionedAspectKeys.validationAspects,
             skipped,
             succeeded,
             artifactsToPrintPerTarget,
@@ -152,7 +141,7 @@ class BuildResultPrinter {
     var artifactsToPrintPerAspect = new ArrayList<ArrayList<Artifact>>(successfulAspects.size());
     essentialBudget =
         splitAspectsByResultReturnRemaining(
-            aspectsToPrint,
+            partitionedAspectKeys.aspectsToPrint,
             aspects,
             context,
             result.getSuccessfulAspects(),
@@ -166,7 +155,7 @@ class BuildResultPrinter {
 
     // Omits "nothing to build" values if it enables staying under --show_result.
     boolean omitNothingToBuild =
-        (targetsToPrint.size() + aspectsToPrint.size())
+        (targetsToPrint.size() + partitionedAspectKeys.aspectsToPrint.size())
             > request.getBuildOptions().maxResultTargets;
 
     outputConfiguredTargets(
@@ -389,5 +378,37 @@ class BuildResultPrinter {
       result.add(configuredTarget);
     }
     return result.build();
+  }
+
+  /** Splits aspects based on whether they are validation aspects. */
+  private static PartitionedAspectKeys partitionAspectKeys(
+      boolean useValidationAspects, ImmutableSet<AspectKey> keys) {
+    if (!useValidationAspects) {
+      return new PartitionedAspectKeys(keys, ImmutableList.of());
+    }
+
+    var aspectsToPrintBuilder = ImmutableSet.<AspectKey>builder();
+    var validationAspectsBuilder = ImmutableList.<AspectKey>builder();
+    for (AspectKey key : keys) {
+      if (Objects.equals(key.getAspectClass().getName(), AspectCollection.VALIDATION_ASPECT_NAME)) {
+        validationAspectsBuilder.add(key);
+      } else {
+        aspectsToPrintBuilder.add(key);
+      }
+    }
+    return new PartitionedAspectKeys(
+        aspectsToPrintBuilder.build(), validationAspectsBuilder.build());
+  }
+
+  private static class PartitionedAspectKeys {
+    private final ImmutableSet<AspectKey> aspectsToPrint;
+
+    private final ImmutableList<AspectKey> validationAspects;
+
+    private PartitionedAspectKeys(
+        ImmutableSet<AspectKey> aspectsToPrint, ImmutableList<AspectKey> validationAspects) {
+      this.aspectsToPrint = aspectsToPrint;
+      this.validationAspects = validationAspects;
+    }
   }
 }

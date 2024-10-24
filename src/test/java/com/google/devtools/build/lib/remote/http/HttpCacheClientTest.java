@@ -32,9 +32,12 @@ import build.bazel.remote.execution.v2.Digest;
 import com.google.auth.Credentials;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
+import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.remote.RemoteRetrier;
 import com.google.devtools.build.lib.remote.Retrier;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
@@ -43,7 +46,7 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.SyscallCache;
-import com.google.devtools.build.remote.worker.http.HttpCacheServerHandler;
+import com.google.devtools.build.remote.worker.http.InMemoryHttpCacheServerHandler;
 import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
 import io.netty.bootstrap.ServerBootstrap;
@@ -293,8 +296,7 @@ public class HttpCacheClientTest {
                   retryScheduler,
                   Retrier.ALLOW_ALL_CALLS);
             });
-    if (socketAddress instanceof DomainSocketAddress) {
-      DomainSocketAddress domainSocketAddress = (DomainSocketAddress) socketAddress;
+    if (socketAddress instanceof DomainSocketAddress domainSocketAddress) {
       URI uri = new URI("http://localhost");
       return HttpCacheClient.create(
           domainSocketAddress,
@@ -307,8 +309,7 @@ public class HttpCacheClientTest {
           retrier,
           creds,
           authAndTlsOptions);
-    } else if (socketAddress instanceof InetSocketAddress) {
-      InetSocketAddress inetSocketAddress = (InetSocketAddress) socketAddress;
+    } else if (socketAddress instanceof InetSocketAddress inetSocketAddress) {
       URI uri = new URI("http://localhost:" + inetSocketAddress.getPort());
       return HttpCacheClient.create(
           uri,
@@ -345,6 +346,8 @@ public class HttpCacheClientTest {
   public void setUp() throws Exception {
     remoteActionExecutionContext =
         RemoteActionExecutionContext.create(
+            mock(Spawn.class),
+            mock(SpawnExecutionContext.class),
             TracingMetadataUtils.buildMetadata(
                 "none", "none", Digest.getDefaultInstance().getHash(), null));
   }
@@ -354,7 +357,7 @@ public class HttpCacheClientTest {
     ServerChannel server = null;
     try {
       ConcurrentHashMap<String, byte[]> cacheContents = new ConcurrentHashMap<>();
-      server = testServer.start(new HttpCacheServerHandler(cacheContents));
+      server = testServer.start(new InMemoryHttpCacheServerHandler(cacheContents));
 
       HttpCacheClient blobStore =
           createHttpBlobStore(
@@ -700,11 +703,14 @@ public class HttpCacheClientTest {
               authAndTlsOptions,
               Optional.of(retrier));
 
-      RemoteCacheClient.CachedActionResult download =
+      var actionResult =
           getFromFuture(
               blobStore.downloadActionResult(
-                  remoteActionExecutionContext, new RemoteCacheClient.ActionKey(DIGEST), false));
-      assertThat(download.actionResult()).isEqualTo(action2);
+                  remoteActionExecutionContext,
+                  new RemoteCacheClient.ActionKey(DIGEST),
+                  /* inlineOutErr= */ false,
+                  /* inlineOutputFiles= */ ImmutableSet.of()));
+      assertThat(actionResult).isEqualTo(action2);
     } finally {
       testServer.stop(server);
     }

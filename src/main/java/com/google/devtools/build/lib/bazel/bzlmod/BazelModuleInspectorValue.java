@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -42,9 +43,10 @@ public abstract class BazelModuleInspectorValue implements SkyValue {
   public static BazelModuleInspectorValue create(
       ImmutableMap<ModuleKey, AugmentedModule> depGraph,
       ImmutableMap<String, ImmutableSet<ModuleKey>> modulesIndex,
-      ImmutableSetMultimap<ModuleExtensionId, String> extensionToRepoInternalNames) {
+      ImmutableSetMultimap<ModuleExtensionId, String> extensionToRepoInternalNames,
+      ImmutableMap<ModuleKey, RepositoryName> moduleKeyToCanonicalNames) {
     return new AutoValue_BazelModuleInspectorValue(
-        depGraph, modulesIndex, extensionToRepoInternalNames);
+        depGraph, modulesIndex, extensionToRepoInternalNames, moduleKeyToCanonicalNames);
   }
 
   /**
@@ -68,6 +70,9 @@ public abstract class BazelModuleInspectorValue implements SkyValue {
    * instantiating a repo rule.
    */
   public abstract ImmutableSetMultimap<ModuleExtensionId, String> getExtensionToRepoInternalNames();
+
+  /** A mapping from a module key to the canonical repository name of the module repository. */
+  public abstract ImmutableMap<ModuleKey, RepositoryName> getModuleKeyToCanonicalNames();
 
   /**
    * A wrapper for {@link Module}, augmented with references to dependants (and also those who are
@@ -147,8 +152,8 @@ public abstract class BazelModuleInspectorValue implements SkyValue {
     /** Returns a new {@link AugmentedModule.Builder} with {@code key} set. */
     public static AugmentedModule.Builder builder(ModuleKey key) {
       return new AutoValue_BazelModuleInspectorValue_AugmentedModule.Builder()
-          .setName(key.getName())
-          .setVersion(key.getVersion())
+          .setName(key.name())
+          .setVersion(key.version())
           .setKey(key)
           .setLoaded(false);
     }

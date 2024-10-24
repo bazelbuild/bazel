@@ -34,7 +34,6 @@ java_library(
         ":extra/extra_action_factory",
         ":extra/extra_action_rule",
         ":filegroup/filegroup",
-        ":filegroup/filegroup_path_provider",
         ":label_build_settings",
         ":repository/bind",
         ":repository/bind_rule",
@@ -68,29 +67,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/rules/core",
         "//third_party:guava",
-    ],
-)
-
-# TODO: Move to rules/nativedeps.
-java_library(
-    name = "nativedeps",
-    srcs = glob(
-        ["nativedeps/*.java"],
-    ),
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/analysis:actions/symlink_action",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 
@@ -154,6 +130,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:package_specification",
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
@@ -216,33 +193,24 @@ java_library(
 
 java_library(
     name = "filegroup/filegroup",
-    srcs = ["filegroup/Filegroup.java"],
+    srcs = [
+        "filegroup/Filegroup.java",
+        "filegroup/FilegroupRule.java",
+    ],
     deps = [
-        ":filegroup/filegroup_path_provider",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/instrumented_files_info",
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_collection",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
         "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "filegroup/filegroup_path_provider",
-    srcs = ["filegroup/FilegroupPathProvider.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/java/net/starlark/java/annot",
     ],
 )
 
@@ -270,8 +238,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis:visibility_provider",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:package_specification",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -307,6 +277,7 @@ java_library(
     deps = [
         ":repository/new_local_repository_rule",
         ":repository/new_repository_file_handler",
+        ":repository/repo_recorded_input",
         ":repository/repository_directory_value",
         ":repository/repository_function",
         ":repository/resolved_file_value",
@@ -345,6 +316,7 @@ java_library(
     name = "repository/new_repository_file_handler",
     srcs = ["repository/NewRepositoryFileHandler.java"],
     deps = [
+        ":repository/repo_recorded_input",
         ":repository/repository_function",
         ":repository/workspace_attribute_mapper",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
@@ -352,10 +324,35 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_lookup_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_lookup_value",
+        "//src/main/java/com/google/devtools/build/lib/util:pair",
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/eval",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "repository/repo_recorded_input",
+    srcs = ["repository/RepoRecordedInput.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/cmdline:LabelValidator",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:action_environment_function",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:client_environment_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:directory_listing_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:directory_tree_digest_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:filesystem_keys",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:repository_mapping_value",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:auto_value",
+        "//third_party:guava",
         "//third_party:jsr305",
     ],
 )
@@ -390,6 +387,7 @@ java_library(
     ],
     deps = [
         ":repository/local_repository_rule",
+        ":repository/repo_recorded_input",
         ":repository/repository_directory_value",
         ":repository/resolved_file_value",
         ":repository/workspace_attribute_mapper",
@@ -399,8 +397,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/bazel:resolved_event",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:repo_rule_value",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/cmdline:LabelValidator",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
@@ -421,7 +419,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
@@ -513,6 +510,7 @@ filegroup(
     srcs = glob(
         [
             "*.java",
+            "filegroup/*.java",
             "test/*.java",
             "extra/*.java",
         ],

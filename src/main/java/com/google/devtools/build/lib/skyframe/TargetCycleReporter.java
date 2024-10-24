@@ -19,7 +19,6 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
-import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.PackageGroup;
@@ -31,8 +30,8 @@ import com.google.devtools.build.skyframe.SkyKey;
 import java.util.List;
 
 /**
- * Reports cycles between targets. These may be in the form of {@link ConfiguredTargetValue}s or
- * {@link TransitiveTargetValue}s.
+ * Reports cycles between targets. These may be in the form of {@link
+ * com.google.devtools.build.lib.analysis.ConfiguredTargetValue}s or {@link TransitiveTargetValue}s.
  */
 class TargetCycleReporter extends AbstractLabelCycleReporter {
 
@@ -65,10 +64,10 @@ class TargetCycleReporter extends AbstractLabelCycleReporter {
 
   @Override
   public String prettyPrint(Object key) {
-    if (key instanceof ConfiguredTargetKey) {
-      return ((ConfiguredTargetKey) key).prettyPrint();
-    } else if (key instanceof AspectKey) {
-      return ((AspectKey) key).prettyPrint();
+    if (key instanceof ConfiguredTargetKey configuredTargetKey) {
+      return configuredTargetKey.prettyPrint();
+    } else if (key instanceof AspectKey aspectKey) {
+      return aspectKey.prettyPrint();
     } else {
       return getLabel((SkyKey) key).toString();
     }
@@ -78,8 +77,8 @@ class TargetCycleReporter extends AbstractLabelCycleReporter {
   public Label getLabel(SkyKey key) {
     if (key instanceof ActionLookupKey) {
       return Preconditions.checkNotNull(((ActionLookupKey) key.argument()).getLabel(), key);
-    } else if (key instanceof TransitiveTargetKey) {
-      return ((TransitiveTargetKey) key).getLabel();
+    } else if (key instanceof TransitiveTargetKey transitiveTargetKey) {
+      return transitiveTargetKey.getLabel();
     } else {
       throw new UnsupportedOperationException(key.toString());
     }

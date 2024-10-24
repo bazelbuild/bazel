@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.collect;
 import static com.google.devtools.build.lib.skyframe.serialization.ArrayProcessor.deserializeObjectArray;
 
 import com.google.common.collect.FluentIterable;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.skyframe.serialization.AsyncDeserializationContext;
@@ -26,7 +25,6 @@ import com.google.devtools.build.lib.skyframe.serialization.SerializationExcepti
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 
@@ -83,40 +81,6 @@ class IterableCodecs {
     @Override
     public Iterator iterator() {
       return Iterators.forArray(elements);
-    }
-  }
-
-  static class IterablesChainCodec extends AsyncObjectCodec<IterablesChain> {
-    @Override
-    public Class<IterablesChain> getEncodedClass() {
-      return IterablesChain.class;
-    }
-
-    @Override
-    public void serialize(
-        SerializationContext context, IterablesChain obj, CodedOutputStream codedOut)
-        throws SerializationException, IOException {
-      IterableCodecs.serialize(context, obj, codedOut);
-    }
-
-    @Override
-    public IterablesChain deserializeAsync(
-        AsyncDeserializationContext context, CodedInputStream codedIn)
-        throws SerializationException, IOException {
-      int count = codedIn.readInt32();
-      if (count == 0) {
-        IterablesChain empty = new IterablesChain(ImmutableList.of());
-        context.registerInitialValue(empty);
-        return empty;
-      }
-
-      Object[] elements = new Object[count];
-      IterablesChain value = new IterablesChain(Arrays.asList(elements));
-      context.registerInitialValue(value);
-
-      deserializeObjectArray(context, codedIn, elements, count);
-
-      return value;
     }
   }
 

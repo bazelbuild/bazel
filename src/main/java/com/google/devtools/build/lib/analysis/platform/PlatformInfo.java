@@ -14,9 +14,13 @@
 
 package com.google.devtools.build.lib.analysis.platform;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.base.Strings;
 import com.google.common.base.VerifyException;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.platform.ConstraintCollection.DuplicateConstraintException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -26,6 +30,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.platform.PlatformInfoApi;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.List;
 import java.util.Objects;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Printer;
@@ -71,17 +76,32 @@ public class PlatformInfo extends NativeInfo
   // PlatformUtils.getPlatformProto to use the dict-typed execProperties and do a migration.
   private final PlatformProperties execProperties;
 
+  private final ImmutableList<String> flags;
+
+  private final ImmutableList<ConfigMatchingProvider> requiredSettings;
+
+  private final boolean checkToolchainTypes;
+  private final ImmutableList<Label> allowedToolchainTypes;
+
   private PlatformInfo(
       Label label,
       ConstraintCollection constraints,
       String remoteExecutionProperties,
       PlatformProperties execProperties,
+      ImmutableList<String> flags,
+      ImmutableList<ConfigMatchingProvider> requiredSettings,
+      boolean checkToolchainTypes,
+      ImmutableList<Label> allowedToolchainTypes,
       Location creationLocation) {
     super(creationLocation);
     this.label = label;
     this.constraints = constraints;
     this.remoteExecutionProperties = Strings.nullToEmpty(remoteExecutionProperties);
     this.execProperties = execProperties;
+    this.flags = flags;
+    this.requiredSettings = requiredSettings;
+    this.checkToolchainTypes = checkToolchainTypes;
+    this.allowedToolchainTypes = allowedToolchainTypes;
   }
 
   @Override
@@ -107,6 +127,22 @@ public class PlatformInfo extends NativeInfo
     return execProperties.properties();
   }
 
+  public ImmutableList<String> flags() {
+    return flags;
+  }
+
+  public ImmutableList<ConfigMatchingProvider> requiredSettings() {
+    return requiredSettings;
+  }
+
+  public boolean checkToolchainTypes() {
+    return checkToolchainTypes;
+  }
+
+  public ImmutableList<Label> allowedToolchainTypes() {
+    return allowedToolchainTypes;
+  }
+
   @Override
   public void repr(Printer printer) {
     printer.append(String.format("PlatformInfo(%s, constraints=%s)", label, constraints));
@@ -115,26 +151,45 @@ public class PlatformInfo extends NativeInfo
   /** Add this platform to the given fingerprint. */
   public void addTo(Fingerprint fp) {
     fp.addString(label.toString());
+    constraints.addToFingerprint(fp);
     fp.addNullableString(remoteExecutionProperties);
     fp.addStringMap(execProperties.properties());
-    constraints.addToFingerprint(fp);
+    fp.addStrings(flags);
+    fp.addStrings(
+        requiredSettings.stream()
+            .map(ConfigMatchingProvider::label)
+            .map(Label::toString)
+            .collect(toImmutableList()));
+    fp.addStrings(allowedToolchainTypes.stream().map(Label::toString).collect(toImmutableList()));
+    fp.addBoolean(checkToolchainTypes);
   }
 
   @Override
   public boolean equals(Object o) {
-    if (!(o instanceof PlatformInfo)) {
+    if (!(o instanceof PlatformInfo that)) {
       return false;
     }
-    PlatformInfo that = (PlatformInfo) o;
     return Objects.equals(label, that.label)
         && Objects.equals(constraints, that.constraints)
         && Objects.equals(remoteExecutionProperties, that.remoteExecutionProperties)
-        && Objects.equals(execProperties, that.execProperties);
+        && Objects.equals(execProperties, that.execProperties)
+        && Objects.equals(flags, that.flags)
+        && Objects.equals(requiredSettings, that.requiredSettings)
+        && (checkToolchainTypes == that.checkToolchainTypes)
+        && Objects.equals(allowedToolchainTypes, that.allowedToolchainTypes);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(label, constraints, remoteExecutionProperties, execProperties);
+    return Objects.hash(
+        label,
+        constraints,
+        remoteExecutionProperties,
+        execProperties,
+        flags,
+        requiredSettings,
+        checkToolchainTypes,
+        allowedToolchainTypes);
   }
 
   /** Returns a new {@link Builder} for creating a fresh {@link PlatformInfo} instance. */
@@ -150,6 +205,12 @@ public class PlatformInfo extends NativeInfo
     private final ConstraintCollection.Builder constraints = ConstraintCollection.builder();
     private String remoteExecutionProperties = null;
     private final PlatformProperties.Builder execPropertiesBuilder = PlatformProperties.builder();
+    private final ImmutableList.Builder<String> flags = new ImmutableList.Builder<>();
+    private final ImmutableList.Builder<ConfigMatchingProvider> requiredSettings =
+        new ImmutableList.Builder<>();
+    private boolean checkToolchainTypes = false;
+    private final ImmutableList.Builder<Label> allowedToolchainTypes =
+        new ImmutableList.Builder<>();
     private Location creationLocation = Location.BUILTIN;
 
     /**
@@ -251,15 +312,29 @@ public class PlatformInfo extends NativeInfo
       return this;
     }
 
-    /**
-     * Sets the {@link Location} where this {@link PlatformInfo} was created.
-     *
-     * @param location the location where the instance was created
-     * @return the {@link Builder} instance for method chaining
-     */
+    /** Add the given flags to this {@link PlatformInfo}. */
     @CanIgnoreReturnValue
-    public Builder setLocation(Location location) {
-      this.creationLocation = location;
+    public Builder addFlags(Iterable<String> flags) {
+      this.flags.addAll(flags);
+      return this;
+    }
+
+    /** Add the given settings to this {@link PlatformInfo}. */
+    @CanIgnoreReturnValue
+    public Builder addRequiredSettings(List<ConfigMatchingProvider> requiredSettings) {
+      this.requiredSettings.addAll(requiredSettings);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder checkToolchainTypes(boolean checkToolchainTypes) {
+      this.checkToolchainTypes = checkToolchainTypes;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder addAllowedToolchainTypes(List<Label> allowedToolchainTypes) {
+      this.allowedToolchainTypes.addAll(allowedToolchainTypes);
       return this;
     }
 
@@ -306,11 +381,26 @@ public class PlatformInfo extends NativeInfo
       String remoteExecutionProperties =
           mergeRemoteExecutionProperties(parent, this.remoteExecutionProperties);
 
+      // Merge parent flags and this builder's flags. Parent flags always come first so that flags
+      // from this builder will override or combine, depending on the flag type.
+      ImmutableList.Builder<String> flagBuilder = new ImmutableList.Builder<>();
+      if (this.parent != null) {
+        flagBuilder.addAll(this.parent.flags);
+      }
+      flagBuilder.addAll(this.flags.build());
+
+      // Required settings are explicitly **not** inherited from the parent, so do not merge.
+      ImmutableList<ConfigMatchingProvider> settings = requiredSettings.build();
+
       return new PlatformInfo(
           label,
           constraints.build(),
           remoteExecutionProperties,
           execPropertiesBuilder.build(),
+          flagBuilder.build(),
+          settings,
+          checkToolchainTypes,
+          allowedToolchainTypes.build(),
           creationLocation);
     }
 

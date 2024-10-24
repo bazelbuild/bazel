@@ -25,7 +25,7 @@ disable_bzlmod
 
 function setup_repo() {
   mkdir -p $1
-  create_workspace_with_default_repos $1/WORKSPACE
+  touch $1/WORKSPACE
   echo $2 > $1/thing
   cat > $1/BUILD <<EOF
 genrule(
@@ -44,6 +44,7 @@ function test_workspace_changes() {
   setup_repo $repo_b bye
 
   cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "x",
     path = "$repo_a",
@@ -54,6 +55,7 @@ EOF
   assert_contains "hi" bazel-genfiles/external/x/out
 
   cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "x",
     path = "$repo_b",
@@ -69,9 +71,9 @@ function test_path_with_spaces() {
   ws="a b"
   mkdir "$ws"
   cd "$ws"
-  create_workspace_with_default_repos WORKSPACE
+  touch WORKSPACE
 
-  bazel info &> $TEST_log && fail "Info succeeeded"
+  bazel info &> $TEST_log || fail "Info failed"
   bazel help &> $TEST_log || fail "Help failed"
 }
 
@@ -88,10 +90,11 @@ function test_middleman_conflict() {
     >$test_repo1/BUILD
   echo 'filegroup(name="test", srcs=["test.in"], visibility=["//visibility:public"])' \
     >$test_repo2/BUILD
-  create_workspace_with_default_repos $test_repo1/WORKSPACE
-  create_workspace_with_default_repos $test_repo2/WORKSPACE
+  touch $test_repo1/WORKSPACE
+  touch $test_repo2/WORKSPACE
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name = 'repo1', path='$test_repo1')
 local_repository(name = 'repo2', path='$test_repo2')
 EOF
@@ -124,7 +127,8 @@ EOF
 }
 
 function test_no_select() {
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "new_local_repository")
 new_local_repository(
     name = "foo",
     path = "/path/to/foo",
@@ -138,14 +142,15 @@ EOF
 }
 
 function test_macro_select() {
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+  cat > WORKSPACE <<EOF
 load('//:foo.bzl', 'foo_repo')
 foo_repo()
 EOF
   touch BUILD
   cat > foo.bzl <<EOF
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "new_local_repository")
 def foo_repo():
-  native.new_local_repository(
+  new_local_repository(
       name = "foo",
       path = "/path/to/foo",
       build_file = select({
@@ -174,7 +179,7 @@ EOF
 }
 
 function test_starlark_flags_affect_workspace() {
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+  cat > WORKSPACE <<EOF
 load("//:macro.bzl", "macro")
 print("In workspace: ")
 macro()
@@ -214,6 +219,7 @@ function test_workspace_name() {
   cat > foo/WORKSPACE <<EOF
 workspace(name = "foo")
 
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "bar",
     path = "$PWD/bar",
@@ -240,7 +246,7 @@ EOF
 
 function test_workspace_override() {
   mkdir -p original
-  create_workspace_with_default_repos original/WORKSPACE
+  touch original/WORKSPACE
   cat > original/BUILD <<'EOF'
 genrule(
     name = "gen",
@@ -250,7 +256,7 @@ genrule(
 EOF
 
   mkdir -p override
-  create_workspace_with_default_repos override/WORKSPACE
+  touch override/WORKSPACE
   cat > override/BUILD <<'EOF'
 genrule(
     name = "gen",
@@ -259,7 +265,8 @@ genrule(
 )
 EOF
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "o",
     path = "original",
@@ -296,7 +303,7 @@ EOF
 
 function test_workspace_override_starlark(){
   mkdir -p original
-  create_workspace_with_default_repos original/WORKSPACE
+  touch original/WORKSPACE
   cat > original/BUILD <<'EOF'
 genrule(
     name = "gen",
@@ -308,7 +315,7 @@ EOF
   rm -rf original
 
   mkdir -p override
-  create_workspace_with_default_repos override/WORKSPACE
+  touch override/WORKSPACE
   cat > override/BUILD <<'EOF'
 genrule(
     name = "gen",
@@ -317,7 +324,7 @@ genrule(
 )
 EOF
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+  cat > WORKSPACE <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "o",
@@ -361,7 +368,7 @@ genrule(
 )
 EOF
 
-  create_workspace_with_default_repos WORKSPACE
+  touch WORKSPACE
   cat > repo_one/WORKSPACE <<EOF
 workspace(name = "new_repo")
 EOF
@@ -394,6 +401,8 @@ function test_package_loading_with_remapping_changes() {
   #     oak/
   #       BUILD (:oak)
 
+  echo 'workspace(name="main")' > WORKSPACE  # clean main workspace
+
   mkdir -p flower/daisy
   echo 'workspace(name="flower")' > flower/WORKSPACE
   echo 'sh_library(name="daisy")' > flower/daisy/BUILD
@@ -401,6 +410,7 @@ function test_package_loading_with_remapping_changes() {
   mkdir -p tree/oak
   cat > tree/WORKSPACE <<EOF
 workspace(name="tree")
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "flower",
     path="../flower",
@@ -425,6 +435,7 @@ EOF
   # Change mapping in tree/WORKSPACE
   cat > WORKSPACE <<EOF
 workspace(name="tree")
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "flower",
     path="../flower",
@@ -451,6 +462,7 @@ function test_repository_mapping_in_build_file_load() {
   cat > main/WORKSPACE <<EOF
 workspace(name = "main")
 
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name = "a", path="../a", repo_mapping = {"@x" : "@y"})
 local_repository(name = "y", path="../y")
 EOF
@@ -458,7 +470,7 @@ EOF
 
   # Repository y is a substitute for x
   mkdir -p y
-  create_workspace_with_default_repos y/WORKSPACE
+  touch y/WORKSPACE
   touch y/BUILD
   cat > y/symbol.bzl <<EOF
 Y_SYMBOL = "y_symbol"
@@ -466,7 +478,7 @@ EOF
 
   # Repository a refers to @x
   mkdir -p a
-  create_workspace_with_default_repos a/WORKSPACE
+  touch a/WORKSPACE
   cat > a/BUILD<<EOF
 load("@x//:symbol.bzl", "Y_SYMBOL")
 genrule(name = "a",
@@ -488,6 +500,7 @@ function test_remapping_from_bzl_file_load() {
   cat > main/WORKSPACE <<EOF
 workspace(name = "main")
 
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name = "a", path="../a", repo_mapping = {"@x" : "@y"})
 local_repository(name = "y", path="../y")
 EOF
@@ -495,7 +508,7 @@ EOF
 
   # Repository y is a substitute for x
   mkdir -p y
-  create_workspace_with_default_repos y/WORKSPACE
+  touch y/WORKSPACE
   touch y/BUILD
   cat > y/symbol.bzl <<EOF
 Y_SYMBOL = "y_symbol"
@@ -503,7 +516,7 @@ EOF
 
   # Repository a refers to @x
   mkdir -p a
-  create_workspace_with_default_repos a/WORKSPACE
+  touch a/WORKSPACE
   cat > a/BUILD<<EOF
 load("//:foo.bzl", "foo_symbol")
 genrule(name = "a",
@@ -525,7 +538,7 @@ EOF
 function test_repository_reassignment_label_in_build() {
   # Repository a refers to @x
   mkdir -p a
-  create_workspace_with_default_repos a/WORKSPACE
+  touch a/WORKSPACE
   cat > a/BUILD<<EOF
 genrule(name = "a",
         srcs = ["@x//:x.txt"],
@@ -536,7 +549,7 @@ EOF
 
   # Repository b is a substitute for x
   mkdir -p b
-  create_workspace_with_default_repos b/WORKSPACE
+  touch b/WORKSPACE
   cat >b/BUILD <<EOF
 exports_files(srcs = ["x.txt"])
 EOF
@@ -547,6 +560,7 @@ EOF
   cat > main/WORKSPACE <<EOF
 workspace(name = "main")
 
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name = "a", path="../a", repo_mapping = {"@x" : "@b"})
 local_repository(name = "b", path="../b")
 EOF
@@ -560,7 +574,7 @@ EOF
 function test_repository_reassignment_location() {
   # Repository a refers to @x
   mkdir -p a
-  create_workspace_with_default_repos a/WORKSPACE
+  touch a/WORKSPACE
   cat > a/BUILD<<EOF
 genrule(name = "a",
         srcs = ["@x//:x.txt"],
@@ -572,7 +586,7 @@ EOF
 
   # Repository b is a substitute for x
   mkdir -p b
-  create_workspace_with_default_repos b/WORKSPACE
+  touch b/WORKSPACE
   cat >b/BUILD <<EOF
 exports_files(srcs = ["x.txt"])
 EOF
@@ -583,6 +597,7 @@ EOF
   cat > main/WORKSPACE <<EOF
 workspace(name = "main")
 
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name = "a", path="../a", repo_mapping = {"@x" : "@b"})
 local_repository(name = "b", path="../b")
 EOF
@@ -598,7 +613,7 @@ function test_repo_mapping_starlark_rules() {
   EXTREPODIR=`pwd`
 
   mkdir -p a
-  create_workspace_with_default_repos a/WORKSPACE
+  touch a/WORKSPACE
   cat > a/BUILD<<EOF
 genrule(name = "a",
         srcs = ["@x//:x.txt"],
@@ -611,7 +626,7 @@ EOF
   rm -rf a
 
   mkdir -p b
-  create_workspace_with_default_repos b/WORKSPACE
+  touch b/WORKSPACE
   cat >b/BUILD <<EOF
 exports_files(srcs = ["x.txt"])
 EOF
@@ -629,6 +644,7 @@ http_archive(
   urls=["file://${EXTREPODIR}/a.zip"],
   repo_mapping = {"@x" : "@b"}
 )
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name = "b", path="../b")
 EOF
   touch main/BUILD
@@ -641,7 +657,7 @@ EOF
 function test_remapping_with_label_relative() {
   # create foo repository
   mkdir foo
-  create_workspace_with_default_repos foo/WORKSPACE
+  touch foo/WORKSPACE
   cat >foo/foo.bzl <<EOF
 x = Label("//blah:blah").relative("@a//:baz")
 print(x)
@@ -660,6 +676,7 @@ EOF
   mkdir -p main
   cat >main/WORKSPACE <<EOF
 workspace(name = "main")
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name = "foo", path="../foo", repo_mapping = {"@a" : "@b"})
 local_repository(name = "b", path="../b")
 EOF
@@ -675,7 +692,7 @@ EOF
 function test_remapping_label_constructor() {
   # create foo repository
   mkdir foo
-  create_workspace_with_default_repos foo/WORKSPACE
+  touch foo/WORKSPACE
   cat >foo/foo.bzl <<EOF
 x = Label("@a//blah:blah")
 print(x)
@@ -694,6 +711,7 @@ EOF
   mkdir -p main
   cat >main/WORKSPACE <<EOF
 workspace(name = "main")
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name = "foo", path="../foo", repo_mapping = {"@a" : "@b"})
 local_repository(name = "b", path="../b")
 EOF
@@ -719,7 +737,7 @@ cc_library(
 )
 EOF
 
-  create_workspace_with_default_repos WORKSPACE
+  touch WORKSPACE
   touch repo_one/BUILD
   touch repo_two/BUILD
 
@@ -793,7 +811,7 @@ EOF
   bazel query //... &>"$TEST_log" \
       || fail "Expected query to succeed"
   expect_log "def.bzl loaded"
-  expect_not_log "external"
+  expect_not_log "//external"
 }
 
 function test_mainrepo_name_remapped_properly() {
@@ -801,6 +819,7 @@ function test_mainrepo_name_remapped_properly() {
   touch mainrepo/BUILD
   cat > mainrepo/WORKSPACE<<EOF
 workspace(name = "mainrepo")
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
   name = "a",
   path = "../a"
@@ -812,7 +831,7 @@ x = 10
 EOF
 
   mkdir -p a
-  create_workspace_with_default_repos a/WORKSPACE
+  touch a/WORKSPACE
   echo "load('@mainrepo//:def.bzl', 'x')"> a/BUILD
 
   # the bzl file should be loaded from the main workspace and
@@ -821,11 +840,12 @@ EOF
   bazel query @a//... &>"$TEST_log" \
       || fail "Expected query to succeed"
   expect_log "def.bzl loaded"
-  expect_not_log "external"
+  expect_not_log "//external"
 
   cd ..
   cat > mainrepo/WORKSPACE<<EOF
 workspace(name = "mainrepo")
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
   name = "a",
   path = "../a",
@@ -848,15 +868,14 @@ function test_external_subpacakge() {
   touch local/BUILD
   mkdir main
   cd main
-  echo 'local_repository(name="local", path="../local")' > WORKSPACE
-  bazel build //external:local --build_event_json_file=bep.json \
-        > "${TEST_log}" 2>&1 \
-      || fail "Accessing a repo through the //extern package should not fail"
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+local_repository(name="local", path="../local")
+EOF
+  bazel build //external:local > "${TEST_log}" 2>&1 \
+      && fail "building a thing under //external shouldn't work"
   expect_not_log 'IllegalArgumentException'
-  grep '"id".*"targetCompleted".*"label".*"//external:local"' bep.json > completion.json \
-      || fail "expected completion of //external:local being reported"
-  grep '"success".*true' completion.json \
-      || fail "Success of //external:local expected"
+  expect_log "Found reference to a workspace rule in a context where a build rule was expected"
 }
 
 function test_external_rule() {
@@ -871,10 +890,10 @@ function test_external_rule() {
   rm -rf true
   mkdir extref
   echo 'cc_binary(name="it", deps=["//external:true"])' > extref/BUILD
-  create_workspace_with_default_repos extref/WORKSPACE
+  touch extref/WORKSPACE
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+  cat > WORKSPACE <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
@@ -883,6 +902,7 @@ http_archive(
   strip_prefix="true",
 )
 
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
   name="extref",
   path="../extref",
@@ -1065,6 +1085,7 @@ EOF
     mkdir mainrepo
     cd mainrepo
     cat > WORKSPACE <<'EOF'
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
   name = "source",
   path = "../local_a",
@@ -1080,6 +1101,7 @@ EOF
 
    # Now, verify the same with for renamed to bar.
    cat > WORKSPACE <<'EOF'
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
   name = "source",
   path = "../local_a",
@@ -1096,6 +1118,7 @@ EOF
 
    # Finally, verify the same with a renaming in the other repository
    cat > WORKSPACE <<'EOF'
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
   name = "origin",
   path = "../local_a",
@@ -1126,6 +1149,7 @@ EOF
     cd mainrepo
    cat > WORKSPACE <<'EOF'
 workspace(name="foo")
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
   name = "source",
   path = "../local_a",
@@ -1159,6 +1183,7 @@ EOF
     cd mainrepo
    cat > WORKSPACE <<'EOF'
 workspace(name="foo")
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
   name = "source",
   path = "../local_a",
@@ -1198,25 +1223,6 @@ data(name="it")
 EOF
     echo; echo remapping main repo; echo
     bazel build @foo//:it || fail "Expected success"
-}
-
-function test_cannot_define_repo_named_builtins() {
-    # The name "@_builtins" is reserved for use by builtins injection.
-    # It should be disallowed as a user repo name anyway because it doesn't
-    # begin with a letter.
-    cat > WORKSPACE <<'EOF'
-local_repository(
-  name = "_builtins",
-  path = "subrepo",
-)
-EOF
-    mkdir -p subrepo
-    touch subrepo/WORKSPACE
-    touch BUILD
-
-    bazel build //:BUILD \
-        && fail "Expected to be unable to define a repo named @_builtins" \
-        || true
 }
 
 run_suite "workspace tests"

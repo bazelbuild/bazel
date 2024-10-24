@@ -19,10 +19,10 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.remote.RemoteScrubbing.Config;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.TextFormat;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -104,6 +104,7 @@ public class Scrubber {
 
     private final Pattern mnemonicPattern;
     private final Pattern labelPattern;
+    private final Pattern kindPattern;
     private final boolean matchTools;
 
     private final ImmutableList<Pattern> omittedInputPatterns;
@@ -114,6 +115,7 @@ public class Scrubber {
       Config.Matcher matcherProto = ruleProto.getMatcher();
       this.mnemonicPattern = Pattern.compile(emptyToAll(matcherProto.getMnemonic()));
       this.labelPattern = Pattern.compile(emptyToAll(matcherProto.getLabel()));
+      this.kindPattern = Pattern.compile(emptyToAll(matcherProto.getKind()));
       this.matchTools = matcherProto.getMatchTools();
 
       Config.Transform transformProto = ruleProto.getTransform();
@@ -134,22 +136,21 @@ public class Scrubber {
     /** Whether this scrubber applies to the given {@link Spawn}. */
     private boolean matches(Spawn spawn) {
       String mnemonic = spawn.getMnemonic();
-      String label = spawn.getResourceOwner().getOwner().getLabel().getCanonicalForm();
-      boolean isForTool = spawn.getResourceOwner().getOwner().isBuildConfigurationForTool();
+      ActionOwner actionOwner = spawn.getResourceOwner().getOwner();
+      String label = actionOwner.getLabel().getCanonicalForm();
+      String kind = actionOwner.getTargetKind();
+      boolean isForTool = actionOwner.isBuildConfigurationForTool();
 
       return (!isForTool || matchTools)
           && mnemonicPattern.matcher(mnemonic).matches()
-          && labelPattern.matcher(label).matches();
+          && labelPattern.matcher(label).matches()
+          && kindPattern.matcher(kind).matches();
     }
 
-    /** Whether the given input should be omitted from the cache key. */
-    public boolean shouldOmitInput(ActionInput input) {
-      if (input.equals(VirtualActionInput.EMPTY_MARKER)) {
-        return false;
-      }
-      String execPath = input.getExecPathString();
+    /** Whether an input with the given exec-relative path should be omitted from the cache key. */
+    public boolean shouldOmitInput(PathFragment execPath) {
       for (Pattern pattern : omittedInputPatterns) {
-        if (pattern.matcher(execPath).matches()) {
+        if (pattern.matcher(execPath.getPathString()).matches()) {
           return true;
         }
       }

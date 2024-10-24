@@ -87,7 +87,7 @@ public class DummyExecutor implements Executor {
 
   @Override
   public <T extends ActionContext> T getContext(Class<T> type) {
-    throw new UnsupportedOperationException();
+    return null;
   }
 
   @Override

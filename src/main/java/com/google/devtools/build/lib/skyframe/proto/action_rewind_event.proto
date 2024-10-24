@@ -21,15 +21,19 @@ option java_outer_classname = "ActionRewind";
 
 // Information about an action rewind event.
 message ActionRewindEvent {
-  // A description of the action that failed and will rewind.
-  ActionDescription action_description = 1;
-  // A list of lost inputs that caused the action to rewind. This may not
-  // contain all lost inputs that caused this action to rewind.
+  oneof description {
+    // A description of the action that observed lost inputs and will initiate
+    // rewinding.
+    ActionDescription action_description = 1;
+    // String representation of the top-level ActionLookupKey that observed lost
+    // outputs and will initiate rewinding.
+    string top_level_action_lookup_key_description = 5;
+  }
+  // Sample of up to 5 lost inputs for this event.
   repeated LostInput lost_inputs = 2;
-  // The total number of lost inputs that caused this action to rewind.
+  // The total number of lost inputs for this event.
   int32 total_lost_inputs_count = 3;
-  // The total number of nodes or actions that were invalidated during this
-  // action rewind event.
+  // The total number of Skyframe nodes in the rewind graph for this event.
   int32 invalidated_nodes_count = 4;
 }
 

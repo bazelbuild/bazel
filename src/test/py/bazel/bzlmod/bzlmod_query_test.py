@@ -30,6 +30,7 @@ class BzlmodQueryTest(test_base.TestBase):
     self.registries_work_dir = tempfile.mkdtemp(dir=self._test_cwd)
     self.main_registry = BazelRegistry(
         os.path.join(self.registries_work_dir, 'main'))
+    self.main_registry.start()
     self.main_registry.createCcModule('aaa', '1.0', {'ccc': '1.2'}) \
       .createCcModule('aaa', '1.1') \
       .createCcModule('bbb', '1.0', {'aaa': '1.0'}, {'aaa': 'com_foo_bar_aaa'}) \
@@ -49,6 +50,10 @@ class BzlmodQueryTest(test_base.TestBase):
             'common --allow_yanked_versions=all',
         ],
     )
+
+  def tearDown(self):
+    self.main_registry.stop()
+    test_base.TestBase.tearDown(self)
 
   def testQueryModuleRepoTargetsBelow(self):
     self.ScratchFile('MODULE.bazel', [
@@ -76,7 +81,8 @@ class BzlmodQueryTest(test_base.TestBase):
         '--notool_deps',
     ])
     self.assertListEqual(
-        ['//:main', '@my_repo//:lib_aaa', '@@ccc~1.2//:lib_ccc'], stdout)
+        ['//:main', '@my_repo//:lib_aaa', '@@ccc+//:lib_ccc'], stdout
+    )
 
   def testQueryModuleRepoTransitiveDeps_consistentLabels(self):
     self.ScratchFile(
@@ -103,7 +109,7 @@ class BzlmodQueryTest(test_base.TestBase):
         '--consistent_labels',
     ])
     self.assertListEqual(
-        ['@@//:main', '@@aaa~1.0//:lib_aaa', '@@ccc~1.2//:lib_ccc'], stdout
+        ['@@//:main', '@@aaa+//:lib_aaa', '@@ccc+//:lib_ccc'], stdout
     )
 
   def testQueryModuleRepoTransitiveDeps_consistentLabels_outputPackage(self):
@@ -131,7 +137,7 @@ class BzlmodQueryTest(test_base.TestBase):
         '--consistent_labels',
         '--output=package',
     ])
-    self.assertListEqual(['@@//pkg', '@@aaa~1.0//', '@@ccc~1.2//'], stdout)
+    self.assertListEqual(['@@//pkg', '@@aaa+//', '@@ccc+//'], stdout)
 
   def testQueryModuleRepoTransitiveDeps_consistentLabels_outputBuild(self):
     self.ScratchFile(
@@ -160,7 +166,7 @@ class BzlmodQueryTest(test_base.TestBase):
     ])
     # Verify that there are no non-canonical labels in the output.
     stdout = '\n'.join(stdout)
-    self.assertEmpty(re.findall('(?<!@)@[a-z0-9.~]*//', stdout), stdout)
+    self.assertEmpty(re.findall('(?<!@)@[a-z0-9.+]*//', stdout), stdout)
 
   def testAqueryModuleRepoTargetsBelow(self):
     self.ScratchFile('MODULE.bazel', [
@@ -191,7 +197,7 @@ class BzlmodQueryTest(test_base.TestBase):
     ])
     self.assertIn('Target: //:main', stdout)
     self.assertIn('Target: @my_repo//:lib_aaa', stdout)
-    self.assertIn('Target: @@ccc~1.2//:lib_ccc', stdout)
+    self.assertIn('Target: @@ccc+//:lib_ccc', stdout)
 
   def testAqueryModuleRepoTransitiveDeps_consistentLabels(self):
     self.ScratchFile(
@@ -218,8 +224,8 @@ class BzlmodQueryTest(test_base.TestBase):
         '--consistent_labels',
     ])
     self.assertIn('Target: @@//:main', stdout)
-    self.assertIn('Target: @@aaa~1.0//:lib_aaa', stdout)
-    self.assertIn('Target: @@ccc~1.2//:lib_ccc', stdout)
+    self.assertIn('Target: @@aaa+//:lib_aaa', stdout)
+    self.assertIn('Target: @@ccc+//:lib_ccc', stdout)
 
   def testCqueryModuleRepoTargetsBelow(self):
     self.ScratchFile('MODULE.bazel', [
@@ -248,7 +254,7 @@ class BzlmodQueryTest(test_base.TestBase):
     ])
     self.assertRegex(stdout[0], r'^//:main \([\w\d]+\)$')
     self.assertRegex(stdout[1], r'^@my_repo//:lib_aaa \([\w\d]+\)$')
-    self.assertRegex(stdout[2], r'^@@ccc~1.2//:lib_ccc \([\w\d]+\)$')
+    self.assertRegex(stdout[2], r'^@@ccc\+//:lib_ccc \([\w\d]+\)$')
     self.assertEqual(len(stdout), 3)
 
   def testCqueryModuleRepoTransitiveDeps_consistentLabels(self):
@@ -276,8 +282,8 @@ class BzlmodQueryTest(test_base.TestBase):
         '--consistent_labels',
     ])
     self.assertRegex(stdout[0], r'^@@//:main \([\w\d]+\)$')
-    self.assertRegex(stdout[1], r'^@@aaa~1.0//:lib_aaa \([\w\d]+\)$')
-    self.assertRegex(stdout[2], r'^@@ccc~1.2//:lib_ccc \([\w\d]+\)$')
+    self.assertRegex(stdout[1], r'^@@aaa\+//:lib_aaa \([\w\d]+\)$')
+    self.assertRegex(stdout[2], r'^@@ccc\+//:lib_ccc \([\w\d]+\)$')
     self.assertEqual(len(stdout), 3)
 
   def testFetchModuleRepoTargetsBelow(self):
@@ -303,7 +309,7 @@ class BzlmodQueryTest(test_base.TestBase):
     self.assertIsNotNone(output_file)
     output = output_file.readlines()
     output_file.close()
-    self.assertListEqual(['@@aaa~1.0//:lib_aaa\n'], output)
+    self.assertListEqual(['@@aaa+//:lib_aaa\n'], output)
 
   def testQueryCannotResolveRepoMapping_malformedModuleFile(self):
     self.ScratchFile('MODULE.bazel', [

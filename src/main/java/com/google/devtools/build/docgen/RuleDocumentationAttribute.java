@@ -24,8 +24,9 @@ import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultT
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.skydoc.rendering.LabelRenderer;
-import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeInfo;
+import com.google.devtools.build.lib.packages.Types;
+import com.google.devtools.build.lib.starlarkdocextract.LabelRenderer;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AttributeInfo;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
@@ -46,10 +47,10 @@ public class RuleDocumentationAttribute
       ImmutableMap.<Type<?>, String>builder()
           .put(Type.BOOLEAN, "Boolean")
           .put(Type.INTEGER, "Integer")
-          .put(Type.INTEGER_LIST, "List of integers")
+          .put(Types.INTEGER_LIST, "List of integers")
           .put(Type.STRING, "String")
-          .put(Type.STRING_DICT, "Dictionary: String -> String")
-          .put(Type.STRING_LIST, "List of strings")
+          .put(Types.STRING_DICT, "Dictionary: String -> String")
+          .put(Types.STRING_LIST, "List of strings")
           .put(BuildType.TRISTATE, "Integer")
           .put(BuildType.LABEL, "<a href=\"${link build-ref#labels}\">Label</a>")
           .put(
@@ -164,38 +165,26 @@ public class RuleDocumentationAttribute
 
   private static Type<?> getAttributeInfoType(AttributeInfo attributeInfo, String location)
       throws BuildEncyclopediaDocException {
-    switch (attributeInfo.getType()) {
-      case INT:
-        return Type.INTEGER;
-      case LABEL:
-        return BuildType.LABEL;
-      case NAME:
-      case STRING:
-        return Type.STRING;
-      case STRING_LIST:
-        return Type.STRING_LIST;
-      case INT_LIST:
-        return Type.INTEGER_LIST;
-      case LABEL_LIST:
-        return BuildType.LABEL_LIST;
-      case BOOLEAN:
-        return Type.BOOLEAN;
-      case LABEL_STRING_DICT:
-        return BuildType.LABEL_KEYED_STRING_DICT;
-      case STRING_DICT:
-        return Type.STRING_DICT;
-      case STRING_LIST_DICT:
-        return Type.STRING_LIST_DICT;
-      case OUTPUT:
-        return BuildType.OUTPUT;
-      case OUTPUT_LIST:
-        return BuildType.OUTPUT_LIST;
-      default:
-        throw new BuildEncyclopediaDocException(
-            location,
-            String.format(
-                "attribute %s: unknown type %s", attributeInfo.getName(), attributeInfo.getType()));
-    }
+    return switch (attributeInfo.getType()) {
+      case INT -> Type.INTEGER;
+      case LABEL -> BuildType.LABEL;
+      case NAME, STRING -> Type.STRING;
+      case STRING_LIST -> Types.STRING_LIST;
+      case INT_LIST -> Types.INTEGER_LIST;
+      case LABEL_LIST -> BuildType.LABEL_LIST;
+      case BOOLEAN -> Type.BOOLEAN;
+      case LABEL_STRING_DICT -> BuildType.LABEL_KEYED_STRING_DICT;
+      case STRING_DICT -> Types.STRING_DICT;
+      case STRING_LIST_DICT -> Types.STRING_LIST_DICT;
+      case OUTPUT -> BuildType.OUTPUT;
+      case OUTPUT_LIST -> BuildType.OUTPUT_LIST;
+      default ->
+          throw new BuildEncyclopediaDocException(
+              location,
+              String.format(
+                  "attribute %s: unknown type %s",
+                  attributeInfo.getName(), attributeInfo.getType()));
+    };
   }
 
   private RuleDocumentationAttribute(
@@ -229,15 +218,12 @@ public class RuleDocumentationAttribute
       // We cannot print anything useful here other than "optional". Let's assume the doc string for
       // the attribute explains the details.
       return null;
-    } else if (value instanceof TriState) {
-      switch ((TriState) value) {
-        case AUTO:
-          return "-1";
-        case NO:
-          return "0";
-        case YES:
-          return "1";
-      }
+    } else if (value instanceof TriState triState) {
+      return switch (triState) {
+        case AUTO -> "-1";
+        case NO -> "0";
+        case YES -> "1";
+      };
     }
     return LabelRenderer.DEFAULT.reprWithoutLabelConstructor(Attribute.valueToStarlark(value));
   }

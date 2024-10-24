@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod.modcommand;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.AugmentedModuleBuilder.buildAugmentedModule;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
@@ -86,15 +87,23 @@ public class ExtensionArgTest {
             .put(buildAugmentedModule("", "").addDep("fred", "foo", "1.0").buildEntry())
             .put(buildAugmentedModule("foo", "1.0").addStillDependant(ModuleKey.ROOT).buildEntry())
             .buildOrThrow();
+    ImmutableMap<ModuleKey, RepositoryName> moduleKeyToCanonicalNames =
+        depGraph.keySet().stream()
+            .collect(toImmutableMap(k -> k, ModuleKey::getCanonicalRepoNameWithVersion));
     ImmutableBiMap<String, ModuleKey> baseModuleDeps = ImmutableBiMap.of("fred", key);
     ImmutableBiMap<String, ModuleKey> baseModuleUnusedDeps = ImmutableBiMap.of();
 
     assertThat(
             ExtensionArg.create(SpecificVersionOfModule.create(key), "//:abc.bzl", "def")
-                .resolveToExtensionId(modulesIndex, depGraph, baseModuleDeps, baseModuleUnusedDeps))
+                .resolveToExtensionId(
+                    modulesIndex,
+                    depGraph,
+                    moduleKeyToCanonicalNames,
+                    baseModuleDeps,
+                    baseModuleUnusedDeps))
         .isEqualTo(
             ModuleExtensionId.create(
-                Label.parseCanonical("@@foo~1.0//:abc.bzl"), "def", Optional.empty()));
+                Label.parseCanonical("@@foo+1.0//:abc.bzl"), "def", Optional.empty()));
   }
 
   @Test
@@ -107,6 +116,9 @@ public class ExtensionArgTest {
             .put(buildAugmentedModule("", "").addDep("fred", "foo", "1.0").buildEntry())
             .put(buildAugmentedModule("foo", "1.0").addStillDependant(ModuleKey.ROOT).buildEntry())
             .buildOrThrow();
+    ImmutableMap<ModuleKey, RepositoryName> moduleKeyToCanonicalNames =
+        depGraph.keySet().stream()
+            .collect(toImmutableMap(k -> k, ModuleKey::getCanonicalRepoNameWithVersion));
     ImmutableBiMap<String, ModuleKey> baseModuleDeps = ImmutableBiMap.of("fred", key);
     ImmutableBiMap<String, ModuleKey> baseModuleUnusedDeps = ImmutableBiMap.of();
 
@@ -115,13 +127,21 @@ public class ExtensionArgTest {
         () ->
             ExtensionArg.create(SpecificVersionOfModule.create(key), "/:def.bzl", "ext")
                 .resolveToExtensionId(
-                    modulesIndex, depGraph, baseModuleDeps, baseModuleUnusedDeps));
+                    modulesIndex,
+                    depGraph,
+                    moduleKeyToCanonicalNames,
+                    baseModuleDeps,
+                    baseModuleUnusedDeps));
     assertThrows(
         InvalidArgumentException.class,
         () ->
             ExtensionArg.create(SpecificVersionOfModule.create(key), "///////", "ext")
                 .resolveToExtensionId(
-                    modulesIndex, depGraph, baseModuleDeps, baseModuleUnusedDeps));
+                    modulesIndex,
+                    depGraph,
+                    moduleKeyToCanonicalNames,
+                    baseModuleDeps,
+                    baseModuleUnusedDeps));
   }
 
   @Test
@@ -140,6 +160,9 @@ public class ExtensionArgTest {
             .put(buildAugmentedModule("foo", "1.0").addStillDependant(ModuleKey.ROOT).buildEntry())
             .put(buildAugmentedModule("foo", "2.0").addStillDependant(ModuleKey.ROOT).buildEntry())
             .buildOrThrow();
+    ImmutableMap<ModuleKey, RepositoryName> moduleKeyToCanonicalNames =
+        depGraph.keySet().stream()
+            .collect(toImmutableMap(k -> k, ModuleKey::getCanonicalRepoNameWithVersion));
     ImmutableBiMap<String, ModuleKey> baseModuleDeps =
         ImmutableBiMap.of("foo1", foo1, "foo2", foo2);
     ImmutableBiMap<String, ModuleKey> baseModuleUnusedDeps = ImmutableBiMap.of();
@@ -150,13 +173,21 @@ public class ExtensionArgTest {
         () ->
             ExtensionArg.create(AllVersionsOfModule.create("foo"), "//:def.bzl", "ext")
                 .resolveToExtensionId(
-                    modulesIndex, depGraph, baseModuleDeps, baseModuleUnusedDeps));
+                    modulesIndex,
+                    depGraph,
+                    moduleKeyToCanonicalNames,
+                    baseModuleDeps,
+                    baseModuleUnusedDeps));
     // Found none, bad!
     assertThrows(
         InvalidArgumentException.class,
         () ->
             ExtensionArg.create(AllVersionsOfModule.create("bar"), "//:def.bzl", "ext")
                 .resolveToExtensionId(
-                    modulesIndex, depGraph, baseModuleDeps, baseModuleUnusedDeps));
+                    modulesIndex,
+                    depGraph,
+                    moduleKeyToCanonicalNames,
+                    baseModuleDeps,
+                    baseModuleUnusedDeps));
   }
 }

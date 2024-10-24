@@ -40,15 +40,13 @@ public class PackageOptions extends OptionsBase {
   public static class DefaultVisibilityConverter extends Converter.Contextless<RuleVisibility> {
     @Override
     public RuleVisibility convert(String input) throws OptionsParsingException {
-      switch (input) {
-        case "public":
-          return RuleVisibility.PUBLIC;
-        case "private":
-          return RuleVisibility.PRIVATE;
-        default:
-          throw new OptionsParsingException(
-              "Not a valid default visibility: '" + input + "' (should be 'public' or 'private'");
-      }
+      return switch (input) {
+        case "public" -> RuleVisibility.PUBLIC;
+        case "private" -> RuleVisibility.PRIVATE;
+        default ->
+            throw new OptionsParsingException(
+                "Not a valid default visibility: '" + input + "' (should be 'public' or 'private'");
+      };
     }
 
     @Override
@@ -168,12 +166,14 @@ public class PackageOptions extends OptionsBase {
   public int maxDirectoriesToEagerlyVisitInGlobbing;
 
   @Option(
-    name = "fetch",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Allows the command to fetch external dependencies"
-  )
+      name = "fetch",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Allows the command to fetch external dependencies. If set to false, the command will"
+              + " utilize any cached version of the dependency, and if none exists, the command"
+              + " will result in failure.")
   public boolean fetch;
 
   @Option(

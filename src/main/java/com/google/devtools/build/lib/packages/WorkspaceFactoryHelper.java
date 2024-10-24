@@ -22,9 +22,8 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.cmdline.TargetParsingException;
-import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
+import com.google.devtools.build.lib.packages.TargetRecorder.NameConflictException;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -46,33 +45,15 @@ public final class WorkspaceFactoryHelper {
   public static Rule createAndAddRepositoryRule(
       Package.Builder pkgBuilder,
       RuleClass ruleClass,
-      RuleClass bindRuleClass,
       Map<String, Object> kwargs,
       ImmutableList<StarlarkThread.CallStackEntry> callstack)
       throws RuleFactory.InvalidRuleException,
-          Package.NameConflictException,
+          NameConflictException,
           LabelSyntaxException,
           InterruptedException {
     BuildLangTypedAttributeValuesMap attributeValues = new BuildLangTypedAttributeValuesMap(kwargs);
     Rule rule = RuleFactory.createRule(pkgBuilder, ruleClass, attributeValues, true, callstack);
     overwriteRule(pkgBuilder, rule);
-    for (Map.Entry<String, Label> entry :
-        ruleClass.getExternalBindingsFunction().apply(rule).entrySet()) {
-      Label nameLabel = Label.parseCanonical("//external:" + entry.getKey());
-      addBindRule(pkgBuilder, bindRuleClass, nameLabel, entry.getValue(), callstack);
-    }
-    // NOTE(wyv): What is this madness?? This is the only instance where a repository rule can
-    // register toolchains upon being instantiated. We should look into converting
-    // android_{s,n}dk_repository into module extensions.
-    ImmutableList.Builder<TargetPattern> toolchains = new ImmutableList.Builder<>();
-    for (String pattern : ruleClass.getToolchainsToRegisterFunction().apply(rule)) {
-      try {
-        toolchains.add(TargetPattern.defaultParser().parse(pattern));
-      } catch (TargetParsingException e) {
-        throw new LabelSyntaxException(e.getMessage());
-      }
-    }
-    pkgBuilder.addRegisteredToolchains(toolchains.build(), originatesInWorkspaceSuffix(callstack));
     return rule;
   }
 
@@ -102,13 +83,11 @@ public final class WorkspaceFactoryHelper {
    */
   public static void addMainRepoEntry(Package.Builder builder, String externalRepoName)
       throws LabelSyntaxException {
-    if (!Strings.isNullOrEmpty(builder.getPackageWorkspaceName())) {
+    if (!Strings.isNullOrEmpty(builder.getWorkspaceName())) {
       // Create repository names with validation, LabelSyntaxException is thrown is the name
       // is not valid.
       builder.addRepositoryMappingEntry(
-          RepositoryName.create(externalRepoName),
-          builder.getPackageWorkspaceName(),
-          RepositoryName.MAIN);
+          RepositoryName.create(externalRepoName), builder.getWorkspaceName(), RepositoryName.MAIN);
     }
   }
 
@@ -155,7 +134,7 @@ public final class WorkspaceFactoryHelper {
       Label virtual,
       Label actual,
       ImmutableList<StarlarkThread.CallStackEntry> callstack)
-      throws RuleFactory.InvalidRuleException, Package.NameConflictException, InterruptedException {
+      throws RuleFactory.InvalidRuleException, NameConflictException, InterruptedException {
 
     Map<String, Object> attributes = Maps.newHashMap();
     // Bound rules don't have a name field, but this works because we don't want more than one
@@ -170,8 +149,7 @@ public final class WorkspaceFactoryHelper {
     overwriteRule(pkg, rule);
   }
 
-  private static void overwriteRule(Package.Builder pkg, Rule rule)
-      throws Package.NameConflictException {
+  private static void overwriteRule(Package.Builder pkg, Rule rule) throws NameConflictException {
     Preconditions.checkArgument(rule.getOutputFiles().isEmpty());
     Target old = pkg.getTarget(rule.getName());
     if (old != null) {
