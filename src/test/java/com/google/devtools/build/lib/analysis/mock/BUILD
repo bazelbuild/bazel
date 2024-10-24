@@ -20,6 +20,8 @@ java_library(
     ]),
     data = [
         "//tools/jdk:srcs",
+        "@bazel_skylib//:test_deps",
+        "@protobuf//bazel/private:for_bazel_tests",
         "@rules_cc//cc:srcs",
         "@rules_cc//cc/common:srcs",
         "@rules_cc//cc/toolchains:srcs",
