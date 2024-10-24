@@ -92,7 +92,17 @@ public class BazelModTidyFunction implements SkyFunction {
     }
     ImmutableList.Builder<RootModuleFileFixup> fixups = ImmutableList.builder();
     for (SkyKey extension : extensionsUsedByRootModule) {
-      SkyValue value = result.get(extension);
+      SkyValue value;
+      if (BazelModuleInspectorFunction.KEEP_GOING.get(env)) {
+        try {
+          value = result.getOrThrow(extension, ExternalDepsException.class);
+        } catch (ExternalDepsException e) {
+          // This extension failed, but we can still tidy up other extensions in keep going mode.
+          continue;
+        }
+      } else {
+        value = result.get(extension);
+      }
       if (value == null) {
         return null;
       }

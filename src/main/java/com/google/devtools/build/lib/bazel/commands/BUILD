@@ -33,6 +33,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel:resolved_event",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:common",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:inspection",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:inspection_impl",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:module_extension",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:repo_rule_value",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution",

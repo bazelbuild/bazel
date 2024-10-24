@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModTidyValue;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
@@ -68,6 +69,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.ModCommand.Code;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.CommandException;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -140,6 +142,13 @@ public final class ModCommand implements BlazeCommand {
   }
 
   private BlazeCommandResult execInternal(CommandEnvironment env, OptionsParsingResult options) {
+    env.getSkyframeExecutor()
+        .injectExtraPrecomputedValues(
+            ImmutableList.of(
+                PrecomputedValue.injected(
+                    BazelModuleInspectorFunction.KEEP_GOING,
+                    env.getOptions().getOptions(KeepGoingOption.class).keepGoing)));
+
     ModOptions modOptions = options.getOptions(ModOptions.class);
     Preconditions.checkArgument(modOptions != null);
 
