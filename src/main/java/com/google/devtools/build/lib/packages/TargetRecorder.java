@@ -172,6 +172,18 @@ public final class TargetRecorder {
     return macroMap;
   }
 
+  /**
+   * Returns whether there exists a macro with the given name.
+   *
+   * <p>There may be more than one such macro, nested in a chain of main submacros.
+   */
+  public boolean hasMacroWithName(String name) {
+    // Macros are indexed by id, not name, so we can't just use macroMap.get() directly.
+    // Instead, we reason that if at least one macro by the given name exists, then there is one
+    // with an id suffix of ":1".
+    return macroMap.containsKey(name + ":1");
+  }
+
   public List<Label> getRuleLabels(Rule rule) {
     return (ruleLabels != null) ? ruleLabels.get(rule) : rule.getLabels();
   }
@@ -651,11 +663,7 @@ public final class TargetRecorder {
    * <p>{@code what} must be either "macro" or "target".
    */
   private void checkForExistingMacroName(String name, String what) throws NameConflictException {
-    // Macros are indexed by id, not name, so we can't just use macroMap.get() directly.
-    // Instead, we reason that if at least one macro by the given name exists, then there is one
-    // with an id suffix of ":1".
-    MacroInstance existing = macroMap.get(name + ":1");
-    if (existing == null) {
+    if (!hasMacroWithName(name)) {
       return;
     }
 
