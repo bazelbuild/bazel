@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker.DirtyResu
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.DetailedIOException;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -211,6 +212,14 @@ public final class FileSystemValueCheckerInferringAncestors {
         Futures.getDone(future);
       } catch (ExecutionException e) {
         if (e.getCause() instanceof StatFailedException statFailed) {
+          if (statFailed.getCause() instanceof DetailedIOException detailedException) {
+            FailureDetail failureDetailWithUpdatedErrorMessage =
+                detailedException.getDetailedExitCode().getFailureDetail().toBuilder()
+                    .setMessage(statFailed.getMessage() + ": " + detailedException.getMessage())
+                    .build();
+            throw new AbruptExitException(
+                DetailedExitCode.of(failureDetailWithUpdatedErrorMessage), e);
+          }
           throw new AbruptExitException(
               DetailedExitCode.of(
                   FailureDetail.newBuilder()
