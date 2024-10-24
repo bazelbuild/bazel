@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.worker;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Stopwatch;
@@ -72,7 +71,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -532,12 +530,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
                 String.format("Worker #%d preparing execution", worker.getWorkerId()))) {
       // We consider `prepareExecution` to be also part of setup.
       Stopwatch prepareExecutionStopwatch = Stopwatch.createStarted();
-      Set<PathFragment> workerFiles = key.getWorkerFilesWithDigests().keySet();
-      if (!spawn.getPathMapper().isNoop()) {
-        workerFiles =
-            workerFiles.stream().map(spawn.getPathMapper()::map).collect(toImmutableSet());
-      }
-      worker.prepareExecution(inputFiles, outputs, workerFiles);
+      worker.prepareExecution(inputFiles, outputs, key.getWorkerFilesWithDigests().keySet());
       initializeMetrics(key, worker);
       spawnMetrics.addSetupTimeInMs((int) prepareExecutionStopwatch.elapsed().toMillis());
     } catch (IOException e) {
