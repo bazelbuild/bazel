@@ -948,7 +948,6 @@ java_test(
 
 java_test(
     name = "BuiltinsInjectionTest",
-    timeout = "short",
     srcs = ["BuiltinsInjectionTest.java"],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
@@ -1998,7 +1997,6 @@ java_test(
 
 java_test(
     name = "OutputsInvalidationIntegrationTest",
-    timeout = "short",
     srcs = ["OutputsInvalidationIntegrationTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:runtime",
