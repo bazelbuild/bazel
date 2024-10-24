@@ -340,4 +340,4 @@ In this tutorial, we built and tested a small Go project with Bazel, and we lear
 - To get started building other applications with Bazel, see the tutorials for [C++](/start/cpp), [Java](/start/java), [Android](/start/android-app), and [iOS](/start/ios-app).
 - You can also check the list of [recommended rules](/rules) for other languages.
 - For more information on Go, see the [rules_go](https://github.com/bazelbuild/rules_go) module, especially the [Core Go rules](https://github.com/bazelbuild/rules_go/blob/master/docs/go/core/rules.md) documentation.
-- To learn more about working with modules outside your project, see [external dependencies](/docs/external).
+- To learn more about working with Bazel modules outside your project, see [external dependencies](/docs/external). In particular, for information on how to depend on Go modules and toolchains through Bazel's module system, see [Go with bzlmod](https://github.com/bazel-contrib/rules_go/tree/master/docs/go/core/bzlmod.md).
