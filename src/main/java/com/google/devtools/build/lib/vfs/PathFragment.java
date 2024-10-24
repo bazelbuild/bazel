@@ -622,6 +622,8 @@ public abstract sealed class PathFragment
    *
    * <p>In this way, a shell will always interpret such a string as path (absolute or relative to
    * the working directory) and not as command to be searched for in the search path.
+   *
+   * <p>Prefer {@link #getCallablePathStringForOs} if the execution OS is available.
    */
   public String getCallablePathString() {
     if (isAbsolute()) {
@@ -633,6 +635,18 @@ public abstract sealed class PathFragment
     } else {
       return normalizedPath;
     }
+  }
+
+  /**
+   * Returns the path string using the native name-separator for the given OS, but does so in a way
+   * unambiguously recognizable as path. In other words, return "." for relative and empty paths,
+   * and prefix relative paths with an additional "." segment.
+   *
+   * <p>In this way, a shell will always interpret such a string as path (absolute or relative to
+   * the working directory) and not as command to be searched for in the search path.
+   */
+  public String getCallablePathStringForOs(com.google.devtools.build.lib.util.OS executionOs) {
+    return OsPathPolicy.of(executionOs).postProcessPathStringForExecution(getCallablePathString());
   }
 
   /**
