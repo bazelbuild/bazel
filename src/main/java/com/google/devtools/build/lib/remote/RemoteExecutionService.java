@@ -702,8 +702,9 @@ public class RemoteExecutionService {
             execRoot, Options.getDefaults(WorkerOptions.class), LocalEnvProvider.NOOP, null);
     WorkerKey workerKey = workerParser.compute(spawn, context).getWorkerKey();
     Fingerprint fingerprint = new Fingerprint();
+    // getWorkerFilesCombinedHash always uses SHA-256, so the hash is always 32 bytes.
     fingerprint.addBytes(workerKey.getWorkerFilesCombinedHash().asBytes());
-    fingerprint.addIterableStrings(workerKey.getArgs());
+    fingerprint.addStrings(workerKey.getArgs());
     fingerprint.addStringMap(workerKey.getEnv());
     return new ToolSignature(
         fingerprint.hexDigestAndReset(), workerKey.getWorkerFilesWithDigests().keySet());
