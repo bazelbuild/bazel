@@ -112,6 +112,12 @@ landing_page:
       icon:
         name: grid_view
         position: left
+    - heading: Go
+      classname: fully-clickable
+      path: /start/go
+      icon:
+        name: grid_view
+        position: left
 
   # Concepts Row
   - options:
