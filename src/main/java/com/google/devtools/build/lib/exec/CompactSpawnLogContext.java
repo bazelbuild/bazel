@@ -399,6 +399,16 @@ public class CompactSpawnLogContext extends SpawnLogContext {
           for (ActionInput input : set.getLeaves()) {
             if (input instanceof Artifact artifact && artifact.isMiddlemanArtifact()) {
               RunfilesTree runfilesTree = runfilesTrees.get(artifact);
+              if (runfilesTree == null) {
+                // This happens for spawns that don't keep their RunfilesSuppliers in sync with
+                // the middleman artifacts in their inputs.
+                // The known examples are test spawns that include the lcov merger as a middleman
+                // artifact, but don't merge in its supplier, as well as split coverage
+                // postprocessing spawns, which include the test runfiles middleman but not its
+                // supplier. Since the supplier is what causes the runfiles tree to be materialized,
+                // we can safely ignore these stray middleman artifacts.
+                continue;
+              }
               builder.addInputIds(
                   logRunfilesTree(
                       runfilesTree, inputMetadataProvider, fileSystem, isTestRunnerSpawn));
