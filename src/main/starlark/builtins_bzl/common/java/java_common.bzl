@@ -313,6 +313,9 @@ def _internal_exports():
         check_provider_instances = _java_common_internal.check_provider_instances,
         incompatible_java_info_merge_runtime_module_flags = _java_common_internal._incompatible_java_info_merge_runtime_module_flags,
         check_java_toolchain_is_declared_on_rule = _java_common_internal._check_java_toolchain_is_declared_on_rule,
+        create_header_compilation_action = _java_common_internal.create_header_compilation_action,
+        create_compilation_action = _java_common_internal.create_compilation_action,
+        tokenize_javacopts = _java_common_internal.tokenize_javacopts,
     )
 
 def _make_java_common():
