@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.attribute.DosFileAttributes;
+import javax.annotation.Nullable;
 
 /** File system implementation for Windows. */
 @ThreadSafe
@@ -150,7 +151,7 @@ public class WindowsFileSystem extends JavaIoFileSystem {
 
     FileStatus status =
         new FileStatus() {
-          volatile Boolean isSymbolicLink;
+          @Nullable volatile Boolean isSymbolicLink; // null if not yet known
           volatile long lastChangeTime = -1;
 
           @Override
@@ -173,7 +174,9 @@ public class WindowsFileSystem extends JavaIoFileSystem {
 
           @Override
           public boolean isSymbolicLink() {
-            if (isSymbolicLink == null) { isSymbolicLink = !followSymlinks && fileIsSymbolicLink(file); }
+            if (isSymbolicLink == null) {
+              isSymbolicLink = !followSymlinks && fileIsSymbolicLink(file);
+            }
             return isSymbolicLink;
           }
 
@@ -189,7 +192,9 @@ public class WindowsFileSystem extends JavaIoFileSystem {
 
           @Override
           public long getLastChangeTime() throws IOException {
-            if (lastChangeTime == -1) { lastChangeTime = WindowsFileOperations.getLastChangeTime(getNioPath(path).toString(), followSymlinks); }
+            if (lastChangeTime == -1) {
+              lastChangeTime = WindowsFileOperations.getLastChangeTime(getNioPath(path).toString(), followSymlinks);
+            }
             return lastChangeTime;
           }
 
