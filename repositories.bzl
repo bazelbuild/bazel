@@ -31,11 +31,11 @@ DIST_ARCHIVE_REPOS = [get_canonical_repo_name(repo) for repo in [
     "blake3",
     "c-ares",
     "com_github_grpc_grpc",
-    # "com_google_protobuf", # for now, this is an archive_override with special treatment. see distdir.bzl
     "googleapis",
     "grpc-java",
     "io_bazel_skydoc",
     "platforms",
+    "protobuf",
     "rules_cc",
     "rules_go",
     "rules_graalvm",

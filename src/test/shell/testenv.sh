@@ -592,30 +592,10 @@ function add_rules_license() {
 
 function add_protobuf() {
   add_bazel_dep "protobuf" "$1"
-  mkdir -p third_party/protobuf
-  touch third_party/protobuf/BUILD
-  cp "$(rlocation io_bazel/third_party/protobuf/remove_rules_rust.patch)" third_party/protobuf/remove_rules_rust.patch
-  cp "$(rlocation io_bazel/third_party/protobuf/proto_info_bzl_deps.patch)" third_party/protobuf/proto_info_bzl_deps.patch
-  cp "$(rlocation io_bazel/third_party/protobuf/add_python_loads.patch)" third_party/protobuf/add_python_loads.patch
-  cp "$(rlocation io_bazel/third_party/protobuf/add_rules_shell_loads.patch)" third_party/protobuf/add_rules_shell_loads.patch
-  cp "$(rlocation io_bazel/third_party/protobuf/bzl_library.patch)" third_party/protobuf/bzl_library.patch
   cat >> "$1" <<EOF
-archive_override(
+single_version_override(
     module_name = "protobuf",
-    integrity = "sha256-tSay4N4FspF+VnsNCTGtMH3xV4ZrtHioxNeB/bjQhsI=",
-    patch_strip = 1,
-    # Temporarily patch out rules_rust stuff from protobuf. Not just because we don't need it,
-    # but also because it introduces huge dependency bloat: rules_rust -> aspect_rules_js ->
-    # aspect_rules_lint -> rules_buf.
-    patches = [
-        "//third_party/protobuf:proto_info_bzl_deps.patch",
-        "//third_party/protobuf:remove_rules_rust.patch",
-        "//third_party/protobuf:add_python_loads.patch",
-        "//third_party/protobuf:add_rules_shell_loads.patch",
-        "//third_party/protobuf:bzl_library.patch",
-    ],
-    strip_prefix = "protobuf-29.0-rc1",
-    urls = ["https://github.com/protocolbuffers/protobuf/releases/download/v29.0-rc1/protobuf-29.0-rc1.zip"],
+    version = "29.0-rc2",
 )
 EOF
 }

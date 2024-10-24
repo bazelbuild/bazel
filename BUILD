@@ -84,12 +84,6 @@ genrule(
         "//third_party:BUILD",
         "//third_party:rules_jvm_external_6.0.patch",
         "//third_party:rules_graalvm_fix.patch",
-        "//third_party/protobuf:BUILD",
-        "//third_party/protobuf:proto_info_bzl_deps.patch",
-        "//third_party/protobuf:remove_rules_rust.patch",
-        "//third_party/protobuf:add_python_loads.patch",
-        "//third_party/protobuf:add_rules_shell_loads.patch",
-        "//third_party/protobuf:bzl_library.patch",
     ],
     outs = ["MODULE.bazel.lock.dist"],
     cmd = " && ".join([

@@ -89,14 +89,6 @@ def _repo_cache_tar_impl(ctx):
     http_artifacts = parse_http_artifacts(ctx, lockfile_path, ctx.attr.repos)
     registry_files = parse_registry_files(ctx, lockfile_path, ctx.attr.module_files)
 
-    if "protobuf+" not in ctx.attr.repos:
-        # HACK: protobuf is currently an archive_override, so it doesn't show up in the lockfile.
-        # we manually add it to the tar entry here.
-        http_artifacts.append({
-            "url": "https://github.com/protocolbuffers/protobuf/releases/download/v29.0-rc1/protobuf-29.0-rc1.zip",
-            "integrity": "sha256-tSay4N4FspF+VnsNCTGtMH3xV4ZrtHioxNeB/bjQhsI=",
-        })
-
     archive_files = []
     readme_content = "This directory contains repository cache artifacts for the following URLs:\n\n"
     for artifact in http_artifacts + registry_files:
