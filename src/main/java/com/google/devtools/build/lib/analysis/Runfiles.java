@@ -46,12 +46,12 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.UUID;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -403,7 +403,7 @@ public final class Runfiles implements RunfilesApi {
     private boolean sawWorkspaceName;
 
     ManifestBuilder(PathFragment workspaceName, boolean legacyExternalRunfiles) {
-      this.manifest = new HashMap<>();
+      this.manifest = new TreeMap<>();
       this.workspaceName = workspaceName;
       this.legacyExternalRunfiles = legacyExternalRunfiles;
       this.sawWorkspaceName = legacyExternalRunfiles;
