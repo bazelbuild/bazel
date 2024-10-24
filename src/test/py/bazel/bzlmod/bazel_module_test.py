@@ -14,12 +14,14 @@
 # limitations under the License.
 # pylint: disable=g-long-ternary
 
+import json
 import os
 import pathlib
 import shutil
 import subprocess
 import tempfile
 from absl.testing import absltest
+
 from src.test.py.bazel import test_base
 from src.test.py.bazel.bzlmod.test_utils import BazelRegistry
 from src.test.py.bazel.bzlmod.test_utils import scratchFile
@@ -1108,6 +1110,65 @@ class BazelModuleTest(test_base.TestBase):
     self.ScratchFile('BUILD.bazel', ['print(glob(["testdata/**"]))'])
     self.ScratchFile('testdata/WORKSPACE')
     self.RunBazel(['build', ':all'])
+
+  def testOverrideRepositoryAddsRepo(self):
+    self.ScratchFile(
+      'MODULE.bazel',
+      [
+        'bazel_dep(name="other_module", version="1.0")',
+        (
+          'local_path_override(module_name="other_module",'
+          ' path="other_module")'
+        ),
+        'ext = use_extension("//:defs.bzl", "my_ext")',
+        'use_repo(ext, "repo")',
+      ],
+    )
+
+    self.ScratchFile(
+      'other_module/MODULE.bazel',
+      ['module(name="other_module", version="1.0")'],
+    )
+
+    self.ScratchFile('other_repo/REPO.bazel')
+    self.ScratchFile('other_repo/BUILD', ['filegroup(name="target")'])
+
+    self.ScratchFile(
+      'defs.bzl',
+      [
+        'def _repo_impl(ctx):',
+        '  ctx.file("BUILD")',
+        'my_repo = repository_rule(implementation=_repo_impl)',
+        'def _ext_impl(ctx):',
+        '  my_repo(name = "repo")',
+        'my_ext = module_extension(implementation=_ext_impl)',
+      ],
+    )
+    self.ScratchFile('BUILD')
+
+    self.RunBazel([
+      'build',
+      '--override_repository=my_repo=other_repo',
+      '@my_repo//:target',
+    ])
+
+    _, stdout, stderr = self.RunBazel([
+      'mod',
+      'dump_repo_mapping',
+      '--override_repository=my_repo=%workspace%/other_repo',
+      '',
+    ])
+    main_repo_mapping = json.loads('\n'.join(stdout))
+    self.assertEqual(main_repo_mapping["my_repo"], "my_repo")
+
+    _, stdout, stderr = self.RunBazel([
+      'mod',
+      'dump_repo_mapping',
+      '--override_repository=my_repo=%workspace%/other_repo',
+      'my_repo',
+    ])
+    my_repo_mapping = json.loads('\n'.join(stdout))
+    self.assertEqual(main_repo_mapping, my_repo_mapping)
 
 
 if __name__ == '__main__':

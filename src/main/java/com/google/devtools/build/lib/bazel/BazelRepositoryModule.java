@@ -104,6 +104,7 @@ import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.MutableSupplier;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorRepositoryHelpersHolder;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
@@ -603,7 +604,7 @@ public class BazelRepositoryModule extends BlazeModule {
       lastRegistryInvalidation = now;
     }
     return ImmutableList.of(
-        PrecomputedValue.injected(RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, overrides),
+        PrecomputedValue.injected(RepositoryMappingFunction.REPOSITORY_OVERRIDES, overrides),
         PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, moduleOverrides),
         PrecomputedValue.injected(
             RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE,
