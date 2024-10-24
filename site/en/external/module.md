@@ -206,6 +206,7 @@ multiple versions of the module in the entire dependency graph (see
 Note that **the canonical name format** is not an API you should depend on and
 **is subject to change at any time**. Instead of hard-coding the canonical name,
 use a supported way to get it directly from Bazel:
+
 *    In BUILD and `.bzl` files, use
      [`Label.repo_name`](/rules/lib/builtins/Label#repo_name) on a `Label` instance
      constructed from a label string given by the apparent name of the repo, e.g.,
