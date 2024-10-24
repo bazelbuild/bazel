@@ -250,18 +250,11 @@ public final class MacroClass {
       parsedVisibility = RuleVisibility.parse(liftedVisibility);
     }
     // Concatenate the visibility (as previously populated) with the instantiation site's location.
-    PackageIdentifier instantiatingLoc;
-    if (parentMacroFrame == null) {
-      instantiatingLoc = pkgBuilder.getPackageIdentifier();
-    } else {
-      instantiatingLoc =
-          parentMacroFrame
-              .macroInstance
-              .getMacroClass()
-              .getDefiningBzlLabel()
-              .getPackageIdentifier();
-    }
-    parsedVisibility = RuleVisibility.concatWithPackage(parsedVisibility, instantiatingLoc);
+    PackageIdentifier instantiatingLoc =
+        parentMacroFrame == null
+            ? pkgBuilder.getPackageIdentifier()
+            : parentMacroFrame.macroInstance.getDefinitionPackage();
+    parsedVisibility = parsedVisibility.concatWithPackage(instantiatingLoc);
     attrValues.put("visibility", parsedVisibility.getDeclaredLabels());
 
     // Populate defaults for the rest, and validate that no mandatory attr was missed.

@@ -23,7 +23,7 @@ import java.util.List;
 
 /** A rule visibility that allows visibility to a list of package groups. */
 @AutoValue
-public abstract class PackageGroupsRuleVisibility implements RuleVisibility {
+public abstract class PackageGroupsRuleVisibility extends RuleVisibility {
   public abstract ImmutableList<Label> getPackageGroups();
 
   public abstract PackageGroupContents getDirectPackages();
