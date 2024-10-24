@@ -30,6 +30,8 @@ public class BazelSkyframeExecutorConstants {
   public static final ImmutableSet<PathFragment> HARDCODED_IGNORED_PACKAGE_PREFIXES =
       ImmutableSet.of();
 
+  public static final PathFragment BAZELIGNORE_PATH = PathFragment.create(".bazelignore");
+
   /**
    * The file .bazelignore can be used to specify directories to be ignored by bazel
    *
@@ -41,7 +43,14 @@ public class BazelSkyframeExecutorConstants {
    * therefore fails the build, this ignore functionality currently has no chance to kick in.
    */
   public static final SkyFunction IGNORED_PACKAGE_PREFIXES_FUNCTION =
-      new IgnoredPackagePrefixesFunction(PathFragment.create(".bazelignore"));
+      new IgnoredPackagePrefixesFunction(BAZELIGNORE_PATH, true);
+
+  /**
+   * IGNORED_PACKAGE_PREFIXES_FUNCTION, except always returns the empty value. Used for tests where
+   * the extra complications incurred by evaluating the function are undesired.
+   */
+  public static final SkyFunction NOOP_IGNORED_PACKAGE_PREFIXES_FUNCTION =
+      new IgnoredPackagePrefixesFunction(PathFragment.EMPTY_FRAGMENT, false);
 
   public static final CrossRepositoryLabelViolationStrategy
       CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY = CrossRepositoryLabelViolationStrategy.ERROR;

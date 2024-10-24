@@ -151,6 +151,7 @@ java_library(
         ":map_as_package_roots",
         ":metadata_consumer_for_metrics",
         ":node_dropping_inconsistency_receiver",
+        ":package_args_function",
         ":package_error_function",
         ":package_error_message_function",
         ":package_identifier_batching_callback",
@@ -832,6 +833,8 @@ java_library(
     deps = [
         ":ignored_package_prefixes_value",
         ":precomputed_value",
+        ":repo_file_function",
+        ":repo_file_value",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/io:inconsistent_filesystem_exception",
@@ -2331,6 +2334,25 @@ java_library(
 )
 
 java_library(
+    name = "package_args_function",
+    srcs = ["PackageArgsFunction.java"],
+    deps = [
+        ":repo_file_function",
+        ":repo_file_value",
+        ":repository_mapping_value",
+        ":sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "repo_file_function",
     srcs = ["RepoFileFunction.java"],
     deps = [
@@ -2347,6 +2369,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
+        "//third_party:guava",
         "//third_party:jsr305",
     ],
 )
@@ -2360,6 +2383,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:auto_value",
+        "//third_party:guava",
     ],
 )
 
