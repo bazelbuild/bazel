@@ -375,7 +375,7 @@ function runfiles_rlocation_checked() {
     local trim_length=$(echo -n "$search_prefix  " | wc -c | tr -d ' ')
     # Escape the search prefix for use in the grep regex below *after*
     # determining the trim length.
-    local result=$(__runfiles_maybe_grep -m1 "^$(echo -n "$search_prefix" | sed 's/[.[\*^$]/\\&/g') " "${RUNFILES_MANIFEST_FILE}" | cut -b ${trim_length}-)
+    local result=$(__runfiles_maybe_grep -m1 "^$(echo -n "$search_prefix" | sed 's/[.[\*^$]/\\&/g') " "${RUNFILES_MANIFEST_FILE}" | cut -b "${trim_length}-")
     if [[ -z "$result" ]]; then
       # If path references a runfile that lies under a directory that itself
       # is a runfile, then only the directory is listed in the manifest. Look
