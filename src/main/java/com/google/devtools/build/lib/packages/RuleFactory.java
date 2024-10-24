@@ -311,7 +311,7 @@ public class RuleFactory {
       }
     }
 
-    return currentMacro.concatDefinitionLocationToVisibility(visibility).getDeclaredLabels();
+    return visibility.concatWithPackage(currentMacro.getDefinitionPackage()).getDeclaredLabels();
   }
 
   /**
