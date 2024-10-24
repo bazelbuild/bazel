@@ -110,7 +110,7 @@ go_binary(
 
 `MODULE.bazel` tracks your project's dependencies. It also marks your project's root directory, so you'll only write one `MODULE.bazel` file per project. It serves a similar purpose to Go's `go.mod` file. You don't actually need a `go.mod` file in a Bazel project, but it may still be useful to have one so that you can continue using `go get` and `go mod tidy` for dependency management. The Bazel Go rule set can import dependencies from `go.mod`, but we'll cover that in another tutorial.
 
-Our `MODULE.bazel` file contains a single dependency on [rules_go](https://github.com/bazelbuild/rules_go), the Go rule set. We need this dependency because Bazel doesn't have built-in support for Go.
+Our `MODULE.bazel` file contains a single dependency on [rules_go](https://github.com/bazel-contrib/rules_go), the Go rule set. We need this dependency because Bazel doesn't have built-in support for Go.
 
 ```bazel
 bazel_dep(
@@ -131,7 +131,7 @@ A `BUILD` file contains a list of [targets](https://bazel.build/reference/glossa
 
 A target calls a rule function with a list of [attributes](https://bazel.build/reference/glossary#attribute) to describe what should be built. Our example has two attributes: `name` identifies the target on the command line, and `srcs` is a list of source file paths (slash-separated, relative to the directory containing the `BUILD` file).
 
-A [rule](https://bazel.build/reference/glossary#rule) tells Bazel how to build a target. In our example, we used the [`go_binary`](https://github.com/bazelbuild/rules_go/blob/master/docs/go/core/rules.md#go_binary) rule. Each rule defines [actions](https://bazel.build/reference/glossary#action) (commands) that generate a set of output files. For example, `go_binary` defines Go compile and link actions that produce an executable output file.
+A [rule](https://bazel.build/reference/glossary#rule) tells Bazel how to build a target. In our example, we used the [`go_binary`](https://github.com/bazel-contrib/rules_go/blob/master/docs/go/core/rules.md#go_binary) rule. Each rule defines [actions](https://bazel.build/reference/glossary#action) (commands) that generate a set of output files. For example, `go_binary` defines Go compile and link actions that produce an executable output file.
 
 Bazel has built-in rules for a few languages like Java and C++. You can find their [documentation in the Build Encyclopedia](https://bazel.build/reference/be/overview#rules). You can find rule sets for many other languages and tools on the [Bazel Central Registry (BCR)](https://registry.bazel.build/). 
 
@@ -339,5 +339,5 @@ In this tutorial, we built and tested a small Go project with Bazel, and we lear
 
 - To get started building other applications with Bazel, see the tutorials for [C++](/start/cpp), [Java](/start/java), [Android](/start/android-app), and [iOS](/start/ios-app).
 - You can also check the list of [recommended rules](/rules) for other languages.
-- For more information on Go, see the [rules_go](https://github.com/bazelbuild/rules_go) module, especially the [Core Go rules](https://github.com/bazelbuild/rules_go/blob/master/docs/go/core/rules.md) documentation.
+- For more information on Go, see the [rules_go](https://github.com/bazel-contrib/rules_go) module, especially the [Core Go rules](https://github.com/bazel-contrib/rules_go/blob/master/docs/go/core/rules.md) documentation.
 - To learn more about working with Bazel modules outside your project, see [external dependencies](/docs/external). In particular, for information on how to depend on Go modules and toolchains through Bazel's module system, see [Go with bzlmod](https://github.com/bazel-contrib/rules_go/tree/master/docs/go/core/bzlmod.md).
