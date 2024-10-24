@@ -9,16 +9,16 @@ TAGS = [
 
 cc_binary(
     name = "should_fail_binary",
-    dynamic_deps = ["//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test:bar_so"],
+    dynamic_deps = ["//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:bar_so"],
     tags = TAGS,
     deps = [
-        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test:barX",
+        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:barX",
     ],
 )
 
 cc_shared_library(
     name = "should_fail_shared_lib",
-    dynamic_deps = ["//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test:bar_so"],
+    dynamic_deps = ["//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:bar_so"],
     deps = [
         ":intermediate",
     ],
@@ -28,7 +28,7 @@ cc_shared_library(
 cc_library(
     name = "intermediate",
     deps = [
-        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test:barX",
+        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:barX",
     ],
 )
 
@@ -112,3 +112,4 @@ genrule(
     outs = ["libabc.so"],
     cmd = "touch \"$@\"",
 )
+
