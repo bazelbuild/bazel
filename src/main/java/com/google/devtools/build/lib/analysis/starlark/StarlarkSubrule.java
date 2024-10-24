@@ -382,7 +382,9 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
             /* resolveToolchainDataFunc= */ ruleContext::getToolchainInfo,
             /* resolvedToolchainTypeLabels= */ getAutomaticExecGroupLabels());
       } else {
-        throw Starlark.errorf("subrules using toolchains must enable automatic exec-groups");
+        throw Starlark.errorf(
+            "subrules using toolchains must enable automatic exec-groups. For more info, see"
+                + " https://bazel.build/extending/auto-exec-groups#migration-aegs");
       }
     }
 

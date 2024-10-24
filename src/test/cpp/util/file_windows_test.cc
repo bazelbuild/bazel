@@ -15,23 +15,17 @@
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
-#include <windows.h>
-
 #include <stdio.h>
-#include <string.h>
+#include <windows.h>
 
 #include <algorithm>
 #include <memory>
-#include <string>
 
 #include "gtest/gtest.h"
-#include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/path.h"
 #include "src/main/cpp/util/path_platform.h"
-#include "src/main/cpp/util/strings.h"
 #include "src/main/native/windows/file.h"
-#include "src/main/native/windows/util.h"
 #include "src/test/cpp/util/test_util.h"
 #include "src/test/cpp/util/windows_test_util.h"
 
@@ -325,20 +319,19 @@ TEST_F(FileWindowsTest, TestMtimeHandling) {
   Path target = tempdir.GetRelative("target" TOSTRING(__LINE__));
   EXPECT_TRUE(CreateDirectoryW(target.AsNativePath().c_str(), nullptr));
 
-  std::unique_ptr<IFileMtime> mtime(CreateFileMtime());
   // Assert that a directory is always a good embedded binary. (We do not care
   // about directories' mtimes.)
-  ASSERT_TRUE(mtime.get()->IsUntampered(target));
+  ASSERT_TRUE(IsUntampered(target));
   // Assert that junctions whose target exists are "good" embedded binaries.
   Path sym = tempdir.GetRelative("junc" TOSTRING(__LINE__));
   EXPECT_EQ(CreateJunction(sym.AsNativePath(), target.AsNativePath(), nullptr),
             CreateJunctionResult::kSuccess);
-  ASSERT_TRUE(mtime.get()->IsUntampered(sym));
+  ASSERT_TRUE(IsUntampered(sym));
   // Assert that checking fails for non-existent directories and dangling
   // junctions.
   EXPECT_TRUE(RemoveDirectoryW(target.AsNativePath().c_str()));
-  ASSERT_FALSE(mtime.get()->IsUntampered(target));
-  ASSERT_FALSE(mtime.get()->IsUntampered(sym));
+  ASSERT_FALSE(IsUntampered(target));
+  ASSERT_FALSE(IsUntampered(sym));
 }
 
 }  // namespace blaze_util

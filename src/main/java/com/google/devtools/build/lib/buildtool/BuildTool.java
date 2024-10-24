@@ -850,7 +850,7 @@ public class BuildTool {
     }
 
     RemoteAnalysisCachingOptions options = request.getOptions(RemoteAnalysisCachingOptions.class);
-    if (options == null) {
+    if (options == null || !env.getCommand().buildPhase().executes()) {
       return;
     }
 
@@ -1108,6 +1108,7 @@ public class BuildTool {
         CommandEnvironment env, Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher) {
       var options = env.getOptions().getOptions(RemoteAnalysisCachingOptions.class);
       if (options == null
+          || !env.getCommand().buildPhase().executes()
           || !options.mode.downloadForAnalysis()
           || activeDirectoriesMatcher.isEmpty()) {
         return DisabledDependenciesProvider.INSTANCE;
@@ -1157,17 +1158,31 @@ public class BuildTool {
       return activeDirectoriesMatcher.includes(pkg.getPackageFragment());
     }
 
-    private FrontierNodeVersion frontierNodeVersionSingleton = null;
+    private volatile FrontierNodeVersion frontierNodeVersionSingleton = null;
 
+    /**
+     * Returns a byte array to uniquely version SkyValues for serialization.
+     *
+     * <p>This should only be caalled when Bazel has determined values for all version components
+     * for instantiating a {@link FrontierNodeVersion}.
+     *
+     * <p>This could be in the constructor if we know about the {@code topLevelConfig} component at
+     * initialization, but it is created much later during the deserialization pass.
+     */
     @Override
-    public FrontierNodeVersion getSkyValueVersion() throws SerializationException {
+    public FrontierNodeVersion getSkyValueVersion() {
       if (frontierNodeVersionSingleton == null) {
         synchronized (this) {
-          frontierNodeVersionSingleton =
-              new FrontierNodeVersion(
-                  topLevelConfig.checksum(),
-                  getObjectCodecs().serializeMemoized(activeDirectoriesMatcher.toString()),
-                  blazeInstallMD5);
+          // Avoid re-initializing the value for subsequent threads with double checked locking.
+          if (frontierNodeVersionSingleton == null) {
+            frontierNodeVersionSingleton =
+                new FrontierNodeVersion(
+                    topLevelConfig.checksum(),
+                    activeDirectoriesMatcher.toString(),
+                    blazeInstallMD5);
+            logger.atInfo().log(
+                "Remote analysis caching SkyValue version: %s", frontierNodeVersionSingleton);
+          }
         }
       }
       return frontierNodeVersionSingleton;

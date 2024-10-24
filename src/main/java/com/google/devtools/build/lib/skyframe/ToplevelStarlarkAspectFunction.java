@@ -95,10 +95,10 @@ final class ToplevelStarlarkAspectFunction implements SkyFunction {
       try {
         AspectValue value =
             (AspectValue) result.getOrThrow(aspectKey, ActionConflictException.class);
-      if (value == null) {
-        return null;
-      }
-      valuesMap.put(aspectKey, value);
+        if (value == null) {
+          return null;
+        }
+        valuesMap.put(aspectKey, value);
       } catch (ActionConflictException e) {
         // Required in case of skymeld: the AspectKey isn't accessible from the BuildDriverKey.
         throw new TopLevelStarlarkAspectFunctionException(
@@ -132,9 +132,7 @@ final class ToplevelStarlarkAspectFunction implements SkyFunction {
 
     AspectKey aspectKey =
         AspectKeyCreator.createAspectKey(
-            aspect.getAspectDescriptor(),
-            dependentAspects.build(),
-            topLevelTargetKey);
+            aspect.getAspectDescriptor(), dependentAspects.build(), topLevelTargetKey);
     result.put(aspectKey.getAspectDescriptor(), aspectKey);
     return aspectKey;
   }

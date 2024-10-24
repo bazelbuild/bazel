@@ -208,7 +208,8 @@ public final class AnalysisPhaseRunner {
       throws LoadingFailedException, InvalidConfigurationException {
     EnumSet<ProjectFileFeature> featureFlags = EnumSet.noneOf(ProjectFileFeature.class);
 
-    if (env.getOptions().getOptions(RemoteAnalysisCachingOptions.class).mode != OFF) {
+    if (env.getCommand().buildPhase().executes()
+        && env.getOptions().getOptions(RemoteAnalysisCachingOptions.class).mode != OFF) {
       // RemoteAnalysisCachingOptions is never null because it's a build command flag, and this
       // method only runs for build commands.
       featureFlags.add(ANALYSIS_CACHING);

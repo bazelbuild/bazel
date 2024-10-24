@@ -25,9 +25,9 @@
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/path.h"
-#include "src/main/cpp/util/strings.h"
 #include "third_party/ijar/zip.h"
 
 namespace blaze {
@@ -170,11 +170,9 @@ ExtractionDurationMillis ExtractData(const string &self_path,
     }
     blaze_util::Path install_dir(install_base);
     // Check that all files are present and have timestamps from BlessFiles().
-    std::unique_ptr<blaze_util::IFileMtime> mtime(
-        blaze_util::CreateFileMtime());
     for (const auto &it : archive_contents) {
       blaze_util::Path path = install_dir.GetRelative(it);
-      if (!mtime->IsUntampered(path)) {
+      if (!IsUntampered(path)) {
         BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
             << "corrupt installation: file '" << path.AsPrintablePath()
             << "' is missing or modified.  Please remove '" << install_base
@@ -262,7 +260,6 @@ void BlessFiles(const string &embedded_binaries) {
   // Walks the temporary directory recursively and collects full file paths.
   blaze_util::GetAllFilesUnder(embedded_binaries, &extracted_files);
 
-  std::unique_ptr<blaze_util::IFileMtime> mtime(blaze_util::CreateFileMtime());
   set<blaze_util::Path> synced_directories;
   for (const auto &f : extracted_files) {
     blaze_util::Path it(f);
@@ -274,7 +271,7 @@ void BlessFiles(const string &embedded_binaries) {
     // releases so that the metadata cache knows that the files may have
     // changed. This is essential for the correctness of actions that use
     // embedded binaries as artifacts.
-    if (!mtime->SetToDistantFuture(it)) {
+    if (!SetMtimeToDistantFuture(it)) {
       string err = blaze_util::GetLastErrorString();
       BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
           << "failed to set timestamp on '" << it.AsPrintablePath()

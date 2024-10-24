@@ -181,21 +181,14 @@ public final class MacroInstance {
   }
 
   /**
-   * Returns a {@code RuleVisibility} representing the result of concatenating this macro's {@link
-   * MacroClass}'s definition location to the given {@code visibility}.
+   * Returns the package containing the .bzl file from which this macro instance's macro class was
+   * exported.
    *
-   * <p>The definition location of a macro class is the package containing the .bzl file from which
-   * the macro class was exported.
-   *
-   * <p>Logically, this represents the visibility that a target would have, if it were passed the
-   * given value for its {@code visibility} attribute, and if the target were declared directly in
-   * this macro (i.e. not in a submacro).
+   * <p>This is considered to be the place where the macro's code lives, and is used as the place
+   * where a target is instantiated for the purposes of Macro-Aware Visibility.
    */
-  // TODO: #19922 - Maybe refactor this to getDefinitionLocation and let the caller do the concat,
-  // so we don't have to basically repeat it in MacroClass#instantiateMacro.
-  public RuleVisibility concatDefinitionLocationToVisibility(RuleVisibility visibility) {
-    PackageIdentifier macroLocation = macroClass.getDefiningBzlLabel().getPackageIdentifier();
-    return RuleVisibility.concatWithPackage(visibility, macroLocation);
+  public PackageIdentifier getDefinitionPackage() {
+    return macroClass.getDefiningBzlLabel().getPackageIdentifier();
   }
 
   /**

@@ -12,18 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "src/main/cpp/util/path_platform.h"
-
 #include <limits.h>  // PATH_MAX
-
 #include <stdlib.h>  // getenv
 #include <string.h>  // strncmp
 #include <unistd.h>  // access, open, close, fsync
-#include "src/main/cpp/util/errors.h"
+
+#include <vector>
+
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/path.h"
+#include "src/main/cpp/util/path_platform.h"
 
 namespace blaze_util {
 

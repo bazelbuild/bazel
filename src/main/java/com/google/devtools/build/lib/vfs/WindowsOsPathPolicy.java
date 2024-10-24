@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.vfs;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.windows.WindowsFileOperations;
 import com.google.devtools.build.lib.windows.WindowsShortPath;
 import java.io.IOException;
@@ -39,6 +40,10 @@ class WindowsOsPathPolicy implements OsPathPolicy {
   static class DefaultShortPathResolver implements ShortPathResolver {
     @Override
     public String resolveShortPath(String path) {
+      if (!OS.getCurrent().equals(OS.WINDOWS)) {
+        // Short path resolution only makes sense on a Windows host.
+        return path;
+      }
       try {
         return WindowsFileOperations.getLongPath(path);
       } catch (IOException e) {
@@ -239,5 +244,13 @@ class WindowsOsPathPolicy implements OsPathPolicy {
   @Override
   public boolean isCaseSensitive() {
     return false;
+  }
+
+  @Override
+  public String postProcessPathStringForExecution(String callablePathString) {
+    // On Windows, .bat scripts (and possibly others) cannot be executed with forward slashes in
+    // the path. Since backslashes are the standard path separator on Windows, we replace all
+    // forward slashes with backslashes instead of trying to enumerate these special cases.
+    return callablePathString.replace('/', '\\');
   }
 }

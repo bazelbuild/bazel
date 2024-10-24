@@ -147,8 +147,6 @@ public class TestRunnerAction extends AbstractAction
   private final int runNumber;
   private final String workspaceName;
 
-  private final boolean isExecutedOnWindows;
-
   /**
    * Cached test result status used to minimize disk accesses. This field is set when test status is
    * retrieved from disk or saved to disk. This field is null if it has not been set yet. This field
@@ -216,8 +214,7 @@ public class TestRunnerAction extends AbstractAction
       boolean splitCoveragePostProcessing,
       NestedSetBuilder<Artifact> lcovMergerFilesToRun,
       @Nullable Artifact lcovMergerRunfilesMiddleman,
-      PackageSpecificationProvider networkAllowlist,
-      boolean isExecutedOnWindows) {
+      PackageSpecificationProvider networkAllowlist) {
     super(
         owner,
         inputs,
@@ -308,8 +305,6 @@ public class TestRunnerAction extends AbstractAction
             getUndeclaredOutputsDir(),
             undeclaredOutputsAnnotationsDir,
             baseDir.getRelative("test_attempts"));
-
-    this.isExecutedOnWindows = isExecutedOnWindows;
   }
 
   public boolean allowLocalTests() {
@@ -324,10 +319,6 @@ public class TestRunnerAction extends AbstractAction
     //   StandaloneTestStrategy.
     // TODO: Get rid of the second case and only return true if there are multiple attempts.
     return true;
-  }
-
-  public boolean isExecutedOnWindows() {
-    return isExecutedOnWindows;
   }
 
   public Artifact getRunfilesMiddleman() {
@@ -728,7 +719,10 @@ public class TestRunnerAction extends AbstractAction
     env.put("TEST_WORKSPACE", getRunfilesPrefix());
     env.put(
         "TEST_BINARY",
-        getExecutionSettings().getExecutable().getRunfilesPath().getCallablePathString());
+        getExecutionSettings()
+            .getExecutable()
+            .getRunfilesPath()
+            .getCallablePathStringForOs(executionSettings.getExecutionOs()));
 
     // When we run test multiple times, set different TEST_RANDOM_SEED values for each run.
     // Don't override any previous setting.

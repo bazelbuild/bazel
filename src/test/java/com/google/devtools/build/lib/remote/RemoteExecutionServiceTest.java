@@ -83,6 +83,8 @@ import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.SymlinkEntry;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
+import com.google.devtools.build.lib.analysis.constraints.ConstraintConstants;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -111,6 +113,7 @@ import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
 import com.google.devtools.build.lib.remote.util.RxNoGlobalErrorsRule;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -2348,7 +2351,7 @@ public class RemoteExecutionServiceTest {
                     Platform.Property.newBuilder()
                         .setName("persistentWorkerKey")
                         .setValue(
-                            "b22d48cd55755474eae27e63a79306a64146bd5947d5bd3423d78f001cf7b3de"))
+                            "628637504c26bb74fb6bb3f60fb7132b3aa574b866db4181770774882a8853e5"))
                 .build());
     var merkleTree = remoteAction.getMerkleTree();
     var outputDirectory =
@@ -2384,7 +2387,7 @@ public class RemoteExecutionServiceTest {
                     Platform.Property.newBuilder()
                         .setName("persistentWorkerKey")
                         .setValue(
-                            "b22d48cd55755474eae27e63a79306a64146bd5947d5bd3423d78f001cf7b3de"))
+                            "628637504c26bb74fb6bb3f60fb7132b3aa574b866db4181770774882a8853e5"))
                 .build());
 
     // Check that if a tool input changes, the persistent worker key changes.
@@ -2396,7 +2399,7 @@ public class RemoteExecutionServiceTest {
                     Platform.Property.newBuilder()
                         .setName("persistentWorkerKey")
                         .setValue(
-                            "997337de8dc20123cd7c8fcaed2c9c79cd8138831f9fbbf119f37d0859c9e83a"))
+                            "98e07ff5afc8f4d127e93d326c87c132f89cfd009517422671e6abec2fe05e2b"))
                 .build());
   }
 
@@ -2514,6 +2517,29 @@ public class RemoteExecutionServiceTest {
                 .map(DirectoryNode::getName)
                 .collect(toImmutableList()))
         .containsExactly("output_dir");
+  }
+
+  @Test
+  public void buildRemoteAction_executablePathConformsToPlatform(@TestParameter OS executionOs)
+      throws Exception {
+    Spawn spawn =
+        new SpawnBuilder("path/to/pkg/script.bat", "some/other/arg")
+            .withOutputs("out")
+            .withPlatform(
+                PlatformInfo.builder()
+                    .addConstraint(ConstraintConstants.OS_TO_CONSTRAINTS.get(executionOs))
+                    .build())
+            .build();
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService(remoteOptions);
+
+    var remoteAction = service.buildRemoteAction(spawn, context);
+
+    String expectedFirstArg =
+        executionOs == OS.WINDOWS ? "path\\to\\pkg\\script.bat" : "path/to/pkg/script.bat";
+    assertThat(remoteAction.getCommand().getArgumentsList())
+        .containsExactly(expectedFirstArg, "some/other/arg")
+        .inOrder();
   }
 
   private Spawn newSpawnFromResult(RemoteActionResult result) {

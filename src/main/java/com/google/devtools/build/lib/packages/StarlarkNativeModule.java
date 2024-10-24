@@ -556,7 +556,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
                     visibilityO, "'exports_files' operand", pkgBuilder.getLabelConverter()));
     MacroInstance currentMacro = pkgBuilder.currentMacro();
     if (currentMacro != null) {
-      visibility = currentMacro.concatDefinitionLocationToVisibility(visibility);
+      visibility = visibility.concatWithPackage(currentMacro.getDefinitionPackage());
     }
 
     // TODO(bazel-team): is licenses plural or singular?

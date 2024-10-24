@@ -74,6 +74,8 @@ import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
+import com.google.devtools.build.lib.analysis.constraints.ConstraintConstants;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
@@ -109,10 +111,12 @@ import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.OsPathPolicy;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -252,7 +256,8 @@ public class RemoteExecutionService {
       ImmutableMap<String, String> env,
       @Nullable Platform platform,
       RemotePathResolver remotePathResolver,
-      @Nullable SpawnScrubber spawnScrubber) {
+      @Nullable SpawnScrubber spawnScrubber,
+      @Nullable PlatformInfo executionPlatform) {
     Command.Builder command = Command.newBuilder();
     if (useOutputPaths) {
       var outputPaths = new ArrayList<String>();
@@ -281,9 +286,15 @@ public class RemoteExecutionService {
     if (platform != null) {
       command.setPlatform(platform);
     }
+    boolean first = true;
     for (String arg : arguments) {
       if (spawnScrubber != null) {
         arg = spawnScrubber.transformArgument(arg);
+      }
+      if (first && executionPlatform != null) {
+        first = false;
+        OS executionOs = ConstraintConstants.getOsFromConstraints(executionPlatform.constraints());
+        arg = OsPathPolicy.of(executionOs).postProcessPathStringForExecution(arg);
       }
       command.addArguments(internalToUnicode(arg));
     }
@@ -644,7 +655,8 @@ public class RemoteExecutionService {
               spawn.getEnvironment(),
               platform,
               remotePathResolver,
-              spawnScrubber);
+              spawnScrubber,
+              spawn.getExecutionPlatform());
       Digest commandHash = digestUtil.compute(command);
       Action action =
           Utils.buildAction(
@@ -688,8 +700,9 @@ public class RemoteExecutionService {
             execRoot, Options.getDefaults(WorkerOptions.class), LocalEnvProvider.NOOP, null);
     WorkerKey workerKey = workerParser.compute(spawn, context).getWorkerKey();
     Fingerprint fingerprint = new Fingerprint();
+    // getWorkerFilesCombinedHash always uses SHA-256, so the hash is always 32 bytes.
     fingerprint.addBytes(workerKey.getWorkerFilesCombinedHash().asBytes());
-    fingerprint.addIterableStrings(workerKey.getArgs());
+    fingerprint.addStrings(workerKey.getArgs());
     fingerprint.addStringMap(workerKey.getEnv());
     return new ToolSignature(
         fingerprint.hexDigestAndReset(), workerKey.getWorkerFilesWithDigests().keySet());
