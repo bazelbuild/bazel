@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.analysis.config.FeatureSet;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
@@ -226,5 +227,24 @@ public abstract class PackageArgs {
       builder.setDefaultHdrsCheck(other.defaultHdrsCheck());
     }
     return builder.build();
+  }
+
+  public PackageArgs applyRepositoryMapping(RepositoryMapping repositoryMapping) throws EvalException {
+    Builder builder = builder();
+
+    // These fields do not contain labels. Therefore, they can simply be copied over.
+    builder.setDefaultTestOnly(defaultTestOnly());
+    builder.setDefaultDeprecation(defaultDeprecation());
+    builder.mergeFeatures(features());
+    builder.setLicense(license());
+    builder.setDefaultHdrsCheck(defaultHdrsCheck());
+
+    builder.setDefaultVisibility(defaultVisibility());
+    builder.setDefaultCompatibleWith(defaultCompatibleWith());
+    builder.setDefaultRestrictedTo(defaultRestrictedTo());
+    builder.setDefaultPackageMetadata(defaultPackageMetadata());
+
+    return builder.build();
+
   }
 }

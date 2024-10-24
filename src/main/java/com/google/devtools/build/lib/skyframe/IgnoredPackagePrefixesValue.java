@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -37,10 +38,12 @@ public class IgnoredPackagePrefixesValue implements SkyValue {
     this.ignoredSubdirectories = ignoredSubdirectories;
   }
 
-  public static IgnoredPackagePrefixesValue of(ImmutableSet<PathFragment> patterns) {
-    return patterns.isEmpty()
+  public static IgnoredPackagePrefixesValue of(
+      ImmutableSet<PathFragment> prefixes,
+      ImmutableList<String> patterns) {
+    return prefixes.isEmpty() && patterns.isEmpty()
         ? EMPTY
-        : new IgnoredPackagePrefixesValue(IgnoredSubdirectories.of(patterns));
+        : new IgnoredPackagePrefixesValue(IgnoredSubdirectories.of(prefixes, patterns));
   }
 
   public static IgnoredPackagePrefixesValue of(IgnoredSubdirectories ignoredSubdirectories) {

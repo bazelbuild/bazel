@@ -901,7 +901,7 @@ public final class UnixGlob {
         path -> {
           String[] segments = Iterables.toArray(Splitter.on('/').split(path), String.class);
           for (String[] splitPattern : splitPatterns) {
-            if (matchesPattern(splitPattern, segments, 0, 0, patternCache)) {
+            if (matchesPattern(splitPattern, segments, 0, 0, patternCache, MatchMode.EXACT)) {
               return true;
             }
           }
@@ -909,21 +909,43 @@ public final class UnixGlob {
         });
   }
 
+  /** Returns whether any path under {@code path} can match {@code pattern}. */
+  public static boolean canMatchChild(String[] pattern, String[] path) {
+    return matchesPattern(pattern, path, 0, 0, null, MatchMode.CAN_MATCH_CHILD);
+  }
+
+
+  /** Returns whether {@code pattern} matches a prefix of {@code path}. */
+  public static boolean matchesPrefix(String[] pattern, String[] path) {
+    return matchesPattern(pattern, path, 0, 0, null, MatchMode.PREFIX);
+  }
+
+  /** Returns whether {@code pattern} matches {@code path}. */
+  public static boolean matches(String[] pattern, String[] path) {
+    return matchesPattern(pattern, path, 0, 0, null, MatchMode.EXACT);
+  }
+
+  /** How {@code #matchesPattern()} should work */
+  private enum MatchMode {
+    EXACT,            // The path should exactly match the pattern
+    PREFIX,           // The pattern should match a prefix of the path
+    CAN_MATCH_CHILD,  // Whether there can be any path under the prefix that matches the pattern
+  }
   /** Returns true if {@code pattern} matches {@code path} starting from the given segments. */
   private static boolean matchesPattern(
-      String[] pattern, String[] path, int i, int j, Map<String, Pattern> patternCache) {
+      String[] pattern, String[] path, int i, int j, Map<String, Pattern> patternCache, MatchMode matchMode) {
     if (i == pattern.length) {
-      return j == path.length;
+      return  matchMode == MatchMode.PREFIX ? true :j == path.length;
     }
     if (pattern[i].equals("**")) {
-      return matchesPattern(pattern, path, i + 1, j, patternCache)
-          || (j < path.length && matchesPattern(pattern, path, i, j + 1, patternCache));
+      return matchesPattern(pattern, path, i + 1, j, patternCache, matchMode)
+          || (j < path.length && matchesPattern(pattern, path, i, j + 1, patternCache, matchMode));
     }
     if (j == path.length) {
-      return false;
+      return matchMode == MatchMode.CAN_MATCH_CHILD ? true : false;
     }
     if (matches(pattern[i], path[j], patternCache)) {
-      return matchesPattern(pattern, path, i + 1, j + 1, patternCache);
+      return matchesPattern(pattern, path, i + 1, j + 1, patternCache, matchMode);
     }
     return false;
   }
