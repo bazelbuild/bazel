@@ -115,8 +115,19 @@ public final class StringUnsafe {
     }
   }
 
-  /** Constructs a new string from a byte array and coder. */
-  public String newInstance(byte[] bytes, byte coder) throws ReflectiveOperationException {
-    return constructor.newInstance(bytes, coder);
+  /**
+   * Constructs a new string from a byte array and coder.
+   *
+   * <p>The new string shares the byte array instance, which must not be modified after calling this
+   * method.
+   */
+  public String newInstance(byte[] bytes, byte coder) {
+    try {
+      return constructor.newInstance(bytes, coder);
+    } catch (ReflectiveOperationException e) {
+      // The constructor never throws and has been made accessible, so this is not expected.
+      throw new IllegalStateException(
+          "Could not instantiate string: " + Arrays.toString(bytes) + ", " + coder, e);
+    }
   }
 }

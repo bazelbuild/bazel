@@ -3,7 +3,6 @@ package com.google.devtools.build.lib.util;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import java.nio.charset.Charset;
 import java.util.Arrays;
@@ -73,44 +72,68 @@ import java.util.Arrays;
 public final class StringEncoding {
 
   /**
-   * Reencodes a string using Bazel's internal raw byte encoding into the equivalent representation
-   * for Java stdlib functions, if necessary.
+   * Transforms an internal string into a platform string as efficiently as possible.
+   *
+   * <p>See the class documentation for more information on the different types of strings.
    */
   public static String internalToPlatform(String s) {
     if (!needsReencodeForPlatform(s)) {
       return s;
     }
-    Preconditions.checkArgument(
-        StringUnsafe.getInstance().getCoder(s) == StringUnsafe.LATIN1,
-        "Expected internal string, got: %s (%s)",
-        s,
-        Arrays.toString(StringUnsafe.getInstance().getByteArray(s)));
-    return new String(StringUnsafe.getInstance().getByteArray(s), UTF_8);
+    // This is both a performance optimization and a correctness check: internal strings must
+    // always be coded in Latin-1, otherwise they have been constructed out of a non-ASCII string
+    // that hasn't been converted to internal encoding.
+    if (STRING_UNSAFE.getCoder(s) != StringUnsafe.LATIN1) {
+      throw new IllegalArgumentException(
+          "Expected internal string LATIN1 coded, got UTF16 bytes: %s (%s)"
+              .formatted(Arrays.toString(STRING_UNSAFE.getByteArray(s)), s));
+    }
+    return new String(STRING_UNSAFE.getByteArray(s), UTF_8);
   }
 
   /**
-   * Reencodes a string obtained from Java stdlib functions into Bazel's internal raw byte encoding,
-   * if necessary.
+   * Transforms a platform string into an internal string as efficiently as possible.
+   *
+   * <p>See the class documentation for more information on the different types of strings.
    */
   public static String platformToInternal(String s) {
-    return needsReencodeForPlatform(s) ? new String(s.getBytes(UTF_8), ISO_8859_1) : s;
+    return needsReencodeForPlatform(s)
+        ? STRING_UNSAFE.newInstance(s.getBytes(UTF_8), StringUnsafe.LATIN1)
+        : s;
   }
 
+  /**
+   * Transforms an internal string into a Unicode string as efficiently as possible.
+   *
+   * <p>See the class documentation for more information on the different types of strings.
+   */
   public static String internalToUnicode(String s) {
     if (!needsReencodeForUnicode(s)) {
       return s;
     }
-    Preconditions.checkArgument(
-        StringUnsafe.getInstance().getCoder(s) == StringUnsafe.LATIN1,
-        "Expected internal string, got: %s (%s)",
-        s,
-        Arrays.toString(StringUnsafe.getInstance().getByteArray(s)));
-    return new String(StringUnsafe.getInstance().getByteArray(s), UTF_8);
+    // This is both a performance optimization and a correctness check: internal strings must
+    // always be coded in Latin-1, otherwise they have been constructed out of a non-ASCII string
+    // that hasn't been converted to internal encoding.
+    if (STRING_UNSAFE.getCoder(s) != StringUnsafe.LATIN1) {
+      throw new IllegalArgumentException(
+          "Expected internal string LATIN1 coded, got UTF16 bytes: %s (%s)"
+              .formatted(Arrays.toString(STRING_UNSAFE.getByteArray(s)), s));
+    }
+    return new String(STRING_UNSAFE.getByteArray(s), UTF_8);
   }
 
+  /**
+   * Transforms a Unicode string into an internal string as efficiently as possible.
+   *
+   * <p>See the class documentation for more information on the different types of strings.
+   */
   public static String unicodeToInternal(String s) {
-    return needsReencodeForUnicode(s) ? new String(s.getBytes(UTF_8), ISO_8859_1) : s;
+    return needsReencodeForUnicode(s)
+        ? STRING_UNSAFE.newInstance(s.getBytes(UTF_8), StringUnsafe.LATIN1)
+        : s;
   }
+
+  private static final StringUnsafe STRING_UNSAFE = StringUnsafe.getInstance();
 
   /**
    * The {@link Charset} with which the JVM encodes any strings passed to or returned from Java
@@ -119,15 +142,19 @@ public final class StringEncoding {
   private static final Charset SUN_JNU_ENCODING =
       Charset.forName(System.getProperty("sun.jnu.encoding"));
 
-  // This only exists for RemoteWorker, which uses JavaIoFileSystem with Unicode strings and thus
-  // shouldn't be subject to any reencoding.
+  /**
+   * This only exists for RemoteWorker, which uses JavaIoFileSystem with Unicode strings and thus
+   * shouldn't be subject to any reencoding.
+   */
   private static final boolean BAZEL_UNICODE_STRINGS =
       Boolean.getBoolean("bazel.internal.UnicodeStrings");
 
   private static boolean needsReencodeForPlatform(String s) {
     if (SUN_JNU_ENCODING == ISO_8859_1 && OS.getCurrent() == OS.LINUX) {
+      // In this case, platform strings encode raw bytes and are thus identical to internal strings.
       return false;
     }
+    // Otherwise, platform strings are a subset of Unicode strings.
     return needsReencodeForUnicode(s);
   }
 
@@ -135,7 +162,7 @@ public final class StringEncoding {
     if (BAZEL_UNICODE_STRINGS) {
       return false;
     }
-    return !StringUnsafe.getInstance().isAscii(s);
+    return !STRING_UNSAFE.isAscii(s);
   }
 
   private StringEncoding() {}
