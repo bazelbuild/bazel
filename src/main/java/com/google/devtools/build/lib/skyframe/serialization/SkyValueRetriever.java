@@ -20,6 +20,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.MoreObjects;
 import com.google.common.hash.HashCode;
 import com.google.common.primitives.Bytes;
 import com.google.common.util.concurrent.Futures;
@@ -328,8 +329,7 @@ public final class SkyValueRetriever {
   /** A tuple representing the version of a cached SkyValue in the frontier. */
   public static final class FrontierNodeVersion {
     public static final FrontierNodeVersion CONSTANT_FOR_TESTING =
-        new FrontierNodeVersion(
-            "123", ByteString.copyFrom(new byte[] {1, 2, 3}), HashCode.fromInt(42));
+        new FrontierNodeVersion("123", "string_for_testing", HashCode.fromInt(42));
     private final byte[] topLevelConfigFingerprint;
     private final byte[] directoryMatcherFingerprint;
     private final byte[] blazeInstallMD5Fingerprint;
@@ -337,11 +337,11 @@ public final class SkyValueRetriever {
 
     public FrontierNodeVersion(
         String topLevelConfigChecksum,
-        ByteString directoryMatcherFingerprint,
+        String directoryMatcherStringRepr,
         HashCode blazeInstallMD5) {
       // TODO: b/364831651 - add more fields like source and blaze versions.
       this.topLevelConfigFingerprint = topLevelConfigChecksum.getBytes(UTF_8);
-      this.directoryMatcherFingerprint = directoryMatcherFingerprint.toByteArray();
+      this.directoryMatcherFingerprint = directoryMatcherStringRepr.getBytes(UTF_8);
       this.blazeInstallMD5Fingerprint = blazeInstallMD5.asBytes();
       this.precomputedFingerprint =
           Bytes.concat(
@@ -356,6 +356,16 @@ public final class SkyValueRetriever {
 
     public byte[] concat(byte[] input) {
       return Bytes.concat(precomputedFingerprint, input);
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this)
+          .add("topLevelConfig", Arrays.hashCode(topLevelConfigFingerprint))
+          .add("directoryMatcher", Arrays.hashCode(directoryMatcherFingerprint))
+          .add("blazeInstall", Arrays.hashCode(blazeInstallMD5Fingerprint))
+          .add("precomputed", hashCode())
+          .toString();
     }
 
     @Override
