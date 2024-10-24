@@ -26,7 +26,6 @@
 #include "src/main/cpp/blaze.h"
 
 #include <assert.h>
-#include <ctype.h>
 #include <fcntl.h>
 #include <grpc/grpc.h>
 #include <grpcpp/channel.h>
@@ -1008,11 +1007,9 @@ static void EnsureCorrectRunningVersion(const StartupOptions &startup_options,
     }
 
     // Update the mtime of the install base so that cleanup tools can
-    // find install bases that haven't been used for a long time
-    std::unique_ptr<blaze_util::IFileMtime> mtime(
-        blaze_util::CreateFileMtime());
-    // Ignore permissions errors (i.e. if the install base is not writable):
-    if (!mtime->SetToNowIfPossible(
+    // find install bases that haven't been used for a long time.
+    // Ignore permissions errors (i.e. if the install base is not writable).
+    if (!SetMtimeToNowIfPossible(
             blaze_util::Path(startup_options.install_base))) {
       string err = GetLastErrorString();
       BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
