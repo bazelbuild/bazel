@@ -850,7 +850,7 @@ public class BuildTool {
     }
 
     RemoteAnalysisCachingOptions options = request.getOptions(RemoteAnalysisCachingOptions.class);
-    if (options == null) {
+    if (options == null || !env.getCommand().buildPhase().executes()) {
       return;
     }
 
@@ -1108,6 +1108,7 @@ public class BuildTool {
         CommandEnvironment env, Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher) {
       var options = env.getOptions().getOptions(RemoteAnalysisCachingOptions.class);
       if (options == null
+          || !env.getCommand().buildPhase().executes()
           || !options.mode.downloadForAnalysis()
           || activeDirectoriesMatcher.isEmpty()) {
         return DisabledDependenciesProvider.INSTANCE;

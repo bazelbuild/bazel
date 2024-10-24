@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.buildtool.BuildTool;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
+import com.google.devtools.build.lib.runtime.commands.CqueryCommand;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectBaseKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.RemoteConfiguredTargetValue;
@@ -532,6 +533,37 @@ filegroup(name = "G")                                # unchanged.
     assertThat(
             getCommandEnvironment().getRemoteAnalysisCachingEventListener().getSkyfunctionCounts())
         .hasCount(SkyFunctions.CONFIGURED_TARGET, serializedConfiguredTargetCount - 1);
+  }
+
+  @Test
+  public void cquery_succeedsAndDoesNotTriggerUpload() throws Exception {
+    setupScenarioWithConfiguredTargets();
+    addOptions("--experimental_remote_analysis_cache_mode=upload");
+    runtimeWrapper.newCommand(CqueryCommand.class);
+    buildTarget("//foo:A"); // passes, even though there's no PROJECT.scl
+    assertThat(
+            getCommandEnvironment()
+                .getRemoteAnalysisCachingEventListener()
+                .getSerializedKeysCount())
+        .isEqualTo(0);
+  }
+
+  @Test
+  public void cquery_succeedsAndDoesNotTriggerUploadWithProjectScl() throws Exception {
+    setupScenarioWithConfiguredTargets();
+    write(
+        "foo/PROJECT.scl",
+        """
+active_directories = { "default": ["foo"] }
+""");
+    addOptions("--experimental_remote_analysis_cache_mode=upload");
+    runtimeWrapper.newCommand(CqueryCommand.class);
+    buildTarget("//foo:A");
+    assertThat(
+            getCommandEnvironment()
+                .getRemoteAnalysisCachingEventListener()
+                .getSerializedKeysCount())
+        .isEqualTo(0);
   }
 
   protected void setupScenarioWithConfiguredTargets() throws Exception {
