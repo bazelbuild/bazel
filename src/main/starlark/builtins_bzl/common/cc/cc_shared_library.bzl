@@ -446,15 +446,7 @@ def _filter_inputs(
             continue
         linker_inputs_seen[stringified_linker_input] = True
         owner = str(linker_input.owner)
-        if semantics.is_bazel and not linker_input.libraries:
-            # Linker inputs that only provide flags, no code, are considered
-            # safe to link statically multiple times.
-            # TODO(bazel-team): semantics.should_create_empty_archive() should be
-            # cleaned up and return False in every case. cc_libraries shouldn't
-            # produce empty archives. For now issue #19920 is only fixed in Bazel.
-            _add_linker_input_to_dict(linker_input.owner, linker_input)
-            linker_inputs_count += 1
-        elif owner in targets_to_be_linked_dynamically_set:
+        if owner in targets_to_be_linked_dynamically_set:
             unused_dynamic_linker_inputs[transitive_exports[owner].owner] = None
 
             # Link the library in this iteration dynamically,
@@ -463,6 +455,11 @@ def _filter_inputs(
             _add_linker_input_to_dict(linker_input.owner, transitive_exports[owner])
             linker_inputs_count += 1
         elif owner in targets_to_be_linked_statically_map:
+            if semantics.is_bazel and not linker_input.libraries:
+                # TODO(bazel-team): semantics.should_create_empty_archive() should be
+                # cleaned up and return False in every case. cc_libraries shouldn't
+                # produce empty archives. For now issue #19920 is only fixed in Bazel.
+                continue
             if owner in link_once_static_libs_map:
                 # We are building a dictionary that will allow us to give
                 # proper errors for libraries that have been linked multiple
