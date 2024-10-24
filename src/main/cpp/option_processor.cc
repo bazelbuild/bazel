@@ -39,6 +39,11 @@
 extern char **environ;
 #endif
 
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
+
 namespace blaze {
 
 using std::map;
@@ -635,6 +640,28 @@ static void PreprocessEnvString(const string* env_str) {
 }
 #endif  // defined(_WIN32)
 
+#ifdef _WIN32
+// Use GetEnvironmentStringsW to get the environment variables to support
+// Unicode regardless of the current code page.
+static std::vector<std::string> GetProcessedEnv() {
+  std::vector<std::string> processed_env;
+  wchar_t* env = GetEnvironmentStringsW();
+  if (env == nullptr) {
+    return processed_env;
+  }
+
+  for (wchar_t* p = env; *p != L'\0'; p += wcslen(p) + 1) {
+    string env_str = blaze_util::WstringToCstring(p);
+    if (IsValidEnvName(env_str.c_str())) {
+      PreprocessEnvString(&env_str);
+      processed_env.push_back(std::move(env_str));
+    }
+  }
+
+  FreeEnvironmentStringsW(env);
+  return processed_env;
+}
+#else
 static std::vector<std::string> GetProcessedEnv() {
   std::vector<std::string> processed_env;
   for (char** env = environ; *env != nullptr; env++) {
@@ -646,6 +673,7 @@ static std::vector<std::string> GetProcessedEnv() {
   }
   return processed_env;
 }
+#endif
 
 // IMPORTANT: The options added here do not come from the user. In order for
 // their source to be correctly tracked, the options must either be passed

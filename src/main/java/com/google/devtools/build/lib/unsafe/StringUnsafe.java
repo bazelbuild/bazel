@@ -15,8 +15,11 @@ package com.google.devtools.build.lib.unsafe;
 
 import static com.google.devtools.build.lib.unsafe.UnsafeProvider.unsafe;
 
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.Arrays;
 
 /**
@@ -34,6 +37,20 @@ public final class StringUnsafe {
   public static final byte UTF16 = 1;
 
   private static final StringUnsafe INSTANCE = new StringUnsafe();
+
+  private static final MethodHandle hasNegatives;
+
+  static {
+    try {
+      Class<?> stringCoding = Class.forName("java.lang.StringCoding");
+      Method hasNegativesMethod =
+          stringCoding.getDeclaredMethod("hasNegatives", byte[].class, int.class, int.class);
+      hasNegativesMethod.setAccessible(true);
+      hasNegatives = MethodHandles.lookup().unreflect(hasNegativesMethod);
+    } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException e) {
+      throw new IllegalStateException(e);
+    }
+  }
 
   private final Constructor<String> constructor;
   private final long valueOffset;
@@ -78,8 +95,39 @@ public final class StringUnsafe {
     return (byte[]) unsafe().getObject(obj, valueOffset);
   }
 
-  /** Constructs a new string from a byte array and coder. */
-  public String newInstance(byte[] bytes, byte coder) throws ReflectiveOperationException {
-    return constructor.newInstance(bytes, coder);
+  /** Returns whether the string is ASCII-only. */
+  public boolean isAscii(String obj) {
+    // This implementation uses java.lang.StringCoding#hasNegatives, which is implemented as a JVM
+    // intrinsic. On a machine with 512-bit SIMD registers, this is 5x as fast as a naive loop
+    // over getByteArray(obj), which in turn is 5x as fast as obj.chars().anyMatch(c -> c > 0x7F) in
+    // a JMH benchmark.
+
+    if (getCoder(obj) != LATIN1) {
+      // Latin-1 is a superset of ASCII, so we must have non-ASCII characters.
+      return false;
+    }
+    byte[] bytes = getByteArray(obj);
+    try {
+      return !(boolean) hasNegatives.invokeExact(bytes, 0, bytes.length);
+    } catch (Throwable t) {
+      // hasNegatives doesn't throw.
+      throw new IllegalStateException(t);
+    }
+  }
+
+  /**
+   * Constructs a new string from a byte array and coder.
+   *
+   * <p>The new string shares the byte array instance, which must not be modified after calling this
+   * method.
+   */
+  public String newInstance(byte[] bytes, byte coder) {
+    try {
+      return constructor.newInstance(bytes, coder);
+    } catch (ReflectiveOperationException e) {
+      // The constructor never throws and has been made accessible, so this is not expected.
+      throw new IllegalStateException(
+          "Could not instantiate string: " + Arrays.toString(bytes) + ", " + coder, e);
+    }
   }
 }

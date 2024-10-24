@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
-import java.util.Arrays;
 
 /**
  * A high-performance {@link ObjectCodec} for {@link String} objects specialized for Strings in
@@ -80,11 +79,6 @@ public final class UnsafeStringCodec extends LeafObjectCodec<String> {
       length = -length;
     }
     byte[] value = codedIn.readRawBytes(length);
-    try {
-      return stringUnsafe.newInstance(value, coder);
-    } catch (ReflectiveOperationException e) {
-      throw new SerializationException(
-          "Could not instantiate string: " + Arrays.toString(value) + ", " + coder, e);
-    }
+    return stringUnsafe.newInstance(value, coder);
   }
 }

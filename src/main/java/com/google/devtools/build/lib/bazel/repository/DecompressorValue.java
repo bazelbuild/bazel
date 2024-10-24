@@ -14,11 +14,10 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
-import static java.nio.charset.StandardCharsets.ISO_8859_1;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -67,10 +66,7 @@ public class DecompressorValue implements SkyValue {
           return Optional.empty();
         }
         String rawFirstSegment = pathFragment.getSegment(0);
-        // Users can only specify prefixes from Starlark, which is planned to use UTF-8 for all
-        // strings, but currently still collects the raw bytes in a latin-1 string. We thus
-        // optimistically decode the raw bytes with UTF-8 here for display purposes.
-        return Optional.of(new String(rawFirstSegment.getBytes(ISO_8859_1), UTF_8));
+        return Optional.of(StringEncoding.internalToUnicode(rawFirstSegment));
       }
     }
 
