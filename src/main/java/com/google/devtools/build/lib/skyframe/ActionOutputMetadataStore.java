@@ -380,17 +380,7 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
   @Override
   public void markOmitted(Artifact output) {
     checkState(executionMode.get(), "Tried to mark %s omitted outside of execution", output);
-    boolean newlyOmitted = omittedOutputs.add(output);
-    if (output.isTreeArtifact()) {
-      // Tolerate marking a tree artifact as omitted multiple times so that callers don't have to
-      // deduplicate when a tree artifact has several omitted children.
-      if (newlyOmitted) {
-        treeArtifactData.put((SpecialArtifact) output, TreeArtifactValue.OMITTED_TREE_MARKER);
-      }
-    } else {
-      checkState(newlyOmitted, "%s marked as omitted twice", output);
-      putArtifactData(output, FileArtifactValue.OMITTED_FILE_MARKER);
-    }
+    omittedOutputs.add(output);
   }
 
   @Override

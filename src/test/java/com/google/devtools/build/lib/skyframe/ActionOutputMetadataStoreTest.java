@@ -611,8 +611,6 @@ public final class ActionOutputMetadataStoreTest {
 
     assertThat(store.artifactOmitted(omitted)).isTrue();
     assertThat(store.artifactOmitted(consumed)).isFalse();
-    assertThat(store.getAllArtifactData())
-        .containsExactly(omitted, FileArtifactValue.OMITTED_FILE_MARKER);
     assertThat(store.getAllTreeArtifactData()).isEmpty();
     assertThat(chmodCalls).isEmpty();
   }
@@ -634,8 +632,6 @@ public final class ActionOutputMetadataStoreTest {
 
     assertThat(store.artifactOmitted(omittedTree)).isTrue();
     assertThat(store.artifactOmitted(consumedTree)).isFalse();
-    assertThat(store.getAllTreeArtifactData())
-        .containsExactly(omittedTree, TreeArtifactValue.OMITTED_TREE_MARKER);
     assertThat(store.getAllArtifactData()).isEmpty();
     assertThat(chmodCalls).isEmpty();
   }
