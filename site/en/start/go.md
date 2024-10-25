@@ -9,8 +9,6 @@ This tutorial introduces you to the basics of Bazel by showing you how to build 
 
 Estimated completion time: 30 minutes
 
-## What you'll learn
-
 ## Before you begin
 
 ### Install Bazel
