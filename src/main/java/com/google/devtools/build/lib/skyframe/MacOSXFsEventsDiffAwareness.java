@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.jni.JniLoader;
@@ -57,9 +59,10 @@ public final class MacOSXFsEventsDiffAwareness extends LocalDiffAwareness {
   }
 
   /**
-   * Helper function to start the watch of <code>paths</code>, called by the constructor.
+   * Helper function to start the watch of <code>paths</code>, which is expected to be an array of
+   * byte arrays containing the UTF-8 of the paths to watch, called by the constructor.
    */
-  private native void create(String[] paths, double latency);
+  private native void create(Object[] paths, double latency);
 
   /**
    * Runs the main loop to listen for fsevents.
@@ -76,7 +79,7 @@ public final class MacOSXFsEventsDiffAwareness extends LocalDiffAwareness {
     // TODO(jmmv): This can break if the user interrupts as anywhere in this function.
     Preconditions.checkState(!opened);
     opened = true;
-    create(new String[] {watchRootPath.toAbsolutePath().toString()}, latency);
+    create(new Object[] {watchRootPath.toAbsolutePath().toString().getBytes(UTF_8)}, latency);
 
     // Start a thread that just contains the OS X run loop.
     CountDownLatch listening = new CountDownLatch(1);
@@ -110,10 +113,10 @@ public final class MacOSXFsEventsDiffAwareness extends LocalDiffAwareness {
   /**
    * JNI code returning the list of absolute path modified since last call.
    *
-   * @return the list of paths modified since the last call, or null if we can't precisely tell what
-   *     changed
+   * @return the array of paths (in the form of byte arrays containing the UTF-8 representation)
+   *     modified since the last call, or null if we can't precisely tell what changed
    */
-  private native String[] poll();
+  private native Object[] poll();
 
   static {
     boolean loadJniWorked = false;
@@ -147,13 +150,13 @@ public final class MacOSXFsEventsDiffAwareness extends LocalDiffAwareness {
       return EVERYTHING_MODIFIED;
     }
     Preconditions.checkState(!closed);
-    String[] polledPaths = poll();
+    Object[] polledPaths = poll();
     if (polledPaths == null) {
       return EVERYTHING_MODIFIED;
     } else {
       ImmutableSet.Builder<Path> paths = ImmutableSet.builder();
-      for (String path : polledPaths) {
-        paths.add(Paths.get(path));
+      for (Object pathBytes : polledPaths) {
+        paths.add(Paths.get(new String((byte[]) pathBytes, UTF_8)));
       }
       return newView(paths.build());
     }
