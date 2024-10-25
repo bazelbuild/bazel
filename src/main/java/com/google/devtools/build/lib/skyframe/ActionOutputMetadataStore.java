@@ -158,8 +158,7 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
    */
   private static FileArtifactValue checkExists(FileArtifactValue value, Artifact artifact)
       throws FileNotFoundException {
-    if (FileArtifactValue.MISSING_FILE_MARKER.equals(value)
-        || FileArtifactValue.OMITTED_FILE_MARKER.equals(value)) {
+    if (FileArtifactValue.MISSING_FILE_MARKER.equals(value)) {
       throw new FileNotFoundException(artifact + " does not exist");
     }
     return checkNotNull(value, artifact);
@@ -171,8 +170,7 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
    */
   private static TreeArtifactValue checkExists(TreeArtifactValue value, Artifact artifact)
       throws FileNotFoundException {
-    if (TreeArtifactValue.MISSING_TREE_ARTIFACT.equals(value)
-        || TreeArtifactValue.OMITTED_TREE_MARKER.equals(value)) {
+    if (TreeArtifactValue.MISSING_TREE_ARTIFACT.equals(value)) {
       throw new FileNotFoundException(artifact + " does not exist");
     }
     return checkNotNull(value, artifact);

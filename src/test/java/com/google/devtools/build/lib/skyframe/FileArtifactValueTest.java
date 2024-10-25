@@ -91,7 +91,6 @@ public final class FileArtifactValueTest {
             // expireAtEpochMilli doesn't contribute to the equality
             RemoteFileArtifactValue.create(toBytes("00112233445566778899AABBCCDDEEFF"), 1, 1, 1),
             RemoteFileArtifactValue.create(toBytes("00112233445566778899AABBCCDDEEFF"), 1, 1, 2))
-        .addEqualityGroup(FileArtifactValue.OMITTED_FILE_MARKER)
         .addEqualityGroup(FileArtifactValue.MISSING_FILE_MARKER)
         .addEqualityGroup(FileArtifactValue.DEFAULT_MIDDLEMAN)
         .addEqualityGroup("a string")

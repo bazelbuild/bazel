@@ -197,11 +197,6 @@ final class ActionInputMapHelper {
       BiConsumer<Artifact, TreeArtifactValue> treeArtifactConsumer,
       ActionInputMapSink inputMap,
       Artifact depOwner) {
-    if (TreeArtifactValue.OMITTED_TREE_MARKER.equals(value)) {
-      inputMap.putTreeArtifact((SpecialArtifact) treeArtifact, value, depOwner);
-      return;
-    }
-
     treeArtifactConsumer.accept(treeArtifact, value);
     inputMap.putTreeArtifact((SpecialArtifact) treeArtifact, value, depOwner);
     addArchivedTreeArtifactMaybe(value, inputMap, depOwner);

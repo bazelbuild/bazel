@@ -76,9 +76,6 @@ public abstract class ActionExecutionValue implements SkyValue {
         });
     treeArtifactData.forEach(
         (tree, treeValue) -> {
-          if (TreeArtifactValue.OMITTED_TREE_MARKER.equals(treeValue)) {
-            return;
-          }
           treeValue
               .getChildValues()
               .forEach(
@@ -268,10 +265,6 @@ public abstract class ActionExecutionValue implements SkyValue {
   private static TreeArtifactValue transformSharedTree(
       Artifact newArtifact, TreeArtifactValue tree) {
     checkState(newArtifact.isTreeArtifact(), "Expected tree artifact, got %s", newArtifact);
-
-    if (TreeArtifactValue.OMITTED_TREE_MARKER.equals(tree)) {
-      return TreeArtifactValue.OMITTED_TREE_MARKER;
-    }
 
     SpecialArtifact newParent = (SpecialArtifact) newArtifact;
     TreeArtifactValue.Builder newTree = TreeArtifactValue.newBuilder(newParent);

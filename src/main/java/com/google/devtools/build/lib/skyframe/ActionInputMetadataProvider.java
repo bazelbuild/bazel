@@ -128,8 +128,7 @@ final class ActionInputMetadataProvider implements InputMetadataProvider {
    */
   private static FileArtifactValue checkExists(FileArtifactValue value, Artifact artifact)
       throws FileNotFoundException {
-    if (FileArtifactValue.MISSING_FILE_MARKER.equals(value)
-        || FileArtifactValue.OMITTED_FILE_MARKER.equals(value)) {
+    if (FileArtifactValue.MISSING_FILE_MARKER.equals(value)) {
       throw new FileNotFoundException(artifact + " does not exist");
     }
     return checkNotNull(value, artifact);

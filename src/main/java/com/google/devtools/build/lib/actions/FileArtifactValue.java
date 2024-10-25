@@ -192,12 +192,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
   /** Data that marks that a file is not present on the filesystem. */
   @SerializationConstant
   public static final FileArtifactValue MISSING_FILE_MARKER = new SingletonMarkerValue();
-  /**
-   * Represents an omitted file -- we are aware of it but it doesn't exist. All access methods are
-   * unsupported.
-   */
-  @SerializationConstant
-  public static final FileArtifactValue OMITTED_FILE_MARKER = new OmittedFileValue();
 
   public static FileArtifactValue createForSourceArtifact(
       Artifact artifact, FileValue fileValue, XattrProvider xattrProvider) throws IOException {
@@ -976,43 +970,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     @Override
     public String toString() {
       return "singleton marker artifact value (" + hashCode() + ")";
-    }
-  }
-
-  private static final class OmittedFileValue extends FileArtifactValue implements Singleton {
-    @Override
-    public FileStateType getType() {
-      return FileStateType.NONEXISTENT;
-    }
-
-    @Override
-    public byte[] getDigest() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public FileContentsProxy getContentsProxy() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public long getSize() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public long getModifiedTime() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean wasModifiedSinceDigest(Path path) {
-      return false;
-    }
-
-    @Override
-    public String toString() {
-      return "OMITTED_FILE_MARKER";
     }
   }
 }

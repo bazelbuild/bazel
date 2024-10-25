@@ -156,10 +156,7 @@ public final class CompletionContext implements ArtifactExpander {
                       "missing artifact metadata for tree artifact: %s",
                       artifact.toDebugString())));
         }
-        if (FileArtifactValue.OMITTED_FILE_MARKER.equals(treeArtifactMetadata)) {
-          // Expansion can be missing for omitted tree artifacts -- skip the whole tree.
-          continue;
-        }
+
         TreeArtifactValue treeValue =
             checkNotNull(
                 treeArtifacts.get(artifact), "Missing expansion for tree artifact: %s", artifact);

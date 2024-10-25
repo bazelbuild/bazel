@@ -95,15 +95,6 @@ public final class CompletionContextTest {
   }
 
   @Test
-  public void treeArtifact_omitted() {
-    SpecialArtifact tree = createTreeArtifact("tree");
-    inputMap.putTreeArtifact(tree, TreeArtifactValue.OMITTED_TREE_MARKER, /* depOwner= */ null);
-    CompletionContext ctx = createCompletionContext(/* expandFilesets= */ true);
-
-    assertThat(visit(ctx, tree)).isEmpty();
-  }
-
-  @Test
   public void fileset_noExpansion() {
     SpecialArtifact fileset = createFileset("fs");
     inputMap.put(fileset, DUMMY_METADATA, /* depOwner= */ null);

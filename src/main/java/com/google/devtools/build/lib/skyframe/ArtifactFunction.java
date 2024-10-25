@@ -242,7 +242,6 @@ public final class ArtifactFunction implements SkyFunction {
     // parent TreeArtifact.
     SpecialArtifact parent = (SpecialArtifact) artifactDependencies.artifact;
     TreeArtifactValue.Builder treeBuilder = TreeArtifactValue.newBuilder(parent);
-    boolean omitted = false;
 
     for (ActionLookupData actionKey : expandedActionExecutionKeys) {
       boolean sawTreeChild = false;
@@ -265,11 +264,7 @@ public final class ArtifactFunction implements SkyFunction {
 
         if (artifact.getParent().equals(parent)) {
           sawTreeChild = true;
-          if (FileArtifactValue.OMITTED_FILE_MARKER.equals(entry.getValue())) {
-            omitted = true;
-          } else {
-            treeBuilder.putChild((TreeFileArtifact) artifact, entry.getValue());
-          }
+          treeBuilder.putChild((TreeFileArtifact) artifact, entry.getValue());
         }
       }
 
@@ -281,17 +276,6 @@ public final class ArtifactFunction implements SkyFunction {
     }
 
     TreeArtifactValue tree = treeBuilder.build();
-
-    if (omitted) {
-      // Expected 1 args, but got 2.
-      Preconditions.checkState(
-          tree.getChildValues().isEmpty(),
-          "Action template expansion has some but not all outputs omitted, present outputs: %s",
-          artifactDependencies,
-          tree.getChildValues());
-      return TreeArtifactValue.OMITTED_TREE_MARKER;
-    }
-
     return tree;
   }
 

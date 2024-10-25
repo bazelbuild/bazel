@@ -260,18 +260,6 @@ public final class ActionInputMapTest {
   }
 
   @Test
-  public void putTreeArtifact_omittedTree_addsEntryWithNoChildren() {
-    SpecialArtifact tree = createTreeArtifact("tree");
-
-    map.putTreeArtifact(tree, TreeArtifactValue.OMITTED_TREE_MARKER, /*depOwner=*/ null);
-
-    // Cannot assertContainsTree since TreeArtifactValue#getMetadata throws for OMITTED_TREE_MARKER.
-    assertThat(map.getInputMetadata(tree)).isSameInstanceAs(FileArtifactValue.OMITTED_FILE_MARKER);
-    assertThat(map.getMetadata(tree.getExecPath()))
-        .isSameInstanceAs(FileArtifactValue.OMITTED_FILE_MARKER);
-  }
-
-  @Test
   public void put_treeFileArtifact_addsEntry() {
     TreeFileArtifact treeFile =
         TreeFileArtifact.createTreeOutput(createTreeArtifact("tree"), "file");
@@ -360,15 +348,6 @@ public final class ActionInputMapTest {
     TreeFileArtifact nonexistentTreeFile = TreeFileArtifact.createTreeOutput(tree, "nonexistent");
 
     assertDoesNotContain(nonexistentTreeFile);
-  }
-
-  @Test
-  public void getMetadata_treeFileUnderOmittedParent_fails() {
-    SpecialArtifact tree = createTreeArtifact("tree");
-    TreeFileArtifact child = TreeFileArtifact.createTreeOutput(tree, "file");
-    map.putTreeArtifact(tree, TreeArtifactValue.OMITTED_TREE_MARKER, /*depOwner=*/ null);
-
-    assertThrows(IllegalArgumentException.class, () -> map.getInputMetadata(child));
   }
 
   @Test

@@ -217,31 +217,6 @@ public final class TreeArtifactValueTest {
   }
 
   @Test
-  public void cannotAddOmittedChildToBuilder() {
-    SpecialArtifact parent = createTreeArtifact("bin/tree");
-    TreeFileArtifact child = TreeFileArtifact.createTreeOutput(parent, "child");
-
-    TreeArtifactValue.Builder builder = TreeArtifactValue.newBuilder(parent);
-
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> builder.putChild(child, FileArtifactValue.OMITTED_FILE_MARKER));
-  }
-
-  @Test
-  public void cannotAddOmittedArchivedRepresentation() {
-    SpecialArtifact parent = createTreeArtifact("bin/tree");
-    ArchivedTreeArtifact archivedTreeArtifact = createArchivedTreeArtifact(parent);
-    TreeArtifactValue.Builder builder = TreeArtifactValue.newBuilder(parent);
-
-    assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            builder.setArchivedRepresentation(
-                archivedTreeArtifact, FileArtifactValue.OMITTED_FILE_MARKER));
-  }
-
-  @Test
   public void orderIndependence() {
     SpecialArtifact parent = createTreeArtifact("bin/tree");
     TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(parent, "child1");

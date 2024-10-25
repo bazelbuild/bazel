@@ -1290,15 +1290,12 @@ public final class SkyframeActionExecutor {
       }
 
       FileArtifactValue primaryOutputMetadata;
-      if (outputMetadataStore.artifactOmitted(primaryOutput)) {
-        primaryOutputMetadata = FileArtifactValue.OMITTED_FILE_MARKER;
-      } else {
-        try {
-          primaryOutputMetadata = outputMetadataStore.getOutputMetadata(primaryOutput);
-        } catch (IOException e) {
-          throw new IllegalStateException("Metadata already obtained for " + primaryOutput, e);
-        }
+      try {
+        primaryOutputMetadata = outputMetadataStore.getOutputMetadata(primaryOutput);
+      } catch (IOException e) {
+        throw new IllegalStateException("Metadata already obtained for " + primaryOutput, e);
       }
+
       reportActionExecution(
           eventHandler,
           primaryOutputPath,
