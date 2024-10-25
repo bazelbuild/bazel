@@ -46,6 +46,7 @@ filegroup(
         exclude = ["fastutil.proguard"],
     ) + [
         "//tools/allowlists:srcs",
+        "//tools/android:embedded_tools",
         "//tools/bash:embedded_tools",
         "//tools/build_defs:embedded_tools",
         "//tools/build_rules:embedded_tools_srcs",
