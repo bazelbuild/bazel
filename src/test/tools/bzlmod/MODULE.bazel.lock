@@ -39,7 +39,6 @@
     "https://bcr.bazel.build/modules/protobuf/27.0/MODULE.bazel": "7873b60be88844a0a1d8f80b9d5d20cfbd8495a689b8763e76c6372998d3f64c",
     "https://bcr.bazel.build/modules/protobuf/27.0/source.json": "1acf3d080c728d42f423fde5422fd0a1a24f44c15908124ce12363a253384193",
     "https://bcr.bazel.build/modules/rules_cc/0.0.1/MODULE.bazel": "cb2aa0747f84c6c3a78dad4e2049c154f08ab9d166b1273835a8174940365647",
-    "https://bcr.bazel.build/modules/rules_cc/0.0.10/MODULE.bazel": "ec1705118f7eaedd6e118508d3d26deba2a4e76476ada7e0e3965211be012002",
     "https://bcr.bazel.build/modules/rules_cc/0.0.13/MODULE.bazel": "0e8529ed7b323dad0775ff924d2ae5af7640b23553dfcd4d34344c7e7a867191",
     "https://bcr.bazel.build/modules/rules_cc/0.0.13/source.json": "506daed7caa38451517166af246c11650b21a7244c2b79f2cd43a27fae792a06",
     "https://bcr.bazel.build/modules/rules_cc/0.0.2/MODULE.bazel": "6915987c90970493ab97393024c156ea8fb9f3bea953b2f3ec05c34f19b5695c",
@@ -49,13 +48,11 @@
     "https://bcr.bazel.build/modules/rules_java/4.0.0/MODULE.bazel": "5a78a7ae82cd1a33cef56dc578c7d2a46ed0dca12643ee45edbb8417899e6f74",
     "https://bcr.bazel.build/modules/rules_java/5.3.5/MODULE.bazel": "a4ec4f2db570171e3e5eb753276ee4b389bae16b96207e9d3230895c99644b86",
     "https://bcr.bazel.build/modules/rules_java/7.1.0/MODULE.bazel": "30d9135a2b6561c761bd67bd4990da591e6bdc128790ce3e7afd6a3558b2fb64",
-    "https://bcr.bazel.build/modules/rules_java/7.6.1/MODULE.bazel": "2f14b7e8a1aa2f67ae92bc69d1ec0fa8d9f827c4e17ff5e5f02e91caa3b2d0fe",
-    "https://bcr.bazel.build/modules/rules_java/8.1.0/MODULE.bazel": "bc30e2cf150368bca47785c8e239d10c96be1b0661cdbef79297b69efb540e48",
-    "https://bcr.bazel.build/modules/rules_java/8.1.0/source.json": "e6b90baf4ff92771388d8771d9bfb72f20ecfa3f06b16398374676cdbf9537d3",
+    "https://bcr.bazel.build/modules/rules_java/8.2.0/MODULE.bazel": "6ed551110d53e66eca041a9e41835a4e66ad9c988ae49897dd0c66d87e107dcc",
+    "https://bcr.bazel.build/modules/rules_java/8.2.0/source.json": "9a10ea55c608da3148fe642c201bc8a12df70af5b3131835cec7b004fec053d1",
     "https://bcr.bazel.build/modules/rules_jvm_external/4.4.2/MODULE.bazel": "a56b85e418c83eb1839819f0b515c431010160383306d13ec21959ac412d2fe7",
     "https://bcr.bazel.build/modules/rules_jvm_external/5.1/MODULE.bazel": "33f6f999e03183f7d088c9be518a63467dfd0be94a11d0055fe2d210f89aa909",
-    "https://bcr.bazel.build/modules/rules_jvm_external/5.2/MODULE.bazel": "d9351ba35217ad0de03816ef3ed63f89d411349353077348a45348b096615036",
-    "https://bcr.bazel.build/modules/rules_jvm_external/5.2/source.json": "10572111995bc349ce31c78f74b3c147f6b3233975c7fa5eff9211f6db0d34d9",
+    "https://bcr.bazel.build/modules/rules_jvm_external/5.1/source.json": "5abb45cc9beb27b77aec6a65a11855ef2b55d95dfdc358e9f312b78ae0ba32d5",
     "https://bcr.bazel.build/modules/rules_license/0.0.3/MODULE.bazel": "627e9ab0247f7d1e05736b59dbb1b6871373de5ad31c3011880b4133cafd4bd0",
     "https://bcr.bazel.build/modules/rules_license/0.0.7/MODULE.bazel": "088fbeb0b6a419005b89cf93fe62d9517c0a2b8bb56af3244af65ecfe37e7d5d",
     "https://bcr.bazel.build/modules/rules_license/1.0.0/MODULE.bazel": "a7fda60eefdf3d8c827262ba499957e4df06f659330bbe6cdbdb975b768bb65c",
@@ -73,8 +70,7 @@
     "https://bcr.bazel.build/modules/rules_shell/0.2.0/source.json": "7f27af3c28037d9701487c4744b5448d26537cc66cdef0d8df7ae85411f8de95",
     "https://bcr.bazel.build/modules/stardoc/0.5.1/MODULE.bazel": "1a05d92974d0c122f5ccf09291442580317cdd859f07a8655f1db9a60374f9f8",
     "https://bcr.bazel.build/modules/stardoc/0.5.3/MODULE.bazel": "c7f6948dae6999bf0db32c1858ae345f112cacf98f174c7a8bb707e41b974f1c",
-    "https://bcr.bazel.build/modules/stardoc/0.7.0/MODULE.bazel": "05e3d6d30c099b6770e97da986c53bd31844d7f13d41412480ea265ac9e8079c",
-    "https://bcr.bazel.build/modules/stardoc/0.7.0/source.json": "e3c524bf2ef20992539ce2bc4a2243f4853130209ee831689983e28d05769099",
+    "https://bcr.bazel.build/modules/stardoc/0.5.3/source.json": "cd53fe968dc8cd98197c052db3db6d82562960c87b61e7a90ee96f8e4e0dda97",
     "https://bcr.bazel.build/modules/upb/0.0.0-20230516-61a97ef/MODULE.bazel": "c0df5e35ad55e264160417fd0875932ee3c9dda63d9fccace35ac62f45e1b6f9",
     "https://bcr.bazel.build/modules/zlib/1.2.11/MODULE.bazel": "07b389abc85fdbca459b69e2ec656ae5622873af3f845e1c9d80fe179f3effa0",
     "https://bcr.bazel.build/modules/zlib/1.3.1.bcr.3/MODULE.bazel": "af322bc08976524477c79d1e45e241b6efbeb918c497e8840b8ab116802dda79",
@@ -101,11 +97,10 @@
     },
     "@@rules_jvm_external+//:extensions.bzl%maven": {
       "general": {
-        "bzlTransitiveDigest": "mLp5egTYHBwh51cnzz5DFLc8C6bKoL2o7uOj7ozbGiI=",
-        "usagesDigest": "D4pzNNc0xMo/xkafrajjWOmuEsgZjCK/xfDI5gVSzU4=",
+        "bzlTransitiveDigest": "QD+9pJNTzVdeEglgJOTyYszxFJMnIlKd3ZDDcqCv+O4=",
+        "usagesDigest": "wgvkY7gy0+CA12lZQMQkHdsDI9mDHOVq9FePjjnmpps=",
         "recordedFileInputs": {
-          "@@rules_jvm_external+//rules_jvm_external_deps_install.json": "3ab1f67b0de4815df110bc72ccd6c77882b3b21d3d1e0a84445847b6ce3235a3",
-          "@@stardoc+//maven_install.json": "de0bfa778b4ed6aebb77509362dd87ab8d20fc7c7c18d2a7429cdfee03949a21"
+          "@@rules_jvm_external+//rules_jvm_external_deps_install.json": "3ab1f67b0de4815df110bc72ccd6c77882b3b21d3d1e0a84445847b6ce3235a3"
         },
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -1099,164 +1094,6 @@
               "aar_import_bzl_label": "@build_bazel_rules_android//android:rules.bzl",
               "duplicate_version_warning": "warn"
             }
-          },
-          "unpinned_stardoc_maven": {
-            "bzlFile": "@@rules_jvm_external+//:coursier.bzl",
-            "ruleClassName": "coursier_fetch",
-            "attributes": {
-              "repositories": [
-                "{ \"repo_url\": \"https://repo1.maven.org/maven2\" }"
-              ],
-              "artifacts": [
-                "{ \"group\": \"com.beust\", \"artifact\": \"jcommander\", \"version\": \"1.82\" }",
-                "{ \"group\": \"com.google.escapevelocity\", \"artifact\": \"escapevelocity\", \"version\": \"1.1\" }",
-                "{ \"group\": \"com.google.guava\", \"artifact\": \"guava\", \"version\": \"31.1-jre\" }",
-                "{ \"group\": \"com.google.truth\", \"artifact\": \"truth\", \"version\": \"1.1.3\" }",
-                "{ \"group\": \"junit\", \"artifact\": \"junit\", \"version\": \"4.13.2\" }"
-              ],
-              "fail_on_missing_checksum": true,
-              "fetch_sources": true,
-              "fetch_javadoc": false,
-              "excluded_artifacts": [],
-              "generate_compat_repositories": false,
-              "version_conflict_policy": "default",
-              "override_targets": {},
-              "strict_visibility": true,
-              "strict_visibility_value": [
-                "@@//visibility:private"
-              ],
-              "maven_install_json": "@@stardoc+//:maven_install.json",
-              "resolve_timeout": 600,
-              "jetify": false,
-              "jetify_include_list": [
-                "*"
-              ],
-              "use_starlark_android_rules": false,
-              "aar_import_bzl_label": "@build_bazel_rules_android//android:rules.bzl",
-              "duplicate_version_warning": "warn"
-            }
-          },
-          "com_beust_jcommander_1_82": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "deeac157c8de6822878d85d0c7bc8467a19cc8484d37788f7804f039dde280b1",
-              "urls": [
-                "https://repo1.maven.org/maven2/com/beust/jcommander/1.82/jcommander-1.82.jar"
-              ],
-              "downloaded_file_path": "com/beust/jcommander/1.82/jcommander-1.82.jar"
-            }
-          },
-          "com_google_auto_value_auto_value_annotations_1_8_1": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "37ec09b47d7ed35a99d13927db5c86fc9071f620f943ead5d757144698310852",
-              "urls": [
-                "https://repo1.maven.org/maven2/com/google/auto/value/auto-value-annotations/1.8.1/auto-value-annotations-1.8.1.jar"
-              ],
-              "downloaded_file_path": "com/google/auto/value/auto-value-annotations/1.8.1/auto-value-annotations-1.8.1.jar"
-            }
-          },
-          "com_google_escapevelocity_escapevelocity_1_1": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "37e76e4466836dedb864fb82355cd01c3bd21325ab642d89a0f759291b171231",
-              "urls": [
-                "https://repo1.maven.org/maven2/com/google/escapevelocity/escapevelocity/1.1/escapevelocity-1.1.jar"
-              ],
-              "downloaded_file_path": "com/google/escapevelocity/escapevelocity/1.1/escapevelocity-1.1.jar"
-            }
-          },
-          "com_google_truth_truth_1_1_3": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "fc0b67782289a2aabfddfdf99eff1dcd5edc890d49143fcd489214b107b8f4f3",
-              "urls": [
-                "https://repo1.maven.org/maven2/com/google/truth/truth/1.1.3/truth-1.1.3.jar"
-              ],
-              "downloaded_file_path": "com/google/truth/truth/1.1.3/truth-1.1.3.jar"
-            }
-          },
-          "junit_junit_4_13_2": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "8e495b634469d64fb8acfa3495a065cbacc8a0fff55ce1e31007be4c16dc57d3",
-              "urls": [
-                "https://repo1.maven.org/maven2/junit/junit/4.13.2/junit-4.13.2.jar"
-              ],
-              "downloaded_file_path": "junit/junit/4.13.2/junit-4.13.2.jar"
-            }
-          },
-          "org_checkerframework_checker_qual_3_13_0": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "3ea0dcd73b4d6cb2fb34bd7ed4dad6db327a01ebad7db05eb7894076b3d64491",
-              "urls": [
-                "https://repo1.maven.org/maven2/org/checkerframework/checker-qual/3.13.0/checker-qual-3.13.0.jar"
-              ],
-              "downloaded_file_path": "org/checkerframework/checker-qual/3.13.0/checker-qual-3.13.0.jar"
-            }
-          },
-          "org_hamcrest_hamcrest_core_1_3": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "66fdef91e9739348df7a096aa384a5685f4e875584cce89386a7a47251c4d8e9",
-              "urls": [
-                "https://repo1.maven.org/maven2/org/hamcrest/hamcrest-core/1.3/hamcrest-core-1.3.jar"
-              ],
-              "downloaded_file_path": "org/hamcrest/hamcrest-core/1.3/hamcrest-core-1.3.jar"
-            }
-          },
-          "org_ow2_asm_asm_9_1": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "cda4de455fab48ff0bcb7c48b4639447d4de859a7afc30a094a986f0936beba2",
-              "urls": [
-                "https://repo1.maven.org/maven2/org/ow2/asm/asm/9.1/asm-9.1.jar"
-              ],
-              "downloaded_file_path": "org/ow2/asm/asm/9.1/asm-9.1.jar"
-            }
-          },
-          "stardoc_maven": {
-            "bzlFile": "@@rules_jvm_external+//:coursier.bzl",
-            "ruleClassName": "pinned_coursier_fetch",
-            "attributes": {
-              "repositories": [
-                "{ \"repo_url\": \"https://repo1.maven.org/maven2\" }"
-              ],
-              "artifacts": [
-                "{ \"group\": \"com.beust\", \"artifact\": \"jcommander\", \"version\": \"1.82\" }",
-                "{ \"group\": \"com.google.escapevelocity\", \"artifact\": \"escapevelocity\", \"version\": \"1.1\" }",
-                "{ \"group\": \"com.google.guava\", \"artifact\": \"guava\", \"version\": \"31.1-jre\" }",
-                "{ \"group\": \"com.google.truth\", \"artifact\": \"truth\", \"version\": \"1.1.3\" }",
-                "{ \"group\": \"junit\", \"artifact\": \"junit\", \"version\": \"4.13.2\" }"
-              ],
-              "fetch_sources": true,
-              "fetch_javadoc": false,
-              "generate_compat_repositories": false,
-              "maven_install_json": "@@stardoc+//:maven_install.json",
-              "override_targets": {},
-              "strict_visibility": true,
-              "strict_visibility_value": [
-                "@@//visibility:private"
-              ],
-              "jetify": false,
-              "jetify_include_list": [
-                "*"
-              ],
-              "additional_netrc_lines": [],
-              "fail_if_repin_required": true,
-              "use_starlark_android_rules": false,
-              "aar_import_bzl_label": "@build_bazel_rules_android//android:rules.bzl",
-              "duplicate_version_warning": "warn"
-            }
           }
         },
         "recordedRepoMappingEntries": [
@@ -1276,7 +1113,7 @@
     "@@rules_jvm_external+//:non-module-deps.bzl%non_module_deps": {
       "general": {
         "bzlTransitiveDigest": "7dxAT2NQpsWXJNV5Sy6o7E78vgRhVEN1vlZdrexTMZY=",
-        "usagesDigest": "NEXoEuwj2641ZHOrmzvP9LbkUi35sipkcIv8ye7vbHY=",
+        "usagesDigest": "LzEy0dL+nLbgwUkuORXi2ftZYf/ztd0fgxqlVQxW73I=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
