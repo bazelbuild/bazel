@@ -987,7 +987,10 @@ declared.
                 "If set, the set of toolchains this subrule requires. The list can contain String,"
                     + " Label, or StarlarkToolchainTypeApi objects, in any combination. Toolchains"
                     + " will be found by checking the current platform, and provided to the subrule"
-                    + " implementation via <code>ctx.toolchains</code>."),
+                    + " implementation via <code>ctx.toolchains</code>. Note that AEGs need to be"
+                    + " enabled on the consuming rule(s) if this parameter is set. In case you"
+                    + " haven't migrated to AEGs yet, see"
+                    + " https://bazel.build/extending/auto-exec-groups#migration-aegs."),
         @Param(
             name = "fragments",
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
