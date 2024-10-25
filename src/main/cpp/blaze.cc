@@ -349,7 +349,9 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
   }
   result.push_back(java_library_path.str());
 
-  // Force use of latin1 for file names.
+  // TODO: Investigate whether this still has any effect. File name encoding is
+  // governed by sun.jnu.encoding in JDKs with JEP 400, which can't be
+  // influenced by setting a property.
   result.push_back("-Dfile.encoding=ISO-8859-1");
   // Force into the root locale to ensure consistent behavior of string
   // operations across machines (e.g. in the tr_TR locale, capital ASCII 'I'

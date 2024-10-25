@@ -27,6 +27,7 @@ java_test(
             "DependencySetWindowsTest.java",
             "ResourceFileLoaderTest.java",
             "HeapOffsetHelperTest.java",
+            "StringEncodingTest.java",
         ],
     ),
     tags = [
@@ -46,6 +47,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/collect",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//src/main/java/com/google/devtools/build/lib/unsafe:string",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:command",
@@ -170,5 +172,27 @@ java_test(
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "StringEncodingTest",
+    srcs = ["StringEncodingTest.java"],
+    env = select({
+        "@platforms//os:linux": {
+            # Force the same locale as Bazel's client to test roundtripping of
+            # arbitrary byte sequences through strings.
+            "LANG": "en_US.ISO-8859-1",
+        },
+        "//conditions:default": {},
+    }),
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/unsafe:string",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
+        "//third_party:junit4",
+        "//third_party:truth",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
+        "@protobuf//:protobuf_java",
     ],
 )
