@@ -1522,22 +1522,22 @@ public class Package {
      * Creates and returns input files for targets that have been referenced but not explicitly
      * declared in this package.
      *
-     * <p>Precisely: If L is a label that points within the current package, and L appears in a
-     * label-typed attribute of some declaration (target or symbolic macro) D in this package, then
-     * we create an {@code InputFile} corresponding to L and return it in this map (keyed by its
-     * name), provided that all of the following are true:
+     * <p>Precisely: For each label L appearing in one or more label-typed attributes of one or more
+     * declarations D (either of a target or a symbolic macro), we create an {@code InputFile} for L
+     * and return it in the map (keyed by its name) if all of the following are true:
      *
      * <ol>
-     *   <li>The package does not otherwise declare a target for L.
+     *   <li>L points to within the current package.
+     *   <li>The package does not otherwise declare a target or macro named L.
      *   <li>D is not itself declared inside a symbolic macro.
-     *   <li>L is not within the namespace of any symbolic macro in the package.
      * </ol>
      *
-     * The second condition ensures that we can know all implicitly created input files without
-     * having to evaluate any symbolic macros. The third condition ensures that we don't need to
-     * expand a symbolic macro to decide whether it defines a target that conflicts with an
-     * implicitly created input file (except for the case where the target doesn't satisfy the
-     * macro's naming requirements, in which case it would be unusable anyway).
+     * <p>The third condition ensures that we can know all *possible* implicitly created input files
+     * without evaluating any symbolic macros. However, if the label lies within one or more
+     * symbolic macro's namespaces, then we do still need to evaluate those macros to determine
+     * whether or not the second condition is true, i.e. whether the label points to a target the
+     * macro declares (or a submacro it clashes with), or defaults to an implicitly created input
+     * file.
      */
     private static Map<String, InputFile> createAssumedInputFiles(
         Package pkg, TargetRecorder recorder, boolean noImplicitFileExport) {
@@ -1578,8 +1578,7 @@ public class Package {
 
     /**
      * Adds an implicitly created input file to the given map if the label points within the current
-     * package, there is no existing target for that label, and the label does not lie within any
-     * macro's namespace.
+     * package and there is no existing target or macro for that label.
      */
     private static void maybeCreateAssumedInputFile(
         Map<String, InputFile> implicitlyCreatedInputFiles,
@@ -1593,19 +1592,9 @@ public class Package {
         return;
       }
       if (recorder.getTargetMap().containsKey(name)
+          || recorder.hasMacroWithName(name)
           || implicitlyCreatedInputFiles.containsKey(name)) {
         return;
-      }
-      // TODO(#19922): This conflict check is quadratic complexity -- the number of candidate inputs
-      // to create times the number of macros in the package (top-level or nested). We can optimize
-      // by only checking against top-level macros, since child macro namespaces are contained
-      // within their parents' namespace. We can also use a trie data structure to zoom in on the
-      // relevant conflicting macro if it exists, since you can't be in a macro's namespace unless
-      // you suffix its name (at least, under current namespacing rules).
-      for (MacroInstance macro : recorder.getMacroMap().values()) {
-        if (TargetRecorder.nameIsWithinMacroNamespace(name, macro.getName())) {
-          return;
-        }
       }
 
       implicitlyCreatedInputFiles.put(
