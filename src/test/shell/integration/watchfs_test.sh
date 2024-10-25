@@ -99,4 +99,49 @@ function test_both() {
   expect_not_log "VFS stat.*${pkg}/whocares.in"
 }
 
+function test_special_chars() {
+  local -r subdir="${FUNCNAME[0]} bazel 🌱"
+  local -r workspace="$TEST_TMPDIR/$subdir/workspace"
+  mkdir -p "$workspace" || fail "mkdir -p $workspace"
+
+  cd "$workspace" || fail "cd $workspace"
+  setup_module_dot_bazel
+
+  touch BUILD
+  bazel info
+  bazel build --watchfs //... &> "$TEST_log" || fail "Expected success."
+  expect_not_log "Hello, Unicode!"
+
+  mkdir pkg || fail "mkdir pkg"
+  cat > pkg/BUILD << 'EOF'
+print("Hello, Unicode!")
+
+genrule(
+    name = "foo",
+    srcs = ["foo 🌱.in"],
+    outs = ["foo.out"],
+    cmd = "cp '$<' $@",
+)
+EOF
+  cat > 'pkg/foo 🌱.in' << 'EOF'
+foo
+EOF
+
+  sleep 1
+  bazel build --watchfs //... &> "$TEST_log" || fail "Expected success."
+  expect_not_log "WARNING:.*falling back to manually"
+  expect_log "Hello, Unicode!"
+  assert_contains "foo" "${PRODUCT_NAME}-bin/pkg/foo.out"
+
+  cat > 'pkg/foo 🌱.in' << 'EOF'
+bar
+EOF
+
+  sleep 1
+  bazel build --watchfs //... &> "$TEST_log" || fail "Expected success."
+  expect_not_log "WARNING:.*falling back to manually"
+  expect_not_log "Hello, Unicode!"
+  assert_contains "bar" "${PRODUCT_NAME}-bin/pkg/foo.out"
+}
+
 run_suite "Integration tests for --watchfs."

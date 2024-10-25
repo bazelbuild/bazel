@@ -43,18 +43,16 @@ public final class MacOSXFsEventsDiffAwareness extends LocalDiffAwareness {
   private boolean opened;
 
   /**
-   * Watch changes on the file system under <code>watchRoot</code> with a granularity of
-   * <code>delay</code> seconds.
+   * Watch changes on the file system under <code>watchRoot</code> with a granularity of <code>delay
+   * </code> seconds.
    */
-  MacOSXFsEventsDiffAwareness(String watchRoot, double latency) {
+  MacOSXFsEventsDiffAwareness(Path watchRoot, double latency) {
     super(watchRoot);
     this.latency = latency;
   }
 
-  /**
-   * Watch changes on the file system under <code>watchRoot</code> with a granularity of 5ms.
-   */
-  MacOSXFsEventsDiffAwareness(String watchRoot) {
+  /** Watch changes on the file system under <code>watchRoot</code> with a granularity of 5ms. */
+  MacOSXFsEventsDiffAwareness(Path watchRoot) {
     this(watchRoot, 0.005);
   }
 
@@ -79,7 +77,7 @@ public final class MacOSXFsEventsDiffAwareness extends LocalDiffAwareness {
     // TODO(jmmv): This can break if the user interrupts as anywhere in this function.
     Preconditions.checkState(!opened);
     opened = true;
-    create(new Object[] {watchRootPath.toAbsolutePath().toString().getBytes(UTF_8)}, latency);
+    create(new Object[] {watchRoot.toAbsolutePath().toString().getBytes(UTF_8)}, latency);
 
     // Start a thread that just contains the OS X run loop.
     CountDownLatch listening = new CountDownLatch(1);
