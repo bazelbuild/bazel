@@ -1346,32 +1346,39 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testSymbolicMacro_macroPreventsImplicitCreationOfInputFilesUnderItsNamespaces()
+  public void testSymbolicMacro_implicitlyCreatedInput_isCreatedEvenInsideMacroNamespace()
       throws Exception {
-    // We don't implicitly create InputFile targets whose names lie inside symbolic macros'
-    // namespaces, no matter where the file is referred to from. This avoids having to force
-    // evaluation of the macro when depending on the input file, to determine whether the macro
-    // declares a conflicting target.
-    //
-    // Create a macro instance named "foo" and try to refer to "foo_input" from various places.
-    // Ensure that "foo_input" does not in fact get created. (You could still used an
-    // exports_files() to declare it explicitly if you wanted.)
     scratch.file(
         "pkg/my_macro.bzl",
         """
-        def _sub_impl(name, visibility):
-            native.cc_library(
-                name = name + "_target",
-                srcs = ["foo_input"],
-            )
-        my_submacro = macro(implementation = _sub_impl)
-
         def _impl(name, visibility):
-            native.cc_library(
-                name = name + "_target",
-                srcs = ["foo_input"],
-            )
-            my_submacro(name = name + "_submacro")
+            pass
+        my_macro = macro(implementation = _impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":my_macro.bzl", "my_macro")
+        my_macro(name = "foo")
+        cc_library(
+            name = "toplevel_target",
+            srcs = ["foo_implicit"],
+        )
+        """);
+
+    Package pkg = loadPackageAndAssertSuccess("pkg");
+    assertThat(pkg.getTarget("foo_implicit")).isInstanceOf(InputFile.class);
+  }
+
+  @Test
+  public void testSymbolicMacro_implicitlyCreatedInput_isNotCreatedIfMacroDeclaresTarget()
+      throws Exception {
+    scratch.file(
+        "pkg/my_macro.bzl",
+        """
+        def _impl(name, visibility):
+            native.cc_library(name = name + "_declared_target")
+            native.cc_library(name = "illegally_named_target")
         my_macro = macro(implementation = _impl)
         """);
     scratch.file(
@@ -1382,43 +1389,57 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         cc_library(
             name = "toplevel_target",
             srcs = [
-                "foo_input",
-                # Also try other name patterns.
-                "foo",   # conflicts, not created
-                "foo_",  # not in namespace, created
-                "baz",   # not in namespace, created
+                "foo_declared_target",
+                "illegally_named_target",
             ],
         )
         """);
 
     Package pkg = loadPackageAndAssertSuccess("pkg");
-    assertThat(pkg.getTargets()).doesNotContainKey("foo_input");
-    assertThat(pkg.getTargets()).doesNotContainKey("foo");
-    assertThat(pkg.getTarget("foo_")).isInstanceOf(InputFile.class);
-    assertThat(pkg.getTarget("baz")).isInstanceOf(InputFile.class);
+    assertThat(pkg.getTarget("foo_declared_target")).isInstanceOf(Rule.class);
+    // This target doesn't lie within the macro's namespace and so can't be analyzed, but it still
+    // exists and prevents input file creation. (Under a lazy macro evaluation model, we would
+    // potentially create an InputFile for it but later discover a name clash if the macro is
+    // evaluated.)
+    // TODO: #23852 - Test behavior under lazy macro evaluation when implemented.
+    assertThat(pkg.getTarget("illegally_named_target")).isInstanceOf(Rule.class);
   }
 
   @Test
-  public void testSymbolicMacro_macroInstantiationCanForceImplicitCreationOfInputFile()
+  public void testSymbolicMacro_implicitlyCreatedInput_isNotCreatedIfMacroNameMatchesExactly()
       throws Exception {
-    // Referring to an input file when instantiating a top-level symbolic macro causes it to be
-    // implicitly created, even though no targets refer to it. Referring to an input when
-    // instantiating a submacro does not by itself cause creation.
     scratch.file(
         "pkg/my_macro.bzl",
         """
-        def _sub_impl(name, visibility, src):
+        def _impl(name, visibility):
             pass
-        my_submacro = macro(
-            implementation = _sub_impl,
-            attrs = {"src": attr.label()},
+        my_macro = macro(implementation = _impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":my_macro.bzl", "my_macro")
+        my_macro(name = "foo")
+        cc_library(
+            name = "toplevel_target",
+            srcs = ["foo"],
         )
+        """);
 
+    Package pkg = loadPackageAndAssertSuccess("pkg");
+    assertThat(pkg.getTargets()).doesNotContainKey("foo");
+  }
+
+  @Test
+  public void testSymbolicMacro_implicitlyCreatedInput_isCreatedByUsageInMacroAttr()
+      throws Exception {
+    // A usage in a macro, provided it is top-level, is sufficient to cause an input file to be
+    // implicitly created, even if that input file is not also referred to by any actual targets.
+    scratch.file(
+        "pkg/my_macro.bzl",
+        """
         def _impl(name, visibility, src):
-            my_submacro(
-                name = name + "_submacro",
-                src = "//pkg:does_not_exist",
-            )
+            pass
         my_macro = macro(
             implementation = _impl,
             attrs = {"src": attr.label()},
@@ -1436,54 +1457,29 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
 
     Package pkg = loadPackageAndAssertSuccess("pkg");
     assertThat(pkg.getTarget("input")).isInstanceOf(InputFile.class);
-    assertThat(pkg.getTargets()).doesNotContainKey("does_not_exist");
   }
 
   @Test
-  public void testSymbolicMacro_failsGracefullyWhenInputFileClashesWithMisnamedMacroTarget()
+  public void testSymbolicMacro_implicitlyCreatedInput_isNotCreatedByUsageInMacroBody()
       throws Exception {
-    // Symbolic macros can't define usable targets outside their namespace, and BUILD files can't
-    // implicitly create input files inside a macro's namespace. But we could still have a conflict
-    // between an *unusable* ill-named macro target and an implicitly created input file. Make sure
-    // we don't crash at least.
-    //
-    // If symbolic macros are evaluated either synchronously with their instantiation or deferred to
-    // the end of the BUILD file, the target declared by the macro wins because it happens before
-    // implicit input file creation. But under lazy macro evaluation, the implicit input file will
-    // win and we should see a conflict if the macro is expanded.
-    // TODO: #23852 - Test behavior under lazy macro evaluation when implemented.
+    // A usage in the body of a macro (whether the declaration is for a target or submacro), does
+    // not by itself cause an input file to be implicitly created.
     scratch.file(
         "pkg/my_macro.bzl",
         """
-        def _impl(name, visibility):
-            native.cc_library(name="conflicting_name")
-        my_macro = macro(implementation=_impl)
-        """);
-    scratch.file(
-        "pkg/BUILD",
-        """
-        load(":my_macro.bzl", "my_macro")
-        my_macro(name="foo")
-        cc_library(
-            name = "bar",
-            srcs = [":conflicting_name"],
-        )
-        """);
-    Package pkg = loadPackageAndAssertSuccess("pkg");
-    assertThat(pkg.getTarget("conflicting_name")).isInstanceOf(Rule.class);
-  }
+        def _sub_impl(name, visibility):
+            native.cc_library(
+                name = name,
+                srcs = ["//pkg:input"],
+            )
+        my_submacro = macro(implementation = _sub_impl)
 
-  @Test
-  public void testSymbolicMacro_implicitCreationOfInputFilesIsNotTriggeredByMacros()
-      throws Exception {
-    scratch.file(
-        "pkg/my_macro.bzl",
-        """
         def _impl(name, visibility):
             native.cc_library(
                 name = name,
-                srcs = ["//pkg:src_A.txt", "//pkg:src_B.txt"],
+                srcs = ["//pkg:input"],
             )
+            my_submacro(name = name + "_submacro")
         my_macro = macro(implementation = _impl)
         """);
     scratch.file(
@@ -1491,15 +1487,10 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         """
         load(":my_macro.bzl", "my_macro")
         my_macro(name = "foo")
-        cc_library(
-            name = "bar",
-            srcs = ["src_A.txt"],
-        )
         """);
 
     Package pkg = loadPackageAndAssertSuccess("pkg");
-    assertThat(pkg.getTargets()).containsKey("src_A.txt");
-    assertThat(pkg.getTargets()).doesNotContainKey("src_B.txt");
+    assertThat(pkg.getTargets()).doesNotContainKey("input");
   }
 
   @Test
