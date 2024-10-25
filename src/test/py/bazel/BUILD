@@ -295,7 +295,7 @@ py_test(
 
 py_test(
     name = "bazel_lockfile_test",
-    size = "medium",
+    size = "large",
     srcs = ["bzlmod/bazel_lockfile_test.py"],
     shard_count = 5,
     tags = [
