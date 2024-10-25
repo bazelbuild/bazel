@@ -77,6 +77,7 @@ filegroup(
     name = "bzl_srcs",
     srcs = [
         "//tools:build_defs.bzl",
+        "//tools/android:bzl_srcs",
         "//tools/build_defs:bzl_srcs",
         "//tools/build_rules:bzl_srcs",
         "//tools/cpp:bzl_srcs",
