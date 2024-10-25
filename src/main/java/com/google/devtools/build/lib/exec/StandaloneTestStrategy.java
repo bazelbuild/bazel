@@ -443,7 +443,10 @@ public class StandaloneTestStrategy extends TestStrategy {
       TestRunnerAction action, ImmutableMap<String, String> testEnv, SpawnResult result) {
     ImmutableList<String> args =
         ImmutableList.of(
-            action.getTestXmlGeneratorScript().getExecPath().getCallablePathString(),
+            action
+                .getTestXmlGeneratorScript()
+                .getExecPath()
+                .getCallablePathStringForOs(action.getExecutionSettings().getExecutionOs()),
             action.getTestLog().getExecPathString(),
             action.getXmlOutputPath().getPathString(),
             Integer.toString(result.getWallTimeInMs() / 1000),
