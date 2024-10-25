@@ -34,13 +34,14 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.StringReader;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.nio.file.Files;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.HashMap;
@@ -103,7 +104,9 @@ public class UrlRewriter {
           String.format("Unable to find downloader config file %s", configPath));
     }
 
-    try (BufferedReader reader = Files.newBufferedReader(actualConfigPath.getPathFile().toPath())) {
+    try (InputStream inputStream = actualConfigPath.getInputStream();
+        Reader inputStreamReader = new InputStreamReader(inputStream);
+        Reader reader = new BufferedReader(inputStreamReader)) {
       return new UrlRewriter(log, configPath, reader);
     } catch (IOException e) {
       throw new UrlRewriterParseException(e.getMessage());
@@ -112,7 +115,7 @@ public class UrlRewriter {
 
   /**
    * Rewrites {@code urls} using the configuration provided to {@link
-   * #getDownloaderUrlRewriter(String, Reporter)}. The returned list of URLs may be empty if the
+   * #getDownloaderUrlRewriter}. The returned list of URLs may be empty if the
    * configuration used blocks all the input URLs.
    *
    * @param urls The input list of {@link URL}s. May be empty.
