@@ -2221,6 +2221,7 @@ java_library(
         ":config/transitions/transition_factory",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/config:configuration_transition_api",
         "//third_party:auto_value",
         "//third_party:guava",
     ],
@@ -2642,6 +2643,7 @@ java_library(
     srcs = ["starlark/StarlarkConfig.java"],
     deps = [
         ":config/execution_transition_factory",
+        ":config/transitions/no_config_transition",
         ":config/transitions/no_transition",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/config",

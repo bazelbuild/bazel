@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
 
 /**
  * Transitions to a stable, empty configuration for rules that don't rely on configuration.
@@ -46,6 +47,15 @@ public class NoConfigTransition implements PatchTransition {
   private static final TransitionFactory<? extends TransitionFactory.Data> FACTORY_INSTANCE =
       new AutoValue_NoConfigTransition_Factory<>();
 
+  /**
+   * Returns {@code true} if the given {@link TransitionFactory} is an instance of the no
+   * transition.
+   */
+  public static <T extends TransitionFactory.Data> boolean isInstance(
+      TransitionFactory<T> instance) {
+    return instance instanceof Factory;
+  }
+
   private NoConfigTransition() {}
 
   @Override
@@ -67,7 +77,8 @@ public class NoConfigTransition implements PatchTransition {
 
   /** A {@link TransitionFactory} implementation that generates the transition. */
   @AutoValue
-  abstract static class Factory<T extends TransitionFactory.Data> implements TransitionFactory<T> {
+  abstract static class Factory<T extends TransitionFactory.Data>
+      implements TransitionFactory<T>, ConfigurationTransitionApi {
     @Override
     public PatchTransition create(T unused) {
       return INSTANCE;

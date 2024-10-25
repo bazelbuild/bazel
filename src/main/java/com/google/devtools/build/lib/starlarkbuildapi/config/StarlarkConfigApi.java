@@ -166,6 +166,14 @@ public interface StarlarkConfigApi extends StarlarkValue {
               + " Equivalent to <code>cfg = \"target\"</code> in <code>attr.label()</code>.")
   ConfigurationTransitionApi target();
 
+  @StarlarkMethod(
+      name = "none",
+      doc =
+          "Creates a no_config transition. This is a transition that unsets all flags, intended for"
+              + " the case where a dependency is data-only and contains no code that needs to be"
+              + " built, but should only be analyzed once.")
+  ConfigurationTransitionApi none();
+
   /** The api for exec transitions. */
   @StarlarkBuiltin(
       name = "ExecTransitionFactory",
