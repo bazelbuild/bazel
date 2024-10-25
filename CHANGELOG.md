@@ -1,3 +1,23 @@
+## Release 9.0.0-pre.20241020.2 (2024-10-25)
+
+```
+Baseline: fc0bbd73106c6d67ebe22a0544a0480f5400e284
+```
+
+New features:
+
+  - The "blaze --quiet" command line option can now be used to make
+    Blaze emit much less output.
+
+Important changes:
+
+  - The stripPrefix parameter of repository_ctx.download_and_extract()
+    and repository_ctx.extract() has been renamed to strip_prefix;
+    the deprecated
+    stripPrefix name remains usable for compatibility.
+
+This release contains contributions from many people at Google, as well as Dimi Shahbaz, Fabian Meumertzheim, Rostislav Rumenov.
+
 ## Release 9.0.0-pre.20241016.1 (2024-10-22)
 
 ```
