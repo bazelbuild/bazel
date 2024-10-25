@@ -937,14 +937,15 @@ void CreateSecureOutputRoot(const blaze_util::Path& path) {
 }
 
 string GetEnv(const string& name) {
-  DWORD size = ::GetEnvironmentVariableA(name.c_str(), nullptr, 0);
+  std::wstring wname = blaze_util::CstringToWstring(name);
+  DWORD size = ::GetEnvironmentVariableW(wname.c_str(), nullptr, 0);
   if (size == 0) {
     return string();  // unset or empty envvar
   }
 
-  unique_ptr<char[]> value(new char[size]);
-  ::GetEnvironmentVariableA(name.c_str(), value.get(), size);
-  return string(value.get());
+  unique_ptr<WCHAR[]> value(new WCHAR[size]);
+  ::GetEnvironmentVariableW(wname.c_str(), value.get(), size);
+  return blaze_util::WstringToCstring(value.get());
 }
 
 string GetPathEnv(const string& name) {
@@ -970,11 +971,14 @@ bool ExistsEnv(const string& name) {
 }
 
 void SetEnv(const string& name, const string& value) {
-  // _putenv_s both calls ::SetEnvionmentVariableA and updates environ(5).
-  _putenv_s(name.c_str(), value.c_str());
+  ::SetEnvironmentVariableW(blaze_util::CstringToWstring(name).c_str(),
+                            blaze_util::CstringToWstring(value).c_str());
 }
 
-void UnsetEnv(const string& name) { SetEnv(name, ""); }
+void UnsetEnv(const string& name) {
+  ::SetEnvironmentVariableW(blaze_util::CstringToWstring(name).c_str(),
+                            nullptr);
+}
 
 bool WarnIfStartedFromDesktop() {
   // GetConsoleProcessList returns:
