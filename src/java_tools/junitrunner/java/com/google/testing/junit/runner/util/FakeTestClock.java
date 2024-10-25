@@ -40,21 +40,6 @@ public class FakeTestClock extends TestClock {
   }
 
   /**
-   * Sets the increment applied to the ticker whenever it is queried.
-   *
-   * <p>The default behavior is to auto increment by zero. i.e: The ticker is left unchanged when
-   * queried.
-   */
-  @CanIgnoreReturnValue
-  public synchronized FakeTestClock setAutoIncrementStep(Duration autoIncrementStep) {
-    if (autoIncrementStep.toNanos() < 0) {
-      throw new IllegalArgumentException("May not auto-increment by a negative amount");
-    }
-    this.autoIncrementStep = autoIncrementStep;
-    return this;
-  }
-
-  /**
    * Sets the wall time offset to the specified value. That is the offset between the wall time and
    * the monotonic advance set either via {@link #setAutoIncrementStep(Duration)} or {@link
    * #advance(Duration)}.
