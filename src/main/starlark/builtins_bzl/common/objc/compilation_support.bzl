@@ -887,14 +887,21 @@ def _register_configuration_specific_link_actions_with_cpp_variables(
             replace_libs,
         )
 
-    (cc_linking_context, seen_flags) = _create_deduped_linkopts_linking_context(ctx.label, cc_linking_context)
-
     prefixed_attr_linkopts = [
         "-Wl,%s" % linkopt
         for linkopt in attr_linkopts
     ]
 
-    (_, user_link_flags, _) = _dedup_link_flags(extra_link_args + prefixed_attr_linkopts, seen_flags)
+    seen_flags = {}
+    (_, user_link_flags, seen_flags) = _dedup_link_flags(
+        extra_link_args + prefixed_attr_linkopts,
+        seen_flags,
+    )
+    (cc_linking_context, _) = _create_deduped_linkopts_linking_context(
+        ctx.label,
+        cc_linking_context,
+        seen_flags,
+    )
 
     cc_common.link(
         name = name,
@@ -968,8 +975,7 @@ def _dedup_link_flags(flags, seen_flags = {}):
 
     return (same, new_flags, seen_flags)
 
-def _create_deduped_linkopts_linking_context(owner, cc_linking_context):
-    seen_flags = {}
+def _create_deduped_linkopts_linking_context(owner, cc_linking_context, seen_flags):
     linker_inputs = []
     for linker_input in cc_linking_context.linker_inputs.to_list():
         (same, new_flags, seen_flags) = _dedup_link_flags(
