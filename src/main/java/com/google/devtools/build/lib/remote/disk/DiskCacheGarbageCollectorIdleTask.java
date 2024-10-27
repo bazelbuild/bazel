@@ -93,10 +93,10 @@ public final class DiskCacheGarbageCollectorIdleTask implements IdleTask {
       logger.atInfo().log("Disk cache garbage collection started");
       CollectionStats stats = gc.run();
       logger.atInfo().log("%s", stats.displayString());
+    } catch (IOException e) {
+      logger.atInfo().withCause(e).log("Disk cache garbage collection failed");
     } catch (InterruptedException e) {
       logger.atInfo().withCause(e).log("Disk cache garbage collection interrupted");
-    } catch (Throwable e) {
-      logger.atWarning().withCause(e).log("Disk cache garbage collection failed");
     }
   }
 }
