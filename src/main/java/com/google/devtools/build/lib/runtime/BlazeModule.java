@@ -84,8 +84,9 @@ public abstract class BlazeModule {
   public void globalInit(OptionsParsingResult startupOptions) throws AbruptExitException {}
 
   /**
-   * Returns the file system implementation used by Bazel. It is an error if more than one module
-   * returns a file system. If all return null, the default unix file system is used.
+   * Returns the file system implementation used by Bazel.
+   *
+   * <p>Exactly one module must return a non-null value from this method, or an error will occur.
    *
    * <p>This method will be called at the beginning of Bazel startup (in-between {@link #globalInit}
    * and {@link #blazeStartup}).
@@ -93,12 +94,26 @@ public abstract class BlazeModule {
    * @param startupOptions the server's startup options
    * @param realExecRootBase absolute path fragment of the actual, underlying execution root
    */
+  @Nullable
   public ModuleFileSystem getFileSystem(
       OptionsParsingResult startupOptions, PathFragment realExecRootBase)
       throws AbruptExitException {
     return null;
   }
 
+  /**
+   * Returns the file system implementation used by Bazel to read or write build artifacts.
+   *
+   * <p>At most one module may return a non-null value from this method, or an error will occur. If
+   * no module returns a non-null value, the file system returned by {@link #getFileSystem} from
+   * this or another module will be used.
+   *
+   * <p>This method will be called at the beginning of Bazel startup (in-between {@link #globalInit}
+   * and {@link #blazeStartup}).
+   *
+   * @param fileSystem the file system returned by {@link #getFileSystem} from this or another
+   *     module
+   */
   @Nullable
   public FileSystem getFileSystemForBuildArtifacts(FileSystem fileSystem) {
     return null;
