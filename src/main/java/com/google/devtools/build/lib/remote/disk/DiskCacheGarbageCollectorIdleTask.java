@@ -36,8 +36,9 @@ public final class DiskCacheGarbageCollectorIdleTask implements IdleTask {
   private final DiskCacheGarbageCollector gc;
 
   private static final ExecutorService executorService =
-      Executors.newThreadPerTaskExecutor(
-          Thread.ofVirtual().name("disk-cache-gc-", 0).factory());
+      Executors.newFixedThreadPool(
+          Math.max(4, Runtime.getRuntime().availableProcessors()),
+          new ThreadFactoryBuilder().setNameFormat("disk-cache-gc-%d").build());
 
   private DiskCacheGarbageCollectorIdleTask(Duration delay, DiskCacheGarbageCollector gc) {
     this.delay = delay;
