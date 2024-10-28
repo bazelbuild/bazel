@@ -71,8 +71,8 @@ public class DormantDependencyTest extends AnalysisTestCase {
         "dormant/dormant.bzl",
         """
         def _r_impl(ctx):
-          print("dormant label is " + str(ctx.attr.dormant.label()))
-          print("dormant label list is " + str(ctx.attr.dormant_list[0].label()))
+          print("dormant label is " + str(ctx.attr.dormant.label))
+          print("dormant label list is " + str(ctx.attr.dormant_list[0].label))
           return [DefaultInfo()]
 
         r = rule(
@@ -132,8 +132,8 @@ public class DormantDependencyTest extends AnalysisTestCase {
         "dormant/dormant.bzl",
         """
         def _r_impl(ctx):
-          print("dormant label is " + str(ctx.attr.dormant.label()))
-          print("dormant label list is " + str(ctx.attr.dormant_list[0].label()))
+          print("dormant label is " + str(ctx.attr.dormant.label))
+          print("dormant label list is " + str(ctx.attr.dormant_list[0].label))
           return [DefaultInfo()]
 
         r = rule(

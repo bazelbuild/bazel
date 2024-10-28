@@ -1201,7 +1201,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
           return [DefaultInfo()]
 
         def _materializer(ctx):
-          return [d for d in ctx.attr.dep[ComponentInfo].dormant if "yes" in str(d.label())]
+          return [d for d in ctx.attr.dep[ComponentInfo].dormant if "yes" in str(d.label)]
 
         bin = rule(
           implementation = _bin_impl,

@@ -48,7 +48,7 @@ public record DormantDependency(Label label) implements StarlarkValue {
     printer.append("'>");
   }
 
-  @StarlarkMethod(name = "label", doc = "TBD")
+  @StarlarkMethod(name = "label", structField = true, doc = "TBD")
   public Label getLabel() {
     return label;
   }
