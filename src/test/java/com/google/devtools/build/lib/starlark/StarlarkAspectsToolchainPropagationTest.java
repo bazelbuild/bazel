@@ -2218,6 +2218,56 @@ public final class StarlarkAspectsToolchainPropagationTest extends AnalysisTestC
                 + " exec_platform: //platforms:platform_2");
   }
 
+  @Test
+  public void aspectPropagatesToToolchain_seesToolchainLabel(@TestParameter boolean autoExecGroups)
+      throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        """
+        AspectProvider = provider()
+        def _impl(target, ctx):
+          if ctx.rule.toolchains and '//rule:toolchain_type_1' in ctx.rule.toolchains:
+              return [
+                AspectProvider(value = str(target.label) + ' has toolchain ' +
+                  str(ctx.rule.toolchains['//rule:toolchain_type_1'].label))]
+          return []
+
+        toolchain_aspect = aspect(
+          implementation = _impl,
+          toolchains_aspects = ['//rule:toolchain_type_1'],
+        )
+
+        def _rule_impl(ctx):
+          pass
+
+        r1 = rule(
+          implementation = _rule_impl,
+          toolchains = ['//rule:toolchain_type_1'],
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load('//test:defs.bzl', 'r1')
+        r1(name = 't1')
+        """);
+    useConfiguration(
+        "--extra_toolchains=//toolchain:foo_toolchain",
+        "--incompatible_auto_exec_groups=" + autoExecGroups);
+
+    var analysisResult = update(ImmutableList.of("//test:defs.bzl%toolchain_aspect"), "//test:t1");
+
+    ConfiguredAspect configuredAspect =
+        Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
+
+    StarlarkProvider.Key providerKey =
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:defs.bzl")), "AspectProvider");
+
+    var value = ((StarlarkInfo) configuredAspect.get(providerKey)).getValue("value");
+    assertThat((String) value).isEqualTo("@@//test:t1 has toolchain @@//toolchain:foo");
+  }
+
   private ImmutableList<ConfiguredTargetKey> getConfiguredTargetKey(String targetLabel) {
     return skyframeExecutor.getEvaluator().getInMemoryGraph().getAllNodeEntries().stream()
         .filter(n -> isConfiguredTarget(n.getKey(), targetLabel))

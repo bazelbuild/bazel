@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Iterables;
@@ -32,6 +33,7 @@ import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkIndexable;
 import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.Structure;
 
 /**
  * A toolchain context for the aspect's base target toolchains. It is used to represent the result
@@ -105,7 +107,7 @@ public abstract class AspectBaseTargetResolvedToolchainContext
    * target toolchains.
    */
   public static class ToolchainAspectsProviders
-      implements StarlarkIndexable, ResolvedToolchainData {
+      implements StarlarkIndexable, Structure, ResolvedToolchainData {
 
     private final TransitiveInfoProviderMap aspectsProviders;
     private final Label label;
@@ -154,6 +156,27 @@ public abstract class AspectBaseTargetResolvedToolchainContext
     @Override
     public void repr(Printer printer) {
       printer.append("<ToolchainAspectsProviders for toolchain target: " + label + ">");
+    }
+
+    @Nullable
+    @Override
+    public Object getValue(String name) {
+      if (name.equals(MergedConfiguredTarget.LABEL_FIELD)) {
+        return label;
+      }
+      return null;
+    }
+
+    @Override
+    public ImmutableList<String> getFieldNames() {
+      return ImmutableList.of(MergedConfiguredTarget.LABEL_FIELD);
+    }
+
+    @Nullable
+    @Override
+    public String getErrorMessageForUnknownField(String field) {
+      // Use the default error message.
+      return null;
     }
   }
 }
