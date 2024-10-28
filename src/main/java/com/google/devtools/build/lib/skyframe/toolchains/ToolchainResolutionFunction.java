@@ -340,7 +340,11 @@ public class ToolchainResolutionFunction implements SkyFunction {
     if (forcedExecutionPlatform.isPresent()) {
       // Is the forced platform suitable?
       if (platformKeys.isPlatformSuitable(
-          forcedExecutionPlatform.get(), toolchainTypes, resolvedToolchains)) {
+          forcedExecutionPlatform.get(),
+          toolchainTypes,
+          resolvedToolchains,
+          // For the forced execution platform, ignore allowed toolchain types.
+          /* checkAllowedToolchainTypes= */ false)) {
         return forcedExecutionPlatform;
       }
     }
@@ -348,7 +352,12 @@ public class ToolchainResolutionFunction implements SkyFunction {
     var candidatePlatforms =
         platformKeys.executionPlatformKeys().stream()
             .filter(
-                epk -> platformKeys.isPlatformSuitable(epk, toolchainTypes, resolvedToolchains));
+                epk ->
+                    platformKeys.isPlatformSuitable(
+                        epk,
+                        toolchainTypes,
+                        resolvedToolchains,
+                        /* checkAllowedToolchainTypes= */ true));
 
     var toolchainTypeInfos =
         toolchainTypes.stream().map(ToolchainType::toolchainTypeInfo).collect(toImmutableSet());

@@ -279,9 +279,12 @@ record PlatformKeys(
   public boolean isPlatformSuitable(
       ConfiguredTargetKey executionPlatformKey,
       ImmutableSet<ToolchainResolutionFunction.ToolchainType> toolchainTypes,
-      Table<ConfiguredTargetKey, ToolchainTypeInfo, Label> resolvedToolchains) {
+      Table<ConfiguredTargetKey, ToolchainTypeInfo, Label> resolvedToolchains,
+      boolean checkAllowedToolchainTypes) {
     PlatformInfo executionPlatformInfo = platformInfo(executionPlatformKey);
-    if (executionPlatformInfo.checkToolchainTypes() && toolchainTypes.isEmpty()) {
+    if (checkAllowedToolchainTypes
+        && executionPlatformInfo.checkToolchainTypes()
+        && toolchainTypes.isEmpty()) {
       // This can't be suitable.
       return false;
     } else if (toolchainTypes.isEmpty()) {
