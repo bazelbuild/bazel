@@ -759,8 +759,8 @@ public class StandaloneTestStrategy extends TestStrategy {
       ImmutableSet<? extends ActionInput> expandedCoverageDir =
           actionExecutionContext
               .getOutputMetadataStore()
-              .getTreeArtifactChildren(
-                  (SpecialArtifact) testAction.getCoverageDirectoryTreeArtifact());
+              .getTreeArtifactValue((SpecialArtifact) testAction.getCoverageDirectoryTreeArtifact())
+              .getChildren();
       ImmutableSet<ActionInput> coverageSpawnMetadata =
           ImmutableSet.<ActionInput>builder()
               .addAll(expandedCoverageDir)
