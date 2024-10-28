@@ -66,8 +66,10 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
         ImmutableList.of("//constraints:linux"),
         "baz");
     rewriteModuleDotBazel(
-        "register_toolchains('//extra:extra_toolchain_linux', '//extra:extra_toolchain_mac')",
-        "register_execution_platforms('//platforms:mac', '//platforms:linux')");
+        """
+        register_toolchains("//extra:extra_toolchain_linux", "//extra:extra_toolchain_mac")
+        register_execution_platforms("//platforms:mac", "//platforms:linux")
+        """);
 
     useConfiguration("--platforms=//platforms:linux");
     ToolchainContextKey key =
@@ -103,7 +105,9 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
         ImmutableList.of("//constraints:linux"),
         "baz");
     rewriteModuleDotBazel(
-        "register_toolchains('//extra:extra_toolchain_linux', '//extra:extra_toolchain_mac')");
+        """
+        register_toolchains("//extra:extra_toolchain_linux", "//extra:extra_toolchain_mac")
+        """);
 
     useConfiguration("--platforms=//platforms:linux", "--host_platform=//platforms:linux");
     ToolchainContextKey key =
@@ -146,7 +150,9 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
         alias(name = 'linux', actual = '//platforms:linux')
         """);
     rewriteModuleDotBazel(
-        "register_toolchains('//extra:extra_toolchain_linux', '//extra:extra_toolchain_mac')");
+        """
+        register_toolchains("//extra:extra_toolchain_linux", "//extra:extra_toolchain_mac")
+        """);
 
     useConfiguration("--platforms=//platforms:linux", "--host_platform=//alias:linux");
     ToolchainContextKey key =
@@ -186,8 +192,10 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
         ImmutableList.of("//constraints:linux"),
         "baz");
     rewriteModuleDotBazel(
-        "register_toolchains('//extra:extra_toolchain_linux', '//extra:extra_toolchain_mac')",
-        "register_execution_platforms('//platforms:mac', '//platforms:linux')");
+        """
+        register_toolchains("//extra:extra_toolchain_linux", "//extra:extra_toolchain_mac")
+        register_execution_platforms("//platforms:mac", "//platforms:linux")
+        """);
 
     useConfiguration("--platforms=//platforms:linux");
     ToolchainContextKey key =
@@ -218,8 +226,10 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
         ImmutableList.of("//constraints:linux"),
         "baz");
     rewriteModuleDotBazel(
-        "register_toolchains('//extra:extra_toolchain_mac')",
-        "register_execution_platforms('//platforms:mac', '//platforms:linux')");
+        """
+        register_toolchains("//extra:extra_toolchain_mac")
+        register_execution_platforms("//platforms:mac", "//platforms:linux")
+        """);
 
     useConfiguration("--platforms=//platforms:linux");
     ToolchainContextKey key =
@@ -250,8 +260,10 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
         ImmutableList.of("//constraints:linux"),
         "baz");
     rewriteModuleDotBazel(
-        "register_toolchains('//extra:extra_toolchain_mac')",
-        "register_execution_platforms('//platforms:linux', '//platforms:mac')");
+        """
+        register_toolchains("//extra:extra_toolchain_mac")
+        register_execution_platforms("//platforms:linux", "//platforms:mac")
+        """);
 
     useConfiguration("--platforms=//platforms:linux");
     ToolchainContextKey key =
@@ -288,8 +300,10 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     ToolchainTypeRequirement extraOptionalToolchainType =
         ToolchainTypeRequirement.builder(extraOptionalToolchainTypeLabel).mandatory(false).build();
     rewriteModuleDotBazel(
-        "register_toolchains('//extra:extra_toolchain_mac')",
-        "register_execution_platforms('//platforms:linux', '//platforms:mac')");
+        """
+        register_toolchains("//extra:extra_toolchain_mac")
+        register_execution_platforms('//platforms:linux', '//platforms:mac')
+        """);
 
     useConfiguration("--platforms=//platforms:linux");
     ToolchainContextKey key =
@@ -331,7 +345,10 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
         ImmutableList.of("//constraints:linux"),
         "baz");
     rewriteModuleDotBazel(
-        "register_toolchains('//main:all',)", "register_execution_platforms('//platforms:linux')");
+        """
+        register_toolchains("//main:all")
+        register_execution_platforms("//platforms:linux")
+        """);
 
     useConfiguration("--platforms=//platforms:linux");
     ToolchainContextKey key =
@@ -394,7 +411,10 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
         ImmutableList.of("//constraints:linux"),
         "baz");
     rewriteModuleDotBazel(
-        "register_toolchains('//main:all',)", "register_execution_platforms('//platforms:linux')");
+        """
+        register_toolchains("//main:all")
+        register_execution_platforms("//platforms:linux")
+        """);
 
     useConfiguration("--platforms=//platforms:linux");
     ToolchainContextKey key =
@@ -431,7 +451,10 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
         ImmutableList.of("//constraints:linux"),
         "baz");
     rewriteModuleDotBazel(
-        "register_toolchains('//main:all',)", "register_execution_platforms('//platforms:linux')");
+        """
+        register_toolchains("//main:all")
+        register_execution_platforms("//platforms:linux")
+        """);
 
     useConfiguration("--platforms=//platforms:linux");
     ToolchainContextKey key =
@@ -465,8 +488,10 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
         ImmutableList.of("//constraints:linux"),
         "baz");
     rewriteModuleDotBazel(
-        "register_toolchains('//extra:extra_toolchain_linux')",
-        "register_execution_platforms('//platforms:linux')");
+        """
+        register_toolchains("//extra:extra_toolchain_linux")
+        register_execution_platforms("//platforms:linux")
+        """);
 
     // Set up an alias for the toolchain type.
     Label aliasedToolchainTypeLabel = Label.parseCanonicalUnchecked("//alias:toolchain_type");
@@ -495,7 +520,10 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
   @Test
   public void resolve_noToolchainType() throws Exception {
     scratch.file("host/BUILD", "platform(name = 'host')");
-    rewriteModuleDotBazel("register_execution_platforms('//platforms:mac', '//platforms:linux')");
+    rewriteModuleDotBazel(
+        """
+        register_execution_platforms("//platforms:mac", "//platforms:linux")
+        """);
 
     useConfiguration("--host_platform=//host:host", "--platforms=//platforms:linux");
     ToolchainContextKey key = ToolchainContextKey.key().configurationKey(targetConfigKey).build();
@@ -531,7 +559,9 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
         )
         """);
     rewriteModuleDotBazel(
-        "register_execution_platforms('//allowed:fails_match', '//allowed:allows_all')");
+        """
+        register_execution_platforms("//allowed:fails_match", "//allowed:allows_all")
+        """);
 
     useConfiguration("--host_platform=//allowed:fails_match");
     ToolchainContextKey key = ToolchainContextKey.key().configurationKey(targetConfigKey).build();
@@ -576,8 +606,14 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
         )
         """);
     rewriteModuleDotBazel(
-        "register_execution_platforms('//platforms:mac', '//platforms:linux',",
-        "    '//sample:sample_a', '//sample:sample_b')");
+        """
+        register_execution_platforms(
+            "//platforms:mac",
+            "//platforms:linux",
+            "//sample:sample_a",
+            "//sample:sample_b",
+        )
+        """);
 
     useConfiguration("--host_platform=//host:host", "--platforms=//platforms:linux");
     ToolchainContextKey key =
@@ -810,8 +846,10 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
         alias(name = 'linux', actual = '//platforms:linux')
         """);
     rewriteModuleDotBazel(
-        "register_toolchains('//extra:extra_toolchain_linux', '//extra:extra_toolchain_mac')",
-        "register_execution_platforms('//alias:mac', '//alias:linux')");
+        """
+        register_toolchains("//extra:extra_toolchain_linux", "//extra:extra_toolchain_mac")
+        register_execution_platforms('//alias:mac', '//alias:linux')
+        """);
 
     useConfiguration("--platforms=//platforms:linux");
     ToolchainContextKey key =
@@ -905,8 +943,10 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
         /* targetConstraints= */ ImmutableList.of("//constraints:linux"),
         /* data= */ "baz");
     rewriteModuleDotBazel(
-        "register_toolchains('//extra:extra_toolchain_linux', '//extra:extra_toolchain_mac')",
-        "register_execution_platforms('//platforms:mac', '//platforms:linux')");
+        """
+        register_toolchains("//extra:extra_toolchain_linux", "//extra:extra_toolchain_mac")
+        register_execution_platforms("//platforms:mac", "//platforms:linux")
+        """);
 
     useConfiguration("--platforms=//platforms:linux");
     ToolchainContextKey key =
@@ -989,8 +1029,10 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
         """);
 
     rewriteModuleDotBazel(
-        "register_toolchains('//a:toolchain', '//b:toolchain')",
-        "register_execution_platforms('//platforms:mac', '//platforms:linux')");
+        """
+        register_toolchains("//a:toolchain", "//b:toolchain")
+        register_execution_platforms("//platforms:mac", "//platforms:linux")
+        """);
 
     useConfiguration("--platforms=//platforms:linux");
     ToolchainContextKey key =
@@ -1026,8 +1068,10 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
         /* targetConstraints= */ ImmutableList.of("//constraints:linux"),
         /* data= */ "baz");
     rewriteModuleDotBazel(
-        "register_toolchains('//extra:extra_toolchain_linux', '//extra:extra_toolchain_mac')",
-        "register_execution_platforms('//platforms:mac', '//platforms:linux')");
+        """
+        register_toolchains("//extra:extra_toolchain_linux", "//extra:extra_toolchain_mac")
+        register_execution_platforms("//platforms:mac", "//platforms:linux")
+        """);
 
     useConfiguration("--platforms=//platforms:linux");
     ToolchainContextKey key =
@@ -1073,8 +1117,10 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
         alias(name = 'linux', actual = '//platforms:linux')
         """);
     rewriteModuleDotBazel(
-        "register_toolchains('//extra:extra_toolchain_linux', '//extra:extra_toolchain_mac')",
-        "register_execution_platforms('//alias:mac', '//alias:linux')");
+        """
+        register_toolchains("//extra:extra_toolchain_linux", "//extra:extra_toolchain_mac")
+        register_execution_platforms("//alias:mac", "//alias:linux")
+        """);
 
     useConfiguration("--platforms=//platforms:linux");
     ToolchainContextKey key =
@@ -1113,7 +1159,9 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
         /* targetConstraints= */ ImmutableList.of("//constraints:linux"),
         /* data= */ "baz");
     rewriteModuleDotBazel(
-        "register_toolchains('//extra:extra_toolchain_linux', '//extra:extra_toolchain_mac')");
+        """
+        register_toolchains("//extra:extra_toolchain_linux", "//extra:extra_toolchain_mac")
+        """);
 
     useConfiguration("--platforms=//platforms:linux", "--host_platform=//platforms:linux");
     ToolchainContextKey key =
@@ -1162,10 +1210,13 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
         alias(name = 'linux', actual = '//platforms:linux')
         """);
     rewriteModuleDotBazel(
-        "register_toolchains('//extra:extra_toolchain_linux', '//extra:extra_toolchain_mac')",
-        // This test requires an execution platform that isn't the forced platform in order to
-        // trigger.
-        "register_execution_platforms('//alias:mac')");
+        """
+        register_toolchains("//extra:extra_toolchain_linux", "//extra:extra_toolchain_mac")
+
+        # This test requires an execution platform that isn't the forced platform in order to
+        # trigger.
+        register_execution_platforms("//alias:mac")
+        """);
 
     useConfiguration("--platforms=//platforms:linux", "--host_platform=//alias:linux");
     ToolchainContextKey key =
@@ -1193,7 +1244,10 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
   public void resolve_forceExecutionPlatform_noRequiredToolchains() throws Exception {
     // This should select execution platform linux, due to the forced execution platform, even
     // though execution platform mac is registered first.
-    rewriteModuleDotBazel("register_execution_platforms('//platforms:mac', '//platforms:linux')");
+    rewriteModuleDotBazel(
+        """
+        register_execution_platforms("//platforms:mac", "//platforms:linux")
+        """);
 
     useConfiguration("--platforms=//platforms:linux");
     ToolchainContextKey key =
@@ -1217,8 +1271,10 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     // It would be absolutely insane for a user to have a toolchain w/ a config_setting that reads a
     // config_feature_flag; however, should still test the InvalidConfigurationException codepath.
     rewriteModuleDotBazel(
-        "register_toolchains('//strange:strange_toolchain')",
-        "register_execution_platforms('//platforms:mac', '//platforms:linux')");
+        """
+        register_toolchains("//strange:strange_toolchain")
+        register_execution_platforms("//platforms:mac", "//platforms:linux")
+        """);
     scratch.file(
         "strange/BUILD",
         """

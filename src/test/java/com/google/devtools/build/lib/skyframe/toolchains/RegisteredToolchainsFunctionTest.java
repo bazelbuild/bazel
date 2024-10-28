@@ -119,7 +119,10 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
         )
         """);
 
-    rewriteModuleDotBazel("register_toolchains('//toolchain:toolchain_1')");
+    rewriteModuleDotBazel(
+        """
+        register_toolchains('//toolchain:toolchain_1')
+        """);
     useConfiguration("--extra_toolchains=//extra:extra_toolchain");
 
     SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey, /* debug= */ false);
@@ -191,7 +194,10 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
 
   @Test
   public void testRegisteredToolchains_notToolchain() throws Exception {
-    rewriteModuleDotBazel("register_toolchains('//error:not_a_toolchain')");
+    rewriteModuleDotBazel(
+        """
+        register_toolchains("//error:not_a_toolchain")
+        """);
     scratch.file("error/BUILD", "filegroup(name = 'not_a_toolchain')");
 
     // Request the toolchains.
@@ -211,7 +217,10 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
   // don't provide the DeclaredToolchainInfo provider.
   @Test
   public void testRegisteredToolchains_fakeToolchain() throws Exception {
-    rewriteModuleDotBazel("register_toolchains('//error:not_a_toolchain')");
+    rewriteModuleDotBazel(
+        """
+        register_toolchains("//error:not_a_toolchain")
+        """);
     scratch.file(
         "error/fake_toolchain.bzl",
         """
@@ -245,7 +254,10 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
   // RegisteredToolchainsFunction will fail.
   @Test
   public void testRegisteredToolchains_wildcard_fakeToolchain() throws Exception {
-    rewriteModuleDotBazel("register_toolchains('//error:all')");
+    rewriteModuleDotBazel(
+        """
+        register_toolchains("//error:all")
+        """);
     scratch.file(
         "error/fake_toolchain.bzl",
         """
@@ -295,7 +307,10 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
         ImmutableList.of("//constraints:mac"),
         ImmutableList.of("//constraints:linux"),
         "baz");
-    rewriteModuleDotBazel("register_toolchains('//extra/...')");
+    rewriteModuleDotBazel(
+        """
+        register_toolchains("//extra/...")
+        """);
 
     SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey, /* debug= */ false);
     EvaluationResult<RegisteredToolchainsValue> result =
@@ -378,7 +393,10 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
     addSimpleToolchain("extra/xxx/zzz", "bbb");
     addSimpleToolchain("extra/xxx/zzz", "ccc");
     addSimpleToolchain("extra/xxx/zzz", "aaa");
-    rewriteModuleDotBazel("register_toolchains('//extra/...')");
+    rewriteModuleDotBazel(
+        """
+        register_toolchains("//extra/...")
+        """);
 
     SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey, /* debug= */ false);
     EvaluationResult<RegisteredToolchainsValue> result =
@@ -421,7 +439,10 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
 
   @Test
   public void testRegisteredToolchains_reload() throws Exception {
-    rewriteModuleDotBazel("register_toolchains('//toolchain:toolchain_1')");
+    rewriteModuleDotBazel(
+        """
+        register_toolchains("//toolchain:toolchain_1")
+        """);
 
     SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey, /* debug= */ false);
     EvaluationResult<RegisteredToolchainsValue> result =
@@ -431,7 +452,10 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
         .contains(Label.parseCanonicalUnchecked("//toolchain:toolchain_1_impl"));
 
     // Re-write the MODULE.bazel.
-    rewriteModuleDotBazel("register_toolchains('//toolchain:toolchain_2')");
+    rewriteModuleDotBazel(
+        """
+        register_toolchains("//toolchain:toolchain_2")
+        """);
 
     toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey, /* debug= */ false);
     result = requestToolchainsFromSkyframe(toolchainsKey);
@@ -602,7 +626,9 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
         """);
 
     rewriteModuleDotBazel(
-        "register_toolchains('//toolchain:toolchain_1', '//extra:extra_toolchain')");
+        """
+        register_toolchains("//toolchain:toolchain_1", "//extra:extra_toolchain")
+        """);
 
     SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey, /* debug= */ false);
     EvaluationResult<RegisteredToolchainsValue> result =
@@ -652,7 +678,9 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
         """);
 
     rewriteModuleDotBazel(
-        "register_toolchains('//toolchain:toolchain_1', '//extra:extra_toolchain')");
+        """
+        register_toolchains("//toolchain:toolchain_1", "//extra:extra_toolchain")
+        """);
 
     SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey, /* debug= */ true);
     EvaluationResult<RegisteredToolchainsValue> result =
@@ -711,7 +739,9 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
         """);
 
     rewriteModuleDotBazel(
-        "register_toolchains('//toolchain:toolchain_1', '//extra:extra_toolchain')");
+        """
+        register_toolchains("//toolchain:toolchain_1", "//extra:extra_toolchain")
+        """);
 
     // Need this so the feature flag is actually gone from the configuration.
     useConfiguration("--enforce_transitive_configs_for_config_feature_flag");

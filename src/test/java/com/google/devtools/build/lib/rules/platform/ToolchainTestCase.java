@@ -239,7 +239,9 @@ public abstract class ToolchainTestCase extends BuildViewTestCase {
   @Before
   public void createToolchains() throws Exception {
     rewriteModuleDotBazel(
-        "register_toolchains('//toolchain:toolchain_1', '//toolchain:toolchain_2')");
+        """
+        register_toolchains("//toolchain:toolchain_1", "//toolchain:toolchain_2")
+        """);
 
     scratch.file(
         "toolchain/toolchain_def.bzl",

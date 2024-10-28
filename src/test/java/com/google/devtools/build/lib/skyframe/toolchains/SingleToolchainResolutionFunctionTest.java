@@ -92,10 +92,13 @@ public class SingleToolchainResolutionFunctionTest extends ToolchainTestCase {
         ImmutableList.of("//constraints:linux"),
         "baz");
     rewriteModuleDotBazel(
-        "register_toolchains(",
-        "'//toolchain:toolchain_1',",
-        "'//toolchain:toolchain_2',",
-        "'//extra:extra_toolchain')");
+        """
+        register_toolchains(
+            "//toolchain:toolchain_1",
+            "//toolchain:toolchain_2",
+            "//extra:extra_toolchain",
+        )
+        """);
 
     SkyKey key =
         SingleToolchainResolutionValue.key(
@@ -170,7 +173,10 @@ public class SingleToolchainResolutionFunctionTest extends ToolchainTestCase {
 
     // Define the toolchains themselves.
     addToolchain("extra", "extra_toolchain", ImmutableList.of(), ImmutableList.of(), "baz");
-    rewriteModuleDotBazel("register_toolchains('//extra:extra_toolchain')");
+    rewriteModuleDotBazel(
+        """
+        register_toolchains("//extra:extra_toolchain")
+        """);
 
     // Resolve toolchains.
     SkyKey key =

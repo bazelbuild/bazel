@@ -104,12 +104,16 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
         """);
 
     rewriteModuleDotBazel(
-        "module(name='starlark_options_test')",
-        "bazel_dep(name='repo2')",
-        "local_path_override(",
-        "  module_name = 'repo2',",
-        "  path = 'test/repo2',",
-        ")");
+        """
+        module(name = "starlark_options_test")
+
+        bazel_dep(name = "repo2")
+
+        local_path_override(
+            module_name = "repo2",
+            path = "test/repo2",
+        )
+        """);
 
     OptionsParsingResult result =
         parseStarlarkOptions(
