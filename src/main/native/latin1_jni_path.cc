@@ -39,53 +39,24 @@ jstring NewStringLatin1(JNIEnv *env, const char *str) {
   return result;
 }
 
-static jfieldID String_coder_field;
-static jfieldID String_value_field;
-
-static bool CompactStringsEnabled(JNIEnv *env) {
-  if (jclass klass = env->FindClass("java/lang/String")) {
-    if (jfieldID csf = env->GetStaticFieldID(klass, "COMPACT_STRINGS", "Z")) {
-      if (env->GetStaticBooleanField(klass, csf)) {
-        if ((String_coder_field = env->GetFieldID(klass, "coder", "B"))) {
-          if ((String_value_field = env->GetFieldID(klass, "value", "[B"))) {
-            return true;
-          }
-        }
-      }
-    }
-  }
-  env->ExceptionClear();
-  return false;
-}
-
 char *GetStringLatin1Chars(JNIEnv *env, jstring jstr) {
-  jint len = env->GetStringLength(jstr);
+  static jclass String_class = env->FindClass("java/lang/String");
+  static jfieldID String_coder_field = env->GetFieldID(String_class, "coder", "B");
+  static jfieldID String_value_field = env->GetFieldID(String_class, "value", "[B");
 
-  // Fast path for latin1 strings.
-  static bool cs_enabled = CompactStringsEnabled(env);
-  const int LATIN1 = 0;
-  if (cs_enabled && env->GetByteField(jstr, String_coder_field) == LATIN1) {
-    char *result = new char[len + 1];
-    if (jobject jvalue = env->GetObjectField(jstr, String_value_field)) {
-      env->GetByteArrayRegion((jbyteArray)jvalue, 0, len, (jbyte *)result);
-    }
-    result[len] = 0;
-    return result;
-  }
-
-  const jchar *str = env->GetStringCritical(jstr, nullptr);
-  if (str == nullptr) {
+  // All path strings used in Bazel are encoded as raw bytes with a Latin1
+  // coder.
+  if (env->GetByteField(jstr, String_coder_field) != 0) {
     return nullptr;
   }
-
+  jint len = env->GetStringLength(jstr);
   char *result = new char[len + 1];
-  for (int i = 0; i < len; i++) {
-    jchar unicode = str[i];  // (unsigned)
-    result[i] = unicode <= 0x00ff ? unicode : '?';
+  if (jobject jvalue = env->GetObjectField(jstr, String_value_field)) {
+    env->GetByteArrayRegion((jbyteArray)jvalue, 0, len, (jbyte *)result);
+  } else {
+    return nullptr;
   }
-
   result[len] = 0;
-  env->ReleaseStringCritical(jstr, str);
   return result;
 }
 

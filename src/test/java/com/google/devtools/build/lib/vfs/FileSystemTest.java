@@ -46,7 +46,6 @@ import java.nio.channels.SeekableByteChannel;
 import java.nio.channels.WritableByteChannel;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
-import java.nio.file.NotDirectoryException;
 import java.nio.file.attribute.PosixFilePermission;
 import java.time.Instant;
 import java.util.concurrent.CountDownLatch;
@@ -181,28 +180,16 @@ public abstract class FileSystemTest {
             Files.getPosixFilePermissions(directoryToRemove),
             ImmutableSet.of(PosixFilePermission.OWNER_WRITE, PosixFilePermission.OWNER_EXECUTE)));
 
-    java.nio.file.Path[] entries = null;
-    try {
-      try (var entriesStream = Files.list(directoryToRemove)) {
-        entries = entriesStream.toArray(java.nio.file.Path[]::new);
-      }
-    } catch (NotDirectoryException ignored) {
+    java.nio.file.Path[] entries;
+    try (var entriesStream = Files.list(directoryToRemove)) {
+      entries = entriesStream.toArray(java.nio.file.Path[]::new);
     }
-    if (entries != null) {
-      for (var entry : entries) {
-        boolean isSymbolicLink = Files.isSymbolicLink(entry);
-        if (!isSymbolicLink && Files.isDirectory(entry)) {
-          removeEntireDirectory(entry);
-        } else {
-          if (!isSymbolicLink) {
-            Files.setPosixFilePermissions(
-                entry,
-                Sets.union(
-                    Files.getPosixFilePermissions(entry),
-                    ImmutableSet.of(PosixFilePermission.OWNER_WRITE)));
-          }
-          Files.delete(entry);
-        }
+    for (var entry : entries) {
+      boolean isSymbolicLink = Files.isSymbolicLink(entry);
+      if (!isSymbolicLink && Files.isDirectory(entry)) {
+        removeEntireDirectory(entry);
+      } else {
+        Files.delete(entry);
       }
     }
     Files.delete(directoryToRemove);

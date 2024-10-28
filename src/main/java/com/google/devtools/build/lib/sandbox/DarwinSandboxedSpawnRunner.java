@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -171,7 +172,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     // {@link AbstractSandboxSpawnRunner#getWritableDirs}.
 
     // ~/Library/Caches and ~/Library/Logs need to be writable (cf. issue #2231).
-    Path homeDir = fs.getPath(System.getProperty("user.home"));
+    Path homeDir = fs.getPath(StringEncoding.platformToInternal(System.getProperty("user.home")));
     addPathToSetIfExists(writableDirs, homeDir.getRelative("Library/Caches"));
     addPathToSetIfExists(writableDirs, homeDir.getRelative("Library/Logs"));
 
