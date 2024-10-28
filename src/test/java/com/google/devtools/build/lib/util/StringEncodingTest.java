@@ -26,7 +26,99 @@ public class StringEncodingTest {
       Charset.forName(System.getProperty("sun.jnu.encoding"));
 
   @Test
-  public void testPlatformToInternal(
+  public void testUnicodeToInternal() {
+    assertThat(unicodeToInternal("")).isSameInstanceAs("");
+    assertThat(unicodeToInternal("hello")).isSameInstanceAs("hello");
+    assertThat(unicodeToInternal("hällo"))
+        .isEqualTo(new String("hällo".getBytes(UTF_8), ISO_8859_1));
+    assertThat(unicodeToInternal("hållo"))
+        .isEqualTo(new String("hållo".getBytes(UTF_8), ISO_8859_1));
+    assertThat(unicodeToInternal("h👋llo"))
+        .isEqualTo(new String("h👋llo".getBytes(UTF_8), ISO_8859_1));
+  }
+
+  @Test
+  public void testInternalToUnicode() {
+    assertThat(internalToUnicode("")).isSameInstanceAs("");
+    assertThat(internalToUnicode("hello")).isSameInstanceAs("hello");
+    assertThat(internalToUnicode(new String("hällo".getBytes(UTF_8), ISO_8859_1)))
+        .isEqualTo("hällo");
+    assertThat(internalToUnicode(new String("hållo".getBytes(UTF_8), ISO_8859_1)))
+        .isEqualTo("hållo");
+    assertThat(internalToUnicode(new String("h👋llo".getBytes(UTF_8), ISO_8859_1)))
+        .isEqualTo("h👋llo");
+  }
+
+  @Test
+  public void testPlatformToInternal() {
+    if (SUN_JNU_ENCODING == ISO_8859_1 && OS.getCurrent() == OS.LINUX) {
+      assertThat(platformToInternal("")).isSameInstanceAs("");
+      assertThat(platformToInternal("hello")).isSameInstanceAs("hello");
+      {
+        String s = new String("hällo".getBytes(UTF_8), ISO_8859_1);
+        assertThat(platformToInternal(s)).isSameInstanceAs(s);
+      }
+      {
+        String s = new String("hållo".getBytes(UTF_8), ISO_8859_1);
+        assertThat(platformToInternal(s)).isSameInstanceAs(s);
+      }
+      {
+        String s = new String("h👋llo".getBytes(UTF_8), ISO_8859_1);
+        assertThat(platformToInternal(s)).isSameInstanceAs(s);
+      }
+      {
+        // Not valid Unicode.
+        String s = new String(new byte[] {(byte) 0xFF, (byte) 0xFE, 0X01}, ISO_8859_1);
+        assertThat(platformToInternal(s)).isSameInstanceAs(s);
+      }
+    } else {
+      assertThat(platformToInternal("")).isSameInstanceAs("");
+      assertThat(platformToInternal("hello")).isSameInstanceAs("hello");
+      assertThat(platformToInternal("hällo"))
+          .isEqualTo(new String("hällo".getBytes(UTF_8), ISO_8859_1));
+      assertThat(platformToInternal("hållo"))
+          .isEqualTo(new String("hållo".getBytes(UTF_8), ISO_8859_1));
+      assertThat(platformToInternal("h👋llo"))
+          .isEqualTo(new String("h👋llo".getBytes(UTF_8), ISO_8859_1));
+    }
+  }
+
+  @Test
+  public void testInternalToPlatform() {
+    if (SUN_JNU_ENCODING == ISO_8859_1 && OS.getCurrent() == OS.LINUX) {
+      assertThat(internalToPlatform("")).isSameInstanceAs("");
+      assertThat(internalToPlatform("hello")).isSameInstanceAs("hello");
+      {
+        String s = new String("hällo".getBytes(UTF_8), ISO_8859_1);
+        assertThat(internalToPlatform(s)).isSameInstanceAs(s);
+      }
+      {
+        String s = new String("hållo".getBytes(UTF_8), ISO_8859_1);
+        assertThat(internalToPlatform(s)).isSameInstanceAs(s);
+      }
+      {
+        String s = new String("h👋llo".getBytes(UTF_8), ISO_8859_1);
+        assertThat(internalToPlatform(s)).isSameInstanceAs(s);
+      }
+      {
+        // Not valid Unicode.
+        String s = new String(new byte[] {(byte) 0xFF, (byte) 0xFE, 0X01}, ISO_8859_1);
+        assertThat(internalToPlatform(s)).isSameInstanceAs(s);
+      }
+    } else {
+      assertThat(internalToPlatform("")).isSameInstanceAs("");
+      assertThat(internalToPlatform("hello")).isSameInstanceAs("hello");
+      assertThat(internalToPlatform(new String("hällo".getBytes(UTF_8), ISO_8859_1)))
+          .isEqualTo("hällo");
+      assertThat(internalToPlatform(new String("hållo".getBytes(UTF_8), ISO_8859_1)))
+          .isEqualTo("hållo");
+      assertThat(internalToPlatform(new String("h👋llo".getBytes(UTF_8), ISO_8859_1)))
+          .isEqualTo("h👋llo");
+    }
+  }
+
+  @Test
+  public void testPlatformToInternal_roundtrip(
       @TestParameter({"ascii", "äöüÄÖÜß", "🌱", "羅勒罗勒学名"}) String s) {
     assume().that(canEncode(s, SUN_JNU_ENCODING)).isTrue();
 
@@ -59,7 +151,8 @@ public class StringEncodingTest {
   }
 
   @Test
-  public void testUnicodeToInternal(@TestParameter({"ascii", "äöüÄÖÜß", "🌱", "羅勒罗勒学名"}) String s) {
+  public void testUnicodeToInternal_roundtrip(
+      @TestParameter({"ascii", "äöüÄÖÜß", "🌱", "羅勒罗勒学名"}) String s) {
     String internal = unicodeToInternal(s);
     // In the internal encoding, raw bytes are encoded as Latin-1.
     assertThat(StringUnsafe.getInstance().getCoder(internal)).isEqualTo(StringUnsafe.LATIN1);

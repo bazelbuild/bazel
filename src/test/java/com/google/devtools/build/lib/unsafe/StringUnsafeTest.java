@@ -63,6 +63,7 @@ public final class StringUnsafeTest {
     assertThat(stringUnsafe.isAscii("")).isTrue();
     assertThat(stringUnsafe.isAscii("hello")).isTrue();
     assertThat(stringUnsafe.isAscii("hällo")).isFalse();
+    assertThat(stringUnsafe.isAscii("hållo")).isFalse();
     assertThat(stringUnsafe.isAscii("h👋llo")).isFalse();
   }
 }

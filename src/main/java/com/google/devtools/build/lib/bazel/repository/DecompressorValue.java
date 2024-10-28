@@ -14,10 +14,8 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
-import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -65,8 +63,7 @@ public class DecompressorValue implements SkyValue {
         if (!pathFragment.isMultiSegment()) {
           return Optional.empty();
         }
-        String rawFirstSegment = pathFragment.getSegment(0);
-        return Optional.of(StringEncoding.internalToUnicode(rawFirstSegment));
+        return Optional.of(pathFragment.getSegment(0));
       }
     }
 
