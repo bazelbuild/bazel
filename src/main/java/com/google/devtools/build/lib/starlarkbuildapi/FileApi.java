@@ -90,8 +90,20 @@ public interface FileApi extends StarlarkValue {
   @StarlarkMethod(
       name = "is_directory",
       structField = true,
-      doc = "Returns true if this is a directory.")
+      doc =
+          "Returns true if this is a directory. This reflects the type the file was declared as"
+              + " (i.e. ctx.actions.declare_directory), not its type on the filesystem, which might"
+              + " differ.")
   boolean isDirectory();
+
+  @StarlarkMethod(
+      name = "is_symlink",
+      structField = true,
+      doc =
+          "Returns true if this is a directory. This reflects the type the file was declared as"
+              + " (i.e. ctx.actions.declare_symlink), not its type on the filesystem, which might"
+              + " differ.")
+  boolean isSymlink();
 
   @StarlarkMethod(
       name = "short_path",
