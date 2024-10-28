@@ -169,7 +169,7 @@ public interface StarlarkConfigApi extends StarlarkValue {
   @StarlarkMethod(
       name = "none",
       doc =
-          "Creates a no_config transition. This is a transition that unsets all flags, intended for"
+          "Creates a transition which removes all configuration, unsetting all flags. Intended for"
               + " the case where a dependency is data-only and contains no code that needs to be"
               + " built, but should only be analyzed once.")
   ConfigurationTransitionApi none();
