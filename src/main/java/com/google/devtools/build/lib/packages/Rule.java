@@ -198,11 +198,6 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   }
 
   @Override
-  public String getName() {
-    return label.getName();
-  }
-
-  @Override
   public Package getPackage() {
     return pkg;
   }

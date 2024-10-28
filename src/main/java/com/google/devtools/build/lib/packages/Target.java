@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.License.DistributionType;
-import com.google.devtools.build.lib.starlarkbuildapi.TargetApi;
 import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -27,7 +26,7 @@ import javax.annotation.Nullable;
  * <p>This StarlarkBuiltin does not contain any documentation since Starlark's Target type refers to
  * TransitiveInfoCollection.class, which contains the appropriate documentation.
  */
-public interface Target extends TargetApi, TargetData {
+public interface Target extends TargetData {
 
   /** Returns the Package to which this target belongs. */
   Package getPackage();

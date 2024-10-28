@@ -118,11 +118,6 @@ public class PackageGroup implements Target {
   }
 
   @Override
-  public String getName() {
-    return label.getName();
-  }
-
-  @Override
   public License getLicense() {
     return License.NO_LICENSE;
   }

@@ -50,6 +50,16 @@ public interface TargetData {
     return ImmutableSet.of();
   }
 
+  /**
+   * Returns the name part of the label of the target.
+   *
+   * <p>Equivalent to {@code getLabel().getName()}.
+   */
+  default String getName() {
+    return getLabel().getName();
+  }
+
+  /** Returns the label of the target. */
   Label getLabel();
 
   default boolean isRule() {

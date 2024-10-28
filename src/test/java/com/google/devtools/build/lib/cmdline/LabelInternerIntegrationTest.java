@@ -27,8 +27,8 @@ import com.google.devtools.build.lib.buildtool.util.SkyframeIntegrationTestBase;
 import com.google.devtools.build.lib.cmdline.Label.LabelInterner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.PackageValue;
-import com.google.devtools.build.lib.starlarkbuildapi.TargetApi;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.NodeEntry;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
@@ -135,7 +135,7 @@ public final class LabelInternerIntegrationTest extends SkyframeIntegrationTestB
     ImmutableSet<Label> targetLabels =
         ((PackageValue) nodeEntry.toValue())
             .getPackage().getTargets().values().stream()
-                .map(TargetApi::getLabel)
+                .map(Target::getLabel)
                 .collect(toImmutableSet());
 
     nodeEntry.markDirty(DirtyType.DIRTY);
@@ -161,7 +161,7 @@ public final class LabelInternerIntegrationTest extends SkyframeIntegrationTestB
     ImmutableSet<Label> targetLabels =
         ((PackageValue) nodeEntry.toValue())
             .getPackage().getTargets().values().stream()
-                .map(TargetApi::getLabel)
+                .map(Target::getLabel)
                 .collect(toImmutableSet());
 
     nodeEntry.markDirty(DirtyType.DIRTY);
@@ -203,7 +203,7 @@ public final class LabelInternerIntegrationTest extends SkyframeIntegrationTestB
     Set<Label> targetLabels =
         ((PackageValue) nodeEntry.toValue())
             .getPackage().getTargets().values().stream()
-                .map(TargetApi::getLabel)
+                .map(Target::getLabel)
                 .collect(toCollection(Sets::newIdentityHashSet));
 
     // Target label //hello:foo stored in InMemoryGraph should exist and be the same instance as
