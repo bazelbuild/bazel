@@ -884,10 +884,17 @@ public class OptionsParser implements OptionsParsingResult {
 
     return userOptions
         .addAll(
-            asListOfExplicitOptions().stream()
+            asCompleteListOfParsedOptions().stream()
                 .filter(GlobalRcUtils.IS_GLOBAL_RC_OPTION.negate())
                 .filter(option -> !option.getCanonicalForm().contains("default_override"))
-                .map(option -> option.getCanonicalForm())
+                .map(
+                    option ->
+                        option.getExpandedFrom() != null
+                            ? option.getCanonicalForm()
+                                + " (expanded from "
+                                + option.getExpandedFrom().getCanonicalForm()
+                                + ")"
+                            : option.getCanonicalForm())
                 .collect(toImmutableSet()))
         .addAll(
             impl.getSkippedOptions().stream()

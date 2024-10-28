@@ -217,7 +217,9 @@ public final class FlagSetFunction implements SkyFunction {
             .filter(
                 option ->
                     allOptionsAsStrings.contains(
-                        Iterables.get(Splitter.on("=").split(option), 0).replaceFirst("--", "")))
+                        Iterables.get(Splitter.on("=").split(option), 0)
+                            .replaceFirst("--", "")
+                            .replaceAll("'", "")))
             .filter(option -> !option.startsWith("--scl_config"))
             .collect(toImmutableSet());
     // TODO(b/341930725): Allow user options if they are also part of the --scl_config.
