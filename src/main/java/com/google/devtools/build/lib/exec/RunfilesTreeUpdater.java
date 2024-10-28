@@ -153,13 +153,17 @@ public class RunfilesTreeUpdater {
 
     SymlinkTreeHelper helper =
         new SymlinkTreeHelper(
-            inputManifest, runfilesDir, /* filesetTree= */ false, tree.getWorkspaceName());
+            execRoot,
+            inputManifest,
+            runfilesDir,
+            /* filesetTree= */ false,
+            tree.getWorkspaceName());
 
     switch (tree.getSymlinksMode()) {
       case SKIP -> helper.clearRunfilesDirectory();
-      case EXTERNAL -> helper.createSymlinksUsingCommand(execRoot, binTools, env, outErr);
+      case EXTERNAL -> helper.createSymlinksUsingCommand(binTools, env, outErr);
       case INTERNAL -> {
-        helper.createSymlinksDirectly(runfilesDir, tree.getMapping());
+        helper.createSymlinksDirectly(tree.getMapping());
         outputManifest.createSymbolicLink(inputManifest);
       }
     }
