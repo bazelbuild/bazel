@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.FileType;
@@ -24,7 +23,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.Arrays;
 
 /**
  * Support for parameter file generation (as used by gcc and other tools, e.g. {@code
@@ -101,12 +99,7 @@ public class ParameterFile {
       throws IOException {
     StringUnsafe stringUnsafe = StringUnsafe.getInstance();
     for (String line : arguments) {
-      Preconditions.checkArgument(
-          stringUnsafe.getCoder(line) == StringUnsafe.LATIN1,
-          "Expected internal string, got: %s (%s)",
-          line,
-          Arrays.toString(StringUnsafe.getInstance().getByteArray(line)));
-      out.write(stringUnsafe.getByteArray(line));
+      out.write(stringUnsafe.getInternalStringBytes(line));
       out.write('\n');
     }
     out.flush();

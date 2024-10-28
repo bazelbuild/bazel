@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.unsafe;
 
 import static com.google.devtools.build.lib.unsafe.UnsafeProvider.unsafe;
 
+import com.google.common.base.Preconditions;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Constructor;
@@ -93,6 +94,25 @@ public final class StringUnsafe {
    */
   public byte[] getByteArray(String obj) {
     return (byte[]) unsafe().getObject(obj, valueOffset);
+  }
+
+  /**
+   * Return the internal byte array of a String using Bazel's internal encoding (see {@link
+   * com.google.devtools.build.lib.util.StringEncoding}).
+   *
+   * <p>Use of this is unsafe. The representation may change from one JDK version to the next.
+   * Ensure you do not mutate this byte array in any way.
+   */
+  public byte[] getInternalStringBytes(String obj) {
+    // This is both a performance optimization and a correctness check: internal strings must
+    // always be coded in Latin-1, otherwise they have been constructed out of a non-ASCII string
+    // that hasn't been converted to internal encoding.
+    Preconditions.checkArgument(
+        getCoder(obj) == StringUnsafe.LATIN1,
+        "Expected string with Latin-1 coder, got: %s (%s)",
+        obj,
+        Arrays.toString(getByteArray(obj)));
+    return getByteArray(obj);
   }
 
   /** Returns whether the string is ASCII-only. */

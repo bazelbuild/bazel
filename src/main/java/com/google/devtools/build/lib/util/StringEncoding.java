@@ -19,7 +19,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import java.nio.charset.Charset;
-import java.util.Arrays;
 
 /**
  * Utility functions for reencoding strings between Bazel's internal raw byte encoding and regular
@@ -69,7 +68,8 @@ import java.util.Arrays;
  *         <li>determined by the active code page on Windows (Cp1252 on US Windows, can be set to
  *             UTF-8 by the user);
  *         <li>determined by the current locale on Linux (forced to en_US.ISO-8859-1 by the client
- *             if available, otherwise usually UTF-8).
+ *             if available, otherwise usually UTF-8);
+ *         <li>determined by the current locale on OpenBSD, which is always UTF-8.
  *       </ul>
  *       As a result, there are two cases to consider:
  *       <ul>
@@ -91,18 +91,9 @@ public final class StringEncoding {
    * <p>See the class documentation for more information on the different types of strings.
    */
   public static String internalToPlatform(String s) {
-    if (!needsReencodeForPlatform(s)) {
-      return s;
-    }
-    // This is both a performance optimization and a correctness check: internal strings must
-    // always be coded in Latin-1, otherwise they have been constructed out of a non-ASCII string
-    // that hasn't been converted to internal encoding.
-    if (STRING_UNSAFE.getCoder(s) != StringUnsafe.LATIN1) {
-      throw new IllegalArgumentException(
-          "Expected internal string LATIN1 coded, got UTF16 bytes: %s (%s)"
-              .formatted(Arrays.toString(STRING_UNSAFE.getByteArray(s)), s));
-    }
-    return new String(STRING_UNSAFE.getByteArray(s), UTF_8);
+    return needsReencodeForPlatform(s)
+        ? new String(STRING_UNSAFE.getInternalStringBytes(s), UTF_8)
+        : s;
   }
 
   /**
@@ -122,18 +113,9 @@ public final class StringEncoding {
    * <p>See the class documentation for more information on the different types of strings.
    */
   public static String internalToUnicode(String s) {
-    if (!needsReencodeForUnicode(s)) {
-      return s;
-    }
-    // This is both a performance optimization and a correctness check: internal strings must
-    // always be coded in Latin-1, otherwise they have been constructed out of a non-ASCII string
-    // that hasn't been converted to internal encoding.
-    if (STRING_UNSAFE.getCoder(s) != StringUnsafe.LATIN1) {
-      throw new IllegalArgumentException(
-          "Expected internal string LATIN1 coded, got UTF16 bytes: %s (%s)"
-              .formatted(Arrays.toString(STRING_UNSAFE.getByteArray(s)), s));
-    }
-    return new String(STRING_UNSAFE.getByteArray(s), UTF_8);
+    return needsReencodeForUnicode(s)
+        ? new String(STRING_UNSAFE.getInternalStringBytes(s), UTF_8)
+        : s;
   }
 
   /**
