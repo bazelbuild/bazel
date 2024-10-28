@@ -38,11 +38,7 @@ import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
 import com.google.devtools.build.lib.skyframe.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
-import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import com.google.devtools.build.skyframe.SkyframeLookupResult;
-import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -53,6 +49,7 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.spelling.SpellChecker;
+import net.starlark.java.syntax.Location;
 
 /**
  * A fabricated module extension "innate" to each module, used to generate all repos defined using
@@ -96,62 +93,56 @@ final class InnateRunnableExtension implements RunnableExtension {
     ImmutableList<Tag> tags =
         Iterables.getOnlyElement(usagesValue.getExtensionUsages().values()).getTags();
     RepositoryMapping repoMapping = usagesValue.getRepoMappings().get(moduleKey);
-
-    // Each tag of this usage defines a repo. The name of the tag is of the form
-    // "<bzl_file_label>%<rule_name>". Collect the .bzl files referenced and load them.
     Label.RepoContext repoContext = Label.RepoContext.of(repoMapping.ownerRepo(), repoMapping);
-    ArrayList<InnateExtensionRepo.Builder> repoBuilders = new ArrayList<>(tags.size());
-    for (Tag tag : tags) {
-      Iterator<String> parts = Splitter.on('%').split(tag.getTagName()).iterator();
-      InnateExtensionRepo.Builder repoBuilder = InnateExtensionRepo.builder().tag(tag);
-      repoBuilders.add(repoBuilder);
-      try {
-        Label label = Label.parseWithRepoContext(parts.next(), repoContext);
-        BzlLoadFunction.checkValidLoadLabel(label, starlarkSemantics);
-        repoBuilder.bzlLabel(label).ruleName(parts.next());
-      } catch (LabelSyntaxException e) {
-        throw ExternalDepsException.withCauseAndMessage(
-            Code.BAD_MODULE, e, "bad repo rule .bzl file label at %s", tag.getLocation());
-      }
+
+    // The name of the extension is of the form "<bzl_file_label>%<rule_name>".
+    Iterator<String> parts = Splitter.on('%').split(extensionId.getExtensionName()).iterator();
+    // ModuleFileFunction doesn't add usages for use_repo_rule without any instantiations, so we can
+    // assume that there is at least one tag.
+    Location location = tags.getFirst().getLocation();
+    Label bzlLabel;
+    try {
+      bzlLabel = Label.parseWithRepoContext(parts.next(), repoContext);
+      BzlLoadFunction.checkValidLoadLabel(bzlLabel, starlarkSemantics);
+    } catch (LabelSyntaxException e) {
+      throw ExternalDepsException.withCauseAndMessage(
+          Code.BAD_MODULE, e, "bad repo rule .bzl file label at %s", location);
     }
-    ImmutableSet<BzlLoadValue.Key> loadKeys =
-        repoBuilders.stream()
-            .map(r -> BzlLoadValue.keyForBzlmod(r.bzlLabel()))
-            .collect(toImmutableSet());
-    HashSet<Label> digestedLabels = new HashSet<>();
-    Fingerprint transitiveBzlDigest = new Fingerprint();
-    SkyframeLookupResult loadResult = env.getValuesAndExceptions(loadKeys);
-    for (InnateExtensionRepo.Builder repoBuilder : repoBuilders) {
-      BzlLoadValue loadedBzl;
-      try {
-        loadedBzl =
-            (BzlLoadValue)
-                loadResult.getOrThrow(
-                    BzlLoadValue.keyForBzlmod(repoBuilder.bzlLabel()),
-                    BzlLoadFailedException.class);
-      } catch (BzlLoadFailedException e) {
-        throw ExternalDepsException.withCauseAndMessage(
-            Code.BAD_MODULE,
-            e,
-            "error loading '%s' for repo rules, requested by %s",
-            repoBuilder.bzlLabel(),
-            repoBuilder.tag().getLocation());
-      }
-      if (loadedBzl == null) {
-        return null;
-      }
-      repoBuilder.loadedBzl(loadedBzl);
-      if (digestedLabels.add(repoBuilder.bzlLabel())) {
-        // Only digest this BzlLoadValue if we haven't seen this bzl label before.
-        transitiveBzlDigest.addBytes(loadedBzl.getTransitiveDigest());
-      }
+    String ruleName = parts.next();
+
+    // Load the .bzl file.
+    BzlLoadValue loadedBzl;
+    try {
+      loadedBzl =
+          (BzlLoadValue)
+              env.getValueOrThrow(
+                  BzlLoadValue.keyForBzlmod(bzlLabel), BzlLoadFailedException.class);
+    } catch (BzlLoadFailedException e) {
+      throw ExternalDepsException.withCauseAndMessage(
+          Code.BAD_MODULE,
+          e,
+          "error loading '%s' for repo rules, requested by %s",
+          bzlLabel,
+          location);
     }
+    if (loadedBzl == null) {
+      return null;
+    }
+
+    ImmutableList<InnateExtensionRepo> repos =
+        tags.stream()
+            .map(
+                tag ->
+                    InnateExtensionRepo.builder()
+                        .tag(tag)
+                        .bzlLabel(bzlLabel)
+                        .ruleName(ruleName)
+                        .loadedBzl(loadedBzl)
+                        .build())
+            .collect(toImmutableList());
 
     return new InnateRunnableExtension(
-        moduleKey,
-        repoBuilders.stream().map(InnateExtensionRepo.Builder::build).collect(toImmutableList()),
-        transitiveBzlDigest.digestAndReset(),
-        directories);
+        moduleKey, repos, loadedBzl.getTransitiveDigest(), directories);
   }
 
   @Override
@@ -276,13 +267,9 @@ final class InnateRunnableExtension implements RunnableExtension {
     interface Builder {
       Builder bzlLabel(Label value);
 
-      Label bzlLabel();
-
       Builder ruleName(String value);
 
       Builder tag(Tag value);
-
-      Tag tag();
 
       Builder loadedBzl(BzlLoadValue value);
 
