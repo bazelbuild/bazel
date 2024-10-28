@@ -191,8 +191,7 @@ public final class ArtifactFunction implements SkyFunction {
             "Null middleman action? %s",
             artifactDependencies);
 
-    FileArtifactValue individualMetadata = actionValue.getExistingFileArtifactValue(artifact);
-    return createRunfilesArtifactValue(artifact, (MiddlemanAction) action, individualMetadata, env);
+    return createRunfilesArtifactValue(artifact, (MiddlemanAction) action, env);
   }
 
   private static void mkdirForTreeArtifact(
@@ -382,7 +381,6 @@ public final class ArtifactFunction implements SkyFunction {
   private static RunfilesArtifactValue createRunfilesArtifactValue(
       Artifact artifact,
       MiddlemanAction action,
-      FileArtifactValue value,
       SkyFunction.Environment env)
       throws InterruptedException {
     ImmutableList<Artifact> inputs = action.getInputs().toList();
@@ -425,7 +423,6 @@ public final class ArtifactFunction implements SkyFunction {
     }
 
     return new RunfilesArtifactValue(
-        value,
         action.getRunfilesTree(),
         files.build(),
         fileValues.build(),

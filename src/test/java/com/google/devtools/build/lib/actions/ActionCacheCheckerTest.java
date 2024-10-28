@@ -44,15 +44,11 @@ import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissDetail;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
-import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.FakeArtifactResolverBase;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.FakeInputMetadataHandlerBase;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.MissDetailsBuilder;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
 import com.google.devtools.build.lib.clock.Clock;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testutil.ManualClock;
@@ -65,7 +61,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
@@ -433,55 +428,6 @@ public class ActionCacheCheckerTest {
 
     assertStatistics(
         0, new MissDetailsBuilder().set(MissReason.UNCONDITIONAL_EXECUTION, runs).build());
-  }
-
-  @Test
-  public void testMiddleman_notCached() throws Exception {
-    doTestNotCached(new NullMiddlemanAction(), MissReason.DIFFERENT_DEPS);
-  }
-
-  @Test
-  public void testMiddleman_cached() throws Exception {
-    doTestCached(new NullMiddlemanAction(), MissReason.DIFFERENT_DEPS);
-  }
-
-  @Test
-  public void testMiddleman_corruptedCacheEntry() throws Exception {
-    doTestCorruptedCacheEntry(new NullMiddlemanAction());
-  }
-
-  @Test
-  public void testMiddleman_differentFiles() throws Exception {
-    Action action =
-        new NullMiddlemanAction() {
-          @Override
-          public synchronized NestedSet<Artifact> getInputs() {
-            FileSystem fileSystem = getPrimaryOutput().getPath().getFileSystem();
-            Path path = fileSystem.getPath("/input");
-            ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(fileSystem.getPath("/")));
-            return NestedSetBuilder.create(
-                Order.STABLE_ORDER, ActionsTestUtil.createArtifact(root, path));
-          }
-        };
-    // Manually register outputs of middleman action in `filesToDelete` because it won't get a cache
-    // token to execute and register in `runAction`. Failing to delete outputs may populate the
-    // filesystem for other test cases. b/308017721
-    for (var output : action.getOutputs()) {
-      filesToDelete.add(output.getPath());
-    }
-    runAction(action); // Not cached so recorded as different deps.
-    writeContentAsLatin1(action.getPrimaryInput().getPath(), "modified");
-    runAction(action); // Cache miss because input files were modified.
-    writeContentAsLatin1(action.getPrimaryOutput().getPath(), "modified");
-    runAction(action); // Outputs are not considered for middleman actions, so this is a cache hit.
-    runAction(action); // Outputs are not considered for middleman actions, so this is a cache hit.
-
-    assertStatistics(
-        2,
-        new MissDetailsBuilder()
-            .set(MissReason.DIFFERENT_DEPS, 1)
-            .set(MissReason.DIFFERENT_FILES, 1)
-            .build());
   }
 
   @Test
@@ -1588,14 +1534,6 @@ public class ActionCacheCheckerTest {
     @Override
     public void resetStatistics() {
       delegate.resetStatistics();
-    }
-  }
-
-  /** A null middleman action. */
-  private static class NullMiddlemanAction extends NullAction {
-    @Override
-    public MiddlemanType getActionType() {
-      return MiddlemanType.RUNFILES_MIDDLEMAN;
     }
   }
 

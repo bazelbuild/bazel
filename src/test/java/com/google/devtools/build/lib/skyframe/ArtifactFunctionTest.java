@@ -154,16 +154,9 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     file(input1.getPath(), "source contents");
 
     SkyValue value = evaluateArtifactValue(output);
-
-    ActionLookupData generatingActionKey = output.getGeneratingActionKey();
-    EvaluationResult<ActionExecutionValue> runfilesActionResult = evaluate(generatingActionKey);
-    FileArtifactValue expectedMetadata =
-        runfilesActionResult.get(generatingActionKey).getExistingFileArtifactValue(output);
-
     assertThat(value)
         .isEqualTo(
             new RunfilesArtifactValue(
-                expectedMetadata,
                 mockRunfilesTree,
                 ImmutableList.of(input1, input2),
                 ImmutableList.of(createForTesting(input1), createForTesting(input2)),

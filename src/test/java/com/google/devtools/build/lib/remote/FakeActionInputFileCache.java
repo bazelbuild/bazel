@@ -87,7 +87,6 @@ final class FakeActionInputFileCache implements InputMetadataProvider {
     runfilesMap.put(
         runfilesMiddleman,
         new RunfilesArtifactValue(
-            FileArtifactValue.createForNormalFile(new byte[] {}, null, 0),
             runfilesTree,
             ImmutableList.of(),
             ImmutableList.of(),

@@ -23,7 +23,6 @@ import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
-import com.google.devtools.build.lib.actions.ActionMiddlemanEvent;
 import com.google.devtools.build.lib.actions.ActionResultReceivedEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
@@ -34,7 +33,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.Predicate;
 
 /** Records various action-related events for tests. */
 public final class ActionEventRecorder {
@@ -46,8 +44,6 @@ public final class ActionEventRecorder {
   private final List<ActionExecutedEvent> actionExecutedEvents =
       Collections.synchronizedList(new ArrayList<>());
   private final List<ActionResultReceivedEvent> actionResultReceivedEvents =
-      Collections.synchronizedList(new ArrayList<>());
-  private final List<ActionMiddlemanEvent> actionMiddlemanEvents =
       Collections.synchronizedList(new ArrayList<>());
   private final List<CachedActionEvent> cachedActionEvents =
       Collections.synchronizedList(new ArrayList<>());
@@ -117,13 +113,6 @@ public final class ActionEventRecorder {
   @SuppressWarnings("unused")
   @Subscribe
   @AllowConcurrentEvents
-  void actionMiddleman(ActionMiddlemanEvent event) {
-    actionMiddlemanEvents.add(event);
-  }
-
-  @SuppressWarnings("unused")
-  @Subscribe
-  @AllowConcurrentEvents
   void cachedAction(CachedActionEvent event) {
     cachedActionEvents.add(event);
   }
@@ -148,7 +137,6 @@ public final class ActionEventRecorder {
     actionCompletionEvents.clear();
     actionExecutedEvents.clear();
     actionResultReceivedEvents.clear();
-    actionMiddlemanEvents.clear();
     cachedActionEvents.clear();
     actionRewoundEvents.clear();
     actionRewindingStatsPosts.clear();
@@ -161,28 +149,24 @@ public final class ActionEventRecorder {
    * @param completedRewound Actions which ran and then are rewound by a later failed action
    * @param failedRewound Actions which fail because of lost inputs and which rewind themselves and
    *     the actions that generate those lost inputs
-   * @param exactlyOneMiddlemanEventChecks A list of predicates which should be satisfied exactly
-   *     once by the sequence of middleman events emitted
    */
   public void assertEvents(
       ImmutableList<String> runOnce,
       ImmutableList<String> completedRewound,
       ImmutableList<String> failedRewound,
-      ImmutableList<Predicate<ActionMiddlemanEvent>> exactlyOneMiddlemanEventChecks,
       ImmutableList<Integer> actionRewindingPostLostInputCounts) {
     assertEvents(
         runOnce,
         completedRewound,
         failedRewound,
-        exactlyOneMiddlemanEventChecks,
         /* expectResultReceivedForFailedRewound= */ true,
         actionRewindingPostLostInputCounts);
   }
 
   /**
-   * Like {@link #assertEvents(ImmutableList, ImmutableList, ImmutableList, ImmutableList,
-   * ImmutableList)}. The {@code expectResultReceivedForFailedRewound} should be true iff the failed
-   * rewound actions ever successfully complete.
+   * Like {@link #assertEvents(ImmutableList, ImmutableList, ImmutableList, ImmutableList)}. The
+   * {@code expectResultReceivedForFailedRewound} should be true iff the failed rewound actions ever
+   * successfully complete.
    *
    * @param expectResultReceivedForFailedRewound whether the failed rewound actions ever
    *     successfully complete, because no {@link ActionResultReceivedEvent} is emitted for a failed
@@ -192,7 +176,6 @@ public final class ActionEventRecorder {
       ImmutableList<String> runOnce,
       ImmutableList<String> completedRewound,
       ImmutableList<String> failedRewound,
-      ImmutableList<Predicate<ActionMiddlemanEvent>> exactlyOneMiddlemanEventChecks,
       boolean expectResultReceivedForFailedRewound,
       ImmutableList<Integer> actionRewindingPostLostInputCounts) {
     EventCountAsserter eventCountAsserter =
@@ -239,10 +222,6 @@ public final class ActionEventRecorder {
         /*expectedFailedRewoundEventCount=*/ 1);
 
     assertTotalLostInputCountsFromStats(actionRewindingPostLostInputCounts);
-
-    for (Predicate<ActionMiddlemanEvent> check : exactlyOneMiddlemanEventChecks) {
-      assertThat(actionMiddlemanEvents.stream().filter(check)).hasSize(1);
-    }
     assertThat(cachedActionEvents).isEmpty();
   }
 

@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupData;
-import com.google.devtools.build.lib.actions.ActionMiddlemanEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.AggregatedSpawnMetrics;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -1004,9 +1003,6 @@ public class CriticalPathComputerTest extends FoundationTestCase {
     long nanoTimeStart = clock.nanoTime();
     if (action.getActionType().isMiddleman()) {
       clock.advanceMillis(totalTime);
-      computer.middlemanAction(
-          new ActionMiddlemanEvent(
-              action, new FakeActionInputFileCache(), nanoTimeStart, clock.nanoTime()));
     } else {
       computer.actionStarted(new ActionStartedEvent(action, nanoTimeStart));
       clock.advanceMillis(totalTime);

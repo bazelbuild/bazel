@@ -972,4 +972,46 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       return "singleton marker artifact value (" + hashCode() + ")";
     }
   }
+
+  /** {@link FileArtifactValue} subclass for artifacts with constant metadata. A singleton. */
+  public static final class ConstantMetadataValue extends FileArtifactValue
+      implements FileArtifactValue.Singleton {
+    static final ConstantMetadataValue INSTANCE = new ConstantMetadataValue();
+    // This needs to not be of length 0, so it is distinguishable from a missing digest when written
+    // into a Fingerprint.
+    private static final byte[] DIGEST = new byte[1];
+
+    private ConstantMetadataValue() {}
+
+    @Override
+    public FileStateType getType() {
+      return FileStateType.REGULAR_FILE;
+    }
+
+    @Override
+    public byte[] getDigest() {
+      return DIGEST;
+    }
+
+    @Override
+    public FileContentsProxy getContentsProxy() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public long getSize() {
+      return 0;
+    }
+
+    @Override
+    public long getModifiedTime() {
+      return -1;
+    }
+
+    @Override
+    public boolean wasModifiedSinceDigest(Path path) {
+      throw new UnsupportedOperationException(
+          "ConstantMetadataValue doesn't support wasModifiedSinceDigest " + path);
+    }
+  }
 }

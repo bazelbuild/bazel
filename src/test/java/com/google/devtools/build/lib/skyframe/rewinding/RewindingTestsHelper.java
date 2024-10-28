@@ -380,7 +380,6 @@ public class RewindingTestsHelper {
             "Executing genrule //test:rule1", "Executing genrule //test:rule2"),
         /* completedRewound= */ ImmutableList.of(),
         /* failedRewound= */ ImmutableList.of(),
-        /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(),
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(0));
 
     assertThat(rewoundKeys).isEmpty();
@@ -541,7 +540,6 @@ public class RewindingTestsHelper {
         /* completedRewound= */ ImmutableList.of(
             "Executing genrule //test:rule1_1", "Executing genrule //test:rule1_2"),
         /* failedRewound= */ ImmutableList.of("Executing genrule //test:rule2"),
-        /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(),
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(2));
 
     assertOnlyActionsRewound(rewoundKeys);
@@ -620,7 +618,6 @@ public class RewindingTestsHelper {
         /* runOnce= */ ImmutableList.of(),
         /* completedRewound= */ ImmutableList.of("Executing genrule //test:rule1"),
         /* failedRewound= */ ImmutableList.of("Executing genrule //test:rule2"),
-        /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(),
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(0, 1));
 
     assertOnlyActionsRewound(rewoundKeys);
@@ -680,7 +677,6 @@ public class RewindingTestsHelper {
         /* runOnce= */ ImmutableList.of(),
         /* completedRewound= */ ImmutableList.of("Executing genrule //test:rule1"),
         /* failedRewound= */ ImmutableList.of(),
-        /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(),
         /* expectResultReceivedForFailedRewound= */ false,
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(
             ActionRewindStrategy.MAX_REPEATED_LOST_INPUTS + 1));
@@ -824,7 +820,6 @@ public class RewindingTestsHelper {
         /* runOnce= */ ImmutableList.of("Executing genrule //test:rule1"),
         /* completedRewound= */ ImmutableList.of(),
         /* failedRewound= */ ImmutableList.of(),
-        /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(),
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(1));
     assertThat(
             recorder.getActionStartedEvents().stream()
@@ -992,7 +987,6 @@ public class RewindingTestsHelper {
         /* runOnce= */ ImmutableList.of("Executing genrule //test:rule1"),
         /* completedRewound= */ ImmutableList.of("Executing genrule //test:rule2"),
         /* failedRewound= */ ImmutableList.of("Executing genrule //test:rule3"),
-        /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(),
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(1));
 
     assertOnlyActionsRewound(rewoundKeys);
@@ -1089,7 +1083,6 @@ public class RewindingTestsHelper {
         /* completedRewound= */ ImmutableList.of(
             "Executing genrule //test:rule1", "Executing genrule //test:rule2"),
         /* failedRewound= */ ImmutableList.of("Executing genrule //test:rule3"),
-        /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(),
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(2));
 
     assertOnlyActionsRewound(rewoundKeys);
@@ -1188,7 +1181,6 @@ public class RewindingTestsHelper {
         /* runOnce= */ ImmutableList.of("Executing genrule //test:rule3"),
         /* completedRewound= */ ImmutableList.of("Executing genrule //test:rule1"),
         /* failedRewound= */ ImmutableList.of("Executing genrule //test:rule2"),
-        /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(),
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(1));
 
     assertOnlyActionsRewound(rewoundKeys);
@@ -1573,7 +1565,7 @@ public class RewindingTestsHelper {
             "Linking tree/libconsumes_tree.a"),
         /* completedRewound= */ ImmutableList.of("Action tree/make_cc_dir.cc"),
         /* failedRewound= */ ImmutableList.of("Compiling tree/make_cc_dir.cc/file1.cc"),
-        /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(),
+
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(1));
 
     assertThat(rewoundKeys).hasSize(1);
@@ -1682,7 +1674,6 @@ public class RewindingTestsHelper {
         /* completedRewound= */ ImmutableList.of(
             "Compiling tree/make_cc_dir.cc/file1.cc", "Compiling tree/make_cc_dir.cc/file2.cc"),
         /* failedRewound= */ ImmutableList.of("Linking tree/libconsumes_tree.so"),
-        /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(),
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(
             lostTreeFileArtifactNames.size()));
 
@@ -1801,10 +1792,6 @@ public class RewindingTestsHelper {
             "Executing genrule //middle:gen1 [for tool]",
             "Executing genrule //middle:gen2 [for tool]"),
         /* failedRewound= */ ImmutableList.of("Executing genrule //middle:tool_user"),
-        /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(
-            middlemanEvent ->
-                ActionEventRecorder.progressMessageOrPrettyPrint(middlemanEvent.getAction())
-                    .equals("runfiles for //middle:tool")),
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(lostRunfiles.size()));
 
     if (buildRunfileManifests()) {
@@ -1979,10 +1966,6 @@ public class RewindingTestsHelper {
         /* runOnce= */ ImmutableList.of("Executing genrule //test:rule3"),
         /* completedRewound= */ ImmutableList.of("Executing genrule //test:rule1 [for tool]"),
         /* failedRewound= */ ImmutableList.of("Executing genrule //test:rule2"),
-        /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(
-            middlemanEvent ->
-                ActionEventRecorder.progressMessageOrPrettyPrint(middlemanEvent.getAction())
-                    .equals("runfiles for //test:tool")),
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(1));
 
     if (buildRunfileManifests()) {
@@ -2133,10 +2116,6 @@ public class RewindingTestsHelper {
         /* runOnce= */ ImmutableList.of(),
         /* completedRewound= */ ImmutableList.of("Action middle/gen_tree_dir [for tool]"),
         /* failedRewound= */ ImmutableList.of("Executing genrule //middle:tool_user"),
-        /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(
-            middlemanEvent ->
-                ActionEventRecorder.progressMessageOrPrettyPrint(middlemanEvent.getAction())
-                    .equals("runfiles for //middle:tool")),
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(2));
 
     if (buildRunfileManifests()) {
@@ -2266,7 +2245,6 @@ public class RewindingTestsHelper {
         /* runOnce= */ ImmutableList.of(),
         /* completedRewound= */ ImmutableList.of("Executing genrule //test:gen"),
         /* failedRewound= */ ImmutableList.of("Running consumer"),
-        /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(),
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(1));
   }
 
@@ -2354,7 +2332,6 @@ public class RewindingTestsHelper {
             "Linking genheader/consumes_header", "Compiling genheader/consumes.cc"),
         /* completedRewound= */ ImmutableList.of("Executing genrule //genheader:gen_header"),
         /* failedRewound= */ ImmutableList.of(),
-        /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(),
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(1));
 
     assertOnlyActionsRewound(rewoundKeys);
@@ -2406,7 +2383,6 @@ public class RewindingTestsHelper {
         /* runOnce= */ ImmutableList.of("Linking genheader/consumes_header"),
         /* completedRewound= */ ImmutableList.of("Executing genrule //genheader:gen_header"),
         /* failedRewound= */ ImmutableList.of("Compiling genheader/consumes.cc"),
-        /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(),
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(1));
 
     assertOnlyActionsRewound(rewoundKeys);
@@ -2513,7 +2489,6 @@ public class RewindingTestsHelper {
             "Linking genheader/consumes_header"),
         /* completedRewound= */ ImmutableList.of("Executing genrule //genheader:gen_header"),
         /* failedRewound= */ ImmutableList.of(),
-        /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(),
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(1));
 
     assertOnlyActionsRewound(rewoundKeys);
@@ -2573,7 +2548,6 @@ public class RewindingTestsHelper {
             "Linking genheader/consumes_header", "Compiling genheader/intermediate.cc"),
         /* completedRewound= */ ImmutableList.of("Executing genrule //genheader:gen_header"),
         /* failedRewound= */ ImmutableList.of("Compiling genheader/consumes.cc"),
-        /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(),
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(1));
 
     assertOnlyActionsRewound(rewoundKeys);

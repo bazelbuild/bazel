@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
-import com.google.devtools.build.lib.actions.ActionMiddlemanEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.AggregatedSpawnMetrics;
@@ -232,23 +231,6 @@ public class CriticalPathComputer {
   public void actionStarted(ActionStartedEvent event) throws InterruptedException {
     Action action = event.getAction();
     tryAddComponent(createComponent(action, event.getNanoTimeStart())).startRunning();
-  }
-
-  /**
-   * Record a middleman action execution. Even if middleman are almost instant, we record them
-   * because they depend on other actions and we need them for constructing the critical path.
-   *
-   * <p>For some rules with incorrect configuration transitions we might get notified several times
-   * for the same middleman. This should only happen if the actions are shared.
-   */
-  @Subscribe
-  @AllowConcurrentEvents
-  public void middlemanAction(ActionMiddlemanEvent event) throws InterruptedException {
-    Action action = event.getAction();
-    CriticalPathComponent component =
-        tryAddComponent(createComponent(action, event.getNanoTimeStart()));
-    finalizeActionStat(
-        event.getNanoTimeStart(), event.getNanoTimeFinish(), action, component, "middleman action");
   }
 
   /**

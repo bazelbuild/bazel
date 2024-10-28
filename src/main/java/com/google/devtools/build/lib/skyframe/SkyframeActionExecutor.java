@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
 import com.google.devtools.build.lib.actions.ActionLookupData;
-import com.google.devtools.build.lib.actions.ActionMiddlemanEvent;
 import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
 import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper.CreateOutputDirectoryException;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -688,13 +687,6 @@ public final class SkyframeActionExecutor {
 
       if (token == null) {
         boolean eventPosted = false;
-        // Notify BlazeRuntimeStatistics about the action middleman 'execution'.
-        if (action.getActionType().isMiddleman()) {
-          eventHandler.post(
-              new ActionMiddlemanEvent(
-                  action, inputMetadataProvider, actionStartTime, BlazeClock.nanoTime()));
-          eventPosted = true;
-        }
 
         if (action instanceof NotifyOnActionCacheHit notify) {
           ExtendedEventHandler contextEventHandler = selectEventHandler(action);

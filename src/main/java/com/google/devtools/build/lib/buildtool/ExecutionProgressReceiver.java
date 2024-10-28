@@ -19,7 +19,6 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
 import com.google.devtools.build.lib.actions.ActionLookupData;
-import com.google.devtools.build.lib.actions.MiddlemanType;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog;
 import com.google.devtools.build.lib.skyframe.AspectCompletionValue;
@@ -184,7 +183,7 @@ public final class ExecutionProgressReceiver
   }
 
   private static boolean isActionReportWorthy(Action action) {
-    return action.getActionType() == MiddlemanType.NORMAL;
+    return !action.getActionType().isMiddleman();
   }
 
   @Override

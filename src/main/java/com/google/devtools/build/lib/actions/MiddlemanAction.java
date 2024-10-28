@@ -22,6 +22,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.vfs.BulkDeleter;
+import com.google.devtools.build.lib.vfs.Path;
 import javax.annotation.Nullable;
 
 /**
@@ -53,7 +55,18 @@ public final class MiddlemanAction extends AbstractAction {
 
   @Override
   public ActionResult execute(ActionExecutionContext actionExecutionContext) {
-    throw new IllegalStateException("MiddlemanAction should never be executed");
+    return ActionResult.EMPTY;
+  }
+
+  @Override
+  public void prepare(
+      Path execRoot,
+      ArtifactPathResolver pathResolver,
+      @Nullable BulkDeleter bulkDeleter,
+      boolean cleanupArchivedArtifacts) {
+    // Runfiles trees are created as a side effect of building the output manifest, not the runfiles
+    // tree artifact. This method is overridden so that depending on the runfiles middleman does not
+    // delete the runfiles tree that's on the file system that someone decided it must be there.
   }
 
   @Override

@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue.ArchivedRepresentation;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -231,8 +230,8 @@ public class ActionCacheChecker {
       }
     }
     for (Artifact artifact : actionInputs.toList()) {
-      mdMap.put(
-          artifact.getExecPathString(), getInputMetadataMaybe(inputMetadataProvider, artifact));
+      FileArtifactValue inputMetadata = getInputMetadataMaybe(inputMetadataProvider, artifact);
+      mdMap.put(artifact.getExecPathString(), inputMetadata);
     }
     return !Arrays.equals(MetadataDigestUtils.fromMetadata(mdMap), entry.getFileDigest());
   }
@@ -606,6 +605,7 @@ public class ActionCacheChecker {
       actionCache.accountMiss(MissReason.UNCONDITIONAL_EXECUTION);
       return true;
     }
+
     if (entry == null) {
       reportNewAction(handler, action);
       actionCache.accountMiss(MissReason.NOT_CACHED);
@@ -657,7 +657,7 @@ public class ActionCacheChecker {
       InputMetadataProvider inputMetadataProvider, Artifact artifact) throws IOException {
     FileArtifactValue metadata = inputMetadataProvider.getInputMetadata(artifact);
     return (metadata != null && artifact.isConstantMetadata())
-        ? ConstantMetadataValue.INSTANCE
+        ? FileArtifactValue.ConstantMetadataValue.INSTANCE
         : metadata;
   }
 
@@ -666,7 +666,7 @@ public class ActionCacheChecker {
       throws IOException, InterruptedException {
     FileArtifactValue metadata = outputMetadataStore.getOutputMetadata(artifact);
     return (metadata != null && artifact.isConstantMetadata())
-        ? ConstantMetadataValue.INSTANCE
+        ? FileArtifactValue.ConstantMetadataValue.INSTANCE
         : metadata;
   }
 
@@ -992,44 +992,4 @@ public class ActionCacheChecker {
     }
   }
 
-  private static final class ConstantMetadataValue extends FileArtifactValue
-      implements FileArtifactValue.Singleton {
-    static final ConstantMetadataValue INSTANCE = new ConstantMetadataValue();
-    // This needs to not be of length 0, so it is distinguishable from a missing digest when written
-    // into a Fingerprint.
-    private static final byte[] DIGEST = new byte[1];
-
-    private ConstantMetadataValue() {}
-
-    @Override
-    public FileStateType getType() {
-      return FileStateType.REGULAR_FILE;
-    }
-
-    @Override
-    public byte[] getDigest() {
-      return DIGEST;
-    }
-
-    @Override
-    public FileContentsProxy getContentsProxy() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public long getSize() {
-      return 0;
-    }
-
-    @Override
-    public long getModifiedTime() {
-      return -1;
-    }
-
-    @Override
-    public boolean wasModifiedSinceDigest(Path path) {
-      throw new UnsupportedOperationException(
-          "ConstantMetadataValue doesn't support wasModifiedSinceDigest " + path.toString());
-    }
-  }
 }

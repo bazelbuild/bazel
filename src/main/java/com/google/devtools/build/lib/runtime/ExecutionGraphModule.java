@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionMiddlemanEvent;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
@@ -181,7 +180,6 @@ public class ExecutionGraphModule extends BlazeModule {
 
   private ActionDumpWriter writer;
   private CommandEnvironment env;
-  private ExecutionGraphOptions options;
   private NanosToMillisSinceEpochConverter nanosToMillis =
       BlazeClock.createNanosToMillisSinceEpochConverter();
   // Only relevant for Skymeld: there may be multiple events and we only count the first one.
@@ -197,11 +195,6 @@ public class ExecutionGraphModule extends BlazeModule {
   @VisibleForTesting
   void setWriter(ActionDumpWriter writer) {
     this.writer = writer;
-  }
-
-  @VisibleForTesting
-  void setOptions(ExecutionGraphOptions options) {
-    this.options = options;
   }
 
   @VisibleForTesting
@@ -234,7 +227,6 @@ public class ExecutionGraphModule extends BlazeModule {
                                 BuildReport.newBuilder().setCode(Code.BUILD_REPORT_WRITE_FAILED))
                             .build())));
       }
-      this.options = options;
     }
   }
 
@@ -327,24 +319,6 @@ public class ExecutionGraphModule extends BlazeModule {
         event.getInputMetadataProvider(),
         event.getNanoTimeStart(),
         event.getNanoTimeFinish());
-  }
-
-  /**
-   * Record a middleman action execution. We may not needs this since we expand the runfiles
-   * supplier inputs, but it's left here in case we need it.
-   *
-   * <p>TODO(vanja) remove this if it's not necessary.
-   */
-  @Subscribe
-  @AllowConcurrentEvents
-  public void middlemanAction(ActionMiddlemanEvent event) {
-    if (options.logMiddlemanActions) {
-      actionEvent(
-          event.getAction(),
-          event.getInputMetadataProvider(),
-          event.getNanoTimeStart(),
-          event.getNanoTimeFinish());
-    }
   }
 
   private void actionEvent(
