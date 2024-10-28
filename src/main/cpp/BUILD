@@ -184,6 +184,7 @@ cc_library(
         "//src/main/cpp/util",
         "//src/main/cpp/util:blaze_exit_code",
         "//src/main/cpp/util:logging",
+        "@abseil-cpp//absl/strings",
     ],
 )
 

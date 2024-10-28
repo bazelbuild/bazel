@@ -16,7 +16,9 @@
 
 #include <algorithm>
 #include <string>
+#include <string_view>
 
+#include "absl/strings/ascii.h"
 #include "src/main/cpp/util/strings.h"
 
 #define WIN32_LEAN_AND_MEAN
@@ -28,7 +30,9 @@ namespace blaze::internal {
 
 static void PreprocessEnvString(std::string *env_str) {
   int pos = env_str->find_first_of('=');
-  if (pos == string::npos) return;
+  if (pos == string::npos) {
+    return;
+  }
   std::string name = env_str->substr(0, pos);
   if (name == "PATH") {
     env_str->assign("PATH=" + env_str->substr(pos + 1));
@@ -47,11 +51,11 @@ static void PreprocessEnvString(std::string *env_str) {
                                                       "TEMP", "TEMPDIR", "TMP"};
 
   std::size_t pos = env_str->find_first_of('=');
-  if (pos == std::string::npos) return;
+  if (pos == std::string::npos) {
+    return;
+  }
 
-  std::string name = env_str->substr(0, pos);
-  // We do not care about locale. All variable names are ASCII.
-  std::transform(name.begin(), name.end(), name.begin(), ::toupper);
+  std::string name = absl::AsciiStrToUpper(env_str->substr(0, pos));
   if (std::find(std::begin(vars_to_uppercase), std::end(vars_to_uppercase),
                 name) != std::end(vars_to_uppercase)) {
     env_str->assign(name + "=" + env_str->substr(pos + 1));
@@ -60,14 +64,11 @@ static void PreprocessEnvString(std::string *env_str) {
 
 #endif  // defined(__CYGWIN__)
 
-static bool IsValidEnvName(const char* p) {
-  for (; *p && *p != '='; ++p) {
-    if (!((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') ||
-          (*p >= '0' && *p <= '9') || *p == '_' || *p == '(' || *p == ')')) {
-      return false;
-    }
-  }
-  return true;
+static bool IsValidEnvName(std::string_view s) {
+  return std::all_of(s.begin(), s.end(), [](char c) {
+    return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+        (c >= '0' && c <= '9') || c == '_' || c == '(' || c == ')';
+  });
 }
 
 // Use GetEnvironmentStringsW to get the environment variables to support
@@ -81,7 +82,7 @@ std::vector<std::string> GetProcessedEnv() {
 
   for (wchar_t* p = env; *p != L'\0'; p += wcslen(p) + 1) {
     std::string env_str = blaze_util::WstringToCstring(p);
-    if (IsValidEnvName(env_str.c_str())) {
+    if (IsValidEnvName(env_str)) {
       PreprocessEnvString(&env_str);
       processed_env.push_back(std::move(env_str));
     }
