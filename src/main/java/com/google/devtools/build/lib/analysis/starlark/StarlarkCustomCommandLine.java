@@ -1341,6 +1341,11 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     @Override
+    public boolean isSymlink() {
+      return false;
+    }
+
+    @Override
     public String getRunfilesPathString() {
       PathFragment relativePath = execPath.relativeTo(fileset.getExecPath());
       return fileset.getRunfilesPath().getRelative(relativePath).getPathString();
