@@ -14,13 +14,17 @@
 package com.google.devtools.build.lib.skyframe.toolchains;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Table;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.config.CommonOptions;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
@@ -40,7 +44,8 @@ import javax.annotation.Nullable;
 /** Details of platforms used during toolchain resolution. */
 record PlatformKeys(
     ConfiguredTargetKey targetPlatformKey,
-    ImmutableList<ConfiguredTargetKey> executionPlatformKeys) {
+    ImmutableList<ConfiguredTargetKey> executionPlatformKeys,
+    ImmutableMap<ConfiguredTargetKey, PlatformInfo> platformInfos) {
 
   private static class Builder {
     // Input data.
@@ -108,7 +113,8 @@ record PlatformKeys(
       ImmutableList<ConfiguredTargetKey> executionPlatformKeys =
           filterExecutionPlatforms(execConstraintLabels);
 
-      return new PlatformKeys(resolvedTargetPlatformKey, executionPlatformKeys);
+      return new PlatformKeys(
+          resolvedTargetPlatformKey, executionPlatformKeys, ImmutableMap.copyOf(platformInfos));
     }
 
     private void findExecutionPlatformKeys()
@@ -263,5 +269,35 @@ record PlatformKeys(
     }
 
     return null;
+  }
+
+  @Nullable
+  PlatformInfo platformInfo(ConfiguredTargetKey configuredTargetKey) {
+    return platformInfos.get(configuredTargetKey);
+  }
+
+  public boolean isPlatformSuitable(
+      ConfiguredTargetKey executionPlatformKey,
+      ImmutableSet<ToolchainResolutionFunction.ToolchainType> toolchainTypes,
+      Table<ConfiguredTargetKey, ToolchainTypeInfo, Label> resolvedToolchains) {
+    PlatformInfo executionPlatformInfo = platformInfo(executionPlatformKey);
+    if (executionPlatformInfo.checkToolchainTypes() && toolchainTypes.isEmpty()) {
+      // This can't be suitable.
+      return false;
+    } else if (toolchainTypes.isEmpty()) {
+      // Since there aren't any toolchains, we should be able to use any execution platform that
+      // has made it this far.
+      return true;
+    }
+
+    // Determine whether all mandatory toolchains are present.
+    return resolvedToolchains
+        .row(executionPlatformKey)
+        .keySet()
+        .containsAll(
+            toolchainTypes.stream()
+                .filter(ToolchainResolutionFunction.ToolchainType::mandatory)
+                .map(ToolchainResolutionFunction.ToolchainType::toolchainTypeInfo)
+                .collect(toImmutableSet()));
   }
 }

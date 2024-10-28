@@ -144,10 +144,10 @@ public class ToolchainResolutionFunction implements SkyFunction {
     }
   }
 
-  private record ToolchainType(
+  record ToolchainType(
       ToolchainTypeRequirement toolchainTypeRequirement, ToolchainTypeInfo toolchainTypeInfo) {
 
-    private ToolchainType {
+    ToolchainType {
       Objects.requireNonNull(toolchainTypeRequirement, "toolchainTypeRequirement");
       Objects.requireNonNull(toolchainTypeInfo, "toolchainTypeInfo");
     }
@@ -274,10 +274,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
     // Find and return the first execution platform which has all mandatory toolchains.
     Optional<ConfiguredTargetKey> selectedExecutionPlatformKey =
         findExecutionPlatformForToolchains(
-            toolchainTypes,
-            forcedExecutionPlatform,
-            platformKeys.executionPlatformKeys(),
-            resolvedToolchains);
+            toolchainTypes, forcedExecutionPlatform, platformKeys, resolvedToolchains);
 
     ImmutableSet<ToolchainTypeRequirement> toolchainTypeRequirements =
         toolchainTypes.stream()
@@ -337,19 +334,21 @@ public class ToolchainResolutionFunction implements SkyFunction {
   private static Optional<ConfiguredTargetKey> findExecutionPlatformForToolchains(
       ImmutableSet<ToolchainType> toolchainTypes,
       Optional<ConfiguredTargetKey> forcedExecutionPlatform,
-      ImmutableList<ConfiguredTargetKey> availableExecutionPlatformKeys,
+      PlatformKeys platformKeys,
       Table<ConfiguredTargetKey, ToolchainTypeInfo, Label> resolvedToolchains) {
 
     if (forcedExecutionPlatform.isPresent()) {
       // Is the forced platform suitable?
-      if (isPlatformSuitable(forcedExecutionPlatform.get(), toolchainTypes, resolvedToolchains)) {
+      if (platformKeys.isPlatformSuitable(
+          forcedExecutionPlatform.get(), toolchainTypes, resolvedToolchains)) {
         return forcedExecutionPlatform;
       }
     }
 
     var candidatePlatforms =
-        availableExecutionPlatformKeys.stream()
-            .filter(epk -> isPlatformSuitable(epk, toolchainTypes, resolvedToolchains));
+        platformKeys.executionPlatformKeys().stream()
+            .filter(
+                epk -> platformKeys.isPlatformSuitable(epk, toolchainTypes, resolvedToolchains));
 
     var toolchainTypeInfos =
         toolchainTypes.stream().map(ToolchainType::toolchainTypeInfo).collect(toImmutableSet());
@@ -358,27 +357,6 @@ public class ToolchainResolutionFunction implements SkyFunction {
     return candidatePlatforms.max(
         Comparator.comparingLong(
             epk -> countToolchainsOnPlatform(epk, toolchainTypeInfos, resolvedToolchains)));
-  }
-
-  private static boolean isPlatformSuitable(
-      ConfiguredTargetKey executionPlatformKey,
-      ImmutableSet<ToolchainType> toolchainTypes,
-      Table<ConfiguredTargetKey, ToolchainTypeInfo, Label> resolvedToolchains) {
-    if (toolchainTypes.isEmpty()) {
-      // Since there aren't any toolchains, we should be able to use any execution platform that
-      // has made it this far.
-      return true;
-    }
-
-    // Determine whether all mandatory toolchains are present.
-    return resolvedToolchains
-        .row(executionPlatformKey)
-        .keySet()
-        .containsAll(
-            toolchainTypes.stream()
-                .filter(ToolchainType::mandatory)
-                .map(ToolchainType::toolchainTypeInfo)
-                .collect(toImmutableSet()));
   }
 
   private static long countToolchainsOnPlatform(
