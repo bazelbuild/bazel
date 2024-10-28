@@ -203,6 +203,27 @@ EOF
   [[ -e ../output.compact ]] || fail "no compact log produced"
 }
 
+function test_coverage() {
+  cat > BUILD <<'EOF'
+sh_test(
+    name = "test",
+    srcs = ["test.sh"],
+)
+EOF
+  cat > test.sh <<'EOF'
+echo "hello world"
+EOF
+  chmod +x test.sh
+
+  bazel coverage //:test --execution_log_compact_file=output.compact >> $TEST_log 2>&1 || fail "coverage failed"
+  [[ -e output.compact ]] || fail "no compact log produced"
+
+  rm output.compact
+  bazel coverage //:test --experimental_split_coverage_postprocessing --experimental_fetch_all_coverage_outputs \
+    --execution_log_compact_file=output.compact >> $TEST_log 2>&1 || fail "coverage failed"
+  [[ -e output.compact ]] || fail "no compact log produced"
+}
+
 function test_no_remote_cache() {
   cat > BUILD <<'EOF'
 genrule(
