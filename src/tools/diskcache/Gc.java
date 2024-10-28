@@ -13,7 +13,7 @@
 // limitations under the License.
 package diskcache;
 
-import static java.lang.Math.min;
+import static java.lang.Math.max;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.remote.disk.DiskCacheGarbageCollector;
@@ -75,7 +75,7 @@ public final class Gc {
 
   private static final ExecutorService executorService =
       Executors.newFixedThreadPool(
-          min(4, Runtime.getRuntime().availableProcessors()),
+          max(4, Runtime.getRuntime().availableProcessors()),
           new ThreadFactoryBuilder().setNameFormat("disk-cache-gc-%d").build());
 
   public static void main(String[] args) throws Exception {
