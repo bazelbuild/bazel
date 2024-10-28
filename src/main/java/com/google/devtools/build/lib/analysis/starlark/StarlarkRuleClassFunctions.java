@@ -457,7 +457,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       test = testUnchecked == Starlark.UNBOUND ? false : (Boolean) testUnchecked;
     } else {
       failIf(
-          !(parentUnchecked instanceof StarlarkRuleFunction), "Parent needs to be a Starlark rule");
+          !(parentUnchecked instanceof StarlarkRuleFunction),
+          "Parent needs to be a Starlark rule, was %s",
+          Starlark.type(parentUnchecked));
       // Assuming parent is already exported.
       failIf(
           ((StarlarkRuleFunction) parentUnchecked).ruleClass == null,
