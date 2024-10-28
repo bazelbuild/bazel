@@ -29,6 +29,14 @@ filegroup(
     ],
 )
 
+filegroup(
+    name = "embedded_tools",
+    srcs = [
+        "BUILD.tools",
+        "android_extensions.bzl",
+    ],
+)
+
 platform(
     name = "arm64-v8a",
     constraint_values = [
