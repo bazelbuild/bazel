@@ -121,16 +121,24 @@ public final class DiskCacheGarbageCollector {
       long totalBytes,
       long deletedEntries,
       long deletedBytes,
-      boolean concurrentUpdate) {
+      boolean concurrentUpdate,
+      Duration elapsedTime) {
 
     /** Returns a human-readable summary. */
     public String displayString() {
-      return "Deleted %d of %d files, reclaimed %s of %s%s"
+      double elapsedSeconds = elapsedTime.toSecondsPart() + elapsedTime.toMillisPart() / 1000.0;
+      int filesPerSecond = (int) Math.round((double) deletedEntries / elapsedSeconds);
+      int mbPerSecond = (int) Math.round((deletedBytes / (1024.0 * 1024.0)) / elapsedSeconds);
+
+      return "Deleted %d of %d files, reclaimed %s of %s in %.2f seconds (%d files/s, %d MB/s)%s"
           .formatted(
               deletedEntries(),
               totalEntries(),
               bytesCountToDisplayString(deletedBytes()),
               bytesCountToDisplayString(totalBytes()),
+              elapsedSeconds,
+              filesPerSecond,
+              mbPerSecond,
               concurrentUpdate() ? " (concurrent update detected)" : "");
     }
   }
@@ -180,6 +188,7 @@ public final class DiskCacheGarbageCollector {
   }
 
   private CollectionStats runUnderLock() throws IOException, InterruptedException {
+    Instant startTime = Instant.now();
     EntryScanner scanner = new EntryScanner();
     EntryDeleter deleter = new EntryDeleter();
 
@@ -191,13 +200,15 @@ public final class DiskCacheGarbageCollector {
     }
 
     DeletionStats deletionStats = deleter.await();
+    Duration elapsedTime = Duration.between(startTime, Instant.now());
 
     return new CollectionStats(
         allEntries.size(),
         allEntries.stream().mapToLong(Entry::size).sum(),
         deletionStats.deletedEntries(),
         deletionStats.deletedBytes(),
-        deletionStats.concurrentUpdate());
+        deletionStats.concurrentUpdate(),
+        elapsedTime);
   }
 
   /** Lists all disk cache entries, performing I/O in parallel. */
