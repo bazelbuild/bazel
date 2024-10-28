@@ -592,12 +592,6 @@ function add_rules_license() {
 
 function add_protobuf() {
   add_bazel_dep "protobuf" "$1"
-  cat >> "$1" <<EOF
-single_version_override(
-    module_name = "protobuf",
-    version = "29.0-rc2",
-)
-EOF
 }
 
 function add_rules_testing() {
