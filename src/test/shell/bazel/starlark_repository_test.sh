@@ -2985,8 +2985,8 @@ EOF
   expect_log "I see: nothing"
 
   local marker_file=$(bazel info output_base)/external/@+_repo_rules+foo.marker
-  # the marker file for this repo should contain a reference to "@@+_repo_rules+bar". Mangle that.
-  sed -i'' -e 's/@@+_repo_rules+bar/@@LOL@@LOL/g' ${marker_file}
+  # the marker file for this repo should contain a reference to "@@+_repo_rules2+bar". Mangle that.
+  sed -i'' -e 's/@@+_repo_rules2+bar/@@LOL@@LOL/g' ${marker_file}
 
   # Running Bazel again shouldn't crash, and should result in a refetch.
   bazel shutdown
@@ -3013,7 +3013,7 @@ EOF
 def _foo(rctx):
   rctx.file("BUILD", "filegroup(name='foo')")
   # this repo might not have been defined yet
-  rctx.watch("../+_repo_rules+bar/BUILD")
+  rctx.watch("../+_repo_rules2+bar/BUILD")
   print("I see something!")
 foo=repository_rule(_foo)
 EOF
