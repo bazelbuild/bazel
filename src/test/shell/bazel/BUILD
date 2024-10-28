@@ -906,7 +906,7 @@ sh_test(
 
 sh_test(
     name = "disk_cache_test",
-    size = "small",
+    size = "medium",
     srcs = ["disk_cache_test.sh"],
     data = [":test-deps"],
     tags = ["no_windows"],
