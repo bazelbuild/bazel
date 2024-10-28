@@ -272,7 +272,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     return new UnresolvedSymlinkArtifactValue(symlink);
   }
 
-  @VisibleForTesting
   public static FileArtifactValue createForNormalFile(
       byte[] digest, @Nullable FileContentsProxy proxy, long size) {
     return new RegularFileArtifactValue(digest, proxy, size);

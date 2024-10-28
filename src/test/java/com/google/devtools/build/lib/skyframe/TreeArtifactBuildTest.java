@@ -40,10 +40,8 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.BuildFailedException;
-import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
-import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.TestAction;
 import com.google.devtools.build.lib.actions.util.TestAction.DummyAction;
@@ -62,14 +60,11 @@ import com.google.devtools.build.lib.skyframe.serialization.testutils.Serializat
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
-import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -603,51 +598,6 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     assertThat(errors).hasSize(2);
     assertThat(errors.get(0).getMessage()).contains("child links/link is a dangling symbolic link");
     assertThat(errors.get(1).getMessage()).contains("not all outputs were created or valid");
-  }
-
-  @Test
-  public void constructMetadataForDigest() throws Exception {
-    SpecialArtifact out = createTreeArtifact("output");
-    Action action =
-        new SimpleTestAction(out) {
-          @Override
-          void run(ActionExecutionContext actionExecutionContext) throws IOException {
-            TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(out, "one");
-            TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(out, "two");
-            writeFile(child1, "one");
-            writeFile(child2, "two");
-
-            OutputMetadataStore md = actionExecutionContext.getOutputMetadataStore();
-            FileStatus stat = child1.getPath().stat(Symlinks.NOFOLLOW);
-            FileArtifactValue metadata1 =
-                md.constructMetadataForDigest(
-                    child1,
-                    stat,
-                    DigestHashFunction.SHA256.getHashFunction().hashString("one", UTF_8).asBytes());
-
-            stat = child2.getPath().stat(Symlinks.NOFOLLOW);
-            FileArtifactValue metadata2 =
-                md.constructMetadataForDigest(
-                    child2,
-                    stat,
-                    DigestHashFunction.SHA256.getHashFunction().hashString("two", UTF_8).asBytes());
-
-            // The metadata will not be equal to reading from the filesystem since the filesystem
-            // won't have the digest. However, we should be able to detect that nothing could have
-            // been modified.
-            assertThat(
-                    metadata1.couldBeModifiedSince(
-                        FileArtifactValue.createForTesting(child1.getPath())))
-                .isFalse();
-            assertThat(
-                    metadata2.couldBeModifiedSince(
-                        FileArtifactValue.createForTesting(child2.getPath())))
-                .isFalse();
-          }
-        };
-
-    registerAction(action);
-    buildArtifact(out);
   }
 
   @Test

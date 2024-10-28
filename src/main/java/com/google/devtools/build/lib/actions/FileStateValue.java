@@ -105,7 +105,6 @@ public abstract class FileStateValue extends RegularFileValue implements HasDige
         yield createWithStatNoFollow(
             rootedPath,
             checkNotNull(FileStatusWithDigestAdapter.maybeAdapt(stat), rootedPath),
-            /* digestWillBeInjected= */ false,
             syscallCache,
             tsgm);
       }
@@ -115,7 +114,6 @@ public abstract class FileStateValue extends RegularFileValue implements HasDige
   public static FileStateValue createWithStatNoFollow(
       RootedPath rootedPath,
       FileStatusWithDigest statNoFollow,
-      boolean digestWillBeInjected,
       XattrProvider xattrProvider,
       @Nullable TimestampGranularityMonitor tsgm)
       throws IOException {
@@ -123,8 +121,7 @@ public abstract class FileStateValue extends RegularFileValue implements HasDige
     if (statNoFollow.isFile()) {
       return statNoFollow.isSpecialFile()
           ? SpecialFileStateValue.fromStat(path.asFragment(), statNoFollow, tsgm)
-          : createRegularFileStateValueFromPath(
-              path, statNoFollow, digestWillBeInjected, xattrProvider, tsgm);
+          : createRegularFileStateValueFromPath(path, statNoFollow, xattrProvider, tsgm);
     } else if (statNoFollow.isDirectory()) {
       return DIRECTORY_FILE_STATE_NODE;
     } else if (statNoFollow.isSymbolicLink()) {
@@ -147,17 +144,13 @@ public abstract class FileStateValue extends RegularFileValue implements HasDige
   private static FileStateValue createRegularFileStateValueFromPath(
       Path path,
       FileStatusWithDigest stat,
-      boolean digestWillBeInjected,
       XattrProvider xattrProvider,
       @Nullable TimestampGranularityMonitor tsgm)
       throws InconsistentFilesystemException {
     checkState(stat.isFile(), path);
 
     try {
-      // If the digest will be injected, we can skip calling getFastDigest, but we need to store a
-      // contents proxy because if the digest is injected but is not available from the filesystem,
-      // we will need the proxy to determine whether the file was modified.
-      byte[] digest = digestWillBeInjected ? null : tryGetDigest(path, stat, xattrProvider);
+      byte[] digest = tryGetDigest(path, stat, xattrProvider);
       if (digest == null) {
         // Note that TimestampGranularityMonitor#notifyDependenceOnFileTime is a thread-safe method.
         if (tsgm != null) {
