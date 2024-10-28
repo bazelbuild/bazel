@@ -24,10 +24,10 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
 
 /** Definition of the {@code repo()} function used in REPO.bazel files. */
-public final class RepoCallable {
-  private RepoCallable() {}
+public final class RepoFileGlobals {
+  private RepoFileGlobals() {}
 
-  public static final RepoCallable INSTANCE = new RepoCallable();
+  public static final RepoFileGlobals INSTANCE = new RepoFileGlobals();
 
   @StarlarkMethod(
       name = "ignore_directories",
@@ -40,12 +40,16 @@ public final class RepoCallable {
               @ParamType(type = Sequence.class, generic1 = String.class),
             })
       })
-  public Object ignoreDirectories(Iterable<?> dirsUnchecked, StarlarkThread thread)
+  public void ignoreDirectories(Iterable<?> dirsUnchecked, StarlarkThread thread)
       throws EvalException {
     Sequence<String> dirs = Sequence.cast(dirsUnchecked, String.class, "dirs");
     RepoThreadContext context = RepoThreadContext.fromOrFail(thread, "repo()");
+
+    if (context.isIgnoredDirectoriesSet()) {
+      throw new EvalException("'ignored_directories()' can only be called once");
+    }
+
     context.setIgnoredDirectories(dirs);
-    return Starlark.NONE;
   }
 
   @StarlarkMethod(
@@ -53,19 +57,21 @@ public final class RepoCallable {
       documented = false, // documented separately
       extraKeywords = @Param(name = "kwargs"),
       useStarlarkThread = true)
-  public Object repoCallable(Map<String, Object> kwargs, StarlarkThread thread)
+  public void repoCallable(Map<String, Object> kwargs, StarlarkThread thread)
       throws EvalException {
     RepoThreadContext context = RepoThreadContext.fromOrFail(thread, "repo()");
     if (context.isRepoFunctionCalled()) {
       throw Starlark.errorf("'repo' can only be called once in the REPO.bazel file");
     }
-    context.setRepoFunctionCalled();
+
+    if (context.isIgnoredDirectoriesSet()) {
+      throw Starlark.errorf("if repo() is called, it must be called before any other functions");
+    }
 
     if (kwargs.isEmpty()) {
       throw Starlark.errorf("at least one argument must be given to the 'repo' function");
     }
 
     context.setPackageArgsMap(kwargs);
-    return Starlark.NONE;
   }
 }

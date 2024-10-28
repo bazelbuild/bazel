@@ -275,4 +275,17 @@ EOF
   fi
 }
 
+test_ignore_directories_after_repo_in_repo_bazel() {
+  rm -rf work && mkdir work && cd work
+  setup_module_dot_bazel
+  cat >REPO.bazel <<'EOF'
+ignore_directories(["**/sub", "foo/.hidden*"])
+repo(default_visibility=["//visibility:public"])
+EOF
+
+  touch BUILD.bazel
+  bazel query //:all >& "$TEST_log" && fail "failure expected"
+  expect_log "it must be called before any other functions"  
+}
+
 run_suite "Integration tests for .bazelignore"

@@ -56,11 +56,8 @@ public class RepoThreadContext extends StarlarkThreadContext {
     return repoFunctionCalled;
   }
 
-  public void setRepoFunctionCalled() {
-    repoFunctionCalled = true;
-  }
-
   public void setPackageArgsMap(Map<String, Object> kwargs) {
+    repoFunctionCalled = true;
     this.packageArgsMap = ImmutableMap.copyOf(kwargs);
   }
 
@@ -69,12 +66,12 @@ public class RepoThreadContext extends StarlarkThreadContext {
   }
 
   public void setIgnoredDirectories(Collection<String> ignoredDirectories) throws EvalException {
-    if (ignoredDirectoriesSet) {
-      throw new EvalException("'ignored_directories()' can only be called once");
-    }
-
     ignoredDirectoriesSet = true;
     this.ignoredDirectories = ImmutableList.copyOf(ignoredDirectories);
+  }
+
+  public boolean isIgnoredDirectoriesSet() {
+    return ignoredDirectoriesSet;
   }
 
   public ImmutableList<String> getIgnoredDirectories() {

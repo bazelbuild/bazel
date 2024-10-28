@@ -947,7 +947,7 @@ public final class UnixGlob {
           || (j < path.length && matchesPattern(pattern, path, i, j + 1, patternCache, matchMode));
     }
     if (j == path.length) {
-      return matchMode == MatchMode.CAN_MATCH_CHILD ? true : false;
+      return matchMode == MatchMode.CAN_MATCH_CHILD;
     }
     if (matches(pattern[i], path[j], patternCache)) {
       return matchesPattern(pattern, path, i + 1, j + 1, patternCache, matchMode);

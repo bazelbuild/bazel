@@ -37,8 +37,6 @@ import javax.annotation.Nullable;
 
 /**
  * A set of subdirectories to ignore during target pattern matching or globbing.
- *
- * <p>This is currently just a prefix, but will eventually support glob-style wildcards.
  */
 public final class IgnoredSubdirectories {
   public static final IgnoredSubdirectories EMPTY =
