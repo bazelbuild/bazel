@@ -112,6 +112,13 @@ message ScriptPath {
 // Represents paths to replace to allow localization of an ExecRequest when the
 // build takes place on a different filesystem from where executing the
 // ExecRequest would occur.
+//
+// In addition, the PathToReplace#Type enumeration is also reused to specify the
+// possible base directory for a redirect output. The redirect output will be
+// downloaded under one of the specified base directory in the downstream
+// filesystem.
+// TODO: b/331203854 - Rename this message to reflect both redirect output and
+// ExecRequest use cases.
 message PathToReplace {
   enum Type {
     UNSPECIFIED = 0;
@@ -119,6 +126,7 @@ message PathToReplace {
     BUILD_WORKING_DIRECTORY = 2;
     BUILD_WORKSPACE_DIRECTORY = 3;
     TEST_LOG_SUBDIR = 4;
+    HOME = 5;
   }
   Type type = 1;
   bytes value = 2;
