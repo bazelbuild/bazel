@@ -65,7 +65,8 @@ static void PreprocessEnvString(std::string *env_str) {
 #endif  // defined(__CYGWIN__)
 
 static bool IsValidEnvName(std::string_view s) {
-  return std::all_of(s.begin(), s.end(), [](char c) {
+  std::string_view name = s.substr(0, s.find('='));
+  return std::all_of(name.begin(), name.end(), [](char c) {
     return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
         (c >= '0' && c <= '9') || c == '_' || c == '(' || c == ')';
   });
