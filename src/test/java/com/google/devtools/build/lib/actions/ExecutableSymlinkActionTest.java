@@ -17,10 +17,12 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.Mockito.mock;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
@@ -72,7 +74,7 @@ public class ExecutableSymlinkActionTest {
             execRoot.getPathString(), execRoot.getFileSystem(), SyscallCache.NO_CACHE),
         ActionInputPrefetcher.NONE,
         actionKeyContext,
-        /* outputMetadataStore= */ null,
+        mock(OutputMetadataStore.class),
         /* rewindingEnabled= */ false,
         LostInputsCheck.NONE,
         outErr,

@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactExpander;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -242,6 +243,7 @@ public final class SymlinkAction extends AbstractAction {
       }
     }
 
+    maybeInjectMetadata(actionExecutionContext);
     return ActionResult.EMPTY;
   }
 
@@ -323,6 +325,44 @@ public final class SymlinkAction extends AbstractAction {
               e.getMessage());
       DetailedExitCode code = createDetailedExitCode(message, Code.LINK_TOUCH_IO_EXCEPTION);
       throw new ActionExecutionException(message, e, this, false, code);
+    }
+  }
+
+  /**
+   * Propagates metadata from the input artifact if possible.
+   *
+   * <p>This is an optimization that saves filesystem operations - we know the output is just a
+   * symlink to the input, so we may be able to skip constructing its metadata from the filesystem.
+   *
+   * <p>In addition to reducing filesystem operations, this allows us to provide richer information
+   * for the symlink metadata. For example, if the input metadata is a {@link
+   * com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue}, the output
+   * metadata will be as well.
+   *
+   * <p>In cases where propagating the input metadata is incorrect ({@linkplain Artifact#isDirectory
+   * directory artifacts}) or cases where the input metadata cannot be obtained, this method does
+   * nothing. The output symlink will be read back from the filesystem after this action finishes
+   * executing.
+   */
+  private void maybeInjectMetadata(ActionExecutionContext ctx) {
+    if (ctx.getActionFileSystem() != null) {
+      return; // Action filesystems are responsible for their own metadata injection.
+    }
+    if (targetType == TargetType.FILESET) {
+      return;
+    }
+    Artifact primaryInput = getPrimaryInput();
+    if (primaryInput == null || primaryInput.isDirectory()) {
+      return;
+    }
+    FileArtifactValue metadata;
+    try {
+      metadata = ctx.getInputMetadataProvider().getInputMetadata(primaryInput);
+    } catch (IOException e) {
+      return;
+    }
+    if (metadata != null) {
+      ctx.getOutputMetadataStore().injectFile(getPrimaryOutput(), metadata);
     }
   }
 

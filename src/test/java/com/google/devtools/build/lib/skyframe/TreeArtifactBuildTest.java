@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.TestAction;
 import com.google.devtools.build.lib.actions.util.TestAction.DummyAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
+import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
@@ -884,11 +885,33 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
             TreeFileArtifact.createTreeOutput(treeArtifact, "link/file"));
   }
 
+  @Test
+  public void symlinkActionToTreeArtifact() throws Exception {
+    SpecialArtifact tree1 = createTreeArtifact("tree1");
+    registerAction(
+        new SimpleTestAction(/* output= */ tree1) {
+          @Override
+          void run(ActionExecutionContext context) throws IOException {
+            touchFile(tree1.getPath().getChild("file"));
+          }
+        });
+
+    SpecialArtifact tree2 = createTreeArtifact("tree2");
+    registerAction(
+        SymlinkAction.toArtifact(
+            ActionsTestUtil.NULL_ACTION_OWNER, tree1, tree2, "Symlinking tree2 -> tree1"));
+
+    // The SymlinkAction should produce a TreeArtifactValue with tree2 as the parent.
+    TreeArtifactValue tree2Value = buildArtifact(tree2);
+    assertThat(tree2Value.getChildren())
+        .containsExactly(TreeFileArtifact.createTreeOutput(tree2, "file"));
+  }
+
   private abstract static class SimpleTestAction extends TestAction {
     private final Button button;
 
     SimpleTestAction(Artifact output) {
-      this(/*inputs=*/ ImmutableList.of(), output);
+      this(/* inputs= */ ImmutableList.of(), output);
     }
 
     SimpleTestAction(Iterable<Artifact> inputs, Artifact output) {

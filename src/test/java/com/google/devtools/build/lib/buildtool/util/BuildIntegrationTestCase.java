@@ -20,6 +20,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
@@ -39,6 +40,7 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.InlineFileArtifactValue;
@@ -704,12 +706,37 @@ public abstract class BuildIntegrationTestCase {
    * Given a label (which has typically, but not necessarily, just been built), returns the
    * collection of files that it produces.
    *
-   * @param target the label of the target whose artifacts are requested.
+   * @param target the label of the target whose artifacts are requested
    */
   protected ImmutableList<Artifact> getArtifacts(String target)
-      throws LabelSyntaxException, NoSuchPackageException, NoSuchTargetException,
-          InterruptedException, TransitionException, InvalidConfigurationException {
+      throws LabelSyntaxException,
+          NoSuchPackageException,
+          NoSuchTargetException,
+          InterruptedException,
+          TransitionException,
+          InvalidConfigurationException {
     return getFilesToBuild(getConfiguredTarget(target)).toList();
+  }
+
+  /**
+   * Given a label (which has typically, but not necessarily, just been built), returns the file it
+   * produces ending with the given suffix.
+   *
+   * <p>It is an error if the given target produces multiple files with the given suffix.
+   *
+   * @param target the label of the target whose artifact is requested
+   * @param suffix suffix of the artifact requested
+   */
+  protected Artifact getArtifact(String target, String suffix)
+      throws LabelSyntaxException,
+          NoSuchPackageException,
+          NoSuchTargetException,
+          InterruptedException,
+          TransitionException,
+          InvalidConfigurationException {
+    return getArtifacts(target).stream()
+        .filter(a -> a.getExecPathString().endsWith(suffix))
+        .collect(onlyElement());
   }
 
   /**
@@ -719,8 +746,12 @@ public abstract class BuildIntegrationTestCase {
    * @param target the label of the requested target.
    */
   protected ConfiguredTarget getConfiguredTarget(String target)
-      throws LabelSyntaxException, NoSuchPackageException, NoSuchTargetException,
-          InterruptedException, TransitionException, InvalidConfigurationException {
+      throws LabelSyntaxException,
+          NoSuchPackageException,
+          NoSuchTargetException,
+          InterruptedException,
+          TransitionException,
+          InvalidConfigurationException {
     getPackageManager().getTarget(events.reporter(), Label.parseCanonical(target));
     return getSkyframeExecutor()
         .getConfiguredTargetForTesting(events.reporter(), label(target), getTargetConfiguration());
@@ -992,21 +1023,30 @@ public abstract class BuildIntegrationTestCase {
   }
 
   protected String readInlineOutput(Artifact output) throws IOException, InterruptedException {
-    assertThat(output).isInstanceOf(DerivedArtifact.class);
+    FileArtifactValue metadata = getOutputMetadata(output);
+    assertThat(metadata).isInstanceOf(InlineFileArtifactValue.class);
+    return new String(
+        FileSystemUtils.readContentAsLatin1(((InlineFileArtifactValue) metadata).getInputStream()));
+  }
 
+  protected FileArtifactValue getOutputMetadata(Artifact output)
+      throws IOException, InterruptedException {
+    assertThat(output).isInstanceOf(DerivedArtifact.class);
     SkyValue actionExecutionValue =
         getSkyframeExecutor()
             .getEvaluator()
             .getExistingValue(((DerivedArtifact) output).getGeneratingActionKey());
     assertThat(actionExecutionValue).isInstanceOf(ActionExecutionValue.class);
+    return ((ActionExecutionValue) actionExecutionValue).getExistingFileArtifactValue(output);
+  }
 
-    FileArtifactValue fileArtifactValue =
-        ((ActionExecutionValue) actionExecutionValue).getExistingFileArtifactValue(output);
-    assertThat(fileArtifactValue).isInstanceOf(InlineFileArtifactValue.class);
-
-    return new String(
-        FileSystemUtils.readContentAsLatin1(
-            ((InlineFileArtifactValue) fileArtifactValue).getInputStream()));
+  protected FileArtifactValue getSourceArtifactMetadata(Artifact sourceArtifact)
+      throws InterruptedException {
+    assertThat(sourceArtifact).isInstanceOf(SourceArtifact.class);
+    SkyValue sourceArtifactValue =
+        getSkyframeExecutor().getEvaluator().getExistingValue(sourceArtifact);
+    assertThat(sourceArtifactValue).isInstanceOf(FileArtifactValue.class);
+    return (FileArtifactValue) sourceArtifactValue;
   }
 
   /**
