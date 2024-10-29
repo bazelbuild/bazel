@@ -58,6 +58,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ForkJoinPool;
+import java.util.function.BiConsumer;
 import javax.annotation.Nullable;
 
 /**
@@ -148,11 +149,11 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     }
 
     /**
-     * For each unique parent seen by this builder, passes the aggregated metadata to {@link
-     * TreeArtifactInjector#injectTree}.
+     * For each unique parent seen by this builder, passes the aggregated metadata to the specified
+     * {@link BiConsumer}.
      */
-    public void injectTo(TreeArtifactInjector treeInjector) {
-      map.forEach((parent, builder) -> treeInjector.injectTree(parent, builder.build()));
+    public void forEach(BiConsumer<SpecialArtifact, TreeArtifactValue> consumer) {
+      map.forEach((parent, builder) -> consumer.accept(parent, builder.build()));
     }
   }
 

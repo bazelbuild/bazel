@@ -191,7 +191,7 @@ public final class FilesystemValueCheckerTest {
     }
 
     Map<Artifact, TreeArtifactValue> treeArtifactData = new HashMap<>();
-    treeArtifacts.injectTo(treeArtifactData::put);
+    treeArtifacts.forEach(treeArtifactData::put);
 
     return ActionsTestUtil.createActionExecutionValue(
         /* artifactData= */ ImmutableMap.of(), ImmutableMap.copyOf(treeArtifactData));

@@ -3101,7 +3101,6 @@ java_library(
 java_library(
     name = "tree_artifact_value",
     srcs = [
-        "TreeArtifactInjector.java",
         "TreeArtifactValue.java",
     ],
     deps = [

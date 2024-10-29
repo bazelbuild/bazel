@@ -617,7 +617,7 @@ public final class TreeArtifactValueTest {
   public void multiBuilder_empty_injectsNothing() {
     Map<SpecialArtifact, TreeArtifactValue> results = new HashMap<>();
 
-    TreeArtifactValue.newMultiBuilder().injectTo(results::put);
+    TreeArtifactValue.newMultiBuilder().forEach(results::put);
 
     assertThat(results).isEmpty();
   }
@@ -633,7 +633,7 @@ public final class TreeArtifactValueTest {
     treeArtifacts
         .putChild(child1, metadataWithId(1))
         .putChild(child2, metadataWithId(2))
-        .injectTo(results::put);
+        .forEach(results::put);
 
     assertThat(results)
         .containsExactly(
@@ -658,7 +658,7 @@ public final class TreeArtifactValueTest {
         .putChild(parent1Child1, metadataWithId(1))
         .putChild(parent2Child, metadataWithId(3))
         .putChild(parent1Child2, metadataWithId(2))
-        .injectTo(results::put);
+        .forEach(results::put);
 
     assertThat(results)
         .containsExactly(
@@ -686,7 +686,7 @@ public final class TreeArtifactValueTest {
     builder
         .putChild(child, childMetadata)
         .setArchivedRepresentation(archivedTreeArtifact, archivedTreeArtifactMetadata)
-        .injectTo(results::put);
+        .forEach(results::put);
 
     assertThat(results)
         .containsExactly(
@@ -705,7 +705,7 @@ public final class TreeArtifactValueTest {
     FileArtifactValue metadata = metadataWithId(1);
     Map<SpecialArtifact, TreeArtifactValue> results = new HashMap<>();
 
-    builder.setArchivedRepresentation(archivedTreeArtifact, metadata).injectTo(results::put);
+    builder.setArchivedRepresentation(archivedTreeArtifact, metadata).forEach(results::put);
 
     assertThat(results)
         .containsExactly(
@@ -732,7 +732,7 @@ public final class TreeArtifactValueTest {
         .setArchivedRepresentation(archivedArtifact1, archivedArtifact1Metadata)
         .putChild(parent1Child, parent1ChildMetadata)
         .putChild(parent2Child, parent2ChildMetadata)
-        .injectTo(results::put);
+        .forEach(results::put);
 
     assertThat(results)
         .containsExactly(
@@ -762,7 +762,7 @@ public final class TreeArtifactValueTest {
         .putChild(parent1Child, parent1ChildMetadata)
         .putChild(parent2Child, parent2ChildMetadata)
         .remove(parent1)
-        .injectTo(results::put);
+        .forEach(results::put);
 
     assertThat(results)
         .containsExactly(
@@ -778,7 +778,7 @@ public final class TreeArtifactValueTest {
     SpecialArtifact missingTree = createTreeArtifact("bin/tree");
     Map<SpecialArtifact, TreeArtifactValue> results = new HashMap<>();
 
-    builder.remove(missingTree).injectTo(results::put);
+    builder.remove(missingTree).forEach(results::put);
 
     assertThat(results).isEmpty();
   }
@@ -813,7 +813,7 @@ public final class TreeArtifactValueTest {
         .setArchivedRepresentation(archivedArtifact, archivedArtifactMetadata)
         .remove(parent)
         .putChild(child2, child2Metadata)
-        .injectTo(results::put);
+        .forEach(results::put);
 
     assertThat(results)
         .containsExactly(
