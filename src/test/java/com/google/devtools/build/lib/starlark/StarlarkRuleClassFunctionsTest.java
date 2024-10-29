@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
+import com.google.devtools.build.lib.analysis.config.transitions.NoConfigTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttrModule;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkConfig;
@@ -1375,6 +1376,12 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   public void testAttrCfgTarget_object() throws Exception {
     Attribute attr = buildAttribute("a1", "attr.label(cfg = config.target(), allow_files = True)");
     assertThat(NoTransition.isInstance(attr.getTransitionFactory())).isTrue();
+  }
+
+  @Test
+  public void testAttrCfgNone() throws Exception {
+    Attribute attr = buildAttribute("a1", "attr.label(cfg = config.none(), allow_files = True)");
+    assertThat(NoConfigTransition.isInstance(attr.getTransitionFactory())).isTrue();
   }
 
   private void writeRuleCfgTestRule(String cfg) throws Exception {
