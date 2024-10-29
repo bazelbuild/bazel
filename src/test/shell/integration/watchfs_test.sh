@@ -144,7 +144,7 @@ EOF
 foo
 EOF
 
-  sleep 1
+  sleep 5
   bazel build --watchfs //... &> "$TEST_log" || fail "Expected success."
   expect_not_log "WARNING:.*falling back to manually"
   expect_log "Hello, Unicode!"
@@ -154,7 +154,7 @@ EOF
 bar
 EOF
 
-  sleep 1
+  sleep 5
   bazel build --watchfs //... &> "$TEST_log" || fail "Expected success."
   expect_not_log "WARNING:.*falling back to manually"
   expect_not_log "Hello, Unicode!"
