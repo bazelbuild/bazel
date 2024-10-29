@@ -47,7 +47,7 @@ import java.nio.charset.Charset;
  *
  * <p>While allowing the user a great deal of flexibility, this requires great care when {@link
  * String}s are passed into or out of Bazel via Java standard library functions or external APIs.
- * The following three difference types of strings need to be distinguished as if they were
+ * The following three different types of strings need to be distinguished as if they were
  * different Java types:
  *
  * <ul>

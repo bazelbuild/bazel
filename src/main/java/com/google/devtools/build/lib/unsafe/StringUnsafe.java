@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.unsafe;
 
 import static com.google.devtools.build.lib.unsafe.UnsafeProvider.unsafe;
 
-import com.google.common.base.Preconditions;
+import com.google.common.base.Ascii;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Constructor;
@@ -107,11 +107,13 @@ public final class StringUnsafe {
     // This is both a performance optimization and a correctness check: internal strings must
     // always be coded in Latin-1, otherwise they have been constructed out of a non-ASCII string
     // that hasn't been converted to internal encoding.
-    Preconditions.checkArgument(
-        getCoder(obj) == StringUnsafe.LATIN1,
-        "Expected string with Latin-1 coder, got: %s (%s)",
-        obj,
-        Arrays.toString(getByteArray(obj)));
+    if (getCoder(obj) != LATIN1) {
+      // Truncation is ASCII only and thus doesn't change the encoding.
+      String truncatedString = Ascii.truncate(obj, 1000, "...");
+      throw new IllegalArgumentException(
+          "Expected internal string with Latin-1 coder, got: %s (%s)"
+              .formatted(truncatedString, Arrays.toString(getByteArray(truncatedString))));
+    }
     return getByteArray(obj);
   }
 

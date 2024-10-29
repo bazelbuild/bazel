@@ -58,9 +58,9 @@ public final class MacOSXFsEventsDiffAwareness extends LocalDiffAwareness {
 
   /**
    * Helper function to start the watch of <code>paths</code>, which is expected to be an array of
-   * byte arrays containing the UTF-8 of the paths to watch, called by the constructor.
+   * byte arrays containing the UTF-8 bytes of the paths to watch, called by the constructor.
    */
-  private native void create(Object[] paths, double latency);
+  private native void create(byte[][] paths, double latency);
 
   /**
    * Runs the main loop to listen for fsevents.
@@ -77,7 +77,7 @@ public final class MacOSXFsEventsDiffAwareness extends LocalDiffAwareness {
     // TODO(jmmv): This can break if the user interrupts as anywhere in this function.
     Preconditions.checkState(!opened);
     opened = true;
-    create(new Object[] {watchRoot.toAbsolutePath().toString().getBytes(UTF_8)}, latency);
+    create(new byte[][] {watchRoot.toAbsolutePath().toString().getBytes(UTF_8)}, latency);
 
     // Start a thread that just contains the OS X run loop.
     CountDownLatch listening = new CountDownLatch(1);
@@ -114,7 +114,7 @@ public final class MacOSXFsEventsDiffAwareness extends LocalDiffAwareness {
    * @return the array of paths (in the form of byte arrays containing the UTF-8 representation)
    *     modified since the last call, or null if we can't precisely tell what changed
    */
-  private native Object[] poll();
+  private native byte[][] poll();
 
   static {
     boolean loadJniWorked = false;
@@ -148,13 +148,13 @@ public final class MacOSXFsEventsDiffAwareness extends LocalDiffAwareness {
       return EVERYTHING_MODIFIED;
     }
     Preconditions.checkState(!closed);
-    Object[] polledPaths = poll();
+    byte[][] polledPaths = poll();
     if (polledPaths == null) {
       return EVERYTHING_MODIFIED;
     } else {
       ImmutableSet.Builder<Path> paths = ImmutableSet.builder();
-      for (Object pathBytes : polledPaths) {
-        paths.add(Paths.get(new String((byte[]) pathBytes, UTF_8)));
+      for (byte[] pathBytes : polledPaths) {
+        paths.add(Paths.get(new String(pathBytes, UTF_8)));
       }
       return newView(paths.build());
     }
