@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.worker;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.devtools.build.lib.util.StringUtil.decodeBytestringUtf8;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Stopwatch;
@@ -262,7 +263,10 @@ final class WorkerSpawnRunner implements SpawnRunner {
         digest = ByteString.copyFromUtf8(HashCode.fromBytes(digestBytes).toString());
       }
 
-      requestBuilder.addInputsBuilder().setPath(input.getExecPathString()).setDigest(digest);
+      requestBuilder
+          .addInputsBuilder()
+          .setPath(decodeBytestringUtf8(input.getExecPathString()))
+          .setDigest(digest);
     }
     if (workerOptions.workerVerbose) {
       requestBuilder.setVerbosity(VERBOSE_LEVEL);
