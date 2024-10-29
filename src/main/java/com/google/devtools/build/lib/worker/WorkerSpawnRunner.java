@@ -265,7 +265,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
       requestBuilder
           .addInputsBuilder()
-          .setPath(reencodeInternalToExternal(input.getExecPathString()))
+          .setPath(decodeBytestringUtf8(input.getExecPathString()))
           .setDigest(digest);
     }
     if (workerOptions.workerVerbose) {
