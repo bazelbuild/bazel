@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.worker;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.devtools.build.lib.util.StringUtil.reencodeInternalToExternal;
+import static com.google.devtools.build.lib.util.StringUtil.decodeBytestringUtf8;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Stopwatch;
