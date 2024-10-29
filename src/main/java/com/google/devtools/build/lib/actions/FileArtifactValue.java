@@ -15,17 +15,19 @@ package com.google.devtools.build.lib.actions;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Preconditions;
 import com.google.common.hash.HashFunction;
 import com.google.common.io.BaseEncoding;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
@@ -197,8 +199,8 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       Artifact artifact, FileValue fileValue, XattrProvider xattrProvider) throws IOException {
     // Artifacts with known generating actions should obtain the derived artifact's SkyValue
     // from the generating action, instead.
-    Preconditions.checkState(!artifact.hasKnownGeneratingAction());
-    Preconditions.checkState(!artifact.isConstantMetadata());
+    checkState(!artifact.hasKnownGeneratingAction());
+    checkState(!artifact.isConstantMetadata());
     boolean isFile = fileValue.isFile();
     return create(
         artifact.getPath(),
@@ -255,7 +257,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     if (digest == null) {
       digest = DigestUtils.getDigestWithManualFallback(path, xattrProvider);
     }
-    Preconditions.checkState(digest != null, path);
+    checkState(digest != null, path);
     return createForNormalFile(digest, proxy, size);
   }
 
@@ -300,7 +302,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
    * {@link ActionCacheChecker}.
    */
   public static FileArtifactValue createProxy(byte[] digest) {
-    Preconditions.checkNotNull(digest);
+    checkNotNull(digest);
     return createForNormalFile(digest, /* proxy= */ null, /* size= */ 0);
   }
 
@@ -532,7 +534,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
         long size,
         int locationIndex,
         @Nullable PathFragment materializationExecPath) {
-      this.digest = Preconditions.checkNotNull(digest);
+      this.digest = checkNotNull(digest);
       this.size = size;
       this.locationIndex = locationIndex;
       this.materializationExecPath = materializationExecPath;
@@ -694,7 +696,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
 
     @Override
     public void extendExpireAtEpochMilli(long expireAtEpochMilli) {
-      Preconditions.checkState(expireAtEpochMilli > this.expireAtEpochMilli);
+      checkState(expireAtEpochMilli > this.expireAtEpochMilli);
       this.expireAtEpochMilli = expireAtEpochMilli;
     }
 
@@ -798,8 +800,8 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     private final byte[] digest;
 
     private InlineFileArtifactValue(byte[] data, byte[] digest) {
-      this.data = Preconditions.checkNotNull(data);
-      this.digest = Preconditions.checkNotNull(digest);
+      this.data = checkNotNull(data);
+      this.digest = checkNotNull(digest);
     }
 
     @Override
@@ -854,23 +856,43 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
   }
 
   /**
-   * Used to resolve source symlinks when diskless.
-   *
-   * <p>When the optional per-action file system creates symlinks, it relies on metadata ({@link
-   * FileArtifactValue}) to resolve the actual underlying data. In the case of remote or inline
-   * files, this information is self-contained. However, in the case of source files, the path is
-   * required to resolve the content.
+   * Metadata for an output of {@link com.google.devtools.build.lib.analysis.actions.SymlinkAction}
+   * that resolves to a source file.
    */
-  public static final class SourceFileArtifactValue extends FileArtifactValue {
-    private final PathFragment path;
-    private final byte[] digest;
-    private final long size;
+  public static final class SymlinkToSourceFileArtifactValue extends FileArtifactValue {
 
-    public SourceFileArtifactValue(PathFragment path, byte[] digest, long size) {
-      Preconditions.checkArgument(path.isAbsolute(), "path %s isn't absolute", path);
-      this.path = path;
-      this.digest = Preconditions.checkNotNull(digest);
-      this.size = size;
+    /** Creates metadata for a symlink pointing to a known {@link SourceArtifact}. */
+    public static SymlinkToSourceFileArtifactValue toSourceArtifact(
+        SourceArtifact sourceArtifact, FileArtifactValue sourceFileMetadata) {
+      return new SymlinkToSourceFileArtifactValue(
+          sourceArtifact.getPath().asFragment(), sourceFileMetadata, sourceArtifact.getExecPath());
+    }
+
+    /**
+     * Creates metadata for a symlink pointing to a source file that is not a known {@link
+     * SourceArtifact}.
+     *
+     * <p>This is only expected to happen for a symlink to an FDO profile file when {@code
+     * --fdo_profile} is specified as an absolute path.
+     */
+    public static SymlinkToSourceFileArtifactValue toUnknownSourceFile(
+        PathFragment resolvedPath, FileArtifactValue sourceFileMetadata) {
+      return new SymlinkToSourceFileArtifactValue(
+          resolvedPath, sourceFileMetadata, /* sourceArtifactExecPath= */ null);
+    }
+
+    private final PathFragment resolvedPath;
+    private final FileArtifactValue sourceFileMetadata;
+    @Nullable private final PathFragment sourceArtifactExecPath;
+
+    private SymlinkToSourceFileArtifactValue(
+        PathFragment resolvedPath,
+        FileArtifactValue sourceFileMetadata,
+        @Nullable PathFragment sourceArtifactExecPath) {
+      checkArgument(resolvedPath.isAbsolute(), "Resolved path must be absolute: %s", resolvedPath);
+      this.resolvedPath = resolvedPath;
+      this.sourceFileMetadata = checkNotNull(sourceFileMetadata);
+      this.sourceArtifactExecPath = sourceArtifactExecPath;
     }
 
     @Override
@@ -878,52 +900,73 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       if (this == o) {
         return true;
       }
-      if (!(o instanceof SourceFileArtifactValue that)) {
+      if (!(o instanceof SymlinkToSourceFileArtifactValue that)) {
         return false;
       }
-      return path.equals(that.path) && Arrays.equals(digest, that.digest) && size == that.size;
+      return resolvedPath.equals(that.resolvedPath)
+          && sourceFileMetadata.equals(that.sourceFileMetadata)
+          && Objects.equals(sourceArtifactExecPath, that.sourceArtifactExecPath);
     }
 
     @Override
     public int hashCode() {
-      int result = path.hashCode();
-      result = 31 * result + Arrays.hashCode(digest);
-      result = 31 * result + Long.hashCode(size);
-      return result;
+      return HashCodes.hashObjects(resolvedPath, sourceFileMetadata, sourceArtifactExecPath);
     }
 
-    public PathFragment getPath() {
-      return path;
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this)
+          .add("resolvedPath", resolvedPath)
+          .add("sourceFileMetadata", sourceFileMetadata)
+          .add("sourceArtifactExecPath", sourceArtifactExecPath)
+          .toString();
+    }
+
+    /** Returns the absolute path to which the symlink resolves. */
+    public PathFragment getResolvedPath() {
+      return resolvedPath;
+    }
+
+    /**
+     * If the symlink resolves to a {@link SourceArtifact}, returns that artifact's exec path.
+     *
+     * <p>Returns {@code null} when the symlink does not resolve to a known {@link SourceArtifact}.
+     * See {@link #toUnknownSourceFile}.
+     */
+    @Nullable
+    public PathFragment getSourceArtifactExecPath() {
+      return sourceArtifactExecPath;
     }
 
     @Override
     public FileStateType getType() {
-      return FileStateType.REGULAR_FILE;
+      return sourceFileMetadata.getType();
     }
 
+    @Nullable
     @Override
     public byte[] getDigest() {
-      return digest;
+      return sourceFileMetadata.getDigest();
     }
 
     @Override
     public FileContentsProxy getContentsProxy() {
-      throw new UnsupportedOperationException();
+      return sourceFileMetadata.getContentsProxy();
     }
 
     @Override
     public long getSize() {
-      return size;
+      return sourceFileMetadata.getSize();
     }
 
     @Override
     public long getModifiedTime() {
-      throw new UnsupportedOperationException();
+      return sourceFileMetadata.getModifiedTime();
     }
 
     @Override
-    public boolean wasModifiedSinceDigest(Path path) {
-      throw new UnsupportedOperationException();
+    public boolean wasModifiedSinceDigest(Path path) throws IOException {
+      return sourceFileMetadata.wasModifiedSinceDigest(path);
     }
   }
 
