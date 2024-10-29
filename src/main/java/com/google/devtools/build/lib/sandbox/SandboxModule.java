@@ -67,8 +67,11 @@ import javax.annotation.Nullable;
 /** This module provides the Sandbox spawn strategy. */
 public final class SandboxModule extends BlazeModule {
 
+  private static final String MAC_INDEX_FILE = ".DS_Store";
+
   private static final ImmutableSet<String> SANDBOX_BASE_PERSISTENT_DIRS =
       ImmutableSet.of(
+          MAC_INDEX_FILE,
           SandboxStash.SANDBOX_STASH_BASE,
           SandboxStash.TEMPORARY_SANDBOX_STASH_BASE,
           AsynchronousTreeDeleter.MOVED_TRASH_DIR);
