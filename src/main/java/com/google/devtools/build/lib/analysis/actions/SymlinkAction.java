@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis.actions;
 
+import static com.google.devtools.build.lib.unix.FileStatus.S_IXUSR;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -34,8 +36,11 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.SymlinkAction.Code;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.io.IOException;
 import javax.annotation.Nullable;
 
@@ -246,19 +251,32 @@ public final class SymlinkAction extends AbstractAction {
       return;
     }
 
-    Path inputPath = actionExecutionContext.getInputPath(getPrimaryInput());
+    Artifact primaryInput = getPrimaryInput();
+    Path inputPath = actionExecutionContext.getInputPath(primaryInput);
+
+    // Source artifacts are probably in the syscall cache. Generated artifacts are probably not.
+    SyscallCache syscallCache =
+        primaryInput.isSourceArtifact()
+            ? actionExecutionContext.getSyscallCache()
+            : SyscallCache.NO_CACHE;
     try {
-      // Validate that input path is a file with the executable bit set.
-      if (!inputPath.isFile()) {
-        String message = String.format("'%s' is not a file", getPrimaryInput().getExecPathString());
+      FileStatus stat = syscallCache.statIfFound(inputPath, Symlinks.FOLLOW);
+      if (stat == null || !stat.isFile()) {
+        String message = String.format("'%s' is not a file", primaryInput.getExecPathString());
         throw new ActionExecutionException(
             message, this, false, createDetailedExitCode(message, Code.EXECUTABLE_INPUT_NOT_FILE));
       }
-      if (!inputPath.isExecutable()) {
+      boolean isExecutable;
+      if (stat.getPermissions() != -1) {
+        isExecutable = (stat.getPermissions() & S_IXUSR) != 0;
+      } else {
+        isExecutable = inputPath.isExecutable();
+      }
+      if (!isExecutable) {
         String message =
             String.format(
                 "failed to create symbolic link '%s': file '%s' is not executable",
-                getPrimaryOutput().getExecPathString(), getPrimaryInput().getExecPathString());
+                getPrimaryOutput().getExecPathString(), primaryInput.getExecPathString());
         throw new ActionExecutionException(
             message, this, false, createDetailedExitCode(message, Code.EXECUTABLE_INPUT_IS_NOT));
       }
@@ -267,7 +285,7 @@ public final class SymlinkAction extends AbstractAction {
           String.format(
               "failed to create symbolic link '%s' to the '%s' due to I/O error: %s",
               getPrimaryOutput().getExecPathString(),
-              getPrimaryInput().getExecPathString(),
+              primaryInput.getExecPathString(),
               e.getMessage());
       DetailedExitCode detailedExitCode =
           createDetailedExitCode(message, Code.EXECUTABLE_INPUT_CHECK_IO_EXCEPTION);
