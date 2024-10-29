@@ -73,7 +73,10 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
 
   @Test
   public void flagSetsFunction_returns_modified_buildOptions() throws Exception {
-    rewriteWorkspace("workspace(name = 'my_workspace')");
+    rewriteWorkspace(
+        """
+        workspace(name = "my_workspace")
+        """);
     scratch.file(
         "test/PROJECT.scl",
         """
@@ -104,7 +107,10 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
   @Test
   public void given_unknown_sclConfig_flagSetsFunction_returns_original_buildOptions()
       throws Exception {
-    rewriteWorkspace("workspace(name = 'my_workspace')");
+    rewriteWorkspace(
+        """
+        workspace(name = "my_workspace")
+        """);
     scratch.file(
         "test/PROJECT.scl",
         """

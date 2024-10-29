@@ -1148,7 +1148,10 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
   @Test
   public void repoName_inMainWorkspaceRepo() throws Exception {
     setBuildLanguageOptions("--noenable_bzlmod", "--enable_workspace");
-    rewriteWorkspace("workspace(name = 'my_repo')");
+    rewriteWorkspace(
+        """
+        workspace(name = "my_repo")
+        """);
     scratch.file(
         "foo.bzl",
         """
@@ -1235,7 +1238,10 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
   @Test
   public void repoName_inWorkspaceDep() throws Exception {
     setBuildLanguageOptions("--enable_workspace");
-    rewriteWorkspace("local_repository(name = 'dep', path = 'dep_path')");
+    rewriteWorkspace(
+        """
+        local_repository(name = "dep", path = "dep_path")
+        """);
     scratch.file("dep_path/WORKSPACE", "workspace(name = 'dep')");
     scratch.file(
         "dep_path/foo.bzl",

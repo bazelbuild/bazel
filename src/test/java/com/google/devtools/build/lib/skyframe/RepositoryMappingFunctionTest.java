@@ -144,12 +144,14 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
   public void testSimpleMapping() throws Exception {
     setBuildLanguageOptions("--enable_workspace");
     rewriteWorkspace(
-        "workspace(name = 'good')",
-        "local_repository(",
-        "    name = 'a_remote_repo',",
-        "    path = '/a_remote_repo',",
-        "    repo_mapping = {'@a' : '@b'},",
-        ")");
+        """
+        workspace(name = "good")
+        local_repository(
+            name = "a_remote_repo",
+            path = "/a_remote_repo",
+            repo_mapping = {"@a": "@b"},
+        )
+        """);
     RepositoryName name = RepositoryName.create("a_remote_repo");
     SkyKey skyKey = RepositoryMappingValue.key(name);
     EvaluationResult<RepositoryMappingValue> result = eval(skyKey);
@@ -389,17 +391,19 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
   public void testMultipleRepositoriesWithMapping() throws Exception {
     setBuildLanguageOptions("--enable_workspace");
     rewriteWorkspace(
-        "workspace(name = 'good')",
-        "local_repository(",
-        "    name = 'a_remote_repo',",
-        "    path = '/a_remote_repo',",
-        "    repo_mapping = {'@a' : '@b'},",
-        ")",
-        "local_repository(",
-        "    name = 'other_remote_repo',",
-        "    path = '/other_remote_repo',",
-        "    repo_mapping = {'@x' : '@y'},",
-        ")");
+        """
+        workspace(name = "good")
+        local_repository(
+            name = "a_remote_repo",
+            path = "/a_remote_repo",
+            repo_mapping = {"@a": "@b"},
+        )
+        local_repository(
+            name = "other_remote_repo",
+            path = "/other_remote_repo",
+            repo_mapping = {"@x": "@y"},
+        )
+        """);
     RepositoryName name1 = RepositoryName.create("a_remote_repo");
     SkyKey skyKey1 = RepositoryMappingValue.key(name1);
     RepositoryName name2 = RepositoryName.create("other_remote_repo");
@@ -433,12 +437,14 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
   public void testRepositoryWithMultipleMappings() throws Exception {
     setBuildLanguageOptions("--enable_workspace");
     rewriteWorkspace(
-        "workspace(name = 'good')",
-        "local_repository(",
-        "    name = 'a_remote_repo',",
-        "    path = '/a_remote_repo',",
-        "    repo_mapping = {'@a' : '@b', '@x' : '@y'},",
-        ")");
+        """
+        workspace(name = "good")
+        local_repository(
+            name = "a_remote_repo",
+            path = "/a_remote_repo",
+            repo_mapping = {"@a": "@b", "@x": "@y"},
+        )
+        """);
     RepositoryName name = RepositoryName.create("a_remote_repo");
     SkyKey skyKey = RepositoryMappingValue.key(name);
 
@@ -473,17 +479,19 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
 
     // Called last as it triggers package invalidation, which requires a valid MODULE.bazel setup.
     rewriteWorkspace(
-        "workspace(name = 'root')",
-        "local_repository(",
-        "    name = 'ws_repo',",
-        "    path = '/ws_repo',",
-        "    repo_mapping = {",
-        "        '@bbb_alias' : '@bbb',",
-        "        '@bbb_alias2' : '@bbb',",
-        "        '@ddd_alias' : '@ddd',",
-        "        '@eee_alias' : '@eee',",
-        "    },",
-        ")");
+        """
+        workspace(name = "root")
+        local_repository(
+            name = "ws_repo",
+            path = "/ws_repo",
+            repo_mapping = {
+                "@bbb_alias": "@bbb",
+                "@bbb_alias2": "@bbb",
+                "@ddd_alias": "@ddd",
+                "@eee_alias": "@eee",
+            },
+        )
+        """);
 
     RepositoryName name = RepositoryName.create("ws_repo");
     SkyKey skyKey = RepositoryMappingValue.key(name);
@@ -523,11 +531,13 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
 
     // Called last as it triggers package invalidation, which requires a valid MODULE.bazel setup.
     rewriteWorkspace(
-        "workspace(name = 'root')",
-        "local_repository(",
-        "    name = 'ws_repo',",
-        "    path = '/ws_repo',",
-        ")");
+        """
+        workspace(name = "root")
+        local_repository(
+            name = "ws_repo",
+            path = "/ws_repo",
+        )
+        """);
 
     SkyKey skyKey = RepositoryMappingValue.key(RepositoryName.MAIN);
     assertThatEvaluationResult(eval(skyKey))
@@ -557,11 +567,13 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
 
     // Called last as it triggers package invalidation, which requires a valid MODULE.bazel setup.
     rewriteWorkspace(
-        "workspace(name = 'root')",
-        "local_repository(",
-        "    name = 'ws_repo',",
-        "    path = '/ws_repo',",
-        ")");
+        """
+        workspace(name = "root")
+        local_repository(
+            name = "ws_repo",
+            path = "/ws_repo",
+        )
+        """);
 
     SkyKey skyKey = RepositoryMappingValue.KEY_FOR_ROOT_MODULE_WITHOUT_WORKSPACE_REPOS;
     assertThatEvaluationResult(eval(skyKey))
