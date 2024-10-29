@@ -108,7 +108,6 @@ import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -1278,12 +1277,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       throws Exception {
     // Allow to create the BUILD file also in the top package.
     String buildFilePathString = packageName.isEmpty() ? "BUILD" : packageName + "/BUILD";
-    if (packageName.equals(LabelConstants.EXTERNAL_PACKAGE_NAME.getPathString())) {
-      buildFilePathString = "WORKSPACE";
-      scratch.overwriteFile(buildFilePathString, lines);
-    } else {
-      scratch.file(buildFilePathString, lines);
-    }
+    scratch.file(buildFilePathString, lines);
     skyframeExecutor.invalidateFilesUnderPathForTesting(
         reporter,
         new ModifiedFileSet.Builder().modify(PathFragment.create(buildFilePathString)).build(),
