@@ -128,6 +128,7 @@ java_test(
 java_test(
     name = "ToolchainResolutionFunctionTest",
     srcs = ["ToolchainResolutionFunctionTest.java"],
+    shard_count = 5,
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/toolchain_type_requirement",

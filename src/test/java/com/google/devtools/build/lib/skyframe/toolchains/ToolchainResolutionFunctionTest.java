@@ -541,43 +541,6 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
   }
 
   @Test
-  public void resolve_noToolchainType_checkPlatformAllowedToolchains() throws Exception {
-    // Define two new execution platforms, only one of which is compatible with the test toolchain.
-    scratch.file(
-        "allowed/BUILD",
-        """
-        platform(
-            name = "fails_match",
-            check_toolchain_types = True,
-            allowed_toolchain_types = [
-                # Empty, so doesn't match anything.
-            ],
-        )
-
-        platform(
-            name = "allows_all",
-        )
-        """);
-    rewriteModuleDotBazel(
-        """
-        register_execution_platforms("//allowed:fails_match", "//allowed:allows_all")
-        """);
-
-    useConfiguration("--host_platform=//allowed:fails_match");
-    ToolchainContextKey key = ToolchainContextKey.key().configurationKey(targetConfigKey).build();
-
-    EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
-
-    assertThatEvaluationResult(result).hasNoError();
-    UnloadedToolchainContext unloadedToolchainContext = result.get(key);
-    assertThat(unloadedToolchainContext).isNotNull();
-
-    assertThat(unloadedToolchainContext.toolchainTypes()).isEmpty();
-    // Even with no toolchains requested, should still select the first execution platform.
-    assertThat(unloadedToolchainContext).hasExecutionPlatform("//allowed:allows_all");
-  }
-
-  @Test
   public void resolve_noToolchainType_hostNotAvailable() throws Exception {
     scratch.file("host/BUILD", "platform(name = 'host')");
     scratch.file(
@@ -1337,5 +1300,203 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
         "Unrecoverable errors resolving config_setting associated with"
             + " //strange:strange_test_toolchain: For config_setting flagged, Feature flag"
             + " //strange:flag was accessed in a configuration it is not present in.");
+  }
+
+  @Test
+  public void resolve_checkPlatformAllowedToolchains_match() throws Exception {
+    // Define two new execution platforms, only one of which is compatible with the test toolchain.
+    scratch.file(
+        "allowed/BUILD",
+        """
+        platform(
+            name = "allows_single_toolchain",
+            check_toolchain_types = True,
+            allowed_toolchain_types = [
+                "//toolchain:test_toolchain",
+            ],
+        )
+
+        platform(
+            name = "allows_all",
+        )
+        """);
+    addToolchain("toolchain", "toolchain_impl", ImmutableList.of(), ImmutableList.of(), "baz");
+    rewriteModuleDotBazel(
+        """
+        register_toolchains("//toolchain:toolchain_impl")
+        register_execution_platforms("//allowed:allows_single_toolchain", "//allowed:allows_all")
+        """);
+
+    ToolchainContextKey key =
+        ToolchainContextKey.key()
+            .configurationKey(targetConfigKey)
+            .toolchainTypes(testToolchainType)
+            .build();
+
+    EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
+
+    assertThatEvaluationResult(result).hasNoError();
+    UnloadedToolchainContext unloadedToolchainContext = result.get(key);
+    assertThat(unloadedToolchainContext).isNotNull();
+
+    // The platform allows the required toolchain type, so it is selected.
+    assertThat(unloadedToolchainContext).hasExecutionPlatform("//allowed:allows_single_toolchain");
+  }
+
+  @Test
+  public void resolve_checkPlatformAllowedToolchains_failsMatch() throws Exception {
+    // Define two new execution platforms, only one of which is compatible with the test toolchain.
+    scratch.file(
+        "allowed/BUILD",
+        """
+        toolchain_type(name = "other_toolchain")
+
+        platform(
+            name = "allows_single_toolchain",
+            check_toolchain_types = True,
+            allowed_toolchain_types = [
+                ":other_toolchain",
+            ],
+        )
+
+        platform(
+            name = "allows_all",
+        )
+        """);
+    addToolchain("toolchain", "toolchain_impl", ImmutableList.of(), ImmutableList.of(), "baz");
+    rewriteModuleDotBazel(
+        """
+        register_toolchains("//toolchain:toolchain_impl")
+        register_execution_platforms("//allowed:allows_single_toolchain", "//allowed:allows_all")
+        """);
+
+    ToolchainContextKey key =
+        ToolchainContextKey.key()
+            .configurationKey(targetConfigKey)
+            .toolchainTypes(testToolchainType)
+            .build();
+
+    EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
+
+    assertThatEvaluationResult(result).hasNoError();
+    UnloadedToolchainContext unloadedToolchainContext = result.get(key);
+    assertThat(unloadedToolchainContext).isNotNull();
+
+    // The platform does not allow the required toolchain type, so it is not selected.
+    assertThat(unloadedToolchainContext).hasExecutionPlatform("//allowed:allows_all");
+  }
+
+  @Test
+  public void resolve_checkPlatformAllowedToolchains_noneRequested_failsMatch() throws Exception {
+    // Define two new execution platforms, only one of which is compatible with the test toolchain.
+    scratch.file(
+        "allowed/BUILD",
+        """
+        platform(
+            name = "allows_single_toolchain",
+            check_toolchain_types = True,
+            allowed_toolchain_types = [
+                "//toolchain:test_toolchain",
+            ],
+        )
+
+        platform(
+            name = "allows_all",
+        )
+        """);
+    addToolchain("toolchain", "toolchain_impl", ImmutableList.of(), ImmutableList.of(), "baz");
+    rewriteModuleDotBazel(
+        """
+        register_toolchains("//toolchain:toolchain_impl")
+        register_execution_platforms("//allowed:allows_single_toolchain", "//allowed:allows_all")
+        """);
+
+    ToolchainContextKey key = ToolchainContextKey.key().configurationKey(targetConfigKey).build();
+
+    EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
+
+    assertThatEvaluationResult(result).hasNoError();
+    UnloadedToolchainContext unloadedToolchainContext = result.get(key);
+    assertThat(unloadedToolchainContext).isNotNull();
+
+    // The platform requires a toolchain type, so it is not selected.
+    assertThat(unloadedToolchainContext).hasExecutionPlatform("//allowed:allows_all");
+  }
+
+  @Test
+  public void resolve_checkPlatformAllowedToolchains_noToolchainType_noneRequested()
+      throws Exception {
+    // Define two new execution platforms, only one of which is compatible with the test toolchain.
+    scratch.file(
+        "allowed/BUILD",
+        """
+        platform(
+            name = "allows_none",
+            check_toolchain_types = True,
+            allowed_toolchain_types = [
+                # Empty, so doesn't match anything.
+            ],
+        )
+
+        platform(
+            name = "allows_all",
+        )
+        """);
+    rewriteModuleDotBazel(
+        """
+        register_execution_platforms("//allowed:allows_none", "//allowed:allows_all")
+        """);
+
+    ToolchainContextKey key = ToolchainContextKey.key().configurationKey(targetConfigKey).build();
+
+    EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
+
+    assertThatEvaluationResult(result).hasNoError();
+    UnloadedToolchainContext unloadedToolchainContext = result.get(key);
+    assertThat(unloadedToolchainContext).isNotNull();
+
+    // The platform doesn't have any toolchains specified.
+    assertThat(unloadedToolchainContext).hasExecutionPlatform("//allowed:allows_all");
+  }
+
+  @Test
+  public void resolve_checkPlatformAllowedToolchains_noToolchainType() throws Exception {
+    // Define two new execution platforms, only one of which is compatible with the test toolchain.
+    scratch.file(
+        "allowed/BUILD",
+        """
+        platform(
+            name = "allows_none",
+            check_toolchain_types = True,
+            allowed_toolchain_types = [
+                # Empty, so doesn't match anything.
+            ],
+        )
+
+        platform(
+            name = "allows_all",
+        )
+        """);
+    addToolchain("toolchain", "toolchain_impl", ImmutableList.of(), ImmutableList.of(), "baz");
+    rewriteModuleDotBazel(
+        """
+        register_toolchains("//toolchain:toolchain_impl")
+        register_execution_platforms("//allowed:allows_none", "//allowed:allows_all")
+        """);
+
+    ToolchainContextKey key =
+        ToolchainContextKey.key()
+            .configurationKey(targetConfigKey)
+            .toolchainTypes(testToolchainType)
+            .build();
+
+    EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
+
+    assertThatEvaluationResult(result).hasNoError();
+    UnloadedToolchainContext unloadedToolchainContext = result.get(key);
+    assertThat(unloadedToolchainContext).isNotNull();
+
+    // The platform doesn't have any toolchains specified, but the request does.
+    assertThat(unloadedToolchainContext).hasExecutionPlatform("//allowed:allows_all");
   }
 }
