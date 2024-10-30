@@ -24,6 +24,8 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 
 function set_up() {
   add_protobuf "MODULE.bazel"
+  # Enable disk cache to avoid compiling protobuf for each test.
+  enable_disk_cache
 }
 
 # Creates directories and files with the structure:
