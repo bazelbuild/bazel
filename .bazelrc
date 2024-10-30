@@ -2,7 +2,7 @@ common --enable_platform_specific_config
 common --incompatible_use_plus_in_repo_names
 common --experimental_google_legacy_api # needed by protobuf
 
-# @rules_java
+# For @rules_java doc generation only, can be dropped after Bazel 8
 common --experimental_rule_extension_api
 
 # Shared configuration flags to build and test Bazel on RBE.
