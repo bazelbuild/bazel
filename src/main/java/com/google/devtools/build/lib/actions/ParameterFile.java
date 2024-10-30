@@ -37,6 +37,8 @@ import java.io.OutputStream;
  */
 public class ParameterFile {
 
+  public static final StringUnsafe STRING_UNSAFE = StringUnsafe.getInstance();
+
   /** Different styles of parameter files. */
   public enum ParameterFileType {
     /**
@@ -97,9 +99,8 @@ public class ParameterFile {
 
   private static void writeContent(OutputStream out, Iterable<String> arguments)
       throws IOException {
-    StringUnsafe stringUnsafe = StringUnsafe.getInstance();
     for (String line : arguments) {
-      out.write(stringUnsafe.getInternalStringBytes(line));
+      out.write(STRING_UNSAFE.getInternalStringBytes(line));
       out.write('\n');
     }
     out.flush();

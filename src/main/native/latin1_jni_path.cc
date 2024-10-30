@@ -14,6 +14,8 @@
 
 #include "src/main/native/latin1_jni_path.h"
 
+#include "src/main/cpp/util/logging.h"
+
 #include <string.h>
 
 namespace blaze_jni {
@@ -47,7 +49,7 @@ char *GetStringLatin1Chars(JNIEnv *env, jstring jstr) {
   // All path strings used in Bazel are encoded as raw bytes with a Latin1
   // coder.
   if (env->GetByteField(jstr, String_coder_field) != 0) {
-    return nullptr;
+    BAZEL_LOG(FATAL) << "Expected Latin1-encoded string";
   }
   jint len = env->GetStringLength(jstr);
   char *result = new char[len + 1];

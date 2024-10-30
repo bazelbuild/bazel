@@ -17,7 +17,9 @@ package com.google.devtools.build.lib.util;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
+import java.lang.reflect.Field;
 import java.nio.charset.Charset;
 
 /**
@@ -84,6 +86,17 @@ import java.nio.charset.Charset;
  * strings do not need to be reencoded.
  */
 public final class StringEncoding {
+
+  static {
+    try {
+      Field compactStrings = String.class.getDeclaredField("COMPACT_STRINGS");
+      compactStrings.setAccessible(true);
+      Preconditions.checkState(
+          (boolean) compactStrings.get(null), "Bazel requires -XX:-CompactStrings");
+    } catch (NoSuchFieldException | IllegalAccessException e) {
+      throw new IllegalStateException(e);
+    }
+  }
 
   /**
    * Transforms an internal string into a platform string as efficiently as possible.

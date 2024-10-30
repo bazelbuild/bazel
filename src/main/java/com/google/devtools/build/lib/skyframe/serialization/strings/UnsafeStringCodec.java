@@ -38,7 +38,7 @@ public final class UnsafeStringCodec extends LeafObjectCodec<String> {
    */
   private static final UnsafeStringCodec INSTANCE = new UnsafeStringCodec();
 
-  private final StringUnsafe STRING_UNSAFE = StringUnsafe.getInstance();
+  private static final StringUnsafe STRING_UNSAFE = StringUnsafe.getInstance();
 
   public static UnsafeStringCodec stringCodec() {
     return INSTANCE;
