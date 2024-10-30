@@ -12,6 +12,18 @@ filegroup(
 )
 
 java_library(
+    name = "config_matching_util",
+    srcs = ["ConfigMatchingUtil.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/config_matching_provider",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/invalid_configuration_exception",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "constraint_value_lookup_util",
     srcs = ["ConstraintValueLookupUtil.java"],
     deps = [
@@ -154,11 +166,11 @@ java_library(
     name = "registered_toolchains_function",
     srcs = ["RegisteredToolchainsFunction.java"],
     deps = [
+        ":config_matching_util",
         ":registered_toolchains_value",
         ":toolchain_exception",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/config_matching_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/invalid_configuration_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",
