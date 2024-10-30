@@ -28,8 +28,6 @@ binary_rules = struct(
 library_rules = struct(
     java_import = _java_import,
     java_library = _java_library,
-    java_lite_proto_library = native.java_lite_proto_library,
-    java_proto_library = native.java_proto_library,
 )
 
 test_rules = struct(
