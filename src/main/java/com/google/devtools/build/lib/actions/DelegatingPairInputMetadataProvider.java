@@ -32,11 +32,12 @@ public final class DelegatingPairInputMetadataProvider implements InputMetadataP
   }
 
   @Override
-  public FileArtifactValue getInputMetadata(ActionInput input) throws IOException {
+  public FileArtifactValue getInputMetadataChecked(ActionInput input)
+      throws IOException, MissingDepExecException {
     FileArtifactValue metadata = primary.getInputMetadata(input);
     return (metadata != null) && (metadata != FileArtifactValue.MISSING_FILE_MARKER)
         ? metadata
-        : secondary.getInputMetadata(input);
+        : secondary.getInputMetadataChecked(input);
   }
 
   @Override

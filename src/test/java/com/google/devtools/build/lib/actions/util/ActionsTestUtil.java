@@ -930,7 +930,7 @@ public final class ActionsTestUtil {
   public static class FakeInputMetadataHandlerBase
       implements InputMetadataProvider, OutputMetadataStore {
     @Override
-    public FileArtifactValue getInputMetadata(ActionInput input) throws IOException {
+    public FileArtifactValue getInputMetadataChecked(ActionInput input) throws IOException {
       throw new UnsupportedOperationException();
     }
 

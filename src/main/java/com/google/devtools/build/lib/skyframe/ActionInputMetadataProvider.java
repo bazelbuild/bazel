@@ -83,7 +83,7 @@ final class ActionInputMetadataProvider implements InputMetadataProvider {
 
   @Nullable
   @Override
-  public FileArtifactValue getInputMetadata(ActionInput actionInput) throws IOException {
+  public FileArtifactValue getInputMetadataChecked(ActionInput actionInput) throws IOException {
     if (!(actionInput instanceof Artifact artifact)) {
       PathFragment inputPath = actionInput.getExecPath();
       PathFragment filesetKeyPath =
@@ -91,7 +91,7 @@ final class ActionInputMetadataProvider implements InputMetadataProvider {
       return filesetMapping.get().get(filesetKeyPath.getPathString());
     }
 
-    FileArtifactValue value = inputArtifactData.getInputMetadata(artifact);
+    FileArtifactValue value = inputArtifactData.getInputMetadataChecked(artifact);
     if (value != null) {
       return checkExists(value, artifact);
     }

@@ -204,6 +204,12 @@ public final class ActionInputMap implements InputMetadataProvider, ActionInputM
   @Nullable
   @Override
   public FileArtifactValue getInputMetadata(ActionInput input) {
+    return getInputMetadataChecked(input);
+  }
+
+  @Nullable
+  @Override
+  public FileArtifactValue getInputMetadataChecked(ActionInput input) {
     if (isARunfilesMiddleman(input)) {
       RunfilesArtifactValue runfilesMetadata = getRunfilesMetadata(input);
       return runfilesMetadata == null ? null : runfilesMetadata.getMetadata();

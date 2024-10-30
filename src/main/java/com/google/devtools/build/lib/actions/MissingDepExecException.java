@@ -18,9 +18,6 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 /**
  * Exception to be thrown if an action failed to execute because it is missing Skyframe
  * dependencies.
- *
- * <p>This is expected to be possible when {@link
- * InputMetadataProvider#mayGetGeneratingActionsFromSkyframe} is {@code true}.
  */
 public final class MissingDepExecException extends ExecException {
 

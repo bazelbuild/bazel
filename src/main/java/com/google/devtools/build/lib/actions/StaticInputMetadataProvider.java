@@ -49,7 +49,7 @@ public final class StaticInputMetadataProvider implements InputMetadataProvider 
 
   @Nullable
   @Override
-  public FileArtifactValue getInputMetadata(ActionInput input) {
+  public FileArtifactValue getInputMetadataChecked(ActionInput input) {
     return inputToMetadata.get(input);
   }
 

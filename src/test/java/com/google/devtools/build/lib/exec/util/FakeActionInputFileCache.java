@@ -52,7 +52,7 @@ public final class FakeActionInputFileCache implements InputMetadataProvider {
 
   @Override
   @Nullable
-  public FileArtifactValue getInputMetadata(ActionInput input) throws IOException {
+  public FileArtifactValue getInputMetadataChecked(ActionInput input) throws IOException {
     return inputs.get(input);
   }
 

@@ -150,8 +150,9 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
 
     @Nullable
     @Override
-    public FileArtifactValue getInputMetadata(ActionInput input) throws IOException {
-      return wrapped.getInputMetadata(input);
+    public FileArtifactValue getInputMetadataChecked(ActionInput input)
+        throws IOException, MissingDepExecException {
+      return wrapped.getInputMetadataChecked(input);
     }
 
     @Nullable
@@ -181,10 +182,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       return wrapped.getFileSystemForInputResolution();
     }
 
-    @Override
-    public boolean mayGetGeneratingActionsFromSkyframe() {
-      return wrapped.mayGetGeneratingActionsFromSkyframe();
-    }
   }
 
   /** Enum for --subcommands flag */

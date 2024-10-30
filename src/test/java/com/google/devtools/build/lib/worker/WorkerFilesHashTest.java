@@ -156,7 +156,7 @@ public final class WorkerFilesHashTest {
 
       @Nullable
       @Override
-      public FileArtifactValue getInputMetadata(ActionInput input) throws IOException {
+      public FileArtifactValue getInputMetadataChecked(ActionInput input) throws IOException {
         @Nullable
         Object metadataOrException = inputMetadataOrExceptions.get(input.getExecPathString());
         if (metadataOrException == null) {
