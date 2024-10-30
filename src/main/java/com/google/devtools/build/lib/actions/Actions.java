@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.SkyframeAwareAction;
 import com.google.devtools.build.lib.vfs.OsPathPolicy;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.WalkableGraph;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
@@ -35,6 +36,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
+import javax.annotation.Nullable;
 
 /** Utility class for actions. */
 public final class Actions {
@@ -408,5 +410,22 @@ public final class Actions {
     private ArtifactGeneratedByOtherRuleException(String message) {
       super(message);
     }
+  }
+
+  @Nullable
+  public static ActionAnalysisMetadata getGeneratingAction(WalkableGraph graph, Artifact artifact)
+      throws InterruptedException {
+    if (artifact.isSourceArtifact()) {
+      return null;
+    }
+
+    var generatingActionKey = ((Artifact.DerivedArtifact) artifact).getGeneratingActionKey();
+    var actionLookupKey = generatingActionKey.getActionLookupKey();
+    ActionLookupValue actionLookupValue = (ActionLookupValue) graph.getValue(actionLookupKey);
+    if (actionLookupValue == null) {
+      return null;
+    }
+
+    return actionLookupValue.getActions().get(generatingActionKey.getActionIndex());
   }
 }

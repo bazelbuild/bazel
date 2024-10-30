@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewoundEvent;
+import com.google.devtools.build.skyframe.WalkableGraph;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
@@ -45,6 +46,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BinaryOperator;
 import java.util.stream.Stream;
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
 /**
@@ -75,12 +77,14 @@ public class CriticalPathComputer {
   private final ConcurrentMap<Artifact, CriticalPathComponent> outputArtifactToComponent =
       Maps.newConcurrentMap();
   private final ActionKeyContext actionKeyContext;
+  @Nullable private final WalkableGraph graph;
 
   /** Maximum critical path found. */
   private final AtomicReference<CriticalPathComponent> maxCriticalPath = new AtomicReference<>();
 
-  public CriticalPathComputer(ActionKeyContext actionKeyContext) {
+  public CriticalPathComputer(ActionKeyContext actionKeyContext, @Nullable WalkableGraph graph) {
     this.actionKeyContext = actionKeyContext;
+    this.graph = graph;
   }
 
   /**
@@ -301,7 +305,7 @@ public class CriticalPathComputer {
    */
   @Subscribe
   @AllowConcurrentEvents
-  public void actionComplete(ActionCompletionEvent event) {
+  public void actionComplete(ActionCompletionEvent event) throws InterruptedException {
     Action action = event.getAction();
     CriticalPathComponent component =
         Preconditions.checkNotNull(
@@ -336,9 +340,10 @@ public class CriticalPathComputer {
       long finishTimeNanos,
       Action action,
       CriticalPathComponent component,
-      String finalizeReason) {
+      String finalizeReason)
+      throws InterruptedException {
     for (Artifact input : action.getInputs().toList()) {
-      addArtifactDependency(component, input, finishTimeNanos);
+      addArtifactDependency(component, input, startTimeNanos, finishTimeNanos);
     }
     if (Duration.ofNanos(finishTimeNanos - startTimeNanos).compareTo(Duration.ofMillis(-5)) < 0) {
       // See note in {@link Clock#nanoTime} about non increasing subsequent #nanoTime calls.
@@ -352,8 +357,23 @@ public class CriticalPathComputer {
 
   /** If "input" is a generated artifact, link its critical path to the one we're building. */
   private void addArtifactDependency(
-      CriticalPathComponent actionStats, Artifact input, long componentFinishNanos) {
+      CriticalPathComponent actionStats,
+      Artifact input,
+      long componentStartNanos,
+      long componentFinishNanos)
+      throws InterruptedException {
     CriticalPathComponent depComponent = outputArtifactToComponent.get(input);
+
+    if (depComponent == null && !input.isSourceArtifact() && graph != null) {
+      // The generating action of the input is missing. It happens when the action was change
+      // pruned in an incremental build. Query skyframe for the Action data.
+      if (Actions.getGeneratingAction(graph, input) instanceof Action action) {
+        depComponent = tryAddComponent(createComponent(action, componentStartNanos));
+        finalizeActionStat(
+            componentStartNanos, componentStartNanos, action, depComponent, "change pruning");
+      }
+    }
+
     // Typically, the dep component should already be finished since its output was used as an input
     // for a just-completed action. However, we tolerate it still running for (a) action rewinding
     // and (b) the rare case that an action depending on a previously-cached shared action sees a

@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.ExecutionFinishedEvent;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutorWrappingWalkableGraph;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetPendingExecutionEvent;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -46,9 +47,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/**
- * Blaze module for the build summary message that reports various stats to the user.
- */
+/** Blaze module for the build summary message that reports various stats to the user. */
 public class BuildSummaryStatsModule extends BlazeModule {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
@@ -92,7 +91,10 @@ public class BuildSummaryStatsModule extends BlazeModule {
     enabled = env.getOptions().getOptions(ExecutionOptions.class).enableCriticalPathProfiling;
     statsSummary = env.getOptions().getOptions(ExecutionOptions.class).statsSummary;
     if (enabled) {
-      criticalPathComputer = new CriticalPathComputer(actionKeyContext);
+      criticalPathComputer =
+          new CriticalPathComputer(
+              actionKeyContext,
+              SkyframeExecutorWrappingWalkableGraph.of(env.getSkyframeExecutor()));
       eventBus.register(criticalPathComputer);
     }
   }
@@ -110,7 +112,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
   @Subscribe
   public void executionPhaseStarting(
       @SuppressWarnings("unused") TopLevelTargetPendingExecutionEvent event) {
-    if (executionStarted.compareAndSet(/*expectedValue=*/ false, /*newValue=*/ true)) {
+    if (executionStarted.compareAndSet(/* expectedValue= */ false, /* newValue= */ true)) {
       markExecutionPhaseStarted();
     }
   }
@@ -153,11 +155,13 @@ public class BuildSummaryStatsModule extends BlazeModule {
       // We might want to make this conditional on a flag; it can sometimes be a bit of a nuisance.
       List<String> items = new ArrayList<>();
       items.add(String.format("Elapsed time: %.3fs", event.getResult().getElapsedSeconds()));
-      event.getResult().getBuildToolLogCollection()
+      event
+          .getResult()
+          .getBuildToolLogCollection()
           .addDirectValue(
               "elapsed time",
-              String.format(
-                  "%f", event.getResult().getElapsedSeconds()).getBytes(StandardCharsets.UTF_8));
+              String.format("%f", event.getResult().getElapsedSeconds())
+                  .getBytes(StandardCharsets.UTF_8));
 
       AggregatedCriticalPath criticalPath = AggregatedCriticalPath.EMPTY;
       if (criticalPathComputer != null) {
@@ -165,7 +169,9 @@ public class BuildSummaryStatsModule extends BlazeModule {
             Profiler.instance().profile(ProfilerTask.CRITICAL_PATH, "Critical path")) {
           criticalPath = criticalPathComputer.aggregate();
           items.add(criticalPath.toStringSummaryNoRemote());
-          event.getResult().getBuildToolLogCollection()
+          event
+              .getResult()
+              .getBuildToolLogCollection()
               .addDirectValue(
                   "critical path", criticalPath.toString().getBytes(StandardCharsets.UTF_8));
           logger.atInfo().log("%s", criticalPath);
