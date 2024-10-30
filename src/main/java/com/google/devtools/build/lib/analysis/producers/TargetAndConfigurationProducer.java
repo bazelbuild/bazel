@@ -13,34 +13,20 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.producers;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil.configurationId;
 
 import com.google.auto.value.AutoOneOf;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.InconsistentNullConfigException;
-import com.google.devtools.build.lib.analysis.PlatformConfiguration;
-import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
-import com.google.devtools.build.lib.analysis.config.ConfigConditions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationTransitionEvent;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
-import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransitionFactory;
-import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
-import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
-import com.google.devtools.build.lib.analysis.platform.PlatformValue;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
+import com.google.devtools.build.lib.analysis.producers.RuleTransitionApplier.IdempotencyState;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
@@ -59,14 +45,9 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
-import com.google.devtools.build.lib.skyframe.config.PlatformMappingException;
-import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
-import com.google.devtools.build.lib.skyframe.toolchains.ToolchainContextUtil;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.state.StateMachine;
-import com.google.devtools.common.options.OptionsParsingException;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
@@ -79,10 +60,12 @@ import net.starlark.java.syntax.Location;
  * the target is not configurable, directly delegates to the null configuration.
  */
 public final class TargetAndConfigurationProducer
-    implements StateMachine,
+    implements TargetAndConfigurationData,
+        StateMachine,
         StateMachine.ValueOrExceptionSink<InvalidConfigurationException>,
         Consumer<SkyValue>,
-        TargetProducer.ResultSink {
+        TargetProducer.ResultSink,
+        RuleTransitionApplier.ResultSink {
 
   /** Accepts results of this producer. */
   public interface ResultSink {
@@ -140,6 +123,8 @@ public final class TargetAndConfigurationProducer
 
   // -------------------- Internal State --------------------
   private Target target;
+  private BuildConfigurationKey configurationKey;
+  private IdempotencyState idempotencyState;
 
   public TargetAndConfigurationProducer(
       ConfiguredTargetKey preRuleTransitionKey,
@@ -184,6 +169,31 @@ public final class TargetAndConfigurationProducer
     sink.acceptTargetAndConfigurationError(TargetAndConfigurationError.of(e));
   }
 
+  @Override
+  public ConfiguredTargetKey getPreRuleTransitionKey() {
+    return preRuleTransitionKey;
+  }
+
+  @Override
+  public TransitionFactory<RuleTransitionData> getTrimmingTransitionFactory() {
+    return trimmingTransitionFactory;
+  }
+
+  @Override
+  public PatchTransition getToolchainTaggedTrimmingTransition() {
+    return toolchainTaggedTrimmingTransition;
+  }
+
+  @Override
+  public StarlarkTransitionCache getTransitionCache() {
+    return transitionCache;
+  }
+
+  @Override
+  public TransitiveDependencyState getTransitiveState() {
+    return transitiveState;
+  }
+
   private StateMachine determineConfiguration(Tasks tasks) {
     if (target == null) {
       return DONE; // A target could not be determined.
@@ -223,7 +233,12 @@ public final class TargetAndConfigurationProducer
       return DONE;
     }
 
-    return new RuleTransitionApplier();
+    return new RuleTransitionApplier(
+        target,
+        (TargetAndConfigurationData) this,
+        (RuleTransitionApplier.ResultSink) this,
+        eventHandler,
+        /* runAfter= */ this::computeTargetAndConfigurationOrDelegatedValue);
   }
 
   private void delegateTo(Tasks tasks, ActionLookupKey delegate) {
@@ -255,300 +270,46 @@ public final class TargetAndConfigurationProducer
         error.getMessage(), TargetUtils.getLocationMaybe(target), error.getDetailedExitCode());
   }
 
-  /** Applies any requested rule transition before producing the final configuration. */
-  private class RuleTransitionApplier
-      implements StateMachine,
-          TransitionApplier.ResultSink,
-          ConfigConditionsProducer.ResultSink,
-          PlatformProducer.ResultSink {
-    // -------------------- Internal State --------------------
-    @Nullable private PlatformInfo platformInfo;
-    private ConfigConditions configConditions;
-    private ConfigurationTransition ruleTransition;
-    private BuildConfigurationKey configurationKey;
+  /**
+   * Implementation of {@link RuleTransitionApplier.ResultSink}, where accepting the configuration
+   * and idempotency state is needed to compute target and configuration or to delegate (see {@link
+   * TargetAndConfigurationProducer#computeTargetAndConfigurationOrDelegatedValue}).
+   */
+  @Override
+  public void acceptConfiguration(
+      BuildConfigurationKey configurationKey, IdempotencyState idempotencyState) {
+    this.configurationKey = configurationKey;
+    this.idempotencyState = idempotencyState;
+  }
 
-    @Override
-    public StateMachine step(Tasks tasks) throws InterruptedException {
-      UnloadedToolchainContextsInputs unloadedToolchainContextsInputs;
-      PlatformConfiguration platformConfiguration = null;
-      var platformOptions =
-          preRuleTransitionKey.getConfigurationKey().getOptions().get(PlatformOptions.class);
-      if (platformOptions == null) {
-        unloadedToolchainContextsInputs = UnloadedToolchainContextsInputs.empty();
-      } else {
-        platformConfiguration = new PlatformConfiguration(platformOptions);
-        unloadedToolchainContextsInputs =
-            ToolchainContextUtil.getUnloadedToolchainContextsInputs(
-                target,
-                preRuleTransitionKey.getConfigurationKey().getOptions().get(CoreOptions.class),
-                platformConfiguration,
-                preRuleTransitionKey.getExecutionPlatformLabel(),
-                computeToolchainConfigurationKey(
-                    preRuleTransitionKey.getConfigurationKey().getOptions(),
-                    toolchainTaggedTrimmingTransition));
-      }
+  @Override
+  public void acceptErrorMessage(String message, Location location, DetailedExitCode exitCode) {
+    emitError(message, location, exitCode);
+  }
 
-      if (unloadedToolchainContextsInputs.targetToolchainContextKey() != null) {
-        tasks.enqueue(
-            new PlatformProducer(
-                platformConfiguration.getTargetPlatform(),
-                (PlatformProducer.ResultSink) this,
-                this::computeConfigConditions));
-      } else {
-        this.platformInfo = null;
-        computeConfigConditions(tasks);
-      }
-
+  public StateMachine computeTargetAndConfigurationOrDelegatedValue(Tasks tasks) {
+    if (idempotencyState == IdempotencyState.IDENTITY) {
+      tasks.lookUp(
+          configurationKey,
+          InvalidConfigurationException.class,
+          (ValueOrExceptionSink<InvalidConfigurationException>) this);
       return DONE;
     }
 
-    private BuildConfigurationKey computeToolchainConfigurationKey(
-        BuildOptions buildOptions, PatchTransition toolchainTaggedTrimmingTransition)
-        throws InterruptedException {
-      // The toolchain context's options are the parent rule's options with manual trimming
-      // auto-applied. This means toolchains don't inherit feature flags. This helps build
-      // performance: if the toolchain context had the exact same configuration of its parent and
-      // that
-      // included feature flags, all the toolchain's dependencies would apply this transition
-      // individually. That creates a lot more potentially expensive applications of that transition
-      // (especially since manual trimming applies to every configured target in the build).
-      //
-      // In other words: without this modification:
-      // parent rule -> toolchain context -> toolchain
-      //     -> toolchain dep 1 # applies manual trimming to remove feature flags
-      //     -> toolchain dep 2 # applies manual trimming to remove feature flags
-      //     ...
-      //
-      // With this modification:
-      // parent rule -> toolchain context # applies manual trimming to remove feature flags
-      //     -> toolchain
-      //         -> toolchain dep 1
-      //         -> toolchain dep 2
-      //         ...
-      //
-      // None of this has any effect on rules that don't utilize manual trimming.
-      BuildOptions toolchainOptions =
-          toolchainTaggedTrimmingTransition.patch(
-              new BuildOptionsView(
-                  buildOptions, toolchainTaggedTrimmingTransition.requiresOptionFragments()),
-              eventHandler);
-      return BuildConfigurationKey.create(toolchainOptions);
+    ConfiguredTargetKey.Builder keyBuilder =
+        ConfiguredTargetKey.builder()
+            .setLabel(preRuleTransitionKey.getLabel())
+            .setExecutionPlatformLabel(preRuleTransitionKey.getExecutionPlatformLabel())
+            .setConfigurationKey(configurationKey);
+
+    if (idempotencyState == IdempotencyState.NON_IDEMPOTENT) {
+      // The transition was not idempotent. Explicitly informs the delegate to avoid applying a
+      // rule transition.
+      keyBuilder.setShouldApplyRuleTransition(false);
     }
 
-    @CanIgnoreReturnValue
-    public StateMachine computeConfigConditions(Tasks tasks) {
-      // TODO @aranguyen b/297077082
-      tasks.enqueue(
-          new ConfigConditionsProducer(
-              target,
-              preRuleTransitionKey.getLabel(),
-              preRuleTransitionKey.getConfigurationKey(),
-              platformInfo,
-              transitiveState,
-              (ConfigConditionsProducer.ResultSink) this,
-              this::computeTransition));
-      return DONE;
-    }
-
-    @Override
-    public void acceptConfigConditions(ConfigConditions configConditions) {
-      this.configConditions = configConditions;
-    }
-
-    @Override
-    public void acceptConfigConditionsError(ConfiguredValueCreationException e) {
-      emitErrorMessage(e.getMessage());
-    }
-
-    // Keep in sync with CqueryTransitionResolver.getRuleTransition.
-    public StateMachine computeTransition(Tasks tasks) {
-      if (configConditions == null) {
-        return DONE;
-      }
-
-      TransitionFactory<RuleTransitionData> transitionFactory =
-          target.getAssociatedRule().getRuleClassObject().getTransitionFactory();
-      if (trimmingTransitionFactory != null) {
-        transitionFactory =
-            ComposingTransitionFactory.of(transitionFactory, trimmingTransitionFactory);
-      }
-
-      var transitionData =
-          RuleTransitionData.create(
-              target.getAssociatedRule(),
-              configConditions.asProviders(),
-              preRuleTransitionKey.getConfigurationKey().getOptionsChecksum());
-
-      ConfigurationTransition transition = transitionFactory.create(transitionData);
-      this.ruleTransition = transition;
-
-      return new TransitionApplier(
-          preRuleTransitionKey.getConfigurationKey(),
-          ruleTransition,
-          transitionCache,
-          (TransitionApplier.ResultSink) this,
-          eventHandler,
-          /* runAfter= */ this::processTransitionedKey);
-    }
-
-    @Override
-    public void acceptTransitionedConfigurations(
-        ImmutableMap<String, BuildConfigurationKey> transitionResult) {
-      checkState(transitionResult.size() == 1, "Expected exactly one result: %s", transitionResult);
-      this.configurationKey =
-          checkNotNull(
-              transitionResult.get(ConfigurationTransition.PATCH_TRANSITION_KEY),
-              "Transition result missing patch transition entry: %s",
-              transitionResult);
-    }
-
-    @Override
-    public void acceptTransitionError(TransitionException e) {
-      emitErrorMessage(e.getMessage());
-    }
-
-    @Override
-    public void acceptOptionsParsingError(OptionsParsingException e) {
-      emitErrorMessage(e.getMessage());
-    }
-
-    @Override
-    public void acceptPlatformMappingError(PlatformMappingException e) {
-      emitErrorMessage(e.getMessage());
-    }
-
-    @Override
-    public void acceptPlatformFlagsError(InvalidPlatformException e) {
-      emitErrorMessage(e.getMessage());
-    }
-
-    @Override
-    public void acceptPlatformValue(PlatformValue value) {
-      this.platformInfo = value.platformInfo();
-    }
-
-    @Override
-    public void acceptPlatformInfoError(InvalidPlatformException error) {
-      emitErrorMessage(error.getMessage());
-    }
-
-    private StateMachine processTransitionedKey(Tasks tasks) {
-      if (configurationKey == null) {
-        return DONE; // There was an error.
-      }
-
-      BuildConfigurationKey parentConfiguration = preRuleTransitionKey.getConfigurationKey();
-      if (configurationKey.equals(parentConfiguration)) {
-        // This key owns the configuration and the computation completes normally.
-        lookUpConfigurationValue(tasks);
-        return DONE;
-      }
-
-      eventHandler.post(
-          ConfigurationTransitionEvent.create(
-              parentConfiguration.getOptionsChecksum(), configurationKey.getOptionsChecksum()));
-
-      return new IdempotencyChecker();
-    }
-
-    /**
-     * Checks the transition for idempotency before applying delegation.
-     *
-     * <p>If the transition is non-idempotent, marks {@link
-     * ConfiguredTargetKey#shouldApplyRuleTransition} false in the delegate key.
-     */
-    private class IdempotencyChecker implements StateMachine, TransitionApplier.ResultSink {
-      /* At first glance, it seems like setting `shouldApplyRuleTransition=false` should be benign
-       * in both cases, but it would be an error in the idempotent case.
-       *
-       * Idempotent Case
-       *
-       * If we were to mark the idempotent case with `shouldApplyRuleTransition=false`, it would
-       * lead to action conflicts. Let `//foo[123]` be a key that rule transitions to `//foo[abc]`
-       * and suppose the outcome is marked `//foo[abc] shouldApplyRuleTransition=false`.
-       *
-       * A different parent might directly request `//foo[abc] shouldApplyRuleTransition=true`.
-       * Since the rule transition is a idempotent, it would result in the same actions as
-       * `//foo[abc] shouldApplyRuleTransition=false` with a different key, causing action
-       * conflicts.
-       *
-       * Non-idempotent Case
-       *
-       * In the example of //foo[abc] shouldApplyRuleTransition=false and //foo[abc]
-       * shouldApplyRuleTransition=true, there should be no action conflicts because the
-       * `shouldApplyRuleTransition=false` is the result of a non-idempotent rule transition and
-       * `shouldApplyRuleTransition=true` will produce a different configuration. */
-
-      // -------------------- Internal State --------------------
-      private BuildConfigurationKey configurationKey2;
-
-      @Override
-      public StateMachine step(Tasks tasks) {
-        return new TransitionApplier(
-            configurationKey,
-            ruleTransition,
-            transitionCache,
-            (TransitionApplier.ResultSink) this,
-            eventHandler,
-            /* runAfter= */ this::checkIdempotencyAndDelegate);
-      }
-
-      @Override
-      public void acceptTransitionedConfigurations(
-          ImmutableMap<String, BuildConfigurationKey> transitionResult) {
-        checkState(
-            transitionResult.size() == 1, "Expected exactly one result: %s", transitionResult);
-        this.configurationKey2 =
-            checkNotNull(
-                transitionResult.get(ConfigurationTransition.PATCH_TRANSITION_KEY),
-                "Transition result missing patch transition entry: %s",
-                transitionResult);
-      }
-
-      @Override
-      public void acceptTransitionError(TransitionException e) {
-        emitErrorMessage(e.getMessage());
-      }
-
-      @Override
-      public void acceptOptionsParsingError(OptionsParsingException e) {
-        emitErrorMessage(e.getMessage());
-      }
-
-      @Override
-      public void acceptPlatformMappingError(PlatformMappingException e) {
-        emitErrorMessage(e.getMessage());
-      }
-
-      @Override
-      public void acceptPlatformFlagsError(InvalidPlatformException e) {
-        emitErrorMessage(e.getMessage());
-      }
-
-      private StateMachine checkIdempotencyAndDelegate(Tasks tasks) {
-        if (configurationKey2 == null) {
-          return DONE; // There was an error.
-        }
-
-        ConfiguredTargetKey.Builder keyBuilder =
-            ConfiguredTargetKey.builder()
-                .setLabel(preRuleTransitionKey.getLabel())
-                .setExecutionPlatformLabel(preRuleTransitionKey.getExecutionPlatformLabel())
-                .setConfigurationKey(configurationKey);
-
-        if (!configurationKey.equals(configurationKey2)) {
-          // The transition was not idempotent. Explicitly informs the delegate to avoid applying a
-          // rule transition.
-          keyBuilder.setShouldApplyRuleTransition(false);
-        }
-        delegateTo(tasks, keyBuilder.build());
-        return DONE;
-      }
-    }
-
-    private void emitErrorMessage(String message) {
-      emitError(message, TargetUtils.getLocationMaybe(target), /* exitCode= */ null);
-    }
+    tasks.lookUp(keyBuilder.build(), (Consumer<SkyValue>) this);
+    return DONE;
   }
 
   private void emitError(
@@ -584,4 +345,5 @@ public final class TargetAndConfigurationProducer
                 Analysis.newBuilder().setCode(Analysis.Code.CONFIGURED_VALUE_CREATION_FAILED))
             .build());
   }
+
 }
