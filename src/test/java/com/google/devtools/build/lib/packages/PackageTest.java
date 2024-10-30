@@ -179,7 +179,8 @@ public class PackageTest {
         /* generatorMap= */ null,
         /* configSettingVisibilityPolicy= */ null,
         /* globber= */ null,
-        /* enableNameConflictChecking= */ true);
+        /* enableNameConflictChecking= */ true,
+        /* trackFullMacroInformation= */ false);
   }
 
   private static Rule addRule(Package.Builder pkgBuilder, Label label, RuleClass ruleClass)
