@@ -282,9 +282,11 @@ public final class ProcessPackageDirectory {
       }
       String basename = dirent.getName();
       PathFragment subdirectory = rootRelativePath.getRelative(basename);
-      if (!siblingRepositoryLayout && subdirectory.equals(LabelConstants.EXTERNAL_PACKAGE_NAME)) {
-        // Subpackages under //external can be processed only when
-        // --experimental_sibling_repository_layout is set.
+      if (!siblingRepositoryLayout
+          && subdirectory.equals(LabelConstants.EXTERNAL_PACKAGE_NAME)
+          && repositoryName.isMain()) {
+        // Subpackages under //external in the main repo can be processed only
+        // when --experimental_sibling_repository_layout is set.
         continue;
       }
 
