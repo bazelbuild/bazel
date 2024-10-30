@@ -329,13 +329,6 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
   }
 
   @Override
-  public ImmutableSet<TreeFileArtifact> getTreeArtifactChildren(SpecialArtifact treeArtifact) {
-    checkArgument(treeArtifact.isTreeArtifact(), "%s is not a tree artifact", treeArtifact);
-    TreeArtifactValue tree = treeArtifactData.get(treeArtifact);
-    return tree != null ? tree.getChildren() : ImmutableSet.of();
-  }
-
-  @Override
   public void injectFile(Artifact output, FileArtifactValue metadata) {
     checkArgument(isKnownOutput(output), "%s is not a declared output of this action", output);
     checkArgument(

@@ -13,11 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions.cache;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
@@ -48,12 +46,6 @@ public interface OutputMetadataStore extends MetadataInjector {
 
   /** Sets digest for virtual artifacts (e.g. middlemen). {@code digest} must not be null. */
   void setDigestForVirtualArtifact(Artifact artifact, byte[] digest);
-
-  /**
-   * Retrieves the children of a tree artifact, returning an empty set if there is no data
-   * available.
-   */
-  ImmutableSet<TreeFileArtifact> getTreeArtifactChildren(SpecialArtifact treeArtifact);
 
   /** Retrieves the metadata for this tree artifact. Data should already be available. */
   TreeArtifactValue getTreeArtifactValue(SpecialArtifact treeArtifact)

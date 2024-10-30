@@ -962,11 +962,6 @@ public final class ActionsTestUtil {
     }
 
     @Override
-    public ImmutableSet<TreeFileArtifact> getTreeArtifactChildren(SpecialArtifact treeArtifact) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
     public TreeArtifactValue getTreeArtifactValue(SpecialArtifact treeArtifact)
         throws IOException, InterruptedException {
       throw new UnsupportedOperationException();
