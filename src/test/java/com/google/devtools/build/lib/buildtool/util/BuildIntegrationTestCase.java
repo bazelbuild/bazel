@@ -405,9 +405,12 @@ public abstract class BuildIntegrationTestCase {
       bestEffortDeleteTreesBelow(
           testRoot,
           filename -> {
-            // Bazel runtime still holds the file handle of windows_jni.dll making it impossible to
-            // delete on Windows.
+            // Bazel runtime still holds the file handle of windows_jni.dll or libzstd-jni-xxxx.dll
+            // making it impossible to delete on Windows.
             if (filename.equals("windows_jni.dll")) {
+              return true;
+            }
+            if (filename.startsWith("libzstd-jni") && filename.endsWith(".dll")) {
               return true;
             }
 
