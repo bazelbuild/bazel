@@ -40,6 +40,32 @@ public abstract class AbstractMockJavaSupport {
           config.copyTool(
               rulesJavaRoot.getRelative("toolchains/java_toolchain_alias.bzl"),
               "rules_java_workspace/toolchains/java_toolchain_alias.bzl");
+          // Overwrite redirects to not have to use bazel_features / compatibility layer
+          config.overwrite("rules_java_workspace/java/java_binary.bzl",
+              """
+              load("@rules_java//java/bazel/rules:bazel_java_binary_wrapper.bzl", _java_binary = "java_binary")
+              java_binary = _java_binary
+              """);
+          config.overwrite("rules_java_workspace/java/java_import.bzl",
+              """
+              load("@rules_java//java/bazel/rules:bazel_java_import.bzl", _java_import = "java_import")
+              java_import = _java_import
+              """);
+          config.overwrite("rules_java_workspace/java/java_library.bzl",
+              """
+              load("@rules_java//java/bazel/rules:bazel_java_library.bzl", _java_library = "java_library")
+              java_library = _java_library
+              """);
+          config.overwrite("rules_java_workspace/java/java_plugin.bzl",
+              """
+              load("@rules_java//java/bazel/rules:bazel_java_plugin.bzl", _java_plugin = "java_plugin")
+              java_plugin = _java_plugin
+              """);
+          config.overwrite("rules_java_workspace/java/java_test.bzl",
+              """
+              load("@rules_java//java/bazel/rules:bazel_java_test.bzl", _java_test = "java_test")
+              java_test = _java_test
+              """);
           // mocks
           config.create("rules_java_workspace/toolchains/BUILD");
           config.create(
