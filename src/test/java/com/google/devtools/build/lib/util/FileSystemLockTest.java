@@ -11,11 +11,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.remote.disk;
+package com.google.devtools.build.lib.util;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.devtools.build.lib.testutil.ExternalFileSystemLock;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
@@ -24,9 +25,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link DiskCacheLock}. */
+/** Tests for {@link FileSystemLock}. */
 @RunWith(JUnit4.class)
-public final class DiskCacheLockTest {
+public final class FileSystemLockTest {
 
   private Path lockPath;
 
@@ -38,47 +39,47 @@ public final class DiskCacheLockTest {
 
   @Test
   public void getShared_whenNotLocked_succeeds() throws Exception {
-    try (var lock = DiskCacheLock.getShared(lockPath)) {
+    try (var lock = FileSystemLock.getShared(lockPath)) {
       assertThat(lock.isShared()).isTrue();
     }
   }
 
   @Test
   public void getShared_whenLockedForSharedUse_succeeds() throws Exception {
-    try (var externalLock = ExternalLock.getShared(lockPath);
-        var lock = DiskCacheLock.getShared(lockPath)) {
+    try (var externalLock = ExternalFileSystemLock.getShared(lockPath);
+        var lock = FileSystemLock.getShared(lockPath)) {
       assertThat(lock.isShared()).isTrue();
     }
   }
 
   @Test
   public void getShared_whenLockedForExclusiveUse_fails() throws Exception {
-    try (var externalLock = ExternalLock.getExclusive(lockPath)) {
-      IOException e = assertThrows(IOException.class, () -> DiskCacheLock.getShared(lockPath));
-      assertThat(e).hasMessageThat().contains("failed to acquire shared disk cache lock");
+    try (var externalLock = ExternalFileSystemLock.getExclusive(lockPath)) {
+      IOException e = assertThrows(IOException.class, () -> FileSystemLock.getShared(lockPath));
+      assertThat(e).hasMessageThat().contains("failed to acquire shared filesystem lock");
     }
   }
 
   @Test
   public void getExclusive_whenNotLocked_succeeds() throws Exception {
-    try (var lock = DiskCacheLock.getExclusive(lockPath)) {
+    try (var lock = FileSystemLock.getExclusive(lockPath)) {
       assertThat(lock.isExclusive()).isTrue();
     }
   }
 
   @Test
   public void getExclusive_whenLockedForSharedUse_fails() throws Exception {
-    try (var externalLock = ExternalLock.getShared(lockPath)) {
-      IOException e = assertThrows(IOException.class, () -> DiskCacheLock.getExclusive(lockPath));
-      assertThat(e).hasMessageThat().contains("failed to acquire exclusive disk cache lock");
+    try (var externalLock = ExternalFileSystemLock.getShared(lockPath)) {
+      IOException e = assertThrows(IOException.class, () -> FileSystemLock.getExclusive(lockPath));
+      assertThat(e).hasMessageThat().contains("failed to acquire exclusive filesystem lock");
     }
   }
 
   @Test
   public void getExclusive_whenLockedForExclusiveUse_fails() throws Exception {
-    try (var lock = ExternalLock.getExclusive(lockPath)) {
-      IOException e = assertThrows(IOException.class, () -> DiskCacheLock.getExclusive(lockPath));
-      assertThat(e).hasMessageThat().contains("failed to acquire exclusive disk cache lock");
+    try (var lock = ExternalFileSystemLock.getExclusive(lockPath)) {
+      IOException e = assertThrows(IOException.class, () -> FileSystemLock.getExclusive(lockPath));
+      assertThat(e).hasMessageThat().contains("failed to acquire exclusive filesystem lock");
     }
   }
 }

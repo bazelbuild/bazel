@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.remote.disk;
+package com.google.devtools.build.lib.testutil;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.shell.Subprocess;
@@ -26,22 +26,22 @@ import java.io.IOException;
  *
  * <p>This is needed for testing because the JVM does not allow overlapping locks.
  */
-public class ExternalLock implements AutoCloseable {
+public class ExternalFileSystemLock implements AutoCloseable {
   private static final String HELPER_PATH =
-      "io_bazel/src/test/java/com/google/devtools/build/lib/remote/disk/external_lock_helper"
+      "io_bazel/src/test/java/com/google/devtools/build/lib/testutil/external_file_system_lock_helper"
           + (OS.getCurrent() == OS.WINDOWS ? ".exe" : "");
 
     private final Subprocess subprocess;
 
-    static ExternalLock getShared(Path lockPath) throws IOException {
-      return new ExternalLock(lockPath, true);
+  public static ExternalFileSystemLock getShared(Path lockPath) throws IOException {
+    return new ExternalFileSystemLock(lockPath, true);
     }
 
-    static ExternalLock getExclusive(Path lockPath) throws IOException {
-      return new ExternalLock(lockPath, false);
+  public static ExternalFileSystemLock getExclusive(Path lockPath) throws IOException {
+    return new ExternalFileSystemLock(lockPath, false);
     }
 
-    ExternalLock(Path lockPath, boolean shared) throws IOException {
+  private ExternalFileSystemLock(Path lockPath, boolean shared) throws IOException {
       String binaryPath = Runfiles.preload().withSourceRepository("").rlocation(HELPER_PATH);
       this.subprocess =
           new SubprocessBuilder()

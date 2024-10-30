@@ -21,6 +21,7 @@ import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
+import com.google.devtools.build.lib.util.FileSystemLock;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.IORuntimeException;
@@ -182,7 +183,7 @@ public final class DiskCacheGarbageCollector {
   public CollectionStats run() throws IOException, InterruptedException {
     // Acquire an exclusive lock to prevent two Bazel processes from simultaneously running
     // garbage collection, which can waste resources and lead to incorrect results.
-    try (var lock = DiskCacheLock.getExclusive(root.getRelative("gc/lock"))) {
+    try (var lock = FileSystemLock.getExclusive(root.getRelative("gc/lock"))) {
       return runUnderLock();
     }
   }

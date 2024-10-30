@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.remote.disk;
+package com.google.devtools.build.lib.util;
 
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
@@ -23,39 +23,41 @@ import java.nio.channels.FileLock;
 import java.nio.charset.Charset;
 import java.nio.file.StandardOpenOption;
 
-/** Manages shared or exclusive access to the disk cache by concurrent processes. */
-public final class DiskCacheLock implements AutoCloseable {
+/**
+ * Manages shared or exclusive access to the filesystem by concurrent processes through a lock file.
+ */
+public final class FileSystemLock implements AutoCloseable {
   private final FileChannel channel;
   private final FileLock lock;
 
-  private DiskCacheLock(FileChannel channel, FileLock lock) {
+  private FileSystemLock(FileChannel channel, FileLock lock) {
     this.channel = channel;
     this.lock = lock;
   }
 
   /**
-   * Acquires shared access to the disk cache.
+   * Acquires shared access to the lock file.
    *
    * @param path the path to the lock file
    * @throws IOException if an error occurred, including the lock currently being exclusively held
    *     by another process
    */
-  public static DiskCacheLock getShared(Path path) throws IOException {
+  public static FileSystemLock getShared(Path path) throws IOException {
     return get(path, true);
   }
 
   /**
-   * Acquires exclusive access to the disk cache.
+   * Acquires exclusive access to the lock file.
    *
    * @param path the path to the lock file
    * @throws IOException if an error occurred, including the lock currently being exclusively held
    *     by another process
    */
-  public static DiskCacheLock getExclusive(Path path) throws IOException {
+  public static FileSystemLock getExclusive(Path path) throws IOException {
     return get(path, false);
   }
 
-  private static DiskCacheLock get(Path path, boolean shared) throws IOException {
+  private static FileSystemLock get(Path path, boolean shared) throws IOException {
     path.getParentDirectory().createDirectoryAndParents();
     FileChannel channel =
         FileChannel.open(
@@ -67,9 +69,10 @@ public final class DiskCacheLock implements AutoCloseable {
     FileLock lock = channel.tryLock(0, Long.MAX_VALUE, shared);
     if (lock == null) {
       throw new IOException(
-          "failed to acquire %s disk cache lock".formatted(shared ? "shared" : "exclusive"));
+          "failed to acquire %s filesystem lock on %s"
+              .formatted(shared ? "shared" : "exclusive", path));
     }
-    return new DiskCacheLock(channel, lock);
+    return new FileSystemLock(channel, lock);
   }
 
   private static String getPathStringForJavaIo(Path path) {
@@ -88,7 +91,7 @@ public final class DiskCacheLock implements AutoCloseable {
     return !isShared();
   }
 
-  /** Releases access to the disk cache. */
+  /** Releases access to the lock file. */
   @Override
   public void close() throws IOException {
     try {
