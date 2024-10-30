@@ -151,8 +151,8 @@ public class WindowsFileSystem extends JavaIoFileSystem {
 
     FileStatus status =
         new FileStatus() {
-          @Nullable volatile Boolean isSymbolicLink; // null if not yet known
-          volatile long lastChangeTime = -1;
+          @Nullable Boolean isSymbolicLink; // null if not yet known
+          long lastChangeTime = -1;
 
           @Override
           public boolean isFile() {
@@ -174,10 +174,12 @@ public class WindowsFileSystem extends JavaIoFileSystem {
 
           @Override
           public boolean isSymbolicLink() {
-            if (isSymbolicLink == null) {
-              isSymbolicLink = !followSymlinks && fileIsSymbolicLink(file);
+            Boolean localIsSymbolicLink = isSymbolicLink;
+            if (localIsSymbolicLink == null) {
+              localIsSymbolicLink = !followSymlinks && fileIsSymbolicLink(file);
+              isSymbolicLink = localIsSymbolicLink;
             }
-            return isSymbolicLink;
+            return localIsSymbolicLink;
           }
 
           @Override
@@ -192,12 +194,14 @@ public class WindowsFileSystem extends JavaIoFileSystem {
 
           @Override
           public long getLastChangeTime() throws IOException {
-            if (lastChangeTime == -1) {
-              lastChangeTime =
+            long localLastChangeTime = lastChangeTime;
+            if (localLastChangeTime == -1) {
+              localLastChangeTime =
                   WindowsFileOperations.getLastChangeTime(
                       getNioPath(path).toString(), followSymlinks);
+              lastChangeTime = localLastChangeTime;
             }
-            return lastChangeTime;
+            return localLastChangeTime;
           }
 
           @Override
