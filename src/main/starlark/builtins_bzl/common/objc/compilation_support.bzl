@@ -42,6 +42,31 @@ def _build_variable_extensions(ctx, arc_enabled):
 
     return extensions
 
+def _create_compilation_attributes(ctx):
+    disallow_sdk_frameworks = ctx.fragments.objc.disallow_sdk_frameworks_attributes
+    sdk_frameworks = getattr(ctx.attr, "sdk_frameworks", [])
+    weak_sdk_frameworks = getattr(ctx.attr, "weak_sdk_frameworks", [])
+    if disallow_sdk_frameworks:
+        if sdk_frameworks:
+            fail("sdk_frameworks attribute is disallowed. Use explicit dependencies instead.")
+        if weak_sdk_frameworks:
+            fail("weak_sdk_frameworks attribute is disallowed. Use explicit dependencies instead.")
+
+    return struct(
+        hdrs = depset([artifact for artifact, _ in cc_helper.get_public_hdrs(ctx)]),
+        textual_hdrs = depset(getattr(ctx.files, "textual_hdrs", [])),
+        sdk_includes = depset(getattr(ctx.attr, "sdk_includes", [])),
+        includes = depset(getattr(ctx.attr, "includes", [])),
+        sdk_frameworks = depset(sdk_frameworks),
+        weak_sdk_frameworks = depset(weak_sdk_frameworks),
+        sdk_dylibs = depset(getattr(ctx.attr, "sdk_dylibs", [])),
+        linkopts = objc_internal.expand_and_tokenize(ctx = ctx, attr = "linkopts", flags = getattr(ctx.attr, "linkopts", [])),
+        copts = objc_internal.expand_and_tokenize(ctx = ctx, attr = "copts", flags = getattr(ctx.attr, "copts", [])),
+        additional_linker_inputs = getattr(ctx.files, "additional_linker_inputs", []),
+        defines = objc_internal.expand_and_tokenize(ctx = ctx, attr = "defines", flags = getattr(ctx.attr, "defines", [])),
+        enable_modules = getattr(ctx.attr, "enable_modules", False),
+    )
+
 def _build_common_variables(
         ctx,
         toolchain,
@@ -55,7 +80,7 @@ def _build_common_variables(
         alwayslink = False,
         has_module_map = False,
         direct_cc_compilation_contexts = []):
-    compilation_attributes = objc_internal.create_compilation_attributes(ctx = ctx)
+    compilation_attributes = _create_compilation_attributes(ctx = ctx)
     intermediate_artifacts = create_intermediate_artifacts(ctx = ctx)
     if empty_compilation_artifacts:
         compilation_artifacts = CompilationArtifactsInfo()
@@ -250,7 +275,7 @@ def _register_compile_and_archive_actions_for_j2objc(
         objc_compilation_context,
         cc_linking_contexts,
         extra_compile_args):
-    compilation_attributes = objc_internal.create_compilation_attributes(ctx = ctx)
+    compilation_attributes = _create_compilation_attributes(ctx = ctx)
 
     objc_linking_context = struct(
         cc_linking_contexts = cc_linking_contexts,

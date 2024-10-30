@@ -23,7 +23,6 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.analysis.Expander;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
-import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.List;
@@ -55,41 +54,6 @@ public class ObjcStarlarkInternal implements StarlarkValue {
       return defaultValue;
     }
     return (T) obj;
-  }
-
-  @StarlarkMethod(
-      name = "create_compilation_attributes",
-      documented = false,
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true),
-      })
-  public CompilationAttributes createCompilationAttributes(StarlarkRuleContext starlarkRuleContext)
-      throws EvalException, InterruptedException {
-    CompilationAttributes.Builder builder = new CompilationAttributes.Builder();
-
-    CompilationAttributes.Builder.addHeadersFromRuleContext(
-        builder, starlarkRuleContext.getRuleContext());
-    CompilationAttributes.Builder.addIncludesFromRuleContext(
-        builder, starlarkRuleContext.getRuleContext());
-    CompilationAttributes.Builder.addSdkAttributesFromRuleContext(
-        builder, starlarkRuleContext.getRuleContext());
-    if (starlarkRuleContext.getRuleContext().attributes().has("copts")) {
-      Sequence<String> copts =
-          expandAndTokenize(
-              starlarkRuleContext,
-              "copts",
-              StarlarkList.immutableCopyOf(
-                  starlarkRuleContext
-                      .getRuleContext()
-                      .attributes()
-                      .get("copts", Types.STRING_LIST)));
-      CompilationAttributes.Builder.addCompileOptionsFromRuleContext(
-          builder, starlarkRuleContext.getRuleContext(), copts);
-    }
-    CompilationAttributes.Builder.addModuleOptionsFromRuleContext(
-        builder, starlarkRuleContext.getRuleContext());
-
-    return builder.build();
   }
 
   /**
