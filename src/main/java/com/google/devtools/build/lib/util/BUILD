@@ -46,6 +46,7 @@ java_library(
     name = "file_system_lock",
     srcs = ["FileSystemLock.java"],
     deps = [
+        ":string_encoding",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:guava",
     ],
