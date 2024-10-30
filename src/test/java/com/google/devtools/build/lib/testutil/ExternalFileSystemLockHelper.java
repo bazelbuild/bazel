@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.remote.disk;
+package com.google.devtools.build.lib.testutil;
 
 import java.io.IOException;
 import java.nio.channels.FileChannel;
@@ -20,9 +20,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 
-/** A helper binary that holds a shared or exclusive lock on a file. */
-public final class ExternalLockHelper {
-  private ExternalLockHelper() {}
+/**
+ * A helper binary that holds a shared or exclusive lock on a file.
+ *
+ * <p>Do not use this directly in a test. Use {@link ExternalFileSystemLock} instead.
+ */
+public final class ExternalFileSystemLockHelper {
+  private ExternalFileSystemLockHelper() {}
 
   public static void main(String[] args) throws IOException, InterruptedException {
     if (args.length != 2) {

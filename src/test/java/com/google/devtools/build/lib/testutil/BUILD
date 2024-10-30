@@ -134,6 +134,30 @@ java_library(
 )
 
 java_library(
+    name = "external_file_system_lock",
+    srcs = ["ExternalFileSystemLock.java"],
+    data = [":external_file_system_lock_helper"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/shell",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:guava",
+        "@bazel_tools//tools/java/runfiles",
+    ],
+)
+
+java_binary(
+    name = "external_file_system_lock_helper",
+    srcs = ["ExternalFileSystemLockHelper.java"],
+    jvm_flags = [
+        # Prevent the JVM from polluting stdout and interfere with communication with the parent.
+        "-Xlog:disable",
+        "-Xlog:all=warning:stderr",
+    ],
+    main_class = "com.google.devtools.build.lib.testutil.ExternalFileSystemLockHelper",
+)
+
+java_library(
     name = "spawn_controller",
     srcs = ["SpawnController.java"],
     deps = [

@@ -43,6 +43,15 @@ java_library(
 )
 
 java_library(
+    name = "file_system_lock",
+    srcs = ["FileSystemLock.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "process",
     srcs = ["ProcessUtils.java"],
     deps = [

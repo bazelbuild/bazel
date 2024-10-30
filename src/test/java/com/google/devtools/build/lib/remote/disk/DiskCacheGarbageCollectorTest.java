@@ -19,6 +19,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.remote.disk.DiskCacheGarbageCollector.CollectionStats;
+import com.google.devtools.build.lib.testutil.ExternalFileSystemLock;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
@@ -182,12 +183,12 @@ public final class DiskCacheGarbageCollectorTest {
 
   @Test
   public void failsWhenLockIsAlreadyHeld() throws Exception {
-    try (var externalLock = ExternalLock.getShared(rootDir.getRelative("gc/lock"))) {
+    try (var externalLock = ExternalFileSystemLock.getShared(rootDir.getRelative("gc/lock"))) {
       Exception e =
           assertThrows(
               Exception.class, () -> runGarbageCollector(Optional.of(1L), Optional.empty()));
       assertThat(e).isInstanceOf(IOException.class);
-      assertThat(e).hasMessageThat().contains("failed to acquire exclusive disk cache lock");
+      assertThat(e).hasMessageThat().contains("failed to acquire exclusive filesystem lock");
     }
   }
 
