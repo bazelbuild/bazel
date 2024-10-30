@@ -350,6 +350,10 @@ public final class SkyValueRetriever {
               this.blazeInstallMD5Fingerprint);
     }
 
+    public byte[] getTopLevelConfigFingerprint() {
+      return topLevelConfigFingerprint;
+    }
+
     public byte[] getPrecomputedFingerprint() {
       return precomputedFingerprint;
     }

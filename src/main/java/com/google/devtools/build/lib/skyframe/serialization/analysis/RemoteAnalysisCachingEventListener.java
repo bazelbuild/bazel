@@ -22,6 +22,7 @@ import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.NoCachedData;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Restart;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
@@ -54,6 +55,8 @@ public class RemoteAnalysisCachingEventListener {
   private final AtomicInteger executionCacheHits = new AtomicInteger();
   private final AtomicInteger executionCacheMisses = new AtomicInteger();
   private final Set<SerializationException> serializationExceptions = ConcurrentHashMap.newKeySet();
+
+  private FrontierNodeVersion skyValueVersion;
 
   @Subscribe
   @AllowConcurrentEvents
@@ -149,5 +152,14 @@ public class RemoteAnalysisCachingEventListener {
    */
   public int getSerializationExceptionCounts() {
     return serializationExceptions.size();
+  }
+
+  public void recordSkyValueVersion(FrontierNodeVersion version) {
+    this.skyValueVersion = version;
+  }
+
+  /** Returns the {@link FrontierNodeVersion} for versioning the SkyValues in this build. */
+  public FrontierNodeVersion getSkyValueVersion() {
+    return skyValueVersion;
   }
 }

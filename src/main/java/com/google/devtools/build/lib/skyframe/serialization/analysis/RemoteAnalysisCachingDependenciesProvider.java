@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
@@ -55,7 +54,7 @@ public interface RemoteAnalysisCachingDependenciesProvider {
 
   void recordSerializationException(SerializationException e);
 
-  void setTopLevelConfig(BuildConfigurationValue topLevelConfig);
+  void setTopLevelConfigChecksum(String checksum);
 
   /** A stub dependencies provider for when analysis caching is disabled. */
   final class DisabledDependenciesProvider implements RemoteAnalysisCachingDependenciesProvider {
@@ -100,7 +99,7 @@ public interface RemoteAnalysisCachingDependenciesProvider {
     }
 
     @Override
-    public void setTopLevelConfig(BuildConfigurationValue topLevelConfig) {
+    public void setTopLevelConfigChecksum(String topLevelConfigChecksum) {
       throw new UnsupportedOperationException();
     }
   }

@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.runtime.commands.CqueryCommand;
+import com.google.devtools.build.lib.runtime.commands.TestCommand;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectBaseKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.RemoteConfiguredTargetValue;
@@ -564,6 +565,56 @@ active_directories = { "default": ["foo"] }
                 .getRemoteAnalysisCachingEventListener()
                 .getSerializedKeysCount())
         .isEqualTo(0);
+  }
+
+  @Test
+  public void testConfiguration_doesNotAffectSkyValueVersion() throws Exception {
+    setupScenarioWithConfiguredTargets();
+    write(
+        "mytest/PROJECT.scl",
+        """
+active_directories = { "default": ["mytest"] }
+""");
+    write("mytest/mytest.sh", "exit 0").setExecutable(true);
+    write(
+        "mytest/BUILD",
+        """
+sh_test(
+    name = "mytest",
+    srcs = ["mytest.sh"],
+    data = ["//foo:A"],
+)
+""");
+    addOptions("--experimental_remote_analysis_cache_mode=upload", "--nobuild");
+
+    buildTarget("//mytest");
+    assertThat(
+            getCommandEnvironment()
+                .getRemoteAnalysisCachingEventListener()
+                .getSerializedKeysCount())
+        .isAtLeast(1);
+
+    var versionFromBuild =
+        getCommandEnvironment().getRemoteAnalysisCachingEventListener().getSkyValueVersion();
+
+    getSkyframeExecutor().resetEvaluator();
+
+    runtimeWrapper.newCommand(TestCommand.class);
+    buildTarget("//mytest");
+    assertThat(
+            getCommandEnvironment()
+                .getRemoteAnalysisCachingEventListener()
+                .getSerializedKeysCount())
+        .isAtLeast(1);
+
+    var versionFromTest =
+        getCommandEnvironment().getRemoteAnalysisCachingEventListener().getSkyValueVersion();
+
+    // Assert that the top level config checksum subcomponent is equal.
+    assertThat(versionFromBuild.getTopLevelConfigFingerprint())
+        .isEqualTo(versionFromTest.getTopLevelConfigFingerprint());
+    // Then assert that the whole thing is equal.
+    assertThat(versionFromBuild).isEqualTo(versionFromTest);
   }
 
   protected void setupScenarioWithConfiguredTargets() throws Exception {

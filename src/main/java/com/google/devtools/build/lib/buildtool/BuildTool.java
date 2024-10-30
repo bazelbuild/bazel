@@ -42,12 +42,12 @@ import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.AnalysisAndExecutionResult;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
+import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Project;
 import com.google.devtools.build.lib.analysis.Project.ProjectParseException;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
@@ -1102,10 +1102,11 @@ public class BuildTool {
     // Non-final because the top level BuildConfigurationValue is determined just before analysis
     // begins in BuildView for the download/deserialization pass, which is later than when this
     // object was created in BuildTool.
-    private BuildConfigurationValue topLevelConfig;
+    private String topLevelConfigChecksum;
 
     public static RemoteAnalysisCachingDependenciesProvider forAnalysis(
-        CommandEnvironment env, Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher) {
+        CommandEnvironment env, Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher)
+        throws InterruptedException {
       var options = env.getOptions().getOptions(RemoteAnalysisCachingOptions.class);
       if (options == null
           || !env.getCommand().buildPhase().executes()
@@ -1117,7 +1118,8 @@ public class BuildTool {
     }
 
     private RemoteAnalysisCachingDependenciesProviderImpl(
-        CommandEnvironment env, PathFragmentPrefixTrie activeDirectoriesMatcher) {
+        CommandEnvironment env, PathFragmentPrefixTrie activeDirectoriesMatcher)
+        throws InterruptedException {
       this.analysisObjectCodecsSupplier =
           Suppliers.memoize(
               () ->
@@ -1131,7 +1133,12 @@ public class BuildTool {
           env.getBlazeWorkspace().getFingerprintValueServiceFactory().create(env.getOptions());
       this.activeDirectoriesMatcher = activeDirectoriesMatcher;
       this.listener = env.getRemoteAnalysisCachingEventListener();
-      this.topLevelConfig = env.getSkyframeBuildView().getBuildConfiguration();
+      if (env.getSkyframeBuildView().getBuildConfiguration() != null) {
+        // null at construction time during deserializing build. Will be set later during analysis.
+        this.topLevelConfigChecksum =
+            BuildView.getTopLevelConfigurationTrimmedOfTestOptionsChecksum(
+                env.getSkyframeBuildView().getBuildConfiguration().getOptions(), env.getReporter());
+      }
       this.blazeInstallMD5 = requireNonNull(env.getDirectories().getInstallMD5());
     }
 
@@ -1177,11 +1184,10 @@ public class BuildTool {
           if (frontierNodeVersionSingleton == null) {
             frontierNodeVersionSingleton =
                 new FrontierNodeVersion(
-                    topLevelConfig.checksum(),
-                    activeDirectoriesMatcher.toString(),
-                    blazeInstallMD5);
+                    topLevelConfigChecksum, activeDirectoriesMatcher.toString(), blazeInstallMD5);
             logger.atInfo().log(
                 "Remote analysis caching SkyValue version: %s", frontierNodeVersionSingleton);
+            listener.recordSkyValueVersion(frontierNodeVersionSingleton);
           }
         }
       }
@@ -1209,8 +1215,8 @@ public class BuildTool {
     }
 
     @Override
-    public void setTopLevelConfig(BuildConfigurationValue topLevelConfig) {
-      this.topLevelConfig = topLevelConfig;
+    public void setTopLevelConfigChecksum(String topLevelConfigChecksum) {
+      this.topLevelConfigChecksum = topLevelConfigChecksum;
     }
   }
 

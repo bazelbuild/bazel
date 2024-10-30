@@ -255,6 +255,7 @@ public class BuildView {
 
     // Prepare the analysis phase
     BuildConfigurationValue topLevelConfig;
+    String topLevelConfigurationTrimmedOfTestOptionsChecksum;
     boolean shouldDiscardAnalysisCache;
 
     // Configuration creation.
@@ -306,13 +307,14 @@ public class BuildView {
                 .forcedRerun(buildConfigChanged)
                 .build());
       }
-      BuildOptions topLevelConfigTrimmedOfTestOptions =
-          getTopLevelConfigurationTrimmedOfTestOptions(topLevelConfig.getOptions(), eventHandler);
+      topLevelConfigurationTrimmedOfTestOptionsChecksum =
+          getTopLevelConfigurationTrimmedOfTestOptionsChecksum(
+              topLevelConfig.getOptions(), eventHandler);
       eventBus.post(
           new ConfigRequestedEvent(
               topLevelConfig,
               /* parentChecksum= */ null,
-              topLevelConfigTrimmedOfTestOptions.checksum()));
+              topLevelConfigurationTrimmedOfTestOptionsChecksum));
     }
     if (buildConfigurationsCreatedCallback != null) {
       buildConfigurationsCreatedCallback.run(topLevelConfig);
@@ -339,7 +341,8 @@ public class BuildView {
             aspects, aspectsParameters, labelToTargetMap.keySet(), topLevelConfig, eventHandler);
 
     if (remoteAnalysisCachingDependenciesProvider.enabled()) {
-      remoteAnalysisCachingDependenciesProvider.setTopLevelConfig(topLevelConfig);
+      remoteAnalysisCachingDependenciesProvider.setTopLevelConfigChecksum(
+          topLevelConfigurationTrimmedOfTestOptionsChecksum);
       skyframeExecutor.setRemoteAnalysisCachingDependenciesProvider(
           remoteAnalysisCachingDependenciesProvider);
     }
@@ -945,11 +948,13 @@ public class BuildView {
     return ImmutableSet.copyOf(actionsWrapper.getCoverageOutputs());
   }
 
-  private BuildOptions getTopLevelConfigurationTrimmedOfTestOptions(
+  public static String getTopLevelConfigurationTrimmedOfTestOptionsChecksum(
       BuildOptions buildOptions, ExtendedEventHandler eventHandler) throws InterruptedException {
-    return TestTrimmingTransition.INSTANCE.patch(
-        new BuildOptionsView(
-            buildOptions, TestTrimmingTransition.INSTANCE.requiresOptionFragments()),
-        eventHandler);
+    return TestTrimmingTransition.INSTANCE
+        .patch(
+            new BuildOptionsView(
+                buildOptions, TestTrimmingTransition.INSTANCE.requiresOptionFragments()),
+            eventHandler)
+        .checksum();
   }
 }
