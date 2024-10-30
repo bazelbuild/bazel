@@ -62,11 +62,6 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
   private final BazelEvaluationTestCase evOutsideAllowlist =
       new BazelEvaluationTestCase("//foo:bar");
 
-  @Before
-  public void allowExperimentalApi() throws Exception {
-    setBuildLanguageOptions("--experimental_rule_extension_api");
-  }
-
   @Test
   public void testSubruleFunctionSymbol_notVisibleInBUILD() throws Exception {
     scratch.file("foo/BUILD", "subrule");

@@ -321,9 +321,6 @@ common --nolegacy_external_runfiles
 build --java_runtime_version=21
 build --tool_java_runtime_version=21
 
-# for rules_java
-common --experimental_rule_extension_api
-
 ${EXTRA_BAZELRC:-}
 EOF
 

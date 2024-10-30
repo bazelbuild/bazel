@@ -149,11 +149,6 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   @org.junit.Rule public ExpectedException thrown = ExpectedException.none();
 
   @Before
-  public void allowExperimentalApi() throws Exception {
-    setBuildLanguageOptions("--experimental_rule_extension_api");
-  }
-
-  @Before
   public void createBuildFile() throws Exception {
     scratch.file(
         "foo/BUILD",
