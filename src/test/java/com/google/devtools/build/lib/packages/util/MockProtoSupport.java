@@ -300,6 +300,7 @@ public final class MockProtoSupport {
     config.create(
         "net/proto2/go/BUILD",
         """
+        load("//tools/build_defs/go:go_library.bzl", "go_library")
         package(default_visibility = ["//visibility:public"])
 
         go_library(
@@ -310,6 +311,7 @@ public final class MockProtoSupport {
     config.create(
         "net/proto2/compiler/go/BUILD",
         """
+        load("//tools/build_defs/go:go_binary.bzl", "go_binary")
         package(default_visibility = ["//visibility:public"])
 
         go_binary(
@@ -320,6 +322,7 @@ public final class MockProtoSupport {
     config.create(
         "net/rpc/go/BUILD",
         """
+        load("//tools/build_defs/go:go_library.bzl", "go_library")
         package(default_visibility = ["//visibility:public"])
 
         go_library(
@@ -330,6 +333,7 @@ public final class MockProtoSupport {
     config.create(
         "go/context/BUILD",
         """
+        load("//tools/build_defs/go:go_library.bzl", "go_library")
         package(default_visibility = ["//visibility:public"])
 
         go_library(
@@ -354,6 +358,7 @@ public final class MockProtoSupport {
     config.create(
         "third_party/golang/grpc/metadata/BUILD",
         """
+        load("//tools/build_defs/go:go_library.bzl", "go_library")
         package(default_visibility = ["//visibility:public"])
 
         licenses(["notice"])
