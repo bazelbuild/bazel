@@ -100,6 +100,7 @@ java_library(
         "//src/main/protobuf:test_status_java_proto",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//src/test/java/com/google/devtools/build/lib/exec/util",
         "//src/test/java/com/google/devtools/build/lib/starlark/util",
         "//src/test/java/com/google/devtools/build/lib/testutil",

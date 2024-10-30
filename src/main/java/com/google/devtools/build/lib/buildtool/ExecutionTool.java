@@ -85,7 +85,6 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.runtime.CommonCommandOptions;
 import com.google.devtools.build.lib.runtime.InstrumentationOutput;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
@@ -854,10 +853,7 @@ public class ExecutionTool {
               .createInstrumentationOutput(
                   /* name= */ "explain",
                   getWorkspace().getRelative(explanationPath),
-                  env.getOptions(),
-                  env.getOptions()
-                      .getOptions(CommonCommandOptions.class)
-                      .redirectLocalInstrumentationOutputWrites,
+                  env,
                   getReporter(),
                   /* convenienceName= */ null,
                   /* append= */ null,

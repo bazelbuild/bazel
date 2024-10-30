@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.common.options.OptionsProvider;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -53,12 +52,8 @@ public final class InstrumentationOutputFactory {
    * redirecting outputs to be written on a different machine.
    *
    * <p>If {@link #redirectInstrumentationOutputBuilderSupplier} is not provided but {@code
-   * isRedirect} is {@code true}, this method will default to return {@link
-   * LocalInstrumentationOutput}.
-   *
-   * <p>{@code name} and {@code path} are required since they indicate what the output is and where
-   * it is stored. {@code options} might also be necessary for the redirect {@link
-   * InstrumentationOutput}.
+   * --redirect_local_instrumentation_output_writes} is set, this method will default to return
+   * {@link LocalInstrumentationOutput}.
    *
    * <p>For {@link LocalInstrumentationOutput}, there are two additional considerations:
    *
@@ -75,19 +70,22 @@ public final class InstrumentationOutputFactory {
   public InstrumentationOutput createInstrumentationOutput(
       String name,
       Path path,
-      OptionsProvider options,
-      boolean isRedirect,
+      CommandEnvironment env,
       EventHandler eventHandler,
       @Nullable String convenienceName,
       @Nullable Boolean append,
       @Nullable Boolean internal) {
+    boolean isRedirect =
+        env.getOptions()
+            .getOptions(CommonCommandOptions.class)
+            .redirectLocalInstrumentationOutputWrites;
     if (isRedirect) {
       if (redirectInstrumentationOutputBuilderSupplier != null) {
         return redirectInstrumentationOutputBuilderSupplier
             .get()
             .setName(name)
             .setPath(path)
-            .setOptions(options)
+            .setOptions(env.getOptions())
             .build();
       }
       eventHandler.handle(

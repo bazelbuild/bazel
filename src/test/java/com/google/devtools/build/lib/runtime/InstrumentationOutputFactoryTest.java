@@ -18,12 +18,12 @@ import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
 
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
+import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import com.google.devtools.common.options.OptionsProvider;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
@@ -33,9 +33,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 @RunWith(TestParameterInjector.class)
-public class InstrumentationOutputFactoryTest {
+public final class InstrumentationOutputFactoryTest extends BuildIntegrationTestCase {
   @Test
-  public void testInstrumentationOutputFactory_cannotCreateFactorIfLocalSupplierUnset() {
+  public void testInstrumentationOutputFactory_cannotCreateFactoryIfLocalSupplierUnset() {
     InstrumentationOutputFactory.Builder factoryBuilder =
         new InstrumentationOutputFactory.Builder();
     factoryBuilder.setBuildEventArtifactInstrumentationOutputBuilderSupplier(
@@ -63,7 +63,13 @@ public class InstrumentationOutputFactoryTest {
   @Test
   public void testInstrumentationOutputFactory_successfulFactoryCreation(
       @TestParameter boolean injectRedirectOutputBuilderSupplier,
-      @TestParameter boolean createRedirectOutput) {
+      @TestParameter boolean createRedirectOutput)
+      throws Exception {
+    if (createRedirectOutput) {
+      runtimeWrapper.addOptions("--redirect_local_instrumentation_output_writes");
+    }
+    CommandEnvironment env = runtimeWrapper.newCommand();
+
     InstrumentationOutputFactory.Builder factoryBuilder =
         new InstrumentationOutputFactory.Builder();
     factoryBuilder.setLocalInstrumentationOutputBuilderSupplier(
@@ -108,8 +114,7 @@ public class InstrumentationOutputFactoryTest {
         outputFactory.createInstrumentationOutput(
             /* name= */ "local",
             new InMemoryFileSystem(DigestHashFunction.SHA256).getPath("/file"),
-            mock(OptionsProvider.class),
-            createRedirectOutput,
+            env,
             eventHandler,
             /* convenienceName= */ null,
             /* append= */ null,

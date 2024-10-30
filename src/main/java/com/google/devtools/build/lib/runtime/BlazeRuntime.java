@@ -377,8 +377,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                 instrumentationOutputFactory.createInstrumentationOutput(
                     profileName,
                     profilePath,
-                    options,
-                    commandOptions.redirectLocalInstrumentationOutputWrites,
+                    env,
                     eventHandler,
                     /* convenienceName= */ profileName,
                     /* append= */ null,
@@ -396,8 +395,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                       ? "command.profile.gz"
                       : "command.profile.json",
                   profilePath,
-                  options,
-                  commandOptions.redirectLocalInstrumentationOutputWrites,
+                  env,
                   eventHandler,
                   /* convenienceName= */ null,
                   /* append= */ false,
