@@ -257,7 +257,8 @@ public final class PackageFactory {
         generatorMap,
         configSettingVisibilityPolicy,
         globber,
-        /* enableNameConflictChecking= */ true);
+        /* enableNameConflictChecking= */ true,
+        /* trackFullMacroInformation= */ true);
   }
 
   /** Returns a new {@link NonSkyframeGlobber}. */

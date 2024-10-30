@@ -176,7 +176,8 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
       @Nullable Semaphore cpuBoundSemaphore,
       @Nullable ImmutableMap<Location, String> generatorMap,
       @Nullable Globber globber,
-      boolean enableNameConflictChecking) {
+      boolean enableNameConflictChecking,
+      boolean trackFullMacroInformation) {
     super(() -> mainRepositoryMapping);
     this.metadata = metadata;
     this.pkg = pkg;
@@ -204,7 +205,7 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
     this.generatorMap = (generatorMap == null) ? ImmutableMap.of() : generatorMap;
     this.globber = globber;
 
-    this.recorder = new TargetRecorder(enableNameConflictChecking);
+    this.recorder = new TargetRecorder(enableNameConflictChecking, trackFullMacroInformation);
 
     // Add target for the BUILD file itself.
     // (This may be overridden by an exports_file declaration.)

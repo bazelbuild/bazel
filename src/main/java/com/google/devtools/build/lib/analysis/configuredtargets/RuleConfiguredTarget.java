@@ -136,7 +136,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
     this(
         ruleContext.getOwner(),
         ruleContext.getVisibility(),
-        /* isCreatedInSymbolicMacro= */ ruleContext.getRule().getDeclaringMacro() != null,
+        /* isCreatedInSymbolicMacro= */ ruleContext.getRule().isCreatedInSymbolicMacro(),
         providers,
         ruleContext.getConfigConditions(),
         Util.findImplicitDeps(ruleContext),

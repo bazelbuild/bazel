@@ -228,7 +228,9 @@ public class Package {
 
   /**
    * A map from names of targets declared in a symbolic macro to the (innermost) macro instance
-   * where they were declared.
+   * where they were declared. Omits targets not declared in symbolic macros.
+   *
+   * <p>Null for packages produced by deserialization.
    */
   // TODO: #19922 - If this field were made serializable (currently it's not), it would subsume
   // macroNamespaceViolatingTargets, since we can just map the target to its macro and then check
@@ -246,7 +248,16 @@ public class Package {
   //      macro's namespace, we could just look them up in the trie. This assumes we already know
   //      whether the target is well-named, which we wouldn't if we got rid of
   //      macroNamespaceViolatingTargets.
-  private ImmutableMap<String, MacroInstance> targetsToDeclaringMacros;
+  @Nullable private ImmutableMap<String, MacroInstance> targetsToDeclaringMacro;
+
+  /**
+   * A map from names of targets declared in a symbolic macro to the package where the macro that
+   * declared it was defined, as per {@link MacroInstance#getDefinitionPackage}. Omits targets not
+   * declared in symbolic macros.
+   *
+   * <p>Null for packages not produced by deserialization.
+   */
+  @Nullable private ImmutableMap<String, PackageIdentifier> targetsToDeclaringPackage;
 
   // ==== Constructor ====
 
@@ -563,6 +574,22 @@ public class Package {
   }
 
   /**
+   * Returns a map from names of targets declared in a symbolic macro to the package containing said
+   * macro's .bzl code.
+   */
+  ImmutableMap<String, PackageIdentifier> getTargetsToDeclaringPackage() {
+    if (targetsToDeclaringPackage != null) {
+      return targetsToDeclaringPackage;
+    } else {
+      ImmutableMap.Builder<String, PackageIdentifier> result = ImmutableMap.builder();
+      for (Map.Entry<String, MacroInstance> entry : targetsToDeclaringMacro.entrySet()) {
+        result.put(entry.getKey(), entry.getValue().getDefinitionPackage());
+      }
+      return result.buildOrThrow();
+    }
+  }
+
+  /**
    * Throws {@link MacroNamespaceViolationException} if the given target (which must be a member of
    * this package) violates macro naming rules.
    */
@@ -663,11 +690,43 @@ public class Package {
 
   /**
    * Returns the (innermost) symbolic macro instance that declared the given target, or null if the
-   * target was not created in a symbolic macro or no such target by the given name exists.
+   * target was not created in a symbolic macro.
+   *
+   * <p>Throws {@link IllegalArgumentException} if the given name is not a target in this package.
+   *
+   * <p>For packages produced by deserialization, this information is not available and {@code
+   * IllegalStateException} is thrown.
    */
   @Nullable
   public MacroInstance getDeclaringMacroForTarget(String target) {
-    return targetsToDeclaringMacros.get(target);
+    Preconditions.checkState(
+        targetsToDeclaringMacro != null,
+        "Cannot retrieve MacroInstance information from deserialized packages");
+    Preconditions.checkArgument(targets.containsKey(target), "unknown target '%s'", target);
+    return targetsToDeclaringMacro.get(target);
+  }
+
+  /**
+   * Returns the id of the package where the (innermost) macro that declared the given target was
+   * defined (as per {@link MacroInstance#getDefinitionLocation}), or null if the target was not
+   * created in a symbolic macro.
+   *
+   * <p>The caller should interpret a null result to mean that the declaration location of the
+   * target is this package.
+   *
+   * <p>Throws {@link IllegalArgumentException} if the given name is not a target in this package.
+   */
+  @Nullable
+  public PackageIdentifier getDeclaringPackageForTargetIfInMacro(String target) {
+    Preconditions.checkArgument(targets.containsKey(target), "unknown target '%s'", target);
+    // Exactly one of targetsToDeclaringMacro and targetsToDeclaringPackage is non-null, depending
+    // on whether this package was produced by deserialization.
+    if (targetsToDeclaringMacro != null) {
+      MacroInstance macro = targetsToDeclaringMacro.get(target);
+      return macro != null ? macro.getDefinitionPackage() : null;
+    } else {
+      return targetsToDeclaringPackage.get(target);
+    }
   }
 
   // ==== Initialization ====
@@ -733,8 +792,14 @@ public class Package {
     this.macros = ImmutableSortedMap.copyOf(builder.recorder.getMacroMap());
     this.macroNamespaceViolatingTargets =
         ImmutableMap.copyOf(builder.recorder.getMacroNamespaceViolatingTargets());
-    this.targetsToDeclaringMacros =
-        ImmutableSortedMap.copyOf(builder.recorder.getTargetsToDeclaringMacros());
+    this.targetsToDeclaringMacro =
+        builder.recorder.getTargetsToDeclaringMacro() != null
+            ? ImmutableSortedMap.copyOf(builder.recorder.getTargetsToDeclaringMacro())
+            : null;
+    this.targetsToDeclaringPackage =
+        builder.recorder.getTargetsToDeclaringPackage() != null
+            ? ImmutableSortedMap.copyOf(builder.recorder.getTargetsToDeclaringPackage())
+            : null;
     this.failureDetail = builder.getFailureDetail();
     this.registeredExecutionPlatforms = ImmutableList.copyOf(builder.registeredExecutionPlatforms);
     this.registeredToolchains = ImmutableList.copyOf(builder.registeredToolchains);
@@ -890,7 +955,8 @@ public class Package {
       // TODO(bazel-team): See Builder() constructor comment about use of null for this param.
       @Nullable ConfigSettingVisibilityPolicy configSettingVisibilityPolicy,
       @Nullable Globber globber,
-      boolean enableNameConflictChecking) {
+      boolean enableNameConflictChecking,
+      boolean trackFullMacroInformation) {
     // Determine whether this is for a repo rule package. We shouldn't actually have to do this
     // because newPackageBuilder() is supposed to only be called for normal packages. Unfortunately
     // serialization still uses the same code path for deserializing BUILD and WORKSPACE files,
@@ -921,7 +987,8 @@ public class Package {
         packageOverheadEstimator,
         generatorMap,
         globber,
-        enableNameConflictChecking);
+        enableNameConflictChecking,
+        trackFullMacroInformation);
   }
 
   public static Builder newExternalPackageBuilder(
@@ -954,7 +1021,8 @@ public class Package {
         packageOverheadEstimator,
         /* generatorMap= */ null,
         /* globber= */ null,
-        /* enableNameConflictChecking= */ true);
+        /* enableNameConflictChecking= */ true,
+        /* trackFullMacroInformation= */ true);
   }
 
   public static Builder newExternalPackageBuilderForBzlmod(
@@ -984,7 +1052,8 @@ public class Package {
             PackageOverheadEstimator.NOOP_ESTIMATOR,
             /* generatorMap= */ null,
             /* globber= */ null,
-            /* enableNameConflictChecking= */ true)
+            /* enableNameConflictChecking= */ true,
+            /* trackFullMacroInformation= */ true)
         .setLoads(ImmutableList.of());
   }
 
@@ -1102,7 +1171,8 @@ public class Package {
         PackageOverheadEstimator packageOverheadEstimator,
         @Nullable ImmutableMap<Location, String> generatorMap,
         @Nullable Globber globber,
-        boolean enableNameConflictChecking) {
+        boolean enableNameConflictChecking,
+        boolean trackFullMacroInformation) {
       super(
           metadata,
           new Package(metadata),
@@ -1113,7 +1183,8 @@ public class Package {
           cpuBoundSemaphore,
           generatorMap,
           globber,
-          enableNameConflictChecking);
+          enableNameConflictChecking,
+          trackFullMacroInformation);
       this.precomputeTransitiveLoads = precomputeTransitiveLoads;
       this.noImplicitFileExport = noImplicitFileExport;
       this.packageOverheadEstimator = packageOverheadEstimator;
@@ -1449,6 +1520,10 @@ public class Package {
     // For Package deserialization.
     void putAllMacroNamespaceViolatingTargets(Map<String, String> macroNamespaceViolatingTargets) {
       recorder.putAllMacroNamespaceViolatingTargets(macroNamespaceViolatingTargets);
+    }
+
+    void putAllTargetsToDeclaringPackage(Map<String, PackageIdentifier> targetsToDeclaringPackage) {
+      recorder.putAllTargetsToDeclaringPackage(targetsToDeclaringPackage);
     }
 
     /**

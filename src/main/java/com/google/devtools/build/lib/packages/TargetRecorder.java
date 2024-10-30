@@ -128,11 +128,28 @@ public final class TargetRecorder {
       new LinkedHashMap<>();
 
   /**
-   * A map from target name to the (innermost) macro instance that declared it. See {@link
-   * Package#targetsToDeclaringMacros}.
+   * A map from target name to the (innermost) symbolic macro instance that declared it. Targets
+   * that were not declared in a symbolic macro are omitted from the map. See {@link
+   * Package#targetsToDeclaringMacro}.
+   *
+   * <p>This field is null if the constructor is called with {@code trackFullMacroInformation} set
+   * to false, in which case limited location information is still available via {@link
+   * #targetsToDeclaringPackage}.
    */
-  private final LinkedHashMap<String, MacroInstance> targetsToDeclaringMacros =
-      new LinkedHashMap<>();
+  @Nullable private final LinkedHashMap<String, MacroInstance> targetsToDeclaringMacro;
+
+  /**
+   * A map from target name to the package containing the .bzl code of the (innermost) macro that
+   * declared it. Targets not declared in a symbolic macro are omitted from the map.
+   *
+   * <p>This field is null if the constructor is called with {@code trackFullMacroInformation} set
+   * to true, in which case {@link #targetsToDeclaringMacro} supersedes this field.
+   *
+   * <p>Used on deserialization to hold location information needed to determine the target's
+   * visibility attribute, when full macro information is not available.
+   */
+  // TODO(bazel-team): Eventually, serialize full macro information so this is moot.
+  @Nullable private final LinkedHashMap<String, PackageIdentifier> targetsToDeclaringPackage;
 
   /**
    * The collection of the prefixes of every output file. Maps each prefix to an arbitrary output
@@ -151,8 +168,12 @@ public final class TargetRecorder {
    *     package has already been validated, e.g. in package deserialization. Setting it to false
    *     does not necessarily turn off *all* checking, just some of the more expensive ones. Do not
    *     rely on being able to violate these checks.
+   * @param trackFullMacroInformation if true, we record what {@link MacroInstance} each target was
+   *     created in, based on the macro stack maintained herein. If false, we only record the
+   *     definition location associated with said macro, as supplied by the caller via {@link
+   *     #putAllTargetsToDeclaringPackage}.
    */
-  public TargetRecorder(boolean enableNameConflictChecking) {
+  public TargetRecorder(boolean enableNameConflictChecking, boolean trackFullMacroInformation) {
     if (enableNameConflictChecking) {
       this.ruleLabels = new HashMap<>();
       this.rulesCreatedInMacros = new HashSet<>();
@@ -161,6 +182,13 @@ public final class TargetRecorder {
       this.ruleLabels = null;
       this.rulesCreatedInMacros = null;
       this.outputFilePrefixes = null;
+    }
+    if (trackFullMacroInformation) {
+      this.targetsToDeclaringMacro = new LinkedHashMap<>();
+      this.targetsToDeclaringPackage = null;
+    } else {
+      this.targetsToDeclaringMacro = null;
+      this.targetsToDeclaringPackage = new LinkedHashMap<>();
     }
   }
 
@@ -204,11 +232,27 @@ public final class TargetRecorder {
   }
 
   /**
-   * A map from target name to the (innermost) macro instance that declared it. See {@link
-   * Package#targetsToDeclaringMacros}.
+   * Returns a map from target name to the (innermost) macro instance that declared it, or null if
+   * {@code trackFullMacroInformation} was set to false in the constructor. Omits targets not
+   * declared in symbolic macros.
+   *
+   * <p>See {@link Package#targetsToDeclaringMacro}.
    */
-  public Map<String, MacroInstance> getTargetsToDeclaringMacros() {
-    return targetsToDeclaringMacros;
+  @Nullable
+  public Map<String, MacroInstance> getTargetsToDeclaringMacro() {
+    return targetsToDeclaringMacro;
+  }
+
+  /**
+   * Returns a map from target name to the package where the macro that declared it was defined, or
+   * null if {@code trackFullMacroInformation} was set to true in the constructor. Omits targets not
+   * declared in symbolic macros.
+   *
+   * <p>See {@link Package#targetsToDeclaringPackage}.
+   */
+  @Nullable
+  public Map<String, PackageIdentifier> getTargetsToDeclaringPackage() {
+    return targetsToDeclaringPackage;
   }
 
   /**
@@ -251,8 +295,8 @@ public final class TargetRecorder {
   @Nullable
   private Target putTargetInternal(Target target) {
     Target existing = targetMap.put(target.getName(), target);
-    if (currentMacroFrame != null) {
-      targetsToDeclaringMacros.put(target.getName(), currentMacroFrame.macroInstance);
+    if (targetsToDeclaringMacro != null && currentMacroFrame != null) {
+      targetsToDeclaringMacro.put(target.getName(), currentMacroFrame.macroInstance);
     }
     return existing;
   }
@@ -587,7 +631,7 @@ public final class TargetRecorder {
   }
 
   /**
-   * Add all given map entries to the builder's map from names of targets declared in a symbolic
+   * Adds all given map entries to the builder's map from names of targets declared in a symbolic
    * macro which violate macro naming rules to the name of the macro instance where they were
    * declared.
    *
@@ -596,6 +640,20 @@ public final class TargetRecorder {
   public void putAllMacroNamespaceViolatingTargets(
       Map<String, String> macroNamespaceViolatingTargets) {
     this.macroNamespaceViolatingTargets.putAll(macroNamespaceViolatingTargets);
+  }
+
+  /**
+   * Adds all given map entries to this builder's map from names of targets declared in symbolic
+   * macros to the definition location of said symbolic macro.
+   *
+   * <p>Intended to be used for package deserialization.
+   */
+  public void putAllTargetsToDeclaringPackage(
+      Map<String, PackageIdentifier> targetsToDeclaringPackage) {
+    Preconditions.checkState(
+        this.targetsToDeclaringPackage != null,
+        "can only be called if trackFullMacroInformation was set to false in constructor");
+    this.targetsToDeclaringPackage.putAll(targetsToDeclaringPackage);
   }
 
   /**

@@ -48,7 +48,7 @@ public final class InputFileConfiguredTarget extends FileConfiguredTarget {
   public InputFileConfiguredTarget(TargetContext targetContext, SourceArtifact artifact) {
     super(targetContext, artifact);
     this.licenses = makeLicenses(targetContext.getTarget());
-    this.isCreatedInSymbolicMacro = targetContext.getTarget().getDeclaringMacro() != null;
+    this.isCreatedInSymbolicMacro = targetContext.getTarget().isCreatedInSymbolicMacro();
     checkArgument(targetContext.getTarget() instanceof InputFile, targetContext.getTarget());
     checkArgument(getConfigurationKey() == null, getLabel());
   }
