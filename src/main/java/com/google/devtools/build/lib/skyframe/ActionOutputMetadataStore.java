@@ -67,7 +67,7 @@ import javax.annotation.Nullable;
  * metadata while {@link com.google.devtools.build.lib.actions.ActionCacheChecker} determines
  * whether the action needs to be executed. If the action needs to be executed (i.e. no action cache
  * hit), {@link #prepareForActionExecution} is called. This call switches the handler to a mode
- * where it accepts {@linkplain com.google.devtools.build.lib.actions.cache.MetadataInjector
+ * where it accepts {@linkplain com.google.devtools.build.lib.actions.cache.OutputMetadataStore
  * injected output data}, or otherwise obtains metadata from the filesystem. Freshly created output
  * files are set read-only and executable <em>before</em> statting them to ensure that the stat's
  * ctime is up to date.

@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
-import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
@@ -116,7 +115,7 @@ public class RemoteOutputService implements OutputService {
       ActionExecutionMetadata action,
       FileSystem actionFileSystem,
       Environment env,
-      MetadataInjector injector,
+      OutputMetadataStore outputMetadataStore,
       ImmutableMap<Artifact, FilesetOutputTree> filesets) {
     ((RemoteActionFileSystem) actionFileSystem).updateContext(action);
   }

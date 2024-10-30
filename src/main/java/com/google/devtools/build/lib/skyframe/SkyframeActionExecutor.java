@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -76,7 +77,6 @@ import com.google.devtools.build.lib.actions.SpawnResult.MetadataLog;
 import com.google.devtools.build.lib.actions.StoppedScanningActionEvent;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.UserExecException;
-import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.bugreport.BugReport;
@@ -140,8 +140,38 @@ public final class SkyframeActionExecutor {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  private static final MetadataInjector THROWING_METADATA_INJECTOR_FOR_ACTIONFS =
-      new MetadataInjector() {
+  private static final OutputMetadataStore THROWING_OUTPUT_METADATA_STORE_FOR_ACTIONFS =
+      new OutputMetadataStore() {
+        @Override
+        public FileArtifactValue getOutputMetadata(ActionInput output) {
+          throw new IllegalStateException();
+        }
+
+        @Override
+        public void setDigestForVirtualArtifact(Artifact artifact, byte[] digest) {
+          throw new IllegalStateException();
+        }
+
+        @Override
+        public TreeArtifactValue getTreeArtifactValue(SpecialArtifact treeArtifact) {
+          throw new IllegalStateException();
+        }
+
+        @Override
+        public void markOmitted(Artifact output) {
+          throw new IllegalStateException();
+        }
+
+        @Override
+        public boolean artifactOmitted(Artifact artifact) {
+          throw new IllegalStateException();
+        }
+
+        @Override
+        public void resetOutputs(Iterable<? extends Artifact> outputs) {
+          throw new IllegalStateException();
+        }
+
         @Override
         public void injectFile(Artifact output, FileArtifactValue metadata) {
           throw new IllegalStateException(
@@ -394,10 +424,10 @@ public final class SkyframeActionExecutor {
       Action action,
       FileSystem actionFileSystem,
       Environment env,
-      MetadataInjector metadataInjector,
+      OutputMetadataStore outputMetadataStore,
       ImmutableMap<Artifact, FilesetOutputTree> filesets) {
     outputService.updateActionFileSystemContext(
-        action, actionFileSystem, env, metadataInjector, filesets);
+        action, actionFileSystem, env, outputMetadataStore, filesets);
   }
 
   void executionOver() {
@@ -857,7 +887,7 @@ public final class SkyframeActionExecutor {
           action,
           actionFileSystem,
           env,
-          THROWING_METADATA_INJECTOR_FOR_ACTIONFS,
+          THROWING_OUTPUT_METADATA_STORE_FOR_ACTIONFS,
           /* filesets= */ ImmutableMap.of());
       // Note that when not using ActionFS, a global setup of the parent directories of the OutErr
       // streams is sufficient.
@@ -1537,8 +1567,8 @@ public final class SkyframeActionExecutor {
     try (SilentCloseable c = profiler.profile(ProfilerTask.INFO, "checkOutputs")) {
       for (Artifact output : action.getOutputs()) {
         // getOutputMetadata() has the side effect of adding the artifact to the cache if it's not
-        // there already (e.g., due to a previous call to MetadataInjector.injectFile()), therefore
-        // we only call it if we know the artifact is not omitted.
+        // there already (e.g., due to a previous call to OutputMetadataStore.injectFile()),
+        // therefore we only call it if we know the artifact is not omitted.
         if (!outputMetadataStore.artifactOmitted(output)) {
           try {
             FileArtifactValue metadata = outputMetadataStore.getOutputMetadata(output);

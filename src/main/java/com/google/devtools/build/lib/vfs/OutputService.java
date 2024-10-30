@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
-import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -214,7 +213,7 @@ public interface OutputService {
       ActionExecutionMetadata action,
       FileSystem actionFileSystem,
       Environment env,
-      MetadataInjector injector,
+      OutputMetadataStore outputMetadataStore,
       ImmutableMap<Artifact, FilesetOutputTree> filesets) {}
 
   /**

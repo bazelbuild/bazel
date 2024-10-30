@@ -22,7 +22,31 @@ import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import java.io.IOException;
 
 /** Handles the metadata of the outputs of the action during its execution. */
-public interface OutputMetadataStore extends MetadataInjector {
+public interface OutputMetadataStore {
+  /**
+   * Injects the metadata of a file.
+   *
+   * <p>This can be used to save filesystem operations when the metadata is already known.
+   *
+   * <p>{@linkplain Artifact#isTreeArtifact Tree artifacts} and their {@linkplain
+   * Artifact#isChildOfDeclaredDirectory children} must not be passed here. Instead, they should be
+   * passed to {@link #injectTree}.
+   *
+   * @param output a regular output file
+   * @param metadata the file metadata
+   */
+  void injectFile(Artifact output, FileArtifactValue metadata);
+
+  /**
+   * Injects the metadata of a tree artifact.
+   *
+   * <p>This can be used to save filesystem operations when the metadata is already known.
+   *
+   * @param output an output directory {@linkplain Artifact#isTreeArtifact tree artifact}
+   * @param tree a {@link TreeArtifactValue} with the metadata of the files stored in the directory
+   */
+  void injectTree(SpecialArtifact output, TreeArtifactValue tree);
+
   /**
    * Returns a {@link FileArtifactValue} for the given {@link ActionInput}.
    *

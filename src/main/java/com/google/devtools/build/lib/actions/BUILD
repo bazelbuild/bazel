@@ -134,7 +134,6 @@ java_library(
         "UserExecException.java",
         "cache/ActionCache.java",
         "cache/CompactPersistentActionCache.java",
-        "cache/MetadataInjector.java",
         "cache/OutputMetadataStore.java",
         "cache/PersistentStringIndexer.java",
         "cache/PostableActionCacheStats.java",
