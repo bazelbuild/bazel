@@ -514,6 +514,9 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
 
     @Override
     protected boolean couldBeModifiedByMetadata(FileArtifactValue o) {
+      if (o instanceof SymlinkToSourceFileArtifactValue symlinkToSource) {
+        o = symlinkToSource.sourceFileMetadata; // "Dereference" the symlink.
+      }
       if (!(o instanceof RegularFileArtifactValue lastKnown)) {
         return true;
       }

@@ -26,8 +26,10 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileArtifactValue.SymlinkToSourceFileArtifactValue;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -201,11 +203,11 @@ public final class SymlinkAction extends AbstractAction {
       throws ActionExecutionException, InterruptedException {
     maybeVerifyTargetIsExecutable(actionExecutionContext);
 
-    Path srcPath;
+    Path targetPath;
     if (inputPath == null) {
-      srcPath = actionExecutionContext.getInputPath(getPrimaryInput());
+      targetPath = actionExecutionContext.getInputPath(getPrimaryInput());
     } else {
-      srcPath = actionExecutionContext.getExecRoot().getRelative(inputPath);
+      targetPath = actionExecutionContext.getExecRoot().getRelative(inputPath);
     }
 
     Path outputPath = getOutputPath(actionExecutionContext);
@@ -217,7 +219,7 @@ public final class SymlinkAction extends AbstractAction {
       // small amount of overhead.
       outputPath.delete();
 
-      outputPath.createSymbolicLink(srcPath);
+      outputPath.createSymbolicLink(targetPath);
     } catch (IOException e) {
       String message =
           String.format(
@@ -362,7 +364,12 @@ public final class SymlinkAction extends AbstractAction {
       return;
     }
     if (metadata != null) {
-      ctx.getOutputMetadataStore().injectFile(getPrimaryOutput(), metadata);
+      ctx.getOutputMetadataStore()
+          .injectFile(
+              getPrimaryOutput(),
+              primaryInput instanceof SourceArtifact sourceArtifact
+                  ? SymlinkToSourceFileArtifactValue.toSourceArtifact(sourceArtifact, metadata)
+                  : metadata);
     }
   }
 
