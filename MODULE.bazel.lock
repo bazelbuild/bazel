@@ -1306,11 +1306,11 @@
     "@@rules_jvm_external+//:extensions.bzl%maven": {
       "general": {
         "bzlTransitiveDigest": "q0U9qdK3cxV9KQ2ZaERVngkEhZiqkwI698IL2JM77LA=",
-        "usagesDigest": "MhFl+qoXUzPQfXhyOaFeS/TaYEQPOibY+AzPJYtfQSw=",
+        "usagesDigest": "cH1kuZb6lO92i001oL7xc1+qZFmvBQc8sOkPEIXvERU=",
         "recordedFileInputs": {
           "@@rules_jvm_external+//rules_jvm_external_deps_install.json": "cafb5d2d8119391eb2b322ce3840d3352ea82d496bdb8cbd4b6779ec4d044dda",
           "@@stardoc+//maven_install.json": "25f3c138ca52c61e0e7a564fe21f5709261b33d78d35427b6c18d7aa202d973b",
-          "@@//maven_install.json": "fd1fd0dbe7307e679aa66b8808247d56f683328a65b9ce7768f42b6b293d5e4d"
+          "@@//maven_install.json": "36b58955fcb511bec5dfb7196fb8a3439657d52ed29ac36eb055966bd1130409"
         },
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -1363,7 +1363,7 @@
                 "{ \"group\": \"com.google.http-client\", \"artifact\": \"google-http-client\", \"version\": \"1.42.0\" }",
                 "{ \"group\": \"com.google.http-client\", \"artifact\": \"google-http-client-gson\", \"version\": \"1.42.0\" }",
                 "{ \"group\": \"com.google.j2objc\", \"artifact\": \"j2objc-annotations\", \"version\": \"1.3\" }",
-                "{ \"group\": \"com.google.turbine\", \"artifact\": \"turbine\", \"version\": \"0.7.0\" }",
+                "{ \"group\": \"com.google.turbine\", \"artifact\": \"turbine\", \"version\": \"0.8.0\" }",
                 "{ \"group\": \"com.guardsquare\", \"artifact\": \"proguard-base\", \"version\": \"7.5.0\", \"packaging\": \"jar\" }",
                 "{ \"group\": \"com.ryanharter.auto.value\", \"artifact\": \"auto-value-gson-extension\", \"version\": \"1.3.1\" }",
                 "{ \"group\": \"com.ryanharter.auto.value\", \"artifact\": \"auto-value-gson-factory\", \"version\": \"1.3.1\" }",
@@ -1888,16 +1888,16 @@
               "downloaded_file_path": "v1/com/google/errorprone/error_prone_annotation/2.32.0/error_prone_annotation-2.32.0.jar"
             }
           },
-          "com_google_errorprone_error_prone_annotations_2_32_0": {
+          "com_google_errorprone_error_prone_annotations_2_34_0": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
             "attributes": {
-              "sha256": "1f52fedb9ac8e0e6aaf312964f4b390312ea45f91a5657050f29780907b484ba",
+              "sha256": "2a799487cfdcd248cb65f40c5ae5183389e1a3876735ed84c6ca3f2080de49e5",
               "urls": [
-                "https://repo1.maven.org/maven2/com/google/errorprone/error_prone_annotations/2.32.0/error_prone_annotations-2.32.0.jar",
-                "https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_annotations/2.32.0/error_prone_annotations-2.32.0.jar"
+                "https://repo1.maven.org/maven2/com/google/errorprone/error_prone_annotations/2.34.0/error_prone_annotations-2.34.0.jar",
+                "https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_annotations/2.34.0/error_prone_annotations-2.34.0.jar"
               ],
-              "downloaded_file_path": "v1/com/google/errorprone/error_prone_annotations/2.32.0/error_prone_annotations-2.32.0.jar"
+              "downloaded_file_path": "v1/com/google/errorprone/error_prone_annotations/2.34.0/error_prone_annotations-2.34.0.jar"
             }
           },
           "com_google_errorprone_error_prone_check_api_2_32_0": {
@@ -2092,16 +2092,16 @@
               "downloaded_file_path": "v1/com/google/oauth-client/google-oauth-client/1.34.1/google-oauth-client-1.34.1.jar"
             }
           },
-          "com_google_protobuf_protobuf_java_3_25_3": {
+          "com_google_protobuf_protobuf_java_3_25_5": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
             "attributes": {
-              "sha256": "e90d8ddb963b20a972a6a59b5093ade2b07cbe546cab3279aaf4383260385f58",
+              "sha256": "8540247fad9e06baefa8fb45eb313802d019f485f14300e0f9d6b556ed88e753",
               "urls": [
-                "https://repo1.maven.org/maven2/com/google/protobuf/protobuf-java/3.25.3/protobuf-java-3.25.3.jar",
-                "https://repo.maven.apache.org/maven2/com/google/protobuf/protobuf-java/3.25.3/protobuf-java-3.25.3.jar"
+                "https://repo1.maven.org/maven2/com/google/protobuf/protobuf-java/3.25.5/protobuf-java-3.25.5.jar",
+                "https://repo.maven.apache.org/maven2/com/google/protobuf/protobuf-java/3.25.5/protobuf-java-3.25.5.jar"
               ],
-              "downloaded_file_path": "v1/com/google/protobuf/protobuf-java/3.25.3/protobuf-java-3.25.3.jar"
+              "downloaded_file_path": "v1/com/google/protobuf/protobuf-java/3.25.5/protobuf-java-3.25.5.jar"
             }
           },
           "com_google_protobuf_protobuf_javalite_3_25_3": {
@@ -2200,16 +2200,16 @@
               "downloaded_file_path": "v1/com/google/truth/truth/1.4.2/truth-1.4.2.jar"
             }
           },
-          "com_google_turbine_turbine_0_7_0": {
+          "com_google_turbine_turbine_0_8_0": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
             "attributes": {
-              "sha256": "5c792e7f744c7861de7ce83b249333d8528ce62ee3807b1fc247dbef8d985a1a",
+              "sha256": "3a28feadc1aaae152babab0c05e2c16533220a28b1720b24d352c244b59f4482",
               "urls": [
-                "https://repo1.maven.org/maven2/com/google/turbine/turbine/0.7.0/turbine-0.7.0.jar",
-                "https://repo.maven.apache.org/maven2/com/google/turbine/turbine/0.7.0/turbine-0.7.0.jar"
+                "https://repo1.maven.org/maven2/com/google/turbine/turbine/0.8.0/turbine-0.8.0.jar",
+                "https://repo.maven.apache.org/maven2/com/google/turbine/turbine/0.8.0/turbine-0.8.0.jar"
               ],
-              "downloaded_file_path": "v1/com/google/turbine/turbine/0.7.0/turbine-0.7.0.jar"
+              "downloaded_file_path": "v1/com/google/turbine/turbine/0.8.0/turbine-0.8.0.jar"
             }
           },
           "com_guardsquare_proguard_base_7_5_0": {
@@ -3664,7 +3664,7 @@
                 "{ \"group\": \"com.google.http-client\", \"artifact\": \"google-http-client\", \"version\": \"1.42.0\" }",
                 "{ \"group\": \"com.google.http-client\", \"artifact\": \"google-http-client-gson\", \"version\": \"1.42.0\" }",
                 "{ \"group\": \"com.google.j2objc\", \"artifact\": \"j2objc-annotations\", \"version\": \"1.3\" }",
-                "{ \"group\": \"com.google.turbine\", \"artifact\": \"turbine\", \"version\": \"0.7.0\" }",
+                "{ \"group\": \"com.google.turbine\", \"artifact\": \"turbine\", \"version\": \"0.8.0\" }",
                 "{ \"group\": \"com.guardsquare\", \"artifact\": \"proguard-base\", \"version\": \"7.5.0\", \"packaging\": \"jar\" }",
                 "{ \"group\": \"com.ryanharter.auto.value\", \"artifact\": \"auto-value-gson-extension\", \"version\": \"1.3.1\" }",
                 "{ \"group\": \"com.ryanharter.auto.value\", \"artifact\": \"auto-value-gson-factory\", \"version\": \"1.3.1\" }",
