@@ -182,7 +182,7 @@ java_test(
         "@platforms//os:linux": {
             # Force the same locale as Bazel's client to test roundtripping of
             # arbitrary byte sequences through strings.
-            "LANG": "en_US.ISO-8859-1",
+            "LC_ALL": "en_US.ISO-8859-1",
         },
         "//conditions:default": {},
     }),
