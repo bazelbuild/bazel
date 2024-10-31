@@ -96,7 +96,11 @@ public final class AutoBazelRepositoryProcessor extends AbstractProcessor {
     try (PrintWriter out =
         new PrintWriter(
             processingEnv.getFiler().createSourceFile(generatedClassName).openWriter())) {
-      out.printf("package %s;\n", generatedClassPackage);
+      
+      if (!generatedClassPackage.isEmpty()) {
+        // This annotation may exist on a class which is at the root package
+        out.printf("package %s;\n", generatedClassPackage);
+      }
       out.printf("\n");
       out.printf("class %s {\n", generatedClassSimpleName);
       out.printf("  /**\n");
