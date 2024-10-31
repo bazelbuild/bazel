@@ -3752,6 +3752,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     "{api: _incompatible_depset_for_java_output_source_jars}",
     "{api: wrap_java_info}",
     "{api: intern_javac_opts}",
+    "{api: tokenize_javacopts}",
   })
   public void testJavaCommonPrivateApis_areNotVisibleToPublicStarlark(String api) throws Exception {
     // validate that this api is present on the module, so this test fails when the API is deleted
