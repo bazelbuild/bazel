@@ -2950,6 +2950,52 @@ EOF
   expect_log "//external/nested:a2"
 }
 
+function test_query_external_packages_in_other_repo() {
+  cat > $(setup_module_dot_bazel) <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+local_repository(
+  name="other_repo",
+  path="other_repo",
+)
+EOF
+
+  mkdir -p other_repo/external/nested
+  mkdir -p other_repo/not-external
+
+  touch other_repo/REPO.bazel
+
+  cat > other_repo/external/BUILD <<EOF
+filegroup(
+    name = "a1",
+    srcs = [],
+)
+EOF
+  cat > other_repo/external/nested/BUILD <<EOF
+filegroup(
+    name = "a2",
+    srcs = [],
+)
+EOF
+
+  cat > other_repo/not-external/BUILD <<EOF
+filegroup(
+    name = "b",
+    srcs = [],
+)
+EOF
+
+  bazel query @other_repo//... >& $TEST_log || fail "Expected build/run to succeed"
+  expect_log "@other_repo//not-external:b"
+  expect_log "@other_repo//external:a1"
+  expect_log "@other_repo//external/nested:a2"
+
+  bazel query --experimental_sibling_repository_layout @other_repo//... >& $TEST_log \ ||
+    fail "Expected build/run to succeed"
+  expect_log "@other_repo//not-external:b"
+  expect_log "@other_repo//external:a1"
+  expect_log "@other_repo//external/nested:a2"
+}
+
 function test_query_external_all_targets() {
   mkdir -p external/nested
   mkdir -p not-external
@@ -3134,6 +3180,62 @@ EOF
   # Ditto, but with --repo_env overriding environment.
   LAZYEVAL_KEY=xal2 bazel query --repo_env=LAZYEVAL_KEY=xal3 @foo//:BUILD 2>$TEST_log || fail 'Expected no-op build to succeed'
   expect_log "LAZYEVAL_KEY=xal3"
+}
+
+function test_external_package_in_other_repo() {
+  cat > $(setup_module_dot_bazel) <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+local_repository(
+  name="other_repo",
+  path="other_repo",
+)
+EOF
+
+  mkdir -p other_repo/external/java/a
+  touch other_repo/REPO.bazel
+
+  cat > other_repo/external/java/a/BUILD <<EOF
+java_library(name='a', srcs=['A.java'])
+EOF
+
+  cat > other_repo/external/java/a/A.java << EOF
+package a;
+public class A {
+  public static void main(String[] args) {
+    System.out.println("hello world");
+  }
+}
+EOF
+
+  bazel build @other_repo//external/java/a:a || fail "build failed"
+}
+
+function test_external_dir_in_other_repo() {
+  cat > $(setup_module_dot_bazel) <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+local_repository(
+  name="other_repo",
+  path="other_repo",
+)
+EOF
+
+  mkdir -p other_repo/external/java/a
+  touch other_repo/REPO.bazel
+
+  cat > other_repo/BUILD <<EOF
+java_library(name='a', srcs=['external/java/a/A.java'])
+EOF
+
+  cat > other_repo/external/java/a/A.java << EOF
+package a;
+public class A {
+  public static void main(String[] args) {
+    System.out.println("hello world");
+  }
+}
+EOF
+
+  bazel build @other_repo//:a || fail "build failed"
 }
 
 run_suite "external tests"
