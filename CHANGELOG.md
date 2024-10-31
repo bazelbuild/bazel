@@ -1,3 +1,11 @@
+## Release 9.0.0-pre.20241023.1 (2024-10-31)
+
+```
+Baseline: 48e940f18d4f75bd6ba79415abfbac088687a1fa
+```
+
+This release contains contributions from many people at Google, as well as Zhongpeng Lin.
+
 ## Release 9.0.0-pre.20241020.2 (2024-10-25)
 
 ```
