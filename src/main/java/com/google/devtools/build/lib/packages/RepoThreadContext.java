@@ -26,8 +26,6 @@ import net.starlark.java.eval.StarlarkThread;
 
 /** Context object for a Starlark thread evaluating the REPO.bazel file. */
 public class RepoThreadContext extends StarlarkThreadContext {
-  private final LabelConverter labelConverter;
-
   private ImmutableMap<String, Object> packageArgsMap = ImmutableMap.of();
   private boolean repoFunctionCalled = false;
 
@@ -43,13 +41,8 @@ public class RepoThreadContext extends StarlarkThreadContext {
     throw Starlark.errorf("%s can only be called from REPO.bazel", what);
   }
 
-  public RepoThreadContext(LabelConverter labelConverter, RepositoryMapping mainRepoMapping) {
-    super(() -> mainRepoMapping);
-    this.labelConverter = labelConverter;
-  }
-
-  public LabelConverter getLabelConverter() {
-    return labelConverter;
+  public RepoThreadContext() {
+    super(() -> null);
   }
 
   public boolean isRepoFunctionCalled() {

@@ -155,11 +155,7 @@ public class RepoFileFunction implements SkyFunction {
               /* contextDescription= */ "",
               SymbolGenerator.create(repoName));
       thread.setPrintHandler(Event.makeDebugPrintHandler(handler));
-      RepoThreadContext context =
-          new RepoThreadContext(
-              new LabelConverter(
-                  PackageIdentifier.create(repoName, PathFragment.EMPTY_FRAGMENT), repoMapping),
-              null);
+      RepoThreadContext context = new RepoThreadContext();
       context.storeInThread(thread);
       Starlark.execFileProgram(program, predeclared, thread);
       return RepoFileValue.of(context.getPackageArgsMap(), context.getIgnoredDirectories());
