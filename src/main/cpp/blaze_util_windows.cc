@@ -18,12 +18,12 @@
 #include <windows.h>
 
 #include <fcntl.h>
-#include <io.h>            // _open
-#include <knownfolders.h>  // FOLDERID_Profile
-#include <lmcons.h>        // UNLEN
-#include <objbase.h>       // CoTaskMemFree
-#include <shlobj.h>        // SHGetKnownFolderPath
-#include <stdarg.h>        // va_start, va_end, va_list
+#include <io.h>
+#include <knownfolders.h>
+#include <lmcons.h>
+#include <objbase.h>
+#include <shlobj.h>
+#include <stdarg.h>
 
 #include <algorithm>
 #include <cstdio>

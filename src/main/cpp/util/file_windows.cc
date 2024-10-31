@@ -14,11 +14,11 @@
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
-#include <wchar.h>   // wcslen
-#include <wctype.h>  // iswalpha
+#include <wchar.h>
+#include <wctype.h>
 #include <windows.h>
 
-#include <memory>  // unique_ptr
+#include <memory>
 #include <sstream>
 #include <string>
 #include <vector>

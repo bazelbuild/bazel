@@ -25,13 +25,13 @@
 # define DEFAULT_SYSTEM_JAVABASE STANDARD_JAVABASE
 #endif
 
-#include <errno.h>  // errno, ENAMETOOLONG
+#include <errno.h>
 #include <limits.h>
 #include <pwd.h>
 #include <signal.h>
 #include <spawn.h>
 #include <stdlib.h>
-#include <string.h>  // strerror
+#include <string.h>
 #include <sys/mount.h>
 #include <sys/param.h>
 #include <sys/queue.h>

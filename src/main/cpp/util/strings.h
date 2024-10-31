@@ -14,7 +14,6 @@
 #ifndef BAZEL_SRC_MAIN_CPP_UTIL_STRINGS_H_
 #define BAZEL_SRC_MAIN_CPP_UTIL_STRINGS_H_
 
-#include <memory>  // unique_ptr
 #include <string>
 #include <vector>
 

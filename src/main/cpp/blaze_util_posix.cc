@@ -13,12 +13,10 @@
 // limitations under the License.
 
 #define _WITH_DPRINTF
-#include "src/main/cpp/blaze_util_platform.h"
-
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <limits.h>  // PATH_MAX
+#include <limits.h>
 #include <poll.h>
 #include <pwd.h>
 #include <signal.h>
@@ -37,7 +35,6 @@
 
 #include <algorithm>
 #include <cassert>
-#include <cinttypes>
 #include <cstdlib>
 #include <fstream>
 #include <iterator>
@@ -45,6 +42,7 @@
 #include <string>
 
 #include "src/main/cpp/blaze_util.h"
+#include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/startup_options.h"
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
@@ -713,7 +711,7 @@ uint64_t AcquireLock(const blaze_util::Path& output_base, bool batch_mode,
   // Identify ourselves in the lockfile.
   // The contents are printed for human consumption when another client
   // fails to take the lock, but not parsed otherwise.
-  (void) ftruncate(lockfd, 0);
+  (void)ftruncate(lockfd, 0);
   lseek(lockfd, 0, SEEK_SET);
   // Arguably we should ensure this fits in the 4KB we lock.  In practice no one
   // will have a cwd long enough to overflow that, and nothing currently uses
@@ -728,9 +726,7 @@ uint64_t AcquireLock(const blaze_util::Path& output_base, bool batch_mode,
   return wait_time;
 }
 
-void ReleaseLock(BlazeLock* blaze_lock) {
-  close(blaze_lock->lockfd);
-}
+void ReleaseLock(BlazeLock* blaze_lock) { close(blaze_lock->lockfd); }
 
 bool KillServerProcess(int pid, const blaze_util::Path& output_base) {
   // Kill the process and make sure it's dead before proceeding.
