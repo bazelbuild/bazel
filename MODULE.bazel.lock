@@ -1310,7 +1310,7 @@
         "recordedFileInputs": {
           "@@rules_jvm_external+//rules_jvm_external_deps_install.json": "cafb5d2d8119391eb2b322ce3840d3352ea82d496bdb8cbd4b6779ec4d044dda",
           "@@stardoc+//maven_install.json": "25f3c138ca52c61e0e7a564fe21f5709261b33d78d35427b6c18d7aa202d973b",
-          "@@//maven_install.json": "36b58955fcb511bec5dfb7196fb8a3439657d52ed29ac36eb055966bd1130409"
+          "@@//maven_install.json": "02a5b97d39bf45e5413f3391ad222ac129539008f7f7faefa2decdc096031e5b"
         },
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -2105,6 +2105,18 @@
               "downloaded_file_path": "v1/com/google/protobuf/protobuf-java/3.25.5/protobuf-java-3.25.5.jar"
             }
           },
+          "com_google_protobuf_protobuf_java_util_3_25_3": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "sha256": "b813c8d6d554cb71c1e82d171d7f80730ae74222a185c863cbedf05072c88155",
+              "urls": [
+                "https://repo1.maven.org/maven2/com/google/protobuf/protobuf-java-util/3.25.3/protobuf-java-util-3.25.3.jar",
+                "https://repo.maven.apache.org/maven2/com/google/protobuf/protobuf-java-util/3.25.3/protobuf-java-util-3.25.3.jar"
+              ],
+              "downloaded_file_path": "v1/com/google/protobuf/protobuf-java-util/3.25.3/protobuf-java-util-3.25.3.jar"
+            }
+          },
           "com_google_protobuf_protobuf_javalite_3_25_3": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -2417,6 +2429,18 @@
               "downloaded_file_path": "v1/io/github/java-diff-utils/java-diff-utils/4.12/java-diff-utils-4.12.jar"
             }
           },
+          "io_grpc_grpc_alts_1_66_0": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "sha256": "50b0a57e87b3cdf9cb58dfb67fb178db87162d5cf270fa23e9019ecf3969af3e",
+              "urls": [
+                "https://repo1.maven.org/maven2/io/grpc/grpc-alts/1.66.0/grpc-alts-1.66.0.jar",
+                "https://repo.maven.apache.org/maven2/io/grpc/grpc-alts/1.66.0/grpc-alts-1.66.0.jar"
+              ],
+              "downloaded_file_path": "v1/io/grpc/grpc-alts/1.66.0/grpc-alts-1.66.0.jar"
+            }
+          },
           "io_grpc_grpc_api_1_66_0": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -2465,6 +2489,18 @@
               "downloaded_file_path": "v1/io/grpc/grpc-core/1.66.0/grpc-core-1.66.0.jar"
             }
           },
+          "io_grpc_grpc_grpclb_1_66_0": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "sha256": "ac89d073215442d954b90ed89dad7697b5f781914b4e50ebfac72decce44c8a0",
+              "urls": [
+                "https://repo1.maven.org/maven2/io/grpc/grpc-grpclb/1.66.0/grpc-grpclb-1.66.0.jar",
+                "https://repo.maven.apache.org/maven2/io/grpc/grpc-grpclb/1.66.0/grpc-grpclb-1.66.0.jar"
+              ],
+              "downloaded_file_path": "v1/io/grpc/grpc-grpclb/1.66.0/grpc-grpclb-1.66.0.jar"
+            }
+          },
           "io_grpc_grpc_inprocess_1_66_0": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -2487,6 +2523,18 @@
                 "https://repo.maven.apache.org/maven2/io/grpc/grpc-netty/1.66.0/grpc-netty-1.66.0.jar"
               ],
               "downloaded_file_path": "v1/io/grpc/grpc-netty/1.66.0/grpc-netty-1.66.0.jar"
+            }
+          },
+          "io_grpc_grpc_netty_shaded_1_66_0": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "sha256": "909c3465b9e287d81a2478f8fbc0985a5c3dcfa72f98a77ef0a5dcbbe41ba2e5",
+              "urls": [
+                "https://repo1.maven.org/maven2/io/grpc/grpc-netty-shaded/1.66.0/grpc-netty-shaded-1.66.0.jar",
+                "https://repo.maven.apache.org/maven2/io/grpc/grpc-netty-shaded/1.66.0/grpc-netty-shaded-1.66.0.jar"
+              ],
+              "downloaded_file_path": "v1/io/grpc/grpc-netty-shaded/1.66.0/grpc-netty-shaded-1.66.0.jar"
             }
           },
           "io_grpc_grpc_protobuf_1_66_0": {
@@ -2513,6 +2561,18 @@
               "downloaded_file_path": "v1/io/grpc/grpc-protobuf-lite/1.66.0/grpc-protobuf-lite-1.66.0.jar"
             }
           },
+          "io_grpc_grpc_services_1_66_0": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "sha256": "9b1001e3d53e3078fab4e800bdcf9d6b29b40145f8a1442eb822eafbd42565f2",
+              "urls": [
+                "https://repo1.maven.org/maven2/io/grpc/grpc-services/1.66.0/grpc-services-1.66.0.jar",
+                "https://repo.maven.apache.org/maven2/io/grpc/grpc-services/1.66.0/grpc-services-1.66.0.jar"
+              ],
+              "downloaded_file_path": "v1/io/grpc/grpc-services/1.66.0/grpc-services-1.66.0.jar"
+            }
+          },
           "io_grpc_grpc_stub_1_66_0": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -2535,6 +2595,18 @@
                 "https://repo.maven.apache.org/maven2/io/grpc/grpc-util/1.66.0/grpc-util-1.66.0.jar"
               ],
               "downloaded_file_path": "v1/io/grpc/grpc-util/1.66.0/grpc-util-1.66.0.jar"
+            }
+          },
+          "io_grpc_grpc_xds_1_66_0": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "sha256": "af25f838c2dea02f5eedacc4444ff58d10acba9b7e9c5af3ef3e1f398db9ab37",
+              "urls": [
+                "https://repo1.maven.org/maven2/io/grpc/grpc-xds/1.66.0/grpc-xds-1.66.0.jar",
+                "https://repo.maven.apache.org/maven2/io/grpc/grpc-xds/1.66.0/grpc-xds-1.66.0.jar"
+              ],
+              "downloaded_file_path": "v1/io/grpc/grpc-xds/1.66.0/grpc-xds-1.66.0.jar"
             }
           },
           "io_netty_netty_buffer_4_1_100_Final": {
@@ -3231,6 +3303,18 @@
                 "https://repo.maven.apache.org/maven2/org/codehaus/mojo/animal-sniffer-annotations/1.24/animal-sniffer-annotations-1.24.jar"
               ],
               "downloaded_file_path": "v1/org/codehaus/mojo/animal-sniffer-annotations/1.24/animal-sniffer-annotations-1.24.jar"
+            }
+          },
+          "org_conscrypt_conscrypt_openjdk_uber_2_5_2": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "sha256": "eaf537d98e033d0f0451cd1b8cc74e02d7b55ec882da63c88060d806ba89c348",
+              "urls": [
+                "https://repo1.maven.org/maven2/org/conscrypt/conscrypt-openjdk-uber/2.5.2/conscrypt-openjdk-uber-2.5.2.jar",
+                "https://repo.maven.apache.org/maven2/org/conscrypt/conscrypt-openjdk-uber/2.5.2/conscrypt-openjdk-uber-2.5.2.jar"
+              ],
+              "downloaded_file_path": "v1/org/conscrypt/conscrypt-openjdk-uber/2.5.2/conscrypt-openjdk-uber-2.5.2.jar"
             }
           },
           "org_hamcrest_hamcrest_core_1_3": {
@@ -4808,17 +4892,6 @@
                 "https://repo1.maven.org/maven2/org/codehaus/plexus/plexus-utils/3.5.1/plexus-utils-3.5.1.jar"
               ],
               "downloaded_file_path": "v1/org/codehaus/plexus/plexus-utils/3.5.1/plexus-utils-3.5.1.jar"
-            }
-          },
-          "org_conscrypt_conscrypt_openjdk_uber_2_5_2": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "eaf537d98e033d0f0451cd1b8cc74e02d7b55ec882da63c88060d806ba89c348",
-              "urls": [
-                "https://repo1.maven.org/maven2/org/conscrypt/conscrypt-openjdk-uber/2.5.2/conscrypt-openjdk-uber-2.5.2.jar"
-              ],
-              "downloaded_file_path": "v1/org/conscrypt/conscrypt-openjdk-uber/2.5.2/conscrypt-openjdk-uber-2.5.2.jar"
             }
           },
           "org_slf4j_slf4j_api_1_7_30": {
