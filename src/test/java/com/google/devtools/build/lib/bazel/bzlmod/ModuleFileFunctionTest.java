@@ -1184,7 +1184,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 .addExtensionUsage(
                     ModuleExtensionUsage.builder()
                         .setExtensionBzlFile("//:MODULE.bazel")
-                        .setExtensionName("_repo_rules")
+                        .setExtensionName("//:repo.bzl%repo")
                         .setIsolationKey(Optional.empty())
                         .setRepoOverrides(ImmutableMap.of())
                         .addProxy(
@@ -1196,6 +1196,26 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                                 .setContainingModuleFilePath(
                                     LabelConstants.MODULE_DOT_BAZEL_FILE_NAME)
                                 .build())
+                        .addTag(
+                            Tag.builder()
+                                .setTagName("repo")
+                                .setAttributeValues(
+                                    AttributeValues.create(
+                                        Dict.<String, Object>builder()
+                                            .put("name", "repo_name")
+                                            .put("value", "something")
+                                            .buildImmutable()))
+                                .setDevDependency(false)
+                                .setLocation(
+                                    Location.fromFileLineColumn("/workspace/MODULE.bazel", 2, 5))
+                                .build())
+                        .build())
+                .addExtensionUsage(
+                    ModuleExtensionUsage.builder()
+                        .setExtensionBzlFile("//:MODULE.bazel")
+                        .setExtensionName("@bazel_tools//:http.bzl%http_archive")
+                        .setIsolationKey(Optional.empty())
+                        .setRepoOverrides(ImmutableMap.of())
                         .addProxy(
                             ModuleExtensionUsage.Proxy.builder()
                                 .setLocation(
@@ -1216,20 +1236,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                                 .build())
                         .addTag(
                             Tag.builder()
-                                .setTagName("//:repo.bzl%repo")
-                                .setAttributeValues(
-                                    AttributeValues.create(
-                                        Dict.<String, Object>builder()
-                                            .put("name", "repo_name")
-                                            .put("value", "something")
-                                            .buildImmutable()))
-                                .setDevDependency(false)
-                                .setLocation(
-                                    Location.fromFileLineColumn("/workspace/MODULE.bazel", 2, 5))
-                                .build())
-                        .addTag(
-                            Tag.builder()
-                                .setTagName("@bazel_tools//:http.bzl%http_archive")
+                                .setTagName("repo")
                                 .setAttributeValues(
                                     AttributeValues.create(
                                         Dict.<String, Object>builder()
@@ -1242,7 +1249,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                                 .build())
                         .addTag(
                             Tag.builder()
-                                .setTagName("@bazel_tools//:http.bzl%http_archive")
+                                .setTagName("repo")
                                 .setAttributeValues(
                                     AttributeValues.create(
                                         Dict.<String, Object>builder()
@@ -1673,6 +1680,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         evaluator.evaluate(
             ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
     assertThat(result.hasError()).isFalse();
+    assertThat(result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE).getModule().getExtensionUsages())
+        .isEmpty();
   }
 
   @Test
