@@ -670,6 +670,8 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
 
   @Test
   public void testUtf8Symlink() throws Exception {
+    assumeUtf8CompatibleEncoding();
+
     String target = StringEncoding.unicodeToInternal("入力_A_🌱.target");
     Path link = absolutize(StringEncoding.unicodeToInternal("入力_A_🌱.txt"));
     createSymbolicLink(link, PathFragment.create(target));

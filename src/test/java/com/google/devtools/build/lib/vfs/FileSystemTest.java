@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.TruthJUnit.assume;
 import static java.lang.Math.min;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -44,6 +45,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.channels.WritableByteChannel;
+import java.nio.charset.Charset;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.attribute.PosixFilePermission;
@@ -1981,6 +1983,8 @@ public abstract class FileSystemTest {
 
   @Test
   public void testGetNioPath_externalUtf8() throws IOException {
+    assumeUtf8CompatibleEncoding();
+
     // Simulates a Starlark string constant, which is read from a presumably UTF-8 encoded source
     // file into Bazel's internal representation.
     Path utf8File = absolutize(StringEncoding.unicodeToInternal("some_dir/入力_A_🌱.txt"));
@@ -1997,6 +2001,8 @@ public abstract class FileSystemTest {
 
   @Test
   public void testGetNioPath_internalUtf8() throws IOException {
+    assumeUtf8CompatibleEncoding();
+
     Path dirPath = absolutize("some_dir");
     dirPath.createDirectoryAndParents();
 
@@ -2036,11 +2042,16 @@ public abstract class FileSystemTest {
     return javaPath;
   }
 
-  protected String unicodeToPlatform(String s) {
+  protected static String unicodeToPlatform(String s) {
     return StringEncoding.internalToPlatform(StringEncoding.unicodeToInternal(s));
   }
 
-  protected String platformToUnicode(String s) {
+  protected static String platformToUnicode(String s) {
     return StringEncoding.internalToUnicode(StringEncoding.platformToInternal(s));
+  }
+
+  protected static void assumeUtf8CompatibleEncoding() {
+    Charset sunJnuEncoding = Charset.forName(System.getProperty("sun.jnu.encoding"));
+    assume().that(ImmutableList.of(UTF_8, ISO_8859_1)).contains(sunJnuEncoding);
   }
 }
