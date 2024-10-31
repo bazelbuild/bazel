@@ -40,6 +40,7 @@ java_library(
         "Util.java",
     ],
     visibility = [
+        "//src/test/java/com/google/devtools/build/lib/bazel/rules/sh:__pkg__",
         "//src/tools/remote/src/main/java/com/google/devtools/build/remote/worker:__pkg__",
         "//tools/java/runfiles/testing:__pkg__",
     ],

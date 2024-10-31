@@ -72,6 +72,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         config.getPath("local_config_platform_workspace").getPathString();
     String androidGmavenR8Workspace = config.getPath("android_gmaven_r8").getPathString();
     String appleSupport = config.getPath("build_bazel_apple_support").getPathString();
+    String rulesShell = config.getPath("third_party/bazel_rules/rules_shell").getPathString();
 
     return ImmutableList.of(
         "# __SKIP_WORKSPACE_PREFIX__",
@@ -99,6 +100,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "local_repository(name = 'rules_java_builtin', path = '" + rulesJavaWorkspace + "')",
         "local_repository(name = 'android_gmaven_r8', path = '" + androidGmavenR8Workspace + "')",
         "local_repository(name = 'build_bazel_apple_support', path = '" + appleSupport + "')",
+        "local_repository(name = 'rules_shell', path = '" + rulesShell + "')",
         "register_toolchains('@rules_java//java/toolchains/runtime:all')",
         "register_toolchains('@rules_java//java/toolchains/javac:all')",
         "register_toolchains('@bazel_tools//tools/cpp:all')",
@@ -121,7 +123,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "internal_platforms_do_not_use",
         "rules_java",
         "rules_java_builtin",
-        "build_bazel_apple_support");
+        "build_bazel_apple_support",
+        "rules_shell");
   }
 
   @Override
@@ -160,6 +163,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create(
         "build_bazel_apple_support/MODULE.bazel", "module(name = 'build_bazel_apple_support')");
     config.create("embedded_tools/WORKSPACE", "workspace(name = 'bazel_tools')");
+    config.create(
+        "third_party/bazel_rules/rules_shell/MODULE.bazel", "module(name = 'rules_shell')");
 
     // TODO: remove after figuring out https://github.com/bazelbuild/bazel/issues/22208
     config.create(
@@ -173,7 +178,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "proto_bazel_features_workspace",
         "build_bazel_apple_support",
         "local_config_xcode_workspace",
-        "third_party/bazel_rules/rules_cc");
+        "third_party/bazel_rules/rules_cc",
+        "third_party/bazel_rules/rules_shell");
 
     Runfiles runfiles = Runfiles.preload().withSourceRepository("");
     for (String filename :
@@ -834,6 +840,7 @@ launcher_flag_alias(
             .put("build_bazel_apple_support", "build_bazel_apple_support")
             .put("local_config_xcode", "local_config_xcode_workspace")
             .put("rules_cc", "third_party/bazel_rules/rules_cc")
+            .put("rules_shell", "third_party/bazel_rules/rules_shell")
             .buildOrThrow();
     return moduleNameToPath.entrySet().stream()
         .collect(

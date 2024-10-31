@@ -1810,6 +1810,11 @@ public abstract class AbstractQueryTest<T> {
     helper.writeFile("/workspace/third_party/bazel_rules/rules_cc/WORKSPACE");
     helper.writeFile(
         "/workspace/third_party/bazel_rules/rules_cc/MODULE.bazel", "module(name='rules_cc')");
+    helper.writeFile("/workspace/third_party/bazel_rules/rules_shell/BUILD");
+    helper.writeFile("/workspace/third_party/bazel_rules/rules_shell/WORKSPACE");
+    helper.writeFile(
+        "/workspace/third_party/bazel_rules/rules_shell/MODULE.bazel",
+        "module(name='rules_shell')");
   }
 
   @Test
