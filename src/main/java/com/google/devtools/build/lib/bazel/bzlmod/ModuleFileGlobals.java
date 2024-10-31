@@ -49,6 +49,7 @@ import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.eval.Structure;
 import net.starlark.java.eval.Tuple;
+import net.starlark.java.syntax.Identifier;
 
 /** A collection of global Starlark build API functions that apply to MODULE.bazel files. */
 @GlobalMethods(environment = Environment.MODULE)
@@ -436,9 +437,8 @@ public class ModuleFileGlobals {
     ModuleThreadContext context = ModuleThreadContext.fromOrFail(thread, "use_extension()");
     context.setNonModuleCalled();
 
-    if (extensionName.equals(ModuleExtensionId.INNATE_EXTENSION_NAME)) {
-      throw Starlark.errorf(
-          "innate extensions cannot be directly used; try `use_repo_rule` instead");
+    if (!Identifier.isValid(extensionName)) {
+      throw Starlark.errorf("extension name is not a valid identifier: %s", extensionName);
     }
 
     var proxyBuilder =
@@ -778,30 +778,27 @@ public class ModuleFileGlobals {
       throws EvalException {
     ModuleThreadContext context = ModuleThreadContext.fromOrFail(thread, "use_repo_rule()");
     context.setNonModuleCalled();
+    // Not a valid Starlark identifier so that it can't collide with a real extension.
+    String extensionName = bzlFile + '%' + ruleName;
     // Find or create the builder for the singular "innate" extension of this module.
     for (ModuleExtensionUsageBuilder usageBuilder : context.getExtensionUsageBuilders()) {
-      if (usageBuilder.isForExtension("//:MODULE.bazel", ModuleExtensionId.INNATE_EXTENSION_NAME)) {
-        return new RepoRuleProxy(usageBuilder, bzlFile + '%' + ruleName);
+      if (usageBuilder.isForExtension("//:MODULE.bazel", extensionName)) {
+        return new RepoRuleProxy(usageBuilder);
       }
     }
     ModuleExtensionUsageBuilder newUsageBuilder =
         new ModuleExtensionUsageBuilder(
-            context,
-            "//:MODULE.bazel",
-            ModuleExtensionId.INNATE_EXTENSION_NAME,
-            /* isolate= */ false);
+            context, "//:MODULE.bazel", extensionName, /* isolate= */ false);
     context.getExtensionUsageBuilders().add(newUsageBuilder);
-    return new RepoRuleProxy(newUsageBuilder, bzlFile + '%' + ruleName);
+    return new RepoRuleProxy(newUsageBuilder);
   }
 
   @StarlarkBuiltin(name = "repo_rule_proxy", documented = false)
   static class RepoRuleProxy implements StarlarkValue {
     private final ModuleExtensionUsageBuilder usageBuilder;
-    private final String tagName;
 
-    private RepoRuleProxy(ModuleExtensionUsageBuilder usageBuilder, String tagName) {
+    private RepoRuleProxy(ModuleExtensionUsageBuilder usageBuilder) {
       this.usageBuilder = usageBuilder;
-      this.tagName = tagName;
     }
 
     @StarlarkMethod(
@@ -830,7 +827,7 @@ public class ModuleFileGlobals {
                   .setLocation(thread.getCallerLocation())
                   .setContainingModuleFilePath(
                       usageBuilder.getContext().getCurrentModuleFilePath()));
-      extensionProxy.getValue(tagName).call(kwargs, thread);
+      extensionProxy.getValue("repo").call(kwargs, thread);
       extensionProxy.addImport(name, name, "by a repo rule", thread.getCallStack());
     }
   }
