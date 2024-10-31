@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <limits.h>  // PATH_MAX
-#include <stdlib.h>  // getenv
-#include <string.h>  // strncmp
-#include <unistd.h>  // access, open, close, fsync
+#include <limits.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
 #include <vector>
 

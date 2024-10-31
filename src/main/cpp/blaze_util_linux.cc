@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <errno.h>  // errno, ENAMETOOLONG
+#include <errno.h>
 #include <limits.h>
 #include <linux/magic.h>
 #include <pwd.h>
@@ -20,7 +20,7 @@
 #include <spawn.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>  // strerror
+#include <string.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/statfs.h>

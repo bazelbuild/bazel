@@ -16,14 +16,12 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 
-#include "src/main/cpp/util/path_platform.h"
-
 #include <assert.h>
-#include <wchar.h>  // wcslen
+#include <wchar.h>
 #include <windows.h>
 
 #include <algorithm>
-#include <memory>  // unique_ptr
+#include <memory>
 #include <sstream>
 #include <vector>
 
@@ -31,6 +29,7 @@
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/logging.h"
+#include "src/main/cpp/util/path_platform.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/main/native/windows/file.h"
 
