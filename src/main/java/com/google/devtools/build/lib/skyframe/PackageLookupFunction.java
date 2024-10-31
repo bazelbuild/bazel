@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.vfs.DetailedIOException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -234,6 +235,23 @@ public class PackageLookupFunction implements SkyFunction {
                                       .SYMLINK_CYCLE_OR_INFINITE_EXPANSION))
                       .build())),
           Transience.PERSISTENT);
+    } catch (DetailedIOException e) {
+      String message =
+          "IO errors while looking for "
+              + basename
+              + " file reading "
+              + fileRootedPath.asPath()
+              + ": "
+              + e.getMessage();
+      throw new PackageLookupFunctionException(
+          new BuildFileNotFoundException(
+              packageIdentifier,
+              message,
+              DetailedExitCode.of(
+                  e.getDetailedExitCode().getFailureDetail().toBuilder()
+                      .setMessage(message)
+                      .build())),
+          e.getTransience());
     } catch (IOException e) {
       String message =
           "IO errors while looking for "
