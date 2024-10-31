@@ -15,10 +15,9 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
-import com.google.auto.value.AutoBuilder;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -53,22 +52,30 @@ import net.starlark.java.syntax.Location;
 
 /**
  * A fabricated module extension "innate" to each module, used to generate all repos defined using
- * {@code use_repo_rule}.
+ * {@code use_repo_rule} for a single repo rule.
  */
 final class InnateRunnableExtension implements RunnableExtension {
   private final ModuleKey moduleKey;
-  private final ImmutableList<InnateExtensionRepo> repos;
-  private final byte[] transitiveBzlDigest;
+  private final Label bzlLabel;
+  private final String ruleName;
+  private final BzlLoadValue loadedBzl;
+  // Never empty.
+  private final ImmutableList<Tag> tags;
   private final BlazeDirectories directories;
 
   InnateRunnableExtension(
       ModuleKey moduleKey,
-      ImmutableList<InnateExtensionRepo> repos,
-      byte[] transitiveBzlDigest,
+      Label bzlLabel,
+      String ruleName,
+      BzlLoadValue loadedBzl,
+      ImmutableList<Tag> tags,
       BlazeDirectories directories) {
     this.moduleKey = moduleKey;
-    this.repos = repos;
-    this.transitiveBzlDigest = transitiveBzlDigest;
+    this.bzlLabel = bzlLabel;
+    this.ruleName = ruleName;
+    this.loadedBzl = loadedBzl;
+    Preconditions.checkArgument(!tags.isEmpty());
+    this.tags = tags;
     this.directories = directories;
   }
 
@@ -90,6 +97,8 @@ final class InnateRunnableExtension implements RunnableExtension {
           usagesValue.getExtensionUsages().keySet());
     }
     ModuleKey moduleKey = Iterables.getOnlyElement(usagesValue.getExtensionUsages().keySet());
+    // ModuleFileFunction doesn't add usages for use_repo_rule without any instantiations, so we can
+    // assume that there is at least one tag.
     ImmutableList<Tag> tags =
         Iterables.getOnlyElement(usagesValue.getExtensionUsages().values()).getTags();
     RepositoryMapping repoMapping = usagesValue.getRepoMappings().get(moduleKey);
@@ -97,8 +106,6 @@ final class InnateRunnableExtension implements RunnableExtension {
 
     // The name of the extension is of the form "<bzl_file_label>%<rule_name>".
     Iterator<String> parts = Splitter.on('%').split(extensionId.getExtensionName()).iterator();
-    // ModuleFileFunction doesn't add usages for use_repo_rule without any instantiations, so we can
-    // assume that there is at least one tag.
     Location location = tags.getFirst().getLocation();
     Label bzlLabel;
     try {
@@ -129,20 +136,7 @@ final class InnateRunnableExtension implements RunnableExtension {
       return null;
     }
 
-    ImmutableList<InnateExtensionRepo> repos =
-        tags.stream()
-            .map(
-                tag ->
-                    InnateExtensionRepo.builder()
-                        .tag(tag)
-                        .bzlLabel(bzlLabel)
-                        .ruleName(ruleName)
-                        .loadedBzl(loadedBzl)
-                        .build())
-            .collect(toImmutableList());
-
-    return new InnateRunnableExtension(
-        moduleKey, repos, loadedBzl.getTransitiveDigest(), directories);
+    return new InnateRunnableExtension(moduleKey, bzlLabel, ruleName, loadedBzl, tags, directories);
   }
 
   @Override
@@ -152,7 +146,7 @@ final class InnateRunnableExtension implements RunnableExtension {
 
   @Override
   public byte[] getBzlTransitiveDigest() {
-    return transitiveBzlDigest;
+    return loadedBzl.getTransitiveDigest();
   }
 
   @Override
@@ -168,42 +162,42 @@ final class InnateRunnableExtension implements RunnableExtension {
       ModuleExtensionId extensionId,
       RepositoryMapping mainRepositoryMapping)
       throws InterruptedException, ExternalDepsException {
-    var generatedRepoSpecs = ImmutableMap.<String, RepoSpec>builderWithExpectedSize(repos.size());
+    Object exported = loadedBzl.getModule().getGlobal(ruleName);
+    if (exported == null) {
+      ImmutableSet<String> exportedRepoRules =
+          loadedBzl.getModule().getGlobals().entrySet().stream()
+              .filter(e -> e.getValue() instanceof RepositoryRuleFunction)
+              .map(Entry::getKey)
+              .collect(toImmutableSet());
+      throw ExternalDepsException.withMessage(
+          Code.BAD_MODULE,
+          "%s does not export a repository_rule called %s, yet its use is requested at" + " %s%s",
+          bzlLabel,
+          ruleName,
+          tags.getFirst().getLocation(),
+          SpellChecker.didYouMean(ruleName, exportedRepoRules));
+    } else if (!(exported instanceof RepositoryRuleFunction)) {
+      throw ExternalDepsException.withMessage(
+          Code.BAD_MODULE,
+          "%s exports a value called %s of type %s, yet a repository_rule is requested" + " at %s",
+          bzlLabel,
+          ruleName,
+          Starlark.type(exported),
+          tags.getFirst().getLocation());
+    }
+    RepositoryRuleFunction repoRule = (RepositoryRuleFunction) exported;
+
+    var generatedRepoSpecs = ImmutableMap.<String, RepoSpec>builderWithExpectedSize(tags.size());
     // Instantiate the repos one by one.
-    for (InnateExtensionRepo repo : repos) {
-      Object exported = repo.loadedBzl().getModule().getGlobal(repo.ruleName());
-      if (exported == null) {
-        ImmutableSet<String> exportedRepoRules =
-            repo.loadedBzl().getModule().getGlobals().entrySet().stream()
-                .filter(e -> e.getValue() instanceof RepositoryRuleFunction)
-                .map(Entry::getKey)
-                .collect(toImmutableSet());
-        throw ExternalDepsException.withMessage(
-            Code.BAD_MODULE,
-            "%s does not export a repository_rule called %s, yet its use is requested at" + " %s%s",
-            repo.bzlLabel(),
-            repo.ruleName(),
-            repo.tag().getLocation(),
-            SpellChecker.didYouMean(repo.ruleName(), exportedRepoRules));
-      } else if (!(exported instanceof RepositoryRuleFunction)) {
-        throw ExternalDepsException.withMessage(
-            Code.BAD_MODULE,
-            "%s exports a value called %s of type %s, yet a repository_rule is requested"
-                + " at %s",
-            repo.bzlLabel(),
-            repo.ruleName(),
-            Starlark.type(exported),
-            repo.tag().getLocation());
-      }
-      RepositoryRuleFunction repoRule = (RepositoryRuleFunction) exported;
-      Dict<String, Object> kwargs = repo.tag().getAttributeValues().attributes();
+    for (Tag tag : tags) {
+      Dict<String, Object> kwargs = tag.getAttributeValues().attributes();
       // This cast should be safe since it should have been verified at tag creation time.
       String name = (String) kwargs.get("name");
       String prefixedName = usagesValue.getExtensionUniqueName() + "+" + name;
       Rule ruleInstance;
       AttributeValues attributesValue;
       var fakeCallStackEntry =
-          StarlarkThread.callStackEntry("InnateRunnableExtension.run", repo.tag().getLocation());
+          StarlarkThread.callStackEntry("InnateRunnableExtension.run", tag.getLocation());
       // Rule creation strips the top-most entry from the call stack, so we need to add the fake
       // one twice.
       ImmutableList<StarlarkThread.CallStackEntry> fakeCallStack =
@@ -230,11 +224,7 @@ final class InnateRunnableExtension implements RunnableExtension {
             String.format("%s '%s'", ruleInstance.getRuleClass(), name));
       } catch (InvalidRuleException | NoSuchPackageException | EvalException e) {
         throw ExternalDepsException.withCauseAndMessage(
-            Code.BAD_MODULE,
-            e,
-            "error creating repo %s requested at %s",
-            name,
-            repo.tag().getLocation());
+            Code.BAD_MODULE, e, "error creating repo %s requested at %s", name, tag.getLocation());
       }
       RepoSpec repoSpec =
           RepoSpec.builder()
@@ -255,25 +245,5 @@ final class InnateRunnableExtension implements RunnableExtension {
         generatedRepoSpecs.buildOrThrow(),
         Optional.of(ModuleExtensionMetadata.REPRODUCIBLE),
         ImmutableTable.of());
-  }
-
-  /** Information about a single repo to be created by an innate extension. */
-  record InnateExtensionRepo(Label bzlLabel, String ruleName, Tag tag, BzlLoadValue loadedBzl) {
-    static Builder builder() {
-      return new AutoBuilder_InnateRunnableExtension_InnateExtensionRepo_Builder();
-    }
-
-    @AutoBuilder
-    interface Builder {
-      Builder bzlLabel(Label value);
-
-      Builder ruleName(String value);
-
-      Builder tag(Tag value);
-
-      Builder loadedBzl(BzlLoadValue value);
-
-      InnateExtensionRepo build();
-    }
   }
 }
