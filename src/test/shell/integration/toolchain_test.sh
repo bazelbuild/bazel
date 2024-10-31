@@ -45,7 +45,7 @@ source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
 function set_up() {
   create_new_workspace
   # Clean out the MODULE.bazel file.
-  rm -f $TOOLCHAIN_REGISTRAION_FILE
+  rm -f $TOOLCHAIN_REGISTRATION_FILE
   setup_module_dot_bazel "MODULE.bazel"
 
   # Create shared report rule for printing toolchain info.
@@ -159,7 +159,7 @@ function write_register_toolchain() {
   local exec_compatible_with="${3:-"[]"}"
   local target_compatible_with="${4:-"[]"}"
 
-  cat >> $TOOLCHAIN_REGISTRAION_FILE <<EOF
+  cat >> $TOOLCHAIN_REGISTRATION_FILE <<EOF
 register_toolchains('//register/${pkg}:${toolchain_name}_1')
 EOF
 
@@ -877,7 +877,7 @@ function test_toolchain_constraints() {
   write_test_toolchain "${pkg}"
   write_test_rule "${pkg}"
 
-  cat > $TOOLCHAIN_REGISTRAION_FILE <<EOF
+  cat > $TOOLCHAIN_REGISTRATION_FILE <<EOF
 register_toolchains('//${pkg}:toolchain_1')
 register_toolchains('//${pkg}:toolchain_2')
 EOF
@@ -971,7 +971,7 @@ function test_register_toolchain_error_invalid_label() {
   write_test_rule "${pkg}"
   write_register_toolchain "${pkg}"
 
-  cat > $TOOLCHAIN_REGISTRAION_FILE <<EOF
+  cat > $TOOLCHAIN_REGISTRATION_FILE <<EOF
 register_toolchains('/:invalid:label:syntax')
 EOF
 
@@ -999,7 +999,7 @@ function test_register_toolchain_error_invalid_target() {
   write_test_toolchain "${pkg}"
   write_test_rule "${pkg}"
 
-  cat > $TOOLCHAIN_REGISTRAION_FILE <<EOF
+  cat > $TOOLCHAIN_REGISTRATION_FILE <<EOF
 register_toolchains('//${pkg}/demo:not_a_target')
 EOF
 
@@ -1024,7 +1024,7 @@ function test_register_toolchain_error_target_not_a_toolchain() {
   write_test_toolchain "${pkg}"
   write_test_rule "${pkg}"
 
-  cat > $TOOLCHAIN_REGISTRAION_FILE <<EOF
+  cat > $TOOLCHAIN_REGISTRATION_FILE <<EOF
 register_toolchains('//${pkg}/demo:invalid')
 EOF
 
@@ -1054,7 +1054,7 @@ EOF
 
 function test_register_toolchain_error_invalid_pattern() {
   local -r pkg="${FUNCNAME[0]}"
-  cat > $TOOLCHAIN_REGISTRAION_FILE <<EOF
+  cat > $TOOLCHAIN_REGISTRATION_FILE <<EOF
 register_toolchains('//${pkg}:bad1')
 register_toolchains('//${pkg}:bad2')
 EOF
@@ -1105,7 +1105,7 @@ toolchain(
 )
 EOF
 
-  cat > $TOOLCHAIN_REGISTRAION_FILE <<EOF
+  cat > $TOOLCHAIN_REGISTRATION_FILE <<EOF
 register_toolchains('//${pkg}/invalid:invalid_toolchain')
 EOF
 
@@ -1413,7 +1413,7 @@ function test_target_setting() {
   write_test_toolchain "${pkg}"
   write_test_rule "${pkg}"
 
-  cat > $TOOLCHAIN_REGISTRAION_FILE <<EOF
+  cat > $TOOLCHAIN_REGISTRATION_FILE <<EOF
 register_toolchains('//${pkg}:toolchain_1')
 register_toolchains('//${pkg}:toolchain_2')
 EOF
@@ -1489,7 +1489,7 @@ function test_target_setting_with_transition() {
   write_test_toolchain "${pkg}"
   write_test_rule "${pkg}"
 
-  cat > $TOOLCHAIN_REGISTRAION_FILE <<EOF
+  cat > $TOOLCHAIN_REGISTRATION_FILE <<EOF
 register_toolchains('//${pkg}:toolchain_1')
 register_toolchains('//${pkg}:toolchain_2')
 EOF
@@ -1648,7 +1648,7 @@ toolchain(
 EOF
 
   # Register the toolchains
-  cat > $TOOLCHAIN_REGISTRAION_FILE <<EOF
+  cat > $TOOLCHAIN_REGISTRATION_FILE <<EOF
 register_toolchains('//${pkg}:test_toolchain_foo', '//${pkg}:test_toolchain_bar')
 EOF
 
@@ -1719,7 +1719,7 @@ rule_var = rule(
 EOF
 
   # Create and register a toolchain
-  cat > $TOOLCHAIN_REGISTRAION_FILE <<EOF
+  cat > $TOOLCHAIN_REGISTRATION_FILE <<EOF
 register_toolchains('//${pkg}:toolchain_var_1')
 EOF
 
@@ -1870,7 +1870,7 @@ toolchain(
 EOF
 
   # Finally, set up the misconfigured MODULE.bazel file.
-  cat > $TOOLCHAIN_REGISTRAION_FILE <<EOF
+  cat > $TOOLCHAIN_REGISTRATION_FILE <<EOF
 register_toolchains(
     '//${pkg}:upper_toolchain', # Not a toolchain() target!
     '//${pkg}:lower_toolchain_impl',
@@ -2213,7 +2213,7 @@ test_rule(
 )
 EOF
 
-  cat > $TOOLCHAIN_REGISTRAION_FILE <<EOF
+  cat > $TOOLCHAIN_REGISTRATION_FILE <<EOF
 register_toolchains('//${pkg}/project:toolchain')
 EOF
 
@@ -2341,7 +2341,7 @@ function test_two_toolchain_types_resolve_to_same_label() {
   local -r pkg="${FUNCNAME[0]}"
   write_test_toolchain "${pkg}"
 
-  cat > $TOOLCHAIN_REGISTRAION_FILE <<EOF
+  cat > $TOOLCHAIN_REGISTRATION_FILE <<EOF
 register_toolchains('//${pkg}:toolchain_1')
 register_toolchains('//${pkg}:toolchain_2')
 EOF
@@ -2510,7 +2510,7 @@ toolchain(
 EOF
 
   # Register all the toolchains.
-  cat > $TOOLCHAIN_REGISTRAION_FILE <<EOF
+  cat > $TOOLCHAIN_REGISTRATION_FILE <<EOF
 register_toolchains("//${pkg}/inner:all")
 register_toolchains("//${pkg}/outer:all")
 EOF
@@ -2637,7 +2637,7 @@ foo_rule(name = "demo")
 EOF
 
   # Set up the MODULE.bazel.
-  cat > $TOOLCHAIN_REGISTRAION_FILE <<EOF
+  cat > $TOOLCHAIN_REGISTRATION_FILE <<EOF
 local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
   name = "rules_foo",
@@ -2677,7 +2677,7 @@ platform(
 )
 EOF
   # Register them in order.
-  cat >> $TOOLCHAIN_REGISTRAION_FILE <<EOF
+  cat >> $TOOLCHAIN_REGISTRATION_FILE <<EOF
 register_execution_platforms("//${pkg}/platforms:platform1", "//${pkg}/platforms:platform2")
 EOF
 
@@ -2751,7 +2751,7 @@ platform(
 )
 EOF
   # Register them in order.
-  cat >> $TOOLCHAIN_REGISTRAION_FILE <<EOF
+  cat >> $TOOLCHAIN_REGISTRATION_FILE <<EOF
 register_execution_platforms("//${pkg}/platforms:platform1", "//${pkg}/platforms:platform2")
 EOF
 
@@ -2809,7 +2809,7 @@ function setup_toolchain_precedence_tests() {
   write_test_toolchain "${pkg}"
   write_test_rule "${pkg}"
 
-  cat > $TOOLCHAIN_REGISTRAION_FILE <<EOF
+  cat > $TOOLCHAIN_REGISTRATION_FILE <<EOF
 register_toolchains('//${pkg}:toolchain_1')
 EOF
 

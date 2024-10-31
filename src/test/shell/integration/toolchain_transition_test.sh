@@ -176,8 +176,8 @@ platform(
 )
 EOF
 
-  # Append to $TOOLCHAIN_REGISTRAION_FILE
-  cat >> $TOOLCHAIN_REGISTRAION_FILE <<EOF
+  # Append to $TOOLCHAIN_REGISTRATION_FILE
+  cat >> $TOOLCHAIN_REGISTRATION_FILE <<EOF
 register_execution_platforms(
     "//${pkg}/platform:exec_alpha",
     "//${pkg}/platform:exec_beta",
@@ -309,8 +309,8 @@ toolchain(
 )
 EOF
 
-  # Append to $TOOLCHAIN_REGISTRAION_FILE
-  cat >> $TOOLCHAIN_REGISTRAION_FILE <<EOF
+  # Append to $TOOLCHAIN_REGISTRATION_FILE
+  cat >> $TOOLCHAIN_REGISTRATION_FILE <<EOF
 register_toolchains(
     "//${pkg}/toolchain:sample_toolchain_alpha",
     "//${pkg}/toolchain:sample_toolchain_beta",

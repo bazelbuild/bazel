@@ -97,7 +97,7 @@ BAZEL_RUNFILES="$TEST_SRCDIR/_main"
 workspace_file="${BAZEL_RUNFILES}/WORKSPACE"
 
 # Where to register toolchains
-TOOLCHAIN_REGISTRAION_FILE="MODULE.bazel"
+TOOLCHAIN_REGISTRATION_FILE="MODULE.bazel"
 
 # Tools directory location
 tools_dir="$(dirname $(rlocation io_bazel/tools/BUILD))"
