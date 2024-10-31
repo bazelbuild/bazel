@@ -19,8 +19,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.packages.PackageArgs;
-import com.google.devtools.build.lib.skyframe.RepoFileFunction.BadRepoFileException;
-import com.google.devtools.build.lib.skyframe.RepoFileFunction.RepoFileFunctionException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -33,16 +31,16 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 
 /** A @{link SkyFunction} that returns the {@link PackageArgs} for a given repository. */
-public class PackageArgsFunction implements SkyFunction {
-  public static final PackageArgsFunction INSTANCE = new PackageArgsFunction();
+public class RepoPackageArgsFunction implements SkyFunction {
+  public static final RepoPackageArgsFunction INSTANCE = new RepoPackageArgsFunction();
 
   /** {@link SkyValue} wrapping a PackageArgs. */
-  public static final class PackageArgsValue implements SkyValue {
-    public static final PackageArgsValue EMPTY = new PackageArgsValue(PackageArgs.EMPTY);
+  public static final class RepoPackageArgsValue implements SkyValue {
+    public static final RepoPackageArgsValue EMPTY = new RepoPackageArgsValue(PackageArgs.EMPTY);
 
     private final PackageArgs packageArgs;
 
-    public PackageArgsValue(PackageArgs packageArgs) {
+    public RepoPackageArgsValue(PackageArgs packageArgs) {
       this.packageArgs = packageArgs;
     }
 
@@ -57,7 +55,7 @@ public class PackageArgsFunction implements SkyFunction {
 
     @Override
     public boolean equals(Object other) {
-      if (other instanceof PackageArgsValue that) {
+      if (other instanceof RepoPackageArgsValue that) {
         return that.packageArgs.equals(packageArgs);
       } else {
         return false;
@@ -69,7 +67,25 @@ public class PackageArgsFunction implements SkyFunction {
     return new Key(repoName);
   }
 
-  /** Key type for {@link RepoFileValue}. */
+  /** Thrown when there is something wrong with the arguments of the {@code repo()} function. */
+  private static class BadPackageArgsException extends Exception {
+    public BadPackageArgsException(String message, Exception cause) {
+      super(message, cause);
+    }
+  }
+
+  /** A {@link SkyFunctionException} for @{link RepoPackageArgsFunction}.*/
+  private static class RepoPackageArgsFunctionException extends SkyFunctionException {
+    public RepoPackageArgsFunctionException(Exception cause, Transience transience) {
+      super(cause, transience);
+    }
+
+    private RepoPackageArgsFunctionException(BadPackageArgsException e) {
+      super(e, Transience.PERSISTENT);
+    }
+  }
+
+  /** Key type for {@link RepoPackageArgsValue}. */
   public static class Key extends AbstractSkyKey<RepositoryName> {
 
     private Key(RepositoryName repoName) {
@@ -78,11 +94,11 @@ public class PackageArgsFunction implements SkyFunction {
 
     @Override
     public SkyFunctionName functionName() {
-      return SkyFunctions.PACKAGE_ARGS;
+      return SkyFunctions.REPO_PACKAGE_ARGS;
     }
   }
 
-  private PackageArgsFunction() {}
+  private RepoPackageArgsFunction() {}
 
   @Nullable
   @Override
@@ -93,11 +109,15 @@ public class PackageArgsFunction implements SkyFunction {
     RepoFileValue repoFileValue = (RepoFileValue) env.getValue(RepoFileValue.key(repositoryName));
     RepositoryMappingValue repositoryMappingValue =
         (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(repositoryName));
+    RepositoryMappingValue mainRepoMapping =
+        (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
 
     if (env.valuesMissing()) {
       return null;
     }
-    String repoDisplayName = RepoFileFunction.getDisplayNameForRepo(repositoryName, null);
+
+    String repoDisplayName = RepoFileFunction.getDisplayNameForRepo(
+        repositoryName, mainRepoMapping.getRepositoryMapping());
 
     PackageArgs.Builder pkgArgsBuilder = PackageArgs.builder();
     LabelConverter labelConverter =
@@ -115,10 +135,10 @@ public class PackageArgsFunction implements SkyFunction {
       }
     } catch (EvalException e) {
       env.getListener().handle(Event.error(e.getMessageWithStack()));
-      throw new RepoFileFunctionException(
-          new BadRepoFileException("error evaluating REPO.bazel file for " + repoDisplayName, e));
+      throw new RepoPackageArgsFunctionException(
+          new BadPackageArgsException("error evaluating REPO.bazel file for " + repoDisplayName, e));
     }
 
-    return new PackageArgsValue(pkgArgsBuilder.build());
+    return new RepoPackageArgsValue(pkgArgsBuilder.build());
   }
 }

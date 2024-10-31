@@ -42,16 +42,24 @@ import javax.annotation.Nullable;
 /**
  * A {@link SkyFunction} for {@link IgnoredPackagePrefixesValue}.
  *
- * <p>It is used to implement the `.bazelignore` feature.
+ * <p>It is used to compute which directories should be ignored in a package. These either come
+ * from the {@code .bazelignore} file or from the {@code ignored_directories()} function in
+ * {@code REPO.bazel}.
  */
 public class IgnoredPackagePrefixesFunction implements SkyFunction {
+  /**
+   * A version of {@link IgnoredPackagePrefixesFunction} that always returns the empty value.
+   *
+   * <p> Used for tests where the extra complications incurred by evaluating the function are
+   * undesired.
+   */
+  public static final SkyFunction NOOP = (skyKey, env) -> IgnoredPackagePrefixesValue.EMPTY;
+
   private final PathFragment ignoredPackagePrefixesFile;
-  private final boolean useRepoFile;
 
   public IgnoredPackagePrefixesFunction(
-      PathFragment ignoredPackagePrefixesFile, boolean useRepoFile) {
+      PathFragment ignoredPackagePrefixesFile) {
     this.ignoredPackagePrefixesFile = ignoredPackagePrefixesFile;
-    this.useRepoFile = useRepoFile;
   }
 
   public static void getIgnoredPackagePrefixes(
@@ -80,10 +88,6 @@ public class IgnoredPackagePrefixesFunction implements SkyFunction {
       Environment env, RepositoryName repositoryName)
       throws IgnoredPatternsFunctionException, InterruptedException {
 
-    if (!useRepoFile) {
-      return ImmutableList.of();
-    }
-
     try {
       RepoFileValue repoFileValue =
           (RepoFileValue)
@@ -106,10 +110,6 @@ public class IgnoredPackagePrefixesFunction implements SkyFunction {
   private ImmutableSet<PathFragment> computeIgnoredPrefixes(
       Environment env, RepositoryName repositoryName)
       throws IgnoredPatternsFunctionException, InterruptedException {
-    if (ignoredPackagePrefixesFile.equals(PathFragment.EMPTY_FRAGMENT)) {
-      return ImmutableSet.of();
-    }
-
     ImmutableSet.Builder<PathFragment> ignoredPackagePrefixesBuilder = ImmutableSet.builder();
     PathPackageLocator pkgLocator = PrecomputedValue.PATH_PACKAGE_LOCATOR.get(env);
     if (env.valuesMissing()) {

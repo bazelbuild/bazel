@@ -103,7 +103,6 @@ public class RepoFileFunction implements SkyFunction {
         repoFile,
         repoName,
         RepositoryMapping.ALWAYS_FALLBACK,
-        null,
         starlarkSemantics,
         env.getListener());
   }
@@ -140,11 +139,10 @@ public class RepoFileFunction implements SkyFunction {
       StarlarkFile starlarkFile,
       RepositoryName repoName,
       RepositoryMapping repoMapping,
-      RepositoryMapping mainRepoMapping,
       StarlarkSemantics starlarkSemantics,
       ExtendedEventHandler handler)
       throws RepoFileFunctionException, InterruptedException {
-    String repoDisplayName = getDisplayNameForRepo(repoName, mainRepoMapping);
+    String repoDisplayName = getDisplayNameForRepo(repoName, null);
     try (Mutability mu = Mutability.create("repo file", repoName)) {
       new DotBazelFileSyntaxChecker("REPO.bazel files", /* canLoadBzl= */ false)
           .check(starlarkFile);
@@ -161,7 +159,7 @@ public class RepoFileFunction implements SkyFunction {
           new RepoThreadContext(
               new LabelConverter(
                   PackageIdentifier.create(repoName, PathFragment.EMPTY_FRAGMENT), repoMapping),
-              mainRepoMapping);
+              null);
       context.storeInThread(thread);
       Starlark.execFileProgram(program, predeclared, thread);
       return RepoFileValue.of(context.getPackageArgsMap(), context.getIgnoredDirectories());
@@ -188,11 +186,11 @@ public class RepoFileFunction implements SkyFunction {
   }
 
   static class RepoFileFunctionException extends SkyFunctionException {
-    public RepoFileFunctionException(IOException e, Transience transience) {
+    private RepoFileFunctionException(IOException e, Transience transience) {
       super(e, transience);
     }
 
-    public RepoFileFunctionException(BadRepoFileException e) {
+    private RepoFileFunctionException(BadRepoFileException e) {
       super(e, Transience.PERSISTENT);
     }
   }

@@ -2335,7 +2335,7 @@ java_library(
 
 java_library(
     name = "package_args_function",
-    srcs = ["PackageArgsFunction.java"],
+    srcs = ["RepoPackageArgsFunction.java"],
     deps = [
         ":repo_file_function",
         ":repo_file_value",

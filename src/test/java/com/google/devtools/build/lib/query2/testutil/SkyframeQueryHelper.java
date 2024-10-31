@@ -425,7 +425,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
             .setDirectories(directories)
             .setActionKeyContext(actionKeyContext)
             .setIgnoredPackagePrefixesFunction(
-                new IgnoredPackagePrefixesFunction(ignoredPackagePrefixesFile, true))
+                new IgnoredPackagePrefixesFunction(ignoredPackagePrefixesFile))
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
             .setSyscallCache(delegatingSyscallCache)
             .build();

@@ -121,14 +121,23 @@ public final class IgnoredSubdirectories {
   public IgnoredSubdirectories union(IgnoredSubdirectories other) {
     return new IgnoredSubdirectories(
         ImmutableSet.<PathFragment>builder().addAll(prefixes).addAll(other.prefixes).build(),
-        ImmutableList.<String>builder().addAll(patterns).addAll(other.patterns).build());
+        ImmutableList.copyOf(
+            ImmutableSet.<String>builder().addAll(patterns).addAll(other.patterns).build()));
   }
 
   /** Filters out entries that cannot match anything under {@code directory}. */
   public IgnoredSubdirectories filterForDirectory(PathFragment directory) {
     ImmutableSet<PathFragment> filteredPrefixes =
         prefixes.stream().filter(p -> p.startsWith(directory)).collect(toImmutableSet());
+
+    String[] splitDirectory = Iterables.toArray(
+        SLASH_SPLITTER.split(directory.getPathString()), String.class);
     ImmutableList.Builder<String> filteredPatterns = ImmutableList.builder();
+    for (int i = 0; i < patterns.size(); i++) {
+      if (UnixGlob.canMatchChild(splitPatterns.get(i), splitDirectory)) {
+        filteredPatterns.add(patterns.get(i));
+      }
+    }
 
     return new IgnoredSubdirectories(filteredPrefixes, filteredPatterns.build());
   }

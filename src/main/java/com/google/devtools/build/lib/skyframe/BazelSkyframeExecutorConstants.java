@@ -43,14 +43,7 @@ public class BazelSkyframeExecutorConstants {
    * therefore fails the build, this ignore functionality currently has no chance to kick in.
    */
   public static final SkyFunction IGNORED_PACKAGE_PREFIXES_FUNCTION =
-      new IgnoredPackagePrefixesFunction(BAZELIGNORE_PATH, true);
-
-  /**
-   * IGNORED_PACKAGE_PREFIXES_FUNCTION, except always returns the empty value. Used for tests where
-   * the extra complications incurred by evaluating the function are undesired.
-   */
-  public static final SkyFunction NOOP_IGNORED_PACKAGE_PREFIXES_FUNCTION =
-      new IgnoredPackagePrefixesFunction(PathFragment.EMPTY_FRAGMENT, false);
+      new IgnoredPackagePrefixesFunction(BAZELIGNORE_PATH);
 
   public static final CrossRepositoryLabelViolationStrategy
       CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY = CrossRepositoryLabelViolationStrategy.ERROR;

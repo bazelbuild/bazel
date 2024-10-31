@@ -57,7 +57,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Filesystem;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
-import com.google.devtools.build.lib.skyframe.PackageArgsFunction.PackageArgsValue;
+import com.google.devtools.build.lib.skyframe.RepoPackageArgsFunction.RepoPackageArgsValue;
 import com.google.devtools.build.lib.skyframe.PackageFunctionWithMultipleGlobDeps.SkyframeGlobbingIOException;
 import com.google.devtools.build.lib.skyframe.RepoFileFunction.BadRepoFileException;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsFunction.BuiltinsFailedException;
@@ -995,20 +995,20 @@ public abstract class PackageFunction implements SkyFunction {
     IgnoredPackagePrefixesValue repositoryIgnoredPackagePrefixes =
         (IgnoredPackagePrefixesValue)
             env.getValue(IgnoredPackagePrefixesValue.key(packageId.getRepository()));
-    PackageArgsValue packageArgsValue;
+    RepoPackageArgsValue repoPackageArgsValue;
     if (shouldUseRepoDotBazel) {
       try {
-        packageArgsValue =
-            (PackageArgsValue)
+        repoPackageArgsValue =
+            (RepoPackageArgsValue)
                 env.getValueOrThrow(
-                    PackageArgsFunction.key(packageId.getRepository()),
+                    RepoPackageArgsFunction.key(packageId.getRepository()),
                     IOException.class,
                     BadRepoFileException.class);
       } catch (IOException | BadRepoFileException e) {
         throw badRepoFileException(e, packageId);
       }
     } else {
-      packageArgsValue = PackageArgsValue.EMPTY;
+      repoPackageArgsValue = RepoPackageArgsValue.EMPTY;
     }
 
     if (env.valuesMissing()) {
@@ -1174,7 +1174,7 @@ public abstract class PackageFunction implements SkyFunction {
 
       pkgBuilder.mergePackageArgsFrom(
           PackageArgs.builder().setDefaultVisibility(defaultVisibility));
-      pkgBuilder.mergePackageArgsFrom(packageArgsValue.getPackageArgs());
+      pkgBuilder.mergePackageArgsFrom(repoPackageArgsValue.getPackageArgs());
 
       if (compiled.ok()) {
         packageFactory.executeBuildFile(

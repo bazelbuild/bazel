@@ -31,8 +31,12 @@ public final class RepoFileGlobals {
 
   @StarlarkMethod(
       name = "ignore_directories",
+      doc = "The list of directories to ignore in this repository. <p>This function takes a list"
+          + " of strings and a directory is ignored if any of the given strings matches its"
+          + " repository-relative path according to the semantics of the <code>glob()</code>"
+          + " function. This function can be used to ignore directories that are implementation"
+          + " details of source control systems, output files of other build systems, etc.",
       useStarlarkThread = true,
-      documented = false, // TODO
       parameters = {
         @Param(
             name = "dirs",
