@@ -676,6 +676,7 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
     assertThat(link.readSymbolicLink().toString()).isEqualTo(target);
 
     java.nio.file.Path javaPath = getJavaPathOrSkipIfUnsupported(link);
-    assertThat(Files.readSymbolicLink(javaPath).toString()).isEqualTo("入力_A_🌱.target");
+    assertThat(platformToUnicode(Files.readSymbolicLink(javaPath).toString()))
+        .isEqualTo("入力_A_🌱.target");
   }
 }

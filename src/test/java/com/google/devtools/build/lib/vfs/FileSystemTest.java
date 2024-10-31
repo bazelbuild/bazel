@@ -2002,7 +2002,7 @@ public abstract class FileSystemTest {
 
     // Create a file through Java APIs.
     java.nio.file.Path javaDirPath = getJavaPathOrSkipIfUnsupported(dirPath);
-    Files.writeString(javaDirPath.resolve("入力_A_🌱.txt"), "hello 入力_A_🌱");
+    Files.writeString(javaDirPath.resolve(unicodeToPlatform("入力_A_🌱.txt")), "hello 入力_A_🌱");
 
     // Retrieve its path through the filesystem API.
     var entries = dirPath.getDirectoryEntries();
@@ -2034,5 +2034,13 @@ public abstract class FileSystemTest {
     assertThat(javaFile.toPath()).isEqualTo(javaPath);
 
     return javaPath;
+  }
+
+  protected String unicodeToPlatform(String s) {
+    return StringEncoding.internalToPlatform(StringEncoding.unicodeToInternal(s));
+  }
+
+  protected String platformToUnicode(String s) {
+    return StringEncoding.internalToUnicode(StringEncoding.platformToInternal(s));
   }
 }
