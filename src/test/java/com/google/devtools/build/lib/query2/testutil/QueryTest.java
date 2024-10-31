@@ -158,7 +158,11 @@ public abstract class QueryTest extends AbstractQueryTest<Target> {
     writeBzlAndSclFiles();
 
     assertThat(targetLabels(eval("loadfiles(//foo:BUILD)")))
-        .containsExactly("//bar:direct.scl", "//bar:indirect.scl", "//bar:intermediate.bzl");
+        .containsExactly(
+            "//bar:direct.scl",
+            "//bar:indirect.scl",
+            "//bar:intermediate.bzl",
+            "//test_defs:foo_library.bzl");
   }
 
   @Test
@@ -321,7 +325,8 @@ public abstract class QueryTest extends AbstractQueryTest<Target> {
   @Test
   public void testQueryTimeLoadingWhenPackageDoesNotExist() throws Exception {
     // Given a workspace containing a package "//a",
-    writeFile("a/BUILD", "sh_library(name = 'a')");
+    writeFile(
+        "a/BUILD", "load('//test_defs:foo_library.bzl', 'foo_library')", "foo_library(name = 'a')");
 
     // When the query environment is queried for "//a/b:b" which doesn't exist,
     String nonExistentPackage = "a/b";
@@ -334,7 +339,10 @@ public abstract class QueryTest extends AbstractQueryTest<Target> {
   @Test
   public void testQueryTimeLoadingWhenPackageIsMalformed() throws Exception {
     // Given a workspace containing a malformed package "//a",
-    writeFile("a/BUILD", "sh_library(name = 'a') BUT WAIT THERE'S MORE");
+    writeFile(
+        "a/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'a') BUT WAIT THERE'S MORE");
 
     // When the query environment is queried for "//a:a" which belongs to a malformed package,
     String s = evalThrows("//a:a", false).getMessage();
@@ -363,9 +371,18 @@ public abstract class QueryTest extends AbstractQueryTest<Target> {
 
   @Test
   public void boundedDepsQueryWithError() throws Exception {
-    writeFile("foo/BUILD", "sh_library(name ='foo', deps = ['//bar'])");
-    writeFile("bar/BUILD", "sh_library(name ='bar')");
-    writeFile("errorparent", "sh_library(name = 'errorparent', deps = ['//error'])");
+    writeFile(
+        "foo/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name ='foo', deps = ['//bar'])");
+    writeFile(
+        "bar/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name ='bar')");
+    writeFile(
+        "errorparent",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'errorparent', deps = ['//error'])");
     writeFile("error", "has errors");
 
     evalThrows("deps(//foo:all + //errorparent:all, 25)", false);
@@ -571,10 +588,12 @@ public abstract class QueryTest extends AbstractQueryTest<Target> {
   public void testShorthandTargetLiteralUnion() throws Exception {
     writeFile(
         "foo/bar/BUILD",
-        "sh_library(name = 'bar')");
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'bar')");
     writeFile(
         "foo/baz/BUILD",
-        "sh_library(name = 'baz')");
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'baz')");
     Set<Target> targets = eval("foo/bar + foo/baz");
     assertThat(targetLabels(targets))
         .containsExactly(
@@ -586,10 +605,12 @@ public abstract class QueryTest extends AbstractQueryTest<Target> {
   public void testShorthandAbsoluteTargetLiteralUnion() throws Exception {
     writeFile(
         "foo/bar/BUILD",
-        "sh_library(name = 'bar')");
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'bar')");
     writeFile(
         "foo/baz/BUILD",
-        "sh_library(name = 'baz')");
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'baz')");
     Set<Target> targets = eval("//foo/bar + //foo/baz");
     assertThat(targetLabels(targets))
         .containsExactly(
@@ -603,8 +624,8 @@ public abstract class QueryTest extends AbstractQueryTest<Target> {
         "foo/BUILD",
         """
         load("//bar:bar.bzl", "B")
-
-        sh_library(
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(
             name = "foo",
             deps = ["//bar"],
         )
@@ -613,13 +634,13 @@ public abstract class QueryTest extends AbstractQueryTest<Target> {
         "bar/BUILD",
         """
         load("//bar:bar.bzl", "B")
+        load('//test_defs:foo_library.bzl', 'foo_library')
 
-        sh_library(name = "bar")
+        foo_library(name = "bar")
         """);
-    writeFile(
-        "bar/bar.bzl",
-        "B = []");
-    assertThat(evalToString("loadfiles(deps(//foo))")).isEqualTo("//bar:bar.bzl");
+    writeFile("bar/bar.bzl", "B = []");
+    assertThat(evalToString("loadfiles(deps(//foo))"))
+        .isEqualTo("//bar:bar.bzl //test_defs:foo_library.bzl");
   }
 
   protected void runTestRdepsWithNonDefaultDependencyFilter(String query, String expected)
@@ -627,6 +648,7 @@ public abstract class QueryTest extends AbstractQueryTest<Target> {
     writeFile(
         "foo/BUILD",
         """
+        load("//test_defs:foo_binary.bzl", "foo_binary")
         genrule(
             name = "gen",
             srcs = ["doesntmatter.txt"],
@@ -635,21 +657,18 @@ public abstract class QueryTest extends AbstractQueryTest<Target> {
             tools = [":a"],
         )
 
-        sh_binary(
+        foo_binary(
             name = "a",
-            srcs = ["doesntmatter.sh"],
         )
 
-        sh_binary(
+        foo_binary(
             name = "b",
-            srcs = ["doesntmatter.sh"],
-            data = [":a"],
+            srcs = [":a"],
         )
 
-        sh_binary(
+        foo_binary(
             name = "c",
-            srcs = ["doesntmatter.sh"],
-            data = [":out.txt"],
+            srcs = [":out.txt"],
         )
         """);
     helper.setQuerySettings(Setting.ONLY_TARGET_DEPS);

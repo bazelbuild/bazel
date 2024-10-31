@@ -146,6 +146,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "foo/BUILD",
         """
         load("@rules_java//java:defs.bzl", "java_library")
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
         genrule(name = 'foo',
           cmd = 'dummy_cmd',
           srcs = ['a.txt', 'b.img'],
@@ -167,7 +168,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
           output_to_bindir = 1,
         )
         # The target below is used by testResolveCommand and testResolveTools
-        sh_binary(name = 'mytool',
+        foo_binary(name = 'mytool',
           srcs = ['mytool.sh'],
           data = ['file1.dat', 'file2.dat'],
         )
@@ -513,8 +514,9 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     scratch.file(
         "bar/BUILD",
         """
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
         load('//bar:bar.bzl', 'my_rule')
-        sh_binary(
+        foo_binary(
           name = 'mytool',
           srcs = ['mytool.sh'],
           data = ['file1.dat', 'file2.dat'],
@@ -3055,8 +3057,9 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "a/BUILD",
         """
         load(':a.bzl', 'r')
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
         r(name='r')
-        sh_binary(name='tool', srcs=['tool.sh'], data=['data'])
+        foo_binary(name='tool', srcs=['tool.sh'], data=['data'])
         """);
 
     ConfiguredTarget r = getConfiguredTarget("//a:r");
@@ -3087,8 +3090,9 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "a/BUILD",
         """
         load(':a.bzl', 'r')
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
         r(name='r')
-        sh_binary(name='tool', srcs=['tool.sh'], data=['data'])
+        foo_binary(name='tool', srcs=['tool.sh'], data=['data'])
         """);
 
     ConfiguredTarget r = getConfiguredTarget("//a:r");

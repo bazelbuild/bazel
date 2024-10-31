@@ -96,8 +96,11 @@ public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
   @Test
   public void testLabelVisitation() throws Exception {
     writeConfigRules();
-    scratch.file("a/BUILD",
-        "sh_binary(",
+    scratch.file(
+        "a/BUILD",
+        "load('//test_defs:foo_binary.bzl', 'foo_binary')",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_binary(",
         "    name = 'bin',",
         "    srcs = ['bin.sh'],",
         "    deps = select({",
@@ -105,13 +108,13 @@ public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
         "        '//conditions:b': [':bdep'],",
         "        '" + BuildType.Selector.DEFAULT_CONDITION_KEY + "': [':defaultdep'],",
         "    }))",
-        "sh_library(",
+        "foo_library(",
         "    name = 'adep',",
         "    srcs = ['adep.sh'])",
-        "sh_library(",
+        "foo_library(",
         "    name = 'bdep',",
         "    srcs = ['bdep.sh'])",
-        "sh_library(",
+        "foo_library(",
         "    name = 'defaultdep',",
         "    srcs = ['defaultdep.sh'])");
 
@@ -150,7 +153,9 @@ public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
   @Test
   public void testConfigurationTransitions() throws Exception {
     writeConfigRules();
-    scratch.file("a/BUILD",
+    scratch.file(
+        "a/BUILD",
+        "load('//test_defs:foo_binary.bzl', 'foo_binary')",
         "genrule(",
         "    name = 'gen',",
         "    srcs = [],",
@@ -161,13 +166,13 @@ public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
         "        '//conditions:b': [':bdep'],",
         "        '" + BuildType.Selector.DEFAULT_CONDITION_KEY + "': [':defaultdep'],",
         "    }))",
-        "sh_binary(",
+        "foo_binary(",
         "    name = 'adep',",
         "    srcs = ['adep.sh'])",
-        "sh_binary(",
+        "foo_binary(",
         "    name = 'bdep',",
         "    srcs = ['bdep.sh'])",
-        "sh_binary(",
+        "foo_binary(",
         "    name = 'defaultdep',",
         "    srcs = ['defaultdep.sh'])");
     useConfiguration("--define", "mode=b");

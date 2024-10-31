@@ -40,7 +40,10 @@ public class RemoteConfiguredTargetValueCodecTest extends AnalysisTestCase {
 
   @Test
   public void ruleConfiguredTargetValue_roundTripsToRemoteConfiguredTargetValue() throws Exception {
-    scratch.file("a/BUILD", "sh_binary(name = 'a', srcs = ['a.sh'])");
+    scratch.file(
+        "a/BUILD",
+        "load('//test_defs:foo_binary.bzl', 'foo_binary')",
+        "foo_binary(name = 'a', srcs = ['a.sh'])");
 
     update("//a:a");
     ConfiguredTarget target = getConfiguredTarget("//a:a");

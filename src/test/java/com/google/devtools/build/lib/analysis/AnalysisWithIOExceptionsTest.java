@@ -52,8 +52,14 @@ public class AnalysisWithIOExceptionsTest extends AnalysisTestCase {
 
   @Test
   public void testGlobIOException() throws Exception {
-    scratch.file("b/BUILD", "sh_library(name = 'b', deps= ['//a:a'])");
-    scratch.file("a/BUILD", "sh_library(name = 'a', srcs = glob(['a.sh']))");
+    scratch.file(
+        "b/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'b', deps= ['//a:a'])");
+    scratch.file(
+        "a/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'a', srcs = glob(['a.sh']))");
     crashMessage = path -> path.toString().contains("a.sh") ? "bork" : null;
     reporter.removeHandler(failFastHandler);
     assertThrows(ViewCreationFailedException.class, () -> update("//b:b"));
@@ -61,12 +67,16 @@ public class AnalysisWithIOExceptionsTest extends AnalysisTestCase {
 
   @Test
   public void testIncrementalGlobIOException() throws Exception {
-    scratch.file("b/BUILD", "sh_library(name = 'b', deps= ['//a:a'])");
+    scratch.file(
+        "b/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'b', deps= ['//a:a'])");
     scratch.file(
         "a/BUILD",
         """
-        sh_library(name = 'a', srcs = glob(['a.sh']))
-        sh_library(name = 'expensive', srcs = ['expensive.sh'])
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(name = 'a', srcs = glob(['a.sh']))
+        foo_library(name = 'expensive', srcs = ['expensive.sh'])
         """);
     Path aShFile = scratch.file("a/a.sh");
     update("//b:b");
@@ -96,10 +106,14 @@ public class AnalysisWithIOExceptionsTest extends AnalysisTestCase {
         scratch.file(
             "foo/BUILD",
             """
-            sh_library(name = 'foo', srcs = glob(['subdir/*.sh']))
-            sh_library(name = 'crosses/directory', srcs = ['foo.sh'])
+            load('//test_defs:foo_library.bzl', 'foo_library')
+            foo_library(name = 'foo', srcs = glob(['subdir/*.sh']))
+            foo_library(name = 'crosses/directory', srcs = ['foo.sh'])
             """);
-    scratch.file("top/BUILD", "sh_library(name = 'top', deps = ['//foo:foo'], srcs = ['top.sh'])");
+    scratch.file(
+        "top/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'top', deps = ['//foo:foo'], srcs = ['top.sh'])");
     Path errorPath = buildPath.getParentDirectory().getChild("subdir");
     crashMessage = path -> errorPath.asFragment().equals(path) ? "custom crash: bork" : null;
     assertThrows(ViewCreationFailedException.class, () -> update("//top:top"));

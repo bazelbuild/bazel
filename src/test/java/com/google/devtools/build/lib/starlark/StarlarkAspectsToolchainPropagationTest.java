@@ -152,7 +152,7 @@ public final class StarlarkAspectsToolchainPropagationTest extends AnalysisTestC
           toolchain_type = "//rule:toolchain_type_2",
         )
 
-        sh_library(name = "toolchain_dep")
+        filegroup(name = "toolchain_dep")
 
         test_toolchain_with_dep(
           name = "foo_with_dep",

@@ -816,7 +816,8 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
     scratch.file(
         "foo/BUILD",
         """
-        sh_binary(
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
+        foo_binary(
             name = "tool",
             srcs = ["a.sh"],
             target_compatible_with = ["//platforms:local_value_b"],
@@ -869,7 +870,8 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
     scratch.file(
         "foo/BUILD",
         """
-        sh_binary(
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
+        foo_binary(
             name = "tool",
             srcs = ["a.sh"],
             target_compatible_with = ["//platforms:local_value_a"],
@@ -942,7 +944,8 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
     scratch.file(
         "tool/BUILD",
         """
-        sh_binary(
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
+        foo_binary(
             name = "tool",
             srcs = ["a.cc"],
             target_compatible_with = ["//platforms:local_value_a"],
@@ -1010,7 +1013,8 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
     scratch.file(
         "tool/BUILD",
         """
-        sh_binary(
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
+        foo_binary(
             name = "tool",
             srcs = ["a.cc"],
             target_compatible_with = ["//platforms:local_value_a"],
@@ -1100,7 +1104,8 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
     scratch.file(
         "tool/BUILD",
         """
-        sh_binary(
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
+        foo_binary(
             name = "tool",
             srcs = ["a.cc"],
             target_compatible_with = ["//platforms:local_value_b"],

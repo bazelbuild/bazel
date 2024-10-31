@@ -110,7 +110,8 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
             "a",
             "myrule",
             """
-            sh_binary(
+            load('//test_defs:foo_binary.bzl', 'foo_binary')
+            foo_binary(
                 name = "myrule",
                 srcs = ["a.sh"],
             )
@@ -130,7 +131,8 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
             "a",
             "myrule",
             """
-            sh_binary(
+            load('//test_defs:foo_binary.bzl', 'foo_binary')
+            foo_binary(
                 name = "myrule",
                 srcs = select({
                     "//conditions:a": ["a.sh"],
@@ -153,7 +155,8 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
             "a",
             "myrule",
             """
-            sh_binary(
+            load('//test_defs:foo_binary.bzl', 'foo_binary')
+            foo_binary(
                 name = "myrule",
                 srcs = select({
                     "//conditions:a1": ["a1.sh"],
@@ -206,7 +209,8 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
             "a",
             "myrule",
             """
-            sh_binary(
+            load('//test_defs:foo_binary.bzl', 'foo_binary')
+            foo_binary(
                 name = "myrule",
                 # Even though this combination seems invalid it's
                 # allowed due to select specialization.
@@ -248,7 +252,8 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
             "a",
             "myrule",
             """
-            sh_binary(
+            load('//test_defs:foo_binary.bzl', 'foo_binary')
+            foo_binary(
                 name = "myrule",
                 srcs = select({
                     "//conditions:a": ["a.sh"],

@@ -100,12 +100,13 @@ public abstract class AbstractQueryKeepGoingTest extends QueryTest {
     writeFile(
         "pear/BUILD",
         """
-        sh_library(
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(
             name = "plum/peach",
             srcs = ["peach.sh"],
         )
 
-        sh_library(
+        foo_library(
             name = "apple",
             srcs = ["apple.sh"],
         )
@@ -128,12 +129,13 @@ public abstract class AbstractQueryKeepGoingTest extends QueryTest {
     writeFile(
         "pear/BUILD",
         """
-        sh_library(
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(
             name = "plum/peach",
             srcs = ["peach.sh"],
         )
 
-        sh_library(
+        foo_library(
             name = "apple",
             srcs = ["apple.sh"],
         )
@@ -334,7 +336,10 @@ public abstract class AbstractQueryKeepGoingTest extends QueryTest {
     // package containing that import.
 
     // The package "//foo" can be loaded and has no errors.
-    writeFile("foo/BUILD", "sh_library(name='apple', srcs=['apple.sh'])");
+    writeFile(
+        "foo/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name='apple', srcs=['apple.sh'])");
 
     // The package "//foo/foo" has a load statement that fails. Its ":banana" target does not depend
     // on the load, but because the package failed to load, it does not exist.
@@ -342,8 +347,9 @@ public abstract class AbstractQueryKeepGoingTest extends QueryTest {
         "foo/foo/BUILD",
         """
         load("//bar:lib.bzl", "myfunc")
+        load('//test_defs:foo_library.bzl', 'foo_library')
 
-        sh_library(
+        foo_library(
             name = "banana",
             srcs = ["banana.sh"],
         )
@@ -369,7 +375,10 @@ public abstract class AbstractQueryKeepGoingTest extends QueryTest {
     // packages in error, testing that each packages' error is reported.
 
     // The package "//foo" can be loaded and has no errors.
-    writeFile("foo/BUILD", "sh_library(name='apple', srcs=['apple.sh'])");
+    writeFile(
+        "foo/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name='apple', srcs=['apple.sh'])");
 
     // The packages "//foo/foo" and "//foo/foo2" each have a load statement that fails. The
     // ":banana" targets do not depend on the load, but because the packages failed to load, they do
@@ -378,8 +387,8 @@ public abstract class AbstractQueryKeepGoingTest extends QueryTest {
         "foo/foo/BUILD",
         """
         load("//bar:lib.bzl", "myfunc")
-
-        sh_library(
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(
             name = "banana",
             srcs = ["banana.sh"],
         )
@@ -388,8 +397,8 @@ public abstract class AbstractQueryKeepGoingTest extends QueryTest {
         "foo/foo2/BUILD",
         """
         load("//bar:lib.bzl", "myfunc")
-
-        sh_library(
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(
             name = "banana",
             srcs = ["banana.sh"],
         )
@@ -454,7 +463,10 @@ public abstract class AbstractQueryKeepGoingTest extends QueryTest {
     // be reported. How shocking!
 
     // The package "//foo" can be loaded and has no errors.
-    writeFile("foo/BUILD", "sh_library(name='apple', srcs=['apple.sh'])");
+    writeFile(
+        "foo/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name='apple', srcs=['apple.sh'])");
 
     // The package "//foo/foo" has a load statement that fails. Its ":banana" target does not depend
     // on the load, but because the package failed to load, it does not exist.
@@ -462,8 +474,8 @@ public abstract class AbstractQueryKeepGoingTest extends QueryTest {
         "foo/foo/BUILD",
         """
         load("//bar:lib.bzl", "myfunc")
-
-        sh_library(
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(
             name = "banana",
             srcs = ["banana.sh"],
         )
@@ -513,7 +525,10 @@ public abstract class AbstractQueryKeepGoingTest extends QueryTest {
     // will fail and an error should be reported. Quite astonishing!
 
     // The package "//foo" can be loaded and has no errors.
-    writeFile("foo/BUILD", "sh_library(name='apple', srcs=['apple.sh'])");
+    writeFile(
+        "foo/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name='apple', srcs=['apple.sh'])");
 
     // The package "//foo/foo" has a load statement that fails. Its ":banana" target does not depend
     // on the load, but because the package failed to load, it does not exist.
@@ -521,8 +536,8 @@ public abstract class AbstractQueryKeepGoingTest extends QueryTest {
         "foo/foo/BUILD",
         """
         load("//bar:lib.bzl", "myfunc")
-
-        sh_library(
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(
             name = "banana",
             srcs = ["banana.sh"],
         )
@@ -552,7 +567,10 @@ public abstract class AbstractQueryKeepGoingTest extends QueryTest {
     }
 
     // The package "//foo" is healthy.
-    writeFile("foo/BUILD", "sh_library(name='apple', srcs=['apple.sh'])");
+    writeFile(
+        "foo/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name='apple', srcs=['apple.sh'])");
 
     // The package "//baz" is not healthy: it contains a load statement referring to an unpackaged
     // Starlark file.
@@ -560,8 +578,8 @@ public abstract class AbstractQueryKeepGoingTest extends QueryTest {
         "baz/BUILD",
         """
         load("//bar:lib.bzl", "myfunc")
-
-        sh_library(
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(
             name = "banana",
             srcs = ["banana.sh"],
         )
@@ -579,12 +597,13 @@ public abstract class AbstractQueryKeepGoingTest extends QueryTest {
     writeFile(
         "foo/BUILD",
         """
-        sh_library(
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(
             name = "foo",
             deps = [":dep"],
         )
 
-        sh_library(
+        foo_library(
             name = "dep",
             deps = ["//bar:missing"],
         )
@@ -625,9 +644,10 @@ public abstract class AbstractQueryKeepGoingTest extends QueryTest {
     writeFile(
         "foo/BUILD",
         """
+        load('//test_defs:foo_library.bzl', 'foo_library')
         package(default_visibility = ["//visibility:public"])
 
-        sh_library(
+        foo_library(
             name = "a",
             visibility = [
                 "//bad:visibility",
@@ -635,9 +655,9 @@ public abstract class AbstractQueryKeepGoingTest extends QueryTest {
             ],
         )
 
-        sh_library(name = "b")
+        foo_library(name = "b")
 
-        sh_library(
+        foo_library(
             name = "c",
             visibility = ["//bad:visibility"],
         )

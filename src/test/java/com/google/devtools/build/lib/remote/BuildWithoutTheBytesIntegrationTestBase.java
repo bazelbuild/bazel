@@ -98,12 +98,13 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
     write(
         "BUILD",
+        "load('//test_defs:foo_test.bzl', 'foo_test')",
         "genrule(",
         "  name = 'foo',",
         "  cmd = 'echo foo > $@',",
         "  outs = ['foo.data'],",
         ")",
-        "sh_test(",
+        "foo_test(",
         "  name = 'foobar',",
         "  srcs = ['test.sh'],",
         "  data = [':foo'],",

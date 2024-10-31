@@ -46,7 +46,7 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
             ],
         )
 
-        sh_library(
+        filegroup(
             name = "lib",
             srcs = [":files"],
         )
@@ -79,7 +79,7 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
             actual = "//files:files",
         )
 
-        sh_library(
+        filegroup(
             name = "lib",
             srcs = [":files_alias"],
         )
@@ -110,7 +110,7 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
             actual = ":files_alias",
         )
 
-        sh_library(
+        filegroup(
             name = "lib",
             srcs = [":files_alias_alias"],
         )
@@ -141,7 +141,7 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
             ],
         )
 
-        sh_library(
+        filegroup(
             name = "lib",
             srcs = [":files"],
         )
@@ -165,7 +165,7 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
             cmd = "never executed",
         )
 
-        sh_library(
+        filegroup(
             name = "lib",
             srcs = [":foo"],
         )
@@ -205,9 +205,7 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void otherPathExternalExpansionLegacyExternalRunfiles() throws Exception {
-    scratch.file(
-        "expansion/BUILD",
-        "sh_library(name='lib', srcs=['@r//p:foo'])");
+    scratch.file("expansion/BUILD", "filegroup(name='lib', srcs=['@r//p:foo'])");
     scratch.appendFile(
         "MODULE.bazel",
         "bazel_dep(name = 'r')",
@@ -240,7 +238,7 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void otherPathExternalExpansionNoLegacyExternalRunfiles() throws Exception {
-    scratch.file("expansion/BUILD", "sh_library(name='lib', srcs=['@r//p:foo'])");
+    scratch.file("expansion/BUILD", "filegroup(name='lib', srcs=['@r//p:foo'])");
     scratch.appendFile(
         "MODULE.bazel",
         "bazel_dep(name = 'r')",
@@ -274,7 +272,7 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
   @Test
   public void otherPathExternalExpansionNoLegacyExternalRunfilesSiblingRepositoryLayout()
       throws Exception {
-    scratch.file("expansion/BUILD", "sh_library(name='lib', srcs=['@r//p:foo'])");
+    scratch.file("expansion/BUILD", "filegroup(name='lib', srcs=['@r//p:foo'])");
     scratch.appendFile(
         "MODULE.bazel",
         "bazel_dep(name = 'r')",
@@ -320,7 +318,7 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
             cmd = "never executed",
         )
 
-        sh_library(
+        filegroup(
             name = "lib",
             srcs = [":foo"],
         )

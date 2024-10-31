@@ -128,6 +128,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
   public void setupMockClient(MockToolsConfig config) throws IOException {
     List<String> workspaceContents = getWorkspaceContents(config);
     setupMockClient(config, workspaceContents);
+    setupMockTestingRules(config);
   }
 
   @Override

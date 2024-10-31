@@ -96,7 +96,10 @@ public class TargetSummaryEventTest extends BuildIntegrationTestCase {
   @Test
   public void test_buildSucceeds_testSucceeds() throws Exception {
     write("foo/good_test.sh", "#!/bin/bash", "true").setExecutable(true);
-    write("foo/BUILD", "sh_test(name = 'good_test', srcs = ['good_test.sh'])");
+    write(
+        "foo/BUILD",
+        "load('//test_defs:foo_test.bzl', 'foo_test')",
+        "foo_test(name = 'good_test', srcs = ['good_test.sh'])");
 
     File bep = testTargetAndCaptureBuildEventProtocol("//foo:good_test");
 
@@ -108,7 +111,10 @@ public class TargetSummaryEventTest extends BuildIntegrationTestCase {
   @Test
   public void test_buildSucceeds_testFails() throws Exception {
     write("foo/bad_test.sh", "#!/bin/bash", "false").setExecutable(true);
-    write("foo/BUILD", "sh_test(name = 'bad_test', srcs = ['bad_test.sh'])");
+    write(
+        "foo/BUILD",
+        "load('//test_defs:foo_test.bzl', 'foo_test')",
+        "foo_test(name = 'bad_test', srcs = ['bad_test.sh'])");
 
     File bep = testTargetAndCaptureBuildEventProtocol("//foo:bad_test");
 
@@ -120,7 +126,10 @@ public class TargetSummaryEventTest extends BuildIntegrationTestCase {
   @Test
   public void test_buildSucceeds_testRuntimeFailsToBuild() throws Exception {
     write("foo/good_test.sh", "#!/bin/bash", "true").setExecutable(true);
-    write("foo/BUILD", "sh_test(name = 'good_test', srcs = ['good_test.sh'])");
+    write(
+        "foo/BUILD",
+        "load('//test_defs:foo_test.bzl', 'foo_test')",
+        "foo_test(name = 'good_test', srcs = ['good_test.sh'])");
 
     // Hack: the path to the tools/test/BUILD file is prefixed in the Bazel tests.
     String pathToToolsTestBuildPrefix = AnalysisMock.get().isThisBazel() ? "embedded_tools/" : "";

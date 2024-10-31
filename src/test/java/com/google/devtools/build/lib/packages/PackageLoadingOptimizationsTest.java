@@ -33,9 +33,10 @@ public class PackageLoadingOptimizationsTest extends PackageLoadingTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load('//test_defs:foo_library.bzl', 'foo_library')
         L = ["//other:t" + str(i) for i in range(10)]
 
-        [sh_library(
+        [foo_library(
             name = "t" + str(i),
             deps = L,
         ) for i in range(10)]
@@ -47,7 +48,7 @@ public class PackageLoadingOptimizationsTest extends PackageLoadingTestCase {
 
     ImmutableList.Builder<ImmutableList<Label>> allListsBuilder = ImmutableList.builder();
     for (Rule ruleInstance : fooPkg.getTargets(Rule.class)) {
-      assertThat(ruleInstance.getTargetKind()).isEqualTo("sh_library rule");
+      assertThat(ruleInstance.getTargetKind()).isEqualTo("foo_library rule");
       @SuppressWarnings("unchecked")
       ImmutableList<Label> depsList = (ImmutableList<Label>) ruleInstance.getAttr("deps");
       allListsBuilder.add(depsList);
@@ -67,20 +68,23 @@ public class PackageLoadingOptimizationsTest extends PackageLoadingTestCase {
         """
         def _foo_test_impl(ctx):
             return
-
         foo_test = rule(implementation = _foo_test_impl, test = True)
+        """);
+    scratch.file(
+        "foo/bar.bzl",
+        """
+        def _bar_test_impl(ctx):
+            return
+        bar_test = rule(implementation = _bar_test_impl, test = True)
         """);
     scratch.file(
         "foo/BUILD",
         """
         load(":foo.bzl", "foo_test")
-
-        [sh_test(
-            name = str(i) + "_test",
-            srcs = ["t.sh"],
-        ) for i in range(5)]
+        load(":bar.bzl", "bar_test")
 
         [foo_test(name = str(i) + "_foo_test") for i in range(5)]
+        [bar_test(name = str(i) + "_test") for i in range(5)]
         """);
 
     Package fooPkg =
@@ -161,18 +165,19 @@ public class PackageLoadingOptimizationsTest extends PackageLoadingTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load('//test_defs:foo_test.bzl', 'foo_test')
         # (in an order that is not target-name-order),
-        sh_test(
+        foo_test(
             name = "bTest",
             srcs = ["test.sh"],
         )
 
-        sh_test(
+        foo_test(
             name = "cTest",
             srcs = ["test.sh"],
         )
 
-        sh_test(
+        foo_test(
             name = "aTest",
             srcs = ["test.sh"],
         )
