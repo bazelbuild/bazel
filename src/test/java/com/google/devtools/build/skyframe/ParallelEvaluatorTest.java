@@ -33,6 +33,7 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicates;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -155,12 +156,12 @@ public class ParallelEvaluatorTest {
         new EmittedEventState(),
         storedEventFilter,
         ErrorInfoManager.UseChildErrorInfoIfNecessary.INSTANCE,
-        keepGoing,
         revalidationReceiver,
         GraphInconsistencyReceiver.THROWING,
         AbstractQueueVisitor.create("test-pool", 200, ParallelEvaluatorErrorClassifier.instance()),
         new SimpleCycleDetector(),
-        UnnecessaryTemporaryStateDropperReceiver.NULL);
+        UnnecessaryTemporaryStateDropperReceiver.NULL,
+        unused -> keepGoing);
   }
 
   private ParallelEvaluator makeEvaluator(
@@ -3261,14 +3262,14 @@ public class ParallelEvaluatorTest {
             EventFilter.FULL_STORAGE,
             ErrorInfoManager.UseChildErrorInfoIfNecessary.INSTANCE,
             // Doesn't matter for this test case.
-            /* keepGoing= */ false,
             revalidationReceiver,
             GraphInconsistencyReceiver.THROWING,
             // We ought not need more than 1 thread for this test case.
             AbstractQueueVisitor.create(
                 "test-pool", 1, ParallelEvaluatorErrorClassifier.instance()),
             new SimpleCycleDetector(),
-            dropperReceiver);
+            dropperReceiver,
+            /* keepGoing= */ Predicates.alwaysFalse());
     // Then, when we evaluate key1,
     SkyValue resultValue = parallelEvaluator.eval(ImmutableList.of(key1)).get(key1);
     // It successfully produces the value we expect, confirming all our other expectations about
@@ -4114,13 +4115,13 @@ public class ParallelEvaluatorTest {
             EventFilter.FULL_STORAGE,
             ErrorInfoManager.UseChildErrorInfoIfNecessary.INSTANCE,
             // Doesn't matter for this test case.
-            /* keepGoing= */ false,
             revalidationReceiver,
             GraphInconsistencyReceiver.THROWING,
             // We ought not need more than 1 thread for this test case.
             testExecutor,
             new SimpleCycleDetector(),
-            UnnecessaryTemporaryStateDropperReceiver.NULL);
+            UnnecessaryTemporaryStateDropperReceiver.NULL,
+            /* keepGoing= */ Predicates.alwaysFalse());
 
     EvaluationResult<StringValue> result = parallelEvaluator.eval(ImmutableList.of(parentKey));
     assertThat(result.hasError()).isFalse();

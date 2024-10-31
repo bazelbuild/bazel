@@ -77,13 +77,13 @@ public final class StateMachineTest {
             new EmittedEventState(),
             EventFilter.FULL_STORAGE,
             ErrorInfoManager.UseChildErrorInfoIfNecessary.INSTANCE,
-            keepGoing,
             revalidationReceiver,
             GraphInconsistencyReceiver.THROWING,
             AbstractQueueVisitor.create(
                 "test-pool", TEST_PARALLELISM, ParallelEvaluatorErrorClassifier.instance()),
             new SimpleCycleDetector(),
-            UnnecessaryTemporaryStateDropperReceiver.NULL)
+            UnnecessaryTemporaryStateDropperReceiver.NULL,
+            /* keepGoing= */ skyKey -> keepGoing)
         .eval(ImmutableList.of(root));
   }
 

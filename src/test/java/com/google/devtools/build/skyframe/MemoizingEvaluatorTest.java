@@ -1646,7 +1646,11 @@ public abstract class MemoizingEvaluatorTest {
     topLevelBuilder.setConstantValue(new StringValue("xyz"));
 
     EvaluationResult<StringValue> result =
-        tester.eval(/*keepGoing=*/ true, /*numThreads=*/ 5, topLevel);
+        tester.eval(
+            /* keepGoing= */ true,
+            /* mergingSkyframeAnalysisExecutionPhases= */ false,
+            /* numThreads= */ 5,
+            topLevel);
     assertThat(result.hasError()).isFalse();
     assertThat(maxValue[0]).isEqualTo(5);
   }
@@ -5954,11 +5958,16 @@ public abstract class MemoizingEvaluatorTest {
     }
 
     public <T extends SkyValue> EvaluationResult<T> eval(
-        boolean keepGoing, int numThreads, SkyKey... keys) throws InterruptedException {
+        boolean keepGoing,
+        boolean mergingSkyframeAnalysisExecutionPhases,
+        int numThreads,
+        SkyKey... keys)
+        throws InterruptedException {
       assertThat(getModifiedValues()).isEmpty();
       EvaluationContext evaluationContext =
           EvaluationContext.newBuilder()
               .setKeepGoing(keepGoing)
+              .setMergingSkyframeAnalysisExecutionPhases(mergingSkyframeAnalysisExecutionPhases)
               .setParallelism(numThreads)
               .setEventHandler(reporter)
               .build();
@@ -5975,7 +5984,13 @@ public abstract class MemoizingEvaluatorTest {
 
     public <T extends SkyValue> EvaluationResult<T> eval(boolean keepGoing, SkyKey... keys)
         throws InterruptedException {
-      return eval(keepGoing, 100, keys);
+      return eval(keepGoing, /* mergingSkyframeAnalysisExecutionPhases= */ false, 100, keys);
+    }
+
+    public <T extends SkyValue> EvaluationResult<T> eval(
+        boolean keepGoing, boolean mergingSkyframeAnalysisExecutionPhases, SkyKey... keys)
+        throws InterruptedException {
+      return eval(keepGoing, mergingSkyframeAnalysisExecutionPhases, 100, keys);
     }
 
     public <T extends SkyValue> EvaluationResult<T> eval(boolean keepGoing, String... keys)
@@ -6000,6 +6015,15 @@ public abstract class MemoizingEvaluatorTest {
 
     public ErrorInfo evalAndGetError(boolean keepGoing, SkyKey key) throws InterruptedException {
       EvaluationResult<StringValue> evaluationResult = eval(keepGoing, key);
+      assertThatEvaluationResult(evaluationResult).hasErrorEntryForKeyThat(key);
+      return evaluationResult.getError(key);
+    }
+
+    public ErrorInfo evalAndGetError(
+        boolean keepGoing, boolean mergingSkyframeAnalysisExecutionPhases, SkyKey key)
+        throws InterruptedException {
+      EvaluationResult<StringValue> evaluationResult =
+          eval(keepGoing, mergingSkyframeAnalysisExecutionPhases, key);
       assertThatEvaluationResult(evaluationResult).hasErrorEntryForKeyThat(key);
       return evaluationResult.getError(key);
     }
