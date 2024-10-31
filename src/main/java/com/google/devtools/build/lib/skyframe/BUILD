@@ -151,7 +151,6 @@ java_library(
         ":map_as_package_roots",
         ":metadata_consumer_for_metrics",
         ":node_dropping_inconsistency_receiver",
-        ":package_args_function",
         ":package_error_function",
         ":package_error_message_function",
         ":package_identifier_batching_callback",
@@ -177,6 +176,7 @@ java_library(
         ":recursive_pkg_value",
         ":repo_file_function",
         ":repo_file_value",
+        ":repo_package_args_function",
         ":repository_mapping_function",
         ":repository_mapping_value",
         ":rule_configured_target_value",
@@ -2334,7 +2334,7 @@ java_library(
 )
 
 java_library(
-    name = "package_args_function",
+    name = "repo_package_args_function",
     srcs = ["RepoPackageArgsFunction.java"],
     deps = [
         ":repo_file_function",

@@ -166,7 +166,7 @@ public abstract class GlobTestBase {
             ruleClassProvider.getBazelStarlarkEnvironment(), directories.getWorkspace()));
     skyFunctions.put(
         SkyFunctions.IGNORED_PACKAGE_PREFIXES,
-        new IgnoredPackagePrefixesFunction(BazelSkyframeExecutorConstants.BAZELIGNORE_PATH));
+        BazelSkyframeExecutorConstants.IGNORED_PACKAGE_PREFIXES_FUNCTION);
     skyFunctions.put(
         FileStateKey.FILE_STATE,
         new FileStateFunction(

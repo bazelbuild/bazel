@@ -27,11 +27,6 @@ import com.google.devtools.build.skyframe.SkyFunction;
 public class BazelSkyframeExecutorConstants {
   private BazelSkyframeExecutorConstants() {}
 
-  public static final ImmutableSet<PathFragment> HARDCODED_IGNORED_PACKAGE_PREFIXES =
-      ImmutableSet.of();
-
-  public static final PathFragment BAZELIGNORE_PATH = PathFragment.create(".bazelignore");
-
   /**
    * The file .bazelignore can be used to specify directories to be ignored by bazel
    *
@@ -43,7 +38,7 @@ public class BazelSkyframeExecutorConstants {
    * therefore fails the build, this ignore functionality currently has no chance to kick in.
    */
   public static final SkyFunction IGNORED_PACKAGE_PREFIXES_FUNCTION =
-      new IgnoredPackagePrefixesFunction(BAZELIGNORE_PATH);
+      new IgnoredPackagePrefixesFunction(PathFragment.create(".bazelignore"));
 
   public static final CrossRepositoryLabelViolationStrategy
       CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY = CrossRepositoryLabelViolationStrategy.ERROR;
