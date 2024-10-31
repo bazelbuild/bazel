@@ -182,6 +182,7 @@ public class PrepareDepsOfTargetsUnderDirectoryFunctionTest extends BuildViewTes
     scratch.file(
         "a/BUILD",
         """
+        load('//test_defs:foo_test.bzl', 'foo_test')
         genrule(
             name = "a",
             srcs = ["//b:b.txt"],
@@ -189,7 +190,7 @@ public class PrepareDepsOfTargetsUnderDirectoryFunctionTest extends BuildViewTes
             cmd = "",
         )
 
-        sh_test(
+        foo_test(
             name = "aTest",
             size = "small",
             srcs = ["aTest.sh"],

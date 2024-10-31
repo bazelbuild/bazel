@@ -155,7 +155,7 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
         "bazel_dep(name = 'r')",
         "local_path_override(module_name = 'r', path='r')");
     file("r/MODULE.bazel", "module(name = 'r')");
-    file("r/good/BUILD", "sh_library(name = 'good')");
+    file("r/good/BUILD", "filegroup(name = 'good')");
     RepositoryName rRepoName = RepositoryName.create("r+");
     fetchExternalRepo(rRepoName);
 
@@ -167,8 +167,7 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
       repoMapping = pkgLoader.makeLoadingContext().getRepositoryMapping();
     }
     assertThat(goodPkg.containsErrors()).isFalse();
-    assertThat(goodPkg.getTarget("good").getAssociatedRule().getRuleClass())
-        .isEqualTo("sh_library");
+    assertThat(goodPkg.getTarget("good").getAssociatedRule().getRuleClass()).isEqualTo("filegroup");
     assertThat(repoMapping.entries().get("r")).isEqualTo(rRepoName);
     assertNoEvents(handler.getEvents());
   }

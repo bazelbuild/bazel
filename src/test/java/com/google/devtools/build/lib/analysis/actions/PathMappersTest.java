@@ -163,7 +163,8 @@ public class PathMappersTest extends BuildViewTestCase {
     scratch.file(
         "tool/BUILD",
         """
-        sh_binary(
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
+        foo_binary(
             name = 'tool',
             srcs = ['tool.sh'],
             visibility = ['//visibility:public'],
@@ -263,7 +264,8 @@ public class PathMappersTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
-        sh_binary(
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
+        foo_binary(
             name = 'script',
             srcs = ['script.sh'],
             visibility = ['//visibility:public'],

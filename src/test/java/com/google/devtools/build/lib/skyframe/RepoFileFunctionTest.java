@@ -32,7 +32,7 @@ public class RepoFileFunctionTest extends BuildViewTestCase {
   @Test
   public void defaultVisibility() throws Exception {
     scratch.overwriteFile("REPO.bazel", "repo(default_visibility=['//some:thing'])");
-    scratch.overwriteFile("p/BUILD", "sh_library(name = 't')");
+    scratch.overwriteFile("p/BUILD", "filegroup(name = 't')");
     invalidatePackages();
     Target t = getTarget("//p:t");
     assertThat(t.getVisibility().getDeclaredLabels())

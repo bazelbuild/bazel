@@ -164,7 +164,7 @@ public final class StarlarkAspectsToolchainPropagationTest extends AnalysisTestC
           toolchain_type = "//rule:toolchain_type_2",
         )
 
-        sh_library(name = "toolchain_dep")
+        filegroup(name = "toolchain_dep")
 
         test_toolchain_with_dep(
           name = "foo_with_dep",
@@ -1936,8 +1936,9 @@ public final class StarlarkAspectsToolchainPropagationTest extends AnalysisTestC
         "test/BUILD",
         """
         load('//test:defs.bzl', 'r1')
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
         r1(name = 't1')
-        sh_binary(name = 'tool', srcs = ['test.sh'])
+        foo_binary(name = 'tool', srcs = ['test.sh'])
         """);
     scratch.file("test/test.sh", "");
     useConfiguration(
@@ -2013,8 +2014,9 @@ public final class StarlarkAspectsToolchainPropagationTest extends AnalysisTestC
         "test/BUILD",
         """
         load('//test:defs.bzl', 'r1')
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
         r1(name = 't1')
-        sh_binary(name = 'tool', srcs = ['test.sh'])
+        foo_binary(name = 'tool', srcs = ['test.sh'])
         """);
     scratch.file("test/test.sh", "");
     useConfiguration(
@@ -2091,8 +2093,9 @@ public final class StarlarkAspectsToolchainPropagationTest extends AnalysisTestC
         "test/BUILD",
         """
         load('//test:defs.bzl', 'r1')
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
         r1(name = 't1')
-        sh_binary(name = 'tool', srcs = ['test.sh'])
+        foo_binary(name = 'tool', srcs = ['test.sh'])
         """);
     scratch.file("test/test.sh", "");
     useConfiguration(
@@ -2173,9 +2176,10 @@ public final class StarlarkAspectsToolchainPropagationTest extends AnalysisTestC
         "test/BUILD",
         """
         load('//test:defs.bzl', 'r1')
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
         r1(name = 't1')
-        sh_binary(name = 'rule_tool', srcs = ['test.sh'])
-        sh_binary(name = 'aspect_tool', srcs = ['test.sh'])
+        foo_binary(name = 'rule_tool', srcs = ['test.sh'])
+        foo_binary(name = 'aspect_tool', srcs = ['test.sh'])
         """);
     useConfiguration(
         "--extra_toolchains=//toolchain:foo_toolchain",

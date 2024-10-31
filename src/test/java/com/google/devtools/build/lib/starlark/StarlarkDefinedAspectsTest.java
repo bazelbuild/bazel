@@ -1608,15 +1608,19 @@ my_rule = rule(
         """
         load('aspect.bzl', 'cfgrule', 'string_flag')
         string_flag(name = 'formation', build_setting_default = 'canyon')
-        sh_library(name = 'innocent')
+        filegroup(name = 'innocent')
         cfgrule(name = 'top', to = '//baz:baz', innocent = ':innocent')
         """);
-    scratch.file("bar/BUILD", "sh_library(name = 'bar', deps = ['//baz:baz'])");
+    scratch.file(
+        "bar/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'bar', deps = ['//baz:baz'])");
     scratch.file(
         "baz/BUILD",
         """
+        load('//test_defs:foo_library.bzl', 'foo_library')
         load('//baz/subdir:missing.bzl', 'sym')
-        sh_library(name = 'baz')
+        foo_library(name = 'baz')
         """);
     scratch.file("baz/subdir/missing.bzl");
     reporter.removeHandler(failFastHandler);
@@ -7352,8 +7356,10 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     scratch.file(
         "test/BUILD",
         """
-        sh_binary(name='bin', srcs=['bin.sh'])
-        sh_library(name='lib')
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_binary(name='bin', srcs=['bin.sh'])
+        foo_library(name='lib')
         """);
     scratch.file(
         "test/defs.bzl",
@@ -9730,7 +9736,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
         r1(name = 't2', dep = ':t3')
         r1(name = 't3')
         r1(name = 't4')
-        sh_library(name = 'tool')
+        filegroup(name = 'tool')
         """);
 
     AnalysisResult analysisResult = update(ImmutableList.of("//test:defs.bzl%a"), "//test:t1");

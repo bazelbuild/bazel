@@ -579,12 +579,13 @@ active_directories = { "default": ["mytest"] }
     write(
         "mytest/BUILD",
         """
-sh_test(
-    name = "mytest",
-    srcs = ["mytest.sh"],
-    data = ["//foo:A"],
-)
-""");
+        load("//test_defs:foo_test.bzl", "foo_test")
+        foo_test(
+            name = "mytest",
+            srcs = ["mytest.sh"],
+            data = ["//foo:A"],
+        )
+        """);
     addOptions("--experimental_remote_analysis_cache_mode=upload", "--nobuild");
 
     buildTarget("//mytest");

@@ -60,6 +60,7 @@ public class TestActionBuilderTest extends BuildViewTestCase {
 
     scratch.file(
         "tests/BUILD",
+        "load('//test_defs:foo_test.bzl', 'foo_test')",
         getPyLoad("py_binary"),
         getPyLoad("py_test"),
         "py_test(name = 'small_test_1',",
@@ -68,12 +69,12 @@ public class TestActionBuilderTest extends BuildViewTestCase {
         "        size = 'small',",
         "        tags = ['tag1'])",
         "",
-        "sh_test(name = 'small_test_2',",
+        "foo_test(name = 'small_test_2',",
         "        srcs = ['small_test_2.sh'],",
         "        size = 'small',",
         "        tags = ['tag2'])",
         "",
-        "sh_test(name = 'large_test_1',",
+        "foo_test(name = 'large_test_1',",
         "        srcs = ['large_test_1.sh'],",
         "        data = [':xUnit'],",
         "        size = 'large',",
@@ -175,7 +176,8 @@ public class TestActionBuilderTest extends BuildViewTestCase {
         "a/BUILD",
         """
         load("@rules_java//java:defs.bzl", "java_test")
-        sh_test(
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
             name = "sh",
             srcs = ["a.sh"],
             shard_count = 2,
@@ -251,12 +253,13 @@ public class TestActionBuilderTest extends BuildViewTestCase {
     scratch.file(
         "flaky/BUILD",
         """
-        sh_test(
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
             name = "good_test",
             srcs = ["a.sh"],
         )
 
-        sh_test(
+        foo_test(
             name = "flaky_test",
             srcs = ["a.sh"],
             flaky = 1,
@@ -279,7 +282,8 @@ public class TestActionBuilderTest extends BuildViewTestCase {
         "flaky",
         "bad_test",
         "expected one of [False, True, 0, 1]",
-        "sh_test(name = 'bad_test',",
+        "load('//test_defs:foo_test.bzl', 'foo_test')",
+        "foo_test(name = 'bad_test',",
         "        srcs = ['a.sh'],",
         "        flaky = 2)");
   }
@@ -392,10 +396,11 @@ public class TestActionBuilderTest extends BuildViewTestCase {
   public void testAspectOverNonExpandingTestSuitesVisitsImplicitTests() throws Exception {
     scratch.file(
         "BUILD",
-        "sh_test(name = 'test_a',",
+        "load('//test_defs:foo_test.bzl', 'foo_test')",
+        "foo_test(name = 'test_a',",
         "        srcs = [':a.sh'])",
         "",
-        "sh_test(name = 'test_b',",
+        "foo_test(name = 'test_b',",
         "        srcs = [':b.sh'])",
         "",
         "test_suite(name = 'suite'",
@@ -425,10 +430,11 @@ public class TestActionBuilderTest extends BuildViewTestCase {
   public void testAspectOverNonExpandingTestSuitesVisitsExplicitTests() throws Exception {
     scratch.file(
         "BUILD",
-        "sh_test(name = 'test_a',",
+        "load('//test_defs:foo_test.bzl', 'foo_test')",
+        "foo_test(name = 'test_a',",
         "        srcs = [':a.sh'])",
         "",
-        "sh_test(name = 'test_b',",
+        "foo_test(name = 'test_b',",
         "        srcs = [':b.sh'])",
         "",
         "test_suite(name = 'suite',",
@@ -459,10 +465,11 @@ public class TestActionBuilderTest extends BuildViewTestCase {
   public void testAspectOverExpandingTestSuitesDoesNotVisitSuite() throws Exception {
     scratch.file(
         "BUILD",
-        "sh_test(name = 'test_a',",
+        "load('//test_defs:foo_test.bzl', 'foo_test')",
+        "foo_test(name = 'test_a',",
         "        srcs = [':a.sh'])",
         "",
-        "sh_test(name = 'test_b',",
+        "foo_test(name = 'test_b',",
         "        srcs = [':b.sh'])",
         "",
         "test_suite(name = 'suite',",
@@ -513,9 +520,12 @@ public class TestActionBuilderTest extends BuildViewTestCase {
    */
   @Test
   public void testIllegalTestSizeAttributeDoesNotCrashTestSuite() throws Exception {
-    checkError("bad_size", "illegal_size_test",
+    checkError(
+        "bad_size",
+        "illegal_size_test",
         "In rule 'illegal_size_test', size 'bad' is not a valid size",
-        "sh_test(name = 'illegal_size_test',",
+        "load('//test_defs:foo_test.bzl', 'foo_test')",
+        "foo_test(name = 'illegal_size_test',",
         "        srcs = ['illegal.sh'],",
         "        size = 'bad')",
         "test_suite(name = 'everything')");
@@ -526,9 +536,12 @@ public class TestActionBuilderTest extends BuildViewTestCase {
    */
   @Test
   public void testIllegalTestTimeoutAttributeDoesNotCrashTestSuite() throws Exception {
-    checkError("bad_timeout", "illegal_timeout_test",
+    checkError(
+        "bad_timeout",
+        "illegal_timeout_test",
         "In rule 'illegal_timeout_test', timeout 'unreasonable' is not a valid timeout",
-        "sh_test(name = 'illegal_timeout_test',",
+        "load('//test_defs:foo_test.bzl', 'foo_test')",
+        "foo_test(name = 'illegal_timeout_test',",
         "        srcs = ['illegal.sh'],",
         "        timeout = 'unreasonable')",
         "test_suite(name = 'everything')");
@@ -734,7 +747,7 @@ public class TestActionBuilderTest extends BuildViewTestCase {
         "bad_gen",
         "some_test",
         "--coverage_report_generator does not refer to an executable target",
-        "sh_library(name = 'bad_cov_gen')",
+        "filegroup(name = 'bad_cov_gen')",
         "cc_test(name = 'some_test')");
   }
 

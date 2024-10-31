@@ -64,9 +64,10 @@ public final class MockProtoSupport {
     config.create(
         "net/proto2/compiler/public/BUILD",
         """
+        load("//test_defs:foo_binary.bzl", "foo_binary")
         package(default_visibility = ["//visibility:public"])
 
-        sh_binary(
+        foo_binary(
             name = "protocol_compiler",
             srcs = ["protocol_compiler.sh"],
         )
@@ -76,9 +77,10 @@ public final class MockProtoSupport {
     config.create(
         "third_party/protobuf/compiler/BUILD",
         """
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
         package(default_visibility = ["//visibility:public"])
 
-        sh_binary(
+        foo_binary(
             name = "protoc_minimal",
             srcs = ["protoc_minimal.sh"],
         )

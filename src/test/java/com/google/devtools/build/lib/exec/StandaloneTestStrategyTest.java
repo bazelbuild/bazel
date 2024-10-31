@@ -266,7 +266,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     scratch.file(
         "standalone/BUILD",
         """
-        sh_test(
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
             name = "simple_test",
             size = "small",
             srcs = ["simple_test.sh"],
@@ -296,7 +297,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     scratch.file(
         "standalone/BUILD",
         """
-        sh_test(
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
             name = "simple_test",
             size = "small",
             srcs = ["simple_test.sh"],
@@ -362,7 +364,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     scratch.file(
         "standalone/BUILD",
         """
-        sh_test(
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
             name = "simple_test",
             size = "small",
             srcs = ["simple_test.sh"],
@@ -444,7 +447,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     scratch.file(
         "standalone/BUILD",
         """
-        sh_test(
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
             name = "simple_test",
             size = "small",
             srcs = ["simple_test.sh"],
@@ -510,7 +514,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     scratch.file(
         "standalone/BUILD",
         """
-        sh_test(
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
             name = "simple_test",
             size = "small",
             srcs = ["simple_test.sh"],
@@ -577,7 +582,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     scratch.file(
         "standalone/BUILD",
         """
-        sh_test(
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
             name = "failing_test",
             size = "small",
             srcs = ["failing_test.sh"],
@@ -665,7 +671,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     scratch.file(
         "standalone/BUILD",
         """
-        sh_test(
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
             name = "failing_test",
             size = "small",
             srcs = ["failing_test.sh"],
@@ -759,7 +766,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     scratch.file(
         "standalone/BUILD",
         """
-        sh_test(
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
             name = "empty_test",
             size = "small",
             srcs = ["empty_test.sh"],
@@ -811,7 +819,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     scratch.file(
         "standalone/BUILD",
         """
-        sh_test(
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
             name = "empty_test",
             size = "small",
             srcs = ["empty_test.sh"],
@@ -859,7 +868,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     scratch.file(
         "standalone/BUILD",
         """
-        sh_test(
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
             name = "empty_test",
             size = "small",
             srcs = ["empty_test.sh"],
@@ -942,7 +952,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     scratch.file(
         "standalone/BUILD",
         """
-        sh_test(
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
             name = "empty_test",
             size = "small",
             srcs = ["empty_test.sh"],
@@ -1050,7 +1061,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     scratch.file(
         "standalone/BUILD",
         """
-        sh_test(
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
             name = "empty_test",
             size = "small",
             srcs = ["empty_test.sh"],
@@ -1137,7 +1149,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     scratch.file(
         "standalone/BUILD",
         """
-        sh_test(
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
             name = "simple_test",
             size = "small",
             srcs = ["simple_test.sh"],

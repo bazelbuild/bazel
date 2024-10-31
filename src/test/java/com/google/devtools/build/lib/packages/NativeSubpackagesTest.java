@@ -200,7 +200,7 @@ public class NativeSubpackagesTest extends BuildViewTestCase {
   @Test
   public void invalidPositionalParams() throws Exception {
     scratch.file("foo/subdir/BUILD");
-    scratch.file("foo/BUILD", "[sh_library(name = p) for p in subpackages(['subdir'])]");
+    scratch.file("foo/BUILD", "[filegroup(name = p) for p in subpackages(['subdir'])]");
 
     AssertionError e =
         assertThrows(AssertionError.class, () -> getConfiguredTargetAndData("//foo:subdir"));
@@ -210,7 +210,7 @@ public class NativeSubpackagesTest extends BuildViewTestCase {
   @Test
   public void invalidMissingInclude() throws Exception {
     scratch.file("foo/subdir/BUILD");
-    scratch.file("foo/BUILD", "[sh_library(name = p) for p in subpackages()]");
+    scratch.file("foo/BUILD", "[filegroup(name = p) for p in subpackages()]");
 
     AssertionError e =
         assertThrows(AssertionError.class, () -> getConfiguredTargetAndData("//foo:subdir"));
@@ -233,7 +233,7 @@ public class NativeSubpackagesTest extends BuildViewTestCase {
   @Test
   public void includeValidMatchSubdir() throws Exception {
     scratch.file("foo/subdir/BUILD");
-    scratch.file("foo/BUILD", "[sh_library(name = p) for p in subpackages(include = ['subdir'])]");
+    scratch.file("foo/BUILD", "[filegroup(name = p) for p in subpackages(include = ['subdir'])]");
     getConfiguredTargetAndData("//foo:subdir");
   }
 

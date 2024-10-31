@@ -752,7 +752,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "pkg/BUILD",
         """
-        sh_binary(name = 'tryme',
+        filegroup(name = 'tryme',
                   srcs = [':tryme.sh'],
                   visibility = ['//visibility:public'],
         )
@@ -907,10 +907,11 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "test/starlark/BUILD",
         """
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
         load('//test/starlark:extension.bzl', 'custom_rule')
 
         custom_rule(name = 'cr')
-        sh_binary(name = 'binary', data = [':cr'], srcs = ['script.sh'])
+        foo_binary(name = 'binary', data = [':cr'], srcs = ['script.sh'])
         """);
 
     useConfiguration("--incompatible_always_include_files_in_data");
@@ -2574,7 +2575,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "pkg/BUILD",
         """
-        sh_binary(name = 'tryme',
+        filegroup(name = 'tryme',
                   srcs = [':tryme.sh'],
                   visibility = ['//visibility:public'],
         )

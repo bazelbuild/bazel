@@ -36,7 +36,8 @@ public class TestTargetPropertiesTest extends BuildViewTestCase {
     scratch.file(
         "tests/BUILD",
         """
-        sh_test(
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
             name = "test",
             size = "small",
             srcs = ["test.sh"],
@@ -60,7 +61,8 @@ public class TestTargetPropertiesTest extends BuildViewTestCase {
     scratch.file(
         "tests/BUILD",
         """
-        sh_test(
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
             name = "test",
             size = "medium",
             srcs = ["test.sh"],
@@ -94,7 +96,8 @@ public class TestTargetPropertiesTest extends BuildViewTestCase {
     scratch.file(
         "tests/BUILD",
         """
-        sh_test(
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
             name = "test",
             size = "small",
             srcs = ["test.sh"],
@@ -116,7 +119,8 @@ public class TestTargetPropertiesTest extends BuildViewTestCase {
     scratch.file(
         "tests/BUILD",
         """
-        sh_test(
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
             name = "test",
             size = "small",
             srcs = ["test.sh"],
@@ -138,7 +142,8 @@ public class TestTargetPropertiesTest extends BuildViewTestCase {
     scratch.file(
         "tests/BUILD",
         """
-        sh_test(
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
             name = "test",
             size = "small",
             srcs = ["test.sh"],
@@ -159,7 +164,8 @@ public class TestTargetPropertiesTest extends BuildViewTestCase {
     scratch.file(
         "tests/BUILD",
         """
-        sh_test(
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
             name = "test",
             size = "small",
             srcs = ["test.sh"],
@@ -182,7 +188,8 @@ public class TestTargetPropertiesTest extends BuildViewTestCase {
     scratch.file(
         "tests/BUILD",
         """
-        sh_test(
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
             name = "test",
             size = "small",
             srcs = ["test.sh"],
