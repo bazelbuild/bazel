@@ -405,7 +405,7 @@ function test_package_loading_with_remapping_changes() {
 
   mkdir -p flower/daisy
   echo 'workspace(name="flower")' > flower/WORKSPACE
-  echo 'sh_library(name="daisy")' > flower/daisy/BUILD
+  echo 'filegroup(name="daisy")' > flower/daisy/BUILD
 
   mkdir -p tree/oak
   cat > tree/WORKSPACE <<EOF
@@ -417,7 +417,7 @@ local_repository(
     repo_mapping = {"@tulip" : "@rose"}
 )
 EOF
-  echo 'sh_library(name="oak")' > tree/oak/BUILD
+  echo 'filegroup(name="oak")' > tree/oak/BUILD
 
   cd tree
 
@@ -941,15 +941,13 @@ platform(
 EOF
     mkdir code
     cat > code/BUILD <<'EOF'
-sh_library(
+genrule(
 	name = "foo",
-	srcs = ["foo.sh"],
-	exec_compatible_with = ["@my_ws//platforms:large_machine"]
+	cmd = "touch $@",
+	exec_compatible_with = ["@my_ws//platforms:large_machine"],
+	outs = ["foo.out"],
 )
 EOF
-    echo exit 0 > code/foo.sh
-    chmod u+x code/foo.sh
-
 
     bazel build //code/... \
           > "${TEST_log}" 2>&1 || fail "expected success"
