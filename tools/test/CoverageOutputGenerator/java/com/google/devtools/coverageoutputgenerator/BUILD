@@ -1,5 +1,6 @@
 load("@rules_java//java:java_binary.bzl", "java_binary")
 load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load("//tools:build_defs.bzl", "transition_java_language_8_filegroup")
 
 package(
