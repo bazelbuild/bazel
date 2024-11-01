@@ -27,6 +27,7 @@ import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
@@ -568,8 +569,10 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     for (Target target : targets) {
       targetsByKey.put(TARGET_TO_SKY_KEY.apply(target), target);
     }
+    ImmutableMap<SkyKey, Iterable<SkyKey>> fwdDepLabels =
+        getFwdDepLabels(targetsByKey.keySet(), context.extraGlobalDeps());
     Map<SkyKey, Collection<Target>> directDeps =
-        targetifyValues(getFwdDepLabels(targetsByKey.keySet()), missingTargetCollector);
+        targetifyValues(fwdDepLabels, missingTargetCollector);
     ThreadSafeMutableSet<Target> result = createThreadSafeMutableSet();
     for (Map.Entry<SkyKey, Collection<Target>> entry : directDeps.entrySet()) {
       result.addAll(filterFwdDeps(targetsByKey.get(entry.getKey()), entry.getValue()));
@@ -580,12 +583,23 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   /** Returns the target dependencies' {@link Label}s of the passed in target {@code Label}s. */
   protected Map<SkyKey, Iterable<SkyKey>> getFwdDepLabels(Iterable<SkyKey> targetLabels)
       throws InterruptedException {
+    return getFwdDepLabels(targetLabels, ImmutableSetMultimap.of());
+  }
+
+  public ImmutableMap<SkyKey, Iterable<SkyKey>> getFwdDepLabels(
+      Iterable<SkyKey> targetLabels, ImmutableSetMultimap<SkyKey, SkyKey> extraGlobalDeps)
+      throws InterruptedException {
     Preconditions.checkState(
         Iterables.all(targetLabels, IS_LABEL), "Expected all labels: %s", targetLabels);
-    return graph.getDirectDeps(targetLabels).entrySet().stream()
-        .collect(
-            ImmutableMap.toImmutableMap(
-                Map.Entry::getKey, entry -> Iterables.filter(entry.getValue(), IS_LABEL)));
+    Map<SkyKey, Iterable<SkyKey>> deps = graph.getDirectDeps(targetLabels);
+    ImmutableMap.Builder<SkyKey, Iterable<SkyKey>> resultsBuilder = ImmutableMap.builder();
+    for (Map.Entry<SkyKey, Iterable<SkyKey>> entry : deps.entrySet()) {
+      Iterable<SkyKey> depsLabels = Iterables.filter(entry.getValue(), IS_LABEL);
+      Iterable<SkyKey> globals = Iterables.concat(extraGlobalDeps.get(entry.getKey()));
+      depsLabels = Iterables.concat(depsLabels, globals);
+      resultsBuilder.put(entry.getKey(), depsLabels);
+    }
+    return resultsBuilder.buildOrThrow();
   }
 
   @Override
