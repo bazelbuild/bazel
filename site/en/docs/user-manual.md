@@ -2311,7 +2311,7 @@ the directory containing a JDK or JRE. It should not be a label.
 This option should appear before any Bazel command, for example:
 
 <pre>
-  % bazel --server_javabase=/usr/local/buildtools/java/jdk11 build //foo
+  % bazel --server_javabase=/usr/local/buildtools/java/jdk build //foo
 </pre>
 
 This flag does _not_ affect the JVMs used by Bazel subprocesses such as applications, tests,
