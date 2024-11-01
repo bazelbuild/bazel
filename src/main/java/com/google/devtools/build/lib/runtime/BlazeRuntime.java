@@ -367,6 +367,15 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             profile =
                 instrumentationOutputFactory.createBuildEventArtifactInstrumentationOutput(
                     profileName, newUploader(env, bepOptions.buildEventUploadStrategy));
+          } else if (commandOptions.redirectLocalInstrumentationOutputWrites) {
+            profile =
+                instrumentationOutputFactory.createInstrumentationOutput(
+                    profileName,
+                    workspace.getOutputBase().getRelative(profileName),
+                    env,
+                    eventHandler,
+                    /* append= */ null,
+                    /* internal= */ null);
           } else {
             var profilePath =
                 manageProfiles(
@@ -374,14 +383,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                     env.getCommandId().toString(),
                     commandOptions.profilesToRetain);
             profile =
-                instrumentationOutputFactory.createInstrumentationOutput(
-                    profileName,
-                    profilePath,
-                    env,
-                    eventHandler,
-                    /* convenienceName= */ profileName,
-                    /* append= */ null,
-                    /* internal= */ null);
+                instrumentationOutputFactory.createLocalOutputWithConvenientName(
+                    profileName, profilePath, /* convenienceName= */ profileName);
           }
         } else {
           format =
@@ -397,7 +400,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                   profilePath,
                   env,
                   eventHandler,
-                  /* convenienceName= */ null,
                   /* append= */ false,
                   /* internal= */ true);
         }

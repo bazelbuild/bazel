@@ -855,7 +855,6 @@ public class ExecutionTool {
                   getWorkspace().getRelative(explanationPath),
                   env,
                   getReporter(),
-                  /* convenienceName= */ null,
                   /* append= */ null,
                   /* internal= */ null);
       handler = new ExplanationHandler(instrumentationOutput.createOutputStream(), allOptions);

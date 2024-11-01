@@ -61,6 +61,29 @@ public final class InstrumentationOutputFactoryTest extends BuildIntegrationTest
   }
 
   @Test
+  public void testInstrumentationOutputFactory_successfullyCreateLocalOutputWithConvenientLink()
+      throws Exception {
+    InstrumentationOutputFactory.Builder factoryBuilder =
+        new InstrumentationOutputFactory.Builder();
+    factoryBuilder.setLocalInstrumentationOutputBuilderSupplier(
+        LocalInstrumentationOutput.Builder::new);
+    factoryBuilder.setBuildEventArtifactInstrumentationOutputBuilderSupplier(
+        BuildEventArtifactInstrumentationOutput.Builder::new);
+    InstrumentationOutputFactory outputFactory = factoryBuilder.build();
+
+    CommandEnvironment env = runtimeWrapper.newCommand();
+    InstrumentationOutput output =
+        outputFactory.createLocalOutputWithConvenientName(
+            /* name= */ "output",
+            env.getWorkspace().getRelative("output-file"),
+            /* convenienceName= */ "link-to-output");
+    assertThat(output).isInstanceOf(LocalInstrumentationOutput.class);
+
+    ((LocalInstrumentationOutput) output).makeConvenienceLink();
+    assertThat(env.getWorkspace().getRelative("link-to-output").isSymbolicLink()).isTrue();
+  }
+
+  @Test
   public void testInstrumentationOutputFactory_successfulFactoryCreation(
       @TestParameter boolean injectRedirectOutputBuilderSupplier,
       @TestParameter boolean createRedirectOutput)
@@ -116,7 +139,6 @@ public final class InstrumentationOutputFactoryTest extends BuildIntegrationTest
             new InMemoryFileSystem(DigestHashFunction.SHA256).getPath("/file"),
             env,
             eventHandler,
-            /* convenienceName= */ null,
             /* append= */ null,
             /* internal= */ null);
 

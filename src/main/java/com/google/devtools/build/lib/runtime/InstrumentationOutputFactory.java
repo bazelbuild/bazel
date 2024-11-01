@@ -48,6 +48,26 @@ public final class InstrumentationOutputFactory {
   }
 
   /**
+   * Creates a {@link LocalInstrumentationOutput} located at {@code path}, which could future call
+   * {@link LocalInstrumentationOutput#makeConvenienceLink()} to make a symlink with the simplified
+   * {@code convenienceName} pointing to the local output. The symlink locates under the same
+   * directory as the output.
+   *
+   * <p>Should only be used when an output MUST be written locally or is otherwise incompatible with
+   * the flexible destinations supported by the preferred generic {@link
+   * #createInstrumentationOutput}.
+   */
+  public LocalInstrumentationOutput createLocalOutputWithConvenientName(
+      String name, Path path, String convenienceName) {
+    return localInstrumentationOutputBuilderSupplier
+        .get()
+        .setName(name)
+        .setPath(path)
+        .setConvenienceName(convenienceName)
+        .build();
+  }
+
+  /**
    * Creates {@link LocalInstrumentationOutput} or an {@link InstrumentationOutput} object
    * redirecting outputs to be written on a different machine.
    *
@@ -55,24 +75,14 @@ public final class InstrumentationOutputFactory {
    * --redirect_local_instrumentation_output_writes} is set, this method will default to return
    * {@link LocalInstrumentationOutput}.
    *
-   * <p>For {@link LocalInstrumentationOutput}, there are two additional considerations:
-   *
-   * <ul>
-   *   <li>When the name of the instrumentation output is complicated, an optional {@code
-   *       convenienceName} parameter can be passed in so that a symlink pointing to the output with
-   *       such a simpler name is created. See {@link
-   *       LocalInstrumentationOutput.Builder#setConvenienceName}.
-   *   <li>User can also pass in the optional {@code append} and {@code internal} {@code Boolean}s
-   *       to control how {@code path} creates the {@link OutputStream}. See {@link
-   *       LocalInstrumentationOutput#createOutputStream} for more details.
-   * </ul>
+   * @param append Whether to open the {@link LocalInstrumentationOutput} file in append mode
+   * @param internal Whether the {@link LocalInstrumentationOutput} file is a Bazel internal file.
    */
   public InstrumentationOutput createInstrumentationOutput(
       String name,
       Path path,
       CommandEnvironment env,
       EventHandler eventHandler,
-      @Nullable String convenienceName,
       @Nullable Boolean append,
       @Nullable Boolean internal) {
     boolean isRedirect =
@@ -97,7 +107,6 @@ public final class InstrumentationOutputFactory {
         .get()
         .setName(name)
         .setPath(path)
-        .setConvenienceName(convenienceName)
         .setAppend(append)
         .setInternal(internal)
         .build();
