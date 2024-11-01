@@ -64,7 +64,12 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
       throws Exception {
     Label actualProtocLabel = getConfiguredTarget(protocLabel).getActual().getLabel();
     assertThat(toolchain.protoc().getExecutable().prettyPrint())
-        .isEqualTo(actualProtocLabel.toPathFragment().getPathString());
+        .isEqualTo(
+            actualProtocLabel
+                .getRepository()
+                .getExecPath(false)
+                .getRelative(actualProtocLabel.toPathFragment())
+                .getPathString());
   }
 
   @Test

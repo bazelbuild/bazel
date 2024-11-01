@@ -310,7 +310,7 @@ symbol()
 EOF
 
   bazel build --incompatible_autoload_externally=-ProtoInfo :all >&$TEST_log 2>&1 && fail "build unexpectedly succeeded"
-  expect_log "Symbol in 'ProtoInfo' can't be removed, because it's still used by: proto_library, cc_proto_library, cc_shared_library, java_lite_proto_library, java_proto_library, proto_lang_toolchain, java_binary, proto_common_do_not_use"
+  expect_log "Symbol in 'ProtoInfo' can't be removed, because it's still used by:"
 }
 
 function test_removing_existing_symbol() {

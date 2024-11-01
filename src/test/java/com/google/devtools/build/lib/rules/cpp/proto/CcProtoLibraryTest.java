@@ -46,14 +46,12 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
   @Before
   public void setUp() throws Exception {
     MockProtoSupport.setup(mockToolsConfig);
-    scratch.overwriteFile(
-        "third_party/bazel_rules/rules_cc/cc/proto/BUILD",
-        "toolchain_type(name = 'toolchain_type', visibility = ['//visibility:public'])");
     scratch.appendFile(
         "third_party/protobuf/BUILD.bazel",
         TestConstants.LOAD_PROTO_LANG_TOOLCHAIN,
         "load('@protobuf//bazel:proto_library.bzl', 'proto_library')",
-        "package(default_visibility=['//visibility:public'])",
+        "filegroup(name='license')",
+        "genrule(name='protoc_gen', cmd='', executable = True, outs = ['protoc'])",
         "proto_library(",
         "    name = 'any_proto',",
         "    srcs = ['any.proto'],",
@@ -63,9 +61,22 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
         "    command_line = '--cpp_out=$(OUT)',",
         "    blacklisted_protos = [':any_proto'],",
         "    progress_message = 'Generating C++ proto_library %{label}',",
-        "    toolchain_type = '@rules_cc//cc/proto:toolchain_type',",
+        "    toolchain_type = '@protobuf//bazel/private:cc_toolchain_type',",
         ")");
-    scratch.appendFile("third_party/protobuf/MODULE.bazel", "register_toolchains('//:all')");
+    scratch.appendFile(
+        "third_party/protobuf/bazel/private/toolchains/BUILD.bazel",
+        """
+        toolchain(
+            name = "cc_source_toolchain",
+            exec_compatible_with = [],
+            target_compatible_with = [],
+            toolchain = "//:cc_toolchain",
+            toolchain_type = "//bazel/private:cc_toolchain_type",
+        )
+        """);
+    scratch.appendFile(
+        "third_party/protobuf/MODULE.bazel",
+        "register_toolchains('//bazel/private/toolchains:all')");
     invalidatePackages(); // A dash of magic to re-evaluate the WORKSPACE file.
   }
 

@@ -246,14 +246,14 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     scratch.file(
         "duplicaterulename/BUILD",
         """
-        proto_library(name = 'spellcheck_proto',
+        filegroup(name = 'spellcheck_proto',
                  srcs = ['spellcheck.proto'])
         cc_library(name = 'spellcheck_proto')  # conflict error stops execution
         x = 1//0  # not reached
         """);
     Package pkg = loadPackage("duplicaterulename");
     assertContainsEvent(
-        "cc_library rule 'spellcheck_proto' conflicts with" + " existing proto_library rule");
+        "cc_library rule 'spellcheck_proto' conflicts with" + " existing filegroup rule");
     assertDoesNotContainEvent("division by zero");
     assertThat(pkg.containsErrors()).isTrue();
   }
@@ -326,20 +326,20 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     scratch.file(
         "dup/BUILD",
         """
-        proto_library(name = 'dup_proto',
+        filegroup(name = 'dup_proto',
                       srcs  = ['dup.proto'])
 
         cc_library(name = 'dup_proto',
                    srcs = ['dup.pb.cc', 'dup.pb.h'])
         """);
     Package pkg = loadPackage("dup");
-    assertContainsEvent("cc_library rule 'dup_proto' conflicts with existing proto_library rule");
+    assertContainsEvent("cc_library rule 'dup_proto' conflicts with existing filegroup rule");
     assertThat(pkg.containsErrors()).isTrue();
 
     Rule dupProto = pkg.getRule("dup_proto");
     // Check that the first rule of the given name "wins", and that each of the
     // "winning" rule's outputs is a member of the package.
-    assertThat(dupProto.getRuleClass()).isEqualTo("proto_library");
+    assertThat(dupProto.getRuleClass()).isEqualTo("filegroup");
     for (OutputFile out : dupProto.getOutputFiles()) {
       assertThat(pkg.getTargets(FileTarget.class)).contains(out);
     }
