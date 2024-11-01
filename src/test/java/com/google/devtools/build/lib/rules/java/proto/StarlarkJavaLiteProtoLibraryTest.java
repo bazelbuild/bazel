@@ -111,9 +111,6 @@ proto_lang_toolchain(
   /** Tests that java_binaries which depend on proto_libraries depend on the right set of files. */
   @Test
   public void testBinaryDeps() throws Exception {
-    if (analysisMock.isThisBazel()) {
-      return;
-    }
     scratch.file(
         "x/BUILD",
         """
@@ -162,9 +159,6 @@ proto_lang_toolchain(
   /** Tests that we pass the correct arguments to the protocol compiler. */
   @Test
   public void testJavaProto2CompilerArgs() throws Exception {
-    if (analysisMock.isThisBazel()) {
-      return;
-    }
     scratch.file(
         "x/BUILD",
         """
@@ -197,9 +191,6 @@ proto_lang_toolchain(
 
   @Test
   public void testProtoLibraryBuildsCompiledJar() throws Exception {
-    if (analysisMock.isThisBazel()) {
-      return;
-    }
     ConfiguredTarget target =
         scratchConfiguredTarget(
             "java",
@@ -219,9 +210,6 @@ proto_lang_toolchain(
 
   @Test
   public void testCommandLineContainsTargetLabel() throws Exception {
-    if (analysisMock.isThisBazel()) {
-      return;
-    }
     scratch.file(
         "java/lib/BUILD",
         """
@@ -250,9 +238,6 @@ proto_lang_toolchain(
 
   @Test
   public void testEmptySrcsForJavaApi() throws Exception {
-    if (analysisMock.isThisBazel()) {
-      return;
-    }
     ConfiguredTarget target =
         scratchConfiguredTarget(
             "notbad",
@@ -274,9 +259,6 @@ proto_lang_toolchain(
 
   @Test
   public void testSameVersionCompilerArguments() throws Exception {
-    if (analysisMock.isThisBazel()) {
-      return;
-    }
     scratch.file(
         "cross/BUILD",
         """
@@ -353,9 +335,6 @@ proto_lang_toolchain(
 
   @Test
   public void testExperimentalProtoExtraActions() throws Exception {
-    if (analysisMock.isThisBazel()) {
-      return;
-    }
     scratch.file(
         "x/BUILD",
         """
@@ -409,9 +388,6 @@ proto_lang_toolchain(
    */
   @Test
   public void testJavaProtosExposeStarlarkProviders() throws Exception {
-    if (analysisMock.isThisBazel()) {
-      return;
-    }
     scratch.file(
         "proto/extensions.bzl",
         """
@@ -459,9 +435,6 @@ proto_lang_toolchain(
 
   @Test
   public void testProtoLibraryInterop() throws Exception {
-    if (analysisMock.isThisBazel()) {
-      return;
-    }
     scratch.file(
         "protolib/BUILD",
         """
@@ -496,9 +469,6 @@ proto_lang_toolchain(
    */
   @Test
   public void jplCorrectlyDefinesDirectJars_strictDepsEnabled_aliasProto() throws Exception {
-    if (analysisMock.isThisBazel()) {
-      return;
-    }
     scratch.file(
         "x/BUILD",
         """
