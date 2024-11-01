@@ -124,7 +124,9 @@ class DepsUnboundedVisitor extends AbstractTargetOuputtingVisitor<SkyKey> {
     }
 
     return new Visit(
-        keys, ImmutableSet.copyOf(Iterables.concat(env.getFwdDepLabels(keys).values())));
+        keys,
+        ImmutableSet.copyOf(
+            Iterables.concat(env.getFwdDepLabels(keys, context.extraGlobalDeps()).values())));
   }
 
   @Override

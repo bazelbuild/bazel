@@ -580,12 +580,6 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     return result;
   }
 
-  /** Returns the target dependencies' {@link Label}s of the passed in target {@code Label}s. */
-  protected Map<SkyKey, Iterable<SkyKey>> getFwdDepLabels(Iterable<SkyKey> targetLabels)
-      throws InterruptedException {
-    return getFwdDepLabels(targetLabels, ImmutableSetMultimap.of());
-  }
-
   public ImmutableMap<SkyKey, Iterable<SkyKey>> getFwdDepLabels(
       Iterable<SkyKey> targetLabels, ImmutableSetMultimap<SkyKey, SkyKey> extraGlobalDeps)
       throws InterruptedException {

@@ -14,11 +14,12 @@
 package com.google.devtools.build.lib.query2;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import com.google.devtools.build.skyframe.SkyKey;
-import java.util.Map;
 
 /**
  * Helper class for visiting the label-only DTC of some given label keys, via BFS following all
@@ -28,10 +29,13 @@ public abstract class AbstractUnfilteredLabelDTCVisitor<T>
     extends AbstractSkyKeyParallelVisitor<T> {
   protected final SkyQueryEnvironment env;
 
+  private final ImmutableSetMultimap<SkyKey, SkyKey> extraGlobalDeps;
+
   protected AbstractUnfilteredLabelDTCVisitor(
       SkyQueryEnvironment env,
       Uniquifier<SkyKey> uniquifier,
       int processResultsBatchSize,
+      ImmutableSetMultimap<SkyKey, SkyKey> extraGlobalDeps,
       Callback<T> callback) {
     super(
         uniquifier,
@@ -40,11 +44,13 @@ public abstract class AbstractUnfilteredLabelDTCVisitor<T>
         processResultsBatchSize,
         env.getVisitTaskStatusCallback());
     this.env = env;
+    this.extraGlobalDeps = extraGlobalDeps;
   }
 
   @Override
   protected Visit getVisitResult(Iterable<SkyKey> labelKeys) throws InterruptedException {
-    Map<SkyKey, Iterable<SkyKey>> depsMap = env.getFwdDepLabels(labelKeys);
+    ImmutableMap<SkyKey, Iterable<SkyKey>> depsMap =
+        env.getFwdDepLabels(labelKeys, extraGlobalDeps);
     return new Visit(labelKeys, Iterables.concat(depsMap.values()));
   }
 
