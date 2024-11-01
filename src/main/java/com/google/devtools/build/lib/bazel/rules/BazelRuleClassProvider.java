@@ -250,8 +250,6 @@ public class BazelRuleClassProvider {
         @Override
         public void init(ConfiguredRuleClassProvider.Builder builder) {
           builder.addConfigurationFragment(ProtoConfiguration.class);
-          builder.addRuleDefinition(new BaseRuleClasses.EmptyRule("proto_library") {});
-          builder.addRuleDefinition(new BaseRuleClasses.EmptyRule("proto_lang_toolchain") {});
 
           ProtoBootstrap bootstrap =
               new ProtoBootstrap(
@@ -377,7 +375,6 @@ public class BazelRuleClassProvider {
           ShRules.INSTANCE,
           CcRules.INSTANCE,
           JavaRules.INSTANCE,
-          JAVA_PROTO_RULES,
           ANDROID_RULES,
           PYTHON_RULES,
           ObjcRules.INSTANCE,

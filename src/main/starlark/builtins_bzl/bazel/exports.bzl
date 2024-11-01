@@ -14,10 +14,7 @@
 
 """Exported builtins symbols that are specific to OSS Bazel."""
 
-load("@_builtins//:common/cc/cc_proto_library.bzl", "cc_proto_aspect", "cc_proto_library")
 load("@_builtins//:common/java/java_library.bzl", "JAVA_LIBRARY_ATTRS", "bazel_java_library_rule")
-load("@_builtins//:common/java/proto/java_proto_library.bzl", "java_proto_library")
-load("@_builtins//:common/proto/proto_library.bzl", "proto_library")
 load("@_builtins//:common/python/py_internal.bzl", "py_internal")
 load(":bazel/sh/sh_library.bzl", "sh_library")
 load(":common/java/java_package_configuration.bzl", "java_package_configuration")
@@ -32,13 +29,9 @@ exported_toplevels = {
         bazel_java_library_rule = bazel_java_library_rule,
         JAVA_LIBRARY_ATTRS = JAVA_LIBRARY_ATTRS,
     ),
-    "cc_proto_aspect": cc_proto_aspect,
     "py_internal": py_internal,
 }
 exported_rules = {
-    "proto_library": proto_library,
-    "java_proto_library": java_proto_library,
-    "cc_proto_library": cc_proto_library,
     "java_package_configuration": java_package_configuration,
     "java_runtime": java_runtime,
     "java_toolchain": java_toolchain,

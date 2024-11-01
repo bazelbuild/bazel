@@ -44,7 +44,7 @@ class QueryTest(test_base.TestBase):
     self.DisableBzlmod()
     self.ScratchFile('MODULE.bazel')
     self._AssertQueryOutputContains(
-        "kind('source file', deps(//external:*))",
+        "kind('source file', deps(//external:cc_toolchain))",
         '@bazel_tools//tools/build_defs/build_info/templates:volatile_file.h.template',
     )
 
