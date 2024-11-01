@@ -876,37 +876,34 @@ public class OptionsParser implements OptionsParsingResult {
   }
 
   @Override
-  public ImmutableSet<String> getUserOptions() {
+  public ImmutableMap<String, String> getUserOptions() {
     if (ignoreUserOptions) {
-      return ImmutableSet.of();
+      return ImmutableMap.of();
     }
-    ImmutableSet.Builder<String> userOptions = ImmutableSet.builder();
 
-    return userOptions
-        .addAll(
-            asCompleteListOfParsedOptions().stream()
-                .filter(GlobalRcUtils.IS_GLOBAL_RC_OPTION.negate())
-                .filter(option -> !option.getCanonicalForm().contains("default_override"))
-                .map(
-                    option ->
-                        option.getExpandedFrom() != null
-                            ? option.getCanonicalForm()
-                                + " (expanded from "
-                                + option.getExpandedFrom().getCanonicalForm()
-                                + ")"
-                            : option.getCanonicalForm())
-                .collect(toImmutableSet()))
-        .addAll(
-            impl.getSkippedOptions().stream()
-                .filter(GlobalRcUtils.IS_GLOBAL_RC_OPTION.negate())
-                .map(option -> option.getUnconvertedValue())
-                .filter(
-                    o ->
-                        getStarlarkOptions()
-                            .containsKey(
-                                Iterables.get(Splitter.on('=').split(o.replace("--", "")), 0)))
-                .collect(toImmutableSet()))
-        .build();
+    // First collect to a hashmap to deduplicate options.
+    HashMap<String, String> userOptions = new HashMap<>();
+
+    asCompleteListOfParsedOptions().stream()
+        .filter(GlobalRcUtils.IS_GLOBAL_RC_OPTION.negate())
+        .filter(option -> !option.getCanonicalForm().contains("default_override"))
+        .forEach(
+            option ->
+                userOptions.put(
+                    option.getCanonicalForm(),
+                    option.getExpandedFrom() == null
+                        ? ""
+                        : option.getExpandedFrom().getCanonicalForm()));
+    impl.getSkippedOptions().stream()
+        .filter(GlobalRcUtils.IS_GLOBAL_RC_OPTION.negate())
+        .map(option -> option.getUnconvertedValue())
+        .filter(
+            o ->
+                getStarlarkOptions()
+                    .containsKey(Iterables.get(Splitter.on('=').split(o.replace("--", "")), 0)))
+        .forEach(option -> userOptions.put(option, ""));
+
+    return ImmutableMap.copyOf(userOptions);
   }
 
   /** Returns all options fields of the given options class, in alphabetic order. */

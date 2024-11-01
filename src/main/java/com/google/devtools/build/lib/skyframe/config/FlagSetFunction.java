@@ -18,6 +18,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -112,7 +113,7 @@ public final class FlagSetFunction implements SkyFunction {
       boolean enforceCanonical,
       ExtendedEventHandler eventHandler,
       BuildOptions targetOptions,
-      ImmutableSet<String> userOptions)
+      ImmutableMap<String, String> userOptions)
       throws FlagSetFunctionException {
     var configs = (Dict<String, Collection<String>>) sclContent.getResidualGlobal(CONFIGS);
     var sclConfigValue = configs == null ? null : configs.get(sclConfigName);
@@ -141,7 +142,7 @@ public final class FlagSetFunction implements SkyFunction {
                     e.getMessage(), supportedConfigsDesc(projectFile, supportedConfigs))),
             Transience.PERSISTENT);
       }
-      validateNoExtraFlagsSet(targetOptions, userOptions);
+      validateNoExtraFlagsSet(targetOptions, userOptions, defaultConfigValue);
       if (!defaultConfigWarningShown.get()) {
         eventHandler.handle(
             Event.info(
@@ -162,7 +163,7 @@ public final class FlagSetFunction implements SkyFunction {
     }
 
     if (enforceCanonical) {
-      validateNoExtraFlagsSet(targetOptions, userOptions);
+      validateNoExtraFlagsSet(targetOptions, userOptions, sclConfigValue);
     }
     eventHandler.handle(
         Event.info(
@@ -196,11 +197,15 @@ public final class FlagSetFunction implements SkyFunction {
   }
 
   /**
-   * Enforces that the user did not set any output-affecting options in a blazerc or on the command
-   * line. Flags set in global RC files and flags that do not affect outputs are allowed.
+   * Enforces that the user did not set any output-affecting options that are not present in the
+   * selected config in a blazerc or on the command line. Conflicting output-affecting options may
+   * be set in global RC files (including the {@code InvocationPolicy}). Flags that do not affect
+   * outputs are always allowed.
    */
-  // TODO(steinman): Allow user options if they are also part of the --scl_config.
-  private void validateNoExtraFlagsSet(BuildOptions targetOptions, ImmutableSet<String> userOptions)
+  private void validateNoExtraFlagsSet(
+      BuildOptions targetOptions,
+      ImmutableMap<String, String> userOptions,
+      Collection<String> flagsFromSelectedConfig)
       throws FlagSetFunctionException {
     ImmutableList.Builder<String> allOptionsAsStringsBuilder = new ImmutableList.Builder<>();
     // All potentially conflicting user options also appear in targetOptions
@@ -212,7 +217,7 @@ public final class FlagSetFunction implements SkyFunction {
     }
     ImmutableList<String> allOptionsAsStrings = allOptionsAsStringsBuilder.build();
     ImmutableSet<String> overlap =
-        userOptions.stream()
+        userOptions.keySet().stream()
             // Remove options that aren't part of BuildOptions
             .filter(
                 option ->
@@ -221,6 +226,12 @@ public final class FlagSetFunction implements SkyFunction {
                             .replaceFirst("--", "")
                             .replaceAll("'", "")))
             .filter(option -> !option.startsWith("--scl_config"))
+            .filter(option -> !flagsFromSelectedConfig.contains(option))
+            .map(
+                option ->
+                    userOptions.get(option).isEmpty()
+                        ? "'" + option + "'"
+                        : "'" + option + "' (expanded from '" + userOptions.get(option) + "')")
             .collect(toImmutableSet());
     // TODO(b/341930725): Allow user options if they are also part of the --scl_config.
     if (!overlap.isEmpty()) {

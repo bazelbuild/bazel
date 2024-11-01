@@ -18,7 +18,6 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -121,7 +120,7 @@ public final class Project {
   public static FlagSetValue modifyBuildOptionsWithFlagSets(
       Label projectFile,
       BuildOptions targetOptions,
-      ImmutableSet<String> userOptions,
+      ImmutableMap<String, String> userOptions,
       boolean enforceCanonicalConfigs,
       ExtendedEventHandler eventHandler,
       SkyframeExecutor skyframeExecutor)

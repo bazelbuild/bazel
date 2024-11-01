@@ -2638,7 +2638,7 @@ public final class OptionsParserTest {
     parser.parseWithSourceFunction(
         PriorityCategory.RC_FILE, o -> ".bazelrc", ImmutableList.of("--foo"), null);
 
-    assertThat(parser.getUserOptions()).containsExactly("--foo", "--nobar (expanded from --foo)");
+    assertThat(parser.getUserOptions().keySet()).containsExactly("--foo", "--nobar");
   }
 
   @Test
@@ -2654,7 +2654,7 @@ public final class OptionsParserTest {
     parser.parseWithSourceFunction(
         PriorityCategory.RC_FILE, o -> ".bazelrc", ImmutableList.of("--foo"), null);
 
-    assertThat(parser.getUserOptions()).containsExactly("--foo", "--nobar (expanded from --foo)");
+    assertThat(parser.getUserOptions().keySet()).containsExactly("--foo", "--nobar");
   }
 
   private static OptionInstanceOrigin createInvocationPolicyOrigin() {

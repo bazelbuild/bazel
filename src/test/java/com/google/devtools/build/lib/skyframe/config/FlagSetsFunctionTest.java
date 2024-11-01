@@ -17,7 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -95,7 +95,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             Label.parseCanonical("//test:PROJECT.scl"),
             "test_config",
             buildOptions,
-            /* userOptions= */ ImmutableSet.of(),
+            /* userOptions= */ ImmutableMap.of(),
             /* enforceCanonical= */ false);
     FlagSetValue flagSetsValue = executeFunction(key);
 
@@ -129,7 +129,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             Label.parseCanonical("//test:PROJECT.scl"),
             "unknown_config",
             buildOptions,
-            /* userOptions= */ ImmutableSet.of(),
+            /* userOptions= */ ImmutableMap.of(),
             /* enforceCanonical= */ false);
     FlagSetValue flagSetsValue = executeFunction(key);
 
@@ -148,7 +148,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             Label.parseCanonical("//test:PROJECT.scl"),
             "",
             buildOptions,
-            /* userOptions= */ ImmutableSet.of(),
+            /* userOptions= */ ImmutableMap.of(),
             /* enforceCanonical= */ false);
     FlagSetValue flagSetsValue = executeFunction(key);
 
@@ -169,7 +169,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             Label.parseCanonical("//test:PROJECT.scl"),
             "random_config_name",
             buildOptions,
-            /* userOptions= */ ImmutableSet.of(),
+            /* userOptions= */ ImmutableMap.of(),
             /* enforceCanonical= */ false);
     FlagSetValue flagSetsValue = executeFunction(key);
 
@@ -202,7 +202,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             Label.parseCanonical("//test:PROJECT.scl"),
             "test_config",
             buildOptions,
-            /* userOptions= */ ImmutableSet.of(),
+            /* userOptions= */ ImmutableMap.of(),
             /* enforceCanonical= */ true);
     FlagSetValue flagSetsValue = executeFunction(key);
 
@@ -249,11 +249,135 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             Label.parseCanonical("//test:PROJECT.scl"),
             "test_config",
             buildOptions,
-            /* userOptions= */ ImmutableSet.of("--define=foo=bar"),
+            /* userOptions= */ ImmutableMap.of("--define=foo=bar", ""),
             /* enforceCanonical= */ true);
 
     var thrown = assertThrows(Exception.class, () -> executeFunction(key));
-    assertThat(thrown).hasMessageThat().contains("Found [--define=foo=bar]");
+    assertThat(thrown).hasMessageThat().contains("Found ['--define=foo=bar']");
+  }
+
+  @Test
+  public void enforceCanonicalConfigsExtraFakeExpandedFlag_withSclConfig_fails() throws Exception {
+    scratch.file(
+        "test/build_settings.bzl",
+        """
+string_flag = rule(implementation = lambda ctx: [], build_setting = config.string(flag = True))
+""");
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:build_settings.bzl", "string_flag")
+        string_flag(
+            name = "myflag",
+            build_setting_default = "default",
+        )
+        """);
+    scratch.file(
+        "test/PROJECT.scl",
+        """
+        configs = {
+          "test_config": ['--//test:myflag=test_config_value'],
+          "other_config": ['--//test:myflag=other_config_value'],
+        }
+        supported_configs = {
+          "test_config": "User documentation for what this config means",
+        }
+        """);
+    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
+
+    FlagSetValue.Key key =
+        FlagSetValue.Key.create(
+            Label.parseCanonical("//test:PROJECT.scl"),
+            "test_config",
+            createBuildOptions(), // this is a fake flag so don't add it here.
+            /* userOptions= */ ImmutableMap.of("--bar", "--config=foo"),
+            /* enforceCanonical= */ true);
+
+    var thrown = assertThrows(Exception.class, () -> executeFunction(key));
+    assertThat(thrown).hasMessageThat().contains("Found ['--bar' (expanded from '--config=foo')]");
+  }
+
+  @Test
+  public void enforceCanonicalConfigs_extraFlagThatIsAlsoInConfig_differentValue_fails()
+      throws Exception {
+    scratch.file(
+        "test/build_settings.bzl",
+        """
+string_flag = rule(implementation = lambda ctx: [], build_setting = config.string(flag = True))
+""");
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:build_settings.bzl", "string_flag")
+        string_flag(
+            name = "myflag",
+            build_setting_default = "default",
+        )
+        """);
+    scratch.file(
+        "test/PROJECT.scl",
+        """
+        configs = {
+          "test_config": ['--//test:myflag=test_config_value'],
+        }
+        supported_configs = {
+          "test_config": "User documentation for what this config means",
+        }
+        """);
+    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
+    BuildOptions buildOptions = createBuildOptions("--//test:myflag=other_value");
+
+    FlagSetValue.Key key =
+        FlagSetValue.Key.create(
+            Label.parseCanonical("//test:PROJECT.scl"),
+            "test_config",
+            buildOptions,
+            /* userOptions= */ ImmutableMap.of("--//test:myflag=other_value", ""),
+            /* enforceCanonical= */ true);
+
+    var thrown = assertThrows(Exception.class, () -> executeFunction(key));
+    assertThat(thrown).hasMessageThat().contains("Found ['--//test:myflag=other_value']");
+  }
+
+  @Test
+  public void enforceCanonicalConfigs_passedFlagThatIsInConfig_passes() throws Exception {
+    scratch.file(
+        "test/build_settings.bzl",
+        """
+string_flag = rule(implementation = lambda ctx: [], build_setting = config.string(flag = True))
+""");
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:build_settings.bzl", "string_flag")
+        string_flag(
+            name = "myflag",
+            build_setting_default = "default",
+        )
+        """);
+    scratch.file(
+        "test/PROJECT.scl",
+        """
+        configs = {
+          "test_config": ['--//test:myflag=test_config_value'],
+        }
+        supported_configs = {
+          "test_config": "User documentation for what this config means",
+        }
+        """);
+    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
+    BuildOptions buildOptions = createBuildOptions("--//test:myflag=test_config_value");
+
+    FlagSetValue.Key key =
+        FlagSetValue.Key.create(
+            Label.parseCanonical("//test:PROJECT.scl"),
+            "test_config",
+            buildOptions,
+            /* userOptions= */ ImmutableMap.of("--//test:myflag=test_config_value", ""),
+            /* enforceCanonical= */ true);
+
+    var unused = executeFunction(key);
+    assertDoesNotContainEvent("--scl_config must be the only configuration-affecting flag");
   }
 
   @Test
@@ -288,7 +412,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             Label.parseCanonical("//test:PROJECT.scl"),
             null,
             buildOptions,
-            /* userOptions= */ ImmutableSet.of("--define=foo=bar"),
+            /* userOptions= */ ImmutableMap.of("--define=foo=bar", ""),
             /* enforceCanonical= */ true);
 
     var unused = executeFunction(key);
@@ -335,14 +459,14 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             Label.parseCanonical("//test:PROJECT.scl"),
             "test_config",
             buildOptions,
-            /* userOptions= */ ImmutableSet.of(
-                "--//test:starlark_flags_always_affect_configuration=yes_they_do"),
+            /* userOptions= */ ImmutableMap.of(
+                "--//test:starlark_flags_always_affect_configuration=yes_they_do", ""),
             /* enforceCanonical= */ true);
 
     var thrown = assertThrows(Exception.class, () -> executeFunction(key));
     assertThat(thrown)
         .hasMessageThat()
-        .contains("Found [--//test:starlark_flags_always_affect_configuration=yes_they_do]");
+        .contains("Found ['--//test:starlark_flags_always_affect_configuration=yes_they_do']");
   }
 
   @Test
@@ -380,7 +504,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             Label.parseCanonical("//test:PROJECT.scl"),
             "test_config",
             buildOptions,
-            /* userOptions= */ ImmutableSet.of("--define=foo=bar"),
+            /* userOptions= */ ImmutableMap.of("--define=foo=bar", ""),
             /* enforceCanonical= */ false);
 
     var unused = executeFunction(key);
@@ -411,7 +535,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             Label.parseCanonical("//test:PROJECT.scl"),
             "other_config",
             buildOptions,
-            /* userOptions= */ ImmutableSet.of(),
+            /* userOptions= */ ImmutableMap.of(),
             /* enforceCanonical= */ true);
 
     var thrown = assertThrows(Exception.class, () -> executeFunction(key));
@@ -444,7 +568,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             Label.parseCanonical("//test:PROJECT.scl"),
             "non_existent_config",
             buildOptions,
-            /* userOptions= */ ImmutableSet.of(),
+            /* userOptions= */ ImmutableMap.of(),
             /* enforceCanonical= */ true);
 
     var thrown = assertThrows(Exception.class, () -> executeFunction(key));
@@ -477,7 +601,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             Label.parseCanonical("//test:PROJECT.scl"),
             /* sclConfig= */ "",
             buildOptions,
-            /* userOptions= */ ImmutableSet.of(),
+            /* userOptions= */ ImmutableMap.of(),
             /* enforceCanonical= */ true);
 
     var thrown = assertThrows(Exception.class, () -> executeFunction(key));
@@ -512,7 +636,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             Label.parseCanonical("//test:PROJECT.scl"),
             /* sclConfig= */ "",
             buildOptions,
-            /* userOptions= */ ImmutableSet.of(),
+            /* userOptions= */ ImmutableMap.of(),
             /* enforceCanonical= */ true);
 
     var thrown = assertThrows(Exception.class, () -> executeFunction(key));
@@ -548,7 +672,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             Label.parseCanonical("//test:PROJECT.scl"),
             /* sclConfig= */ "",
             buildOptions,
-            /* userOptions= */ ImmutableSet.of(),
+            /* userOptions= */ ImmutableMap.of(),
             /* enforceCanonical= */ true);
 
     var thrown = assertThrows(Exception.class, () -> executeFunction(key));
@@ -584,7 +708,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             Label.parseCanonical("//test:PROJECT.scl"),
             /* sclConfig= */ "",
             buildOptions,
-            /* userOptions= */ ImmutableSet.of(),
+            /* userOptions= */ ImmutableMap.of(),
             /* enforceCanonical= */ true);
     FlagSetValue flagSetsValue = executeFunction(key);
 
@@ -619,7 +743,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             Label.parseCanonical("//test:PROJECT.scl"),
             /* sclConfig= */ "",
             buildOptions,
-            /* userOptions= */ ImmutableSet.of(),
+            /* userOptions= */ ImmutableMap.of(),
             /* enforceCanonical= */ true);
     FlagSetValue flagSetsValue = executeFunction(key);
 
@@ -647,7 +771,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             Label.parseCanonical("//test:PROJECT.scl"),
             /* sclConfig= */ "test_config",
             buildOptions,
-            /* userOptions= */ ImmutableSet.of(),
+            /* userOptions= */ ImmutableMap.of(),
             /* enforceCanonical= */ true);
     FlagSetValue flagSetsValue = executeFunction(key);
 
@@ -684,7 +808,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             Label.parseCanonical("//test:PROJECT.scl"),
             /* sclConfig= */ "",
             buildOptions,
-            /* userOptions= */ ImmutableSet.of(),
+            /* userOptions= */ ImmutableMap.of(),
             /* enforceCanonical= */ true);
 
     var thrown = assertThrows(Exception.class, () -> executeFunction(key));

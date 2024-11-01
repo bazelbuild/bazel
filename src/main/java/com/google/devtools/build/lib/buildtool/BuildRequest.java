@@ -21,7 +21,6 @@ import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.AspectCollection;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
@@ -202,7 +201,7 @@ public class BuildRequest implements OptionsProvider {
   private final boolean runTests;
   private final boolean checkForActionConflicts;
   private final boolean reportIncompatibleTargets;
-  private final ImmutableSet<String> userOptions;
+  private final ImmutableMap<String, String> userOptions;
 
   private BuildRequest(
       String commandName,
@@ -223,7 +222,7 @@ public class BuildRequest implements OptionsProvider {
     this.id = id;
     this.startTimeMillis = startTimeMillis;
     this.userOptions =
-        options.getUserOptions() == null ? ImmutableSet.of() : options.getUserOptions();
+        options.getUserOptions() == null ? ImmutableMap.of() : options.getUserOptions();
     this.optionsCache =
         Caffeine.newBuilder()
             .build(
@@ -282,7 +281,7 @@ public class BuildRequest implements OptionsProvider {
    * line.
    */
   @Override
-  public ImmutableSet<String> getUserOptions() {
+  public ImmutableMap<String, String> getUserOptions() {
     return userOptions;
   }
 

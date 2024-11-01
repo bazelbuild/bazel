@@ -24,6 +24,7 @@ import static com.google.devtools.build.lib.skyframe.serialization.analysis.Remo
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.BuildFailedException;
@@ -202,7 +203,7 @@ public final class AnalysisPhaseRunner {
   static ProjectEvaluationResult evaluateProjectFile(
       BuildRequest request,
       BuildOptions buildOptions,
-      ImmutableSet<String> userOptions,
+      ImmutableMap<String, String> userOptions,
       TargetPatternPhaseValue targetPatternPhaseValue,
       CommandEnvironment env)
       throws LoadingFailedException, InvalidConfigurationException {

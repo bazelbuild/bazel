@@ -28,6 +28,7 @@ import com.google.common.base.Suppliers;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -1051,7 +1052,7 @@ public class BuildTool {
   /** Creates a BuildOptions class for the given options taken from an {@link OptionsProvider}. */
   public static BuildOptions applySclConfigs(
       BuildOptions buildOptionsBeforeFlagSets,
-      ImmutableSet<String> userOptions,
+      ImmutableMap<String, String> userOptions,
       Label projectFile,
       boolean enforceCanonicalConfigs,
       SkyframeExecutor skyframeExecutor,

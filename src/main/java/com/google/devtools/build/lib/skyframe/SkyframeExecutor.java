@@ -3267,8 +3267,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           }
 
           @Override
-          public ImmutableSet<String> getUserOptions() {
-            return ImmutableSet.of();
+          public ImmutableMap<String, String> getUserOptions() {
+            return ImmutableMap.of();
           }
         });
   }
