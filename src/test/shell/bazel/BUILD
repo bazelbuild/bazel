@@ -726,6 +726,7 @@ sh_test(
 genquery(
     name = "embedded_tools_deps",
     expression = "kind(\"cc_(binary|library)\", deps(//src:embedded_tools_jdk_allmodules_srcs))",
+    opts = ["--notool_deps"],
     scope = ["//src:embedded_tools_jdk_allmodules_srcs"],
 )
 
