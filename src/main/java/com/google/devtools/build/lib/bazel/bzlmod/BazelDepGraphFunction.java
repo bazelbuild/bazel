@@ -181,6 +181,9 @@ public class BazelDepGraphFunction implements SkyFunction {
   private static String makeUniqueNameCandidate(ModuleExtensionId id, int attempt) {
     Preconditions.checkArgument(attempt >= 1);
     String extensionNameDisambiguator = attempt == 1 ? "" : String.valueOf(attempt);
+    // An innate extension name is of the form @repo//path/to/defs.bzl%repo_rule_name, which cannot
+    // be part of a valid repo name.
+    String extensionName = id.isInnate() ? "_repo_rules" : id.getExtensionName();
     return id.getIsolationKey()
         .map(
             isolationKey ->
@@ -191,7 +194,7 @@ public class BazelDepGraphFunction implements SkyFunction {
                     // case of an exported symbol cannot start with "_".
                     "%s+_%s%s+%s+%s+%s",
                     id.getBzlFileLabel().getRepository().getName(),
-                    id.getExtensionName(),
+                    extensionName,
                     extensionNameDisambiguator,
                     isolationKey.getModule().name(),
                     isolationKey.getModule().version(),
@@ -199,7 +202,7 @@ public class BazelDepGraphFunction implements SkyFunction {
         .orElse(
             id.getBzlFileLabel().getRepository().getName()
                 + "+"
-                + id.getExtensionName()
+                + extensionName
                 + extensionNameDisambiguator);
   }
 

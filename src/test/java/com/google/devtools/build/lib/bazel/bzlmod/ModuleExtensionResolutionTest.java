@@ -2904,6 +2904,49 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
   }
 
   @Test
+  public void innate_repoRuleDependencies() throws Exception {
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "bazel_dep(name='foo',version='1.0')",
+        "gen_data_repo = use_repo_rule('@foo//:repo.bzl', 'gen_data_repo')",
+        "gen_data_repo(name='gen_data_repo')",
+        "data_repo = use_repo_rule('@gen_data_repo//:repo.bzl', 'data_repo')",
+        "data_repo(name='data', data='get up at 6am.')");
+    scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
+    scratch.file(
+        workspaceRoot.getRelative("data.bzl").getPathString(),
+        "load('@data//:data.bzl', _data='data')",
+        "data=_data");
+
+    registry.addModule(
+        createModuleKey("foo", "1.0"),
+        "module(name='foo',version='1.0')",
+        "bazel_dep(name='data_repo', version='1.0')");
+    scratch.file(modulesRoot.getRelative("foo+1.0/WORKSPACE").getPathString());
+    scratch.file(modulesRoot.getRelative("foo+1.0/BUILD").getPathString());
+    scratch.file(
+        modulesRoot.getRelative("foo+1.0/repo.bzl").getPathString(),
+        "def _gen_data_repo_impl(ctx):",
+        "  ctx.file('BUILD.bazel')",
+        "  ctx.file('repo.bzl', '''",
+        "load('{data_repo_defs}', _data_repo='data_repo')",
+        "data_repo=_data_repo",
+        "'''.format(data_repo_defs = Label('@data_repo//:defs.bzl')))",
+        "gen_data_repo = repository_rule(implementation=_gen_data_repo_impl)");
+
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
+    EvaluationResult<BzlLoadValue> result =
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    if (result.hasError()) {
+      if (result.getError().getException() != null) {
+        throw result.getError().getException();
+      }
+      throw new IllegalStateException("Cycle: " + result.getError().getCycleInfo());
+    }
+    assertThat(result.get(skyKey).getModule().getGlobal("data")).isEqualTo("get up at 6am.");
+  }
+
+  @Test
   public void innate_noSuchRepoRule() throws Exception {
     scratch.file(
         workspaceRoot.getRelative("MODULE.bazel").getPathString(),
@@ -3004,7 +3047,6 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
             "error creating repo data requested at /ws/MODULE.bazel:3:10: failed to instantiate"
                 + " 'data_repo' from this module extension");
   }
-
   @Test
   public void extensionRepoMapping() throws Exception {
     scratch.file(
