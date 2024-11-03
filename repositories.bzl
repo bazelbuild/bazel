@@ -65,6 +65,7 @@ DIST_ARCHIVE_REPOS = [get_canonical_repo_name(repo) for repo in [
     "grpc-java++grpc_java_repositories_extension+com_github_cncf_xds",
     "grpc-java++grpc_java_repositories_extension+envoy_api",
     "grpc-proto+",
+    "grpc++grpc_repo_deps_ext+opencensus_proto",
 ]
 
 ##################################################################################
