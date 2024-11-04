@@ -179,6 +179,9 @@ filegroup(
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
+# This program patches the app manifest of the java.exe launcher to force its
+# active code page to UTF-8 on Windows 1903 and later, which is required for
+# proper support of Unicode characters outside the system code page.
 cc_binary(
     name = "patch_java_manifest_for_utf8",
     srcs = ["patch_java_manifest_for_utf8.cc"],
