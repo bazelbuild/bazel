@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 # Build Encyclopedia entry point for Python rules implemented in Starlark in Bazel's @_builtins
-"""Sh"""
+"""Shell"""
 
 load("@rules_shell//shell/private:sh_binary.bzl", "sh_binary")  # buildifier: disable=bzl-visibility
 load("@rules_shell//shell/private:sh_library.bzl", "sh_library")  # buildifier: disable=bzl-visibility
