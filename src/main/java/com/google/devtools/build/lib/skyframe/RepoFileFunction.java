@@ -102,7 +102,6 @@ public class RepoFileFunction implements SkyFunction {
     return evalRepoFile(
         repoFile,
         repoName,
-        RepositoryMapping.ALWAYS_FALLBACK,
         starlarkSemantics,
         env.getListener());
   }
@@ -138,7 +137,6 @@ public class RepoFileFunction implements SkyFunction {
   private RepoFileValue evalRepoFile(
       StarlarkFile starlarkFile,
       RepositoryName repoName,
-      RepositoryMapping repoMapping,
       StarlarkSemantics starlarkSemantics,
       ExtendedEventHandler handler)
       throws RepoFileFunctionException, InterruptedException {
