@@ -34,13 +34,13 @@ public class BasicHttpAuthenticationEncoderTest {
 
   @Test
   public void encode_normalUsernamePassword_outputExpected() {
-    String message = BasicHttpAuthenticationEncoder.encode("Aladdin", "open sesame", UTF_8);
+    String message = BasicHttpAuthenticationEncoder.encode("Aladdin", "open sesame");
     assertThat(message).isEqualTo("Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ==");
   }
 
   @Test
   public void encode_normalUsernamePassword_canBeDecoded() {
-    String message = BasicHttpAuthenticationEncoder.encode("Aladdin", "open sesame", UTF_8);
+    String message = BasicHttpAuthenticationEncoder.encode("Aladdin", "open sesame");
 
     String[] usernameAndPassword = decode(message);
     assertThat(usernameAndPassword[0]).isEqualTo("Aladdin");
@@ -49,7 +49,7 @@ public class BasicHttpAuthenticationEncoderTest {
 
   @Test
   public void encode_usernameContainsColon_canBeDecoded() {
-    String message = BasicHttpAuthenticationEncoder.encode("foo:user", "foopass", UTF_8);
+    String message = BasicHttpAuthenticationEncoder.encode("foo:user", "foopass");
 
     String[] usernameAndPassword = decode(message);
     assertThat(usernameAndPassword[0]).isEqualTo("foo");
@@ -58,25 +58,25 @@ public class BasicHttpAuthenticationEncoderTest {
 
   @Test
   public void encode_emptyUsername_outputExpected() {
-    String message = BasicHttpAuthenticationEncoder.encode("", "foopass", UTF_8);
+    String message = BasicHttpAuthenticationEncoder.encode("", "foopass");
     assertThat(message).isEqualTo("Basic OmZvb3Bhc3M=");
   }
 
   @Test
   public void encode_emptyPassword_outputExpected() {
-    String message = BasicHttpAuthenticationEncoder.encode("foouser", "", UTF_8);
+    String message = BasicHttpAuthenticationEncoder.encode("foouser", "");
     assertThat(message).isEqualTo("Basic Zm9vdXNlcjo=");
   }
 
   @Test
   public void encode_emptyUsernamePassword_outputExpected() {
-    String message = BasicHttpAuthenticationEncoder.encode("", "", UTF_8);
+    String message = BasicHttpAuthenticationEncoder.encode("", "");
     assertThat(message).isEqualTo("Basic Og==");
   }
 
   @Test
   public void encode_specialCharacterUtf8_outputExpected() {
-    String message = BasicHttpAuthenticationEncoder.encode("test", "123\u00A3", UTF_8);
+    String message = BasicHttpAuthenticationEncoder.encode("test", "123\u00A3");
     assertThat(message).isEqualTo("Basic dGVzdDoxMjPCow==");
   }
 }

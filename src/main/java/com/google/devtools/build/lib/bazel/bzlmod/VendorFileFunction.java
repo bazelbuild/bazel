@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.FileValue;
@@ -35,6 +34,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
@@ -138,8 +138,7 @@ public class VendorFileFunction implements SkyFunction {
       throws VendorFileFunctionException {
     try {
       vendorPath.createDirectoryAndParents();
-      byte[] vendorFileContents = VENDOR_FILE_HEADER.getBytes(UTF_8);
-      FileSystemUtils.writeContent(vendorFilePath, vendorFileContents);
+      FileSystemUtils.writeContent(vendorFilePath, StandardCharsets.UTF_8, VENDOR_FILE_HEADER);
     } catch (IOException e) {
       throw new VendorFileFunctionException(
           new IOException("error creating VENDOR.bazel file", e), Transience.TRANSIENT);

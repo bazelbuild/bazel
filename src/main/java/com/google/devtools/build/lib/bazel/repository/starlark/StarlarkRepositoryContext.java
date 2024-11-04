@@ -322,14 +322,16 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
     try {
       checkInOutputDirectory("write", p);
       makeDirectories(p.getPath());
-      String tpl = FileSystemUtils.readContent(t.getPath(), StandardCharsets.UTF_8);
+      // Read and write files as raw bytes by using the Latin-1 encoding, which matches the encoding
+      // used by Bazel for strings.
+      String tpl = FileSystemUtils.readContent(t.getPath(), StandardCharsets.ISO_8859_1);
       for (Map.Entry<String, String> substitution : substitutionMap.entrySet()) {
         tpl =
             StringUtilities.replaceAllLiteral(tpl, substitution.getKey(), substitution.getValue());
       }
       p.getPath().delete();
       try (OutputStream stream = p.getPath().getOutputStream()) {
-        stream.write(tpl.getBytes(StandardCharsets.UTF_8));
+        stream.write(tpl.getBytes(StandardCharsets.ISO_8859_1));
       }
       if (executable) {
         p.getPath().setExecutable(true);

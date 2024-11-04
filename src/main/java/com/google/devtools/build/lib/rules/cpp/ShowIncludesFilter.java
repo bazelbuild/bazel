@@ -171,7 +171,7 @@ public class ShowIncludesFilter {
     public void write(int b) throws IOException {
       buffer.write(b);
       if (b == NEWLINE) {
-        String line = buffer.toString(StandardCharsets.UTF_8.name());
+        String line = buffer.toString(StandardCharsets.UTF_8);
         boolean prefixMatched = false;
         for (String prefix : SHOW_INCLUDES_PREFIXES) {
           if (line.startsWith(prefix)) {

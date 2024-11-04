@@ -71,7 +71,7 @@ public class IndexRegistryTest extends FoundationTestCase {
   }
 
   private final String authToken =
-      BasicHttpAuthenticationEncoder.encode("rinne", "rinnepass", UTF_8);
+      BasicHttpAuthenticationEncoder.encode("rinne", "rinnepass");
   private DownloadManager downloadManager;
   private EventRecorder eventRecorder;
   @Rule public final TestHttpServer server = new TestHttpServer(authToken);

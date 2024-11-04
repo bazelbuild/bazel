@@ -182,7 +182,7 @@ final class StarlarkExecutionResult implements StarlarkValue {
 
     private static String toString(ByteArrayOutputStream stream) {
       try {
-        return new String(stream.toByteArray(), UTF_8);
+        return stream.toString(UTF_8);
       } catch (IllegalStateException e) {
         return "";
       }

@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.authandtls;
 
-import com.google.common.base.Strings;
-import java.nio.charset.Charset;
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import java.util.Base64;
 
 /**
@@ -26,16 +26,9 @@ public final class BasicHttpAuthenticationEncoder {
 
   private BasicHttpAuthenticationEncoder() {}
 
-  /** Encode username and password into a token with given {@link Charset}. */
-  public static String encode(String username, String password, Charset charset) {
-    StringBuilder sb = new StringBuilder();
-    if (!Strings.isNullOrEmpty(username)) {
-      sb.append(username);
-    }
-    sb.append(":");
-    if (!Strings.isNullOrEmpty(password)) {
-      sb.append(password);
-    }
-    return "Basic " + Base64.getEncoder().encodeToString(sb.toString().getBytes(charset));
+  /** Encode username and password into a token, encoded using UTF-8. */
+  public static String encode(String username, String password) {
+    return "Basic "
+        + Base64.getEncoder().encodeToString((username + ":" + password).getBytes(UTF_8));
   }
 }

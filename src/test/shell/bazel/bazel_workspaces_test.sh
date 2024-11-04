@@ -579,21 +579,7 @@ function test_read() {
   ensure_contains_exactly 'path: ".*filefile.sh"' 2
 }
 
-function test_read_roundtrip_legacy_utf8() {
-  # See discussion on https://github.com/bazelbuild/bazel/pull/7309
-  set_workspace_command '
-  content = "echo fïlëfïlë"
-  repository_ctx.file("filefile.sh", content, True, legacy_utf8=True)
-  read_result = repository_ctx.read("filefile.sh")
-
-  corrupted_content = "echo fÃ¯lÃ«fÃ¯lÃ«"
-  if read_result != corrupted_content:
-    fail("read(): expected %r, got %r" % (corrupted_content, read_result))'
-
-  build_and_process_log --exclude_rule "repository @@local_config_cc"
-}
-
-function test_read_roundtrip_nolegacy_utf8() {
+function test_read_roundtrip_utf8() {
   set_workspace_command '
   content = "echo fïlëfïlë"
   repository_ctx.file("filefile.sh", content, True, legacy_utf8=False)
