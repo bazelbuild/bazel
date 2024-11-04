@@ -1088,66 +1088,74 @@ uint64_t WindowsClock::GetMilliseconds() const {
 uint64_t AcquireLock(const blaze_util::Path& output_base, bool batch_mode,
                      bool block, BlazeLock* blaze_lock) {
   blaze_util::Path lockfile = output_base.GetRelative("lock");
-  blaze_lock->handle = INVALID_HANDLE_VALUE;
+
+  // CreateFile defaults to opening the file exclusively. We intentionally open
+  // it in shared mode and instead rely on LockFileEx to obtain an exclusive
+  // lock, mimicking the behavior of FileChannel in the JVM, to make locks
+  // obtained on the client side compatible with the server side.
+  HANDLE handle = ::CreateFileW(
+      /* lpFileName */ lockfile.AsNativePath().c_str(),
+      /* dwDesiredAccess */ GENERIC_READ | GENERIC_WRITE,
+      /* dwShareMode */ FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+      /* lpSecurityAttributes */ nullptr,
+      /* dwCreationDisposition */ CREATE_ALWAYS,
+      /* dwFlagsAndAttributes */ FILE_ATTRIBUTE_NORMAL,
+      /* hTemplateFile */ nullptr);
+  if (handle == INVALID_HANDLE_VALUE) {
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "Failed to CreateFile(" << lockfile.AsPrintablePath()
+        << "): " << GetLastErrorString();
+  }
+
   bool first_lock_attempt = true;
-  uint64_t st = GetMillisecondsMonotonic();
+  uint64_t start_time = GetMillisecondsMonotonic();
+
   while (true) {
-    blaze_lock->handle = ::CreateFileW(
-        /* lpFileName */ lockfile.AsNativePath().c_str(),
-        /* dwDesiredAccess */ GENERIC_READ | GENERIC_WRITE,
-        /* dwShareMode */ FILE_SHARE_READ,
-        /* lpSecurityAttributes */ nullptr,
-        /* dwCreationDisposition */ CREATE_ALWAYS,
-        /* dwFlagsAndAttributes */ FILE_ATTRIBUTE_NORMAL,
-        /* hTemplateFile */ nullptr);
-    if (blaze_lock->handle != INVALID_HANDLE_VALUE) {
-      // We could open the file, so noone else holds a lock on it.
+    OVERLAPPED overlapped = {};
+    BOOL success = LockFileEx(
+        /* hFile */ handle,
+        /* dwFlags */ LOCKFILE_EXCLUSIVE_LOCK | LOCKFILE_FAIL_IMMEDIATELY,
+        /* dwReserved */ 0,
+        /* nNumberOfBytesToLockLow */ 1,
+        /* nNumberOfBytesToLockHigh */ 0,
+        /* lpOverlapped */ &overlapped);
+    if (success) {
+      // Successfully acquired the lock.
       break;
     }
-    if (GetLastError() == ERROR_SHARING_VIOLATION) {
-      // Someone else has the lock.
-      if (first_lock_attempt) {
-        first_lock_attempt = false;
-        BAZEL_LOG(USER) << "Another command holds the client lock.";
-        if (block) {
-          BAZEL_LOG(USER) << "Waiting for it to complete...";
-        }
-        fflush(stderr);
-      }
-      if (!block) {
-        BAZEL_DIE(blaze_exit_code::LOCK_HELD_NOBLOCK_FOR_LOCK)
-            << "Exiting because the lock is held and --noblock_for_lock was "
-               "given.";
-      }
-      Sleep(/* dwMilliseconds */ 200);
-    } else {
-      string err = GetLastErrorString();
+    // The LockFileEx API documentation claims ERROR_IO_PENDING is raised
+    // when the lock is already held, but when LOCKFILE_FAIL_IMMEDIATELY is
+    // passed, the error is actually ERROR_LOCK_VIOLATION.
+    // See https://devblogs.microsoft.com/oldnewthing/20140905-00/?p=63.
+    if (GetLastError() != ERROR_LOCK_VIOLATION) {
       BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-          << "AcquireLock(" << lockfile.AsPrintablePath()
-          << "): CreateFile failed: " << err;
+          << "Unexpected result from LockFileEx(" << lockfile.AsPrintablePath()
+          << "):" << GetLastErrorString();
     }
+    // Someone else has the lock.
+    if (first_lock_attempt) {
+      first_lock_attempt = false;
+      BAZEL_LOG(USER) << "Another command holds the client lock.";
+      if (block) {
+        BAZEL_LOG(USER) << "Waiting for it to complete...";
+      }
+      fflush(stderr);
+    }
+    if (!block) {
+      BAZEL_DIE(blaze_exit_code::LOCK_HELD_NOBLOCK_FOR_LOCK)
+          << "Exiting because the lock is held and --noblock_for_lock was "
+             "given.";
+    }
+    Sleep(/* dwMilliseconds */ 500);
   }
-  uint64_t wait_time = GetMillisecondsMonotonic() - st;
 
-  // We have the lock.
-  OVERLAPPED overlapped = {0};
-  if (!LockFileEx(
-          /* hFile */ blaze_lock->handle,
-          /* dwFlags */ LOCKFILE_EXCLUSIVE_LOCK | LOCKFILE_FAIL_IMMEDIATELY,
-          /* dwReserved */ 0,
-          /* nNumberOfBytesToLockLow */ 1,
-          /* nNumberOfBytesToLockHigh */ 0,
-          /* lpOverlapped */ &overlapped)) {
-    string err = GetLastErrorString();
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "AcquireLock(" << lockfile.AsPrintablePath()
-        << "): LockFileEx failed: " << err;
-  }
-  // On other platforms we write some info about this process into the lock file
-  // such as the server PID. On Windows we don't do that because the file is
-  // locked exclusively, meaning other processes may not open the file even for
-  // reading.
+  // On Unix, we take advantage of the advisory nature of locks and write some
+  // information about the process holding the lock into the lock file, so that
+  // a concurrent process can read and display it. On Windows we can't do so
+  // because locks are mandatory, thus we cannot read the file concurrently.
 
+  uint64_t wait_time = GetMillisecondsMonotonic() - start_time;
+  blaze_lock->handle = handle;
   return wait_time;
 }
 
