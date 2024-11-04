@@ -15,7 +15,8 @@
 #ifndef BAZEL_SRC_MAIN_CPP_BLAZE_UTIL_PLATFORM_H_
 #define BAZEL_SRC_MAIN_CPP_BLAZE_UTIL_PLATFORM_H_
 
-#include <cinttypes>
+#include <stdint.h>
+
 #include <map>
 #include <memory>
 #include <string>
@@ -206,7 +207,7 @@ struct BlazeLock {
 };
 
 // Acquires a lock on the output base. Exits if the lock cannot be acquired.
-// Sets ``lock`` to a value that can subsequently be passed to ReleaseLock().
+// Sets `blaze_lock` to a value that can be later passed to ReleaseLock().
 // Returns the number of milliseconds spent with waiting for the lock.
 uint64_t AcquireLock(const blaze_util::Path& output_base, bool batch_mode,
                      bool block, BlazeLock* blaze_lock);

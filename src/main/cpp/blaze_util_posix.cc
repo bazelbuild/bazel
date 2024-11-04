@@ -22,6 +22,7 @@
 #include <signal.h>
 #include <spawn.h>
 #include <stdarg.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/ioctl.h>
@@ -634,22 +635,19 @@ static int setlk(int fd, struct flock *lock) {
 uint64_t AcquireLock(const blaze_util::Path& output_base, bool batch_mode,
                      bool block, BlazeLock* blaze_lock) {
   blaze_util::Path lockfile = output_base.GetRelative("lock");
-  int lockfd = open(lockfile.AsNativePath().c_str(), O_CREAT | O_RDWR, 0644);
 
+  int flags = O_CREAT | O_RDWR;
+  // Keep server from inheriting a useless fd if we are not in batch mode.
+  if (!batch_mode) {
+    flags |= O_CLOEXEC;
+  }
+
+  int lockfd = open(lockfile.AsNativePath().c_str(), flags, 0644);
   if (lockfd < 0) {
     string err = GetLastErrorString();
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "cannot open lockfile '" << lockfile.AsPrintablePath()
         << "' for writing: " << err;
-  }
-
-  // Keep server from inheriting a useless fd if we are not in batch mode
-  if (!batch_mode) {
-    string err = GetLastErrorString();
-    if (fcntl(lockfd, F_SETFD, FD_CLOEXEC) == -1) {
-      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-          << "fcntl(F_SETFD) failed for lockfile: " << err;
-    }
   }
 
   struct flock lock = {};
