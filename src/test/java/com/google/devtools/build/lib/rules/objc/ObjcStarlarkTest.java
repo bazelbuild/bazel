@@ -1498,11 +1498,9 @@ swift_binary = rule(
     assertThat(e)
         .hasMessageThat()
         .contains(
-            "ERROR /workspace/examples/apple_starlark/BUILD:1:13: "
-                + "in objc_library rule //examples/apple_starlark:lib:");
-
-    assertContainsEvent(
-        "sdk_frameworks attribute is disallowed. Use explicit dependencies instead.");
+            "ERROR /workspace/examples/apple_starlark/BUILD:1:13: in sdk_frameworks attribute of"
+                + " objc_library rule //examples/apple_starlark:lib: sdk_frameworks attribute is"
+                + " disallowed. Use explicit dependencies instead.");
   }
 
   @Test
@@ -1524,11 +1522,9 @@ swift_binary = rule(
     assertThat(e)
         .hasMessageThat()
         .contains(
-            "ERROR /workspace/examples/apple_starlark/BUILD:1:13: "
-                + "in objc_library rule //examples/apple_starlark:lib:");
-
-    assertContainsEvent(
-        "weak_sdk_frameworks attribute is disallowed. Use explicit dependencies instead.");
+            "ERROR /workspace/examples/apple_starlark/BUILD:1:13: in weak_sdk_frameworks attribute"
+                + " of objc_library rule //examples/apple_starlark:lib: weak_sdk_frameworks"
+                + " attribute is disallowed.  Use explicit dependencies instead.");
   }
 
   @Test
