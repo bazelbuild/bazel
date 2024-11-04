@@ -182,6 +182,8 @@ filegroup(
 # This program patches the app manifest of the java.exe launcher to force its
 # active code page to UTF-8 on Windows 1903 and later, which is required for
 # proper support of Unicode characters outside the system code page.
+# The JDK currently (as of JDK 23) doesn't support this natively:
+# https://mail.openjdk.org/pipermail/core-libs-dev/2024-November/133773.html
 cc_binary(
     name = "patch_java_manifest_for_utf8",
     srcs = ["patch_java_manifest_for_utf8.cc"],
