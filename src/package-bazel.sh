@@ -19,7 +19,7 @@ set -euo pipefail
 # This script creates the Bazel archive that Bazel client unpacks and then
 # starts the server from.
 
-WORKDIR=$(pwd)
+WORKDIR="$(pwd)"
 OUT=$1; shift
 EMBEDDED_TOOLS=$1; shift
 DEPLOY_JAR=$1; shift
