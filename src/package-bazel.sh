@@ -19,7 +19,7 @@ set -euo pipefail
 # This script creates the Bazel archive that Bazel client unpacks and then
 # starts the server from.
 
-WORKDIR=$(pwd)
+WORKDIR="$(pwd)"
 OUT=$1; shift
 EMBEDDED_TOOLS=$1; shift
 DEPLOY_JAR=$1; shift
@@ -62,7 +62,7 @@ if [[ $DEV_BUILD -eq 0 ]]; then
         || echo -n 'no_version')"
   echo -n "${bazel_label:-no_version}" > "${PACKAGE_DIR}/build-label.txt"
 
-  cd $WORKDIR
+  cd "$WORKDIR"
 
   DEPLOY_JAR="$DEPLOY_UNCOMP"
 fi
@@ -74,7 +74,7 @@ fi
 
 (
   cd $PACKAGE_DIR
-  tar -xf $WORKDIR/$PLATFORMS_ARCHIVE -C .
+  tar -xf "$WORKDIR/$PLATFORMS_ARCHIVE" -C .
   # "platforms" is a well-known module, so no need to tamper with anything here.
 )
 
@@ -103,6 +103,4 @@ else
   # Create output zip with highest compression, but slow.
   ZIP_ARGS="-q9DX@"
 fi
-(cd $PACKAGE_DIR; zip $ZIP_ARGS $WORKDIR/$OUT) < $FILE_LIST
-
-
+(cd $PACKAGE_DIR; zip $ZIP_ARGS "$WORKDIR/$OUT") < $FILE_LIST
