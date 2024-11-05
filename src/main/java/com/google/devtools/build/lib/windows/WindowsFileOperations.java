@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.jni.JniLoader;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.AccessDeniedException;
+import java.nio.file.Path;
 
 /** File operations on Windows. */
 public class WindowsFileOperations {
@@ -200,6 +201,15 @@ public class WindowsFileOperations {
         : path.replace('/', '\\');
   }
 
+  static String asLongPathIfAbsolute(String path) {
+    String withBackslashes = path.replace('/', '\\');
+    if (Path.of(withBackslashes).isAbsolute()) {
+      return asLongPath(withBackslashes);
+    } else {
+      return withBackslashes;
+    }
+  }
+
   private static String removeUncPrefixAndUseSlashes(String p) {
     if (p.length() >= 4
         && p.charAt(0) == '\\'
@@ -250,7 +260,7 @@ public class WindowsFileOperations {
 
   public static void createSymlink(String name, String target) throws IOException {
     String[] error = new String[] {null};
-    switch (nativeCreateSymlink(asLongPath(name), asLongPath(target), error)) {
+    switch (nativeCreateSymlink(asLongPath(name), asLongPathIfAbsolute(target), error)) {
       case CREATE_SYMLINK_SUCCESS:
         return;
       case CREATE_SYMLINK_TARGET_IS_DIRECTORY:

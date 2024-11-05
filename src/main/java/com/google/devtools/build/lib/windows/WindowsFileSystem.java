@@ -73,22 +73,23 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   @Override
   protected void createSymbolicLink(PathFragment linkPath, PathFragment targetFragment)
       throws IOException {
-    PathFragment targetPath =
+    PathFragment absoluteTargetPath =
         targetFragment.isAbsolute()
             ? targetFragment
             : linkPath.getParentDirectory().getRelative(targetFragment);
     try {
       java.nio.file.Path link = getIoFile(linkPath).toPath();
-      java.nio.file.Path target = getIoFile(targetPath).toPath();
-      if (target.toFile().isDirectory()) {
-        WindowsFileOperations.createJunction(link.toString(), target.toString());
+      java.nio.file.Path absoluteTarget = getIoFile(absoluteTargetPath).toPath();
+      if (absoluteTarget.toFile().isDirectory()) {
+        WindowsFileOperations.createJunction(link.toString(), absoluteTarget.toString());
       } else if (createSymbolicLinks) {
-        WindowsFileOperations.createSymlink(link.toString(), target.toString());
-      } else if (!target.toFile().exists()) {
+        // Allow the creation of symbolic links to relative paths.
+        WindowsFileOperations.createSymlink(link.toString(), targetFragment.toString());
+      } else if (!absoluteTarget.toFile().exists()) {
         // Still Create a dangling junction if the target doesn't exist.
-        WindowsFileOperations.createJunction(link.toString(), target.toString());
+        WindowsFileOperations.createJunction(link.toString(), absoluteTarget.toString());
       } else {
-        Files.copy(target, link);
+        Files.copy(absoluteTarget, link);
       }
     } catch (java.nio.file.FileAlreadyExistsException e) {
       throw new IOException(linkPath + ERR_FILE_EXISTS, e);
@@ -115,7 +116,7 @@ public class WindowsFileSystem extends JavaIoFileSystem {
 
   @Override
   public boolean supportsSymbolicLinksNatively(PathFragment path) {
-    return false;
+    return createSymbolicLinks;
   }
 
   @Override

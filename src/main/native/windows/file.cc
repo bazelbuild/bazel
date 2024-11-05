@@ -492,31 +492,22 @@ int CreateSymlink(const wstring& symlink_name, const wstring& symlink_target,
     }
     return CreateSymlinkResult::kError;
   }
-  if (!IsAbsoluteNormalizedWindowsPath(symlink_target)) {
-    if (error) {
-      *error = MakeErrorMessage(
-          WSTR(__FILE__), __LINE__, L"CreateSymlink", symlink_target,
-          L"expected an absolute Windows path for symlink_target");
-    }
-    return CreateSymlinkResult::kError;
-  }
 
   const wstring name = AddUncPrefixMaybe(symlink_name);
-  const wstring target = AddUncPrefixMaybe(symlink_target);
 
-  DWORD attrs = GetFileAttributesW(target.c_str());
+  DWORD attrs = GetFileAttributesW(symlink_target.c_str());
   if ((attrs != INVALID_FILE_ATTRIBUTES) &&
       (attrs & FILE_ATTRIBUTE_DIRECTORY)) {
     // Instead of creating a symlink to a directory use a Junction.
     return CreateSymlinkResult::kTargetIsDirectory;
   }
 
-  if (!CreateSymbolicLinkW(name.c_str(), target.c_str(),
+  if (!CreateSymbolicLinkW(name.c_str(), symlink_target.c_str(),
                            symlinkPrivilegeFlag)) {
     if (GetLastError() == ERROR_INVALID_PARAMETER) {
       // We are on a version of Windows that does not support this flag.
       // Retry without the flag and return to error handling if necessary.
-      if (CreateSymbolicLinkW(name.c_str(), target.c_str(), 0)) {
+      if (CreateSymbolicLinkW(name.c_str(), symlink_target.c_str(), 0)) {
         return CreateSymlinkResult::kSuccess;
       }
     }

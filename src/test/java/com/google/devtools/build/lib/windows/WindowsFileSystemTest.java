@@ -351,6 +351,17 @@ public class WindowsFileSystemTest {
   }
 
   @Test
+  public void testReadSymbolicLinkWithRelativeRealSymlinks() throws Exception {
+    fs = new WindowsFileSystem(DigestHashFunction.SHA256, /* createSymbolicLinks= */ true);
+    PathFragment targetFragment = PathFragment.create("../some/nonexistent/file.txt");
+    Path linkPath = scratchRoot.getRelative("link.txt");
+    fs.createSymbolicLink(linkPath.asFragment(), targetFragment);
+
+    assertThat(linkPath.isSymbolicLink()).isTrue();
+    assertThat(linkPath.readSymbolicLink()).isEqualTo(targetFragment);
+  }
+
+  @Test
   public void testReadJunction() throws Exception {
     testUtil.scratchFile("dir\\hello.txt", "hello");
     testUtil.createJunctions(ImmutableMap.of("junc", "dir"));
