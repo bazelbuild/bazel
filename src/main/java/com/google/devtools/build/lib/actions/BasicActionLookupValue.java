@@ -23,7 +23,7 @@ import com.google.common.collect.ImmutableList;
  * list of generating actions.
  */
 public class BasicActionLookupValue implements ActionLookupValue {
-  protected final ImmutableList<ActionAnalysisMetadata> actions;
+  protected final transient ImmutableList<ActionAnalysisMetadata> actions;
 
   @VisibleForTesting
   public BasicActionLookupValue(ImmutableList<ActionAnalysisMetadata> actions) {
