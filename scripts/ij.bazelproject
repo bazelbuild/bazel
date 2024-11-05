@@ -28,3 +28,5 @@ targets:
 java_language_level: 21
 
 workspace_type: java
+
+use_query_sync: true # Read more here https://github.com/bazelbuild/intellij/blob/master/docs/querysync.md
