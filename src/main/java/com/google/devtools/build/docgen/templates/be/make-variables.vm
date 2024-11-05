@@ -411,7 +411,7 @@ instead.
 <p>
   The following are defined in C++ toolchain rules and available to any rule
   that sets <code>toolchains =
-  ["@bazel_tools//tools/cpp:current_cc_toolchain"]</code>
+  ["@bazel_tools//tools/cpp:toolchain_type"]</code>
   Some rules, like <code><a
   href="$expander.expandRef("java_binary")">java_binary</a></code>, implicitly
   include the C++ toolchain in their rule definition. They inherit these variables
