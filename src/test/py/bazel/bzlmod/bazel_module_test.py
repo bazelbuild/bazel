@@ -18,6 +18,7 @@ import os
 import pathlib
 import shutil
 import subprocess
+import sys
 import tempfile
 from absl.testing import absltest
 from src.test.py.bazel import test_base
@@ -1108,6 +1109,28 @@ class BazelModuleTest(test_base.TestBase):
     self.ScratchFile('BUILD.bazel', ['print(glob(["testdata/**"]))'])
     self.ScratchFile('testdata/WORKSPACE')
     self.RunBazel(['build', ':all'])
+
+  def testUnicodePaths(self):
+    if sys.getfilesystemencoding() != 'utf-8':
+      self.skipTest('Test requires UTF-8 by default (Python 3.7+)')
+
+    unicode_dir = 'äöüÄÖÜß'
+    self.ScratchFile(unicode_dir + '/MODULE.bazel', ['module(name = "module")'])
+    self.ScratchFile(unicode_dir + '/BUILD', [
+      'filegroup(name = "choose_me")',
+    ])
+    self.writeMainProjectFiles()
+    self.ScratchFile(
+      'MODULE.bazel',
+      [
+        'bazel_dep(name = "module")',
+        'local_path_override(',
+        '  module_name = "module",',
+        '  path = "%s",' % unicode_dir,
+        ')',
+        ],
+    )
+    self.RunBazel(['build', '@module//:choose_me'])
 
 
 if __name__ == '__main__':
