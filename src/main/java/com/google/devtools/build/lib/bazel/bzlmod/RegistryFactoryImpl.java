@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.bzlmod.IndexRegistry.KnownFileHashesMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
-import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.vfs.Path;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -30,15 +29,10 @@ import javax.annotation.Nullable;
 
 /** Prod implementation of {@link RegistryFactory}. */
 public class RegistryFactoryImpl implements RegistryFactory {
-  @Nullable private DownloadManager downloadManager;
   private final Supplier<Map<String, String>> clientEnvironmentSupplier;
 
   public RegistryFactoryImpl(Supplier<Map<String, String>> clientEnvironmentSupplier) {
     this.clientEnvironmentSupplier = clientEnvironmentSupplier;
-  }
-
-  public void setDownloadManager(DownloadManager downloadManager) {
-    this.downloadManager = downloadManager;
   }
 
   @Override
@@ -76,7 +70,6 @@ public class RegistryFactoryImpl implements RegistryFactory {
         };
     return new IndexRegistry(
         uri,
-        downloadManager,
         clientEnvironmentSupplier.get(),
         knownFileHashes,
         knownFileHashesMode,

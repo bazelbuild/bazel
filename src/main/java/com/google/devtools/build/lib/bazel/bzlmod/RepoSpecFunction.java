@@ -14,7 +14,7 @@
 //
 
 package com.google.devtools.build.lib.bazel.bzlmod;
-
+import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -32,6 +32,7 @@ import javax.annotation.Nullable;
  * fetching required information from its {@link Registry}.
  */
 public class RepoSpecFunction implements SkyFunction {
+  @Nullable private DownloadManager downloadManager;
 
   @Override
   @Nullable
@@ -49,7 +50,7 @@ public class RepoSpecFunction implements SkyFunction {
     try (SilentCloseable c =
         Profiler.instance()
             .profile(ProfilerTask.BZLMOD, () -> "compute repo spec: " + key.getModuleKey())) {
-      repoSpec = registry.getRepoSpec(key.getModuleKey(), downloadEvents);
+      repoSpec = registry.getRepoSpec(key.getModuleKey(), downloadEvents, this.downloadManager);
     } catch (IOException e) {
       throw new RepoSpecException(
           ExternalDepsException.withCauseAndMessage(
@@ -61,6 +62,10 @@ public class RepoSpecFunction implements SkyFunction {
     downloadEvents.replayOn(env.getListener());
     return RepoSpecValue.create(
         repoSpec, RegistryFileDownloadEvent.collectToMap(downloadEvents.getPosts()));
+  }
+
+  public void setDownloadManager(DownloadManager downloadManager) {
+    this.downloadManager = downloadManager;
   }
 
   static final class RepoSpecException extends SkyFunctionException {
