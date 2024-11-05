@@ -421,11 +421,18 @@ public final class Actions {
 
     var generatingActionKey = ((Artifact.DerivedArtifact) artifact).getGeneratingActionKey();
     var actionLookupKey = generatingActionKey.getActionLookupKey();
-    ActionLookupValue actionLookupValue = (ActionLookupValue) graph.getValue(actionLookupKey);
-    if (actionLookupValue == null) {
-      return null;
+    if (graph.getValue(actionLookupKey) instanceof ActionLookupValue actionLookupValue) {
+      return actionLookupValue.getActions().get(generatingActionKey.getActionIndex());
     }
 
-    return actionLookupValue.getActions().get(generatingActionKey.getActionIndex());
+    // In analysis caching build with cache hits, deserialized CTs are
+    // RemoteConfiguredTargetValues -- not ActionLookupValues -- and do not contain actions, so the
+    // generating action for the artifact does not exist in the graph. It would require a reanalysis
+    // of the entire configured target subgraph to produce the action, nullifying the benefits of
+    // analysis caching.
+    //
+    // In practice this should be fine for critical path computation, because this represents a
+    // pruned subgraph for the action and there was no work done other than deserialization.
+    return null;
   }
 }
