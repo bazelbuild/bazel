@@ -106,7 +106,11 @@ public class BazelModuleInspectorFunction implements SkyFunction {
       AugmentedModule.Builder parentBuilder =
           depGraphAugmentBuilder
               .computeIfAbsent(
-                  parentKey, k -> AugmentedModule.builder(k).setName(parentModule.getName()))
+                  parentKey,
+                  k ->
+                      AugmentedModule.builder(k)
+                          .setName(parentModule.getName())
+                          .setRepoName(parentModule.getRepoName()))
               .setVersion(parentModule.getVersion())
               .setLoaded(true);
 
@@ -122,6 +126,7 @@ public class BazelModuleInspectorFunction implements SkyFunction {
           originalChildBuilder
               .setName(originalModule.getName())
               .setVersion(originalModule.getVersion())
+              .setRepoName(originalModule.getRepoName())
               .setLoaded(true);
         }
 
@@ -132,6 +137,7 @@ public class BazelModuleInspectorFunction implements SkyFunction {
                     AugmentedModule.builder(k)
                         .setName(module.getName())
                         .setVersion(module.getVersion())
+                        .setRepoName(module.getRepoName())
                         .setLoaded(true));
 
         // originalDependants and dependants can differ because
