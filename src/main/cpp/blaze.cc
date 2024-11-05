@@ -94,8 +94,10 @@ using std::vector;
 // The following is a treatise on how the interaction between the client and the
 // server works.
 //
-// First, the client unconditionally acquires an flock() lock on
-// $OUTPUT_BASE/lock then verifies if it has already extracted itself by
+// First, the client acquires a lock on $OUTPUT_BASE/lock (on Unix, we use
+// fcntl(F_OFD_SETLK) if available or fcntl(F_SETLK) otherwise; on Windows, we
+// use LockFileEx), blocking until it's available unless otherwise requested by
+// the startup options. Then it verifies if it has already extracted itself by
 // checking if the directory it extracts itself to (install base + a checksum)
 // is present. If not, then it does the extraction. Care is taken that this
 // process is atomic so that Blazen in multiple output bases do not clash.
