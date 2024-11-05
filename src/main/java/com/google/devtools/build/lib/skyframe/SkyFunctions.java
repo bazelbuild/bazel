@@ -144,6 +144,8 @@ public final class SkyFunctions {
       SkyFunctionName.createHermetic("RESOLVED_FILE");
   public static final SkyFunctionName MODULE_FILE =
       SkyFunctionName.createNonHermetic("MODULE_FILE");
+  public static final SkyFunctionName REPO_PACKAGE_ARGS =
+      SkyFunctionName.createHermetic("REPO_PACKAGE_ARGS");
   public static final SkyFunctionName REPO_FILE = SkyFunctionName.createHermetic("REPO_FILE");
   public static final SkyFunctionName BUILD_DRIVER =
       SkyFunctionName.createNonHermetic("BUILD_DRIVER");

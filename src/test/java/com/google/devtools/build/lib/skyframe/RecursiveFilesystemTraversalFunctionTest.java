@@ -182,10 +182,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
             CrossRepositoryLabelViolationStrategy.ERROR,
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
             BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
-    skyFunctions.put(
-        SkyFunctions.IGNORED_PACKAGE_PREFIXES,
-        new IgnoredPackagePrefixesFunction(
-            /*ignoredPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT));
+    skyFunctions.put(SkyFunctions.IGNORED_PACKAGE_PREFIXES, IgnoredPackagePrefixesFunction.NOOP);
     skyFunctions.put(SkyFunctions.PACKAGE, PackageFunction.newBuilder().build());
     skyFunctions.put(
         WorkspaceFileValue.WORKSPACE_FILE,

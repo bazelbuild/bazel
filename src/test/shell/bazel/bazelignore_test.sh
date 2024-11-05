@@ -217,4 +217,75 @@ test_invalid_path() {
     expect_log "java.nio.file.InvalidPathException: Nul character not allowed"
 }
 
+test_target_patterns_with_wildcards_in_repo_bazel() {
+  rm -rf work && mkdir work && cd work
+  setup_module_dot_bazel
+  cat >REPO.bazel <<'EOF'
+ignore_directories(["**/sub", "foo/bar/.dot/*"])
+EOF
+
+  for pkg in foo foo/sub foo/sub/subsub foo/bar/.dot/pkg foo/notsub foo/bar/.dot; do
+    mkdir -p "$pkg"
+    echo 'filegroup(name="fg")' > "$pkg/BUILD.bazel"
+  done
+
+  bazel query //foo/... > "$TEST_TMPDIR/targets"
+  assert_not_contains "//foo/sub:fg" "$TEST_TMPDIR/targets"
+  assert_not_contains "//foo/sub/subsub:fg" "$TEST_TMPDIR/targets"
+  assert_not_contains "//foo/bar/.dot/pkg:fg" "$TEST_TMPDIR/targets"
+  assert_contains "//foo/notsub:fg" "$TEST_TMPDIR/targets"
+}
+
+test_globs_with_wildcards_in_repo_bazel() {
+  rm -rf work && mkdir work && cd work
+  setup_module_dot_bazel
+  cat >REPO.bazel <<'EOF'
+ignore_directories(["**/sub", "foo/.hidden*"])
+EOF
+
+  mkdir -p foo foo/bar sub bar/sub foo/.hidden_excluded foo/.included
+  touch foo/foofile foo/bar/barfile  sub/subfile bar/sub/subfile
+  touch foo/.hidden_excluded/file foo/.included/file
+
+  cat > BUILD <<'EOF'
+filegroup(name="fg", srcs=glob(["**"]))
+
+EOF
+  bazel query //:all-targets > "$TEST_TMPDIR/targets"
+  assert_contains ":foo/foofile" "$TEST_TMPDIR/targets"
+  assert_contains ":foo/bar/barfile" "$TEST_TMPDIR/targets"
+  assert_contains ":foo/.included/file" "$TEST_TMPDIR/targets"
+  assert_not_contains ":sub/subfile" "$TEST_TMPDIR/targets"
+  assert_not_contains ":bar/sub/subfile" "$TEST_TMPDIR/targets"
+  assert_not_contains ":foo/.hidden_excluded/file" "$TEST_TMPDIR/targets"
+}
+
+
+test_syntax_error_in_repo_bazel() {
+  rm -rf work && mkdir work && cd work
+  setup_module_dot_bazel
+  cat >REPO.bazel <<'EOF'
+SYNTAX ERROR
+EOF
+
+  touch BUILD.bazel
+  bazel query //:all && fail "failure expected"
+  if [[ $? != 7 ]]; then
+    fail "expected an analysis failure"
+  fi
+}
+
+test_ignore_directories_after_repo_in_repo_bazel() {
+  rm -rf work && mkdir work && cd work
+  setup_module_dot_bazel
+  cat >REPO.bazel <<'EOF'
+ignore_directories(["**/sub", "foo/.hidden*"])
+repo(default_visibility=["//visibility:public"])
+EOF
+
+  touch BUILD.bazel
+  bazel query //:all >& "$TEST_log" && fail "failure expected"
+  expect_log "it must be called before any other functions"
+}
+
 run_suite "Integration tests for .bazelignore"

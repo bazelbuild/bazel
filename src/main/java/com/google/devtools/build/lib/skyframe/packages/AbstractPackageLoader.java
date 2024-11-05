@@ -79,6 +79,7 @@ import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepoFileFunction;
+import com.google.devtools.build.lib.skyframe.RepoPackageArgsFunction;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingFunction;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
@@ -89,7 +90,6 @@ import com.google.devtools.build.lib.util.ValueOrException;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.Differencer;
 import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
@@ -560,10 +560,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
                 getCrossRepositoryLabelViolationStrategy(),
                 getBuildFilesByPriority(),
                 getExternalPackageHelper()))
-        .put(
-            SkyFunctions.IGNORED_PACKAGE_PREFIXES,
-            new IgnoredPackagePrefixesFunction(
-                /* ignoredPackagePrefixesFile= */ PathFragment.EMPTY_FRAGMENT))
+        .put(SkyFunctions.IGNORED_PACKAGE_PREFIXES, IgnoredPackagePrefixesFunction.NOOP)
         .put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction())
         .put(
             SkyFunctions.BZL_COMPILE,
@@ -584,6 +581,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             SkyFunctions.REPO_FILE,
             new RepoFileFunction(
                 ruleClassProvider.getBazelStarlarkEnvironment(), directories.getWorkspace()))
+        .put(SkyFunctions.REPO_PACKAGE_ARGS, RepoPackageArgsFunction.INSTANCE)
         .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction(getExternalPackageHelper()))
         .put(
             BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
