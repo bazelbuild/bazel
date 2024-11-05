@@ -180,20 +180,43 @@ filegroup(
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
+# This program patches the app manifest of the java.exe launcher to force its
+# active code page to UTF-8 on Windows 1903 and later, which is required for
+# proper support of Unicode characters outside the system code page.
+# The JDK currently (as of JDK 23) doesn't support this natively:
+# https://mail.openjdk.org/pipermail/core-libs-dev/2024-November/133773.html
+cc_binary(
+    name = "patch_java_manifest_for_utf8",
+    srcs = ["patch_java_manifest_for_utf8.cc"],
+    tags = ["manual"],
+    target_compatible_with = ["@platforms//os:windows"],
+)
+
 sh_binary(
     name = "minimize_jdk",
     srcs = ["minimize_jdk.sh"],
+    data = select({
+        "@platforms//os:windows": [
+            ":patch_java_manifest_for_utf8",
+        ],
+        "//conditions:default": [],
+    }),
+    deps = [
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
 
 genrule(
     name = "embedded_jdk_minimal",
     srcs = [
         ":embedded_jdk_vanilla",
-        ":minimize_jdk.sh",
         ":jdeps_modules.golden",
     ],
     outs = ["minimal_jdk.zip"],
-    cmd = "$(location :minimize_jdk.sh) $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $(OUTS)",
+    cmd = "$(location :minimize_jdk) $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $(OUTS)",
+    tools = [
+        ":minimize_jdk",
+    ],
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
@@ -201,11 +224,13 @@ genrule(
     name = "embedded_jdk_allmodules",
     srcs = [
         ":embedded_jdk_vanilla",
-        ":minimize_jdk.sh",
         ":jdeps_modules.golden",
     ],
     outs = ["allmodules_jdk.zip"],
-    cmd = "$(location :minimize_jdk.sh) --allmodules $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $(OUTS)",
+    cmd = "$(location :minimize_jdk) --allmodules $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $(OUTS)",
+    tools = [
+        ":minimize_jdk",
+    ],
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
