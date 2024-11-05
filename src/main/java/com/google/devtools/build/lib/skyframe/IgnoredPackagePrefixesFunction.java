@@ -45,8 +45,23 @@ import javax.annotation.Nullable;
  * <p>It is used to compute which directories should be ignored in a package. These either come from
  * the {@code .bazelignore} file or from the {@code ignored_directories()} function in {@code
  * REPO.bazel}.
+ *
+ * <p>This is intended for directories containing non-bazel sources (either generated, or versioned
+ * sources built by other tools) that happen to contain a file called BUILD.
+ *
+ * <p>For the time being, this ignore functionality is limited by the fact that it is applied only
+ * after pattern expansion. So if a pattern expansion fails (e.g., due to symlink-cycles) and
+ * therefore fails the build, this ignore functionality currently has no chance to kick in.
  */
 public class IgnoredPackagePrefixesFunction implements SkyFunction {
+  /** Repository-relative path of the bazelignore file. */
+  public static final PathFragment BAZELIGNORE_REPOSITORY_RELATIVE_PATH =
+      PathFragment.create(".bazelignore");
+
+  /** Singleton instance of this {@link SkyFunction}. */
+  public static final IgnoredPackagePrefixesFunction INSTANCE =
+      new IgnoredPackagePrefixesFunction();
+
   /**
    * A version of {@link IgnoredPackagePrefixesFunction} that always returns the empty value.
    *
@@ -55,11 +70,7 @@ public class IgnoredPackagePrefixesFunction implements SkyFunction {
    */
   public static final SkyFunction NOOP = (skyKey, env) -> IgnoredPackagePrefixesValue.EMPTY;
 
-  private final PathFragment ignoredPackagePrefixesFile;
-
-  public IgnoredPackagePrefixesFunction(PathFragment ignoredPackagePrefixesFile) {
-    this.ignoredPackagePrefixesFile = ignoredPackagePrefixesFile;
-  }
+  private IgnoredPackagePrefixesFunction() {}
 
   public static void getIgnoredPackagePrefixes(
       RootedPath patternFile, ImmutableSet.Builder<PathFragment> ignoredPackagePrefixesBuilder)
@@ -128,7 +139,7 @@ public class IgnoredPackagePrefixesFunction implements SkyFunction {
         }
 
         RootedPath rootedPatternFile =
-            RootedPath.toRootedPath(packagePathEntry, ignoredPackagePrefixesFile);
+            RootedPath.toRootedPath(packagePathEntry, BAZELIGNORE_REPOSITORY_RELATIVE_PATH);
         FileValue patternFileValue = (FileValue) env.getValue(FileValue.key(rootedPatternFile));
         if (patternFileValue == null) {
           return null;
@@ -148,7 +159,7 @@ public class IgnoredPackagePrefixesFunction implements SkyFunction {
       if (repositoryValue.repositoryExists()) {
         RootedPath rootedPatternFile =
             RootedPath.toRootedPath(
-                Root.fromPath(repositoryValue.getPath()), ignoredPackagePrefixesFile);
+                Root.fromPath(repositoryValue.getPath()), BAZELIGNORE_REPOSITORY_RELATIVE_PATH);
         FileValue patternFileValue = (FileValue) env.getValue(FileValue.key(rootedPatternFile));
         if (patternFileValue == null) {
           return null;

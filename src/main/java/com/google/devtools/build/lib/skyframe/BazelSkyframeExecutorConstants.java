@@ -18,25 +18,10 @@ import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
-import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.skyframe.SkyFunction;
 
 /** Hardcoded constants describing bazel-on-skyframe behavior. */
 public class BazelSkyframeExecutorConstants {
   private BazelSkyframeExecutorConstants() {}
-
-  /**
-   * The file .bazelignore can be used to specify directories to be ignored by bazel
-   *
-   * <p>This is intended for directories containing non-bazel sources (either generated, or
-   * versioned sources built by other tools) that happen to contain a file called BUILD.
-   *
-   * <p>For the time being, this ignore functionality is limited by the fact that it is applied only
-   * after pattern expansion. So if a pattern expansion fails (e.g., due to symlink-cycles) and
-   * therefore fails the build, this ignore functionality currently has no chance to kick in.
-   */
-  public static final SkyFunction IGNORED_PACKAGE_PREFIXES_FUNCTION =
-      new IgnoredPackagePrefixesFunction(PathFragment.create(".bazelignore"));
 
   public static final CrossRepositoryLabelViolationStrategy
       CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY = CrossRepositoryLabelViolationStrategy.ERROR;
@@ -58,7 +43,7 @@ public class BazelSkyframeExecutorConstants {
 
   public static SequencedSkyframeExecutor.Builder newBazelSkyframeExecutorBuilder() {
     return SequencedSkyframeExecutor.builder()
-        .setIgnoredPackagePrefixesFunction(IGNORED_PACKAGE_PREFIXES_FUNCTION)
+        .setIgnoredPackagePrefixesFunction(IgnoredPackagePrefixesFunction.INSTANCE)
         .setActionOnIOExceptionReadingBuildFile(ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE)
         .setShouldUseRepoDotBazel(USE_REPO_DOT_BAZEL)
         .setCrossRepositoryLabelViolationStrategy(CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY)

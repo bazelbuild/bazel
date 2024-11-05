@@ -87,7 +87,6 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
   private MemoizingEvaluator evaluator;
   private RecordingDifferencer differencer;
   private Path emptyPackagePath;
-  private static final String IGNORED_PACKAGE_PREFIXES_FILE_PATH_STRING = "config/ignored.txt";
 
   protected abstract CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy();
 
@@ -139,9 +138,7 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
         new RepoFileFunction(
             ruleClassProvider.getBazelStarlarkEnvironment(), directories.getWorkspace()));
     skyFunctions.put(
-        SkyFunctions.IGNORED_PACKAGE_PREFIXES,
-        new IgnoredPackagePrefixesFunction(
-            PathFragment.create(IGNORED_PACKAGE_PREFIXES_FILE_PATH_STRING)));
+        SkyFunctions.IGNORED_PACKAGE_PREFIXES, IgnoredPackagePrefixesFunction.INSTANCE);
     skyFunctions.put(
         WorkspaceFileValue.WORKSPACE_FILE,
         new WorkspaceFileFunction(
@@ -260,7 +257,10 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
   public void testIgnoredPackage() throws Exception {
     scratch.file("ignored/subdir/BUILD");
     scratch.file("ignored/BUILD");
-    Path ignored = scratch.overwriteFile(IGNORED_PACKAGE_PREFIXES_FILE_PATH_STRING, "ignored");
+    Path ignored =
+        scratch.overwriteFile(
+            IgnoredPackagePrefixesFunction.BAZELIGNORE_REPOSITORY_RELATIVE_PATH.getPathString(),
+            "ignored");
 
     ImmutableSet<String> pkgs = ImmutableSet.of("ignored/subdir", "ignored");
     for (String pkg : pkgs) {
@@ -270,11 +270,12 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
       assertThat(packageLookupValue.getErrorMsg()).isNotNull();
     }
 
-    scratch.overwriteFile(IGNORED_PACKAGE_PREFIXES_FILE_PATH_STRING, "not_ignored");
+    scratch.overwriteFile(
+        IgnoredPackagePrefixesFunction.BAZELIGNORE_REPOSITORY_RELATIVE_PATH.getPathString(),
+        "not_ignored");
     RootedPath rootedIgnoreFile =
         RootedPath.toRootedPath(
-            Root.fromPath(ignored.getParentDirectory().getParentDirectory()),
-            PathFragment.create("config/ignored.txt"));
+            root, IgnoredPackagePrefixesFunction.BAZELIGNORE_REPOSITORY_RELATIVE_PATH);
     differencer.invalidate(ImmutableSet.of(FileStateValue.key(rootedIgnoreFile)));
     for (String pkg : pkgs) {
       PackageLookupValue packageLookupValue = lookupPackage(pkg);
