@@ -63,7 +63,6 @@ import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCall
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
-import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeTargetPatternEvaluator;
@@ -116,7 +115,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
   private TargetPatternPreloader targetParser;
   protected final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
-  private final PathFragment ignoredPackagePrefixesFile = PathFragment.create("ignored");
+  private final PathFragment ignoredPackagePrefixesFile = PathFragment.create(".bazelignore");
   private final DelegatingSyscallCache delegatingSyscallCache = new DelegatingSyscallCache();
 
   @Override
@@ -424,8 +423,6 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
             .setFileSystem(fileSystem)
             .setDirectories(directories)
             .setActionKeyContext(actionKeyContext)
-            .setIgnoredPackagePrefixesFunction(
-                new IgnoredPackagePrefixesFunction(ignoredPackagePrefixesFile))
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
             .setSyscallCache(delegatingSyscallCache)
             .build();
