@@ -613,7 +613,7 @@ message OutputGroup {
   bool incomplete = 4;
 
   // Inlined files that belong to this output group, requested via
-  // --build_event_inline_output_groups.
+  // --experimental_build_event_output_group_mode.
   repeated File inline_files = 5;
 }
 
