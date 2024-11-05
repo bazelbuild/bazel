@@ -32,7 +32,6 @@ DIST_ARCHIVE_REPOS = [get_canonical_repo_name(repo) for repo in [
     "c-ares",
     "com_github_grpc_grpc",
     "googleapis",
-    "grpc-java",
     "io_bazel_skydoc",
     "platforms",
     "protobuf",
