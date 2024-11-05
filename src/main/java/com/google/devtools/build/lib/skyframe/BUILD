@@ -174,7 +174,7 @@ java_library(
         ":recursive_pkg_function",
         ":recursive_pkg_value",
         ":repo_file_function",
-        ":repo_file_value",
+        ":repo_package_args_function",
         ":repository_mapping_function",
         ":repository_mapping_value",
         ":rule_configured_target_value",
@@ -830,6 +830,8 @@ java_library(
     deps = [
         ":ignored_package_prefixes_value",
         ":precomputed_value",
+        ":repo_file_function",
+        ":repo_file_value",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/io:inconsistent_filesystem_exception",
@@ -2310,22 +2312,39 @@ java_library(
 )
 
 java_library(
+    name = "repo_package_args_function",
+    srcs = ["RepoPackageArgsFunction.java"],
+    deps = [
+        ":repo_file_function",
+        ":repo_file_value",
+        ":repository_mapping_value",
+        ":sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "repo_file_function",
     srcs = ["RepoFileFunction.java"],
     deps = [
         ":precomputed_value",
         ":repo_file_value",
-        ":repository_mapping_value",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_directory_value",
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
+        "//third_party:guava",
         "//third_party:jsr305",
     ],
 )
@@ -2336,9 +2355,9 @@ java_library(
     deps = [
         ":sky_functions",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:auto_value",
+        "//third_party:guava",
     ],
 )
 

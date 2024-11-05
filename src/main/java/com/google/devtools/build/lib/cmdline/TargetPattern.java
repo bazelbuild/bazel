@@ -595,8 +595,7 @@ public abstract class TargetPattern {
           this,
           excludedSubdirectories);
       IgnoredSubdirectories ignoredSubdirectories = ignoredSubdirectoriesSupplier.get();
-      PathFragment matchingEntry =
-          ignoredSubdirectories.matchingEntry(directory.getPackageFragment());
+      String matchingEntry = ignoredSubdirectories.matchingEntry(directory.getPackageFragment());
       if (warnIfFiltered(matchingEntry, resolver)) {
         return;
       }
@@ -632,8 +631,7 @@ public abstract class TargetPattern {
       IgnoredSubdirectories filteredIgnoredSubdirectories;
       try {
         IgnoredSubdirectories ignoredSubdirectories = ignoredSubdirectoriesSupplier.get();
-        PathFragment matchingEntry =
-            ignoredSubdirectories.matchingEntry(directory.getPackageFragment());
+        String matchingEntry = ignoredSubdirectories.matchingEntry(directory.getPackageFragment());
         if (warnIfFiltered(matchingEntry, resolver)) {
           return immediateVoidFuture();
         }
@@ -654,7 +652,7 @@ public abstract class TargetPattern {
           executor);
     }
 
-    private boolean warnIfFiltered(PathFragment matchingEntry, TargetPatternResolver<?> resolver) {
+    private boolean warnIfFiltered(String matchingEntry, TargetPatternResolver<?> resolver) {
       if (matchingEntry != null) {
         resolver.warn(
             "Pattern '"

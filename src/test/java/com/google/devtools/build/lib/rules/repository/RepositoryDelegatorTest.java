@@ -89,7 +89,6 @@ import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.EvaluationContext;
@@ -231,10 +230,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                     SkyFunctions.STARLARK_BUILTINS,
                     new StarlarkBuiltinsFunction(ruleClassProvider.getBazelStarlarkEnvironment()))
                 .put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction())
-                .put(
-                    SkyFunctions.IGNORED_PACKAGE_PREFIXES,
-                    new IgnoredPackagePrefixesFunction(
-                        /* ignoredPackagePrefixesFile= */ PathFragment.EMPTY_FRAGMENT))
+                .put(SkyFunctions.IGNORED_PACKAGE_PREFIXES, IgnoredPackagePrefixesFunction.NOOP)
                 .put(
                     SkyFunctions.REPOSITORY_MAPPING,
                     new RepositoryMappingFunction(ruleClassProvider))

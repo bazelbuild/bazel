@@ -145,6 +145,8 @@ public abstract class GlobTestBase {
             ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
             directories);
 
+    AnalysisMock analysisMock = AnalysisMock.get();
+    RuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
     Map<SkyFunctionName, SkyFunction> skyFunctions = new HashMap<>();
     createGlobSkyFunction(skyFunctions);
     skyFunctions.put(
@@ -158,6 +160,10 @@ public abstract class GlobTestBase {
             CrossRepositoryLabelViolationStrategy.ERROR,
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
             BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
+    skyFunctions.put(
+        SkyFunctions.REPO_FILE,
+        new RepoFileFunction(
+            ruleClassProvider.getBazelStarlarkEnvironment(), directories.getWorkspace()));
     skyFunctions.put(
         SkyFunctions.IGNORED_PACKAGE_PREFIXES,
         BazelSkyframeExecutorConstants.IGNORED_PACKAGE_PREFIXES_FUNCTION);
@@ -173,8 +179,6 @@ public abstract class GlobTestBase {
     skyFunctions.put(FileValue.FILE, new FileFunction(pkgLocator, directories));
     skyFunctions.put(
         FileSymlinkCycleUniquenessFunction.NAME, new FileSymlinkCycleUniquenessFunction());
-    AnalysisMock analysisMock = AnalysisMock.get();
-    RuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
     skyFunctions.put(
         WorkspaceFileValue.WORKSPACE_FILE,
         new WorkspaceFileFunction(
