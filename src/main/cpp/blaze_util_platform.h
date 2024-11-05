@@ -198,23 +198,25 @@ extern const char kListSeparator;
 bool SymlinkDirectories(const std::string& target,
                         const blaze_util::Path& link);
 
-struct BlazeLock {
-#if defined(_WIN32) || defined(__CYGWIN__)
-  /* HANDLE */ void* handle;
-#else
-  int lockfd;
-#endif
+typedef uintptr_t LockHandle;
+
+enum class LockMode {
+  kShared,
+  kExclusive,
 };
 
-// Acquires a lock on the output base. Exits if the lock cannot be acquired.
-// Sets `blaze_lock` to a value that can be later passed to ReleaseLock().
-// Returns the number of milliseconds spent with waiting for the lock.
-uint64_t AcquireLock(const blaze_util::Path& output_base, bool batch_mode,
-                     bool block, BlazeLock* blaze_lock);
+// Acquires a `mode` lock on `path`, busy-waiting until it becomes available if
+// `block` is true, and releasing it on exec if `batch_mode` is false.
+// Crashes if the lock cannot be acquired. Returns a handle that can be
+// subsequently passed to ReleaseLock. Sets `wait_time` to the number of
+// milliseconds spent waiting for the lock. The `name` argument is used to
+// distinguish it from other locks in human-readable error messages.
+LockHandle AcquireLock(const std::string& name, const blaze_util::Path& path,
+                       LockMode mode, bool batch_mode, bool block,
+                       uint64_t* wait_time);
 
-// Releases the lock on the output base. In case of an error, continues as
-// usual.
-void ReleaseLock(BlazeLock* blaze_lock);
+// Releases a lock previously obtained from AcquireLock.
+void ReleaseLock(LockHandle lock_handle);
 
 // Verifies whether the server process still exists. Returns true if it does.
 bool VerifyServerProcess(int pid, const blaze_util::Path& output_base);

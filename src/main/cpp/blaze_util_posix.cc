@@ -600,7 +600,7 @@ void SigPrintf(const char *format, ...) {
   }
 }
 
-static int setlk(int fd, struct flock *lock) {
+static int setlk(int fd, struct flock* lock) {
 #ifdef __linux__
 // If we're building with glibc <2.20, or another libc which predates
 // OFD locks, define the constant ourselves.  This assumes that the libc
@@ -632,34 +632,41 @@ static int setlk(int fd, struct flock *lock) {
   return -1;
 }
 
-uint64_t AcquireLock(const blaze_util::Path& output_base, bool batch_mode,
-                     bool block, BlazeLock* blaze_lock) {
-  blaze_util::Path lockfile = output_base.GetRelative("lock");
-
-  int flags = O_CREAT | O_RDWR;
+LockHandle AcquireLock(const std::string& name, const blaze_util::Path& path,
+                       LockMode mode, bool batch_mode, bool block,
+                       uint64_t* wait_time) {
+  int flags = O_CREAT;
+  switch (mode) {
+    case LockMode::kShared:
+      flags |= O_RDONLY;
+      break;
+    case LockMode::kExclusive:
+      flags |= O_RDWR;
+      break;
+  }
   // Keep server from inheriting a useless fd if we are not in batch mode.
   if (!batch_mode) {
     flags |= O_CLOEXEC;
   }
 
-  int lockfd = open(lockfile.AsNativePath().c_str(), flags, 0644);
-  if (lockfd < 0) {
+  int fd = open(path.AsNativePath().c_str(), flags, 0644);
+  if (fd < 0) {
     string err = GetLastErrorString();
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "cannot open lockfile '" << lockfile.AsPrintablePath()
-        << "' for writing: " << err;
+        << "open failed for " << name << " lock: " << err;
   }
 
   struct flock lock = {};
-  lock.l_type = F_WRLCK;
+  lock.l_type = static_cast<short>(  // NOLINT (short is the right type)
+      mode == LockMode::kShared ? F_RDLCK : F_WRLCK);
   lock.l_whence = SEEK_SET;
   lock.l_start = 0;
   // This doesn't really matter now, but allows us to subdivide the lock
   // later if that becomes meaningful.  (Ranges beyond EOF can be locked.)
   lock.l_len = 4096;
 
-  // Take the exclusive server lock.  If we fail, we busy-wait until the lock
-  // becomes available.
+  // Take the lock. If it fails, busy-wait until it becomes available unless
+  // --noblock_for_lock was set.
   //
   // We used to rely on fcntl(F_SETLKW) to lazy-wait for the lock to become
   // available, which is theoretically fine, but doing so prevents us from
@@ -671,18 +678,19 @@ uint64_t AcquireLock(const blaze_util::Path& output_base, bool batch_mode,
   bool multiple_attempts = false;
   string owner;
   const uint64_t start_time = GetMillisecondsMonotonic();
-  while (setlk(lockfd, &lock) == -1) {
+  while (setlk(fd, &lock) == -1) {
     string buffer(4096, 0);
-    ssize_t r = pread(lockfd, &buffer[0], buffer.size(), 0);
+    ssize_t r = pread(fd, &buffer[0], buffer.size(), 0);
     if (r < 0) {
-      BAZEL_LOG(WARNING) << "pread() lock file: " << strerror(errno);
+      BAZEL_LOG(WARNING) << "pread() " << name << " lock: " << strerror(errno);
       r = 0;
     }
     buffer.resize(r);
     if (owner != buffer) {
       // Each time we learn a new lock owner, print it out.
       owner = buffer;
-      BAZEL_LOG(USER) << "Another command holds the client lock: \n" << owner;
+      BAZEL_LOG(USER) << "Another command holds the " << name << " lock: \n"
+                      << owner;
       if (block) {
         BAZEL_LOG(USER) << "Waiting for it to complete...";
         fflush(stderr);
@@ -691,8 +699,8 @@ uint64_t AcquireLock(const blaze_util::Path& output_base, bool batch_mode,
 
     if (!block) {
       BAZEL_DIE(blaze_exit_code::LOCK_HELD_NOBLOCK_FOR_LOCK)
-          << "Exiting because the lock is held and --noblock_for_lock was "
-             "given.";
+          << "Exiting because the " << name
+          << " lock is held and --noblock_for_lock was given.";
     }
 
     TrySleep(500);
@@ -704,27 +712,32 @@ uint64_t AcquireLock(const blaze_util::Path& output_base, bool batch_mode,
   // avoid unnecessary noise in the logs.  In this metric, we are only
   // interested in knowing how long it took for other commands to complete, not
   // how fast acquiring a lock is.
-  const uint64_t wait_time = !multiple_attempts ? 0 : end_time - start_time;
+  const uint64_t elapsed_time = !multiple_attempts ? 0 : end_time - start_time;
 
-  // Identify ourselves in the lockfile.
+  // If taking an exclusive lock, identify ourselves in the lockfile.
   // The contents are printed for human consumption when another client
   // fails to take the lock, but not parsed otherwise.
-  (void)ftruncate(lockfd, 0);
-  lseek(lockfd, 0, SEEK_SET);
-  // Arguably we should ensure this fits in the 4KB we lock.  In practice no one
-  // will have a cwd long enough to overflow that, and nothing currently uses
-  // the rest of the lock file anyway.
-  dprintf(lockfd, "pid=%d\nowner=client\n", getpid());
-  string cwd = blaze_util::GetCwd();
-  dprintf(lockfd, "cwd=%s\n", cwd.c_str());
-  if (const char *tty = ttyname(STDIN_FILENO)) {  // NOLINT (single-threaded)
-    dprintf(lockfd, "tty=%s\n", tty);
+  if (mode == LockMode::kExclusive) {
+    (void)ftruncate(fd, 0);
+    lseek(fd, 0, SEEK_SET);
+    // Arguably we should ensure this fits in the 4KB we lock.  In practice no
+    // one will have a cwd long enough to overflow that, and nothing currently
+    // uses the rest of the lock file anyway.
+    dprintf(fd, "pid=%d\nowner=client\n", getpid());
+    string cwd = blaze_util::GetCwd();
+    dprintf(fd, "cwd=%s\n", cwd.c_str());
+    if (const char* tty = ttyname(STDIN_FILENO)) {  // NOLINT (single-threaded)
+      dprintf(fd, "tty=%s\n", tty);
+    }
   }
-  blaze_lock->lockfd = lockfd;
-  return wait_time;
+
+  *wait_time = elapsed_time;
+  return static_cast<LockHandle>(fd);
 }
 
-void ReleaseLock(BlazeLock* blaze_lock) { close(blaze_lock->lockfd); }
+void ReleaseLock(LockHandle lock_handle) {
+  close(static_cast<int>(lock_handle));
+}
 
 bool KillServerProcess(int pid, const blaze_util::Path& output_base) {
   // Kill the process and make sure it's dead before proceeding.
