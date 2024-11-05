@@ -75,7 +75,6 @@ class TestBase(absltest.TestCase):
     self._test_cwd = tempfile.mkdtemp(dir=self._tests_root)
     self._test_bazelrc = os.path.join(self._temp, 'test_bazelrc')
     with open(self._test_bazelrc, 'wt') as f:
-      f.write('common --experimental_rule_extension_api\n')
       f.write('common --nolegacy_external_runfiles\n')
       shared_install_base = os.environ.get('TEST_INSTALL_BASE')
       if shared_install_base:

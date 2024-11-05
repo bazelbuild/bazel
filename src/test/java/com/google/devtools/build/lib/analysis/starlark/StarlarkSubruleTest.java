@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.cpp.CppConfigurationApi;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import net.starlark.java.eval.BuiltinFunction;
 import net.starlark.java.eval.Sequence;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -61,11 +60,6 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
   private final BazelEvaluationTestCase ev = new BazelEvaluationTestCase("//subrule_testing:label");
   private final BazelEvaluationTestCase evOutsideAllowlist =
       new BazelEvaluationTestCase("//foo:bar");
-
-  @Before
-  public void allowExperimentalApi() throws Exception {
-    setBuildLanguageOptions("--experimental_rule_extension_api");
-  }
 
   @Test
   public void testSubruleFunctionSymbol_notVisibleInBUILD() throws Exception {
