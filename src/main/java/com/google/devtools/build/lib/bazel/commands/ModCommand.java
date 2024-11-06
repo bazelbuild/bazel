@@ -100,7 +100,6 @@ import javax.annotation.Nullable;
 @Command(
     name = ModCommand.NAME,
     buildPhase = LOADS,
-    // TODO(andreisolo): figure out which extra options are really needed
     options = {
       ModOptions.class,
       PackageOptions.class,
@@ -194,6 +193,7 @@ public final class ModCommand implements BlazeCommand {
         EvaluationContext.newBuilder()
             .setParallelism(threadsOption.threads)
             .setEventHandler(env.getReporter())
+            .setKeepGoing(options.getOptions(KeepGoingOption.class).keepGoing)
             .build();
 
     try {
@@ -208,11 +208,11 @@ public final class ModCommand implements BlazeCommand {
         keys.add(BazelDepGraphValue.KEY, BazelModuleInspectorValue.KEY);
       }
       EvaluationResult<SkyValue> evaluationResult =
-          skyframeExecutor.prepareAndGet(keys.build(), evaluationContext);
+          skyframeExecutor.getEvaluator().evaluate(keys.build(), evaluationContext);
 
       if (evaluationResult.hasError()) {
         Exception e = evaluationResult.getError().getException();
-        String message = "Unexpected error during repository rule evaluation.";
+        String message = "Unexpected error during module graph evaluation.";
         if (e != null) {
           message = e.getMessage();
         }
@@ -541,7 +541,14 @@ public final class ModCommand implements BlazeCommand {
       return reportAndCreateFailureResult(env, e.getMessage(), Code.INVALID_ARGUMENTS);
     }
 
-    return BlazeCommandResult.success();
+    if (moduleInspector.getErrors().isEmpty()) {
+      return BlazeCommandResult.success();
+    } else {
+      return reportAndCreateFailureResult(
+          env,
+          "Not all extensions have been processed due to errors",
+          Code.ERROR_DURING_GRAPH_INSPECTION);
+    }
   }
 
   private BlazeCommandResult runTidy(CommandEnvironment env, BazelModTidyValue modTidyValue) {
@@ -587,7 +594,14 @@ public final class ModCommand implements BlazeCommand {
       env.getReporter().handle(Event.info(fixupEvent.getSuccessMessage()));
     }
 
-    return BlazeCommandResult.success();
+    if (modTidyValue.errors().isEmpty()) {
+      return BlazeCommandResult.success();
+    } else {
+      return reportAndCreateFailureResult(
+          env,
+          "Not all extensions have been processed due to errors",
+          Code.ERROR_DURING_GRAPH_INSPECTION);
+    }
   }
 
   /** Collects a list of {@link ModuleArg} into a set of {@link ModuleKey}s. */

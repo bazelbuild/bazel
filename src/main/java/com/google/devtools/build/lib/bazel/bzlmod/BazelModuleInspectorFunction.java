@@ -67,9 +67,8 @@ public class BazelModuleInspectorFunction implements SkyFunction {
     ImmutableMap<ModuleKey, AugmentedModule> depGraph =
         computeAugmentedGraph(unprunedDepGraph, resolvedDepGraph.keySet(), overrides);
 
-    ImmutableSetMultimap<ModuleExtensionId, String> extensionToRepoInternalNames =
-        computeExtensionToRepoInternalNames(depGraphValue, env);
-    if (extensionToRepoInternalNames == null) {
+    ExtensionRepos extensionRepos = computExtensionRepos(depGraphValue, env);
+    if (extensionRepos == null) {
       return null;
     }
 
@@ -85,8 +84,9 @@ public class BazelModuleInspectorFunction implements SkyFunction {
     return BazelModuleInspectorValue.create(
         depGraph,
         modulesIndex,
-        extensionToRepoInternalNames,
-        depGraphValue.getCanonicalRepoNameLookup().inverse());
+        extensionRepos.extensionToRepoInternalNames(),
+        depGraphValue.getCanonicalRepoNameLookup().inverse(),
+        extensionRepos.errors());
   }
 
   public static ImmutableMap<ModuleKey, AugmentedModule> computeAugmentedGraph(
@@ -180,9 +180,13 @@ public class BazelModuleInspectorFunction implements SkyFunction {
         .collect(toImmutableMap(Entry::getKey, e -> e.getValue().build()));
   }
 
+  private record ExtensionRepos(
+      ImmutableSetMultimap<ModuleExtensionId, String> extensionToRepoInternalNames,
+      ImmutableList<ExternalDepsException> errors) {}
+
   @Nullable
-  private ImmutableSetMultimap<ModuleExtensionId, String> computeExtensionToRepoInternalNames(
-      BazelDepGraphValue depGraphValue, Environment env) throws InterruptedException {
+  private ExtensionRepos computExtensionRepos(BazelDepGraphValue depGraphValue, Environment env)
+      throws InterruptedException {
     ImmutableSet<ModuleExtensionId> extensionEvalKeys =
         depGraphValue.getExtensionUsagesTable().rowKeySet();
     ImmutableList<SingleExtensionValue.Key> singleExtensionKeys =
@@ -191,15 +195,25 @@ public class BazelModuleInspectorFunction implements SkyFunction {
 
     ImmutableSetMultimap.Builder<ModuleExtensionId, String> extensionToRepoInternalNames =
         ImmutableSetMultimap.builder();
+    ImmutableList.Builder<ExternalDepsException> errors = ImmutableList.builder();
     for (SingleExtensionValue.Key singleExtensionKey : singleExtensionKeys) {
-      SingleExtensionValue singleExtensionValue =
-          (SingleExtensionValue) singleExtensionValues.get(singleExtensionKey);
+      SingleExtensionValue singleExtensionValue;
+      try {
+        singleExtensionValue =
+            (SingleExtensionValue)
+                singleExtensionValues.getOrThrow(singleExtensionKey, ExternalDepsException.class);
+      } catch (ExternalDepsException e) {
+        // The extension failed, so we can't report its generated repos. We can still report the
+        // imported repos in keep going mode, so don't fail and just skip this extension.
+        errors.add(e);
+        continue;
+      }
       if (singleExtensionValue == null) {
         return null;
       }
       extensionToRepoInternalNames.putAll(
           singleExtensionKey.argument(), singleExtensionValue.getGeneratedRepoSpecs().keySet());
     }
-    return extensionToRepoInternalNames.build();
+    return new ExtensionRepos(extensionToRepoInternalNames.build(), errors.build());
   }
 }
