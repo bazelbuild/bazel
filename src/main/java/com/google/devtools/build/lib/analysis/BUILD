@@ -28,7 +28,6 @@ java_library(
         ":actions/custom_command_line",
         ":actions/deterministic_writer",
         ":actions/file_write_action_context",
-        ":actions/launcher_file_write_action",
         ":actions/lazy_write_nested_set_of_tuple_action",
         ":actions/lazy_write_paths_file_action",
         ":actions/parameter_file_write_action",
@@ -1452,24 +1451,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//third_party:guava",
-    ],
-)
-
-java_library(
-    name = "actions/launcher_file_write_action",
-    srcs = ["actions/LauncherFileWriteAction.java"],
-    deps = [
-        ":actions/abstract_file_write_action",
-        ":actions/deterministic_writer",
-        ":analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifact_expander",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 
