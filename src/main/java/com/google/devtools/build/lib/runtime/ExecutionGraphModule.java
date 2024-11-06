@@ -237,7 +237,7 @@ public class ExecutionGraphModule extends BlazeModule {
 
   @Subscribe
   public void someExecutionStarted(@SuppressWarnings("unused") SomeExecutionStartedEvent event) {
-    if (executionStarted.compareAndSet(/*expectedValue=*/ false, /*newValue=*/ true)) {
+    if (executionStarted.compareAndSet(/* expectedValue= */ false, /* newValue= */ true)) {
       handleExecutionBegin();
     }
   }
@@ -298,7 +298,6 @@ public class ExecutionGraphModule extends BlazeModule {
   @Subscribe
   @AllowConcurrentEvents
   public void actionComplete(ActionCompletionEvent event) {
-    // TODO(vanja): handle finish time in ActionCompletionEvent
     actionEvent(
         event.getAction(),
         event.getInputMetadataProvider(),
@@ -415,7 +414,7 @@ public class ExecutionGraphModule extends BlazeModule {
           action,
           inputMetadataProvider,
           startMillis,
-          0, // totalMillis. These actions are assumed to be nearly instant.
+          finishMillis - startMillis,
           index);
 
       return node.build();

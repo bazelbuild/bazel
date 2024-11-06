@@ -485,6 +485,30 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
   }
 
   @Test
+  public void noSpawnAction_hasCorrectDuration() throws Exception {
+    var buffer = new ByteArrayOutputStream();
+    startLogging(eventBus, UUID.randomUUID(), buffer, DependencyInfo.ALL);
+    var nanosToMillis = BlazeClock.createNanosToMillisSinceEpochConverter();
+    module.setNanosToMillis(nanosToMillis);
+
+    var action = new ActionsTestUtil.NullAction(createOutputArtifact("foo/out"));
+    module.actionComplete(
+        new ActionCompletionEvent(1000000, 2000000, action, new FakeActionInputFileCache(), null));
+    module.buildComplete(new BuildCompleteEvent(new BuildResult(1000)));
+
+    assertThat(parse(buffer))
+        .containsExactly(
+            executionGraphNodeBuilderForAction(action)
+                .setMetrics(
+                    ExecutionGraph.Metrics.newBuilder()
+                        .setStartTimestampMillis(nanosToMillis.toEpochMillis(1000000))
+                        .setDurationMillis(1)
+                        .setProcessMillis(1))
+                .setRuleClass("dummy-kind")
+                .build());
+  }
+
+  @Test
   public void multipleSpawnsWithSameOutput_recordsBothSpawnsWithRetry() throws Exception {
     var buffer = new ByteArrayOutputStream();
     startLogging(eventBus, UUID.randomUUID(), buffer, DependencyInfo.ALL);
@@ -526,13 +550,13 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
   }
 
   enum LocalLockFreeOutput {
-    LOCAL_LOCK_FREE_OUTPUT_ENABLED(/*optionValue=*/ true) {
+    LOCAL_LOCK_FREE_OUTPUT_ENABLED(/* optionValue= */ true) {
       @Override
       void assertBugReport(BugReporter bugReporter) {
         verify(bugReporter, never()).sendNonFatalBugReport(any());
       }
     },
-    LOCAL_LOCK_FREE_OUTPUT_DISABLED(/*optionValue=*/ false) {
+    LOCAL_LOCK_FREE_OUTPUT_DISABLED(/* optionValue= */ false) {
       @Override
       void assertBugReport(BugReporter bugReporter) {
         var captor = ArgumentCaptor.forClass(Exception.class);
