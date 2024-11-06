@@ -22,7 +22,7 @@ jobs:
         with:
           egress-policy: audit
       - name: Update lockfile(s) on closed PR
-        uses: bazelbuild/continuous-integration/actions/update-lockfile@312ab25f6994b2fac89dc6910b3ebd6cb93cfa74
+        uses: bazelbuild/continuous-integration/actions/update-lockfile@8db2c232a6f86d56ec655e7b0d87de3787a25ef1
         with:
           release-branch: ${{ github.base_ref }}
           is-prod: True
