@@ -64,7 +64,12 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
       throws Exception {
     Label actualProtocLabel = getConfiguredTarget(protocLabel).getActual().getLabel();
     assertThat(toolchain.protoc().getExecutable().prettyPrint())
-        .isEqualTo(actualProtocLabel.toPathFragment().getPathString());
+        .isEqualTo(
+            actualProtocLabel
+                .getRepository()
+                .getExecPath(false)
+                .getRelative(actualProtocLabel.toPathFragment())
+                .getPathString());
   }
 
   @Test
@@ -72,6 +77,7 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
     scratch.file(
         "third_party/x/BUILD",
         """
+        load('@protobuf//bazel:proto_library.bzl', 'proto_library')
         licenses(["unencumbered"])
 
         cc_binary(
@@ -134,6 +140,7 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
     scratch.file(
         "third_party/x/BUILD",
         """
+        load('@protobuf//bazel:proto_library.bzl', 'proto_library')
         licenses(["unencumbered"])
 
         cc_binary(
@@ -193,7 +200,7 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
   public void protoToolchainBlacklistProtoLibraries() throws Exception {
     scratch.file(
         "third_party/x/BUILD",
-        TestConstants.LOAD_PROTO_LIBRARY,
+        "load('@protobuf//bazel:proto_library.bzl', 'proto_library')",
         "licenses(['unencumbered'])",
         "cc_binary(name = 'plugin', srcs = ['plugin.cc'])",
         "cc_library(name = 'runtime', srcs = ['runtime.cc'])",
@@ -225,7 +232,7 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
   public void protoToolchainBlacklistTransitiveProtos() throws Exception {
     scratch.file(
         "third_party/x/BUILD",
-        TestConstants.LOAD_PROTO_LIBRARY,
+        "load('@protobuf//bazel:proto_library.bzl', 'proto_library')",
         "licenses(['unencumbered'])",
         "cc_binary(name = 'plugin', srcs = ['plugin.cc'])",
         "cc_library(name = 'runtime', srcs = ['runtime.cc'])",

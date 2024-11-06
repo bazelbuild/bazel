@@ -48,7 +48,7 @@ public final class MockProtoSupport {
     config.append("MODULE.bazel", "register_toolchains('//tools/proto/toolchains:all')");
     config.create(
         "tools/proto/toolchains/BUILD",
-        TestConstants.LOAD_PROTO_TOOLCHAIN,
+        "load('@protobuf//bazel/toolchains:proto_toolchain.bzl', 'proto_toolchain')",
         TestConstants.LOAD_PROTO_LANG_TOOLCHAIN,
         "proto_toolchain(name = 'protoc_sources',"
             + "proto_compiler = '"
@@ -291,7 +291,7 @@ public final class MockProtoSupport {
         """);
     config.create(
         "net/proto2/proto/BUILD",
-        TestConstants.LOAD_PROTO_LIBRARY,
+        "load('@protobuf//bazel:proto_library.bzl', 'proto_library')",
         "package(default_visibility=['//visibility:public'])",
         "genrule(name = 'go_internal_bootstrap_hack',",
         "        srcs = [ 'descriptor.pb.go-prebuilt' ],",
@@ -385,6 +385,10 @@ public final class MockProtoSupport {
       config.copyDirectory(
           path.getParentDirectory(), "third_party/protobuf/bazel", MAX_VALUE, false);
       config.overwrite(
+          "third_party/protobuf/BUILD",
+          "filegroup(name = 'license')",
+          "genrule(name='protoc_gen', cmd='', executable = True, outs = ['protoc'])");
+      config.overwrite(
           "proto_bazel_features_workspace/MODULE.bazel", "module(name = 'proto_bazel_features')");
       // Overwritten to remove bazel7 toolchains from protobuf
       config.overwrite(
@@ -404,47 +408,6 @@ public final class MockProtoSupport {
           "  proto = struct(starlark_proto_info = True),",
           "  cc = struct(protobuf_on_allowlist = True),",
           ")");
-
-      // TODO - ilist@: remove the following block when removing the rules
-      // This serves at the moment to keep using builitin rules in the tests
-      config.overwrite(
-          "third_party/protobuf/BUILD.bazel",
-          "filegroup(name='license')",
-          "exports_files(['protoc'])");
-      config.overwrite(
-          "third_party/protobuf/bazel/proto_library.bzl", //
-          "proto_library = native.proto_library");
-      config.overwrite(
-          "third_party/protobuf/bazel/java_proto_library.bzl",
-          "java_proto_library = native.java_proto_library");
-      config.overwrite(
-          "third_party/protobuf/bazel/java_lite_proto_library.bzl",
-          "java_lite_proto_library = native.java_lite_proto_library");
-      config.overwrite(
-          "third_party/protobuf/bazel/cc_proto_library.bzl",
-          "cc_proto_library = native.cc_proto_library");
-      config.create(
-          "third_party/protobuf/bazel/private/native_proto_info.bzl",
-          "NativeProtoInfo = ProtoInfo");
-      config.overwrite(
-          "third_party/protobuf/bazel/common/proto_info.bzl",
-          "load('@protobuf//bazel/private:native_proto_info.bzl', 'NativeProtoInfo')",
-          "ProtoInfo = NativeProtoInfo");
-      config.overwrite(
-          "third_party/protobuf/bazel/toolchains/proto_lang_toolchain.bzl",
-          """
-          def proto_lang_toolchain(*, name, toolchain_type = None, exec_compatible_with = [],
-                  target_compatible_with = [], **attrs):
-              native.proto_lang_toolchain(name = name, toolchain_type = toolchain_type, **attrs)
-              if toolchain_type:
-                  native.toolchain(
-                      name = name + "_toolchain",
-                      toolchain_type = toolchain_type,
-                      exec_compatible_with = exec_compatible_with,
-                      target_compatible_with = target_compatible_with,
-                      toolchain = name,
-                  )
-          """);
     }
   }
 }

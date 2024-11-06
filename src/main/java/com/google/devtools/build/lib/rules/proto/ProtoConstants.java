@@ -14,8 +14,17 @@
 
 package com.google.devtools.build.lib.rules.proto;
 
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
+
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.BzlLoadValue;
+
 /** Constants used in Proto rules. */
 public final class ProtoConstants {
+
+  public static final BzlLoadValue.Key PROTO_INFO_KEY = keyForBuild(Label.parseCanonicalUnchecked("@@protobuf+//bazel/private:proto_info.bzl"));
+
+
   /** Default label for proto compiler. */
   public static final String DEFAULT_PROTOC_LABEL =  "@@protobuf+//:protoc";
 

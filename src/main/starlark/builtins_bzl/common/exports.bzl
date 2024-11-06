@@ -26,12 +26,10 @@ load("@_builtins//:common/cc/cc_test.bzl", "cc_test")
 load("@_builtins//:common/cc/cc_toolchain.bzl", "cc_toolchain")
 load("@_builtins//:common/cc/cc_toolchain_alias.bzl", "cc_toolchain_alias")
 load("@_builtins//:common/cc/experimental_cc_static_library.bzl", "cc_static_library")
-load("@_builtins//:common/java/proto/java_lite_proto_library.bzl", "java_lite_proto_library")
 load("@_builtins//:common/objc/objc_import.bzl", "objc_import")
 load("@_builtins//:common/objc/objc_library.bzl", "objc_library")
 load("@_builtins//:common/proto/proto_common.bzl", "proto_common_do_not_use")
 load("@_builtins//:common/proto/proto_info.bzl", "ProtoInfo")
-load("@_builtins//:common/proto/proto_lang_toolchain.bzl", "proto_lang_toolchain")
 load("@_builtins//:common/python/providers.bzl", "PyCcLinkParamsProvider", "PyInfo", "PyRuntimeInfo")
 load("@_builtins//:common/xcode/available_xcodes.bzl", "available_xcodes")
 load("@_builtins//:common/xcode/xcode_config.bzl", "xcode_config")
@@ -73,7 +71,6 @@ exported_toplevels = {
 # * leading `-` means the Starlark rule exists, but is not used by default
 exported_rules = {
     "cc_import": cc_import,
-    "java_lite_proto_library": java_lite_proto_library,
     "objc_import": objc_import,
     "objc_library": objc_library,
     "cc_shared_library": cc_shared_library,
@@ -81,7 +78,6 @@ exported_rules = {
     "cc_binary": cc_binary,
     "cc_test": cc_test,
     "cc_library": cc_library,
-    "proto_lang_toolchain": proto_lang_toolchain,
     "cc_toolchain_alias": cc_toolchain_alias,
     "cc_toolchain": cc_toolchain,
     "fdo_prefetch_hints": fdo_prefetch_hints,

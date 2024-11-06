@@ -19,16 +19,16 @@ WORKSPACE_REPOS = {
     # Used in src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
     # Used in src/test/java/com/google/devtools/build/lib/blackbox/framework/blackbox.WORKSAPCE
     "rules_cc": {
-        "archive": "rules_cc-0.0.12.tar.gz",
-        "sha256": "b26168b9a13f094794982b832975eaf53cefc5dced5b3be7df6b8b794dc2744b",
-        "urls": ["https://github.com/bazelbuild/rules_cc/releases/download/0.0.12/rules_cc-0.0.12.tar.gz"],
-        "strip_prefix": "rules_cc-0.0.12",
+        "archive": "rules_cc-0.0.13.tar.gz",
+        "sha256": "d9bdd3ec66b6871456ec9c965809f43a0901e692d754885e89293807762d3d80",
+        "urls": ["https://github.com/bazelbuild/rules_cc/releases/download/0.0.13/rules_cc-0.0.13.tar.gz"],
+        "strip_prefix": "rules_cc-0.0.13",
     },
     "protobuf": {
-        "archive": "v27.0.zip",
-        "sha256": "a7e735f510520b41962d07459f6f5b99dd594c7ed4690bf1191b9924bec094a2",
-        "urls": ["https://github.com/protocolbuffers/protobuf/archive/refs/tags/v27.0.zip"],
-        "strip_prefix": "protobuf-27.0",
+        "archive": "protobuf-29.0-rc2.zip",
+        "sha256": "23082dca1ca73a1e9c6cbe40097b41e81f71f3b4d6201e36c134acc30a1b3660",
+        "urls": ["https://github.com/protocolbuffers/protobuf/releases/download/v29.0-rc2/protobuf-29.0-rc2.zip"],
+        "strip_prefix": "protobuf-29.0-rc2",
     },
     "rules_java": {
         "archive": "rules_java-8.2.0.tar.gz",
