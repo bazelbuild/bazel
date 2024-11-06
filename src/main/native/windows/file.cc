@@ -504,19 +504,23 @@ int CreateSymlink(const wstring& symlink_name, const wstring& symlink_target,
 
   if (!CreateSymbolicLinkW(name.c_str(), symlink_target.c_str(),
                            symlinkPrivilegeFlag)) {
-    if (GetLastError() == ERROR_INVALID_PARAMETER) {
+    DWORD err = GetLastError();
+    if (err == ERROR_INVALID_PARAMETER) {
       // We are on a version of Windows that does not support this flag.
       // Retry without the flag and return to error handling if necessary.
       if (CreateSymbolicLinkW(name.c_str(), symlink_target.c_str(), 0)) {
         return CreateSymlinkResult::kSuccess;
       }
     }
-    *error = MakeErrorMessage(
-        WSTR(__FILE__), __LINE__, L"CreateSymlink", symlink_target,
-        GetLastError() == ERROR_PRIVILEGE_NOT_HELD
-            ? L"createSymbolicLinkW failed (permission denied). Either "
-              "Windows developer mode or admin privileges are required."
-            : L"createSymbolicLinkW failed");
+    if (err == ERROR_PRIVILEGE_NOT_HELD) {
+      *error = MakeErrorMessage(
+          WSTR(__FILE__), __LINE__, L"CreateSymlink", symlink_target,
+          L"createSymbolicLinkW failed (permission denied). Either "
+          "Windows developer mode or admin privileges are required.");
+    } else {
+      *error = MakeErrorMessage(
+          WSTR(__FILE__), __LINE__, L"CreateSymlink", symlink_target, err);
+    }
     return CreateSymlinkResult::kError;
   }
   return CreateSymlinkResult::kSuccess;
