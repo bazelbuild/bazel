@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.util.CommandDescriptionForm;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -123,6 +124,12 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     @Override
     public boolean isMappingCached() {
       return wrapped.isMappingCached();
+    }
+
+    @Override
+    public void fingerprint(
+        ActionKeyContext actionKeyContext, Fingerprint fp, boolean digestAbsolutePaths) {
+      wrapped.fingerprint(actionKeyContext, fp, digestAbsolutePaths);
     }
   }
 
