@@ -20,12 +20,11 @@ import static org.mockito.Mockito.mock;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.runtime.InstrumentationOutputFactory.DestinationRelativeTo;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
@@ -62,16 +61,20 @@ public final class InstrumentationOutputFactoryTest extends BuildIntegrationTest
         factoryBuilder::build);
   }
 
-  @Test
-  public void testInstrumentationOutputFactory_successfullyCreateLocalOutputWithConvenientLink()
-      throws Exception {
+  private static InstrumentationOutputFactory createInstrumentationOutputFactory() {
     InstrumentationOutputFactory.Builder factoryBuilder =
         new InstrumentationOutputFactory.Builder();
     factoryBuilder.setLocalInstrumentationOutputBuilderSupplier(
         LocalInstrumentationOutput.Builder::new);
     factoryBuilder.setBuildEventArtifactInstrumentationOutputBuilderSupplier(
         BuildEventArtifactInstrumentationOutput.Builder::new);
-    InstrumentationOutputFactory outputFactory = factoryBuilder.build();
+    return factoryBuilder.build();
+  }
+
+  @Test
+  public void testInstrumentationOutputFactory_successfullyCreateLocalOutputWithConvenientLink()
+      throws Exception {
+    InstrumentationOutputFactory outputFactory = createInstrumentationOutputFactory();
 
     CommandEnvironment env = runtimeWrapper.newCommand();
     InstrumentationOutput output =
@@ -83,6 +86,66 @@ public final class InstrumentationOutputFactoryTest extends BuildIntegrationTest
 
     ((LocalInstrumentationOutput) output).makeConvenienceLink();
     assertThat(env.getWorkspace().getRelative("link-to-output").isSymbolicLink()).isTrue();
+  }
+
+  @Test
+  public void testInstrumentationOutputFactory_localRelativeToOutputBase() throws Exception {
+    InstrumentationOutputFactory outputFactory = createInstrumentationOutputFactory();
+
+    CommandEnvironment env = runtimeWrapper.newCommand();
+    InstrumentationOutput output =
+        outputFactory.createInstrumentationOutput(
+            /* name= */ "output-baseoutput",
+            PathFragment.create("output-baseoutput"),
+            DestinationRelativeTo.OUTPUT_BASE,
+            env,
+            mock(EventHandler.class),
+            /* append= */ null,
+            /* internal= */ null);
+
+    assertThat(output).isInstanceOf(LocalInstrumentationOutput.class);
+    assertThat(((LocalInstrumentationOutput) output).getPath())
+        .isEqualTo(env.getOutputBase().getRelative("output-baseoutput"));
+  }
+
+  @Test
+  public void testInstrumentationOutputFactory_localAbsolutePath() throws Exception {
+    InstrumentationOutputFactory outputFactory = createInstrumentationOutputFactory();
+
+    CommandEnvironment env = runtimeWrapper.newCommand();
+    InstrumentationOutput output =
+        outputFactory.createInstrumentationOutput(
+            /* name= */ "output-absolute",
+            PathFragment.create("/tmp/absolute-path-output"),
+            DestinationRelativeTo.WORKSPACE_OR_HOME,
+            env,
+            mock(EventHandler.class),
+            /* append= */ null,
+            /* internal= */ null);
+
+    assertThat(output).isInstanceOf(LocalInstrumentationOutput.class);
+    assertThat(((LocalInstrumentationOutput) output).getPath())
+        .isEqualTo(env.getRuntime().getFileSystem().getPath("/tmp/absolute-path-output"));
+  }
+
+  @Test
+  public void testInstrumentationOutputFactory_localRelativeToWorkspace() throws Exception {
+    InstrumentationOutputFactory outputFactory = createInstrumentationOutputFactory();
+
+    CommandEnvironment env = runtimeWrapper.newCommand();
+    InstrumentationOutput output =
+        outputFactory.createInstrumentationOutput(
+            /* name= */ "output-ws-relative",
+            PathFragment.create("workspace-output"),
+            DestinationRelativeTo.WORKSPACE_OR_HOME,
+            env,
+            mock(EventHandler.class),
+            /* append= */ null,
+            /* internal= */ null);
+
+    assertThat(output).isInstanceOf(LocalInstrumentationOutput.class);
+    assertThat(((LocalInstrumentationOutput) output).getPath())
+        .isEqualTo(env.getWorkspace().getRelative("workspace-output"));
   }
 
   @Test
@@ -138,11 +201,8 @@ public final class InstrumentationOutputFactoryTest extends BuildIntegrationTest
     var instrumentationOutput =
         outputFactory.createInstrumentationOutput(
             /* name= */ "local",
-            /* redirectDestination= */ PathFragment.create("/file"),
+            /* destination= */ PathFragment.create("/file"),
             DestinationRelativeTo.WORKSPACE_OR_HOME,
-            createRedirectOutput && injectRedirectOutputBuilderSupplier
-                ? null
-                : new InMemoryFileSystem(DigestHashFunction.SHA256).getPath("/file"),
             env,
             eventHandler,
             /* append= */ null,

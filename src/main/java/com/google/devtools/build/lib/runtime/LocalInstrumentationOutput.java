@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.buildtool.BuildResult.BuildToolLogCollection;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -66,6 +67,11 @@ final class LocalInstrumentationOutput implements InstrumentationOutput {
       return path.getOutputStream(append);
     }
     return path.getOutputStream();
+  }
+
+  @VisibleForTesting
+  public Path getPath() {
+    return path;
   }
 
   /** Builder for {@link LocalInstrumentationOutput}. */

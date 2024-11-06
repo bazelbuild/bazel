@@ -374,7 +374,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                     profileName,
                     PathFragment.create(profileName),
                     DestinationRelativeTo.OUTPUT_BASE,
-                    workspace.getOutputBase().getRelative(profileName),
                     env,
                     eventHandler,
                     /* append= */ null,
@@ -394,15 +393,13 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               commandOptions.profilePath.toString().endsWith(".gz")
                   ? Format.JSON_TRACE_FILE_COMPRESSED_FORMAT
                   : Format.JSON_TRACE_FILE_FORMAT;
-          var profilePath = workspace.getWorkspace().getRelative(commandOptions.profilePath);
           profile =
               instrumentationOutputFactory.createInstrumentationOutput(
                   (format == Format.JSON_TRACE_FILE_COMPRESSED_FORMAT)
                       ? "command.profile.gz"
                       : "command.profile.json",
-                  /* redirectDestination= */ commandOptions.profilePath,
+                  /* destination= */ commandOptions.profilePath,
                   DestinationRelativeTo.WORKSPACE_OR_HOME,
-                  profilePath,
                   env,
                   eventHandler,
                   /* append= */ false,

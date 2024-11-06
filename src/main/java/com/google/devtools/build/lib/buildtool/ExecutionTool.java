@@ -850,9 +850,8 @@ public class ExecutionTool {
               .getInstrumentationOutputFactory()
               .createInstrumentationOutput(
                   /* name= */ "explain",
-                  /* redirectDestination= */ explanationPath,
+                  /* destination= */ explanationPath,
                   DestinationRelativeTo.WORKSPACE_OR_HOME,
-                  getWorkspace().getRelative(explanationPath),
                   env,
                   getReporter(),
                   /* append= */ null,
@@ -1046,10 +1045,6 @@ public class ExecutionTool {
 
   private Reporter getReporter() {
     return env.getReporter();
-  }
-
-  private Path getWorkspace() {
-    return env.getWorkspace();
   }
 
   private Path getExecRoot() {

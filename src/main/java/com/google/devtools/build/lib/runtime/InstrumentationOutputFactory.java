@@ -88,13 +88,10 @@ public final class InstrumentationOutputFactory {
    * @param append Whether to open the {@link LocalInstrumentationOutput} file in append mode
    * @param internal Whether the {@link LocalInstrumentationOutput} file is a Bazel internal file.
    */
-  // TODO: b/331203854 - Remove the path parameter. Local instrumentation output should be able to
-  // figure out the path based on the destination string as well.
   public InstrumentationOutput createInstrumentationOutput(
       String name,
-      PathFragment redirectDestination,
+      PathFragment destination,
       DestinationRelativeTo destinationRelativeTo,
-      Path path,
       CommandEnvironment env,
       EventHandler eventHandler,
       @Nullable Boolean append,
@@ -108,7 +105,7 @@ public final class InstrumentationOutputFactory {
         return redirectInstrumentationOutputBuilderSupplier
             .get()
             .setName(name)
-            .setDestination(redirectDestination)
+            .setDestination(destination)
             .setDestinationRelatedToType(destinationRelativeTo)
             .setOptions(env.getOptions())
             .build();
@@ -118,10 +115,16 @@ public final class InstrumentationOutputFactory {
               "Redirecting to write Instrumentation Output on a different machine is not"
                   + " supported. Defaulting to writing output locally."));
     }
+
+    // Since PathFragmentConverter for flag value replaces prefixed `~/` with user's home path, the
+    // destination is either an absolute path or a path relative to output_base/workspace.
     return localInstrumentationOutputBuilderSupplier
         .get()
         .setName(name)
-        .setPath(path)
+        .setPath(
+            destinationRelativeTo.equals(DestinationRelativeTo.OUTPUT_BASE)
+                ? env.getOutputBase().getRelative(destination)
+                : env.getWorkspace().getRelative(destination))
         .setAppend(append)
         .setInternal(internal)
         .build();
