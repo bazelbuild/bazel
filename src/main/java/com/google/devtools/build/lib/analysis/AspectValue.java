@@ -54,10 +54,14 @@ public class AspectValue extends BasicActionLookupValue
   @Nullable private Aspect aspect;
   @Nullable private TransitiveInfoProviderMap providers;
 
+  private final boolean writesOutputToMasterLog;
+
   private AspectValue(Aspect aspect, ConfiguredAspect configuredAspect) {
     super(configuredAspect.getActions());
     this.aspect = checkNotNull(aspect);
     this.providers = configuredAspect.getProviders();
+    this.writesOutputToMasterLog =
+        aspect.getDefinition().getAttributes().containsKey("$print_to_master_log");
   }
 
   public AspectKey getKeyForTransitivePackageTracking() {
@@ -71,6 +75,10 @@ public class AspectValue extends BasicActionLookupValue
   @Override
   public TransitiveInfoProviderMap getProviders() {
     return checkNotNull(providers);
+  }
+
+  public boolean getWritesOutputToMasterLog() {
+    return writesOutputToMasterLog;
   }
 
   @Override
