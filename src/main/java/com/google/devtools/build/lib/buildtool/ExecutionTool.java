@@ -86,6 +86,7 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.InstrumentationOutput;
+import com.google.devtools.build.lib.runtime.InstrumentationOutputFactory.DestinationRelativeTo;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
@@ -849,6 +850,8 @@ public class ExecutionTool {
               .getInstrumentationOutputFactory()
               .createInstrumentationOutput(
                   /* name= */ "explain",
+                  /* redirectDestination= */ explanationPath,
+                  DestinationRelativeTo.WORKSPACE_OR_HOME,
                   getWorkspace().getRelative(explanationPath),
                   env,
                   getReporter(),

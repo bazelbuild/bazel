@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -67,6 +68,15 @@ public final class InstrumentationOutputFactory {
         .build();
   }
 
+  /** Defines types of directory the {@link InstrumentationOutput} path is relative to. */
+  public enum DestinationRelativeTo {
+    /** Output is relative to the bazel workspace or user's home directory. */
+    WORKSPACE_OR_HOME,
+
+    /** Output is relative to the {@code output_base} directory. */
+    OUTPUT_BASE
+  }
+
   /**
    * Creates {@link LocalInstrumentationOutput} or an {@link InstrumentationOutput} object
    * redirecting outputs to be written on a different machine.
@@ -78,8 +88,12 @@ public final class InstrumentationOutputFactory {
    * @param append Whether to open the {@link LocalInstrumentationOutput} file in append mode
    * @param internal Whether the {@link LocalInstrumentationOutput} file is a Bazel internal file.
    */
+  // TODO: b/331203854 - Remove the path parameter. Local instrumentation output should be able to
+  // figure out the path based on the destination string as well.
   public InstrumentationOutput createInstrumentationOutput(
       String name,
+      PathFragment redirectDestination,
+      DestinationRelativeTo destinationRelativeTo,
       Path path,
       CommandEnvironment env,
       EventHandler eventHandler,
@@ -94,7 +108,8 @@ public final class InstrumentationOutputFactory {
         return redirectInstrumentationOutputBuilderSupplier
             .get()
             .setName(name)
-            .setPath(path)
+            .setDestination(redirectDestination)
+            .setDestinationRelatedToType(destinationRelativeTo)
             .setOptions(env.getOptions())
             .build();
       }

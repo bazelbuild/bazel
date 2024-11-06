@@ -74,6 +74,7 @@ import com.google.devtools.build.lib.query2.query.output.OutputFormatters;
 import com.google.devtools.build.lib.runtime.BlazeModule.ModuleFileSystem;
 import com.google.devtools.build.lib.runtime.CommandDispatcher.LockingMode;
 import com.google.devtools.build.lib.runtime.CommandDispatcher.UiVerbosity;
+import com.google.devtools.build.lib.runtime.InstrumentationOutputFactory.DestinationRelativeTo;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.CommandProtos.EnvironmentVariable;
 import com.google.devtools.build.lib.server.CommandProtos.ExecRequest;
@@ -371,6 +372,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             profile =
                 instrumentationOutputFactory.createInstrumentationOutput(
                     profileName,
+                    PathFragment.create(profileName),
+                    DestinationRelativeTo.OUTPUT_BASE,
                     workspace.getOutputBase().getRelative(profileName),
                     env,
                     eventHandler,
@@ -397,6 +400,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                   (format == Format.JSON_TRACE_FILE_COMPRESSED_FORMAT)
                       ? "command.profile.gz"
                       : "command.profile.json",
+                  /* redirectDestination= */ commandOptions.profilePath,
+                  DestinationRelativeTo.WORKSPACE_OR_HOME,
                   profilePath,
                   env,
                   eventHandler,

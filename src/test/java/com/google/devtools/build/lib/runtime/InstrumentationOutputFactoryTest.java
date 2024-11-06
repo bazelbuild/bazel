@@ -22,7 +22,9 @@ import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.runtime.InstrumentationOutputFactory.DestinationRelativeTo;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.testing.junit.testparameterinjector.TestParameter;
@@ -136,7 +138,11 @@ public final class InstrumentationOutputFactoryTest extends BuildIntegrationTest
     var instrumentationOutput =
         outputFactory.createInstrumentationOutput(
             /* name= */ "local",
-            new InMemoryFileSystem(DigestHashFunction.SHA256).getPath("/file"),
+            /* redirectDestination= */ PathFragment.create("/file"),
+            DestinationRelativeTo.WORKSPACE_OR_HOME,
+            createRedirectOutput && injectRedirectOutputBuilderSupplier
+                ? null
+                : new InMemoryFileSystem(DigestHashFunction.SHA256).getPath("/file"),
             env,
             eventHandler,
             /* append= */ null,
