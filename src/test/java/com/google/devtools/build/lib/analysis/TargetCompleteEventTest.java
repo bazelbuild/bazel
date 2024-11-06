@@ -236,7 +236,10 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
 
   @Test
   public void baselineCoverage_referencedWithMetadata() throws Exception {
-    scratch.file("foo/BUILD", "sh_test(name = 'test', srcs = ['test.sh'])");
+    scratch.file(
+        "foo/BUILD",
+        "load('//test_defs:foo_test.bzl', 'foo_test')",
+        "foo_test(name = 'test', srcs = ['test.sh'])");
     Path testSh = scratch.file("foo/test.sh");
     useConfiguration("--collect_code_coverage");
     ConfiguredTargetAndData ctAndData = getCtAndData("//foo:test");

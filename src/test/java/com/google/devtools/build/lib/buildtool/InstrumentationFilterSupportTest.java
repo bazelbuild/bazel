@@ -34,8 +34,8 @@ public class InstrumentationFilterSupportTest extends BuildViewTestCase {
   @Test
   public void testComputeInstrumentationFilter() throws Exception {
     EventCollector events = new EventCollector(EventKind.INFO);
-    scratch.file("foo/BUILD", "sh_test(name='t', srcs=['t.sh'])");
-    scratch.file("foobar/BUILD", "sh_test(name='t', srcs=['t.sh'])");
+    scratch.file("foo/BUILD", "filegroup(name='t', srcs=['t.sh'])");
+    scratch.file("foobar/BUILD", "filegroup(name='t', srcs=['t.sh'])");
     List<Target> listOfTargets = new ArrayList<>();
     listOfTargets.add(getTarget("//foo:t"));
     listOfTargets.add(getTarget("//foobar:t"));

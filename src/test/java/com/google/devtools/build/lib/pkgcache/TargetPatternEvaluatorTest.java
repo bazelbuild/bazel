@@ -552,10 +552,10 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
   public void testAddedPkg() throws Exception {
     invalidate(ModifiedFileSet.EVERYTHING_MODIFIED);
     scratch.dir("h/i/j/k/BUILD");
-    scratch.file("h/BUILD", "sh_library(name='h')");
+    scratch.file("h/BUILD", "filegroup(name='h')");
     assertThat(parseList("//h/...")).containsExactlyElementsIn(labels("//h"));
 
-    scratch.file("h/i/j/BUILD", "sh_library(name='j')");
+    scratch.file("h/i/j/BUILD", "filegroup(name='j')");
 
     // Modifications not yet known.
     assertThat(parseList("//h/...")).containsExactlyElementsIn(labels("//h"));
@@ -575,7 +575,7 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     scratch.dir("h");
     assertThrows(TargetParsingException.class, () -> parseList("//h/..."));
 
-    scratch.file("h/i/j/k/BUILD", "sh_library(name='l')");
+    scratch.file("h/i/j/k/BUILD", "filegroup(name='l')");
     ModifiedFileSet modifiedFileSet =
         ModifiedFileSet.builder()
             .modify(PathFragment.create("h"))
@@ -598,7 +598,7 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
 
     assertThrows(TargetParsingException.class, () -> parseList("//t/..."));
 
-    scratch.file("t/BUILD", "sh_library(name='t')");
+    scratch.file("t/BUILD", "filegroup(name='t')");
     ModifiedFileSet modifiedFileSet =
         ModifiedFileSet.builder().modify(PathFragment.create("t/BUILD")).build();
 

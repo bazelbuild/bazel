@@ -53,7 +53,9 @@ public final class TestTargetUtilsTest extends PackageLoadingTestCase {
     scratch.file(
         "tests/BUILD",
         """
-        sh_test(
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
             name = "small_test_1",
             size = "small",
             srcs = ["small_test_1.sh"],
@@ -61,7 +63,7 @@ public final class TestTargetUtilsTest extends PackageLoadingTestCase {
             tags = ["tag1"],
         )
 
-        sh_test(
+        foo_test(
             name = "small_test_2",
             size = "small",
             srcs = ["small_test_2.sh"],
@@ -69,7 +71,7 @@ public final class TestTargetUtilsTest extends PackageLoadingTestCase {
             tags = ["tag2"],
         )
 
-        sh_test(
+        foo_test(
             name = "large_test_1",
             size = "large",
             srcs = ["large_test_1.sh"],
@@ -80,7 +82,7 @@ public final class TestTargetUtilsTest extends PackageLoadingTestCase {
             tags = ["tag1"],
         )
 
-        sh_binary(
+        foo_binary(
             name = "notest",
             srcs = ["notest.sh"],
         )
@@ -142,20 +144,21 @@ public final class TestTargetUtilsTest extends PackageLoadingTestCase {
     scratch.file(
         "timeouts/BUILD",
         """
-        sh_test(
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
             name = "long_timeout",
             size = "small",
             timeout = "long",
             srcs = ["a.sh"],
         )
 
-        sh_test(
+        foo_test(
             name = "short_timeout",
             size = "small",
             srcs = ["b.sh"],
         )
 
-        sh_test(
+        foo_test(
             name = "moderate_timeout",
             size = "small",
             timeout = "moderate",

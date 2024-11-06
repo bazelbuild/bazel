@@ -226,12 +226,13 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
-        sh_library(
+        load("//test_defs:foo_library.bzl", "foo_library")
+        foo_library(
             name = "t1",
             deps = ["//foo:t2"],
         )
 
-        sh_library(
+        foo_library(
             name = "t2",
             deps = [
                 "//foo:t1",

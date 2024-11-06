@@ -13,7 +13,6 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/genrule:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/java:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/python:srcs",
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules/sh:srcs",
     ],
     visibility = ["//src:__subpackages__"],
 )
@@ -49,7 +48,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/genrule",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/java:bazel_java_semantics",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/python",
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules/sh",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/exec:execution_options",
         "//src/main/java/com/google/devtools/build/lib/exec:module_action_context_registry",

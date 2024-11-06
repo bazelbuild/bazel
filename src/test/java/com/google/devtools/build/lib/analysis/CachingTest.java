@@ -38,7 +38,8 @@ public class CachingTest extends BuildViewTestCase {
     scratch.file(
         "x/BUILD",
         """
-        sh_binary(
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
+        foo_binary(
             name = "tool",
             srcs = ["tool.sh"],
             data = ["tool.data"],

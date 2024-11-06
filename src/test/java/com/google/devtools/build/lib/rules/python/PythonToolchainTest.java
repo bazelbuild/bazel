@@ -124,7 +124,7 @@ public class PythonToolchainTest extends BuildViewTestCase {
     scratch.file(
         "pkg/BUILD",
         getPyLoad("py_runtime_pair"),
-        "sh_binary(",
+        "filegroup(",
         "    name = 'not_a_runtime',",
         "    srcs = ['not_a_runtime.sh'],",
         ")",

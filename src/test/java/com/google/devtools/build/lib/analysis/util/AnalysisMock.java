@@ -109,10 +109,68 @@ public abstract class AnalysisMock extends LoadingMock {
   public void setupMockClient(MockToolsConfig mockToolsConfig) throws IOException {
     ImmutableList<String> workspaceContents = getWorkspaceContents(mockToolsConfig);
     setupMockClient(mockToolsConfig, workspaceContents);
+    setupMockTestingRules(mockToolsConfig);
   }
 
   public abstract void setupMockClient(
       MockToolsConfig mockToolsConfig, List<String> getWorkspaceContents) throws IOException;
+
+  public void setupMockTestingRules(MockToolsConfig mockToolsConfig) throws IOException {
+    mockToolsConfig.create("test_defs/BUILD");
+    mockToolsConfig.create(
+        "test_defs/foo_library.bzl",
+        """
+        def _impl(ctx):
+          pass
+        foo_library = rule(
+          implementation = _impl,
+          attrs = {
+            "srcs": attr.label_list(allow_files=True),
+            "deps": attr.label_list(),
+          },
+        )
+        """);
+    mockToolsConfig.create(
+        "test_defs/foo_binary.bzl",
+        """
+        def _impl(ctx):
+          symlink = ctx.actions.declare_file(ctx.label.name)
+          ctx.actions.symlink(output = symlink, target_file = ctx.files.srcs[0],
+            is_executable = True)
+          files = depset(ctx.files.srcs)
+          return [DefaultInfo(files = files, executable = symlink,
+             runfiles = ctx.runfiles(transitive_files = files, collect_default = True))]
+        foo_binary = rule(
+          implementation = _impl,
+          executable = True,
+          attrs = {
+            "srcs": attr.label_list(allow_files=True),
+            "deps": attr.label_list(),
+            "data": attr.label_list(allow_files=True),
+          },
+        )
+        """);
+    mockToolsConfig.create(
+        "test_defs/foo_test.bzl",
+        """
+        def _impl(ctx):
+          symlink = ctx.actions.declare_file(ctx.label.name)
+          ctx.actions.symlink(output = symlink, target_file = ctx.files.srcs[0],
+            is_executable = True)
+          files = depset(ctx.files.srcs)
+          return [DefaultInfo(files = files, executable = symlink,
+             runfiles = ctx.runfiles(transitive_files = files, collect_default = True))]
+        foo_test = rule(
+          implementation = _impl,
+          test = True,
+          attrs = {
+            "srcs": attr.label_list(allow_files=True),
+            "deps": attr.label_list(),
+            "data": attr.label_list(allow_files=True),
+          },
+        )
+        """);
+  }
 
   /** Returns the contents of WORKSPACE. */
   public abstract ImmutableList<String> getWorkspaceContents(MockToolsConfig config);

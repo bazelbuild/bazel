@@ -1738,11 +1738,36 @@ public class RewindingTestsHelper {
         .collect(toImmutableList());
   }
 
+  protected void mockFooBinary(String relativePath) throws Exception {
+    testCase.write(
+        relativePath,
+        """
+        def _impl(ctx):
+          symlink = ctx.actions.declare_file(ctx.label.name)
+          ctx.actions.symlink(output = symlink, target_file = ctx.files.srcs[0],
+            is_executable = True)
+          files = depset(ctx.files.srcs)
+          return [DefaultInfo(files = files, executable = symlink,
+             runfiles = ctx.runfiles(transitive_files = files, collect_default = True))]
+        foo_binary = rule(
+          implementation = _impl,
+          executable = True,
+          attrs = {
+            "srcs": attr.label_list(allow_files=True),
+            "deps": attr.label_list(),
+            "data": attr.label_list(allow_files=True),
+          },
+        )
+        """);
+  }
+
   final void runGeneratedRunfilesRewound(ImmutableList<String> lostRunfiles, SpawnShim shim)
       throws Exception {
+    mockFooBinary("middle/foo_binary.bzl");
     testCase.write(
         "middle/BUILD",
         """
+        load(":foo_binary.bzl", "foo_binary")
         genrule(
             name = "gen1",
             srcs = [],
@@ -1757,7 +1782,7 @@ public class RewindingTestsHelper {
             cmd = 'echo "made by gen2" > $@',
         )
 
-        sh_binary(
+        foo_binary(
             name = "tool",
             srcs = ["tool.sh"],
             data = [
@@ -1886,9 +1911,11 @@ public class RewindingTestsHelper {
    */
   final void runDupeDirectAndRunfilesDependencyRewound(
       AtomicReference<String> intermediate1FirstContent, SpawnShim shim) throws Exception {
+    mockFooBinary("test/foo_binary.bzl");
     testCase.write(
         "test/BUILD",
         """
+        load(":foo_binary.bzl", "foo_binary")
         genrule(
             name = "rule1",
             srcs = [],
@@ -1897,7 +1924,7 @@ public class RewindingTestsHelper {
             tags = ["no-cache"],
         )
 
-        sh_binary(
+        foo_binary(
             name = "tool",
             srcs = ["tool.sh"],
             data = ["intermediate_1.inlined"],
@@ -2081,18 +2108,19 @@ public class RewindingTestsHelper {
             attrs = {"srcs": attr.label_list(allow_files = True)},
         )
         """);
-
+    mockFooBinary("middle/foo_binary.bzl");
     testCase.write(
         "middle/BUILD",
         """
         load(":tree.bzl", "tree")
+        load(":foo_binary.bzl", "foo_binary")
 
         tree(
             name = "gen_tree",
             srcs = ["source_1.txt"],
         )
 
-        sh_binary(
+        foo_binary(
             name = "tool",
             srcs = ["tool.sh"],
             data = [
@@ -3011,7 +3039,7 @@ public class RewindingTestsHelper {
 
         lost_and_found_aspect = aspect(implementation = _lost_and_found_aspect_impl)
         """);
-    testCase.write("foo/BUILD", "sh_library(name = 'lib')");
+    testCase.write("foo/BUILD", "filegroup(name = 'lib')");
     lostOutputsModule.addLostOutput(getExecPath("bin/foo/lost.out"));
     Label fooLib = Label.parseCanonical("//foo:lib");
     List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();

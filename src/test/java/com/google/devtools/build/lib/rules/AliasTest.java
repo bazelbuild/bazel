@@ -591,8 +591,10 @@ public class AliasTest extends BuildViewTestCase {
 
   @Test
   public void aliasedTestSuiteDep() throws Exception {
-    scratch.file("a/BUILD",
-        "sh_test(name='a', srcs=['a.sh'])");
+    scratch.file(
+        "a/BUILD",
+        "load('//test_defs:foo_test.bzl', 'foo_test')",
+        "foo_test(name='a', srcs=['a.sh'])");
     scratch.file(
         "b/BUILD",
         """

@@ -467,9 +467,18 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   @Test
   public void testTestSuitesImplicitlyDependOnAllRulesInPackage() throws Exception {
     scratch.file(
+        "x/foo_test.bzl",
+        """
+        def _impl(ctx):
+          pass
+        foo_test = rule(implementation = _impl, test = True,
+          attrs = {"srcs": attr.label_list(allow_files=True)})
+        """);
+    scratch.file(
         "x/BUILD",
         """
-        sh_test(name='s', srcs = ['foo.sh'])
+        load(':foo_test.bzl', 'foo_test')
+        foo_test(name='s', srcs = ['foo.sh'])
         test_suite(name='t1')
         test_suite(name='t2', tests=[])
         test_suite(name='t3', tests=['//foo'])
@@ -898,7 +907,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     scratch.file(
         "foo/BUILD",
         "package(default_deprecation = \"" + msg + "\")",
-        "sh_library(name = 'bar', srcs=['b'])");
+        "filegroup(name = 'bar', srcs=['b'])");
     Rule fooRule = (Rule) getTarget("//foo:bar");
     String deprAttr =
         attributes(fooRule).get("deprecation", com.google.devtools.build.lib.packages.Type.STRING);
@@ -911,8 +920,8 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         "foo/BUILD",
         """
         package(default_testonly = 1)
-        sh_library(name = 'foo', srcs=['b'])
-        sh_library(name = 'bar', srcs=['b'], testonly = 0)
+        filegroup(name = 'foo', srcs=['b'])
+        filegroup(name = 'bar', srcs=['b'], testonly = 0)
         """);
     Package pkg = loadPackage("foo");
 
@@ -936,7 +945,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     scratch.file(
         "foo/BUILD",
         "package(default_deprecation = \"" + deceive + "\")",
-        "sh_library(name = 'bar', srcs=['b'], deprecation = \"" + msg + "\")");
+        "filegroup(name = 'bar', srcs=['b'], deprecation = \"" + msg + "\")");
     Package pkg = loadPackage("foo");
 
     Rule fooRule = (Rule) pkg.getTarget("bar");
@@ -950,9 +959,9 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     scratch.file(
         "a/BUILD",
         """
-        sh_library(name='before')
+        filegroup(name='before')
         package(features=['b', 'c'])
-        sh_library(name='after')
+        filegroup(name='after')
         """);
     Package pkg = loadPackage("a");
     assertThat(pkg.getPackageArgs().features())
@@ -961,7 +970,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
 
   @Test
   public void testTransientErrorsInGlobbing() throws Exception {
-    Path buildFile = scratch.file("e/BUILD", "sh_library(name = 'e', data = glob(['*']))");
+    Path buildFile = scratch.file("e/BUILD", "filegroup(name = 'e', srcs = glob(['*']))");
     throwOnReaddir = buildFile.getParentDirectory();
     invalidatePackages();
     reporter.removeHandler(failFastHandler);
@@ -974,7 +983,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     Package pkg = loadPackage("e"); // no error
     assertThat(pkg.containsErrors()).isFalse();
     assertThat(pkg.getRule("e")).isNotNull();
-    List<?> globList = (List) pkg.getRule("e").getAttr("data");
+    List<?> globList = (List) pkg.getRule("e").getAttr("srcs");
     assertThat(globList).containsExactly(Label.parseCanonical("//e:BUILD"));
   }
 

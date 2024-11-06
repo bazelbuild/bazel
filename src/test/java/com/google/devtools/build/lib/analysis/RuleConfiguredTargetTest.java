@@ -528,14 +528,22 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testNegativeShardCount() throws Exception {
-    checkError("foo", "bar", "Must not be negative.",
-        "sh_test(name='bar', srcs=['mockingbird.sh'], shard_count=-1)");
+    checkError(
+        "foo",
+        "bar",
+        "Must not be negative.",
+        "load('//test_defs:foo_test.bzl', 'foo_test')",
+        "foo_test(name='bar', srcs=['mockingbird.sh'], shard_count=-1)");
   }
 
   @Test
   public void testExcessiveShardCount() throws Exception {
-    checkError("foo", "bar", "indicative of poor test organization",
-        "sh_test(name='bar', srcs=['mockingbird.sh'], shard_count=51)");
+    checkError(
+        "foo",
+        "bar",
+        "indicative of poor test organization",
+        "load('//test_defs:foo_test.bzl', 'foo_test')",
+        "foo_test(name='bar', srcs=['mockingbird.sh'], shard_count=51)");
   }
 
   @Test

@@ -1222,7 +1222,7 @@ public class AspectTest extends AnalysisTestCase {
             "aspect1 = aspect(implementation = _aspect1_impl)",
             "aspect2 = aspect(implementation = _aspect2_impl)");
     scratch.file("foo/aspect.bzl", String.format(bzlFileTemplate, "2"));
-    scratch.file("foo/BUILD", "sh_library(name = 'foo', srcs = ['foo.sh'])");
+    scratch.file("foo/BUILD", "filegroup(name = 'foo', srcs = ['foo.sh'])");
     // Expect errors.
     reporter.removeHandler(failFastHandler);
     ViewCreationFailedException exception =
@@ -1312,7 +1312,7 @@ public class AspectTest extends AnalysisTestCase {
             deps = [":dep"],
         )
 
-        sh_library(
+        filegroup(
             name = "dep",
             srcs = ["dep.sh"],
         )
@@ -1585,7 +1585,7 @@ public class AspectTest extends AnalysisTestCase {
             },
         )
         """);
-    scratch.file("tool/BUILD", "sh_library(name='tool', visibility = ['//defs:__pkg__'])");
+    scratch.file("tool/BUILD", "filegroup(name='tool', visibility = ['//defs:__pkg__'])");
     scratch.file(
         "pkg/BUILD",
         """
@@ -1611,7 +1611,7 @@ public class AspectTest extends AnalysisTestCase {
 
   @Test
   public void nativeAspectFailIfDepsNotVisible() throws Exception {
-    scratch.file("tool/BUILD", "sh_library(name='tool', visibility = ['//visibility:private'])");
+    scratch.file("tool/BUILD", "filegroup(name='tool', visibility = ['//visibility:private'])");
     ExtraAttributeAspect extraAttributeAspect = new ExtraAttributeAspect("//tool:tool", false);
     setRulesAndAspectsAvailableInTests(ImmutableList.of(extraAttributeAspect), ImmutableList.of());
     scratch.file(

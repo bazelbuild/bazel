@@ -258,7 +258,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         pathString, getPyLoad("py_binary"), "py_binary(name = 'hello', srcs = ['hello.py'])");
 
     // A dummy file that is never changed.
-    scratch.file(rootDirectory + "/misc/BUILD", "sh_binary(name = 'misc', srcs = ['hello.sh'])");
+    scratch.file(rootDirectory + "/misc/BUILD", "filegroup(name = 'misc', srcs = ['hello.sh'])");
 
     sync("//python/hello:hello", "//misc:misc");
 
@@ -574,12 +574,12 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     scratch.file(
         "x/BUILD",
         """
-        sh_library(
+        filegroup(
             name = "x",
-            deps = ["//x:y/z"],
+            srcs = ["//x:y/z"],
         )
 
-        sh_library(name = "y/z")
+        filegroup(name = "y/z")
         """);
 
     Package pkgBefore =
@@ -588,7 +588,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             .getPackage(eventHandler, PackageIdentifier.createInMainRepo("x"));
     assertThat(pkgBefore.containsErrors()).isFalse();
 
-    scratch.file("x/y/BUILD", "sh_library(name = 'z')");
+    scratch.file("x/y/BUILD", "filegroup(name = 'z')");
     ModifiedFileSet modifiedFiles =
         ModifiedFileSet.builder()
             .modify(PathFragment.create("x"))

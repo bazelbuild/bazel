@@ -71,7 +71,25 @@ public class PackageLoadingTest extends FoundationTestCase {
 
   @Before
   public final void initializeSkyframeExecutor() throws Exception {
-    initializeSkyframeExecutor(/*doPackageLoadingChecks=*/ true);
+    initializeSkyframeExecutor(/* doPackageLoadingChecks= */ true);
+  }
+
+  @Before
+  public final void fooLibrary() throws Exception {
+    scratch.file("test_defs/BUILD");
+    scratch.file(
+        "test_defs/foo_library.bzl",
+        """
+        def _impl(ctx):
+          pass
+        foo_library = rule(
+          implementation = _impl,
+          attrs = {
+            "srcs": attr.label_list(allow_files=True),
+            "deps": attr.label_list(),
+          },
+        )
+        """);
   }
 
   /**
@@ -362,10 +380,11 @@ public class PackageLoadingTest extends FoundationTestCase {
 
   protected Path createBuildFile(Path workspace, String packageName, String... targets)
       throws IOException {
-    String[] lines = new String[targets.length];
+    String[] lines = new String[targets.length + 1];
 
+    lines[0] = "load('//test_defs:foo_library.bzl', 'foo_library')";
     for (int i = 0; i < targets.length; i++) {
-      lines[i] = "sh_library(name='" + targets[i] + "')";
+      lines[i + 1] = "foo_library(name='" + targets[i] + "')";
     }
 
     return scratch.file(workspace + "/" + packageName + "/BUILD", lines);
@@ -592,19 +611,21 @@ public class PackageLoadingTest extends FoundationTestCase {
     scratch.file(
         "p/BUILD",
         """
-        sh_library(
+        load('//test_defs:foo_library.bzl', 'foo_library')
+
+        foo_library(
             name = "t1",
             srcs = ["f.sh"],
         )
 
-        sh_library(
+        foo_library(
             name = "t2",
             srcs = ["f.sh"],
         )
         """);
     Package p = getPackage("p");
     InputFile f = (InputFile) p.getTarget("f.sh");
-    assertThat(f.getLocation().line()).isEqualTo(1);
+    assertThat(f.getLocation().line()).isEqualTo(3);
   }
 
   @Test
@@ -615,9 +636,11 @@ public class PackageLoadingTest extends FoundationTestCase {
     scratch.file(
         "p/BUILD",
         """
-        sh_library(name = "sub/a")
+        load('//test_defs:foo_library.bzl', 'foo_library')
 
-        sh_library(name = "sub/b")
+        foo_library(name = "sub/a")
+
+        foo_library(name = "sub/b")
         """);
     Package p = getPackage("p");
     assertThat(p.getFailureDetail().getPackageLoading().getCode())

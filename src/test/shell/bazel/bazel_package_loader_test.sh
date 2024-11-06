@@ -25,14 +25,14 @@ function test_bazel_package_loader() {
   install_base="$(bazel info install_base)"
   mkdir foo bar
   cat > foo/BUILD << 'EOF'
-sh_library(name = 'a')
-sh_library(name = 'b')
-sh_library(name = 'c')
+filegroup(name = 'a')
+filegroup(name = 'b')
+filegroup(name = 'c')
 EOF
   cat > bar/BUILD << 'EOF'
-sh_library(name = 'x')
-sh_library(name = 'y')
-sh_library(name = 'z')
+filegroup(name = 'x')
+filegroup(name = 'y')
+filegroup(name = 'z')
 EOF
 
   # Skip WORKSPACE suffix to avoid loading rules_java_builtin repo.

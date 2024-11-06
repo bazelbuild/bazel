@@ -1,4 +1,4 @@
-load(":build_defs.bzl", "BZLMOD_ENABLED")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -41,10 +41,9 @@ filegroup(
 # Sources in the built in repo '@bazel_tools'
 filegroup(
     name = "embedded_tools_srcs",
-    srcs = glob(
-        ["**"],
-        exclude = ["fastutil.proguard"],
-    ) + [
+    srcs = [
+        "BUILD.tools",
+        "build_defs.bzl",
         "//tools/allowlists:srcs",
         "//tools/android:embedded_tools",
         "//tools/bash:embedded_tools",
@@ -93,9 +92,4 @@ filegroup(
 sh_binary(
     name = "upload_bazel_mirror",
     srcs = ["upload_bazel_mirror.sh"],
-)
-
-alias(
-    name = "host_platform",
-    actual = "@platforms//host" if BZLMOD_ENABLED else "@internal_platforms_do_not_use//host",
 )

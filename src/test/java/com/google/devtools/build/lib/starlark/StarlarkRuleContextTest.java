@@ -1924,8 +1924,9 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "test/BUILD",
         """
         load('//test:rule.bzl', 'symlink_rule')
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
         symlink_rule(name = 'lib_with_symlink', symlink = ':a.py')
-        sh_binary(
+        foo_binary(
           name = 'test_with_symlink',
           srcs = ['test/b.py'],
           data = [':lib_with_symlink'],
@@ -1974,8 +1975,9 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "test/BUILD",
         """
         load('//test:rule.bzl', 'symlink_rule')
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
         symlink_rule(name = 'lib_with_symlink', symlink = ':a.py')
-        sh_binary(
+        foo_binary(
           name = 'test_with_symlink',
           srcs = ['test/b.py'],
           data = [':lib_with_symlink'],
@@ -2025,8 +2027,9 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "test/BUILD",
         """
         load('//test:rule.bzl', 'root_symlink_rule')
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
         root_symlink_rule(name = 'lib_with_root_symlink', root_symlink = ':a.py')
-        sh_binary(
+        foo_binary(
           name = 'test_with_root_symlink',
           srcs = ['test/b.py'],
           data = [':lib_with_root_symlink'],
@@ -2075,8 +2078,9 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "test/BUILD",
         """
         load('//test:rule.bzl', 'root_symlink_rule')
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
         root_symlink_rule(name = 'lib_with_root_symlink', root_symlink = ':a.py')
-        sh_binary(
+        foo_binary(
           name = 'test_with_root_symlink',
           srcs = ['test/b.py'],
           data = [':lib_with_root_symlink'],
@@ -2181,8 +2185,9 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "test/BUILD",
         """
         load('//test:rule.bzl', 'symlink_rule')
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
         symlink_rule(name = 'lib_with_symlink', symlink = ':a.py')
-        sh_binary(
+        foo_binary(
           name = 'test_with_symlink',
           srcs = ['test/b.py'],
           data = [':lib_with_symlink'],
@@ -2248,9 +2253,10 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "test/BUILD",
         """
         load('//test:rule.bzl', 'symlink_merge_rule')
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
         symlink_merge_rule(name = 'lib_a', symlink = ':a.py', dep = 'lib_b')
         symlink_merge_rule(name = 'lib_b', symlink = ':b.py')
-        sh_binary(
+        foo_binary(
           name = 'test',
           srcs = ['test/other.py'],
           data = [':lib_a'],
@@ -2297,10 +2303,11 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "test/BUILD",
         """
         load('//test:rule.bzl', 'symlink_merge_all_rule')
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
         symlink_merge_all_rule(name = 'lib_a', symlink = ':a.py', deps = [':lib_b', ':lib_c'])
         symlink_merge_all_rule(name = 'lib_b', symlink = ':b.py')
         symlink_merge_all_rule(name = 'lib_c', symlink = ':c.py')
-        sh_binary(
+        foo_binary(
           name = 'test',
           srcs = ['test/other.py'],
           data = [':lib_a'],

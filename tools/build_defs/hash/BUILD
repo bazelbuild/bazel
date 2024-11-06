@@ -1,4 +1,5 @@
-load("@rules_python//python:defs.bzl", "py_binary")
+load("@rules_python//python:py_binary.bzl", "py_binary")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 licenses(["notice"])  # Apache 2.0
 
@@ -8,9 +9,14 @@ filegroup(
     visibility = ["//tools/build_defs:__pkg__"],
 )
 
-exports_files(
-    ["README.md"],
-    visibility = ["//site:__pkg__"],
+filegroup(
+    name = "embedded_tools",
+    srcs = [
+        "BUILD.tools",
+        "hash.bzl",
+        "sha256.py",
+    ],
+    visibility = ["//tools/build_defs:__pkg__"],
 )
 
 py_binary(

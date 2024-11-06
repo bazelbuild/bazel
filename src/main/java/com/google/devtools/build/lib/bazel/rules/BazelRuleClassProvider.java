@@ -374,7 +374,6 @@ public class BazelRuleClassProvider {
           ConfigRules.INSTANCE,
           PlatformRules.INSTANCE,
           PROTO_RULES,
-          ShRules.INSTANCE,
           CcRules.INSTANCE,
           JavaRules.INSTANCE,
           JAVA_PROTO_RULES,

@@ -180,7 +180,8 @@ public class VisibilityTest extends AnalysisTestCase {
     scratch.file(
         "aspect_def/BUILD",
         """
-        sh_binary(
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
+        foo_binary(
             name = "aspect_tool",
             srcs = ["a.sh"],
             visibility = ["//visibility:private"],
@@ -200,7 +201,8 @@ public class VisibilityTest extends AnalysisTestCase {
     scratch.file(
         "rule_def/BUILD",
         """
-        sh_binary(
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
+        foo_binary(
             name = "rule_tool",
             srcs = ["a.sh"],
             visibility = ["//visibility:private"],
@@ -311,19 +313,20 @@ public class VisibilityTest extends AnalysisTestCase {
     scratch.file(
         "tool/BUILD",
         """
-        sh_binary(
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
+        foo_binary(
             name = "outer_aspect_tool",
             srcs = ["a.sh"],
             visibility = ["//outer_aspect:__pkg__"],
         )
 
-        sh_binary(
+        foo_binary(
             name = "inner_aspect_tool",
             srcs = ["a.sh"],
             visibility = ["//inner_aspect:__pkg__"],
         )
 
-        sh_binary(
+        foo_binary(
             name = "rule_tool",
             srcs = ["a.sh"],
             visibility = ["//rule:__pkg__"],
@@ -404,19 +407,20 @@ public class VisibilityTest extends AnalysisTestCase {
     scratch.file(
         "tool/BUILD",
         """
-        sh_binary(
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
+        foo_binary(
             name = "outer_aspect_tool",
             srcs = ["a.sh"],
             visibility = ["//outer_aspect:__pkg__"],
         )
 
-        sh_binary(
+        foo_binary(
             name = "inner_aspect_tool",
             srcs = ["a.sh"],
             visibility = ["//inner_aspect:__pkg__"],
         )
 
-        sh_binary(
+        foo_binary(
             name = "rule_tool",
             srcs = ["a.sh"],
             visibility = ["//rule:__pkg__"],
@@ -497,7 +501,8 @@ public class VisibilityTest extends AnalysisTestCase {
     scratch.file(
         "tool/BUILD",
         """
-        sh_binary(
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
+        foo_binary(
             name = "outer_aspect_tool",
             srcs = ["a.sh"],
             visibility = [
@@ -506,13 +511,13 @@ public class VisibilityTest extends AnalysisTestCase {
             ],
         )
 
-        sh_binary(
+        foo_binary(
             name = "inner_aspect_tool",
             srcs = ["a.sh"],
             visibility = ["//inner_aspect:__pkg__"],
         )
 
-        sh_binary(
+        foo_binary(
             name = "rule_tool",
             srcs = ["a.sh"],
             visibility = ["//rule:__pkg__"],
@@ -597,13 +602,14 @@ public class VisibilityTest extends AnalysisTestCase {
     scratch.file(
         "tool/BUILD",
         """
-        sh_binary(
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
+        foo_binary(
             name = "outer_aspect_tool",
             srcs = ["a.sh"],
             visibility = ["//outer_aspect:__pkg__"],
         )
 
-        sh_binary(
+        foo_binary(
             name = "inner_aspect_tool",
             srcs = ["a.sh"],
             visibility = [
@@ -612,7 +618,7 @@ public class VisibilityTest extends AnalysisTestCase {
             ],
         )
 
-        sh_binary(
+        foo_binary(
             name = "rule_tool",
             srcs = ["a.sh"],
             visibility = ["//rule:__pkg__"],
@@ -697,19 +703,20 @@ public class VisibilityTest extends AnalysisTestCase {
     scratch.file(
         "tool/BUILD",
         """
-        sh_binary(
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
+        foo_binary(
             name = "outer_aspect_tool",
             srcs = ["a.sh"],
             visibility = ["//outer_aspect:__pkg__"],
         )
 
-        sh_binary(
+        foo_binary(
             name = "inner_aspect_tool",
             srcs = ["a.sh"],
             visibility = ["//inner_aspect:__pkg__"],
         )
 
-        sh_binary(
+        foo_binary(
             name = "rule_tool",
             srcs = ["a.sh"],
             visibility = [
