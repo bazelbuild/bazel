@@ -35,16 +35,16 @@
 #include <grpcpp/security/credentials.h>
 #include <limits.h>
 #include <stdarg.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include <algorithm>
 #include <chrono>  // NOLINT (gRPC requires this)
-#include <cinttypes>
 #include <map>
 #include <memory>
 #include <mutex>  // NOLINT
+#include <optional>
 #include <set>
 #include <sstream>
 #include <string>
@@ -195,8 +195,8 @@ class BlazeServer final {
  public:
   explicit BlazeServer(const StartupOptions &startup_options);
 
-  // Acquire a lock for the server running in this output base. Returns the
-  // number of milliseconds spent waiting for the lock.
+  // Acquire a lock for the output base this server is running in.
+  // Returns the number of milliseconds spent waiting for the lock.
   uint64_t AcquireLock();
 
   // Whether there is an active connection to a server.
@@ -232,7 +232,7 @@ class BlazeServer final {
   const ServerProcessInfo &ProcessInfo() const { return process_info_; }
 
  private:
-  BlazeLock blaze_lock_;
+  std::optional<LockHandle> output_base_lock_;
 
   enum CancelThreadAction { NOTHING, JOIN, CANCEL, COMMAND_ID_RECEIVED };
 
@@ -250,6 +250,7 @@ class BlazeServer final {
   // actions from.
   std::unique_ptr<blaze_util::IPipe> pipe_;
 
+  void ReleaseLock();
   bool TryConnect(CommandServer::Stub *client);
   void CancelThread();
   void SendAction(CancelThreadAction action);
@@ -274,8 +275,28 @@ static BlazeServer *blaze_server;
 // objects before those.
 
 uint64_t BlazeServer::AcquireLock() {
-  return blaze::AcquireLock(output_base_, batch_, block_for_lock_,
-                            &blaze_lock_);
+  if (output_base_lock_.has_value()) {
+    BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+        << "AcquireLock() called but the lock is already held.";
+  }
+  // Take an exclusive lock on the output base, because two simultaneous
+  // commands may not run against the same output base. Note that this lock will
+  // be released by ReleaseLock() once the server is running, as it can handle
+  // concurrent clients on its own.
+  uint64_t wait_time;
+  output_base_lock_ = blaze::AcquireLock(
+      "output base", output_base_.GetRelative("lock"), LockMode::kExclusive,
+      batch_, block_for_lock_, &wait_time);
+  return wait_time;
+}
+
+void BlazeServer::ReleaseLock() {
+  if (!output_base_lock_.has_value()) {
+    BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+        << "ReleaseLock() called without a lock to release.";
+  }
+  blaze::ReleaseLock(*output_base_lock_);
+  output_base_lock_ = std::nullopt;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -1857,12 +1878,12 @@ unsigned int BlazeServer::Communicate(
   std::unique_ptr<grpc::ClientReader<command_server::RunResponse>> reader(
       client_->Run(context.get(), request));
 
-  // Release the server lock because the gRPC handles concurrent clients just
-  // fine. Note that this may result in two "waiting for other client" messages
-  // (one during server startup and one emitted by the server)
-  BAZEL_LOG(INFO)
-      << "Releasing client lock, let the server manage concurrent requests.";
-  blaze::ReleaseLock(&blaze_lock_);
+  // Release the client lock because the gRPC server handles concurrent clients
+  // just fine. Note that this may result in two "waiting for other client"
+  // messages (one during server startup and one emitted by the server).
+  BAZEL_LOG(INFO) << "Releasing the client lock, as the server can manage "
+                     "concurrent clients on its own.";
+  ReleaseLock();
 
   std::thread cancel_thread(&BlazeServer::CancelThread, this);
   bool command_id_set = false;
