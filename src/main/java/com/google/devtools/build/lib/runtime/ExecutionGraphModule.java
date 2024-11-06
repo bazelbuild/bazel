@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionOwner;
+import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
 import com.google.devtools.build.lib.actions.DiscoveredInputsEvent;
@@ -61,12 +62,14 @@ import com.google.devtools.build.lib.runtime.BuildEventArtifactUploaderFactory.I
 import com.google.devtools.build.lib.server.FailureDetails.BuildReport;
 import com.google.devtools.build.lib.server.FailureDetails.BuildReport.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutorWrappingWalkableGraph;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecutionStartedEvent;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -86,6 +89,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import javax.annotation.Nullable;
 
 /**
  * Blaze module that writes a partial execution graph with performance data. The file will be zstd
@@ -297,7 +301,7 @@ public class ExecutionGraphModule extends BlazeModule {
   /** Record an action that didn't publish any SpawnExecutedEvents. */
   @Subscribe
   @AllowConcurrentEvents
-  public void actionComplete(ActionCompletionEvent event) {
+  public void actionComplete(ActionCompletionEvent event) throws InterruptedException {
     actionEvent(
         event.getAction(),
         event.getInputMetadataProvider(),
@@ -312,7 +316,7 @@ public class ExecutionGraphModule extends BlazeModule {
    */
   @Subscribe
   @AllowConcurrentEvents
-  public void actionCached(CachedActionEvent event) {
+  public void actionCached(CachedActionEvent event) throws InterruptedException {
     actionEvent(
         event.getAction(),
         event.getInputMetadataProvider(),
@@ -324,7 +328,8 @@ public class ExecutionGraphModule extends BlazeModule {
       Action action,
       InputMetadataProvider inputMetadataProvider,
       long nanoTimeStart,
-      long nanoTimeFinish) {
+      long nanoTimeFinish)
+      throws InterruptedException {
     ActionDumpWriter localWriter = writer;
     if (localWriter != null) {
       localWriter.enqueue(
@@ -346,7 +351,7 @@ public class ExecutionGraphModule extends BlazeModule {
 
   @Subscribe
   @AllowConcurrentEvents
-  public void spawnExecuted(SpawnExecutedEvent event) {
+  public void spawnExecuted(SpawnExecutedEvent event) throws InterruptedException {
     // Writer might be modified by a concurrent call to shutdown. See b/184943744.
     // It may be possible to get a BuildCompleteEvent before a duplicate Spawn that runs with a
     // dynamic execution strategy, in which case we wouldn't export that Spawn. That's ok, since it
@@ -387,11 +392,12 @@ public class ExecutionGraphModule extends BlazeModule {
   @VisibleForTesting
   protected abstract static class ActionDumpWriter implements Runnable {
 
-    private ExecutionGraph.Node actionToNode(
+    private void buildAndEnqueueActionNode(
         Action action,
-        InputMetadataProvider inputMetadataProvider,
+        @Nullable InputMetadataProvider inputMetadataProvider,
         long startMillis,
-        long finishMillis) {
+        long finishMillis)
+        throws InterruptedException {
       int index = nextIndex.getAndIncrement();
       ExecutionGraph.Node.Builder node =
           ExecutionGraph.Node.newBuilder()
@@ -417,7 +423,7 @@ public class ExecutionGraphModule extends BlazeModule {
           finishMillis - startMillis,
           index);
 
-      return node.build();
+      enqueue(node.build().toByteArray());
     }
 
     private void setFieldsFromOwner(ExecutionGraph.Node.Builder node, ActionOwner owner) {
@@ -431,7 +437,7 @@ public class ExecutionGraphModule extends BlazeModule {
       }
     }
 
-    private ExecutionGraph.Node toProto(SpawnExecutedEvent event) {
+    private ExecutionGraph.Node toProto(SpawnExecutedEvent event) throws InterruptedException {
       ExecutionGraph.Node.Builder nodeBuilder = ExecutionGraph.Node.newBuilder();
       int index = nextIndex.getAndIncrement();
       Spawn spawn = event.getSpawn();
@@ -523,10 +529,11 @@ public class ExecutionGraphModule extends BlazeModule {
         Iterable<? extends ActionInput> outputs,
         NestedSet<? extends ActionInput> inputs,
         ActionExecutionMetadata metadata,
-        InputMetadataProvider inputMetadataProvider,
+        @Nullable InputMetadataProvider inputMetadataProvider,
         long startMillis,
         long totalMillis,
-        int index) {
+        int index)
+        throws InterruptedException {
       if (depType == DependencyInfo.NONE) {
         return;
       }
@@ -591,7 +598,9 @@ public class ExecutionGraphModule extends BlazeModule {
         // We don't use inputMetadataProvider.getRunfilesTrees() because this method is called both
         // for Spawns and Actions and the runfiles on a Spawn can be a subset of the runfiles of the
         // action during whose execution it was created.
-        if ((input instanceof Artifact) && ((Artifact) input).isMiddlemanArtifact()) {
+        if ((input instanceof Artifact)
+            && ((Artifact) input).isMiddlemanArtifact()
+            && inputMetadataProvider != null) {
           // This is a runfiles middleman. Collect the artifacts in it into
           // runfilesArtifactsBuilder.
           RunfilesTree runfilesTree =
@@ -600,21 +609,32 @@ public class ExecutionGraphModule extends BlazeModule {
         }
 
         if (depType == DependencyInfo.ALL) {
-          NodeInfo dep = outputToNode.get(input);
-          if (dep != null) {
-            deps.add(dep.index);
-          }
+          maybeAddArtifactDependency(deps, input, startMillis);
         }
       }
 
       for (Artifact runfilesInput : runfilesArtifactsBuilder.build().toList()) {
-        NodeInfo dep = outputToNode.get(runfilesInput);
-        if (dep != null) {
-          deps.add(dep.index);
-        }
+        maybeAddArtifactDependency(deps, runfilesInput, startMillis);
       }
 
       nodeBuilder.addAllDependentIndex(deps);
+    }
+
+    private void maybeAddArtifactDependency(Set<Integer> deps, ActionInput input, long startMillis)
+        throws InterruptedException {
+      NodeInfo dep = outputToNode.get(input);
+      if (dep == null && graph != null && input instanceof Artifact artifact) {
+        if (Actions.getGeneratingAction(graph, artifact) instanceof Action action) {
+          // TODO(chiwang): Handle runfiles for change-pruned actions.
+          buildAndEnqueueActionNode(
+              action, /* inputMetadataProvider= */ null, startMillis, startMillis);
+          dep = outputToNode.get(input);
+        }
+      }
+
+      if (dep != null) {
+        deps.add(dep.index);
+      }
     }
 
     private static final class NodeInfo {
@@ -647,6 +667,7 @@ public class ExecutionGraphModule extends BlazeModule {
     private final AtomicLong blockedMillis = new AtomicLong(0);
     private final OutputStream outStream;
     private final Thread thread;
+    @Nullable private final WalkableGraph graph;
 
     // This queue entry signals that there are no more entries that need to be written.
     private static final byte[] INVOCATION_COMPLETED = new byte[0];
@@ -662,7 +683,8 @@ public class ExecutionGraphModule extends BlazeModule {
         OutputStream outStream,
         UUID commandId,
         DependencyInfo depType,
-        int queueSize) {
+        int queueSize,
+        @Nullable WalkableGraph graph) {
       this.bugReporter = bugReporter;
       this.localLockFreeOutputEnabled = localLockFreeOutputEnabled;
       this.logFileWriteEdges = logFileWriteEdges;
@@ -675,6 +697,7 @@ public class ExecutionGraphModule extends BlazeModule {
       }
       this.thread = new Thread(this, "action-graph-writer");
       this.thread.start();
+      this.graph = graph;
     }
 
     private static final class ActionDumpQueueFullException extends RuntimeException {
@@ -712,7 +735,8 @@ public class ExecutionGraphModule extends BlazeModule {
         Action action,
         InputMetadataProvider inputMetadataProvider,
         long startMillis,
-        long finishMillis) {
+        long finishMillis)
+        throws InterruptedException {
       // This is here just to capture actions which don't have spawns. If we already know about
       // an output, don't also include it again.
       if (outputToNode.containsKey(getFirstOutput(action, action.getOutputs()))) {
@@ -724,10 +748,10 @@ public class ExecutionGraphModule extends BlazeModule {
         // spawns, we can just skip them here.
         return;
       }
-      enqueue(actionToNode(action, inputMetadataProvider, startMillis, finishMillis).toByteArray());
+      buildAndEnqueueActionNode(action, inputMetadataProvider, startMillis, finishMillis);
     }
 
-    void enqueue(SpawnExecutedEvent event) {
+    void enqueue(SpawnExecutedEvent event) throws InterruptedException {
       enqueue(toProto(event).toByteArray());
     }
 
@@ -838,7 +862,8 @@ public class ExecutionGraphModule extends BlazeModule {
           newUploader(env, bepOptions).startUpload(LocalFileType.PERFORMANCE_LOG, null),
           env.getCommandId(),
           executionGraphOptions.depType,
-          executionGraphOptions.queueSize);
+          executionGraphOptions.queueSize,
+          SkyframeExecutorWrappingWalkableGraph.of(env.getSkyframeExecutor()));
     }
 
     String path = executionGraphOptions.executionGraphLogPath;
@@ -854,7 +879,8 @@ public class ExecutionGraphModule extends BlazeModule {
           actionGraphFile,
           env.getCommandId(),
           executionGraphOptions.depType,
-          executionGraphOptions.queueSize);
+          executionGraphOptions.queueSize,
+          SkyframeExecutorWrappingWalkableGraph.of(env.getSkyframeExecutor()));
     } catch (IOException e) {
       throw new ActionDumpFileCreationException(actionGraphFile, e);
     }
@@ -870,7 +896,8 @@ public class ExecutionGraphModule extends BlazeModule {
         Path actionGraphFile,
         UUID uuid,
         DependencyInfo depType,
-        int queueSize)
+        int queueSize,
+        @Nullable WalkableGraph graph)
         throws IOException {
       super(
           bugReporter,
@@ -879,7 +906,8 @@ public class ExecutionGraphModule extends BlazeModule {
           actionGraphFile.getOutputStream(),
           uuid,
           depType,
-          queueSize);
+          queueSize,
+          graph);
       this.actionGraphFile = actionGraphFile;
     }
 
@@ -918,7 +946,8 @@ public class ExecutionGraphModule extends BlazeModule {
         UploadContext uploadContext,
         UUID commandId,
         DependencyInfo depType,
-        int queueSize) {
+        int queueSize,
+        @Nullable WalkableGraph graph) {
       super(
           bugReporter,
           localLockFreeOutputEnabled,
@@ -926,7 +955,8 @@ public class ExecutionGraphModule extends BlazeModule {
           uploadContext.getOutputStream(),
           commandId,
           depType,
-          queueSize);
+          queueSize,
+          graph);
       this.uploadContext = uploadContext;
     }
 
