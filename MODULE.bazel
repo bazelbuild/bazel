@@ -34,7 +34,7 @@ bazel_dep(name = "rules_testing", version = "0.6.0")
 bazel_dep(name = "googletest", version = "1.15.2", repo_name = "com_google_googletest")
 bazel_dep(name = "with_cfg.bzl", version = "0.6.0")
 bazel_dep(name = "abseil-cpp", version = "20240722.0")
-bazel_dep(name = "rules_shell", version = "0.2.0")
+bazel_dep(name = "rules_shell", version = "0.3.0")
 
 # TODO: wyv@ - use release 29.0 when that's out
 # repo_name needs to be used, until WORKSPACE mode is to be supported in bazel_tools
