@@ -519,12 +519,9 @@ public class ExecutionTool {
       informedOutputServiceToStartTheBuild = true;
     }
     if (!request.getPackageOptions().checkOutputFiles) {
-      // Do not skip output invalidation in the following cases:
-      // 1. If the output tree is empty: this can happen after it's cleaned or corrupted.
-      // 2. For a run command: so that outputs are downloaded even if they were previously built
-      //    with --remote_download_minimal. See https://github.com/bazelbuild/bazel/issues/20843.
-      if (!modifiedOutputFiles.treatEverythingAsDeleted()
-          && !request.getCommandName().equals("run")) {
+      // Do not skip output invalidation if the output tree is empty: this can happen after it's
+      // cleaned or corrupted.
+      if (!modifiedOutputFiles.treatEverythingAsDeleted()) {
         return ModifiedFileSet.NOTHING_MODIFIED;
       }
     }
