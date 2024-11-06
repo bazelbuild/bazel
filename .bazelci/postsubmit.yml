@@ -200,7 +200,6 @@ tasks:
       - "//src:test_repos"
     test_flags:
       - "--config=ci-macos"
-      - "--noremote_accept_cached"
     test_targets:
       - "//scripts/..."
       - "//src/main/starlark/tests/builtins_bzl/..."
