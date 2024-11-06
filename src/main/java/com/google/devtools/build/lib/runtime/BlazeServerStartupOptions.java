@@ -306,19 +306,6 @@ public class BlazeServerStartupOptions extends OptionsBase {
       help = "")
   public Map<String, String> optionSources;
 
-  // TODO(bazel-team): In order to make it easier to have local watchers in open source Bazel,
-  // turn this into a non-startup option.
-  @Option(
-      name = "watchfs",
-      defaultValue = "false", // NOTE: only for documentation, value is always passed by the client.
-      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = OptionMetadataTag.DEPRECATED,
-      help =
-          "If true, %{product} tries to use the operating system's file watch service for local "
-              + "changes instead of scanning every file for a change.")
-  public boolean watchFS;
-
   // This option is only passed in --batch mode. The value is otherwise passed as part of the
   // server request.
   @Option(

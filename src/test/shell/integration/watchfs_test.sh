@@ -51,8 +51,7 @@ function tear_down() {
 }
 
 function helper() {
-  startup_option="$1"
-  command_option="$2"
+  command_option="$1"
   # Name of the calling function to end up using distinct packages.
   local -r pkg=${FUNCNAME[1]}
   mkdir $pkg || fail "mkdir $pkg"
@@ -65,9 +64,9 @@ genrule(
 )
 EOF
   touch "$pkg/whocares.in"
-  bazel $startup_option build $command_option "//$pkg:foo" &> "$TEST_log" \
+  bazel build $command_option "//$pkg:foo" &> "$TEST_log" \
     || fail "Expected success."
-  bazel $startup_option build $command_option "//$pkg:foo" \
+  bazel build $command_option "//$pkg:foo" \
     --record_full_profiler_data \
     --noslim_profile \
     --profile=/tmp/profile.log &> "$TEST_log" || fail "Expected success."
@@ -76,25 +75,13 @@ EOF
 }
 
 function test_nowatchfs() {
-  helper "" ""
+  helper ""
   local -r pkg=${FUNCNAME[0]}
   expect_log "VFS stat.*${pkg}/whocares.in"
 }
 
-function test_startup() {
-  helper "--watchfs" ""
-  local -r pkg=${FUNCNAME[0]}
-  expect_not_log "VFS stat.*${pkg}/whocares.in"
-}
-
 function test_command() {
-  helper "" "--watchfs"
-  local -r pkg=${FUNCNAME[0]}
-  expect_not_log "VFS stat.*${pkg}/whocares.in"
-}
-
-function test_both() {
-  helper "--watchfs" "--watchfs"
+  helper "--watchfs"
   local -r pkg=${FUNCNAME[0]}
   expect_not_log "VFS stat.*${pkg}/whocares.in"
 }

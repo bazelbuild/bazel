@@ -468,11 +468,6 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
     result.push_back("--nowrite_command_log");
   }
 
-  if (startup_options.watchfs) {
-    result.push_back("--watchfs");
-  } else {
-    result.push_back("--nowatchfs");
-  }
   if (startup_options.fatal_event_bus_exceptions) {
     result.push_back("--fatal_event_bus_exceptions");
   } else {
