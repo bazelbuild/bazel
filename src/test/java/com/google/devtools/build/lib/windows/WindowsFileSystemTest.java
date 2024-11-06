@@ -355,6 +355,7 @@ public class WindowsFileSystemTest {
     fs = new WindowsFileSystem(DigestHashFunction.SHA256, /* createSymbolicLinks= */ true);
     PathFragment targetFragment = PathFragment.create("../some/nonexistent/file.txt");
     Path linkPath = scratchRoot.getRelative("link.txt");
+    linkPath.getParentDirectory().createDirectoryAndParents();
     fs.createSymbolicLink(linkPath.asFragment(), targetFragment);
 
     assertThat(linkPath.isSymbolicLink()).isTrue();
