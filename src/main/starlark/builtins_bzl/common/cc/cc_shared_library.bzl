@@ -382,10 +382,7 @@ def _filter_inputs(
         dependency_linker_inputs_sets.append(dep[CcInfo].linking_context.linker_inputs)
         deps_root_tree_nodes.append(dep[GraphNodeInfo])
 
-    if ctx.attr.experimental_disable_topo_sort_do_not_use_remove_before_7_0:
-        dependency_linker_inputs = depset(transitive = dependency_linker_inputs_sets).to_list()
-    else:
-        dependency_linker_inputs = depset(transitive = dependency_linker_inputs_sets, order = "topological").to_list()
+    dependency_linker_inputs = depset(transitive = dependency_linker_inputs_sets, order = "topological").to_list()
 
     can_be_linked_dynamically = {}
     for linker_input in dependency_linker_inputs:
@@ -524,14 +521,11 @@ def _filter_inputs(
 
     linker_inputs_count += _add_unused_dynamic_deps(ctx, unused_dynamic_linker_inputs, _add_linker_input_to_dict, topologically_sorted_labels, link_indirect_deps = False)
 
-    if ctx.attr.experimental_disable_topo_sort_do_not_use_remove_before_7_0:
-        linker_inputs = experimental_remove_before_7_0_linker_inputs
-    else:
-        linker_inputs = _sort_linker_inputs(
-            topologically_sorted_labels,
-            label_to_linker_inputs,
-            linker_inputs_count,
-        )
+    linker_inputs = _sort_linker_inputs(
+        topologically_sorted_labels,
+        label_to_linker_inputs,
+        linker_inputs_count,
+    )
 
     _throw_linked_but_not_exported_errors(linked_statically_but_not_exported)
     return (exports, linker_inputs, curr_link_once_static_libs_set.keys(), precompiled_only_dynamic_libraries)
@@ -1014,7 +1008,6 @@ current target's <code>dynamic_deps</code>) to decide which <code>cc_libraries</
 the transitive <code>deps</code> should not be linked in because they are already provided
 by a different <code>cc_shared_library</code>.
 </p>"""),
-        "experimental_disable_topo_sort_do_not_use_remove_before_7_0": attr.bool(default = False),
         "exports_filter": attr.string_list(doc = """
 This attribute contains a list of targets that are claimed to be exported by the current
 shared library.
