@@ -1,3 +1,17 @@
+## Release 9.0.0-pre.20241026.2 (2024-11-06)
+
+```
+Baseline: 5357798b160f4054ade31d109cae4021ff552e26
+
+Cherry picks:
+
+   + d4898880309159c4eb373d09359fca0ce255ba64:
+     Automated rollback of commit
+     7a4416f114ee5c02fc159f44f71b57ee3e67d29d.
+```
+
+This release contains contributions from many people at Google, as well as Alexander Golovlev, Benson Muite, Fabian Meumertzheim.
+
 ## Release 9.0.0-pre.20241023.1 (2024-10-31)
 
 ```
