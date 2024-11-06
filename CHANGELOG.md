@@ -1,3 +1,45 @@
+## Release 9.0.0-pre.20241026.2 (2024-11-06)
+
+```
+Baseline: 5357798b160f4054ade31d109cae4021ff552e26
+
+Cherry picks:
+
+   + d4898880309159c4eb373d09359fca0ce255ba64:
+     Automated rollback of commit
+     7a4416f114ee5c02fc159f44f71b57ee3e67d29d.
+```
+
+This release contains contributions from many people at Google, as well as Alexander Golovlev, Benson Muite, Fabian Meumertzheim.
+
+## Release 9.0.0-pre.20241023.1 (2024-10-31)
+
+```
+Baseline: 48e940f18d4f75bd6ba79415abfbac088687a1fa
+```
+
+This release contains contributions from many people at Google, as well as Zhongpeng Lin.
+
+## Release 9.0.0-pre.20241020.2 (2024-10-25)
+
+```
+Baseline: fc0bbd73106c6d67ebe22a0544a0480f5400e284
+```
+
+New features:
+
+  - The "blaze --quiet" command line option can now be used to make
+    Blaze emit much less output.
+
+Important changes:
+
+  - The stripPrefix parameter of repository_ctx.download_and_extract()
+    and repository_ctx.extract() has been renamed to strip_prefix;
+    the deprecated
+    stripPrefix name remains usable for compatibility.
+
+This release contains contributions from many people at Google, as well as Dimi Shahbaz, Fabian Meumertzheim, Rostislav Rumenov.
+
 ## Release 9.0.0-pre.20241016.1 (2024-10-22)
 
 ```
