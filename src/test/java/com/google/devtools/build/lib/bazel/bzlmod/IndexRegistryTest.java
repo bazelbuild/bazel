@@ -89,7 +89,6 @@ public class IndexRegistryTest extends FoundationTestCase {
     HttpDownloader httpDownloader = new HttpDownloader();
     downloadManager = new DownloadManager(repositoryCache, httpDownloader, httpDownloader);
     registryFactory = new RegistryFactoryImpl(Suppliers.ofInstance(ImmutableMap.of()));
-    registryFactory.setDownloadManager(downloadManager);
   }
 
   @Test
@@ -104,11 +103,12 @@ public class IndexRegistryTest extends FoundationTestCase {
             ImmutableMap.of(),
             ImmutableMap.of(),
             Optional.empty());
-    assertThat(registry.getModuleFile(createModuleKey("foo", "1.0"), reporter))
+    assertThat(registry.getModuleFile(createModuleKey("foo", "1.0"), reporter, downloadManager))
         .hasValue(
             ModuleFile.create(
                 "lol".getBytes(UTF_8), server.getUrl() + "/myreg/modules/foo/1.0/MODULE.bazel"));
-    assertThat(registry.getModuleFile(createModuleKey("bar", "1.0"), reporter)).isEmpty();
+    assertThat(registry.getModuleFile(createModuleKey("bar", "1.0"), reporter, downloadManager))
+        .isEmpty();
   }
 
   @Test
@@ -130,7 +130,7 @@ public class IndexRegistryTest extends FoundationTestCase {
     var e =
         assertThrows(
             IOException.class,
-            () -> registry.getModuleFile(createModuleKey("foo", "1.0"), reporter));
+            () -> registry.getModuleFile(createModuleKey("foo", "1.0"), reporter, downloadManager));
     assertThat(e)
         .hasMessageThat()
         .isEqualTo(
@@ -138,11 +138,12 @@ public class IndexRegistryTest extends FoundationTestCase {
                 .formatted(server.getUrl() + "/myreg/modules/foo/1.0/MODULE.bazel"));
 
     downloadManager.setNetrcCreds(new NetrcCredentials(netrc));
-    assertThat(registry.getModuleFile(createModuleKey("foo", "1.0"), reporter))
+    assertThat(registry.getModuleFile(createModuleKey("foo", "1.0"), reporter, downloadManager))
         .hasValue(
             ModuleFile.create(
                 "lol".getBytes(UTF_8), server.getUrl() + "/myreg/modules/foo/1.0/MODULE.bazel"));
-    assertThat(registry.getModuleFile(createModuleKey("bar", "1.0"), reporter)).isEmpty();
+    assertThat(registry.getModuleFile(createModuleKey("bar", "1.0"), reporter, downloadManager))
+        .isEmpty();
   }
 
   @Test
@@ -160,9 +161,10 @@ public class IndexRegistryTest extends FoundationTestCase {
             ImmutableMap.of(),
             ImmutableMap.of(),
             Optional.empty());
-    assertThat(registry.getModuleFile(createModuleKey("foo", "1.0"), reporter))
+    assertThat(registry.getModuleFile(createModuleKey("foo", "1.0"), reporter, downloadManager))
         .hasValue(ModuleFile.create("lol".getBytes(UTF_8), file.toURI().toString()));
-    assertThat(registry.getModuleFile(createModuleKey("bar", "1.0"), reporter)).isEmpty();
+    assertThat(registry.getModuleFile(createModuleKey("bar", "1.0"), reporter, downloadManager))
+        .isEmpty();
   }
 
   @Test
@@ -213,7 +215,7 @@ public class IndexRegistryTest extends FoundationTestCase {
             ImmutableMap.of(),
             ImmutableMap.of(),
             Optional.empty());
-    assertThat(registry.getRepoSpec(createModuleKey("foo", "1.0"), reporter))
+    assertThat(registry.getRepoSpec(createModuleKey("foo", "1.0"), reporter, downloadManager))
         .isEqualTo(
             new ArchiveRepoSpecBuilder()
                 .setUrls(
@@ -227,7 +229,7 @@ public class IndexRegistryTest extends FoundationTestCase {
                 .setOverlay(ImmutableMap.of())
                 .setRemotePatchStrip(0)
                 .build());
-    assertThat(registry.getRepoSpec(createModuleKey("bar", "2.0"), reporter))
+    assertThat(registry.getRepoSpec(createModuleKey("bar", "2.0"), reporter, downloadManager))
         .isEqualTo(
             new ArchiveRepoSpecBuilder()
                 .setUrls(
@@ -245,7 +247,7 @@ public class IndexRegistryTest extends FoundationTestCase {
                 .setRemotePatchStrip(3)
                 .setOverlay(ImmutableMap.of())
                 .build());
-    assertThat(registry.getRepoSpec(createModuleKey("baz", "3.0"), reporter))
+    assertThat(registry.getRepoSpec(createModuleKey("baz", "3.0"), reporter, downloadManager))
         .isEqualTo(
             new ArchiveRepoSpecBuilder()
                 .setUrls(
@@ -286,7 +288,7 @@ public class IndexRegistryTest extends FoundationTestCase {
             ImmutableMap.of(),
             ImmutableMap.of(),
             Optional.empty());
-    assertThat(registry.getRepoSpec(createModuleKey("foo", "1.0"), reporter))
+    assertThat(registry.getRepoSpec(createModuleKey("foo", "1.0"), reporter, downloadManager))
         .isEqualTo(
             RepoSpec.builder()
                 .setRuleClassName("local_repository")
@@ -314,7 +316,7 @@ public class IndexRegistryTest extends FoundationTestCase {
             ImmutableMap.of(),
             ImmutableMap.of(),
             Optional.empty());
-    assertThat(registry.getRepoSpec(createModuleKey("foo", "1.0"), reporter))
+    assertThat(registry.getRepoSpec(createModuleKey("foo", "1.0"), reporter, downloadManager))
         .isEqualTo(
             new ArchiveRepoSpecBuilder()
                 .setUrls(ImmutableList.of("http://mysite.com/thing.zip"))
@@ -353,7 +355,8 @@ public class IndexRegistryTest extends FoundationTestCase {
             ImmutableMap.of(),
             Optional.empty());
     assertThrows(
-        IOException.class, () -> registry.getRepoSpec(createModuleKey("foo", "1.0"), reporter));
+        IOException.class,
+        () -> registry.getRepoSpec(createModuleKey("foo", "1.0"), reporter, downloadManager));
   }
 
   @Test
@@ -386,7 +389,7 @@ public class IndexRegistryTest extends FoundationTestCase {
             ImmutableMap.of(),
             Optional.empty());
     Optional<ImmutableMap<Version, String>> yankedVersion =
-        registry.getYankedVersions("red-pill", reporter);
+        registry.getYankedVersions("red-pill", reporter, downloadManager);
     assertThat(yankedVersion)
         .hasValue(
             ImmutableMap.of(
@@ -412,7 +415,8 @@ public class IndexRegistryTest extends FoundationTestCase {
             ImmutableMap.of(),
             ImmutableMap.of(),
             Optional.empty());
-    assertThat(registry.getRepoSpec(createModuleKey("archive_type", "1.0"), reporter))
+    assertThat(
+            registry.getRepoSpec(createModuleKey("archive_type", "1.0"), reporter, downloadManager))
         .isEqualTo(
             new ArchiveRepoSpecBuilder()
                 .setUrls(ImmutableList.of("https://mysite.com/thing?format=zip"))
@@ -446,15 +450,16 @@ public class IndexRegistryTest extends FoundationTestCase {
             knownFiles,
             ImmutableMap.of(),
             Optional.empty());
-    assertThat(registry.getModuleFile(createModuleKey("foo", "1.0"), reporter))
+    assertThat(registry.getModuleFile(createModuleKey("foo", "1.0"), reporter, downloadManager))
         .hasValue(
             ModuleFile.create(
                 "old".getBytes(UTF_8), server.getUrl() + "/myreg/modules/foo/1.0/MODULE.bazel"));
-    assertThat(registry.getModuleFile(createModuleKey("foo", "2.0"), reporter))
+    assertThat(registry.getModuleFile(createModuleKey("foo", "2.0"), reporter, downloadManager))
         .hasValue(
             ModuleFile.create(
                 "new".getBytes(UTF_8), server.getUrl() + "/myreg/modules/foo/2.0/MODULE.bazel"));
-    assertThat(registry.getModuleFile(createModuleKey("bar", "1.0"), reporter)).isEmpty();
+    assertThat(registry.getModuleFile(createModuleKey("bar", "1.0"), reporter, downloadManager))
+        .isEmpty();
 
     var recordedChecksums = eventRecorder.getRecordedHashes();
     assertThat(
@@ -481,15 +486,16 @@ public class IndexRegistryTest extends FoundationTestCase {
     server.unserve("/myreg/modules/foo/1.0/MODULE.bazel");
     server.unserve("/myreg/modules/foo/2.0/MODULE.bazel");
     server.serve("/myreg/modules/bar/1.0/MODULE.bazel", "no longer 404");
-    assertThat(registry.getModuleFile(createModuleKey("foo", "1.0"), reporter))
+    assertThat(registry.getModuleFile(createModuleKey("foo", "1.0"), reporter, downloadManager))
         .hasValue(
             ModuleFile.create(
                 "old".getBytes(UTF_8), server.getUrl() + "/myreg/modules/foo/1.0/MODULE.bazel"));
-    assertThat(registry.getModuleFile(createModuleKey("foo", "2.0"), reporter))
+    assertThat(registry.getModuleFile(createModuleKey("foo", "2.0"), reporter, downloadManager))
         .hasValue(
             ModuleFile.create(
                 "new".getBytes(UTF_8), server.getUrl() + "/myreg/modules/foo/2.0/MODULE.bazel"));
-    assertThat(registry.getModuleFile(createModuleKey("bar", "1.0"), reporter)).isEmpty();
+    assertThat(registry.getModuleFile(createModuleKey("bar", "1.0"), reporter, downloadManager))
+        .isEmpty();
   }
 
   @Test
@@ -513,7 +519,7 @@ public class IndexRegistryTest extends FoundationTestCase {
     var e =
         assertThrows(
             IOException.class,
-            () -> registry.getModuleFile(createModuleKey("foo", "1.0"), reporter));
+            () -> registry.getModuleFile(createModuleKey("foo", "1.0"), reporter, downloadManager));
     assertThat(e)
         .hasMessageThat()
         .isEqualTo(
@@ -551,7 +557,7 @@ public class IndexRegistryTest extends FoundationTestCase {
     Registry registry =
         registryFactory.createRegistry(
             server.getUrl(), LockfileMode.UPDATE, knownFiles, ImmutableMap.of(), Optional.empty());
-    assertThat(registry.getRepoSpec(createModuleKey("foo", "1.0"), reporter))
+    assertThat(registry.getRepoSpec(createModuleKey("foo", "1.0"), reporter, downloadManager))
         .isEqualTo(
             RepoSpec.builder()
                 .setRuleClassName("local_repository")
@@ -579,7 +585,7 @@ public class IndexRegistryTest extends FoundationTestCase {
     // changes.
     server.unserve("/bazel_registry.json");
     server.unserve("/modules/foo/1.0/source.json");
-    assertThat(registry.getRepoSpec(createModuleKey("foo", "1.0"), reporter))
+    assertThat(registry.getRepoSpec(createModuleKey("foo", "1.0"), reporter, downloadManager))
         .isEqualTo(
             RepoSpec.builder()
                 .setRuleClassName("local_repository")
@@ -621,7 +627,8 @@ public class IndexRegistryTest extends FoundationTestCase {
             server.getUrl(), LockfileMode.UPDATE, knownFiles, ImmutableMap.of(), Optional.empty());
     var e =
         assertThrows(
-            IOException.class, () -> registry.getRepoSpec(createModuleKey("foo", "1.0"), reporter));
+            IOException.class,
+            () -> registry.getRepoSpec(createModuleKey("foo", "1.0"), reporter, downloadManager));
     assertThat(e)
         .hasMessageThat()
         .isEqualTo(
@@ -665,7 +672,8 @@ public class IndexRegistryTest extends FoundationTestCase {
             server.getUrl(), LockfileMode.UPDATE, knownFiles, ImmutableMap.of(), Optional.empty());
     var e =
         assertThrows(
-            IOException.class, () -> registry.getRepoSpec(createModuleKey("foo", "1.0"), reporter));
+            IOException.class,
+            () -> registry.getRepoSpec(createModuleKey("foo", "1.0"), reporter, downloadManager));
     assertThat(e)
         .hasMessageThat()
         .isEqualTo(

@@ -166,6 +166,9 @@ public class BazelRepositoryModule extends BlazeModule {
   private List<String> allowedYankedVersions = ImmutableList.of();
   private boolean disableNativeRepoRules;
   private SingleExtensionEvalFunction singleExtensionEvalFunction;
+  private ModuleFileFunction moduleFileFunction;
+  private RepoSpecFunction repoSpecFunction;
+  private YankedVersionsFunction yankedVersionsFunction;
 
   private final VendorCommand vendorCommand = new VendorCommand(clientEnvironmentSupplier);
   private final RegistryFactoryImpl registryFactory =
@@ -255,14 +258,17 @@ public class BazelRepositoryModule extends BlazeModule {
       builtinModules = ModuleFileFunction.getBuiltinModules(directories.getEmbeddedBinariesRoot());
     }
 
+    moduleFileFunction =
+        new ModuleFileFunction(
+            runtime.getRuleClassProvider().getBazelStarlarkEnvironment(),
+            directories.getWorkspace(),
+            builtinModules);
+    repoSpecFunction = new RepoSpecFunction();
+    yankedVersionsFunction = new YankedVersionsFunction();
+
     builder
         .addSkyFunction(SkyFunctions.REPOSITORY_DIRECTORY, repositoryDelegatorFunction)
-        .addSkyFunction(
-            SkyFunctions.MODULE_FILE,
-            new ModuleFileFunction(
-                runtime.getRuleClassProvider().getBazelStarlarkEnvironment(),
-                directories.getWorkspace(),
-                builtinModules))
+        .addSkyFunction(SkyFunctions.MODULE_FILE, moduleFileFunction)
         .addSkyFunction(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction())
         .addSkyFunction(
             SkyFunctions.BAZEL_LOCK_FILE, new BazelLockFileFunction(directories.getWorkspace()))
@@ -276,8 +282,8 @@ public class BazelRepositoryModule extends BlazeModule {
         .addSkyFunction(
             SkyFunctions.REGISTRY,
             new RegistryFunction(registryFactory, directories.getWorkspace()))
-        .addSkyFunction(SkyFunctions.REPO_SPEC, new RepoSpecFunction())
-        .addSkyFunction(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction())
+        .addSkyFunction(SkyFunctions.REPO_SPEC, repoSpecFunction)
+        .addSkyFunction(SkyFunctions.YANKED_VERSIONS, yankedVersionsFunction)
         .addSkyFunction(
             SkyFunctions.VENDOR_FILE,
             new VendorFileFunction(runtime.getRuleClassProvider().getBazelStarlarkEnvironment()))
@@ -312,8 +318,10 @@ public class BazelRepositoryModule extends BlazeModule {
     DownloadManager downloadManager =
         new DownloadManager(repositoryCache, env.getDownloaderDelegate(), env.getHttpDownloader());
     this.starlarkRepositoryFunction.setDownloadManager(downloadManager);
+    this.moduleFileFunction.setDownloadManager(downloadManager);
+    this.repoSpecFunction.setDownloadManager(downloadManager);
+    this.yankedVersionsFunction.setDownloadManager(downloadManager);
     this.vendorCommand.setDownloadManager(downloadManager);
-    this.registryFactory.setDownloadManager(downloadManager);
 
     clientEnvironmentSupplier.set(env.getRepoEnv());
     PackageOptions pkgOptions = env.getOptions().getOptions(PackageOptions.class);

@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.NonRootModuleF
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.lib.bazel.repository.PatchUtil;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum.MissingChecksumException;
+import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -98,6 +99,7 @@ public class ModuleFileFunction implements SkyFunction {
   private final BazelStarlarkEnvironment starlarkEnv;
   private final Path workspaceRoot;
   private final ImmutableMap<String, NonRegistryOverride> builtinModules;
+  @Nullable private DownloadManager downloadManager;
 
   private static final String BZLMOD_REMINDER =
       """
@@ -228,6 +230,10 @@ public class ModuleFileFunction implements SkyFunction {
         module,
         RegistryFileDownloadEvent.collectToMap(
             getModuleFileResult.downloadEventHandler.getPosts()));
+  }
+
+  public void setDownloadManager(DownloadManager downloadManager) {
+    this.downloadManager = downloadManager;
   }
 
   @Nullable
@@ -618,7 +624,8 @@ public class ModuleFileFunction implements SkyFunction {
     StoredEventHandler downloadEventHandler = new StoredEventHandler();
     for (Registry registry : registryObjects) {
       try {
-        Optional<ModuleFile> maybeModuleFile = registry.getModuleFile(key, downloadEventHandler);
+        Optional<ModuleFile> maybeModuleFile =
+            registry.getModuleFile(key, downloadEventHandler, this.downloadManager);
         if (maybeModuleFile.isEmpty()) {
           continue;
         }
