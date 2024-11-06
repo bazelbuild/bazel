@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule.ResolutionReason;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -206,6 +207,7 @@ public class BazelModuleInspectorFunction implements SkyFunction {
         // The extension failed, so we can't report its generated repos. We can still report the
         // imported repos in keep going mode, so don't fail and just skip this extension.
         errors.add(e);
+        env.getListener().handle(Event.error(e.getMessage()));
         continue;
       }
       if (singleExtensionValue == null) {

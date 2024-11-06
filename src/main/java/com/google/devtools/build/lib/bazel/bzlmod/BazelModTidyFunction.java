@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFile
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.rules.repository.NeedsSkyframeRestartException;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
@@ -99,6 +100,7 @@ public class BazelModTidyFunction implements SkyFunction {
       } catch (ExternalDepsException e) {
         // This extension failed, but we can still tidy up other extensions in keep going mode.
         errors.add(e);
+        env.getListener().handle(Event.error(e.getMessage()));
         continue;
       }
       if (value == null) {
