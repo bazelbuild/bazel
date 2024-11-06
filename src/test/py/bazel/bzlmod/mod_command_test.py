@@ -249,25 +249,10 @@ class ModCommandTest(test_base.TestBase):
 
     exit_code, stdout, stderr = self.RunBazel(
       ['mod', 'graph', '--extension_info=all'],
-      rstrip=True, allow_failure=True,
-    )
-    self.AssertNotExitCode(exit_code, 0, stderr)
-    self.assertIn('\t\tfail("ext failed")', stderr)
-    self.assertIn('Error in fail: ext failed', stderr)
-    self.assertEmpty(stdout)
-
-  def testGraphWithFailingExtensionsKeepGoing(self):
-    # Force ext2 to fail.
-    with open(self.Path('MODULE.bazel'), 'a+') as f:
-      f.write("ext2.dep(name = 'repo2')\n")
-      f.write("ext2.dep(name = 'fail')\n")
-
-    exit_code, stdout, stderr = self.RunBazel(
-      ['mod', 'graph', '--extension_info=all', '--keep_going'],
       rstrip=True, allow_failure=True
     )
     self.AssertNotExitCode(exit_code, 0, stderr)
-    self.assertIn('Not all extensions have been processed due to errors', '\n'.join(stderr))
+    self.assertIn('ERROR: Results may be incomplete as 1 extension failed.', stderr)
     self.assertIn('\t\tfail("ext failed")', stderr)
     self.assertIn('Error in fail: ext failed', stderr)
     self.assertListEqual(
@@ -1000,7 +985,7 @@ class ModCommandTest(test_base.TestBase):
     # Verify that bazel mod tidy fails if an extension fails to execute.
     exit_code, _, stderr = self.RunBazel(['mod', 'tidy'], allow_failure=True)
 
-    self.assertNotEqual(0, exit_code)
+    self.AssertNotExitCode(exit_code, 0, stderr)
     stderr = '\n'.join(stderr)
     self.assertIn('//:extension.bzl', stderr)
     self.assertIn('Error: index out of range', stderr)
@@ -1061,7 +1046,6 @@ class ModCommandTest(test_base.TestBase):
       'mod',
       'deps',
       '--lockfile_mode=update',
-      '--keep_going',
     ], allow_failure=True)
     self.AssertNotExitCode(exit_code, 0, stderr)
     stderr = '\n'.join(stderr)
@@ -1084,12 +1068,11 @@ class ModCommandTest(test_base.TestBase):
       'mod',
       'tidy',
       '--lockfile_mode=update',
-      '--keep_going',
     ], allow_failure=True)
     self.AssertNotExitCode(exit_code, 0, stderr)
     self.assertEqual([], stdout)
+    self.assertIn('ERROR: Failed to process 1 extension due to errors.', stderr)
     stderr = '\n'.join(stderr)
-    self.assertIn('Not all extensions have been processed due to errors', stderr)
     # The passing extension should not be reevaluated by the command.
     self.assertNotIn('ext1 is being evaluated', stderr)
     self.assertIn('ext2 is being evaluated', stderr)
@@ -1118,7 +1101,6 @@ class ModCommandTest(test_base.TestBase):
       'mod',
       'deps',
       '--lockfile_mode=error',
-      '--keep_going',
     ], allow_failure=True)
     self.AssertNotExitCode(exit_code, 0, stderr)
     # The exit code if the build fails due to a lockfile that is not up-to-date.
