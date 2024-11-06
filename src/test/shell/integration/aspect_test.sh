@@ -1964,4 +1964,35 @@ EOF
   assert_nonempty_file 'bazel-bin/test/from_rule_t2'
 }
 
+# Regression test for https://github.com/bazelbuild/bazel/issues/22691.
+function test_aspect_in_non_existent_overridden_repo() {
+  cat > BUILD.bazel <<'EOF'
+genrule(
+    name = "gen",
+    outs = ["out.txt"],
+    cmd = "touch $@",
+)
+EOF
+
+  mkdir -p foo
+  touch foo/REPO.bazel
+  touch foo/BUILD
+  cat > foo/foo.bzl <<'EOF'
+def _foo_aspect_impl(target, ctx):
+    return []
+
+foo_aspect = aspect(
+    implementation = _foo_aspect_impl,
+)
+EOF
+
+  # Run the Bazel build command
+  bazel build --aspects=@@foo//:foo.bzl%foo_aspect \
+    --override_repository=foo=%workspace%/foo \
+    //:gen &> $TEST_log && fail "Build succeeded"
+  expect_not_log "FATAL"
+  expect_log "--override_repository"
+  expect_log "--inject_repository"
+}
+
 run_suite "Tests for aspects"

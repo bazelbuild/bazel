@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -41,6 +42,8 @@ import net.starlark.java.eval.StarlarkSemantics;
 
 /** {@link SkyFunction} for {@link RepositoryMappingValue}s. */
 public class RepositoryMappingFunction implements SkyFunction {
+  public static final PrecomputedValue.Precomputed<Map<RepositoryName, PathFragment>>
+      REPOSITORY_OVERRIDES = new PrecomputedValue.Precomputed<>("repository_overrides");
   private final RuleClassProvider ruleClassProvider;
 
   public RepositoryMappingFunction(RuleClassProvider ruleClassProvider) {
@@ -51,11 +54,28 @@ public class RepositoryMappingFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException {
+    RepositoryMappingValue.Key key = (RepositoryMappingValue.Key) skyKey;
+    RepositoryMappingValue repositoryMappingValue = computeInternal(key, env);
+    if (repositoryMappingValue == null) {
+      return null;
+    }
+    if (repositoryMappingValue == RepositoryMappingValue.NOT_FOUND_VALUE
+        && REPOSITORY_OVERRIDES.get(env).containsKey(key.repoName())) {
+      throw new RepositoryMappingFunctionException(
+          String.format(
+              "the repository %s does not exist, but has been specified as overridden with --override_repository. Use --inject_repository instead to add a new repository.",
+              key.repoName()));
+    }
+    return repositoryMappingValue;
+  }
+
+  private RepositoryMappingValue computeInternal(RepositoryMappingValue.Key skyKey, Environment env)
+      throws SkyFunctionException, InterruptedException {
     StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     if (starlarkSemantics == null) {
       return null;
     }
-    RepositoryName repositoryName = ((RepositoryMappingValue.Key) skyKey).repoName();
+    RepositoryName repositoryName = skyKey.repoName();
     boolean enableBzlmod = starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD);
     boolean enableWorkspace = starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_WORKSPACE);
 
@@ -109,7 +129,7 @@ public class RepositoryMappingFunction implements SkyFunction {
       }
 
       if (repositoryName.isMain()
-          && ((RepositoryMappingValue.Key) skyKey).rootModuleShouldSeeWorkspaceRepos()
+          && skyKey.rootModuleShouldSeeWorkspaceRepos()
           && enableWorkspace) {
         // The root module should be able to see repos defined in WORKSPACE. Therefore, we find all
         // workspace repos and add them as extra visible repos in root module's repo mappings.

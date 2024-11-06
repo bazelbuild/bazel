@@ -76,11 +76,13 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.SymbolGenerator;
+import net.starlark.java.syntax.Location;
 
 /**
  * Takes a {@link ModuleKey} and its override (if any), retrieves the module file from a registry or
@@ -95,6 +97,8 @@ public class ModuleFileFunction implements SkyFunction {
 
   public static final Precomputed<Map<String, ModuleOverride>> MODULE_OVERRIDES =
       new Precomputed<>("module_overrides");
+  public static final Precomputed<Map<String, PathFragment>> INJECTED_REPOSITORIES =
+      new Precomputed<>("repository_injections");
 
   private final BazelStarlarkEnvironment starlarkEnv;
   private final Path workspaceRoot;
@@ -194,6 +198,7 @@ public class ModuleFileFunction implements SkyFunction {
             // Dev dependencies should always be ignored if the current module isn't the root module
             /* ignoreDevDeps= */ true,
             builtinModules,
+            /* injectedRepositories= */ ImmutableMap.of(),
             // Disable printing for modules from registries. We don't want them to be able to spam
             // the console during resolution, but module files potentially edited by the user as
             // part of a non-registry override should permit printing to aid debugging.
@@ -287,6 +292,7 @@ public class ModuleFileFunction implements SkyFunction {
         ImmutableMap.copyOf(state.includeLabelToCompiledModuleFile),
         builtinModules,
         MODULE_OVERRIDES.get(env),
+        INJECTED_REPOSITORIES.get(env),
         IGNORE_DEV_DEPS.get(env),
         starlarkSemantics,
         env.getListener(),
@@ -420,6 +426,7 @@ public class ModuleFileFunction implements SkyFunction {
       ImmutableMap<String, CompiledModuleFile> includeLabelToCompiledModuleFile,
       ImmutableMap<String, NonRegistryOverride> builtinModules,
       Map<String, ModuleOverride> commandOverrides,
+      Map<String, PathFragment> injectedRepositories,
       boolean ignoreDevDeps,
       StarlarkSemantics starlarkSemantics,
       ExtendedEventHandler eventHandler,
@@ -432,6 +439,7 @@ public class ModuleFileFunction implements SkyFunction {
             ModuleKey.ROOT,
             ignoreDevDeps,
             builtinModules,
+            injectedRepositories,
             /* printIsNoop= */ false,
             starlarkSemantics,
             eventHandler,
@@ -495,6 +503,7 @@ public class ModuleFileFunction implements SkyFunction {
       ModuleKey moduleKey,
       boolean ignoreDevDeps,
       ImmutableMap<String, NonRegistryOverride> builtinModules,
+      Map<String, PathFragment> injectedRepositories,
       boolean printIsNoop,
       StarlarkSemantics starlarkSemantics,
       ExtendedEventHandler eventHandler,
@@ -524,12 +533,53 @@ public class ModuleFileFunction implements SkyFunction {
               }
             }
           });
+
+      injectRepos(injectedRepositories, context, thread);
       compiledRootModuleFile.runOnThread(thread);
     } catch (EvalException e) {
       eventHandler.handle(Event.error(e.getInnermostLocation(), e.getMessageWithStack()));
       throw errorf(Code.BAD_MODULE, "error executing MODULE.bazel file for %s", moduleKey);
     }
     return context;
+  }
+
+  // Adds a local_repository for each repository injected via --injected_repositories.
+  private static void injectRepos(
+      Map<String, PathFragment> injectedRepositories,
+      ModuleThreadContext context,
+      StarlarkThread thread)
+      throws EvalException {
+    // Use the innate extension backing use_repo_rule.
+    ModuleThreadContext.ModuleExtensionUsageBuilder usageBuilder =
+        new ModuleThreadContext.ModuleExtensionUsageBuilder(
+            context,
+            "//:MODULE.bazel",
+            "@bazel_tools//tools/build_defs/repo:local.bzl%local_repository",
+            /* isolate= */ false);
+    ModuleFileGlobals.ModuleExtensionProxy extensionProxy =
+        new ModuleFileGlobals.ModuleExtensionProxy(
+            usageBuilder,
+            ModuleExtensionUsage.Proxy.builder()
+                .setDevDependency(true)
+                .setLocation(Location.BUILTIN)
+                .setContainingModuleFilePath(context.getCurrentModuleFilePath()));
+    for (var injectedRepository : injectedRepositories.entrySet()) {
+      extensionProxy
+          .getValue("repo")
+          .call(
+              Dict.copyOf(
+                  thread.mutability(),
+                  ImmutableMap.of(
+                      "name", injectedRepository.getKey(),
+                      "path", injectedRepository.getValue().getPathString())),
+              thread);
+      extensionProxy.addImport(
+          injectedRepository.getKey(),
+          injectedRepository.getKey(),
+          "by --inject_repository",
+          thread.getCallStack());
+    }
+    context.getExtensionUsageBuilders().add(usageBuilder);
   }
 
   /**

@@ -104,6 +104,7 @@ import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.MutableSupplier;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorRepositoryHelpersHolder;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
@@ -146,6 +147,7 @@ public class BazelRepositoryModule extends BlazeModule {
   private final MutableSupplier<Map<String, String>> clientEnvironmentSupplier =
       new MutableSupplier<>();
   private ImmutableMap<RepositoryName, PathFragment> overrides = ImmutableMap.of();
+  private ImmutableMap<String, PathFragment> injections = ImmutableMap.of();
   private ImmutableMap<String, ModuleOverride> moduleOverrides = ImmutableMap.of();
   private Optional<RootedPath> resolvedFileReplacingWorkspace = Optional.empty();
   private FileSystem filesystem;
@@ -469,6 +471,24 @@ public class BazelRepositoryModule extends BlazeModule {
         overrides = ImmutableMap.of();
       }
 
+      if (repoOptions.repositoryInjections != null) {
+        Map<String, PathFragment> injectionMap = new LinkedHashMap<>();
+        for (RepositoryOptions.RepositoryInjection injection : repoOptions.repositoryInjections) {
+          if (injection.path().isEmpty()) {
+            injectionMap.remove(injection.apparentName());
+            continue;
+          }
+          String repoPath = getAbsolutePath(injection.path(), env);
+          injectionMap.put(injection.apparentName(), PathFragment.create(repoPath));
+        }
+        ImmutableMap<String, PathFragment> newInjections = ImmutableMap.copyOf(injectionMap);
+        if (!Maps.difference(injections, newInjections).areEqual()) {
+          injections = newInjections;
+        }
+      } else {
+        injections = ImmutableMap.of();
+      }
+
       if (repoOptions.moduleOverrides != null) {
         Map<String, ModuleOverride> moduleOverrideMap = new LinkedHashMap<>();
         for (RepositoryOptions.ModuleOverride override : repoOptions.moduleOverrides) {
@@ -603,7 +623,8 @@ public class BazelRepositoryModule extends BlazeModule {
       lastRegistryInvalidation = now;
     }
     return ImmutableList.of(
-        PrecomputedValue.injected(RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, overrides),
+        PrecomputedValue.injected(RepositoryMappingFunction.REPOSITORY_OVERRIDES, overrides),
+        PrecomputedValue.injected(ModuleFileFunction.INJECTED_REPOSITORIES, injections),
         PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, moduleOverrides),
         PrecomputedValue.injected(
             RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE,
