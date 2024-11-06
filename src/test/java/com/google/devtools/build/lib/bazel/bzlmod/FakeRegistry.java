@@ -22,6 +22,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
+import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -65,7 +66,8 @@ public class FakeRegistry implements Registry {
   }
 
   @Override
-  public Optional<ModuleFile> getModuleFile(ModuleKey key, ExtendedEventHandler eventHandler) {
+  public Optional<ModuleFile> getModuleFile(
+      ModuleKey key, ExtendedEventHandler eventHandler, DownloadManager downloadManager) {
     String uri =
         String.format("%s/modules/%s/%s/MODULE.bazel", url, key.getName(), key.getVersion());
     var maybeContent = Optional.ofNullable(modules.get(key)).map(value -> value.getBytes(UTF_8));
@@ -74,7 +76,8 @@ public class FakeRegistry implements Registry {
   }
 
   @Override
-  public RepoSpec getRepoSpec(ModuleKey key, ExtendedEventHandler eventHandler) {
+  public RepoSpec getRepoSpec(
+      ModuleKey key, ExtendedEventHandler eventHandler, DownloadManager downloadManager) {
     RepoSpec repoSpec =
         RepoSpec.builder()
             .setRuleClassName("local_repository")
@@ -99,7 +102,7 @@ public class FakeRegistry implements Registry {
 
   @Override
   public Optional<ImmutableMap<Version, String>> getYankedVersions(
-      String moduleName, ExtendedEventHandler eventHandler) {
+      String moduleName, ExtendedEventHandler eventHandler, DownloadManager downloadManager) {
     return Optional.ofNullable(yankedVersionMap.get(moduleName));
   }
 

@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -31,6 +32,7 @@ import javax.annotation.Nullable;
  * Registry}.
  */
 public class YankedVersionsFunction implements SkyFunction {
+  @Nullable private DownloadManager downloadManager;
 
   @Override
   @Nullable
@@ -47,7 +49,7 @@ public class YankedVersionsFunction implements SkyFunction {
             .profile(
                 ProfilerTask.BZLMOD, () -> "getting yanked versions: " + key.getModuleName())) {
       return YankedVersionsValue.create(
-          registry.getYankedVersions(key.getModuleName(), env.getListener()));
+          registry.getYankedVersions(key.getModuleName(), env.getListener(), downloadManager));
     } catch (IOException e) {
       env.getListener()
           .handle(
@@ -59,5 +61,9 @@ public class YankedVersionsFunction implements SkyFunction {
       // fetched.
       return YankedVersionsValue.create(Optional.empty());
     }
+  }
+
+  public void setDownloadManager(DownloadManager downloadManager) {
+    this.downloadManager = downloadManager;
   }
 }
