@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.unix.NativePosixFiles.Dirents;
 import com.google.devtools.build.lib.unix.NativePosixFiles.ReadTypes;
 import com.google.devtools.build.lib.util.Blocker;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.AbstractFileSystemWithCustomStat;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -34,7 +35,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -525,27 +526,19 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
     }
   }
 
-  private static File createJavaIoFile(PathFragment path) {
-    final String pathStr = path.getPathString();
-    if (pathStr.chars().allMatch(c -> c < 128)) {
-      return new File(pathStr);
-    }
+  @Override
+  protected File getIoFile(PathFragment path) {
+    return new File(StringEncoding.internalToPlatform(path.getPathString()));
+  }
 
-    // Paths returned from NativePosixFiles are Strings containing raw bytes from the filesystem.
-    // Java's IO subsystem expects paths to be encoded per the `sun.jnu.encoding` setting. This
-    // is difficult to handle generically, but we can special-case the most common case (UTF-8).
-    if ("UTF-8".equals(System.getProperty("sun.jnu.encoding"))) {
-      final byte[] pathBytes = pathStr.getBytes(StandardCharsets.ISO_8859_1);
-      return new File(new String(pathBytes, StandardCharsets.UTF_8));
-    }
-
-    // This will probably fail but not much that can be done without migrating to `java.nio.Files`.
-    return new File(pathStr);
+  @Override
+  protected java.nio.file.Path getNioPath(PathFragment path) {
+    return Paths.get(StringEncoding.internalToPlatform(path.getPathString()));
   }
 
   @Override
   protected InputStream createFileInputStream(PathFragment path) throws IOException {
-    return new FileInputStream(createJavaIoFile(path));
+    return new FileInputStream(StringEncoding.internalToPlatform(path.getPathString()));
   }
 
   protected OutputStream createFileOutputStream(PathFragment path, boolean append)
@@ -636,7 +629,7 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
   private static final class ProfiledNativeFileOutputStream extends NativeFileOutputStream {
     private final String name;
 
-    public ProfiledNativeFileOutputStream(int fd, String name) throws FileNotFoundException {
+    public ProfiledNativeFileOutputStream(int fd, String name) {
       super(fd);
       this.name = name;
     }

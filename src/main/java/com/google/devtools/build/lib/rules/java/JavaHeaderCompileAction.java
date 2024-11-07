@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.actions.ActionAnalysisMetadata.merge
 import static com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType.UNQUOTED;
 import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionBuilder.UTF8_ENVIRONMENT;
-import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -173,8 +172,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
   /** Builder for {@link JavaHeaderCompileAction}. */
   public static final class Builder {
 
-    private static final ParamFileInfo PARAM_FILE_INFO =
-        ParamFileInfo.builder(UNQUOTED).setCharset(ISO_8859_1).build();
+    private static final ParamFileInfo PARAM_FILE_INFO = ParamFileInfo.builder(UNQUOTED).build();
 
     private final RuleContext ruleContext;
 
