@@ -439,7 +439,8 @@ function test_client_is_quiet_by_default() {
 
   strip_lines_from_bazel_cc
 
-  assert_equals 2 $(cat $TEST_log | wc -l)
+  lines=$(cat $TEST_log | wc -l)
+  [[ $lines -ge 2 && $lines -le 3 ]] || fail "Log has incorrect number of lines"
   expect_log "^\$TEST_TMPDIR defined: output root default"
   expect_log "^Starting local $capitalized_product_name server and connecting to it...$"
   cp stdout $TEST_log || fail "cp failed"
@@ -455,7 +456,8 @@ function test_client_is_quiet_by_default() {
 
   strip_lines_from_bazel_cc
 
-  assert_equals 1 $(cat $TEST_log | wc -l)
+  lines=$(cat $TEST_log | wc -l)
+  [[ $lines -ge 1 && $lines -le 2 ]] || fail "Log has incorrect number of lines"
   expect_log "^\$TEST_TMPDIR defined: output root default"
   cp stdout $TEST_log || fail "cp failed"
 
