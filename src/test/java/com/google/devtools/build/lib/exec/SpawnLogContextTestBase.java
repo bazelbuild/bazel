@@ -1757,8 +1757,7 @@ public abstract class SpawnLogContextTestBase {
         new ParamFileActionInput(
             PathFragment.create("foo.params"),
             ImmutableList.of("a", "b", "c"),
-            ParameterFileType.UNQUOTED,
-            UTF_8);
+            ParameterFileType.UNQUOTED);
 
     // Do not materialize the file on disk, which would be the case when running remotely.
     SpawnBuilder spawn = defaultSpawnBuilder().withInputs(paramFileInput);
