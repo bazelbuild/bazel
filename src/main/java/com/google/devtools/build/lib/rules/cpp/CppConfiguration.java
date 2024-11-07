@@ -243,8 +243,8 @@ public final class CppConfiguration extends Fragment
       if (!cppOptions.enablePropellerOptimizeAbsolutePath) {
         throw new InvalidConfigurationException(
             "Please use --propeller_optimize instead of an absolute path set with"
-                + " --propeller_optimize_absolute_cc_profile.Using absolute paths may be temporary"
-                + " reenabled with --enable_fdo_profile_absolute_path");
+                + " --propeller_optimize_absolute_cc_profile. Using absolute paths may be temporary"
+                + " reenabled with --enable_propeller_optimize_absolute_paths");
       }
       propellerOptimizeAbsoluteCCProfile =
           PathFragment.create(cppOptions.propellerOptimizeAbsoluteCCProfile);
@@ -501,7 +501,7 @@ public final class CppConfiguration extends Fragment
     return cppOptions.useStartEndLib;
   }
 
-  /** @return value from --compiler option, null if the option was not passed. */
+  /** Returns value from --compiler option, null if the option was not passed. */
   @Nullable
   public String getCompilerFromOptions() {
     return cppOptions.cppCompiler;
