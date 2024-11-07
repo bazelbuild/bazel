@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.util;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.truth.Truth.assertThat;
@@ -131,7 +132,9 @@ import com.google.devtools.build.lib.packages.PackageOverheadEstimator;
 import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
+import com.google.devtools.build.lib.packages.RuleClassUtils;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.Target;
@@ -704,6 +707,21 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         reporter,
         env,
         starlarkBuiltinsValue);
+  }
+
+  /**
+   * Returns the sorted list of all rule classes available in builtins, following the logic of
+   * {@code bazel info build-language}.
+   *
+   * @param includeMacroWrappedRules if true, include rule classes for rules wrapped in macros.
+   */
+  protected ImmutableList<RuleClass> getBuiltinRuleClasses(boolean includeMacroWrappedRules)
+      throws Exception {
+    SkyFunction.Environment env = new SkyFunctionEnvironmentForTesting(reporter, skyframeExecutor);
+    StarlarkBuiltinsValue builtins =
+        (StarlarkBuiltinsValue) checkNotNull(env.getValue(StarlarkBuiltinsValue.key()));
+    return RuleClassUtils.getBuiltinRuleClasses(
+        builtins, ruleClassProvider, includeMacroWrappedRules);
   }
 
   /**

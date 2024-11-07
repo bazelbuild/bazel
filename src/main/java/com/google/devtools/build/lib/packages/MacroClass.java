@@ -266,11 +266,14 @@ public final class MacroClass {
         throw Starlark.errorf(
             "missing value for mandatory attribute '%s' in '%s' macro", attr.getName(), name);
       } else {
-        // Already validated at schema creation time that the default is not a computed default or
-        // late-bound default
         Object defaultValue = attr.getDefaultValueUnchecked();
-        if (defaultValue == null) {
-          // Null values can occur for some types of attributes (e.g. LabelType).
+        if (defaultValue == null || forceDefaultToNone(attr)) {
+          // Set the default value as None if:
+          // 1. The native attribute value is null (e.g. LabelType); or
+          // 2. The attribute is an inherited non-Starlark-defined attribute and with a non-direct
+          // default or is a legacy native type.
+          // Note that for Starlark-defined attributes, we already validated at schema creation time
+          // that the default is not a computed default or late-bound default.
           defaultValue = Starlark.NONE;
         }
         attrValues.put(attr.getName(), defaultValue);
@@ -285,6 +288,10 @@ public final class MacroClass {
       String attrName = entry.getKey();
       Object value = entry.getValue();
       Attribute attribute = attributes.get(attrName);
+      if (value.equals(Starlark.NONE) && forceDefaultToNone(attribute)) {
+        // Skip normalization, since None may violate the attribute's type checking.
+        continue;
+      }
       Object normalizedValue =
           // copyAndLiftStarlarkValue ensures immutability.
           BuildType.copyAndLiftStarlarkValue(
@@ -308,6 +315,23 @@ public final class MacroClass {
             : parentMacroFrame.macroInstance.getSameNameDepth() + 1;
 
     return pkgBuilder.createMacro(this, attrValues, sameNameDepth);
+  }
+
+  /**
+   * Returns true if the given inherited attribute should be forced to have a default value of
+   * {@code None}, skipping usual normalization.
+   *
+   * <p>This is the case for non-direct defaults and legacy licenses and distribs attributes,
+   * because None may (depending on attribute type) violate type checking - and that is ok, since
+   * the macro implementation will pass the None to the rule function, which will then set the
+   * default as expected.
+   */
+  private static boolean forceDefaultToNone(Attribute attr) {
+    return attr.hasComputedDefault()
+        || attr.isLateBound()
+        || attr.isMaterializing()
+        || attr.getType() == BuildType.LICENSE
+        || attr.getType() == BuildType.DISTRIBUTIONS;
   }
 
   /**

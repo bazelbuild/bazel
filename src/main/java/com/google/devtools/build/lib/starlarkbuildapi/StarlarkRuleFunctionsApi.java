@@ -219,9 +219,12 @@ public interface StarlarkRuleFunctionsApi {
             defaultValue = "{}",
             doc =
                 """
-A dictionary of the attributes this macro supports, analogous to <a href="#rule.attrs">rule.attrs
-</a>. Keys are attribute names, and values are attribute objects like <code>attr.label_list(...)
-</code> (see the <a href=\"../toplevel/attr.html\">attr</a> module).
+A dictionary of the attributes this macro supports, analogous to
+<a href="#rule.attrs">rule.attrs</a>. Keys are attribute names, and values are either attribute
+objects like <code>attr.label_list(...)</code> (see the <a href=\"../toplevel/attr.html\">attr</a>
+module), or <code>None</code>. A <code>None</code> entry means that the macro does not have an
+attribute by that name, even if it would have otherwise inherited one via <code>inherit_attrs</code>
+(see below).
 
 <p>The special <code>name</code> attribute is predeclared and must not be included in the
 dictionary. The <code>visibility</code> attribute name is reserved and must not be included in the
@@ -249,6 +252,70 @@ site of the rule. Such attributes can be assigned a default value (as in
 </ul>
 
 <p>To limit memory usage, there is a cap on the number of attributes that may be declared.
+"""),
+        @Param(
+            name = "inherit_attrs",
+            allowedTypes = {
+              @ParamType(type = RuleFunctionApi.class),
+              @ParamType(type = MacroFunctionApi.class),
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class)
+            },
+            positional = false,
+            named = true,
+            defaultValue = "None",
+            doc =
+                """
+A rule symbol, macro symbol, or the name of a built-in common attribute list (see below) from which
+the macro should inherit attributes.
+
+<p>If <code>inherit_attrs</code> is set, the macro's implementation function <em>must</em> have a
+<code>**kwargs</code> residual keyword parameter.
+
+<p>If <code>inherit_attrs</code> is set to the string <code>"common"</code>, the macro will inherit
+<a href="/reference/be/common-definitions#common-attributes">common rule attribute definitions</a>
+used by all Starlark rules.
+
+<p>By convention, a macro should pass inherited, non-overridden attributes unchanged to the "main"
+rule or macro symbol which the macro is wrapping. Typically, most inherited attributes will not have
+a parameter in the implementation function's parameter list, and will simply be passed via
+<code>**kwargs</code>. However, it may be convenient for the implementation function to have
+explicit parameters for some inherited attributes (most commonly, <code>tags</code> and
+<code>testonly</code>) if the macro needs to pass those attributes to both "main" and non-"main"
+targets.
+
+<p>The inheritance mechanism works as follows:</p>
+<ol>
+  <li>The special <code>name</code> and <code>visibility</code> attributes are never inherited;
+  <li>Hidden attributes (ones whose name starts with <code>"_"</code>) are never inherited;
+  <li>The remaining inherited attributes are merged with the <code>attrs</code> dictionary, with
+    the entries in <code>attrs</code> dictionary taking precedence in case of conflicts.
+</ol>
+
+<p>For example, the following macro inherits all attributes from <code>native.cc_library</code>, except
+for <code>cxxopts</code> (which is removed from the attribute list) and <code>copts</code> (which is
+given a new definition):
+
+<pre class="language-python">
+def _my_cc_library_impl(name, visibility, **kwargs):
+    ...
+
+my_cc_library = macro(
+    implementation = _my_cc_library_impl,
+    inherit_attrs = native.cc_library,
+    attrs = {
+        "cxxopts": None,
+        "copts": attr.string_list(default = ["-D_FOO"]),
+    },
+)
+</pre>
+
+<p>Note that a macro may inherit a non-hidden attribute with a computed default (for example,
+<a href="/reference/be/common-definitions#common.testonly"><code>testonly</code></a>); normally,
+macros do not allow attributes with computed defaults. If such an attribute is unset in a macro
+invocation, the value passed to the implementation function will be <code>None</code>, and the
+<code>None</code> may be safely passed on to the corresponding attribute of a rule target, causing
+the rule to compute the default as expected.
 """),
         // TODO: #19922 - Make a concepts page for symbolic macros, migrate some details like the
         // list of disallowed APIs to there.
@@ -289,9 +356,10 @@ targets defined by any rule finalizer, including this one.
                     + "tools.")
       },
       useStarlarkThread = true)
-  StarlarkCallable macro(
+  MacroFunctionApi macro(
       StarlarkFunction implementation,
       Dict<?, ?> attrs,
+      Object inheritAttrs,
       boolean finalizer,
       Object doc,
       StarlarkThread thread)

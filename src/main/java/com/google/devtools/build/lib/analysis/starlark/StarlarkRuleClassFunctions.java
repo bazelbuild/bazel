@@ -109,6 +109,7 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.serialization.AbstractExportedStarlarkSymbolCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.devtools.build.lib.starlarkbuildapi.MacroFunctionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleFunctionsApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
@@ -214,6 +215,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
 
   public static final ImmutableSet<AllowlistEntry> ALLOWLIST_RULE_EXTENSION_API_EXPERIMENTAL =
       ImmutableSet.of(allowlistEntry("", "initializer_testing/builtins"));
+
+  private static final String COMMON_ATTRIBUTES_NAME = "common";
 
   /** Parent rule class for test Starlark rules. */
   public static RuleClass getTestBaseRule(RuleDefinitionEnvironment env) {
@@ -356,9 +359,10 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
   }
 
   @Override
-  public StarlarkCallable macro(
+  public MacroFunctionApi macro(
       StarlarkFunction implementation,
       Dict<?, ?> attrs,
+      Object inheritAttrs,
       boolean finalizer,
       Object doc,
       StarlarkThread thread)
@@ -373,17 +377,38 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     }
 
     MacroClass.Builder builder = new MacroClass.Builder(implementation);
-    // "name" and "visibility" attributes are added automatically by the builder.
-    for (Map.Entry<String, Descriptor> descriptorEntry :
-        Dict.cast(attrs, String.class, Descriptor.class, "attrs").entrySet()) {
-      String attrName = descriptorEntry.getKey();
-      Descriptor descriptor = descriptorEntry.getValue();
+    for (Map.Entry<?, ?> uncheckedEntry : attrs.entrySet()) {
+      String attrName;
+      @Nullable Descriptor descriptor;
+      try {
+        // Dict.cast() does not support none-able values - so we type-check manually, and translate
+        // Starlark None to Java null.
+        attrName = (String) uncheckedEntry.getKey();
+        checkAttributeName(attrName);
+        descriptor =
+            uncheckedEntry.getValue() != Starlark.NONE
+                ? (Descriptor) uncheckedEntry.getValue()
+                : null;
+      } catch (
+          @SuppressWarnings("UnusedException")
+          ClassCastException e) {
+        throw Starlark.errorf(
+            "got dict<%s, %s> for 'attrs', want dict<string, Attribute|None>",
+            Starlark.type(uncheckedEntry.getKey()), Starlark.type(uncheckedEntry.getValue()));
+      }
 
+      // "name" and "visibility" attributes are added automatically by the builder.
       if (MacroClass.RESERVED_MACRO_ATTR_NAMES.contains(attrName)) {
         throw Starlark.errorf("Cannot declare a macro attribute named '%s'", attrName);
       }
 
+      if (descriptor == null) {
+        // a None descriptor should ignored.
+        continue;
+      }
+
       if (!descriptor.getValueSource().equals(AttributeValueSource.DIRECT)) {
+        // Note that inherited native attributes may have a computed default, e.g. testonly.
         throw Starlark.errorf(
             "In macro attribute '%s': Macros do not support computed defaults or late-bound"
                 + " defaults",
@@ -392,6 +417,20 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
 
       Attribute attr = descriptor.build(attrName);
       builder.addAttribute(attr);
+    }
+    for (Attribute attr : getInheritedAttrs(inheritAttrs)) {
+      String attrName = attr.getName();
+      if (attr.isPublic()
+          // isDocumented() is false only for generator_* magic attrs (for which isPublic() is true)
+          && attr.isDocumented()
+          && !MacroClass.RESERVED_MACRO_ATTR_NAMES.contains(attrName)
+          && !attrs.containsKey(attrName)) {
+        builder.addAttribute(attr);
+      }
+    }
+    if (inheritAttrs != Starlark.NONE && !implementation.hasKwargs()) {
+      throw Starlark.errorf(
+          "If inherit_attrs is set, implementation function must have a **kwargs parameter");
     }
 
     if (finalizer) {
@@ -402,6 +441,22 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         builder,
         Starlark.toJavaOptional(doc, String.class).map(Starlark::trimDocString),
         getBzlKeyToken(thread, "Macros"));
+  }
+
+  private static ImmutableList<Attribute> getInheritedAttrs(Object inheritAttrs)
+      throws EvalException {
+    if (inheritAttrs == Starlark.NONE) {
+      return ImmutableList.of();
+    } else if (inheritAttrs instanceof RuleFunction ruleFunction) {
+      return ruleFunction.getRuleClass().getAttributes();
+    } else if (inheritAttrs instanceof MacroFunction macroFunction) {
+      return macroFunction.getMacroClass().getAttributes().values().asList();
+    } else if (inheritAttrs.equals(COMMON_ATTRIBUTES_NAME)) {
+      return baseRule.getAttributes();
+    }
+    throw Starlark.errorf(
+        "Invalid 'inherit_attrs' value %s; expected a rule, a macro, or \"common\"",
+        Starlark.repr(inheritAttrs));
   }
 
   private static Symbol<BzlLoadValue.Key> getBzlKeyToken(StarlarkThread thread, String onBehalfOf) {
@@ -1317,7 +1372,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
    * <p>This object is not usable until it has been {@link #export exported}. Calling an unexported
    * macro function results in an {@link EvalException}.
    */
-  public static final class MacroFunction implements StarlarkExportable, StarlarkCallable {
+  // Ideally, we'd want to merge this with {@link MacroFunctionApi}, but that would cause a circular
+  // dependency between packages and starlarkbuildapi.
+  public static final class MacroFunction implements StarlarkExportable, MacroFunctionApi {
 
     // Initially non-null, then null once exported.
     @Nullable private MacroClass.Builder builder;
