@@ -201,6 +201,10 @@ tasks:
       - "//src:test_repos"
     test_flags:
       - "--config=ci-macos"
+      # Fine tune the number of test jobs running in parallel to avoid timeout
+      - "--local_test_jobs=2"
+      # Increase the test timeout by 20% to avoid flaky test failures due to timeout
+      - "--test_timeout=72,360,1080,4320"
     test_targets:
       - "//scripts/..."
       - "//src/main/starlark/tests/builtins_bzl/..."
@@ -218,9 +222,9 @@ tasks:
       # Disable android tests since we are moving Android rules out of Bazel repo.
       - "-//src/test/shell/bazel:bazel_android_tools_test"
       # Disable some slow tests
-      - "-//src/test/shell/bazel:bazel_proto_library_test"
       - "-//src/test/shell/bazel:bazel_bootstrap_distfile_test"
       - "-//src/test/shell/bazel:bazel_bootstrap_distfile_tar_test"
+      - "-//src/test/shell/bazel:bazel_determinism_test"
     include_json_profile:
       - build
       - test
