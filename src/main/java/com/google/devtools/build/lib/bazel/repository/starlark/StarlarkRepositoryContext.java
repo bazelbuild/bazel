@@ -393,6 +393,74 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
   }
 
   @StarlarkMethod(
+      name = "rename",
+      doc =
+          """
+          Renames the file or directory from <code>src</code> to <code>dst</code>. \
+          Parent directories are created as needed. Fails if the destination path
+          already exists. Both paths must be located within the repository.
+          """,
+      useStarlarkThread = true,
+      parameters = {
+        @Param(
+            name = "src",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Label.class),
+              @ParamType(type = StarlarkPath.class)
+            },
+            doc =
+                """
+                The path of the existing file or directory to rename, relative
+                to the repository directory.
+                """),
+        @Param(
+            name = "dst",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Label.class),
+              @ParamType(type = StarlarkPath.class)
+            },
+            doc =
+                """
+                The new name to which the file or directory will be renamed to,
+                relative to the repository directory.
+                """),
+      })
+  public void rename(Object srcName, Object dstName, StarlarkThread thread)
+      throws RepositoryFunctionException, EvalException, InterruptedException {
+    StarlarkPath srcPath = getPath(srcName);
+    StarlarkPath dstPath = getPath(dstName);
+    WorkspaceRuleEvent w =
+        WorkspaceRuleEvent.newRenameEvent(
+            srcPath.toString(),
+            dstPath.toString(),
+            identifyingStringForLogging,
+            thread.getCallerLocation());
+    env.getListener().post(w);
+    try {
+      checkInOutputDirectory("write", srcPath);
+      checkInOutputDirectory("write", dstPath);
+      if (dstPath.exists()) {
+        throw new RepositoryFunctionException(
+            new IOException("Could not rename " + srcPath + " to " + dstPath + ": already exists"),
+            Transience.TRANSIENT);
+      }
+      makeDirectories(dstPath.getPath());
+      srcPath.getPath().renameTo(dstPath.getPath());
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(
+          new IOException(
+              "Could not rename " + srcPath + " to " + dstPath + ": " + e.getMessage(), e),
+          Transience.TRANSIENT);
+    } catch (InvalidPathException e) {
+      throw new RepositoryFunctionException(
+          Starlark.errorf("Could not rename %s to %s: %s", srcPath, dstPath, e.getMessage()),
+          Transience.PERSISTENT);
+    }
+  }
+
+  @StarlarkMethod(
       name = "patch",
       doc =
           """
