@@ -45,17 +45,17 @@ public class InvalidConfigurationException extends Exception implements Detailed
   }
 
   public InvalidConfigurationException(Throwable cause) {
-    super(cause.getMessage(), cause);
+    super(cause == null ? null : cause.getMessage(), cause);
     this.detailedExitCode = null;
   }
 
   public InvalidConfigurationException(Code code, Throwable cause) {
-    super(cause.getMessage(), cause);
-    this.detailedExitCode = createDetailedExitCode(cause.getMessage(), code);
+    super(cause == null ? null : cause.getMessage(), cause);
+    this.detailedExitCode = cause == null ? null : createDetailedExitCode(cause.getMessage(), code);
   }
 
   public InvalidConfigurationException(DetailedExitCode detailedExitCode, Throwable cause) {
-    super(cause.getMessage(), cause);
+    super(cause == null ? null : cause.getMessage(), cause);
     this.detailedExitCode = detailedExitCode;
   }
 
