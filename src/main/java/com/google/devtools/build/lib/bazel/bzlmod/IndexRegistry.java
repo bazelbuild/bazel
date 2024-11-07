@@ -85,7 +85,6 @@ public class IndexRegistry implements Registry {
   }
 
   private final URI uri;
-  private final DownloadManager downloadManager;
   private final Map<String, String> clientEnv;
   private final Gson gson;
   private final ImmutableMap<String, Optional<Checksum>> knownFileHashes;
@@ -99,14 +98,12 @@ public class IndexRegistry implements Registry {
 
   public IndexRegistry(
       URI uri,
-      DownloadManager downloadManager,
       Map<String, String> clientEnv,
       ImmutableMap<String, Optional<Checksum>> knownFileHashes,
       KnownFileHashesMode knownFileHashesMode,
       ImmutableMap<ModuleKey, String> previouslySelectedYankedVersions,
       Optional<Path> vendorDir) {
     this.uri = uri;
-    this.downloadManager = downloadManager;
     this.clientEnv = clientEnv;
     this.gson =
         new GsonBuilder()
@@ -136,9 +133,12 @@ public class IndexRegistry implements Registry {
 
   /** Grabs a file from the given URL. Returns {@link Optional#empty} if the file doesn't exist. */
   private Optional<byte[]> grabFile(
-      String url, ExtendedEventHandler eventHandler, boolean useChecksum)
+      String url,
+      ExtendedEventHandler eventHandler,
+      DownloadManager downloadManager,
+      boolean useChecksum)
       throws IOException, InterruptedException {
-    var maybeContent = doGrabFile(url, eventHandler, useChecksum);
+    var maybeContent = doGrabFile(downloadManager, url, eventHandler, useChecksum);
     if ((knownFileHashesMode == KnownFileHashesMode.USE_AND_UPDATE
             || knownFileHashesMode == KnownFileHashesMode.USE_IMMUTABLE_AND_UPDATE)
         && useChecksum) {
@@ -148,7 +148,10 @@ public class IndexRegistry implements Registry {
   }
 
   private Optional<byte[]> doGrabFile(
-      String rawUrl, ExtendedEventHandler eventHandler, boolean useChecksum)
+      DownloadManager downloadManager,
+      String rawUrl,
+      ExtendedEventHandler eventHandler,
+      boolean useChecksum)
       throws IOException, InterruptedException {
     Optional<Checksum> checksum;
     if (knownFileHashesMode != KnownFileHashesMode.IGNORE && useChecksum) {
@@ -225,11 +228,13 @@ public class IndexRegistry implements Registry {
   }
 
   @Override
-  public Optional<ModuleFile> getModuleFile(ModuleKey key, ExtendedEventHandler eventHandler)
+  public Optional<ModuleFile> getModuleFile(
+      ModuleKey key, ExtendedEventHandler eventHandler, DownloadManager downloadManager)
       throws IOException, InterruptedException {
     String url =
         constructUrl(getUrl(), "modules", key.name(), key.version().toString(), "MODULE.bazel");
-    Optional<byte[]> maybeContent = grabFile(url, eventHandler, /* useChecksum= */ true);
+    Optional<byte[]> maybeContent =
+        grabFile(url, eventHandler, downloadManager, /* useChecksum= */ true);
     return maybeContent.map(content -> ModuleFile.create(content, url));
   }
 
@@ -276,9 +281,13 @@ public class IndexRegistry implements Registry {
    * if the file doesn't exist.
    */
   private Optional<String> grabJsonFile(
-      String url, ExtendedEventHandler eventHandler, boolean useChecksum)
+      String url,
+      ExtendedEventHandler eventHandler,
+      DownloadManager downloadManager,
+      boolean useChecksum)
       throws IOException, InterruptedException {
-    return grabFile(url, eventHandler, useChecksum).map(value -> new String(value, UTF_8));
+    return grabFile(url, eventHandler, downloadManager, useChecksum)
+        .map(value -> new String(value, UTF_8));
   }
 
   /**
@@ -286,9 +295,13 @@ public class IndexRegistry implements Registry {
    * T}. Returns {@link Optional#empty} if the file doesn't exist.
    */
   private <T> Optional<T> grabJson(
-      String url, Class<T> klass, ExtendedEventHandler eventHandler, boolean useChecksum)
+      String url,
+      Class<T> klass,
+      ExtendedEventHandler eventHandler,
+      DownloadManager downloadManager,
+      boolean useChecksum)
       throws IOException, InterruptedException {
-    Optional<String> jsonString = grabJsonFile(url, eventHandler, useChecksum);
+    Optional<String> jsonString = grabJsonFile(url, eventHandler, downloadManager, useChecksum);
     if (jsonString.isEmpty() || jsonString.get().isBlank()) {
       return Optional.empty();
     }
@@ -306,10 +319,12 @@ public class IndexRegistry implements Registry {
   }
 
   @Override
-  public RepoSpec getRepoSpec(ModuleKey key, ExtendedEventHandler eventHandler)
+  public RepoSpec getRepoSpec(
+      ModuleKey key, ExtendedEventHandler eventHandler, DownloadManager downloadManager)
       throws IOException, InterruptedException {
     String jsonUrl = getSourceJsonUrl(key);
-    Optional<String> jsonString = grabJsonFile(jsonUrl, eventHandler, /* useChecksum= */ true);
+    Optional<String> jsonString =
+        grabJsonFile(jsonUrl, eventHandler, downloadManager, /* useChecksum= */ true);
     if (jsonString.isEmpty()) {
       throw new FileNotFoundException(
           String.format(
@@ -320,12 +335,14 @@ public class IndexRegistry implements Registry {
       case "archive" -> {
         ArchiveSourceJson typedSourceJson =
             parseJson(jsonString.get(), jsonUrl, ArchiveSourceJson.class);
-        return createArchiveRepoSpec(typedSourceJson, getBazelRegistryJson(eventHandler), key);
+        return createArchiveRepoSpec(
+            typedSourceJson, getBazelRegistryJson(eventHandler, downloadManager), key);
       }
       case "local_path" -> {
         LocalPathSourceJson typedSourceJson =
             parseJson(jsonString.get(), jsonUrl, LocalPathSourceJson.class);
-        return createLocalPathRepoSpec(typedSourceJson, getBazelRegistryJson(eventHandler), key);
+        return createLocalPathRepoSpec(
+            typedSourceJson, getBazelRegistryJson(eventHandler, downloadManager), key);
       }
       case "git_repository" -> {
         GitRepoSourceJson typedSourceJson =
@@ -343,7 +360,8 @@ public class IndexRegistry implements Registry {
         getUrl(), "modules", key.name(), key.version().toString(), SOURCE_JSON_FILENAME);
   }
 
-  private Optional<BazelRegistryJson> getBazelRegistryJson(ExtendedEventHandler eventHandler)
+  private Optional<BazelRegistryJson> getBazelRegistryJson(
+      ExtendedEventHandler eventHandler, DownloadManager downloadManager)
       throws IOException, InterruptedException {
     if (bazelRegistryJson == null || bazelRegistryJsonEvents == null) {
       synchronized (this) {
@@ -355,6 +373,7 @@ public class IndexRegistry implements Registry {
                   constructUrl(getUrl(), "bazel_registry.json"),
                   BazelRegistryJson.class,
                   storedEventHandler,
+                  downloadManager,
                   /* useChecksum= */ true);
           bazelRegistryJsonEvents = storedEventHandler;
         }
@@ -484,13 +503,14 @@ public class IndexRegistry implements Registry {
 
   @Override
   public Optional<ImmutableMap<Version, String>> getYankedVersions(
-      String moduleName, ExtendedEventHandler eventHandler)
+      String moduleName, ExtendedEventHandler eventHandler, DownloadManager downloadManager)
       throws IOException, InterruptedException {
     Optional<MetadataJson> metadataJson =
         grabJson(
             constructUrl(getUrl(), "modules", moduleName, "metadata.json"),
             MetadataJson.class,
             eventHandler,
+            downloadManager,
             // metadata.json is not immutable
             /* useChecksum= */ false);
     if (metadataJson.isEmpty()) {
