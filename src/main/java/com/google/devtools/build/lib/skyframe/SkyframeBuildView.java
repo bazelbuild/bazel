@@ -1513,6 +1513,11 @@ public final class SkyframeBuildView {
               return;
             }
           }
+          if (alv.getActions() == null) {
+            // No actions in deserialized action lookup values.
+            return;
+          }
+
           // During multithreaded operation, this is only set to true, so no concurrency issues.
           someActionLookupValueEvaluated = true;
           ImmutableList<ActionAnalysisMetadata> actions = alv.getActions();

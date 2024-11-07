@@ -16,6 +16,12 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
+import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.actions.ActionLookupValue;
+import com.google.devtools.build.lib.analysis.AnalysisResult;
+import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -23,6 +29,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions.MapBackedCheck
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsChecksumCache;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
+import com.google.devtools.build.lib.analysis.util.TestAspects.FileProviderAspect;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.Dumper;
@@ -36,7 +43,51 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
-public class RemoteConfiguredTargetValueCodecTest extends AnalysisTestCase {
+public class RemoteActionLookupValueSerializationTest extends AnalysisTestCase {
+
+  @Test
+  public void testDeserializedAspect_hasProvidersAndNoActions() throws Exception {
+    FileProviderAspect aspect = new FileProviderAspect();
+    setRulesAndAspectsAvailableInTests(ImmutableList.of(aspect), ImmutableList.of());
+    scratch.file(
+        "a/BUILD",
+        "load('//test_defs:foo_binary.bzl', 'foo_binary')",
+        "foo_binary(name = 'a', srcs = ['a.sh'])");
+
+    AnalysisResult analysisResult =
+        update(new EventBus(), defaultFlags(), ImmutableList.of(aspect.getName()), "//a:a");
+
+    ConfiguredAspect configuredAspect =
+        Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
+    assertThat(configuredAspect.getActions()).isNotEmpty();
+    assertThat(configuredAspect).isInstanceOf(ActionLookupValue.class);
+    assertThat(((ActionLookupValue) configuredAspect).getNumActions()).isAtLeast(1);
+
+    var tester = makeSerializationTester(configuredAspect);
+
+    tester.setVerificationFunction(
+        (in, out) -> {
+          // Assertions on actions.
+          assertThat(out).isInstanceOf(ActionLookupValue.class);
+          assertThat(out).isInstanceOf(ConfiguredAspect.class);
+          ActionLookupValue deserializedAlv = (ActionLookupValue) out;
+          var exception = assertThrows(NullPointerException.class, deserializedAlv::getActions);
+          assertThat(exception)
+              .hasMessageThat()
+              .contains("actions are not available on deserialized instances");
+
+          // Assertions on providers.
+          assertThat(in).isInstanceOf(ConfiguredAspect.class);
+          ConfiguredAspect deserializedAspect = (ConfiguredAspect) out;
+          assertThat(
+                  Dumper.dumpStructureWithEquivalenceReduction(
+                      ((ConfiguredAspect) in).getProviders()))
+              .isEqualTo(
+                  Dumper.dumpStructureWithEquivalenceReduction(deserializedAspect.getProviders()));
+        });
+
+    tester.runTests();
+  }
 
   @Test
   public void ruleConfiguredTargetValue_roundTripsToRemoteConfiguredTargetValue() throws Exception {
@@ -52,24 +103,13 @@ public class RemoteConfiguredTargetValueCodecTest extends AnalysisTestCase {
         SkyframeExecutorTestUtils.getExistingConfiguredTargetValue(
             skyframeExecutor, Label.parseCanonical("//a:a"), config);
 
-    var tester =
-        new SerializationTester(ctValue)
-            .makeMemoizingAndAllowFutureBlocking(true)
-            .addDependency(RuleClassProvider.class, ruleClassProvider)
-            .addDependencies(SerializationDepsUtils.SERIALIZATION_DEPS_FOR_TEST)
-            .addDependency(FileSystem.class, scratch.getFileSystem())
-            .addDependency(
-                Root.RootCodecDependencies.class,
-                new Root.RootCodecDependencies(Root.absoluteRoot(scratch.getFileSystem())))
-            .addDependency(OptionsChecksumCache.class, new MapBackedChecksumCache())
-            .addDependency(PrerequisitePackageFunction.class, skyframeExecutor::getExistingPackage);
-
-    tester.addCodec(RemoteConfiguredTargetValue.codec());
+    var tester = makeSerializationTester(ctValue);
 
     tester.setVerificationFunction(
         (in, out) -> {
           assertThat(in).isInstanceOf(RuleConfiguredTargetValue.class);
           assertThat(out).isInstanceOf(RemoteConfiguredTargetValue.class);
+          assertThat(out).isNotInstanceOf(ActionLookupValue.class);
 
           RemoteConfiguredTargetValue remoteValue = (RemoteConfiguredTargetValue) out;
           RuleConfiguredTarget ruleTarget = ((RuleConfiguredTargetValue) in).getConfiguredTarget();
@@ -120,19 +160,7 @@ public class RemoteConfiguredTargetValueCodecTest extends AnalysisTestCase {
             Label.parseCanonical("//a:a.generated"),
             getConfiguration(getConfiguredTarget("//a:a.generated")));
 
-    var tester =
-        new SerializationTester(inputCtValue, outputCtValue)
-            .makeMemoizingAndAllowFutureBlocking(true)
-            .addDependency(RuleClassProvider.class, ruleClassProvider)
-            .addDependencies(SerializationDepsUtils.SERIALIZATION_DEPS_FOR_TEST)
-            .addDependency(FileSystem.class, scratch.getFileSystem())
-            .addDependency(
-                Root.RootCodecDependencies.class,
-                new Root.RootCodecDependencies(Root.absoluteRoot(scratch.getFileSystem())))
-            .addDependency(OptionsChecksumCache.class, new MapBackedChecksumCache())
-            .addDependency(PrerequisitePackageFunction.class, skyframeExecutor::getExistingPackage);
-
-    tester.addCodec(RemoteConfiguredTargetValue.codec());
+    var tester = makeSerializationTester(inputCtValue, outputCtValue);
 
     tester.setVerificationFunction(
         (in, out) -> {
@@ -151,5 +179,19 @@ public class RemoteConfiguredTargetValueCodecTest extends AnalysisTestCase {
         });
 
     tester.runTests();
+  }
+
+  private SerializationTester makeSerializationTester(Object... subjects) {
+    return new SerializationTester(subjects)
+        .makeMemoizingAndAllowFutureBlocking(true)
+        .addDependency(RuleClassProvider.class, ruleClassProvider)
+        .addDependencies(SerializationDepsUtils.SERIALIZATION_DEPS_FOR_TEST)
+        .addDependency(FileSystem.class, scratch.getFileSystem())
+        .addDependency(
+            Root.RootCodecDependencies.class,
+            new Root.RootCodecDependencies(Root.absoluteRoot(scratch.getFileSystem())))
+        .addDependency(OptionsChecksumCache.class, new MapBackedChecksumCache())
+        .addDependency(PrerequisitePackageFunction.class, skyframeExecutor::getExistingPackage)
+        .addCodec(RemoteConfiguredTargetValue.codec());
   }
 }
