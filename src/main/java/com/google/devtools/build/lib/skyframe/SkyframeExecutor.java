@@ -1636,8 +1636,23 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     EvaluationResult<SkyValue> result =
         evaluateSkyKeys(eventHandler, ImmutableList.of(parsedFlagsKey));
     if (result.hasError()) {
-      throw new InvalidConfigurationException(
-          Code.INVALID_BUILD_OPTIONS, result.getError().getException());
+      Map.Entry<SkyKey, ErrorInfo> firstError = Iterables.get(result.errorMap().entrySet(), 0);
+      SkyKey errorKey = firstError.getKey();
+      ErrorInfo error = firstError.getValue();
+      Throwable e = error.getException();
+
+      if (e != null) {
+        throw new InvalidConfigurationException(Code.INVALID_BUILD_OPTIONS, e);
+      } else if (!error.getCycleInfo().isEmpty()) {
+        // This should not ever happen: there should not be a way for BuildConfigurationKeyValue.Key
+        // to produce a skyframe cycle. Produce a basic error message for developers
+        // to use to track down and fix the problem.
+        // Unfortunately, there's no way to express this as an invariant, so manual inspection of
+        // skyfunctions is the only way to prevent this.
+        cyclesReporter.reportCycles(error.getCycleInfo(), errorKey, eventHandler);
+        throw new InvalidConfigurationException(
+            "cannot load build configuration key because of this cycle", Code.CYCLE);
+      }
     }
     var parsedFlagsValue = (ParsedFlagsValue) result.get(parsedFlagsKey);
     return BuildOptions.of(
@@ -1911,7 +1926,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ErrorInfo error = firstError.getValue();
       Throwable e = error.getException();
       // Wrap loading failed exceptions
-      if (e instanceof NoSuchThingException noSuchThingException) {
+      if (e != null && e instanceof NoSuchThingException noSuchThingException) {
         e = new InvalidConfigurationException(noSuchThingException.getDetailedExitCode(), e);
       } else if (e == null && !error.getCycleInfo().isEmpty()) {
         cyclesReporter.reportCycles(error.getCycleInfo(), firstError.getKey(), eventHandler);
@@ -1988,9 +2003,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
       if (e != null) {
         // Wrap exceptions related to loading
-        if (e instanceof NoSuchThingException) {
-          throw new InvalidConfigurationException(
-              ((NoSuchThingException) e).getDetailedExitCode(), e);
+        if (e instanceof NoSuchThingException noSuchThingException) {
+          throw new InvalidConfigurationException(noSuchThingException.getDetailedExitCode(), e);
         }
         Throwables.throwIfInstanceOf(e, InvalidConfigurationException.class);
         // If we get here, e is non-null but not an InvalidConfigurationException, so wrap it and
