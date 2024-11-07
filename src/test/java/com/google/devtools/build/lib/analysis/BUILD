@@ -63,7 +63,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/custom_command_line",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/deterministic_writer",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/file_write_action_context",
-        "//src/main/java/com/google/devtools/build/lib/analysis:actions/launcher_file_write_action",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/lazy_write_paths_file_action",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/parameter_file_write_action",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/path_mappers",
