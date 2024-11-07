@@ -200,6 +200,10 @@ tasks:
       - "//src:test_repos"
     test_flags:
       - "--config=ci-macos"
+      # Fine tune the number of test jobs running in parallel to avoid timeout
+      - "--local_test_jobs=2"
+      # Increase the test timeout by 20% to avoid flaky test failures due to timeout
+      - "--test_timeout=72,360,1080,4320"
     test_targets:
       - "//scripts/..."
       - "//src/main/starlark/tests/builtins_bzl/..."
