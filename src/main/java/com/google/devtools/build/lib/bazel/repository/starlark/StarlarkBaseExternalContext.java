@@ -84,9 +84,12 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -1835,7 +1838,11 @@ the same path on case-insensitive filesystems.
             name = "environment",
             defaultValue = "{}",
             named = true,
-            doc = "Force some environment variables to be set to be passed to the process."),
+            doc =
+                """
+                Force some environment variables to be set to be passed to the process. The value \
+                can be <code>None</code> to remove the environment variable.
+                """),
         @Param(
             name = "quiet",
             defaultValue = "True",
@@ -1855,7 +1862,7 @@ the same path on case-insensitive filesystems.
   public StarlarkExecutionResult execute(
       Sequence<?> arguments, // <String> or <StarlarkPath> or <Label> expected
       StarlarkInt timeoutI,
-      Dict<?, ?> uncheckedEnvironment, // <String, String> expected
+      Dict<?, ?> uncheckedEnvironment, // <String, Object> expected
       boolean quiet,
       String overrideWorkingDirectory,
       StarlarkThread thread)
@@ -1863,10 +1870,25 @@ the same path on case-insensitive filesystems.
     validateExecuteArguments(arguments);
     int timeout = Starlark.toInt(timeoutI, "timeout");
 
-    Map<String, String> forceEnvVariables =
-        Dict.cast(uncheckedEnvironment, String.class, String.class, "environment");
+    Map<String, Object> forceEnvVariablesRaw =
+        Dict.cast(uncheckedEnvironment, String.class, Object.class, "environment");
+    Map<String, String> forceEnvVariables = new LinkedHashMap<>();
+    Set<String> removeEnvVariables = new LinkedHashSet<>();
+    for (Map.Entry<String, Object> entry : forceEnvVariablesRaw.entrySet()) {
+      String key = entry.getKey();
+      Object value = entry.getValue();
+      if (value == Starlark.NONE) {
+        removeEnvVariables.add(key);
+      } else if (value instanceof String s) {
+        forceEnvVariables.put(key, s);
+      } else {
+        throw Starlark.errorf("environment values must be strings or None, got %s", value);
+      }
+    }
 
     if (canExecuteRemote()) {
+      // Remote execution only sees the explicitly set environment variables, so removing env vars
+      // isn't necessary.
       return executeRemote(arguments, timeout, forceEnvVariables, quiet, overrideWorkingDirectory);
     }
 
@@ -1886,7 +1908,7 @@ the same path on case-insensitive filesystems.
         WorkspaceRuleEvent.newExecuteEvent(
             args,
             timeout,
-            envVariables,
+            Maps.filterKeys(envVariables, k -> !removeEnvVariables.contains(k)),
             forceEnvVariables,
             workingDirectory.getPathString(),
             quiet,
@@ -1920,6 +1942,7 @@ the same path on case-insensitive filesystems.
           .addArguments(args)
           .setDirectory(workingDirectoryPath.getPathFile())
           .addEnvironmentVariables(forceEnvVariables)
+          .removeEnvironmentVariables(removeEnvVariables)
           .setTimeout(timeoutMillis)
           .setQuiet(quiet)
           .execute();
