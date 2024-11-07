@@ -56,6 +56,14 @@ msys*)
   ;;
 esac
 
+if $is_windows; then
+  export LC_ALL=C.utf8
+elif [[ "$(uname -s)" == "Linux" ]]; then
+  export LC_ALL=C.UTF-8
+else
+  export LC_ALL=en_US.UTF-8
+fi
+
 #### SETUP #############################################################
 
 add_to_bazelrc "build --genrule_strategy=local"
@@ -84,6 +92,31 @@ function test_fetch {
   bazel clean --expunge
   bazel fetch @remote//... --curses=yes 2>$TEST_log || fail "bazel fetch failed"
   expect_log 'Fetching.*remote_file'
+}
+
+function test_unicode_output {
+  if "$is_windows"; then
+    # äöüÄÖÜß in UTF8
+    local unicode_string=$(echo -e '\xC3\xA4\xC3\xB6\xC3\xBC\xC3\x84\xC3\x96\xC3\x9C\xC3\x9F')
+  else
+    # äöüÄÖÜß🌱 in UTF8
+    local unicode_string=$(echo -e '\xC3\xA4\xC3\xB6\xC3\xBC\xC3\x84\xC3\x96\xC3\x9C\xC3\x9F\xF0\x9F\x8C\xB1')
+  fi
+
+  mkdir -p pkg
+  cat > pkg/BUILD <<EOF
+print("str_${unicode_string}")
+
+genrule(
+  name = "gen",
+  outs = ["out_${unicode_string}"],
+  cmd = "touch \$@",
+)
+EOF
+
+  bazel build //pkg:gen 2>$TEST_log || fail "bazel build failed"
+  expect_log "str_${unicode_string}"
+  expect_log "out_${unicode_string}"
 }
 
 run_suite "Bazel-specific integration tests for the UI"
