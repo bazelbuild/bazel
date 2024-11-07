@@ -45,6 +45,7 @@ public class InvalidConfigurationException extends Exception implements Detailed
   }
 
   public InvalidConfigurationException(Throwable cause) {
+    // TODO: https://github.com/bazelbuild/bazel/issues/24239 - find and clean up null cause
     super(cause == null ? null : cause.getMessage(), cause);
     this.detailedExitCode = null;
   }
