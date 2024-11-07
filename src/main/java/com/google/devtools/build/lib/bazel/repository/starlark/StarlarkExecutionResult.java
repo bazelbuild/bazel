@@ -35,6 +35,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
@@ -155,6 +156,13 @@ final class StarlarkExecutionResult implements StarlarkValue {
     @CanIgnoreReturnValue
     Builder addEnvironmentVariables(Map<String, String> variables) {
       this.envBuilder.putAll(variables);
+      return this;
+    }
+
+    /** Ensure that an environment variable is not passed to the process. */
+    @CanIgnoreReturnValue
+    Builder removeEnvironmentVariables(Set<String> removeEnvVariables) {
+      removeEnvVariables.forEach(envBuilder::remove);
       return this;
     }
 
