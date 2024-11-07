@@ -14,13 +14,18 @@
 
 package com.google.devtools.build.lib.rules.proto;
 
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
+
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuiltinRestriction;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.proto.ProtoCommonApi;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.Location;
 
 /** Protocol buffers support for Starlark. */
 public class BazelProtoCommon implements ProtoCommonApi {
@@ -38,4 +43,19 @@ public class BazelProtoCommon implements ProtoCommonApi {
         .getSemantics()
         .getBool(BuildLanguageOptions.INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION);
   }
+
+  @StarlarkMethod(name = "ProtoInfo", useStarlarkThread = true, documented = false)
+  public StarlarkProvider getProtoInfo(StarlarkThread thread) throws EvalException {
+    BuiltinRestriction.failIfCalledOutsideAllowlist(thread, ImmutableSet.of());
+    return starlarkProtoInfo;
+  }
+
+  private static final StarlarkProvider starlarkProtoInfo =
+      StarlarkProvider.builder(Location.BUILTIN)
+          .buildExported(
+              new StarlarkProvider.Key(
+                  keyForBuild(
+                      Label.parseCanonicalUnchecked(
+                          "//third_party/protobuf/bazel/private:proto_info.bzl")),
+                  "ProtoInfo"));
 }

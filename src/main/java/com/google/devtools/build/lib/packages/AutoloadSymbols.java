@@ -643,7 +643,6 @@ public class AutoloadSymbols {
                   "@protobuf//bazel/common:proto_info.bzl",
                   "proto_library",
                   "cc_proto_library",
-                  "cc_shared_library",
                   "java_lite_proto_library",
                   "java_proto_library",
                   "proto_lang_toolchain",
