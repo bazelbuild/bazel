@@ -160,9 +160,9 @@ public class RepositoryOptions extends OptionsBase {
               + " corresponding `local_repository` to the root module's MODULE.bazel file via"
               + " `use_repo_rule`. If the given path is an absolute path, it will be used as it is."
               + " If the given path is a relative path, it is relative to the current working"
-              + " directory. If the given path starts with '%workspace%, it is relative to the"
+              + " directory. If the given path starts with '%workspace%', it is relative to the"
               + " workspace root, which is the output of `bazel info workspace`. If the given path"
-              + " is empty, then remove any previous overrides.")
+              + " is empty, then remove any previous injections.")
   public List<RepositoryInjection> repositoryInjections;
 
   @Option(
