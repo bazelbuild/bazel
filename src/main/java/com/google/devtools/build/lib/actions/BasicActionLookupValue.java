@@ -38,6 +38,14 @@ public class BasicActionLookupValue implements ActionLookupValue {
     return checkNotNull(actions, "actions are not available on deserialized instances");
   }
 
+  @Override
+  public int getNumActions() {
+    if (actions == null) {
+      return 0;
+    }
+    return actions.size();
+  }
+
   protected ToStringHelper getStringHelper() {
     return MoreObjects.toStringHelper(this).add("actions", actions);
   }

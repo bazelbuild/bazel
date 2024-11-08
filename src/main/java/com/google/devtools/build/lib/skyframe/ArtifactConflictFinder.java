@@ -119,7 +119,7 @@ class ArtifactConflictFinder {
     List<Artifact> myArtifacts = new ArrayList<>(values.size());
 
     for (ActionLookupValue value : values) {
-      if (value.getActions() == null) {
+      if (value.getNumActions() == 0) {
         // For remote analysis caching enabled builds with cache hits, deserialized
         // ActionLookupValues do not contain actions.
         //

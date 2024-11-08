@@ -1513,8 +1513,9 @@ public final class SkyframeBuildView {
               return;
             }
           }
-          if (alv.getActions() == null) {
-            // No actions in deserialized action lookup values.
+          if (alv.getNumActions() == 0) {
+            // No actions in deserialized action lookup values, and calling #getActions will
+            // cause an NPE.
             return;
           }
 

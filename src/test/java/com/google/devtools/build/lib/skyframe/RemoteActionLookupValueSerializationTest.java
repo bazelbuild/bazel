@@ -71,6 +71,7 @@ public class RemoteActionLookupValueSerializationTest extends AnalysisTestCase {
           assertThat(out).isInstanceOf(ActionLookupValue.class);
           assertThat(out).isInstanceOf(ConfiguredAspect.class);
           ActionLookupValue deserializedAlv = (ActionLookupValue) out;
+          assertThat(deserializedAlv.getNumActions()).isEqualTo(0);
           var exception = assertThrows(NullPointerException.class, deserializedAlv::getActions);
           assertThat(exception)
               .hasMessageThat()

@@ -421,18 +421,22 @@ public final class Actions {
 
     var generatingActionKey = ((Artifact.DerivedArtifact) artifact).getGeneratingActionKey();
     var actionLookupKey = generatingActionKey.getActionLookupKey();
+
+    // In analysis caching build with cache hits, deserialized ActionLookupValues do not contain
+    // actions, so the generating action for the artifact does not exist in the graph. It would
+    // require a reanalysis of the entire configured target subgraph to produce the action,
+    // nullifying the benefits of analysis caching.
+    //
+    // In practice this should be fine for critical path computation and execution graph log,
+    // because this represents a pruned subgraph for the action and there was no work done other
+    // than deserialization.
     if (graph.getValue(actionLookupKey) instanceof ActionLookupValue actionLookupValue) {
-      return actionLookupValue.getActions().get(generatingActionKey.getActionIndex());
+      // Not all ActionLookupKeys resolve to an ActionLookupValue, e.g. RemoteConfiguredTargetValue.
+      if (actionLookupValue.getNumActions() > 0) {
+        return actionLookupValue.getActions().get(generatingActionKey.getActionIndex());
+      }
     }
 
-    // In analysis caching build with cache hits, deserialized CTs are
-    // RemoteConfiguredTargetValues -- not ActionLookupValues -- and do not contain actions, so the
-    // generating action for the artifact does not exist in the graph. It would require a reanalysis
-    // of the entire configured target subgraph to produce the action, nullifying the benefits of
-    // analysis caching.
-    //
-    // In practice this should be fine for critical path computation, because this represents a
-    // pruned subgraph for the action and there was no work done other than deserialization.
     return null;
   }
 }
