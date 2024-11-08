@@ -70,7 +70,7 @@ import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAc
 import com.google.devtools.build.lib.skyframe.ExternalPackageFunction;
 import com.google.devtools.build.lib.skyframe.FileFunction;
 import com.google.devtools.build.lib.skyframe.FileStateFunction;
-import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesFunction;
+import com.google.devtools.build.lib.skyframe.IgnoredSubdirectoriesFunction;
 import com.google.devtools.build.lib.skyframe.LocalRepositoryLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
@@ -230,7 +230,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                     SkyFunctions.STARLARK_BUILTINS,
                     new StarlarkBuiltinsFunction(ruleClassProvider.getBazelStarlarkEnvironment()))
                 .put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction())
-                .put(SkyFunctions.IGNORED_PACKAGE_PREFIXES, IgnoredPackagePrefixesFunction.NOOP)
+                .put(SkyFunctions.IGNORED_SUBDIRECTORIES, IgnoredSubdirectoriesFunction.NOOP)
                 .put(
                     SkyFunctions.REPOSITORY_MAPPING,
                     new RepositoryMappingFunction(ruleClassProvider))

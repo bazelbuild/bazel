@@ -68,8 +68,8 @@ public final class SkyFunctions {
 
   public static final SkyFunctionName COLLECT_PACKAGES_UNDER_DIRECTORY =
       SkyFunctionName.createHermetic("COLLECT_PACKAGES_UNDER_DIRECTORY");
-  public static final SkyFunctionName IGNORED_PACKAGE_PREFIXES =
-      SkyFunctionName.createHermetic("IGNORED_PACKAGE_PREFIXES");
+  public static final SkyFunctionName IGNORED_SUBDIRECTORIES =
+      SkyFunctionName.createHermetic("IGNORED_SUBDIRECTORIES");
   static final SkyFunctionName TEST_SUITE_EXPANSION =
       SkyFunctionName.createHermetic("TEST_SUITE_EXPANSION");
   static final SkyFunctionName TESTS_IN_SUITE = SkyFunctionName.createHermetic("TESTS_IN_SUITE");

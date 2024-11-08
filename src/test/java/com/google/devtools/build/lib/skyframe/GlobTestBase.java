@@ -164,8 +164,7 @@ public abstract class GlobTestBase {
         SkyFunctions.REPO_FILE,
         new RepoFileFunction(
             ruleClassProvider.getBazelStarlarkEnvironment(), directories.getWorkspace()));
-    skyFunctions.put(
-        SkyFunctions.IGNORED_PACKAGE_PREFIXES, IgnoredPackagePrefixesFunction.INSTANCE);
+    skyFunctions.put(SkyFunctions.IGNORED_SUBDIRECTORIES, IgnoredSubdirectoriesFunction.INSTANCE);
     skyFunctions.put(
         FileStateKey.FILE_STATE,
         new FileStateFunction(

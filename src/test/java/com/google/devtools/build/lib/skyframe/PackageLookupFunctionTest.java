@@ -137,8 +137,7 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
         SkyFunctions.REPO_FILE,
         new RepoFileFunction(
             ruleClassProvider.getBazelStarlarkEnvironment(), directories.getWorkspace()));
-    skyFunctions.put(
-        SkyFunctions.IGNORED_PACKAGE_PREFIXES, IgnoredPackagePrefixesFunction.INSTANCE);
+    skyFunctions.put(SkyFunctions.IGNORED_SUBDIRECTORIES, IgnoredSubdirectoriesFunction.INSTANCE);
     skyFunctions.put(
         WorkspaceFileValue.WORKSPACE_FILE,
         new WorkspaceFileFunction(
@@ -259,7 +258,7 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
     scratch.file("ignored/BUILD");
     Path ignored =
         scratch.overwriteFile(
-            IgnoredPackagePrefixesFunction.BAZELIGNORE_REPOSITORY_RELATIVE_PATH.getPathString(),
+            IgnoredSubdirectoriesFunction.BAZELIGNORE_REPOSITORY_RELATIVE_PATH.getPathString(),
             "ignored");
 
     ImmutableSet<String> pkgs = ImmutableSet.of("ignored/subdir", "ignored");
@@ -271,11 +270,11 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
     }
 
     scratch.overwriteFile(
-        IgnoredPackagePrefixesFunction.BAZELIGNORE_REPOSITORY_RELATIVE_PATH.getPathString(),
+        IgnoredSubdirectoriesFunction.BAZELIGNORE_REPOSITORY_RELATIVE_PATH.getPathString(),
         "not_ignored");
     RootedPath rootedIgnoreFile =
         RootedPath.toRootedPath(
-            root, IgnoredPackagePrefixesFunction.BAZELIGNORE_REPOSITORY_RELATIVE_PATH);
+            root, IgnoredSubdirectoriesFunction.BAZELIGNORE_REPOSITORY_RELATIVE_PATH);
     differencer.invalidate(ImmutableSet.of(FileStateValue.key(rootedIgnoreFile)));
     for (String pkg : pkgs) {
       PackageLookupValue packageLookupValue = lookupPackage(pkg);

@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.skyframe.serialization;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesValue;
+import com.google.devtools.build.lib.skyframe.IgnoredSubdirectoriesValue;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Arrays;
@@ -25,7 +25,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for IgnoredPackagePrefixesValueCodec. */
 @RunWith(JUnit4.class)
-public class IgnoredPackagePrefixesValueCodecTest {
+public class IgnoredSubdirectoriesValueCodecTest {
 
   private static ImmutableSet<PathFragment> prefixes(String... prefixes) {
     return Arrays.stream(prefixes).map(PathFragment::create).collect(ImmutableSet.toImmutableSet());
@@ -38,13 +38,13 @@ public class IgnoredPackagePrefixesValueCodecTest {
   @Test
   public void testCodec() throws Exception {
     new SerializationTester(
-            IgnoredPackagePrefixesValue.of(prefixes(), patterns()),
-            IgnoredPackagePrefixesValue.of(prefixes("foo"), patterns()),
-            IgnoredPackagePrefixesValue.of(prefixes("foo", "bar/moo"), patterns()),
-            IgnoredPackagePrefixesValue.of(prefixes(), patterns("foo")),
-            IgnoredPackagePrefixesValue.of(prefixes(), patterns("foo")),
-            IgnoredPackagePrefixesValue.of(prefixes(), patterns("foo/**")),
-            IgnoredPackagePrefixesValue.of(prefixes("foo"), patterns("foo/**")))
+            IgnoredSubdirectoriesValue.of(prefixes(), patterns()),
+            IgnoredSubdirectoriesValue.of(prefixes("foo"), patterns()),
+            IgnoredSubdirectoriesValue.of(prefixes("foo", "bar/moo"), patterns()),
+            IgnoredSubdirectoriesValue.of(prefixes(), patterns("foo")),
+            IgnoredSubdirectoriesValue.of(prefixes(), patterns("foo")),
+            IgnoredSubdirectoriesValue.of(prefixes(), patterns("foo/**")),
+            IgnoredSubdirectoriesValue.of(prefixes("foo"), patterns("foo/**")))
         .runTests();
   }
 }

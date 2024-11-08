@@ -46,7 +46,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/query2/common:universe-scope",
         "//src/main/java/com/google/devtools/build/lib/query2/engine",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_function",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:ignored_package_prefixes_function",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:ignored_subdirectories_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe/packages:PackageFactoryBuilderWithSkyframeForTesting",

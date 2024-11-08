@@ -43,7 +43,7 @@ public class BazelSkyframeExecutorConstants {
 
   public static SequencedSkyframeExecutor.Builder newBazelSkyframeExecutorBuilder() {
     return SequencedSkyframeExecutor.builder()
-        .setIgnoredPackagePrefixesFunction(IgnoredPackagePrefixesFunction.INSTANCE)
+        .setIgnoredPackagePrefixesFunction(IgnoredSubdirectoriesFunction.INSTANCE)
         .setActionOnIOExceptionReadingBuildFile(ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE)
         .setShouldUseRepoDotBazel(USE_REPO_DOT_BAZEL)
         .setCrossRepositoryLabelViolationStrategy(CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY)
