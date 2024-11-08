@@ -1757,7 +1757,7 @@ a user-friendly way.
 
 ### Options for `bazel run` {:#bazel-run-options}
 
-#### `--run_under={{ "<var>" }}command-prefix{{ "</var>" }}` {:#run-under}
+#### `--run_under={{ "<var>" }}command-prefix{{ "</var>" }}` {:#run-run-under}
 
 This has the same effect as the `--run_under` option for
 `bazel test` ([see above](#run-under)),
