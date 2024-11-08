@@ -264,6 +264,7 @@ def finalize_link_action(
         action_outputs,
         progress_message,
         link_type,
+        interface_output,
     )
 
 def _create_action(
@@ -277,7 +278,8 @@ def _create_action(
         inputs,
         outputs,
         progress_message,
-        link_type):
+        link_type,
+        interface_output):
     """
     Creates C++ linking or LTO indexing action.
 
@@ -296,7 +298,12 @@ def _create_action(
     """
 
     parameter_file_type = None
-    if _can_split_command_line(link_type, cc_toolchain, feature_configuration):
+    if _can_split_command_line(
+        link_type,
+        cc_toolchain,
+        feature_configuration,
+        interface_output,
+    ):
         if feature_configuration.is_enabled("gcc_quoting_for_param_files"):
             parameter_file_type = "GCC_QUOTED"
         elif feature_configuration.is_enabled("windows_quoting_for_param_files"):
@@ -352,7 +359,11 @@ def _create_action(
         exec_group = exec_group,
     )
 
-def _can_split_command_line(link_type, cc_toolchain, feature_configuration):
+def _can_split_command_line(
+        link_type,
+        cc_toolchain,
+        feature_configuration,
+        interface_output):
     if not cc_toolchain._supports_param_files:
         return False
     elif is_dynamic_library(link_type):
