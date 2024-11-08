@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFile
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.rules.repository.NeedsSkyframeRestartException;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
@@ -91,8 +92,17 @@ public class BazelModTidyFunction implements SkyFunction {
       return null;
     }
     ImmutableList.Builder<RootModuleFileFixup> fixups = ImmutableList.builder();
+    ImmutableList.Builder<ExternalDepsException> errors = ImmutableList.builder();
     for (SkyKey extension : extensionsUsedByRootModule) {
-      SkyValue value = result.get(extension);
+      SkyValue value;
+      try {
+        value = result.getOrThrow(extension, ExternalDepsException.class);
+      } catch (ExternalDepsException e) {
+        // This extension failed, but we can still tidy up other extensions in keep going mode.
+        errors.add(e);
+        env.getListener().handle(Event.error(e.getMessage()));
+        continue;
+      }
       if (value == null) {
         return null;
       }
@@ -102,6 +112,9 @@ public class BazelModTidyFunction implements SkyFunction {
     }
 
     return BazelModTidyValue.create(
-        fixups.build(), buildozer.asPath(), rootModuleFileValue.getModuleFilePaths());
+        fixups.build(),
+        buildozer.asPath(),
+        rootModuleFileValue.getModuleFilePaths(),
+        errors.build());
   }
 }
