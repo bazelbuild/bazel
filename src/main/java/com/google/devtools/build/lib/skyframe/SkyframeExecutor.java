@@ -699,7 +699,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(
         SkyFunctions.COLLECT_PACKAGES_UNDER_DIRECTORY,
         newCollectPackagesUnderDirectoryFunction(directories));
-    map.put(SkyFunctions.IGNORED_PACKAGE_PREFIXES, ignoredPackagePrefixesFunction);
+    map.put(SkyFunctions.IGNORED_SUBDIRECTORIES, ignoredPackagePrefixesFunction);
     map.put(SkyFunctions.TESTS_IN_SUITE, new TestExpansionFunction());
     map.put(SkyFunctions.TEST_SUITE_EXPANSION, new TestsForTargetPatternFunction());
     map.put(SkyFunctions.TARGET_PATTERN_PHASE, new TargetPatternPhaseFunction());
@@ -3324,9 +3324,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
     Path workspacePath = directories.getWorkspace();
     EvaluationResult<SkyValue> evaluationResult =
-        evaluateSkyKeys(eventHandler, ImmutableList.of(IgnoredPackagePrefixesValue.key()));
-    IgnoredPackagePrefixesValue ignoredPackagePrefixesValue =
-        (IgnoredPackagePrefixesValue) evaluationResult.get(IgnoredPackagePrefixesValue.key());
+        evaluateSkyKeys(eventHandler, ImmutableList.of(IgnoredSubdirectoriesValue.key()));
+    IgnoredSubdirectoriesValue ignoredSubdirectoriesValue =
+        (IgnoredSubdirectoriesValue) evaluationResult.get(IgnoredSubdirectoriesValue.key());
 
     if (diffAwarenessManager != null) {
       for (Root pathEntry : pkgRoots) {
@@ -3335,9 +3335,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         // package root is equal to the workspace path.
         if (workspacePath != null
             && workspacePath.equals(pathEntry.asPath())
-            && ignoredPackagePrefixesValue != null) {
+            && ignoredSubdirectoriesValue != null) {
           ignoredPaths =
-              ignoredPackagePrefixesValue
+              ignoredSubdirectoriesValue
                   .asIgnoredSubdirectories()
                   .withPrefix(pathEntry.asPath().asFragment().toRelative());
         }

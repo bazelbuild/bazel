@@ -126,11 +126,11 @@ java_test(
 )
 
 java_test(
-    name = "IgnoredPackagePrefixesValueCodecTest",
+    name = "IgnoredSubdirectoriesValueCodecTest",
     size = "small",
-    srcs = ["IgnoredPackagePrefixesValueCodecTest.java"],
+    srcs = ["IgnoredSubdirectoriesValueCodecTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/skyframe:ignored_package_prefixes_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:ignored_subdirectories_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
@@ -403,7 +403,7 @@ java_library(
             "ProfileCollectorTest.java",
             "RecursivePkgKeyCodecTest.java",
             "RootedPathCodecTest.java",
-            "IgnoredPackagePrefixesValueCodecTest.java",
+            "IgnoredSubdirectoriesValueCodecTest.java",
             "LongCodecTest.java",
             "StarlarkInfoCodecTest.java",
             "StatementCodecTest.java",

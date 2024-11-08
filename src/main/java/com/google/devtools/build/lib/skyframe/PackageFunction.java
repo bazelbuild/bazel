@@ -992,9 +992,9 @@ public abstract class PackageFunction implements SkyFunction {
     RuleVisibility defaultVisibility = PrecomputedValue.DEFAULT_VISIBILITY.get(env);
     ConfigSettingVisibilityPolicy configSettingVisibilityPolicy =
         PrecomputedValue.CONFIG_SETTING_VISIBILITY_POLICY.get(env);
-    IgnoredPackagePrefixesValue repositoryIgnoredPackagePrefixes =
-        (IgnoredPackagePrefixesValue)
-            env.getValue(IgnoredPackagePrefixesValue.key(packageId.getRepository()));
+    IgnoredSubdirectoriesValue repositoryIgnoredPackagePrefixes =
+        (IgnoredSubdirectoriesValue)
+            env.getValue(IgnoredSubdirectoriesValue.key(packageId.getRepository()));
     RepoPackageArgsValue repoPackageArgsValue;
     if (shouldUseRepoDotBazel) {
       try {

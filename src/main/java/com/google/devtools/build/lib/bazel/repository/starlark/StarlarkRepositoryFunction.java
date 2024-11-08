@@ -48,7 +48,7 @@ import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.WorkspaceFileHelper;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
-import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesValue;
+import com.google.devtools.build.lib.skyframe.IgnoredSubdirectoriesValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -217,8 +217,8 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
       mainRepoMapping = rule.getPackage().getRepositoryMapping();
     }
 
-    IgnoredPackagePrefixesValue ignoredPackagesValue =
-        (IgnoredPackagePrefixesValue) env.getValue(IgnoredPackagePrefixesValue.key());
+    IgnoredSubdirectoriesValue ignoredPackagesValue =
+        (IgnoredSubdirectoriesValue) env.getValue(IgnoredSubdirectoriesValue.key());
     if (env.valuesMissing()) {
       return null;
     }

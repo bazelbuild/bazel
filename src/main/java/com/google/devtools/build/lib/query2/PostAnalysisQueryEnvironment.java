@@ -70,7 +70,7 @@ import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.GraphBackedRecursivePackageProvider;
 import com.google.devtools.build.lib.skyframe.GraphBackedRecursivePackageProvider.UniverseTargetPattern;
-import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesValue;
+import com.google.devtools.build.lib.skyframe.IgnoredSubdirectoriesValue;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.RecursivePackageProviderBackedTargetPatternResolver;
 import com.google.devtools.build.lib.skyframe.RecursivePkgValueRootPackageExtractor;
@@ -263,12 +263,12 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
   public InterruptibleSupplier<IgnoredSubdirectories> getIgnoredPackagePrefixesPathFragments(
       RepositoryName repositoryName) {
     return () -> {
-      IgnoredPackagePrefixesValue ignoredPackagePrefixesValue =
-          (IgnoredPackagePrefixesValue)
-              walkableGraphSupplier.get().getValue(IgnoredPackagePrefixesValue.key(repositoryName));
-      return ignoredPackagePrefixesValue == null
+      IgnoredSubdirectoriesValue ignoredSubdirectoriesValue =
+          (IgnoredSubdirectoriesValue)
+              walkableGraphSupplier.get().getValue(IgnoredSubdirectoriesValue.key(repositoryName));
+      return ignoredSubdirectoriesValue == null
           ? IgnoredSubdirectories.EMPTY
-          : ignoredPackagePrefixesValue.asIgnoredSubdirectories();
+          : ignoredSubdirectoriesValue.asIgnoredSubdirectories();
     };
   }
 

@@ -142,8 +142,8 @@ java_library(
         ":glob_value",
         ":globs_function",
         ":globs_value",
-        ":ignored_package_prefixes_function",
-        ":ignored_package_prefixes_value",
+        ":ignored_subdirectories_function",
+        ":ignored_subdirectories_value",
         ":incremental_artifact_conflict_finder",
         ":invalid_glob_pattern_exception",
         ":loading_phase_started_event",
@@ -827,10 +827,10 @@ java_library(
 )
 
 java_library(
-    name = "ignored_package_prefixes_function",
-    srcs = ["IgnoredPackagePrefixesFunction.java"],
+    name = "ignored_subdirectories_function",
+    srcs = ["IgnoredSubdirectoriesFunction.java"],
     deps = [
-        ":ignored_package_prefixes_value",
+        ":ignored_subdirectories_value",
         ":precomputed_value",
         ":repo_file_function",
         ":repo_file_value",
@@ -849,8 +849,8 @@ java_library(
 )
 
 java_library(
-    name = "ignored_package_prefixes_value",
-    srcs = ["IgnoredPackagePrefixesValue.java"],
+    name = "ignored_subdirectories_value",
+    srcs = ["IgnoredSubdirectoriesValue.java"],
     deps = [
         ":sky_functions",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -1594,7 +1594,7 @@ java_library(
         ":glob_descriptor",
         ":glob_exception",
         ":glob_value",
-        ":ignored_package_prefixes_value",
+        ":ignored_subdirectories_value",
         ":package_lookup_value",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -1620,7 +1620,7 @@ java_library(
         ":glob_descriptor",
         ":glob_exception",
         ":globs_value",
-        ":ignored_package_prefixes_value",
+        ":ignored_subdirectories_value",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/packages/producers",
@@ -1875,7 +1875,7 @@ java_library(
     srcs = ["PackageLookupFunction.java"],
     deps = [
         ":already_reported_exception",
-        ":ignored_package_prefixes_value",
+        ":ignored_subdirectories_value",
         ":local_repository_lookup_value",
         ":package_lookup_value",
         ":precomputed_value",

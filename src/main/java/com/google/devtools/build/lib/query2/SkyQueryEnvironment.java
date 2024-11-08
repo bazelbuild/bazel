@@ -97,7 +97,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Query.Code;
 import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.skyframe.GraphBackedRecursivePackageProvider;
 import com.google.devtools.build.lib.skyframe.GraphBackedRecursivePackageProvider.UniverseTargetPattern;
-import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesValue;
+import com.google.devtools.build.lib.skyframe.IgnoredSubdirectoriesValue;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.PrepareDepsOfPatternsFunction;
@@ -902,9 +902,9 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         patternToEval.evalAsync(
             resolver,
             () ->
-                ((IgnoredPackagePrefixesValue)
+                ((IgnoredSubdirectoriesValue)
                         graph.getValue(
-                            IgnoredPackagePrefixesValue.key(patternToEval.getRepository())))
+                            IgnoredSubdirectoriesValue.key(patternToEval.getRepository())))
                     .asIgnoredSubdirectories(),
             targetPatternKey.getExcludedSubdirectories(),
             filteredCallback,
