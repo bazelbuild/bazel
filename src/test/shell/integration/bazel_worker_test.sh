@@ -322,6 +322,30 @@ EOF
   assert_equals "$worker_uuid_1" "$worker_uuid_2"
 }
 
+function test_worker_extra_flag() {
+  prepare_example_worker
+  cat >>BUILD <<EOF
+work(
+  name = "hello_world",
+  worker = ":worker",
+  worker_args = ["--worker_protocol=${WORKER_PROTOCOL}"],
+  action_mnemonic = "Hello",
+  worker_key_mnemonic = "World",
+)
+EOF
+
+  bazel build :hello_world --worker_extra_flag=World=--ignored_argument \
+      &> "$TEST_log" || fail "build failed"
+
+  local -r worker_log=$(egrep -o -- 'logging to .*/b(azel|laze)-workers/worker-[0-9]+-World.log' "$TEST_log" | sed 's/^logging to //')
+
+  if ! [[ -e "$worker_log" ]]; then
+    fail "Worker log was not found"
+  fi
+
+  assert_contains "Worker args: .* --ignored_argument" "$worker_log"
+}
+
 function test_multiple_flagfiles() {
   prepare_example_worker
   cat >>BUILD <<EOF
@@ -592,10 +616,11 @@ EOF
 
   expect_log "Created new ${WORKER_TYPE} Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
 
-  worker_log=$(egrep -o -- 'logging to .*/b(azel|laze)-workers/worker-[0-9]-Work.log' "$TEST_log" | sed 's/^logging to //')
+  local -r worker_log=$(egrep -o -- 'logging to .*/b(azel|laze)-workers/worker-[0-9]+-Work.log' "$TEST_log" | sed 's/^logging to //')
 
-  [ -e "$worker_log" ] \
-    || fail "Worker log was not found"
+  if ! [[ -e "$worker_log" ]]; then
+    fail "Worker log was not found"
+  fi
 
   # Running a build after a server shutdown should trigger the removal of old worker log files.
   bazel shutdown &> $TEST_log
