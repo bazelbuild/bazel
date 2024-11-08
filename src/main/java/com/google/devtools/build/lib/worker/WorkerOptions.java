@@ -76,7 +76,7 @@ public class WorkerOptions extends OptionsBase {
 
   @Option(
       name = "experimental_use_new_worker_pool",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.EXECUTION},
       help =
