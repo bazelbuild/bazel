@@ -359,6 +359,7 @@ java_library(
         "BazelModTidyValue.java",
     ],
     deps = [
+        ":exception",
         ":root_module_file_fixup",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
@@ -377,10 +378,12 @@ java_library(
     ],
     deps = [
         ":common",
+        ":exception",
         ":resolution",
         ":root_module_file_fixup",
         ":tidy",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:repository_mapping_value",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -398,6 +401,7 @@ java_library(
     ],
     deps = [
         ":common",
+        ":exception",
         ":module_extension",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
@@ -415,9 +419,12 @@ java_library(
     ],
     deps = [
         ":common",
+        ":exception",
         ":inspection",
         ":module_extension",
         ":resolution",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
         "//third_party:jsr305",

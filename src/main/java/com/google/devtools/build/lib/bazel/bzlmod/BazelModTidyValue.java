@@ -41,11 +41,15 @@ public abstract class BazelModTidyValue implements SkyValue {
   /** The set of paths to the root MODULE.bazel file and all its includes. */
   public abstract ImmutableSet<PathFragment> moduleFilePaths();
 
+  /** Errors encountered while evaluating prerequisites for {@code bazel mod tidy}. */
+  public abstract ImmutableList<ExternalDepsException> errors();
+
   static BazelModTidyValue create(
       List<RootModuleFileFixup> fixups,
       Path buildozer,
-      ImmutableSet<PathFragment> moduleFilePaths) {
+      ImmutableSet<PathFragment> moduleFilePaths,
+      ImmutableList<ExternalDepsException> errors) {
     return new AutoValue_BazelModTidyValue(
-        ImmutableList.copyOf(fixups), buildozer, moduleFilePaths);
+        ImmutableList.copyOf(fixups), buildozer, moduleFilePaths, errors);
   }
 }
