@@ -453,6 +453,10 @@ public class RepositoryOptions extends OptionsBase {
   /** A repository override, represented by a name and an absolute path to a repository. */
   public record RepositoryOverride(RepositoryName repositoryName, String path) {}
 
+  /**
+   * A repository injected into the scope of the root module, represented by a name and an absolute
+   * path to a repository.
+   */
   public record RepositoryInjection(String apparentName, String path) {}
 
   /** A module override, represented by a name and an absolute path to a module. */

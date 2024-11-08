@@ -97,7 +97,7 @@ public class ModuleFileFunction implements SkyFunction {
 
   public static final Precomputed<Map<String, ModuleOverride>> MODULE_OVERRIDES =
       new Precomputed<>("module_overrides");
-  public static final Precomputed<Map<String, PathFragment>> INJECTED_REPOSITORIES =
+  public static final Precomputed<ImmutableMap<String, PathFragment>> INJECTED_REPOSITORIES =
       new Precomputed<>("repository_injections");
 
   private final BazelStarlarkEnvironment starlarkEnv;
