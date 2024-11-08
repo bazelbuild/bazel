@@ -193,7 +193,11 @@ public final class BzlmodTestUtil {
       AugmentedModuleBuilder myBuilder = new AugmentedModuleBuilder();
       myBuilder.key = key;
       myBuilder.builder =
-          AugmentedModule.builder(key).setName(name).setVersion(version).setLoaded(loaded);
+          AugmentedModule.builder(key)
+              .setName(name)
+              .setVersion(version)
+              .setRepoName(name)
+              .setLoaded(loaded);
       return myBuilder;
     }
 
