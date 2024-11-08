@@ -162,12 +162,12 @@ function test_existing_rule_is_redirected() {
   setup_module_dot_bazel
 
   cat > BUILD << EOF
-py_library(
-    name = 'py_library',
+sh_library(
+    name = 'sh_library',
 )
 EOF
-  bazel query --incompatible_autoload_externally=+py_library ':py_library' --output=build >&$TEST_log 2>&1 || fail "build failed"
-  expect_log "rules_python./python/py_library.bzl"
+  bazel query --incompatible_autoload_externally=+sh_library ':sh_library' --output=build >&$TEST_log 2>&1 || fail "build failed"
+  expect_log "rules_shell./shell/private/sh_library.bzl"
 }
 
 function test_existing_rule_is_redirected_in_bzl() {
@@ -175,8 +175,8 @@ function test_existing_rule_is_redirected_in_bzl() {
 
   cat > macro.bzl << EOF
 def macro():
-    native.py_library(
-        name = 'py_library',
+    native.sh_library(
+        name = 'sh_library',
     )
 EOF
 
@@ -184,8 +184,8 @@ EOF
 load(":macro.bzl", "macro")
 macro()
 EOF
-  bazel query --incompatible_autoload_externally=+py_library ':py_library' --output=build >&$TEST_log 2>&1 || fail "build failed"
-  expect_log "rules_python./python/py_library.bzl"
+  bazel query --incompatible_autoload_externally=+sh_library ':sh_library' --output=build >&$TEST_log 2>&1 || fail "build failed"
+  expect_log "rules_shell./shell/private/sh_library.bzl"
 }
 
 
@@ -301,7 +301,7 @@ function test_removing_symbol_incompletely() {
 
   cat > symbol.bzl << EOF
 def symbol():
-   a = ProtoInfo
+   a = CcInfo
 EOF
 
   cat > BUILD << EOF
@@ -309,8 +309,8 @@ load(":symbol.bzl", "symbol")
 symbol()
 EOF
 
-  bazel build --incompatible_autoload_externally=-ProtoInfo :all >&$TEST_log 2>&1 && fail "build unexpectedly succeeded"
-  expect_log "Symbol in 'ProtoInfo' can't be removed, because it's still used by:"
+  bazel build --incompatible_autoload_externally=-CcInfo :all >&$TEST_log 2>&1 && fail "build unexpectedly succeeded"
+  expect_log "Symbol in 'CcInfo' can't be removed, because it's still used by:"
 }
 
 function test_removing_existing_symbol() {
@@ -453,11 +453,11 @@ function test_whole_repo_flag() {
   setup_module_dot_bazel
 
   cat > BUILD << EOF
-py_library(
-    name = 'py_library',
+sh_library(
+    name = 'sh_library',
 )
 EOF
-  bazel query --incompatible_autoload_externally=+@rules_python ':py_library' --output=build >&$TEST_log 2>&1 || fail "build failed"
+  bazel query --incompatible_autoload_externally=+@rules_shell ':sh_library' --output=build >&$TEST_log 2>&1 || fail "build failed"
 }
 
 function test_legacy_globals() {
