@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.skyframe.SkyValueRetrieverUtils.mayb
 import static com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.INITIAL_STATE;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
@@ -167,17 +168,21 @@ final class AspectFunction implements SkyFunction {
    */
   private final BaseTargetPrerequisitesSupplier baseTargetPrerequisitesSupplier;
 
+  private final Supplier<RemoteAnalysisCachingDependenciesProvider> cachingDependenciesSupplier;
+
   AspectFunction(
       BuildViewProvider buildViewProvider,
       RuleClassProvider ruleClassProvider,
       boolean storeTransitivePackages,
       PrerequisitePackageFunction prerequisitePackages,
-      BaseTargetPrerequisitesSupplier baseTargetPrerequisitesSupplier) {
+      BaseTargetPrerequisitesSupplier baseTargetPrerequisitesSupplier,
+      Supplier<RemoteAnalysisCachingDependenciesProvider> cachingDependenciesSupplier) {
     this.buildViewProvider = buildViewProvider;
     this.ruleClassProvider = ruleClassProvider;
     this.storeTransitivePackages = storeTransitivePackages;
     this.prerequisitePackages = prerequisitePackages;
     this.baseTargetPrerequisitesSupplier = baseTargetPrerequisitesSupplier;
+    this.cachingDependenciesSupplier = cachingDependenciesSupplier;
   }
 
   static class State
@@ -262,7 +267,7 @@ final class AspectFunction implements SkyFunction {
     State state = env.getState(() -> new State(storeTransitivePackages, prerequisitePackages));
 
     RemoteAnalysisCachingDependenciesProvider analysisCachingDeps =
-        buildViewProvider.getSkyframeBuildView().getRemoteAnalysisCachingDependenciesProvider();
+        cachingDependenciesSupplier.get();
     if (analysisCachingDeps.enabled()) {
       RetrievalResult retrievalResult =
           maybeFetchSkyValueRemotely(key, env, analysisCachingDeps, state);

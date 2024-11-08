@@ -224,6 +224,7 @@ import com.google.devtools.build.lib.skyframe.config.PlatformMappingKey;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingValue;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider.DisabledDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredExecutionPlatformsFunction;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredToolchainsCycleReporter;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredToolchainsFunction;
@@ -511,12 +512,27 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    */
   private final boolean globUnderSingleDep;
 
+  private RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider =
+      DisabledDependenciesProvider.INSTANCE;
+
   public void setRemoteAnalysisCachingDependenciesProvider(
       RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider) {
-    // TODO: b/356108550 - move this somewhere else when the deps are needed for the execution phase
-    // functions.
-    getSkyframeBuildView()
-        .setRemoteAnalysisCachingDependenciesProvider(remoteAnalysisCachingDependenciesProvider);
+    this.remoteAnalysisCachingDependenciesProvider = remoteAnalysisCachingDependenciesProvider;
+  }
+
+  /**
+   * Returns the dependencies for remote analysis caching.
+   *
+   * <p>Should not be called before analysis begins.
+   *
+   * <p>This will reture {@link DisabledDependenciesProvider} until the top level configuration is
+   * determined at the beginning of the analysis Skyframe evaluation, because it contains that
+   * value. See the callsite of {@link
+   * #setRemoteAnalysisCachingDependenciesProvider(RemoteAnalysisCachingDependenciesProvider)} for
+   * the exact point.
+   */
+  private RemoteAnalysisCachingDependenciesProvider getRemoteAnalysisCachingDependenciesProvider() {
+    return remoteAnalysisCachingDependenciesProvider;
   }
 
   final class PathResolverFactoryImpl implements PathResolverFactory {
@@ -718,7 +734,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             shouldStoreTransitivePackagesInLoadingAndAnalysis(),
             shouldUnblockCpuWorkWhenFetchingDeps,
             configuredTargetProgress,
-            this::getExistingPackage));
+            this::getExistingPackage,
+            this::getRemoteAnalysisCachingDependenciesProvider));
     map.put(
         SkyFunctions.ASPECT,
         new AspectFunction(
@@ -726,7 +743,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             ruleClassProvider,
             shouldStoreTransitivePackagesInLoadingAndAnalysis(),
             this::getExistingPackage,
-            new BaseTargetPrerequisitesSupplierImpl()));
+            new BaseTargetPrerequisitesSupplierImpl(),
+            this::getRemoteAnalysisCachingDependenciesProvider));
     map.put(SkyFunctions.TOP_LEVEL_ASPECTS, new ToplevelStarlarkAspectFunction());
     map.put(
         SkyFunctions.BUILD_TOP_LEVEL_ASPECTS_DETAILS, new BuildTopLevelAspectsDetailsFunction());
@@ -804,7 +822,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             () -> !skyframeActionExecutor.actionFileSystemType().inMemoryFileSystem(),
             sourceArtifactsSeen,
             syscallCache,
-            getSkyframeBuildView()::getRemoteAnalysisCachingDependenciesProvider));
+            this::getRemoteAnalysisCachingDependenciesProvider));
     map.put(SkyFunctions.BUILD_INFO, new WorkspaceStatusFunction(this::makeWorkspaceStatusAction));
     map.put(SkyFunctions.COVERAGE_REPORT, new CoverageReportFunction(actionKeyContext));
     map.put(SkyFunctions.ACTION_EXECUTION, newActionExecutionFunction());
@@ -871,7 +889,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         directories,
         tsgm::get,
         bugReporter,
-        getSkyframeBuildView()::getRemoteAnalysisCachingDependenciesProvider,
+        this::getRemoteAnalysisCachingDependenciesProvider,
         this::getConsumedArtifactsTracker);
   }
 

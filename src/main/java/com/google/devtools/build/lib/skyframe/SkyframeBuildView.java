@@ -104,8 +104,6 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor.ConfigureTargetsR
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.FailureToRetrieveIntrospectedValueException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.TopLevelActionConflictReport;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider.DisabledDependenciesProvider;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -143,8 +141,6 @@ public final class SkyframeBuildView {
   private final ArtifactFactory artifactFactory;
   private final SkyframeExecutor skyframeExecutor;
   private final ActionKeyContext actionKeyContext;
-  private RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider =
-      DisabledDependenciesProvider.INSTANCE;
   private boolean enableAnalysis = false;
 
   // This hack allows us to see when an action lookup node has been invalidated, and thus when the
@@ -1446,15 +1442,6 @@ public final class SkyframeBuildView {
 
   public StarlarkTransitionCache getStarlarkTransitionCache() {
     return starlarkTransitionCache;
-  }
-
-  public void setRemoteAnalysisCachingDependenciesProvider(
-      RemoteAnalysisCachingDependenciesProvider provider) {
-    this.remoteAnalysisCachingDependenciesProvider = provider;
-  }
-
-  public RemoteAnalysisCachingDependenciesProvider getRemoteAnalysisCachingDependenciesProvider() {
-    return remoteAnalysisCachingDependenciesProvider;
   }
 
   private final class ActionLookupValueProgressReceiver implements EvaluationProgressReceiver {

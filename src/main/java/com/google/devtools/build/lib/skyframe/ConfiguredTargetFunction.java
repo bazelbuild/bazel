@@ -84,6 +84,7 @@ import java.util.Optional;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -138,6 +139,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
   private final boolean shouldUnblockCpuWorkWhenFetchingDeps;
 
+  private final Supplier<RemoteAnalysisCachingDependenciesProvider> cachingDependenciesSupplier;
+
   /**
    * Packages of prerequisites.
    *
@@ -158,7 +161,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       boolean storeTransitivePackages,
       boolean shouldUnblockCpuWorkWhenFetchingDeps,
       @Nullable ConfiguredTargetProgressReceiver configuredTargetProgress,
-      PrerequisitePackageFunction prerequisitePackages) {
+      PrerequisitePackageFunction prerequisitePackages,
+      Supplier<RemoteAnalysisCachingDependenciesProvider> cachingDependenciesSupplier) {
     this.buildViewProvider = buildViewProvider;
     this.ruleClassProvider = ruleClassProvider;
     this.cpuBoundSemaphore = cpuBoundSemaphore;
@@ -166,6 +170,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     this.shouldUnblockCpuWorkWhenFetchingDeps = shouldUnblockCpuWorkWhenFetchingDeps;
     this.configuredTargetProgress = configuredTargetProgress;
     this.prerequisitePackages = prerequisitePackages;
+    this.cachingDependenciesSupplier = cachingDependenciesSupplier;
   }
 
   private void maybeAcquireSemaphoreWithLogging(SkyKey key) throws InterruptedException {
@@ -268,7 +273,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     }
 
     RemoteAnalysisCachingDependenciesProvider analysisCachingDeps =
-        view.getRemoteAnalysisCachingDependenciesProvider();
+        cachingDependenciesSupplier.get();
     if (analysisCachingDeps.enabled()) {
       RetrievalResult retrievalResult =
           maybeFetchSkyValueRemotely(configuredTargetKey, env, analysisCachingDeps, state);
