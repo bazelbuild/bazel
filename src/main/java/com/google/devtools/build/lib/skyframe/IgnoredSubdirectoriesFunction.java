@@ -40,44 +40,54 @@ import java.nio.file.Path;
 import javax.annotation.Nullable;
 
 /**
- * A {@link SkyFunction} for {@link IgnoredPackagePrefixesValue}.
+ * A {@link SkyFunction} for {@link IgnoredSubdirectoriesValue}.
  *
  * <p>It is used to compute which directories should be ignored in a package. These either come from
  * the {@code .bazelignore} file or from the {@code ignored_directories()} function in {@code
  * REPO.bazel}.
+ *
+ * <p>This is intended for directories containing non-bazel sources (either generated, or versioned
+ * sources built by other tools) that happen to contain a file called BUILD.
+ *
+ * <p>For the time being, this ignore functionality is limited by the fact that it is applied only
+ * after pattern expansion. So if a pattern expansion fails (e.g., due to symlink-cycles) and
+ * therefore fails the build, this ignore functionality currently has no chance to kick in.
  */
-public class IgnoredPackagePrefixesFunction implements SkyFunction {
+public class IgnoredSubdirectoriesFunction implements SkyFunction {
+  /** Repository-relative path of the bazelignore file. */
+  public static final PathFragment BAZELIGNORE_REPOSITORY_RELATIVE_PATH =
+      PathFragment.create(".bazelignore");
+
+  /** Singleton instance of this {@link SkyFunction}. */
+  public static final IgnoredSubdirectoriesFunction INSTANCE = new IgnoredSubdirectoriesFunction();
+
   /**
-   * A version of {@link IgnoredPackagePrefixesFunction} that always returns the empty value.
+   * A version of {@link IgnoredSubdirectoriesFunction} that always returns the empty value.
    *
    * <p>Used for tests where the extra complications incurred by evaluating the function are
    * undesired.
    */
-  public static final SkyFunction NOOP = (skyKey, env) -> IgnoredPackagePrefixesValue.EMPTY;
+  public static final SkyFunction NOOP = (skyKey, env) -> IgnoredSubdirectoriesValue.EMPTY;
 
-  private final PathFragment ignoredPackagePrefixesFile;
+  private IgnoredSubdirectoriesFunction() {}
 
-  public IgnoredPackagePrefixesFunction(PathFragment ignoredPackagePrefixesFile) {
-    this.ignoredPackagePrefixesFile = ignoredPackagePrefixesFile;
-  }
-
-  public static void getIgnoredPackagePrefixes(
-      RootedPath patternFile, ImmutableSet.Builder<PathFragment> ignoredPackagePrefixesBuilder)
-      throws IgnoredPatternsFunctionException {
+  public static void getIgnoredPrefixes(
+      RootedPath patternFile, ImmutableSet.Builder<PathFragment> ignoredDirectoriesBuilder)
+      throws IgnoredSubdirectoriesFunctionException {
     try (InputStreamReader reader =
         new InputStreamReader(patternFile.asPath().getInputStream(), StandardCharsets.UTF_8)) {
-      ignoredPackagePrefixesBuilder.addAll(
+      ignoredDirectoriesBuilder.addAll(
           CharStreams.readLines(reader, new PathFragmentLineProcessor()));
     } catch (IOException e) {
       String errorMessage = e.getMessage() != null ? "error '" + e.getMessage() + "'" : "an error";
-      throw new IgnoredPatternsFunctionException(
+      throw new IgnoredSubdirectoriesFunctionException(
           new InconsistentFilesystemException(
               patternFile.asPath()
                   + " is not readable because: "
                   + errorMessage
                   + ". Was it modified mid-build?"));
     } catch (InvalidPathException e) {
-      throw new IgnoredPatternsFunctionException(
+      throw new IgnoredSubdirectoriesFunctionException(
           new InvalidIgnorePathException(e, patternFile.asPath().toString()));
     }
   }
@@ -85,7 +95,7 @@ public class IgnoredPackagePrefixesFunction implements SkyFunction {
   @Nullable
   private ImmutableList<String> computeIgnoredPatterns(
       Environment env, RepositoryName repositoryName)
-      throws IgnoredPatternsFunctionException, InterruptedException {
+      throws IgnoredSubdirectoriesFunctionException, InterruptedException {
 
     try {
       RepoFileValue repoFileValue =
@@ -99,17 +109,17 @@ public class IgnoredPackagePrefixesFunction implements SkyFunction {
 
       return repoFileValue.ignoredDirectories();
     } catch (IOException e) {
-      throw new IgnoredPatternsFunctionException(e);
+      throw new IgnoredSubdirectoriesFunctionException(e);
     } catch (BadRepoFileException e) {
-      throw new IgnoredPatternsFunctionException(e);
+      throw new IgnoredSubdirectoriesFunctionException(e);
     }
   }
 
   @Nullable
   private ImmutableSet<PathFragment> computeIgnoredPrefixes(
       Environment env, RepositoryName repositoryName)
-      throws IgnoredPatternsFunctionException, InterruptedException {
-    ImmutableSet.Builder<PathFragment> ignoredPackagePrefixesBuilder = ImmutableSet.builder();
+      throws IgnoredSubdirectoriesFunctionException, InterruptedException {
+    ImmutableSet.Builder<PathFragment> ignoredPrefixesBuilder = ImmutableSet.builder();
     PathPackageLocator pkgLocator = PrecomputedValue.PATH_PACKAGE_LOCATOR.get(env);
     if (env.valuesMissing()) {
       return null;
@@ -124,17 +134,17 @@ public class IgnoredPackagePrefixesFunction implements SkyFunction {
       for (Root packagePathEntry : pkgLocator.getPathEntries()) {
         PathFragment workspaceRoot = packagePathEntry.asPath().asFragment();
         if (vendorDir != null && vendorDir.startsWith(workspaceRoot)) {
-          ignoredPackagePrefixesBuilder.add(vendorDir.relativeTo(workspaceRoot));
+          ignoredPrefixesBuilder.add(vendorDir.relativeTo(workspaceRoot));
         }
 
-        RootedPath rootedPatternFile =
-            RootedPath.toRootedPath(packagePathEntry, ignoredPackagePrefixesFile);
-        FileValue patternFileValue = (FileValue) env.getValue(FileValue.key(rootedPatternFile));
-        if (patternFileValue == null) {
+        RootedPath rootedPrefixFile =
+            RootedPath.toRootedPath(packagePathEntry, BAZELIGNORE_REPOSITORY_RELATIVE_PATH);
+        FileValue prefixFileValue = (FileValue) env.getValue(FileValue.key(rootedPrefixFile));
+        if (prefixFileValue == null) {
           return null;
         }
-        if (patternFileValue.isFile()) {
-          getIgnoredPackagePrefixes(rootedPatternFile, ignoredPackagePrefixesBuilder);
+        if (prefixFileValue.isFile()) {
+          getIgnoredPrefixes(rootedPrefixFile, ignoredPrefixesBuilder);
           break;
         }
       }
@@ -146,26 +156,26 @@ public class IgnoredPackagePrefixesFunction implements SkyFunction {
         return null;
       }
       if (repositoryValue.repositoryExists()) {
-        RootedPath rootedPatternFile =
+        RootedPath rootedPrefixFile =
             RootedPath.toRootedPath(
-                Root.fromPath(repositoryValue.getPath()), ignoredPackagePrefixesFile);
-        FileValue patternFileValue = (FileValue) env.getValue(FileValue.key(rootedPatternFile));
-        if (patternFileValue == null) {
+                Root.fromPath(repositoryValue.getPath()), BAZELIGNORE_REPOSITORY_RELATIVE_PATH);
+        FileValue prefixFileValue = (FileValue) env.getValue(FileValue.key(rootedPrefixFile));
+        if (prefixFileValue == null) {
           return null;
         }
-        if (patternFileValue.isFile()) {
-          getIgnoredPackagePrefixes(rootedPatternFile, ignoredPackagePrefixesBuilder);
+        if (prefixFileValue.isFile()) {
+          getIgnoredPrefixes(rootedPrefixFile, ignoredPrefixesBuilder);
         }
       }
     }
 
-    return ignoredPackagePrefixesBuilder.build();
+    return ignoredPrefixesBuilder.build();
   }
 
   @Nullable
   @Override
   public SkyValue compute(SkyKey key, Environment env)
-      throws IgnoredPatternsFunctionException, InterruptedException {
+      throws IgnoredSubdirectoriesFunctionException, InterruptedException {
     RepositoryName repositoryName = (RepositoryName) key.argument();
 
     ImmutableList<String> ignoredPatterns = computeIgnoredPatterns(env, repositoryName);
@@ -178,7 +188,7 @@ public class IgnoredPackagePrefixesFunction implements SkyFunction {
       return null;
     }
 
-    return IgnoredPackagePrefixesValue.of(ignoredPrefixes, ignoredPatterns);
+    return IgnoredSubdirectoriesValue.of(ignoredPrefixes, ignoredPatterns);
   }
 
   private static final class PathFragmentLineProcessor
@@ -214,20 +224,20 @@ public class IgnoredPackagePrefixesFunction implements SkyFunction {
     }
   }
 
-  private static final class IgnoredPatternsFunctionException extends SkyFunctionException {
-    public IgnoredPatternsFunctionException(InconsistentFilesystemException e) {
+  private static final class IgnoredSubdirectoriesFunctionException extends SkyFunctionException {
+    public IgnoredSubdirectoriesFunctionException(InconsistentFilesystemException e) {
       super(e, Transience.TRANSIENT);
     }
 
-    public IgnoredPatternsFunctionException(InvalidIgnorePathException e) {
+    public IgnoredSubdirectoriesFunctionException(InvalidIgnorePathException e) {
       super(e, Transience.PERSISTENT);
     }
 
-    public IgnoredPatternsFunctionException(IOException e) {
+    public IgnoredSubdirectoriesFunctionException(IOException e) {
       super(e, Transience.TRANSIENT);
     }
 
-    public IgnoredPatternsFunctionException(BadRepoFileException e) {
+    public IgnoredSubdirectoriesFunctionException(BadRepoFileException e) {
       super(e, Transience.PERSISTENT);
     }
   }

@@ -42,7 +42,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:client_environment_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:containing_package_lookup_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:file_function",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:ignored_package_prefixes_function",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:ignored_subdirectories_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_lookup_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",

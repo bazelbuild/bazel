@@ -55,8 +55,8 @@ public final class GlobFunctionWithMultipleRecursiveFunctions extends GlobFuncti
     Globber.Operation globberOperation = glob.globberOperation();
 
     RepositoryName repositoryName = glob.getPackageId().getRepository();
-    IgnoredPackagePrefixesValue ignoredPackagePrefixes =
-        (IgnoredPackagePrefixesValue) env.getValue(IgnoredPackagePrefixesValue.key(repositoryName));
+    IgnoredSubdirectoriesValue ignoredPackagePrefixes =
+        (IgnoredSubdirectoriesValue) env.getValue(IgnoredSubdirectoriesValue.key(repositoryName));
     if (env.valuesMissing()) {
       return null;
     }

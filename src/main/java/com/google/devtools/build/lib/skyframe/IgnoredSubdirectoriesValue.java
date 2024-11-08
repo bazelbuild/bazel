@@ -27,28 +27,28 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
 /** An immutable set of package name prefixes that should be ignored. */
-public class IgnoredPackagePrefixesValue implements SkyValue {
+public class IgnoredSubdirectoriesValue implements SkyValue {
   private final IgnoredSubdirectories ignoredSubdirectories;
 
   @SerializationConstant @VisibleForSerialization
-  public static final IgnoredPackagePrefixesValue EMPTY =
-      new IgnoredPackagePrefixesValue(IgnoredSubdirectories.EMPTY);
+  public static final IgnoredSubdirectoriesValue EMPTY =
+      new IgnoredSubdirectoriesValue(IgnoredSubdirectories.EMPTY);
 
-  private IgnoredPackagePrefixesValue(IgnoredSubdirectories ignoredSubdirectories) {
+  private IgnoredSubdirectoriesValue(IgnoredSubdirectories ignoredSubdirectories) {
     this.ignoredSubdirectories = ignoredSubdirectories;
   }
 
-  public static IgnoredPackagePrefixesValue of(
+  public static IgnoredSubdirectoriesValue of(
       ImmutableSet<PathFragment> prefixes, ImmutableList<String> patterns) {
     return prefixes.isEmpty() && patterns.isEmpty()
         ? EMPTY
-        : new IgnoredPackagePrefixesValue(IgnoredSubdirectories.of(prefixes, patterns));
+        : new IgnoredSubdirectoriesValue(IgnoredSubdirectories.of(prefixes, patterns));
   }
 
-  public static IgnoredPackagePrefixesValue of(IgnoredSubdirectories ignoredSubdirectories) {
+  public static IgnoredSubdirectoriesValue of(IgnoredSubdirectories ignoredSubdirectories) {
     return ignoredSubdirectories.isEmpty()
         ? EMPTY
-        : new IgnoredPackagePrefixesValue(ignoredSubdirectories);
+        : new IgnoredSubdirectoriesValue(ignoredSubdirectories);
   }
 
   /** Creates a key from the main repository. */
@@ -72,7 +72,7 @@ public class IgnoredPackagePrefixesValue implements SkyValue {
 
   @Override
   public boolean equals(Object obj) {
-    if (obj instanceof IgnoredPackagePrefixesValue other) {
+    if (obj instanceof IgnoredSubdirectoriesValue other) {
       return this.ignoredSubdirectories.equals(other.ignoredSubdirectories);
     }
     return false;
@@ -104,7 +104,7 @@ public class IgnoredPackagePrefixesValue implements SkyValue {
 
     @Override
     public SkyFunctionName functionName() {
-      return SkyFunctions.IGNORED_PACKAGE_PREFIXES;
+      return SkyFunctions.IGNORED_SUBDIRECTORIES;
     }
 
     @Override

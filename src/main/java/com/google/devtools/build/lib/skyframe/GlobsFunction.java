@@ -112,9 +112,8 @@ public final class GlobsFunction implements SkyFunction {
 
     if (state.ignoredSubdirectories == null) {
       RepositoryName repositoryName = globsKey.getPackageIdentifier().getRepository();
-      IgnoredPackagePrefixesValue ignoredPackagePrefixes =
-          (IgnoredPackagePrefixesValue)
-              env.getValue(IgnoredPackagePrefixesValue.key(repositoryName));
+      IgnoredSubdirectoriesValue ignoredPackagePrefixes =
+          (IgnoredSubdirectoriesValue) env.getValue(IgnoredSubdirectoriesValue.key(repositoryName));
       if (env.valuesMissing()) {
         return null;
       }
