@@ -305,8 +305,7 @@ public final class SymlinkTreeHelper {
             if (dirent.getType() != Dirent.Type.SYMLINK) {
               next.deleteTree();
             }
-            // TODO(ulfjack): On Windows, this call makes a copy rather than creating a symlink.
-            FileSystemUtils.ensureSymbolicLink(next, value.getPath().asFragment());
+            FileSystemUtils.ensureSymbolicLink(next, getSymlinkTargetPath(value));
           }
         } else if (directories.containsKey(basename)) {
           Directory nextDir = directories.remove(basename);
@@ -321,17 +320,24 @@ public final class SymlinkTreeHelper {
 
       for (Map.Entry<String, Artifact> entry : symlinks.entrySet()) {
         Path next = at.getChild(entry.getKey());
-        if (entry.getValue() == null) {
+        Artifact value = entry.getValue();
+        if (value == null) {
           FileSystemUtils.createEmptyFile(next);
-        } else if (entry.getValue().isSymlink()) {
-          FileSystemUtils.ensureSymbolicLink(next, entry.getValue().getPath().readSymbolicLink());
         } else {
-          FileSystemUtils.ensureSymbolicLink(next, entry.getValue().getPath().asFragment());
+          FileSystemUtils.ensureSymbolicLink(next, getSymlinkTargetPath(value));
         }
       }
       for (Map.Entry<String, Directory> entry : directories.entrySet()) {
         entry.getValue().syncTreeRecursively(at.getChild(entry.getKey()));
       }
     }
+  }
+
+  private static PathFragment getSymlinkTargetPath(Artifact artifact) throws IOException {
+    if (artifact.isSymlink()) {
+      // Unresolved symlinks are created textually.
+      return artifact.getPath().readSymbolicLink();
+    }
+    return artifact.getPath().asFragment();
   }
 }
