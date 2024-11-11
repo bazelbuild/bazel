@@ -216,20 +216,15 @@ public class CriticalPathComputerTest extends FoundationTestCase {
     MockAction actionC1 =
         new MockAction(
             Collections.singleton(middlemanArtifact("c2.out")),
-            ImmutableSet.of(middlemanArtifact("c1.out")),
-            true);
+            ImmutableSet.of(middlemanArtifact("c1.out")));
 
     MockAction actionC2 =
         new MockAction(
-            Collections.singleton(artifact("d.out")),
-            ImmutableSet.of(middlemanArtifact("c2.out")),
-            true);
+            Collections.singleton(artifact("d.out")), ImmutableSet.of(middlemanArtifact("c2.out")));
 
     MockAction sharedActionC2 =
         new MockAction(
-            Collections.singleton(artifact("d.out")),
-            ImmutableSet.of(middlemanArtifact("c2.out")),
-            true);
+            Collections.singleton(artifact("d.out")), ImmutableSet.of(middlemanArtifact("c2.out")));
 
     MockAction actionB = new MockAction(ImmutableSet.of(), ImmutableSet.of(artifact("b.out")));
 
@@ -903,7 +898,7 @@ public class CriticalPathComputerTest extends FoundationTestCase {
   @Test
   public void testSequentialActionExec() throws Exception {
     simulateSequentialAndParallelActionExec(
-        new MockAction(ImmutableList.of(), ImmutableSet.of(artifact("a.out")), false),
+        new MockAction(ImmutableList.of(), ImmutableSet.of(artifact("a.out"))),
         ImmutableList.of(
             ImmutableList.of(2 * 1000), ImmutableList.of(3 * 1000), ImmutableList.of(4 * 1000)));
     SpawnMetrics metrics = computer.getMaxCriticalPath().getSpawnMetrics().getRemoteMetrics();
@@ -912,8 +907,7 @@ public class CriticalPathComputerTest extends FoundationTestCase {
 
   @Test
   public void testMaximumSequentialAndParallelActionMetrics() throws Exception {
-    MockAction action =
-        new MockAction(ImmutableList.of(), ImmutableSet.of(artifact("a.out")), false);
+    MockAction action = new MockAction(ImmutableList.of(), ImmutableSet.of(artifact("a.out")));
 
     ImmutableList<ImmutableList<Integer>> seqAndParallelSeries =
         ImmutableList.of(
@@ -929,7 +923,7 @@ public class CriticalPathComputerTest extends FoundationTestCase {
 
   @Test
   public void testInputDiscoveryAndAction() throws Exception {
-    Action action = new MockAction(ImmutableList.of(), ImmutableSet.of(artifact("a.out")), false);
+    Action action = new MockAction(ImmutableList.of(), ImmutableSet.of(artifact("a.out")));
     simulateActionExec(action, 2 * 1000, 2 * 1000, true, 5 * 1000);
     SpawnMetrics metrics = computer.getMaxCriticalPath().getSpawnMetrics().getRemoteMetrics();
     assertThat(metrics.parseTimeInMs()).isEqualTo(5 * 1000);
@@ -940,7 +934,7 @@ public class CriticalPathComputerTest extends FoundationTestCase {
   @Test
   public void testInputDiscoveryBeforeActionStarted() throws Exception {
     Artifact artifact = artifact("a.out");
-    Action action = new MockAction(ImmutableList.of(), ImmutableSet.of(artifact), false);
+    Action action = new MockAction(ImmutableList.of(), ImmutableSet.of(artifact));
     computer.discoverInputs(
         new DiscoveredInputsEvent(
             SpawnMetrics.Builder.forRemoteExec()
@@ -970,7 +964,6 @@ public class CriticalPathComputerTest extends FoundationTestCase {
         new MockAction(
             ImmutableList.of(),
             ImmutableSet.of(artifact),
-            /* middleman= */ false,
             /* isShareable= */ false);
     computer.actionStarted(new ActionStartedEvent(sharedAction, clock.nanoTime()));
     IllegalStateException exception =
@@ -1148,19 +1141,15 @@ public class CriticalPathComputerTest extends FoundationTestCase {
 
   private void simulateActionExec(Action action, int totalTime) throws InterruptedException {
     long nanoTimeStart = clock.nanoTime();
-    if (action.getActionType().isMiddleman()) {
-      clock.advanceMillis(totalTime);
-    } else {
-      computer.actionStarted(new ActionStartedEvent(action, nanoTimeStart));
-      clock.advanceMillis(totalTime);
-      computer.actionComplete(
-          new ActionCompletionEvent(
-              nanoTimeStart,
-              clock.nanoTime(),
-              action,
-              new FakeActionInputFileCache(),
-              mock(ActionLookupData.class)));
-    }
+    computer.actionStarted(new ActionStartedEvent(action, nanoTimeStart));
+    clock.advanceMillis(totalTime);
+    computer.actionComplete(
+        new ActionCompletionEvent(
+            nanoTimeStart,
+            clock.nanoTime(),
+            action,
+            new FakeActionInputFileCache(),
+            mock(ActionLookupData.class)));
   }
 
   private void simulateActionExec(

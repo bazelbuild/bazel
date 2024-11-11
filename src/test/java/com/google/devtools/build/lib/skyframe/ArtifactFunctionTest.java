@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MiddlemanAction;
-import com.google.devtools.build.lib.actions.MiddlemanType;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -417,7 +416,9 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
                       treeFileArtifact2, FileArtifactValue.createForTesting(treeFileArtifact2))
                   .build();
           treeArtifactData.put(output, tree);
-        } else if (action.getActionType() == MiddlemanType.NORMAL) {
+        } else if (output.isMiddlemanArtifact()) {
+          artifactData.put(output, FileArtifactValue.DEFAULT_MIDDLEMAN);
+        } else {
           Path path = output.getPath();
           FileArtifactValue noDigest =
               ActionOutputMetadataStore.fileArtifactValueFromArtifact(
@@ -428,8 +429,6 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
           FileArtifactValue withDigest =
               FileArtifactValue.createFromInjectedDigest(noDigest, path.getDigest());
           artifactData.put(output, withDigest);
-        } else {
-          artifactData.put(output, FileArtifactValue.DEFAULT_MIDDLEMAN);
         }
       } catch (IOException e) {
         throw new IllegalStateException(e);

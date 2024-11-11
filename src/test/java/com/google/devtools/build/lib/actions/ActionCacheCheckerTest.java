@@ -1619,9 +1619,6 @@ public class ActionCacheCheckerTest {
 
       return tree.build();
     }
-
-    @Override
-    public void setDigestForVirtualArtifact(Artifact artifact, byte[] digest) {}
   }
 
   private static class WriteEmptyOutputAction extends NullAction {

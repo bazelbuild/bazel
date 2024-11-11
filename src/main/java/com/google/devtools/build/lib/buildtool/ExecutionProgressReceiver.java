@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.buildtool;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
-import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
@@ -88,17 +87,6 @@ public final class ExecutionProgressReceiver
         // in the evaluated method too.
         enqueuedActions.add(actionLookupData);
       }
-    }
-  }
-
-  @Override
-  public void noteActionEvaluationStarted(ActionLookupData actionLookupData, Action action) {
-    if (!isActionReportWorthy(action)) {
-      ignoredActions.add(actionLookupData);
-      // There is no race here because this is called synchronously during action execution, so no
-      // other thread can concurrently enqueue the action for execution under the Skyframe model.
-      completedActions.remove(actionLookupData);
-      enqueuedActions.remove(actionLookupData);
     }
   }
 
@@ -180,10 +168,6 @@ public final class ExecutionProgressReceiver
       enqueuedActions.add(actionLookupData);
       completedActions.add(actionLookupData);
     }
-  }
-
-  private static boolean isActionReportWorthy(Action action) {
-    return !action.getActionType().isMiddleman();
   }
 
   @Override

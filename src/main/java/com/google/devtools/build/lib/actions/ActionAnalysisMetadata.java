@@ -224,9 +224,6 @@ public interface ActionAnalysisMetadata {
    */
   NestedSet<Artifact> getMandatoryInputs();
 
-  /** Returns the action type. Must not be {@code null}. */
-  MiddlemanType getActionType();
-
   /** Returns a String to String map containing the execution properties of this action. */
   ImmutableMap<String, String> getExecProperties();
 

@@ -1610,7 +1610,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   public void initializeConsumedArtifactsTracker() {
-    consumedArtifactsTracker = new ConsumedArtifactsTracker(this::getEvaluator);
+    consumedArtifactsTracker = new ConsumedArtifactsTracker();
   }
 
   /** Sets the eventBus to use for posting events. */

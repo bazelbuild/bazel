@@ -148,11 +148,6 @@ public final class SkyframeActionExecutor {
         }
 
         @Override
-        public void setDigestForVirtualArtifact(Artifact artifact, byte[] digest) {
-          throw new IllegalStateException();
-        }
-
-        @Override
         public TreeArtifactValue getTreeArtifactValue(SpecialArtifact treeArtifact) {
           throw new IllegalStateException();
         }
@@ -504,12 +499,6 @@ public final class SkyframeActionExecutor {
     // Evict the rewinding action from the action cache to ensure that it is executed.
     if (actionCacheChecker.enabled()) {
       actionCacheChecker.removeCacheEntry(dep);
-    }
-  }
-
-  void noteActionEvaluationStarted(ActionLookupData actionLookupData, Action action) {
-    if (completionReceiver != null) {
-      completionReceiver.noteActionEvaluationStarted(actionLookupData, action);
     }
   }
 
@@ -1894,9 +1883,6 @@ public final class SkyframeActionExecutor {
   public interface ActionCompletedReceiver {
     /** Receives a completed action. */
     void actionCompleted(ActionLookupData actionLookupData);
-
-    /** Notes that an action has started, giving the key. */
-    void noteActionEvaluationStarted(ActionLookupData actionLookupData, Action action);
   }
 
   void setActionExecutionProgressReportingObjects(

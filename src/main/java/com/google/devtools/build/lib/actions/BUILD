@@ -150,7 +150,6 @@ java_library(
         ":file_metadata",
         ":fileset_output_tree",
         ":localhost_capacity",
-        ":middleman_type",
         ":package_roots",
         ":runfiles_metadata",
         ":runfiles_tree",
@@ -512,11 +511,6 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
     ],
-)
-
-java_library(
-    name = "middleman_type",
-    srcs = ["MiddlemanType.java"],
 )
 
 java_library(

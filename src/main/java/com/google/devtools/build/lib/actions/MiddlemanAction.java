@@ -79,14 +79,6 @@ public final class MiddlemanAction extends AbstractAction {
     // responsible for considering those.
   }
 
-  /**
-   * Returns the type of the middleman.
-   */
-  @Override
-  public MiddlemanType getActionType() {
-    return MiddlemanType.RUNFILES_MIDDLEMAN;
-  }
-
   @Nullable
   @Override
   protected String getRawProgressMessage() {

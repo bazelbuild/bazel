@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
-import com.google.devtools.build.lib.actions.MiddlemanType;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -284,10 +283,6 @@ public class SpawnIncludeScanner {
       return ImmutableSet.of();
     }
 
-    @Override
-    public MiddlemanType getActionType() {
-      throw new UnsupportedOperationException();
-    }
   }
 
   /** Extracts and returns inclusions from "file" using a spawn. */

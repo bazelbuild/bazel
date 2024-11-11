@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
-import com.google.devtools.build.lib.actions.MiddlemanType;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -201,11 +200,6 @@ public class FakeOwner implements ActionExecutionMetadata {
 
   @Override
   public ImmutableSet<Artifact> getMandatoryOutputs() {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public MiddlemanType getActionType() {
     throw new UnsupportedOperationException();
   }
 

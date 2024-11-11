@@ -230,7 +230,6 @@ public final class ActionExecutionFunction implements SkyFunction {
   private SkyValue computeInternal(
       ActionLookupData actionLookupData, Action action, Environment env)
       throws ActionExecutionFunctionException, InterruptedException, UndoneInputsException {
-    skyframeActionExecutor.noteActionEvaluationStarted(actionLookupData, action);
     if (Actions.dependsOnBuildId(action)) {
       PrecomputedValue.BUILD_ID.get(env);
     }
@@ -314,7 +313,6 @@ public final class ActionExecutionFunction implements SkyFunction {
     if (!state.hasArtifactData()) {
       ImmutableSet<SkyKey> inputDepKeys =
           getInputDepKeys(
-              action,
               consumedArtifactsTrackerSupplier.get(),
               allInputs,
               action.getSchedulingDependencies(),
@@ -390,7 +388,6 @@ public final class ActionExecutionFunction implements SkyFunction {
           env,
           allInputs,
           getInputDepKeys(
-              action,
               /* consumedArtifactsTracker= */ null,
               allInputs,
               action.getSchedulingDependencies(),
@@ -438,7 +435,6 @@ public final class ActionExecutionFunction implements SkyFunction {
   }
 
   private static ImmutableSet<SkyKey> getInputDepKeys(
-      Action action,
       ConsumedArtifactsTracker consumedArtifactsTracker,
       NestedSet<Artifact> allInputs,
       NestedSet<Artifact> schedulingDependencies,
@@ -449,32 +445,14 @@ public final class ActionExecutionFunction implements SkyFunction {
     // Register the action's inputs and scheduling deps as "consumed" in the build.
     // As a general rule, we do it before requesting for the evaluation of these artifacts. This
     // would provide a good estimate of which outputs are consumed.
-    //
-    // The exception to this rule is middleman actions: it's possible that the output of a
-    // middleman action is only reachable via middleman actions in the action graph. In that case,
-    // we don't want to store any of the underlying artifacts, until we've discovered that there's
-    // a non-middleman action in its path.
     if (!state.checkedForConsumedArtifactRegistration && consumedArtifactsTracker != null) {
-      // Special case: middleman actions.
-      // Delay registering the artifacts under this middleman action until we know that the
-      // middleman artifact itself is consumed by other non-middleman actions.
-      if (action.getActionType().isMiddleman()) {
-        consumedArtifactsTracker.skipRegisteringArtifactsUnderMiddleman(action.getPrimaryOutput());
-        // Skip the ArtifactNestedSetFunction altogether for this special case. Any artifact
-        // requested via ArtifactNestedSetFunction would be registered as consumed.
-        return result
-            .addAll(Artifact.keys(allInputs.toList()))
-            .addAll(Artifact.keys(schedulingDependencies.toList()))
-            .build();
-      } else {
-        // Only registering the leaves here, since the Artifacts under non-leaves will be registered
-        // in ArtifactNestedSetFunction. Similarly for the non-singleton Scheduling Dependencies.
-        for (Artifact input : allInputs.getLeaves()) {
-          consumedArtifactsTracker.registerConsumedArtifact(input);
-        }
-        if (schedulingDependencies.isSingleton()) {
-          consumedArtifactsTracker.registerConsumedArtifact(schedulingDependencies.getSingleton());
-        }
+      // Only registering the leaves here, since the Artifacts under non-leaves will be registered
+      // in ArtifactNestedSetFunction. Similarly for the non-singleton Scheduling Dependencies.
+      for (Artifact input : allInputs.getLeaves()) {
+        consumedArtifactsTracker.registerConsumedArtifact(input);
+      }
+      if (schedulingDependencies.isSingleton()) {
+        consumedArtifactsTracker.registerConsumedArtifact(schedulingDependencies.getSingleton());
       }
       state.checkedForConsumedArtifactRegistration = true;
     }

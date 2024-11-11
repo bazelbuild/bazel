@@ -192,8 +192,7 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
     }
 
     if (artifact.isMiddlemanArtifact()) {
-      // A middleman artifact's data was either already injected from the action cache checker using
-      // #setDigestForVirtualArtifact, or it has the default middleman value.
+      // A middleman artifact's data has the default middleman value.
       value = artifactData.get(artifact);
       if (value != null) {
         return checkExists(value, artifact);
@@ -232,13 +231,6 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
     value = constructFileArtifactValueFromFilesystem(artifact);
     putArtifactData(artifact, value);
     return checkExists(value, artifact);
-  }
-
-  @Override
-  public void setDigestForVirtualArtifact(Artifact artifact, byte[] digest) {
-    checkArgument(artifact.isMiddlemanArtifact(), artifact);
-    checkNotNull(digest, artifact);
-    putArtifactData(artifact, FileArtifactValue.createProxy(digest));
   }
 
   @Override
