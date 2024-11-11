@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.FileValue;
@@ -24,6 +25,7 @@ import com.google.devtools.build.lib.packages.DotBazelFileSyntaxChecker;
 import com.google.devtools.build.lib.packages.VendorThreadContext;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
@@ -34,7 +36,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
@@ -54,7 +55,8 @@ import net.starlark.java.syntax.SyntaxError;
 public class VendorFileFunction implements SkyFunction {
 
   private static final String VENDOR_FILE_HEADER =
-      """
+      StringEncoding.unicodeToInternal(
+          """
 ###############################################################################
 # This file is used to configure how external repositories are handled in vendor mode.
 # ONLY the two following functions can be used:
@@ -67,7 +69,7 @@ public class VendorFileFunction implements SkyFunction {
 # Note that Bazel will NOT update the vendored source for this repo while running vendor command
 # unless it's unpinned. The user can modify and maintain the vendored source for this repo manually.
 ###############################################################################
-""";
+""");
 
   private final BazelStarlarkEnvironment starlarkEnv;
 
@@ -138,7 +140,7 @@ public class VendorFileFunction implements SkyFunction {
       throws VendorFileFunctionException {
     try {
       vendorPath.createDirectoryAndParents();
-      FileSystemUtils.writeContent(vendorFilePath, StandardCharsets.UTF_8, VENDOR_FILE_HEADER);
+      FileSystemUtils.writeContent(vendorFilePath, ISO_8859_1, VENDOR_FILE_HEADER);
     } catch (IOException e) {
       throw new VendorFileFunctionException(
           new IOException("error creating VENDOR.bazel file", e), Transience.TRANSIENT);

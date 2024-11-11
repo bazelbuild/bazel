@@ -50,6 +50,13 @@ msys*|mingw*|cygwin*)
   ;;
 esac
 
+if $is_windows; then
+  export LC_ALL=C.utf8
+elif [[ "$(uname -s)" == "Linux" ]]; then
+  export LC_ALL=C.UTF-8
+else
+  export LC_ALL=en_US.UTF-8
+fi
 
 #### SETUP #############################################################
 
@@ -86,28 +93,7 @@ ls_srcs = rule(
 EOF
 }
 
-function has_iso_8859_1_locale() {
-  charmap="$(LC_ALL=en_US.ISO-8859-1 locale charmap 2>/dev/null)"
-  [[ "${charmap}" == "ISO-8859-1" ]]
-}
-
-function has_utf8_locale() {
-  charmap="$(LC_ALL=en_US.UTF-8 locale charmap 2>/dev/null)"
-  [[ "${charmap}" == "UTF-8" ]]
-}
-
 function test_utf8_source_artifact() {
-  # Bazel relies on the JVM for filename encoding, and can only support
-  # UTF-8 if either a UTF-8 or ISO-8859-1 locale is available.
-  if ! "$is_windows"; then
-    if ! has_iso_8859_1_locale && ! has_utf8_locale; then
-      echo "Skipping test (no ISO-8859-1 or UTF-8 locale)."
-      echo "Available locales (need ISO-8859-1 or UTF-8):"
-      locale -a
-      return
-    fi
-  fi
-
   unicode_filenames_test_setup
 
   touch 'pkg/srcs/regular file.txt'
@@ -119,14 +105,7 @@ function test_utf8_source_artifact() {
   # 'pkg/srcs/\xc3\xbcn\xc3\xafc\xc3\xb6d\xc3\xab f\xc3\xafl\xc3\xab.txt'
   touch "$(printf '%b' 'pkg/srcs/\xc3\xbcn\xc3\xafc\xc3\xb6d\xc3\xab f\xc3\xafl\xc3\xab.txt')"
 
-  # On systems without an ISO-8859-1 locale, the environment locale must be
-  # the same as the file encoding.
-  #
-  # This doesn't affect systems that do have an ISO-8859-1 locale, because the
-  # Bazel launcher will force it to be used.
-  bazel shutdown
-  LC_ALL=en_US.UTF-8 bazel build //pkg:ls_srcs >$TEST_log 2>&1 || fail "Should build"
-  bazel shutdown
+  bazel build //pkg:ls_srcs >$TEST_log 2>&1 || fail "Should build"
 
   assert_contains "pkg/srcs/regular file.txt" bazel-bin/pkg/ls_srcs
   assert_contains "pkg/srcs/subdir/file.txt" bazel-bin/pkg/ls_srcs
@@ -145,15 +124,6 @@ function test_traditional_encoding_source_artifact() {
     ;;
   esac
 
-  # Bazel relies on the JVM for filename encoding, and can only support
-  # traditional encodings if it can roundtrip through ISO-8859-1.
-  if ! has_iso_8859_1_locale; then
-    echo "Skipping test (no ISO-8859-1 locale)."
-    echo "Available locales (need en_US.ISO-8859-1):"
-    locale -a
-    return
-  fi
-
   unicode_filenames_test_setup
 
   # >>> u"pkg/srcs/TRADITIONAL ünïcödë fïlë.txt".encode("iso-8859-1")
@@ -165,17 +135,6 @@ function test_traditional_encoding_source_artifact() {
 }
 
 function test_utf8_source_artifact_in_bep() {
-  # Bazel relies on the JVM for filename encoding, and can only support
-  # UTF-8 if either a UTF-8 or ISO-8859-1 locale is available.
-  if ! "$is_windows"; then
-    if ! has_iso_8859_1_locale && ! has_utf8_locale; then
-      echo "Skipping test (no ISO-8859-1 or UTF-8 locale)."
-      echo "Available locales (need ISO-8859-1 or UTF-8):"
-      locale -a
-      return
-    fi
-  fi
-
   unicode_filenames_test_setup
 
   touch 'pkg/srcs/regular file.txt'
@@ -187,15 +146,8 @@ function test_utf8_source_artifact_in_bep() {
   # 'pkg/srcs/\xc3\xbcn\xc3\xafc\xc3\xb6d\xc3\xab f\xc3\xafl\xc3\xab.txt'
   touch "$(printf '%b' 'pkg/srcs/\xc3\xbcn\xc3\xafc\xc3\xb6d\xc3\xab f\xc3\xafl\xc3\xab.txt')"
 
-  # On systems without an ISO-8859-1 locale, the environment locale must be
-  # the same as the file encoding.
-  #
-  # This doesn't affect systems that do have an ISO-8859-1 locale, because the
-  # Bazel launcher will force it to be used.
-  bazel shutdown
-  LC_ALL=en_US.UTF-8 bazel build --build_event_json_file="$TEST_log" \
+  bazel build --build_event_json_file="$TEST_log" \
       //pkg:filegroup 2>&1 || fail "Should build"
-  bazel shutdown
 
   expect_log '"name":"pkg/srcs/regular file.txt"'
   expect_log '"name":"pkg/srcs/subdir/file.txt"'
@@ -203,10 +155,6 @@ function test_utf8_source_artifact_in_bep() {
 }
 
 function test_utf8_filename_in_java_test() {
-  # Intentionally do not check for available locales: Either C.UTF_8 or
-  # en_US.UTF-8 should exist on all CI machines - if not, we want to learn about
-  # this so that the Java stub template can be adapted accordingly.
-
   touch WORKSPACE
   mkdir pkg
 
@@ -231,6 +179,53 @@ class Test {
 EOF
 
   bazel test //pkg:Test --test_output=errors 2>$TEST_log || fail "Test should pass"
+}
+
+function test_cc_dependency_with_utf8_filename() {
+  if "$is_windows"; then
+    # äöüÄÖÜß in UTF-8
+    local unicode=$(echo -e '\xC3\xA4\xC3\xB6\xC3\xBC\xC3\x84\xC3\x96\xC3\x9C\xC3\x9F')
+  else
+    # äöüÄÖÜß🌱 in UTF-8
+    local unicode=$(echo -e '\xC3\xA4\xC3\xB6\xC3\xBC\xC3\x84\xC3\x96\xC3\x9C\xC3\x9F\xF0\x9F\x8C\xB1')
+  fi
+
+  setup_module_dot_bazel
+
+  mkdir pkg
+  cat >pkg/BUILD <<EOF
+cc_library(
+    name = "lib",
+    hdrs = ["${unicode}.h"],
+)
+cc_binary(
+    name = "bin",
+    srcs = ["bin.cc"],
+    deps = [":lib"],
+)
+EOF
+  cat >"pkg/${unicode}.h" <<EOF
+#define MY_STRING "original"
+EOF
+  cat >pkg/bin.cc <<EOF
+#include "${unicode}.h"
+
+#include <iostream>
+
+int main() {
+  std::cout << MY_STRING << std::endl;
+  return 0;
+}
+EOF
+  bazel run //pkg:bin >$TEST_log 2>&1 || fail "Should build"
+  expect_log "original"
+
+  # Change the header file and rebuild
+  cat >"pkg/${unicode}.h" <<EOF
+#define MY_STRING "changed"
+EOF
+  bazel run //pkg:bin >$TEST_log 2>&1 || fail "Should build"
+  expect_log "changed"
 }
 
 run_suite "Tests for handling of Unicode filenames"

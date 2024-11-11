@@ -252,10 +252,10 @@ function test_dependency_pruning_scenario() {
 
 function test_dependency_pruning_scenario_unicode() {
   if "$is_windows"; then
-    # äöüÄÖÜß in UTF8
+    # äöüÄÖÜß in UTF-8
     local unicode=$(echo -e '\xC3\xA4\xC3\xB6\xC3\xBC\xC3\x84\xC3\x96\xC3\x9C\xC3\x9F')
   else
-    # äöüÄÖÜß🌱 in UTF8
+    # äöüÄÖÜß🌱 in UTF-8
     local unicode=$(echo -e '\xC3\xA4\xC3\xB6\xC3\xBC\xC3\x84\xC3\x96\xC3\x9C\xC3\x9F\xF0\x9F\x8C\xB1')
   fi
 
