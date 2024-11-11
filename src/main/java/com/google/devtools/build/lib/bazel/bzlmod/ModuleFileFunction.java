@@ -549,6 +549,9 @@ public class ModuleFileFunction implements SkyFunction {
       ModuleThreadContext context,
       StarlarkThread thread)
       throws EvalException {
+    if (injectedRepositories.isEmpty()) {
+      return;
+    }
     // Use the innate extension backing use_repo_rule.
     ModuleThreadContext.ModuleExtensionUsageBuilder usageBuilder =
         new ModuleThreadContext.ModuleExtensionUsageBuilder(
