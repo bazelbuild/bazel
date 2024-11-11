@@ -2083,7 +2083,7 @@ public class RuleClass implements RuleClassData {
    * Returns an (immutable) list of all Attributes defined for this class of rule, ordered by
    * increasing index.
    */
-  public List<Attribute> getAttributes() {
+  public ImmutableList<Attribute> getAttributes() {
     return attributes;
   }
 

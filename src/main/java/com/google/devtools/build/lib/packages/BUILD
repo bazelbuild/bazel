@@ -46,15 +46,16 @@ java_library(
     srcs = glob(
         ["*.java"],
         exclude = [
+            "AutoloadSymbols.java",
             "BuilderFactoryForTesting.java",  # see builder_factory_for_testing
             "BzlVisibility.java",
+            "ConfiguredAttributeMapper.java",
+            "ExecGroup.java",
             "Globber.java",
             "GlobberUtils.java",
-            "ExecGroup.java",
-            "ConfiguredAttributeMapper.java",
             "LabelPrinter.java",
             "PackageSpecification.java",
-            "AutoloadSymbols.java",
+            "RuleClassUtils.java",
         ],
     ),
     deps = [
@@ -207,5 +208,18 @@ java_library(
     srcs = ["RuleClassId.java"],
     deps = [
         "//third_party:auto_value",
+    ],
+)
+
+java_library(
+    name = "rule_class_utils",
+    srcs = ["RuleClassUtils.java"],
+    deps = [
+        ":packages",
+        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:starlark_builtins_value",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party:guava",
     ],
 )
