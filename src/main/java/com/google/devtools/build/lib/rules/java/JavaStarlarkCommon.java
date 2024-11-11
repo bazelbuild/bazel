@@ -147,11 +147,10 @@ public class JavaStarlarkCommon
             .setTargetLabel(targetLabel)
             .setInjectingRuleKind(
                 injectingRuleKind == Starlark.NONE ? null : (String) injectingRuleKind)
-            .addPlugin(JavaPluginInfo.PROVIDER.wrap(pluginInfo))
+            .addPlugin(JavaPluginInfo.wrap(pluginInfo))
             .addCompileTimeDependencyArtifacts(compileTimeJavaDeps.getSet(Artifact.class));
     if (bootClassPathUnchecked instanceof Info) {
-      BootClassPathInfo bootClassPathInfo =
-          BootClassPathInfo.PROVIDER.wrap((Info) bootClassPathUnchecked);
+      BootClassPathInfo bootClassPathInfo = BootClassPathInfo.wrap((Info) bootClassPathUnchecked);
       if (!bootClassPathInfo.isEmpty()) {
         attributesBuilder.setBootClassPath(bootClassPathInfo);
       }
@@ -162,7 +161,7 @@ public class JavaStarlarkCommon
             javaSemantics,
             JavaHelper.tokenizeJavaOptions(Depset.cast(javacOpts, String.class, "javac_opts")),
             attributesBuilder,
-            JavaToolchainProvider.PROVIDER.wrap(toolchain),
+            JavaToolchainProvider.wrap(toolchain),
             Sequence.cast(additionalInputs, Artifact.class, "additional_inputs")
                 .getImmutableList());
     compilationHelper.enableDirectClasspath(enableDirectClasspath);
@@ -229,12 +228,11 @@ public class JavaStarlarkCommon
                 injectingRuleKind == Starlark.NONE ? null : (String) injectingRuleKind)
             .setSourcePath(
                 Sequence.cast(sourcepath, Artifact.class, "source_path").getImmutableList())
-            .addPlugin(JavaPluginInfo.PROVIDER.wrap(pluginInfo))
+            .addPlugin(JavaPluginInfo.wrap(pluginInfo))
             .addAdditionalOutputs(
                 Sequence.cast(additionalOutputs, Artifact.class, "additional_outputs"));
     if (bootClassPathUnchecked instanceof Info) {
-      BootClassPathInfo bootClassPathInfo =
-          BootClassPathInfo.PROVIDER.wrap((Info) bootClassPathUnchecked);
+      BootClassPathInfo bootClassPathInfo = BootClassPathInfo.wrap((Info) bootClassPathUnchecked);
       if (!bootClassPathInfo.isEmpty()) {
         attributesBuilder.setBootClassPath(bootClassPathInfo);
       }
@@ -252,7 +250,7 @@ public class JavaStarlarkCommon
             javaSemantics,
             JavaHelper.tokenizeJavaOptions(Depset.cast(javacOpts, String.class, "javac_opts")),
             attributesBuilder,
-            JavaToolchainProvider.PROVIDER.wrap(javaToolchain),
+            JavaToolchainProvider.wrap(javaToolchain),
             Sequence.cast(additionalInputs, Artifact.class, "additional_inputs")
                 .getImmutableList());
     compilationHelper.javaBuilderJvmFlags(
@@ -374,7 +372,7 @@ public class JavaStarlarkCommon
   public JavaInfo wrapJavaInfo(Info javaInfo, StarlarkThread thread)
       throws EvalException, RuleErrorException {
     checkPrivateAccess(thread);
-    return JavaInfo.PROVIDER.wrap(javaInfo);
+    return JavaInfo.wrap(javaInfo);
   }
 
   @Override

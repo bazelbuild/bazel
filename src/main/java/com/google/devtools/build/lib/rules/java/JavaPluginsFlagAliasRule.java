@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
@@ -49,7 +50,10 @@ public final class JavaPluginsFlagAliasRule implements RuleDefinition {
         .add(
             attr(":java_plugins", LABEL_LIST)
                 .cfg(ExecutionTransitionFactory.createFactory())
-                .mandatoryProviders(JavaPluginInfo.PROVIDER.id())
+                .mandatoryProvidersList(
+                    ImmutableList.of(
+                        ImmutableList.of(JavaPluginInfo.PROVIDER.id()),
+                        ImmutableList.of(JavaPluginInfo.LEGACY_BUILTINS_PROVIDER.id())))
                 .silentRuleClassFilter()
                 .value(JavaSemantics.JAVA_PLUGINS))
         .build();
@@ -78,14 +82,22 @@ public final class JavaPluginsFlagAliasRule implements RuleDefinition {
         return null;
       }
 
-      JavaPluginInfo javaPluginInfo =
-          JavaPluginInfo.mergeWithoutJavaOutputs(
-              ruleContext
-                  .getRulePrerequisitesCollection()
-                  .getPrerequisites(":java_plugins", JavaPluginInfo.PROVIDER));
+      ImmutableList<JavaPluginInfo> plugins =
+          ruleContext
+              .getRulePrerequisitesCollection()
+              .getPrerequisites(":java_plugins", JavaPluginInfo.PROVIDER);
+      // try builtin provider as well
+      ImmutableList<JavaPluginInfo> builtinsProviderPlugins =
+          ruleContext
+              .getRulePrerequisitesCollection()
+              .getPrerequisites(":java_plugins", JavaPluginInfo.LEGACY_BUILTINS_PROVIDER);
+      JavaPluginInfo javaPluginInfo = JavaPluginInfo.mergeWithoutJavaOutputs(plugins, false);
+      JavaPluginInfo builtinsProviderInfo =
+          JavaPluginInfo.mergeWithoutJavaOutputs(builtinsProviderPlugins, true);
 
       return new RuleConfiguredTargetBuilder(ruleContext)
           .addStarlarkDeclaredProvider(javaPluginInfo)
+          .addStarlarkDeclaredProvider(builtinsProviderInfo)
           .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
           .build();
     }
