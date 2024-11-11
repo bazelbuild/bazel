@@ -42,6 +42,7 @@ public class BootClassPathInfo extends StarlarkInfoWrapper {
       new BuiltinsProvider();
 
   public static final StarlarkProviderWrapper<BootClassPathInfo> PROVIDER = new Provider();
+  public static final StarlarkProviderWrapper<BootClassPathInfo> RULES_JAVA_PROVIDER = new RulesJavaProvider();
 
   private static final BootClassPathInfo EMPTY =
       new BootClassPathInfo(null) {
@@ -85,6 +86,8 @@ public class BootClassPathInfo extends StarlarkInfoWrapper {
       return PROVIDER.wrap(info);
     } else if (key.equals(LEGACY_BUILTINS_PROVIDER.getKey())) {
       return LEGACY_BUILTINS_PROVIDER.wrap(info);
+    } else if (key.equals(RULES_JAVA_PROVIDER.getKey())) {
+      return RULES_JAVA_PROVIDER.wrap(info);
     } else {
       throw new RuleErrorException("expected BootClassPathInfo, got: " + key);
     }
@@ -126,6 +129,14 @@ public class BootClassPathInfo extends StarlarkInfoWrapper {
       super(
           keyForBuiltins(
               Label.parseCanonicalUnchecked("@_builtins//:common/java/boot_class_path_info.bzl")));
+    }
+  }
+
+  private static class RulesJavaProvider extends Provider {
+    private RulesJavaProvider() {
+      super(
+          keyForBuild(
+              Label.parseCanonicalUnchecked("//java/private:boot_class_path_info.bzl")));
     }
   }
 
