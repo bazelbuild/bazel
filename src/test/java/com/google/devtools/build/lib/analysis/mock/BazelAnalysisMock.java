@@ -92,7 +92,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
             + bazelPlatformsWorkspace
             + "')",
         "local_repository(name = 'local_config_xcode', path = '" + xcodeWorkspace + "')",
-        "local_repository(name = 'protobuf', path = '" + protobufWorkspace + "')",
+        "local_repository(name = 'com_google_protobuf', path = '" + protobufWorkspace + "')",
         "local_repository(name = 'proto_bazel_features', path = '"
             + protoBazelFeaturesWorkspace
             + "')",
@@ -116,7 +116,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
   public ImmutableList<String> getWorkspaceRepos() {
     return ImmutableList.of(
         "android_gmaven_r8",
-        "protobuf",
+        "com_google_protobuf",
         "proto_bazel_features",
         "local_config_platform",
         "local_config_xcode",
@@ -143,7 +143,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "local_config_xcode_workspace/MODULE.bazel", "module(name = 'local_config_xcode')");
     config.create("third_party/protobuf/WORKSPACE");
     config.create("third_party/protobuf/BUILD");
-    config.create("third_party/protobuf/MODULE.bazel", "module(name='protobuf')");
+    config.create("third_party/protobuf/MODULE.bazel", "module(name='com_google_protobuf')");
     config.overwrite("WORKSPACE", workspaceContents.toArray(new String[0]));
     config.overwrite(
         "MODULE.bazel",
@@ -574,22 +574,22 @@ launcher_flag_alias(
 
         alias(
             name = "protoc",
-            actual = "@protobuf//:protoc",
+            actual = "@com_google_protobuf//:protoc",
         )
 
         alias(
             name = "javalite_toolchain",
-            actual = "@protobuf//:javalite_toolchain",
+            actual = "@com_google_protobuf//:javalite_toolchain",
         )
 
         alias(
             name = "java_toolchain",
-            actual = "@protobuf//:java_toolchain",
+            actual = "@com_google_protobuf//:java_toolchain",
         )
 
         alias(
             name = "cc_toolchain",
-            actual = "@protobuf//:cc_toolchain",
+            actual = "@com_google_protobuf//:cc_toolchain",
         )
         """);
 
@@ -835,7 +835,9 @@ launcher_flag_alias(
             .put("rules_python", "rules_python_workspace")
             .put("rules_python_internal", "rules_python_internal_workspace")
             .put("bazel_skylib", "bazel_skylib_workspace")
-            .put("protobuf", "third_party/protobuf")
+            .put(
+                "com_google_protobuf",
+                "third_party/protobuf") // for WORKSPACE compatibility use com_google_protobuf
             .put("proto_bazel_features", "proto_bazel_features_workspace")
             .put("build_bazel_apple_support", "build_bazel_apple_support")
             .put("local_config_xcode", "local_config_xcode_workspace")

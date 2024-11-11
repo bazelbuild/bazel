@@ -82,7 +82,7 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
     scratch.appendFile(
         "tools/proto/toolchains/BUILD",
         """
-load('@protobuf//bazel/toolchains:proto_lang_toolchain.bzl', 'proto_lang_toolchain')
+load('@com_google_protobuf//bazel/toolchains:proto_lang_toolchain.bzl', 'proto_lang_toolchain')
 package(default_visibility = ["//visibility:public"])
 
 proto_lang_toolchain(
@@ -114,8 +114,8 @@ proto_lang_toolchain(
     scratch.file(
         "x/BUILD",
         """
-        load('@protobuf//bazel:proto_library.bzl', 'proto_library')
-        load('@protobuf//bazel:java_lite_proto_library.bzl', 'java_lite_proto_library')
+        load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')
+        load('@com_google_protobuf//bazel:java_lite_proto_library.bzl', 'java_lite_proto_library')
         java_lite_proto_library(
             name = "lite_pb2",
             deps = [":foo"],
@@ -162,8 +162,8 @@ proto_lang_toolchain(
     scratch.file(
         "x/BUILD",
         """
-        load('@protobuf//bazel:proto_library.bzl', 'proto_library')
-        load('@protobuf//bazel:java_lite_proto_library.bzl', 'java_lite_proto_library')
+        load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')
+        load('@com_google_protobuf//bazel:java_lite_proto_library.bzl', 'java_lite_proto_library')
         java_lite_proto_library(
             name = "lite_pb2",
             deps = [":protolib"],
@@ -195,8 +195,8 @@ proto_lang_toolchain(
         scratchConfiguredTarget(
             "java",
             "lite_pb2",
-            "load('@protobuf//bazel:proto_library.bzl', 'proto_library')",
-            "load('@protobuf//bazel:java_lite_proto_library.bzl',"
+            "load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')",
+            "load('@com_google_protobuf//bazel:java_lite_proto_library.bzl',"
                 + " 'java_lite_proto_library')",
             "java_lite_proto_library(name = 'lite_pb2', deps = [':compiled'])",
             "proto_library(name = 'compiled',",
@@ -213,8 +213,8 @@ proto_lang_toolchain(
     scratch.file(
         "java/lib/BUILD",
         """
-        load('@protobuf//bazel:proto_library.bzl', 'proto_library')
-        load('@protobuf//bazel:java_lite_proto_library.bzl', 'java_lite_proto_library')
+        load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')
+        load('@com_google_protobuf//bazel:java_lite_proto_library.bzl', 'java_lite_proto_library')
         java_lite_proto_library(
             name = "lite_pb2",
             deps = [":proto"],
@@ -242,8 +242,8 @@ proto_lang_toolchain(
         scratchConfiguredTarget(
             "notbad",
             "lite_pb2",
-            "load('@protobuf//bazel:proto_library.bzl', 'proto_library')",
-            "load('@protobuf//bazel:java_lite_proto_library.bzl',"
+            "load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')",
+            "load('@com_google_protobuf//bazel:java_lite_proto_library.bzl',"
                 + " 'java_lite_proto_library')",
             "java_lite_proto_library(name = 'lite_pb2', deps = [':null_lib'])",
             "proto_library(name = 'null_lib')");
@@ -262,8 +262,8 @@ proto_lang_toolchain(
     scratch.file(
         "cross/BUILD",
         """
-        load('@protobuf//bazel:proto_library.bzl', 'proto_library')
-        load('@protobuf//bazel:java_lite_proto_library.bzl', 'java_lite_proto_library')
+        load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')
+        load('@com_google_protobuf//bazel:java_lite_proto_library.bzl', 'java_lite_proto_library')
         java_lite_proto_library(
             name = "lite_pb2",
             deps = ["bravo"],
@@ -338,8 +338,8 @@ proto_lang_toolchain(
     scratch.file(
         "x/BUILD",
         """
-        load('@protobuf//bazel:proto_library.bzl', 'proto_library')
-        load('@protobuf//bazel:java_lite_proto_library.bzl', 'java_lite_proto_library')
+        load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')
+        load('@com_google_protobuf//bazel:java_lite_proto_library.bzl', 'java_lite_proto_library')
         java_lite_proto_library(
             name = "lite_pb2",
             deps = [":foo"],
@@ -404,8 +404,8 @@ proto_lang_toolchain(
     scratch.file(
         "protolib/BUILD",
         """
-        load('@protobuf//bazel:proto_library.bzl', 'proto_library')
-        load('@protobuf//bazel:java_lite_proto_library.bzl', 'java_lite_proto_library')
+        load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')
+        load('@com_google_protobuf//bazel:java_lite_proto_library.bzl', 'java_lite_proto_library')
         load("//proto:extensions.bzl", "custom_rule")
 
         proto_library(
@@ -438,8 +438,8 @@ proto_lang_toolchain(
     scratch.file(
         "protolib/BUILD",
         """
-        load('@protobuf//bazel:proto_library.bzl', 'proto_library')
-        load('@protobuf//bazel:java_lite_proto_library.bzl', 'java_lite_proto_library')
+        load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')
+        load('@com_google_protobuf//bazel:java_lite_proto_library.bzl', 'java_lite_proto_library')
         proto_library(
             name = "proto",
             srcs = ["file.proto"],
@@ -472,8 +472,8 @@ proto_lang_toolchain(
     scratch.file(
         "x/BUILD",
         """
-        load('@protobuf//bazel:proto_library.bzl', 'proto_library')
-        load('@protobuf//bazel:java_lite_proto_library.bzl', 'java_lite_proto_library')
+        load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')
+        load('@com_google_protobuf//bazel:java_lite_proto_library.bzl', 'java_lite_proto_library')
         java_lite_proto_library(
             name = "foo_java_proto_lite",
             deps = [":foo_proto"],

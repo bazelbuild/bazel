@@ -591,7 +591,10 @@ function add_rules_license() {
 }
 
 function add_protobuf() {
-  add_bazel_dep "protobuf" "$1"
+  version=$(get_version_from_default_lock_file "protobuf")
+  cat >> "$1" <<EOF
+bazel_dep(name = "protobuf", version = "$version", repo_name = "com_google_protobuf")
+EOF
 }
 
 function add_rules_testing() {
