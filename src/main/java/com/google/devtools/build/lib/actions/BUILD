@@ -128,7 +128,6 @@ java_library(
         "StaticInputMetadataProvider.java",
         "StoppedScanningActionEvent.java",
         "TestExecException.java",
-        "TestMiddlemanObserver.java",
         "TopLevelOutputException.java",
         "TotalAndConfiguredTargetOnlyMetric.java",
         "UserExecException.java",
