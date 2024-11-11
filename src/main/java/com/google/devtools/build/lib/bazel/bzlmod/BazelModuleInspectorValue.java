@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableBiMap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
@@ -44,9 +45,10 @@ public abstract class BazelModuleInspectorValue implements SkyValue {
       ImmutableMap<ModuleKey, AugmentedModule> depGraph,
       ImmutableMap<String, ImmutableSet<ModuleKey>> modulesIndex,
       ImmutableSetMultimap<ModuleExtensionId, String> extensionToRepoInternalNames,
-      ImmutableMap<ModuleKey, RepositoryName> moduleKeyToCanonicalNames) {
+      ImmutableMap<ModuleKey, RepositoryName> moduleKeyToCanonicalNames,
+      ImmutableList<ExternalDepsException> errors) {
     return new AutoValue_BazelModuleInspectorValue(
-        depGraph, modulesIndex, extensionToRepoInternalNames, moduleKeyToCanonicalNames);
+        depGraph, modulesIndex, extensionToRepoInternalNames, moduleKeyToCanonicalNames, errors);
   }
 
   /**
@@ -73,6 +75,9 @@ public abstract class BazelModuleInspectorValue implements SkyValue {
 
   /** A mapping from a module key to the canonical repository name of the module repository. */
   public abstract ImmutableMap<ModuleKey, RepositoryName> getModuleKeyToCanonicalNames();
+
+  /** A list of exceptions that occurred during module graph inspection. */
+  public abstract ImmutableList<ExternalDepsException> getErrors();
 
   /**
    * A wrapper for {@link Module}, augmented with references to dependants (and also those who are

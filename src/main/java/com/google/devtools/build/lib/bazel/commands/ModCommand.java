@@ -61,7 +61,6 @@ import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -100,11 +99,9 @@ import javax.annotation.Nullable;
 @Command(
     name = ModCommand.NAME,
     buildPhase = LOADS,
-    // TODO(andreisolo): figure out which extra options are really needed
     options = {
       ModOptions.class,
       PackageOptions.class,
-      KeepGoingOption.class,
       LoadingPhaseThreadsOption.class
     },
     help = "resource:mod.txt",
@@ -212,7 +209,7 @@ public final class ModCommand implements BlazeCommand {
 
       if (evaluationResult.hasError()) {
         Exception e = evaluationResult.getError().getException();
-        String message = "Unexpected error during repository rule evaluation.";
+        String message = "Unexpected error during module graph evaluation.";
         if (e != null) {
           message = e.getMessage();
         }
@@ -541,7 +538,17 @@ public final class ModCommand implements BlazeCommand {
       return reportAndCreateFailureResult(env, e.getMessage(), Code.INVALID_ARGUMENTS);
     }
 
-    return BlazeCommandResult.success();
+    if (moduleInspector.getErrors().isEmpty()) {
+      return BlazeCommandResult.success();
+    } else {
+      return reportAndCreateFailureResult(
+          env,
+          String.format(
+              "Results may be incomplete as %d extension%s failed.",
+              moduleInspector.getErrors().size(),
+              moduleInspector.getErrors().size() == 1 ? "" : "s"),
+          Code.ERROR_DURING_GRAPH_INSPECTION);
+    }
   }
 
   private BlazeCommandResult runTidy(CommandEnvironment env, BazelModTidyValue modTidyValue) {
@@ -572,7 +579,7 @@ public final class ModCommand implements BlazeCommand {
       if (e instanceof AbnormalTerminationException abnormalTerminationException) {
         if (abnormalTerminationException.getResult().getTerminationStatus().getRawExitCode() == 3) {
           // Buildozer exits with exit code 3 if it didn't make any changes.
-          return BlazeCommandResult.success();
+          return reportAndCreateTidyResult(env, modTidyValue);
         }
         suffix =
             ":\n" + new String(((AbnormalTerminationException) e).getResult().getStderr(), UTF_8);
@@ -587,7 +594,21 @@ public final class ModCommand implements BlazeCommand {
       env.getReporter().handle(Event.info(fixupEvent.getSuccessMessage()));
     }
 
-    return BlazeCommandResult.success();
+    return reportAndCreateTidyResult(env, modTidyValue);
+  }
+
+  private static BlazeCommandResult reportAndCreateTidyResult(
+      CommandEnvironment env, BazelModTidyValue modTidyValue) {
+    if (modTidyValue.errors().isEmpty()) {
+      return BlazeCommandResult.success();
+    } else {
+      return reportAndCreateFailureResult(
+          env,
+          String.format(
+              "Failed to process %d extension%s due to errors.",
+              modTidyValue.errors().size(), modTidyValue.errors().size() == 1 ? "" : "s"),
+          Code.ERROR_DURING_GRAPH_INSPECTION);
+    }
   }
 
   /** Collects a list of {@link ModuleArg} into a set of {@link ModuleKey}s. */
@@ -640,9 +661,13 @@ public final class ModCommand implements BlazeCommand {
   private static BlazeCommandResult reportAndCreateFailureResult(
       CommandEnvironment env, String message, Code detailedCode) {
     String fullMessage =
-        String.format(
-            "%s%s Type '%s help mod' for syntax and help.",
-            message, message.endsWith(".") ? "" : ".", env.getRuntime().getProductName());
+        switch (detailedCode) {
+          case MISSING_ARGUMENTS, TOO_MANY_ARGUMENTS, INVALID_ARGUMENTS ->
+              String.format(
+                  "%s%s Type '%s help mod' for syntax and help.",
+                  message, message.endsWith(".") ? "" : ".", env.getRuntime().getProductName());
+          default -> message;
+        };
     env.getReporter().handle(Event.error(fullMessage));
     return createFailureResult(fullMessage, detailedCode);
   }
