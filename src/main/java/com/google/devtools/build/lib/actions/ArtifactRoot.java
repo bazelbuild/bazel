@@ -185,9 +185,7 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, FileRootApi
     // These will eventually replace the above Output and Middleman types when the flag becomes
     // the default option and then removed.
     SiblingMainOutput,
-    SiblingMainMiddleman,
     SiblingExternalOutput,
-    SiblingExternalMiddleman,
   }
 
   private final Root root;
@@ -233,9 +231,7 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, FileRootApi
   }
 
   public boolean isExternal() {
-    return rootType == RootType.ExternalSource
-        || rootType == RootType.SiblingExternalOutput
-        || rootType == RootType.SiblingExternalMiddleman;
+    return rootType == RootType.ExternalSource || rootType == RootType.SiblingExternalOutput;
   }
 
   /**
