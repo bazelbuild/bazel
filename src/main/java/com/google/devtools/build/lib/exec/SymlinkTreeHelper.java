@@ -96,8 +96,32 @@ public final class SymlinkTreeHelper {
     return symlinkTreeRoot.getChild("MANIFEST");
   }
 
+  interface TargetPathFunction<T> {
+    /** Obtains a symlink target path from a T. */
+    PathFragment get(T target) throws IOException;
+  }
+
+  /** Creates a symlink tree for a fileset by making VFS calls. */
+  public void createFilesetSymlinksDirectly(Map<PathFragment, PathFragment> symlinkMap)
+      throws IOException {
+    createSymlinksDirectly(symlinkMap, (path) -> path);
+  }
+
+  /** Creates a symlink tree for a runfiles by making VFS calls. */
+  public void createRunfilesSymlinksDirectly(Map<PathFragment, Artifact> symlinkMap)
+      throws IOException {
+    createSymlinksDirectly(
+        symlinkMap,
+        (artifact) ->
+            artifact.isSymlink()
+                // Unresolved symlinks are created textually.
+                ? artifact.getPath().readSymbolicLink()
+                : artifact.getPath().asFragment());
+  }
+
   /** Creates a symlink tree by making VFS calls. */
-  public void createSymlinksDirectly(Map<PathFragment, Artifact> symlinkMap) throws IOException {
+  private <T> void createSymlinksDirectly(
+      Map<PathFragment, T> symlinkMap, TargetPathFunction<T> targetPathFn) throws IOException {
     // Our strategy is to minimize mutating file system operations as much as possible. Ideally, if
     // there is an existing symlink tree with the expected contents, we don't make any changes. Our
     // algorithm goes as follows:
@@ -129,14 +153,13 @@ public final class SymlinkTreeHelper {
     // 3. For every remaining entry in the node, create the corresponding file, symlink, or
     //    directory on disk. If it is a directory, recurse into that directory.
     try (SilentCloseable c = Profiler.instance().profile("Create symlink tree in-process")) {
-      Preconditions.checkState(!filesetTree);
-      Directory root = new Directory();
-      for (Map.Entry<PathFragment, Artifact> entry : symlinkMap.entrySet()) {
+      Directory<T> root = new Directory<>();
+      for (Map.Entry<PathFragment, T> entry : symlinkMap.entrySet()) {
         // This creates intermediate directory nodes as a side effect.
-        Directory parentDir = root.walk(entry.getKey().getParentDirectory());
+        Directory<T> parentDir = root.walk(entry.getKey().getParentDirectory());
         parentDir.addSymlink(entry.getKey().getBaseName(), entry.getValue());
       }
-      root.syncTreeRecursively(symlinkTreeRoot);
+      root.syncTreeRecursively(symlinkTreeRoot, targetPathFn);
       createWorkspaceSubdirectory();
     }
   }
@@ -255,23 +278,23 @@ public final class SymlinkTreeHelper {
     return symlinks.buildOrThrow();
   }
 
-  private static final class Directory {
-    private final Map<String, Artifact> symlinks = new HashMap<>();
-    private final Map<String, Directory> directories = new HashMap<>();
+  private static final class Directory<T> {
+    private final Map<String, T> symlinks = new HashMap<>();
+    private final Map<String, Directory<T>> directories = new HashMap<>();
 
-    void addSymlink(String basename, @Nullable Artifact artifact) {
-      symlinks.put(basename, artifact);
+    void addSymlink(String basename, @Nullable T target) {
+      symlinks.put(basename, target);
     }
 
-    Directory walk(PathFragment dir) {
-      Directory result = this;
+    Directory<T> walk(PathFragment dir) {
+      Directory<T> result = this;
       for (String segment : dir.segments()) {
-        result = result.directories.computeIfAbsent(segment, unused -> new Directory());
+        result = result.directories.computeIfAbsent(segment, unused -> new Directory<>());
       }
       return result;
     }
 
-    void syncTreeRecursively(Path at) throws IOException {
+    void syncTreeRecursively(Path at, TargetPathFunction<T> targetPathFn) throws IOException {
       // This is a reimplementation of the C++ code in build-runfiles.cc. This avoids having to ship
       // a separate native tool to create a few runfiles.
       // TODO(ulfjack): Measure performance.
@@ -294,7 +317,7 @@ public final class SymlinkTreeHelper {
         String basename = dirent.getName();
         Path next = at.getChild(basename);
         if (symlinks.containsKey(basename)) {
-          Artifact value = symlinks.remove(basename);
+          T value = symlinks.remove(basename);
           if (value == null) {
             if (dirent.getType() != Dirent.Type.FILE) {
               next.deleteTree();
@@ -307,39 +330,31 @@ public final class SymlinkTreeHelper {
             if (dirent.getType() != Dirent.Type.SYMLINK) {
               next.deleteTree();
             }
-            FileSystemUtils.ensureSymbolicLink(next, getSymlinkTargetPath(value));
+            FileSystemUtils.ensureSymbolicLink(next, targetPathFn.get(value));
           }
         } else if (directories.containsKey(basename)) {
-          Directory nextDir = directories.remove(basename);
+          Directory<T> nextDir = directories.remove(basename);
           if (dirent.getType() != Dirent.Type.DIRECTORY) {
             next.deleteTree();
           }
-          nextDir.syncTreeRecursively(at.getChild(basename));
+          nextDir.syncTreeRecursively(at.getChild(basename), targetPathFn);
         } else {
           at.getChild(basename).deleteTree();
         }
       }
 
-      for (Map.Entry<String, Artifact> entry : symlinks.entrySet()) {
+      for (Map.Entry<String, T> entry : symlinks.entrySet()) {
         Path next = at.getChild(entry.getKey());
-        Artifact value = entry.getValue();
+        T value = entry.getValue();
         if (value == null) {
           FileSystemUtils.createEmptyFile(next);
         } else {
-          FileSystemUtils.ensureSymbolicLink(next, getSymlinkTargetPath(value));
+          FileSystemUtils.ensureSymbolicLink(next, targetPathFn.get(value));
         }
       }
-      for (Map.Entry<String, Directory> entry : directories.entrySet()) {
-        entry.getValue().syncTreeRecursively(at.getChild(entry.getKey()));
+      for (Map.Entry<String, Directory<T>> entry : directories.entrySet()) {
+        entry.getValue().syncTreeRecursively(at.getChild(entry.getKey()), targetPathFn);
       }
     }
-  }
-
-  private static PathFragment getSymlinkTargetPath(Artifact artifact) throws IOException {
-    if (artifact.isSymlink()) {
-      // Unresolved symlinks are created textually.
-      return artifact.getPath().readSymbolicLink();
-    }
-    return artifact.getPath().asFragment();
   }
 }
