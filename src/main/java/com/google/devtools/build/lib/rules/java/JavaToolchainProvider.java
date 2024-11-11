@@ -326,7 +326,8 @@ public final class JavaToolchainProvider extends StarlarkInfoWrapper {
       this(
           keyForBuild(
               Label.parseCanonicalUnchecked(
-                  "@rules_java//java/common/rules:java_toolchain.bzl")));
+                  JavaSemantics.RULES_JAVA_PROVIDER_LABELS_PREFIX
+                      + "java/common/rules:java_toolchain.bzl")));
     }
 
     private Provider(BzlLoadValue.Key key) {

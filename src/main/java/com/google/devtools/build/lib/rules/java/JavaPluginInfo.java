@@ -107,7 +107,7 @@ public abstract class JavaPluginInfo extends NativeInfo
       this(
           keyForBuild(
               Label.parseCanonicalUnchecked(
-                  "@rules_java//java/private:java_info.bzl")));
+                  JavaSemantics.RULES_JAVA_PROVIDER_LABELS_PREFIX + "java/private:java_info.bzl")));
     }
 
     private Provider(BzlLoadValue.Key key) {

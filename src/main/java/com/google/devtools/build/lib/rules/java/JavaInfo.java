@@ -560,7 +560,7 @@ public class JavaInfo extends NativeInfo
       this(
           keyForBuild(
               Label.parseCanonicalUnchecked(
-                  "@rules_java//java/private:java_info.bzl")));
+                  JavaSemantics.RULES_JAVA_PROVIDER_LABELS_PREFIX + "java/private:java_info.bzl")));
     }
 
     public JavaInfoProvider(BzlLoadValue.Key key) {
