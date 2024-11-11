@@ -283,6 +283,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/query2/common:QueryTransitivePackagePreloader",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:broken_diff_awareness_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:builder",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",

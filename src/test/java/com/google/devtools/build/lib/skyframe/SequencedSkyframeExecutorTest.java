@@ -127,6 +127,7 @@ import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.LocalOutputService;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -465,6 +466,12 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
           @Override
           public ModifiedFileSet getDiff(View oldView, View newView) {
             return ModifiedFileSet.NOTHING_MODIFIED;
+          }
+
+          @Override
+          public ModifiedFileSet getDiffFromEvaluatingVersion(
+              OptionsProvider options, FileSystem fs) throws BrokenDiffAwarenessException {
+            throw new UnsupportedOperationException("not implemented");
           }
 
           @Override

@@ -112,6 +112,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_function",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:broken_diff_awareness_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:diff_awareness",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
