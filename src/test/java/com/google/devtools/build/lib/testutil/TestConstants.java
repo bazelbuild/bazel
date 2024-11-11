@@ -23,10 +23,10 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
  */
 public class TestConstants {
 
-  public static final String PROTO_TOOLCHAIN = "@protobuf//bazel/private:proto_toolchain_type";
+  public static final String PROTO_TOOLCHAIN = "@com_google_protobuf//bazel/private:proto_toolchain_type";
 
   public static final String LOAD_PROTO_LANG_TOOLCHAIN =
-      "load('@protobuf//bazel/toolchains:proto_lang_toolchain.bzl', 'proto_lang_toolchain')";
+      "load('@com_google_protobuf//bazel/toolchains:proto_lang_toolchain.bzl', 'proto_lang_toolchain')";
 
   private TestConstants() {
   }

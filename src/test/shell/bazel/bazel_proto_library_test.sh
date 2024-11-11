@@ -55,7 +55,7 @@ function write_setup() {
   extra_attribute=$2
   include_macro=$3
   if [ "${include_macro}" -eq "" ]; then
-    include_macro="load('@protobuf//bazel:proto_library.bzl', 'proto_library')"
+    include_macro="load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')"
   fi
 
   cat > x/person/BUILD << EOF
@@ -136,7 +136,7 @@ function write_regression_setup() {
   touch proto_library/BUILD
 
   cat > proto_library/src/BUILD << EOF
-load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
 proto_library(
     name = "all",
     srcs = glob(["*.proto"]),
@@ -205,7 +205,7 @@ function write_workspaces_setup() {
   touch a/b/BUILD
   cat > a/b/src/BUILD <<EOF
 package(default_visibility = ["//visibility:public"])
-load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
 proto_library(
   name = "all_protos",
   srcs = glob(["*.proto"]),
@@ -245,7 +245,7 @@ EOF
 
   cat > c/d/src/BUILD <<EOF
 package(default_visibility = ["//visibility:public"])
-load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
 proto_library(
   name = "all_protos",
   srcs = glob(["*.proto"]),
@@ -284,7 +284,7 @@ export_files(["proto_library_macro.bzl])
 EOF
 
   cat > macros/proto_library_macro.bzl << EOF
-load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
 def proto_library_macro(name, srcs, deps = []):
   proto_library(
       name = name,
@@ -346,7 +346,7 @@ proto_library(
 proto_library(
   name="b",
   srcs=["b.proto"],
-  deps=["@protobuf//:duration_proto"],
+  deps=["@com_google_protobuf//:duration_proto"],
 )
 EOF
 
@@ -492,7 +492,7 @@ EOF
 function test_cc_proto_library() {
   mkdir -p a
   cat > a/BUILD <<EOF
-load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
 proto_library(name='p', srcs=['p.proto'])
 cc_proto_library(name='cp', deps=[':p'])
 cc_library(name='c', srcs=['c.cc'], deps=[':cp'])
@@ -520,7 +520,7 @@ EOF
 function test_cc_proto_library_with_toolchain_resolution() {
   mkdir -p a
   cat > a/BUILD <<EOF
-load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
 proto_library(name='p', srcs=['p.proto'])
 cc_proto_library(name='cp', deps=[':p'])
 cc_library(name='c', srcs=['c.cc'], deps=[':cp'])
@@ -548,7 +548,7 @@ EOF
 function test_cc_proto_library_import_prefix_stripping() {
   mkdir -p a/dir
   cat > a/BUILD <<EOF
-load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
 proto_library(name='p', srcs=['dir/p.proto'], strip_import_prefix='/a')
 cc_proto_library(name='cp', deps=[':p'])
 cc_library(name='c', srcs=['c.cc'], deps=[':cp'])
@@ -587,7 +587,7 @@ EOF
 
   mkdir -p e/f/bad
   cat > e/f/BUILD <<EOF
-load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
 proto_library(
   name = "f",
   strip_import_prefix = "bad",
@@ -608,7 +608,7 @@ EOF
 
   mkdir -p g/bad
   cat > g/BUILD << EOF
-load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
 proto_library(
   name = 'g',
   strip_import_prefix = "/g/bad",
@@ -629,7 +629,7 @@ EOF
 
   mkdir -p h
   cat > h/BUILD <<EOF
-load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
 proto_library(
   name = "h",
   srcs = ["h.proto"],
@@ -686,7 +686,7 @@ EOF
 
   mkdir -p e/f/good
   cat > e/f/BUILD <<EOF
-load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
 proto_library(
   name = "f",
   srcs = ["good/f.proto"],
@@ -723,7 +723,7 @@ EOF
 
   mkdir -p g/good
   cat > g/BUILD << EOF
-load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
 proto_library(
   name = 'g',
   srcs = ['good/g.proto'],
@@ -742,7 +742,7 @@ EOF
 
   mkdir -p h
   cat > h/BUILD <<EOF
-load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
 proto_library(
   name = "h",
   srcs = ["h.proto"],
