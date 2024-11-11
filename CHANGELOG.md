@@ -1,3 +1,41 @@
+## Release 9.0.0-pre.20241105.2 (2024-11-11)
+
+```
+Baseline: dcf80a0d37e3b1c75f81669fc3419be450d2c489
+```
+
+Incompatible changes:
+
+  - On Windows, a change to the output base locking protocol might
+    cause an older Bazel invoked immediately after a newer Bazel (on
+    the same output base) to error out instead of blocking for the
+    lock, even if --block_for_lock is enabled.
+
+Important changes:
+
+  - A no-config transition is now available as `config.no_config()`.
+  - Actions that create runfiles trees are now considered regular
+    actions. This means that they are now reported in statistics,
+    critical paths and the like.
+  - External repositories that are managed by Bzlmod can now contain
+    a top-level `external` directory or package.
+
+This release contains contributions from many people at Google, as well as Alexander Golovlev, Fabian Meumertzheim, Farid Zakaria, Honnix, Jay Conrod, Keith Smiley, Matt Brown, Roman Salvador.
+
+## Release 9.0.0-pre.20241026.2 (2024-11-06)
+
+```
+Baseline: 5357798b160f4054ade31d109cae4021ff552e26
+
+Cherry picks:
+
+   + d4898880309159c4eb373d09359fca0ce255ba64:
+     Automated rollback of commit
+     7a4416f114ee5c02fc159f44f71b57ee3e67d29d.
+```
+
+This release contains contributions from many people at Google, as well as Alexander Golovlev, Benson Muite, Fabian Meumertzheim.
+
 ## Release 9.0.0-pre.20241023.1 (2024-10-31)
 
 ```
