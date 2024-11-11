@@ -138,7 +138,7 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
   }
 
   @Override
-  public PathFragment getIgnoredPackagePrefixesFile() {
+  public PathFragment getIgnoredSubdirectoriesFile() {
     return PathFragment.EMPTY_FRAGMENT;
   }
 

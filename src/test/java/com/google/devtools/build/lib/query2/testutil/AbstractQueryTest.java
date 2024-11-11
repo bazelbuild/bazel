@@ -2794,7 +2794,7 @@ public abstract class AbstractQueryTest<T> {
 
     Path getRootDirectory();
 
-    PathFragment getIgnoredPackagePrefixesFile();
+    PathFragment getIgnoredSubdirectoriesFile();
 
     /** Removes all files below the package root. */
     void clearAllFiles() throws IOException;

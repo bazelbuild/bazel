@@ -426,7 +426,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   SkyframeIncrementalBuildMonitor incrementalBuildMonitor = new SkyframeIncrementalBuildMonitor();
 
-  private final SkyFunction ignoredPackagePrefixesFunction;
+  private final SkyFunction ignoredSubdirectoriesFunction;
 
   private final ConfiguredRuleClassProvider ruleClassProvider;
 
@@ -578,7 +578,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
       SyscallCache syscallCache,
       ExternalFileAction externalFileAction,
-      SkyFunction ignoredPackagePrefixesFunction,
+      SkyFunction ignoredSubdirectoriesFunction,
       CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
       ImmutableList<BuildFileName> buildFilesByPriority,
       ExternalPackageHelper externalPackageHelper,
@@ -617,7 +617,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.fileSystem = fileSystem;
     this.directories = checkNotNull(directories);
     this.actionKeyContext = checkNotNull(actionKeyContext);
-    this.ignoredPackagePrefixesFunction = ignoredPackagePrefixesFunction;
+    this.ignoredSubdirectoriesFunction = ignoredSubdirectoriesFunction;
     this.extraSkyFunctions = extraSkyFunctions;
 
     this.ruleClassProvider = (ConfiguredRuleClassProvider) pkgFactory.getRuleClassProvider();
@@ -708,7 +708,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(
         SkyFunctions.COLLECT_PACKAGES_UNDER_DIRECTORY,
         newCollectPackagesUnderDirectoryFunction(directories));
-    map.put(SkyFunctions.IGNORED_SUBDIRECTORIES, ignoredPackagePrefixesFunction);
+    map.put(SkyFunctions.IGNORED_SUBDIRECTORIES, ignoredSubdirectoriesFunction);
     map.put(SkyFunctions.TESTS_IN_SUITE, new TestExpansionFunction());
     map.put(SkyFunctions.TEST_SUITE_EXPANSION, new TestsForTargetPatternFunction());
     map.put(SkyFunctions.TARGET_PATTERN_PHASE, new TargetPatternPhaseFunction());

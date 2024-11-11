@@ -115,7 +115,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
   private TargetPatternPreloader targetParser;
   protected final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
-  private final PathFragment ignoredPackagePrefixesFile = PathFragment.create(".bazelignore");
+  private final PathFragment ignoredSubdirectoriesFile = PathFragment.create(".bazelignore");
   private final DelegatingSyscallCache delegatingSyscallCache = new DelegatingSyscallCache();
 
   @Override
@@ -184,8 +184,8 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
   }
 
   @Override
-  public PathFragment getIgnoredPackagePrefixesFile() {
-    return ignoredPackagePrefixesFile;
+  public PathFragment getIgnoredSubdirectoriesFile() {
+    return ignoredSubdirectoriesFile;
   }
 
   @ForOverride

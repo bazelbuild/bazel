@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
 import com.google.devtools.build.lib.bazel.repository.RepositoryResolvedEvent;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
-import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -217,13 +216,11 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
       mainRepoMapping = rule.getPackage().getRepositoryMapping();
     }
 
-    IgnoredSubdirectoriesValue ignoredPackagesValue =
+    IgnoredSubdirectoriesValue ignoredSubdirectories =
         (IgnoredSubdirectoriesValue) env.getValue(IgnoredSubdirectoriesValue.key());
     if (env.valuesMissing()) {
       return null;
     }
-    IgnoredSubdirectories ignoredSubdirectories =
-        checkNotNull(ignoredPackagesValue).asIgnoredSubdirectories();
 
     Map<RepoRecordedInput, String> recordedInputValues = new LinkedHashMap<>();
     try (Mutability mu = Mutability.create("Starlark repository");
@@ -232,7 +229,7 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
                 rule,
                 packageLocator,
                 outputDirectory,
-                ignoredSubdirectories,
+                ignoredSubdirectories.asIgnoredSubdirectories(),
                 env,
                 ImmutableMap.copyOf(clientEnvironment),
                 downloadManager,

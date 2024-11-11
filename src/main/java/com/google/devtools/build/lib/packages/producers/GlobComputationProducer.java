@@ -157,7 +157,7 @@ public final class GlobComputationProducer implements StateMachine, FragmentProd
         Root packageRoot,
         ImmutableList<String> patternFragments,
         boolean containsMultipleDoubleStars,
-        IgnoredSubdirectories ignoredPackagePrefixesPatterns,
+        IgnoredSubdirectories ignoredSubdirectories,
         ConcurrentHashMap<String, Pattern> regexPatternCache,
         Globber.Operation globOperation) {
       return new AutoValue_GlobComputationProducer_GlobDetail(
@@ -165,7 +165,7 @@ public final class GlobComputationProducer implements StateMachine, FragmentProd
           packageRoot,
           patternFragments,
           containsMultipleDoubleStars,
-          ignoredPackagePrefixesPatterns,
+          ignoredSubdirectories,
           regexPatternCache,
           globOperation);
     }

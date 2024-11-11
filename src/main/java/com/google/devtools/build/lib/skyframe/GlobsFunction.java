@@ -112,12 +112,12 @@ public final class GlobsFunction implements SkyFunction {
 
     if (state.ignoredSubdirectories == null) {
       RepositoryName repositoryName = globsKey.getPackageIdentifier().getRepository();
-      IgnoredSubdirectoriesValue ignoredPackagePrefixes =
+      IgnoredSubdirectoriesValue ignoredSubdirectories =
           (IgnoredSubdirectoriesValue) env.getValue(IgnoredSubdirectoriesValue.key(repositoryName));
       if (env.valuesMissing()) {
         return null;
       }
-      state.ignoredSubdirectories = ignoredPackagePrefixes.asIgnoredSubdirectories();
+      state.ignoredSubdirectories = ignoredSubdirectories.asIgnoredSubdirectories();
     }
 
     if (state.globDrivers == null) {

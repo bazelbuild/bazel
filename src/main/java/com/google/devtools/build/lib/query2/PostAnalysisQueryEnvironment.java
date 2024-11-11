@@ -260,7 +260,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
 
   protected abstract boolean isAliasConfiguredTarget(T target);
 
-  public InterruptibleSupplier<IgnoredSubdirectories> getIgnoredPackagePrefixesPathFragments(
+  public InterruptibleSupplier<IgnoredSubdirectories> getIgnoredSubdirectories(
       RepositoryName repositoryName) {
     return () -> {
       IgnoredSubdirectoriesValue ignoredSubdirectoriesValue =
