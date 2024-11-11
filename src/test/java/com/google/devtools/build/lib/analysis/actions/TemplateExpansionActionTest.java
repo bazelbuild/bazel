@@ -120,7 +120,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
   public void testExpansion() throws Exception {
     Executor executor = new TestExecutorBuilder(fileSystem, directories, binTools).build();
     ActionResult unused = create().execute(createContext(executor));
-    String content = new String(FileSystemUtils.readContentAsLatin1(output));
+    String content = FileSystemUtils.readContentToString(output);
     String expected = Joiner.on('\n').join("key=foo", "value=bar");
     assertThat(content).isEqualTo(expected);
   }
@@ -224,7 +224,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
       throws Exception {
     Executor executor = new TestExecutorBuilder(fileSystem, directories, binTools).build();
     ActionResult unused = createWithArtifact(substitutions).execute(createContext(executor));
-    String actual = FileSystemUtils.readContent(output, StandardCharsets.UTF_8);
+    String actual = FileSystemUtils.readContentToString(output);
     assertThat(actual).isEqualTo(expected);
   }
 

@@ -1244,7 +1244,7 @@ public abstract class FileSystemTest {
   @Test
   public void testWriteChangesModifiedTime() throws Exception {
     storeReferenceTime(xFile.getLastModifiedTime());
-    FileSystemUtils.writeContentAsLatin1(xFile, "abc19");
+    FileSystemUtils.writeContent(xFile, "abc19");
     assertThat(isLaterThanreferenceTime(xFile.getLastModifiedTime())).isTrue();
   }
 
@@ -1269,7 +1269,7 @@ public abstract class FileSystemTest {
   public void testFileSizeAfterWrite() throws Exception {
     String testData = "abc19";
 
-    FileSystemUtils.writeContentAsLatin1(xFile, testData);
+    FileSystemUtils.writeContent(xFile, testData);
     assertThat(xFile.getFileSize()).isEqualTo(testData.length());
   }
 
@@ -1278,8 +1278,8 @@ public abstract class FileSystemTest {
   public void testFileWriteAndReadAsLatin1() throws Exception {
     String testData = "abc19";
 
-    FileSystemUtils.writeContentAsLatin1(xFile, testData);
-    String resultData = new String(FileSystemUtils.readContentAsLatin1(xFile));
+    FileSystemUtils.writeContent(xFile, testData);
+    String resultData = FileSystemUtils.readContentToString(xFile);
 
     assertThat(resultData).isEqualTo(testData);
   }
@@ -1331,13 +1331,14 @@ public abstract class FileSystemTest {
       throws Exception {
     String text = "hello";
     Path file = overwrite ? xFile : xNothing;
-    FileSystemUtils.writeContent(xFile, UTF_8, "goodbye"); // longer than hello
+    // longer than hello
+    FileSystemUtils.writeContent(xFile, "goodbye");
     try (SeekableByteChannel channel = file.createReadWriteByteChannel()) {
       writeToChannelAsLatin1(channel, text);
       assertThat(channel.position()).isEqualTo(text.length());
     }
 
-    assertThat(FileSystemUtils.readContent(file, ISO_8859_1)).isEqualTo("hello");
+    assertThat(FileSystemUtils.readContentToString(file)).isEqualTo("hello");
   }
 
   @Test
@@ -1349,7 +1350,7 @@ public abstract class FileSystemTest {
       assertThat(channel.position()).isEqualTo(5 + "hello!".length());
     }
 
-    assertThat(FileSystemUtils.readContent(xNothing, ISO_8859_1)).isEqualTo("01234hello!");
+    assertThat(FileSystemUtils.readContentToString(xNothing)).isEqualTo("01234hello!");
   }
 
   @Test
@@ -1383,7 +1384,7 @@ public abstract class FileSystemTest {
       }
     }
 
-    assertThat(FileSystemUtils.readContent(xNothing, ISO_8859_1))
+    assertThat(FileSystemUtils.readContentToString(xNothing))
         .isEqualTo(write ? text1 + "\0" + text2 : text1);
   }
 
@@ -1407,7 +1408,7 @@ public abstract class FileSystemTest {
       assertThat(channel.read(ByteBuffer.allocate(1))).isEqualTo(-1);
     }
 
-    assertThat(FileSystemUtils.readContent(xNothing, ISO_8859_1))
+    assertThat(FileSystemUtils.readContentToString(xNothing))
         .isEqualTo(text.substring(0, expectedSize));
   }
 
@@ -1426,8 +1427,7 @@ public abstract class FileSystemTest {
       assertThat(channel.size()).isEqualTo(shrink ? text.length() - 1 : text.length());
     }
 
-    assertThat(FileSystemUtils.readContent(xNothing, ISO_8859_1))
-        .isEqualTo(shrink ? "hell" : "hello");
+    assertThat(FileSystemUtils.readContentToString(xNothing)).isEqualTo(shrink ? "hell" : "hello");
   }
 
   @Test
@@ -1439,7 +1439,7 @@ public abstract class FileSystemTest {
       writeToChannelAsLatin1(channel, "world");
     }
 
-    assertThat(FileSystemUtils.readContent(xNothing, ISO_8859_1)).isEqualTo("hell\0world");
+    assertThat(FileSystemUtils.readContentToString(xNothing)).isEqualTo("hell\0world");
   }
 
   @Test
@@ -1522,7 +1522,7 @@ public abstract class FileSystemTest {
       s2.write("world".getBytes(UTF_8));
     }
 
-    assertThat(FileSystemUtils.readContent(xFile, UTF_8)).isEqualTo("helloworld");
+    assertThat(FileSystemUtils.readContentToString(xFile)).isEqualTo("helloworld");
   }
 
   @Test
@@ -1989,7 +1989,7 @@ public abstract class FileSystemTest {
     // file into Bazel's internal representation.
     Path utf8File = absolutize(StringEncoding.unicodeToInternal("some_dir/入力_A_🌱.txt"));
     utf8File.getParentDirectory().createDirectoryAndParents();
-    FileSystemUtils.writeContent(utf8File, UTF_8, "hello 入力_A_🌱");
+    FileSystemUtils.writeContent(utf8File, "hello 入力_A_🌱");
 
     java.nio.file.Path javaPath = getJavaPathOrSkipIfUnsupported(utf8File);
     assertThat(Files.isRegularFile(javaPath)).isTrue();

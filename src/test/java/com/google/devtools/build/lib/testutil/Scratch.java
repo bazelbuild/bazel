@@ -128,7 +128,8 @@ public final class Scratch {
    */
   public Path file(String pathName, Charset charset, String... lines) throws IOException {
     Path file = newFile(pathName);
-    FileSystemUtils.writeContent(file, charset, linesAsString(lines));
+    String content = linesAsString(lines);
+    FileSystemUtils.writeContent(file, content);
     file.setLastModifiedTime(-1L);
     return file;
   }

@@ -147,7 +147,7 @@ public class BuildInfoFileWriteActionTest extends BuildViewTestCase {
             false,
             StarlarkSemantics.DEFAULT);
     ActionResult actionResult = action.execute(context);
-    String actual = new String(FileSystemUtils.readContentAsLatin1(outputPath));
+    String actual = FileSystemUtils.readContentToString(outputPath);
 
     assertThat(actionResult.spawnResults()).isEmpty();
     assertThat(action.getOutputs()).containsExactly(outputFile);
@@ -184,7 +184,7 @@ public class BuildInfoFileWriteActionTest extends BuildViewTestCase {
             false,
             StarlarkSemantics.DEFAULT);
     ActionResult actionResult = action.execute(context);
-    String actual = new String(FileSystemUtils.readContentAsLatin1(outputPath));
+    String actual = FileSystemUtils.readContentToString(outputPath);
 
     assertThat(actionResult.spawnResults()).isEmpty();
     assertThat(action.getOutputs()).containsExactly(outputFile);
