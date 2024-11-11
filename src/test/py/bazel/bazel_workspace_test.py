@@ -41,7 +41,7 @@ class BazelWorkspaceTest(test_base.TestBase):
         ],
     )
     self.ScratchFile("bin.py")
-    self.RunBazel(["build", "--incompatible_autoload_externally=", "//:bin"])
+    self.RunBazel(["build", "//:bin"])
 
     # If WORKSPACE.bazel is deleted and no WORKSPACE exists,
     # the build should fail.
@@ -94,7 +94,7 @@ class BazelWorkspaceTest(test_base.TestBase):
         ],
     )
     self.RunBazel(
-        args=["build", "--incompatible_autoload_externally=", ":bin"],
+        args=["build", ":bin"],
         cwd=work_dir,
     )
 
@@ -120,7 +120,7 @@ class BazelWorkspaceTest(test_base.TestBase):
     )
     self.ScratchDir("B/WORKSPACE.bazel")
     self.RunBazel(
-        args=["build", "--incompatible_autoload_externally=", ":bin"],
+        args=["build", ":bin"],
         cwd=work_dir,
     )
 

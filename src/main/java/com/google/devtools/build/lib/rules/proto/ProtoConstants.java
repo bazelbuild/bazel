@@ -24,6 +24,7 @@ public final class ProtoConstants {
 
   public static final BzlLoadValue.Key PROTO_INFO_KEY = keyForBuild(Label.parseCanonicalUnchecked("@@protobuf+//bazel/private:proto_info.bzl"));
 
+  public static final BzlLoadValue.Key PROTO_LANG_TOOLCHAIN_INFO = keyForBuild(Label.parseCanonicalUnchecked("@@protobuf+//bazel/common:proto_lang_toolchain_info.bzl"));
 
   /** Default label for proto compiler. */
   public static final String DEFAULT_PROTOC_LABEL =  "@@protobuf+//:protoc";
