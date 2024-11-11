@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.authandtls;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.devtools.build.lib.util.StringEncoding;
 import java.util.Base64;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -76,7 +77,9 @@ public class BasicHttpAuthenticationEncoderTest {
 
   @Test
   public void encode_specialCharacterUtf8_outputExpected() {
-    String message = BasicHttpAuthenticationEncoder.encode("test", "123\u00A3");
+    String message =
+        BasicHttpAuthenticationEncoder.encode(
+            "test", StringEncoding.unicodeToInternal("123\u00A3"));
     assertThat(message).isEqualTo("Basic dGVzdDoxMjPCow==");
   }
 }
