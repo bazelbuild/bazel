@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.Crash;
 import com.google.devtools.build.lib.bugreport.CrashContext;
 import com.google.devtools.build.lib.buildeventservice.BazelBuildEventServiceModule.BackendConfig;
+import com.google.devtools.build.lib.buildeventservice.BuildEventServiceModule.BuildEventFileType;
 import com.google.devtools.build.lib.buildeventservice.BuildEventServiceModule.BuildEventOutputStreamFactory;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
@@ -95,7 +96,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.nio.file.Files;
-import java.nio.file.Paths;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -169,6 +170,14 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
               @Override
               protected Duration getMaxWaitForPreviousInvocation() {
                 return WAIT_FOR_LAST_INVOCATION_TIMEOUT;
+              }
+
+              @Override
+              BuildEventOutputStreamFactory createBuildEventOutputStreamFactory(
+                  CommandEnvironment env) {
+                return buildEventOutputStreamFactory == null
+                    ? super.createBuildEventOutputStreamFactory(env)
+                    : buildEventOutputStreamFactory;
               }
             });
   }
@@ -461,45 +470,41 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
     events.assertNoWarningsOrErrors();
   }
 
-  enum BuildEventFile {
-    TEXT,
-    JSON,
-    BINARY;
-
-    String getBuildEventFileFlag(String file) {
-      switch (this) {
-        case TEXT:
-          return "--build_event_text_file=" + file;
-        case JSON:
-          return "--build_event_json_file=" + file;
-        case BINARY:
-          return "--build_event_binary_file=" + file;
-      }
-      throw new IllegalStateException();
+  private static String getBuildEventFileFlag(
+      BuildEventFileType buildEventFileType, String filePath) {
+    switch (buildEventFileType) {
+      case TEXT:
+        return "--build_event_text_file=" + filePath;
+      case JSON:
+        return "--build_event_json_file=" + filePath;
+      case BINARY:
+        return "--build_event_binary_file=" + filePath;
     }
+    throw new IllegalStateException();
+  }
 
-    String getBuildEventFileUploadModeFlag(String mode) {
-      switch (this) {
-        case TEXT:
-          return "--build_event_text_file_upload_mode=" + mode;
-        case JSON:
-          return "--build_event_json_file_upload_mode=" + mode;
-        case BINARY:
-          return "--build_event_binary_file_upload_mode=" + mode;
-      }
-      throw new IllegalStateException();
+  private static String getBuildEventFileUploadModeFlag(
+      BuildEventFileType buildEventFileType, String mode) {
+    switch (buildEventFileType) {
+      case TEXT:
+        return "--build_event_text_file_upload_mode=" + mode;
+      case JSON:
+        return "--build_event_json_file_upload_mode=" + mode;
+      case BINARY:
+        return "--build_event_binary_file_upload_mode=" + mode;
     }
+    throw new IllegalStateException();
   }
 
   @Test
   public void testAfterCommand_buildEventFile_waitForUploadComplete(
-      @TestParameter BuildEventFile buildEventFile) throws Exception {
+      @TestParameter BuildEventFileType buildEventFileType) throws Exception {
     AtomicReference<DelayingCloseBufferedOutputStream> outRef = new AtomicReference<>(null);
     buildEventOutputStreamFactory =
-        (file) -> {
+        (type, filePath) -> {
           var out =
               new DelayingCloseBufferedOutputStream(
-                  Files.newOutputStream(Paths.get(file)), Duration.ofSeconds(1));
+                  Files.newOutputStream(Path.of(filePath)), Duration.ofSeconds(1));
           outRef.set(out);
           return out;
         };
@@ -510,8 +515,8 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
         "--bes_backend=inprocess",
         "--bes_upload_mode=FULLY_ASYNC",
         "--bes_timeout=1s",
-        buildEventFile.getBuildEventFileFlag(file.getAbsolutePath()),
-        buildEventFile.getBuildEventFileUploadModeFlag("wait_for_upload_complete"));
+        getBuildEventFileFlag(buildEventFileType, file.getAbsolutePath()),
+        getBuildEventFileUploadModeFlag(buildEventFileType, "wait_for_upload_complete"));
     afterBuildCommand();
 
     assertThat(outRef.get().isClosed()).isTrue();
