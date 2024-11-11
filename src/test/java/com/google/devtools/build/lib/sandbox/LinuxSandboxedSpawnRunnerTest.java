@@ -84,7 +84,8 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
                 new ParamFileActionInput(
                     PathFragment.create("params/param-file"),
                     ImmutableList.of("--foo", "--bar"),
-                    ParameterFileType.UNQUOTED))
+                    ParameterFileType.UNQUOTED,
+                    UTF_8))
             .withOutput("out")
             .build();
     SpawnExecutionContext policy = createSpawnExecutionContext(spawn);

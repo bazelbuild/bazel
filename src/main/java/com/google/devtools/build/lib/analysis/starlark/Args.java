@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -182,7 +183,10 @@ public abstract class Args implements CommandLineArgsApi {
 
     @Override
     public CommandLineArgsApi addArgument(
-        Object argNameOrValue, Object value, Object format, StarlarkThread thread)
+        Object argNameOrValue,
+        Object value,
+        Object format,
+        StarlarkThread thread)
         throws EvalException {
       throw Starlark.errorf("cannot modify frozen value");
     }
@@ -246,7 +250,6 @@ public abstract class Args implements CommandLineArgsApi {
 
     private final List<NestedSet<?>> potentialDirectoryArtifacts = new ArrayList<>();
     private final Set<Artifact> directoryArtifacts = new HashSet<>();
-
     /**
      * If true, flag names and values will be grouped with '=', e.g.
      *
@@ -283,11 +286,12 @@ public abstract class Args implements CommandLineArgsApi {
       if (flagFormatString == null) {
         return null;
       } else {
-        ParamFileInfo.Builder builder =
-            ParamFileInfo.builder(getParameterFileType())
-                .setFlagFormatString(flagFormatString)
-                .setUseAlways(alwaysUseParamFile);
-        return builder.setFlagsOnly(flagPerLine).build();
+        return ParamFileInfo.builder(getParameterFileType())
+            .setFlagFormatString(flagFormatString)
+            .setUseAlways(alwaysUseParamFile)
+            .setCharset(StandardCharsets.UTF_8)
+            .setFlagsOnly(flagPerLine)
+            .build();
       }
     }
 
@@ -619,5 +623,6 @@ public abstract class Args implements CommandLineArgsApi {
       potentialDirectoryArtifacts.clear();
       return ImmutableSet.copyOf(directoryArtifacts);
     }
+
   }
 }

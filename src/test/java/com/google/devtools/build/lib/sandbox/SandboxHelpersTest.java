@@ -96,7 +96,8 @@ public class SandboxHelpersTest {
         new ParamFileActionInput(
             PathFragment.create("paramFile"),
             ImmutableList.of("-a", "-b"),
-            ParameterFileType.UNQUOTED);
+            ParameterFileType.UNQUOTED,
+            UTF_8);
 
     SandboxInputs inputs = sandboxHelpers.processInputFiles(inputMap(paramFile), execRoot);
 
@@ -190,7 +191,8 @@ public class SandboxHelpersTest {
         new ParamFileActionInput(
             PathFragment.create("paramFile"),
             ImmutableList.of("-a", "-b"),
-            ParameterFileType.UNQUOTED);
+            ParameterFileType.UNQUOTED,
+            UTF_8);
 
     paramFile.atomicallyWriteRelativeTo(scratch.resolve("/outputs"));
 

@@ -24,7 +24,6 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -34,6 +33,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 
 /** This class implements the FileSystem interface using direct calls to the UNIX filesystem. */
@@ -73,7 +73,7 @@ public abstract class AbstractFileSystem extends FileSystem {
 
   /** Allows the mapping of PathFragment to InputStream to be overridden in subclasses. */
   protected InputStream createFileInputStream(PathFragment path) throws IOException {
-    return new FileInputStream(getIoFile(path));
+    return new FileInputStream(path.toString());
   }
 
   /** Returns either normal or profiled FileInputStream. */
@@ -100,16 +100,18 @@ public abstract class AbstractFileSystem extends FileSystem {
 
   @Override
   protected SeekableByteChannel createReadWriteByteChannel(PathFragment path) throws IOException {
+    String name = path.getPathString();
+
     boolean shouldProfile = profiler.isActive() && profiler.isProfiling(ProfilerTask.VFS_OPEN);
 
     long startTime = Profiler.nanoTimeMaybe();
 
     try {
       // Currently, we do not proxy SeekableByteChannel for profiling reads and writes.
-      return Files.newByteChannel(getNioPath(path), READ_WRITE_BYTE_CHANNEL_OPEN_OPTIONS);
+      return Files.newByteChannel(Paths.get(name), READ_WRITE_BYTE_CHANNEL_OPEN_OPTIONS);
     } finally {
       if (shouldProfile) {
-        profiler.logSimpleTask(startTime, ProfilerTask.VFS_OPEN, path.toString());
+        profiler.logSimpleTask(startTime, ProfilerTask.VFS_OPEN, name);
       }
     }
   }
@@ -120,18 +122,19 @@ public abstract class AbstractFileSystem extends FileSystem {
    */
   protected OutputStream createFileOutputStream(PathFragment path, boolean append, boolean internal)
       throws FileNotFoundException {
+    final String name = path.toString();
     if (!internal
         && profiler.isActive()
         && (profiler.isProfiling(ProfilerTask.VFS_WRITE)
             || profiler.isProfiling(ProfilerTask.VFS_OPEN))) {
       long startTime = Profiler.nanoTimeMaybe();
       try {
-        return new ProfiledFileOutputStream(getIoFile(path), append);
+        return new ProfiledFileOutputStream(name, append);
       } finally {
-        profiler.logSimpleTask(startTime, ProfilerTask.VFS_OPEN, path.toString());
+        profiler.logSimpleTask(startTime, ProfilerTask.VFS_OPEN, name);
       }
     } else {
-      return new FileOutputStream(getIoFile(path), append);
+      return new FileOutputStream(name, append);
     }
   }
 
@@ -188,11 +191,11 @@ public abstract class AbstractFileSystem extends FileSystem {
   }
 
   private static final class ProfiledFileOutputStream extends FileOutputStream {
-    private final File file;
+    private final String name;
 
-    public ProfiledFileOutputStream(File file, boolean append) throws FileNotFoundException {
-      super(file, append);
-      this.file = file;
+    public ProfiledFileOutputStream(String name, boolean append) throws FileNotFoundException {
+      super(name, append);
+      this.name = name;
     }
 
     @Override
@@ -206,7 +209,7 @@ public abstract class AbstractFileSystem extends FileSystem {
       try {
         super.write(b, off, len);
       } finally {
-        profiler.logSimpleTask(startTime, ProfilerTask.VFS_WRITE, file.toString());
+        profiler.logSimpleTask(startTime, ProfilerTask.VFS_WRITE, name);
       }
     }
   }

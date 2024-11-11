@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -31,6 +30,7 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
+import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -105,14 +105,12 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
           return null;
         }
       }
-      Path watchRoot =
-          Path.of(StringEncoding.internalToPlatform(resolvedPathEntryFragment.getPathString()));
       // On OSX uses FsEvents due to https://bugs.openjdk.java.net/browse/JDK-7133447
       if (OS.getCurrent() == OS.DARWIN) {
-        return new MacOSXFsEventsDiffAwareness(watchRoot);
+        return new MacOSXFsEventsDiffAwareness(resolvedPathEntryFragment.toString());
       }
 
-      return new WatchServiceDiffAwareness(watchRoot, ignoredPaths);
+      return new WatchServiceDiffAwareness(resolvedPathEntryFragment.toString(), ignoredPaths);
     }
   }
 
@@ -135,10 +133,10 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
   private int numGetCurrentViewCalls = 0;
 
   /** Root directory to watch. This is an absolute path. */
-  protected final Path watchRoot;
+  protected final Path watchRootPath;
 
-  protected LocalDiffAwareness(Path watchRoot) {
-    this.watchRoot = watchRoot;
+  protected LocalDiffAwareness(String watchRoot) {
+    this.watchRootPath = FileSystems.getDefault().getPath(watchRoot);
   }
 
   /**
@@ -201,13 +199,12 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
 
     ModifiedFileSet.Builder resultBuilder = ModifiedFileSet.builder();
     for (Path modifiedPath : newSequentialView.modifiedAbsolutePaths) {
-      if (!modifiedPath.startsWith(watchRoot)) {
+      if (!modifiedPath.startsWith(watchRootPath)) {
         throw new BrokenDiffAwarenessException(
-            String.format("%s is not under %s", modifiedPath, watchRoot));
+            String.format("%s is not under %s", modifiedPath, watchRootPath));
       }
       PathFragment relativePath =
-          PathFragment.create(
-              StringEncoding.platformToInternal(watchRoot.relativize(modifiedPath).toString()));
+          PathFragment.create(watchRootPath.relativize(modifiedPath).toString());
       if (!relativePath.isEmpty()) {
         resultBuilder.modify(relativePath);
       }

@@ -61,9 +61,8 @@ function hash_outputs() {
 }
 
 function test_determinism()  {
-    # Verify that Bazel can build itself under a path with spaces and non-ASCII
-    # characters.
-    local workdir="${TEST_TMPDIR}/wo🌱rk dir"
+    # Verify that Bazel can build itself under a path with spaces.
+    local workdir="${TEST_TMPDIR}/work dir"
     mkdir "${workdir}" || fail "Could not create work directory"
     cd "${workdir}" || fail "Could not change to work directory"
     unzip -q "${DISTFILE}"

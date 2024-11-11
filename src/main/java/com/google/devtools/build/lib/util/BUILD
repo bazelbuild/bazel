@@ -46,7 +46,6 @@ java_library(
     name = "file_system_lock",
     srcs = ["FileSystemLock.java"],
     deps = [
-        ":string_encoding",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:guava",
     ],
@@ -315,16 +314,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//third_party:guava",
         "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "string_encoding",
-    srcs = ["StringEncoding.java"],
-    deps = [
-        ":os",
-        "//src/main/java/com/google/devtools/build/lib/unsafe:string",
-        "//third_party:guava",
     ],
 )
 

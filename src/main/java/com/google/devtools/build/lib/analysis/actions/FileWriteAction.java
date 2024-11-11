@@ -291,7 +291,11 @@ public abstract class FileWriteAction extends AbstractFileWriteAction
         throw new IllegalStateException(e);
       }
 
-      return StringUnsafe.getInstance().newInstance(uncompressedBytes, coder);
+      try {
+        return StringUnsafe.getInstance().newInstance(uncompressedBytes, coder);
+      } catch (ReflectiveOperationException e) {
+        throw new IllegalStateException(e);
+      }
     }
 
     @Override

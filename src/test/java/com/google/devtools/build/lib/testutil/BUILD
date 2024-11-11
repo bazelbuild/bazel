@@ -227,7 +227,6 @@ java_library(
     name = "TestUtils",
     srcs = ["TestUtils.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:jsr305",

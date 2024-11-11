@@ -58,8 +58,6 @@ std::string FindRcAlongsideBinary(const std::string& cwd,
 
 blaze_exit_code::ExitCode ParseErrorToExitCode(RcFile::ParseError parse_error);
 
-std::vector<std::string> GetProcessedEnv();
-
 }  // namespace internal
 }  // namespace blaze
 

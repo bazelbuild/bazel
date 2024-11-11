@@ -27,8 +27,8 @@ import static com.google.devtools.build.lib.remote.util.Utils.getInMemoryOutputP
 import static com.google.devtools.build.lib.remote.util.Utils.grpcAwareErrorMessage;
 import static com.google.devtools.build.lib.remote.util.Utils.shouldUploadLocalResultsToRemoteCache;
 import static com.google.devtools.build.lib.remote.util.Utils.waitForBulkTransfer;
-import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
-import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
+import static com.google.devtools.build.lib.util.StringUtil.reencodeExternalToInternal;
+import static com.google.devtools.build.lib.util.StringUtil.reencodeInternalToExternal;
 import static java.util.Collections.min;
 
 import build.bazel.remote.execution.v2.Action;
@@ -262,7 +262,8 @@ public class RemoteExecutionService {
     if (useOutputPaths) {
       var outputPaths = new ArrayList<String>();
       for (ActionInput output : outputs) {
-        String pathString = internalToUnicode(remotePathResolver.localPathToOutputPath(output));
+        String pathString =
+            reencodeInternalToExternal(remotePathResolver.localPathToOutputPath(output));
         outputPaths.add(pathString);
       }
       Collections.sort(outputPaths);
@@ -271,7 +272,8 @@ public class RemoteExecutionService {
       var outputFiles = new ArrayList<String>();
       var outputDirectories = new ArrayList<String>();
       for (ActionInput output : outputs) {
-        String pathString = internalToUnicode(remotePathResolver.localPathToOutputPath(output));
+        String pathString =
+            reencodeInternalToExternal(remotePathResolver.localPathToOutputPath(output));
         if (output.isDirectory()) {
           outputDirectories.add(pathString);
         } else {
@@ -296,15 +298,15 @@ public class RemoteExecutionService {
         OS executionOs = ConstraintConstants.getOsFromConstraints(executionPlatform.constraints());
         arg = OsPathPolicy.of(executionOs).postProcessPathStringForExecution(arg);
       }
-      command.addArguments(internalToUnicode(arg));
+      command.addArguments(reencodeInternalToExternal(arg));
     }
     // Sorting the environment pairs by variable name.
     TreeSet<String> variables = new TreeSet<>(env.keySet());
     for (String var : variables) {
       command
           .addEnvironmentVariablesBuilder()
-          .setName(internalToUnicode(var))
-          .setValue(internalToUnicode(env.get(var)));
+          .setName(reencodeInternalToExternal(var))
+          .setValue(reencodeInternalToExternal(env.get(var)));
     }
 
     return command.setWorkingDirectory(remotePathResolver.getWorkingDirectory()).build();
@@ -929,12 +931,12 @@ public class RemoteExecutionService {
       ListenableFuture<Void> future =
           combinedCache.downloadFile(
               context,
-              internalToUnicode(remotePathResolver.localPathToOutputPath(file.path())),
+              reencodeInternalToExternal(remotePathResolver.localPathToOutputPath(file.path())),
               tmpPath,
               file.digest(),
               new CombinedCache.DownloadProgressReporter(
                   progressStatusListener,
-                  internalToUnicode(remotePathResolver.localPathToOutputPath(file.path())),
+                  reencodeInternalToExternal(remotePathResolver.localPathToOutputPath(file.path())),
                   file.digest().getSizeBytes()));
       return transform(future, (d) -> file, directExecutor());
     } catch (IOException e) {
@@ -1174,7 +1176,7 @@ public class RemoteExecutionService {
     for (OutputDirectory dir : result.getOutputDirectoriesList()) {
       var outputPath = dir.getPath();
       dirMetadataDownloads.put(
-          remotePathResolver.outputPathToLocalPath(unicodeToInternal(outputPath)),
+          remotePathResolver.outputPathToLocalPath(reencodeExternalToInternal(outputPath)),
           Futures.transformAsync(
               combinedCache.downloadBlob(context, outputPath, dir.getTreeDigest()),
               (treeBytes) ->
@@ -1200,7 +1202,8 @@ public class RemoteExecutionService {
     ImmutableMap.Builder<Path, FileMetadata> files = ImmutableMap.builder();
     for (OutputFile outputFile : result.getOutputFilesList()) {
       Path localPath =
-          remotePathResolver.outputPathToLocalPath(unicodeToInternal(outputFile.getPath()));
+          remotePathResolver.outputPathToLocalPath(
+              reencodeExternalToInternal(outputFile.getPath()));
       files.put(
           localPath,
           new FileMetadata(
@@ -1218,8 +1221,8 @@ public class RemoteExecutionService {
             result.getOutputSymlinksList());
     for (var symlink : outputSymlinks) {
       var localPath =
-          remotePathResolver.outputPathToLocalPath(unicodeToInternal(symlink.getPath()));
-      var target = PathFragment.create(unicodeToInternal(symlink.getTarget()));
+          remotePathResolver.outputPathToLocalPath(reencodeExternalToInternal(symlink.getPath()));
+      var target = PathFragment.create(reencodeExternalToInternal(symlink.getTarget()));
       var existingMetadata = symlinkMap.get(localPath);
       if (existingMetadata != null) {
         if (!target.equals(existingMetadata.target())) {
@@ -1630,7 +1633,7 @@ public class RemoteExecutionService {
                 .toList();
     try {
       for (String output : outputPathsList) {
-        String reencodedOutput = unicodeToInternal(output);
+        String reencodedOutput = reencodeExternalToInternal(output);
         Path sourcePath =
             previousExecution.action.getRemotePathResolver().outputPathToLocalPath(reencodedOutput);
         ActionInput outputArtifact = previousOutputs.get(sourcePath);
@@ -1936,7 +1939,7 @@ public class RemoteExecutionService {
     PathFragment inMemoryOutputPath = getInMemoryOutputPath(action.getSpawn());
     if (inMemoryOutputPath != null) {
       requestBuilder.addInlineOutputFiles(
-          internalToUnicode(
+          reencodeInternalToExternal(
               action.getRemotePathResolver().localPathToOutputPath(inMemoryOutputPath)));
     }
 

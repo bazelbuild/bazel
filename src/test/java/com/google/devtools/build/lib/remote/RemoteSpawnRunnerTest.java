@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -1207,7 +1208,7 @@ public class RemoteSpawnRunnerTest {
     ImmutableList<String> args = ImmutableList.of("--foo", "--bar");
     ParamFileActionInput input =
         new ParamFileActionInput(
-            PathFragment.create("out/param_file"), args, ParameterFileType.UNQUOTED);
+            PathFragment.create("out/param_file"), args, ParameterFileType.UNQUOTED, ISO_8859_1);
     Spawn spawn =
         new SimpleSpawn(
             new FakeOwner("foo", "bar", "//dummy:label"),

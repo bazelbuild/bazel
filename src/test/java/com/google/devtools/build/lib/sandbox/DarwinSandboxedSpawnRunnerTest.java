@@ -146,7 +146,8 @@ public final class DarwinSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTe
                 new ParamFileActionInput(
                     PathFragment.create("params/param-file"),
                     ImmutableList.of("--foo", "--bar"),
-                    ParameterFileType.UNQUOTED))
+                    ParameterFileType.UNQUOTED,
+                    StandardCharsets.UTF_8))
             .withOutput("out")
             .build();
     FileOutErr fileOutErr =

@@ -143,12 +143,7 @@ cc_binary(
 
 cc_library(
     name = "option_processor",
-    srcs = [
-        "option_processor.cc",
-    ] + select({
-        "//src/conditions:windows": ["option_processor_windows.cc"],
-        "//conditions:default": ["option_processor_unix.cc"],
-    }),
+    srcs = ["option_processor.cc"],
     hdrs = [
         "option_processor.h",
         "option_processor-internal.h",
@@ -184,7 +179,6 @@ cc_library(
         "//src/main/cpp/util",
         "//src/main/cpp/util:blaze_exit_code",
         "//src/main/cpp/util:logging",
-        "@abseil-cpp//absl/strings",
     ],
 )
 

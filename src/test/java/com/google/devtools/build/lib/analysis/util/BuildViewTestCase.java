@@ -189,7 +189,6 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.ForOverride;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -468,9 +467,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   protected Target getTarget(String label)
-      throws NoSuchPackageException,
-          NoSuchTargetException,
-          LabelSyntaxException,
+      throws NoSuchPackageException, NoSuchTargetException, LabelSyntaxException,
           InterruptedException {
     return getTarget(Label.parseCanonical(label));
   }
@@ -702,8 +699,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             return null;
           }
         },
-        /* extendedSanityChecks= */ false,
-        /* allowAnalysisFailures= */ false,
+        /*extendedSanityChecks=*/ false,
+        /*allowAnalysisFailures=*/ false,
         reporter,
         env,
         starlarkBuiltinsValue);
@@ -793,7 +790,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected static void assertConfigurationsEqual(
       BuildConfigurationValue config1, BuildConfigurationValue config2) {
-    assertConfigurationsEqual(config1, config2, /* excludeFragmentOptions= */ ImmutableSet.of());
+    assertConfigurationsEqual(config1, config2, /*excludeFragmentOptions=*/ ImmutableSet.of());
   }
 
   /**
@@ -940,8 +937,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         if (pair.paramFileInfo != null) {
           ByteArrayOutputStream out = new ByteArrayOutputStream();
           ParameterFile.writeParameterFile(
-              out, pair.commandLine.arguments(), pair.paramFileInfo.getFileType());
-          return out.toString(StandardCharsets.ISO_8859_1);
+              out,
+              pair.commandLine.arguments(),
+              pair.paramFileInfo.getFileType(),
+              pair.paramFileInfo.getCharset());
+          return out.toString(pair.paramFileInfo.getCharset());
         }
       }
     }
@@ -1112,8 +1112,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected ConfiguredTargetAndData getConfiguredTargetAndData(
       Label label, BuildConfigurationValue config)
-      throws StarlarkTransition.TransitionException,
-          InvalidConfigurationException,
+      throws StarlarkTransition.TransitionException, InvalidConfigurationException,
           InterruptedException {
     return view.getConfiguredTargetAndDataForTesting(reporter, label, config);
   }
@@ -1124,10 +1123,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * config in the ConfiguredTargetAndData's ConfiguredTarget.
    */
   public ConfiguredTargetAndData getConfiguredTargetAndData(String label)
-      throws LabelSyntaxException,
-          StarlarkTransition.TransitionException,
-          InvalidConfigurationException,
-          InterruptedException {
+      throws LabelSyntaxException, StarlarkTransition.TransitionException,
+          InvalidConfigurationException, InterruptedException {
     return getConfiguredTargetAndData(Label.parseCanonical(label), targetConfig);
   }
 
@@ -1955,7 +1952,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return update(
         ImmutableList.of(target),
         ImmutableList.of(),
-        /* keepGoing= */ true, // value doesn't matter since we have only one target.
+        /*keepGoing=*/ true, // value doesn't matter since we have only one target.
         loadingPhaseThreads,
         doAnalysis,
         new EventBus());
@@ -1996,7 +1993,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             loadingOptions,
             loadingPhaseThreads,
             keepGoing,
-            /* determineTests= */ false);
+            /*determineTests=*/ false);
     if (!doAnalysis) {
       // TODO(bazel-team): What's supposed to happen in this case?
       return null;
@@ -2004,9 +2001,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return view.update(
         loadingResult,
         targetConfig.getOptions(),
-        /* explicitTargetPatterns= */ ImmutableSet.of(),
+        /*explicitTargetPatterns=*/ ImmutableSet.of(),
         aspects,
-        /* aspectsParameters= */ ImmutableMap.of(),
+        /*aspectsParameters=*/ ImmutableMap.of(),
         viewOptions,
         keepGoing,
         loadingPhaseThreads,

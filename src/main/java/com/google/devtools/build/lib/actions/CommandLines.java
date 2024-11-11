@@ -28,6 +28,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -133,7 +134,8 @@ public abstract class CommandLines {
                 new ParamFileActionInput(
                     paramFileExecPath,
                     ParameterFile.flagsOnly(chunk.arguments()),
-                    paramFileInfo.getFileType()));
+                    paramFileInfo.getFileType(),
+                    paramFileInfo.getCharset()));
             for (String positionalArg : ParameterFile.nonFlags(chunk.arguments())) {
               arguments.add(positionalArg);
               cmdLineLength += positionalArg.length() + 1;
@@ -141,7 +143,10 @@ public abstract class CommandLines {
           } else {
             paramFiles.add(
                 new ParamFileActionInput(
-                    paramFileExecPath, chunk.arguments(), paramFileInfo.getFileType()));
+                    paramFileExecPath,
+                    chunk.arguments(),
+                    paramFileInfo.getFileType(),
+                    paramFileInfo.getCharset()));
           }
         }
       }
@@ -219,17 +224,22 @@ public abstract class CommandLines {
     private final PathFragment paramFileExecPath;
     private final Iterable<String> arguments;
     private final ParameterFileType type;
+    private final Charset charset;
 
     public ParamFileActionInput(
-        PathFragment paramFileExecPath, Iterable<String> arguments, ParameterFileType type) {
+        PathFragment paramFileExecPath,
+        Iterable<String> arguments,
+        ParameterFileType type,
+        Charset charset) {
       this.paramFileExecPath = paramFileExecPath;
       this.arguments = arguments;
       this.type = type;
+      this.charset = charset;
     }
 
     @Override
     public void writeTo(OutputStream out) throws IOException {
-      ParameterFile.writeParameterFile(out, arguments, type);
+      ParameterFile.writeParameterFile(out, arguments, type, charset);
     }
 
     @Override
@@ -275,6 +285,7 @@ public abstract class CommandLines {
     fingerprint.addUUID(PARAM_FILE_UUID);
     fingerprint.addString(paramFileInfo.getFlagFormatString());
     fingerprint.addString(paramFileInfo.getFileType().toString());
+    fingerprint.addString(paramFileInfo.getCharset().toString());
   }
 
   public static Builder builder() {
