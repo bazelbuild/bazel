@@ -153,6 +153,7 @@ public final class SymlinkTreeHelperTest {
       treeFile.createDirectoryAndParents();
       treeSymlink.createDirectoryAndParents();
       treeMissing.createDirectoryAndParents();
+      treeWorkspace.chmod(000);
     }
 
     helper.createSymlinksDirectly(symlinkMap);

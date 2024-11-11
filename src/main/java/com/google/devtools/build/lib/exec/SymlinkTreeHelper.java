@@ -281,13 +281,15 @@ public final class SymlinkTreeHelper {
       } else if (!stat.isDirectory()) {
         at.deleteTree();
         at.createDirectoryAndParents();
+      } else {
+        // If the directory already exists, ensure it has appropriate permissions.
+        int perms = stat.getPermissions();
+        if (perms == -1) {
+          at.chmod(0755);
+        } else if ((perms & 0700) != 0700) {
+          at.chmod(stat.getPermissions() | 0700);
+        }
       }
-      // TODO(ulfjack): provide the mode bits from FileStatus and use that to construct the correct
-      //  chmod call here. Note that we do not have any tests for this right now. Something like
-      //  this:
-      // if (!stat.isExecutable() || !stat.isReadable()) {
-      //   at.chmod(stat.getMods() | 0700);
-      // }
       for (Dirent dirent : at.readdir(Symlinks.NOFOLLOW)) {
         String basename = dirent.getName();
         Path next = at.getChild(basename);
