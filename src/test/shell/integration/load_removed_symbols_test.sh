@@ -158,6 +158,24 @@ EOF
   bazel build --incompatible_autoload_externally=ProtoInfo :all >&$TEST_log 2>&1 || fail "build failed"
 }
 
+function test_proto_common_do_not_use() {
+  setup_module_dot_bazel
+
+  cat > symbol.bzl << EOF
+def symbol():
+  print("\n".join(dir(proto_common_do_not_use)))
+EOF
+
+  cat > BUILD << EOF
+load(":symbol.bzl", "symbol")
+symbol()
+EOF
+  bazel build --incompatible_autoload_externally=proto_common_do_not_use :all >&$TEST_log 2>&1 || fail "build failed"
+  expect_log INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION
+  expect_not_log "compile"
+}
+
+
 function test_existing_rule_is_redirected() {
   setup_module_dot_bazel
 
@@ -310,7 +328,7 @@ symbol()
 EOF
 
   bazel build --incompatible_autoload_externally=-CcInfo :all >&$TEST_log 2>&1 && fail "build unexpectedly succeeded"
-  expect_log "Symbol in 'CcInfo' can't be removed, because it's still used by:"
+  expect_log "Symbol 'CcInfo' can't be removed, because it's still used by:"
 }
 
 function test_removing_existing_symbol() {

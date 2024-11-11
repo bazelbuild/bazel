@@ -14,10 +14,7 @@
 
 package com.google.devtools.build.lib.rules.proto;
 
-import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
-
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -52,10 +49,5 @@ public class BazelProtoCommon implements ProtoCommonApi {
 
   private static final StarlarkProvider starlarkProtoInfo =
       StarlarkProvider.builder(Location.BUILTIN)
-          .buildExported(
-              new StarlarkProvider.Key(
-                  keyForBuild(
-                      Label.parseCanonicalUnchecked(
-                          "//third_party/protobuf/bazel/private:proto_info.bzl")),
-                  "ProtoInfo"));
+          .buildExported(new StarlarkProvider.Key(ProtoConstants.PROTO_INFO_KEY, "ProtoInfo"));
 }
