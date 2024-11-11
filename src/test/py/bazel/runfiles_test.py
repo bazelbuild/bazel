@@ -305,7 +305,6 @@ class RunfilesTest(test_base.TestBase):
         args=[
             "build",
             "--nolegacy_external_runfiles",
-            "--incompatible_autoload_externally=",
             ":gen",
         ],
         cwd=work_dir,
