@@ -3339,9 +3339,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
     if (diffAwarenessManager != null) {
       for (Root pathEntry : pkgRoots) {
-        // Ignored package prefixes are specified relative to the workspace root
-        // by definition of .bazelignore. So, we only use ignored paths when the
-        // package root is equal to the workspace path.
+        // Ignored subdirectories are specified relative to the workspace root by definition of
+        // .bazelignore. So, we only use ignored paths when the package root is equal to the
+        // workspace path.
         if (workspacePath != null
             && workspacePath.equals(pathEntry.asPath())
             && ignoredSubdirectoriesValue != null) {
