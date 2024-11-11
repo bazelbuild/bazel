@@ -15,10 +15,13 @@
 package com.google.devtools.build.lib.unix;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.flogger.GoogleLogger;
+import com.google.common.flogger.StackSize;
 import com.google.devtools.build.lib.jni.JniLoader;
 import com.google.devtools.build.lib.util.Blocker;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Utility methods for access to UNIX filesystem calls not exposed by the Java
@@ -26,6 +29,8 @@ import java.io.IOException;
  * by the java.io package where appropriate--see package javadoc for details.
  */
 public final class NativePosixFiles {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   private NativePosixFiles() {}
 
   static {
@@ -379,4 +384,10 @@ public final class NativePosixFiles {
   public static native int close(int fd, Object ignored) throws IOException;
 
   private static native void initJNIClasses();
+
+  // This method is called from JNI.
+  private static void logBadPath(String path) {
+    logger.atInfo().withStackTrace(StackSize.FULL).atMostEvery(1, TimeUnit.SECONDS).log(
+        "Path string %s does not have a Latin-1 coder", path);
+  }
 }

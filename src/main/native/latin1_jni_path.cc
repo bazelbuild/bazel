@@ -21,6 +21,15 @@
 
 namespace blaze_jni {
 
+namespace {
+void LogBadPath(JNIEnv *env, jstring jstr) {
+  static jclass NativePosixFiles_class = env->FindClass("com/google/devtools/build/lib/unix/NativePosixFiles");
+  static jmethodID NativePosixFiles_logBadPath_method =
+      env->GetStaticMethodID(NativePosixFiles_class, "logBadPath", "(Ljava/lang/String;)V");
+  env->CallVoidMethod(NativePosixFiles_class, NativePosixFiles_logBadPath_method, jstr);
+}
+}
+
 jstring NewStringLatin1(JNIEnv *env, const char *str) {
   int len = strlen(str);
   jchar buf[512];
@@ -49,18 +58,34 @@ char *GetStringLatin1Chars(JNIEnv *env, jstring jstr) {
   static jfieldID String_value_field =
       env->GetFieldID(String_class, "value", "[B");
 
-  // All path strings used in Bazel are encoded as raw bytes with a Latin1
-  // coder.
-  if (env->GetByteField(jstr, String_coder_field) != 0) {
-    BAZEL_LOG(FATAL) << "Expected Latin1-encoded string";
-  }
   jint len = env->GetStringLength(jstr);
-  char *result = new char[len + 1];
-  if (jobject jvalue = env->GetObjectField(jstr, String_value_field)) {
-    env->GetByteArrayRegion((jbyteArray)jvalue, 0, len, (jbyte *)result);
-  } else {
+
+  // All path strings used in Bazel should be encoded as raw bytes with a Latin1
+  // coder.
+  // TODO: Delete the fallback path once all callers have been fixed.
+  if (env->GetByteField(jstr, String_coder_field) == 0) {
+    char *result = new char[len + 1];
+    if (jobject jvalue = env->GetObjectField(jstr, String_value_field)) {
+      env->GetByteArrayRegion((jbyteArray) jvalue, 0, len, (jbyte *) result);
+    } else {
+      delete[] result;
+      return nullptr;
+    }
+    result[len] = 0;
+    return result;
+  }
+
+  LogBadPath(env, jstr);
+  const jchar *str = env->GetStringCritical(jstr, nullptr);
+  if (str == nullptr) {
     return nullptr;
   }
+  char *result = new char[len + 1];
+  for (int i = 0; i < len; i++) {
+    jchar unicode = str[i];  // (unsigned)
+    result[i] = unicode <= 0x00ff ? unicode : '?';
+  }
+  env->ReleaseStringCritical(jstr, str);
   result[len] = 0;
   return result;
 }
