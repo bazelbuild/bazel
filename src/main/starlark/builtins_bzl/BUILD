@@ -15,7 +15,7 @@ filegroup(
 # resource with BazelRuleClassProvider.
 genrule(
     name = "builtins_bzl_zip",
-    srcs = glob(["**/*.bzl"]) + glob(["**/*/BUILD"]),
+    srcs = glob(["**/*.bzl", "**/zip.*"]),
     outs = ["builtins_bzl.zip"],
     # builtins_zip.sh zip output builtins_root files...
     cmd = "$(location //src:zip_builtins)" +
