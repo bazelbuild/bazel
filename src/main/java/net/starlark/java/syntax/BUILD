@@ -24,6 +24,8 @@ java_library(
         "Comment.java",
         "Comprehension.java",
         "ConditionalExpression.java",
+        "CoverageRecorder.java",
+        "CoverageVisitor.java",
         "DefStatement.java",
         "DictExpression.java",
         "DotExpression.java",

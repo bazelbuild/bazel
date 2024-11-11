@@ -77,6 +77,7 @@ import java.io.BufferedOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.PrintWriter;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -418,6 +419,12 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
             message, FailureDetails.Command.Code.STARLARK_CPU_PROFILING_INITIALIZATION_FAILURE);
       }
     }
+    if (!commonOptions.starlarkCoverageReport.isEmpty()) {
+      // Record coverage for all `.bzl` files, excluding the built-ins, which don't have paths that
+      // could be resolved when a human-readable coverage report is generated.
+      Starlark.startCoverageCollection(
+          path -> !path.startsWith("/virtual_builtins_bzl") && path.endsWith(".bzl"));
+    }
 
     BlazeCommandResult result =
         createDetailedCommandResult(
@@ -704,6 +711,18 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
                     message, FailureDetails.Command.Code.STARLARK_CPU_PROFILE_FILE_WRITE_FAILURE);
           }
         }
+      }
+      if (!commonOptions.starlarkCoverageReport.isEmpty()) {
+        FileOutputStream out;
+        try {
+          out = new FileOutputStream(commonOptions.starlarkCoverageReport);
+        } catch (IOException ex) {
+          String message = "Starlark coverage recorder: " + ex.getMessage();
+          outErr.printErrLn(message);
+          return createDetailedCommandResult(
+              message, FailureDetails.Command.Code.STARLARK_COVERAGE_REPORT_DUMP_FAILURE);
+        }
+        Starlark.dumpCoverage(new PrintWriter(out));
       }
 
       needToCallAfterCommand = false;

@@ -41,6 +41,9 @@ final class NodePrinter {
     } else if (n instanceof Statement) {
       printStmt((Statement) n);
 
+    } else if (n instanceof Comprehension.Clause) {
+      printClause((Comprehension.Clause) n);
+
     } else if (n instanceof StarlarkFile) {
       StarlarkFile file = (StarlarkFile) n;
       // Only statements are printed, not comments.
@@ -277,17 +280,7 @@ final class NodePrinter {
           printNode(comp.getBody()); // Expression or DictExpression.Entry
           for (Comprehension.Clause clause : comp.getClauses()) {
             buf.append(' ');
-            if (clause instanceof Comprehension.For) {
-              Comprehension.For forClause = (Comprehension.For) clause;
-              buf.append("for ");
-              printExpr(forClause.getVars());
-              buf.append(" in ");
-              printExpr(forClause.getIterable());
-            } else {
-              Comprehension.If ifClause = (Comprehension.If) clause;
-              buf.append("if ");
-              printExpr(ifClause.getCondition());
-            }
+            printClause(clause);
           }
           buf.append(comp.isDict() ? '}' : ']');
           break;
@@ -480,6 +473,20 @@ final class NodePrinter {
           buf.append(')');
           break;
         }
+    }
+  }
+
+  private void printClause(Comprehension.Clause clause) {
+    if (clause instanceof Comprehension.For) {
+      Comprehension.For forClause = (Comprehension.For) clause;
+      buf.append("for ");
+      printExpr(forClause.getVars());
+      buf.append(" in ");
+      printExpr(forClause.getIterable());
+    } else {
+      Comprehension.If ifClause = (Comprehension.If) clause;
+      buf.append("if ");
+      printExpr(ifClause.getCondition());
     }
   }
 }
