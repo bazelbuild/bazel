@@ -3387,7 +3387,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           tsgm,
           pathEntriesWithoutDiffInformation,
           options.getOptions(PackageOptions.class).checkOutputFiles,
-          repoOptions == null || repoOptions.checkExternalRepositoryFiles,
+          repoOptions != null && repoOptions.checkExternalRepositoryFiles,
           fsvcThreads);
     }
     handleClientEnvironmentChanges();
