@@ -269,7 +269,7 @@ public final class TargetCompleteEvent
     }
     return Iterables.filter(
         builder.build().toList(),
-        (artifact) -> !artifact.isSourceArtifact() && !artifact.isMiddlemanArtifact());
+        (artifact) -> !artifact.isSourceArtifact() && !artifact.isRunfilesTree());
   }
 
   @Override

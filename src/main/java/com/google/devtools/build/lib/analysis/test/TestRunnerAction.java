@@ -111,7 +111,7 @@ public class TestRunnerAction extends AbstractAction
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  private final Artifact runfilesMiddleman;
+  private final Artifact runfilesTree;
   private final Artifact testSetupScript;
   private final Artifact testXmlGeneratorScript;
   private final Artifact collectCoverageScript;
@@ -167,7 +167,7 @@ public class TestRunnerAction extends AbstractAction
 
   private final boolean splitCoveragePostProcessing;
   private final NestedSetBuilder<Artifact> lcovMergerFilesToRun;
-  @Nullable private final Artifact lcovMergerRunfilesMiddleman;
+  @Nullable private final Artifact lcovMergerRunfilesTree;
 
   // TODO(b/192694287): Remove once we migrate all tests from the allowlist.
   private final PackageSpecificationProvider networkAllowlist;
@@ -193,7 +193,7 @@ public class TestRunnerAction extends AbstractAction
   TestRunnerAction(
       ActionOwner owner,
       NestedSet<Artifact> inputs,
-      Artifact runfilesMiddleman,
+      Artifact runfilesTree,
       Artifact testSetupScript, // Must be in inputs
       Artifact testXmlGeneratorScript, // Must be in inputs
       @Nullable Artifact collectCoverageScript, // Must be in inputs, if not null
@@ -213,7 +213,7 @@ public class TestRunnerAction extends AbstractAction
       boolean cancelConcurrentTestsOnSuccess,
       boolean splitCoveragePostProcessing,
       NestedSetBuilder<Artifact> lcovMergerFilesToRun,
-      @Nullable Artifact lcovMergerRunfilesMiddleman,
+      @Nullable Artifact lcovMergerRunfilesTree,
       PackageSpecificationProvider networkAllowlist) {
     super(
         owner,
@@ -221,7 +221,7 @@ public class TestRunnerAction extends AbstractAction
         nonNullAsSet(
             testLog, cacheStatus, coverageArtifact, coverageDirectory, undeclaredOutputsDir));
     Preconditions.checkState((collectCoverageScript == null) == (coverageArtifact == null));
-    this.runfilesMiddleman = runfilesMiddleman;
+    this.runfilesTree = runfilesTree;
     this.testSetupScript = testSetupScript;
     this.testXmlGeneratorScript = testXmlGeneratorScript;
     this.collectCoverageScript = collectCoverageScript;
@@ -271,7 +271,7 @@ public class TestRunnerAction extends AbstractAction
     this.cancelConcurrentTestsOnSuccess = cancelConcurrentTestsOnSuccess;
     this.splitCoveragePostProcessing = splitCoveragePostProcessing;
     this.lcovMergerFilesToRun = lcovMergerFilesToRun;
-    this.lcovMergerRunfilesMiddleman = lcovMergerRunfilesMiddleman;
+    this.lcovMergerRunfilesTree = lcovMergerRunfilesTree;
     this.networkAllowlist = networkAllowlist;
 
     // Mark all possible test outputs for deletion before test execution.
@@ -321,8 +321,8 @@ public class TestRunnerAction extends AbstractAction
     return true;
   }
 
-  public Artifact getRunfilesMiddleman() {
-    return runfilesMiddleman;
+  public Artifact getRunfilesTree() {
+    return runfilesTree;
   }
 
   @Override
@@ -331,8 +331,8 @@ public class TestRunnerAction extends AbstractAction
   }
 
   @Nullable
-  public Artifact getLcovMergerRunfilesMiddleman() {
-    return lcovMergerRunfilesMiddleman;
+  public Artifact getLcovMergerRunfilesTree() {
+    return lcovMergerRunfilesTree;
   }
 
   public BuildConfigurationValue getConfiguration() {

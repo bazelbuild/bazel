@@ -178,7 +178,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       try (var s = Profiler.instance().profile("updateRunfiles")) {
         List<RunfilesTree> runfilesTrees = new ArrayList<>();
         for (ActionInput toolFile : spawn.getToolFiles().toList()) {
-          if ((toolFile instanceof Artifact) && ((Artifact) toolFile).isMiddlemanArtifact()) {
+          if ((toolFile instanceof Artifact) && ((Artifact) toolFile).isRunfilesTree()) {
             runfilesTrees.add(
                 context.getInputMetadataProvider().getRunfilesMetadata(toolFile).getRunfilesTree());
           }
@@ -256,7 +256,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
             spawn.getInputFiles(),
             context.getArtifactExpander(),
             /* keepEmptyTreeArtifacts= */ false,
-            /* keepMiddlemanArtifacts= */ false);
+            /* keepRunfilesTreeArtifacts= */ false);
 
     for (ActionInput input : inputs) {
       byte[] digestBytes;

@@ -33,8 +33,8 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversalRoot;
-import com.google.devtools.build.lib.actions.MiddlemanAction;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
+import com.google.devtools.build.lib.actions.RunfilesTreeAction;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
@@ -184,14 +184,14 @@ public final class ArtifactFunction implements SkyFunction {
       return Preconditions.checkNotNull(actionValue.getTreeArtifactValue(artifact), artifact);
     }
 
-    Preconditions.checkState(artifact.isMiddlemanArtifact(), artifact);
+    Preconditions.checkState(artifact.isRunfilesTree(), artifact);
     Action action =
         Preconditions.checkNotNull(
             artifactDependencies.actionLookupValue.getAction(generatingActionKey.getActionIndex()),
             "Null middleman action? %s",
             artifactDependencies);
 
-    return createRunfilesArtifactValue(artifact, (MiddlemanAction) action, env);
+    return createRunfilesArtifactValue(artifact, (RunfilesTreeAction) action, env);
   }
 
   private static void mkdirForTreeArtifact(
@@ -379,9 +379,7 @@ public final class ArtifactFunction implements SkyFunction {
 
   @Nullable
   private static RunfilesArtifactValue createRunfilesArtifactValue(
-      Artifact artifact,
-      MiddlemanAction action,
-      SkyFunction.Environment env)
+      Artifact artifact, RunfilesTreeAction action, SkyFunction.Environment env)
       throws InterruptedException {
     ImmutableList<Artifact> inputs = action.getInputs().toList();
     SkyframeLookupResult values = env.getValuesAndExceptions(Artifact.keys(inputs));

@@ -120,20 +120,20 @@ public final class RuleConfiguredTargetBuilder {
 
     maybeAddRequiredConfigFragmentsProvider();
 
-    NestedSetBuilder<Artifact> runfilesMiddlemenBuilder = NestedSetBuilder.stableOrder();
-    if (runfilesSupport != null) {
-      runfilesMiddlemenBuilder.add(runfilesSupport.getRunfilesMiddleman());
-    }
-    NestedSet<Artifact> runfilesMiddlemen = runfilesMiddlemenBuilder.build();
+    NestedSet<Artifact> runfilesTrees =
+        runfilesSupport != null
+            ? NestedSetBuilder.create(Order.STABLE_ORDER, runfilesSupport.getRunfilesTreeArtifact())
+            : NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+
     FilesToRunProvider filesToRunProvider =
         FilesToRunProvider.create(
-            buildFilesToRun(runfilesMiddlemen, filesToBuild), runfilesSupport, executable);
+            buildFilesToRun(runfilesTrees, filesToBuild), runfilesSupport, executable);
     addProvider(FileProvider.of(filesToBuild));
     addProvider(filesToRunProvider);
 
     if (runfilesSupport != null) {
       // If a binary is built, build its runfiles, too
-      addOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL, runfilesMiddlemen);
+      addOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL, runfilesTrees);
     } else if (providersBuilder.contains(RunfilesProvider.class)) {
       // If we don't have a RunfilesSupport (probably because this is not a binary rule), we still
       // want to build the files this rule contributes to runfiles of dependent rules so that we
@@ -410,9 +410,9 @@ public final class RuleConfiguredTargetBuilder {
    * middlemen if they exists.
    */
   private NestedSet<Artifact> buildFilesToRun(
-      NestedSet<Artifact> runfilesMiddlemen, NestedSet<Artifact> filesToBuild) {
+      NestedSet<Artifact> runfilesTrees, NestedSet<Artifact> filesToBuild) {
     filesToRunBuilder.addTransitive(filesToBuild);
-    filesToRunBuilder.addTransitive(runfilesMiddlemen);
+    filesToRunBuilder.addTransitive(runfilesTrees);
     if (executable != null && ruleContext.getRule().getRuleClassObject().isStarlark()) {
       filesToRunBuilder.add(executable);
     }

@@ -610,16 +610,18 @@ public final class Runfiles implements RunfilesApi {
      * @param artifact Artifact to store in map. This may be null to indicate an empty file.
      */
     public void put(Map<PathFragment, Artifact> map, PathFragment path, Artifact artifact) {
-      if (artifact != null && artifact.isMiddlemanArtifact() && eventHandler != null) {
+      if (artifact != null && artifact.isRunfilesTree() && eventHandler != null) {
         eventHandler.handle(
             Event.of(
                 EventKind.ERROR,
                 location,
-                "Runfiles must not contain middleman artifacts: " + artifact));
+                "Runfiles must not contain runfiles tree artifacts: " + artifact));
         return;
       }
-      Preconditions.checkArgument(
-          artifact == null || !artifact.isMiddlemanArtifact(), "%s", artifact);
+      // TODO(b/304440811): Check if this assertion is reached.
+      // test_fail_on_middleman_in_transitive_runfiles_for_executable with the renaming halfway
+      // done indicated that it is; check the exit code in that test.
+      Preconditions.checkArgument(artifact == null || !artifact.isRunfilesTree(), "%s", artifact);
       if (policy != ConflictPolicy.IGNORE && map.containsKey(path)) {
         // Previous and new entry might have value of null
         Artifact previous = map.get(path);
@@ -713,7 +715,7 @@ public final class Runfiles implements RunfilesApi {
     public Builder addArtifact(Artifact artifact) {
       Preconditions.checkNotNull(artifact);
       Preconditions.checkArgument(
-          !artifact.isMiddlemanArtifact(), "unexpected middleman artifact: %s", artifact);
+          !artifact.isRunfilesTree(), "unexpected middleman artifact: %s", artifact);
       artifactsBuilder.add(artifact);
       return this;
     }
@@ -995,7 +997,7 @@ public final class Runfiles implements RunfilesApi {
 
   /**
    * Checks that the depth of a Runfiles object's nested sets (artifacts, symlinks, root symlinks,
-   * extra middlemen) does not exceed Starlark's depset depth limit, as specified by {@code
+   * etc.) does not exceed Starlark's depset depth limit, as specified by {@code
    * --nested_set_depth_limit}.
    *
    * @param semantics Starlark semantics providing {@code --nested_set_depth_limit}

@@ -301,14 +301,14 @@ public final class Actions {
       };
 
   /**
-   * Check whether two artifacts are a runfiles middleman - runfiles output manifest pair.
+   * Check whether two artifacts are a runfiles tree - runfiles output manifest pair.
    *
    * <p>This is necessary because these are exempt from the "path of one artifact cannot be a prefix
    * of another" rule. This is like this for historical reasons.
    */
   public static boolean isRunfilesArtifactPair(Artifact runfilesTree, Artifact runfilesManifest) {
-    if (!runfilesTree.isMiddlemanArtifact()) {
-      // The outside artifact is not a middleman. No go.
+    if (!runfilesTree.isRunfilesTree()) {
+      // The outside artifact is not a runfiles tree. No go.
       return false;
     }
 

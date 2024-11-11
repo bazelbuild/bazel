@@ -39,9 +39,9 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.MiddlemanAction;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.RunfilesTree;
+import com.google.devtools.build.lib.actions.RunfilesTreeAction;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.TestAction.DummyAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
@@ -143,7 +143,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     file(treeFile2.getPath(), "src2");
     RunfilesTree mockRunfilesTree = mock(RunfilesTree.class);
     Action action =
-        new MiddlemanAction(
+        new RunfilesTreeAction(
             ActionsTestUtil.NULL_ACTION_OWNER,
             mockRunfilesTree,
             NestedSetBuilder.create(Order.STABLE_ORDER, input1, input2, tree),
@@ -416,7 +416,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
                       treeFileArtifact2, FileArtifactValue.createForTesting(treeFileArtifact2))
                   .build();
           treeArtifactData.put(output, tree);
-        } else if (output.isMiddlemanArtifact()) {
+        } else if (output.isRunfilesTree()) {
           artifactData.put(output, FileArtifactValue.DEFAULT_MIDDLEMAN);
         } else {
           Path path = output.getPath();

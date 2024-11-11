@@ -191,7 +191,7 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
       return null;
     }
 
-    if (artifact.isMiddlemanArtifact()) {
+    if (artifact.isRunfilesTree()) {
       // A middleman artifact's data has the default middleman value.
       value = artifactData.get(artifact);
       if (value != null) {
@@ -507,7 +507,7 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
       XattrProvider xattrProvider,
       @Nullable TimestampGranularityMonitor tsgm)
       throws IOException {
-    checkState(!artifact.isTreeArtifact() && !artifact.isMiddlemanArtifact(), artifact);
+    checkState(!artifact.isTreeArtifact() && !artifact.isRunfilesTree(), artifact);
 
     Path pathNoFollow = artifactPathResolver.toPath(artifact);
     // If we expect a symlink, we can readlink it directly and handle errors appropriately - there

@@ -58,10 +58,7 @@ import javax.annotation.Nullable;
  * last stored in the action cache. Must be informed of the new Action data after execution as well.
  *
  * <p>The fingerprint, input files names, and metadata (either mtimes or MD5sums) of each action are
- * cached in the action cache to avoid unnecessary rebuilds. Middleman artifacts are handled
- * specially, avoiding the need to create actual files corresponding to the middleman artifacts.
- * Instead of that, results of MiddlemanAction dependency checks are cached internally and then
- * reused whenever an input middleman artifact is encountered.
+ * cached in the action cache to avoid unnecessary rebuilds.
  *
  * <p>While instances of this class hold references to action and metadata cache instances, they are
  * otherwise lightweight, and should be constructed anew and discarded for each build request.
@@ -877,7 +874,7 @@ public class ActionCacheChecker {
    * instead. This is done to avoid cost associated with building the message.
    */
   private static void reportRebuild(@Nullable EventHandler handler, Action action, String message) {
-    // For MiddlemanAction, do not report rebuild.
+    // For RunfilesTreeAction, do not report rebuild.
     if (handler != null) {
       handler.handle(
           Event.of(

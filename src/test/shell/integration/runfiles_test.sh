@@ -429,7 +429,7 @@ EOF
 int main() { return 0; }
 EOF
   bazel build //:test &> $TEST_log && fail "Expected build to fail but it succeeded"
-  expect_log_once "Runfiles must not contain middleman artifacts"
+  expect_log_once "Runfiles must not contain runfiles tree artifacts"
 }
 
 function test_manifest_action_reruns_on_output_base_change() {

@@ -278,7 +278,7 @@ public final class CoverageReportActionBuilder {
     Artifact reportGeneratorExec = args.reportGenerator().getExecutable();
     RunfilesSupport runfilesSupport = args.reportGenerator().getRunfilesSupport();
     Artifact runfilesMiddleman =
-        runfilesSupport != null ? runfilesSupport.getRunfilesMiddleman() : null;
+        runfilesSupport != null ? runfilesSupport.getRunfilesTreeArtifact() : null;
     args = CoverageArgs.createCopyWithCoverageDirAndLcovOutput(args, coverageDir, lcovOutput);
     ImmutableList<String> actionArgs = argsFunc.apply(args);
 

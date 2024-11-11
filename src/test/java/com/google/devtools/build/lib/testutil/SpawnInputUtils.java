@@ -109,7 +109,7 @@ public final class SpawnInputUtils {
   public static Artifact getRunfilesArtifactWithName(
       Spawn spawn, ActionExecutionContext context, String name) {
     return spawn.getInputFiles().toList().stream()
-        .filter(i -> i instanceof Artifact && ((Artifact) i).isMiddlemanArtifact())
+        .filter(i -> i instanceof Artifact && ((Artifact) i).isRunfilesTree())
         .map(i -> context.getInputMetadataProvider().getRunfilesMetadata(i).getRunfilesTree())
         .flatMap(t -> t.getArtifacts().toList().stream())
         .filter(artifact -> artifact.getExecPathString().contains(name))

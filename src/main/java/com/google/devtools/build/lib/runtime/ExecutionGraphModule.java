@@ -148,14 +148,6 @@ public class ExecutionGraphModule extends BlazeModule {
     public int queueSize;
 
     @Option(
-        name = "experimental_execution_graph_log_middleman",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        defaultValue = "false",
-        help = "Subscribe to ActionMiddlemanEvent in ExecutionGraphModule.")
-    public boolean logMiddlemanActions;
-
-    @Option(
         name = "experimental_execution_graph_enable_edges_from_filewrite_actions",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.UNKNOWN},
@@ -591,7 +583,7 @@ public class ExecutionGraphModule extends BlazeModule {
         // We don't use inputMetadataProvider.getRunfilesTrees() because this method is called both
         // for Spawns and Actions and the runfiles on a Spawn can be a subset of the runfiles of the
         // action during whose execution it was created.
-        if ((input instanceof Artifact) && ((Artifact) input).isMiddlemanArtifact()) {
+        if ((input instanceof Artifact) && ((Artifact) input).isRunfilesTree()) {
           // This is a runfiles middleman. Collect the artifacts in it into
           // runfilesArtifactsBuilder.
           RunfilesTree runfilesTree =

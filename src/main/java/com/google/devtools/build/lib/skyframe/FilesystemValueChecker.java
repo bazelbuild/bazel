@@ -328,8 +328,7 @@ public class FilesystemValueChecker {
           dirtyKeys.add(keyAndValue.getKey());
         } else {
           for (Artifact artifact : actionValue.getAllFileValues().keySet()) {
-            if (!artifact.isMiddlemanArtifact()
-                && shouldCheckFile(knownModifiedOutputFiles, artifact)) {
+            if (!artifact.isRunfilesTree() && shouldCheckFile(knownModifiedOutputFiles, artifact)) {
               fileToKeyAndValue.put(artifact, keyAndValue);
             }
           }
@@ -502,7 +501,7 @@ public class FilesystemValueChecker {
       ModifiedOutputsReceiver modifiedOutputsReceiver) {
     Artifact file = entry.getKey();
     FileArtifactValue lastKnownData = entry.getValue();
-    if (file.isMiddlemanArtifact() || !shouldCheckFile(knownModifiedOutputFiles, file)) {
+    if (file.isRunfilesTree() || !shouldCheckFile(knownModifiedOutputFiles, file)) {
       return false;
     }
     try {

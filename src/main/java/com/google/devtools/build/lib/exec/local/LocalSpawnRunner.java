@@ -353,7 +353,7 @@ public class LocalSpawnRunner implements SpawnRunner {
       for (ActionInput input : spawn.getInputFiles().toList()) {
         if (input instanceof VirtualActionInput virtualActionInput) {
           virtualActionInput.atomicallyWriteRelativeTo(execRoot);
-        } else if ((input instanceof Artifact) && ((Artifact) input).isMiddlemanArtifact()) {
+        } else if ((input instanceof Artifact) && ((Artifact) input).isRunfilesTree()) {
           runfilesTrees.add(
               context.getInputMetadataProvider().getRunfilesMetadata(input).getRunfilesTree());
         }

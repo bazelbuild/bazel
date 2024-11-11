@@ -162,7 +162,7 @@ public class ExpandedSpawnLogContext extends SpawnLogContext {
           toolFiles.stream()
               .filter(
                   actionInput ->
-                      actionInput instanceof Artifact artifact && artifact.isMiddlemanArtifact())
+                      actionInput instanceof Artifact artifact && artifact.isRunfilesTree())
               .map(inputMetadataProvider::getRunfilesMetadata)
               .map(RunfilesArtifactValue::getRunfilesTree)
               .map(RunfilesTree::getExecPath)

@@ -2320,7 +2320,7 @@ public abstract class SpawnLogContextTestBase {
         }
       } else if (artifact.isSymlink()) {
         builder.put(artifact, FileArtifactValue.createForUnresolvedSymlink(artifact));
-      } else if (artifact.isMiddlemanArtifact()) {
+      } else if (artifact.isRunfilesTree()) {
         builder.putRunfilesTree(artifact, runfilesTree);
       } else {
         builder.put(artifact, FileArtifactValue.createForTesting(artifact));
