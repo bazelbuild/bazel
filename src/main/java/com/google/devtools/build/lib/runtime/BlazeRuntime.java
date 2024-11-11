@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.runtime;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -96,6 +97,7 @@ import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.ProcessUtils;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.util.TestType;
 import com.google.devtools.build.lib.util.ThreadUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -117,12 +119,12 @@ import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.devtools.common.options.TriState;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.protobuf.ByteString;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.lang.reflect.Type;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -843,6 +845,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
    */
   @SuppressWarnings("SystemExitOutsideMain")
   public static void main(Iterable<Class<? extends BlazeModule>> moduleClasses, String[] args) {
+    // Transform args into Bazel's internal string representation.
+    args = Arrays.stream(args).map(StringEncoding::platformToInternal).toArray(String[]::new);
     setupUncaughtHandlerAtStartup(args);
     List<BlazeModule> modules = createModules(moduleClasses);
     // blaze.cc will put --batch first if the user set it.
@@ -1065,23 +1069,29 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       shutdownDone = true;
       signalHandler.uninstall();
       ExecRequest request = result.getExecRequest();
+
       String[] argv = new String[request.getArgvCount()];
       for (int i = 0; i < argv.length; i++) {
-        argv[i] = request.getArgv(i).toString(StandardCharsets.ISO_8859_1);
+        argv[i] = internalBytesToPlatformString(request.getArgv(i));
       }
-
-      String workingDirectory = request.getWorkingDirectory().toString(StandardCharsets.ISO_8859_1);
+      String workingDirectory = internalBytesToPlatformString(request.getWorkingDirectory());
       try {
         ProcessBuilder process =
             new ProcessBuilder().command(argv).directory(new File(workingDirectory)).inheritIO();
+
+        for (int i = 0; i < request.getEnvironmentVariableToClearCount(); i++) {
+          process
+              .environment()
+              .remove(internalBytesToPlatformString(request.getEnvironmentVariableToClear(i)));
+        }
 
         for (int i = 0; i < request.getEnvironmentVariableCount(); i++) {
           EnvironmentVariable variable = request.getEnvironmentVariable(i);
           process
               .environment()
               .put(
-                  variable.getName().toString(StandardCharsets.ISO_8859_1),
-                  variable.getValue().toString(StandardCharsets.ISO_8859_1));
+                  internalBytesToPlatformString(variable.getName()),
+                  internalBytesToPlatformString(variable.getValue()));
         }
 
         return process.start().waitFor();
@@ -1800,5 +1810,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           Filesystem.Code.SERVER_PID_TXT_FILE_READ_FAILURE,
           new IOException(e));
     }
+  }
+
+  private static String internalBytesToPlatformString(ByteString bytes) {
+    return StringEncoding.internalToPlatform(bytes.toString(ISO_8859_1));
   }
 }
