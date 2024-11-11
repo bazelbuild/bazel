@@ -93,6 +93,11 @@ ls_srcs = rule(
 EOF
 }
 
+function has_iso_8859_1_locale() {
+  charmap="$(LC_ALL=en_US.ISO-8859-1 locale charmap 2>/dev/null)"
+  [[ "${charmap}" == "ISO-8859-1" ]]
+}
+
 function test_utf8_source_artifact() {
   unicode_filenames_test_setup
 
@@ -123,6 +128,15 @@ function test_traditional_encoding_source_artifact() {
     echo "Skipping test." && return
     ;;
   esac
+
+  # Bazel relies on the JVM for filename encoding, and can only support
+  # traditional encodings if it can roundtrip through ISO-8859-1.
+  if ! has_iso_8859_1_locale; then
+    echo "Skipping test (no ISO-8859-1 locale)."
+    echo "Available locales (need en_US.ISO-8859-1):"
+    locale -a
+    return
+  fi
 
   unicode_filenames_test_setup
 
