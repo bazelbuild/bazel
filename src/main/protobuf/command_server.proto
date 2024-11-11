@@ -125,6 +125,7 @@ message PathToReplace {
     OUTPUT_BASE = 1;
     BUILD_WORKING_DIRECTORY = 2;
     BUILD_WORKSPACE_DIRECTORY = 3;
+    BUILD_EXECROOT = 6;
     TEST_LOG_SUBDIR = 4;
     HOME = 5;
   }

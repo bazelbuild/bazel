@@ -790,6 +790,8 @@ public class RunCommand implements BlazeCommand {
     TreeMap<String, String> result = new TreeMap<>();
     result.put("BUILD_WORKSPACE_DIRECTORY", env.getWorkspace().getPathString());
     result.put("BUILD_WORKING_DIRECTORY", env.getWorkingDirectory().getPathString());
+    result.put("BUILD_EXECROOT", env.getExecRoot().getPathString());
+    result.put("BUILD_ID", env.getCommandId().toString());
     return result;
   }
 

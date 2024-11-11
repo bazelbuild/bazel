@@ -703,6 +703,54 @@ EOF
   fi
 }
 
+function test_build_id_env_var() {
+  local -r pkg="pkg${LINENO}"
+  mkdir -p "${pkg}"
+  cat > "$pkg/BUILD" <<'EOF'
+sh_binary(
+  name = "foo",
+  srcs = ["foo.sh"],
+)
+EOF
+  cat > "$pkg/foo.sh" <<'EOF'
+#!/bin/bash
+echo build_id=\"${BUILD_ID}\"
+EOF
+
+  chmod +x "$pkg/foo.sh"
+  bazel run "//$pkg:foo" --build_event_text_file=bep.txt >& "$TEST_log" || fail "run failed"
+  cat "$TEST_log" | grep "^build_id=" > actual.txt
+  cat bep.txt | grep '^  uuid: "' | sed 's/^  uuid: /build_id=/' > expected.txt
+
+  if ! cmp expected.txt actual.txt; then
+    fail "BUILD_ID env var not set correctly: expected '$(cat expected.txt)', got '$(cat actual.txt)'"
+  fi
+}
+
+function test_execroot_env_var() {
+  local -r pkg="pkg${LINENO}"
+  mkdir -p "${pkg}"
+  cat > "$pkg/BUILD" <<'EOF'
+sh_binary(
+  name = "foo",
+  srcs = ["foo.sh"],
+)
+EOF
+  cat > "$pkg/foo.sh" <<'EOF'
+#!/bin/bash
+echo execroot=\"${BUILD_EXECROOT}\"
+EOF
+
+  chmod +x "$pkg/foo.sh"
+  echo "execroot=\"$(bazel info execution_root)\"" > expected.txt
+  bazel run "//$pkg:foo" >& "$TEST_log" || fail "run failed"
+  cat "$TEST_log" | grep "^execroot=" > actual.txt
+
+  if ! cmp expected.txt actual.txt; then
+    fail "BUILD_EXECROOT env var not set correctly: expected '$(cat expected.txt)', got '$(cat actual.txt)'"
+  fi
+}
+
 function test_run_env() {
   local -r pkg="pkg${LINENO}"
   mkdir -p "${pkg}"

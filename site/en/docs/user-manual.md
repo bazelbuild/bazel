@@ -1751,6 +1751,10 @@ The following extra environment variables are also available to the binary:
     build was run.
 *   `BUILD_WORKING_DIRECTORY`: the current working directory where
     Bazel was run from.
+*   `BUILD_ID`: the build ID of the `bazel run` invocation. This is usually
+    unique, except if Bazel was run with `--script_path` and the resulting
+    script is re-used.
+*   `BUILD_EXECROOT`: the execution root of the `bazel run` invocation.
 
 These can be used, for example, to interpret file names on the command line in
 a user-friendly way.
