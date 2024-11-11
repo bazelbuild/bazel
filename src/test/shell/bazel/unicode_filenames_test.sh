@@ -196,13 +196,7 @@ EOF
 }
 
 function test_cc_dependency_with_utf8_filename() {
-  if "$is_windows"; then
-    # äöüÄÖÜß in UTF-8
-    local unicode=$(echo -e '\xC3\xA4\xC3\xB6\xC3\xBC\xC3\x84\xC3\x96\xC3\x9C\xC3\x9F')
-  else
-    # äöüÄÖÜß🌱 in UTF-8
-    local unicode=$(echo -e '\xC3\xA4\xC3\xB6\xC3\xBC\xC3\x84\xC3\x96\xC3\x9C\xC3\x9F\xF0\x9F\x8C\xB1')
-  fi
+  local -r unicode='äöüÄÖÜß🌱'
 
   setup_module_dot_bazel
 
@@ -221,7 +215,9 @@ EOF
   cat >"pkg/${unicode}.h" <<EOF
 #define MY_STRING "original"
 EOF
-  cat >pkg/bin.cc <<EOF
+  # MSVC requires UTF-8 source files to start with a BOM.
+  printf '\xEF\xBB\xBF' > pkg/bin.cc
+  cat >>pkg/bin.cc <<EOF
 #include "${unicode}.h"
 
 #include <iostream>
