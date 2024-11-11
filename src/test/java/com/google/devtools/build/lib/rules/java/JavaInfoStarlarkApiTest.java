@@ -155,6 +155,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         load(":extension.bzl", "my_rule")
 
         java_library(
@@ -190,6 +191,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         load(":extension.bzl", "my_rule")
 
         java_library(
@@ -257,6 +259,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         load(":extension.bzl", "my_rule")
 
         java_library(
@@ -420,6 +423,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         load(":extension.bzl", "my_rule")
 
         java_library(
@@ -452,6 +456,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         load(":extension.bzl", "my_rule")
 
         java_library(
@@ -484,6 +489,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         load(":extension.bzl", "my_rule")
 
         java_library(
@@ -526,6 +532,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         load(":extension.bzl", "my_rule")
 
         java_library(
@@ -568,6 +575,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         load(":extension.bzl", "my_rule")
 
         java_library(
@@ -610,6 +618,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         load(":extension.bzl", "my_rule")
 
         java_library(
@@ -681,6 +690,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         load(":extension.bzl", "my_rule")
 
         java_library(
@@ -757,6 +767,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library", "java_plugin")
         load(":extension.bzl", "my_rule")
 
         java_library(
@@ -794,6 +805,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library", "java_plugin")
         load(":extension.bzl", "my_rule")
 
         java_library(
@@ -855,6 +867,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         load(":extension.bzl", "my_rule")
 
         java_library(
@@ -894,6 +907,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         load(":extension.bzl", "my_rule")
 
         java_library(
@@ -935,6 +949,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         load(":extension.bzl", "my_rule")
 
         java_library(
@@ -966,6 +981,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         load(":extension.bzl", "my_rule")
 
         java_library(
@@ -1001,6 +1017,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         load(":extension.bzl", "my_rule")
 
         java_library(
@@ -1036,6 +1053,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         load(":extension.bzl", "my_rule")
 
         java_library(
@@ -1071,6 +1089,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         load(":extension.bzl", "my_rule")
 
         java_library(
@@ -1136,6 +1155,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         load(":extension.bzl", "my_rule")
 
         java_library(
@@ -1229,6 +1249,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         load(":extension.bzl", "my_rule")
 
         java_library(name = "lib")
@@ -1513,6 +1534,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
       assertThat(useIJar && stampJar).isFalse();
       ImmutableList.Builder<String> lines = ImmutableList.builder();
       lines.add(
+          "load('@rules_java//java:defs.bzl', 'java_common')",
           "result = provider()",
           "def _impl(ctx):",
           "  ctx.actions.write(ctx.outputs.output_jar, 'JavaInfo API Test', is_executable=False) ",

@@ -686,7 +686,7 @@ public class DumpCommand implements BlazeCommand {
     allocationTracker.dumpStarlarkAllocations(path);
   }
 
-  private static BlazeCommandResult createFailureResult(String message, Code detailedCode) {
+  static BlazeCommandResult createFailureResult(String message, Code detailedCode) {
     return BlazeCommandResult.failureDetail(
         FailureDetail.newBuilder()
             .setMessage(message)

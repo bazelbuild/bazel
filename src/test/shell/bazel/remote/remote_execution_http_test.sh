@@ -536,4 +536,47 @@ EOF
   expect_log "WARNING: Credentials are transmitted in plaintext"
 }
 
+function test_remote_http_cache_with_missing_cas_referenced_by_ac() {
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = 'bar',
+  outs = ["bar.txt"],
+  cmd = "echo \"bar\" > \$@",
+)
+genrule(
+  name = 'foo',
+  srcs = [":bar"],
+  outs = ["foo.txt"],
+  cmd = "echo \"foo\" > \$@",
+  tags = ["local"],
+)
+EOF
+
+  # Populate the cache
+  bazel build \
+      --remote_cache=http://localhost:${http_port} \
+      //a:foo \
+      || fail "Failed to build //a:foo with remote cache"
+  remote_cas_files="$(count_remote_cas_files)"
+  # bar.txt, stdout and stderr for action 'bar'
+  [[ "$remote_cas_files" == 3 ]] || fail "Expected 3 remote cas entries, not $remote_cas_files"
+
+  # Delete blobs from CAS
+  delete_remote_cas_files
+
+  bazel clean
+  bazel build \
+      --remote_cache=http://localhost:${http_port} \
+      --experimental_remote_cache_eviction_retries=1 \
+      //a:foo &> $TEST_log \
+      || fail "Failed to build //a:foo with remote cache"
+
+  # Assert that AC is ignored because blobs are missing from CAS, and new output
+  # is uploaded to CAS.
+  expect_log '3 processes: 1 internal, 1 \(local\|.*-sandbox\), 1 \(local\|.*-sandbox\)'
+  remote_cas_files="$(count_remote_cas_files)"
+  [[ "$remote_cas_files" == 3 ]] || fail "Expected 3 remote cas entries, not $remote_cas_files"
+}
+
 run_suite "Remote execution and remote cache tests"

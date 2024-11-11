@@ -27,7 +27,6 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
@@ -112,7 +111,7 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
     evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
-                .put(FileValue.FILE, new FileFunction(packageLocator, directories))
+                .put(SkyFunctions.FILE, new FileFunction(packageLocator, directories))
                 .put(
                     FileStateKey.FILE_STATE,
                     new FileStateFunction(
@@ -220,6 +219,7 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
         .setExtensionBzlFile(bzlFile)
         .setExtensionName(name)
         .setIsolationKey(Optional.empty())
+        .setRepoOverrides(ImmutableMap.of())
         .addProxy(
             ModuleExtensionUsage.Proxy.builder()
                 .setDevDependency(false)
@@ -227,7 +227,6 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
                 .setImports(importsBuilder.buildOrThrow())
                 .setContainingModuleFilePath(LabelConstants.MODULE_DOT_BAZEL_FILE_NAME)
                 .build())
-        .setUsingModule(ModuleKey.ROOT)
         .build();
   }
 

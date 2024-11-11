@@ -48,7 +48,7 @@ import net.starlark.java.annot.StarlarkMethod;
             + "# Strings support slicing (negative index starts from the end):\n"
             + "x = \"hello\"[2:4]  # \"ll\"\n"
             + "y = \"hello\"[1:-1]  # \"ell\"\n"
-            + "z = \"hello\"[:4]  # \"hell\""
+            + "z = \"hello\"[:4]  # \"hell\"\n"
             + "# Slice steps can be used, too:\n"
             + "s = \"hello\"[::2] # \"hlo\"\n"
             + "t = \"hello\"[3:0:-1] # \"lle\"\n</pre>"

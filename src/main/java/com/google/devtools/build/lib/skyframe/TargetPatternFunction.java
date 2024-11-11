@@ -35,6 +35,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
@@ -52,13 +53,12 @@ public class TargetPatternFunction implements SkyFunction {
         ((TargetPatternValue.TargetPatternKey) key.argument());
     TargetPattern parsedPattern = patternKey.getParsedPattern();
 
-    IgnoredPackagePrefixesValue ignoredPackagePrefixes =
-        (IgnoredPackagePrefixesValue)
-            env.getValue(IgnoredPackagePrefixesValue.key(parsedPattern.getRepository()));
+    IgnoredSubdirectoriesValue ignoredPackagePrefixes =
+        (IgnoredSubdirectoriesValue)
+            env.getValue(IgnoredSubdirectoriesValue.key(parsedPattern.getRepository()));
     if (ignoredPackagePrefixes == null) {
       return null;
     }
-    ImmutableSet<PathFragment> ignoredPatterns = ignoredPackagePrefixes.getPatterns();
 
     ResolvedTargets<Target> resolvedTargets;
     EnvironmentBackedRecursivePackageProvider provider =
@@ -70,6 +70,7 @@ public class TargetPatternFunction implements SkyFunction {
               env.getListener(),
               patternKey.getPolicy(),
               MultisetSemaphore.unbounded(),
+              /* maxConcurrentGetTargetsTasks= */ Optional.empty(),
               SimplePackageIdentifierBatchingCallback::new);
       ImmutableSet<PathFragment> excludedSubdirectories = patternKey.getExcludedSubdirectories();
       ResolvedTargets.Builder<Target> resolvedTargetsBuilder = ResolvedTargets.builder();
@@ -91,7 +92,7 @@ public class TargetPatternFunction implements SkyFunction {
       try {
         parsedPattern.eval(
             resolver,
-            () -> ignoredPatterns,
+            () -> ignoredPackagePrefixes.asIgnoredSubdirectories(),
             excludedSubdirectories,
             callback,
             QueryExceptionMarkerInterface.MarkerRuntimeException.class);

@@ -29,12 +29,65 @@ source "$(grep -sm1 "^$f " "$0.exe.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+# List of expected modules in the default lock file.
+# You may need to update this list if MODULE.tools changes,
+# but we should keep the list as small as possible because
+# they are tranitive dependencies for all Bazel users (although fetched lazily).
+expected_modules=(
+  abseil-cpp
+  bazel_features
+  bazel_skylib
+  buildozer
+  googletest
+  jsoncpp
+  platforms
+  protobuf
+  pybind11_bazel
+  re2
+  rules_android
+  rules_cc
+  rules_fuzzing
+  rules_java
+  rules_jvm_external
+  rules_kotlin
+  rules_license
+  rules_pkg
+  rules_proto
+  rules_python
+  rules_shell
+  zlib
+)
+
 function test_verify_lock_file() {
   rm -f MODULE.bazel
   touch MODULE.bazel
-  cp $(rlocation io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock) MODULE.bazel.lock
-  echo "Running: bazel mod deps --lockfile_mode=error" >& "$TEST_log"
-  bazel mod deps --lockfile_mode=error >& "$TEST_log" || fail "Default lockfile for empty workspace is no longer in sync with MODULE.tools. Please run \"bazel run //src/test/tools/bzlmod:update_default_lock_file\""
+  echo 'common --incompatible_use_plus_in_repo_names' > .bazelrc
+  echo "Running: bazel mod deps --lockfile_mode=update to generate the lockfile."
+  bazel mod deps --lockfile_mode=update
+  diff -u $(rlocation io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock) MODULE.bazel.lock || fail "Default lockfile for empty workspace is no longer in sync with MODULE.tools. Please run \"bazel run //src/test/tools/bzlmod:update_default_lock_file\""
+
+  # Verify the list of expected modules in the lock file.
+  grep -o '"https://bcr\.bazel\.build[^"]*source.json"' MODULE.bazel.lock | sed -E 's|.*modules/([^/]+)/.*|\1|' | sort -u > actual_modules
+  diff -u <(printf '%s\n' "${expected_modules[@]}" | sort) actual_modules || fail "Expected modules in lockfile do not match the actual modules. Please update 'expected_modules' if necessary."
+
+  # Verify if python toolchain version matches Bazel's lock file to ensure it's cached in integration tests.
+  # Check strings like `"default_version": "3.11"`` for default python version.
+  python_version=$(grep -o '"default_version": "[0-9.]*"' MODULE.bazel.lock | grep -o '[0-9.]*')
+  echo "Extracted Python version: $python_version from default lockfile"
+
+  root_lockfile=$(rlocation io_bazel/MODULE.bazel.lock)
+  python_version_root=$(grep -o '"default_version": "[0-9.]*"' $root_lockfile | grep -o '[0-9.]*')
+  echo "Extracted Python version: $python_version_root from root lockfile"
+
+  if [ "$python_version" != "$python_version_root" ]; then
+    fail "Python version in default lockfile does not match root lockfile. Please update Python toolchain version in the root MODULE.bazel file to match."
+  fi
+
+  # Verify MODULE.tools with --check_direct_dependencies=error
+  echo "Running: bazel mod deps --check_direct_dependencies for MODULE.tools"
+  cp $(rlocation io_bazel/src/MODULE.tools) MODULE.bazel
+  sed -i.bak '/module(name = "bazel_tools")/d' MODULE.bazel
+  bazel mod deps --check_direct_dependencies=error || fail "Please update MODULE.tools to match the resolved versions."
 }
 
 run_suite "test_verify_lock_file"

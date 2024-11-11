@@ -385,7 +385,8 @@ public final class JavaLibraryBuildRequest {
             .sourceOutput(getSourceGenDir())
             .processorPath(getProcessorPath())
             .plugins(getPlugins())
-            .requestId(getRequestId());
+            .requestId(getRequestId())
+            .workDir(workDir);
     addJavacArguments(builder);
     // Performance optimization: when reduced classpaths are enabled, stop the compilation after
     // the first diagnostic that would result in fallback to the transitive classpath. The user

@@ -158,9 +158,7 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, FileRootApi
         "execPath: %s contains parent directory reference (..)",
         execPath);
     Preconditions.checkArgument(
-        isOutputRootType(rootType) || isMiddlemanRootType(rootType),
-        "%s is not a derived root type",
-        rootType);
+        isOutputRootType(rootType), "%s is not a derived root type", rootType);
     Path root = execRoot.getRelative(execPath);
     return INTERNER.intern(new ArtifactRoot(Root.fromPath(root), execPath, rootType));
   }
@@ -183,7 +181,6 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, FileRootApi
     MainSource,
     ExternalSource,
     Output,
-    Middleman,
     // Sibling root types are in effect when --experimental_sibling_repository_layout is activated.
     // These will eventually replace the above Output and Middleman types when the flag becomes
     // the default option and then removed.
@@ -235,16 +232,6 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, FileRootApi
         || rootType == RootType.Output;
   }
 
-  private static boolean isMiddlemanRootType(RootType rootType) {
-    return rootType == RootType.SiblingMainMiddleman
-        || rootType == RootType.SiblingExternalMiddleman
-        || rootType == RootType.Middleman;
-  }
-
-  boolean isMiddlemanRoot() {
-    return isMiddlemanRootType(rootType);
-  }
-
   public boolean isExternal() {
     return rootType == RootType.ExternalSource
         || rootType == RootType.SiblingExternalOutput
@@ -256,7 +243,7 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, FileRootApi
    * created without the --experimental_sibling_repository_layout flag set.
    */
   public boolean isLegacy() {
-    return rootType == RootType.Output || rootType == RootType.Middleman;
+    return rootType == RootType.Output;
   }
 
   @Override

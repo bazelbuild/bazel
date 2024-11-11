@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.TotalAndConfiguredTargetOnlyMetric;
 import com.google.devtools.build.lib.pkgcache.PackageManager.PackageManagerStatistics;
 import java.util.Collection;
@@ -31,12 +32,14 @@ public class AnalysisPhaseCompleteEvent {
   private final TotalAndConfiguredTargetOnlyMetric targetsConfigured;
   private final PackageManagerStatistics pkgManagerStats;
   private final TotalAndConfiguredTargetOnlyMetric actionsConstructed;
+  private final ImmutableMap<String, Integer> actionsConstructedByMnemonic;
   private final boolean analysisCacheDropped;
 
   public AnalysisPhaseCompleteEvent(
       Collection<? extends ConfiguredTarget> topLevelTargets,
       TotalAndConfiguredTargetOnlyMetric targetsConfigured,
       TotalAndConfiguredTargetOnlyMetric actionsConstructed,
+      ImmutableMap<String, Integer> actionsConstructedByMnemonic,
       long timeInMs,
       PackageManagerStatistics pkgManagerStats,
       boolean analysisCacheDropped) {
@@ -45,6 +48,7 @@ public class AnalysisPhaseCompleteEvent {
     this.targetsConfigured = checkNotNull(targetsConfigured);
     this.pkgManagerStats = pkgManagerStats;
     this.actionsConstructed = checkNotNull(actionsConstructed);
+    this.actionsConstructedByMnemonic = checkNotNull(actionsConstructedByMnemonic);
     this.analysisCacheDropped = analysisCacheDropped;
   }
 
@@ -68,6 +72,10 @@ public class AnalysisPhaseCompleteEvent {
   /** Returns the actions constructed during this analysis. */
   public TotalAndConfiguredTargetOnlyMetric getActionsConstructed() {
     return actionsConstructed;
+  }
+
+  public ImmutableMap<String, Integer> getActionsConstructedByMnemonic() {
+    return actionsConstructedByMnemonic;
   }
 
   public boolean wasAnalysisCacheDropped() {

@@ -181,7 +181,7 @@ public final class Converters {
 
   /** Standard converter for the {@link java.time.Duration} type. */
   public static class DurationConverter extends Converter.Contextless<Duration> {
-    private static final Pattern DURATION_REGEX = Pattern.compile("^([0-9]+)(d|h|m|s|ms)$");
+    private static final Pattern DURATION_REGEX = Pattern.compile("^([0-9]+)(d|h|m|s|ms|ns)$");
 
     @Override
     public Duration convert(String input) throws OptionsParsingException {
@@ -206,6 +206,8 @@ public final class Converters {
           return Duration.ofSeconds(duration);
         case "ms":
           return Duration.ofMillis(duration);
+        case "ns":
+          return Duration.ofNanos(duration);
         default:
           throw new IllegalStateException(
               "This must not happen. Did you update the regex without the switch case?");

@@ -175,11 +175,7 @@ public final class FunctionTransitionUtil {
       ImmutableMap<Label, Object> starlarkOptions =
           fromOptions.getStarlarkOptions().entrySet().stream()
               .filter(
-                  (starlarkFlag) ->
-                      fromOptions
-                          .get(CoreOptions.class)
-                          .customFlagsToPropagate
-                          .contains(starlarkFlag.getKey().toString()))
+                  (starlarkFlag) -> propagateStarlarkFlagToExec(starlarkFlag.getKey(), fromOptions))
               .collect(toImmutableMap(Map.Entry::getKey, (e) -> e.getValue()));
       defaultBuilder.addStarlarkOptions(starlarkOptions);
     } else {
@@ -190,9 +186,10 @@ public final class FunctionTransitionUtil {
     //  1: --trim_test_configuration means the flags may not exist. Starlark logic needs to handle
     //     that possibility.
     //  2: --runs_per_test has a non-Starlark readable type.
-    if (fromOptions.contains(TestOptions.class)) {
+    var testOptions = fromOptions.get(TestOptions.class);
+    if (testOptions != null) {
       defaultBuilder.removeFragmentOptions(TestOptions.class);
-      defaultBuilder.addFragmentOptions(fromOptions.get(TestOptions.class));
+      defaultBuilder.addFragmentOptions(testOptions);
     }
     BuildOptions ans = defaultBuilder.build();
     if (fromOptions.get(CoreOptions.class).excludeDefinesFromExecConfig) {
@@ -210,6 +207,23 @@ public final class FunctionTransitionUtil {
           fromOptions.get(CoreOptions.class).commandLineBuildVariables;
     }
     return ans;
+  }
+
+  /**
+   * Returns true if the given Starlark flag should propagate from the target to exec configuration.
+   */
+  private static boolean propagateStarlarkFlagToExec(
+      Label starlarkFlag, BuildOptions buildOptions) {
+    return buildOptions.get(CoreOptions.class).customFlagsToPropagate.stream()
+        .anyMatch(
+            flagToPropagate ->
+                (flagToPropagate.equals(starlarkFlag.toString())
+                    || (flagToPropagate.endsWith("/...")
+                        && starlarkFlag
+                            .toString()
+                            .startsWith(
+                                flagToPropagate.substring(
+                                    0, flagToPropagate.lastIndexOf("/..."))))));
   }
 
   /**

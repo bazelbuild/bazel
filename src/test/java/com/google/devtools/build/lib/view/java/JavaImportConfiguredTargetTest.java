@@ -62,6 +62,7 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "java/jarlib/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_import")
         java_import(
             name = "libraryjar",
             jars = ["library.jar"],
@@ -102,7 +103,12 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
   // Regression test for b/262751943.
   @Test
   public void testCommandLineContainsTargetLabel() throws Exception {
-    scratch.file("java/BUILD", "java_import(name = 'java_imp', jars = ['import.jar'])");
+    scratch.file(
+        "java/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_import")
+        java_import(name = 'java_imp', jars = ['import.jar'])
+        """);
 
     ConfiguredTarget configuredTarget = getConfiguredTarget("//java:java_imp");
     Artifact compiledArtifact =
@@ -122,6 +128,7 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
     scratchConfiguredTarget(
         "java",
         "javalib",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
         "java_library(name = 'javalib',",
         "             srcs = ['Other.java'],",
         "             exports = ['//java/jarlib:libraryjar'])");
@@ -155,6 +162,7 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "java/somelib/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
             name = "javalib",
             srcs = ["Other.java"],
@@ -176,6 +184,7 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "java/jarlib2/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library", "java_import")
         java_library(
             name = "lib",
             srcs = ["Main.java"],
@@ -253,6 +262,7 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "java/jarlib2/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library", "java_import")
         java_library(
             name = "lib",
             srcs = ["Main.java"],
@@ -315,6 +325,7 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "java/genrules/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_import")
         genrule(
             name = "generated_jar",
             outs = ["generated.jar"],
@@ -357,6 +368,7 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "java/srcjarlib/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_import")
         java_import(
             name = "library-jar",
             jars = ["somelib.jar"],
@@ -374,13 +386,26 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testRequiresJars() throws Exception {
-    checkError("pkg", "rule", "mandatory attribute 'jars'", "java_import(name = 'rule')");
+    checkError(
+        "pkg",
+        "rule",
+        "mandatory attribute 'jars'",
+        """
+        load("@rules_java//java:defs.bzl", "java_import")
+        java_import(name = 'rule')
+        """);
   }
 
   @Test
   public void testPermitsEmptyJars() throws Exception {
     useConfiguration("--incompatible_disallow_java_import_empty_jars=0");
-    scratchConfiguredTarget("pkg", "rule", "java_import(name = 'rule', jars = [])");
+    scratchConfiguredTarget(
+        "pkg",
+        "rule",
+        """
+        load("@rules_java//java:defs.bzl", "java_import")
+        java_import(name = 'rule', jars = [])
+        """);
     assertNoEvents();
   }
 
@@ -391,7 +416,10 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
         "pkg",
         "rule",
         "expected no files",
-        "java_import(name = 'rule', jars = ['good.jar'], exports = ['bad.jar'])");
+        """
+        load("@rules_java//java:defs.bzl", "java_import")
+        java_import(name = 'rule', jars = ['good.jar'], exports = ['bad.jar'])
+        """);
   }
 
   @Test
@@ -402,6 +430,7 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
         "library-jar",
         getErrorMsgMisplacedFiles(
             "jars", "java_import", "//badlib:library-jar", "//badlib:not-a-jar.txt"),
+        "load('@rules_java//java:defs.bzl', 'java_import')",
         "java_import(name = 'library-jar',",
         "            jars = ['not-a-jar.txt'])");
   }
@@ -413,6 +442,7 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
         "library-jar",
         getErrorMsgNoGoodFiles("jars", "java_import", "//badlib:library-jar", "//badlib:gen"),
         "genrule(name = 'gen', outs = ['not-a-jar.txt'], cmd = '')",
+        "load('@rules_java//java:defs.bzl', 'java_import')",
         "java_import(name  = 'library-jar',",
         "            jars = [':gen'])");
   }
@@ -423,6 +453,7 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
         "badlib",
         "library-jar",
         "'jars' attribute cannot contain labels of Java targets",
+        "load('@rules_java//java:defs.bzl', 'java_library', 'java_import')",
         "java_library(name = 'javalib',",
         "             srcs = ['Javalib.java'])",
         "java_import(name  = 'library-jar',",
@@ -431,9 +462,13 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testJavaImportExportsTransitiveProguardSpecs() throws Exception {
+    if (analysisMock.isThisBazel()) {
+      return;
+    }
     scratch.file(
         "java/com/google/android/hello/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_import")
         java_import(
             name = "export",
             constraints = ["android"],
@@ -470,6 +505,7 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "java/com/google/android/hello/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_import")
         java_import(
             name = "lib",
             constraints = ["android"],
@@ -496,6 +532,7 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "java/com/google/android/hello/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_import")
         java_import(
             name = "transitive",
             constraints = ["android"],
@@ -529,6 +566,7 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "java/com/google/test/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library", "java_import")
         java_library(name = "lib")
 
         java_import(
@@ -549,6 +587,8 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
         scratchConfiguredTarget(
             "java/my",
             "a",
+            "load('@rules_java//java:defs.bzl', 'java_library',"
+                + " 'java_import')",
             "java_import(name = 'a',",
             "    jars = ['dummy.jar'],",
             "    srcjar = 'dummy-src.jar',",
@@ -568,6 +608,7 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "java/com/google/exports/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_binary", "java_import")
         java_import(
             name = "other_lib",
             data = ["foo.txt"],
@@ -602,6 +643,7 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "java/jarlib2/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library", "java_import")
         java_library(
             name = "lib",
             srcs = ["Lib.java"],
@@ -636,6 +678,7 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "java/com/google/runtimetest/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library", "java_import")
         java_import(
             name = "import_dep",
             jars = ["import_compile.jar"],
@@ -678,6 +721,7 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
         // error:
         "Label '//ji:a.jar' is duplicated in the 'jars' attribute of rule 'ji-with-dupe'",
         // build file
+        "load('@rules_java//java:defs.bzl', 'java_import')",
         "filegroup(name='jars', srcs=['a.jar'])",
         "java_import(name = 'ji-with-dupe', jars = ['a.jar', 'a.jar'])");
   }
@@ -690,6 +734,7 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
         // error:
         "in jars attribute of java_import rule //ji:ji-with-dupe-through-fg: a.jar is a duplicate",
         // build file
+        "load('@rules_java//java:defs.bzl', 'java_import')",
         "filegroup(name='jars', srcs=['a.jar'])",
         "java_import(name = 'ji-with-dupe-through-fg', jars = ['a.jar', ':jars'])");
   }
@@ -710,6 +755,8 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
         scratchConfiguredTarget(
             "java/a",
             "a",
+            "load('@rules_java//java:defs.bzl', 'java_import',"
+                + " 'java_library')",
             "java_library(name='a', srcs=['A.java'], deps=[':b'])",
             "java_import(name='b', jars=['b.jar'])");
     List<String> jars =
@@ -727,6 +774,7 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
         "ugly",
         "jar",
         "java_import.exports is no longer supported; use java_import.deps instead",
+        "load('@rules_java//java:defs.bzl', 'java_import', 'java_library')",
         "java_library(name = 'dep', srcs = ['dep.java'])",
         "java_import(name = 'jar',",
         "    jars = ['dummy.jar'],",

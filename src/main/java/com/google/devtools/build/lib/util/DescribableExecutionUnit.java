@@ -24,7 +24,7 @@ import javax.annotation.Nullable;
 public interface DescribableExecutionUnit {
 
   @Nullable
-  default Label getTargetLabel() {
+  default String getTargetDescription() {
     return null;
   }
 

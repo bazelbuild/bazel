@@ -67,7 +67,10 @@ public class InstrumentationFilterTest extends BuildViewTestCase {
 
   @Test
   public void testSingleTest() throws Exception {
-    scratch.file("my/package1/BUILD", "sh_test(name='t1',srcs=['t1.sh'])");
+    scratch.file(
+        "my/package1/BUILD",
+        "load('//test_defs:foo_test.bzl', 'foo_test')",
+        "foo_test(name='t1',srcs=['t1.sh'])");
     List<Target> targets = getTargets("//my/package1:t1");
     String expectedFilter = "^//my/package1[/:]";
     assertThat(InstrumentationFilterSupport.computeInstrumentationFilter(events, targets))
@@ -80,12 +83,13 @@ public class InstrumentationFilterTest extends BuildViewTestCase {
     scratch.file(
         "foo/test/BUILD",
         """
-        sh_test(
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
             name = "t1",
             srcs = ["t1.sh"],
         )
 
-        sh_test(
+        foo_test(
             name = "t2",
             srcs = ["t1.sh"],
         )
@@ -102,7 +106,8 @@ public class InstrumentationFilterTest extends BuildViewTestCase {
     scratch.file(
         "my/package1/BUILD",
         """
-        sh_test(
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
             name = "t1",
             srcs = ["t1.sh"],
         )
@@ -115,9 +120,15 @@ public class InstrumentationFilterTest extends BuildViewTestCase {
             ],
         )
         """);
-    scratch.file("other/package1/BUILD", "sh_test(name='t1',srcs=['t1.sh'])");
+    scratch.file(
+        "other/package1/BUILD",
+        "load('//test_defs:foo_test.bzl', 'foo_test')",
+        "foo_test(name='t1',srcs=['t1.sh'])");
     scratch.file("other/package2/BUILD", "test_suite(name='ts', tests=['//other/package3:t3'])");
-    scratch.file("other/package3/BUILD", "sh_test(name='t3',srcs=['t3.sh'])");
+    scratch.file(
+        "other/package3/BUILD",
+        "load('//test_defs:foo_test.bzl', 'foo_test')",
+        "foo_test(name='t3',srcs=['t3.sh'])");
     List<Target> targets = getTargets("//my/package1:t1", "//other/package1:t1");
     String expectedFilter = "^//my/package1[/:],^//other/package1[/:]";
     assertThat(InstrumentationFilterSupport.computeInstrumentationFilter(events, targets))
@@ -130,9 +141,15 @@ public class InstrumentationFilterTest extends BuildViewTestCase {
     scratch.file(
         "my/package1/BUILD",
         "test_suite(name='ts', tests=['//other/package1:t1', '//other/package2:ts'])");
-    scratch.file("other/package1/BUILD", "sh_test(name='t1',srcs=['t1.sh'])");
+    scratch.file(
+        "other/package1/BUILD",
+        "load('//test_defs:foo_test.bzl', 'foo_test')",
+        "foo_test(name='t1',srcs=['t1.sh'])");
     scratch.file("other/package2/BUILD", "test_suite(name='ts', tests=['//other/package3:t3'])");
-    scratch.file("other/package3/BUILD", "sh_test(name='t3',srcs=['t3.sh'])");
+    scratch.file(
+        "other/package3/BUILD",
+        "load('//test_defs:foo_test.bzl', 'foo_test')",
+        "foo_test(name='t3',srcs=['t3.sh'])");
     List<Target> targets = getTargets("//my/package1:ts");
     String expectedFilter = "^//my/package1[/:],^//other/package1[/:],^//other/package2[/:]";
     assertThat(InstrumentationFilterSupport.computeInstrumentationFilter(events, targets))
@@ -142,8 +159,14 @@ public class InstrumentationFilterTest extends BuildViewTestCase {
 
   @Test
   public void testParentAndChildPackageCombined() throws Exception {
-    scratch.file("parent/BUILD", "sh_test(name='t1', srcs=['t1.sh'])");
-    scratch.file("parent/child/BUILD", "sh_test(name='t2', srcs=['t2.sh'])");
+    scratch.file(
+        "parent/BUILD",
+        "load('//test_defs:foo_test.bzl', 'foo_test')",
+        "foo_test(name='t1', srcs=['t1.sh'])");
+    scratch.file(
+        "parent/child/BUILD",
+        "load('//test_defs:foo_test.bzl', 'foo_test')",
+        "foo_test(name='t2', srcs=['t2.sh'])");
     List<Target> targets = getTargets("//parent:t1", "//parent/child:t2");
     String expectedFilter = "^//parent[/:]";
     assertThat(InstrumentationFilterSupport.computeInstrumentationFilter(events, targets))
@@ -153,7 +176,10 @@ public class InstrumentationFilterTest extends BuildViewTestCase {
 
   @Test
   public void testJavascriptTests() throws Exception {
-    scratch.file("javascript/other/tests/BUILD", "sh_test(name='t1',srcs=['t1.sh'])");
+    scratch.file(
+        "javascript/other/tests/BUILD",
+        "load('//test_defs:foo_test.bzl', 'foo_test')",
+        "foo_test(name='t1',srcs=['t1.sh'])");
     List<Target> targets = getTargets("//javascript/other/tests:t1");
     String expectedFilter = "^//javascript/other[/:]";
     assertThat(InstrumentationFilterSupport.computeInstrumentationFilter(events, targets))
@@ -163,7 +189,10 @@ public class InstrumentationFilterTest extends BuildViewTestCase {
 
   @Test
   public void testJavaTests() throws Exception {
-    scratch.file("javatests/other/BUILD", "sh_test(name='t1',srcs=['t1.sh'])");
+    scratch.file(
+        "javatests/other/BUILD",
+        "load('//test_defs:foo_test.bzl', 'foo_test')",
+        "foo_test(name='t1',srcs=['t1.sh'])");
     List<Target> targets = getTargets("//javatests/other:t1");
     String expectedFilter = "^//java/other[/:]";
     assertThat(InstrumentationFilterSupport.computeInstrumentationFilter(events, targets))
@@ -173,7 +202,10 @@ public class InstrumentationFilterTest extends BuildViewTestCase {
 
   @Test
   public void testInternal() throws Exception {
-    scratch.file("another/internal/BUILD", "sh_test(name='t1',srcs=['t1.sh'])");
+    scratch.file(
+        "another/internal/BUILD",
+        "load('//test_defs:foo_test.bzl', 'foo_test')",
+        "foo_test(name='t1',srcs=['t1.sh'])");
     List<Target> targets = getTargets("//another/internal:t1");
     String expectedFilter = "^//another[/:]";
     assertThat(InstrumentationFilterSupport.computeInstrumentationFilter(events, targets))
@@ -183,7 +215,10 @@ public class InstrumentationFilterTest extends BuildViewTestCase {
 
   @Test
   public void testPublic() throws Exception {
-    scratch.file("another/public/BUILD", "sh_test(name='t1',srcs=['t1.sh'])");
+    scratch.file(
+        "another/public/BUILD",
+        "load('//test_defs:foo_test.bzl', 'foo_test')",
+        "foo_test(name='t1',srcs=['t1.sh'])");
     List<Target> targets = getTargets("//another/public:t1");
     String expectedFilter = "^//another[/:]";
     assertThat(InstrumentationFilterSupport.computeInstrumentationFilter(events, targets))
@@ -193,8 +228,14 @@ public class InstrumentationFilterTest extends BuildViewTestCase {
 
   @Test
   public void testIncludesTopLevel() throws Exception {
-    scratch.file("BUILD", "sh_test(name='t1',srcs=['t1.sh'])");
-    scratch.file("foo/BUILD", "sh_test(name='t1',srcs=['t1.sh'])");
+    scratch.file(
+        "BUILD",
+        "load('//test_defs:foo_test.bzl', 'foo_test')",
+        "foo_test(name='t1',srcs=['t1.sh'])");
+    scratch.file(
+        "foo/BUILD",
+        "load('//test_defs:foo_test.bzl', 'foo_test')",
+        "foo_test(name='t1',srcs=['t1.sh'])");
     InstrumentationFilterSupport.computeInstrumentationFilter(
         events, getTargets("//:t1", "//foo:t1"));
     assertEventsReportInstrumentationFilter("^//");
@@ -207,7 +248,10 @@ public class InstrumentationFilterTest extends BuildViewTestCase {
 
   @Test
   public void testTopLevelOnly() throws Exception {
-    scratch.file("BUILD", "sh_test(name='t1',srcs=['t1.sh'])");
+    scratch.file(
+        "BUILD",
+        "load('//test_defs:foo_test.bzl', 'foo_test')",
+        "foo_test(name='t1',srcs=['t1.sh'])");
     List<Target> targets = getTargets("//:t1");
     String expectedFilter = "^//";
     assertThat(InstrumentationFilterSupport.computeInstrumentationFilter(events, targets))

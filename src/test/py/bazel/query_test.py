@@ -43,9 +43,10 @@ class QueryTest(test_base.TestBase):
   def testQueryFilesUsedByRepositoryRules(self):
     self.DisableBzlmod()
     self.ScratchFile('MODULE.bazel')
+    self.ScratchFile('WORKSPACE', self.WorkspaceContent())
     self._AssertQueryOutputContains(
-        "kind('source file', deps(//external:*))",
-        '@bazel_tools//tools/genrule:genrule-setup.sh',
+        "kind('source file', deps(//external:cc_toolchain))",
+        '@bazel_tools//tools/build_defs/build_info/templates:volatile_file.h.template',
     )
 
   def testBuildFilesForExternalRepos_Simple(self):

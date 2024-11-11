@@ -32,10 +32,10 @@ public final class SourceUrlMapperTest {
           "https://example.com/",
           "/tmp/io_bazel",
           ImmutableMap.of(
-              "@_builtins//:common/",
-              "//src/common/starlark/builtins_bzl:",
-              "@_builtins//:",
-              "//src/main/starlark/builtins_bzl:"));
+              "@//",
+              "https://example.com/",
+              "@_builtins//",
+              "https://example.com/src/main/starlark/builtins_bzl/"));
 
   @Test
   public void urlOfFile() {
@@ -56,21 +56,9 @@ public final class SourceUrlMapperTest {
 
   @Test
   public void urlOfLabel() {
-    assertThat(mapper.urlOfLabel("@_builtins//:common/foo/bar.bzl"))
-        .isEqualTo("https://example.com/src/common/starlark/builtins_bzl/foo/bar.bzl");
     assertThat(mapper.urlOfLabel("@_builtins//:foo/bar.bzl"))
         .isEqualTo("https://example.com/src/main/starlark/builtins_bzl/foo/bar.bzl");
     assertThat(mapper.urlOfLabel("//not/in/builtins/foo:bar.bzl"))
         .isEqualTo("https://example.com/not/in/builtins/foo/bar.bzl");
-  }
-
-  @Test
-  public void urlOfLabel_throwsIfLabelNotInMainRepo() {
-    IllegalArgumentException e =
-        assertThrows(
-            IllegalArgumentException.class, () -> mapper.urlOfLabel("@other_repo//foo:bar.bzl"));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("Label '@other_repo//foo:bar.bzl' is not in the main repository");
   }
 }

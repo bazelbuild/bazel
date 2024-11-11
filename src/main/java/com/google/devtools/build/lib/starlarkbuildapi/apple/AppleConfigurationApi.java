@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.starlarkbuildapi.apple;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -62,6 +63,12 @@ public interface AppleConfigurationApi extends StarlarkValue {
             doc = "The apple platform type.")
       })
   ApplePlatformApi getMultiArchPlatform(String platformType);
+
+  @StarlarkMethod(name = "apple_cpus", documented = false, structField = true)
+  StructApi getAppleCpusForStarlark() throws EvalException;
+
+  @StarlarkMethod(name = "apple_platform_type", documented = false, structField = true)
+  String getApplePlatformType();
 
   @Nullable
   @StarlarkMethod(

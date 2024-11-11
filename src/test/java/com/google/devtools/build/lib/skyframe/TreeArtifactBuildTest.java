@@ -40,14 +40,13 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.BuildFailedException;
-import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
-import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.TestAction;
 import com.google.devtools.build.lib.actions.util.TestAction.DummyAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
+import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
@@ -62,14 +61,11 @@ import com.google.devtools.build.lib.skyframe.serialization.testutils.Serializat
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
-import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -606,51 +602,6 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
   }
 
   @Test
-  public void constructMetadataForDigest() throws Exception {
-    SpecialArtifact out = createTreeArtifact("output");
-    Action action =
-        new SimpleTestAction(out) {
-          @Override
-          void run(ActionExecutionContext actionExecutionContext) throws IOException {
-            TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(out, "one");
-            TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(out, "two");
-            writeFile(child1, "one");
-            writeFile(child2, "two");
-
-            OutputMetadataStore md = actionExecutionContext.getOutputMetadataStore();
-            FileStatus stat = child1.getPath().stat(Symlinks.NOFOLLOW);
-            FileArtifactValue metadata1 =
-                md.constructMetadataForDigest(
-                    child1,
-                    stat,
-                    DigestHashFunction.SHA256.getHashFunction().hashString("one", UTF_8).asBytes());
-
-            stat = child2.getPath().stat(Symlinks.NOFOLLOW);
-            FileArtifactValue metadata2 =
-                md.constructMetadataForDigest(
-                    child2,
-                    stat,
-                    DigestHashFunction.SHA256.getHashFunction().hashString("two", UTF_8).asBytes());
-
-            // The metadata will not be equal to reading from the filesystem since the filesystem
-            // won't have the digest. However, we should be able to detect that nothing could have
-            // been modified.
-            assertThat(
-                    metadata1.couldBeModifiedSince(
-                        FileArtifactValue.createForTesting(child1.getPath())))
-                .isFalse();
-            assertThat(
-                    metadata2.couldBeModifiedSince(
-                        FileArtifactValue.createForTesting(child2.getPath())))
-                .isFalse();
-          }
-        };
-
-    registerAction(action);
-    buildArtifact(out);
-  }
-
-  @Test
   public void remoteDirectoryInjection() throws Exception {
     SpecialArtifact out = createTreeArtifact("output");
     RemoteFileArtifactValue remoteFile1 =
@@ -934,11 +885,33 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
             TreeFileArtifact.createTreeOutput(treeArtifact, "link/file"));
   }
 
+  @Test
+  public void symlinkActionToTreeArtifact() throws Exception {
+    SpecialArtifact tree1 = createTreeArtifact("tree1");
+    registerAction(
+        new SimpleTestAction(/* output= */ tree1) {
+          @Override
+          void run(ActionExecutionContext context) throws IOException {
+            touchFile(tree1.getPath().getChild("file"));
+          }
+        });
+
+    SpecialArtifact tree2 = createTreeArtifact("tree2");
+    registerAction(
+        SymlinkAction.toArtifact(
+            ActionsTestUtil.NULL_ACTION_OWNER, tree1, tree2, "Symlinking tree2 -> tree1"));
+
+    // The SymlinkAction should produce a TreeArtifactValue with tree2 as the parent.
+    TreeArtifactValue tree2Value = buildArtifact(tree2);
+    assertThat(tree2Value.getChildren())
+        .containsExactly(TreeFileArtifact.createTreeOutput(tree2, "file"));
+  }
+
   private abstract static class SimpleTestAction extends TestAction {
     private final Button button;
 
     SimpleTestAction(Artifact output) {
-      this(/*inputs=*/ ImmutableList.of(), output);
+      this(/* inputs= */ ImmutableList.of(), output);
     }
 
     SimpleTestAction(Iterable<Artifact> inputs, Artifact output) {
@@ -1020,7 +993,8 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
 
     @Override
     void run(ActionExecutionContext context) throws IOException {
-      for (Artifact child : context.getArtifactExpander().expandTreeArtifact(getPrimaryInput())) {
+      for (Artifact child :
+          context.getArtifactExpander().tryExpandTreeArtifact(getPrimaryInput())) {
         Path newOutput = getPrimaryOutput().getPath().getRelative(child.getParentRelativePath());
         newOutput.createDirectoryAndParents();
         FileSystemUtils.copyFile(child.getPath(), newOutput);

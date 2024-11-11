@@ -14,9 +14,10 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.devtools.build.lib.skyframe.serialization.ImmutableMapCodecs.IMMUTABLE_MAP_CODEC;
 import static com.google.devtools.build.lib.skyframe.serialization.strings.UnsafeStringCodec.stringCodec;
+import static java.util.Comparator.naturalOrder;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
@@ -28,9 +29,12 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.serialization.AsyncDeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.LeafDeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.LeafObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.LeafSerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
@@ -46,9 +50,11 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -121,10 +127,13 @@ public final class BuildOptions implements Cloneable {
     return builder().addStarlarkOptions(starlarkOptions).build();
   }
 
-  /** Returns the actual instance of a FragmentOptions class. */
+  /**
+   * Returns the actual instance of a {@link FragmentOptions} class, or {@code null} if the options
+   * class is not present.
+   */
+  @Nullable
   public <T extends FragmentOptions> T get(Class<T> optionsClass) {
     FragmentOptions options = fragmentOptionsMap.get(optionsClass);
-    checkNotNull(options, "fragment options unavailable: %s", optionsClass);
     return optionsClass.cast(options);
   }
 
@@ -409,8 +418,23 @@ public final class BuildOptions implements Cloneable {
 
     public BuildOptions build() {
       return new BuildOptions(
-          ImmutableSortedMap.copyOf(fragmentOptions, LEXICAL_FRAGMENT_OPTIONS_COMPARATOR),
-          ImmutableSortedMap.copyOf(starlarkOptions));
+          sortedImmutableHashMap(fragmentOptions, LEXICAL_FRAGMENT_OPTIONS_COMPARATOR),
+          sortedImmutableHashMap(starlarkOptions, naturalOrder()));
+    }
+
+    /**
+     * Constructs a hash-based {@link ImmutableMap} copy of the given map, with an iteration order
+     * defined by the given key comparator.
+     *
+     * <p>The returned map has a deterministic iteration order but is <em>not</em> an {@link
+     * ImmutableSortedMap}, which uses binary search lookups. Hash-based lookups are expected to be
+     * much faster for build options.
+     */
+    private static <K, V> ImmutableMap<K, V> sortedImmutableHashMap(
+        Map<K, V> map, Comparator<K> keyComparator) {
+      List<Map.Entry<K, V>> entries = new ArrayList<>(map.entrySet());
+      entries.sort(Map.Entry.comparingByKey(keyComparator));
+      return ImmutableMap.copyOf(entries);
     }
 
     private final Map<Class<? extends FragmentOptions>, FragmentOptions> fragmentOptions =
@@ -418,6 +442,81 @@ public final class BuildOptions implements Cloneable {
     private final Map<Label, Object> starlarkOptions = new HashMap<>();
 
     private Builder() {}
+  }
+
+  public static ValueSharingCodec valueSharingCodec() {
+    return ValueSharingCodec.INSTANCE;
+  }
+
+  /**
+   * A value sharing codec for BuildOptions that does not rely on an OptionsChecksumCache.
+   *
+   * <p>This allows the BuildOptions object to be serialized remotely, and fetched with a new
+   * instance without relying on an existing local primed cache.
+   */
+  private static final class ValueSharingCodec extends DeferredObjectCodec<BuildOptions> {
+    private static final ValueSharingCodec INSTANCE = new ValueSharingCodec();
+
+    @Override
+    public boolean autoRegister() {
+      return false;
+    }
+
+    @Override
+    public Class<BuildOptions> getEncodedClass() {
+      return BuildOptions.class;
+    }
+
+    @Override
+    public void serialize(
+        SerializationContext context, BuildOptions options, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.putSharedValue(options.fragmentOptionsMap, null, IMMUTABLE_MAP_CODEC, codedOut);
+      context.putSharedValue(options.starlarkOptionsMap, null, IMMUTABLE_MAP_CODEC, codedOut);
+    }
+
+    @Override
+    public DeferredValue<? extends BuildOptions> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      var builder = new DeserializationBuilder();
+      context.getSharedValue(
+          codedIn,
+          null,
+          IMMUTABLE_MAP_CODEC,
+          builder,
+          DeserializationBuilder::setFragmentOptionsMap);
+      context.getSharedValue(
+          codedIn,
+          null,
+          IMMUTABLE_MAP_CODEC,
+          builder,
+          DeserializationBuilder::setStarlarkOptionsMap);
+      return builder;
+    }
+
+    private static final class DeserializationBuilder
+        implements DeferredObjectCodec.DeferredValue<BuildOptions> {
+
+      ImmutableMap<Class<? extends FragmentOptions>, FragmentOptions> fragmentOptionsMap;
+      ImmutableMap<Label, Object> starlarkOptionsMap;
+
+      @Override
+      public BuildOptions call() {
+        return new BuildOptions(fragmentOptionsMap, starlarkOptionsMap);
+      }
+
+      @SuppressWarnings("unchecked")
+      private static void setFragmentOptionsMap(DeserializationBuilder builder, Object value) {
+        builder.fragmentOptionsMap =
+            (ImmutableMap<Class<? extends FragmentOptions>, FragmentOptions>) value;
+      }
+
+      @SuppressWarnings("unchecked")
+      private static void setStarlarkOptionsMap(DeserializationBuilder builder, Object value) {
+        builder.starlarkOptionsMap = (ImmutableMap<Label, Object>) value;
+      }
+    }
   }
 
   /**

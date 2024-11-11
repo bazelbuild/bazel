@@ -112,16 +112,14 @@ public final class MultiExecutorQueueVisitor extends AbstractQueueVisitor
 
   @VisibleForTesting
   ExecutorService getExecutorServiceByThreadPoolType(ThreadPoolType threadPoolType) {
-    switch (threadPoolType) {
-      case REGULAR:
-        return regularPoolExecutorService;
-      case CPU_HEAVY:
-        return cpuHeavyPoolExecutorService;
-      case EXECUTION_PHASE:
+    return switch (threadPoolType) {
+      case REGULAR -> regularPoolExecutorService;
+      case CPU_HEAVY -> cpuHeavyPoolExecutorService;
+      case EXECUTION_PHASE -> {
         Preconditions.checkNotNull(executionPhaseExecutorService);
-        return executionPhaseExecutorService;
-    }
-    throw new IllegalStateException("Invalid ThreadPoolType: " + threadPoolType);
+        yield executionPhaseExecutorService;
+      }
+    };
   }
 
   @Override

@@ -190,6 +190,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/server:idle_task",
         "//src/main/java/com/google/devtools/build/lib/util:crash_failure_details",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
@@ -197,7 +198,7 @@ java_library(
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
-        "@com_google_protobuf//java/core",
+        "@protobuf//java/core",
     ],
 )
 
@@ -221,7 +222,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util/io:io-proto",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//src/main/protobuf:invocation_policy_java_proto",
-        "@com_google_protobuf//java/core",
+        "@protobuf//java/core",
     ],
 )
 
@@ -324,7 +325,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/actions:important_output_handler",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
-        "//src/main/java/com/google/devtools/build/lib/actions:middleman_type",
         "//src/main/java/com/google/devtools/build/lib/actions:package_roots",
         "//src/main/java/com/google/devtools/build/lib/actions:resource_manager",
         "//src/main/java/com/google/devtools/build/lib/actions:runfiles_tree",
@@ -333,6 +333,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_phase_complete_event",
+        "//src/main/java/com/google/devtools/build/lib/analysis:aspect_collection",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_version_info",
         "//src/main/java/com/google/devtools/build/lib/analysis:build_info_event",
@@ -407,6 +408,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_function",
         "//src/main/java/com/google/devtools/build/lib/runtime/events",
         "//src/main/java/com/google/devtools/build/lib/server",
+        "//src/main/java/com/google/devtools/build/lib/server:idle_task",
         "//src/main/java/com/google/devtools/build/lib/server:pid_file_watcher",
         "//src/main/java/com/google/devtools/build/lib/server:rpc_server",
         "//src/main/java/com/google/devtools/build/lib/server:shutdown_hooks",
@@ -432,6 +434,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_roots_no_symlink_creation",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:prerequisite_package_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:project_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:repository_mapping_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
@@ -451,6 +454,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/actiongraph/v2:actiongraph_v2",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",
         "//src/main/java/com/google/devtools/build/lib/skyframe/rewinding:action_rewound_event",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:dependencies_provider",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:event_listener",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:frontier_serializer",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:options",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:TestType",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
@@ -469,6 +477,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:process",
         "//src/main/java/com/google/devtools/build/lib/util:shallow_object_size_computer",
         "//src/main/java/com/google/devtools/build/lib/util:string",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/util/io:io-proto",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
@@ -502,8 +511,8 @@ java_library(
         "//third_party:gson",
         "//third_party:guava",
         "//third_party:jsr305",
-        "@com_google_protobuf//:protobuf_java",
-        "@com_google_protobuf//java/util",
+        "@protobuf//:protobuf_java",
+        "@protobuf//java/util",
         "@zstd-jni//:zstd-jni",
     ],
 )
@@ -560,6 +569,7 @@ genrule(
         "//src/main/starlark/docgen:gen_be_cpp_stardoc_proto",
         "//src/main/starlark/docgen:gen_be_objc_stardoc_proto",
         "//src/main/starlark/docgen:gen_be_python_stardoc_proto",
+        "//src/main/starlark/docgen:gen_be_shell_stardoc_proto",
     ],
     outs = ["build-encyclopedia.zip"],
     cmd = (
@@ -574,6 +584,7 @@ genrule(
         " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_cpp_stardoc_proto)" +
         " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_objc_stardoc_proto)" +
         " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_python_stardoc_proto)" +
+        " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_shell_stardoc_proto)" +
         " --output_dir=$(@D)/be" +
         " --create_toc=true &&" +
         "zip -qj $@ $(@D)/be/*"
@@ -660,6 +671,8 @@ genrule(
         "//src/main/starlark/docgen:gen_be_cpp_stardoc_proto",
         "//src/main/starlark/docgen:gen_be_objc_stardoc_proto",
         "//src/main/starlark/docgen:gen_be_python_stardoc_proto",
+        "//src/main/starlark/docgen:gen_be_shell_stardoc_proto",
+        ":docs_embedded_in_sources",
     ],
     outs = ["builtin.pb"],
     cmd = (
@@ -673,7 +686,8 @@ genrule(
         " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_java_stardoc_proto)" +
         " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_cpp_stardoc_proto)" +
         " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_objc_stardoc_proto)" +
-        " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_python_stardoc_proto)"
+        " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_python_stardoc_proto)" +
+        " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_shell_stardoc_proto)"
     ),
     tools = [
         "//src/main/java/com/google/devtools/build/docgen:api_exporter",

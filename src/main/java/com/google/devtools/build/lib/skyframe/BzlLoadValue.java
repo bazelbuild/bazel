@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.skyframe.serialization.LeafObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.LeafSerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -39,7 +40,6 @@ import com.google.errorprone.annotations.Keep;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
-import java.util.Objects;
 import net.starlark.java.eval.Module;
 
 /**
@@ -190,7 +190,10 @@ public class BzlLoadValue implements SkyValue {
 
     @Override
     public int hashCode() {
-      return Objects.hash(getClass(), getLabel(), isBuildPrelude(), isBuiltins());
+      int result = HashCodes.hashObjects(getClass(), getLabel());
+      result = 31 * result + Boolean.hashCode(isBuildPrelude());
+      result = 31 * result + Boolean.hashCode(isBuiltins());
+      return result;
     }
 
     protected final MoreObjects.ToStringHelper toStringHelper() {
@@ -316,7 +319,10 @@ public class BzlLoadValue implements SkyValue {
 
     @Override
     public int hashCode() {
-      return Objects.hash(super.hashCode(), workspaceChunk, workspacePath);
+      int result = super.hashCode();
+      result = 31 * result + Integer.hashCode(workspaceChunk);
+      result = 31 * result + workspacePath.hashCode();
+      return result;
     }
   }
 

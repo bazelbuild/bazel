@@ -1,4 +1,4 @@
-load("@rules_java//java:defs.bzl", "java_test")
+load("@rules_java//java:defs.bzl", "java_library", "java_test")
 
 package(
     default_applicable_licenses = ["//:license"],
@@ -34,6 +34,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/authandtls",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:common",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:exception",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:extension_eval_impl",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:inspection",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:inspection_impl",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:module_extension",
@@ -50,6 +51,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:autoload_symbols",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/local_repository_rule",
@@ -61,7 +63,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:client_environment_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:containing_package_lookup_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:file_function",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:ignored_package_prefixes_function",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:ignored_subdirectories_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_lookup_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_function",
@@ -95,6 +97,9 @@ java_library(
 
 java_test(
     name = "BzlmodTests",
+    jvm_flags = [
+        "-Djava.lang.Thread.allowVirtualThreads=true",
+    ],
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         ":BzlmodTests_lib",

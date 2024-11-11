@@ -31,7 +31,8 @@ public abstract class ToolchainTypeRequirement implements StarlarkToolchainTypeR
   public static Builder builder(Label toolchainType) {
     return new AutoValue_ToolchainTypeRequirement.Builder()
         .toolchainType(toolchainType)
-        .mandatory(true);
+        .mandatory(true)
+        .ignoreIfInvalid(false);
   }
 
   /**
@@ -53,6 +54,7 @@ public abstract class ToolchainTypeRequirement implements StarlarkToolchainTypeR
   }
 
   /** Returns the label of the toolchain type that is requested. */
+  @Override
   public abstract Label toolchainType();
 
   /**
@@ -60,7 +62,14 @@ public abstract class ToolchainTypeRequirement implements StarlarkToolchainTypeR
    * cannot be found will be skipped, but a mandatory toolchain type which cannot be found will stop
    * the build with an error.
    */
+  @Override
   public abstract boolean mandatory();
+
+  /**
+   * Returns whether the toolchain type should be ignored if it is found to be invalid. This should
+   * only be used for internally-generated requirements, not user-generated.
+   */
+  public abstract boolean ignoreIfInvalid();
 
   /** Returns a new Builder to copy this ToolchainTypeRequirement. */
   public abstract Builder toBuilder();
@@ -72,6 +81,8 @@ public abstract class ToolchainTypeRequirement implements StarlarkToolchainTypeR
     Builder toolchainType(Label toolchainType);
     /** Sets whether the toolchain type is mandatory. */
     Builder mandatory(boolean mandatory);
+
+    Builder ignoreIfInvalid(boolean ignore);
 
     /** Returns the newly built {@link ToolchainTypeRequirement}. */
     ToolchainTypeRequirement build();

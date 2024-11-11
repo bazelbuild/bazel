@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
-import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.SortedMap;
@@ -109,6 +108,7 @@ final class SandboxedWorker extends SingleplexWorker {
       WorkerOptions workerOptions,
       @Nullable WorkerSandboxOptions hardenedSandboxOptions,
       TreeDeleter treeDeleter,
+      boolean useInMemoryTracking,
       @Nullable VirtualCgroupFactory cgroupFactory) {
     super(workerKey, workerId, workDir, logFile, workerOptions, cgroupFactory);
     Path tmpDirPath = SandboxHelpers.getTmpDirPath(workDir);
@@ -118,15 +118,9 @@ final class SandboxedWorker extends SingleplexWorker {
             hardenedSandboxOptions != null
                 ? ImmutableList.of(PathFragment.create(tmpDirPath.getPathString()))
                 : ImmutableList.of(),
-            shouldUseInMemoryTracking(workerOptions, workerKey));
+            useInMemoryTracking);
     this.hardenedSandboxOptions = hardenedSandboxOptions;
     this.treeDeleter = treeDeleter;
-  }
-
-  private static boolean shouldUseInMemoryTracking(
-      WorkerOptions workerOptions, WorkerKey workerKey) {
-    List<String> mnemonics = workerOptions.workerSandboxInMemoryTracking;
-    return mnemonics != null && mnemonics.contains(workerKey.getMnemonic());
   }
 
   @Override

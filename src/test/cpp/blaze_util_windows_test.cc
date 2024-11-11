@@ -128,7 +128,7 @@ TEST(BlazeUtilWindowsTest, TestSetEnv) {
   SetEnv("Bazel_TEST_Key1", "some_VALUE");
   ASSERT_ENVVAR("Bazel_TEST_Key1", "some_VALUE");
   SetEnv("Bazel_TEST_Key1", "");
-  ASSERT_ENVVAR_UNSET("Bazel_TEST_Key1");
+  ASSERT_ENVVAR("Bazel_TEST_Key1", "");
 
   string long_string(MAX_PATH, 'a');
   string long_key = string("Bazel_TEST_Key2_") + long_string;
@@ -138,19 +138,19 @@ TEST(BlazeUtilWindowsTest, TestSetEnv) {
   SetEnv(long_key, long_value);
   ASSERT_ENVVAR(long_key.c_str(), long_value.c_str());
   SetEnv(long_key, "");
-  ASSERT_ENVVAR_UNSET(long_key.c_str());
+  ASSERT_ENVVAR(long_key.c_str(), "");
 }
 
 TEST(BlazeUtilWindowsTest, TestUnsetEnv) {
-  ASSERT_ENVVAR_UNSET("Bazel_TEST_Key1");
-  SetEnv("Bazel_TEST_Key1", "some_VALUE");
-  ASSERT_ENVVAR("Bazel_TEST_Key1", "some_VALUE");
-  UnsetEnv("Bazel_TEST_Key1");
-  ASSERT_ENVVAR_UNSET("Bazel_TEST_Key1");
+  ASSERT_ENVVAR_UNSET("Bazel_TEST_Key3");
+  SetEnv("Bazel_TEST_Key3", "some_VALUE");
+  ASSERT_ENVVAR("Bazel_TEST_Key3", "some_VALUE");
+  UnsetEnv("Bazel_TEST_Key3");
+  ASSERT_ENVVAR_UNSET("Bazel_TEST_Key3");
 
   string long_string(MAX_PATH, 'a');
-  string long_key = string("Bazel_TEST_Key2_") + long_string;
-  string long_value = string("Bazel_TEST_Value2_") + long_string;
+  string long_key = string("Bazel_TEST_Key4_") + long_string;
+  string long_value = string("Bazel_TEST_Value4_") + long_string;
 
   ASSERT_ENVVAR_UNSET(long_key.c_str());
   SetEnv(long_key, long_value);

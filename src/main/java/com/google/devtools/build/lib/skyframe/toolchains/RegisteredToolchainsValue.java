@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.skyframe.toolchains;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableTable;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
@@ -108,16 +108,17 @@ public abstract class RegisteredToolchainsValue implements SkyValue {
 
   public static RegisteredToolchainsValue create(
       ImmutableList<DeclaredToolchainInfo> registeredToolchains,
-      @Nullable ImmutableMap<Label, String> rejectedToolchains) {
+      @Nullable ImmutableTable<Label, Label, String> rejectedToolchains) {
     return new AutoValue_RegisteredToolchainsValue(registeredToolchains, rejectedToolchains);
   }
 
   public abstract ImmutableList<DeclaredToolchainInfo> registeredToolchains();
 
   /**
-   * Any toolchains that were rejected, along with a reason. Only non-null if {@link
-   * RegisteredToolchainsValue.Key#debug} is {@code true}.
+   * Any toolchains that were rejected, along with a reason. The row keys are the toolchain type
+   * labels, column keys are toolchain implementation labels, and cells are the reason. Only
+   * non-null if {@link RegisteredToolchainsValue.Key#debug} is {@code true}.
    */
   @Nullable
-  public abstract ImmutableMap<Label, String> rejectedToolchains();
+  public abstract ImmutableTable<Label, Label, String> rejectedToolchains();
 }

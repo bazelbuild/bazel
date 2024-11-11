@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker.IncompatibleTargetException;
-import com.google.devtools.build.lib.analysis.producers.BuildConfigurationKeyCache;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -107,21 +106,18 @@ public class CqueryTransitionResolver {
   private final CqueryThreadsafeCallback cqueryThreadsafeCallback;
   private final RuleClassProvider ruleClassProvider;
   private final StarlarkTransitionCache transitionCache;
-  private final BuildConfigurationKeyCache buildConfigurationKeyCache;
 
   public CqueryTransitionResolver(
       ExtendedEventHandler eventHandler,
       ConfiguredTargetAccessor accessor,
       CqueryThreadsafeCallback cqueryThreadsafeCallback,
       RuleClassProvider ruleClassProvider,
-      StarlarkTransitionCache transitionCache,
-      BuildConfigurationKeyCache buildConfigurationKeyCache) {
+      StarlarkTransitionCache transitionCache) {
     this.eventHandler = eventHandler;
     this.accessor = accessor;
     this.cqueryThreadsafeCallback = cqueryThreadsafeCallback;
     this.ruleClassProvider = ruleClassProvider;
     this.transitionCache = transitionCache;
-    this.buildConfigurationKeyCache = buildConfigurationKeyCache;
   }
 
   /**
@@ -155,7 +151,6 @@ public class CqueryTransitionResolver {
           ConfiguredTargetKey.fromConfiguredTarget(configuredTarget),
           ruleClassProvider,
           transitionCache,
-          buildConfigurationKeyCache,
           /* semaphoreLocker= */ () -> {},
           accessor.getLookupEnvironment(),
           eventHandler)) {

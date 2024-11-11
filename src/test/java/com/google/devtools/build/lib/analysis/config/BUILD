@@ -64,8 +64,8 @@ java_library(
         "//third_party:guava-testlib",
         "//third_party:junit4",
         "//third_party:truth",
-        "//third_party/protobuf:protobuf_java",
         "@maven//:com_google_testparameterinjector_test_parameter_injector",
+        "@protobuf//:protobuf_java",
     ],
 )
 

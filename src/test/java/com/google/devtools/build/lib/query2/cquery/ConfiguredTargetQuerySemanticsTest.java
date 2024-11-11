@@ -413,6 +413,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
     writeFile(
         "test/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
             name = "my_java",
             srcs = ["foo.java"],
@@ -512,6 +513,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
     writeFile(
         "test/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
             name = "my_java",
             srcs = ["foo.java"],
@@ -542,7 +544,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
     Path parent =
         getHelper()
             .getScratch()
-            .file("parent/BUILD", "sh_library(name = 'parent')")
+            .file("parent/BUILD", "filegroup(name = 'parent')")
             .getParentDirectory();
     Path child = parent.getRelative("child");
     child.createDirectory();
@@ -569,9 +571,9 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
   // Regression test for b/175739699
   @Test
   public void testRecursiveTargetPatternOutsideOfScopeFailsGracefully() throws Exception {
-    writeFile("testA/BUILD", "sh_library(name = 'testA')");
-    writeFile("testB/BUILD", "sh_library(name = 'testB')");
-    writeFile("testB/testC/BUILD", "sh_library(name = 'testC')");
+    writeFile("testA/BUILD", "filegroup(name = 'testA')");
+    writeFile("testB/BUILD", "filegroup(name = 'testB')");
+    writeFile("testB/testC/BUILD", "filegroup(name = 'testC')");
     helper.setUniverseScope("//testA");
     QueryException e = assertThrows(QueryException.class, () -> eval("//testB/..."));
     assertThat(e.getFailureDetail().getQuery().getCode())
@@ -585,6 +587,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
     writeFile(
         "test/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
             name = "my_java",
             srcs = ["foo.java"],
@@ -1185,5 +1188,51 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
     assertThat(evalToString("attr(string_values, 'bar', '//configurable:target')"))
         .isEqualTo("//configurable:target");
     assertThat(evalToString("attr(string_values, 'quux', '//configurable:target')")).isEmpty();
+  }
+
+  @Test
+  public void testOnlySelectedDormantDepsReturned() throws Exception {
+    writeFile(
+        "a/a.bzl",
+        """
+        ComponentInfo = provider(fields=["dormant"])
+
+        def _bin_impl(ctx):
+          return [DefaultInfo()]
+
+        def _materializer(ctx):
+          return [d for d in ctx.attr.dep[ComponentInfo].dormant if "yes" in str(d.label)]
+
+        bin = rule(
+          implementation = _bin_impl,
+          attrs = {
+            "_materialized": attr.label_list(materializer=_materializer),
+            "dep": attr.label(for_dependency_resolution = True) })
+
+        def _component_impl(ctx):
+          return [ComponentInfo(dormant=ctx.attr.impl)]
+
+        component = rule(
+          implementation = _component_impl,
+          dependency_resolution_rule = True,
+          attrs = { "impl": attr.dormant_label_list() })
+        """);
+
+    writeFile(
+        "a/BUILD",
+        """
+        load("a.bzl", "bin", "component")
+
+        filegroup(name="a_yes")
+        filegroup(name="b_no")
+
+        bin(name="bin", dep=":c")
+        component(name="c", impl=[":a_yes", "b_no"])
+        """);
+
+    ((PostAnalysisQueryHelper<CqueryNode>) helper).useConfiguration("--experimental_dormant_deps");
+    ImmutableList<String> deps = evalToListOfStrings("deps('//a:bin')");
+    assertThat(deps).containsAtLeast("//a:bin", "//a:c", "//a:a_yes");
+    assertThat(deps).doesNotContain("//a:b_no");
   }
 }

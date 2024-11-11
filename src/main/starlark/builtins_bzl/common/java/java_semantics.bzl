@@ -40,6 +40,9 @@ def _compatible_javac_options(*_args):
 def _check_java_info_opens_exports():
     pass
 
+def _minimize_cc_info(cc_info):
+    return cc_info
+
 _DOCS = struct(
     ATTRS = {
         "resources": """
@@ -104,4 +107,5 @@ semantics = struct(
     DOCS = struct(
         for_attribute = lambda name: _DOCS.ATTRS.get(name, ""),
     ),
+    minimize_cc_info = _minimize_cc_info,
 )

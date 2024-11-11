@@ -16,7 +16,7 @@ java_library(
     srcs = glob(["*.java"]),
     deps = [
         "//third_party:guava",
-        "//third_party/protobuf:protobuf_java",
+        "@protobuf//:protobuf_java",
         "@zstd-jni",
     ],
 )

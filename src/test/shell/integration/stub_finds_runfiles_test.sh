@@ -35,6 +35,7 @@ fi
 #### HELPER FUNCTIONS ##################################################
 
 function set_up() {
+  add_rules_python "MODULE.bazel"
   mkdir -p pkg pkg/java
   cat > pkg/BUILD << 'EOF'
 load("@rules_python//python:py_binary.bzl", "py_binary")

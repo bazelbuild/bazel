@@ -25,7 +25,9 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.FieldInfo;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.ObjectInfo;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.PrimitiveInfo;
+import java.lang.ref.WeakReference;
 import java.lang.reflect.Array;
+import java.util.Collection;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -134,6 +136,13 @@ public final class Fingerprinter {
       }
     }
 
+    if (WeakReference.class.isAssignableFrom(type)) {
+      // A WeakReference is always be deserialized with empty referents. No information other than
+      // the presence of the WeakReference can be expected to match upon deserialization.
+      fingerprintOut.append(WeakReference.class.getCanonicalName());
+      return Integer.MAX_VALUE;
+    }
+
     if (shouldInline(type)) {
       // Emits the type, even for inline values. This avoids a possible ambiguities. For example,
       // "-1" could be a backreference, String, Integer, or other things if there were no type
@@ -185,8 +194,8 @@ public final class Fingerprinter {
       if (obj instanceof Map) {
         return outputMapEntries((Map<?, ?>) obj, out);
       }
-      if (obj instanceof Iterable) {
-        return outputIterableElements((Iterable<?>) obj, out);
+      if (obj instanceof Collection) {
+        return outputCollectionElements((Collection<?>) obj, out);
       }
       return outputObjectFields(obj, out);
     } finally {
@@ -260,7 +269,7 @@ public final class Fingerprinter {
     return cycleOwnerIndex;
   }
 
-  private int outputIterableElements(Iterable<?> iterable, StringBuilder out) {
+  private int outputCollectionElements(Collection<?> iterable, StringBuilder out) {
     int cycleOwnerIndex = Integer.MAX_VALUE;
     boolean isFirst = true;
     for (Object elt : iterable) {

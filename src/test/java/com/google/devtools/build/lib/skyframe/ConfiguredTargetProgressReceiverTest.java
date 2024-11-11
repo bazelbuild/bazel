@@ -32,14 +32,14 @@ public class ConfiguredTargetProgressReceiverTest {
     String progressString1 = progress.getProgressString();
 
     assertWithMessage("One configured target should be visible in progress.")
-        .that(progressString1.equals("1 target configured"))
+        .that(progressString1.contains("1 target configured"))
         .isTrue();
 
     progress.doneConfigureTarget();
     String progressString2 = progress.getProgressString();
 
     assertWithMessage("Two configured targets should be visible in progress.")
-        .that(progressString2.equals("2 targets configured"))
+        .that(progressString2.contains("2 targets configured"))
         .isTrue();
   }
 

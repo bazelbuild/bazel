@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.MiddlemanType;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
@@ -89,7 +90,6 @@ import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
-import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -242,7 +242,7 @@ public final class ActionsTestUtil {
     return ActionExecutionValue.createFromOutputMetadataStore(
         artifactData,
         treeArtifactData,
-        /* outputSymlinks= */ ImmutableList.of(),
+        FilesetOutputTree.EMPTY,
         /* discoveredModules= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
 
@@ -264,6 +264,11 @@ public final class ActionsTestUtil {
     return root.isSourceRoot()
         ? new Artifact.SourceArtifact(root, execPath, ArtifactOwner.NULL_OWNER)
         : DerivedArtifact.create(root, execPath, NULL_ARTIFACT_OWNER);
+  }
+
+  public static SpecialArtifact createRunfilesArtifact(ArtifactRoot root, String execPath) {
+    return SpecialArtifact.create(
+        root, PathFragment.create(execPath), NULL_ARTIFACT_OWNER, SpecialArtifactType.RUNFILES);
   }
 
   public static SpecialArtifact createTreeArtifactWithGeneratingAction(
@@ -926,7 +931,7 @@ public final class ActionsTestUtil {
   public static class FakeInputMetadataHandlerBase
       implements InputMetadataProvider, OutputMetadataStore {
     @Override
-    public FileArtifactValue getInputMetadata(ActionInput input) throws IOException {
+    public FileArtifactValue getInputMetadataChecked(ActionInput input) throws IOException {
       throw new UnsupportedOperationException();
     }
 
@@ -958,19 +963,8 @@ public final class ActionsTestUtil {
     }
 
     @Override
-    public ImmutableSet<TreeFileArtifact> getTreeArtifactChildren(SpecialArtifact treeArtifact) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
     public TreeArtifactValue getTreeArtifactValue(SpecialArtifact treeArtifact)
         throws IOException, InterruptedException {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public FileArtifactValue constructMetadataForDigest(
-        Artifact output, FileStatus statNoFollow, byte[] digest) {
       throw new UnsupportedOperationException();
     }
 

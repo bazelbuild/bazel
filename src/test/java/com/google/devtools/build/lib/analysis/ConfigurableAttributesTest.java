@@ -31,10 +31,12 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Set;
 import org.junit.Before;
@@ -62,7 +64,9 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   }
 
   private void writeHelloRules(boolean includeDefaultCondition) throws IOException {
-    scratch.file("java/hello/BUILD",
+    scratch.file(
+        "java/hello/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_binary', 'java_library')",
         "java_binary(",
         "    name = 'hello',",
         "    srcs = ['hello.java'],",
@@ -166,6 +170,12 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
                       .add(attr("deps", LABEL_LIST).allowedFileTypes())
                       .toolchainResolutionMode(ToolchainResolutionMode.DISABLED));
 
+  private static final MockRule RULE_WITH_STRING_LIST_DICT_ATTR =
+      () ->
+          MockRule.define(
+              "rule_with_string_list_dict_attr",
+              attr("string_list_dict_attr", Types.STRING_LIST_DICT));
+
   @Override
   protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder =
@@ -175,7 +185,8 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
             .addRuleDefinition(RULE_WITH_BOOLEAN_ATTR)
             .addRuleDefinition(RULE_WITH_ALLOWED_VALUES)
             .addRuleDefinition(RULE_WITH_LABEL_DEFAULT)
-            .addRuleDefinition(RULE_WITH_NO_PLATFORM);
+            .addRuleDefinition(RULE_WITH_NO_PLATFORM)
+            .addRuleDefinition(RULE_WITH_STRING_LIST_DICT_ATTR);
     TestRuleClassProvider.addStandardRules(builder);
     // Allow use of --foo as a dummy flag
     builder.addConfigurationFragment(DummyTestFragment.class);
@@ -223,7 +234,9 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   @Test
   public void depsWithDuplicatesInDifferentBranches() throws Exception {
     writeConfigRules();
-    scratch.file("java/hello/BUILD",
+    scratch.file(
+        "java/hello/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_binary', 'java_library')",
         "java_binary(",
         "    name = 'hello',",
         "    srcs = ['hello.java'],",
@@ -255,7 +268,9 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   @Test
   public void depsWithDuplicatesInSameBranch() throws Exception {
     writeConfigRules();
-    scratch.file("java/hello/BUILD",
+    scratch.file(
+        "java/hello/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_binary', 'java_library')",
         "java_binary(",
         "    name = 'hello',",
         "    srcs = ['hello.java'],",
@@ -293,6 +308,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     scratch.file(
         "java/hello/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_binary")
         java_binary(
             name = 'hello',
             srcs = select({
@@ -323,6 +339,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     scratch.file(
         "java/hello/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_binary")
         java_binary(
             name = 'hello',
             srcs = select({
@@ -349,6 +366,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     scratch.file(
         "java/hello/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_binary")
         java_binary(
             name = 'hello',
             srcs = select({
@@ -441,6 +459,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     scratch.file(
         "java/foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
             name = 'int_key',
             srcs = select({123: ['a.java']})
@@ -456,6 +475,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     scratch.file(
         "java/foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
             name = 'bool_key',
             srcs = select({True: ['a.java']})
@@ -471,6 +491,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     scratch.file(
         "java/foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
             name = 'none_key',
             srcs = select({None: ['a.java']})
@@ -710,6 +731,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     scratch.file(
         "java/a/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_binary", "java_library")
         java_binary(
             name = 'binary',
             srcs = ['binary.java'],
@@ -794,6 +816,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     scratch.file(
         "java/a/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_binary", "java_library")
         java_binary(
             name = 'binary',
             srcs = ['binary.java'],
@@ -851,6 +874,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     scratch.file(
         "java/hello/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_binary")
         java_binary(
             name = 'hello_default_no_match_error',
             srcs = select({
@@ -916,6 +940,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     scratch.file(
         "java/foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_binary", "java_library")
         load(':rule.bzl', 'myrule')
         myrule(
             name = 'mytarget',
@@ -974,6 +999,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     scratch.file(
         "java/foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_binary", "java_library")
         load(':rule.bzl', 'myrule')
         myrule(
             name = 'mytarget',
@@ -1031,6 +1057,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     scratch.file(
         "java/foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_binary", "java_library")
         load(':rule.bzl', 'myrule')
         myrule(
             name = 'mytarget',
@@ -1103,6 +1130,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     scratch.file(
         "java/foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         load(':rule.bzl', 'myrule')
         myrule(
             name = 'mytarget',
@@ -1155,6 +1183,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     scratch.file(
         "java/foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_binary")
         java_binary(
             name = 'binary',
             srcs = select({
@@ -1176,6 +1205,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     scratch.file(
         "java/foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_binary")
         java_binary(
             name = 'binary',
             srcs = glob(['globbed/*.java']) + select({
@@ -1221,6 +1251,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     scratch.file(
         "java/foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_binary")
         java_binary(
             name = 'binary',
             srcs = ['binary.java'] + select({
@@ -2072,9 +2103,10 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     scratch.file("java/BUILD");
     scratch.file(
         "java/macros.bzl",
+        analysisMock.javaSupport().getLoadStatementForRule("java_binary"),
         """
         def my_java_binary(name, deps = [], **kwargs):
-            native.java_binary(
+            java_binary(
                 name = name,
                 deps = select({
                     Label('//conditions:a'): [Label('//java/foo:a')],
@@ -2089,6 +2121,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     scratch.file(
         "java/foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         load('//java:macros.bzl', 'my_java_binary')
         my_java_binary(
             name = 'binary',
@@ -2113,5 +2146,77 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "--foo=b",
         /*expected:*/ ImmutableList.of("bin java/foo/libb.jar", "bin java/foo/libb2.jar"),
         /*not expected:*/ ImmutableList.of("bin java/foo/liba.jar", "bin java/foo/liba2.jar"));
+  }
+
+  @Test
+  public void stringListDictTypeConcatConfigurable() throws Exception {
+    writeConfigRules();
+    scratch.file(
+        "foo/BUILD",
+        """
+        rule_with_string_list_dict_attr(
+            name = 'rule',
+            string_list_dict_attr =  {'a': ['a.out']} | select({
+                '//conditions:b': {'b': ['b.out']},
+            }))
+        """);
+
+    useConfiguration("--foo=b");
+    ConfiguredTargetAndData ctad = getConfiguredTargetAndData("//foo:rule");
+    AttributeMap attributes = getMapperFromConfiguredTargetAndTarget(ctad);
+    assertThat(attributes.get("string_list_dict_attr", Types.STRING_LIST_DICT))
+        .containsExactly("a", Arrays.asList("a.out"), "b", Arrays.asList("b.out"));
+  }
+
+  @Test
+  public void assigningSelectToNonconfigurableAttr_fails_evenIfSelectIsSimplifiableUnconditional()
+      throws Exception {
+    writeConfigRules();
+    scratch.file(
+        "foo/BUILD",
+        """
+        rule_with_output_attr(
+            name = "foo",
+            out = select({"//conditions:default": "default.out"}),
+        )
+        """);
+
+    reporter.removeHandler(failFastHandler); // Expect errors.
+    getConfiguredTarget("//foo");
+    assertContainsEvent("attribute \"out\" is not configurable");
+  }
+
+  @Test
+  public void incompatibleSimplifyUnconditionalSelectsInRuleAttrs_doesNotAffectConfiguredAttrValue()
+      throws Exception {
+    scratch.file(
+        "foo/BUILD",
+        """
+        cc_binary(
+            name = "foo",
+            srcs = select({"//conditions:default": ["foo.cc"]}),
+            link_extra_lib = select({"//conditions:default": None}),
+        )
+        """);
+    setBuildLanguageOptions("--incompatible_simplify_unconditional_selects_in_rule_attrs=false");
+    AttributeMap attributesFromUnsimplifiedSelects =
+        getMapperFromConfiguredTargetAndTarget(getConfiguredTargetAndData("//foo"));
+
+    assertThat(attributesFromUnsimplifiedSelects.get("srcs", BuildType.LABEL_LIST))
+        .containsExactly(Label.parseCanonicalUnchecked("//foo:foo.cc"));
+    assertThat(attributesFromUnsimplifiedSelects.get("link_extra_lib", BuildType.LABEL))
+        .isEqualTo(
+            attributesFromUnsimplifiedSelects
+                .getAttributeDefinition("link_extra_lib")
+                .getDefaultValueUnchecked());
+
+    setBuildLanguageOptions("--incompatible_simplify_unconditional_selects_in_rule_attrs=true");
+    AttributeMap attributesFromSimplifiedSelects =
+        getMapperFromConfiguredTargetAndTarget(getConfiguredTargetAndData("//foo"));
+
+    assertThat(attributesFromSimplifiedSelects.get("srcs", BuildType.LABEL_LIST))
+        .isEqualTo(attributesFromUnsimplifiedSelects.get("srcs", BuildType.LABEL_LIST));
+    assertThat(attributesFromSimplifiedSelects.get("link_extra_lib", BuildType.LABEL))
+        .isEqualTo(attributesFromUnsimplifiedSelects.get("link_extra_lib", BuildType.LABEL));
   }
 }

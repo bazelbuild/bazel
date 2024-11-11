@@ -79,6 +79,10 @@ public enum CompileBuildVariables {
    * @see CcCompilationContext#getFrameworkIncludeDirs().
    */
   FRAMEWORK_PATHS("framework_include_paths"),
+  /** Variable for the c++20 module modmap file name. */
+  CPP_MODULE_MODMAP_FILE("cpp_module_modmap_file"),
+  /** Variable for the c++20 module output file name. */
+  CPP_MODULE_OUTPUT_FILE("cpp_module_output_file"),
   /** Variable for the module map file name. */
   MODULE_MAP_FILE("module_map_file"),
   /** Variable for the dependent module map file name. */
@@ -158,7 +162,7 @@ public enum CompileBuildVariables {
       Artifact diagnosticsFile,
       ImmutableList<VariablesExtension> variablesExtensions,
       ImmutableMap<String, String> additionalBuildVariables,
-      Iterable<Artifact> directModuleMaps,
+      ImmutableList<Artifact> directModuleMaps,
       NestedSet<PathFragment> includeDirs,
       NestedSet<PathFragment> quoteIncludeDirs,
       NestedSet<PathFragment> systemIncludeDirs,
@@ -225,7 +229,7 @@ public enum CompileBuildVariables {
       Artifact diagnosticsFile,
       ImmutableList<VariablesExtension> variablesExtensions,
       ImmutableMap<String, String> additionalBuildVariables,
-      Iterable<Artifact> directModuleMaps,
+      ImmutableList<Artifact> directModuleMaps,
       NestedSet<String> includeDirs,
       NestedSet<String> quoteIncludeDirs,
       NestedSet<String> systemIncludeDirs,
@@ -293,7 +297,7 @@ public enum CompileBuildVariables {
       Artifact diagnosticsFile,
       ImmutableList<VariablesExtension> variablesExtensions,
       ImmutableMap<String, String> additionalBuildVariables,
-      Iterable<Artifact> directModuleMaps,
+      ImmutableList<Artifact> directModuleMaps,
       NestedSet<PathFragment> includeDirs,
       NestedSet<PathFragment> quoteIncludeDirs,
       NestedSet<PathFragment> systemIncludeDirs,
@@ -467,7 +471,7 @@ public enum CompileBuildVariables {
       boolean isUsingMemProf,
       List<VariablesExtension> variablesExtensions,
       Map<String, String> additionalBuildVariables,
-      Iterable<Artifact> directModuleMaps,
+      ImmutableList<Artifact> directModuleMaps,
       ImmutableList<PathFragment> includeDirs,
       ImmutableList<PathFragment> quoteIncludeDirs,
       ImmutableList<PathFragment> systemIncludeDirs,
@@ -503,7 +507,7 @@ public enum CompileBuildVariables {
       boolean isUsingMemProf,
       List<VariablesExtension> variablesExtensions,
       Map<String, String> additionalBuildVariables,
-      Iterable<Artifact> directModuleMaps,
+      ImmutableList<Artifact> directModuleMaps,
       NestedSet<PathFragment> includeDirs,
       NestedSet<PathFragment> quoteIncludeDirs,
       NestedSet<PathFragment> systemIncludeDirs,
@@ -522,9 +526,9 @@ public enum CompileBuildVariables {
       buildVariables.addStringVariable(MODULE_NAME.getVariableName(), cppModuleMap.getName());
       buildVariables.addArtifactVariable(
           MODULE_MAP_FILE.getVariableName(), cppModuleMap.getArtifact());
-      buildVariables.addStringSequenceVariable(
+      buildVariables.addArtifactSequenceVariable(
           DEPENDENT_MODULE_MAP_FILES.getVariableName(),
-          Iterables.transform(directModuleMaps, Artifact::getExecPathString));
+          NestedSetBuilder.wrap(Order.STABLE_ORDER, directModuleMaps));
     }
     if (featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES)) {
       // Module inputs will be set later when the action is executed.

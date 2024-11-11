@@ -20,6 +20,7 @@ import static org.mockito.Mockito.mock;
 
 import com.google.common.base.Equivalence;
 import com.google.common.collect.ImmutableClassToInstanceMap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.testing.EqualsTester;
 import com.google.common.testing.EquivalenceTester;
@@ -40,6 +41,9 @@ import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
+import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
+import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationDepsUtils;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
@@ -233,7 +237,8 @@ public final class ArtifactTest {
   }
 
   @Test
-  public void derivedArtifactCodecs(@TestParameter boolean includeGeneratingActionKey)
+  public void derivedArtifactCodecs(
+      @TestParameter boolean includeGeneratingActionKey, @TestParameter boolean useSharedValues)
       throws Exception {
     ArtifactSerializationContext artifactContext =
         new ArtifactSerializationContext() {
@@ -296,6 +301,13 @@ public final class ArtifactTest {
                 RootCodecDependencies.class, new RootCodecDependencies(anotherRoot.getRoot()))
             .addDependency(ArtifactSerializationContext.class, artifactContext);
 
+    if (useSharedValues) {
+      for (ObjectCodec<? extends Artifact> codec : ArtifactCodecs.VALUE_SHARING_CODECS) {
+        tester.addCodec(codec);
+      }
+      tester.makeMemoizingAndAllowFutureBlocking(/* allowFutureBlocking= */ true);
+    }
+
     if (!includeGeneratingActionKey) {
       tester.<DerivedArtifact>setVerificationFunction(
           (original, deserialized) -> {
@@ -324,7 +336,8 @@ public final class ArtifactTest {
   }
 
   @Test
-  public void sourceArtifactCodecRecyclesSourceArtifactInstances() throws Exception {
+  public void sourceArtifactCodecRecyclesSourceArtifactInstances(
+      @TestParameter boolean useSharedValues) throws Exception {
     Root root = Root.fromPath(scratch.dir("/"));
     ArtifactRoot artifactRoot = ArtifactRoot.asSourceRoot(root);
     ArtifactFactory artifactFactory =
@@ -343,19 +356,61 @@ public final class ArtifactTest {
                 .put(RootCodecDependencies.class, new RootCodecDependencies(artifactRoot.getRoot()))
                 .build());
 
+    FingerprintValueService service = null;
+    if (useSharedValues) {
+      service = FingerprintValueService.createForTesting(FingerprintValueStore.inMemoryStore());
+      for (ObjectCodec<? extends Artifact> codec : ArtifactCodecs.VALUE_SHARING_CODECS) {
+        objectCodecs = objectCodecs.withCodecOverridesForTesting(ImmutableList.of(codec));
+      }
+    }
+
     PathFragment pathFragment = PathFragment.create("src/foo.cc");
     ArtifactOwner owner = new LabelArtifactOwner(Label.parseCanonicalUnchecked("//foo:bar"));
     SourceArtifact sourceArtifact = new SourceArtifact(artifactRoot, pathFragment, owner);
-    SourceArtifact deserialized1 =
-        (SourceArtifact) objectCodecs.deserialize(objectCodecs.serialize(sourceArtifact));
-    SourceArtifact deserialized2 =
-        (SourceArtifact) objectCodecs.deserialize(objectCodecs.serialize(sourceArtifact));
+
+    SourceArtifact deserialized1;
+    SourceArtifact deserialized2;
+    if (useSharedValues) {
+      deserialized1 =
+          (SourceArtifact)
+              objectCodecs.deserializeMemoizedAndBlocking(
+                  service,
+                  objectCodecs
+                      .serializeMemoizedAndBlocking(
+                          service, sourceArtifact, /* profileCollector= */ null)
+                      .getObject());
+      deserialized2 =
+          (SourceArtifact)
+              objectCodecs.deserializeMemoizedAndBlocking(
+                  service,
+                  objectCodecs
+                      .serializeMemoizedAndBlocking(
+                          service, sourceArtifact, /* profileCollector= */ null)
+                      .getObject());
+    } else {
+      deserialized1 =
+          (SourceArtifact) objectCodecs.deserialize(objectCodecs.serialize(sourceArtifact));
+      deserialized2 =
+          (SourceArtifact) objectCodecs.deserialize(objectCodecs.serialize(sourceArtifact));
+    }
     assertThat(deserialized1).isSameInstanceAs(deserialized2);
 
     Artifact sourceArtifactFromFactory =
         artifactFactory.getSourceArtifact(pathFragment, root, owner);
-    Artifact deserialized =
-        (Artifact) objectCodecs.deserialize(objectCodecs.serialize(sourceArtifactFromFactory));
+    Artifact deserialized;
+    if (useSharedValues) {
+      deserialized =
+          (Artifact)
+              objectCodecs.deserializeMemoizedAndBlocking(
+                  service,
+                  objectCodecs
+                      .serializeMemoizedAndBlocking(
+                          service, sourceArtifactFromFactory, /* profileCollector= */ null)
+                      .getObject());
+    } else {
+      deserialized =
+          (Artifact) objectCodecs.deserialize(objectCodecs.serialize(sourceArtifactFromFactory));
+    }
     assertThat(sourceArtifactFromFactory).isSameInstanceAs(deserialized);
   }
 
@@ -577,23 +632,31 @@ public final class ArtifactTest {
   }
 
   @Test
-  public void archivedTreeArtifact_codec_roundTripsArchivedArtifact() throws Exception {
+  public void archivedTreeArtifact_codec_roundTripsArchivedArtifact(
+      @TestParameter boolean useSharedValues) throws Exception {
     ArchivedTreeArtifact artifact1 = createArchivedTreeArtifact(rootDir, "tree1");
     ArtifactRoot anotherRoot =
         ArtifactRoot.asDerivedRoot(scratch.getFileSystem().getPath("/"), RootType.Output, "src");
     ArchivedTreeArtifact artifact2 = createArchivedTreeArtifact(anotherRoot, "tree2");
-    new SerializationTester(artifact1, artifact2)
-        .addDependency(FileSystem.class, scratch.getFileSystem())
-        .addDependency(
-            RootCodecDependencies.class, new RootCodecDependencies(anotherRoot.getRoot()))
-        .addDependencies(SerializationDepsUtils.SERIALIZATION_DEPS_FOR_TEST)
-        .<ArchivedTreeArtifact>setVerificationFunction(
-            (original, deserialized) -> {
-              assertThat(original).isEqualTo(deserialized);
-              assertThat(original.getGeneratingActionKey())
-                  .isEqualTo(deserialized.getGeneratingActionKey());
-            })
-        .runTests();
+    SerializationTester tester =
+        new SerializationTester(artifact1, artifact2)
+            .addDependency(FileSystem.class, scratch.getFileSystem())
+            .addDependency(
+                RootCodecDependencies.class, new RootCodecDependencies(anotherRoot.getRoot()))
+            .addDependencies(SerializationDepsUtils.SERIALIZATION_DEPS_FOR_TEST)
+            .<ArchivedTreeArtifact>setVerificationFunction(
+                (original, deserialized) -> {
+                  assertThat(original).isEqualTo(deserialized);
+                  assertThat(original.getGeneratingActionKey())
+                      .isEqualTo(deserialized.getGeneratingActionKey());
+                });
+    if (useSharedValues) {
+      for (ObjectCodec<? extends Artifact> codec : ArtifactCodecs.VALUE_SHARING_CODECS) {
+        tester.addCodec(codec);
+      }
+      tester.makeMemoizingAndAllowFutureBlocking(/* allowFutureBlocking= */ true);
+    }
+    tester.runTests();
   }
 
   @Test

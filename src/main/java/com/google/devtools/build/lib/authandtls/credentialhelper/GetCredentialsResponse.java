@@ -125,7 +125,7 @@ public abstract class GetCredentialsResponse {
       while (reader.hasNext()) {
         String name = reader.nextName();
         switch (name) {
-          case "headers":
+          case "headers" -> {
             if (reader.peek() != JsonToken.BEGIN_OBJECT) {
               throw new JsonSyntaxException(
                   String.format(
@@ -166,9 +166,8 @@ public abstract class GetCredentialsResponse {
             }
 
             reader.endObject();
-            break;
-
-          case "expires":
+          }
+          case "expires" -> {
             if (reader.peek() != JsonToken.STRING) {
               throw new JsonSyntaxException(
                   String.format(
@@ -185,12 +184,12 @@ public abstract class GetCredentialsResponse {
                       "Expected value of 'expires' to be a RFC 3339 formatted timestamp: %s",
                       e.getMessage()));
             }
-            break;
-
-          default:
-            // We intentionally ignore unknown keys to achieve forward compatibility with responses
-            // coming from newer tools.
-            reader.skipValue();
+          }
+          default ->
+              // We intentionally ignore unknown keys to achieve forward compatibility with
+              // responses
+              // coming from newer tools.
+              reader.skipValue();
         }
       }
       reader.endObject();

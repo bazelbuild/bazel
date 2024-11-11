@@ -20,7 +20,7 @@
 
 """Returns the default canonical id to use for downloads."""
 
-visibility("private")
+visibility("public")
 
 DEFAULT_CANONICAL_ID_ENV = "BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID"
 
@@ -37,7 +37,28 @@ machines without the file in the cache. This behavior can be disabled with
 """.format(env = DEFAULT_CANONICAL_ID_ENV)
 
 def get_default_canonical_id(repository_ctx, urls):
-    """Returns the default canonical id to use for downloads."""
+    """Returns the default canonical id to use for downloads.
+
+    Returns `""` (empty string) when Bazel is run with
+    `--repo_env=BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=0`.
+
+    e.g.
+    ```python
+    load("@bazel_tools//tools/build_defs/repo:cache.bzl", "get_default_canonical_id")
+    # ...
+        repository_ctx.download_and_extract(
+            url = urls,
+            integrity = integrity
+            canonical_id = get_default_canonical_id(repository_ctx, urls),
+        ),
+    ```
+
+    Args:
+      repository_ctx: The repository context of the repository rule calling this utility
+        function.
+      urls: A list of URLs matching what is passed to `repository_ctx.download` and
+        `repository_ctx.download_and_extract`.
+    """
     if repository_ctx.os.environ.get(DEFAULT_CANONICAL_ID_ENV) == "0":
         return ""
 

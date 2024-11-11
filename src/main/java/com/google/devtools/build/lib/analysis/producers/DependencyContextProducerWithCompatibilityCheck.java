@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker.IncompatibleTargetException;
 import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker.IncompatibleTargetProducer;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.analysis.platform.PlatformValue;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper.ValidationException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.Inva
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainException;
 import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
 import com.google.devtools.build.skyframe.state.StateMachine;
+import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Optional;
 import javax.annotation.Nullable;
 
@@ -40,7 +42,7 @@ import javax.annotation.Nullable;
  */
 public final class DependencyContextProducerWithCompatibilityCheck
     implements StateMachine,
-        PlatformInfoProducer.ResultSink,
+        PlatformProducer.ResultSink,
         ConfigConditionsProducer.ResultSink,
         IncompatibleTargetProducer.ResultSink,
         UnloadedToolchainContextsProducer.ResultSink {
@@ -95,21 +97,30 @@ public final class DependencyContextProducerWithCompatibilityCheck
         targetAndConfiguration.getConfiguration().getFragment(PlatformConfiguration.class);
     // Checks for incompatibility before toolchain resolution so that known missing
     // toolchains mark the target incompatible instead of failing the build.
-    return new PlatformInfoProducer(
+    return new PlatformProducer(
         platformConfiguration.getTargetPlatform(),
-        (PlatformInfoProducer.ResultSink) this,
+        (PlatformProducer.ResultSink) this,
         /* runAfter= */ this::computeConfigConditions);
   }
 
   @Override
-  public void acceptPlatformInfo(PlatformInfo info) {
-    this.targetPlatformInfo = info;
+  public void acceptPlatformValue(PlatformValue value) {
+    this.targetPlatformInfo = value.platformInfo();
   }
 
   @Override
   public void acceptPlatformInfoError(InvalidPlatformException error) {
     this.hasError = true;
     sink.acceptDependencyContextError(DependencyContextError.of(error));
+  }
+
+  @Override
+  public void acceptOptionsParsingError(OptionsParsingException error) {
+    this.hasError = true;
+    sink.acceptDependencyContextError(
+        DependencyContextError.of(
+            new ConfiguredValueCreationException(
+                targetAndConfiguration.getTarget(), error.getMessage())));
   }
 
   private StateMachine computeConfigConditions(Tasks tasks) {
@@ -156,7 +167,7 @@ public final class DependencyContextProducerWithCompatibilityCheck
 
   @Override
   public void acceptIncompatibleTarget(Optional<RuleConfiguredTargetValue> incompatibleTarget) {
-    if (!incompatibleTarget.isEmpty()) {
+    if (incompatibleTarget.isPresent()) {
       this.hasError = true;
       sink.acceptDependencyContextError(
           DependencyContextError.of(new IncompatibleTargetException(incompatibleTarget.get())));

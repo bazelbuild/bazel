@@ -52,11 +52,6 @@ msys*|mingw*|cygwin*)
   ;;
 esac
 
-if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 # Java source files version shall match --java_language_version_flag version.
 # Output class files shall be created in corresponding version (JDK 8, class version is 52).
 function test_default_java_toolchain_target_version() {
@@ -205,6 +200,11 @@ EOF
 
 # VANILLA_TOOLCHAIN_CONFIGURATION shall use VanillaJavaBuilder and not override any JDK internal compiler classes.
 function test_default_java_toolchain_vanillaToolchain() {
+  add_rules_java MODULE.bazel
+  cat >> MODULE.bazel <<EOF
+java_toolchains = use_extension("@rules_java//java:extensions.bzl", "toolchains")
+use_repo(java_toolchains, "local_jdk")
+EOF
   cat > BUILD <<EOF
 load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain", "VANILLA_TOOLCHAIN_CONFIGURATION")
 default_java_toolchain(

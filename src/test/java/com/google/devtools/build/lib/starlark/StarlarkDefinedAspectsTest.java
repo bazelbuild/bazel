@@ -29,11 +29,13 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
@@ -60,7 +62,6 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -93,7 +94,10 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
            return []
         MyAspect = aspect(implementation=_impl)
         """);
-    scratch.file("test/BUILD", "java_library(name = 'xxx',)");
+    scratch.file(
+        "test/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
+        "java_library(name = 'xxx',)");
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
@@ -112,7 +116,10 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
            return foo()
         MyAspect = aspect(implementation=_impl)
         """);
-    scratch.file("test/BUILD", "java_library(name = 'xxx',)");
+    scratch.file(
+        "test/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
+        "java_library(name = 'xxx',)");
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
@@ -139,7 +146,10 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
            return [foo(), bar()]
         MyAspect = aspect(implementation=_impl)
         """);
-    scratch.file("test/BUILD", "java_library(name = 'xxx',)");
+    scratch.file(
+        "test/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
+        "java_library(name = 'xxx',)");
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
@@ -169,7 +179,10 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
            return [foo(), bar()]
         MyAspect = aspect(implementation=_impl)
         """);
-    scratch.file("test/BUILD", "java_library(name = 'xxx',)");
+    scratch.file(
+        "test/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
+        "java_library(name = 'xxx',)");
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
@@ -206,7 +219,10 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
            return []
         MyAspect = aspect(implementation=_impl)
         """);
-    scratch.file("test/BUILD", "java_library(name = 'xxx',)");
+    scratch.file(
+        "test/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
+        "java_library(name = 'xxx',)");
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("//test:aspect.bzl%MyAspect"), "//test:xxx");
@@ -217,11 +233,11 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
 
   @Test
   public void aspectCommandLineRepoLabel() throws Exception {
-    scratch.overwriteFile(
-        "WORKSPACE",
-        scratch.readFile("WORKSPACE"),
-        "local_repository(name='local', path='local/repo')");
-    scratch.file("local/repo/WORKSPACE");
+    scratch.appendFile(
+        "MODULE.bazel",
+        "bazel_dep(name='local')",
+        "local_path_override(module_name='local', path='local/repo')");
+    scratch.file("local/repo/MODULE.bazel", "module(name='local')");
     scratch.file(
         "local/repo/aspect.bzl",
         """
@@ -232,13 +248,16 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         """);
     scratch.file("local/repo/BUILD");
 
-    scratch.file("test/BUILD", "java_library(name = 'xxx',)");
+    scratch.file(
+        "test/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
+        "java_library(name = 'xxx',)");
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("@local//:aspect.bzl%MyAspect"), "//test:xxx");
     assertThat(getLabelsToBuild(analysisResult)).containsExactly("//test:xxx");
     assertThat(getAspectDescriptions(analysisResult))
-        .containsExactly("@@local//:aspect.bzl%MyAspect(//test:xxx)");
+        .containsExactly("@@local+//:aspect.bzl%MyAspect(//test:xxx)");
   }
 
   private static Iterable<String> getLabelsToBuild(AnalysisResult analysisResult) {
@@ -257,7 +276,10 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
            return []
         MyAspect = aspect(implementation=_impl, fragments=['java'])
         """);
-    scratch.file("test/BUILD", "java_library(name = 'xxx',)");
+    scratch.file(
+        "test/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
+        "java_library(name = 'xxx',)");
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
@@ -296,6 +318,7 @@ MyAspect = aspect(
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
              name = 'yyy',
         )
@@ -442,6 +465,7 @@ MyAspect = aspect(
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
              name = 'xxx',
              srcs = ['A.java'],
@@ -486,6 +510,7 @@ MyAspect = aspect(
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
              name = 'xxx',
              srcs = ['A.java'],
@@ -550,6 +575,7 @@ my_rule = rule(
         "test/BUILD",
         """
         load('//test:aspect.bzl', 'my_rule')
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
              name = 'yyy',
         )
@@ -593,6 +619,7 @@ my_rule = rule(
         "test/BUILD",
         """
         load('//test:aspect.bzl', 'my_rule')
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
              name = 'yyy',
         )
@@ -633,6 +660,7 @@ my_rule = rule(
         "test/BUILD",
         """
         load('//test:inc.bzl', 'r')
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(name = 'j')
         r(name = 'test', a = [':j'])
         """);
@@ -668,6 +696,7 @@ my_rule = rule(
         "test/BUILD",
         """
         load('//test:rule.bzl', 'my_rule')
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
              name = 'yyy',
         )
@@ -720,6 +749,7 @@ my_rule = rule(
         "test/BUILD",
         """
         load('//test:aspect.bzl', 'my_rule')
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
              name = 'yyy',
         )
@@ -764,6 +794,7 @@ my_rule = rule(
         "test/BUILD",
         """
         load('//test:aspect.bzl', 'my_rule')
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
              name = 'yyy',
         )
@@ -781,8 +812,6 @@ my_rule = rule(
 
   @Test
   public void aspectsDoNotAttachToFiles() throws Exception {
-    FileSystemUtils.appendIsoLatin1(
-        scratch.resolve("WORKSPACE"), "bind(name = 'yyy', actual = '//test:zzz.jar')");
     scratch.file(
         "test/aspect.bzl",
         """
@@ -799,10 +828,11 @@ my_rule = rule(
         "test/BUILD",
         """
         exports_files(['zzz.jar'])
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
              name = 'xxx',
              srcs = ['A.java'],
-             deps = ['//external:yyy'],
+             deps = ['//test:zzz.jar'],
         )
         """);
 
@@ -812,8 +842,6 @@ my_rule = rule(
 
   @Test
   public void aspectsDoNotAttachToTopLevelFiles() throws Exception {
-    FileSystemUtils.appendIsoLatin1(
-        scratch.resolve("WORKSPACE"), "bind(name = 'yyy', actual = '//test:zzz.jar')");
     scratch.file(
         "test/aspect.bzl",
         """
@@ -831,10 +859,11 @@ my_rule = rule(
         "test/BUILD",
         """
         exports_files(['zzz.jar'])
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
              name = 'xxx',
              srcs = ['A.java'],
-             deps = ['//external:yyy'],
+             deps = ['//test:zzz.jar'],
         )
         """);
 
@@ -857,7 +886,10 @@ my_rule = rule(
 
         MyAspect = aspect(implementation=_impl)
         """);
-    scratch.file("test/BUILD", "java_library(name = 'xxx',)");
+    scratch.file(
+        "test/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
+        "java_library(name = 'xxx',)");
 
     reporter.removeHandler(failFastHandler);
     try {
@@ -870,10 +902,11 @@ my_rule = rule(
     // Stack doesn't include source lines because we haven't told EvalException
     // how to read from scratch.
     assertContainsEvent(
-        "ERROR /workspace/test/BUILD:1:13: in "
+        "ERROR /workspace/test/BUILD:2:13: in "
             + "//test:aspect.bzl%MyAspect aspect on java_library rule //test:xxx: \n"
             + "Traceback (most recent call last):\n"
             + "\tFile \"/workspace/test/aspect.bzl\", line 2, column 13, in _impl\n"
+            + "\t\treturn 1 // 0\n"
             + "Error: integer division by zero");
   }
 
@@ -887,7 +920,10 @@ my_rule = rule(
 
         MyAspect = aspect(implementation=_impl)
         """);
-    scratch.file("test/BUILD", "java_library(name = 'xxx',)");
+    scratch.file(
+        "test/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
+        "java_library(name = 'xxx',)");
 
     reporter.removeHandler(failFastHandler);
     try {
@@ -913,7 +949,10 @@ my_rule = rule(
 
         MyAspect = aspect(implementation=_impl)
         """);
-    scratch.file("test/BUILD", "java_library(name = 'xxx',)");
+    scratch.file(
+        "test/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
+        "java_library(name = 'xxx',)");
 
     reporter.removeHandler(failFastHandler);
     try {
@@ -924,7 +963,7 @@ my_rule = rule(
       // expect to fail.
     }
     assertContainsEvent(
-        "ERROR /workspace/test/BUILD:1:13: in "
+        "ERROR /workspace/test/BUILD:2:13: in "
             + "//test:aspect.bzl%MyAspect aspect on java_library rule //test:xxx: \n"
             + "The following files have no generating action:\n"
             + "test/missing_in_action.txt");
@@ -1038,7 +1077,10 @@ my_rule = rule(
   @Test
   public void topLevelAspectIsNotAnAspect() throws Exception {
     scratch.file("test/aspect.bzl", "MyAspect = 4");
-    scratch.file("test/BUILD", "java_library(name = 'xxx')");
+    scratch.file(
+        "test/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
+        "java_library(name = 'xxx')");
 
     reporter.removeHandler(failFastHandler);
     try {
@@ -1056,20 +1098,20 @@ my_rule = rule(
     scratch.file(
         "test/aspect.bzl",
         """
-        def _impl(target, ctx):
-          f = ctx.actions.declare_file('f.txt')
-          ctx.actions.write(f, 'f')
-          return [OutputGroupInfo(duplicate = depset([f]))]
+        def _aspect_impl(target, ctx):
+          a = ctx.actions.declare_file('aspect.txt')
+          ctx.actions.write(a, 'f')
+          return [OutputGroupInfo(duplicate = depset([a]))]
 
-        MyAspect = aspect(implementation=_impl)
+        MyAspect = aspect(implementation=_aspect_impl)
         def _rule_impl(ctx):
-          g = ctx.actions.declare_file('g.txt')
-          ctx.actions.write(g, 'g')
-          return [OutputGroupInfo(duplicate = depset([g]))]
+          r = ctx.actions.declare_file('rule.txt')
+          ctx.actions.write(r, 'r')
+          return [OutputGroupInfo(duplicate = depset([r]))]
         my_rule = rule(_rule_impl)
-        def _noop(ctx):
-          pass
-        rbase = rule(_noop, attrs = { 'dep' : attr.label(aspects = [MyAspect]) })
+        def _rbase_impl(ctx):
+          return [DefaultInfo(files=ctx.attr.dep[OutputGroupInfo].duplicate)]
+        rbase = rule(_rbase_impl, attrs = { 'dep' : attr.label(aspects = [MyAspect]) })
         """);
     scratch.file(
         "test/BUILD",
@@ -1079,15 +1121,134 @@ my_rule = rule(
         rbase(name = 'yyy', dep = ':xxx')
         """);
 
+    AnalysisResult analysisResult = update("//test:yyy");
+    NestedSet<Artifact> filesToBuild =
+        Iterables.getOnlyElement(analysisResult.getTargetsToBuild())
+            .getProvider(FileProvider.class)
+            .getFilesToBuild();
+    assertThat(ActionsTestUtil.baseArtifactNames(filesToBuild))
+        .containsExactly("aspect.txt", "rule.txt");
+  }
+
+  @Test
+  public void mergesFileProvider() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        """
+        def _asp_impl(target, ctx):
+          f = ctx.actions.declare_file('aspectfile')
+          ctx.actions.write(f, 'f')
+          return [DefaultInfo(files=depset([f]))]
+
+        asp = aspect(implementation=_asp_impl)
+        def _rule_impl(ctx):
+          return [DefaultInfo(files=depset(ctx.files.dep))]
+        my_rule = rule(_rule_impl, attrs = { 'dep' : attr.label(aspects = [asp]) })
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(':aspect.bzl', 'my_rule')
+        my_rule(name='a', dep=':b')
+        filegroup(name='b', srcs=['sourcefile'])
+        """);
+
+    AnalysisResult analysisResult = update("//test:a");
+    NestedSet<Artifact> filesToBuild =
+        Iterables.getOnlyElement(analysisResult.getTargetsToBuild())
+            .getProvider(FileProvider.class)
+            .getFilesToBuild();
+    assertThat(ActionsTestUtil.baseArtifactNames(filesToBuild))
+        .containsExactly("sourcefile", "aspectfile");
+  }
+
+  @Test
+  public void aspectDefaultInfoWithNonArtifacts() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        """
+        def _asp_impl(target, ctx):
+          return [DefaultInfo(files=depset([1]))]
+
+        asp = aspect(implementation=_asp_impl)
+        def _rule_impl(ctx):
+          return [DefaultInfo()]
+        my_rule = rule(_rule_impl, attrs = { 'dep' : attr.label(aspects = [asp]) })
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(':aspect.bzl', 'my_rule')
+        my_rule(name='a', dep=':b')
+        filegroup(name='b', srcs=['sourcefile'])
+        """);
+
     reporter.removeHandler(failFastHandler);
     try {
-      AnalysisResult result = update("//test:yyy");
-      assertThat(keepGoing()).isTrue();
-      assertThat(result.hasError()).isTrue();
+      update("//test:a");
     } catch (ViewCreationFailedException e) {
-      // expect to fail.
+      // expected.
     }
-    assertContainsEvent("ERROR /workspace/test/BUILD:3:6: Output group duplicate provided twice");
+    assertContainsEvent("should contain a depset of files");
+  }
+
+  @Test
+  public void aspectDefaultInfoSomethingElseThanFiles() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        """
+        def _asp_impl(target, ctx):
+          return [DefaultInfo(runfiles=ctx.runfiles([]))]
+
+        asp = aspect(implementation=_asp_impl)
+        def _rule_impl(ctx):
+          return [DefaultInfo()]
+        my_rule = rule(_rule_impl, attrs = { 'dep' : attr.label(aspects = [asp]) })
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(':aspect.bzl', 'my_rule')
+        my_rule(name='a', dep=':b')
+        filegroup(name='b', srcs=['sourcefile'])
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    try {
+      update("//test:a");
+    } catch (ViewCreationFailedException e) {
+      // expected.
+    }
+    assertContainsEvent("must only have the 'files' field set");
+  }
+
+  @Test
+  public void aspectEmptyDefaultInfo() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        """
+        def _asp_impl(target, ctx):
+          return [DefaultInfo()]
+
+        asp = aspect(implementation=_asp_impl)
+        def _rule_impl(ctx):
+          return [DefaultInfo(files=depset(ctx.files.dep))]
+        my_rule = rule(_rule_impl, attrs = { 'dep' : attr.label(aspects = [asp]) })
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(':aspect.bzl', 'my_rule')
+        my_rule(name='a', dep=':b')
+        filegroup(name='b', srcs=['sourcefile'])
+        """);
+
+    AnalysisResult analysisResult = update("//test:a");
+    NestedSet<Artifact> filesToBuild =
+        Iterables.getOnlyElement(analysisResult.getTargetsToBuild())
+            .getProvider(FileProvider.class)
+            .getFilesToBuild();
+    assertThat(ActionsTestUtil.baseArtifactNames(filesToBuild)).containsExactly("sourcefile");
   }
 
   @Test
@@ -1252,43 +1413,44 @@ my_rule = rule(
         "test/aspect.bzl",
         """
         def _a1_impl(target, ctx):
-          f = ctx.actions.declare_file(target.label.name + '_a1.txt')
-          ctx.actions.write(f, 'f')
-          return [OutputGroupInfo(a1_group = depset([f]))]
+          a1 = ctx.actions.declare_file(target.label.name + '_a1.txt')
+          ctx.actions.write(a1, 'f')
+          return [OutputGroupInfo(aspect_group = depset([a1]))]
 
         a1 = aspect(implementation=_a1_impl, attr_aspects = ['dep'])
-        def _rule_impl(ctx):
-          if not ctx.attr.dep:
-             return []
-          og = {k:ctx.attr.dep.output_groups[k] for k in ctx.attr.dep[OutputGroupInfo]}
-          return [OutputGroupInfo(**og)]
-        my_rule1 = rule(_rule_impl, attrs = { 'dep' : attr.label(aspects = [a1]) })
+
         def _a2_impl(target, ctx):
-          g = ctx.actions.declare_file(target.label.name + '_a2.txt')
-          ctx.actions.write(g, 'f')
-          return [OutputGroupInfo(a1_group = depset([g]))]
+          a2 = ctx.actions.declare_file(target.label.name + '_a2.txt')
+          ctx.actions.write(a2, 'f')
+          return [OutputGroupInfo(aspect_group = depset([a2]))]
 
         a2 = aspect(implementation=_a2_impl, attr_aspects = ['dep'])
-        my_rule2 = rule(_rule_impl, attrs = { 'dep' : attr.label(aspects = [a2]) })
+
+        def _base_impl(ctx):
+          return []
+
+        base = rule(_base_impl, attrs = {})
+
+        def _top_impl(ctx):
+          return [DefaultInfo(files=ctx.attr.dep[OutputGroupInfo].aspect_group)]
+
+        top = rule(_top_impl, attrs = { 'dep' : attr.label(aspects = [a1, a2]) })
         """);
     scratch.file(
         "test/BUILD",
         """
-        load(':aspect.bzl', 'my_rule1', 'my_rule2')
-        my_rule1(name = 'base')
-        my_rule1(name = 'xxx', dep = ':base')
-        my_rule2(name = 'yyy', dep = ':xxx')
+        load(':aspect.bzl', 'base', 'top')
+        base(name = 'base')
+        top(name = 'top', dep = ':base')
         """);
 
-    reporter.removeHandler(failFastHandler);
-    try {
-      AnalysisResult analysisResult = update("//test:yyy");
-      assertThat(analysisResult.hasError()).isTrue();
-      assertThat(keepGoing()).isTrue();
-    } catch (ViewCreationFailedException e) {
-      // expected.
-    }
-    assertContainsEvent("ERROR /workspace/test/BUILD:3:9: Output group a1_group provided twice");
+    AnalysisResult analysisResult = update("//test:top");
+    NestedSet<Artifact> filesToBuild =
+        Iterables.getOnlyElement(analysisResult.getTargetsToBuild())
+            .getProvider(FileProvider.class)
+            .getFilesToBuild();
+    assertThat(ActionsTestUtil.baseArtifactNames(filesToBuild))
+        .containsExactly("base_a1.txt", "base_a2.txt");
   }
 
   private static Iterable<String> getOutputGroupContents(
@@ -1336,7 +1498,10 @@ my_rule = rule(
   @Test
   public void topLevelAspectDoesNotExist() throws Exception {
     scratch.file("test/aspect.bzl", "");
-    scratch.file("test/BUILD", "java_library(name = 'xxx')");
+    scratch.file(
+        "test/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
+        "java_library(name = 'xxx')");
 
     reporter.removeHandler(failFastHandler);
     try {
@@ -1351,7 +1516,10 @@ my_rule = rule(
 
   @Test
   public void topLevelAspectDoesNotExist2() throws Exception {
-    scratch.file("test/BUILD", "java_library(name = 'xxx')");
+    scratch.file(
+        "test/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
+        "java_library(name = 'xxx')");
 
     reporter.removeHandler(failFastHandler);
     try {
@@ -1366,7 +1534,10 @@ my_rule = rule(
 
   @Test
   public void topLevelAspectDoesNotExistNoBuildFile() throws Exception {
-    scratch.file("test/BUILD", "java_library(name = 'xxx')");
+    scratch.file(
+        "test/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
+        "java_library(name = 'xxx')");
 
     reporter.removeHandler(failFastHandler);
     try {
@@ -1437,15 +1608,19 @@ my_rule = rule(
         """
         load('aspect.bzl', 'cfgrule', 'string_flag')
         string_flag(name = 'formation', build_setting_default = 'canyon')
-        sh_library(name = 'innocent')
+        filegroup(name = 'innocent')
         cfgrule(name = 'top', to = '//baz:baz', innocent = ':innocent')
         """);
-    scratch.file("bar/BUILD", "sh_library(name = 'bar', deps = ['//baz:baz'])");
+    scratch.file(
+        "bar/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'bar', deps = ['//baz:baz'])");
     scratch.file(
         "baz/BUILD",
         """
+        load('//test_defs:foo_library.bzl', 'foo_library')
         load('//baz/subdir:missing.bzl', 'sym')
-        sh_library(name = 'baz')
+        foo_library(name = 'baz')
         """);
     scratch.file("baz/subdir/missing.bzl");
     reporter.removeHandler(failFastHandler);
@@ -1560,8 +1735,21 @@ my_rule = rule(
     scratch.file(
         "test/BUILD",
         """
-        load('//test:aspect.bzl', 'my_rule')
-        my_rule(name = 'xxx', my_attr = select({'//conditions:default': 'foo'}))
+        load("//test:aspect.bzl", "my_rule")
+
+        # Needed to avoid the select() being eliminated as trivial.
+        config_setting(
+            name = "config",
+            values = {"defines": "something"},
+        )
+
+        my_rule(
+            name = "xxx",
+            my_attr = select({
+                ":config": "foo",
+                "//conditions:default": "bar",
+            }),
+        )
         """);
 
     reporter.removeHandler(failFastHandler);
@@ -1934,13 +2122,13 @@ my_rule = rule(
         repro_no_aspect(name = 'r1', deps = [':r0'])
         repro(name = 'r2', deps = [':r1'])
         """);
-    buildTargetAndCheckRuleInfo("@//test:r0", "@//test:r1");
+    buildTargetAndCheckRuleInfo("@@//test:r0", "@@//test:r1");
 
     // Make aspect propagation list empty.
     scratch.overwriteFile("test/build_defs.bzl", aspectBzlFile(""));
 
     // The aspect should not propagate to //test:r0 anymore.
-    buildTargetAndCheckRuleInfo("@//test:r1");
+    buildTargetAndCheckRuleInfo("@@//test:r1");
   }
 
   private void buildTargetAndCheckRuleInfo(String... expectedLabels) throws Exception {
@@ -2137,6 +2325,7 @@ my_rule = rule(
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         extra_action(
             name = 'xa',
             cmd = 'echo $(EXTRA_ACTION_FILE) > $(output file.xa)',
@@ -2171,6 +2360,7 @@ my_rule = rule(
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         extra_action(
             name = 'xa',
             cmd = 'echo $(EXTRA_ACTION_FILE) > $(output file.xa)',
@@ -2220,6 +2410,7 @@ my_rule = rule(
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
             name = 'tool',
         )
@@ -2292,8 +2483,8 @@ my_rule = rule(
     // "yes" means that aspect a2 sees a1's providers.
     assertThat(result)
         .containsExactly(
-            "@//test:r0[\"//test:aspect.bzl%a1\", \"//test:aspect.bzl%a2\"]=yes",
-            "@//test:r1[\"//test:aspect.bzl%a2\"]=no");
+            "@@//test:r0[\"//test:aspect.bzl%a1\", \"//test:aspect.bzl%a2\"]=yes",
+            "@@//test:r1[\"//test:aspect.bzl%a2\"]=no");
   }
 
   /**
@@ -2363,10 +2554,10 @@ my_rule = rule(
         (Sequence<?>) getStarlarkProvider(target, "RCollectInfo").getValue("result");
     assertThat(result)
         .containsExactly(
-            "@//test:r0[\"//test:aspect.bzl%a1\", \"//test:aspect.bzl%a3\"]=a1p",
-            "@//test:r1[\"//test:aspect.bzl%a3\"]=",
-            "@//test:r0[\"//test:aspect.bzl%a2\", \"//test:aspect.bzl%a3\"]=a2p",
-            "@//test:r2[\"//test:aspect.bzl%a3\"]=");
+            "@@//test:r0[\"//test:aspect.bzl%a1\", \"//test:aspect.bzl%a3\"]=a1p",
+            "@@//test:r1[\"//test:aspect.bzl%a3\"]=",
+            "@@//test:r0[\"//test:aspect.bzl%a2\", \"//test:aspect.bzl%a3\"]=a2p",
+            "@@//test:r2[\"//test:aspect.bzl%a3\"]=");
   }
 
   /**
@@ -2419,8 +2610,9 @@ my_rule = rule(
     // "yes" means that aspect a2 sees a1's providers.
     assertThat(result)
         .containsExactly(
-            "@//test:r0[\"//test:aspect.bzl%a2\"]=no",
-            "@//test:r1[\"//test:aspect.bzl%a2\"]=no", "@//test:r2_1[\"//test:aspect.bzl%a2\"]=no");
+            "@@//test:r0[\"//test:aspect.bzl%a2\"]=no",
+            "@@//test:r1[\"//test:aspect.bzl%a2\"]=no",
+            "@@//test:r2_1[\"//test:aspect.bzl%a2\"]=no");
   }
 
   /** Linear aspects-on-aspects with alias rule. */
@@ -2468,8 +2660,8 @@ my_rule = rule(
     // "yes" means that aspect a2 sees a1's providers.
     assertThat(result)
         .containsExactly(
-            "@//test:r0[\"//test:aspect.bzl%a1\", \"//test:aspect.bzl%a2\"]=yes",
-            "@//test:r1[\"//test:aspect.bzl%a2\"]=no");
+            "@@//test:r0[\"//test:aspect.bzl%a1\", \"//test:aspect.bzl%a2\"]=yes",
+            "@@//test:r1[\"//test:aspect.bzl%a2\"]=no");
   }
 
   @Test
@@ -2512,8 +2704,8 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
 
     assertThat(result)
         .containsExactly(
-            "@//test:r0[\"//test:aspect.bzl%a\"]=None",
-            "@//test:r1[\"//test:aspect.bzl%a\"]=@//test:r0[\"//test:aspect.bzl%a\"],True");
+            "@@//test:r0[\"//test:aspect.bzl%a\"]=None",
+            "@@//test:r1[\"//test:aspect.bzl%a\"]=@@//test:r0[\"//test:aspect.bzl%a\"],True");
   }
 
   @Test
@@ -2567,7 +2759,10 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
         my_aspect = aspect(_impl, provides = ['foo'])
         a_dict = { 'foo' : attr.label_list(aspects = [my_aspect]) }
         """);
-    scratch.file("test/BUILD", "java_library(name = 'xxx',)");
+    scratch.file(
+        "test/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
+        "java_library(name = 'xxx',)");
 
     reporter.removeHandler(failFastHandler);
     try {
@@ -2736,11 +2931,11 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     StructImpl p3Provider = (StructImpl) configuredAspect.get(p3);
     assertThat((Sequence<?>) p3Provider.getValue("value"))
         .containsExactly(
-            "@//test:r0_1=True",
-            "@//test:r0_2=True",
-            "@//test:r0_3=True",
-            "@//test:r1_1=False",
-            "@//test:r2_1=False");
+            "@@//test:r0_1=True",
+            "@@//test:r0_2=True",
+            "@@//test:r0_3=True",
+            "@@//test:r1_1=False",
+            "@@//test:r2_1=False");
   }
 
   /**
@@ -2803,7 +2998,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
             keyForBuild(Label.parseCanonical("//test:aspect.bzl")), "PCollector");
     StructImpl pCollectorProvider = (StructImpl) configuredTarget.get(pCollector);
     assertThat((Sequence<?>) pCollectorProvider.getValue("result"))
-        .containsExactly("@//test:r1", "@//test:r0", "@//test:r0+PAspect");
+        .containsExactly("@@//test:r1", "@@//test:r0", "@@//test:r0+PAspect");
   }
 
   @Test
@@ -3102,7 +3297,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     StarlarkProvider.Key myInfoKey =
         new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:aspect.bzl")), "MyInfo");
     StructImpl myInfo = (StructImpl) configuredAspect.get(myInfoKey);
-    assertThat(myInfo.getValue("hidden_attr_label")).isEqualTo("@//test:zzz");
+    assertThat(myInfo.getValue("hidden_attr_label")).isEqualTo("@@//test:zzz");
   }
 
   /** Simple straightforward linear aspects-on-aspects. */
@@ -3151,7 +3346,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
     String result = getStarlarkProvider(target, "RuleInfo").getValue("result", String.class);
 
-    assertThat(result).isEqualTo("@//test:zzz");
+    assertThat(result).isEqualTo("@@//test:zzz");
   }
 
   @Test
@@ -3609,10 +3804,10 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     // my_aspect does not require any providers so it will be applied to all the dependencies of
     // main target
     List<String> expected = new ArrayList<>();
-    expected.add("//test:defs.bzl%my_aspect(@//test:target_without_providers)");
-    expected.add("//test:defs.bzl%my_aspect(@//test:target_with_providers)");
-    expected.add("//test:defs.bzl%my_aspect(@//test:target_with_providers_not_advertised)");
-    expected.add("//test:defs.bzl%my_aspect(@//test:target_with_providers_indeps)");
+    expected.add("//test:defs.bzl%my_aspect(@@//test:target_without_providers)");
+    expected.add("//test:defs.bzl%my_aspect(@@//test:target_with_providers)");
+    expected.add("//test:defs.bzl%my_aspect(@@//test:target_with_providers_not_advertised)");
+    expected.add("//test:defs.bzl%my_aspect(@@//test:target_with_providers_indeps)");
     assertThat(getLabelsToBuild(analysisResult)).containsExactly("//test:main");
     ConfiguredTarget target = analysisResult.getTargetsToBuild().iterator().next();
     Object ruleDepsUnchecked = getStarlarkProvider(target, "RuleInfo").getValue("rule_deps");
@@ -3728,8 +3923,8 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     // However, my_aspect cannot be propagated to target_with_ab_indeps_not_reached because it was
     // not applied to its parent (target_with_a)
     List<String> expected = new ArrayList<>();
-    expected.add("//test:defs.bzl%my_aspect(@//test:target_with_ab)");
-    expected.add("//test:defs.bzl%my_aspect(@//test:target_with_ab_indeps_reached)");
+    expected.add("//test:defs.bzl%my_aspect(@@//test:target_with_ab)");
+    expected.add("//test:defs.bzl%my_aspect(@@//test:target_with_ab_indeps_reached)");
     assertThat(getLabelsToBuild(analysisResult)).containsExactly("//test:main");
     ConfiguredTarget target = analysisResult.getTargetsToBuild().iterator().next();
     Object ruleDepsUnchecked = getStarlarkProvider(target, "RuleInfo").getValue("rule_deps");
@@ -3860,9 +4055,9 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     // However, my_aspect cannot be propagated to target_with_c_indeps_not_reached because it was
     // not applied to its parent (target_with_a)
     List<String> expected = new ArrayList<>();
-    expected.add("//test:defs.bzl%my_aspect(@//test:target_with_ab)");
-    expected.add("//test:defs.bzl%my_aspect(@//test:target_with_c)");
-    expected.add("//test:defs.bzl%my_aspect(@//test:target_with_c_indeps_reached)");
+    expected.add("//test:defs.bzl%my_aspect(@@//test:target_with_ab)");
+    expected.add("//test:defs.bzl%my_aspect(@@//test:target_with_c)");
+    expected.add("//test:defs.bzl%my_aspect(@@//test:target_with_c_indeps_reached)");
     assertThat(getLabelsToBuild(analysisResult)).containsExactly("//test:main");
     ConfiguredTarget target = analysisResult.getTargetsToBuild().iterator().next();
     Object ruleDepsUnchecked = getStarlarkProvider(target, "RuleInfo").getValue("rule_deps");
@@ -3956,10 +4151,10 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     StructImpl aResultProvider = (StructImpl) aspectA.get(aResult);
     assertThat((Sequence<?>) aResultProvider.getValue("val"))
         .containsExactly(
-            "aspect_c runs on target @//test:dep_target_a",
-            "aspect_a runs on target @//test:dep_target_a",
-            "aspect_c runs on target @//test:main_target",
-            "aspect_a runs on target @//test:main_target");
+            "aspect_c runs on target @@//test:dep_target_a",
+            "aspect_a runs on target @@//test:dep_target_a",
+            "aspect_c runs on target @@//test:main_target",
+            "aspect_a runs on target @@//test:main_target");
 
     // aspect_b should run on main_target and dep_target_b and can retrieve aspect_c provider value
     // on both of them
@@ -3970,10 +4165,10 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     StructImpl bResultProvider = (StructImpl) aspectB.get(bResult);
     assertThat((Sequence<?>) bResultProvider.getValue("val"))
         .containsExactly(
-            "aspect_c runs on target @//test:dep_target_b",
-            "aspect_b runs on target @//test:dep_target_b",
-            "aspect_c runs on target @//test:main_target",
-            "aspect_b runs on target @//test:main_target");
+            "aspect_c runs on target @@//test:dep_target_b",
+            "aspect_b runs on target @@//test:dep_target_b",
+            "aspect_c runs on target @@//test:main_target",
+            "aspect_b runs on target @@//test:main_target");
   }
 
   @Test
@@ -4111,10 +4306,10 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     StructImpl aResultProvider = (StructImpl) aspectA.get(aResult);
     assertThat((Sequence<?>) aResultProvider.getValue("val"))
         .containsExactly(
-            "aspect_c runs on target @//test:dep_target_with_prov_c",
-            "aspect_a runs on target @//test:dep_target_with_prov_c",
-            "aspect_a runs on target @//test:dep_target_with_prov_a",
-            "aspect_a runs on target @//test:main_target");
+            "aspect_c runs on target @@//test:dep_target_with_prov_c",
+            "aspect_a runs on target @@//test:dep_target_with_prov_c",
+            "aspect_a runs on target @@//test:dep_target_with_prov_a",
+            "aspect_a runs on target @@//test:main_target");
 
     // aspect_b runs on main_target, dep_target_with_prov_b and dep_target_with_prov_c and it can
     // only retrieve aspect_c provider value on dep_target_with_prov_c
@@ -4126,10 +4321,10 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     StructImpl bResultProvider = (StructImpl) aspectB.get(bResult);
     assertThat((Sequence<?>) bResultProvider.getValue("val"))
         .containsExactly(
-            "aspect_c runs on target @//test:dep_target_with_prov_c",
-            "aspect_b runs on target @//test:dep_target_with_prov_c",
-            "aspect_b runs on target @//test:dep_target_with_prov_b",
-            "aspect_b runs on target @//test:main_target");
+            "aspect_c runs on target @@//test:dep_target_with_prov_c",
+            "aspect_b runs on target @@//test:dep_target_with_prov_c",
+            "aspect_b runs on target @@//test:dep_target_with_prov_b",
+            "aspect_b runs on target @@//test:main_target");
   }
 
   @Test
@@ -4247,10 +4442,10 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     StructImpl provA = (StructImpl) target1.get(provAkey);
     assertThat((Sequence<?>) provA.getValue("val"))
         .containsExactly(
-            "aspect_c runs on target @//test:dep_1 and param = rule_1_val",
-            "aspect_a runs on target @//test:dep_1",
-            "aspect_c runs on target @//test:dep_3 and param = rule_1_val",
-            "aspect_a runs on target @//test:dep_3");
+            "aspect_c runs on target @@//test:dep_1 and param = rule_1_val",
+            "aspect_a runs on target @@//test:dep_1",
+            "aspect_c runs on target @@//test:dep_3 and param = rule_1_val",
+            "aspect_a runs on target @@//test:dep_3");
 
     // aspect_b runs on dep_2 and dep_3 and it can retrieve aspect_c provider value on them.
     // aspect_c here should get its parameter value from rule_2
@@ -4260,10 +4455,10 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     StructImpl provB = (StructImpl) target2.get(provBkey);
     assertThat((Sequence<?>) provB.getValue("val"))
         .containsExactly(
-            "aspect_c runs on target @//test:dep_2 and param = rule_2_val",
-            "aspect_b runs on target @//test:dep_2",
-            "aspect_c runs on target @//test:dep_3 and param = rule_2_val",
-            "aspect_b runs on target @//test:dep_3");
+            "aspect_c runs on target @@//test:dep_2 and param = rule_2_val",
+            "aspect_b runs on target @@//test:dep_2",
+            "aspect_c runs on target @@//test:dep_3 and param = rule_2_val",
+            "aspect_b runs on target @@//test:dep_3");
   }
 
   @Test
@@ -4322,9 +4517,9 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     StructImpl aResultProvider = (StructImpl) aspectA.get(aResult);
     assertThat((Sequence<?>) aResultProvider.getValue("val"))
         .containsExactly(
-            "aspect_a on target @//test:main_target cannot see native aspect provider",
-            "aspect_a on target @//test:dep_1 cannot see native aspect provider",
-            "aspect_a on target @//test:dep_2 can see native aspect provider");
+            "aspect_a on target @@//test:main_target cannot see native aspect provider",
+            "aspect_a on target @@//test:dep_1 cannot see native aspect provider",
+            "aspect_a on target @@//test:dep_2 can see native aspect provider");
   }
 
   @Test
@@ -4403,18 +4598,18 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
             keyForBuild(Label.parseCanonical("//test:defs.bzl")), "RequiredAspectProv");
     StructImpl requiredAspectProvider = (StructImpl) configuredTarget.get(requiredAspectProv);
     assertThat(requiredAspectProvider.getValue("p1_val"))
-        .isEqualTo("In required_aspect, p1 = p1_v1 on target @//test:dep_target");
+        .isEqualTo("In required_aspect, p1 = p1_v1 on target @@//test:dep_target");
     assertThat(requiredAspectProvider.getValue("p2_val"))
-        .isEqualTo("In required_aspect, p2 not found on target @//test:dep_target");
+        .isEqualTo("In required_aspect, p2 not found on target @@//test:dep_target");
 
     StarlarkProvider.Key baseAspectProv =
         new StarlarkProvider.Key(
             keyForBuild(Label.parseCanonical("//test:defs.bzl")), "BaseAspectProv");
     StructImpl baseAspectProvider = (StructImpl) configuredTarget.get(baseAspectProv);
     assertThat(baseAspectProvider.getValue("p1_val"))
-        .isEqualTo("In base_aspect, p1 not found on target @//test:dep_target");
+        .isEqualTo("In base_aspect, p1 not found on target @@//test:dep_target");
     assertThat(baseAspectProvider.getValue("p2_val"))
-        .isEqualTo("In base_aspect, p2 = p2_v1 on target @//test:dep_target");
+        .isEqualTo("In base_aspect, p2 = p2_v1 on target @@//test:dep_target");
   }
 
   @Test
@@ -4484,14 +4679,14 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
             keyForBuild(Label.parseCanonical("//test:defs.bzl")), "RequiredAspectProv");
     StructImpl requiredAspectProvider = (StructImpl) configuredTarget.get(requiredAspectProv);
     assertThat(requiredAspectProvider.getValue("p_val"))
-        .isEqualTo("In required_aspect, p = p_v2 on target @//test:dep_target");
+        .isEqualTo("In required_aspect, p = p_v2 on target @@//test:dep_target");
 
     StarlarkProvider.Key baseAspectProv =
         new StarlarkProvider.Key(
             keyForBuild(Label.parseCanonical("//test:defs.bzl")), "BaseAspectProv");
     StructImpl baseAspectProvider = (StructImpl) configuredTarget.get(baseAspectProv);
     assertThat(baseAspectProvider.getValue("p_val"))
-        .isEqualTo("In base_aspect, p = p_v2 on target @//test:dep_target");
+        .isEqualTo("In base_aspect, p = p_v2 on target @@//test:dep_target");
   }
 
   @Test
@@ -4602,15 +4797,15 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     StructImpl baseAspectProvider = (StructImpl) configuredTarget.get(baseAspectProv);
     assertThat((Sequence<?>) baseAspectProvider.getValue("result"))
         .containsExactly(
-            "second_required_aspect run on target @//test:second_dep_target",
-            "second_required_aspect run on target @//test:dep_target",
-            "second_required_aspect run on target @//test:first_dep_target",
-            "first_required_aspect run on target @//test:first_dep_target",
-            "first_required_aspect run on target @//test:dep_target",
-            "second_required_aspect run on target @//test:base_dep_target",
-            "first_required_aspect run on target @//test:base_dep_target",
-            "base_aspect run on target @//test:base_dep_target",
-            "base_aspect run on target @//test:dep_target");
+            "second_required_aspect run on target @@//test:second_dep_target",
+            "second_required_aspect run on target @@//test:dep_target",
+            "second_required_aspect run on target @@//test:first_dep_target",
+            "first_required_aspect run on target @@//test:first_dep_target",
+            "first_required_aspect run on target @@//test:dep_target",
+            "second_required_aspect run on target @@//test:base_dep_target",
+            "first_required_aspect run on target @@//test:base_dep_target",
+            "base_aspect run on target @@//test:base_dep_target",
+            "base_aspect run on target @@//test:dep_target");
   }
 
   @Test
@@ -4730,9 +4925,9 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     StructImpl collectorProvider = (StructImpl) configuredTarget.get(collectorProv);
     assertThat((Sequence<?>) collectorProvider.getValue("result"))
         .containsExactly(
-            "aspect_c run on target @//test:target_with_prov_c and value of Prov_C = val_c",
-            "aspect_b run on target @//test:target_with_prov_b and value of Prov_B = val_b",
-            "aspect_a run on target @//test:target_with_prov_a and value of Prov_A = val_a")
+            "aspect_c run on target @@//test:target_with_prov_c and value of Prov_C = val_c",
+            "aspect_b run on target @@//test:target_with_prov_b and value of Prov_B = val_b",
+            "aspect_a run on target @@//test:target_with_prov_a and value of Prov_A = val_a")
         .inOrder();
   }
 
@@ -4960,10 +5155,11 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     StarlarkInfo targetInfo = getStarlarkProvider(configuredTarget, "RuleInfo");
     String aspectAResult = targetInfo.getValue("aspect_a_result", String.class);
     assertThat(aspectAResult)
-        .isEqualTo("aspect_a on target @//test:dep_target found prov_a = a1 and found prov_b = b1");
+        .isEqualTo(
+            "aspect_a on target @@//test:dep_target found prov_a = a1 and found prov_b = b1");
 
     String aspectBResult = targetInfo.getValue("aspect_b_result", String.class);
-    assertThat(aspectBResult).isEqualTo("aspect_b on target @//test:dep_target found prov_b = b1");
+    assertThat(aspectBResult).isEqualTo("aspect_b on target @@//test:dep_target found prov_b = b1");
   }
 
   @Test
@@ -5046,10 +5242,11 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
     StarlarkInfo ruleInfo = getStarlarkProvider(configuredTarget, "RuleInfo");
     String aspectAResult = ruleInfo.getValue("aspect_a_result", String.class);
-    assertThat(aspectAResult).isEqualTo("aspect_a on target @//test:dep_target found prov_a = a1");
+    assertThat(aspectAResult).isEqualTo("aspect_a on target @@//test:dep_target found prov_a = a1");
 
     String aspectBResult = ruleInfo.getValue("aspect_b_result", String.class);
-    assertThat(aspectBResult).isEqualTo("aspect_b on target @//test:dep_target cannot find prov_b");
+    assertThat(aspectBResult)
+        .isEqualTo("aspect_b on target @@//test:dep_target cannot find prov_b");
   }
 
   /**
@@ -5170,8 +5367,8 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     StructImpl a3ResultProvider = (StructImpl) a3.get(a3Result);
     assertThat((Sequence<?>) a3ResultProvider.getValue("value"))
         .containsExactly(
-            "aspect a3 on target @//test:dep_target cannot see a1p and cannot see a2p",
-            "aspect a3 on target @//test:main cannot see a1p and cannot see a2p");
+            "aspect a3 on target @@//test:dep_target cannot see a1p and cannot see a2p",
+            "aspect a3 on target @@//test:main cannot see a1p and cannot see a2p");
 
     ConfiguredAspect a2 = getConfiguredAspect(configuredAspects, "a2");
     assertThat(a2).isNotNull();
@@ -5180,8 +5377,8 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     StructImpl a2ResultProvider = (StructImpl) a2.get(a2Result);
     assertThat((Sequence<?>) a2ResultProvider.getValue("value"))
         .containsExactly(
-            "aspect a2 on target @//test:dep_target cannot see a1p and sees a2p = a2p_val",
-            "aspect a2 on target @//test:main cannot see a1p and sees a2p = a2p_val");
+            "aspect a2 on target @@//test:dep_target cannot see a1p and sees a2p = a2p_val",
+            "aspect a2 on target @@//test:main cannot see a1p and sees a2p = a2p_val");
 
     ConfiguredAspect a1 = getConfiguredAspect(configuredAspects, "a1");
     assertThat(a1).isNotNull();
@@ -5190,8 +5387,8 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
         .containsExactly(
-            "aspect a1 on target @//test:dep_target sees a1p = a1p_val and cannot see a2p",
-            "aspect a1 on target @//test:main sees a1p = a1p_val and cannot see a2p");
+            "aspect a1 on target @@//test:dep_target sees a1p = a1p_val and cannot see a2p",
+            "aspect a1 on target @@//test:main sees a1p = a1p_val and cannot see a2p");
   }
 
   /**
@@ -5363,8 +5560,8 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
         .containsExactly(
-            "aspect a1 on target @//test:dep_target sees a1p = a1p_a3_val",
-            "aspect a1 on target @//test:main sees a1p = a1p_a3_val");
+            "aspect a1 on target @@//test:dep_target sees a1p = a1p_a3_val",
+            "aspect a1 on target @@//test:main sees a1p = a1p_a3_val");
   }
 
   @Test
@@ -5435,8 +5632,8 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
         .containsExactly(
-            "aspect a1 on target @//test:dep_target cannot see a1p",
-            "aspect a1 on target @//test:main cannot see a1p");
+            "aspect a1 on target @@//test:dep_target cannot see a1p",
+            "aspect a1 on target @@//test:main cannot see a1p");
   }
 
   /**
@@ -5510,8 +5707,8 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
         .containsExactly(
-            "aspect a1 on target @//test:dep_target cannot see a1p",
-            "aspect a1 on target @//test:main cannot see a1p");
+            "aspect a1 on target @@//test:dep_target cannot see a1p",
+            "aspect a1 on target @@//test:main cannot see a1p");
   }
 
   /**
@@ -5591,9 +5788,9 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
         .containsExactly(
-            "aspect a1 on target @//test:dep_target sees a1p = a1p_val",
-            "aspect a1 on target @//test:extra_dep_target cannot see a1p",
-            "aspect a1 on target @//test:main sees a1p = a1p_val");
+            "aspect a1 on target @@//test:dep_target sees a1p = a1p_val",
+            "aspect a1 on target @@//test:extra_dep_target cannot see a1p",
+            "aspect a1 on target @@//test:main sees a1p = a1p_val");
   }
 
   /**
@@ -5646,6 +5843,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
           attrs = {
             'deps': attr.label_list(),
           },
+          provides = [rule_prov_a, rule_prov_b],
         )
 
         def _rule_with_prov_a_impl(ctx):
@@ -5689,9 +5887,9 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
         .containsExactly(
-            "aspect a1 on target @//test:target_with_prov_a sees a1p = a1p_val",
-            "aspect a1 on target @//test:target_with_prov_b cannot see a1p",
-            "aspect a1 on target @//test:main sees a1p = a1p_val");
+            "aspect a1 on target @@//test:target_with_prov_a sees a1p = a1p_val",
+            "aspect a1 on target @@//test:target_with_prov_b cannot see a1p",
+            "aspect a1 on target @@//test:main sees a1p = a1p_val");
   }
 
   /**
@@ -5786,8 +5984,8 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     StructImpl a2ResultProvider = (StructImpl) a2.get(a2Result);
     assertThat((Sequence<?>) a2ResultProvider.getValue("value"))
         .containsExactly(
-            "aspect a2 on target @//test:dep_target sees a3p = a3p_val",
-            "aspect a2 on target @//test:main sees a3p = a3p_val");
+            "aspect a2 on target @@//test:dep_target sees a3p = a3p_val",
+            "aspect a2 on target @@//test:main sees a3p = a3p_val");
 
     ConfiguredAspect a1 = getConfiguredAspect(configuredAspects, "a1");
     assertThat(a1).isNotNull();
@@ -5796,8 +5994,8 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
         .containsExactly(
-            "aspect a1 on target @//test:dep_target sees a3p = a3p_val",
-            "aspect a1 on target @//test:main sees a3p = a3p_val");
+            "aspect a1 on target @@//test:dep_target sees a3p = a3p_val",
+            "aspect a1 on target @@//test:main sees a3p = a3p_val");
   }
 
   /**
@@ -5921,11 +6119,11 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     StructImpl a3ResultProvider = (StructImpl) a3.get(a3Result);
     assertThat((Sequence<?>) a3ResultProvider.getValue("value"))
         .containsExactly(
-            "aspect a3 on target @//test:t0 sees a1p = a1p_val and cannot see a2p",
-            "aspect a3 on target @//test:t0 cannot see a1p and sees a2p = a2p_val",
-            "aspect a3 on target @//test:t1 sees a1p = a1p_val and cannot see a2p",
-            "aspect a3 on target @//test:t2 cannot see a1p and sees a2p = a2p_val",
-            "aspect a3 on target @//test:main sees a1p = a1p_val and sees a2p = a2p_val");
+            "aspect a3 on target @@//test:t0 sees a1p = a1p_val and cannot see a2p",
+            "aspect a3 on target @@//test:t0 cannot see a1p and sees a2p = a2p_val",
+            "aspect a3 on target @@//test:t1 sees a1p = a1p_val and cannot see a2p",
+            "aspect a3 on target @@//test:t2 cannot see a1p and sees a2p = a2p_val",
+            "aspect a3 on target @@//test:main sees a1p = a1p_val and sees a2p = a2p_val");
   }
 
   @Test
@@ -6076,8 +6274,8 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
         .containsExactly(
-            "aspect a1 on target @//test:dep_target sees a2p = a2p_val",
-            "aspect a1 on target @//test:main cannot see a2p");
+            "aspect a1 on target @@//test:dep_target sees a2p = a2p_val",
+            "aspect a1 on target @@//test:main cannot see a2p");
   }
 
   @Test
@@ -6145,13 +6343,13 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
         new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "a1_result");
     StructImpl a1ResultProvider = (StructImpl) a1Ont1.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
-        .containsExactly("aspect a1 on target @//test:t1 sees a2p = a2p_val");
+        .containsExactly("aspect a1 on target @@//test:t1 sees a2p = a2p_val");
 
     ConfiguredAspect a1Ont2 = getConfiguredAspect(configuredAspects, "a1", "t2");
     assertThat(a1Ont2).isNotNull();
     a1ResultProvider = (StructImpl) a1Ont2.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
-        .containsExactly("aspect a1 on target @//test:t2 sees a2p = a2p_val");
+        .containsExactly("aspect a1 on target @@//test:t2 sees a2p = a2p_val");
   }
 
   @Test
@@ -6236,8 +6434,8 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
         .containsExactly(
-            "aspect a1 on target @//test:dep_target sees a2p = a2p_val and sees a3p = a3p_val",
-            "aspect a1 on target @//test:main sees a2p = a2p_val and sees a3p = a3p_val");
+            "aspect a1 on target @@//test:dep_target sees a2p = a2p_val and sees a3p = a3p_val",
+            "aspect a1 on target @@//test:main sees a2p = a2p_val and sees a3p = a3p_val");
   }
 
   @Test
@@ -6334,8 +6532,8 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
         .containsExactly(
-            "aspect a1 on target @//test:dep_target sees a2p = a2p_val and sees a3p = a3p_val",
-            "aspect a1 on target @//test:main sees a2p = a2p_val and sees a3p = a3p_val");
+            "aspect a1 on target @@//test:dep_target sees a2p = a2p_val and sees a3p = a3p_val",
+            "aspect a1 on target @@//test:main sees a2p = a2p_val and sees a3p = a3p_val");
 
     ConfiguredAspect a2 = getConfiguredAspect(configuredAspects, "a2");
     assertThat(a2).isNotNull();
@@ -6344,8 +6542,8 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     StructImpl a2ResultProvider = (StructImpl) a2.get(a2Result);
     assertThat((Sequence<?>) a2ResultProvider.getValue("value"))
         .containsExactly(
-            "aspect a2 on target @//test:dep_target sees a3p = a3p_val",
-            "aspect a2 on target @//test:main sees a3p = a3p_val");
+            "aspect a2 on target @@//test:dep_target sees a3p = a3p_val",
+            "aspect a2 on target @@//test:main sees a3p = a3p_val");
   }
 
   /**
@@ -6611,7 +6809,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
             keyForBuild(Label.parseCanonical("//test:defs.bzl")), "RequiredAspectProv");
     StructImpl requiredAspectProvider = (StructImpl) requiredAspect.get(requiredAspectProv);
     assertThat((Sequence<?>) requiredAspectProvider.getValue("p_val"))
-        .containsExactly("In required_aspect, p = main_val on target @//test:main_target");
+        .containsExactly("In required_aspect, p = main_val on target @@//test:main_target");
 
     // base_aspect can run on main_target and dep_target and it can also see the providers created
     // by running required_target on them.
@@ -6623,10 +6821,10 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     StructImpl baseAspectProvider = (StructImpl) baseAspect.get(baseAspectProv);
     assertThat((Sequence<?>) baseAspectProvider.getValue("p_val"))
         .containsExactly(
-            "In base_aspect, p = dep_val on target @//test:dep_target",
-            "In base_aspect, p = main_val on target @//test:main_target",
-            "In required_aspect, p = dep_val on target @//test:dep_target",
-            "In required_aspect, p = main_val on target @//test:main_target");
+            "In base_aspect, p = dep_val on target @@//test:dep_target",
+            "In base_aspect, p = main_val on target @@//test:main_target",
+            "In required_aspect, p = dep_val on target @@//test:dep_target",
+            "In required_aspect, p = main_val on target @@//test:main_target");
   }
 
   @Test
@@ -6726,15 +6924,15 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     StructImpl baseAspectProvider = (StructImpl) baseAspect.get(baseAspectProv);
     assertThat((Sequence<?>) baseAspectProvider.getValue("result"))
         .containsExactly(
-            "second_required_aspect run on target @//test:second_dep_target",
-            "second_required_aspect run on target @//test:main_target",
-            "second_required_aspect run on target @//test:first_dep_target",
-            "second_required_aspect run on target @//test:base_dep_target",
-            "first_required_aspect run on target @//test:first_dep_target",
-            "first_required_aspect run on target @//test:main_target",
-            "first_required_aspect run on target @//test:base_dep_target",
-            "base_aspect run on target @//test:base_dep_target",
-            "base_aspect run on target @//test:main_target");
+            "second_required_aspect run on target @@//test:second_dep_target",
+            "second_required_aspect run on target @@//test:main_target",
+            "second_required_aspect run on target @@//test:first_dep_target",
+            "second_required_aspect run on target @@//test:base_dep_target",
+            "first_required_aspect run on target @@//test:first_dep_target",
+            "first_required_aspect run on target @@//test:main_target",
+            "first_required_aspect run on target @@//test:base_dep_target",
+            "base_aspect run on target @@//test:base_dep_target",
+            "base_aspect run on target @@//test:main_target");
   }
 
   @Test
@@ -6859,10 +7057,10 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     StructImpl collectorProvider = (StructImpl) aspectA.get(collectorProv);
     assertThat((Sequence<?>) collectorProvider.getValue("result"))
         .containsExactly(
-            "aspect_c run on target @//test:target_with_prov_c and value of Prov_C = val_c",
-            "aspect_b run on target @//test:target_with_prov_b and value of Prov_B = val_b",
-            "aspect_a run on target @//test:target_with_prov_a and value of Prov_A = val_a",
-            "aspect_a run on target @//test:main_target and value of Prov_A = main_val_a")
+            "aspect_c run on target @@//test:target_with_prov_c and value of Prov_C = val_c",
+            "aspect_b run on target @@//test:target_with_prov_b and value of Prov_B = val_b",
+            "aspect_a run on target @@//test:target_with_prov_a and value of Prov_A = val_a",
+            "aspect_a run on target @@//test:main_target and value of Prov_A = main_val_a")
         .inOrder();
   }
 
@@ -7066,12 +7264,13 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     String aspectAResult = (String) aspectA.get("aspect_a_result");
     assertThat(aspectAResult)
         .isEqualTo(
-            "aspect_a on target @//test:main_target found prov_a = a1 and found prov_b = b1");
+            "aspect_a on target @@//test:main_target found prov_a = a1 and found prov_b = b1");
 
     ConfiguredAspect aspectB = getConfiguredAspect(configuredAspects, "aspect_b");
     assertThat(aspectB).isNotNull();
     String aspectBResult = (String) aspectB.get("aspect_b_result");
-    assertThat(aspectBResult).isEqualTo("aspect_b on target @//test:main_target found prov_b = b1");
+    assertThat(aspectBResult)
+        .isEqualTo("aspect_b on target @@//test:main_target found prov_b = b1");
   }
 
   @Test
@@ -7142,13 +7341,14 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     ConfiguredAspect aspectA = getConfiguredAspect(configuredAspects, "aspect_a");
     assertThat(aspectA).isNotNull();
     String aspectAResult = (String) aspectA.get("aspect_a_result");
-    assertThat(aspectAResult).isEqualTo("aspect_a on target @//test:main_target found prov_a = a1");
+    assertThat(aspectAResult)
+        .isEqualTo("aspect_a on target @@//test:main_target found prov_a = a1");
 
     ConfiguredAspect aspectB = getConfiguredAspect(configuredAspects, "aspect_b");
     assertThat(aspectB).isNotNull();
     String aspectBResult = (String) aspectB.get("aspect_b_result");
     assertThat(aspectBResult)
-        .isEqualTo("aspect_b on target @//test:main_target cannot find prov_b");
+        .isEqualTo("aspect_b on target @@//test:main_target cannot find prov_b");
   }
 
   @Test
@@ -7156,8 +7356,10 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     scratch.file(
         "test/BUILD",
         """
-        sh_binary(name='bin', srcs=['bin.sh'])
-        sh_library(name='lib')
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_binary(name='bin', srcs=['bin.sh'])
+        foo_library(name='lib')
         """);
     scratch.file(
         "test/defs.bzl",
@@ -7204,7 +7406,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
 
     StarlarkProvider.Key provA =
         new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "AInfo");
-    assertThat(((StructImpl) aspectA.get(provA)).getValue("value")).isEqualTo("@//test:lib");
+    assertThat(((StructImpl) aspectA.get(provA)).getValue("value")).isEqualTo("@@//test:lib");
   }
 
   @Test
@@ -7276,18 +7478,18 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     StarlarkList<?> aspectAResult = (StarlarkList) aspectA.get("aspect_a_result");
     assertThat(Starlark.toIterable(aspectAResult))
         .containsExactly(
-            "aspect_a on target @//test:main_target, p1 = p1_v1 and a_p = a_p_v1",
-            "aspect_a on target @//test:dep_target_1, p1 = p1_v1 and a_p = a_p_v1",
-            "aspect_a on target @//test:dep_target_2, p1 = p1_v1 and a_p = a_p_v1");
+            "aspect_a on target @@//test:main_target, p1 = p1_v1 and a_p = a_p_v1",
+            "aspect_a on target @@//test:dep_target_1, p1 = p1_v1 and a_p = a_p_v1",
+            "aspect_a on target @@//test:dep_target_2, p1 = p1_v1 and a_p = a_p_v1");
 
     ConfiguredAspect aspectB = getConfiguredAspect(configuredAspects, "aspect_b");
     assertThat(aspectB).isNotNull();
     StarlarkList<?> aspectBResult = (StarlarkList) aspectB.get("aspect_b_result");
     assertThat(Starlark.toIterable(aspectBResult))
         .containsExactly(
-            "aspect_b on target @//test:main_target, p1 = p1_v1 and b_p = b_p_v1",
-            "aspect_b on target @//test:dep_target_1, p1 = p1_v1 and b_p = b_p_v1",
-            "aspect_b on target @//test:dep_target_2, p1 = p1_v1 and b_p = b_p_v1");
+            "aspect_b on target @@//test:main_target, p1 = p1_v1 and b_p = b_p_v1",
+            "aspect_b on target @@//test:dep_target_1, p1 = p1_v1 and b_p = b_p_v1",
+            "aspect_b on target @@//test:dep_target_2, p1 = p1_v1 and b_p = b_p_v1");
   }
 
   @Test
@@ -7424,9 +7626,9 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     StarlarkList<?> aspectAResult = (StarlarkList) aspectA.get("aspect_a_result");
     assertThat(Starlark.toIterable(aspectAResult))
         .containsExactly(
-            "aspect_a on target @//test:main_target, p1 = p1_v2 and p2 = p2_v1",
-            "aspect_a on target @//test:dep_target_1, p1 = p1_v2 and p2 = p2_v1",
-            "aspect_a on target @//test:dep_target_2, p1 = p1_v2 and p2 = p2_v1");
+            "aspect_a on target @@//test:main_target, p1 = p1_v2 and p2 = p2_v1",
+            "aspect_a on target @@//test:dep_target_1, p1 = p1_v2 and p2 = p2_v1",
+            "aspect_a on target @@//test:dep_target_2, p1 = p1_v2 and p2 = p2_v1");
   }
 
   @Test
@@ -7499,18 +7701,18 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     StarlarkList<?> aspectAResult = (StarlarkList) aspectA.get("aspect_a_result");
     assertThat(Starlark.toIterable(aspectAResult))
         .containsExactly(
-            "aspect_a on target @//test:main_target, p1 = p1_v1 and p2 = p2_v2",
-            "aspect_a on target @//test:dep_target_1, p1 = p1_v1 and p2 = p2_v2",
-            "aspect_a on target @//test:dep_target_2, p1 = p1_v1 and p2 = p2_v2");
+            "aspect_a on target @@//test:main_target, p1 = p1_v1 and p2 = p2_v2",
+            "aspect_a on target @@//test:dep_target_1, p1 = p1_v1 and p2 = p2_v2",
+            "aspect_a on target @@//test:dep_target_2, p1 = p1_v1 and p2 = p2_v2");
 
     ConfiguredAspect aspectB = getConfiguredAspect(configuredAspects, "aspect_b");
     assertThat(aspectB).isNotNull();
     StarlarkList<?> aspectBResult = (StarlarkList) aspectB.get("aspect_b_result");
     assertThat(Starlark.toIterable(aspectBResult))
         .containsExactly(
-            "aspect_b on target @//test:main_target, p1 = p1_v1 and p3 = p3_v3",
-            "aspect_b on target @//test:dep_target_1, p1 = p1_v1 and p3 = p3_v3",
-            "aspect_b on target @//test:dep_target_2, p1 = p1_v1 and p3 = p3_v3");
+            "aspect_b on target @@//test:main_target, p1 = p1_v1 and p3 = p3_v3",
+            "aspect_b on target @@//test:dep_target_1, p1 = p1_v1 and p3 = p3_v3",
+            "aspect_b on target @@//test:dep_target_2, p1 = p1_v1 and p3 = p3_v3");
   }
 
   @Test
@@ -7841,9 +8043,9 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     StarlarkList<?> aspectAResult = (StarlarkList) aspectA.get("aspect_a_result");
     assertThat(Starlark.toIterable(aspectAResult))
         .containsExactly(
-            "aspect_a on target @//test:main_target, p = p_v",
-            "aspect_a on target @//test:dep_target_1, p = p_v",
-            "aspect_a on target @//test:dep_target_2, p = p_v");
+            "aspect_a on target @@//test:main_target, p = p_v",
+            "aspect_a on target @@//test:dep_target_1, p = p_v",
+            "aspect_a on target @@//test:dep_target_2, p = p_v");
   }
 
   /**
@@ -8215,7 +8417,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     StarlarkList<?> ruleResult =
         (StarlarkList) getStarlarkProvider(configuredTarget, "RuleInfo").getValue("my_rule_result");
     assertThat(Starlark.toIterable(ruleResult))
-        .containsExactly("my_aspect on target @//test:dep_target, my_attr = 1");
+        .containsExactly("my_aspect on target @@//test:dep_target, my_attr = 1");
   }
 
   @Test
@@ -8265,7 +8467,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     StarlarkList<?> ruleResult =
         (StarlarkList) getStarlarkProvider(configuredTarget, "RuleInfo").getValue("my_rule_result");
     assertThat(Starlark.toIterable(ruleResult))
-        .containsExactly("my_aspect on target @//test:dep_target, my_attr = 2");
+        .containsExactly("my_aspect on target @@//test:dep_target, my_attr = 2");
   }
 
   @Test
@@ -8316,7 +8518,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     StarlarkList<?> ruleResult =
         (StarlarkList) getStarlarkProvider(configuredTarget, "RuleInfo").getValue("my_rule_result");
     assertThat(Starlark.toIterable(ruleResult))
-        .containsExactly("my_aspect on target @//test:dep_target, my_attr = 3");
+        .containsExactly("my_aspect on target @@//test:dep_target, my_attr = 3");
   }
 
   @Test
@@ -8439,9 +8641,9 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     StarlarkList<?> aspectAResult = (StarlarkList) aspectA.get("aspect_a_result");
     assertThat(Starlark.toIterable(aspectAResult))
         .containsExactly(
-            "aspect_a on target @//test:main_target, p = 2",
-            "aspect_a on target @//test:dep_target_1, p = 2",
-            "aspect_a on target @//test:dep_target_2, p = 2");
+            "aspect_a on target @@//test:main_target, p = 2",
+            "aspect_a on target @@//test:dep_target_1, p = 2",
+            "aspect_a on target @@//test:dep_target_2, p = 2");
   }
 
   @Test
@@ -8495,9 +8697,9 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     StarlarkList<?> aspectAResult = (StarlarkList) aspectA.get("aspect_a_result");
     assertThat(Starlark.toIterable(aspectAResult))
         .containsExactly(
-            "aspect_a on target @//test:main_target, p = 1",
-            "aspect_a on target @//test:dep_target_1, p = 1",
-            "aspect_a on target @//test:dep_target_2, p = 1");
+            "aspect_a on target @@//test:main_target, p = 1",
+            "aspect_a on target @@//test:dep_target_1, p = 1",
+            "aspect_a on target @@//test:dep_target_2, p = 1");
   }
 
   @Test
@@ -8709,7 +8911,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
         getStarlarkProvider(configuredTarget, "RuleInfo")
             .getValue("my_rule_result", StarlarkList.class);
     assertThat(Starlark.toIterable(ruleResult))
-        .containsExactly("my_aspect on target @//test:dep_target, my_attr = True");
+        .containsExactly("my_aspect on target @@//test:dep_target, my_attr = True");
   }
 
   @Test
@@ -8759,7 +8961,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     StarlarkList<?> ruleResult =
         (StarlarkList) getStarlarkProvider(configuredTarget, "RuleInfo").getValue("my_rule_result");
     assertThat(Starlark.toIterable(ruleResult))
-        .containsExactly("my_aspect on target @//test:dep_target, my_attr = False");
+        .containsExactly("my_aspect on target @@//test:dep_target, my_attr = False");
   }
 
   @Test
@@ -8810,7 +9012,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     StarlarkList<?> ruleResult =
         (StarlarkList) getStarlarkProvider(configuredTarget, "RuleInfo").getValue("my_rule_result");
     assertThat(Starlark.toIterable(ruleResult))
-        .containsExactly("my_aspect on target @//test:dep_target, my_attr = False");
+        .containsExactly("my_aspect on target @@//test:dep_target, my_attr = False");
   }
 
   @Test
@@ -8867,9 +9069,9 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     StarlarkList<?> aspectAResult = (StarlarkList) aspectA.get("aspect_a_result");
     assertThat(Starlark.toIterable(aspectAResult))
         .containsExactly(
-            "aspect_a on target @//test:main_target, p = True",
-            "aspect_a on target @//test:dep_target_1, p = True",
-            "aspect_a on target @//test:dep_target_2, p = True");
+            "aspect_a on target @@//test:main_target, p = True",
+            "aspect_a on target @@//test:dep_target_1, p = True",
+            "aspect_a on target @@//test:dep_target_2, p = True");
   }
 
   @Test
@@ -8923,9 +9125,9 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     StarlarkList<?> aspectAResult = (StarlarkList) aspectA.get("aspect_a_result");
     assertThat(Starlark.toIterable(aspectAResult))
         .containsExactly(
-            "aspect_a on target @//test:main_target, p = False",
-            "aspect_a on target @//test:dep_target_1, p = False",
-            "aspect_a on target @//test:dep_target_2, p = False");
+            "aspect_a on target @@//test:main_target, p = False",
+            "aspect_a on target @@//test:dep_target_1, p = False",
+            "aspect_a on target @@//test:dep_target_2, p = False");
   }
 
   @Test
@@ -9155,7 +9357,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
     String aspectAResult =
         getStarlarkProvider(configuredTarget, "RuleInfo").getValue("aspect_a_result", String.class);
-    assertThat(aspectAResult).isEqualTo("aspect_a on target @//test:dep_target, p = p_v2");
+    assertThat(aspectAResult).isEqualTo("aspect_a on target @@//test:dep_target, p = p_v2");
   }
 
   @Test
@@ -9209,12 +9411,12 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
     String aspectAResult =
         (String) getStarlarkProvider(configuredTarget, "RuleInfo").getValue("aspect_a_result");
-    assertThat(aspectAResult).isEqualTo("aspect_a on target @//test:dep_target, p = p_v1");
+    assertThat(aspectAResult).isEqualTo("aspect_a on target @@//test:dep_target, p = p_v1");
   }
 
   @Test
   public void testAspectLabelIsRepoMapped() throws Exception {
-    scratch.appendFile("WORKSPACE", "workspace(name = 'my_repo')");
+    scratch.overwriteFile("MODULE.bazel", "module(name = 'my_repo')");
     scratch.file(
         "test/aspect.bzl",
         """
@@ -9456,8 +9658,8 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
             getStarlarkProvider(configuredTarget, "RuleInfo").getValue("aspect_a_collected_result");
     assertThat(Starlark.toIterable(aspectAResult))
         .containsExactly(
-            "aspect a on @//test:t4 sees b_provider = aspect b can see c_provider",
-            "aspect a on @//test:t4 sees b_provider = aspect b cannot see c_provider");
+            "aspect a on @@//test:t4 sees b_provider = aspect b can see c_provider",
+            "aspect a on @@//test:t4 sees b_provider = aspect b cannot see c_provider");
   }
 
   @Test
@@ -9534,7 +9736,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
         r1(name = 't2', dep = ':t3')
         r1(name = 't3')
         r1(name = 't4')
-        sh_library(name = 'tool')
+        filegroup(name = 'tool')
         """);
 
     AnalysisResult analysisResult = update(ImmutableList.of("//test:defs.bzl%a"), "//test:t1");
@@ -9631,7 +9833,10 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
            return []
         MyAspect = aspect(implementation=_impl)
         """);
-    scratch.file("test/BUILD", "java_library(name = 'xxx',)");
+    scratch.file(
+        "test/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
+        "java_library(name = 'xxx',)");
 
     // Runs a basic analysis to prime test/aspect.bzl in Skyframe.
     AnalysisResult unusedAnalysisResult =

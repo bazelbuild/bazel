@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.rules.python;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
 
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -26,6 +27,7 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.regex.Pattern;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -34,9 +36,6 @@ import org.junit.runners.JUnit4;
 /** Bazel-specific tests for {@code py_binary}. */
 @RunWith(JUnit4.class)
 public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
-
-  private static final String TOOLCHAIN_BZL =
-      TestConstants.TOOLS_REPOSITORY + "//tools/python:toolchain.bzl";
 
   private static final String TOOLCHAIN_TYPE =
       TestConstants.TOOLS_REPOSITORY + "//tools/python:toolchain_type";
@@ -102,6 +101,8 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
   public void runtimeSetByPythonTop() throws Exception {
     scratch.file(
         "pkg/BUILD",
+        getPyLoad("py_runtime"),
+        getPyLoad("py_binary"),
         """
         py_runtime(
             name = "my_py_runtime",
@@ -125,6 +126,7 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
   public void runtimeSetByPythonPath() throws Exception {
     scratch.file(
         "pkg/BUILD",
+        getPyLoad("py_binary"),
         """
         py_binary(
             name = "pybin",
@@ -140,6 +142,7 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
   public void runtimeDefaultsToPythonSystemCommand() throws Exception {
     scratch.file(
         "pkg/BUILD",
+        getPyLoad("py_binary"),
         """
         py_binary(
             name = "pybin",
@@ -155,6 +158,8 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
   public void pythonTopTakesPrecedenceOverPythonPath() throws Exception {
     scratch.file(
         "pkg/BUILD",
+        getPyLoad("py_runtime"),
+        getPyLoad("py_binary"),
         """
         py_runtime(
             name = "my_py_runtime",
@@ -186,7 +191,8 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
   private void defineToolchains() throws Exception {
     scratch.file(
         "toolchains/BUILD",
-        "load('" + TOOLCHAIN_BZL + "', 'py_runtime_pair')",
+        getPyLoad("py_runtime"),
+        getPyLoad("py_runtime_pair"),
         "py_runtime(",
         "    name = 'py3_runtime',",
         "    interpreter_path = '/system/python3',",
@@ -218,6 +224,7 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
     defineToolchains();
     scratch.file(
         "pkg/BUILD",
+        getPyLoad("py_binary"),
         """
         py_binary(
             name = "py3_bin",
@@ -243,6 +250,7 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
     defineToolchains();
     scratch.file(
         "pkg/BUILD",
+        getPyLoad("py_binary"),
         """
         py_binary(
             name = "py3_bin",
@@ -263,6 +271,7 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
     defineToolchains();
     scratch.file(
         "pkg/BUILD",
+        getPyLoad("py_binary"),
         """
         py_binary(
             name = "py3_bin",
@@ -317,6 +326,7 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
   private void analyzePyBinaryTargetUsingCustomToolchain() throws Exception {
     scratch.file(
         "pkg/BUILD",
+        getPyLoad("py_binary"),
         """
         py_binary(
             name = "pybin",
@@ -356,20 +366,21 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
   public void explicitInitPy_CanBeGloballyEnabled() throws Exception {
     scratch.file(
         "pkg/BUILD",
+        getPyLoad("py_binary"),
         join(
             "py_binary(", //
             "    name = 'foo',",
             "    srcs = ['foo.py'],",
             ")"));
     useConfiguration("--incompatible_default_to_explicit_init_py=true");
-    assertThat(getDefaultRunfiles(getConfiguredTarget("//pkg:foo")).getEmptyFilenames().toList())
-        .isEmpty();
+    assertThat(getDefaultRunfiles(getConfiguredTarget("//pkg:foo")).getEmptyFilenames()).isEmpty();
   }
 
   @Test
   public void explicitInitPy_CanBeSelectivelyDisabled() throws Exception {
     scratch.file(
         "pkg/BUILD",
+        getPyLoad("py_binary"),
         join(
             "py_binary(", //
             "    name = 'foo',",
@@ -377,28 +388,30 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
             "    legacy_create_init = True,",
             ")"));
     useConfiguration("--incompatible_default_to_explicit_init_py=true");
-    assertThat(getDefaultRunfiles(getConfiguredTarget("//pkg:foo")).getEmptyFilenames().toList())
-        .containsExactly("pkg/__init__.py");
+    assertThat(getDefaultRunfiles(getConfiguredTarget("//pkg:foo")).getEmptyFilenames())
+        .containsExactly(PathFragment.create("pkg/__init__.py"));
   }
 
   @Test
   public void explicitInitPy_CanBeGloballyDisabled() throws Exception {
     scratch.file(
         "pkg/BUILD",
+        getPyLoad("py_binary"),
         join(
             "py_binary(", //
             "    name = 'foo',",
             "    srcs = ['foo.py'],",
             ")"));
     useConfiguration("--incompatible_default_to_explicit_init_py=false");
-    assertThat(getDefaultRunfiles(getConfiguredTarget("//pkg:foo")).getEmptyFilenames().toList())
-        .containsExactly("pkg/__init__.py");
+    assertThat(getDefaultRunfiles(getConfiguredTarget("//pkg:foo")).getEmptyFilenames())
+        .containsExactly(PathFragment.create("pkg/__init__.py"));
   }
 
   @Test
   public void explicitInitPy_CanBeSelectivelyEnabled() throws Exception {
     scratch.file(
         "pkg/BUILD",
+        getPyLoad("py_binary"),
         join(
             "py_binary(", //
             "    name = 'foo',",
@@ -406,14 +419,14 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
             "    legacy_create_init = False,",
             ")"));
     useConfiguration("--incompatible_default_to_explicit_init_py=false");
-    assertThat(getDefaultRunfiles(getConfiguredTarget("//pkg:foo")).getEmptyFilenames().toList())
-        .isEmpty();
+    assertThat(getDefaultRunfiles(getConfiguredTarget("//pkg:foo")).getEmptyFilenames()).isEmpty();
   }
 
   @Test
   public void packageNameCanHaveHyphen() throws Exception {
     scratch.file(
         "pkg-hyphenated/BUILD",
+        getPyLoad("py_binary"),
         """
         py_binary(
             name = "foo",
@@ -431,6 +444,7 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
         "exports_files(['bar.py'])");
     scratch.file(
         "otherpkg/BUILD",
+        getPyLoad("py_binary"),
         """
         py_binary(
             name = "foo",

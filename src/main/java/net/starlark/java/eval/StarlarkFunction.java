@@ -85,6 +85,11 @@ public final class StarlarkFunction implements StarlarkCallable {
     return rfn.isToplevel();
   }
 
+  /** Whether this function is defined at the top level of a file. */
+  public boolean isGlobal() {
+    return module.getGlobal(getName()) == this;
+  }
+
   // TODO(adonovan): many functions would be simpler if
   // parameterNames excluded the *args and **kwargs parameters,
   // (whose names are immaterial to the callee anyway). Do that.

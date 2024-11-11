@@ -29,10 +29,7 @@ import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
@@ -43,7 +40,6 @@ import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
@@ -188,41 +184,9 @@ public final class JavaToolchainProvider extends StarlarkInfoWrapper {
         .toSet();
   }
 
-  /**
-   * Returns {@code true} if header compilation should be forcibly disabled, overriding
-   * --java_header_compilation.
-   */
-  public boolean getForciblyDisableHeaderCompilation() throws RuleErrorException {
-    return getUnderlyingValue("_forcibly_disable_header_compilation", Boolean.class);
-  }
-
   /** Returns the {@link FilesToRunProvider} of the SingleJar tool. */
   public FilesToRunProvider getSingleJar() throws RuleErrorException {
     return getUnderlyingValue("single_jar", FilesToRunProvider.class);
-  }
-
-  /**
-   * Return the {@link FilesToRunProvider} of the tool that enforces one-version compliance of Java
-   * binaries.
-   */
-  @Nullable
-  public FilesToRunProvider getOneVersionBinary() throws RuleErrorException {
-    return getUnderlyingValue("_one_version_tool", FilesToRunProvider.class);
-  }
-
-  /** Return the {@link Artifact} of the allowlist used by the one-version compliance checker. */
-  @Nullable
-  public Artifact getOneVersionAllowlist() throws RuleErrorException {
-    return getUnderlyingValue("_one_version_allowlist", Artifact.class);
-  }
-
-  /**
-   * Return the {@link Artifact} of the one-version allowlist for tests used by the one-version
-   * compliance checker.
-   */
-  @Nullable
-  public Artifact oneVersionAllowlistForTests() throws RuleErrorException {
-    return getUnderlyingValue("_one_version_allowlist_for_tests", Artifact.class);
   }
 
   /** Returns the {@link Artifact} of the GenClass deploy jar */
@@ -243,44 +207,6 @@ public final class JavaToolchainProvider extends StarlarkInfoWrapper {
   /** Returns the ijar executable */
   public FilesToRunProvider getIjar() throws RuleErrorException {
     return getUnderlyingValue("ijar", FilesToRunProvider.class);
-  }
-
-  /** Returns the map of target environment-specific javacopts. */
-  private NestedSet<String> getCompatibleJavacOptions(String key) throws RuleErrorException {
-    try {
-      return Dict.noneableCast(
-              underlying.getValue("_compatible_javacopts"),
-              String.class,
-              Depset.class,
-              "_compatible_javacopts")
-          .getOrDefault(
-              key, Depset.of(String.class, NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER)))
-          .getSet(String.class);
-    } catch (TypeException | EvalException e) {
-      throw new RuleErrorException(e);
-    }
-  }
-
-  public ImmutableList<String> getCompatibleJavacOptionsAsList(String key)
-      throws RuleErrorException {
-    return JavaHelper.tokenizeJavaOptions(getCompatibleJavacOptions(key));
-  }
-
-  private NestedSet<String> javacOptions() throws RuleErrorException {
-    return getUnderlyingNestedSet("_javacopts", String.class);
-  }
-
-  public ImmutableList<String> getJavacOptionsAsList(RuleContext ruleContext)
-      throws RuleErrorException {
-    ImmutableList.Builder<String> result =
-        ImmutableList.<String>builder().addAll(JavaHelper.tokenizeJavaOptions(javacOptions()));
-    if (ruleContext != null) {
-      // TODO(b/78512644): require ruleContext to be non-null after java_common.default_javac_opts
-      // is turned down
-      result.addAll(
-          ruleContext.getFragment(JavaConfiguration.class).getDefaultJavacFlagsForStarlarkAsList());
-    }
-    return result.build();
   }
 
   /**
@@ -320,10 +246,6 @@ public final class JavaToolchainProvider extends StarlarkInfoWrapper {
 
   public FilesToRunProvider getJacocoRunner() throws RuleErrorException {
     return getUnderlyingValue("jacocorunner", FilesToRunProvider.class);
-  }
-
-  public FilesToRunProvider getProguardAllowlister() throws RuleErrorException {
-    return getUnderlyingValue("proguard_allowlister", FilesToRunProvider.class);
   }
 
   public JavaRuntimeInfo getJavaRuntime() throws RuleErrorException {

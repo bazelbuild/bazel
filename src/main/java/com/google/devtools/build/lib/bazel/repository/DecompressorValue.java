@@ -14,9 +14,6 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
-import static java.nio.charset.StandardCharsets.ISO_8859_1;
-import static java.nio.charset.StandardCharsets.UTF_8;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.vfs.Path;
@@ -66,11 +63,7 @@ public class DecompressorValue implements SkyValue {
         if (!pathFragment.isMultiSegment()) {
           return Optional.empty();
         }
-        String rawFirstSegment = pathFragment.getSegment(0);
-        // Users can only specify prefixes from Starlark, which is planned to use UTF-8 for all
-        // strings, but currently still collects the raw bytes in a latin-1 string. We thus
-        // optimistically decode the raw bytes with UTF-8 here for display purposes.
-        return Optional.of(new String(rawFirstSegment.getBytes(ISO_8859_1), UTF_8));
+        return Optional.of(pathFragment.getSegment(0));
       }
     }
 
@@ -102,7 +95,8 @@ public class DecompressorValue implements SkyValue {
     if (baseName.endsWith(".zip")
         || baseName.endsWith(".jar")
         || baseName.endsWith(".war")
-        || baseName.endsWith(".aar")) {
+        || baseName.endsWith(".aar")
+        || baseName.endsWith(".nupkg")) {
       return ZipDecompressor.INSTANCE;
     } else if (baseName.endsWith(".tar")) {
       return TarFunction.INSTANCE;
@@ -119,8 +113,8 @@ public class DecompressorValue implements SkyValue {
     } else {
       throw new RepositoryFunctionException(
           Starlark.errorf(
-              "Expected a file with a .zip, .jar, .war, .aar, .tar, .tar.gz, .tgz, .tar.xz, .txz,"
-                  + " .tar.zst, .tzst, .tar.bz2, .tbz, .ar or .deb suffix (got %s)",
+              "Expected a file with a .zip, .jar, .war, .aar, .nupkg, .tar, .tar.gz, .tgz, .tar.xz,"
+                  + " , .tar.zst, .tzst, .tar.bz2, .tbz, .ar or .deb suffix (got %s)",
               archivePath),
           Transience.PERSISTENT);
     }

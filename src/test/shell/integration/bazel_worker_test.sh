@@ -322,6 +322,30 @@ EOF
   assert_equals "$worker_uuid_1" "$worker_uuid_2"
 }
 
+function test_worker_extra_flag() {
+  prepare_example_worker
+  cat >>BUILD <<EOF
+work(
+  name = "hello_world",
+  worker = ":worker",
+  worker_args = ["--worker_protocol=${WORKER_PROTOCOL}"],
+  action_mnemonic = "Hello",
+  worker_key_mnemonic = "World",
+)
+EOF
+
+  bazel build :hello_world --worker_extra_flag=World=--ignored_argument \
+      &> "$TEST_log" || fail "build failed"
+
+  local -r worker_log=$(egrep -o -- 'logging to .*/b(azel|laze)-workers/worker-[0-9]+-World.log' "$TEST_log" | sed 's/^logging to //')
+
+  if ! [[ -e "$worker_log" ]]; then
+    fail "Worker log was not found"
+  fi
+
+  assert_contains "Worker args: .* --ignored_argument" "$worker_log"
+}
+
 function test_multiple_flagfiles() {
   prepare_example_worker
   cat >>BUILD <<EOF
@@ -592,10 +616,11 @@ EOF
 
   expect_log "Created new ${WORKER_TYPE} Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
 
-  worker_log=$(egrep -o -- 'logging to .*/b(azel|laze)-workers/worker-[0-9]-Work.log' "$TEST_log" | sed 's/^logging to //')
+  local -r worker_log=$(egrep -o -- 'logging to .*/b(azel|laze)-workers/worker-[0-9]+-Work.log' "$TEST_log" | sed 's/^logging to //')
 
-  [ -e "$worker_log" ] \
-    || fail "Worker log was not found"
+  if ! [[ -e "$worker_log" ]]; then
+    fail "Worker log was not found"
+  fi
 
   # Running a build after a server shutdown should trigger the removal of old worker log files.
   bazel shutdown &> $TEST_log
@@ -814,13 +839,13 @@ EOF
 function do_test_sandbox_cleanup {
   # Skip if worker sandboxing isn't enabled.
   if [[ "${WORKER_TYPE}" != "sandboxed" ]]; then
-    return 0;
+    return 0
   fi
 
   prepare_example_worker
 
   mkdir -p a b c
-  touch a/1.txt b/2.txt b/3.txt c/4.txt
+  touch a/1.txt b/2.txt b/3.txt b/4.txt c/5.txt
 
   cat >>BUILD <<EOF
 work(
@@ -829,7 +854,7 @@ work(
   worker_key_mnemonic = "Worker",
   worker_args = ["--worker_protocol=${WORKER_PROTOCOL}"],
   args = ["--print_dir_listing=${WORKSPACE_SUBDIR}"],
-  srcs = ["a/1.txt", "b/2.txt"],
+  srcs = ["a/1.txt", "b/2.txt", "b/3.txt"],
 )
 work(
   name = "second",
@@ -837,7 +862,7 @@ work(
   worker_key_mnemonic = "Worker",
   worker_args = ["--worker_protocol=${WORKER_PROTOCOL}"],
   args = ["--print_dir_listing=${WORKSPACE_SUBDIR}"],
-  srcs = ["b/3.txt", "c/4.txt", "first.out"],
+  srcs = ["b/3.txt", "b/4.txt", "c/5.txt", "first.out"],
 )
 EOF
 
@@ -846,13 +871,19 @@ EOF
 
   assert_contains "DIRENT a/1.txt" $BINS/first.out
   assert_contains "DIRENT b/2.txt" $BINS/first.out
-  assert_not_contains "DIRENT b/3.txt" $BINS/first.out
+  assert_contains "DIRENT b/3.txt" $BINS/first.out
+  assert_not_contains "DIRENT b/4.txt" $BINS/first.out
   assert_not_contains "DIRENT c" $BINS/first.out
 
   assert_not_contains "DIRENT a" $BINS/second.out
   assert_not_contains "DIRENT b/2.txt" $BINS/second.out
   assert_contains "DIRENT b/3.txt" $BINS/second.out
-  assert_contains "DIRENT c/4.txt" $BINS/second.out
+  assert_contains "DIRENT b/4.txt" $BINS/second.out
+  assert_contains "DIRENT c/5.txt" $BINS/second.out
+
+  assert_equals \
+    "$(grep "DIRENT b/3.txt" $BINS/first.out | cut -d' ' -f3)" \
+    "$(grep "DIRENT b/3.txt" $BINS/second.out | cut -d' ' -f3)"
 }
 
 function test_sandbox_cleanup_without_tracking() {

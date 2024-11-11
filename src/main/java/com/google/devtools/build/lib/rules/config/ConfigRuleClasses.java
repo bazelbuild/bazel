@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.AllowlistChecker;
+import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -424,6 +425,10 @@ public class ConfigRuleClasses {
                   .orderIndependent()
                   .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
           .add(attr("default_value", STRING).nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
+          .add(
+              attr("scope", STRING)
+                  .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON)
+                  .allowedValues(new AllowedValueSet("universal", "project")))
           .add(ConfigFeatureFlag.getAllowlistAttribute(env))
           .addAllowlistChecker(ALWAYS_CHECK_ALLOWLIST)
           .removeAttribute(BaseRuleClasses.TAGGED_TRIMMING_ATTR)

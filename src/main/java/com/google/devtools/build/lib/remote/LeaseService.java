@@ -23,22 +23,23 @@ import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /** A lease service that manages the lease of remote blobs. */
 public class LeaseService {
   private final MemoizingEvaluator memoizingEvaluator;
-  @Nullable private final ActionCache actionCache;
+  private final Supplier<ActionCache> actionCacheSupplier;
   private final AtomicBoolean leaseExtensionStarted = new AtomicBoolean(false);
   @Nullable LeaseExtension leaseExtension;
   private final AtomicBoolean hasMissingActionInputs = new AtomicBoolean(false);
 
   public LeaseService(
       MemoizingEvaluator memoizingEvaluator,
-      @Nullable ActionCache actionCache,
+      Supplier<ActionCache> actionCacheSupplier,
       @Nullable LeaseExtension leaseExtension) {
     this.memoizingEvaluator = memoizingEvaluator;
-    this.actionCache = actionCache;
+    this.actionCacheSupplier = actionCacheSupplier;
     this.leaseExtension = leaseExtension;
   }
 
@@ -97,6 +98,7 @@ public class LeaseService {
           return false;
         });
 
+    var actionCache = actionCacheSupplier.get();
     if (actionCache != null) {
       actionCache.removeIf(
           entry -> !entry.getOutputFiles().isEmpty() || !entry.getOutputTrees().isEmpty());

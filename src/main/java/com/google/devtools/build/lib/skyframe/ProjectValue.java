@@ -49,6 +49,11 @@ public final class ProjectValue implements SkyValue {
     return residualGlobals.get(key);
   }
 
+  @Nullable
+  public Object getResidualGlobals() {
+    return residualGlobals;
+  }
+
   /**
    * Return the default active directory. If there are zero active directories, return the empty
    * set.

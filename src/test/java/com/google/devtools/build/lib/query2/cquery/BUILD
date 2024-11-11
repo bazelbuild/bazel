@@ -1,4 +1,4 @@
-load("@rules_java//java:defs.bzl", "java_library")
+load("@rules_java//java:defs.bzl", "java_library", "java_test")
 
 package(
     default_applicable_licenses = ["//:license"],
@@ -56,6 +56,7 @@ java_test(
 java_test(
     name = "ConfiguredTargetQuerySemanticsTest",
     size = "medium",
+    timeout = "long",
     srcs = ["ConfiguredTargetQuerySemanticsTest.java"],
     shard_count = 2,
     deps = [
@@ -143,8 +144,8 @@ java_test(
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
-        "//third_party/protobuf:protobuf_java",
-        "//third_party/protobuf:protobuf_java_util",
+        "@protobuf//:protobuf_java",
+        "@protobuf//:protobuf_java_util",
     ],
 )
 

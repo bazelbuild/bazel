@@ -82,6 +82,9 @@ public class PlatformInfo extends NativeInfo
 
   private final ImmutableList<ConfigMatchingProvider> requiredSettings;
 
+  private final boolean checkToolchainTypes;
+  private final ImmutableList<Label> allowedToolchainTypes;
+
   private PlatformInfo(
       Label label,
       ConstraintCollection constraints,
@@ -89,6 +92,8 @@ public class PlatformInfo extends NativeInfo
       PlatformProperties execProperties,
       ImmutableList<String> flags,
       ImmutableList<ConfigMatchingProvider> requiredSettings,
+      boolean checkToolchainTypes,
+      ImmutableList<Label> allowedToolchainTypes,
       Location creationLocation) {
     super(creationLocation);
     this.label = label;
@@ -97,6 +102,8 @@ public class PlatformInfo extends NativeInfo
     this.execProperties = execProperties;
     this.flags = flags;
     this.requiredSettings = requiredSettings;
+    this.checkToolchainTypes = checkToolchainTypes;
+    this.allowedToolchainTypes = allowedToolchainTypes;
   }
 
   @Override
@@ -130,6 +137,14 @@ public class PlatformInfo extends NativeInfo
     return requiredSettings;
   }
 
+  public boolean checkToolchainTypes() {
+    return checkToolchainTypes;
+  }
+
+  public ImmutableList<Label> allowedToolchainTypes() {
+    return allowedToolchainTypes;
+  }
+
   @Override
   public void repr(Printer printer) {
     printer.append(String.format("PlatformInfo(%s, constraints=%s)", label, constraints));
@@ -147,6 +162,8 @@ public class PlatformInfo extends NativeInfo
             .map(ConfigMatchingProvider::label)
             .map(Label::toString)
             .collect(toImmutableList()));
+    fp.addStrings(allowedToolchainTypes.stream().map(Label::toString).collect(toImmutableList()));
+    fp.addBoolean(checkToolchainTypes);
   }
 
   @Override
@@ -159,13 +176,22 @@ public class PlatformInfo extends NativeInfo
         && Objects.equals(remoteExecutionProperties, that.remoteExecutionProperties)
         && Objects.equals(execProperties, that.execProperties)
         && Objects.equals(flags, that.flags)
-        && Objects.equals(requiredSettings, that.requiredSettings);
+        && Objects.equals(requiredSettings, that.requiredSettings)
+        && (checkToolchainTypes == that.checkToolchainTypes)
+        && Objects.equals(allowedToolchainTypes, that.allowedToolchainTypes);
   }
 
   @Override
   public int hashCode() {
     return Objects.hash(
-        label, constraints, remoteExecutionProperties, execProperties, flags, requiredSettings);
+        label,
+        constraints,
+        remoteExecutionProperties,
+        execProperties,
+        flags,
+        requiredSettings,
+        checkToolchainTypes,
+        allowedToolchainTypes);
   }
 
   /** Returns a new {@link Builder} for creating a fresh {@link PlatformInfo} instance. */
@@ -183,6 +209,9 @@ public class PlatformInfo extends NativeInfo
     private final PlatformProperties.Builder execPropertiesBuilder = PlatformProperties.builder();
     private final ImmutableList.Builder<String> flags = new ImmutableList.Builder<>();
     private final ImmutableList.Builder<ConfigMatchingProvider> requiredSettings =
+        new ImmutableList.Builder<>();
+    private boolean checkToolchainTypes = false;
+    private final ImmutableList.Builder<Label> allowedToolchainTypes =
         new ImmutableList.Builder<>();
     private Location creationLocation = Location.BUILTIN;
 
@@ -299,6 +328,18 @@ public class PlatformInfo extends NativeInfo
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public Builder checkToolchainTypes(boolean checkToolchainTypes) {
+      this.checkToolchainTypes = checkToolchainTypes;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder addAllowedToolchainTypes(List<Label> allowedToolchainTypes) {
+      this.allowedToolchainTypes.addAll(allowedToolchainTypes);
+      return this;
+    }
+
     private static void checkRemoteExecutionProperties(
         PlatformInfo parent,
         String remoteExecutionProperties,
@@ -360,6 +401,8 @@ public class PlatformInfo extends NativeInfo
           execPropertiesBuilder.build(),
           flagBuilder.build(),
           settings,
+          checkToolchainTypes,
+          allowedToolchainTypes.build(),
           creationLocation);
     }
 

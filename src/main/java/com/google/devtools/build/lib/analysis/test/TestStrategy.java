@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.server.FailureDetails.TestAction;
 import com.google.devtools.build.lib.server.FailureDetails.TestAction.Code;
 import com.google.devtools.build.lib.shell.TerminationStatus;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -211,12 +212,17 @@ public abstract class TestStrategy implements TestActionContext {
   public static ImmutableList<String> expandedArgsFromAction(TestRunnerAction testAction)
       throws CommandLineExpansionException, InterruptedException {
     List<String> args = Lists.newArrayList();
+    OS executionOs = testAction.getExecutionSettings().getExecutionOs();
 
     Artifact testSetup = testAction.getTestSetupScript();
-    args.add(testSetup.getExecPath().getCallablePathString());
+    args.add(testSetup.getExecPath().getCallablePathStringForOs(executionOs));
 
     if (testAction.isCoverageMode()) {
-      args.add(testAction.getCollectCoverageScript().getExecPathString());
+      args.add(
+          testAction
+              .getCollectCoverageScript()
+              .getExecPath()
+              .getCallablePathStringForOs(executionOs));
     }
 
     TestTargetExecutionSettings execSettings = testAction.getExecutionSettings();
@@ -227,6 +233,7 @@ public abstract class TestStrategy implements TestActionContext {
     }
 
     // Execute the test using the alias in the runfiles tree, as mandated by the Test Encyclopedia.
+    // Do not use getCallablePathStringForOs as tw.exe expects a path with forward slashes.
     args.add(execSettings.getExecutable().getRunfilesPath().getCallablePathString());
     Iterables.addAll(args, execSettings.getArgs().arguments());
     return ImmutableList.copyOf(args);
@@ -234,14 +241,20 @@ public abstract class TestStrategy implements TestActionContext {
 
   private static void addRunUnderArgs(TestRunnerAction testAction, List<String> args) {
     TestTargetExecutionSettings execSettings = testAction.getExecutionSettings();
+    OS executionOs = execSettings.getExecutionOs();
     if (execSettings.getRunUnderExecutable() != null) {
-      args.add(execSettings.getRunUnderExecutable().getRunfilesPath().getCallablePathString());
+      args.add(
+          execSettings
+              .getRunUnderExecutable()
+              .getRunfilesPath()
+              .getCallablePathStringForOs(executionOs));
     } else {
-      if (execSettings.needsShell(testAction.isExecutedOnWindows())) {
+      if (execSettings.needsShell()) {
         // TestActionBuilder constructs TestRunnerAction with a 'null' shell only when none is
         // required. Something clearly went wrong.
         Preconditions.checkNotNull(testAction.getShExecutableMaybe(), "%s", testAction);
-        String shellExecutable = testAction.getShExecutableMaybe().getPathString();
+        String shellExecutable =
+            testAction.getShExecutableMaybe().getCallablePathStringForOs(executionOs);
         args.add(shellExecutable);
         args.add("-c");
         args.add("\"$@\"");

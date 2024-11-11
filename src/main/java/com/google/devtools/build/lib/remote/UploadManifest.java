@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.remote.util.RxFutures.toCompletable;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toSingle;
 import static com.google.devtools.build.lib.remote.util.RxUtils.mergeBulkTransfer;
 import static com.google.devtools.build.lib.remote.util.RxUtils.toTransferResult;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 import static java.util.Comparator.comparing;
 import static java.util.Comparator.naturalOrder;
 import static java.util.Comparator.reverseOrder;
@@ -103,8 +104,6 @@ public class UploadManifest {
   private final DigestUtil digestUtil;
   private final RemotePathResolver remotePathResolver;
   private final ActionResult.Builder result;
-  private final boolean followSymlinks;
-  private final boolean allowDanglingSymlinks;
   private final boolean allowAbsoluteSymlinks;
   private final ConcurrentHashMap<Digest, Path> digestToFile = new ConcurrentHashMap<>();
   private final ConcurrentHashMap<Digest, ByteString> digestToBlobs = new ConcurrentHashMap<>();
@@ -134,8 +133,6 @@ public class UploadManifest {
             digestUtil,
             remotePathResolver,
             result,
-            /* followSymlinks= */ !remoteOptions.incompatibleRemoteSymlinks,
-            /* allowDanglingSymlinks= */ remoteOptions.incompatibleRemoteDanglingSymlinks,
             /* allowAbsoluteSymlinks= */ cacheCapabilities
                 .getSymlinkAbsolutePathStrategy()
                 .equals(SymlinkAbsolutePathStrategy.Value.ALLOWED));
@@ -175,25 +172,17 @@ public class UploadManifest {
    * Create an UploadManifest from an ActionResult builder and an exec root. The ActionResult
    * builder is populated through a call to {@link #addFiles(Collection)}.
    *
-   * @param followSymlinks whether a non-dangling relative symlink should be transparently
-   *     dereferenced and uploaded as the file or directory it points to; other forms of symlink are
-   *     always uploaded as such.
-   * @param allowDanglingSymlinks whether an uploaded symlink should be allowed to dangle.
-   * @param allowAbsoluteSymlinks whether an uploaded symlink should be allowed to be absolute.
+   * @param allowAbsoluteSymlinks whether the remote allows uploading absolute symlinks
    */
   @VisibleForTesting
   public UploadManifest(
       DigestUtil digestUtil,
       RemotePathResolver remotePathResolver,
       ActionResult.Builder result,
-      boolean followSymlinks,
-      boolean allowDanglingSymlinks,
       boolean allowAbsoluteSymlinks) {
     this.digestUtil = digestUtil;
     this.remotePathResolver = remotePathResolver;
     this.result = result;
-    this.followSymlinks = followSymlinks;
-    this.allowDanglingSymlinks = allowDanglingSymlinks;
     this.allowAbsoluteSymlinks = allowAbsoluteSymlinks;
   }
 
@@ -222,9 +211,13 @@ public class UploadManifest {
    * <p>Note that the manifest describes the outcome of a spawn, not of an action. In particular,
    * it's possible for an output to be missing or to have been created with an unsuitable file type
    * for the corresponding {@link Artifact} (e.g., a directory where a file was expected, or a
-   * non-symlink where a symlink was expected). Outputs are always uploaded according to the
-   * filesystem state, possibly after applying the transformation implied by {@link followSymlinks}.
-   * A type mismatch may later cause execution to fail, but that's an action-level concern.
+   * non-symlink where a symlink was expected). Except for the oddity noted in the next paragraph,
+   * outputs are always uploaded according to the filesystem state. A type mismatch may later cause
+   * execution to fail, but that's an action-level concern.
+   *
+   * <p>For historical reasons, non-dangling absolute symlinks are uploaded as the file or directory
+   * they point to. This is inconsistent with the treatment of non-dangling relative symlinks, which
+   * are uploaded as such, but fixing it would now require an incompatible change.
    *
    * <p>All files are uploaded with the executable bit set, in accordance with input Merkle trees.
    * This does not affect correctness since we always set the output permissions to 0555 or 0755
@@ -232,9 +225,6 @@ public class UploadManifest {
    */
   @VisibleForTesting
   void addFiles(Collection<Path> files) throws ExecException, IOException, InterruptedException {
-    // TODO(tjgq): Non-dangling absolute symlinks are uploaded as the file or directory they point
-    // to even when followSymlinks is false. This is inconsistent with the treatment of relative
-    // symlinks, but fixing it would require an incompatible change.
     for (Path file : files) {
       // TODO(ulfjack): Maybe pass in a SpawnResult here, add a list of output files to that, and
       // rely on the local spawn runner to stat the files, instead of statting here.
@@ -260,7 +250,6 @@ public class UploadManifest {
         FileStatus statFollow = file.statIfFound(Symlinks.FOLLOW);
         if (statFollow == null) {
           // Symlink uploaded as a symlink. Report it as a file since we don't know any better.
-          checkDanglingSymlinkAllowed(file, target);
           if (target.isAbsolute()) {
             checkAbsoluteSymlinkAllowed(file, target);
           }
@@ -268,7 +257,7 @@ public class UploadManifest {
           continue;
         }
         if (statFollow.isFile() && !statFollow.isSpecialFile()) {
-          if (followSymlinks || target.isAbsolute()) {
+          if (target.isAbsolute()) {
             // Symlink to file uploaded as a file.
             addFile(digestUtil.compute(file, statFollow), file);
           } else {
@@ -281,7 +270,7 @@ public class UploadManifest {
           continue;
         }
         if (statFollow.isDirectory()) {
-          if (followSymlinks || target.isAbsolute()) {
+          if (target.isAbsolute()) {
             // Symlink to directory uploaded as a directory.
             addDirectory(file);
           } else {
@@ -337,8 +326,8 @@ public class UploadManifest {
   private void addFileSymbolicLink(Path file, PathFragment target) {
     OutputSymlink outputSymlink =
         OutputSymlink.newBuilder()
-            .setPath(remotePathResolver.localPathToOutputPath(file))
-            .setTarget(target.toString())
+            .setPath(internalToUnicode(remotePathResolver.localPathToOutputPath(file)))
+            .setTarget(internalToUnicode(target.toString()))
             .build();
     result.addOutputFileSymlinks(outputSymlink);
     result.addOutputSymlinks(outputSymlink);
@@ -347,17 +336,17 @@ public class UploadManifest {
   private void addDirectorySymbolicLink(Path file, PathFragment target) {
     OutputSymlink outputSymlink =
         OutputSymlink.newBuilder()
-            .setPath(remotePathResolver.localPathToOutputPath(file))
-            .setTarget(target.toString())
+            .setPath(internalToUnicode(remotePathResolver.localPathToOutputPath(file)))
+            .setTarget(internalToUnicode(target.toString()))
             .build();
     result.addOutputDirectorySymlinks(outputSymlink);
     result.addOutputSymlinks(outputSymlink);
   }
 
-  private void addFile(Digest digest, Path file) throws IOException {
+  private void addFile(Digest digest, Path file) {
     result
         .addOutputFilesBuilder()
-        .setPath(remotePathResolver.localPathToOutputPath(file))
+        .setPath(internalToUnicode(remotePathResolver.localPathToOutputPath(file)))
         .setDigest(digest)
         .setIsExecutable(true);
 
@@ -494,11 +483,8 @@ public class UploadManifest {
         if (type == Dirent.Type.SYMLINK) {
           PathFragment target = path.readSymbolicLink();
           FileStatus statFollow = path.statIfFound(Symlinks.FOLLOW);
-          if (statFollow == null || (!followSymlinks && !target.isAbsolute())) {
+          if (statFollow == null || !target.isAbsolute()) {
             // Symlink uploaded as a symlink.
-            if (statFollow == null) {
-              checkDanglingSymlinkAllowed(path, target);
-            }
             if (target.isAbsolute()) {
               checkAbsoluteSymlinkAllowed(path, target);
             }
@@ -563,21 +549,11 @@ public class UploadManifest {
 
     result
         .addOutputDirectoriesBuilder()
-        .setPath(remotePathResolver.localPathToOutputPath(dir))
+        .setPath(internalToUnicode(remotePathResolver.localPathToOutputPath(dir)))
         .setTreeDigest(treeDigest)
         .setIsTopologicallySorted(true);
 
     digestToBlobs.put(treeDigest, treeBlob);
-  }
-
-  private void checkDanglingSymlinkAllowed(Path file, PathFragment target) throws IOException {
-    if (!allowDanglingSymlinks) {
-      throw new IOException(
-          String.format(
-              "Spawn output %s is a dangling symbolic link to %s, which is not allowed by"
-                  + " --noincompatible_remote_dangling_symlinks",
-              file, target));
-    }
   }
 
   private void checkAbsoluteSymlinkAllowed(Path file, PathFragment target) throws IOException {
@@ -615,10 +591,12 @@ public class UploadManifest {
 
   /** Uploads outputs and action result (if exit code is 0) to remote cache. */
   public ActionResult upload(
-      RemoteActionExecutionContext context, RemoteCache remoteCache, ExtendedEventHandler reporter)
+      RemoteActionExecutionContext context,
+      CombinedCache combinedCache,
+      ExtendedEventHandler reporter)
       throws IOException, InterruptedException, ExecException {
     try {
-      return uploadAsync(context, remoteCache, reporter).blockingGet();
+      return uploadAsync(context, combinedCache, reporter).blockingGet();
     } catch (RuntimeException e) {
       Throwable cause = e.getCause();
       if (cause != null) {
@@ -631,10 +609,10 @@ public class UploadManifest {
   }
 
   private Completable upload(
-      RemoteActionExecutionContext context, RemoteCache remoteCache, Digest digest) {
+      RemoteActionExecutionContext context, CombinedCache combinedCache, Digest digest) {
     Path file = digestToFile.get(digest);
     if (file != null) {
-      return toCompletable(() -> remoteCache.uploadFile(context, digest, file), directExecutor());
+      return toCompletable(() -> combinedCache.uploadFile(context, digest, file), directExecutor());
     }
 
     ByteString blob = digestToBlobs.get(digest);
@@ -643,7 +621,7 @@ public class UploadManifest {
       return Completable.error(new IOException(message));
     }
 
-    return toCompletable(() -> remoteCache.uploadBlob(context, digest, blob), directExecutor());
+    return toCompletable(() -> combinedCache.uploadBlob(context, digest, blob), directExecutor());
   }
 
   private static void reportUploadStarted(
@@ -676,7 +654,7 @@ public class UploadManifest {
    */
   public Single<ActionResult> uploadAsync(
       RemoteActionExecutionContext context,
-      RemoteCache remoteCache,
+      CombinedCache combinedCache,
       ExtendedEventHandler reporter) {
     Collection<Digest> digests = new ArrayList<>();
     digests.addAll(digestToFile.keySet());
@@ -685,7 +663,7 @@ public class UploadManifest {
     ActionExecutionMetadata action = context.getSpawnOwner();
 
     Flowable<RxUtils.TransferResult> bulkTransfers =
-        toSingle(() -> findMissingDigests(context, remoteCache, digests), directExecutor())
+        toSingle(() -> findMissingDigests(context, combinedCache, digests), directExecutor())
             .doOnSubscribe(d -> reportUploadStarted(reporter, action, Store.CAS, digests))
             .doOnError(error -> reportUploadFinished(reporter, action, Store.CAS, digests))
             .doOnDispose(() -> reportUploadFinished(reporter, action, Store.CAS, digests))
@@ -700,7 +678,7 @@ public class UploadManifest {
             .flatMapPublisher(Flowable::fromIterable)
             .flatMapSingle(
                 digest ->
-                    toTransferResult(upload(context, remoteCache, digest))
+                    toTransferResult(upload(context, combinedCache, digest))
                         .doFinally(
                             () ->
                                 reportUploadFinished(
@@ -712,7 +690,7 @@ public class UploadManifest {
     if (actionResult.getExitCode() == 0 && actionKey != null) {
       uploadActionResult =
           toCompletable(
-                  () -> remoteCache.uploadActionResult(context, actionKey, actionResult),
+                  () -> combinedCache.uploadActionResult(context, actionKey, actionResult),
                   directExecutor())
               .doOnSubscribe(
                   d ->
@@ -728,10 +706,12 @@ public class UploadManifest {
   }
 
   private ListenableFuture<ImmutableSet<Digest>> findMissingDigests(
-      RemoteActionExecutionContext context, RemoteCache remoteCache, Collection<Digest> digests) {
+      RemoteActionExecutionContext context,
+      CombinedCache combinedCache,
+      Collection<Digest> digests) {
     long startTime = Profiler.nanoTimeMaybe();
 
-    var future = remoteCache.findMissingDigests(context, digests);
+    var future = combinedCache.findMissingDigests(context, digests);
 
     if (profiler.isActive()) {
       future.addListener(

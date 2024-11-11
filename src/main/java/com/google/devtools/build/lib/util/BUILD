@@ -43,6 +43,16 @@ java_library(
 )
 
 java_library(
+    name = "file_system_lock",
+    srcs = ["FileSystemLock.java"],
+    deps = [
+        ":string_encoding",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "process",
     srcs = ["ProcessUtils.java"],
     deps = [
@@ -244,14 +254,13 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs:digest_hash_function",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:error_prone_annotations",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/protobuf:protobuf_java",
+        "@protobuf//:protobuf_java",
     ],
 )
 
@@ -306,6 +315,16 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "string_encoding",
+    srcs = ["StringEncoding.java"],
+    deps = [
+        ":os",
+        "//src/main/java/com/google/devtools/build/lib/unsafe:string",
+        "//third_party:guava",
     ],
 )
 
@@ -367,7 +386,7 @@ java_library(
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/protobuf:protobuf_java",
+        "@protobuf//:protobuf_java",
     ],
 )
 
@@ -415,6 +434,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -429,5 +449,14 @@ java_library(
     srcs = ["ValueOrException.java"],
     deps = [
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "temp_path_generator",
+    srcs = ["TempPathGenerator.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:jsr305",
     ],
 )

@@ -470,11 +470,11 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
       assertThat(newEntry).isNotNull();
       if (expectActionIs.actuallyClean()) {
         // Action was dirtied but verified clean.
-        assertThat(newEntry.state.changed()).isFalse();
+        assertThat(newEntry.state.versionChanged()).isFalse();
       } else {
         // Action was dirtied and rebuilt. It was either reexecuted or was an action cache hit,
         // doesn't matter here.
-        assertThat(newEntry.state.changed()).isTrue();
+        assertThat(newEntry.state.versionChanged()).isTrue();
       }
     } else {
       // Action was not dirtied.

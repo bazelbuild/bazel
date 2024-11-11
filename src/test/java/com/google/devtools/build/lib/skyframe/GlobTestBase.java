@@ -125,6 +125,7 @@ public abstract class GlobTestBase {
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
     RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(
         differencer, Optional.empty());
+    RepositoryDelegatorFunction.VENDOR_DIRECTORY.set(differencer, Optional.empty());
 
     createTestFiles();
   }
@@ -144,6 +145,8 @@ public abstract class GlobTestBase {
             ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
             directories);
 
+    AnalysisMock analysisMock = AnalysisMock.get();
+    RuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
     Map<SkyFunctionName, SkyFunction> skyFunctions = new HashMap<>();
     createGlobSkyFunction(skyFunctions);
     skyFunctions.put(
@@ -158,8 +161,10 @@ public abstract class GlobTestBase {
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
             BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
     skyFunctions.put(
-        SkyFunctions.IGNORED_PACKAGE_PREFIXES,
-        BazelSkyframeExecutorConstants.IGNORED_PACKAGE_PREFIXES_FUNCTION);
+        SkyFunctions.REPO_FILE,
+        new RepoFileFunction(
+            ruleClassProvider.getBazelStarlarkEnvironment(), directories.getWorkspace()));
+    skyFunctions.put(SkyFunctions.IGNORED_SUBDIRECTORIES, IgnoredSubdirectoriesFunction.INSTANCE);
     skyFunctions.put(
         FileStateKey.FILE_STATE,
         new FileStateFunction(
@@ -169,11 +174,9 @@ public abstract class GlobTestBase {
     skyFunctions.put(
         FileSymlinkInfiniteExpansionUniquenessFunction.NAME,
         new FileSymlinkCycleUniquenessFunction());
-    skyFunctions.put(FileValue.FILE, new FileFunction(pkgLocator, directories));
+    skyFunctions.put(SkyFunctions.FILE, new FileFunction(pkgLocator, directories));
     skyFunctions.put(
         FileSymlinkCycleUniquenessFunction.NAME, new FileSymlinkCycleUniquenessFunction());
-    AnalysisMock analysisMock = AnalysisMock.get();
-    RuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
     skyFunctions.put(
         WorkspaceFileValue.WORKSPACE_FILE,
         new WorkspaceFileFunction(

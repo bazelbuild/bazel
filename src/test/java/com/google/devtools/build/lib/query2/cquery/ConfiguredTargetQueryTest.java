@@ -60,6 +60,7 @@ public abstract class ConfiguredTargetQueryTest extends PostAnalysisQueryTest<Cq
     writeFile(
         "test/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
             name = "my_java",
             srcs = ["foo.java"],

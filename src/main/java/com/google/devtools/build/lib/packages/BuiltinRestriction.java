@@ -49,6 +49,14 @@ public final class BuiltinRestriction {
               BuiltinRestriction.allowlistEntry("rules_android", ""),
               BuiltinRestriction.allowlistEntry("build_bazel_rules_android", ""),
 
+              // Apple rules
+              BuiltinRestriction.allowlistEntry("", "third_party/bazel_rules/rules_apple"),
+              BuiltinRestriction.allowlistEntry("rules_apple", ""),
+
+              // Cc rules
+              BuiltinRestriction.allowlistEntry("", "third_party/bazel_rules/rules_cc"),
+              BuiltinRestriction.allowlistEntry("rules_cc", ""),
+
               // Java rules
               BuiltinRestriction.allowlistEntry("", "third_party/bazel_rules/rules_java"),
               BuiltinRestriction.allowlistEntry("rules_java", ""),
@@ -66,7 +74,15 @@ public final class BuiltinRestriction {
               BuiltinRestriction.allowlistEntry("", "tools/build_defs/packaging"),
 
               // Go rules
-              BuiltinRestriction.allowlistEntry("", "tools/build_defs/go"));
+              BuiltinRestriction.allowlistEntry("", "tools/build_defs/go"),
+
+              // Proto rules
+              BuiltinRestriction.allowlistEntry("", "third_party/protobuf"),
+              BuiltinRestriction.allowlistEntry("protobuf", ""),
+              BuiltinRestriction.allowlistEntry("com_google_protobuf", ""),
+
+              // Shell rules
+              BuiltinRestriction.allowlistEntry("rules_shell", ""));
 
   private BuiltinRestriction() {}
 

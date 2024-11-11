@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -44,6 +45,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.OptionsParsingException;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import java.util.logging.Level;
@@ -69,7 +71,7 @@ public class BuildFileModificationTest extends FoundationTestCase {
   }
 
   @Before
-  public final void initializeSkyframeExecutor() {
+  public final void initializeSkyframeExecutor() throws OptionsParsingException {
     AnalysisMock analysisMock = AnalysisMock.getAnalysisMockWithoutBuiltinModules();
     ConfiguredRuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
     BlazeDirectories directories =
@@ -97,6 +99,7 @@ public class BuildFileModificationTest extends FoundationTestCase {
         OptionsParser.builder()
             .optionsClasses(PackageOptions.class, BuildLanguageOptions.class)
             .build();
+    parser.parse(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
     setUpSkyframe(
         parser.getOptions(PackageOptions.class), parser.getOptions(BuildLanguageOptions.class));
   }

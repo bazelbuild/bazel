@@ -14,11 +14,16 @@
 
 package com.google.devtools.build.lib.profiler;
 
+import com.google.devtools.build.lib.profiler.Profiler.CounterSeriesCollector;
+
 /** Collector used by the profiler to collect local resources. */
 public interface LocalResourceCollector {
 
   /** Start collecting. */
   void start();
+
+  /** Register a counter series collector. */
+  void registerCounterSeriesCollector(CounterSeriesCollector collector);
 
   /** Stop collecting. */
   void stop();

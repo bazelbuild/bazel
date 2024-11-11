@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.Reporter;
@@ -38,6 +39,7 @@ import com.google.devtools.build.lib.skyframe.packages.PackageFactoryBuilderWith
 import com.google.devtools.build.lib.testing.common.FakeOptions;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestPackageFactoryBuilderFactory;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -57,6 +59,8 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.common.options.Options;
+import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.OptionsParsingException;
 import com.google.errorprone.annotations.ForOverride;
 import java.io.IOException;
 import java.util.List;
@@ -279,7 +283,8 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
     MoreAsserts.assertContainsEvent(eventCollector, "Loading package: a2/b2/c1");
   }
 
-  private void initEvaluator() throws AbruptExitException, InterruptedException, IOException {
+  private void initEvaluator()
+      throws AbruptExitException, InterruptedException, IOException, OptionsParsingException {
     PathPackageLocator pathPackageLocator =
         PathPackageLocator.createWithoutExistenceCheck(
             directories.getOutputBase(), ImmutableList.of(root), getBuildFileNamesByPriority());
@@ -321,6 +326,10 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
                 RepositoryDelegatorFunction.FORCE_FETCH_DISABLED),
             PrecomputedValue.injected(
                 RepositoryDelegatorFunction.VENDOR_DIRECTORY, Optional.empty())));
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(BuildLanguageOptions.class).build();
+    parser.parse(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
+    BuildLanguageOptions options = parser.getOptions(BuildLanguageOptions.class);
     skyframeExecutor.sync(
         reporter,
         pathPackageLocator,
@@ -329,7 +338,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
         /* repoEnvOption= */ ImmutableMap.of(),
         new TimestampGranularityMonitor(BlazeClock.instance()),
         QuiescingExecutorsImpl.forTesting(),
-        FakeOptions.builder().put(packageOptions).putDefaults(BuildLanguageOptions.class).build(),
+        FakeOptions.builder().put(packageOptions).put(options).build(),
         /* commandName= */ "build");
     evaluator = skyframeExecutor.getEvaluator();
   }
@@ -343,7 +352,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
       String directory, ImmutableSet<PathFragment> excludedPaths) throws InterruptedException {
     SkyKey key =
         CollectPackagesUnderDirectoryValue.key(
-            RepositoryName.MAIN, rootedPath(directory), excludedPaths);
+            RepositoryName.MAIN, rootedPath(directory), IgnoredSubdirectories.of(excludedPaths));
     return evaluate(key).get(key);
   }
 

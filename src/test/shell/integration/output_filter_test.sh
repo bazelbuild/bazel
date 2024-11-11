@@ -52,11 +52,6 @@ msys*|mingw*|cygwin*)
   ;;
 esac
 
-if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 function test_output_filter_cc() {
   # "test warning filter for C compilation"
   local -r pkg=$FUNCNAME

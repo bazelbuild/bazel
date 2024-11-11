@@ -50,11 +50,6 @@ msys*|mingw*|cygwin*)
   ;;
 esac
 
-if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 #### SETUP #############################################################
 
 test_custom_message() {
@@ -62,7 +57,7 @@ test_custom_message() {
   mkdir custommessage
   cd custommessage
 
-  create_workspace_with_default_repos WORKSPACE
+  setup_module_dot_bazel "MODULE.bazel"
   cat > rule.bzl <<'EOF'
 def _rule_impl(ctx):
   out = ctx.actions.declare_file(ctx.label.name + ".txt")

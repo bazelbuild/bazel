@@ -34,7 +34,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
         "//third_party:guava",
-        "//third_party/protobuf:protobuf_java",
+        "@protobuf//:protobuf_java",
     ],
 )
 
@@ -91,13 +91,13 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/exec:spawn_log_context",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_strategy_resolver",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages:exec_group",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/rules:alias",
-        "//src/main/java/com/google/devtools/build/lib/rules/apple",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_execution_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
@@ -132,7 +132,7 @@ java_library(
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/protobuf:protobuf_java",
+        "@protobuf//:protobuf_java",
     ],
 )
 

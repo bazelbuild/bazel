@@ -8,9 +8,10 @@ keywords: bzlmod
 
 Due to the [shortcomings of
 WORKSPACE](/external/overview#workspace-shortcomings), Bzlmod is going to
-replace the legacy WORKSPACE system in future Bazel releases. This guide helps
-you migrate your project to Bzlmod and drop WORKSPACE for fetching external
-dependencies.
+replace the legacy WORKSPACE system. The WORKSPACE file will be disabled by
+default in Bazel 8 (late 2024) and will be removed in Bazel 9 (late 2025).
+This guide helps you migrate your project to Bzlmod and drop WORKSPACE for
+fetching external dependencies.
 
 ## WORKSPACE vs Bzlmod {:#workspace-vs-bzlmod}
 
@@ -120,7 +121,7 @@ Bazel module when it also adopts Bzlmod.
 
 *   **Bzlmod**
 
-    With Bzlmod, as long as the your dependency is available in [Bazel Central
+    With Bzlmod, as long as your dependency is available in [Bazel Central
     Registry](https://registry.bazel.build) or your custom [Bazel
     registry](/external/registry), you can simply depend on it with a
     [`bazel_dep`](/rules/lib/globals/module#bazel_dep) directive.
@@ -834,7 +835,7 @@ managing your external dependencies.
 
 Check [#12835](https://github.com/bazelbuild/bazel/issues/12835), where dev
 dependencies for tests are forced to be fetched unnecessarily for building
-targets that don't need them. This is not actually not Bzlmod specific, but
+targets that don't need them. This is actually not Bzlmod specific, but
 following this practices makes it easier to specify dev dependencies correctly.
 
 #### Specify dev dependencies
@@ -844,7 +845,7 @@ You can set the `dev_dependency` attribute to true for
 [`use_extension`](/rules/lib/globals/module#use_extension) directives so that
 they don't propagate to dependent projects. As the root module, you can use the
 [`--ignore_dev_dependency`][ignore_dev_dep_flag] flag to verify if your targets
-still build without dev dependencies.
+still build without dev dependencies and overrides.
 
 [ignore_dev_dep_flag]: /reference/command-line-reference#flag--ignore_dev_dependency
 

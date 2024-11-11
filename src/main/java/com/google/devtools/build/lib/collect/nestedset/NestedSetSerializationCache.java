@@ -20,15 +20,14 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import com.google.auto.value.AutoValue;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.bugreport.BugReporter;
+import com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint;
 import com.google.devtools.build.lib.skyframe.serialization.PutOperation;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationConstants;
-import com.google.protobuf.ByteString;
 import javax.annotation.Nullable;
 
 /**
@@ -93,10 +92,10 @@ class NestedSetSerializationCache {
    */
   @Nullable
   Object putFutureIfAbsent(
-      ByteString fingerprint, SettableFuture<Object[]> future, Object context) {
+      PackedFingerprint fingerprint, SettableFuture<Object[]> future, Object context) {
     checkArgument(!future.isDone(), "Must pass a fresh future: %s", future);
     Object existing =
-        fingerprintToContents.asMap().putIfAbsent(FingerprintKey.of(fingerprint, context), future);
+        fingerprintToContents.asMap().putIfAbsent(new FingerprintKey(fingerprint, context), future);
     if (existing != null) {
       return existing;
     }
@@ -110,7 +109,7 @@ class NestedSetSerializationCache {
    * the future, when it completes.
    */
   private void unwrapWhenDone(
-      ByteString fingerprint, ListenableFuture<Object[]> futureContents, Object context) {
+      PackedFingerprint fingerprint, ListenableFuture<Object[]> futureContents, Object context) {
     Futures.addCallback(
         futureContents,
         new FutureCallback<Object[]>() {
@@ -126,7 +125,7 @@ class NestedSetSerializationCache {
             // has no effect).
             var unused =
                 putIfAbsent(
-                    contents, PutOperation.create(fingerprint, immediateVoidFuture()), context);
+                    contents, new PutOperation(fingerprint, immediateVoidFuture()), context);
           }
 
           @Override
@@ -165,18 +164,9 @@ class NestedSetSerializationCache {
     if (existingResult != null) {
       return existingResult;
     }
-    fingerprintToContents.put(FingerprintKey.of(result.fingerprint(), context), contents);
+    fingerprintToContents.put(new FingerprintKey(result.fingerprint(), context), contents);
     return null;
   }
 
-  @AutoValue
-  abstract static class FingerprintKey {
-    abstract ByteString fingerprint();
-
-    abstract Object context();
-
-    static FingerprintKey of(ByteString fingerprint, Object context) {
-      return new AutoValue_NestedSetSerializationCache_FingerprintKey(fingerprint, context);
-    }
-  }
+  record FingerprintKey(PackedFingerprint fingerprint, Object context) {}
 }

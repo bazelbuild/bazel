@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.ENABLE_WORKSPACE;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 
 import com.google.common.base.Suppliers;
@@ -23,7 +24,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.actions.FileStateValue;
-import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
@@ -86,7 +86,6 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
   private MemoizingEvaluator evaluator;
   private RecordingDifferencer differencer;
   private Path emptyPackagePath;
-  private static final String IGNORED_PACKAGE_PREFIXES_FILE_PATH_STRING = "config/ignored.txt";
 
   protected abstract CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy();
 
@@ -112,6 +111,7 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
     ExternalFilesHelper externalFilesHelper = ExternalFilesHelper.createForTesting(
         pkgLocator, ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS, directories);
 
+    RuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
     Map<SkyFunctionName, SkyFunction> skyFunctions = new HashMap<>();
     skyFunctions.put(
         SkyFunctions.PACKAGE_LOOKUP,
@@ -127,16 +127,16 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
             Suppliers.ofInstance(new TimestampGranularityMonitor(BlazeClock.instance())),
             SyscallCache.NO_CACHE,
             externalFilesHelper));
-    skyFunctions.put(FileValue.FILE, new FileFunction(pkgLocator, directories));
+    skyFunctions.put(SkyFunctions.FILE, new FileFunction(pkgLocator, directories));
     skyFunctions.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
     skyFunctions.put(
         SkyFunctions.DIRECTORY_LISTING_STATE,
         new DirectoryListingStateFunction(externalFilesHelper, SyscallCache.NO_CACHE));
     skyFunctions.put(
-        SkyFunctions.IGNORED_PACKAGE_PREFIXES,
-        new IgnoredPackagePrefixesFunction(
-            PathFragment.create(IGNORED_PACKAGE_PREFIXES_FILE_PATH_STRING)));
-    RuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
+        SkyFunctions.REPO_FILE,
+        new RepoFileFunction(
+            ruleClassProvider.getBazelStarlarkEnvironment(), directories.getWorkspace()));
+    skyFunctions.put(SkyFunctions.IGNORED_SUBDIRECTORIES, IgnoredSubdirectoriesFunction.INSTANCE);
     skyFunctions.put(
         WorkspaceFileValue.WORKSPACE_FILE,
         new WorkspaceFileFunction(
@@ -187,7 +187,10 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
     evaluator = new InMemoryMemoizingEvaluator(skyFunctions, differencer);
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
-    PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
+    // TODO: keep using WORKSPACE until we figure out
+    // https://github.com/bazelbuild/bazel/issues/22208
+    PrecomputedValue.STARLARK_SEMANTICS.set(
+        differencer, StarlarkSemantics.DEFAULT.toBuilder().setBool(ENABLE_WORKSPACE, true).build());
     RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
     RepositoryDelegatorFunction.FORCE_FETCH.set(
         differencer, RepositoryDelegatorFunction.FORCE_FETCH_DISABLED);
@@ -252,7 +255,10 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
   public void testIgnoredPackage() throws Exception {
     scratch.file("ignored/subdir/BUILD");
     scratch.file("ignored/BUILD");
-    Path ignored = scratch.overwriteFile(IGNORED_PACKAGE_PREFIXES_FILE_PATH_STRING, "ignored");
+    Path ignored =
+        scratch.overwriteFile(
+            IgnoredSubdirectoriesFunction.BAZELIGNORE_REPOSITORY_RELATIVE_PATH.getPathString(),
+            "ignored");
 
     ImmutableSet<String> pkgs = ImmutableSet.of("ignored/subdir", "ignored");
     for (String pkg : pkgs) {
@@ -262,11 +268,12 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
       assertThat(packageLookupValue.getErrorMsg()).isNotNull();
     }
 
-    scratch.overwriteFile(IGNORED_PACKAGE_PREFIXES_FILE_PATH_STRING, "not_ignored");
+    scratch.overwriteFile(
+        IgnoredSubdirectoriesFunction.BAZELIGNORE_REPOSITORY_RELATIVE_PATH.getPathString(),
+        "not_ignored");
     RootedPath rootedIgnoreFile =
         RootedPath.toRootedPath(
-            Root.fromPath(ignored.getParentDirectory().getParentDirectory()),
-            PathFragment.create("config/ignored.txt"));
+            root, IgnoredSubdirectoriesFunction.BAZELIGNORE_REPOSITORY_RELATIVE_PATH);
     differencer.invalidate(ImmutableSet.of(FileStateValue.key(rootedIgnoreFile)));
     for (String pkg : pkgs) {
       PackageLookupValue packageLookupValue = lookupPackage(pkg);

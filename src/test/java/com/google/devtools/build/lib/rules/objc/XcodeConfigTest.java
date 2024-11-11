@@ -1628,6 +1628,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
     scratch.file(
         "x/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         load("//x:provider_grabber.bzl", "provider_grabber")
 
         xcode_config(

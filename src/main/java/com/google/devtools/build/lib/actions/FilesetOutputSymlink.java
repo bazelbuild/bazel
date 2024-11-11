@@ -152,6 +152,7 @@ public abstract class FilesetOutputSymlink {
       HasDigest metadata,
       boolean isRelativeToExecRoot,
       @Nullable PathFragment enclosingTreeArtifactExecPath) {
+    checkArgument(!target.isEmpty(), "Empty symlink target for %s", name);
     return new AutoValue_FilesetOutputSymlink(
         name, target, metadata, isRelativeToExecRoot, enclosingTreeArtifactExecPath);
   }

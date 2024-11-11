@@ -84,12 +84,16 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.Phaser;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -114,9 +118,10 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
    *
    * <p>The main property of such tasks is that they should under no circumstances keep running
    * after fetching the repository is finished, whether successfully or not. To this end, the {@link
-   * #cancel()} method must stop all such work.
+   * #cancel()} method may be called to interrupt the work and {@link #close()} must be called to
+   * wait for all such work to finish.
    */
-  private interface AsyncTask {
+  private interface AsyncTask extends SilentCloseable {
     /** Returns a user-friendly description of the task. */
     String getDescription();
 
@@ -126,11 +131,21 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     /**
      * Cancels the task, if not done yet. Returns false if the task was still in progress.
      *
+     * <p>Note that the task may still be running after this method returns, the task has just got a
+     * signal to interrupt. Call {@link #close()} to wait for the task to finish.
+     *
      * <p>No means of error reporting is provided. Any errors should be reported by other means. The
      * only possible error reported as a consequence of calling this method is one that tells the
      * user that they didn't wait for an async task they should have waited for.
      */
     boolean cancel();
+
+    /**
+     * Waits uninterruptibly until the task is no longer running, even in case it was cancelled but
+     * its underlying thread is still running.
+     */
+    @Override
+    void close();
   }
 
   /** Max. length of command line args added as a profiler description. */
@@ -203,7 +218,12 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     // Wait for all (cancelled) async tasks to complete before cleaning up the working directory.
     // This is necessary because downloads may still be in progress and could end up writing to the
     // working directory during deletion, which would cause an error.
+    // Note that just calling executorService.close() doesn't suffice as it considers tasks to be
+    // completed immediately after they are cancelled, without waiting for their underlying thread
+    // to complete.
     executorService.close();
+    asyncTasks.forEach(AsyncTask::close);
+
     if (shouldDeleteWorkingDirectoryOnClose(wasSuccessful)) {
       workingDirectory.deleteTree();
     }
@@ -519,6 +539,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     private final Optional<Checksum> checksum;
     private final RepositoryFunctionException checksumValidation;
     private final Future<Path> future;
+    private final Phaser downloadPhaser;
     private final Location location;
 
     private PendingDownload(
@@ -528,6 +549,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
         Optional<Checksum> checksum,
         RepositoryFunctionException checksumValidation,
         Future<Path> future,
+        Phaser downloadPhaser,
         Location location) {
       this.executable = executable;
       this.allowFail = allowFail;
@@ -535,6 +557,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
       this.checksum = checksum;
       this.checksumValidation = checksumValidation;
       this.future = future;
+      this.downloadPhaser = downloadPhaser;
       this.location = location;
     }
 
@@ -551,6 +574,18 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     @Override
     public boolean cancel() {
       return !future.cancel(true);
+    }
+
+    @Override
+    public void close() {
+      if (downloadPhaser.register() != 0) {
+        // Not in the download phase, either the download completed normally or
+        // it has completed after a cancellation.
+        return;
+      }
+      try (SilentCloseable c = Profiler.instance().profile("Cancelling download " + outputPath)) {
+        downloadPhaser.arriveAndAwaitAdvance();
+      }
     }
 
     @StarlarkMethod(
@@ -590,6 +625,8 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
           Starlark.errorf(
               "Could not create output path %s: %s", pendingDownload.outputPath, e.getMessage()),
           Transience.PERSISTENT);
+    } finally {
+      pendingDownload.close();
     }
     if (pendingDownload.checksumValidation != null) {
       throw pendingDownload.checksumValidation;
@@ -602,11 +639,14 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
       name = "download",
       doc =
           """
-          Downloads a file to the output path for the provided url and returns a struct \
-          containing <code>success</code>, a flag which is <code>true</code> if the \
-          download completed successfully, and if successful, a hash of the file \
-          with the fields <code>sha256</code> and <code>integrity</code>.
-          """,
+Downloads a file to the output path for the provided url and returns a struct \
+containing <code>success</code>, a flag which is <code>true</code> if the \
+download completed successfully, and if successful, a hash of the file \
+with the fields <code>sha256</code> and <code>integrity</code>. \
+When <code>sha256</code> or <code>integrity</code> is user specified, setting an explicit \
+<code>canonical_id</code> is highly recommended. e.g. \
+<a href='/rules/lib/repo/cache#get_default_canonical_id'><code>get_default_canonical_id</code></a>
+""",
       useStarlarkThread = true,
       parameters = {
         @Param(
@@ -739,7 +779,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
       checksumValidation = e;
     }
 
-    StarlarkPath outputPath = getPath("download()", output);
+    StarlarkPath outputPath = getPath(output);
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newDownloadEvent(
             urls,
@@ -755,6 +795,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
       checkInOutputDirectory("write", outputPath);
       makeDirectories(outputPath.getPath());
     } catch (IOException e) {
+      Phaser downloadPhaser = new Phaser();
       download =
           new PendingDownload(
               executable,
@@ -763,9 +804,11 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
               checksum,
               checksumValidation,
               Futures.immediateFailedFuture(e),
+              downloadPhaser,
               thread.getCallerLocation());
     }
     if (download == null) {
+      Phaser downloadPhaser = new Phaser();
       Future<Path> downloadFuture =
           downloadManager.startDownload(
               executorService,
@@ -778,7 +821,8 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
               outputPath.getPath(),
               env.getListener(),
               envVariables,
-              identifyingStringForLogging);
+              identifyingStringForLogging,
+              downloadPhaser);
       download =
           new PendingDownload(
               executable,
@@ -787,6 +831,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
               checksum,
               checksumValidation,
               downloadFuture,
+              downloadPhaser,
               thread.getCallerLocation());
       registerAsyncTask(download);
     }
@@ -801,11 +846,14 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
       name = "download_and_extract",
       doc =
           """
-          Downloads a file to the output path for the provided url, extracts it, and returns a \
-          struct containing <code>success</code>, a flag which is <code>true</code> if the \
-          download completed successfully, and if successful, a hash of the file with the \
-          fields <code>sha256</code> and <code>integrity</code>.
-          """,
+Downloads a file to the output path for the provided url, extracts it, and returns a \
+struct containing <code>success</code>, a flag which is <code>true</code> if the \
+download completed successfully, and if successful, a hash of the file with the \
+fields <code>sha256</code> and <code>integrity</code>. \
+When <code>sha256</code> or <code>integrity</code> is user specified, setting an explicit \
+<code>canonical_id</code> is highly recommended. e.g. \
+<a href='/rules/lib/repo/cache#get_default_canonical_id'><code>get_default_canonical_id</code></a>
+""",
       useStarlarkThread = true,
       parameters = {
         @Param(
@@ -855,20 +903,22 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
                 The archive type of the downloaded file. By default, the archive type is \
                 determined from the file extension of the URL. If the file has no \
                 extension, you can explicitly specify either "zip", "jar", "war", \
-                "aar", "tar", "tar.gz", "tgz", "tar.xz", "txz", ".tar.zst", \
+                "aar", "nupkg", "tar", "tar.gz", "tgz", "tar.xz", "txz", ".tar.zst", \
                 ".tzst", "tar.bz2", ".tbz", ".ar", or ".deb" here.
                 """),
         @Param(
-            name = "stripPrefix",
+            name = "strip_prefix",
             defaultValue = "''",
             named = true,
             doc =
                 """
-                A directory prefix to strip from the extracted files.
-                Many archives contain a top-level directory that contains all files in the \
-                archive. Instead of needing to specify this prefix over and over in the \
-                <code>build_file</code>, this field can be used to strip it from extracted \
-                files.
+                A directory prefix to strip from the extracted files. Many archives contain a
+                top-level directory that contains all files in the archive. Instead of needing to
+                specify this prefix over and over in the <code>build_file</code>, this field can
+                be used to strip it from extracted files.
+
+                <p>For compatibility, this parameter may also be used under the deprecated name
+                <code>stripPrefix</code>.
                 """),
         @Param(
             name = "allow_fail",
@@ -928,6 +978,12 @@ any directory prefix adjustment. This can be used to extract archives that \
 contain non-Unicode filenames, or which have files that would extract to \
 the same path on case-insensitive filesystems.
 """),
+        @Param(
+            name = "stripPrefix",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "''"),
       })
   public StructImpl downloadAndExtract(
       Object url,
@@ -941,8 +997,10 @@ the same path on case-insensitive filesystems.
       Dict<?, ?> headersUnchecked, // <String, List<String> | String> expected
       String integrity,
       Dict<?, ?> renameFiles, // <String, String> expected
+      String oldStripPrefix,
       StarlarkThread thread)
       throws RepositoryFunctionException, InterruptedException, EvalException {
+    stripPrefix = renamedStripPrefix("download_and_extract", stripPrefix, oldStripPrefix);
     ImmutableMap<URI, Map<String, List<String>>> authHeaders =
         getAuthHeaders(getAuthContents(authUnchecked, "auth"));
 
@@ -951,8 +1009,9 @@ the same path on case-insensitive filesystems.
     ImmutableList<URL> urls =
         getUrls(
             url,
-            /*ensureNonEmpty=*/ !allowFail,
-            /*checksumGiven=*/ !Strings.isNullOrEmpty(sha256) || !Strings.isNullOrEmpty(integrity));
+            /* ensureNonEmpty= */ !allowFail,
+            /* checksumGiven= */ !Strings.isNullOrEmpty(sha256)
+                || !Strings.isNullOrEmpty(integrity));
     Optional<Checksum> checksum;
     RepositoryFunctionException checksumValidation = null;
     try {
@@ -977,7 +1036,7 @@ the same path on case-insensitive filesystems.
             identifyingStringForLogging,
             thread.getCallerLocation());
 
-    StarlarkPath outputPath = getPath("download_and_extract()", output);
+    StarlarkPath outputPath = getPath(output);
     checkInOutputDirectory("write", outputPath);
     createDirectory(outputPath.getPath());
 
@@ -990,6 +1049,7 @@ the same path on case-insensitive filesystems.
       downloadDirectory =
           workingDirectory.getFileSystem().getPath(tempDirectory.toFile().getAbsolutePath());
 
+      Phaser downloadPhaser = new Phaser();
       Future<Path> pendingDownload =
           downloadManager.startDownload(
               executorService,
@@ -1002,7 +1062,8 @@ the same path on case-insensitive filesystems.
               downloadDirectory,
               env.getListener(),
               envVariables,
-              identifyingStringForLogging);
+              identifyingStringForLogging,
+              downloadPhaser);
       // Ensure that the download is cancelled if the repo rule is restarted as it runs in its own
       // executor.
       PendingDownload pendingTask =
@@ -1013,6 +1074,7 @@ the same path on case-insensitive filesystems.
               checksum,
               checksumValidation,
               pendingDownload,
+              downloadPhaser,
               thread.getCallerLocation());
       registerAsyncTask(pendingTask);
       downloadedPath = downloadManager.finalizeDownload(pendingDownload);
@@ -1093,15 +1155,19 @@ the same path on case-insensitive filesystems.
                 "path to the directory where the archive will be unpacked,"
                     + " relative to the repository directory."),
         @Param(
-            name = "stripPrefix",
+            name = "strip_prefix",
             defaultValue = "''",
             named = true,
             doc =
-                "a directory prefix to strip from the extracted files."
-                    + "\nMany archives contain a top-level directory that contains all files in the"
-                    + " archive. Instead of needing to specify this prefix over and over in the"
-                    + " <code>build_file</code>, this field can be used to strip it from extracted"
-                    + " files."),
+                """
+                a directory prefix to strip from the extracted files. Many archives contain a
+                top-level directory that contains all files in the archive. Instead of needing to
+                specify this prefix over and over in the <code>build_file</code>, this field can be
+                used to strip it from extracted files.
+
+                <p>For compatibility, this parameter may also be used under the deprecated name
+                <code>stripPrefix</code>.
+                """),
         @Param(
             name = "rename_files",
             defaultValue = "{}",
@@ -1125,6 +1191,12 @@ the same path on case-insensitive filesystems.
                     + "not attempt to watch the file; passing 'auto' will only attempt to watch "
                     + "the file when it is legal to do so (see <code>watch()</code> docs for more "
                     + "information."),
+        @Param(
+            name = "stripPrefix",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "''"),
       })
   public void extract(
       Object archive,
@@ -1132,9 +1204,11 @@ the same path on case-insensitive filesystems.
       String stripPrefix,
       Dict<?, ?> renameFiles, // <String, String> expected
       String watchArchive,
+      String oldStripPrefix,
       StarlarkThread thread)
       throws RepositoryFunctionException, InterruptedException, EvalException {
-    StarlarkPath archivePath = getPath("extract()", archive);
+    stripPrefix = renamedStripPrefix("extract", stripPrefix, oldStripPrefix);
+    StarlarkPath archivePath = getPath(archive);
 
     if (!archivePath.exists()) {
       throw new RepositoryFunctionException(
@@ -1145,7 +1219,7 @@ the same path on case-insensitive filesystems.
     }
     maybeWatch(archivePath, ShouldWatch.fromString(watchArchive));
 
-    StarlarkPath outputPath = getPath("extract()", output);
+    StarlarkPath outputPath = getPath(output);
     checkInOutputDirectory("write", outputPath);
 
     Map<String, String> renameFilesMap =
@@ -1210,6 +1284,20 @@ the same path on case-insensitive filesystems.
     }
   }
 
+  private static String renamedStripPrefix(String method, String stripPrefix, String oldStripPrefix)
+      throws EvalException {
+    if (oldStripPrefix.isEmpty()) {
+      return stripPrefix;
+    }
+    if (stripPrefix.isEmpty()) {
+      return oldStripPrefix;
+    }
+    throw Starlark.errorf(
+        "%s() got multiple values for parameter 'strip_prefix' (via compatibility alias"
+            + " 'stripPrefix')",
+        method);
+  }
+
   @StarlarkMethod(
       name = "file",
       doc = "Generates a file in the repository directory with the provided content.",
@@ -1246,7 +1334,7 @@ the same path on case-insensitive filesystems.
   public void createFile(
       Object path, String content, Boolean executable, Boolean legacyUtf8, StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
-    StarlarkPath p = getPath("file()", path);
+    StarlarkPath p = getPath(path);
     byte[] contentBytes;
     if (legacyUtf8) {
       contentBytes = content.getBytes(UTF_8);
@@ -1345,22 +1433,14 @@ the same path on case-insensitive filesystems.
                 "<code>string</code>, <code>Label</code> or <code>path</code> from which to create"
                     + " a path from.")
       })
-  public StarlarkPath path(Object path) throws EvalException, InterruptedException {
-    return getPath("path()", path);
-  }
-
-  protected StarlarkPath getPath(String method, Object path)
-      throws EvalException, InterruptedException {
-    if (path instanceof String) {
-      return new StarlarkPath(this, workingDirectory.getRelative(path.toString()));
-    } else if (path instanceof Label label) {
-      return getPathFromLabel(label);
-    } else if (path instanceof StarlarkPath starlarkPath) {
-      return starlarkPath;
-    } else {
+  public StarlarkPath getPath(Object path) throws EvalException, InterruptedException {
+    return switch (path) {
+      case String s -> new StarlarkPath(this, workingDirectory.getRelative(s));
+      case Label label -> getPathFromLabel(label);
+      case StarlarkPath starlarkPath -> starlarkPath;
       // This can never happen because we check it in the Starlark interpreter.
-      throw new IllegalArgumentException("expected string or label for path");
-    }
+      default -> throw new IllegalArgumentException("expected string or label for path");
+    };
   }
 
   @StarlarkMethod(
@@ -1393,7 +1473,7 @@ the same path on case-insensitive filesystems.
       })
   public String readFile(Object path, String watch, StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
-    StarlarkPath p = getPath("read()", path);
+    StarlarkPath p = getPath(path);
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newReadEvent(
             p.toString(), identifyingStringForLogging, thread.getCallerLocation());
@@ -1465,17 +1545,14 @@ the same path on case-insensitive filesystems.
     AUTO;
 
     static ShouldWatch fromString(String s) throws EvalException {
-      switch (s) {
-        case "yes":
-          return YES;
-        case "no":
-          return NO;
-        case "auto":
-          return AUTO;
-        default:
-          throw Starlark.errorf(
-              "bad value for 'watch' parameter; want 'yes', 'no', or 'auto', got %s", s);
-      }
+      return switch (s) {
+        case "yes" -> YES;
+        case "no" -> NO;
+        case "auto" -> AUTO;
+        default ->
+            throw Starlark.errorf(
+                "bad value for 'watch' parameter; want 'yes', 'no', or 'auto', got %s", s);
+      };
     }
   }
 
@@ -1549,7 +1626,7 @@ the same path on case-insensitive filesystems.
       })
   public void watchForStarlark(Object path)
       throws RepositoryFunctionException, EvalException, InterruptedException {
-    maybeWatch(getPath("watch()", path), ShouldWatch.YES);
+    maybeWatch(getPath(path), ShouldWatch.YES);
   }
 
   // Create parent directories for the given path
@@ -1761,7 +1838,11 @@ the same path on case-insensitive filesystems.
             name = "environment",
             defaultValue = "{}",
             named = true,
-            doc = "Force some environment variables to be set to be passed to the process."),
+            doc =
+                """
+                Force some environment variables to be set to be passed to the process. The value \
+                can be <code>None</code> to remove the environment variable.
+                """),
         @Param(
             name = "quiet",
             defaultValue = "True",
@@ -1781,7 +1862,7 @@ the same path on case-insensitive filesystems.
   public StarlarkExecutionResult execute(
       Sequence<?> arguments, // <String> or <StarlarkPath> or <Label> expected
       StarlarkInt timeoutI,
-      Dict<?, ?> uncheckedEnvironment, // <String, String> expected
+      Dict<?, ?> uncheckedEnvironment, // <String, Object> expected
       boolean quiet,
       String overrideWorkingDirectory,
       StarlarkThread thread)
@@ -1789,10 +1870,25 @@ the same path on case-insensitive filesystems.
     validateExecuteArguments(arguments);
     int timeout = Starlark.toInt(timeoutI, "timeout");
 
-    Map<String, String> forceEnvVariables =
-        Dict.cast(uncheckedEnvironment, String.class, String.class, "environment");
+    Map<String, Object> forceEnvVariablesRaw =
+        Dict.cast(uncheckedEnvironment, String.class, Object.class, "environment");
+    Map<String, String> forceEnvVariables = new LinkedHashMap<>();
+    Set<String> removeEnvVariables = new LinkedHashSet<>();
+    for (Map.Entry<String, Object> entry : forceEnvVariablesRaw.entrySet()) {
+      String key = entry.getKey();
+      Object value = entry.getValue();
+      if (value == Starlark.NONE) {
+        removeEnvVariables.add(key);
+      } else if (value instanceof String s) {
+        forceEnvVariables.put(key, s);
+      } else {
+        throw Starlark.errorf("environment values must be strings or None, got %s", value);
+      }
+    }
 
     if (canExecuteRemote()) {
+      // Remote execution only sees the explicitly set environment variables, so removing env vars
+      // isn't necessary.
       return executeRemote(arguments, timeout, forceEnvVariables, quiet, overrideWorkingDirectory);
     }
 
@@ -1812,7 +1908,7 @@ the same path on case-insensitive filesystems.
         WorkspaceRuleEvent.newExecuteEvent(
             args,
             timeout,
-            envVariables,
+            Maps.filterKeys(envVariables, k -> !removeEnvVariables.contains(k)),
             forceEnvVariables,
             workingDirectory.getPathString(),
             quiet,
@@ -1832,7 +1928,7 @@ the same path on case-insensitive filesystems.
 
     Path workingDirectoryPath;
     if (overrideWorkingDirectory != null && !overrideWorkingDirectory.isEmpty()) {
-      workingDirectoryPath = getPath("execute()", overrideWorkingDirectory).getPath();
+      workingDirectoryPath = getPath(overrideWorkingDirectory).getPath();
     } else {
       workingDirectoryPath = workingDirectory;
     }
@@ -1846,6 +1942,7 @@ the same path on case-insensitive filesystems.
           .addArguments(args)
           .setDirectory(workingDirectoryPath.getPathFile())
           .addEnvironmentVariables(forceEnvVariables)
+          .removeEnvironmentVariables(removeEnvVariables)
           .setTimeout(timeoutMillis)
           .setQuiet(quiet)
           .execute();
@@ -1919,7 +2016,11 @@ the same path on case-insensitive filesystems.
     RootedPath rootedPath = RepositoryFunction.getRootedPathFromLabel(label, env);
     StarlarkPath starlarkPath = new StarlarkPath(this, rootedPath.asPath());
     try {
-      maybeWatch(starlarkPath, ShouldWatch.AUTO);
+      maybeWatch(
+          starlarkPath,
+          starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_WATCH_LABEL)
+              ? ShouldWatch.NO
+              : ShouldWatch.AUTO);
     } catch (RepositoryFunctionException e) {
       throw Starlark.errorf("%s", e.getCause().getMessage());
     }

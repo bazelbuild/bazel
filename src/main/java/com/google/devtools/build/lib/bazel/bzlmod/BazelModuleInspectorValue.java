@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableBiMap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
@@ -44,9 +45,10 @@ public abstract class BazelModuleInspectorValue implements SkyValue {
       ImmutableMap<ModuleKey, AugmentedModule> depGraph,
       ImmutableMap<String, ImmutableSet<ModuleKey>> modulesIndex,
       ImmutableSetMultimap<ModuleExtensionId, String> extensionToRepoInternalNames,
-      ImmutableMap<ModuleKey, RepositoryName> moduleKeyToCanonicalNames) {
+      ImmutableMap<ModuleKey, RepositoryName> moduleKeyToCanonicalNames,
+      ImmutableList<ExternalDepsException> errors) {
     return new AutoValue_BazelModuleInspectorValue(
-        depGraph, modulesIndex, extensionToRepoInternalNames, moduleKeyToCanonicalNames);
+        depGraph, modulesIndex, extensionToRepoInternalNames, moduleKeyToCanonicalNames, errors);
   }
 
   /**
@@ -74,6 +76,9 @@ public abstract class BazelModuleInspectorValue implements SkyValue {
   /** A mapping from a module key to the canonical repository name of the module repository. */
   public abstract ImmutableMap<ModuleKey, RepositoryName> getModuleKeyToCanonicalNames();
 
+  /** A list of exceptions that occurred during module graph inspection. */
+  public abstract ImmutableList<ExternalDepsException> getErrors();
+
   /**
    * A wrapper for {@link Module}, augmented with references to dependants (and also those who are
    * not used in the final dep graph).
@@ -88,6 +93,9 @@ public abstract class BazelModuleInspectorValue implements SkyValue {
 
     /** {@link ModuleKey} of this module. Same as in {@link Module} */
     public abstract ModuleKey getKey();
+
+    /** The apparent name used by the module to refer to its own repository. */
+    public abstract String getRepoName();
 
     /**
      * The set of modules in the resolved dep graph that depend on this module
@@ -152,8 +160,9 @@ public abstract class BazelModuleInspectorValue implements SkyValue {
     /** Returns a new {@link AugmentedModule.Builder} with {@code key} set. */
     public static AugmentedModule.Builder builder(ModuleKey key) {
       return new AutoValue_BazelModuleInspectorValue_AugmentedModule.Builder()
-          .setName(key.getName())
-          .setVersion(key.getVersion())
+          .setName(key.name())
+          .setVersion(key.version())
+          .setRepoName(key.name())
           .setKey(key)
           .setLoaded(false);
     }
@@ -166,6 +175,8 @@ public abstract class BazelModuleInspectorValue implements SkyValue {
       public abstract AugmentedModule.Builder setVersion(Version value);
 
       public abstract AugmentedModule.Builder setKey(ModuleKey value);
+
+      public abstract AugmentedModule.Builder setRepoName(String value);
 
       public abstract AugmentedModule.Builder setLoaded(boolean value);
 

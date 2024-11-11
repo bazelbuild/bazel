@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.mock;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
@@ -30,6 +29,7 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -262,7 +262,7 @@ public final class ActionExecutionValueTransformSharedTreeArtifactsTest {
     return ActionExecutionValue.createFromOutputMetadataStore(
         fileArtifacts,
         treeArtifacts,
-        /* outputSymlinks= */ ImmutableList.of(),
+        FilesetOutputTree.EMPTY,
         /* discoveredModules= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
 

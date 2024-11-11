@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -323,7 +324,10 @@ public final class LoadingPhaseRunnerTest {
 
   @Test
   public void testNegativeTestDoesNotShowUpAtAll() throws Exception {
-    tester.addFile("my_test/BUILD", "sh_test(name = 'my_test', srcs = ['test.cc'])");
+    tester.addFile(
+        "my_test/BUILD",
+        "load('//test_defs:foo_test.bzl', 'foo_test')",
+        "foo_test(name = 'my_test', srcs = ['test.cc'])");
     assertNoErrors(tester.loadTests("-//my_test"));
     assertThat(tester.getFilteredTargets()).isEmpty();
     assertThat(tester.getTestFilteredTargets()).isEmpty();
@@ -398,20 +402,21 @@ public final class LoadingPhaseRunnerTest {
     tester.addFile(
         "tests/BUILD",
         """
-        sh_test(
+        load("//test_defs:foo_test.bzl", "foo_test")
+        foo_test(
             name = "t1",
             size = "small",
             srcs = ["pass.sh"],
             local = 1,
         )
 
-        sh_test(
+        foo_test(
             name = "t2",
             size = "medium",
             srcs = ["pass.sh"],
         )
 
-        sh_test(
+        foo_test(
             name = "t3",
             srcs = ["pass.sh"],
             tags = [
@@ -614,19 +619,20 @@ public final class LoadingPhaseRunnerTest {
     tester.addFile(
         "foo/BUILD",
         """
-        sh_test(
+        load("//test_defs:foo_test.bzl", "foo_test")
+        foo_test(
             name = "foo",
             srcs = ["foo.sh"],
             tags = ["manual"],
         )
 
-        sh_test(
+        foo_test(
             name = "bar",
             srcs = ["bar.sh"],
             tags = ["manual"],
         )
 
-        sh_test(
+        foo_test(
             name = "baz",
             srcs = ["baz.sh"],
         )
@@ -832,17 +838,19 @@ public final class LoadingPhaseRunnerTest {
     tester.addFile(
         "foo/BUILD",
         """
-        sh_test(
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
             name = "foo",
             srcs = ["foo.sh"],
         )
 
-        sh_library(
+        foo_library(
             name = "lib",
             srcs = ["lib.sh"],
         )
 
-        sh_library(
+        foo_library(
             name = "nofoo",
             srcs = ["nofoo.sh"],
             tags = ["nofoo"],
@@ -966,6 +974,7 @@ public final class LoadingPhaseRunnerTest {
     tester.addFile(
         "suite/BUILD",
         """
+        load("//test_defs:foo_test.bzl", "foo_test")
         test_suite(
             name = "a",
             tests = [":b"],
@@ -976,7 +985,7 @@ public final class LoadingPhaseRunnerTest {
             tests = [":c"],
         )
 
-        sh_test(
+        foo_test(
             name = "c",
             srcs = ["test.cc"],
         )
@@ -990,7 +999,8 @@ public final class LoadingPhaseRunnerTest {
     tester.addFile(
         "bad/BUILD",
         """
-        sh_binary(
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(
             name = "bad",
             srcs = ["bad.sh"],
         )
@@ -1008,7 +1018,8 @@ public final class LoadingPhaseRunnerTest {
     tester.addFile(
         "bad/BUILD",
         """
-        sh_binary(
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(
             name = "bad",
             srcs = ["bad.sh"],
         )
@@ -1139,12 +1150,13 @@ public final class LoadingPhaseRunnerTest {
     tester.addFile(
         "foo/BUILD",
         """
+        load("//test_defs:foo_test.bzl", "foo_test")
         test_suite(
             name = "s",
             tests = ["a"],
         )
 
-        sh_test(
+        foo_test(
             name = "t",
             srcs = [],
         )
@@ -1170,6 +1182,7 @@ public final class LoadingPhaseRunnerTest {
     tester.addFile(
         "foo/BUILD",
         """
+        load("//test_defs:foo_test.bzl", "foo_test")
         test_suite(
             name = "s",
             tests = [
@@ -1178,12 +1191,12 @@ public final class LoadingPhaseRunnerTest {
             ],
         )
 
-        sh_test(
+        foo_test(
             name = "t1",
             srcs = [],
         )
 
-        sh_test(
+        foo_test(
             name = "t2",
             srcs = [],
         )
@@ -1206,6 +1219,7 @@ public final class LoadingPhaseRunnerTest {
     tester.addFile(
         "foo/BUILD",
         """
+        load("//test_defs:foo_test.bzl", "foo_test")
         test_suite(
             name = "s1",
             tests = [
@@ -1219,17 +1233,17 @@ public final class LoadingPhaseRunnerTest {
             tests = ["t3"],
         )
 
-        sh_test(
+        foo_test(
             name = "t1",
             srcs = [],
         )
 
-        sh_test(
+        foo_test(
             name = "t2",
             srcs = [],
         )
 
-        sh_test(
+        foo_test(
             name = "t3",
             srcs = [],
         )
@@ -1256,6 +1270,7 @@ public final class LoadingPhaseRunnerTest {
     tester.addFile(
         "foo/BUILD",
         """
+        load("//test_defs:foo_test.bzl", "foo_test")
         test_suite(
             name = "s1",
             tests = [
@@ -1272,17 +1287,17 @@ public final class LoadingPhaseRunnerTest {
             ],
         )
 
-        sh_test(
+        foo_test(
             name = "t1",
             srcs = [],
         )
 
-        sh_test(
+        foo_test(
             name = "t2",
             srcs = [],
         )
 
-        sh_test(
+        foo_test(
             name = "t3",
             srcs = [],
         )
@@ -1310,6 +1325,7 @@ public final class LoadingPhaseRunnerTest {
     tester.addFile(
         "foo/BUILD",
         """
+        load("//test_defs:foo_test.bzl", "foo_test")
         test_suite(
             name = "s1",
             tests = [
@@ -1326,17 +1342,17 @@ public final class LoadingPhaseRunnerTest {
             ],
         )
 
-        sh_test(
+        foo_test(
             name = "t1",
             srcs = [],
         )
 
-        sh_test(
+        foo_test(
             name = "t2",
             srcs = [],
         )
 
-        sh_test(
+        foo_test(
             name = "t3",
             srcs = [],
         )
@@ -1360,12 +1376,13 @@ public final class LoadingPhaseRunnerTest {
     tester.addFile(
         "foo/BUILD",
         """
+        load("//test_defs:foo_test.bzl", "foo_test")
         test_suite(
             name = "s",
             tests = ["t"],
         )
 
-        sh_test(
+        foo_test(
             name = "t",
             srcs = [],
         )
@@ -1386,17 +1403,18 @@ public final class LoadingPhaseRunnerTest {
     tester.addFile(
         "foo/BUILD",
         """
+        load("//test_defs:foo_test.bzl", "foo_test")
         test_suite(
             name = "s",
             tests = ["t1"],
         )
 
-        sh_test(
+        foo_test(
             name = "t1",
             srcs = [],
         )
 
-        sh_test(
+        foo_test(
             name = "t2",
             srcs = [],
         )
@@ -1417,17 +1435,18 @@ public final class LoadingPhaseRunnerTest {
     tester.addFile(
         "foo/BUILD",
         """
+        load("//test_defs:foo_test.bzl", "foo_test")
         test_suite(
             name = "s",
             tests = ["t1"],
         )
 
-        sh_test(
+        foo_test(
             name = "t1",
             srcs = [],
         )
 
-        sh_test(
+        foo_test(
             name = "t2",
             srcs = [],
         )
@@ -1440,7 +1459,10 @@ public final class LoadingPhaseRunnerTest {
 
   @Test
   public void testWildcard() throws Exception {
-    tester.addFile("foo/lib/BUILD", "sh_library(name = 'lib2', srcs = ['foo.cc'])");
+    tester.addFile(
+        "foo/lib/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'lib2', srcs = ['foo.cc'])");
     TargetPatternPhaseValue value = assertNoErrors(tester.load("//foo/lib:all-targets"));
     assertThat(value.getTargetLabels())
         .containsExactlyElementsIn(
@@ -1597,20 +1619,29 @@ public final class LoadingPhaseRunnerTest {
 
   @Test
   public void testPackageLoadingError_keepGoing_someGoodTargetsBeneathDirectory() throws Exception {
-    tester.addFile("good/BUILD", "sh_library(name = 't')\n");
-    runTestPackageLoadingError(/*keepGoing=*/ true, "//...");
+    tester.addFile(
+        "good/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 't')\n");
+    runTestPackageLoadingError(/* keepGoing= */ true, "//...");
   }
 
   @Test
   public void testPackageLoadingError_noKeepGoing_someGoodTargetsBeneathDirectory()
       throws Exception {
-    tester.addFile("good/BUILD", "sh_library(name = 't')\n");
-    runTestPackageLoadingError(/*keepGoing=*/ false, "//...");
+    tester.addFile(
+        "good/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 't')\n");
+    runTestPackageLoadingError(/* keepGoing= */ false, "//...");
   }
 
   private void runTestPackageFileInconsistencyError(boolean keepGoing, String... patterns)
       throws Exception {
-    tester.addFile("bad/BUILD", "sh_library(name = 't')\n");
+    tester.addFile(
+        "bad/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 't')\n");
     IOException ioExn = new IOException("nope");
     tester.throwExceptionOnGetInputStream(tester.getWorkspace().getRelative("bad/BUILD"), ioExn);
     if (keepGoing) {
@@ -1661,14 +1692,20 @@ public final class LoadingPhaseRunnerTest {
   @Test
   public void testPackageFileInconsistencyError_keepGoing_someGoodTargetsBeneathDirectory()
       throws Exception {
-    tester.addFile("good/BUILD", "sh_library(name = 't')\n");
+    tester.addFile(
+        "good/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 't')\n");
     runTestPackageFileInconsistencyError(true, "//...");
   }
 
   @Test
   public void testPackageFileInconsistencyError_noKeepGoing_someGoodTargetsBeneathDirectory()
       throws Exception {
-    tester.addFile("good/BUILD", "sh_library(name = 't')\n");
+    tester.addFile(
+        "good/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 't')\n");
     runTestPackageFileInconsistencyError(false, "//...");
   }
 
@@ -1717,7 +1754,7 @@ public final class LoadingPhaseRunnerTest {
 
     private final MockToolsConfig mockToolsConfig;
 
-    LoadingPhaseTester() throws IOException {
+    LoadingPhaseTester() throws IOException, OptionsParsingException {
       this.workspace = fs.getPath("/workspace");
       workspace.createDirectory();
       mockToolsConfig = new MockToolsConfig(workspace);
@@ -1763,13 +1800,21 @@ public final class LoadingPhaseRunnerTest {
       skyframeExecutor.preparePackageLoading(
           pkgLocator,
           packageOptions,
-          Options.getDefaults(BuildLanguageOptions.class),
+          defaultBuildLanguageOptions(),
           UUID.randomUUID(),
           ImmutableMap.of(),
           QuiescingExecutorsImpl.forTesting(),
           new TimestampGranularityMonitor(clock));
       skyframeExecutor.setActionEnv(ImmutableMap.of());
       this.options = Options.getDefaults(LoadingOptions.class);
+    }
+
+    private static BuildLanguageOptions defaultBuildLanguageOptions()
+        throws OptionsParsingException {
+      OptionsParser parser =
+          OptionsParser.builder().optionsClasses(BuildLanguageOptions.class).build();
+      parser.parse(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
+      return parser.getOptions(BuildLanguageOptions.class);
     }
 
     void useLoadingOptions(String... options) throws OptionsParsingException {

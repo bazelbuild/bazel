@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.devtools.build.lib.packages.BuildType.DISTRIBUTIONS;
+import static com.google.devtools.build.lib.packages.BuildType.DORMANT_LABEL;
+import static com.google.devtools.build.lib.packages.BuildType.DORMANT_LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.GENQUERY_SCOPE_TYPE;
 import static com.google.devtools.build.lib.packages.BuildType.GENQUERY_SCOPE_TYPE_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
@@ -213,7 +215,8 @@ public class AttributeFormatter {
     } else if (type == LABEL
         || type == NODEP_LABEL
         || type == OUTPUT
-        || type == GENQUERY_SCOPE_TYPE) {
+        || type == GENQUERY_SCOPE_TYPE
+        || type == DORMANT_LABEL) {
       builder.setStringValue(labelPrinter.toString((Label) value));
     } else if (type == STRING_LIST || type == DISTRIBUTIONS) {
       for (Object entry : (Collection<?>) value) {
@@ -222,7 +225,8 @@ public class AttributeFormatter {
     } else if (type == LABEL_LIST
         || type == NODEP_LABEL_LIST
         || type == OUTPUT_LIST
-        || type == GENQUERY_SCOPE_TYPE_LIST) {
+        || type == GENQUERY_SCOPE_TYPE_LIST
+        || type == DORMANT_LABEL_LIST) {
       for (Label entry : (Collection<Label>) value) {
         builder.addStringListValue(labelPrinter.toString(entry));
       }
@@ -287,16 +291,11 @@ public class AttributeFormatter {
   }
 
   private static Tristate triStateToProto(TriState value) {
-    switch (value) {
-      case AUTO:
-        return Tristate.AUTO;
-      case NO:
-        return Tristate.NO;
-      case YES:
-        return Tristate.YES;
-      default:
-        throw new AssertionError("Expected AUTO/NO/YES to cover all possible cases");
-    }
+    return switch (value) {
+      case AUTO -> Tristate.AUTO;
+      case NO -> Tristate.NO;
+      case YES -> Tristate.YES;
+    };
   }
 
   /**
@@ -411,29 +410,27 @@ public class AttributeFormatter {
     @Override
     public void setTristateValue(Tristate tristate) {
       switch (tristate) {
-        case AUTO:
+        case AUTO -> {
           attributeBuilder.setTristateValue(Tristate.AUTO);
           if (encodeBooleanAndTriStateAsIntegerAndString) {
             attributeBuilder.setIntValue(-1);
             attributeBuilder.setStringValue("auto");
           }
-          break;
-        case NO:
+        }
+        case NO -> {
           attributeBuilder.setTristateValue(Tristate.NO);
           if (encodeBooleanAndTriStateAsIntegerAndString) {
             attributeBuilder.setIntValue(0);
             attributeBuilder.setStringValue("no");
           }
-          break;
-        case YES:
+        }
+        case YES -> {
           attributeBuilder.setTristateValue(Tristate.YES);
           if (encodeBooleanAndTriStateAsIntegerAndString) {
             attributeBuilder.setIntValue(1);
             attributeBuilder.setStringValue("yes");
           }
-          break;
-        default:
-          throw new AssertionError("Expected AUTO/NO/YES to cover all possible cases");
+        }
       }
     }
   }

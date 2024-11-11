@@ -56,6 +56,7 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /**
@@ -115,11 +116,11 @@ abstract class AbstractParallelEvaluator {
       EmittedEventState emittedEventState,
       EventFilter storedEventFilter,
       ErrorInfoManager errorInfoManager,
-      boolean keepGoing,
       InflightTrackingProgressReceiver progressReceiver,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       QuiescingExecutor executor,
-      CycleDetector cycleDetector) {
+      CycleDetector cycleDetector,
+      Predicate<SkyKey> keepGoing) {
     this.graph = graph;
     this.cycleDetector = cycleDetector;
     this.evaluatorContext =
@@ -130,14 +131,14 @@ abstract class AbstractParallelEvaluator {
             skyFunctions,
             reporter,
             emittedEventState,
-            keepGoing,
             progressReceiver,
             storedEventFilter,
             errorInfoManager,
             graphInconsistencyReceiver,
             executor,
             () -> new NodeEntryVisitor(executor, progressReceiver, Evaluate::new, stateCache),
-            stateCache);
+            stateCache,
+            keepGoing);
   }
 
   /**
@@ -260,7 +261,7 @@ abstract class AbstractParallelEvaluator {
           return DirtyOutcome.NEEDS_EVALUATION;
         }
         NodeBatch entriesToCheck = null;
-        if (!evaluatorContext.keepGoing()) {
+        if (!evaluatorContext.keepGoing(skyKey)) {
           // This check ensures that we maintain the invariant that if a node with an error is
           // reached during a no-keep-going build, none of its currently building parents
           // finishes building. If the child isn't done building yet, it will detect on its own
@@ -360,7 +361,7 @@ abstract class AbstractParallelEvaluator {
                   /* newValue= */ null,
                   /* newError= */ null,
                   /* directDeps= */ null);
-          if (!evaluatorContext.keepGoing() && nodeEntry.getErrorInfo() != null) {
+          if (!evaluatorContext.keepGoing(skyKey) && nodeEntry.getErrorInfo() != null) {
             if (!evaluatorContext.getVisitor().preventNewEvaluations()) {
               return DirtyOutcome.ALREADY_PROCESSED;
             }
@@ -480,7 +481,7 @@ abstract class AbstractParallelEvaluator {
           // SkyFunction, so we can have a definitive error and definitive graph structure, thus
           // avoiding non-determinism. It's completely reasonable for SkyFunctions to throw eagerly
           // because they do not know if they are in keep-going mode.
-          if (!evaluatorContext.keepGoing() || !env.valuesMissing()) {
+          if (!evaluatorContext.keepGoing(skyKey) || !env.valuesMissing()) {
             if (nodeEntry.hasUnsignaledDeps()) {
               // This is a partial reevaluation. It is not safe to set the error because a dep may
               // yet signal this node. We return (without preventing new evaluations) so that any
@@ -489,7 +490,7 @@ abstract class AbstractParallelEvaluator {
             }
 
             if (maybeHandleRegisteringNewlyDiscoveredDepsForDoneEntry(
-                skyKey, nodeEntry, oldDeps, env, evaluatorContext.keepGoing())) {
+                skyKey, nodeEntry, oldDeps, env, evaluatorContext.keepGoing(skyKey))) {
               // A newly requested dep transitioned from done to dirty before this node finished.
               // It is not safe to set the error because the now-dirty dep has not signaled this
               // node. We return (without preventing new evaluations) so that the dep can complete
@@ -505,7 +506,7 @@ abstract class AbstractParallelEvaluator {
             }
 
             boolean shouldFailFast =
-                !evaluatorContext.keepGoing() || builderException.isCatastrophic();
+                !evaluatorContext.keepGoing(skyKey) || builderException.isCatastrophic();
             if (shouldFailFast) {
               // After we commit this error to the graph but before the doMutatingEvaluation call
               // completes with the error there is a race-like opportunity for the error to be used,
@@ -601,7 +602,7 @@ abstract class AbstractParallelEvaluator {
           try {
             evaluatorContext.getProgressReceiver().stateStarting(skyKey, NodeState.COMMIT);
             if (maybeHandleRegisteringNewlyDiscoveredDepsForDoneEntry(
-                skyKey, nodeEntry, oldDeps, env, evaluatorContext.keepGoing())) {
+                skyKey, nodeEntry, oldDeps, env, evaluatorContext.keepGoing(skyKey))) {
               // A newly requested dep transitioned from done to dirty before this node finished.
               // This node will be signalled again, and so we should return.
               return;
@@ -618,7 +619,8 @@ abstract class AbstractParallelEvaluator {
 
         SkyKey childErrorKey = env.getDepErrorKey();
         if (childErrorKey != null) {
-          checkState(!evaluatorContext.keepGoing(), "%s %s %s", skyKey, nodeEntry, childErrorKey);
+          checkState(
+              !evaluatorContext.keepGoing(skyKey), "%s %s %s", skyKey, nodeEntry, childErrorKey);
           // We encountered a child error in noKeepGoing mode, so we want to fail fast. But we first
           // need to add the edge between the current node and the child error it requested so that
           // error bubbling can occur. Note that this edge will subsequently be removed during graph
@@ -699,12 +701,7 @@ abstract class AbstractParallelEvaluator {
               "Evaluation of SkyKey failed and no dependencies were requested: %s %s",
               skyKey,
               nodeEntry);
-          checkState(
-              evaluatorContext.keepGoing(),
-              "nokeep_going evaluation should have failed on first child error: %s %s %s",
-              skyKey,
-              nodeEntry,
-              env.getChildErrorInfos());
+
           // If the child error was catastrophic, committing this parent to the graph is not
           // necessary, but since we don't do error bubbling in catastrophes, it doesn't violate any
           // invariants either.

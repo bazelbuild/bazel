@@ -17,8 +17,8 @@ java_library(
     deps = [
         ":options",
         "//src/main/java/com/google/devtools/build/lib:runtime",
-        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/starlarkdebug/server",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/vfs",

@@ -26,9 +26,9 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
-import java.nio.charset.Charset;
 import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
@@ -47,7 +47,12 @@ public class WorkerFilesHash {
     Hasher hasher = Hashing.sha256().newHasher();
     workerFilesMap.forEach(
         (execPath, digest) -> {
-          hasher.putString(execPath.getPathString(), Charset.defaultCharset());
+          String execPathString = execPath.getPathString();
+          hasher.putByte(StringUnsafe.getInstance().getCoder(execPathString));
+          hasher.putInt(execPathString.length());
+          hasher.putBytes(StringUnsafe.getInstance().getByteArray(execPathString));
+
+          hasher.putInt(digest.length);
           hasher.putBytes(digest);
         });
     return hasher.hash();
@@ -71,7 +76,7 @@ public class WorkerFilesHash {
             /* keepEmptyTreeArtifacts= */ false,
             /* keepMiddlemanArtifacts= */ true);
     for (ActionInput tool : tools) {
-      if ((tool instanceof Artifact) && ((Artifact) tool).isMiddlemanArtifact()) {
+      if (tool instanceof Artifact artifact && artifact.isMiddlemanArtifact()) {
         RunfilesTree runfilesTree =
             actionInputFileCache.getRunfilesMetadata(tool).getRunfilesTree();
         PathFragment root = runfilesTree.getExecPath();
@@ -85,7 +90,9 @@ public class WorkerFilesHash {
               throw new MissingInputException(localArtifact);
             }
             if (metadata.getType().isFile()) {
-              workerFilesMap.put(root.getRelative(mapping.getKey()), metadata.getDigest());
+              workerFilesMap.put(
+                  spawn.getPathMapper().map(root.getRelative(mapping.getKey())),
+                  metadata.getDigest());
             }
           }
         }
@@ -98,7 +105,8 @@ public class WorkerFilesHash {
         throw new MissingInputException(tool);
       }
       workerFilesMap.put(
-          tool.getExecPath(), actionInputFileCache.getInputMetadata(tool).getDigest());
+          spawn.getPathMapper().map(tool.getExecPath()),
+          actionInputFileCache.getInputMetadata(tool).getDigest());
     }
 
     return workerFilesMap;

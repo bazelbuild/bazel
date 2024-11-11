@@ -12,18 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
-#endif
 #include <windows.h>
 
 #include <fcntl.h>
-#include <io.h>            // _open
-#include <knownfolders.h>  // FOLDERID_Profile
-#include <lmcons.h>        // UNLEN
-#include <objbase.h>       // CoTaskMemFree
-#include <shlobj.h>        // SHGetKnownFolderPath
-#include <stdarg.h>        // va_start, va_end, va_list
+#include <io.h>
+#include <knownfolders.h>
+#include <lmcons.h>
+#include <objbase.h>
+#include <shlobj.h>
+#include <stdarg.h>
 
 #include <algorithm>
 #include <cstdio>
@@ -937,14 +935,15 @@ void CreateSecureOutputRoot(const blaze_util::Path& path) {
 }
 
 string GetEnv(const string& name) {
-  DWORD size = ::GetEnvironmentVariableA(name.c_str(), nullptr, 0);
+  std::wstring wname = blaze_util::CstringToWstring(name);
+  DWORD size = ::GetEnvironmentVariableW(wname.c_str(), nullptr, 0);
   if (size == 0) {
     return string();  // unset or empty envvar
   }
 
-  unique_ptr<char[]> value(new char[size]);
-  ::GetEnvironmentVariableA(name.c_str(), value.get(), size);
-  return string(value.get());
+  unique_ptr<WCHAR[]> value(new WCHAR[size]);
+  ::GetEnvironmentVariableW(wname.c_str(), value.get(), size);
+  return blaze_util::WstringToCstring(value.get());
 }
 
 string GetPathEnv(const string& name) {
@@ -970,11 +969,14 @@ bool ExistsEnv(const string& name) {
 }
 
 void SetEnv(const string& name, const string& value) {
-  // _putenv_s both calls ::SetEnvionmentVariableA and updates environ(5).
-  _putenv_s(name.c_str(), value.c_str());
+  ::SetEnvironmentVariableW(blaze_util::CstringToWstring(name).c_str(),
+                            blaze_util::CstringToWstring(value).c_str());
 }
 
-void UnsetEnv(const string& name) { SetEnv(name, ""); }
+void UnsetEnv(const string& name) {
+  ::SetEnvironmentVariableW(blaze_util::CstringToWstring(name).c_str(),
+                            nullptr);
+}
 
 bool WarnIfStartedFromDesktop() {
   // GetConsoleProcessList returns:
@@ -1085,76 +1087,98 @@ uint64_t WindowsClock::GetMilliseconds() const {
   return GetMillisecondsAsLargeInt(kFrequency).QuadPart;
 }
 
-uint64_t AcquireLock(const blaze_util::Path& output_base, bool batch_mode,
-                     bool block, BlazeLock* blaze_lock) {
-  blaze_util::Path lockfile = output_base.GetRelative("lock");
-  blaze_lock->handle = INVALID_HANDLE_VALUE;
+LockHandle AcquireLock(const std::string& name, const blaze_util::Path& path,
+                       LockMode mode, bool batch_mode, bool block,
+                       uint64_t* wait_time) {
+  DWORD desired_access = GENERIC_READ;
+  if (mode == LockMode::kExclusive) {
+    desired_access |= GENERIC_WRITE;
+  }
+
+  // CreateFile defaults to opening the file exclusively. We intentionally open
+  // it in shared mode and instead use LockFileEx to obtain a lock. This mimicks
+  // the FileChannel implementation in the JVM, making locks obtained on the
+  // client side compatible with the server side.
+  HANDLE handle = ::CreateFileW(
+      /* lpFileName */ path.AsNativePath().c_str(),
+      /* dwDesiredAccess */ desired_access,
+      /* dwShareMode */ FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+      /* lpSecurityAttributes */ nullptr,
+      /* dwCreationDisposition */ CREATE_ALWAYS,
+      /* dwFlagsAndAttributes */ FILE_ATTRIBUTE_NORMAL,
+      /* hTemplateFile */ nullptr);
+  if (handle == INVALID_HANDLE_VALUE) {
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "CreateFile failed for " << name
+        << " lock: " << GetLastErrorString();
+  }
+
   bool first_lock_attempt = true;
-  uint64_t st = GetMillisecondsMonotonic();
+  uint64_t start_time = GetMillisecondsMonotonic();
+
   while (true) {
-    blaze_lock->handle = ::CreateFileW(
-        /* lpFileName */ lockfile.AsNativePath().c_str(),
-        /* dwDesiredAccess */ GENERIC_READ | GENERIC_WRITE,
-        /* dwShareMode */ FILE_SHARE_READ,
-        /* lpSecurityAttributes */ nullptr,
-        /* dwCreationDisposition */ CREATE_ALWAYS,
-        /* dwFlagsAndAttributes */ FILE_ATTRIBUTE_NORMAL,
-        /* hTemplateFile */ nullptr);
-    if (blaze_lock->handle != INVALID_HANDLE_VALUE) {
-      // We could open the file, so noone else holds a lock on it.
+    OVERLAPPED overlapped = {};
+    DWORD flags = LOCKFILE_FAIL_IMMEDIATELY;
+    if (mode == LockMode::kExclusive) {
+      flags |= LOCKFILE_EXCLUSIVE_LOCK;
+    }
+    BOOL success = LockFileEx(
+        /* hFile */ handle,
+        /* dwFlags */ flags,
+        /* dwReserved */ 0,
+        /* nNumberOfBytesToLockLow */ 1,
+        /* nNumberOfBytesToLockHigh */ 0,
+        /* lpOverlapped */ &overlapped);
+    if (success) {
+      // Successfully acquired the lock.
       break;
     }
-    if (GetLastError() == ERROR_SHARING_VIOLATION) {
-      // Someone else has the lock.
-      BAZEL_LOG(USER) << "Another command holds the client lock";
-      if (!block) {
-        BAZEL_DIE(blaze_exit_code::LOCK_HELD_NOBLOCK_FOR_LOCK)
-            << "Exiting because the lock is held and --noblock_for_lock was "
-               "given.";
-      }
-      if (first_lock_attempt) {
-        first_lock_attempt = false;
-        BAZEL_LOG(USER) << "Waiting for it to complete...";
-        fflush(stderr);
-      }
-      Sleep(/* dwMilliseconds */ 200);
-    } else {
-      string err = GetLastErrorString();
+    // The LockFileEx API documentation claims ERROR_IO_PENDING is raised
+    // when the lock is already held, but when LOCKFILE_FAIL_IMMEDIATELY is
+    // passed, the error is actually ERROR_LOCK_VIOLATION.
+    // See https://devblogs.microsoft.com/oldnewthing/20140905-00/?p=63.
+    if (GetLastError() != ERROR_LOCK_VIOLATION) {
       BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-          << "AcquireLock(" << lockfile.AsPrintablePath()
-          << "): CreateFile failed: " << err;
+          << "LockFileEx failed for " << name
+          << " lock: " << GetLastErrorString();
     }
+    // Someone else has the lock.
+    if (first_lock_attempt) {
+      first_lock_attempt = false;
+      BAZEL_LOG(USER) << "Another command holds the " << name << " lock.";
+      if (block) {
+        BAZEL_LOG(USER) << "Waiting for it to complete...";
+      }
+      fflush(stderr);
+    }
+    if (!block) {
+      BAZEL_DIE(blaze_exit_code::LOCK_HELD_NOBLOCK_FOR_LOCK)
+          << "Exiting because the " << name
+          << " lock is held and --noblock_for_lock was given.";
+    }
+    Sleep(/* dwMilliseconds */ 500);
   }
-  uint64_t wait_time = GetMillisecondsMonotonic() - st;
 
-  // We have the lock.
-  OVERLAPPED overlapped = {0};
-  if (!LockFileEx(
-          /* hFile */ blaze_lock->handle,
-          /* dwFlags */ LOCKFILE_EXCLUSIVE_LOCK | LOCKFILE_FAIL_IMMEDIATELY,
-          /* dwReserved */ 0,
-          /* nNumberOfBytesToLockLow */ 1,
-          /* nNumberOfBytesToLockHigh */ 0,
-          /* lpOverlapped */ &overlapped)) {
-    string err = GetLastErrorString();
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "AcquireLock(" << lockfile.AsPrintablePath()
-        << "): LockFileEx failed: " << err;
-  }
-  // On other platforms we write some info about this process into the lock file
-  // such as the server PID. On Windows we don't do that because the file is
-  // locked exclusively, meaning other processes may not open the file even for
-  // reading.
+  // On Unix, we take advantage of the advisory nature of locks and write some
+  // information about the process holding the lock into the lock file, so that
+  // a concurrent process can read and display it. On Windows we can't do so
+  // because locks are mandatory, thus we cannot read the file concurrently.
 
-  return wait_time;
+  *wait_time = GetMillisecondsMonotonic() - start_time;
+  return reinterpret_cast<LockHandle>(handle);
 }
 
-void ReleaseLock(BlazeLock* blaze_lock) {
+void ReleaseLock(LockHandle lock_handle) {
+  HANDLE handle = reinterpret_cast<HANDLE>(lock_handle);
   OVERLAPPED overlapped = {0};
-  UnlockFileEx(blaze_lock->handle, 0, 1, 0, &overlapped);
-  CloseHandle(blaze_lock->handle);
+  UnlockFileEx(
+      /* hFile */ handle,
+      /* dwReserved */ 0,
+      /* nNumberOfBytesToUnlockLow */ 1,
+      /* nNumberOfBytesToUnlockHigh */ 0,
+      /* lpOverlapped */ &overlapped);
+  CloseHandle(handle);
 }
-
 #ifdef GetUserName
 // By including <windows.h>, we have GetUserName defined either as
 // GetUserNameA or GetUserNameW.

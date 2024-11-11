@@ -145,6 +145,8 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
         genrule(name = 'foo',
           cmd = 'dummy_cmd',
           srcs = ['a.txt', 'b.img'],
@@ -166,7 +168,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
           output_to_bindir = 1,
         )
         # The target below is used by testResolveCommand and testResolveTools
-        sh_binary(name = 'mytool',
+        foo_binary(name = 'mytool',
           srcs = ['mytool.sh'],
           data = ['file1.dat', 'file2.dat'],
         )
@@ -512,8 +514,9 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     scratch.file(
         "bar/BUILD",
         """
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
         load('//bar:bar.bzl', 'my_rule')
-        sh_binary(
+        foo_binary(
           name = 'mytool',
           srcs = ['mytool.sh'],
           data = ['file1.dat', 'file2.dat'],
@@ -748,7 +751,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "   tools=ruleContext.attr.tools)");
     @SuppressWarnings("unchecked")
     List<Artifact> inputs = (List<Artifact>) (List<?>) (StarlarkList) ev.lookup("inputs");
-    assertArtifactFilenames(inputs, "mytool.sh", "mytool", "foo_Smytool-runfiles", "t.exe");
+    assertArtifactFilenames(inputs, "mytool.sh", "mytool", "mytool.runfiles", "t.exe");
   }
 
   @Test
@@ -854,6 +857,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
 
   @Test
   public void testResolveTools() throws Exception {
+    setBuildLanguageOptions("--incompatible_disallow_ctx_resolve_tools=false");
     StarlarkRuleContext ruleContext = createRuleContext("//foo:resolve_me");
     setRuleContext(ruleContext);
     ev.exec(
@@ -867,7 +871,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         ((Depset) ev.lookup("inputs")).getSet(Artifact.class).toList(),
         "mytool.sh",
         "mytool",
-        "foo_Smytool-runfiles",
+        "mytool.runfiles",
         "t.exe");
 
     SpawnAction action =
@@ -875,7 +879,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
     assertThat(ActionsTestUtil.baseArtifactNames(action.getInputs()))
-        .containsAtLeast("mytool.sh", "mytool", "foo_Smytool-runfiles", "t.exe");
+        .containsAtLeast("mytool.sh", "mytool", "mytool.runfiles", "t.exe");
   }
 
   @Test
@@ -2104,7 +2108,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         """);
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:my_glob");
-    assertContainsEvent("glob() can only be used while evaluating a BUILD file (or macro)");
+    assertContainsEvent("glob() can only be used while evaluating a BUILD file (or legacy macro)");
   }
 
   @Test
@@ -2909,63 +2913,6 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   }
 
   @Test
-  public void testConfigurationField_nativeSplitTransitionProviderProhibited() throws Exception {
-    scratch.file(
-        "test/rule.bzl",
-        """
-        def _foo_impl(ctx):
-          return []
-
-        foo = rule(
-          implementation = _foo_impl,
-          attrs = {
-            '_attr': attr.label(
-                cfg = android_common.multi_cpu_configuration,
-                default = configuration_field(fragment='cpp', name = 'cc_toolchain'))})
-        """);
-
-    scratch.file(
-        "test/BUILD",
-        """
-        load('//test:rule.bzl', 'foo')
-        foo(name='foo')
-        """);
-
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//test:foo");
-    assertContainsEvent("late-bound attributes must not have a split configuration transition");
-  }
-
-  @Test
-  public void testConfigurationField_nativeSplitTransitionProhibited() throws Exception {
-    scratch.file(
-        "test/rule.bzl",
-        """
-        def _foo_impl(ctx):
-          return []
-
-        foo = rule(
-          implementation = _foo_impl,
-          attrs = {
-            '_attr': attr.label(
-                cfg = android_common.multi_cpu_configuration,
-                default = configuration_field(fragment='cpp', name = 'cc_toolchain'))})
-        """);
-    setBuildLanguageOptions("--experimental_google_legacy_api");
-
-    scratch.file(
-        "test/BUILD",
-        """
-        load('//test:rule.bzl', 'foo')
-        foo(name='foo')
-        """);
-
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//test:foo");
-    assertContainsEvent("late-bound attributes must not have a split configuration transition");
-  }
-
-  @Test
   public void testConfigurationField_invalidFragment() throws Exception {
     scratch.file(
         "test/main_rule.bzl",
@@ -3110,14 +3057,15 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "a/BUILD",
         """
         load(':a.bzl', 'r')
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
         r(name='r')
-        sh_binary(name='tool', srcs=['tool.sh'], data=['data'])
+        foo_binary(name='tool', srcs=['tool.sh'], data=['data'])
         """);
 
     ConfiguredTarget r = getConfiguredTarget("//a:r");
     Action action =
         getGeneratingAction(r.getProvider(FileProvider.class).getFilesToBuild().getSingleton());
-    assertThat(ActionsTestUtil.baseArtifactNames(action.getInputs())).contains("a_Stool-runfiles");
+    assertThat(ActionsTestUtil.baseArtifactNames(action.getInputs())).contains("tool.runfiles");
   }
 
   @Test
@@ -3142,14 +3090,15 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "a/BUILD",
         """
         load(':a.bzl', 'r')
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
         r(name='r')
-        sh_binary(name='tool', srcs=['tool.sh'], data=['data'])
+        foo_binary(name='tool', srcs=['tool.sh'], data=['data'])
         """);
 
     ConfiguredTarget r = getConfiguredTarget("//a:r");
     Action action =
         getGeneratingAction(r.getProvider(FileProvider.class).getFilesToBuild().getSingleton());
-    assertThat(ActionsTestUtil.baseArtifactNames(action.getInputs())).contains("a_Stool-runfiles");
+    assertThat(ActionsTestUtil.baseArtifactNames(action.getInputs())).contains("tool.runfiles");
   }
 
   // Verifies that configuration_field can only be used on 'label' attributes.

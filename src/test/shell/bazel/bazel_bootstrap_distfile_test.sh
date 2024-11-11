@@ -136,6 +136,7 @@ default_java_toolchain(
     jacocorunner = ":dummy.jar",
     java_runtime = "@local_jdk//:jdk",
     javabuilder = [":dummy.jar"],
+    oneversion = ":dummy.jar",
     singlejar = [":dummy.jar"],
     source_version = "${JAVA_VERSION}",
     target_version = "${JAVA_VERSION}",

@@ -104,6 +104,48 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testPresenceOfConlyFlags() throws Exception {
+    useConfiguration(
+        "--conlyopt=-foo", "--cxxopt=-not-passed", "--per_file_copt=//x:bin@-per-file");
+
+    scratch.file(
+        "x/BUILD",
+        "cc_binary(name = 'bin', srcs = ['bin.c'], copts = ['-bar'], conlyopts = ['-baz'], cxxopts"
+            + " = ['-not-passed'])");
+    scratch.file("x/bin.c");
+
+    CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
+
+    ImmutableList<String> copts =
+        CcToolchainVariables.toStringList(
+            variables, CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName(), PathMapper.NOOP);
+    assertThat(copts)
+        .containsExactlyElementsIn(ImmutableList.<String>of("-foo", "-bar", "-baz", "-per-file"))
+        .inOrder();
+  }
+
+  @Test
+  public void testCxxFlagsOrder() throws Exception {
+    useConfiguration(
+        "--cxxopt=-foo", "--conlyopt=-not-passed", "--per_file_copt=//x:bin@-per-file");
+
+    scratch.file(
+        "x/BUILD",
+        "cc_binary(name = 'bin', srcs = ['bin.cc'], copts = ['-bar'], cxxopts = ['-baz'], conlyopts"
+            + " = ['-not-passed'])");
+    scratch.file("x/bin.cc");
+
+    CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
+
+    ImmutableList<String> copts =
+        CcToolchainVariables.toStringList(
+            variables, CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName(), PathMapper.NOOP);
+    assertThat(copts)
+        .containsExactlyElementsIn(ImmutableList.<String>of("-foo", "-bar", "-baz", "-per-file"))
+        .inOrder();
+  }
+
+  @Test
   public void testPerFileCoptsAreInUserCompileFlags() throws Exception {
     scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'])");
     scratch.file("x/bin.cc");
@@ -341,14 +383,17 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
         String.format(
             "--experimental_override_name_platform_in_output_dir=%s=k8",
             TestConstants.PLATFORM_LABEL));
-    scratch.appendFile("WORKSPACE", "local_repository(", "    name = 'pkg',", "    path = '/foo')");
+    scratch.appendFile(
+        "MODULE.bazel",
+        "bazel_dep(name = 'pkg')",
+        "local_path_override(module_name = 'pkg', path = '/foo')");
     getSkyframeExecutor()
         .invalidateFilesUnderPathForTesting(
             reporter,
-            new ModifiedFileSet.Builder().modify(PathFragment.create("WORKSPACE")).build(),
+            new ModifiedFileSet.Builder().modify(PathFragment.create("MODULE.bazel")).build(),
             Root.fromPath(rootDirectory));
 
-    scratch.file("/foo/WORKSPACE", "workspace(name = 'pkg')");
+    scratch.file("/foo/MODULE.bazel", "module(name = 'pkg')");
     scratch.file(
         "/foo/BUILD",
         """
@@ -387,9 +432,9 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
     ImmutableList.Builder<String> entries =
         ImmutableList.<String>builder()
             .add(
-                "/k8-fastbuild/bin/external/pkg/_virtual_includes/foo2",
-                "external/pkg",
-                "/k8-fastbuild/bin/external/pkg");
+                "/k8-fastbuild/bin/external/pkg+/_virtual_includes/foo2",
+                "external/pkg+",
+                "/k8-fastbuild/bin/external/pkg+");
     if (analysisMock.isThisBazel()) {
       entries.add("external/bazel_tools", "/k8-fastbuild/bin/external/bazel_tools");
     }

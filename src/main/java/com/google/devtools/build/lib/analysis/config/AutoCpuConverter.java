@@ -31,53 +31,35 @@ public class AutoCpuConverter extends Converter.Contextless<String> {
     if (input.isEmpty()) {
       // TODO(philwo) - replace these deprecated names with more logical ones (e.g. k8 becomes
       // linux-x86_64, darwin includes the CPU architecture, ...).
-      switch (OS.getCurrent()) {
-        case DARWIN:
-          switch (CPU.getCurrent()) {
-            case X86_64:
-              return "darwin_x86_64";
-            case AARCH64:
-              return "darwin_arm64";
-            default:
-              return "unknown";
-          }
-        case FREEBSD:
-          return "freebsd";
-        case OPENBSD:
-          return "openbsd";
-        case WINDOWS:
-          switch (CPU.getCurrent()) {
-            case X86_64:
-              return "x64_windows";
-            case AARCH64:
-              return "arm64_windows";
-            default:
-              return "unknown";
-          }
-        case LINUX:
-          switch (CPU.getCurrent()) {
-            case X86_32:
-              return "piii";
-            case X86_64:
-              return "k8";
-            case PPC:
-              return "ppc";
-            case ARM:
-              return "arm";
-            case AARCH64:
-              return "aarch64";
-            case S390X:
-              return "s390x";
-            case MIPS64:
-              return "mips64";
-            case RISCV64:
-              return "riscv64";
-            default:
-              return "unknown";
-          }
-        default:
-          return "unknown";
-      }
+      return switch (OS.getCurrent()) {
+        case DARWIN ->
+            switch (CPU.getCurrent()) {
+              case X86_64 -> "darwin_x86_64";
+              case AARCH64 -> "darwin_arm64";
+              default -> "unknown";
+            };
+        case FREEBSD -> "freebsd";
+        case OPENBSD -> "openbsd";
+        case WINDOWS ->
+            switch (CPU.getCurrent()) {
+              case X86_64 -> "x64_windows";
+              case AARCH64 -> "arm64_windows";
+              default -> "unknown";
+            };
+        case LINUX ->
+            switch (CPU.getCurrent()) {
+              case X86_32 -> "piii";
+              case X86_64 -> "k8";
+              case PPC -> "ppc";
+              case ARM -> "arm";
+              case AARCH64 -> "aarch64";
+              case S390X -> "s390x";
+              case MIPS64 -> "mips64";
+              case RISCV64 -> "riscv64";
+              default -> "unknown";
+            };
+        default -> "unknown";
+      };
     }
     return input;
   }

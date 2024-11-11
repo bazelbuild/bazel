@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.producers.GlobComputationProducer;
 import com.google.devtools.build.lib.packages.producers.GlobError;
@@ -49,7 +50,7 @@ public class GlobFunctionWithRecursionInSingleFunction extends GlobFunction {
     @Nullable // Non-null while in-flight.
     private Driver globComputationDriver;
 
-    @Nullable ImmutableSet<PathFragment> ignorePackagePrefixesPatterns;
+    @Nullable IgnoredSubdirectories ignoredSubdirectories;
 
     private ImmutableSet<PathFragment> globMatchingResult;
     private GlobError error;
@@ -80,22 +81,21 @@ public class GlobFunctionWithRecursionInSingleFunction extends GlobFunction {
     GlobDescriptor glob = (GlobDescriptor) skyKey.argument();
     State state = env.getState(State::new);
 
-    if (state.ignorePackagePrefixesPatterns == null) {
+    if (state.ignoredSubdirectories == null) {
       RepositoryName repositoryName = glob.getPackageId().getRepository();
-      IgnoredPackagePrefixesValue ignoredPackagePrefixes =
-          (IgnoredPackagePrefixesValue)
-              env.getValue(IgnoredPackagePrefixesValue.key(repositoryName));
+      IgnoredSubdirectoriesValue ignoredPackagePrefixes =
+          (IgnoredSubdirectoriesValue) env.getValue(IgnoredSubdirectoriesValue.key(repositoryName));
       if (env.valuesMissing()) {
         return null;
       }
-      state.ignorePackagePrefixesPatterns = ignoredPackagePrefixes.getPatterns();
+      state.ignoredSubdirectories = ignoredPackagePrefixes.asIgnoredSubdirectories();
     }
 
     if (state.globComputationDriver == null) {
       state.globComputationDriver =
           new Driver(
               new GlobComputationProducer(
-                  glob, state.ignorePackagePrefixesPatterns, regexPatternCache, state));
+                  glob, state.ignoredSubdirectories, regexPatternCache, state));
     }
 
     if (!state.globComputationDriver.drive(env)) {

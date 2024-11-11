@@ -18,7 +18,9 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.FileArtifactValue.ConstantMetadataValue;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.skyframe.SkyValue;
 
@@ -43,13 +45,11 @@ public final class RunfilesArtifactValue implements SkyValue {
   private final ImmutableList<TreeArtifactValue> treeValues;
 
   public RunfilesArtifactValue(
-      FileArtifactValue metadata,
       RunfilesTree runfilesTree,
       ImmutableList<Artifact> files,
       ImmutableList<FileArtifactValue> fileValues,
       ImmutableList<Artifact> trees,
       ImmutableList<TreeArtifactValue> treeValues) {
-    this.metadata = checkNotNull(metadata);
     this.runfilesTree = checkNotNull(runfilesTree);
     this.files = checkNotNull(files);
     this.fileValues = checkNotNull(fileValues);
@@ -59,10 +59,41 @@ public final class RunfilesArtifactValue implements SkyValue {
         files.size() == fileValues.size() && trees.size() == treeValues.size(),
         "Size mismatch: %s",
         this);
+
+    // Compute the digest of this runfiles tree by combining its layout and the digests of every
+    // artifact it references.
+    this.metadata = FileArtifactValue.createProxy(computeDigest());
+  }
+
+  private byte[] computeDigest() {
+    Fingerprint result = new Fingerprint();
+
+    result.addInt(runfilesTree.getMapping().size());
+    for (var entry : runfilesTree.getMapping().entrySet()) {
+      result.addPath(entry.getKey());
+      result.addBoolean(entry.getValue() != null);
+      if (entry.getValue() != null) {
+        result.addPath(entry.getValue().getExecPath());
+      }
+    }
+
+    result.addInt(files.size());
+    for (int i = 0; i < files.size(); i++) {
+      FileArtifactValue value =
+          files.get(i).isConstantMetadata() ? ConstantMetadataValue.INSTANCE : fileValues.get(i);
+      value.addTo(result);
+    }
+
+    result.addInt(trees.size());
+    for (int i = 0; i < trees.size(); i++) {
+      result.addBytes(treeValues.get(i).getDigest());
+    }
+
+    return result.digestAndReset();
   }
 
   public RunfilesArtifactValue withOverriddenRunfilesTree(RunfilesTree overrideTree) {
-    return new RunfilesArtifactValue(metadata, overrideTree, files, fileValues, trees, treeValues);
+    return new RunfilesArtifactValue(overrideTree, files, fileValues, trees, treeValues);
   }
 
   /** Returns the data of the artifact for this value, as computed by the action cache checker. */

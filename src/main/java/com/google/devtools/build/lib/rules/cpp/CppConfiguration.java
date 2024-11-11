@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.BuiltinRestriction;
-import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CppConfigurationApi;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -48,7 +47,7 @@ import net.starlark.java.eval.StarlarkValue;
  * architecture, target architecture, compiler version, and a standard library version.
  */
 @Immutable
-@RequiresOptions(options = {AppleCommandLineOptions.class, CppOptions.class})
+@RequiresOptions(options = {CppOptions.class})
 public final class CppConfiguration extends Fragment
     implements CppConfigurationApi<InvalidConfigurationException> {
   private static final String BAZEL_TOOLS_REPO = "@bazel_tools";
@@ -244,8 +243,8 @@ public final class CppConfiguration extends Fragment
       if (!cppOptions.enablePropellerOptimizeAbsolutePath) {
         throw new InvalidConfigurationException(
             "Please use --propeller_optimize instead of an absolute path set with"
-                + " --propeller_optimize_absolute_cc_profile.Using absolute paths may be temporary"
-                + " reenabled with --enable_fdo_profile_absolute_path");
+                + " --propeller_optimize_absolute_cc_profile. Using absolute paths may be temporary"
+                + " reenabled with --enable_propeller_optimize_absolute_paths");
       }
       propellerOptimizeAbsoluteCCProfile =
           PathFragment.create(cppOptions.propellerOptimizeAbsoluteCCProfile);
@@ -502,7 +501,7 @@ public final class CppConfiguration extends Fragment
     return cppOptions.useStartEndLib;
   }
 
-  /** @return value from --compiler option, null if the option was not passed. */
+  /** Returns value from --compiler option, null if the option was not passed. */
   @Nullable
   public String getCompilerFromOptions() {
     return cppOptions.cppCompiler;

@@ -50,11 +50,6 @@ msys*|mingw*|cygwin*)
   ;;
 esac
 
-if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 JAVA_TOOLCHAIN="@bazel_tools//tools/jdk:toolchain"
 
 JAVA_TOOLCHAIN_TYPE="@bazel_tools//tools/jdk:toolchain_type"
@@ -250,10 +245,10 @@ def _impl(ctx):
     strict_deps = "ERROR",
     java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],
   )
-  return struct(
-    files = depset([output_jar]),
-    providers = [compilation_provider]
-  )
+  return [
+    DefaultInfo(files = depset([output_jar])),
+    compilation_provider,
+  ]
 
 java_custom_library = rule(
   implementation = _impl,
@@ -431,10 +426,10 @@ def _impl(ctx):
     strict_deps = "ERROR",
     java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],
   )
-  return struct(
-    files = depset([output_jar]),
-    providers = [compilation_provider]
-  )
+  return [
+    DefaultInfo(files = depset([output_jar])),
+    compilation_provider
+  ]
 
 java_custom_library = rule(
   implementation = _impl,
@@ -502,10 +497,10 @@ def _impl(ctx):
     strict_deps = "ERROR",
     java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],
   )
-  return struct(
-    files = depset([output_jar]),
-    providers = [compilation_provider]
-  )
+  return [
+    DefaultInfo(files = depset([output_jar])),
+    compilation_provider,
+  ]
 
 java_custom_library = rule(
   implementation = _impl,
@@ -1410,10 +1405,10 @@ def _impl(ctx):
   print(final_provider.outputs.jars[0].class_jar)
   print(final_provider.outputs.jars[1].class_jar)
 
-  return struct(
-    files = depset([compiled_jar, imported_jar]),
-    providers = [final_provider]
-  )
+  return [
+    DefaultInfo(files = depset([compiled_jar, imported_jar])),
+    final_provider,
+  ]
 
 java_custom_library = rule(
   implementation = _impl,
@@ -1726,7 +1721,8 @@ EOF
 }
 
 function test_auto_bazel_repository() {
-  cat >> WORKSPACE <<'EOF'
+  cat >> MODULE.bazel <<'EOF'
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
   name = "other_repo",
   path = "other_repo",
@@ -1814,7 +1810,7 @@ public class Test {
 EOF
 
   mkdir -p other_repo
-  touch other_repo/WORKSPACE
+  touch other_repo/REPO.bazel
 
   mkdir -p other_repo/pkg
   cat > other_repo/pkg/BUILD.bazel <<'EOF'
@@ -1900,14 +1896,14 @@ EOF
   expect_log "in pkg/Library.java: ''"
 
   bazel run @other_repo//pkg:binary &>"$TEST_log" || fail "Run should succeed"
-  expect_log "in external/other_repo/pkg/Binary.java: 'other_repo'"
-  expect_log "in external/other_repo/pkg/Library2.java: 'other_repo'"
+  expect_log "in external/other_repo/pkg/Binary.java: '+_repo_rules+other_repo'"
+  expect_log "in external/other_repo/pkg/Library2.java: '+_repo_rules+other_repo'"
   expect_log "in pkg/Library.java: ''"
 
   bazel test --test_output=streamed \
     @other_repo//pkg:test &>"$TEST_log" || fail "Test should succeed"
-  expect_log "in external/other_repo/pkg/Test.java: 'other_repo'"
-  expect_log "in external/other_repo/pkg/Library2.java: 'other_repo'"
+  expect_log "in external/other_repo/pkg/Test.java: '+_repo_rules+other_repo'"
+  expect_log "in external/other_repo/pkg/Library2.java: '+_repo_rules+other_repo'"
   expect_log "in pkg/Library.java: ''"
 }
 
@@ -1952,6 +1948,41 @@ EOF
     --java_language_version=17 \
     --extra_toolchains=//pkg:java_toolchain_definition \
     >& $TEST_log || fail "build failed"
+}
+
+function test_sandboxed_multiplexing_hermetic_paths_in_diagnostics() {
+  if [[ "${JAVA_TOOLS_ZIP}" == released ]]; then
+    # TODO: Enable test after the next java_tools release.
+    return 0
+  fi
+
+  mkdir -p pkg
+  cat << 'EOF' > pkg/BUILD
+load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+default_java_toolchain(
+    name = "java_toolchain",
+    source_version = "17",
+    target_version = "17",
+    javac_supports_worker_multiplex_sandboxing = True,
+)
+java_library(name = "lib", srcs = ["Lib.java"])
+EOF
+  cat << 'EOF' > pkg/Lib.java
+public class Lib {
+  public static void foo() {
+    String a = 5; // __sandbox/1/_main/pkg/Lib.java:3: error: incompatible types: int cannot be converted to String
+  }
+}
+EOF
+
+  bazel build //pkg:lib \
+    --experimental_worker_multiplex_sandboxing \
+    --java_language_version=17 \
+    --extra_toolchains=//pkg:java_toolchain_definition \
+    >& $TEST_log && fail "build succeeded"
+  # Verify that the working directory is only stripped from source file paths.
+  expect_log "^pkg[\\/]Lib.java:3: error:"
+  expect_log "^    String a = 5; // __sandbox/1/_main/pkg/Lib.java:3: error: incompatible types: int cannot be converted to String"
 }
 
 function test_strict_deps_error_external_repo_starlark_action() {
@@ -2081,50 +2112,8 @@ EOF
 }
 
 function test_one_version() {
-  if [[ "${JAVA_TOOLS_ZIP}" == released ]]; then
-    # TODO: Enable test after the next java_tools release.
-    return 0
-  fi
-
-  # TODO: Remove patch on rules_java and add test for prebuilt tool after the next release.
-  cat << 'EOF' > MODULE.bazel
-bazel_dep(
-    name = "rules_java",
-    version = "7.5.0",
-)
-archive_override(
-    module_name = "rules_java",
-    urls = ["https://github.com/bazelbuild/rules_java/releases/download/7.5.0/rules_java-7.5.0.tar.gz"],
-    patches = ["//pkg:rules_java.patch"],
-)
-toolchains = use_extension("@rules_java//java:extensions.bzl", "toolchains")
-use_repo(toolchains, "remote_java_tools_linux")
-EOF
-
   mkdir -p pkg
-  cat << 'EOF' > pkg/rules_java.patch
---- MODULE.bazel
-+++ MODULE.bazel
-@@ -13,6 +13,7 @@ bazel_dep(name = "bazel_skylib", version = "1.2.0")
- # Required by @remote_java_tools, which is loaded via module extension.
- bazel_dep(name = "rules_proto", version = "4.0.0")
- bazel_dep(name = "rules_license", version = "0.0.3")
-+bazel_dep(name = "abseil-cpp", version = "20240116.2", repo_name = "com_google_absl")
-
- register_toolchains("//toolchains:all")
-
-EOF
   cat << 'EOF' > pkg/BUILD
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
-
-default_java_toolchain(
-    name = "java_toolchain",
-    source_version = "17",
-    target_version = "17",
-    # TODO: Replace this with a target under @rules_java after the next release.
-    oneversion = "@remote_java_tools_linux//:prebuilt_one_version",
-)
-
 java_binary(
     name = "a",
     srcs = ["A.java"],
@@ -2169,15 +2158,99 @@ public class B {
 }
 EOF
 
-  bazel build //pkg:a \
-    --java_language_version=17 \
-    --extra_toolchains=//pkg:java_toolchain_definition \
-    --experimental_one_version_enforcement=error \
+  bazel build //pkg:a --experimental_one_version_enforcement=error \
     >& $TEST_log && fail "build should have failed"
   expect_log "Found one definition violations on the runtime classpath:"
   expect_log "B has incompatible definitions in:"
   expect_log " //pkg/b1:b1"
   expect_log " //pkg/b2:b2"
+}
+
+function test_one_version_allowlist() {
+  if [[ "${JAVA_TOOLS_ZIP}" == released ]]; then
+      # TODO: Enable test after the next java_tools release.
+      return 0
+  fi
+
+  mkdir -p pkg
+  cat << 'EOF' > pkg/BUILD
+load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+
+default_java_toolchain(
+    name = "java_toolchain",
+    source_version = "17",
+    target_version = "17",
+    oneversion_allowlist = "//pkg:allowlist",
+)
+
+java_binary(
+    name = "a",
+    srcs = ["A.java"],
+    main_class = "A",
+    deps = [
+        "//pkg/b1",
+        "//pkg/b2",
+    ]
+)
+EOF
+  touch pkg/allowlist
+  cat << 'EOF' > pkg/A.java
+package com.example;
+
+public class A extends B {
+  public static void main(String[] args) {
+    System.err.println("Hello, two worlds!");
+  }
+}
+EOF
+  mkdir -p pkg/b1
+  cat << 'EOF' > pkg/b1/BUILD
+java_library(
+    name = "b1",
+    srcs = ["B.java"],
+    visibility = ["//visibility:public"],
+)
+EOF
+  cat << 'EOF' > pkg/b1/B.java
+package com.example;
+
+public class B {
+  public void foo() {}
+}
+EOF
+  mkdir -p pkg/b2
+  cat << 'EOF' > pkg/b2/BUILD
+java_library(
+    name = "b2",
+    srcs = ["B.java"],
+    visibility = ["//visibility:public"],
+)
+EOF
+  cat << 'EOF' > pkg/b2/B.java
+package com.example;
+
+public class B {
+  public void bar() {}
+}
+EOF
+
+  bazel build //pkg:a --experimental_one_version_enforcement=error \
+    --java_language_version=17 \
+    --extra_toolchains=//pkg:java_toolchain_definition \
+    >& $TEST_log && fail "build should have failed"
+  expect_log "Found one definition violations on the runtime classpath:"
+  expect_log "com.example.B has incompatible definitions in:"
+  expect_log " //pkg/b1:b1"
+  expect_log " //pkg/b2:b2"
+
+  cat > pkg/allowlist <<EOF
+foo/bar @repo//baz
+com/example //pkg/b1:b1
+EOF
+  bazel build //pkg:a --experimental_one_version_enforcement=error \
+    --java_language_version=17 \
+    --extra_toolchains=//pkg:java_toolchain_definition \
+    >& $TEST_log || fail "build should have succeeded"
 }
 
 run_suite "Java integration tests"

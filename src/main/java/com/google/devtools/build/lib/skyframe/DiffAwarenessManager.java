@@ -15,16 +15,15 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.DiffAwareness.View;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.common.options.OptionsProvider;
 import java.util.Map;
@@ -45,13 +44,13 @@ public final class DiffAwarenessManager {
   /** The unique key to retrieve a DiffAwarenessState. */
   @AutoValue
   public abstract static class StateKey {
-    private static StateKey create(Root root, ImmutableSet<Path> ignoredPaths) {
+    private static StateKey create(Root root, IgnoredSubdirectories ignoredPaths) {
       return new AutoValue_DiffAwarenessManager_StateKey(root, ignoredPaths);
     }
 
     abstract Root root();
 
-    abstract ImmutableSet<Path> ignoredPaths();
+    abstract IgnoredSubdirectories ignoredPaths();
   }
 
   private final Map<StateKey, DiffAwarenessState> currentDiffAwarenessStates = Maps.newHashMap();
@@ -104,7 +103,7 @@ public final class DiffAwarenessManager {
   public ProcessableModifiedFileSet getDiff(
       EventHandler eventHandler,
       Root pathEntry,
-      ImmutableSet<Path> ignoredPaths,
+      IgnoredSubdirectories ignoredPaths,
       OptionsProvider options)
       throws InterruptedException {
     DiffAwarenessState diffAwarenessState =
@@ -140,7 +139,7 @@ public final class DiffAwarenessManager {
   private void handleBrokenDiffAwareness(
       EventHandler eventHandler,
       Root pathEntry,
-      ImmutableSet<Path> ignoredPaths,
+      IgnoredSubdirectories ignoredPaths,
       BrokenDiffAwarenessException e) {
     StateKey stateKey = StateKey.create(pathEntry, ignoredPaths);
     currentDiffAwarenessStates.remove(stateKey);
@@ -155,7 +154,7 @@ public final class DiffAwarenessManager {
    */
   @Nullable
   private DiffAwarenessState maybeGetDiffAwarenessState(
-      Root pathEntry, ImmutableSet<Path> ignoredPaths, OptionsProvider options) {
+      Root pathEntry, IgnoredSubdirectories ignoredPaths, OptionsProvider options) {
     StateKey stateKey = StateKey.create(pathEntry, ignoredPaths);
     DiffAwarenessState diffAwarenessState = currentDiffAwarenessStates.get(stateKey);
     if (diffAwarenessState != null) {
@@ -185,12 +184,12 @@ public final class DiffAwarenessManager {
      */
     private final View nextView;
 
-    private final ImmutableSet<Path> ignoredPaths;
+    private final IgnoredSubdirectories ignoredPaths;
 
     private ProcessableModifiedFileSetImpl(
         ModifiedFileSet modifiedFileSet,
         Root pathEntry,
-        ImmutableSet<Path> ignoredPaths,
+        IgnoredSubdirectories ignoredPaths,
         View nextView) {
       this.modifiedFileSet = modifiedFileSet;
       this.pathEntry = pathEntry;

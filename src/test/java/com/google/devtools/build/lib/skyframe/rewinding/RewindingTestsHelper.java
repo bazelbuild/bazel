@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.analysis.AspectCompleteEvent;
 import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.bugreport.BugReporter;
+import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions.OutputGroupFileModes;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions.JobsConverter;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase.RecordingBugReporter;
@@ -65,7 +66,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.exec.SpawnExecException;
-import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.ActionRewinding;
@@ -160,7 +160,7 @@ public class RewindingTestsHelper {
     this.lostOutputsModule = createLostOutputsModule();
   }
 
-  public final BlazeModule getLostOutputsModule() {
+  public final LostImportantOutputHandlerModule getLostOutputsModule() {
     return lostOutputsModule;
   }
 
@@ -204,6 +204,10 @@ public class RewindingTestsHelper {
 
   public final ImmutableList<String> getExecutedSpawnDescriptions() {
     return spawnController.getExecutedSpawnDescriptions();
+  }
+
+  public final void clearExecutedSpawnDescriptions() {
+    spawnController.clearExecutedSpawnDescriptions();
   }
 
   public final void addSpawnShim(String spawnDescription, SpawnShim spawnShim) {
@@ -376,7 +380,6 @@ public class RewindingTestsHelper {
             "Executing genrule //test:rule1", "Executing genrule //test:rule2"),
         /* completedRewound= */ ImmutableList.of(),
         /* failedRewound= */ ImmutableList.of(),
-        /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(),
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(0));
 
     assertThat(rewoundKeys).isEmpty();
@@ -537,7 +540,6 @@ public class RewindingTestsHelper {
         /* completedRewound= */ ImmutableList.of(
             "Executing genrule //test:rule1_1", "Executing genrule //test:rule1_2"),
         /* failedRewound= */ ImmutableList.of("Executing genrule //test:rule2"),
-        /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(),
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(2));
 
     assertOnlyActionsRewound(rewoundKeys);
@@ -587,7 +589,7 @@ public class RewindingTestsHelper {
     testCase.buildTarget("//test:rule1");
     assertThat(getExecutedSpawnDescriptions()).containsExactly("Executing genrule //test:rule1");
 
-    spawnController.clearExecutedSpawnDescriptions();
+    clearExecutedSpawnDescriptions();
     // The first time rule2 is executed, the execution strategy fails, saying that rule2's input
     // file is missing.
     addSpawnShim(
@@ -616,7 +618,6 @@ public class RewindingTestsHelper {
         /* runOnce= */ ImmutableList.of(),
         /* completedRewound= */ ImmutableList.of("Executing genrule //test:rule1"),
         /* failedRewound= */ ImmutableList.of("Executing genrule //test:rule2"),
-        /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(),
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(0, 1));
 
     assertOnlyActionsRewound(rewoundKeys);
@@ -676,7 +677,6 @@ public class RewindingTestsHelper {
         /* runOnce= */ ImmutableList.of(),
         /* completedRewound= */ ImmutableList.of("Executing genrule //test:rule1"),
         /* failedRewound= */ ImmutableList.of(),
-        /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(),
         /* expectResultReceivedForFailedRewound= */ false,
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(
             ActionRewindStrategy.MAX_REPEATED_LOST_INPUTS + 1));
@@ -820,7 +820,6 @@ public class RewindingTestsHelper {
         /* runOnce= */ ImmutableList.of("Executing genrule //test:rule1"),
         /* completedRewound= */ ImmutableList.of(),
         /* failedRewound= */ ImmutableList.of(),
-        /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(),
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(1));
     assertThat(
             recorder.getActionStartedEvents().stream()
@@ -988,7 +987,6 @@ public class RewindingTestsHelper {
         /* runOnce= */ ImmutableList.of("Executing genrule //test:rule1"),
         /* completedRewound= */ ImmutableList.of("Executing genrule //test:rule2"),
         /* failedRewound= */ ImmutableList.of("Executing genrule //test:rule3"),
-        /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(),
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(1));
 
     assertOnlyActionsRewound(rewoundKeys);
@@ -1085,7 +1083,6 @@ public class RewindingTestsHelper {
         /* completedRewound= */ ImmutableList.of(
             "Executing genrule //test:rule1", "Executing genrule //test:rule2"),
         /* failedRewound= */ ImmutableList.of("Executing genrule //test:rule3"),
-        /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(),
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(2));
 
     assertOnlyActionsRewound(rewoundKeys);
@@ -1184,7 +1181,6 @@ public class RewindingTestsHelper {
         /* runOnce= */ ImmutableList.of("Executing genrule //test:rule3"),
         /* completedRewound= */ ImmutableList.of("Executing genrule //test:rule1"),
         /* failedRewound= */ ImmutableList.of("Executing genrule //test:rule2"),
-        /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(),
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(1));
 
     assertOnlyActionsRewound(rewoundKeys);
@@ -1569,7 +1565,7 @@ public class RewindingTestsHelper {
             "Linking tree/libconsumes_tree.a"),
         /* completedRewound= */ ImmutableList.of("Action tree/make_cc_dir.cc"),
         /* failedRewound= */ ImmutableList.of("Compiling tree/make_cc_dir.cc/file1.cc"),
-        /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(),
+
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(1));
 
     assertThat(rewoundKeys).hasSize(1);
@@ -1678,7 +1674,6 @@ public class RewindingTestsHelper {
         /* completedRewound= */ ImmutableList.of(
             "Compiling tree/make_cc_dir.cc/file1.cc", "Compiling tree/make_cc_dir.cc/file2.cc"),
         /* failedRewound= */ ImmutableList.of("Linking tree/libconsumes_tree.so"),
-        /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(),
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(
             lostTreeFileArtifactNames.size()));
 
@@ -1737,11 +1732,36 @@ public class RewindingTestsHelper {
         .collect(toImmutableList());
   }
 
+  protected void mockFooBinary(String relativePath) throws Exception {
+    testCase.write(
+        relativePath,
+        """
+        def _impl(ctx):
+          symlink = ctx.actions.declare_file(ctx.label.name)
+          ctx.actions.symlink(output = symlink, target_file = ctx.files.srcs[0],
+            is_executable = True)
+          files = depset(ctx.files.srcs)
+          return [DefaultInfo(files = files, executable = symlink,
+             runfiles = ctx.runfiles(transitive_files = files, collect_default = True))]
+        foo_binary = rule(
+          implementation = _impl,
+          executable = True,
+          attrs = {
+            "srcs": attr.label_list(allow_files=True),
+            "deps": attr.label_list(),
+            "data": attr.label_list(allow_files=True),
+          },
+        )
+        """);
+  }
+
   final void runGeneratedRunfilesRewound(ImmutableList<String> lostRunfiles, SpawnShim shim)
       throws Exception {
+    mockFooBinary("middle/foo_binary.bzl");
     testCase.write(
         "middle/BUILD",
         """
+        load(":foo_binary.bzl", "foo_binary")
         genrule(
             name = "gen1",
             srcs = [],
@@ -1756,7 +1776,7 @@ public class RewindingTestsHelper {
             cmd = 'echo "made by gen2" > $@',
         )
 
-        sh_binary(
+        foo_binary(
             name = "tool",
             srcs = ["tool.sh"],
             data = [
@@ -1797,10 +1817,6 @@ public class RewindingTestsHelper {
             "Executing genrule //middle:gen1 [for tool]",
             "Executing genrule //middle:gen2 [for tool]"),
         /* failedRewound= */ ImmutableList.of("Executing genrule //middle:tool_user"),
-        /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(
-            middlemanEvent ->
-                ActionEventRecorder.progressMessageOrPrettyPrint(middlemanEvent.getAction())
-                    .equals("runfiles for //middle:tool")),
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(lostRunfiles.size()));
 
     if (buildRunfileManifests()) {
@@ -1830,7 +1846,7 @@ public class RewindingTestsHelper {
       }
 
       assertActionKey(rewoundKeys.get(i++), "//middle:tool", /* index= */ 3);
-      assertArtifactKey(rewoundKeys.get(i), "_middlemen/middle_Stool-runfiles");
+      assertArtifactKey(rewoundKeys.get(i), "middle/tool.runfiles");
     } else {
       assertThat(rewoundKeys).hasSize(5);
       HashSet<String> expectedRewoundGenrules =
@@ -1849,7 +1865,7 @@ public class RewindingTestsHelper {
       }
 
       assertActionKey(rewoundKeys.get(i++), "//middle:tool", /* index= */ 1);
-      assertArtifactKey(rewoundKeys.get(i), "_middlemen/middle_Stool-runfiles");
+      assertArtifactKey(rewoundKeys.get(i), "middle/tool.runfiles");
     }
   }
 
@@ -1885,9 +1901,11 @@ public class RewindingTestsHelper {
    */
   final void runDupeDirectAndRunfilesDependencyRewound(
       AtomicReference<String> intermediate1FirstContent, SpawnShim shim) throws Exception {
+    mockFooBinary("test/foo_binary.bzl");
     testCase.write(
         "test/BUILD",
         """
+        load(":foo_binary.bzl", "foo_binary")
         genrule(
             name = "rule1",
             srcs = [],
@@ -1896,7 +1914,7 @@ public class RewindingTestsHelper {
             tags = ["no-cache"],
         )
 
-        sh_binary(
+        foo_binary(
             name = "tool",
             srcs = ["tool.sh"],
             data = ["intermediate_1.inlined"],
@@ -1975,10 +1993,6 @@ public class RewindingTestsHelper {
         /* runOnce= */ ImmutableList.of("Executing genrule //test:rule3"),
         /* completedRewound= */ ImmutableList.of("Executing genrule //test:rule1 [for tool]"),
         /* failedRewound= */ ImmutableList.of("Executing genrule //test:rule2"),
-        /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(
-            middlemanEvent ->
-                ActionEventRecorder.progressMessageOrPrettyPrint(middlemanEvent.getAction())
-                    .equals("runfiles for //test:tool")),
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(1));
 
     if (buildRunfileManifests()) {
@@ -2009,7 +2023,7 @@ public class RewindingTestsHelper {
       }
 
       assertActionKey(rewoundKeys.get(i++), "//test:tool", /* index= */ 3);
-      assertArtifactKey(rewoundKeys.get(i), "_middlemen/test_Stool-runfiles");
+      assertArtifactKey(rewoundKeys.get(i), "test/tool.runfiles");
     } else {
       assertThat(rewoundKeys).hasSize(4);
       int i = 0;
@@ -2026,7 +2040,7 @@ public class RewindingTestsHelper {
       }
 
       assertActionKey(rewoundKeys.get(i++), "//test:tool", /* index= */ 1);
-      assertArtifactKey(rewoundKeys.get(i), "_middlemen/test_Stool-runfiles");
+      assertArtifactKey(rewoundKeys.get(i), "test/tool.runfiles");
     }
   }
 
@@ -2080,18 +2094,19 @@ public class RewindingTestsHelper {
             attrs = {"srcs": attr.label_list(allow_files = True)},
         )
         """);
-
+    mockFooBinary("middle/foo_binary.bzl");
     testCase.write(
         "middle/BUILD",
         """
         load(":tree.bzl", "tree")
+        load(":foo_binary.bzl", "foo_binary")
 
         tree(
             name = "gen_tree",
             srcs = ["source_1.txt"],
         )
 
-        sh_binary(
+        foo_binary(
             name = "tool",
             srcs = ["tool.sh"],
             data = [
@@ -2129,10 +2144,6 @@ public class RewindingTestsHelper {
         /* runOnce= */ ImmutableList.of(),
         /* completedRewound= */ ImmutableList.of("Action middle/gen_tree_dir [for tool]"),
         /* failedRewound= */ ImmutableList.of("Executing genrule //middle:tool_user"),
-        /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(
-            middlemanEvent ->
-                ActionEventRecorder.progressMessageOrPrettyPrint(middlemanEvent.getAction())
-                    .equals("runfiles for //middle:tool")),
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(2));
 
     if (buildRunfileManifests()) {
@@ -2162,7 +2173,7 @@ public class RewindingTestsHelper {
       }
 
       assertActionKey(rewoundKeys.get(i++), "//middle:tool", /* index= */ 3);
-      assertArtifactKey(rewoundKeys.get(i), "_middlemen/middle_Stool-runfiles");
+      assertArtifactKey(rewoundKeys.get(i), "middle/tool.runfiles");
     } else {
       assertThat(rewoundKeys).hasSize(5);
       int i = 0;
@@ -2181,7 +2192,7 @@ public class RewindingTestsHelper {
       }
 
       assertActionKey(rewoundKeys.get(i++), "//middle:tool", /* index= */ 1);
-      assertArtifactKey(rewoundKeys.get(i), "_middlemen/middle_Stool-runfiles");
+      assertArtifactKey(rewoundKeys.get(i), "middle/tool.runfiles");
     }
   }
 
@@ -2262,7 +2273,6 @@ public class RewindingTestsHelper {
         /* runOnce= */ ImmutableList.of(),
         /* completedRewound= */ ImmutableList.of("Executing genrule //test:gen"),
         /* failedRewound= */ ImmutableList.of("Running consumer"),
-        /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(),
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(1));
   }
 
@@ -2350,7 +2360,6 @@ public class RewindingTestsHelper {
             "Linking genheader/consumes_header", "Compiling genheader/consumes.cc"),
         /* completedRewound= */ ImmutableList.of("Executing genrule //genheader:gen_header"),
         /* failedRewound= */ ImmutableList.of(),
-        /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(),
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(1));
 
     assertOnlyActionsRewound(rewoundKeys);
@@ -2402,7 +2411,6 @@ public class RewindingTestsHelper {
         /* runOnce= */ ImmutableList.of("Linking genheader/consumes_header"),
         /* completedRewound= */ ImmutableList.of("Executing genrule //genheader:gen_header"),
         /* failedRewound= */ ImmutableList.of("Compiling genheader/consumes.cc"),
-        /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(),
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(1));
 
     assertOnlyActionsRewound(rewoundKeys);
@@ -2509,7 +2517,6 @@ public class RewindingTestsHelper {
             "Linking genheader/consumes_header"),
         /* completedRewound= */ ImmutableList.of("Executing genrule //genheader:gen_header"),
         /* failedRewound= */ ImmutableList.of(),
-        /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(),
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(1));
 
     assertOnlyActionsRewound(rewoundKeys);
@@ -2569,7 +2576,6 @@ public class RewindingTestsHelper {
             "Linking genheader/consumes_header", "Compiling genheader/intermediate.cc"),
         /* completedRewound= */ ImmutableList.of("Executing genrule //genheader:gen_header"),
         /* failedRewound= */ ImmutableList.of("Compiling genheader/consumes.cc"),
-        /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(),
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(1));
 
     assertOnlyActionsRewound(rewoundKeys);
@@ -3010,7 +3016,7 @@ public class RewindingTestsHelper {
 
         lost_and_found_aspect = aspect(implementation = _lost_and_found_aspect_impl)
         """);
-    testCase.write("foo/BUILD", "sh_library(name = 'lib')");
+    testCase.write("foo/BUILD", "filegroup(name = 'lib')");
     lostOutputsModule.addLostOutput(getExecPath("bin/foo/lost.out"));
     Label fooLib = Label.parseCanonical("//foo:lib");
     List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
@@ -3318,7 +3324,7 @@ public class RewindingTestsHelper {
 
   final void assertOutputsReported(
       EventReportingArtifacts event, String... expectedRootRelativePaths) throws Exception {
-    ReportedArtifacts reported = event.reportedArtifacts();
+    ReportedArtifacts reported = event.reportedArtifacts(OutputGroupFileModes.DEFAULT);
     List<PathFragment> expectedExecPaths = new ArrayList<>();
     for (String path : expectedRootRelativePaths) {
       expectedExecPaths.add(PathFragment.create(getExecPath(path)));

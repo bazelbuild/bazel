@@ -19,7 +19,10 @@ license(
     license_text = "LICENSE",
 )
 
-exports_files(["LICENSE"])
+exports_files([
+    "LICENSE",
+    "MODULE.bazel.lock",
+])
 
 filegroup(
     name = "srcs",
@@ -27,7 +30,6 @@ filegroup(
         ["*"],
         exclude = [
             "MODULE.bazel.lock",  # Use MODULE.bazel.lock.dist instead
-            "WORKSPACE.bzlmod",  # Needs to be filtered.
             "bazel-*",  # convenience symlinks
             "out",  # IntelliJ with setup-intellij.sh
             "output",  # output of compile.sh
@@ -35,7 +37,6 @@ filegroup(
         ],
     ) + [
         "//:MODULE.bazel.lock.dist",
-        "//:WORKSPACE.bzlmod.filtered",
         "//examples:srcs",
         "//scripts:srcs",
         "//site:srcs",
@@ -76,22 +77,13 @@ filegroup(
 )
 
 genrule(
-    name = "filtered_WORKSPACE",
-    srcs = ["WORKSPACE.bzlmod"],
-    outs = ["WORKSPACE.bzlmod.filtered"],
-    cmd = "\n".join([
-        "cp $< $@",
-        # Comment out the android repos if they exist.
-        "sed -i.bak -e 's/^android_sdk_repository/# android_sdk_repository/' $@",
-    ]),
-)
-
-genrule(
     name = "generate_dist_lockfile",
     srcs = [
         "MODULE.bazel",
-        "//third_party/googleapis:MODULE.bazel",
         "//third_party/remoteapis:MODULE.bazel",
+        "//third_party:BUILD",
+        "//third_party:rules_jvm_external_6.0.patch",
+        "//third_party:rules_graalvm_fix.patch",
     ],
     outs = ["MODULE.bazel.lock.dist"],
     cmd = " && ".join([
@@ -115,10 +107,11 @@ genrule(
 pkg_tar(
     name = "bootstrap-jars",
     srcs = [
-        "@blake3",
-        "@com_google_protobuf//:protobuf_java",
-        "@com_google_protobuf//:protobuf_java_util",
-        "@com_google_protobuf//:protobuf_javalite",
+        "//third_party/googleapis:dist_jars",
+        "//third_party/grpc-java:grpc_jars",
+        "@protobuf//:protobuf_java",
+        "@protobuf//:protobuf_java_util",
+        "@protobuf//:protobuf_javalite",
         "@zstd-jni//:zstd-jni",
     ],
     package_dir = "derived/jars",
@@ -157,9 +150,8 @@ filegroup(
     srcs = [
         "//src/main/java/com/google/devtools/build/lib/bazel/rules:builtins_bzl.zip",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules:coverage.WORKSPACE",
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules:rules_license.WORKSPACE",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules:rules_suffix.WORKSPACE",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/cpp:cc_configure.WORKSPACE",
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules/java:jdk.WORKSPACE",
     ],
 )
 
@@ -172,7 +164,6 @@ pkg_tar(
     # TODO(aiuto): Replace with pkg_filegroup when that is available.
     remap_paths = {
         "MODULE.bazel.lock.dist": "MODULE.bazel.lock",
-        "WORKSPACE.bzlmod.filtered": "WORKSPACE.bzlmod",
     },
     strip_prefix = ".",
     # Public but bazel-only visibility.
@@ -182,17 +173,6 @@ pkg_tar(
 pkg_tar(
     name = "platforms-srcs",
     srcs = ["@platforms//:srcs"],
-    remap_paths = {
-        "external/": "",
-        "../": "",
-    },
-    strip_prefix = ".",
-    visibility = ["//:__subpackages__"],
-)
-
-pkg_tar(
-    name = "rules_java-srcs",
-    srcs = ["@rules_java//:distribution"],
     remap_paths = {
         "external/": "",
         "../": "",
@@ -214,10 +194,8 @@ pkg_tar(
     srcs = ["@maven//:srcs"] + ["MAVEN_CANONICAL_REPO_NAME"],
     package_dir = "derived/maven",
     remap_paths = {
-        # We need the repo names according to "builder bazel" (instead of "bazel being built") here.
-        # Remove the `replace` parts after building with 7.3.0.
-        "external/" + get_canonical_repo_name("@maven").replace("+", "~") + "/": "",
-        "../" + get_canonical_repo_name("@maven").replace("+", "~") + "/": "",
+        "external/" + get_canonical_repo_name("@maven") + "/": "",
+        "../" + get_canonical_repo_name("@maven") + "/": "",
     },
     strip_prefix = ".",
     visibility = ["//:__subpackages__"],
@@ -257,7 +235,6 @@ genrule(
         ":bazel-srcs",
         ":bootstrap-jars",
         ":platforms-srcs",
-        ":rules_java-srcs",
         ":maven-srcs",
         "//src:derived_java_srcs",
         "@bootstrap_repo_cache//:archives.tar",

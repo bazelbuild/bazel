@@ -311,14 +311,13 @@ public class RuleDocumentation implements Comparable<RuleDocumentation> {
 
   private String expandBuiltInVariables(String key, String value) {
     // Some built in BLAZE variables need special handling, e.g. adding headers
-    switch (key) {
-      case DocgenConsts.VAR_IMPLICIT_OUTPUTS:
-        return String.format(
-            "<h4 id=\"%s_implicit_outputs\">Implicit output targets</h4>\n%s",
-            Ascii.toLowerCase(ruleName), value);
-      default:
-        return value;
-    }
+    return switch (key) {
+      case DocgenConsts.VAR_IMPLICIT_OUTPUTS ->
+          String.format(
+              "<h4 id=\"%s_implicit_outputs\">Implicit output targets</h4>\n%s",
+              Ascii.toLowerCase(ruleName), value);
+      default -> value;
+    };
   }
 
   /**
@@ -347,17 +346,12 @@ public class RuleDocumentation implements Comparable<RuleDocumentation> {
   }
 
   private int getTypePriority() {
-    switch (ruleType) {
-      case BINARY:
-        return 1;
-      case LIBRARY:
-        return 2;
-      case TEST:
-        return 3;
-      case OTHER:
-        return 4;
-    }
-    throw new IllegalArgumentException("Illegal value of ruleType: " + ruleType);
+    return switch (ruleType) {
+      case BINARY -> 1;
+      case LIBRARY -> 2;
+      case TEST -> 3;
+      case OTHER -> 4;
+    };
   }
 
   @Override

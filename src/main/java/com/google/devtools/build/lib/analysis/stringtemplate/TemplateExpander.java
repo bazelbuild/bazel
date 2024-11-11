@@ -126,7 +126,8 @@ public final class TemplateExpander {
   private String scanVariable() throws ExpansionException {
     char c = buffer[offset];
     switch (c) {
-      case '(': { // looks like $(SRCS)
+      case '(' -> {
+        // looks like $(SRCS)
         offset++;
         int start = offset;
         while (offset < length && buffer[offset] != ')') {
@@ -136,9 +137,10 @@ public final class TemplateExpander {
           throw new ExpansionException("unterminated variable reference");
         }
         return new String(buffer, start, offset - start);
+        // We only parse ${variable} syntax to provide a better error message.
       }
-      // We only parse ${variable} syntax to provide a better error message.
-      case '{': { // looks like ${SRCS}
+      case '{' -> {
+        // looks like ${SRCS}
         offset++;
         int start = offset;
         while (offset < length && buffer[offset] != '}') {
@@ -148,23 +150,30 @@ public final class TemplateExpander {
           throw new ExpansionException("unterminated variable reference");
         }
         String expr = new String(buffer, start, offset - start);
-        throw new ExpansionException("'${" + expr + "}' syntax is not supported; use '$(" + expr
-                                     + ")' instead for \"Make\" variables, or escape the '$' as "
-                                     + "'$$' if you intended this for the shell");
+        throw new ExpansionException(
+            "'${"
+                + expr
+                + "}' syntax is not supported; use '$("
+                + expr
+                + ")' instead for \"Make\" variables, or escape the '$' as "
+                + "'$$' if you intended this for the shell");
       }
-      case '@':
-      case '<':
-      case '^':
+      case '@', '<', '^' -> {
         return String.valueOf(c);
-      default: {
+      }
+      default -> {
         int start = offset;
         while (offset + 1 < length && Character.isJavaIdentifierPart(buffer[offset + 1])) {
           offset++;
         }
         String expr = new String(buffer, start, offset + 1 - start);
-        throw new ExpansionException("'$" + expr + "' syntax is not supported; use '$(" + expr
-                                     + ")' instead for \"Make\" variables, or escape the '$' as "
-                                     + "'$$' if you intended this for the shell");
+        throw new ExpansionException(
+            "'$"
+                + expr
+                + "' syntax is not supported; use '$("
+                + expr
+                + ")' instead for \"Make\" variables, or escape the '$' as "
+                + "'$$' if you intended this for the shell");
       }
     }
   }

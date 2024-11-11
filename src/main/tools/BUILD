@@ -2,7 +2,10 @@ package(default_visibility = ["//src:__subpackages__"])
 
 cc_binary(
     name = "daemonize",
-    srcs = ["daemonize.c"],
+    srcs = ["daemonize.cc"],
+    deps = [
+        ":process-tools",
+    ],
 )
 
 cc_library(

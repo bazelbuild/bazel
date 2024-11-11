@@ -15,7 +15,7 @@ filegroup(
 
 sh_test(
     name = "cc_builtin_tests",
-    size = "medium",
+    size = "large",
     srcs = ["cc_builtin_tests.sh"],
     data = [
         ":builtin_test_setup",

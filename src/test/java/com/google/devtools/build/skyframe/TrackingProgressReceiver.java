@@ -75,7 +75,7 @@ public class TrackingProgressReceiver implements EvaluationProgressReceiver {
     evaluated.add(skyKey);
     if (checkEvaluationResults && state.succeeded()) {
       deleted.remove(skyKey);
-      if (!state.changed()) {
+      if (!state.versionChanged()) {
         dirty.remove(skyKey);
       }
     }

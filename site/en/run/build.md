@@ -297,7 +297,7 @@ you disallow during-build fetching, you'll need to run `bazel fetch`:
 - Before you build for the first time.
 - After you add a new external dependency.
 
-Once it has been run, you should not need to run it again until the WORKSPACE
+Once it has been run, you should not need to run it again until the MODULE.bazel
 file changes.
 
 `fetch` takes a list of targets to fetch dependencies for. For
@@ -364,7 +364,7 @@ option, you can specify additional read-only directories to look for files
 instead of fetching them. A file is taken from such a directory if the file name
 is equal to the base name of the URL and additionally the hash of the file is
 equal to the one specified in the download request. This only works if the
-file hash is specified in the WORKSPACE declaration.
+file hash is specified in the repo rule declaration.
 
 While the condition on the file name is not necessary for correctness, it
 reduces the number of candidate files to one per specified directory. In this
@@ -400,8 +400,6 @@ an empty workspace:
 mkdir empty_workspace && cd empty_workspace
 
 touch MODULE.bazel
-
-touch WORKSPACE
 ```
 
 To fetch built-in Bzlmod dependencies, run

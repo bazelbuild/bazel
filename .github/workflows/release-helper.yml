@@ -13,11 +13,11 @@ jobs:
       issues: write
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@17d0e2bd7d51742c71671bd19fa12bdc9d40a3d6 # v2.8.1
+        uses: step-security/harden-runner@91182cccc01eb5e619899d80e4e971d6181294a7 # v2.10.1
         with:
           egress-policy: audit
 
       - name: Run helper
-        uses: bazelbuild/continuous-integration/actions/release-helper@ee5ea988681e086afabfe6677eef2dc1292f6b9d # master
+        uses: bazelbuild/continuous-integration/actions/release-helper@8db2c232a6f86d56ec655e7b0d87de3787a25ef1 # master
         with:
           token: ${{ secrets.BAZEL_IO_TOKEN }}

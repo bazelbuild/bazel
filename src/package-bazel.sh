@@ -19,13 +19,12 @@ set -euo pipefail
 # This script creates the Bazel archive that Bazel client unpacks and then
 # starts the server from.
 
-WORKDIR=$(pwd)
+WORKDIR="$(pwd)"
 OUT=$1; shift
 EMBEDDED_TOOLS=$1; shift
 DEPLOY_JAR=$1; shift
 INSTALL_BASE_KEY=$1; shift
 PLATFORMS_ARCHIVE=$1; shift
-RULES_JAVA_ARCHIVE=$1; shift
 
 if [[ "$OUT" == *jdk_allmodules.zip ]]; then
   DEV_BUILD=1
@@ -63,7 +62,7 @@ if [[ $DEV_BUILD -eq 0 ]]; then
         || echo -n 'no_version')"
   echo -n "${bazel_label:-no_version}" > "${PACKAGE_DIR}/build-label.txt"
 
-  cd $WORKDIR
+  cd "$WORKDIR"
 
   DEPLOY_JAR="$DEPLOY_UNCOMP"
 fi
@@ -75,20 +74,8 @@ fi
 
 (
   cd $PACKAGE_DIR
-  tar -xf $WORKDIR/$PLATFORMS_ARCHIVE -C .
+  tar -xf "$WORKDIR/$PLATFORMS_ARCHIVE" -C .
   # "platforms" is a well-known module, so no need to tamper with anything here.
-)
-
-(
-  cd $PACKAGE_DIR
-  tar -xf $WORKDIR/$RULES_JAVA_ARCHIVE -C .
-  # Rename "rules_java~" or "rules_java+" to "rules_java".
-  if [[ -d rules_java~ ]]; then
-    mv rules_java~ rules_java
-  fi
-  if [[ -d rules_java+ ]]; then
-    mv rules_java+ rules_java
-  fi
 )
 
 # Make a list of the files in the order we want them inside the final zip.
@@ -116,6 +103,4 @@ else
   # Create output zip with highest compression, but slow.
   ZIP_ARGS="-q9DX@"
 fi
-(cd $PACKAGE_DIR; zip $ZIP_ARGS $WORKDIR/$OUT) < $FILE_LIST
-
-
+(cd $PACKAGE_DIR; zip $ZIP_ARGS "$WORKDIR/$OUT") < $FILE_LIST

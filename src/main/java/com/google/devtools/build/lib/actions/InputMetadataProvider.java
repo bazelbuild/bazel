@@ -29,18 +29,33 @@ public interface InputMetadataProvider {
    * <p>The returned {@link FileArtifactValue} instance corresponds to the final target of a symlink
    * and therefore must not have a type of {@link FileStateType#SYMLINK}.
    *
-   * <p>If {@link #mayGetGeneratingActionsFromSkyframe} is {@code true} and the {@linkplain
-   * DerivedArtifact#getGeneratingActionKey generating action} is not immediately available, this
-   * method returns {@code null} to signify that a skyframe restart is necessary to obtain the
-   * metadata for the requested {@link Artifact.DerivedArtifact}.
+   * <p>If {@linkplain DerivedArtifact#getGeneratingActionKey generating action} is not immediately
+   * available, this method throws {@code MissingDepExecException} to signal that a Skyframe restart
+   * is necessary to obtain the requested metadata.
    *
    * @param input the input to retrieve the digest for
    * @return the artifact's digest or null if digest cannot be obtained (due to artifact
    *     non-existence, lookup errors, or any other reason)
    * @throws IOException if the action input cannot be digested
+   * @throws MissingDepExecException if a Skyframe restart is required to provide the requested data
    */
   @Nullable
-  FileArtifactValue getInputMetadata(ActionInput input) throws IOException;
+  FileArtifactValue getInputMetadataChecked(ActionInput input)
+      throws IOException, MissingDepExecException;
+
+  /**
+   * Like {@link #getInputMetadata(ActionInput)}, but assumes that no Skyframe restart is needed.
+   *
+   * <p>If one is needed anyway, throws {@link IllegalStateException}.
+   */
+  @Nullable
+  default FileArtifactValue getInputMetadata(ActionInput input) throws IOException {
+    try {
+      return getInputMetadataChecked(input);
+    } catch (MissingDepExecException e) {
+      throw new IllegalStateException(e);
+    }
+  }
 
   /**
    * Returns the {@link RunfilesArtifactValue} for the given {@link ActionInput}, which must be a
@@ -72,11 +87,4 @@ public interface InputMetadataProvider {
     return null;
   }
 
-  /**
-   * Indicates whether calls to {@link #getInputMetadata} with a {@link Artifact.DerivedArtifact}
-   * may require a skyframe lookup.
-   */
-  default boolean mayGetGeneratingActionsFromSkyframe() {
-    return false;
-  }
 }

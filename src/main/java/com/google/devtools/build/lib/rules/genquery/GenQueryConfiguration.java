@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 
 /** {@link Fragment} for {@link GenQuery}. */
 @RequiresOptions(options = {GenQueryConfiguration.GenQueryOptions.class})
@@ -33,6 +34,7 @@ public class GenQueryConfiguration extends Fragment {
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help =
             "If true, genquery loads its scope's transitive closure directly instead of by using "
                 + "'TransitiveTargetValue' Skyframe work.")

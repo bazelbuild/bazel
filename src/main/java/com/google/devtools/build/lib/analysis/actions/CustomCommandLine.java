@@ -692,7 +692,7 @@ public class CustomCommandLine extends AbstractCommandLine {
 
     @Override
     void eval(ImmutableList.Builder<String> builder, ArtifactExpander artifactExpander) {
-      for (TreeFileArtifact child : artifactExpander.expandTreeArtifact(treeArtifact)) {
+      for (TreeFileArtifact child : artifactExpander.tryExpandTreeArtifact(treeArtifact)) {
         builder.add(child.getExecPathString());
       }
     }

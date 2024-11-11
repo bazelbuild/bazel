@@ -97,19 +97,13 @@ public class AutoCodecProcessor extends AbstractProcessor {
       AutoCodec annotation = element.getAnnotation(AutoCodec.class);
       TypeElement encodedType = (TypeElement) element;
       ResolvedInstantiator instantiator = determineInstantiator(encodedType);
-      TypeSpec codecClass;
-      switch (instantiator.kind()) {
-        case CONSTRUCTOR:
-        case FACTORY_METHOD:
-          codecClass = defineClassWithInstantiator(encodedType, instantiator.method(), annotation);
-          break;
-        case INTERNER:
-          codecClass = defineClassWithInterner(encodedType, instantiator.method(), annotation);
-          break;
-        default:
-          throw new IllegalStateException(
-              String.format("Unknown instantiator kind: %s\n", instantiator));
-      }
+      TypeSpec codecClass =
+          switch (instantiator.kind()) {
+            case CONSTRUCTOR, FACTORY_METHOD ->
+                defineClassWithInstantiator(encodedType, instantiator.method(), annotation);
+            case INTERNER ->
+                defineClassWithInterner(encodedType, instantiator.method(), annotation);
+          };
 
       JavaFile file = writeGeneratedClassToFile(element, codecClass, env);
       if (env.getOptions().containsKey(PRINT_GENERATED_OPTION)) {

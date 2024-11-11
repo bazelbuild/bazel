@@ -53,11 +53,6 @@ msys*|mingw*|cygwin*)
   ;;
 esac
 
-if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 # Tests that you can set the spawn strategy flags to a list of strategies.
 function test_multiple_strategies() {
   SERVER_LOG=$(bazel info server_log)

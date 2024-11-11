@@ -17,12 +17,9 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.util.DigestUtil.isOldStyleDigestFunction;
 
-import build.bazel.remote.execution.v2.ActionCacheUpdateCapabilities;
 import build.bazel.remote.execution.v2.ActionResult;
-import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
-import build.bazel.remote.execution.v2.SymlinkAbsolutePathStrategy;
 import build.bazel.remote.execution.v2.Tree;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableMap;
@@ -32,11 +29,9 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
 import com.google.devtools.build.lib.remote.Store;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
-import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
-import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.util.DigestOutputStream;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
@@ -48,7 +43,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import javax.annotation.Nullable;
@@ -60,54 +54,37 @@ import javax.annotation.Nullable;
  * when they collide.
  *
  * <p>The mtime of an entry reflects the most recent time the entry was stored *or* retrieved. This
- * property may be used to trim the disk cache to the most recently used entries. However, it's not
- * safe to trim the cache at the same time a Bazel process is accessing it.
+ * property may be used to garbage collect the disk cache by deleting the least recently accessed
+ * entries. This may be done by Bazel itself (see {@link DiskCacheGarbageCollectorIdleTask}), by
+ * another Bazel process sharing the disk cache, or by an external process. Although we could have
+ * arranged for an ongoing garbage collection to block a concurrent build, we judge it to not be
+ * worth the extra complexity; assuming that the collection policy is not overly aggressive, the
+ * likelihood of a race condition is fairly small, and an affected build is able to automatically
+ * recover by retrying.
  */
-public class DiskCacheClient implements RemoteCacheClient {
+public class DiskCacheClient {
 
   private static final String AC_DIR = "ac";
   private static final String CAS_DIR = "cas";
   private static final String TMP_DIR = "tmp";
-  private static final String GC_DIR = "gc";
-
-  // Subdirectories excluded from garbage collection.
-  private static final ImmutableSet<String> EXCLUDED_DIRS = ImmutableSet.of(TMP_DIR, GC_DIR);
-
-  private static final SpawnCheckingCacheEvent SPAWN_CHECKING_CACHE_EVENT =
-      SpawnCheckingCacheEvent.create("disk-cache");
 
   private final ImmutableMap<Store, Path> storeRootMap;
   private final Path tmpRoot;
+
   private final ListeningExecutorService executorService;
   private final boolean verifyDownloads;
   private final DigestUtil digestUtil;
-
-  @Nullable private final GarbageCollector gc;
-
-  private boolean closed = false;
 
   /**
    * @param verifyDownloads whether verify the digest of downloaded content are the same as the
    *     digest used to index that file.
    */
   public DiskCacheClient(
-      Path root,
-      long maxSizeBytes,
-      DigestUtil digestUtil,
-      ExecutorService executorService,
-      boolean verifyDownloads)
+      Path root, DigestUtil digestUtil, ExecutorService executorService, boolean verifyDownloads)
       throws IOException {
     this.digestUtil = digestUtil;
     this.executorService = MoreExecutors.listeningDecorator(executorService);
     this.verifyDownloads = verifyDownloads;
-
-    Path gcRoot = root.getChild(GC_DIR);
-    if (maxSizeBytes > 0) {
-      gcRoot.createDirectoryAndParents();
-      this.gc = new GarbageCollector(root, GC_DIR, EXCLUDED_DIRS, executorService);
-    } else {
-      this.gc = null;
-    }
 
     Path fnRoot =
         isOldStyleDigestFunction(digestUtil.getDigestFunction())
@@ -130,15 +107,16 @@ public class DiskCacheClient implements RemoteCacheClient {
    * deliberately use the mtime because the atime is more likely to be externally modified and may
    * be unavailable on some filesystems.
    *
-   * <p>Prefer calling {@link #downloadBlob} or {@link #downloadActionResult} instead, which will
-   * automatically update the mtime. This method should only be called by the remote worker
-   * implementation.
+   * <p>Prefer calling {@link #downloadBlob} instead, which will automatically update the mtime.
+   * This method should only be called by the remote worker implementation.
    *
    * @throws IOException if an I/O error other than a missing file occurs.
    */
   public boolean refresh(Path path) throws IOException {
     try {
-      path.setLastModifiedTime(Instant.now().toEpochMilli());
+      // Use NOW_SENTINEL_TIME instead of obtaining the current time so that the operation succeeds
+      // even when the file has a different owner, as might be the case for a shared cache.
+      path.setLastModifiedTime(Path.NOW_SENTINEL_TIME);
     } catch (FileNotFoundException e) {
       return false;
     }
@@ -151,11 +129,16 @@ public class DiskCacheClient implements RemoteCacheClient {
    * <p>The caller must ensure that the digest is correct and the file has been recently modified.
    * This method should only be called by the combined cache implementation.
    */
-  void captureFile(Path src, Digest digest, Store store) throws IOException {
+  public void captureFile(Path src, Digest digest, Store store) throws IOException {
     Path target = toPath(digest, store);
+
+    if (refresh(target)) {
+      src.delete();
+      return;
+    }
+
     target.getParentDirectory().createDirectoryAndParents();
     src.renameTo(target);
-    var unused = refresh(target);
   }
 
   private ListenableFuture<Void> download(Digest digest, OutputStream out, Store store) {
@@ -172,9 +155,7 @@ public class DiskCacheClient implements RemoteCacheClient {
         });
   }
 
-  @Override
-  public ListenableFuture<Void> downloadBlob(
-      RemoteActionExecutionContext context, Digest digest, OutputStream out) {
+  public ListenableFuture<Void> downloadBlob(Digest digest, OutputStream out) {
     @Nullable
     DigestOutputStream digestOut = verifyDownloads ? digestUtil.newDigestOutputStream(out) : null;
     return Futures.transformAsync(
@@ -244,27 +225,7 @@ public class DiskCacheClient implements RemoteCacheClient {
     }
   }
 
-  @Override
-  public CacheCapabilities getCacheCapabilities() {
-    return CacheCapabilities.newBuilder()
-        .setActionCacheUpdateCapabilities(
-            ActionCacheUpdateCapabilities.newBuilder().setUpdateEnabled(true).build())
-        .setSymlinkAbsolutePathStrategy(SymlinkAbsolutePathStrategy.Value.ALLOWED)
-        .build();
-  }
-
-  @Override
-  public ListenableFuture<String> getAuthority() {
-    return immediateFuture("");
-  }
-
-  @Override
-  public ListenableFuture<CachedActionResult> downloadActionResult(
-      RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
-    if (context.getSpawnExecutionContext() != null) {
-      context.getSpawnExecutionContext().report(SPAWN_CHECKING_CACHE_EVENT);
-    }
-
+  public ListenableFuture<ActionResult> downloadActionResult(ActionKey actionKey) {
     return Futures.transformAsync(
         // Update the mtime on the action result itself before any of the blobs it references.
         // This ensures that the blobs are always newer than the action result, so that trimming the
@@ -286,14 +247,12 @@ public class DiskCacheClient implements RemoteCacheClient {
             return immediateFuture(null);
           }
 
-          return immediateFuture(CachedActionResult.disk(actionResult));
+          return immediateFuture(actionResult);
         },
         directExecutor());
   }
 
-  @Override
-  public ListenableFuture<Void> uploadActionResult(
-      RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult) {
+  public ListenableFuture<Void> uploadActionResult(ActionKey actionKey, ActionResult actionResult) {
     return executorService.submit(
         () -> {
           try (InputStream data = actionResult.toByteString().newInput()) {
@@ -303,19 +262,9 @@ public class DiskCacheClient implements RemoteCacheClient {
         });
   }
 
-  @Override
-  public void close() {
-    if (!closed) {
-      if (gc != null) {
-        gc.close();
-      }
-      closed = true;
-    }
-  }
+  public void close() {}
 
-  @Override
-  public ListenableFuture<Void> uploadFile(
-      RemoteActionExecutionContext context, Digest digest, Path file) {
+  public ListenableFuture<Void> uploadFile(Digest digest, Path file) {
     return executorService.submit(
         () -> {
           try (InputStream in = file.getInputStream()) {
@@ -325,9 +274,7 @@ public class DiskCacheClient implements RemoteCacheClient {
         });
   }
 
-  @Override
-  public ListenableFuture<Void> uploadBlob(
-      RemoteActionExecutionContext context, Digest digest, ByteString data) {
+  public ListenableFuture<Void> uploadBlob(Digest digest, ByteString data) {
     return executorService.submit(
         () -> {
           try (InputStream in = data.newInput()) {
@@ -337,25 +284,27 @@ public class DiskCacheClient implements RemoteCacheClient {
         });
   }
 
-  @Override
-  public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(
-      RemoteActionExecutionContext context, Iterable<Digest> digests) {
+  public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(Iterable<Digest> digests) {
     // Both upload and download check if the file exists before doing I/O. So we don't
     // have to do it here.
     return immediateFuture(ImmutableSet.copyOf(digests));
   }
 
-  Path getTempPath() {
+  public Path getTempPath() {
     return tmpRoot.getChild(UUID.randomUUID().toString());
   }
 
   public Path toPath(Digest digest, Store store) {
     String hash = digest.getHash();
+    return toPath(hash, store);
+  }
+
+  public Path toPath(String hash, Store store) {
     // Create the file in a subfolder to bypass possible folder file count limits.
     return storeRootMap.get(store).getChild(hash.substring(0, 2)).getChild(hash);
   }
 
-  private void saveFile(Digest digest, Store store, InputStream in) throws IOException {
+  public void saveFile(Digest digest, Store store, InputStream in) throws IOException {
     Path path = toPath(digest, store);
 
     if (refresh(path)) {

@@ -12,36 +12,34 @@ toolchains for a project.
 
 In this tutorial you learn how to:
 
-*  Set up the build environment
-*  Use `--toolchain_resolution_debug` to debug toolchain resolution
-*  Configure the C++ toolchain
-*  Create a Starlark rule that provides additional
-configuration for the `cc_toolchain` so that Bazel can build the application
-with `clang`
-*  Build the C++ binary for by running
-`bazel build //main:hello-world` on a Linux machine
-* Cross-compile the binary for android by running `bazel build //main:hello-world --platforms=//:android_x86_64`
+*   Set up the build environment
+*   Use `--toolchain_resolution_debug` to debug toolchain resolution
+*   Configure the C++ toolchain
+*   Create a Starlark rule that provides additional configuration for the
+    `cc_toolchain` so that Bazel can build the application with `clang`
+*   Build the C++ binary for by running `bazel build //main:hello-world` on a
+    Linux machine
+*   Cross-compile the binary for android by running `bazel build
+    //main:hello-world --platforms=//:android_x86_64`
 
 ## Before you begin {: #before-you-begin }
 
-This tutorial assumes you are on Linux and have successfully built
-C++ applications and installed the appropriate tooling and libraries.
-The tutorial uses `clang version 16`, which you can install on your system.
+This tutorial assumes you are on Linux and have successfully built C++
+applications and installed the appropriate tooling and libraries. The tutorial
+uses `clang version 16`, which you can install on your system.
 
 ### Set up the build environment {: #setup-build-environment }
 
 Set up your build environment as follows:
 
-1.  If you have not already done so,
-   [download and install Bazel 7.0.2](https://bazel.build/install) or later.
+1.  If you have not already done so, [download and install Bazel
+    7.0.2](https://bazel.build/install) or later.
 
-2.  Add an empty `WORKSPACE` file at the root folder.
+2.  Add an empty `MODULE.bazel` file at the root folder.
 
 3.  Add the following `cc_binary` target to the `main/BUILD` file:
 
     ```python
-    load("@rules_cc//cc:defs.bzl", "cc_binary")
-
     cc_binary(
         name = "hello-world",
         srcs = ["hello-world.cc"],
@@ -49,8 +47,8 @@ Set up your build environment as follows:
     ```
 
     Because Bazel uses many internal tools written in C++ during the build, such
-    as `process-wrapper`, the pre-existing default C++ toolchain is specified for
-    the host platform. This enables these internal tools to build using that
+    as `process-wrapper`, the pre-existing default C++ toolchain is specified
+    for the host platform. This enables these internal tools to build using that
     toolchain of the one created in this tutorial. Hence, the `cc_binary` target
     is also built with the default toolchain.
 
@@ -60,29 +58,28 @@ Set up your build environment as follows:
     bazel build //main:hello-world
     ```
 
-    The build succeeds without any toolchain registered in the `WORKSPACE`.
+    The build succeeds without any toolchain registered in `MODULE.bazel`.
 
     To further see what's under the hood, run:
 
     ```bash
     bazel build //main:hello-world --toolchain_resolution_debug='@bazel_tools//tools/cpp:toolchain_type'
 
-    INFO: ToolchainResolution: Target platform @@local_config_platform//:host: Selected execution platform @@local_config_platform//:host, type @@bazel_tools//tools/cpp:toolchain_type -> toolchain @@bazel_tools+cc_configure_extension+local_config_cc//:cc-compiler-k8
+    INFO: ToolchainResolution: Target platform @@platforms//host:host: Selected execution platform @@platforms//host:host, type @@bazel_tools//tools/cpp:toolchain_type -> toolchain @@bazel_tools+cc_configure_extension+local_config_cc//:cc-compiler-k8
     ```
 
     Without specifying `--platforms`, Bazel builds the target for
-    `@local_config_platform//:host` using
-    `@bazel_tools//cc_configure_extension/local_config_cc//:cc-compiler-k8`
+    `@platforms//host` using
+    `@bazel_tools+cc_configure_extension+local_config_cc//:cc-compiler-k8`.
 
 ## Configure the C++ toolchain {: #configure-cc-toolchain }
 
 To configure the C++ toolchain, repeatedly build the application and eliminate
 each error one by one as described as following.
 
-Note: This tutorial assumes you're using Bazel 7.0.2 or later. If you're
-using an older release of Bazel, use
-`--incompatible_enable_cc_toolchain_resolution` flag to enable C++ toolchain
-resolution.
+Note: This tutorial assumes you're using Bazel 7.0.2 or later. If you're using
+an older release of Bazel, use `--incompatible_enable_cc_toolchain_resolution`
+flag to enable C++ toolchain resolution.
 
 It also assumes `clang version 9.0.1`, although the details should only change
 slightly between different versions of clang.
@@ -119,9 +116,12 @@ slightly between different versions of clang.
         ],
     )
     ```
-    Then register the toolchain with the `WORKSPACE` with
+
+    Then add appropriate dependencies and register the toolchain with
+    `MODULE.bazel` with
 
     ```python
+    bazel_dep(name = "platforms", version = "0.0.10")
     register_toolchains(
         "//toolchain:cc_toolchain_for_linux_x86_64"
     )
@@ -151,9 +151,9 @@ slightly between different versions of clang.
     '//toolchain:linux_x86_64_toolchain_config' does not have mandatory providers: 'CcToolchainConfigInfo'.
     ```
 
-    `CcToolchainConfigInfo` is a provider that you use to configure
-    your C++ toolchains. To fix this error, create a Starlark rule
-    that provides `CcToolchainConfigInfo` to Bazel by making a
+    `CcToolchainConfigInfo` is a provider that you use to configure your C++
+    toolchains. To fix this error, create a Starlark rule that provides
+    `CcToolchainConfigInfo` to Bazel by making a
     `toolchain/cc_toolchain_config.bzl` file with the following content:
 
     ```python
@@ -204,7 +204,7 @@ slightly between different versions of clang.
     At this point, Bazel has enough information to attempt building the code but
     it still does not know what tools to use to complete the required build
     actions. You will modify the Starlark rule implementation to tell Bazel what
-    tools to use. For that, you need the tool_path() constructor from
+    tools to use. For that, you need the `tool_path()` constructor from
     [`@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl`](https://source.bazel.build/bazel/+/4eea5c62a566d21832c93e4c18ec559e75d5c1ce:tools/cpp/cc_toolchain_config_lib.bzl;l=400):
 
     ```python
@@ -262,8 +262,8 @@ slightly between different versions of clang.
         )
     ```
 
-    Make sure that `/usr/bin/clang` and `/usr/bin/ld` are the correct paths
-    for your system.
+    Make sure that `/usr/bin/clang` and `/usr/bin/ld` are the correct paths for
+    your system.
 
 6.  Run the build again. Bazel throws the following error:
 
@@ -276,16 +276,16 @@ slightly between different versions of clang.
       ...
     ```
 
-    Bazel needs to know where to search for included headers. There are
-    multiple ways to solve this, such as using the `includes` attribute of
-    `cc_binary`, but here this is solved at the toolchain level with the
+    Bazel needs to know where to search for included headers. There are multiple
+    ways to solve this, such as using the `includes` attribute of `cc_binary`,
+    but here this is solved at the toolchain level with the
     [`cxx_builtin_include_directories`](/rules/lib/toplevel/cc_common#create_cc_toolchain_config_info)
-    parameter of `cc_common.create_cc_toolchain_config_info`. Beware that if
-    you are using a different version of `clang`, the include path will be
+    parameter of `cc_common.create_cc_toolchain_config_info`. Beware that if you
+    are using a different version of `clang`, the include path will be
     different. These paths may also be different depending on the distribution.
 
-    Modify the return value in `toolchain/cc_toolchain_config.bzl` to look
-    like this:
+    Modify the return value in `toolchain/cc_toolchain_config.bzl` to look like
+    this:
 
     ```python
     return cc_common.create_cc_toolchain_config_info(
@@ -306,7 +306,7 @@ slightly between different versions of clang.
     )
     ```
 
-7. Run the build command again, you will see an error like:
+7.  Run the build command again, you will see an error like:
 
     ```bash
     /usr/bin/ld: bazel-out/k8-fastbuild/bin/main/_objs/hello-world/hello-world.o: in function `print_localtime()':
@@ -316,8 +316,8 @@ slightly between different versions of clang.
     The reason for this is because the linker is missing the C++ standard
     library and it can't find its symbols. There are many ways to solve this,
     such as using the `linkopts` attribute of `cc_binary`. Here it is solved by
-    making sure that any target using the toolchain doesn't have to specify
-    this flag.
+    making sure that any target using the toolchain doesn't have to specify this
+    flag.
 
     Copy the following code to `toolchain/cc_toolchain_config.bzl`:
 
@@ -419,13 +419,14 @@ slightly between different versions of clang.
     )
     ```
 
-8.  Running `bazel build //main:hello-world`, it should finally build the binary successfully for host.
+8.  Running `bazel build //main:hello-world`, it should finally build the binary
+    successfully for host.
 
 9.  In `toolchain/BUILD`, copy the `cc_toolchain_config`, `cc_toolchain`, and
-    `toolchain` targets and replace `linux_x86_64` with `android_x86_64`in target
-    names.
+    `toolchain` targets and replace `linux_x86_64` with `android_x86_64`in
+    target names.
 
-    In `WORKSPACE`, register the toolchain for android
+    In `MODULE.bazel`, register the toolchain for android
 
     ```python
     register_toolchains(
@@ -434,7 +435,9 @@ slightly between different versions of clang.
     )
     ```
 
-10. Run `bazel build //main:hello-world --android_platforms=//toolchain:android_x86_64` to build the binary for Android.
+10.  Run `bazel build //main:hello-world
+    --android_platforms=//toolchain:android_x86_64` to build the binary for
+    Android.
 
 In practice, Linux and Android should have different C++ toolchain configs. You
 can either modify the existing `cc_toolchain_config` for the differences or
@@ -444,24 +447,25 @@ platforms.
 ## Review your work {: #review-your-work }
 
 In this tutorial you learned how to configure a basic C++ toolchain, but
-toolchains are more powerful than this simple example.
+toolchains are more powerful than this example.
 
-The key take-aways are:
+The key takeaways are:
 
-- You need to specify a matching `platforms` flag in the command line for Bazel to
-  resolve to the toolchain for the same constraint values on the platform.
-  The documentation holds more [information about language specific configuration flags](/concepts/platforms).
-- You have to let the toolchain know where the tools live. In this tutorial
-  there is a simplified version where you access the tools from the system. If
-  you are interested in a more self-contained approach, you can read about
-  [workspaces](/reference/be/workspace). Your tools could come from a
-  different workspace and you would have to make their files available
-  to the `cc_toolchain` with target dependencies on attributes, such as
-  `compiler_files`. The `tool_paths` would need to be changed as well.
-- You can create features to customize which flags should be passed to
-  different actions, be it linking or any other type of action.
+-   You need to specify a matching `platforms` flag in the command line for
+    Bazel to resolve to the toolchain for the same constraint values on the
+    platform. The documentation holds more [information about language specific
+    configuration flags](/concepts/platforms).
+-   You have to let the toolchain know where the tools live. In this tutorial
+    there is a simplified version where you access the tools from the system. If
+    you are interested in a more self-contained approach, you can read about
+    [external dependencies](/external/overview). Your tools could come from a
+    different module and you would have to make their files available to the
+    `cc_toolchain` with target dependencies on attributes, such as
+    `compiler_files`. The `tool_paths` would need to be changed as well.
+-   You can create features to customize which flags should be passed to
+    different actions, be it linking or any other type of action.
 
 ## Further reading {: #further-reading }
 
-For more details, see
-[C++ toolchain configuration](/docs/cc-toolchain-config-reference)
+For more details, see [C++ toolchain
+configuration](/docs/cc-toolchain-config-reference)

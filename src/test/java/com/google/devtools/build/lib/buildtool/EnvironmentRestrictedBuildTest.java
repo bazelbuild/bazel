@@ -57,8 +57,10 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
   @Test
   public void testTargetEnvironmentError() throws Exception {
     writeEnvironmentRules();
-    write("foo/BUILD",
-        "sh_library(name = 'bar', srcs = ['bar.sh'])");
+    write(
+        "foo/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'bar', srcs = ['bar.sh'])");
     addOptions("--target_environment=//buildenv:one");
     assertThat(assertThrows(ViewCreationFailedException.class, () -> buildTarget("//foo:bar")))
         .hasMessageThat()
@@ -73,8 +75,10 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
   @Test
   public void testTargetEnvironmentSuccess() throws Exception {
     writeEnvironmentRules();
-    write("foo/BUILD",
-        "sh_library(name = 'bar', srcs = ['bar.sh'], compatible_with = ['//buildenv:one'])");
+    write(
+        "foo/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'bar', srcs = ['bar.sh'], compatible_with = ['//buildenv:one'])");
     write("foo/bar.sh");
     addOptions("--target_environment=//buildenv:one");
     buildTarget("//foo:bar");
@@ -84,8 +88,10 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
   @Test
   public void testMultipleTargetEnvironments() throws Exception {
     writeEnvironmentRules();
-    write("foo/BUILD",
-        "sh_library(name = 'bar', srcs = ['bar.sh'], compatible_with = ['//buildenv:one'])");
+    write(
+        "foo/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'bar', srcs = ['bar.sh'], compatible_with = ['//buildenv:one'])");
 
     addOptions("--target_environment=//buildenv:one", "--target_environment=//buildenv:two");
     assertThat(assertThrows(ViewCreationFailedException.class, () -> buildTarget("//foo:bar")))
@@ -101,8 +107,10 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
   @Test
   public void testTargetEnvironmentIsDefault() throws Exception {
     writeEnvironmentRules(":one");
-    write("foo/BUILD",
-        "sh_library(name = 'bar', srcs = ['bar.sh'])");
+    write(
+        "foo/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'bar', srcs = ['bar.sh'])");
     write("foo/bar.sh");
     addOptions("--target_environment=//buildenv:one");
     buildTarget("//foo:bar");
@@ -112,8 +120,10 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
   @Test
   public void testEmptyTargetEnvironment() throws Exception {
     writeEnvironmentRules();
-    write("foo/BUILD",
-        "sh_library(name = 'bar', srcs = ['bar.sh'])");
+    write(
+        "foo/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'bar', srcs = ['bar.sh'])");
     write("foo/bar.sh");
     buildTarget("//foo:bar");
     assertThat(getResult().getSuccess()).isTrue();
@@ -125,13 +135,14 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
     write(
         "foo/BUILD",
         """
-        sh_library(
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(
             name = "good_bar",
             srcs = ["bar.sh"],
             compatible_with = ["//buildenv:one"],
         )
 
-        sh_library(
+        foo_library(
             name = "bad_bar",
             srcs = ["bar.sh"],
             compatible_with = ["//buildenv:two"],
@@ -152,8 +163,10 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
   @Test
   public void testNoConstraintEnforcement() throws Exception {
     writeEnvironmentRules();
-    write("foo/BUILD",
-        "sh_library(name = 'bar', srcs = ['bar.sh'])");
+    write(
+        "foo/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'bar', srcs = ['bar.sh'])");
     write("foo/bar.sh");
     addOptions("--target_environment=//buildenv:one", "--noenforce_constraints");
     buildTarget("//foo:bar");
@@ -163,8 +176,10 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
   @Test
   public void testFlagUsesNonexistentTarget() throws Exception {
     writeEnvironmentRules();
-    write("foo/BUILD",
-        "sh_library(name = 'bar', srcs = ['bar.sh'])");
+    write(
+        "foo/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'bar', srcs = ['bar.sh'])");
 
     addOptions("--target_environment=//buildenv:nada");
     assertThat(assertThrows(ViewCreationFailedException.class, () -> buildTarget("//foo:bar")))
@@ -174,8 +189,10 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
 
   @Test
   public void testFlagUsesWrongTargetType() throws Exception {
-    write("foo/BUILD",
-        "sh_library(name = 'bar', srcs = ['bar.sh'])");
+    write(
+        "foo/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'bar', srcs = ['bar.sh'])");
 
     addOptions("--target_environment=//foo:bar");
     assertThat(assertThrows(ViewCreationFailedException.class, () -> buildTarget("//foo:bar")))
@@ -189,6 +206,7 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
     write(
         "foo/BUILD",
         """
+        load('//test_defs:foo_library.bzl', 'foo_library')
         config_setting(
             name = "config_one",
             values = {"define": "mode=one"},
@@ -199,19 +217,19 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
             values = {"define": "mode=two"},
         )
 
-        sh_library(
+        foo_library(
             name = "lib_one",
             srcs = [],
             compatible_with = ["//buildenv:one"],
         )
 
-        sh_library(
+        foo_library(
             name = "lib_two",
             srcs = [],
             compatible_with = ["//buildenv:two"],
         )
 
-        sh_library(
+        foo_library(
             name = "toplevel",
             srcs = ["toplevel.sh"],
             compatible_with = [
@@ -237,6 +255,7 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
     write(
         "foo/BUILD",
         """
+        load('//test_defs:foo_library.bzl', 'foo_library')
         config_setting(
             name = "config_one",
             values = {"define": "mode=one"},
@@ -247,19 +266,19 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
             values = {"define": "mode=two"},
         )
 
-        sh_library(
+        foo_library(
             name = "lib_one",
             srcs = [],
             compatible_with = ["//buildenv:one"],
         )
 
-        sh_library(
+        foo_library(
             name = "lib_two",
             srcs = [],
             compatible_with = ["//buildenv:two"],
         )
 
-        sh_library(
+        foo_library(
             name = "toplevel",
             srcs = ["toplevel.sh"],
             compatible_with = [
@@ -406,12 +425,11 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
         environment(name = "b2")
         """);
 
-    write(
-        "foo/bar.sh",
-        "echo Bar!");
+    write("foo/bar.sh", "echo Bar!");
     write(
         "foo/BUILD",
-        "sh_library(name = 'bar', srcs = ['bar.sh'], restricted_to = ['//buildenv/b:b2'])");
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'bar', srcs = ['bar.sh'], restricted_to = ['//buildenv/b:b2'])");
 
     addOptions("--target_environment=//buildenv/a:a1");
     buildTarget("//foo:bar");

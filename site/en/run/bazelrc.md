@@ -38,7 +38,7 @@ before the command (`build`, `test`, etc).
 2.  **The workspace RC file**, unless `--noworkspace_rc` is present.
 
     Path: `.bazelrc` in your workspace directory (next to the main
-    `WORKSPACE` file).
+    `MODULE.bazel` file).
 
     It is not an error if this file does not exist.
 
@@ -166,7 +166,7 @@ Option precedence:
     *   The following commands inherit from (and are more specific than)
         `build`: `test`, `run`, `clean`, `mobile-install`, `info`,
         `print_action`, `config`, `cquery`, and `aquery`
-    *   `coverage` inherits from `test`
+    *   `coverage`, `fetch`, and `vendor` inherit from `test`
 
 -   Two lines specifying options for the same command at equal specificity are
     parsed in the order in which they appear within the file.

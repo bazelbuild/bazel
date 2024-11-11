@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -34,6 +35,7 @@ import com.google.devtools.build.lib.buildeventstream.NullConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
@@ -138,6 +140,20 @@ public class BuildConfigurationValue
    * deprecated options, and warnings or errors for any option settings that conflict.
    */
   public void reportInvalidOptions(EventHandler reporter) {
+    // Validate that --cpu has an allowed value. Since there is no CoreConfiguration, handle this
+    // directly instead of using reportInvalidOptions.
+    // TODO: blaze-configurability-team - Remove this when --cpu is fully deprecated.
+    CoreOptions coreOptions = getOptions().get(CoreOptions.class);
+    if (!coreOptions.allowedCpuValues.isEmpty()) {
+      if (!coreOptions.allowedCpuValues.contains(coreOptions.cpu)) {
+        reporter.handle(
+            Event.error(
+                String.format(
+                    "Invalid --cpu value \"%s\": allowed values are %s.",
+                    coreOptions.cpu, Joiner.on(", ").join(coreOptions.allowedCpuValues))));
+      }
+    }
+
     for (Fragment fragment : fragments.values()) {
       fragment.reportInvalidOptions(reporter, this.buildOptions);
     }
@@ -255,15 +271,11 @@ public class BuildConfigurationValue
     this.buildOptions = buildOptions;
     this.mnemonic = mnemonic;
     this.options = buildOptions.get(CoreOptions.class);
-    PlatformOptions platformOptions = null;
-    if (buildOptions.contains(PlatformOptions.class)) {
-      platformOptions = buildOptions.get(PlatformOptions.class);
-    }
     this.outputDirectories =
         new OutputDirectories(
             directories,
             options,
-            platformOptions,
+            buildOptions.get(PlatformOptions.class),
             mnemonic,
             workspaceName,
             siblingRepositoryLayout);
@@ -457,16 +469,6 @@ public class BuildConfigurationValue
   @Override
   public String getHostPathSeparator() {
     return outputDirectories.getHostPathSeparator();
-  }
-
-  /**
-   * Returns the internal directory (used for middlemen) for this build configuration.
-   *
-   * @deprecated Use {@code RuleContext#getMiddlemanDirectory} instead whenever possible.
-   */
-  @Deprecated
-  public ArtifactRoot getMiddlemanDirectory(RepositoryName repositoryName) {
-    return outputDirectories.getMiddlemanDirectory(repositoryName);
   }
 
   public boolean isStrictFilesets() {

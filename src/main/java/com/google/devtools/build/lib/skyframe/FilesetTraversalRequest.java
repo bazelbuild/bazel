@@ -19,7 +19,6 @@ import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversal;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversalRoot;
-import com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 
 /** A {@link TraversalRequest} for a Fileset, backed by {@link FilesetTraversalParams}. */
@@ -47,11 +46,6 @@ public class FilesetTraversalRequest extends TraversalRequest {
   @Override
   public final boolean isRootGenerated() {
     return directTraversal().isGenerated();
-  }
-
-  @Override
-  protected final PackageBoundaryMode crossPkgBoundaries() {
-    return directTraversal().getPackageBoundaryMode();
   }
 
   @Override
@@ -92,7 +86,6 @@ public class FilesetTraversalRequest extends TraversalRequest {
   public final int hashCode() {
     int result = root().hashCode();
     result = 31 * result + Boolean.hashCode(isRootGenerated());
-    result = 31 * result + crossPkgBoundaries().hashCode();
     result = 31 * result + Boolean.hashCode(strictOutputFiles());
     result = 31 * result + Boolean.hashCode(skipTestingForSubpackage());
     return result;
@@ -108,7 +101,6 @@ public class FilesetTraversalRequest extends TraversalRequest {
     }
     return root().equals(other.root())
         && isRootGenerated() == other.isRootGenerated()
-        && crossPkgBoundaries() == other.crossPkgBoundaries()
         && strictOutputFiles() == other.strictOutputFiles()
         && skipTestingForSubpackage() == other.skipTestingForSubpackage();
   }

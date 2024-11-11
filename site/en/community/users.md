@@ -170,6 +170,21 @@ Java/JavaScript services and client libraries and to generate Java and Ruby
 code from protobuf definitions.
 [Read about how we run individual JUnit 5 tests in isolation with Bazel.](https://flexport.engineering/connecting-bazel-and-junit5-by-transforming-arguments-46440c6ea068)
 
+### [Foursquare](https://foursquare.com){: .external}
+<img src="https://upload.wikimedia.org/wikipedia/commons/9/99/FSQ_logo.png" width="150" align="right">
+
+Foursquare's mission is to create technology that constructs meaningful
+bridges between digital spaces and physical places. We manage millions of
+lines of primarily Scala and Python code powering data-intensive
+applications, including complex codegen and container build processes, with
+Bazel.
+
+### [GermanTechJobs](https://germantechjobs.de){: .external}
+<img src="https://upload.wikimedia.org/wikipedia/commons/9/98/GermanTechJobs_Logo.png" width="150" align="right">
+
+Bazel has simplified our workflows 10-fold and enabled shipping features at
+scale.
+
 ### [Google](https://google.com){: .external}
 <img src="https://upload.wikimedia.org/wikipedia/commons/2/2f/Google_2015_logo.svg" width="150" align="right">
 
@@ -287,6 +302,22 @@ Peloton Technology is an automated vehicle technology company that tackles truck
 accidents and fuel use. They use Bazel to _enable reliable builds for automotive
 safety systems_.
 
+### [Pigweed](https://pigweed.dev){: .external}
+
+<img src="https://pigweed.dev/_static/pw_logo.svg" width="100" align="right">
+
+Pigweed is an open-source solution for sustained, robust, and rapid embedded
+product development for large teams. Pigweed has shipped in millions of
+devices, including Google's suite of Pixel devices, Nest thermostats,
+[satellites](https://www.spinlaunch.com/), and [autonomous aerial
+drones](https://www.flyzipline.com/).
+
+Pigweed [uses Bazel as its primary build
+system](https://pigweed.dev/seed/0111-build-systems.html). The [Bazel for
+Embedded][pw-bazel-great] blog post discusses why we think it's a great build
+system for embedded projects!
+
+[pw-bazel-great]: https://blog.bazel.build/2024/08/08/bazel-for-embedded.html#why-bazel-for-embedded
 
 ### [Pinterest](https://www.pinterest.com/){: .external}
 
@@ -571,6 +602,14 @@ seamlessly from normal Java code.
 
 Heron is a realtime, distributed, fault-tolerant stream processing engine from
 Twitter.
+
+### [Internet Computer Protocol](https://internetcomputer.org/){: .external}
+
+<img src="https://internetcomputer.org/img/IC_logo_horizontal_white.svg" width="120" align="right">
+
+The Internet Computer Protocol is a publicly available blockchain network that
+enables replicated execution of general-purpose computation, serving hundreds
+of thousands of applications and their users.
 
 ### [Jazzer](https://github.com/CodeIntelligenceTesting/jazzer){: .external}
 

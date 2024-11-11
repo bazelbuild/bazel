@@ -53,16 +53,18 @@ msys*|mingw*|cygwin*)
   ;;
 esac
 
-if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
+if $is_windows; then
+  export LC_ALL=C.utf8
+elif [[ "$(uname -s)" == "Linux" ]]; then
+  export LC_ALL=C.UTF-8
+else
+  export LC_ALL=en_US.UTF-8
 fi
-
-add_to_bazelrc "test --notest_loasd"
 
 #### HELPER FUNCTIONS ##################################################
 
 function write_py_files() {
+  add_rules_python "MODULE.bazel"
   mkdir -p py || fail "mkdir py failed"
 
   cat > py/BUILD <<'EOF'
@@ -199,33 +201,122 @@ function test_script_file_generation {
 }
 
 function test_consistent_command_line_encoding {
-  # todo(aehlig): reenable: https://github.com/bazelbuild/bazel/issues/1775
-  return 0
-
-  # TODO(bazel-team): fix bazel to have consistent encoding, also on darwin;
-  # see https://github.com/bazelbuild/bazel/issues/1766
-  [ "$PLATFORM" != "darwin" ] || warn "test disabled on darwin, see Github issue 1766"
-  [ "$PLATFORM" != "darwin" ] || return 0
-
-  # äöüÄÖÜß in UTF8
-  local arg=$(echo -e '\xC3\xA4\xC3\xB6\xC3\xBC\xC3\x84\xC3\x96\xC3\x9C\xC3\x9F')
+  if "$is_windows"; then
+    # The JVM sets sun.jnu.encoding, which is used to encode command-line
+    # arguments to java.exe, based on the return value of GetACP() on Windows.
+    # On Windows with an English locale, GetACP() returns 1252, which is a
+    # variant of ISO 8859-1 that can represent the characters below, but not
+    # the full Unicode range.
+    # TODO: Fix this by patching the fusion manifest of the embedded java.exe to
+    #  force GetACP() to return 65001 (UTF-8).
+    # äöüÄÖÜß in UTF8
+    local arg=$(echo -e '\xC3\xA4\xC3\xB6\xC3\xBC\xC3\x84\xC3\x96\xC3\x9C\xC3\x9F')
+  else
+    # äöüÄÖÜß🌱 in UTF8
+    local arg=$(echo -e '\xC3\xA4\xC3\xB6\xC3\xBC\xC3\x84\xC3\x96\xC3\x9C\xC3\x9F\xF0\x9F\x8C\xB1')
+  fi
 
   mkdir -p foo || fail "mkdir foo failed"
   echo 'sh_binary(name = "foo", srcs = ["foo.sh"])' > foo/BUILD
   echo 'sh_test(name = "foo_test", srcs = ["foo.sh"])' >> foo/BUILD
-  echo 'test "$1" = "'"$arg"'"' > foo/foo.sh
+  cat > foo/foo.sh <<EOF
+echo "got : \$1"
+echo "want: $arg"
+test "\$1" = '$arg'
+EOF
   chmod +x foo/foo.sh
 
-  bazel run //foo -- "$arg" > output \
+  bazel run //foo -- "$arg" > $TEST_log 2>&1 \
     || fail "${PRODUCT_NAME} run failed."
 
-  bazel test //foo:foo_test --test_arg="$arg" \
+  bazel test //foo:foo_test --test_arg="$arg" --test_output=errors \
     || fail "${PRODUCT_NAME} test failed"
 
-  bazel --batch run //foo -- "$arg" > output \
+  bazel --batch run //foo -- "$arg" > $TEST_log 2>&1 \
     || fail "${PRODUCT_NAME} run failed (--batch)."
-  bazel --batch test //foo:foo_test --test_arg="$arg" \
+
+  bazel --batch test //foo:foo_test --test_arg="$arg" --test_output=errors \
     || fail "${PRODUCT_NAME} test failed (--batch)"
+}
+
+function test_consistent_env_var_encoding {
+  if "$is_windows"; then
+    # äöüÄÖÜß in UTF8
+    local env=$(echo -e '\xC3\xA4\xC3\xB6\xC3\xBC\xC3\x84\xC3\x96\xC3\x9C\xC3\x9F')
+  else
+    # äöüÄÖÜß🌱 in UTF8
+    local env=$(echo -e '\xC3\xA4\xC3\xB6\xC3\xBC\xC3\x84\xC3\x96\xC3\x9C\xC3\x9F\xF0\x9F\x8C\xB1')
+  fi
+
+  mkdir -p foo || fail "mkdir foo failed"
+  cat > foo/BUILD <<EOF
+sh_test(
+    name = "foo_test",
+    srcs = ["foo_test.sh"],
+    env = {
+        "FIXED_KEY": "fixed_value_$env",
+    },
+    env_inherit = [
+        "INHERITED_KEY",
+    ],
+)
+EOF
+  cat > foo/foo_test.sh <<EOF
+echo "FIXED_KEY:"
+echo "got : \${FIXED_KEY}"
+echo "want: fixed_value_$env"
+test "\${FIXED_KEY}" = "fixed_value_$env"
+echo "INHERITED_KEY:"
+echo "got : \${INHERITED_KEY}"
+echo "want: inherited_value_$env"
+test "\${INHERITED_KEY}" = "inherited_value_$env"
+EOF
+  chmod +x foo/foo_test.sh
+
+  env INHERITED_KEY="inherited_value_$env" \
+    bazel run //foo:foo_test > $TEST_log 2>&1 \
+    || fail "${PRODUCT_NAME} run failed."
+
+  env INHERITED_KEY="inherited_value_$env" \
+    bazel test //foo:foo_test --test_output=errors \
+    || fail "${PRODUCT_NAME} test failed"
+
+  env INHERITED_KEY="inherited_value_$env" \
+    bazel --batch test //foo:foo_test --test_output=errors \
+    || fail "${PRODUCT_NAME} test failed (--batch)"
+}
+
+function test_consistent_working_directory_encoding {
+  if "$is_windows"; then
+    # äöüÄÖÜß in UTF8
+    local unicode_string=$(echo -e '\xC3\xA4\xC3\xB6\xC3\xBC\xC3\x84\xC3\x96\xC3\x9C\xC3\x9F')
+  else
+    # äöüÄÖÜß🌱 in UTF8
+    local unicode_string=$(echo -e '\xC3\xA4\xC3\xB6\xC3\xBC\xC3\x84\xC3\x96\xC3\x9C\xC3\x9F\xF0\x9F\x8C\xB1')
+  fi
+
+  mkdir -p foo || fail "mkdir foo failed"
+  cat > foo/BUILD <<EOF
+sh_binary(
+    name = "foo",
+    srcs = ["foo.sh"],
+)
+EOF
+  cat > foo/foo.sh <<EOF
+echo "        got: \${BUILD_WORKING_DIRECTORY}"
+echo "want suffix: /foo/subdir_$unicode_string"
+[[ "\${BUILD_WORKING_DIRECTORY}" == *"/foo/subdir_$unicode_string" ]]
+EOF
+  chmod +x foo/foo.sh
+
+  mkdir -p "foo/subdir_$unicode_string"
+  cd "foo/subdir_$unicode_string" || fail "cd foo/subdir_$unicode_string failed"
+
+  bazel run //foo > $TEST_log 2>&1 \
+    || fail "${PRODUCT_NAME} run failed."
+
+  bazel --batch run //foo \
+    || fail "${PRODUCT_NAME} run failed (--batch)."
 }
 
 # Tests bazel run with --color=no on a failed build does not produce color.
@@ -461,11 +552,13 @@ EOF
   bazel run //${pkg}:a
   local tmpdir_value
   tmpdir_value="$(cat "${TEST_TMPDIR}/tmpdir_value")"
+  expected_prefix="${TEST_TMPDIR}"
   if ${is_windows}; then
     # Work-around replacing the path with a short DOS path.
     tmpdir_value="$(cygpath -m -l "${tmpdir_value}")"
+    expected_prefix="${bazel_root}"
   fi
-  assert_starts_with "${TEST_TMPDIR}/" "${tmpdir_value}"
+  assert_starts_with "${expected_prefix}/" "${tmpdir_value}"
 }
 
 function test_blaze_run_with_custom_test_tmpdir() {
@@ -608,6 +701,38 @@ EOF
     expect_log "hello there friend && unset RUNFILES_MANIFEST_FILE && .*bin/$pkg/farewell buddy"
     expect_not_log "goodbye"
   fi
+}
+
+function test_run_env() {
+  local -r pkg="pkg${LINENO}"
+  mkdir -p "${pkg}"
+  cat > "$pkg/BUILD" <<'EOF'
+sh_binary(
+  name = "foo",
+  srcs = ["foo.sh"],
+  env = {
+    "FROMBUILD": "1",
+    "OVERRIDDEN_RUN_ENV": "2",
+  }
+)
+EOF
+  cat > "$pkg/foo.sh" <<'EOF'
+#!/bin/bash
+
+set -euo pipefail
+
+echo "FROMBUILD: '$FROMBUILD'"
+echo "OVERRIDDEN_RUN_ENV: '$OVERRIDDEN_RUN_ENV'"
+echo "RUN_ENV_ONLY: '$RUN_ENV_ONLY'"
+EOF
+
+  chmod +x "$pkg/foo.sh"
+
+  bazel run --run_env=OVERRIDDEN_RUN_ENV=FOO --run_env=RUN_ENV_ONLY=BAR "//$pkg:foo" >"$TEST_log" || fail "expected run to succeed"
+
+  expect_log "FROMBUILD: '1'"
+  expect_log "OVERRIDDEN_RUN_ENV: 'FOO'"
+  expect_log "RUN_ENV_ONLY: 'BAR'"
 }
 
 # Usage: assert_starts_with PREFIX STRING_TO_CHECK.

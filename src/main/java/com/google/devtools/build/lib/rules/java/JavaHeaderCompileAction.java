@@ -18,8 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.actions.ActionAnalysisMetadata.mergeMaps;
 import static com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType.UNQUOTED;
-import static com.google.devtools.build.lib.rules.java.JavaCompileActionBuilder.UTF8_ENVIRONMENT;
-import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -77,6 +76,7 @@ import javax.annotation.Nullable;
 public final class JavaHeaderCompileAction extends SpawnAction {
 
   private static final String DIRECT_CLASSPATH_MNEMONIC = "Turbine";
+  private static final String PROGRESS_MESSAGE_PREFIX = "Compiling Java headers";
 
   private final boolean insertDependencies;
   private final boolean inMemoryJdeps;
@@ -157,6 +157,14 @@ public final class JavaHeaderCompileAction extends SpawnAction {
     }
   }
 
+  @Override
+  public boolean mayModifySpawnOutputsAfterExecution() {
+    // Causes of spawn output modification after execution:
+    // - In-place rewriting of .jdeps files with --experimental_output_paths=strip.
+    // TODO: Use separate files as action and spawn output to avoid in-place modification.
+    return true;
+  }
+
   public static Builder newBuilder(RuleContext ruleContext) {
     return new Builder(ruleContext);
   }
@@ -164,8 +172,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
   /** Builder for {@link JavaHeaderCompileAction}. */
   public static final class Builder {
 
-    private static final ParamFileInfo PARAM_FILE_INFO =
-        ParamFileInfo.builder(UNQUOTED).setCharset(ISO_8859_1).build();
+    private static final ParamFileInfo PARAM_FILE_INFO = ParamFileInfo.builder(UNQUOTED).build();
 
     private final RuleContext ruleContext;
 
@@ -198,6 +205,10 @@ public final class JavaHeaderCompileAction extends SpawnAction {
     private boolean enableHeaderCompilerDirect = true;
 
     private boolean enableDirectClasspath = true;
+
+    private String execGroup = DEFAULT_EXEC_GROUP_NAME;
+
+    private ImmutableMap<String, String> utf8Environment = null;
 
     private Builder(RuleContext ruleContext) {
       this.ruleContext = ruleContext;
@@ -355,6 +366,14 @@ public final class JavaHeaderCompileAction extends SpawnAction {
       return this;
     }
 
+    /** Sets the exec group used for selecting execution platform of `JavaHeaderCompileAction`. */
+    @CanIgnoreReturnValue
+    public Builder setExecGroup(String execGroup) {
+      checkNotNull(execGroup, "execGroup must not be null");
+      this.execGroup = execGroup;
+      return this;
+    }
+
     @CanIgnoreReturnValue
     public Builder enableHeaderCompilerDirect(boolean enableHeaderCompilerDirect) {
       this.enableHeaderCompilerDirect = enableHeaderCompilerDirect;
@@ -364,6 +383,13 @@ public final class JavaHeaderCompileAction extends SpawnAction {
     @CanIgnoreReturnValue
     public Builder enableDirectClasspath(boolean enableDirectClasspath) {
       this.enableDirectClasspath = enableDirectClasspath;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setUtf8Environment(ImmutableMap<String, String> utf8Environment) {
+      checkNotNull(utf8Environment, "utf8Environment must not be null");
+      this.utf8Environment = utf8Environment;
       return this;
     }
 
@@ -379,6 +405,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
       checkNotNull(directJars, "directJars must not be null");
       checkNotNull(
           compileTimeDependencyArtifacts, "compileTimeDependencyArtifacts must not be null");
+      checkNotNull(utf8Environment, "utf8Environment must not be null");
 
       // Invariant: if strictJavaDeps is OFF, then directJars and
       // dependencyArtifacts are ignored
@@ -414,11 +441,10 @@ public final class JavaHeaderCompileAction extends SpawnAction {
           ruleContext
               .getConfiguration()
               .getActionEnvironment()
-              .withAdditionalFixedVariables(UTF8_ENVIRONMENT);
+              .withAdditionalFixedVariables(utf8Environment);
 
       OnDemandString progressMessage =
-          new ProgressMessage(
-              /* prefix= */ "Compiling Java headers",
+          new JavaHeaderCompileProgressMessage(
               /* output= */ outputJar,
               /* sourceFiles= */ sourceFiles,
               /* sourceJars= */ sourceJars,
@@ -495,6 +521,11 @@ public final class JavaHeaderCompileAction extends SpawnAction {
           TargetUtils.getExecutionInfo(
               ruleContext.getRule(), ruleContext.isAllowTagsPropagation()));
 
+      ActionOwner actionOwner =
+          ruleContext.useAutoExecGroups()
+              ? ruleContext.getActionOwner(execGroup)
+              : ruleContext.getActionOwner();
+
       if (useDirectClasspath) {
         NestedSet<Artifact> classpath;
         NestedSet<Artifact> additionalArtifactsForPathMapping;
@@ -522,7 +553,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
 
         ruleContext.registerAction(
             new JavaHeaderCompileAction(
-                /* owner= */ ruleContext.getActionOwner(),
+                /* owner= */ actionOwner,
                 /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
                 /* inputs= */ allInputs,
                 /* outputs= */ outputs.build(),
@@ -578,13 +609,14 @@ public final class JavaHeaderCompileAction extends SpawnAction {
       ruleContext.registerAction(
           new JavaCompileAction(
               /* compilationType= */ JavaCompileAction.CompilationType.TURBINE,
-              /* owner= */ ruleContext.getActionOwner(),
+              /* owner= */ actionOwner,
               /* tools= */ toolsJars,
               /* progressMessage= */ progressMessage,
               /* mandatoryInputs= */ mandatoryInputs,
               /* transitiveInputs= */ classpathEntries,
               /* directJars= */ directJars,
               /* outputs= */ outputs.build(),
+              /* env= */ actionEnvironment,
               /* executionInfo= */ executionInfo.buildKeepingLast(),
               /* extraActionInfoSupplier= */ null,
               /* executableLine= */ executableLine,
@@ -593,6 +625,22 @@ public final class JavaHeaderCompileAction extends SpawnAction {
               /* dependencyArtifacts= */ compileTimeDependencyArtifacts,
               /* outputDepsProto= */ outputDepsProto,
               /* classpathMode= */ classpathMode));
+    }
+
+    private static class JavaHeaderCompileProgressMessage extends ProgressMessage {
+
+      public JavaHeaderCompileProgressMessage(
+          Artifact output,
+          ImmutableSet<Artifact> sourceFiles,
+          ImmutableList<Artifact> sourceJars,
+          JavaPluginData plugins) {
+        super(output, sourceFiles, sourceJars, plugins);
+      }
+
+      @Override
+      String prefix() {
+        return PROGRESS_MESSAGE_PREFIX;
+      }
     }
   }
 }

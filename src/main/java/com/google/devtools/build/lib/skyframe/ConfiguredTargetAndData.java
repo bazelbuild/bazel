@@ -209,6 +209,10 @@ public class ConfiguredTargetAndData {
     return target.getTargetKind();
   }
 
+  public boolean isForDependencyResolution() {
+    return target.isForDependencyResolution();
+  }
+
   /** Returns the rule class name if the target is a rule and "" otherwise. */
   public String getRuleClass() {
     return target.getRuleClass();

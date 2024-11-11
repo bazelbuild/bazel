@@ -373,7 +373,8 @@ public class BazelOutputService implements OutputService {
 
       if (output.isTreeArtifact()) {
         // TODO(chiwang): Use TreeArtifactLocator
-        var children = outputMetadataStore.getTreeArtifactChildren((SpecialArtifact) output);
+        var children =
+            outputMetadataStore.getTreeArtifactValue((SpecialArtifact) output).getChildren();
         for (var child : children) {
           addArtifact(outputMetadataStore, execRoot, outputPath, request, child);
         }

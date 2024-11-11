@@ -140,6 +140,7 @@ public final class GrpcServerTest {
               List<String> args,
               OutErr outErr,
               LockingMode lockingMode,
+              UiVerbosity uiVerbosity,
               String clientDescription,
               long firstContactTimeMillis,
               Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
@@ -187,7 +188,16 @@ public final class GrpcServerTest {
     CountDownLatch beforeThirdExtensionLatch = new CountDownLatch(1);
     CountDownLatch afterThirdExtensionLatch = new CountDownLatch(1);
     CommandDispatcher dispatcher =
-        (policy, args, outErr, lockMode, clientDesc, startMs, startOpts, cmdExts, cmdExtOut) -> {
+        (policy,
+            args,
+            outErr,
+            lockMode,
+            uiVerbosity,
+            clientDesc,
+            startMs,
+            startOpts,
+            cmdExts,
+            cmdExtOut) -> {
           // Send the first extension.
           cmdExtOut.report(commandExtension1);
           afterFirstExtensionLatch.countDown();
@@ -243,6 +253,7 @@ public final class GrpcServerTest {
               List<String> args,
               OutErr outErr,
               LockingMode lockingMode,
+              UiVerbosity uiVerbosity,
               String clientDescription,
               long firstContactTimeMillis,
               Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
@@ -291,6 +302,7 @@ public final class GrpcServerTest {
               List<String> args,
               OutErr outErr,
               LockingMode lockingMode,
+              UiVerbosity uiVerbosity,
               String clientDescription,
               long firstContactTimeMillis,
               Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
@@ -435,6 +447,7 @@ public final class GrpcServerTest {
               List<String> args,
               OutErr outErr,
               LockingMode lockingMode,
+              UiVerbosity uiVerbosity,
               String clientDescription,
               long firstContactTimeMillis,
               Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
@@ -496,6 +509,7 @@ public final class GrpcServerTest {
               List<String> args,
               OutErr outErr,
               LockingMode lockingMode,
+              UiVerbosity uiVerbosity,
               String clientDescription,
               long firstContactTimeMillis,
               Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
@@ -586,6 +600,7 @@ public final class GrpcServerTest {
               List<String> args,
               OutErr outErr,
               LockingMode lockingMode,
+              UiVerbosity uiVerbosity,
               String clientDescription,
               long firstContactTimeMillis,
               Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
@@ -681,6 +696,7 @@ public final class GrpcServerTest {
               List<String> args,
               OutErr outErr,
               LockingMode lockingMode,
+              UiVerbosity uiVerbosity,
               String clientDescription,
               long firstContactTimeMillis,
               Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
@@ -782,6 +798,7 @@ public final class GrpcServerTest {
               List<String> args,
               OutErr outErr,
               LockingMode lockingMode,
+              UiVerbosity uiVerbosity,
               String clientDescription,
               long firstContactTimeMillis,
               Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
@@ -1147,6 +1164,7 @@ public final class GrpcServerTest {
         args,
         outErr,
         lockingMode,
+        uiVerbosity,
         clientDescription,
         firstContactTimeMillis,
         startupOptionsTaggedWithBazelRc,

@@ -14,8 +14,7 @@
 
 package com.google.devtools.build.lib.sandbox;
 
-import static com.google.devtools.build.lib.vfs.Dirent.Type.DIRECTORY;
-import static com.google.devtools.build.lib.vfs.Dirent.Type.SYMLINK;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -27,11 +26,9 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxContents;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
-import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -39,12 +36,10 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -234,9 +229,8 @@ public class SandboxStash {
           Path stashPath = sandboxes.getChild(stashName);
           try {
             SandboxContents stashContents = pathToContents.remove(path);
-            Long lastModified = pathToLastModified.remove(path);
-            Preconditions.checkNotNull(lastModified);
-            listContentsRecursively(temporaryStash, lastModified, stashContents);
+            long lastModified = checkNotNull(pathToLastModified.remove(path));
+            SandboxHelpers.updateContentMap(temporaryStash, lastModified, stashContents);
             stashPath.createDirectory();
             Path stashPathExecroot = stashPath.getChild("execroot");
             if (isTestAction(mnemonic)) {
@@ -478,54 +472,6 @@ public class SandboxStash {
 
   private static String getCurrentRunfilesDir(Map<String, String> environment) {
     return environment.get("TEST_WORKSPACE") + "/" + environment.get(TEST_SRCDIR);
-  }
-
-  /**
-   * Before this function is called, stashContents will contain the inputs that were set up for the
-   * action before executing it but the action might have written undeclared files into the sandbox
-   * or deleted existing ones, therefore we need to crawl through all directories to see what's in
-   * them and update stashContents.
-   */
-  private static void listContentsRecursively(
-      Path root, Long timestamp, SandboxContents stashContents)
-      throws IOException, InterruptedException {
-    if (root.statIfFound().getLastChangeTime() > timestamp) {
-      Set<String> dirsToKeep = new HashSet<>();
-      Set<String> filesAndSymlinksToKeep = new HashSet<>();
-      for (Dirent dirent : root.readdir(Symlinks.NOFOLLOW)) {
-        if (Thread.interrupted()) {
-          throw new InterruptedException();
-        }
-        Path absPath = root.getChild(dirent.getName());
-        if (dirent.getType().equals(SYMLINK)) {
-          if (stashContents.symlinkMap().containsKey(dirent.getName())
-              && absPath.stat().getLastChangeTime() <= timestamp) {
-            filesAndSymlinksToKeep.add(dirent.getName());
-          } else {
-            absPath.delete();
-          }
-        } else if (dirent.getType().equals(DIRECTORY)) {
-          if (stashContents.dirMap().containsKey(dirent.getName())) {
-            dirsToKeep.add(dirent.getName());
-            listContentsRecursively(
-                absPath, timestamp, stashContents.dirMap().get(dirent.getName()));
-          } else {
-            absPath.deleteTree();
-            stashContents.dirMap().remove(dirent.getName());
-          }
-        } else {
-          absPath.delete();
-        }
-      }
-
-      stashContents.dirMap().keySet().retainAll(dirsToKeep);
-      stashContents.symlinkMap().keySet().retainAll(filesAndSymlinksToKeep);
-    } else {
-      for (var entry : stashContents.dirMap().entrySet()) {
-        Path absPath = root.getChild(entry.getKey());
-        listContentsRecursively(absPath, timestamp, entry.getValue());
-      }
-    }
   }
 
   private ImmutableList<Path> sortStashesByMatchingTargetSegments(

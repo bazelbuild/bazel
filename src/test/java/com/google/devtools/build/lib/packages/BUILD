@@ -17,7 +17,10 @@ filegroup(
 
 java_library(
     name = "PackageTestsUtil",
-    srcs = ["WorkspaceFactoryTestHelper.java"],
+    srcs = [
+        "BuildTypeTestHelper.java",
+        "WorkspaceFactoryTestHelper.java",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
@@ -36,7 +39,6 @@ java_library(
 java_test(
     name = "PackagesTests",
     size = "medium",
-    timeout = "long",
     srcs = glob(
         include = ["*.java"],
         exclude = [
@@ -45,6 +47,7 @@ java_test(
             "WorkspaceFactoryTestHelper.java",
         ],
     ),
+    shard_count = 20,
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         "//src/test/java/com/google/devtools/build/lib:test_runner",
@@ -73,6 +76,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/packages:exec_group",
         "//src/main/java/com/google/devtools/build/lib/packages:globber",
         "//src/main/java/com/google/devtools/build/lib/packages:package_specification",
+        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/runtime/commands",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
@@ -105,8 +109,8 @@ java_test(
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
-        "//third_party/protobuf:protobuf_java",
         "@maven//:com_google_testparameterinjector_test_parameter_injector",
+        "@protobuf//:protobuf_java",
     ],
 )
 
@@ -161,6 +165,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/python",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",

@@ -139,24 +139,14 @@ public interface RemotePathResolver {
    * Use parent directory of {@code execRoot} and set {@code workingDirectory} to the base name of
    * {@code execRoot}.
    *
-   * <p>The paths of outputs are relative to {@code workingDirectory} if {@code
-   * --incompatible_remote_output_paths_relative_to_input_root} is not set, otherwise, relative to
-   * input root.
+   * <p>The paths of outputs are relative to {@code workingDirectory}.
    */
   class SiblingRepositoryLayoutResolver implements RemotePathResolver {
 
     private final Path execRoot;
-    private final boolean incompatibleRemoteOutputPathsRelativeToInputRoot;
 
     public SiblingRepositoryLayoutResolver(Path execRoot) {
-      this(execRoot, /* incompatibleRemoteOutputPathsRelativeToInputRoot= */ false);
-    }
-
-    public SiblingRepositoryLayoutResolver(
-        Path execRoot, boolean incompatibleRemoteOutputPathsRelativeToInputRoot) {
       this.execRoot = execRoot;
-      this.incompatibleRemoteOutputPathsRelativeToInputRoot =
-          incompatibleRemoteOutputPathsRelativeToInputRoot;
     }
 
     @Override
@@ -190,11 +180,7 @@ public interface RemotePathResolver {
     }
 
     private Path getBase() {
-      if (incompatibleRemoteOutputPathsRelativeToInputRoot) {
-        return execRoot.getParentDirectory();
-      } else {
         return execRoot;
-      }
     }
 
     @Override

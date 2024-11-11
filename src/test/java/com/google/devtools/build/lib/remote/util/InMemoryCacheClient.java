@@ -13,9 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.util;
 
+import build.bazel.remote.execution.v2.ActionCacheUpdateCapabilities;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.ServerCapabilities;
+import build.bazel.remote.execution.v2.SymlinkAbsolutePathStrategy;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.Futures;
@@ -32,6 +35,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executors;
@@ -107,8 +111,14 @@ public class InMemoryCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public CacheCapabilities getCacheCapabilities() {
-    return CacheCapabilities.getDefaultInstance();
+  public ServerCapabilities getServerCapabilities() {
+    var cacheCapabilities =
+        CacheCapabilities.newBuilder()
+            .setActionCacheUpdateCapabilities(
+                ActionCacheUpdateCapabilities.newBuilder().setUpdateEnabled(true).build())
+            .setSymlinkAbsolutePathStrategy(SymlinkAbsolutePathStrategy.Value.ALLOWED)
+            .build();
+    return ServerCapabilities.newBuilder().setCacheCapabilities(cacheCapabilities).build();
   }
 
   @Override
@@ -117,13 +127,13 @@ public class InMemoryCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public ListenableFuture<CachedActionResult> downloadActionResult(
-      RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
+  public ListenableFuture<ActionResult> downloadActionResult(
+      RemoteActionExecutionContext context,
+      ActionKey actionKey,
+      boolean inlineOutErr,
+      Set<String> inlineOutputFiles) {
     ActionResult actionResult = ac.get(actionKey);
-    if (actionResult == null) {
-      return Futures.immediateFailedFuture(new CacheNotFoundException(actionKey.getDigest()));
-    }
-    return Futures.immediateFuture(CachedActionResult.remote(actionResult));
+    return Futures.immediateFuture(actionResult);
   }
 
   @Override

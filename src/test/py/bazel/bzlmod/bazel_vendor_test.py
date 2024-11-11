@@ -293,6 +293,7 @@ class BazelVendorTest(test_base.TestBase):
         '@@dummyRepo//:all',
         '--enable_workspace=true',
         '--vendor_dir=blabla',
+        '--incompatible_autoload_externally=',
     ])
     self.assertNotIn(
         "Vendored repository 'dummyRepo' is out-of-date.", '\n'.join(stderr)
@@ -639,6 +640,80 @@ class BazelVendorTest(test_base.TestBase):
     self.assertIn('bbb+', os.listdir(self._test_cwd + '/vendor'))
     self.assertNotIn('ccc+', os.listdir(self._test_cwd + '/vendor'))
 
+  def testVendorWithTargetPatternFile(self):
+    self.main_registry.createCcModule('aaa', '1.0').createCcModule(
+        'bbb', '1.0'
+    ).createCcModule('ccc', '1.0')
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "aaa", version = "1.0")',
+            'bazel_dep(name = "bbb", version = "1.0")',
+            'bazel_dep(name = "ccc", version = "1.0")',
+        ],
+    )
+    self.ScratchFile('BUILD')
+    self.ScratchFile(
+        'targets.params',
+        [
+            '@aaa//:lib_aaa',
+            '@bbb//:lib_bbb',
+        ],
+    )
+
+    self.RunBazel([
+        'vendor',
+        '--target_pattern_file=targets.params',
+        '--vendor_dir=vendor',
+    ])
+    # Assert aaa & bbb and are vendored
+    self.assertIn('aaa+', os.listdir(self._test_cwd + '/vendor'))
+    self.assertIn('bbb+', os.listdir(self._test_cwd + '/vendor'))
+    self.assertNotIn('ccc+', os.listdir(self._test_cwd + '/vendor'))
+
+  def testVendorDirIsIgnored(self):
+    self.main_registry.createCcModule('aaa', '1.0')
+    self.ScratchFile(
+        'MODULE.bazel',
+        ['bazel_dep(name = "aaa", version = "1.0")'],
+    )
+    self.ScratchFile(
+        'BUILD',
+        [
+            'cc_binary(',
+            '  name = "main",',
+            '  srcs = ["main.cc"],',
+            '  deps = [',
+            '    "@aaa//:lib_aaa",',
+            '  ],',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'main.cc',
+        [
+            '#include "aaa.h"',
+            'int main() {',
+            '    hello_aaa("Hello there!");',
+            '}',
+        ],
+    )
+
+    self.RunBazel([
+        'vendor',
+        '//...',
+        '--vendor_dir=vendor',
+    ])
+    # Assert aaa is vendored
+    self.assertIn('aaa+', os.listdir(self._test_cwd + '/vendor'))
+
+    # bazel build //... should succeed because vendor dir is ignored.
+    self.RunBazel([
+        'build',
+        '//...',
+        '--vendor_dir=vendor',
+    ])
+
   def testBuildVendoredTargetOffline(self):
     self.main_registry.createCcModule('aaa', '1.0').createCcModule(
         'bbb', '1.0', {'aaa': '1.0'}
@@ -808,6 +883,14 @@ class BazelVendorTest(test_base.TestBase):
         'Hello from abs!\nHello from foo!\nHello from bar!\nHello from pkg'
         ' bar!\n',
     )
+
+  def testVendorAliasTarget(self):
+    self.ScratchFile('foo/file.txt')
+    self.ScratchFile('foo/BUILD', ['alias(name="foo", actual="file.txt")'])
+
+    # This should not fail
+    # Regression test for https://github.com/bazelbuild/bazel/issues/23300
+    self.RunBazel(['vendor', '//foo/...', '--vendor_dir=vendor'])
 
 
 if __name__ == '__main__':

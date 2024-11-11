@@ -16,12 +16,13 @@ package com.google.devtools.build.lib.packages.producers;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
+import com.google.devtools.build.lib.skyframe.FileKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.state.StateMachine;
 import java.util.function.Consumer;
 
 /**
- * Looks up {@link FileValue} for a {@link FileValue.Key} which is guaranteed to be a symlink.
+ * Looks up {@link FileValue} for a {@link FileKey} which is guaranteed to be a symlink.
  *
  * <p>Used when {@link PatternWithWildcardProducer} handles {@link
  * com.google.devtools.build.lib.skyframe.DirectoryListingValue}. For any {@link
@@ -40,18 +41,18 @@ import java.util.function.Consumer;
 final class SymlinkProducer implements StateMachine, Consumer<SkyValue> {
 
   interface ResultSink {
-    void acceptSymlinkFileValue(FileValue symlinkValue, FileValue.Key symlinkKey);
+    void acceptSymlinkFileValue(FileValue symlinkValue, FileKey symlinkKey);
 
     void acceptInconsistentFilesystemException(InconsistentFilesystemException exception);
   }
 
   // -------------------- Input --------------------
-  private final FileValue.Key symlinkKey;
+  private final FileKey symlinkKey;
 
   // -------------------- Output --------------------
   private final ResultSink resultSink;
 
-  SymlinkProducer(FileValue.Key symlinkKey, ResultSink resultSink) {
+  SymlinkProducer(FileKey symlinkKey, ResultSink resultSink) {
     this.symlinkKey = symlinkKey;
     this.resultSink = resultSink;
   }

@@ -29,6 +29,8 @@ import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.AssignmentConverter;
 import com.google.devtools.common.options.Converters.BooleanConverter;
+import com.google.devtools.common.options.Converters.ByteSizeConverter;
+import com.google.devtools.common.options.Converters.DurationConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -102,13 +104,16 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public PathFragment remoteCaptureCorruptedOutputs;
 
   @Option(
-      name = "experimental_remote_cache_async",
-      defaultValue = "false",
+      name = "remote_cache_async",
+      oldName = "experimental_remote_cache_async",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "If true, remote cache I/O will happen in the background instead of taking place as the"
-              + " part of a spawn.")
+          "If true, uploading of action results to a disk or remote cache will happen in the"
+              + " background instead of blocking the completion of an action. Some actions are"
+              + " incompatible with background uploads, and may still block even when this flag is"
+              + " set.")
   public boolean remoteCacheAsync;
 
   @Option(
@@ -143,6 +148,19 @@ public final class RemoteOptions extends CommonRemoteOptions {
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Whether to fall back to the local downloader if remote downloader fails.")
   public boolean remoteDownloaderLocalFallback;
+
+  @Option(
+      name = "experimental_remote_downloader_propagate_credentials",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Whether to propagate credentials from netrc and credential helper to the remote"
+              + " downloader server. The server implementation needs to support the new"
+              + " `http_header_url:<url-index>:<header-key>` qualifier where the `<url-index>` is a"
+              + " 0-based position of the URL inside the FetchBlobRequest's `uris` field. The"
+              + " URL-specific headers should take precedence over the global headers.")
+  public boolean remoteDownloaderPropagateCredentials;
 
   @Option(
       name = "remote_header",
@@ -298,16 +316,6 @@ public final class RemoteOptions extends CommonRemoteOptions {
   }
 
   @Option(
-      name = "incompatible_remote_output_paths_relative_to_input_root",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.REMOTE,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If set to true, output paths are relative to input root instead of working directory.")
-  public boolean incompatibleRemoteOutputPathsRelativeToInputRoot;
-
-  @Option(
       name = "remote_instance_name",
       defaultValue = "",
       documentationCategory = OptionDocumentationCategory.REMOTE,
@@ -350,13 +358,45 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public PathFragment diskCache;
 
   @Option(
-      name = "experimental_disk_cache_max_size",
+      name = "experimental_disk_cache_gc_idle_delay",
+      defaultValue = "5m",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = DurationConverter.class,
+      help =
+          "How long the server must remain idle before a garbage collection of the disk cache"
+              + " occurs. To specify the garbage collection policy, set"
+              + " --experimental_disk_cache_gc_max_size and/or"
+              + " --experimental_disk_cache_gc_max_age.")
+  public Duration diskCacheGcIdleDelay;
+
+  @Option(
+      name = "experimental_disk_cache_gc_max_size",
       defaultValue = "0",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      converter = Converters.ByteSizeConverter.class,
-      help = "Not ready for use.")
-  public long diskCacheMaxSizeBytes;
+      converter = ByteSizeConverter.class,
+      help =
+          "If set to a positive value, the disk cache will be periodically garbage collected to"
+              + " stay under this size. If set in conjunction with"
+              + " --experimental_disk_cache_gc_max_age, both criteria are applied. Garbage"
+              + " collection occurrs in the background once the server has become idle, as"
+              + " determined by the --experimental_disk_cache_gc_idle_delay flag.")
+  public long diskCacheGcMaxSize;
+
+  @Option(
+      name = "experimental_disk_cache_gc_max_age",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = DurationConverter.class,
+      help =
+          "If set to a positive value, the disk cache will be periodically garbage collected to"
+              + " remove entries older than this age. If set in conjunction with"
+              + " --experimental_disk_cache_gc_max_size, both criteria are applied. Garbage"
+              + " collection occurrs in the background once the server has become idle, as"
+              + " determined by the --experimental_disk_cache_gc_idle_delay flag.")
+  public Duration diskCacheGcMaxAge;
 
   @Option(
       name = "experimental_guard_against_concurrent_changes",
@@ -387,29 +427,6 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public PathFragment remoteGrpcLog;
 
   @Option(
-      name = "incompatible_remote_symlinks",
-      defaultValue = "true",
-      category = "remote",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.EXECUTION},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If set to true, Bazel will always upload symlinks as such to a remote or disk cache."
-              + " Otherwise, non-dangling relative symlinks (and only those) will be uploaded as"
-              + " the file or directory they point to.")
-  public boolean incompatibleRemoteSymlinks;
-
-  @Option(
-      name = "incompatible_remote_dangling_symlinks",
-      defaultValue = "true",
-      category = "remote",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.EXECUTION},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "If set to true, symlinks uploaded to a remote or disk cache are allowed to dangle.")
-  public boolean incompatibleRemoteDanglingSymlinks;
-
-  @Option(
       name = "remote_cache_compression",
       oldName = "experimental_remote_cache_compression",
       defaultValue = "false",
@@ -422,21 +439,15 @@ public final class RemoteOptions extends CommonRemoteOptions {
 
   @Option(
       name = "experimental_remote_cache_compression_threshold",
-      defaultValue = "0",
+      // Based on discussions in #18997, `~100` is the break even point where the compression
+      // actually helps the builds.
+      defaultValue = "100",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "The minimum blob size required to compress/decompress with zstd. Ineffectual unless"
               + " --remote_cache_compression is set.")
   public int cacheCompressionThreshold;
-
-  @Option(
-      name = "build_event_upload_max_threads",
-      defaultValue = "100",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "The number of threads used to do build event uploads. Capped at 1000.")
-  public int buildEventUploadMaxThreads;
 
   @Option(
       name = "remote_download_outputs",
@@ -616,17 +627,6 @@ public final class RemoteOptions extends CommonRemoteOptions {
               + "to print only on failures, `success` to print only on successes and "
               + "`all` to print always.")
   public ExecutionMessagePrintMode remotePrintExecutionMessages;
-
-  @Option(
-      name = "incompatible_remote_downloader_send_all_headers",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.REMOTE,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "Whether to send all values of a multi-valued header to the remote downloader instead of"
-              + " just the first.")
-  public boolean remoteDownloaderSendAllHeaders;
 
   @Option(
       name = "experimental_remote_mark_tool_inputs",

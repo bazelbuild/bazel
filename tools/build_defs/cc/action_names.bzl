@@ -31,6 +31,13 @@ CPP_MODULE_CODEGEN_ACTION_NAME = "c++-module-codegen"
 # Name of the C++ header parsing action.
 CPP_HEADER_PARSING_ACTION_NAME = "c++-header-parsing"
 
+# Name of the C++ deps scanning action.
+CPP_MODULE_DEPS_SCANNING_ACTION_NAME = "c++-module-deps-scanning"
+
+# Name of the C++ module compile action.
+CPP20_MODULE_COMPILE_ACTION_NAME = "c++20-module-compile"
+CPP20_MODULE_CODEGEN_ACTION_NAME = "c++20-module-codegen"
+
 # Name of the C++ module compile action.
 CPP_MODULE_COMPILE_ACTION_NAME = "c++-module-compile"
 
@@ -91,6 +98,9 @@ CLIF_MATCH_ACTION_NAME = "clif-match"
 # A string constant for the obj copy actions.
 OBJ_COPY_ACTION_NAME = "objcopy_embed_data"
 
+# A string constant for the validation action for cc_static_library.
+VALIDATE_STATIC_LIBRARY = "validate-static-library"
+
 ACTION_NAMES = struct(
     c_compile = C_COMPILE_ACTION_NAME,
     cpp_compile = CPP_COMPILE_ACTION_NAME,
@@ -98,6 +108,9 @@ ACTION_NAMES = struct(
     cc_flags_make_variable = CC_FLAGS_MAKE_VARIABLE_ACTION_NAME,
     cpp_module_codegen = CPP_MODULE_CODEGEN_ACTION_NAME,
     cpp_header_parsing = CPP_HEADER_PARSING_ACTION_NAME,
+    cpp_module_deps_scanning = CPP_MODULE_DEPS_SCANNING_ACTION_NAME,
+    cpp20_module_compile = CPP20_MODULE_COMPILE_ACTION_NAME,
+    cpp20_module_codegen = CPP20_MODULE_CODEGEN_ACTION_NAME,
     cpp_module_compile = CPP_MODULE_COMPILE_ACTION_NAME,
     assemble = ASSEMBLE_ACTION_NAME,
     preprocess_assemble = PREPROCESS_ASSEMBLE_ACTION_NAME,
@@ -118,4 +131,5 @@ ACTION_NAMES = struct(
     objcpp_compile = OBJCPP_COMPILE_ACTION_NAME,
     clif_match = CLIF_MATCH_ACTION_NAME,
     objcopy_embed_data = OBJ_COPY_ACTION_NAME,
+    validate_static_library = VALIDATE_STATIC_LIBRARY,
 )

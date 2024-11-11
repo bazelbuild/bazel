@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.bugreport.Crash;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.server.CommandProtos.ExecRequest;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.IdleTask;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.protobuf.Any;
@@ -39,23 +40,26 @@ public final class BlazeCommandResult {
   private final ImmutableList<Any> responseExtensions;
   private final boolean shutdown;
   private final boolean stateKeptAfterBuild;
+  private final ImmutableList<IdleTask> idleTasks;
 
   private BlazeCommandResult(
       DetailedExitCode detailedExitCode,
       @Nullable ExecRequest execDescription,
       boolean shutdown,
       ImmutableList<Any> responseExtensions,
-      boolean stateKeptAfterBuild) {
+      boolean stateKeptAfterBuild,
+      ImmutableList<IdleTask> idleTasks) {
     this.detailedExitCode = Preconditions.checkNotNull(detailedExitCode);
     this.execDescription = execDescription;
     this.shutdown = shutdown;
     this.responseExtensions = responseExtensions;
     this.stateKeptAfterBuild = stateKeptAfterBuild;
+    this.idleTasks = idleTasks;
   }
 
   private BlazeCommandResult(
       DetailedExitCode detailedExitCode, @Nullable ExecRequest execDescription, boolean shutdown) {
-    this(detailedExitCode, execDescription, shutdown, ImmutableList.of(), true);
+    this(detailedExitCode, execDescription, shutdown, ImmutableList.of(), true, ImmutableList.of());
   }
 
   public ExitCode getExitCode() {
@@ -86,6 +90,10 @@ public final class BlazeCommandResult {
 
   public ImmutableList<Any> getResponseExtensions() {
     return responseExtensions;
+  }
+
+  public ImmutableList<IdleTask> getIdleTasks() {
+    return idleTasks;
   }
 
   /** Reflects the value of {@link CommonCommandOptions#keepStateAfterBuild}. */
@@ -134,7 +142,19 @@ public final class BlazeCommandResult {
         result.execDescription,
         result.shutdown,
         responseExtensions,
-        stateKeptAfterBuild);
+        stateKeptAfterBuild,
+        result.idleTasks);
+  }
+
+  public static BlazeCommandResult withIdleTasks(
+      BlazeCommandResult result, ImmutableList<IdleTask> idleTasks) {
+    return new BlazeCommandResult(
+        result.detailedExitCode,
+        result.execDescription,
+        result.shutdown,
+        result.responseExtensions,
+        result.stateKeptAfterBuild,
+        idleTasks);
   }
 
   public static BlazeCommandResult execute(ExecRequest execDescription) {

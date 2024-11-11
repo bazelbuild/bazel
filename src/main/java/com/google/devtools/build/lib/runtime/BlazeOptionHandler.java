@@ -166,18 +166,6 @@ public final class BlazeOptionHandler {
     }
 
     Path workspacePath = workspace.getWorkspace();
-    // TODO(kchodorow): Remove this once spaces are supported.
-    if (workspacePath.getPathString().contains(" ")) {
-      String message =
-          runtime.getProductName()
-              + " does not currently work properly from paths "
-              + "containing spaces ("
-              + workspacePath
-              + ").";
-      eventHandler.handle(Event.error(message));
-      return createDetailedExitCode(message, Code.SPACES_IN_WORKSPACE_PATH);
-    }
-
     if (workspacePath.getParentDirectory() != null) {
       Path doNotBuild =
           workspacePath.getParentDirectory().getRelative(BlazeWorkspace.DO_NOT_BUILD_FILE_NAME);
@@ -470,21 +458,6 @@ public final class BlazeOptionHandler {
       parseArgsAndConfigs(args, eventHandler);
       // Allow the command to edit the options.
       command.editOptions(optionsParser);
-      // Migration of --watchfs to a command option.
-      // TODO(ulfjack): Get rid of the startup option and drop this code.
-      if (runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class).watchFS) {
-        eventHandler.handle(
-            Event.error(
-                "--watchfs as startup option is deprecated, replace it with the equivalent command "
-                    + "option. For example, instead of 'bazel --watchfs build //foo', run "
-                    + "'bazel build --watchfs //foo'."));
-        try {
-          optionsParser.parse("--watchfs");
-        } catch (OptionsParsingException e) {
-          // This should never happen.
-          throw new IllegalStateException(e);
-        }
-      }
       // Merge the invocation policy that is user-supplied, from the command line, and any
       // invocation policy that was added by a module. The module one goes 'first,' so the user
       // one has priority.

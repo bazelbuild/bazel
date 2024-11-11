@@ -81,8 +81,7 @@ def parse_http_artifacts(ctx, lockfile_path, required_repos):
     for extension_id, extension_entry in lockfile["moduleExtensions"].items():
         if extension_id.startswith("@@"):
             # "@@rules_foo+//:extensions.bzl%foo" --> "rules_foo+"
-            # "@@rules_foo~//:extensions.bzl%foo" --> "rules_foo+" (legacy format; remove after building with 8.0)
-            module_repo_name = extension_id.removeprefix("@@").partition("//")[0].replace("~", "+")
+            module_repo_name = extension_id.removeprefix("@@").partition("//")[0]
         else:
             # "//:extensions.bzl%foo" --> ""
             module_repo_name = ""
@@ -95,8 +94,7 @@ def parse_http_artifacts(ctx, lockfile_path, required_repos):
             for local_name, repo_spec in extension["generatedRepoSpecs"].items():
                 rule_class = repo_spec["ruleClassName"]
 
-                # TODO(pcloudy): Remove "kotlin_compiler_repository" after https://github.com/bazelbuild/rules_kotlin/issues/1106 is fixed
-                if rule_class == "http_archive" or rule_class == "http_file" or rule_class == "http_jar" or rule_class == "kotlin_compiler_repository":
+                if rule_class == "http_archive" or rule_class == "http_file" or rule_class == "http_jar":
                     attributes = repo_spec["attributes"]
                     repo_name = repo_name_prefix + local_name
 

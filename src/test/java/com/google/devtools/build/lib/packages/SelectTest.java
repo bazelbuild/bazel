@@ -117,4 +117,25 @@ public class SelectTest {
         "{'a': 'a'} | select({'foo': ['FOO']})",
         "Cannot combine incompatible types (dict, select of list)");
   }
+
+  @Test
+  public void testRepr() throws Exception {
+    assertThat(eval("repr(select({'foo': ['FOO']})+['BAR'])"))
+        .isEqualTo("select({\"foo\": [\"FOO\"]}) + [\"BAR\"]");
+
+    assertThat(eval("repr(['FOO']+select({'bar': ['BAR']}))"))
+        .isEqualTo("[\"FOO\"] + select({\"bar\": [\"BAR\"]})");
+
+    assertThat(eval("repr(select({'foo': ['FOO']})+select({'bar': ['BAR']}))"))
+        .isEqualTo("select({\"foo\": [\"FOO\"]}) + select({\"bar\": [\"BAR\"]})");
+
+    assertThat(eval("repr(select({'foo': {'FOO': 123}})|{'BAR': 456})"))
+        .isEqualTo("select({\"foo\": {\"FOO\": 123}}) | {\"BAR\": 456}");
+
+    assertThat(eval("repr({'FOO': 123}|select({'bar': {'BAR': 456}}))"))
+        .isEqualTo("{\"FOO\": 123} | select({\"bar\": {\"BAR\": 456}})");
+
+    assertThat(eval("repr(select({'foo': {'FOO': 123}})|select({'bar': {'BAR': 456}}))"))
+        .isEqualTo("select({\"foo\": {\"FOO\": 123}}) | select({\"bar\": {\"BAR\": 456}})");
+  }
 }

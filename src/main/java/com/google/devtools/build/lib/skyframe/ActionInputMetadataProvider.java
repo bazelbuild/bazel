@@ -16,15 +16,15 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FilesetManifest;
-import com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBehaviorWithoutError;
-import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
+import com.google.devtools.build.lib.actions.FilesetOutputTree.RelativeSymlinkBehaviorWithoutError;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.RunfilesTree;
@@ -33,6 +33,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -45,46 +46,52 @@ final class ActionInputMetadataProvider implements InputMetadataProvider {
   private final PathFragment execRoot;
 
   private final ActionInputMap inputArtifactData;
-  private final ImmutableMap<PathFragment, FileArtifactValue> filesetMapping;
+
+  /**
+   * Mapping from a fileset entry's target path to its metadata.
+   *
+   * <p>Initialized lazily because it can consume significant memory and may never be needed, for
+   * example if there is an action cache hit or an {@linkplain
+   * com.google.devtools.build.lib.vfs.OutputService#createActionFileSystem action file system} is
+   * in use.
+   */
+  private final Supplier<ImmutableMap<String, FileArtifactValue>> filesetMapping;
 
   ActionInputMetadataProvider(
       PathFragment execRoot,
       ActionInputMap inputArtifactData,
-      Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesets) {
+      Map<Artifact, FilesetOutputTree> filesets) {
     this.execRoot = execRoot;
     this.inputArtifactData = inputArtifactData;
-    this.filesetMapping = createFilesetMapping(filesets, execRoot);
+    this.filesetMapping = Suppliers.memoize(() -> createFilesetMapping(filesets));
   }
 
-  private static ImmutableMap<PathFragment, FileArtifactValue> createFilesetMapping(
-      Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesets, PathFragment execRoot) {
-    Map<PathFragment, FileArtifactValue> filesetMap = new HashMap<>();
-    for (Map.Entry<Artifact, ImmutableList<FilesetOutputSymlink>> entry : filesets.entrySet()) {
-      FilesetManifest fileset =
-          FilesetManifest.constructFilesetManifestWithoutError(
-              entry.getValue(), execRoot, RelativeSymlinkBehaviorWithoutError.RESOLVE);
-      for (Map.Entry<String, FileArtifactValue> favEntry : fileset.getArtifactValues().entrySet()) {
-        if (favEntry.getValue().getDigest() != null) {
-          filesetMap.put(PathFragment.create(favEntry.getKey()), favEntry.getValue());
-        }
-      }
+  private static ImmutableMap<String, FileArtifactValue> createFilesetMapping(
+      Map<Artifact, FilesetOutputTree> filesets) {
+    Map<String, FileArtifactValue> filesetMap = new HashMap<>();
+    for (FilesetOutputTree filesetOutput : filesets.values()) {
+      filesetOutput.visitSymlinks(
+          RelativeSymlinkBehaviorWithoutError.RESOLVE,
+          (name, target, metadata) -> {
+            if (metadata != null && metadata.getDigest() != null) {
+              filesetMap.put(target.getPathString(), metadata);
+            }
+          });
     }
     return ImmutableMap.copyOf(filesetMap);
   }
 
   @Nullable
   @Override
-  public FileArtifactValue getInputMetadata(ActionInput actionInput) throws IOException {
+  public FileArtifactValue getInputMetadataChecked(ActionInput actionInput) throws IOException {
     if (!(actionInput instanceof Artifact artifact)) {
       PathFragment inputPath = actionInput.getExecPath();
       PathFragment filesetKeyPath =
           inputPath.startsWith(execRoot) ? inputPath.relativeTo(execRoot) : inputPath;
-      return filesetMapping.get(filesetKeyPath);
+      return filesetMapping.get().get(filesetKeyPath.getPathString());
     }
 
-    FileArtifactValue value;
-
-    value = inputArtifactData.getInputMetadata(artifact);
+    FileArtifactValue value = inputArtifactData.getInputMetadataChecked(artifact);
     if (value != null) {
       return checkExists(value, artifact);
     }
@@ -121,8 +128,7 @@ final class ActionInputMetadataProvider implements InputMetadataProvider {
    */
   private static FileArtifactValue checkExists(FileArtifactValue value, Artifact artifact)
       throws FileNotFoundException {
-    if (FileArtifactValue.MISSING_FILE_MARKER.equals(value)
-        || FileArtifactValue.OMITTED_FILE_MARKER.equals(value)) {
+    if (FileArtifactValue.MISSING_FILE_MARKER.equals(value)) {
       throw new FileNotFoundException(artifact + " does not exist");
     }
     return checkNotNull(value, artifact);

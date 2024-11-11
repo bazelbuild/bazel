@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.exec.ExpandedSpawnLogContext;
 import com.google.devtools.build.lib.exec.ExpandedSpawnLogContext.Encoding;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.exec.SpawnLogContext;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -37,6 +38,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import javax.annotation.Nullable;
 
@@ -77,7 +79,7 @@ public final class SpawnLogModule extends BlazeModule {
     if (numFormats > 1) {
       String message =
           "Must specify at most one of --execution_log_binary_file, --execution_log_json_file and"
-              + " --experimental_execution_log_compact_file";
+              + " --execution_log_compact_file";
       env.getBlazeModuleEnvironment()
           .exit(
               new AbruptExitException(
@@ -93,17 +95,20 @@ public final class SpawnLogModule extends BlazeModule {
       return;
     }
 
-    Path workingDirectory = env.getWorkingDirectory();
     Path outputBase = env.getOutputBase();
 
     if (executionOptions.executionLogCompactFile != null) {
-      outputPath = workingDirectory.getRelative(executionOptions.executionLogCompactFile);
+      outputPath = getAbsolutePath(executionOptions.executionLogCompactFile, env);
 
       try {
         spawnLogContext =
             new CompactSpawnLogContext(
                 outputPath,
                 env.getExecRoot().asFragment(),
+                env.getWorkspaceName(),
+                env.getOptions()
+                    .getOptions(BuildLanguageOptions.class)
+                    .experimentalSiblingRepositoryLayout,
                 env.getOptions().getOptions(RemoteOptions.class),
                 env.getRuntime().getFileSystem().getDigestFunction(),
                 env.getXattrProvider());
@@ -116,10 +121,10 @@ public final class SpawnLogModule extends BlazeModule {
 
       if (executionOptions.executionLogBinaryFile != null) {
         encoding = Encoding.BINARY;
-        outputPath = workingDirectory.getRelative(executionOptions.executionLogBinaryFile);
+        outputPath = getAbsolutePath(executionOptions.executionLogBinaryFile, env);
       } else if (executionOptions.executionLogJsonFile != null) {
         encoding = Encoding.JSON;
-        outputPath = workingDirectory.getRelative(executionOptions.executionLogJsonFile);
+        outputPath = getAbsolutePath(executionOptions.executionLogJsonFile, env);
       }
 
       // Use a well-known temporary path to avoid accumulation of potentially large files in /tmp
@@ -137,6 +142,25 @@ public final class SpawnLogModule extends BlazeModule {
               env.getRuntime().getFileSystem().getDigestFunction(),
               env.getXattrProvider());
     }
+  }
+
+  /**
+   * If the given path is absolute path, leave it as it is. If the given path is a relative path, it
+   * is relative to the current working directory. If the given path starts with '%workspace%, it is
+   * relative to the workspace root, which is the output of `bazel info workspace`.
+   *
+   * @return Absolute Path
+   */
+  private Path getAbsolutePath(PathFragment path, CommandEnvironment env) {
+    String pathString = path.getPathString();
+    if (env.getWorkspace() != null) {
+      pathString = pathString.replace("%workspace%", env.getWorkspace().getPathString());
+    }
+    if (!PathFragment.isAbsolute(pathString)) {
+      return env.getWorkingDirectory().getRelative(pathString);
+    }
+
+    return env.getRuntime().getFileSystem().getPath(pathString);
   }
 
   @Override

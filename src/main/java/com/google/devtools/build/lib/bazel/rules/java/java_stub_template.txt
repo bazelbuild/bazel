@@ -399,12 +399,12 @@ if (("${#CLASSPATH}" > ${CLASSPATH_LIMIT})); then
   export JACOCO_IS_JAR_WRAPPED=1
   CLASSPATH_MANIFEST_JAR=$(create_classpath_jar)
   export CLASSPATH_JAR="$(basename $CLASSPATH_MANIFEST_JAR)"
-  $JAVABIN -classpath "$CLASSPATH_MANIFEST_JAR" "${ARGS[@]}"
+  "$JAVABIN" -classpath "$CLASSPATH_MANIFEST_JAR" "${ARGS[@]}"
   exit_code=$?
   rm -f "$CLASSPATH_MANIFEST_JAR"
   exit $exit_code
 else
   export JACOCO_IS_JAR_WRAPPED=0
   export CLASSPATH_JAR=""
-  exec $JAVABIN -classpath $CLASSPATH "${ARGS[@]}"
+  exec "$JAVABIN" -classpath $CLASSPATH "${ARGS[@]}"
 fi

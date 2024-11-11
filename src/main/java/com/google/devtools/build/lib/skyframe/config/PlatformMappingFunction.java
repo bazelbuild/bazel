@@ -69,7 +69,7 @@ public final class PlatformMappingFunction implements SkyFunction {
   @Override
   public PlatformMappingValue compute(SkyKey skyKey, Environment env)
       throws PlatformMappingFunctionException, InterruptedException {
-    PlatformMappingValue.Key platformMappingKey = (PlatformMappingValue.Key) skyKey.argument();
+    PlatformMappingKey platformMappingKey = (PlatformMappingKey) skyKey.argument();
     PathFragment workspaceRelativeMappingPath =
         platformMappingKey.getWorkspaceRelativeMappingPath();
 
@@ -120,9 +120,9 @@ public final class PlatformMappingFunction implements SkyFunction {
       Mappings parsed;
       try {
         parsed = parse(env, lines, mainRepoContext);
-      if (parsed == null) {
-        return null;
-      }
+        if (parsed == null) {
+          return null;
+        }
       } catch (PlatformMappingParsingException e) {
         throw new PlatformMappingFunctionException(e);
       }
@@ -172,8 +172,8 @@ public final class PlatformMappingFunction implements SkyFunction {
       throw parsingException("Expected 'platforms:' or 'flags:' but got " + it.peek());
     }
 
-    ImmutableMap<Label, NativeAndStarlarkFlags> platformsToFlags = ImmutableMap.of();
-    ImmutableMap<NativeAndStarlarkFlags, Label> flagsToPlatforms = ImmutableMap.of();
+    ImmutableMap<Label, ParsedFlagsValue> platformsToFlags = ImmutableMap.of();
+    ImmutableMap<ParsedFlagsValue, Label> flagsToPlatforms = ImmutableMap.of();
 
     if (it.peek().equalsIgnoreCase("platforms:")) {
       it.next();
@@ -201,22 +201,17 @@ public final class PlatformMappingFunction implements SkyFunction {
   }
 
   /**
-   * Converts a set of native and Starlark flag settings to a {@link NativeAndStarlarkFlags}, or
-   * returns null if not all Skyframe deps are ready.
+   * Converts a set of native and Starlark flag settings to a {@link ParsedFlagsValue}, or returns
+   * null if not all Skyframe deps are ready.
    */
   @Nullable
-  private static NativeAndStarlarkFlags parseStarlarkFlags(
+  private static ParsedFlagsValue parseFlags(
       ImmutableList<String> rawFlags, Environment env, RepoContext mainRepoContext)
       throws PlatformMappingParsingException, InterruptedException {
     PackageContext rootPackage = mainRepoContext.rootPackage();
     ParsedFlagsValue.Key parsedFlagsKey = ParsedFlagsValue.Key.create(rawFlags, rootPackage);
     try {
-      ParsedFlagsValue parsedFlags =
-          (ParsedFlagsValue) env.getValueOrThrow(parsedFlagsKey, OptionsParsingException.class);
-      if (parsedFlags == null) {
-        return null;
-      }
-      return parsedFlags.flags();
+      return (ParsedFlagsValue) env.getValueOrThrow(parsedFlagsKey, OptionsParsingException.class);
     } catch (OptionsParsingException e) {
       throw new PlatformMappingParsingException(e);
     }
@@ -226,15 +221,15 @@ public final class PlatformMappingFunction implements SkyFunction {
    * Returns a parsed {@code platform -> flags setting}, or null if not all Skyframe deps are ready
    */
   @Nullable
-  private static ImmutableMap<Label, NativeAndStarlarkFlags> readPlatformsToFlags(
+  private static ImmutableMap<Label, ParsedFlagsValue> readPlatformsToFlags(
       PeekingIterator<String> it, Environment env, RepoContext mainRepoContext)
       throws PlatformMappingParsingException, InterruptedException {
-    ImmutableMap.Builder<Label, NativeAndStarlarkFlags> platformsToFlags = ImmutableMap.builder();
+    ImmutableMap.Builder<Label, ParsedFlagsValue> platformsToFlags = ImmutableMap.builder();
     boolean needSkyframeDeps = false;
     while (it.hasNext() && !it.peek().equalsIgnoreCase("flags:")) {
       Label platform = readPlatform(it, mainRepoContext);
       ImmutableList<String> flags = readFlags(it);
-      NativeAndStarlarkFlags parsedFlags = parseStarlarkFlags(flags, env, mainRepoContext);
+      ParsedFlagsValue parsedFlags = parseFlags(flags, env, mainRepoContext);
       if (parsedFlags == null) {
         needSkyframeDeps = true;
       } else {
@@ -258,16 +253,16 @@ public final class PlatformMappingFunction implements SkyFunction {
    * Returns a parsed {@code flags -> platform setting}, or null if not all Skyframe deps are ready
    */
   @Nullable
-  private static ImmutableMap<NativeAndStarlarkFlags, Label> readFlagsToPlatforms(
+  private static ImmutableMap<ParsedFlagsValue, Label> readFlagsToPlatforms(
       PeekingIterator<String> it, Environment env, RepoContext mainRepoContext)
       throws PlatformMappingParsingException, InterruptedException {
-    ImmutableMap.Builder<NativeAndStarlarkFlags, Label> flagsToPlatforms = ImmutableMap.builder();
+    ImmutableMap.Builder<ParsedFlagsValue, Label> flagsToPlatforms = ImmutableMap.builder();
     boolean needSkyframeDeps = false;
     while (it.hasNext() && it.peek().startsWith("--")) {
       ImmutableList<String> flags = readFlags(it);
       Label platform = readPlatform(it, mainRepoContext);
 
-      NativeAndStarlarkFlags parsedFlags = parseStarlarkFlags(flags, env, mainRepoContext);
+      ParsedFlagsValue parsedFlags = parseFlags(flags, env, mainRepoContext);
       if (parsedFlags == null) {
         needSkyframeDeps = true;
       } else {
@@ -318,7 +313,7 @@ public final class PlatformMappingFunction implements SkyFunction {
   }
 
   private static PlatformMappingParsingException parsingException(String message) {
-    return parsingException(message, /*cause=*/ null);
+    return parsingException(message, /* cause= */ null);
   }
 
   private static PlatformMappingParsingException parsingException(String message, Exception cause) {
@@ -330,12 +325,12 @@ public final class PlatformMappingFunction implements SkyFunction {
    */
   @VisibleForTesting
   static final class Mappings {
-    final ImmutableMap<Label, NativeAndStarlarkFlags> platformsToFlags;
-    final ImmutableMap<NativeAndStarlarkFlags, Label> flagsToPlatforms;
+    final ImmutableMap<Label, ParsedFlagsValue> platformsToFlags;
+    final ImmutableMap<ParsedFlagsValue, Label> flagsToPlatforms;
 
     Mappings(
-        ImmutableMap<Label, NativeAndStarlarkFlags> platformsToFlags,
-        ImmutableMap<NativeAndStarlarkFlags, Label> flagsToPlatforms) {
+        ImmutableMap<Label, ParsedFlagsValue> platformsToFlags,
+        ImmutableMap<ParsedFlagsValue, Label> flagsToPlatforms) {
       this.platformsToFlags = platformsToFlags;
       this.flagsToPlatforms = flagsToPlatforms;
     }

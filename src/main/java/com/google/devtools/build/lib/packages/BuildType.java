@@ -81,6 +81,13 @@ public final class BuildType {
   @SerializationConstant
   public static final ListType<Label> NODEP_LABEL_LIST = ListType.create(NODEP_LABEL);
 
+  @SerializationConstant
+  public static final Type<Label> DORMANT_LABEL =
+      new LabelType(LabelClass.GENQUERY_SCOPE_REFERENCE);
+
+  @SerializationConstant
+  public static final ListType<Label> DORMANT_LABEL_LIST = ListType.create(DORMANT_LABEL);
+
   /**
    * This is a label type that causes dependencies, but the dependencies are NOT to be configured.
    * Does not say anything about whether the attribute of this type is itself configurable.
@@ -144,6 +151,13 @@ public final class BuildType {
   public static final Type<Set<DistributionType>> DISTRIBUTIONS = new Distributions();
   /** The type of an output file, treated as a {@link #LABEL}. */
   @SerializationConstant public static final Type<Label> OUTPUT = new OutputType();
+
+  private static final ImmutableMap<Type<?>, String> whyNotConfigurable =
+      ImmutableMap.<Type<?>, String>builder()
+          .put(LICENSE, "loading phase license checking logic assumes non-configurable values")
+          .put(OUTPUT, "output paths are part of the static graph structure")
+          .buildOrThrow();
+
   /** The type of a list of {@linkplain #OUTPUT outputs}. */
   @SerializationConstant public static final ListType<Label> OUTPUT_LIST = ListType.create(OUTPUT);
 
@@ -161,20 +175,66 @@ public final class BuildType {
 
   /**
    * Variation of {@link Type#convert} that supports selector expressions for configurable
-   * attributes* (i.e. "{ config1: 'value1_of_orig_type', config2: 'value2_of_orig_type; }"). If x
-   * is a selector expression, returns a {@link Selector} instance that contains key-mapped entries
+   * attributes (i.e. "{ config1: 'value1_of_orig_type', config2: 'value2_of_orig_type; }"). If x is
+   * a selector expression, returns a {@link SelectorList} instance that contains key-mapped entries
    * of the native type. Else, returns the native type directly.
+   *
+   * <p>If {@code simplifyUnconditionalSelects} is true, then an unconditional select is simplified
+   * to the select's value converted to a native value; and a concatenation of unconditional selects
+   * (and direct values, if any) is simplified to a concatenation of the select's values and the
+   * direct values converted to native values. In other words, {@code ["//x"] +
+   * select("//conditions:default": ["//y"])} becomes {@code [Label("//x"), Label("//y")]}. If a
+   * concatenation contains a non-unconditional select, the concatenation is not simplified.
+   *
+   * <p>Returns null iff {@code simplifyUnconditionalSelects} is true, {@code x} is {@code
+   * select({"//conditions:default": None})}, and the {@code type.getDefaultValue()} is null.
    *
    * <p>The caller is responsible for casting the returned value appropriately.
    */
-  static <T> Object selectableConvert(Type<T> type, Object x, Object what, LabelConverter context)
+  @Nullable
+  static <T> Object selectableConvert(
+      Type<T> type,
+      Object x,
+      Object what,
+      LabelConverter context,
+      boolean simplifyUnconditionalSelects)
       throws ConversionException {
-    if (x instanceof com.google.devtools.build.lib.packages.SelectorList) {
-      return new SelectorList<>(
-          ((com.google.devtools.build.lib.packages.SelectorList) x).getElements(),
-          what,
-          context,
-          type);
+    if (x instanceof com.google.devtools.build.lib.packages.SelectorList selectorList) {
+      List<Object> selectorListElements = selectorList.getElements();
+      if (!simplifyUnconditionalSelects) {
+        return new SelectorList<T>(selectorListElements, what, context, type);
+      }
+      if (selectorListElements.size() > 1 && type.concat(ImmutableList.of()) == null) {
+        throw new ConversionException(
+            String.format("type '%s' doesn't support select concatenation", type));
+      }
+      // Note: ArrayList, not ImmutableList, because we may insert a null into it; the default value
+      // of an unconditional Selector<T> is null if the SelectorValue value is None and the native
+      // type's default value is null.
+      ArrayList<T> values = new ArrayList<>(selectorListElements.size());
+      for (Object element : selectorListElements) {
+        if (element instanceof SelectorValue selectorValue) {
+          ImmutableMap<?, ?> dictionary = selectorValue.getDictionary();
+          if (dictionary.size() != 1) {
+            // Cannot simplify: selectorValue has multiple branches.
+            return new SelectorList<T>(selectorListElements, what, context, type);
+          }
+          Selector<T> selector =
+              new Selector<>(dictionary, what, context, type, selectorValue.getNoMatchError());
+          if (!selector.isUnconditional()) {
+            // Cannot simplify: the only branch is not the default condition.
+            return new SelectorList<T>(selectorListElements, what, context, type);
+          }
+          values.add(selector.getDefault());
+        } else {
+          values.add(type.convert(element, what, context));
+        }
+      }
+      if (values.size() == 1) {
+        return values.getFirst();
+      } else {
+        return type.concat(values);
+      }
     } else {
       return type.convert(x, what, context);
     }
@@ -185,27 +245,35 @@ public final class BuildType {
    * BuildType#selectableConvert}. Canonicalizes the value's order if it is a {@link List} type and
    * {@code attr.isOrderIndependent()} returns {@code true}.
    *
+   * <p>Returns null iff {@code simplifyUnconditionalSelects} is true, {@code buildLangValue} is
+   * {@code select({"//conditions:default": None})}, and {@code attr.getType().getDefaultValue()} is
+   * null.
+   *
    * <p>Throws {@link ConversionException} if the conversion fails, or if {@code buildLangValue} is
    * a selector expression but {@code attr.isConfigurable()} is {@code false}.
    */
+  @Nullable
   public static Object convertFromBuildLangType(
       String ruleClass,
       Attribute attr,
       Object buildLangValue,
       LabelConverter labelConverter,
-      Interner<ImmutableList<?>> listInterner)
+      Interner<ImmutableList<?>> listInterner,
+      boolean simplifyUnconditionalSelects)
       throws ConversionException {
+    if ((buildLangValue instanceof com.google.devtools.build.lib.packages.SelectorList)
+        && !attr.isConfigurable()) {
+      throw new ConversionException(
+          String.format("attribute \"%s\" is not configurable", attr.getName()));
+    }
+
     Object converted =
         BuildType.selectableConvert(
             attr.getType(),
             buildLangValue,
             new AttributeConversionContext(attr.getName(), ruleClass),
-            labelConverter);
-
-    if ((converted instanceof SelectorList<?>) && !attr.isConfigurable()) {
-      throw new ConversionException(
-          String.format("attribute \"%s\" is not configurable", attr.getName()));
-    }
+            labelConverter,
+            simplifyUnconditionalSelects);
 
     if (converted instanceof List<?>) {
       if (attr.isOrderIndependent()) {
@@ -300,6 +368,15 @@ public final class BuildType {
               new AttributeConversionContext(attr.getName(), attrOwner),
               labelConverter);
     }
+  }
+
+  /**
+   * If the given attribute type is non-configurable, returns the reason why. Otherwise, returns
+   * {@code null}.
+   */
+  @Nullable
+  public static String maybeGetNonConfigurableReason(Type<?> type) {
+    return whyNotConfigurable.get(type);
   }
 
   /**
@@ -688,7 +765,7 @@ public final class BuildType {
 
     private final Label[] labels;
 
-    // Can contain nulls.
+    // Can contain nulls, when an entry maps to None and the Type<T> has a null getDefaultValue().
     private final T[] values;
 
     private final Set<Label> conditionsWithDefaultValues;

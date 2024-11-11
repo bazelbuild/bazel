@@ -36,8 +36,8 @@ java_test(
 )
 
 java_test(
-    name = "NativeAndStarlarkFlagsTest",
-    srcs = ["NativeAndStarlarkFlagsTest.java"],
+    name = "ParsedFlagsValueTest",
+    srcs = ["ParsedFlagsValueTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_options",
@@ -63,6 +63,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/java/com/google/devtools/common/options",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/skyframe:testutil",
         "//third_party:guava",
@@ -89,6 +90,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config:exceptions",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/config:platform_mapping_key",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/common/options",
@@ -110,7 +112,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_options",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:error_prone_annotations",
         "//third_party:guava",

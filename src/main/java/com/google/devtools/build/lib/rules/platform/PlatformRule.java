@@ -132,6 +132,9 @@ public class PlatformRule implements RuleDefinition {
             attr(REQUIRED_SETTINGS_ATTR, BuildType.LABEL_LIST)
                 .allowedRuleClasses("config_setting")
                 .allowedFileTypes(FileTypeSet.NO_FILE))
+        // Undocumented, used for exec platform migrations.
+        .add(attr("check_toolchain_types", Type.BOOLEAN).value(false))
+        .add(attr("allowed_toolchain_types", BuildType.NODEP_LABEL_LIST))
         .build();
   }
 

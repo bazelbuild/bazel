@@ -15,8 +15,6 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -84,35 +82,35 @@ public final class DeprecationValidatorTest extends BuildViewTestCase {
 
   @Test
   public void deprecationWarningForSamePackageInDifferentRepository() throws Exception {
-    try (OutputStream output = scratch.resolve("WORKSPACE").getOutputStream(/* append= */ true)) {
-      output.write(
-          "\nlocal_repository(name = 'r', path = '/r')\n".getBytes(StandardCharsets.UTF_8));
-    }
-    scratch.file("/r/WORKSPACE", "workspace(name = 'r')");
+    scratch.appendFile(
+        "MODULE.bazel",
+        "bazel_dep(name = 'r')",
+        "local_path_override(module_name = 'r', path = '/r')");
+    scratch.file("/r/MODULE.bazel", "module(name = 'r')");
     scratch.file("/r/a/BUILD", "filegroup(name='b', deprecation='deprecation warning printed')");
     invalidatePackages();
     checkWarning(
         "a",
         "a",
-        "target '//a:a' depends on deprecated target '@@r//a:b': deprecation warning printed",
+        "target '//a:a' depends on deprecated target '@@r+//a:b': deprecation warning printed",
         "filegroup(name='a', srcs=['@r//a:b'])");
   }
 
   @Test
   public void deprecationWarningForJavatestsCompanionOfJavaPackageInDifferentRepository()
       throws Exception {
-    try (OutputStream output = scratch.resolve("WORKSPACE").getOutputStream(/* append= */ true)) {
-      output.write(
-          "\nlocal_repository(name = 'r', path = '/r')\n".getBytes(StandardCharsets.UTF_8));
-    }
-    scratch.file("/r/WORKSPACE", "workspace(name = 'r')");
+    scratch.appendFile(
+        "MODULE.bazel",
+        "bazel_dep(name = 'r')",
+        "local_path_override(module_name = 'r', path = '/r')");
+    scratch.file("/r/MODULE.bazel", "module(name = 'r')");
     scratch.file(
         "/r/java/a/BUILD", "filegroup(name='b', deprecation='deprecation warning printed')");
     invalidatePackages();
     checkWarning(
         "javatests/a",
         "a",
-        "target '//javatests/a:a' depends on deprecated target '@@r//java/a:b': "
+        "target '//javatests/a:a' depends on deprecated target '@@r+//java/a:b': "
             + "deprecation warning printed",
         "filegroup(name='a', srcs=['@r//java/a:b'])");
   }

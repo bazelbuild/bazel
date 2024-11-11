@@ -238,8 +238,6 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
         .contains(
             Fragment.newBuilder()
                 .setName("com.google.devtools.build.lib.rules.cpp.CppConfiguration")
-                .addFragmentOptionNames(
-                    "com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions")
                 .addFragmentOptionNames("com.google.devtools.build.lib.rules.cpp.CppOptions")
                 .build());
 
@@ -462,6 +460,8 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
         getRuleProtoByName(cqueryResult.getResultsList(), "//test:my_alias");
     AnalysisProtosV2.ConfiguredTarget actualProto =
         getRuleProtoByName(cqueryResult.getResultsList(), "//test:my_target");
+    AnalysisProtosV2.ConfiguredTarget actualLicense =
+        getRuleProtoByName(cqueryResult.getResultsList(), "//fake_licenses:license");
 
     // Expect the alias's "name" field references the alias's label, not its actual.
     assertThat(aliasProto.getTarget().getRule().getName()).isEqualTo("//test:my_alias");
@@ -483,9 +483,10 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
                 // configuration, which all non-test deps trim out.
                 .setConfigurationChecksum(
                     getConfigurationForId(
-                            cqueryResult.getConfigurationsList(), actualProto.getConfigurationId())
+                            cqueryResult.getConfigurationsList(),
+                            actualLicense.getConfigurationId())
                         .getChecksum())
-                .setConfigurationId(actualProto.getConfigurationId())
+                .setConfigurationId(actualLicense.getConfigurationId())
                 .build());
   }
 

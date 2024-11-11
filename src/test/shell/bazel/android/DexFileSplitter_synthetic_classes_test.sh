@@ -153,7 +153,7 @@ function test_DexFileSplitter_synthetic_classes_crossing_dexfiles() {
   # dex_shards default is 1
   create_test_app 21400 6000 1
 
-  bazel build java/com/testapp || fail "Test app should have built succesfully"
+  bazel build --enable_bzlmod java/com/testapp --verbose_failures || fail "Test app should have built succesfully"
 
   dex_file_count=$(unzip -l bazel-bin/java/com/testapp/testapp.apk | grep "classes[0-9]*.dex" | wc -l)
   if [[ ! "$dex_file_count" -ge "2" ]]; then
@@ -175,7 +175,7 @@ function test_DexMapper_synthetic_classes_crossing_dexfiles() {
   echo $TEST_TMPDIR/bazelrc
   cat $TEST_TMPDIR/bazelrc
 
-  bazel build java/com/testapp || fail "Test app should have built succesfully"
+  bazel build --enable_bzlmod java/com/testapp --verbose_failures || fail "Test app should have built succesfully"
 
   dex_file_count=$(unzip -l bazel-bin/java/com/testapp/testapp.apk | grep "classes[0-9]*.dex" | wc -l)
   if [[ ! "$dex_file_count" -eq "4" ]]; then

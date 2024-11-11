@@ -25,13 +25,13 @@
 # define DEFAULT_SYSTEM_JAVABASE STANDARD_JAVABASE
 #endif
 
-#include <errno.h>  // errno, ENAMETOOLONG
+#include <errno.h>
 #include <limits.h>
 #include <pwd.h>
 #include <signal.h>
 #include <spawn.h>
 #include <stdlib.h>
-#include <string.h>  // strerror
+#include <string.h>
 #include <sys/mount.h>
 #include <sys/param.h>
 #include <sys/queue.h>
@@ -68,7 +68,7 @@ string GetOutputRoot() {
     char buf[2048];
     struct passwd pwbuf;
     struct passwd *pw = nullptr;
-    int uid = getuid();
+    uid_t uid = getuid();
     int r = getpwuid_r(uid, &pwbuf, buf, 2048, &pw);
     if (r == 0 && pw != nullptr) {
       xdg_cache_home = blaze_util::JoinPath(pw->pw_dir, ".cache");

@@ -22,11 +22,11 @@ import static java.util.Arrays.sort;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.AspectCollection;
-import com.google.devtools.build.lib.analysis.DuplicateException;
 import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.InconsistentNullConfigException;
 import com.google.devtools.build.lib.analysis.InvalidVisibilityDependencyException;
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
+import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget.MergingException;
 import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Aspect;
@@ -114,37 +114,34 @@ final class PrerequisitesProducer
     BaseTargetPrerequisitesSupplier baseTargetPrerequisitesSupplier =
         useBaseTargetPrerequisitesSupplier ? parameters.baseTargetPrerequisitesSupplier() : null;
     switch (configuration.kind()) {
-      case VISIBILITY:
-        tasks.enqueue(
-            new ConfiguredTargetAndDataProducer(
-                getPrerequisiteKey(/* configurationKey= */ null),
-                /* transitionKeys= */ ImmutableList.of(),
-                parameters.transitiveState(),
-                (ConfiguredTargetAndDataProducer.ResultSink) this,
-                /* outputIndex= */ 0,
-                baseTargetPrerequisitesSupplier));
-        break;
-      case NULL_TRANSITION_KEYS:
-        tasks.enqueue(
-            new ConfiguredTargetAndDataProducer(
-                getPrerequisiteKey(/* configurationKey= */ null),
-                configuration.nullTransitionKeys(),
-                parameters.transitiveState(),
-                (ConfiguredTargetAndDataProducer.ResultSink) this,
-                /* outputIndex= */ 0,
-                baseTargetPrerequisitesSupplier));
-        break;
-      case UNARY:
-        tasks.enqueue(
-            new ConfiguredTargetAndDataProducer(
-                getPrerequisiteKey(configuration.unary()),
-                /* transitionKeys= */ ImmutableList.of(),
-                parameters.transitiveState(),
-                (ConfiguredTargetAndDataProducer.ResultSink) this,
-                /* outputIndex= */ 0,
-                baseTargetPrerequisitesSupplier));
-        break;
-      case SPLIT:
+      case VISIBILITY ->
+          tasks.enqueue(
+              new ConfiguredTargetAndDataProducer(
+                  getPrerequisiteKey(/* configurationKey= */ null),
+                  /* transitionKeys= */ ImmutableList.of(),
+                  parameters.transitiveState(),
+                  (ConfiguredTargetAndDataProducer.ResultSink) this,
+                  /* outputIndex= */ 0,
+                  baseTargetPrerequisitesSupplier));
+      case NULL_TRANSITION_KEYS ->
+          tasks.enqueue(
+              new ConfiguredTargetAndDataProducer(
+                  getPrerequisiteKey(/* configurationKey= */ null),
+                  configuration.nullTransitionKeys(),
+                  parameters.transitiveState(),
+                  (ConfiguredTargetAndDataProducer.ResultSink) this,
+                  /* outputIndex= */ 0,
+                  baseTargetPrerequisitesSupplier));
+      case UNARY ->
+          tasks.enqueue(
+              new ConfiguredTargetAndDataProducer(
+                  getPrerequisiteKey(configuration.unary()),
+                  /* transitionKeys= */ ImmutableList.of(),
+                  parameters.transitiveState(),
+                  (ConfiguredTargetAndDataProducer.ResultSink) this,
+                  /* outputIndex= */ 0,
+                  baseTargetPrerequisitesSupplier));
+      case SPLIT -> {
         int index = 0;
         for (Map.Entry<String, BuildConfigurationKey> entry : configuration.split().entrySet()) {
           tasks.enqueue(
@@ -157,7 +154,7 @@ final class PrerequisitesProducer
                   baseTargetPrerequisitesSupplier));
           ++index;
         }
-        break;
+      }
     }
     return this::computeConfiguredAspects;
   }
@@ -246,7 +243,7 @@ final class PrerequisitesProducer
   }
 
   @Override
-  public void acceptConfiguredAspectError(DuplicateException error) {
+  public void acceptConfiguredAspectError(MergingException error) {
     hasError = true;
     sink.acceptPrerequisitesAspectError(
         new DependencyEvaluationException(

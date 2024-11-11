@@ -19,11 +19,10 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.TargetContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.analysis.VisibilityProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.PackageGroup;
-import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Provider;
 import javax.annotation.Nullable;
 
@@ -48,18 +47,17 @@ public class PackageGroupConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   public PackageGroupConfiguredTarget(
-      ActionLookupKey actionLookupKey,
-      NestedSet<PackageGroupContents> visibility,
-      TargetContext targetContext,
-      PackageGroup packageGroup) {
-    super(actionLookupKey, visibility);
+      ActionLookupKey actionLookupKey, TargetContext targetContext, PackageGroup packageGroup) {
+    // Package groups are always public (see PackageGroup#getVisibility).
+    super(actionLookupKey, VisibilityProvider.PUBLIC_VISIBILITY);
     this.packageSpecificationProvider =
         PackageSpecificationProvider.create(targetContext, packageGroup);
   }
 
-  public PackageGroupConfiguredTarget(
-      ActionLookupKey actionLookupKey, TargetContext targetContext, PackageGroup packageGroup) {
-    this(actionLookupKey, targetContext.getVisibility(), targetContext, packageGroup);
+  @Override
+  public boolean isCreatedInSymbolicMacro() {
+    // Answer is irrelevant because package groups are always public.
+    return false;
   }
 
   @Override

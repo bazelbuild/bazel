@@ -198,20 +198,20 @@ public abstract sealed class Artifact
     return ((DerivedArtifact) artifact).getGeneratingActionKey();
   }
 
-  public static Iterable<SkyKey> keys(Iterable<Artifact> artifacts) {
-    return artifacts instanceof Collection<Artifact> collection
+  public static <T extends Artifact> Iterable<SkyKey> keys(Iterable<T> artifacts) {
+    return artifacts instanceof Collection<T> collection
         ? keys(collection)
         : Iterables.transform(artifacts, Artifact::key);
   }
 
-  public static Collection<SkyKey> keys(Collection<Artifact> artifacts) {
-    return artifacts instanceof List<Artifact> list
+  public static <T extends Artifact> Collection<SkyKey> keys(Collection<T> artifacts) {
+    return artifacts instanceof List<T> list
         ? keys(list)
         // Use Collections2 instead of Iterables#transform to ensure O(1) size().
         : Collections2.transform(artifacts, Artifact::key);
   }
 
-  public static List<SkyKey> keys(List<Artifact> artifacts) {
+  public static <T extends Artifact> List<SkyKey> keys(List<T> artifacts) {
     return Lists.transform(artifacts, Artifact::key);
   }
 
@@ -635,12 +635,12 @@ public abstract sealed class Artifact
   }
 
   /**
-   * Returns true iff this is a middleman Artifact as determined by its root.
+   * Returns true iff this artifact represents a runfiles tree.
    *
    * <p>If true, this artifact is necessarily a {@link DerivedArtifact}.
    */
-  public final boolean isMiddlemanArtifact() {
-    return root.isMiddlemanRoot();
+  public boolean isMiddlemanArtifact() {
+    return false;
   }
 
   /**
@@ -863,6 +863,9 @@ public abstract sealed class Artifact
    */
   @VisibleForTesting
   public enum SpecialArtifactType {
+    /** A runfiles tree ("runfiles middleman" in legacy parlance") */
+    RUNFILES,
+
     /** Google-specific legacy type. */
     FILESET,
 
@@ -900,6 +903,11 @@ public abstract sealed class Artifact
         ArtifactRoot root, PathFragment execPath, Object owner, SpecialArtifactType type) {
       super(root, execPath, owner);
       this.type = type;
+    }
+
+    @Override
+    public boolean isMiddlemanArtifact() {
+      return type == SpecialArtifactType.RUNFILES;
     }
 
     @Override

@@ -42,19 +42,26 @@ import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 
-/**
- * Implementation of --compile_one_dependency.
- */
+/** Implementation of --compile_one_dependency. */
 public final class CompileOneDependencyTransformer {
   private final TargetProvider targetProvider;
-  private static final ImmutableMap<String, Predicate<String>> preferredRules =
+
+  private static final FileType CC_FILE_TYPE = FileType.of(".cc", ".h", ".c");
+  private static final FileType JAVA_FILE_TYPE = FileType.of(".java");
+  private static final FileType PYTHON_FILE_TYPE = FileType.of(".py");
+
+  private static final ImmutableMap<String, Predicate<String>> PREFERRED_RULES =
       ImmutableMap.of(
           "cc_library",
-          FileType.of(".cc", ".h", ".c"),
+          CC_FILE_TYPE,
+          "cc_binary",
+          CC_FILE_TYPE,
+          "cc_test",
+          CC_FILE_TYPE,
           "java_library",
-          FileType.of(".java"),
+          JAVA_FILE_TYPE,
           "py_library",
-          FileType.of(".py"));
+          PYTHON_FILE_TYPE);
 
   public CompileOneDependencyTransformer(TargetProvider targetProvider) {
     this.targetProvider = targetProvider;
@@ -90,7 +97,7 @@ public final class CompileOneDependencyTransformer {
     for (Rule rule : orderedRuleList) {
       Set<Label> labels = getInputLabels(rule);
       if (listContainsFile(eventHandler, labels, target.getLabel(), Sets.<Label>newHashSet())) {
-        if (preferredRules
+        if (PREFERRED_RULES
             .getOrDefault(rule.getRuleClass(), Predicates.alwaysFalse())
             .apply(target.getName())) {
           result = rule;
@@ -168,9 +175,9 @@ public final class CompileOneDependencyTransformer {
   }
 
   /**
-   * Returns a list of rules in the given package sorted by BUILD file order. When
-   * multiple rules depend on a target, we choose the first match in this list (after
-   * filtering for preferred dependencies - see below).
+   * Returns a list of rules in the given package sorted by BUILD file order. When multiple rules
+   * depend on a target, we choose the first match in this list (after filtering for preferred
+   * dependencies - see below).
    */
   private Iterable<Rule> getOrderedRuleList(Package pkg) {
     List<Rule> orderedList = Lists.newArrayList();

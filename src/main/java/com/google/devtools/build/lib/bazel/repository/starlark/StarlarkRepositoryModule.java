@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.packages.RuleFunction;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
-import com.google.devtools.build.lib.packages.TargetDefinitionContext.NameConflictException;
+import com.google.devtools.build.lib.packages.TargetRecorder.NameConflictException;
 import com.google.devtools.build.lib.packages.WorkspaceFactoryHelper;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryModuleApi;
@@ -138,10 +138,11 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
       category = DocCategory.BUILTIN,
       doc =
           """
-          A callable value that may be invoked during evaluation of the WORKSPACE file or within \
-          the implementation function of a module extension to instantiate and return a \
-          repository rule.
-          """)
+A callable value that may be invoked during evaluation of the WORKSPACE file or within \
+the implementation function of a module extension to instantiate and return a repository \
+rule. Created by \
+<a href="../globals/bzl.html#repository_rule"><code>repository_rule()</code></a>.
+""")
   public static final class RepositoryRuleFunction
       implements StarlarkCallable, StarlarkExportable, RuleFunction {
     private final RuleClass.Builder builder;
@@ -222,7 +223,7 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
       if (!isExported()) {
         throw new EvalException("attempting to instantiate a non-exported repository rule");
       }
-      extensionEvalContext.createRepo(thread, kwargs, getRuleClass());
+      extensionEvalContext.lazilyCreateRepo(thread, kwargs, getRuleClass());
       return Starlark.NONE;
     }
 
@@ -253,7 +254,7 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
         throws EvalException, InterruptedException {
       String ruleClassName = getRuleClassName();
       try {
-        RuleClass ruleClass = builder.build(ruleClassName, ruleClassName);
+        RuleClass ruleClass = builder.buildStarlark(ruleClassName, extensionLabel);
         Package.Builder pkgBuilder =
             Package.Builder.fromOrFailAllowWorkspaceOnly(thread, "repository rules");
 
@@ -268,7 +269,6 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
         return WorkspaceFactoryHelper.createAndAddRepositoryRule(
             pkgBuilder,
             ruleClass,
-            /* bindRuleClass= */ null,
             WorkspaceFactoryHelper.getFinalKwargs(kwargs),
             thread.getCallStack());
       } catch (InvalidRuleException | NameConflictException | LabelSyntaxException e) {
@@ -279,7 +279,7 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
     @Override
     public RuleClass getRuleClass() {
       String name = getRuleClassName();
-      return builder.build(name, name);
+      return builder.buildStarlark(name, extensionLabel);
     }
   }
 
@@ -325,9 +325,8 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
   @Override
   public TagClass tagClass(
       Dict<?, ?> attrs, // Dict<String, StarlarkAttrModule.Descriptor>
-      Object doc, // <String> or Starlark.NONE
-      StarlarkThread thread)
-      throws EvalException {
+      Object doc // <String> or Starlark.NONE
+      ) throws EvalException {
     ImmutableList.Builder<Attribute> attrBuilder = ImmutableList.builder();
     for (Map.Entry<String, Descriptor> attr :
         Dict.cast(attrs, String.class, Descriptor.class, "attrs").entrySet()) {
@@ -340,7 +339,6 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
     }
     return TagClass.create(
         attrBuilder.build(),
-        Starlark.toJavaOptional(doc, String.class).map(Starlark::trimDocString),
-        thread.getCallerLocation());
+        Starlark.toJavaOptional(doc, String.class).map(Starlark::trimDocString));
   }
 }

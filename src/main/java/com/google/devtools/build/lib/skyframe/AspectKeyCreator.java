@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -231,19 +232,18 @@ public final class AspectKeyCreator {
           getLabel(), aspectDescriptor.getAspectClass().getName(), baseKeysString);
     }
 
-    public String getAspectLabel() {
-      return (getBaseKeys().isEmpty() ? getLabel() : getBaseKeys().toString())
-          + "#"
-          + aspectDescriptor;
-    }
-
     @Override
     public String toString() {
-      return getAspectLabel()
-          + " "
-          + getBaseConfiguredTargetKey()
-          + " "
-          + aspectDescriptor.getParameters();
+      var toStringHelper =
+          MoreObjects.toStringHelper(this)
+              .add("baseConfiguredTargetKey", getBaseConfiguredTargetKey())
+              .add("aspectDescriptor", aspectDescriptor);
+
+      if (!getBaseKeys().isEmpty()) {
+        toStringHelper.add("baseKeys", getBaseKeys());
+      }
+
+      return toStringHelper.toString();
     }
 
     AspectKey withLabel(Label label) {

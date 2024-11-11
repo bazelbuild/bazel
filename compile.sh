@@ -29,6 +29,10 @@ cd "$(dirname "$0")"
 # a chance of overriding this in case they want to do so.
 : ${VERBOSE:=no}
 
+# Reset MSYS path conversion on Windows.
+unset MSYS_NO_PATHCONV
+unset MSYS2_ARG_CONV_EXCL
+
 source scripts/bootstrap/buildenv.sh
 
 mkdir -p output
@@ -54,6 +58,10 @@ fi
 if [[ $PLATFORM == "darwin" ]] && \
     xcodebuild -showsdks 2> /dev/null | grep -q '\-sdk iphonesimulator'; then
   EXTRA_BAZEL_ARGS="${EXTRA_BAZEL_ARGS-} --define IPHONE_SDK=1"
+fi
+
+if [[ $PLATFORM == "windows" ]]; then
+  EXTRA_BAZEL_ARGS="${EXTRA_BAZEL_ARGS-} --cxxopt=/std:c++17 --host_cxxopt=/std:c++17"
 fi
 
 source scripts/bootstrap/bootstrap.sh

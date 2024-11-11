@@ -198,35 +198,53 @@ public class RuleTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testVisibilityInvalidCombination() throws Exception {
+  public void testVisibilityMisspelling() throws Exception {
     scratch.file(
         "x/BUILD",
         """
         cc_binary(
             name = "is_this_public",
-            visibility = ["//some:__pkg__", "//visibility:public"],
-        )
-        """);
-    scratch.file(
-        "y/BUILD",
-        """
-        cc_binary(
-            name = "is_this_private",
-            visibility = ["//other:__subpackages__", "//visibility:private"],
+            visibility = ["//visibility:plubic"],
         )
         """);
     reporter.removeHandler(failFastHandler);
-    Package pkgX = getTarget("//x:BUILD").getPackage();
+    Package pkg = getTarget("//x:BUILD").getPackage();
     assertContainsEvent(
-        "//visibility:public and //visibility:private cannot be used in combination with other"
-            + " labels");
-    assertThat(pkgX.containsErrors()).isTrue();
-    eventCollector.clear();
-    Package pkgY = getTarget("//y:BUILD").getPackage();
-    assertContainsEvent(
-        "//visibility:public and //visibility:private cannot be used in combination with other"
-            + " labels");
-    assertThat(pkgY.containsErrors()).isTrue();
+        "Invalid visibility label '//visibility:plubic'; did you mean //visibility:public or"
+            + " //visibility:private?");
+    assertThat(pkg.containsErrors()).isTrue();
+  }
+
+  @Test
+  public void testPublicAndPrivateVisibility() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        """
+        package(default_visibility = ["//default:__pkg__"])
+
+        cc_binary(
+            name = "is_this_public",
+            visibility = ["//some:__pkg__", "//visibility:public"],
+        )
+
+        cc_binary(
+            name = "is_private_dropped",
+            visibility = ["//some:__pkg__", "//visibility:private"],
+        )
+
+        cc_binary(
+            name = "is_empty_visibility_private",
+            visibility = [],
+        )
+        """);
+    Package pkg = getTarget("//x:BUILD").getPackage();
+    assertThat(pkg.containsErrors()).isFalse();
+    assertThat(pkg.getRule("is_this_public").getVisibility().getDeclaredLabels())
+        .containsExactly(Label.parseCanonicalUnchecked("//visibility:public"));
+    assertThat(pkg.getRule("is_private_dropped").getVisibility().getDeclaredLabels())
+        .containsExactly(Label.parseCanonicalUnchecked("//some:__pkg__"));
+    assertThat(pkg.getRule("is_empty_visibility_private").getVisibility().getDeclaredLabels())
+        .containsExactly(Label.parseCanonicalUnchecked("//visibility:private"));
   }
 
   @Test

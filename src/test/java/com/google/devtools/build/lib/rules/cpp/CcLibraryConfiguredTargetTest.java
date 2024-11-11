@@ -144,7 +144,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             "Unrecognized file extension '.wrong_ext', allowed "
                 + "extensions are %s, please check artifact_name_pattern configuration for "
                 + "%s in your rule.",
-            StringUtil.joinEnglishList(correctExtensions, "or", "'"), categoryName));
+            StringUtil.joinEnglishListSingleQuoted(correctExtensions), categoryName));
   }
 
   @Test
@@ -2501,5 +2501,27 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     CppCompileAction action = (CppCompileAction) getGeneratingAction(artifact);
     assertThat(action.getInputs().toList()).contains(getSourceArtifact("foo/compiler_input.txt"));
     assertThat(action.getArguments()).contains("foo/compiler_input.txt");
+  }
+
+  @Test
+  public void testAdditionalCompilerInputsArePassedToCompileFromLocalDefines() throws Exception {
+    AnalysisMock.get().ccSupport().setupCcToolchainConfig(mockToolsConfig);
+    scratch.file(
+        "foo/BUILD",
+        """
+        cc_library(
+            name = 'foo',
+            srcs = ['hello.cc'],
+            local_defines = ['FOO=$(location compiler_input.txt)'],
+            additional_compiler_inputs = ['compiler_input.txt'],
+        )
+        """);
+    scratch.file("foo/compiler_input.txt", "hello world!");
+
+    ConfiguredTarget lib = getConfiguredTarget("//foo:foo");
+    Artifact artifact = getBinArtifact("_objs/foo/hello.o", lib);
+    CppCompileAction action = (CppCompileAction) getGeneratingAction(artifact);
+    assertThat(action.getInputs().toList()).contains(getSourceArtifact("foo/compiler_input.txt"));
+    assertThat(action.getArguments()).contains("-DFOO=foo/compiler_input.txt");
   }
 }

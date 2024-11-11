@@ -101,7 +101,7 @@ function test_mtls_fails_if_client_has_no_cert() {
       --remote_cache=grpcs://localhost:${worker_port} \
       --tls_certificate="${cert_path}/ca.crt" \
       //a:foo &> $TEST_log \
-      || fail "Failed to build //a:foo"
+      && fail "Expected bazel to fail without a client cert" || true
   expect_log "Failed to query remote execution capabilities:"
 }
 
@@ -125,8 +125,8 @@ function test_remote_cache_with_incompatible_tls_enabled_removed_grpc_scheme() {
       --remote_cache=grpc://localhost:${worker_port} \
       --tls_certificate="${cert_path}/ca.crt" \
       ${client_mtls_flags} \
-      //a:foo >& $TEST_log \
-      || fail "Failed to build //a:foo" || true
+      //a:foo &> $TEST_log \
+      && fail "Expected test failure" || true
   expect_log "Failed to query remote execution capabilities:"
 }
 

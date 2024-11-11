@@ -22,7 +22,7 @@ java_library(
     deps = [
         "//src/main/protobuf:worker_protocol_java_proto",
         "//third_party:gson",
-        "//third_party/protobuf:protobuf_java_util",
+        "@protobuf//:protobuf_java_util",
     ],
 )
 
@@ -36,6 +36,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/actions:runfiles_tree",
+        "//src/main/java/com/google/devtools/build/lib/unsafe:string",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -63,6 +64,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/actions:forbidden_action_input_exception",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/actions:resource_manager",
         "//src/main/java/com/google/devtools/build/lib/actions:runfiles_tree",
@@ -74,6 +76,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec/local",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_helpers",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
@@ -81,7 +84,7 @@ java_library(
         "//src/main/protobuf:worker_protocol_java_proto",
         "//third_party:flogger",
         "//third_party:guava",
-        "//third_party/protobuf:protobuf_java",
+        "@protobuf//:protobuf_java",
     ],
 )
 
@@ -134,8 +137,8 @@ java_11_library(
         "//third_party:error_prone_annotations",
         "//third_party:gson",
         "//third_party:guava",
-        "//third_party/protobuf:protobuf_java",
-        "//third_party/protobuf:protobuf_java_util",
+        "@protobuf//:protobuf_java",
+        "@protobuf//:protobuf_java_util",
     ],
 )
 
@@ -331,6 +334,7 @@ java_library(
         ":worker_protocol",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/exec:tree_deleter",
         "//src/main/java/com/google/devtools/build/lib/sandbox:cgroups_info",
         "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_helpers",
         "//src/main/java/com/google/devtools/build/lib/shell",

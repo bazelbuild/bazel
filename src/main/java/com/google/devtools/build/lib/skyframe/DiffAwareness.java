@@ -13,9 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.Closeable;
@@ -44,7 +43,7 @@ public interface DiffAwareness extends Closeable {
      */
     @Nullable
     DiffAwareness maybeCreate(
-        Root pathEntry, ImmutableSet<Path> ignoredPaths, OptionsProvider optionsProvider);
+        Root pathEntry, IgnoredSubdirectories ignoredPaths, OptionsProvider optionsProvider);
   }
 
   /** Opaque view of the filesystem under a package path entry at a specific point in time. */

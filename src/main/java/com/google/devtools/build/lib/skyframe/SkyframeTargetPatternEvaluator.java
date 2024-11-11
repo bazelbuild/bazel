@@ -20,6 +20,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.QueryExceptionMarkerInterface;
@@ -50,6 +51,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
@@ -295,13 +297,14 @@ public final class SkyframeTargetPatternEvaluator implements TargetPatternPreloa
               eventHandler,
               FilteringPolicies.NO_FILTER,
               /* packageSemaphore= */ null,
+              /* maxConcurrentGetTargetsTasks= */ Optional.empty(),
               SimplePackageIdentifierBatchingCallback::new);
       AtomicReference<Collection<Target>> result = new AtomicReference<>();
       try {
         targetPattern.eval(
             resolver,
-            /*ignoredSubdirectories=*/ ImmutableSet::of,
-            /*excludedSubdirectories=*/ ImmutableSet.of(),
+            /* ignoredSubdirectories= */ () -> IgnoredSubdirectories.EMPTY,
+            /* excludedSubdirectories= */ ImmutableSet.of(),
             partialResult ->
                 result.set(
                     partialResult instanceof Collection

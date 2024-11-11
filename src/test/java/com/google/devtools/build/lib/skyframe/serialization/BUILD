@@ -97,7 +97,7 @@ java_test(
         "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:truth",
-        "//third_party/protobuf:protobuf_java",
+        "@protobuf//:protobuf_java",
     ],
 )
 
@@ -126,11 +126,11 @@ java_test(
 )
 
 java_test(
-    name = "IgnoredPackagePrefixesValueCodecTest",
+    name = "IgnoredSubdirectoriesValueCodecTest",
     size = "small",
-    srcs = ["IgnoredPackagePrefixesValueCodecTest.java"],
+    srcs = ["IgnoredSubdirectoriesValueCodecTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/skyframe:ignored_package_prefixes_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:ignored_subdirectories_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
@@ -376,7 +376,7 @@ java_test(
         "//third_party:junit4",
         "//third_party:truth",
         "//third_party/pprof:profile_java_proto",
-        "//third_party/protobuf:protobuf_java",
+        "@protobuf//:protobuf_java",
     ],
 )
 
@@ -403,7 +403,7 @@ java_library(
             "ProfileCollectorTest.java",
             "RecursivePkgKeyCodecTest.java",
             "RootedPathCodecTest.java",
-            "IgnoredPackagePrefixesValueCodecTest.java",
+            "IgnoredSubdirectoriesValueCodecTest.java",
             "LongCodecTest.java",
             "StarlarkInfoCodecTest.java",
             "StatementCodecTest.java",
@@ -438,8 +438,8 @@ java_library(
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
-        "//third_party/protobuf:protobuf_java",
         "@maven//:com_google_testparameterinjector_test_parameter_injector",
+        "@protobuf//:protobuf_java",
     ],
 )
 

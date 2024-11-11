@@ -40,8 +40,8 @@ def _impl(ctx):
 
 changing_repo = repository_rule(_impl)
 EOF
-    cat > WORKSPACE <<'EOF'
-load("//:repo.bzl", "changing_repo")
+    cat > $(setup_module_dot_bazel) <<'EOF'
+changing_repo = use_repo_rule("//:repo.bzl", "changing_repo")
 
 changing_repo(name="change")
 EOF
@@ -53,7 +53,6 @@ genrule(
   cmd = "cp $< $@",
 )
 EOF
-    write_default_lockfile "MODULE.bazel.lock"
     bazel build //:it
     cp `bazel info bazel-genfiles`/it.txt output
     cat output
@@ -90,12 +89,11 @@ def _impl(ctx):
 waiting_repo = repository_rule(_impl)
 EOF
 
-    cat > WORKSPACE <<'EOF'
-load("//:repo.bzl", "waiting_repo")
+    cat > $(setup_module_dot_bazel) <<'EOF'
+waiting_repo = use_repo_rule("//:repo.bzl", "waiting_repo")
 
 waiting_repo(name="wait")
 EOF
-    write_default_lockfile "MODULE.bazel.lock"
     cat > BUILD <<'EOF'
 genrule(
   name = "it",

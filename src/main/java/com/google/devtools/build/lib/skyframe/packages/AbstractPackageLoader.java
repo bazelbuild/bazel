@@ -25,7 +25,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
 import com.google.common.hash.HashFunction;
-import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
@@ -40,6 +39,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.io.FileSymlinkCycleUniquenessFunction;
 import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionUniquenessFunction;
+import com.google.devtools.build.lib.packages.AutoloadSymbols;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageLoadingListener;
 import com.google.devtools.build.lib.packages.PackageOverheadEstimator;
 import com.google.devtools.build.lib.packages.PackageValidator;
+import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -67,7 +68,7 @@ import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAc
 import com.google.devtools.build.lib.skyframe.ExternalPackageFunction;
 import com.google.devtools.build.lib.skyframe.FileFunction;
 import com.google.devtools.build.lib.skyframe.FileStateFunction;
-import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesFunction;
+import com.google.devtools.build.lib.skyframe.IgnoredSubdirectoriesFunction;
 import com.google.devtools.build.lib.skyframe.PackageFunction;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageFunction.GlobbingStrategy;
@@ -77,6 +78,7 @@ import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepoFileFunction;
+import com.google.devtools.build.lib.skyframe.RepoPackageArgsFunction;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingFunction;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
@@ -87,7 +89,6 @@ import com.google.devtools.build.lib.util.ValueOrException;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.Differencer;
 import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
@@ -311,6 +312,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         makePreinjectedDiff(
             starlarkSemantics,
             builder.pkgLocator,
+            ruleClassProvider,
             ImmutableList.copyOf(builder.extraPrecomputedValues));
     pkgFactory =
         new PackageFactory(
@@ -325,6 +327,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
   private static ImmutableDiff makePreinjectedDiff(
       StarlarkSemantics starlarkSemantics,
       PathPackageLocator pkgLocator,
+      RuleClassProvider ruleClassProvider,
       ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues) {
     final Map<SkyKey, Delta> valuesToInject = new HashMap<>();
     Injectable injectable =
@@ -347,6 +350,8 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     PrecomputedValue.CONFIG_SETTING_VISIBILITY_POLICY.set(
         injectable, ConfigSettingVisibilityPolicy.LEGACY_OFF);
     PrecomputedValue.STARLARK_SEMANTICS.set(injectable, starlarkSemantics);
+    AutoloadSymbols.AUTOLOAD_SYMBOLS.set(
+        injectable, new AutoloadSymbols(ruleClassProvider, starlarkSemantics));
     return new ImmutableDiff(ImmutableList.of(), valuesToInject);
   }
 
@@ -546,7 +551,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         .put(
             FileSymlinkInfiniteExpansionUniquenessFunction.NAME,
             new FileSymlinkInfiniteExpansionUniquenessFunction())
-        .put(FileValue.FILE, new FileFunction(pkgLocatorRef, directories))
+        .put(SkyFunctions.FILE, new FileFunction(pkgLocatorRef, directories))
         .put(
             SkyFunctions.PACKAGE_LOOKUP,
             new PackageLookupFunction(
@@ -554,10 +559,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
                 getCrossRepositoryLabelViolationStrategy(),
                 getBuildFilesByPriority(),
                 getExternalPackageHelper()))
-        .put(
-            SkyFunctions.IGNORED_PACKAGE_PREFIXES,
-            new IgnoredPackagePrefixesFunction(
-                /* ignoredPackagePrefixesFile= */ PathFragment.EMPTY_FRAGMENT))
+        .put(SkyFunctions.IGNORED_SUBDIRECTORIES, IgnoredSubdirectoriesFunction.NOOP)
         .put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction())
         .put(
             SkyFunctions.BZL_COMPILE,
@@ -578,6 +580,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             SkyFunctions.REPO_FILE,
             new RepoFileFunction(
                 ruleClassProvider.getBazelStarlarkEnvironment(), directories.getWorkspace()))
+        .put(SkyFunctions.REPO_PACKAGE_ARGS, RepoPackageArgsFunction.INSTANCE)
         .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction(getExternalPackageHelper()))
         .put(
             BzlmodRepoRuleValue.BZLMOD_REPO_RULE,

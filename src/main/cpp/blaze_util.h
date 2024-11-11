@@ -26,6 +26,7 @@
 #include <string>
 #include <vector>
 
+#include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/path.h"
 
 namespace blaze {
@@ -92,7 +93,7 @@ extern const unsigned int kPostKillGracePeriodSeconds;
 
 // Control the output of debug information by debug_log.
 // Revisit once client logging is fixed (b/32939567).
-void SetDebugLog(bool enabled);
+void SetDebugLog(blaze_util::LoggingDetail detail);
 
 // Returns true if this Bazel instance is running inside of a Bazel test.
 // This method observes the TEST_TMPDIR envvar.

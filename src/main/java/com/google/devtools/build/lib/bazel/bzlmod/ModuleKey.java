@@ -15,17 +15,23 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Comparator;
 import java.util.List;
 
-/** A module name, version pair that identifies a module in the external dependency graph. */
-@AutoValue
-public abstract class ModuleKey {
+/**
+ * A module name, version pair that identifies a node in the external dependency graph.
+ *
+ * @param name The name of the module. Must be empty for the root module.
+ * @param version The version of the module. Must be empty iff the module has a {@link
+ *     NonRegistryOverride}.
+ */
+@AutoCodec
+public record ModuleKey(String name, Version version) {
 
   /**
    * A mapping from module name to repository name for certain special "well-known" modules.
@@ -50,27 +56,25 @@ public abstract class ModuleKey {
           "platforms",
           RepositoryName.createUnvalidated("platforms"));
 
-  public static final ModuleKey ROOT = create("", Version.EMPTY);
+  public static final ModuleKey ROOT = new ModuleKey("", Version.EMPTY);
 
   public static final Comparator<ModuleKey> LEXICOGRAPHIC_COMPARATOR =
-      Comparator.comparing(ModuleKey::getName).thenComparing(ModuleKey::getVersion);
-
-  public static ModuleKey create(String name, Version version) {
-    return new AutoValue_ModuleKey(name, version);
-  }
-
-  /** The name of the module. Must be empty for the root module. */
-  public abstract String getName();
-
-  /** The version of the module. Must be empty iff the module has a {@link NonRegistryOverride}. */
-  public abstract Version getVersion();
+      Comparator.comparing(ModuleKey::name).thenComparing(ModuleKey::version);
 
   @Override
-  public final String toString() {
+  public String toString() {
     if (this.equals(ROOT)) {
       return "<root>";
     }
-    return getName() + "@" + (getVersion().isEmpty() ? "_" : getVersion().toString());
+    return name + "@" + (version.isEmpty() ? "_" : version.toString());
+  }
+
+  /** Returns a string such as "root module" or "module foo@1.2.3" for display purposes. */
+  public String toDisplayString() {
+    if (this.equals(ROOT)) {
+      return "root module";
+    }
+    return String.format("module '%s'", this);
   }
 
   /**
@@ -93,8 +97,8 @@ public abstract class ModuleKey {
   }
 
   private RepositoryName getCanonicalRepoName(boolean includeVersion) {
-    if (WELL_KNOWN_MODULES.containsKey(getName())) {
-      return WELL_KNOWN_MODULES.get(getName());
+    if (WELL_KNOWN_MODULES.containsKey(name)) {
+      return WELL_KNOWN_MODULES.get(name);
     }
     if (ROOT.equals(this)) {
       return RepositoryName.MAIN;
@@ -103,8 +107,8 @@ public abstract class ModuleKey {
     if (includeVersion) {
       // getVersion().isEmpty() is true only for modules with non-registry overrides, which enforce
       // that there is a single version of the module in the dep graph.
-      Preconditions.checkState(!getVersion().isEmpty());
-      suffix = getVersion().toString();
+      Preconditions.checkState(!version.isEmpty());
+      suffix = version.toString();
     } else {
       // This results in canonical repository names such as `rules_foo+` for the module `rules_foo`.
       // This particular format is chosen since:
@@ -122,7 +126,7 @@ public abstract class ModuleKey {
       //   rarely used.
       suffix = "";
     }
-    return RepositoryName.createUnvalidated(String.format("%s+%s", getName(), suffix));
+    return RepositoryName.createUnvalidated(String.format("%s+%s", name, suffix));
   }
 
   public static ModuleKey fromString(String s) throws Version.ParseException {
@@ -131,10 +135,10 @@ public abstract class ModuleKey {
     }
     List<String> parts = Splitter.on('@').splitToList(s);
     if (parts.get(1).equals("_")) {
-      return ModuleKey.create(parts.get(0), Version.EMPTY);
+      return new ModuleKey(parts.get(0), Version.EMPTY);
     }
 
     Version version = Version.parse(parts.get(1));
-    return ModuleKey.create(parts.get(0), version);
+    return new ModuleKey(parts.get(0), version);
   }
 }

@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
+import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet.Node;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -197,13 +198,12 @@ public final class TopLevelArtifactHelper {
    */
   public static ArtifactsToBuild getAllArtifactsToBuild(
       ProviderCollection target, TopLevelArtifactContext context) {
-    return getAllArtifactsToBuild(
-        OutputGroupInfo.get(target), target.getProvider(FileProvider.class), context);
+    return getAllArtifactsToBuild(OutputGroupInfo.get(target), getFilesToBuild(target), context);
   }
 
   static ArtifactsToBuild getAllArtifactsToBuild(
       @Nullable OutputGroupInfo outputGroupInfo,
-      @Nullable FileProvider fileProvider,
+      @Nullable NestedSet<Artifact> filesToBuild,
       TopLevelArtifactContext context) {
     ImmutableMap.Builder<String, ArtifactsInOutputGroup> allOutputGroups =
         ImmutableMap.builderWithExpectedSize(context.outputGroups().size());
@@ -211,8 +211,8 @@ public final class TopLevelArtifactHelper {
     for (String outputGroup : context.outputGroups()) {
       NestedSetBuilder<Artifact> results = NestedSetBuilder.stableOrder();
 
-      if (outputGroup.equals(OutputGroupInfo.DEFAULT) && fileProvider != null) {
-        results.addTransitive(fileProvider.getFilesToBuild());
+      if (outputGroup.equals(OutputGroupInfo.DEFAULT) && filesToBuild != null) {
+        results.addTransitive(filesToBuild);
       }
 
       if (outputGroupInfo != null) {
@@ -237,6 +237,27 @@ public final class TopLevelArtifactHelper {
 
     return new ArtifactsToBuild(
         allOutputGroups.buildOrThrow(), /*allOutputGroupsImportant=*/ allOutputGroupsImportant);
+  }
+
+  /**
+   * Returns files to build directly from {@link FileProvider} or from {@code files} under {@link
+   * DefaultInfo} provider.
+   */
+  @Nullable
+  private static NestedSet<Artifact> getFilesToBuild(ProviderCollection target) {
+    if (target.getProvider(FileProvider.class) != null) {
+      return target.getProvider(FileProvider.class).getFilesToBuild();
+    } else if (target.get(DefaultInfo.PROVIDER.getKey()) != null) {
+      DefaultInfo defaultInfo = (DefaultInfo) target.get(DefaultInfo.PROVIDER.getKey());
+      if (defaultInfo.getFiles() != null) {
+        try {
+          return defaultInfo.getFiles().getSet(Artifact.class);
+        } catch (TypeException e) {
+          throw new IllegalStateException("Error getting 'files' field of 'DefaultInfo'", e);
+        }
+      }
+    }
+    return null;
   }
 
   /**

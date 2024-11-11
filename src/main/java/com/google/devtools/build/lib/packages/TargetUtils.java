@@ -195,15 +195,11 @@ public final class TargetUtils {
     if (attributeType == BOOLEAN) {
       return Type.BOOLEAN.cast(attrValue) ? "1" : "0";
     } else if (attributeType == TRISTATE) {
-      switch (BuildType.TRISTATE.cast(attrValue)) {
-        case AUTO:
-          return "-1";
-        case NO:
-          return "0";
-        case YES:
-          return "1";
-      }
-      throw new AssertionError("This can't happen!");
+      return switch (BuildType.TRISTATE.cast(attrValue)) {
+        case AUTO -> "-1";
+        case NO -> "0";
+        case YES -> "1";
+      };
     } else {
       return attrValue == null ? null : attrValue.toString();
     }

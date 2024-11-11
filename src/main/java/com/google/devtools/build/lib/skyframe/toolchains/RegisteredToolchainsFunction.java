@@ -15,18 +15,17 @@
 package com.google.devtools.build.lib.skyframe.toolchains;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.util.stream.Collectors.joining;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableTable;
+import com.google.common.collect.Table;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
-import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider.AccumulateResults;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
@@ -59,6 +58,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.List;
+import java.util.function.Consumer;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
 
@@ -156,11 +156,20 @@ public class RegisteredToolchainsFunction implements SkyFunction {
 
     // Check which toolchains are valid according to their configuration.
     ImmutableList.Builder<DeclaredToolchainInfo> validToolchains = new ImmutableList.Builder<>();
-    ImmutableMap.Builder<Label, String> rejectedToolchains =
-        key.debug() ? new ImmutableMap.Builder<>() : null;
+    // Some toolchains end up with repeated reasons, so use a HashBasedTable to handle duplicates.
+    Table<Label, Label, String> rejectedToolchains = key.debug() ? HashBasedTable.create() : null;
     for (DeclaredToolchainInfo toolchain : registeredToolchains) {
       try {
-        validate(toolchain, validToolchains, rejectedToolchains);
+        Consumer<String> errorHandler =
+            key.debug()
+                ? message ->
+                    rejectedToolchains.put(
+                        toolchain.toolchainType().typeLabel(), toolchain.toolchainLabel(), message)
+                : null;
+        if (ConfigMatchingUtil.validate(
+            toolchain.toolchainLabel(), toolchain.targetSettings(), errorHandler)) {
+          validToolchains.add(toolchain);
+        }
       } catch (InvalidConfigurationException e) {
         throw new RegisteredToolchainsFunctionException(
             new InvalidToolchainLabelException(toolchain.toolchainLabel(), e),
@@ -170,7 +179,7 @@ public class RegisteredToolchainsFunction implements SkyFunction {
 
     return RegisteredToolchainsValue.create(
         validToolchains.build(),
-        rejectedToolchains != null ? rejectedToolchains.buildKeepingLast() : null);
+        rejectedToolchains != null ? ImmutableTable.copyOf(rejectedToolchains) : null);
   }
 
   /**
@@ -277,41 +286,6 @@ public class RegisteredToolchainsFunction implements SkyFunction {
       return null;
     }
     return toolchains.build();
-  }
-
-  private static void validate(
-      DeclaredToolchainInfo declaredToolchainInfo,
-      ImmutableList.Builder<DeclaredToolchainInfo> validToolchains,
-      ImmutableMap.Builder<Label, String> rejectedToolchains)
-      throws InvalidConfigurationException {
-    // Make sure the target setting matches but watch out for resolution errors.
-    AccumulateResults accumulateResults =
-        ConfigMatchingProvider.accumulateMatchResults(declaredToolchainInfo.targetSettings());
-    if (!accumulateResults.errors().isEmpty()) {
-      // TODO(blaze-configurability-team): This should only be due to feature flag trimming. So,
-      // would be better to just ensure toolchain resolution isn't transitively dependent on
-      // feature flags at all.
-      String message =
-          accumulateResults.errors().entrySet().stream()
-              .map(
-                  entry ->
-                      String.format(
-                          "For config_setting %s, %s", entry.getKey().getName(), entry.getValue()))
-              .collect(joining("; "));
-      throw new InvalidConfigurationException(
-          "Unrecoverable errors resolving config_setting associated with "
-              + declaredToolchainInfo.toolchainLabel()
-              + ": "
-              + message);
-    }
-    if (accumulateResults.success()) {
-      validToolchains.add(declaredToolchainInfo);
-    } else if (!accumulateResults.nonMatching().isEmpty() && rejectedToolchains != null) {
-      String nonMatchingList =
-          accumulateResults.nonMatching().stream().map(Label::getName).collect(joining(", "));
-      String message = String.format("mismatching config settings: %s", nonMatchingList);
-      rejectedToolchains.put(declaredToolchainInfo.toolchainLabel(), message);
-    }
   }
 
   /**

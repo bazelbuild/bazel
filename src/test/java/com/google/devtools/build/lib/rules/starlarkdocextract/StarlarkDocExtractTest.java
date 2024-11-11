@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.starlarkdocextract;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
+import static com.google.devtools.build.lib.starlarkdocextract.AttributeInfoExtractor.IMPLICIT_NAME_ATTRIBUTE_INFO;
 import static com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionParamRole.PARAM_ROLE_ORDINARY;
 import static org.junit.Assert.assertThrows;
 
@@ -355,7 +356,7 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
 
     assertThat(moduleInfo.getRuleInfo(0).getAttributeList())
         .containsExactly(
-            ModuleInfoExtractor.IMPLICIT_NAME_ATTRIBUTE_INFO,
+            IMPLICIT_NAME_ATTRIBUTE_INFO,
             AttributeInfo.newBuilder()
                 .setName("a")
                 .setType(AttributeType.LABEL)
@@ -1146,8 +1147,11 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
 
   @Test
   public void repoName_inMainWorkspaceRepo() throws Exception {
-    setBuildLanguageOptions("--noenable_bzlmod");
-    rewriteWorkspace("workspace(name = 'my_repo')");
+    setBuildLanguageOptions("--noenable_bzlmod", "--enable_workspace");
+    rewriteWorkspace(
+        """
+        workspace(name = "my_repo")
+        """);
     scratch.file(
         "foo.bzl",
         """
@@ -1233,7 +1237,11 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
 
   @Test
   public void repoName_inWorkspaceDep() throws Exception {
-    rewriteWorkspace("local_repository(name = 'dep', path = 'dep_path')");
+    setBuildLanguageOptions("--enable_workspace");
+    rewriteWorkspace(
+        """
+        local_repository(name = "dep", path = "dep_path")
+        """);
     scratch.file("dep_path/WORKSPACE", "workspace(name = 'dep')");
     scratch.file(
         "dep_path/foo.bzl",

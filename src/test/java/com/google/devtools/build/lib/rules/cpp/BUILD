@@ -23,7 +23,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:crosstool_config_java_proto",
         "//third_party:guava",
-        "//third_party/protobuf:protobuf_java",
+        "@protobuf//:protobuf_java",
     ],
 )
 
@@ -59,7 +59,7 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//third_party:guava",
         "//third_party:truth",
-        "//third_party/protobuf:protobuf_java",
+        "@protobuf//:protobuf_java",
     ],
 )
 
@@ -311,7 +311,7 @@ java_test(
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
-        "//third_party/protobuf:protobuf_java",
+        "@protobuf//:protobuf_java",
     ],
 )
 
@@ -373,9 +373,9 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/invalid_configuration_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
-        "//src/main/java/com/google/devtools/common/options",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
@@ -496,6 +496,7 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/core_options",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
@@ -695,7 +696,7 @@ java_test(
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
-        "//third_party/protobuf:protobuf_java",
+        "@protobuf//:protobuf_java",
     ],
 )
 

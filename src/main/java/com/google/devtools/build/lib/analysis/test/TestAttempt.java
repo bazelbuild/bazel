@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.analysis.config.BuildConfigurationVa
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
@@ -29,7 +30,6 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstra
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.runtime.BuildEventStreamerUtils;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
@@ -37,6 +37,7 @@ import com.google.protobuf.util.Durations;
 import com.google.protobuf.util.Timestamps;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 /** This event is raised whenever an individual test attempt is completed. */
 public class TestAttempt implements BuildEventWithOrderConstraint {
@@ -47,7 +48,7 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
   private final boolean cachedLocally;
   private final int attempt;
   private final boolean lastAttempt;
-  private final Collection<Pair<String, Path>> files;
+  private final ImmutableMultimap<String, Path> files;
   private final List<String> testWarnings;
   private final long durationMillis;
   private final long startTimeMillis;
@@ -69,7 +70,7 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
       String statusDetails,
       long startTimeMillis,
       long durationMillis,
-      Collection<Pair<String, Path>> files,
+      ImmutableMultimap<String, Path> files,
       List<String> testWarnings,
       boolean lastAttempt) {
     this.testAction = testAction;
@@ -93,7 +94,7 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
       TestRunnerAction testAction,
       TestResultData attemptData,
       int attempt,
-      Collection<Pair<String, Path>> files,
+      ImmutableMultimap<String, Path> files,
       BuildEventStreamProtos.TestResult.ExecutionInfo executionInfo,
       boolean lastAttempt) {
     return new TestAttempt(
@@ -110,11 +111,15 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
         lastAttempt);
   }
 
+  /**
+   * Creates a test attempt result from cached test data, providing a result while indicating to
+   * consumers that the test did not actually execute.
+   */
   public static TestAttempt fromCachedTestResult(
       TestRunnerAction testAction,
       TestResultData attemptData,
       int attempt,
-      Collection<Pair<String, Path>> files,
+      ImmutableMultimap<String, Path> files,
       BuildEventStreamProtos.TestResult.ExecutionInfo executionInfo,
       boolean lastAttempt) {
     return new TestAttempt(
@@ -131,13 +136,36 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
         lastAttempt);
   }
 
+  /**
+   * Creates a test result for rare cases where the test itself was built, but the {@link
+   * TestRunnerAction} could not be started by a test strategy.
+   *
+   * <p>This overload should be very rarely used, and in particular must not be used by an
+   * implementation of a {@link TestStrategy}.
+   */
+  public static TestAttempt forUnstartableTestResult(
+      TestRunnerAction testAction, TestResultData attemptData) {
+    return new TestAttempt(
+        false,
+        testAction,
+        /* executionInfo= */ BuildEventStreamProtos.TestResult.ExecutionInfo.getDefaultInstance(),
+        /* attempt= */ 1,
+        attemptData.getStatus(),
+        attemptData.getStatusDetails(),
+        attemptData.getStartTimeMillisEpoch(),
+        attemptData.getRunDurationMillis(),
+        /* files= */ ImmutableMultimap.of(),
+        attemptData.getWarningList(),
+        /* lastAttempt= */ true);
+  }
+
   @VisibleForTesting
   public Artifact getTestStatusArtifact() {
     return testAction.getCacheStatusArtifact();
   }
 
   @VisibleForTesting
-  public Collection<Pair<String, Path>> getFiles() {
+  public ImmutableMultimap<String, Path> getFiles() {
     return files;
   }
 
@@ -200,12 +228,10 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
             ? LocalFileType.SUCCESSFUL_TEST_OUTPUT
             : LocalFileType.FAILED_TEST_OUTPUT;
     ImmutableList.Builder<LocalFile> localFiles = ImmutableList.builder();
-    for (Pair<String, Path> file : files) {
-      if (file.getSecond() != null) {
+    for (Map.Entry<String, Path> file : files.entries()) {
+      if (file.getValue() != null) {
         // TODO(b/199940216): Can we populate metadata for these files?
-        localFiles.add(
-            new LocalFile(
-                file.getSecond(), localFileType, /*artifact=*/ null, /*artifactMetadata=*/ null));
+        localFiles.add(new LocalFile(file.getValue(), localFileType, /* artifactMetadata= */ null));
       }
     }
     return localFiles.build();
@@ -225,16 +251,20 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
     builder.setStatusDetails(statusDetails);
     builder.setExecutionInfo(executionInfo);
     builder.setCachedLocally(cachedLocally);
-    builder.setTestAttemptStart(Timestamps.fromMillis(startTimeMillis));
+    if (startTimeMillis != 0) {
+      builder.setTestAttemptStart(Timestamps.fromMillis(startTimeMillis));
+    }
     builder.setTestAttemptStartMillisEpoch(startTimeMillis);
-    builder.setTestAttemptDuration(Durations.fromMillis(durationMillis));
+    if (durationMillis != 0) {
+      builder.setTestAttemptDuration(Durations.fromMillis(durationMillis));
+    }
     builder.setTestAttemptDurationMillis(durationMillis);
     builder.addAllWarning(testWarnings);
-    for (Pair<String, Path> file : files) {
-      String uri = pathConverter.apply(file.getSecond());
+    for (Map.Entry<String, Path> file : files.entries()) {
+      String uri = pathConverter.apply(file.getValue());
       if (uri != null) {
         builder.addTestActionOutput(
-            BuildEventStreamProtos.File.newBuilder().setName(file.getFirst()).setUri(uri).build());
+            BuildEventStreamProtos.File.newBuilder().setName(file.getKey()).setUri(uri).build());
       }
     }
     return builder.build();

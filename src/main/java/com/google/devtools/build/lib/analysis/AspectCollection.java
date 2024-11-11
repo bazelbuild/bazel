@@ -148,6 +148,9 @@ import java.util.Map;
  */
 @Immutable
 public final class AspectCollection {
+  /** The name of the native aspect that collects validation outputs. */
+  public static final String VALIDATION_ASPECT_NAME = "ValidateTarget";
+
   /** aspects that should be visible to a dependency */
   private final ImmutableSet<AspectDeps> usedAspects;
 
@@ -283,11 +286,14 @@ public final class AspectCollection {
         ImmutableList.copyOf(aspectMap.entrySet()).reverse()) {
       for (AspectDescriptor depAspectDescriptor : deps.keySet()) {
         Aspect depAspect = aspectMap.get(depAspectDescriptor);
+        // As any aspect can add validation outputs, the special validation aspect that collects
+        // their outputs has to depend on all aspects.
         if (depAspect
                 .getDefinition()
                 .getRequiredProvidersForAspects()
                 .isSatisfiedBy(aspect.getValue().getDefinition().getAdvertisedProviders())
-            || depAspect.getDefinition().requires(aspect.getValue())) {
+            || depAspect.getDefinition().requires(aspect.getValue())
+            || depAspect.getAspectClass().getName().equals(VALIDATION_ASPECT_NAME)) {
           deps.get(depAspectDescriptor).add(aspect.getKey());
         }
       }

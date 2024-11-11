@@ -28,8 +28,9 @@ public class FetchOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.CHANGES_INPUTS},
       help =
-          "Fetches all external repositories necessary for building any target or repository. Only"
-              + " works when --enable_bzlmod is on.")
+          "Fetches all external repositories necessary for building any target or repository. "
+              + "This is the default if no other flags and arguments are provided. Only works "
+              + "when --enable_bzlmod is on.")
   public boolean all;
 
   @Option(

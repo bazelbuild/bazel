@@ -58,7 +58,7 @@ public class StubbableFSBuildViewTest extends BuildViewTestBase {
         """
         def _impl(target, ctx):
             print("This aspect does nothing")
-            return struct()
+            return []
 
         MyAspect = aspect(implementation = _impl)
         """);

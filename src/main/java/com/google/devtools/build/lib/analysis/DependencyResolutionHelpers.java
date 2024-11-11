@@ -55,6 +55,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -94,7 +95,7 @@ public final class DependencyResolutionHelpers {
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
       @Nullable ToolchainCollection<UnloadedToolchainContext> baseTargetUnloadedToolchainContexts)
-      throws Failure {
+      throws Failure, InterruptedException {
     Target target = node.getTarget();
     BuildConfigurationValue config = node.getConfiguration();
     OrderedSetMultimap<DependencyKind, Label> outgoingLabels = OrderedSetMultimap.create();
@@ -184,9 +185,35 @@ public final class DependencyResolutionHelpers {
   }
 
   public static ExecutionPlatformResult getExecutionPlatformLabel(
-      DependencyKind kind,
+      AttributeDependencyKind kind,
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
+      @Nullable ToolchainCollection<UnloadedToolchainContext> baseTargetUnloadedToolchainContexts,
       ImmutableList<Aspect> aspectsList) {
+    if (aspectsList.isEmpty() || isMainAspect(aspectsList, kind.getOwningAspect())) {
+      return getExecutionPlatformLabel(kind, toolchainContexts);
+    } else if (kind.getOwningAspect() == null) {
+      // During aspect evaluation, use {@code baseTargetUnloadedToolchainContexts} for the base
+      // target's dependencies.
+      return getExecutionPlatformLabel(kind, baseTargetUnloadedToolchainContexts);
+    } else {
+      ExecutionPlatformResult executionPlatformResult =
+          getExecutionPlatformLabel(kind, toolchainContexts);
+      if (executionPlatformResult.kind() == ExecutionPlatformResult.Kind.ERROR) {
+        // TODO(b/373963347): Make the toolchain contexts of base aspects available to be used with
+        // their corresponding dependencies.
+        // Currently dependencies of the base aspects are resolved with the toolchain context of the
+        // main aspect, skip errors as actual errors would be reported during the base aspect
+        // evaluation.
+        return ExecutionPlatformResult.ofSkip();
+      } else {
+        return executionPlatformResult;
+      }
+    }
+  }
+
+  private static ExecutionPlatformResult getExecutionPlatformLabel(
+      AttributeDependencyKind kind,
+      @Nullable ToolchainCollection<? extends ToolchainContext> toolchainContexts) {
     if (toolchainContexts == null) {
       return ExecutionPlatformResult.ofNullLabel();
     }
@@ -207,16 +234,6 @@ public final class DependencyResolutionHelpers {
       return platform == null
           ? ExecutionPlatformResult.ofNullLabel()
           : ExecutionPlatformResult.ofLabel(platform.label());
-    }
-
-    // `execGroup` could not be found. If `aspectsList` is non-empty, `toolchainContexts` only
-    // contains the exec groups of the main aspect. Skips the dependency if it's not the main
-    // aspect.
-    //
-    // TODO(b/256617733): Make a decision on whether the exec groups of the target and the base
-    // aspects should be merged in `toolchainContexts`.
-    if (!aspectsList.isEmpty() && !isMainAspect(aspectsList, kind.getOwningAspect())) {
-      return ExecutionPlatformResult.ofSkip();
     }
 
     return ExecutionPlatformResult.ofError(
@@ -254,7 +271,7 @@ public final class DependencyResolutionHelpers {
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
       @Nullable ToolchainCollection<UnloadedToolchainContext> baseTargetUnloadedToolchainContexts,
       OrderedSetMultimap<DependencyKind, Label> outgoingLabels)
-      throws Failure {
+      throws Failure, InterruptedException {
     Preconditions.checkArgument(node.getTarget() instanceof Rule, node);
     BuildConfigurationValue ruleConfig = Preconditions.checkNotNull(node.getConfiguration(), node);
     Rule rule = (Rule) node.getTarget();
@@ -355,7 +372,8 @@ public final class DependencyResolutionHelpers {
       OrderedSetMultimap<DependencyKind, Label> outgoingLabels,
       Rule rule,
       ConfiguredAttributeMapper attributeMap,
-      BuildConfigurationValue ruleConfig) {
+      BuildConfigurationValue ruleConfig)
+      throws InterruptedException {
     for (AttributeDependencyKind dependencyKind : attributeDependencyKinds) {
       Attribute attribute = dependencyKind.getAttribute();
       // Not only is resolving CONFIG_SETTING_DEPS_ATTRIBUTE deps here wasteful, since the only
@@ -372,6 +390,8 @@ public final class DependencyResolutionHelpers {
           || type == BuildType.OUTPUT_LIST
           || type == BuildType.NODEP_LABEL
           || type == BuildType.NODEP_LABEL_LIST
+          || type == BuildType.DORMANT_LABEL
+          || type == BuildType.DORMANT_LABEL_LIST
           || type == BuildType.GENQUERY_SCOPE_TYPE
           || type == BuildType.GENQUERY_SCOPE_TYPE_LIST) {
         // These types invoke visitLabels() so that they are reported in "bazel query" but do not
@@ -392,7 +412,8 @@ public final class DependencyResolutionHelpers {
       OrderedSetMultimap<DependencyKind, Label> outgoingLabels,
       Rule rule,
       ConfiguredAttributeMapper attributeMap,
-      BuildConfigurationValue ruleConfig) {
+      BuildConfigurationValue ruleConfig)
+      throws InterruptedException {
     T attributeValue = null;
     if (attribute.isImplicit()) {
       // Since the attributes that come from aspects do not appear in attributeMap, we have to get
@@ -409,6 +430,11 @@ public final class DependencyResolutionHelpers {
                     ? computedDefault.getDefault(attributeMap)
                     : defaultValue);
       }
+    } else if (attribute.isMaterializing()) {
+      // These attributes are resolved by calling the materializer function in
+      // DependencyMapProducer. The reason is that they need the analyzed versions some direct
+      // dependencies and we can't do that here.
+      outgoingLabels.put(dependencyKind, null);
     } else if (attribute.isLateBound()) {
       attributeValue =
           type.cast(resolveLateBoundDefault(rule, attributeMap, attribute, ruleConfig));
@@ -432,32 +458,42 @@ public final class DependencyResolutionHelpers {
   @Nullable
   @VisibleForTesting(/* used to test LateBoundDefaults' default values */ )
   static <FragmentT> Object resolveLateBoundDefault(
-      Rule rule,
-      AttributeMap attributeMap,
-      Attribute attribute,
-      BuildConfigurationValue ruleConfig) {
+      Rule rule, AttributeMap attributeMap, Attribute attribute, BuildConfigurationValue ruleConfig)
+      throws InterruptedException {
     Preconditions.checkState(!attribute.getTransitionFactory().isSplit());
     @SuppressWarnings("unchecked")
     LateBoundDefault<FragmentT, ?> lateBoundDefault =
         (LateBoundDefault<FragmentT, ?>) attribute.getLateBoundDefault();
 
     Class<FragmentT> fragmentClass = lateBoundDefault.getFragmentClass();
-    // TODO(b/65746853): remove this when nothing uses it anymore
-    if (BuildConfigurationValue.class.equals(fragmentClass)
-        // noconfig targets can't meaningfully parse late-bound defaults. See NoConfigTransition.
-        && !ruleConfig.getOptions().hasNoConfig()) {
-      return lateBoundDefault.resolve(rule, attributeMap, fragmentClass.cast(ruleConfig));
+    try {
+      // TODO(b/65746853): remove this when nothing uses it anymore
+      if (BuildConfigurationValue.class.equals(fragmentClass)
+          // noconfig targets can't meaningfully parse late-bound defaults. See NoConfigTransition.
+          && !ruleConfig.getOptions().hasNoConfig()) {
+        return lateBoundDefault.resolve(rule, attributeMap, fragmentClass.cast(ruleConfig));
+      }
+      if (Void.class.equals(fragmentClass)) {
+        return lateBoundDefault.resolve(
+            rule, attributeMap, /* input= */ null
+            /* analysisContext= */
+            /* eventHandler= */ );
+      }
+      @SuppressWarnings("unchecked")
+      FragmentT fragment =
+          fragmentClass.cast(ruleConfig.getFragment((Class<? extends Fragment>) fragmentClass));
+      if (fragment == null) {
+        return null;
+      }
+      return lateBoundDefault.resolve(
+          rule, attributeMap, fragment
+          /* analysisContext= */
+          /* eventHandler= */ );
+    } catch (EvalException e) {
+      // Materializers should not be called here and those are the only kind of late-bound defaults
+      // that can throw these exceptions.
+      throw new IllegalStateException(e);
     }
-    if (Void.class.equals(fragmentClass)) {
-      return lateBoundDefault.resolve(rule, attributeMap, null);
-    }
-    @SuppressWarnings("unchecked")
-    FragmentT fragment =
-        fragmentClass.cast(ruleConfig.getFragment((Class<? extends Fragment>) fragmentClass));
-    if (fragment == null) {
-      return null;
-    }
-    return lateBoundDefault.resolve(rule, attributeMap, fragment);
   }
 
   /**

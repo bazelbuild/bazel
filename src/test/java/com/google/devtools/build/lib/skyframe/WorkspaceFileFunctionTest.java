@@ -18,9 +18,13 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.events.EventCollector;
+import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
@@ -68,6 +72,16 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
             Root.fromPath(rootDirectory));
     return SkyframeExecutorTestUtils.evaluate(
         getSkyframeExecutor(), key, /*keepGoing=*/ false, reporter);
+  }
+
+  @Override
+  public final void initializeLogging() throws Exception {
+    // Override initializeLogging to only collect errors.
+    // TODO: make FoundationTestCase.initializeLogging() final when this is no longer needed.
+    eventCollector = new EventCollector(EventKind.ERRORS);
+    eventBus = new EventBus();
+    reporter = new Reporter(eventBus, eventCollector);
+    reporter.addHandler(failFastHandler);
   }
 
   @Test

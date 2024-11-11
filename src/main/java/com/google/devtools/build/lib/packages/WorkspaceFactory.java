@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.NullEventHandler;
-import com.google.devtools.build.lib.packages.TargetDefinitionContext.NameConflictException;
+import com.google.devtools.build.lib.packages.TargetRecorder.NameConflictException;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.vfs.Path;
@@ -262,12 +262,10 @@ public class WorkspaceFactory {
           WorkspaceFactoryHelper.addMainRepoEntry(builder, externalRepoName);
           WorkspaceFactoryHelper.addRepoMappings(builder, kwargs, externalRepoName);
           RuleClass ruleClass = ruleClassMap.get(ruleClassName);
-          RuleClass bindRuleClass = ruleClassMap.get("bind");
           Rule rule =
               WorkspaceFactoryHelper.createAndAddRepositoryRule(
                   builder,
                   ruleClass,
-                  bindRuleClass,
                   WorkspaceFactoryHelper.getFinalKwargs(kwargs),
                   thread.getCallStack());
           RepositoryName.validateUserProvidedRepoName(rule.getName());

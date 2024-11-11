@@ -1,4 +1,4 @@
-load(":build_defs.bzl", "BZLMOD_ENABLED")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -21,14 +21,12 @@ filegroup(
         "//tools/def_parser:srcs",
         "//tools/distributions:srcs",
         "//tools/genrule:srcs",
-        "//tools/j2objc:srcs",
         "//tools/java:srcs",
         "//tools/jdk:srcs",
         "//tools/launcher:srcs",
         "//tools/mini_tar:srcs",
         "//tools/objc:srcs",
         "//tools/osx:srcs",
-        "//tools/proto:srcs",
         "//tools/python:srcs",
         "//tools/runfiles:srcs",
         "//tools/sh:srcs",
@@ -43,10 +41,9 @@ filegroup(
 # Sources in the built in repo '@bazel_tools'
 filegroup(
     name = "embedded_tools_srcs",
-    srcs = glob(
-        ["**"],
-        exclude = ["fastutil.proguard"],
-    ) + [
+    srcs = [
+        "BUILD.tools",
+        "build_defs.bzl",
         "//tools/allowlists:srcs",
         "//tools/android:embedded_tools",
         "//tools/bash:embedded_tools",
@@ -57,7 +54,6 @@ filegroup(
         "//tools/cpp:embedded_tools",
         "//tools/def_parser:srcs",
         "//tools/genrule:srcs",
-        "//tools/j2objc:srcs",
         "//tools/java:embedded_tools",
         "//tools/java:java_stub_template.txt",
         "//tools/jdk:package-srcs",
@@ -65,7 +61,6 @@ filegroup(
         "//tools/launcher:srcs",
         "//tools/objc:srcs",
         "//tools/osx:srcs",
-        "//tools/proto:srcs",
         "//tools/python:embedded_tools",
         "//tools/runfiles:embedded_tools",
         "//tools/sh:embedded_tools",
@@ -97,9 +92,4 @@ filegroup(
 sh_binary(
     name = "upload_bazel_mirror",
     srcs = ["upload_bazel_mirror.sh"],
-)
-
-alias(
-    name = "host_platform",
-    actual = "@platforms//host" if BZLMOD_ENABLED else "@internal_platforms_do_not_use//host",
 )

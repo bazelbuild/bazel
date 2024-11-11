@@ -417,6 +417,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
         new BuildEventStreamer.Builder()
             .buildEventTransports(bepTransports)
             .besStreamOptions(besStreamOptions)
+            .outputGroupFileModes(bepOptions.getOutputGroupFileModesMapping())
             .publishTargetSummaries(bepOptions.publishTargetSummary)
             .artifactGroupNamer(artifactGroupNamer)
             .oomMessage(parsingResult.getOptions(CommonCommandOptions.class).oomMessage)

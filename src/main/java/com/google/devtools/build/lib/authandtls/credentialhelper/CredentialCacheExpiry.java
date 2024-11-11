@@ -32,7 +32,7 @@ final class CredentialCacheExpiry implements Expiry<URI, GetCredentialsResponse>
     this.defaultCacheDuration = Preconditions.checkNotNull(duration);
   }
 
-  private Duration getExpirationTime(GetCredentialsResponse response) {
+  private Duration getExpirationTime(GetCredentialsResponse response, Instant currentTime) {
     Preconditions.checkNotNull(response);
 
     var expires = response.getExpires();
@@ -40,8 +40,7 @@ final class CredentialCacheExpiry implements Expiry<URI, GetCredentialsResponse>
       return defaultCacheDuration;
     }
 
-    var now = Instant.now();
-    return Duration.between(expires.get(), now);
+    return Duration.between(currentTime, expires.get());
   }
 
   @Override
@@ -49,7 +48,7 @@ final class CredentialCacheExpiry implements Expiry<URI, GetCredentialsResponse>
     Preconditions.checkNotNull(uri);
     Preconditions.checkNotNull(response);
 
-    return getExpirationTime(response).toNanos();
+    return getExpirationTime(response, Instant.ofEpochMilli(nanoToMilli(currentTime))).toNanos();
   }
 
   @Override
@@ -58,7 +57,7 @@ final class CredentialCacheExpiry implements Expiry<URI, GetCredentialsResponse>
     Preconditions.checkNotNull(uri);
     Preconditions.checkNotNull(response);
 
-    return getExpirationTime(response).toNanos();
+    return getExpirationTime(response, Instant.ofEpochMilli(nanoToMilli(currentTime))).toNanos();
   }
 
   @CanIgnoreReturnValue
@@ -70,5 +69,9 @@ final class CredentialCacheExpiry implements Expiry<URI, GetCredentialsResponse>
 
     // We don't extend the duration on access.
     return currentDuration;
+  }
+
+  private static final long nanoToMilli(long nano) {
+    return Duration.ofNanos(nano).toMillis();
   }
 }

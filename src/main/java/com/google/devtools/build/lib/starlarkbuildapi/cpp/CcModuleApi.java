@@ -234,6 +234,18 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "[]"),
         @Param(
+            name = "conly_flags",
+            doc = "Additional list of compilation options for C compiles.",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
+            name = "cxx_flags",
+            doc = "Additional list of compilation options for C++ compiles.",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
             name = "compilation_contexts",
             doc = "Headers from dependencies used for compilation.",
             positional = false,
@@ -395,6 +407,8 @@ public interface CcModuleApi<
       String includePrefix,
       String stripIncludePrefix,
       Sequence<?> userCompileFlags, // <String> expected
+      Sequence<?> conlyFlags, // <String> expected
+      Sequence<?> cxxFlags, // <String> expected
       Sequence<?> ccCompilationContexts, // <CcCompilationContext> expected
       Object implementationCcCompilationContextsObject,
       String name,
@@ -1458,6 +1472,13 @@ public interface CcModuleApi<
   boolean checkExperimentalCcSharedLibrary(StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
+      name = "check_experimental_cc_static_library",
+      doc = "DO NOT USE. This is to guard use of cc_static_library.",
+      useStarlarkThread = true,
+      documented = false)
+  boolean checkExperimentalCcStaticLibrary(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
       name = "incompatible_disable_objc_library_transition",
       useStarlarkThread = true,
       documented = false)
@@ -1511,7 +1532,14 @@ public interface CcModuleApi<
             allowedTypes = {
               @ParamType(type = ExtraLinkTimeLibraryApi.class),
               @ParamType(type = NoneType.class)
-            })
+            }),
+        @Param(
+            name = "owner",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound",
+            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Label.class)})
       })
   LinkingContextT createCcLinkingInfo(
       Object linkerInputs,
@@ -1519,6 +1547,7 @@ public interface CcModuleApi<
       Object userLinkFlagsObject,
       Object nonCodeInputs, // <FileT> expected
       Object extraLinkTimeLibraryObject,
+      Object ownerObject,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 
@@ -1642,6 +1671,12 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "unbound"),
         @Param(
+            name = "exported_dependent_cc_compilation_contexts",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
+        @Param(
             name = "non_code_inputs",
             documented = false,
             positional = false,
@@ -1720,6 +1755,7 @@ public interface CcModuleApi<
       Object externalIncludes,
       Object virtualToOriginalHeaders,
       Sequence<?> dependentCcCompilationContexts,
+      Sequence<?> exportedDependentCcCompilationContexts,
       Sequence<?> nonCodeInputs,
       Sequence<?> looseHdrsDirs,
       String headersCheckingMode,

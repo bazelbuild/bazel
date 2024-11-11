@@ -15,12 +15,10 @@
 package com.google.devtools.build.lib.unix;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.jni.JniLoader;
 import com.google.devtools.build.lib.util.Blocker;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.logging.LogManager;
 
 /**
  * Utility methods for access to UNIX filesystem calls not exposed by the Java
@@ -31,23 +29,6 @@ public final class NativePosixFiles {
   private NativePosixFiles() {}
 
   static {
-    if (!java.nio.charset.Charset.defaultCharset().name().equals("ISO-8859-1")) {
-      // Defer the Logger call, so we don't deadlock if this is called from Logger
-      // initialization code.
-      new Thread(
-              () -> {
-                // wait (if necessary) until the logging system is initialized
-                synchronized (LogManager.getLogManager()) {
-                }
-                @SuppressWarnings("FloggerRequiredModifiers")
-                GoogleLogger logger = GoogleLogger.forEnclosingClass();
-                logger.atFine().log(
-                    "WARNING: Default character set is not latin1; java.io.File and"
-                        + " com.google.devtools.build.lib.unix.FilesystemUtils will represent"
-                        + " some filenames differently.");
-              })
-          .start();
-    }
     JniLoader.loadJni();
     initJNIClasses();
   }
@@ -129,16 +110,17 @@ public final class NativePosixFiles {
   public static native ErrnoFileStatus errnoLstat(String path);
 
   /**
-   * Native wrapper around POSIX utime(2) syscall.
+   * Native wrapper around POSIX utimensat(2) syscall.
    *
-   * Note: negative file times are interpreted as unsigned time_t.
+   * <p>Note that, even though utimensat(2) supports up to nanosecond precision, this interface only
+   * allows millisecond precision, which is what Bazel uses internally.
    *
-   * @param path the file whose times to change.
-   * @param now if true, ignore actime/modtime parameters and use current time.
-   * @param modtime the file modification time in seconds since the UNIX epoch.
-   * @throws IOException if the utime() syscall failed.
+   * @param path the file whose modification time should be changed.
+   * @param now if true, ignore {@code epochMilli} and use the current time.
+   * @param epochMilli the file modification time in milliseconds since the UNIX epoch.
+   * @throws IOException if the operation failed.
    */
-  public static native void utime(String path, boolean now, int modtime) throws IOException;
+  public static native void utimensat(String path, boolean now, long epochMilli) throws IOException;
 
   /**
    * Native wrapper around POSIX mkdir(2) syscall.

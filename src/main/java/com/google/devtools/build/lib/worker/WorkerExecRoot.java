@@ -36,6 +36,7 @@ final class WorkerExecRoot {
 
   private final boolean useInMemoryTracking;
   @Nullable private SandboxContents sandboxContents;
+  private long sandboxContentsTimestamp;
 
   /**
    * Creates a new WorkerExecRoot.
@@ -69,6 +70,14 @@ final class WorkerExecRoot {
         Iterables.concat(workerFiles, inputs.getFiles().keySet(), inputs.getSymlinks().keySet()),
         outputs);
 
+    // If we have information about the previous contents of the sandbox, update it to reflect
+    // filesystem changes that have happened in the interim, to speed up the cleanup process below.
+    // TODO(tjgq): Consider doing this asynchronously in between worker invocations.
+    if (sandboxContents != null) {
+      SandboxHelpers.updateContentMap(
+          workDir.getParentDirectory(), sandboxContentsTimestamp, sandboxContents);
+    }
+
     // Then do a full traversal of the parent directory of `workDir`. This will use what we computed
     // above, delete anything unnecessary and update `inputsToCreate`/`dirsToCreate` if something is
     // can be left without changes (e.g., a symlink that already points to the right destination).
@@ -83,15 +92,16 @@ final class WorkerExecRoot {
         treeDeleter,
         sandboxContents);
 
-    if (useInMemoryTracking) {
-      // Track the sandbox contents in memory. This makes the cleanup faster in subsequent runs.
-      sandboxContents = SandboxHelpers.createContentMap(workDir, inputs, outputs);
-    }
-
     // Finally, create anything that is still missing. This is non-strict only for historical
     // reasons, we haven't seen what would break if we make it strict.
     SandboxHelpers.createDirectories(dirsToCreate, workDir, /* strict= */ false);
     createInputs(inputsToCreate, inputs, workDir);
+
+    // Track the sandbox contents in memory. This makes the cleanup faster in subsequent runs.
+    if (useInMemoryTracking) {
+      sandboxContents = SandboxHelpers.createContentMap(workDir, inputs, outputs);
+      sandboxContentsTimestamp = System.currentTimeMillis();
+    }
   }
 
   static void createInputs(Iterable<PathFragment> inputsToCreate, SandboxInputs inputs, Path dir)

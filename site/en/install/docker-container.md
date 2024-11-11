@@ -130,3 +130,7 @@ Build time: Fri Jun 2 16:59:58 2023 (1685725198)
 Build timestamp: 1685725198
 Build timestamp as int: 1685725198
 ```
+
+## Explore the Bazel Dockerfile {:#explore-bazel-dockerfile}
+
+If you want to check how the Bazel Docker image is built, you can find its Dockerfile at [bazelbuild/continuous-integration/bazel/oci](https://github.com/bazelbuild/continuous-integration/tree/master/bazel/oci).

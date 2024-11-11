@@ -62,16 +62,19 @@ win_cc_library(
     deps = [":launcher_base"],
 )
 
-win_cc_binary(
+cc_binary(
     name = "launcher_maker",
     srcs = ["launcher_maker.cc"],
     visibility = [
         "//src:__pkg__",
         "//tools/launcher:__pkg__",
     ],
-    deps = [
-        "//src/main/cpp/util:filesystem",
-    ],
+    deps = select({
+        "@platforms//os:windows": [
+            "//src/main/cpp/util:filesystem",
+        ],
+        "//conditions:default": [],
+    }),
 )
 
 launcher_maker_test(name = "launcher_maker_test")

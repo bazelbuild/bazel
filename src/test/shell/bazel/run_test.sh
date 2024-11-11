@@ -49,11 +49,6 @@ msys*)
   ;;
 esac
 
-if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 # ------------------------------------------------------------------------------
 # TESTS
 # ------------------------------------------------------------------------------
@@ -147,7 +142,7 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
   { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
 # --- end runfiles.bash initialization v3 ---
 
-own_path=$(rlocation main/b/binary.sh)
+own_path=$(rlocation _main/b/binary.sh)
 echo "own path: $own_path"
 test -f "$own_path"
 EOF

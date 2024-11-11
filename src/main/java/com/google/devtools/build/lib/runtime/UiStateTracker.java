@@ -99,6 +99,8 @@ class UiStateTracker {
 
   private int sampleSize = 3;
 
+  private boolean newStatsSummary = false;
+
   protected String status;
   protected String additionalMessage = "";
   // Not null after the loading phase has completed.
@@ -378,6 +380,7 @@ class UiStateTracker {
   protected int failedTests;
   protected boolean ok;
   private boolean buildComplete;
+  protected volatile boolean executionPhaseStarted;
 
   @Nullable protected ExecutionProgressReceiver executionProgressReceiver;
   @Nullable protected PackageProgressReceiver packageProgressReceiver;
@@ -399,6 +402,7 @@ class UiStateTracker {
     this.ok = true;
     this.clock = clock;
     this.targetWidth = targetWidth;
+    this.executionPhaseStarted = false;
   }
 
   UiStateTracker(Clock clock) {
@@ -408,6 +412,10 @@ class UiStateTracker {
   /** Set the progress bar sample size. */
   void setProgressSampleSize(int sampleSize) {
     this.sampleSize = Math.max(1, sampleSize);
+  }
+
+  void setNewStatsSummary(boolean newStatsSummary) {
+    this.newStatsSummary = newStatsSummary;
   }
 
   void mainRepoMappingComputationStarted() {
@@ -438,6 +446,10 @@ class UiStateTracker {
       additionalMessage = count + " targets";
     }
     mainRepositoryMapping = event.getMainRepositoryMapping();
+  }
+
+  void executionPhaseStarted() {
+    executionPhaseStarted = true;
   }
 
   /**
@@ -472,20 +484,23 @@ class UiStateTracker {
     additionalMessage = "";
     if (event.getResult().getSuccess()) {
       int actionsCompleted = this.actionsCompleted.get();
+      StringBuilder completedStringBuilder = new StringBuilder().append("Build completed");
       if (failedTests == 0) {
-        return Event.info(
-            "Build completed successfully, "
-                + actionsCompleted
-                + pluralize(" total action", actionsCompleted));
+        completedStringBuilder.append(" successfully");
       } else {
-        return Event.info(
-            "Build completed, "
-                + failedTests
-                + pluralize(" test", failedTests)
-                + " FAILED, "
-                + actionsCompleted
-                + pluralize(" total action", actionsCompleted));
+        completedStringBuilder
+            .append(", ")
+            .append(failedTests)
+            .append(pluralize(" test", failedTests))
+            .append(" FAILED");
       }
+      if (!newStatsSummary) {
+        completedStringBuilder
+            .append(", ")
+            .append(actionsCompleted)
+            .append(pluralize(" total action", actionsCompleted));
+      }
+      return Event.info(completedStringBuilder.toString());
     } else {
       ok = false;
       return Event.error("Build did NOT complete successfully");
@@ -1278,7 +1293,11 @@ class UiStateTracker {
     ActionState oldestAction = getOldestAction();
     if (actionsCount == 0 || oldestAction == null) {
       // TODO(b/239693084): Improve the message here.
-      terminalWriter.normal().append(" checking cached actions");
+      if (executionProgressReceiver != null && executionProgressReceiver.hasActionsInFlight()) {
+        terminalWriter.normal().append(" checking cached actions");
+      } else {
+        terminalWriter.normal().append(" no actions running");
+      }
       maybeShowRecentTest(terminalWriter, shortVersion, targetWidth - terminalWriter.getPosition());
     } else if (actionsCount == 1) {
       if (maybeShowRecentTest(null, shortVersion, targetWidth - terminalWriter.getPosition())) {

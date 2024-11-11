@@ -2625,6 +2625,38 @@ public final class OptionsParserTest {
     assertThat(parser.getOptions(ExpandingOptionsFallback.class)).isNull();
   }
 
+  @Test
+  public void testOptionsParser_getUserOptions_excludesClientOptions() throws Exception {
+    OptionsParser parser =
+        OptionsParser.builder()
+            .optionsClasses(ExpandingOptions.class, ExpandingOptionsFallback.class)
+            .build();
+    parser.parseWithSourceFunction(
+        PriorityCategory.RC_FILE, o -> "client", ImmutableList.of("--foo"), null);
+    assertThat(parser.getUserOptions()).isEmpty();
+
+    parser.parseWithSourceFunction(
+        PriorityCategory.RC_FILE, o -> ".bazelrc", ImmutableList.of("--foo"), null);
+
+    assertThat(parser.getUserOptions().keySet()).containsExactly("--foo", "--nobar");
+  }
+
+  @Test
+  public void testOptionsParser_getUserOptions_excludesInvocationPolicy() throws Exception {
+    OptionsParser parser =
+        OptionsParser.builder()
+            .optionsClasses(ExpandingOptions.class, ExpandingOptionsFallback.class)
+            .build();
+    parser.parseWithSourceFunction(
+        PriorityCategory.RC_FILE, o -> "Invocation policy", ImmutableList.of("--foo"), null);
+    assertThat(parser.getUserOptions()).isEmpty();
+
+    parser.parseWithSourceFunction(
+        PriorityCategory.RC_FILE, o -> ".bazelrc", ImmutableList.of("--foo"), null);
+
+    assertThat(parser.getUserOptions().keySet()).containsExactly("--foo", "--nobar");
+  }
+
   private static OptionInstanceOrigin createInvocationPolicyOrigin() {
     return createInvocationPolicyOrigin(/*implicitDependent=*/ null, /*expandedFrom=*/ null);
   }

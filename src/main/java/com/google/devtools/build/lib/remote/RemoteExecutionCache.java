@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.LostInputsEvent;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
+import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree.PathOrBytes;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -61,9 +62,10 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.annotation.Nullable;
 
-/** A {@link RemoteCache} with additional functionality needed for remote execution. */
-public class RemoteExecutionCache extends RemoteCache {
+/** A {@link CombinedCache} with additional functionality needed for remote execution. */
+public class RemoteExecutionCache extends CombinedCache {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
@@ -99,8 +101,11 @@ public class RemoteExecutionCache extends RemoteCache {
       };
 
   public RemoteExecutionCache(
-      RemoteCacheClient protocolImpl, RemoteOptions options, DigestUtil digestUtil) {
-    super(protocolImpl, options, digestUtil);
+      RemoteCacheClient remoteCacheClient,
+      @Nullable DiskCacheClient diskCacheClient,
+      RemoteOptions options,
+      DigestUtil digestUtil) {
+    super(checkNotNull(remoteCacheClient), diskCacheClient, options, digestUtil);
   }
 
   @VisibleForTesting
@@ -175,13 +180,13 @@ public class RemoteExecutionCache extends RemoteCache {
       Reporter reporter) {
     Directory node = merkleTree.getDirectoryByDigest(digest);
     if (node != null) {
-      return cacheProtocol.uploadBlob(context, digest, node.toByteString());
+      return remoteCacheClient.uploadBlob(context, digest, node.toByteString());
     }
 
     PathOrBytes file = merkleTree.getFileByDigest(digest);
     if (file != null) {
       if (file.getBytes() != null) {
-        return cacheProtocol.uploadBlob(context, digest, file.getBytes());
+        return remoteCacheClient.uploadBlob(context, digest, file.getBytes());
       }
 
       var path = checkNotNull(file.getPath());
@@ -190,18 +195,18 @@ public class RemoteExecutionCache extends RemoteCache {
           // If we get here, the remote input was determined to exist in the remote or disk cache at
           // some point before action execution, but reported to be missing when querying the remote
           // for missing action inputs; possibly because it was evicted in the interim.
-          reporter.post(new LostInputsEvent());
+          reporter.post(new LostInputsEvent(digest));
           throw new CacheNotFoundException(digest, path.getPathString());
         }
       } catch (IOException e) {
         return immediateFailedFuture(e);
       }
-      return cacheProtocol.uploadFile(context, digest, path);
+      return remoteCacheClient.uploadFile(context, digest, path);
     }
 
     Message message = additionalInputs.get(digest);
     if (message != null) {
-      return cacheProtocol.uploadBlob(context, digest, message.toByteString());
+      return remoteCacheClient.uploadBlob(context, digest, message.toByteString());
     }
 
     return immediateFailedFuture(
@@ -315,7 +320,8 @@ public class RemoteExecutionCache extends RemoteCache {
                                   if (digestsToQuery.isEmpty()) {
                                     return immediateFuture(ImmutableSet.of());
                                   }
-                                  return findMissingDigests(context, digestsToQuery);
+                                  return remoteCacheClient.findMissingDigests(
+                                      context, digestsToQuery);
                                 },
                                 directExecutor())
                             .map(

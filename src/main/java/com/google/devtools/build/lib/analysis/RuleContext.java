@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.FeatureSet;
 import com.google.devtools.build.lib.analysis.config.Fragment;
+import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
@@ -325,11 +326,6 @@ public class RuleContext extends TargetContext
 
   public PathFragment getGenfilesFragment() {
     return getConfiguration().getGenfilesFragment(getLabel().getRepository());
-  }
-
-  @Override
-  public ArtifactRoot getMiddlemanDirectory() {
-    return getConfiguration().getMiddlemanDirectory(getLabel().getRepository());
   }
 
   public Rule getRule() {
@@ -665,14 +661,11 @@ public class RuleContext extends TargetContext
         getLabel());
     ArtifactRoot root = getBinOrGenfilesDirectory();
 
-    switch (outputFileKind) {
-      case FILE:
-        return getDerivedArtifact(rootRelativePath, root);
-      case FILESET:
-        return getAnalysisEnvironment().getFilesetArtifact(rootRelativePath, root);
-      default:
-        throw new IllegalStateException();
-    }
+    return switch (outputFileKind) {
+      case FILE -> getDerivedArtifact(rootRelativePath, root);
+      case FILESET -> getAnalysisEnvironment().getFilesetArtifact(rootRelativePath, root);
+      default -> throw new IllegalStateException();
+    };
   }
 
   /**
@@ -1082,16 +1075,10 @@ public class RuleContext extends TargetContext
   }
 
   public boolean useAutoExecGroups() {
-    return usesAutoExecGroups(attributes(), getConfiguration());
-  }
-
-  protected static boolean usesAutoExecGroups(
-      AttributeMap attributes, BuildConfigurationValue configuration) {
-    if (attributes.has("$use_auto_exec_groups")) {
-      return attributes.get("$use_auto_exec_groups", Type.BOOLEAN);
-    } else {
-      return configuration.useAutoExecGroups();
-    }
+    return getRule()
+        .getRuleClassObject()
+        .getAutoExecGroupsMode()
+        .isEnabled(attributes(), getConfiguration().useAutoExecGroups());
   }
 
   /**
@@ -1745,6 +1732,19 @@ public class RuleContext extends TargetContext
               validateDirectPrerequisite(attribute, configuredTarget);
             }
             mapBuilder.put(entry.getKey(), configuredTarget);
+          }
+
+          if (attribute.isForDependencyResolution()) {
+            if (!configuredTarget.isForDependencyResolution()
+                && !(configuredTarget.getConfiguredTarget()
+                    instanceof PackageGroupConfiguredTarget)) {
+              attributeError(
+                  attribute.getName(),
+                  String.format(
+                      "attribute marked as available in materializers but prerequisite %s isn't",
+                      AliasProvider.describeTargetWithAliases(
+                          configuredTarget, TargetMode.WITH_KIND)));
+            }
           }
         }
       }

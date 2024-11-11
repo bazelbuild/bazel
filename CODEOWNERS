@@ -48,13 +48,13 @@ android/ @ahumesky @ted-xie
 
 # C++
 
-/src/tools/cpp @oquenchil
+/src/tools/cpp @comius @pzembrod @trybka
 
-/src/test/shell/bazel/cpp @oquenchil
+/src/test/shell/bazel/cpp @comius @pzembrod @trybka
 
-/src/test/java/com/google/devtools/build/lib/rules/cpp/ @oquenchil
+/src/test/java/com/google/devtools/build/lib/rules/cpp/ @comius @pzembrod @trybka
 
-/src/main/java/com/google/devtools/build/lib/rules/cpp/ @oquenchil
+/src/main/java/com/google/devtools/build/lib/rules/cpp/ @comius @pzembrod @trybka
 
 # Java
 

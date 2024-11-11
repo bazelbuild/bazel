@@ -77,7 +77,7 @@ Example: Building from an empty client
 <pre>
   % mkdir -p foo/bazel
   % cd foo/bazel
-  % touch WORKSPACE
+  % touch MODULE.bazel
   % bazel build --package_path /some/other/path //foo
 </pre>
 
@@ -327,14 +327,14 @@ This option specifies the version of Java sources. For example:
 </pre>
 
 compiles and allows only constructs compatible with Java 8 specification.
-Default value is 8. -->
-Possible values are: 8, 9, 10, 11, 14, 15, and 21 and may be extended by
+Default value is 11. -->
+Possible values are: 8, 9, 10, 11, 17, and 21 and may be extended by
 registering custom Java toolchains using `default_java_toolchain`.
 
 #### `--tool_java_language_version={{ "<var>" }}version{{ "</var>" }}` {:#tool-java-language-version}
 
 The Java language version used to build tools that are executed during a build.
-Default value is 8.
+Default value is 11.
 
 #### `--java_runtime_version={{ "<var>" }}version{{ "</var>" }}` {:#java-runtime-version}
 
@@ -349,7 +349,7 @@ downloads JDK 11 from a remote repository and run the Java application using it.
 
 Default value is `local_jdk`.
 Possible values are: `local_jdk`, `local_jdk_{{ "<var>" }}version{{ "</var>" }}`,
-`remotejdk_11`, and `remotejdk_17`.
+`remotejdk_11`, `remotejdk_17`, and `remotejdk_21`.
 You can extend the values by registering custom JVM using either
 `local_java_repository` or `remote_java_repository` repository rules.
 
@@ -784,7 +784,7 @@ dependencies are gathered together in one place. Within Bazel's
 output tree, this "runfiles" tree is typically rooted as a sibling of
 the corresponding binary or test.
 During test execution, runfiles may be accessed using paths of the form
-`$TEST_SRCDIR/workspace/{{ "<var>" }}packagename{{ "</var>" }}/{{ "<var>" }}filename{{ "</var>" }}`.
+`$TEST_SRCDIR/{{ "<var>" }}canonical_repo_name{{ "</var>" }}/{{ "<var>" }}packagename{{ "</var>" }}/{{ "<var>" }}filename{{ "</var>" }}`.
 The runfiles tree ensures that tests have access to all the files
 upon which they have a declared dependence, and nothing more. By
 default, the runfiles tree is implemented by constructing a set of
@@ -1304,8 +1304,8 @@ The label of a platform rule that describes the host system.
 
 The platforms that are available as execution platforms to run actions.
 Platforms can be specified by exact target, or as a target pattern. These
-platforms will be considered before those declared in the WORKSPACE file by
-[register_execution_platforms()](/rules/lib/globals/workspace#register_execution_platforms).
+platforms will be considered before those declared in MODULE.bazel files by
+[register_execution_platforms()](/rules/lib/globals/module#register_execution_platforms).
 This option accepts a comma-separated list of platforms in order of priority.
 If the flag is passed multiple times, the most recent overrides.
 
@@ -1313,8 +1313,8 @@ If the flag is passed multiple times, the most recent overrides.
 
 The toolchain rules to be considered during toolchain resolution. Toolchains
 can be specified by exact target, or as a target pattern. These toolchains will
-be considered before those declared in the WORKSPACE file by
-[register_toolchains()](/rules/lib/globals/workspace#register_toolchains).
+be considered before those declared in MODULE.bazel files by
+[register_toolchains()](/rules/lib/globals/module#register_toolchains).
 
 #### `--toolchain_resolution_debug={{ "<var>" }}regex{{ "</var>" }}` {:#toolchain-resolution-debug}
 
@@ -2311,7 +2311,7 @@ the directory containing a JDK or JRE. It should not be a label.
 This option should appear before any Bazel command, for example:
 
 <pre>
-  % bazel --server_javabase=/usr/local/buildtools/java/jdk11 build //foo
+  % bazel --server_javabase=/usr/local/buildtools/java/jdk build //foo
 </pre>
 
 This flag does _not_ affect the JVMs used by Bazel subprocesses such as applications, tests,

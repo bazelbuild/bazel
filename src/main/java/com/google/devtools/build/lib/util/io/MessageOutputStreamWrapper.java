@@ -50,7 +50,7 @@ public class MessageOutputStreamWrapper {
   /** Writes the messages in concatenated JSON text format. */
   public static class JsonOutputStreamWrapper<T extends Message> implements MessageOutputStream<T> {
     private static final JsonFormat.Printer PRINTER =
-        JsonFormat.printer().includingDefaultValueFields();
+        JsonFormat.printer().alwaysPrintFieldsWithNoPresence();
 
     private final OutputStream stream;
 

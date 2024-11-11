@@ -37,6 +37,6 @@ java_test(
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
-        "//third_party/protobuf:protobuf_java",
+        "@protobuf//:protobuf_java",
     ],
 )

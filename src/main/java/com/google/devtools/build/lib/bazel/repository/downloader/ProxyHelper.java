@@ -156,16 +156,12 @@ public class ProxyHelper {
     if (protocol == null) {
       https = false;
     } else {
-      switch (protocol) {
-        case "https://":
-          https = true;
-          break;
-        case "http://":
-          https = false;
-          break;
-        default:
-          throw new IOException("Invalid proxy protocol for " + cleanProxyAddress);
-      }
+      https =
+          switch (protocol) {
+            case "https://" -> true;
+            case "http://" -> false;
+            default -> throw new IOException("Invalid proxy protocol for " + cleanProxyAddress);
+          };
     }
 
     int port = https ? 443 : 80; // Default port numbers

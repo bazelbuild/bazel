@@ -244,7 +244,6 @@ separating startup options from command options. It also includes the
       "--output_user_root=/tmp/.cache/bazel/_bazel_foo",
       "--output_base=/tmp/.cache/bazel/_bazel_foo/a61fd0fbee3f9d6c1e30d54b68655d35",
       "--deep_execroot",
-      "--expand_configs_in_place",
       "--idle_server_tasks",
       "--write_command_log",
       "--nowatchfs",

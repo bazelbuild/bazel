@@ -31,6 +31,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.eval.Tuple;
 
@@ -200,7 +201,12 @@ public final class StarlarkPath implements StarlarkValue {
   }
 
   @Override
+  public void str(Printer printer, StarlarkSemantics semantics) {
+    printer.append(path.toString());
+  }
+
+  @Override
   public void repr(Printer printer) {
-    printer.append(toString());
+    printer.repr(path.toString());
   }
 }

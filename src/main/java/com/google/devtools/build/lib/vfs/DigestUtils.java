@@ -17,7 +17,6 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.stats.CacheStats;
 import com.google.common.base.Preconditions;
-import com.google.common.primitives.Longs;
 import java.io.IOException;
 import javax.annotation.Nullable;
 
@@ -40,22 +39,8 @@ public class DigestUtils {
    * <p>The cache keys are derived from many properties of the file metadata in an attempt to be
    * able to detect most file changes.
    */
-  private static class CacheKey {
-    /** Path to the file. */
-    private final PathFragment path;
-
-    /** File system identifier of the file (typically the inode number). */
-    private final long nodeId;
-
-    /** Last change time of the file. */
-    private final long changeTime;
-
-    /** Last modification time of the file. */
-    private final long modifiedTime;
-
-    /** Size of the file. */
-    private final long size;
-
+  private static record CacheKey(
+      PathFragment path, long nodeId, long changeTime, long lastModifiedTime, long size) {
     /**
      * Constructs a new cache key.
      *
@@ -63,38 +48,13 @@ public class DigestUtils {
      * @param status file status data from which to obtain the cache key properties
      * @throws IOException if reading the file status data fails
      */
-    public CacheKey(Path path, FileStatus status) throws IOException {
-      this.path = path.asFragment();
-      this.nodeId = status.getNodeId();
-      this.changeTime = status.getLastChangeTime();
-      this.modifiedTime = status.getLastModifiedTime();
-      this.size = status.getSize();
-    }
-
-    @Override
-    public boolean equals(Object object) {
-      if (object == this) {
-        return true;
-      } else if (!(object instanceof CacheKey key)) {
-        return false;
-      } else {
-        return path.equals(key.path)
-            && nodeId == key.nodeId
-            && changeTime == key.changeTime
-            && modifiedTime == key.modifiedTime
-            && size == key.size;
-      }
-    }
-
-    @Override
-    public int hashCode() {
-      int result = 17;
-      result = 31 * result + path.hashCode();
-      result = 31 * result + Longs.hashCode(nodeId);
-      result = 31 * result + Longs.hashCode(changeTime);
-      result = 31 * result + Longs.hashCode(modifiedTime);
-      result = 31 * result + Longs.hashCode(size);
-      return result;
+    private CacheKey(Path path, FileStatus status) throws IOException {
+      this(
+          path.asFragment(),
+          status.getNodeId(),
+          status.getLastChangeTime(),
+          status.getLastModifiedTime(),
+          status.getSize());
     }
   }
 
@@ -225,15 +185,24 @@ public class DigestUtils {
     return digest;
   }
 
-  /** Compute lhs ^= rhs bitwise operation of the arrays. May clobber either argument. */
-  public static byte[] xor(byte[] lhs, byte[] rhs) {
+  /**
+   * Combines two digests into one such that swapping the arguments results in the same result. May
+   * clobber either argument.
+   */
+  public static byte[] combineUnordered(byte[] lhs, byte[] rhs) {
     int n = rhs.length;
     if (lhs.length >= n) {
       for (int i = 0; i < n; i++) {
-        lhs[i] ^= rhs[i];
+        // Use + as in Guava's Hashing.combineUnordered.
+        // This has a number of advantages over XOR, which was used in the past:
+        // * Identical inputs will not cancel each other out.
+        // * Due to the carry, addition isn't a linear operation on the level of bit vectors.
+        //   This prevents adversaries from producing linear combinations (i.e., subsets of input
+        //   sets) that collide with other inputs.
+        lhs[i] += rhs[i];
       }
       return lhs;
     }
-    return xor(rhs, lhs);
+    return combineUnordered(rhs, lhs);
   }
 }

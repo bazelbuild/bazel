@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversal;
 import com.google.devtools.build.lib.actions.HasDigest;
-import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.DanglingSymlinkException;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.RecursiveFilesystemTraversalException;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFile;
 import com.google.devtools.build.lib.vfs.Path;
@@ -90,10 +89,8 @@ public final class FilesetEntryFunction implements SkyFunction {
       throw new FilesetEntryFunctionException(
           new RecursiveFilesystemTraversalException(
               String.format(
-                  "%s contains a directory artifact '%s' and is restricted by %s",
-                  params.getOwnerLabelForErrorMessages(),
-                  params.getDestPath(),
-                  "tools/allowlists/fileset_dir_in_files_allowlist"),
+                  "%s contains a directory artifact '%s'",
+                  params.getOwnerLabelForErrorMessages(), params.getDestPath()),
               RecursiveFilesystemTraversalException.Type.FILE_OPERATION_FAILURE));
     }
 
@@ -179,13 +176,7 @@ public final class FilesetEntryFunction implements SkyFunction {
         continue;
       }
 
-      PathFragment targetName;
-      try {
-        targetName = f.getTargetInSymlinkTree(direct.isFollowingSymlinks());
-      } catch (DanglingSymlinkException e) {
-        throw new FilesetEntryFunctionException(e);
-      }
-
+      PathFragment targetName = f.getPath().asPath().asFragment();
       maybeStoreSymlink(
           linkName,
           targetName,

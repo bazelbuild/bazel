@@ -19,8 +19,10 @@
 # implementation can rely on release Bazel, we can add the tests directly.
 
 function setup_tests() {
-  add_rules_testing_to_workspace "WORKSPACE"
-  setup_skylib_support
+  add_rules_testing "MODULE.bazel"
+  add_bazel_skylib "MODULE.bazel"
+  add_rules_python "MODULE.bazel"
+  add_platforms "MODULE.bazel"
   src=$(get_runfiles_dir $1)
   dest="${2:-$1}"
   if [ ! -e "$src" ]; then

@@ -26,26 +26,26 @@ public interface EvaluationProgressReceiver {
 
   /** The state of a node after it was evaluated. */
   enum EvaluationState {
-    SUCCESS_CHANGED(true, true),
-    SUCCESS_UNCHANGED(true, false),
-    FAIL_CHANGED(false, true),
-    FAIL_UNCHANGED(false, true);
+    SUCCESS_VERSION_CHANGED(true, true),
+    SUCCESS_VERSION_UNCHANGED(true, false),
+    FAIL_VERSION_CHANGED(false, true),
+    FAIL_VERSION_UNCHANGED(false, true);
 
-    static EvaluationState get(@Nullable SkyValue valueMaybeWithMetadata, boolean changed) {
+    static EvaluationState get(@Nullable SkyValue valueMaybeWithMetadata, boolean versionChanged) {
       boolean success = ValueWithMetadata.justValue(valueMaybeWithMetadata) != null;
-      if (changed) {
-        return success ? SUCCESS_CHANGED : FAIL_CHANGED;
+      if (versionChanged) {
+        return success ? SUCCESS_VERSION_CHANGED : FAIL_VERSION_CHANGED;
       } else {
-        return success ? SUCCESS_UNCHANGED : FAIL_UNCHANGED;
+        return success ? SUCCESS_VERSION_UNCHANGED : FAIL_VERSION_UNCHANGED;
       }
     }
 
     private final boolean succeeded;
-    private final boolean changed;
+    private final boolean versionChanged;
 
-    EvaluationState(boolean succeeded, boolean changed) {
+    EvaluationState(boolean succeeded, boolean versionChanged) {
       this.succeeded = succeeded;
-      this.changed = changed;
+      this.versionChanged = versionChanged;
     }
 
     /**
@@ -60,15 +60,16 @@ public interface EvaluationProgressReceiver {
     /**
      * Whether the node's {@link NodeEntry#getVersion} changed as a result of this evaluation.
      *
-     * <p>If {@code true}, the node was built during the current evaluation and its {@link
-     * NodeEntry#getVersion} changed. Parents need to be rebuilt.
+     * <p>If {@code true}, the node was built at the current version and its {@link
+     * NodeEntry#getVersion} changed, either because it was built incrementally and changed or was
+     * built as part of a clean build. Parents need to be rebuilt.
      *
      * <p>If {@code false}, the node's {@link NodeEntry#getVersion} did not change, either because
-     * it was deemed up-to-date and not built or was built and evaluated to the same value as its
-     * prior evaluation. Parents do not necessarily need to be rebuilt.
+     * it was deemed up-to-date and not built or was built incrementally and evaluated to the same
+     * value as its prior evaluation. Parents do not necessarily need to be rebuilt.
      */
-    public boolean changed() {
-      return changed;
+    public boolean versionChanged() {
+      return versionChanged;
     }
   }
 
@@ -127,9 +128,9 @@ public interface EvaluationProgressReceiver {
    * Notifies that the node for {@code skyKey} has been evaluated.
    *
    * @param state the current state of the node for {@code skyKey}
-   * @param newValue the node's value if {@link EvaluationState#changed()} and {@link
+   * @param newValue the node's value if {@link EvaluationState#versionChanged()} and {@link
    *     EvaluationState#succeeded()}, otherwise {@code null}
-   * @param newError the node's error if it has one and {@link EvaluationState#changed()}
+   * @param newError the node's error if it has one and {@link EvaluationState#versionChanged()}
    * @param directDeps direct dependencies of {@code skyKey} if the node was just built, otherwise
    *     {@code null}
    */

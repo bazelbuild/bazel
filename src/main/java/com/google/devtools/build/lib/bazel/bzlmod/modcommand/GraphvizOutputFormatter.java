@@ -116,8 +116,7 @@ public class GraphvizOutputFormatter extends OutputFormatter {
       return "\"<root>\"";
     }
     return String.format(
-        "\"%s@%s\"",
-        key.getName(), key.getVersion().equals(Version.EMPTY) ? "_" : key.getVersion());
+        "\"%s@%s\"", key.name(), key.version().equals(Version.EMPTY) ? "_" : key.version());
   }
 
   private String toId(ModuleExtensionId id) {

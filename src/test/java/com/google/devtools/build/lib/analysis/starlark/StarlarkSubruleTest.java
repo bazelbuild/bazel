@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.cpp.CppConfigurationApi;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import net.starlark.java.eval.BuiltinFunction;
 import net.starlark.java.eval.Sequence;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -61,11 +60,6 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
   private final BazelEvaluationTestCase ev = new BazelEvaluationTestCase("//subrule_testing:label");
   private final BazelEvaluationTestCase evOutsideAllowlist =
       new BazelEvaluationTestCase("//foo:bar");
-
-  @Before
-  public void allowExperimentalApi() throws Exception {
-    setBuildLanguageOptions("--experimental_rule_extension_api");
-  }
 
   @Test
   public void testSubruleFunctionSymbol_notVisibleInBUILD() throws Exception {
@@ -134,6 +128,70 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
         .hasMessageThat()
         .contains(
             "Error in _my_subrule: rule 'my_rule' must declare '_my_subrule' in" + " 'subrules'");
+  }
+
+  @Test
+  public void testSubrule_attrLengthLimitAppliedOnUserDefinedName() throws Exception {
+    scratch.file(
+        "subrule_testing/myrule.bzl",
+        """
+        _my_subrule = subrule(
+          implementation = lambda ctx: "dummy rule result",
+          attrs = {
+            "_%s": attr.label(default = "//subrule_testing:bar")
+          }
+        )
+
+        my_rule = rule(implementation = lambda ctx: [], subrules = [_my_subrule])
+        """
+            .formatted("a".repeat(130)));
+    scratch.file(
+        "subrule_testing/BUILD",
+        """
+        load("myrule.bzl", "my_rule")
+
+        my_rule(name = "foo")
+        cc_binary(name = "bar")
+        """);
+
+    AssertionError error =
+        assertThrows(AssertionError.class, () -> getTarget("//subrule_testing:foo"));
+
+    assertThat(error).hasMessageThat().contains("name is too long (131 > 128)");
+  }
+
+  @Test
+  public void testSubrule_attrLengthLimitIgnoresBzlLabel() throws Exception {
+    // deserialized package does not have a reference to subrules
+    initializeSkyframeExecutor(/* doPackageLoadingChecks= */ false);
+
+    String longPackageName = "a".repeat(130);
+    scratch.file("subrule_testing/%s/BUILD".formatted(longPackageName));
+    scratch.file(
+        "subrule_testing/%s/myrule.bzl".formatted(longPackageName),
+        """
+        _my_subrule = subrule(
+          implementation = lambda ctx: "dummy rule result",
+          attrs = {
+            "_a": attr.label(default = "//subrule_testing:bar")
+          }
+        )
+
+        my_rule = rule(implementation = lambda ctx: [], subrules = [_my_subrule])
+        """);
+    scratch.file(
+        "subrule_testing/BUILD",
+        """
+        load("//subrule_testing/%s:myrule.bzl", "my_rule")
+
+        my_rule(name = "foo")
+        cc_binary(name = "bar")
+        """
+            .formatted(longPackageName));
+
+    getTarget("//subrule_testing:foo");
+
+    assertNoEvents();
   }
 
   @Test
@@ -299,6 +357,7 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
     scratch.file(
         "subrule_testing/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         load("myrule.bzl", "my_rule")
 
         java_library(name = "bar")
@@ -440,6 +499,7 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
     scratch.file(
         "subrule_testing/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         load("myrule.bzl", "my_rule")
 
         java_library(name = "bar")
@@ -890,7 +950,7 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testSubruleAttrs_implicitLabelDepsAreResolvedToTargets() throws Exception {
+  public void testSubruleAttrs_implicitLabelDepsAreResolvedToTargets_inRule() throws Exception {
     scratch.file(
         "some/pkg/BUILD",
         //
@@ -920,6 +980,53 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
         load("myrule.bzl", "my_rule")
 
         my_rule(name = "foo")
+        """);
+
+    StructImpl provider =
+        getProvider("//subrule_testing:foo", "//subrule_testing:myrule.bzl", "MyInfo");
+
+    assertThat(provider).isNotNull();
+    Object value = provider.getValue("result");
+    assertThat(value).isInstanceOf(ConfiguredTarget.class);
+    assertThat(((ConfiguredTarget) value).getLabel().toString()).isEqualTo("//some/pkg:tool");
+  }
+
+  @Test
+  public void testSubruleAttrs_implicitLabelDepsAreResolvedToTargets_inAspect() throws Exception {
+    scratch.file(
+        "some/pkg/BUILD",
+        //
+        "genrule(name = 'tool', cmd = '', outs = ['tool.exe'])");
+    scratch.file(
+        "subrule_testing/myrule.bzl",
+        """
+        def _subrule_impl(ctx, _tool):
+            return _tool
+
+        _my_subrule = subrule(
+            implementation = _subrule_impl,
+            attrs = {"_tool": attr.label(default = "//some/pkg:tool")},
+        )
+
+        MyInfo = provider()
+
+        def _aspect_impl(ctx, target):
+            res = _my_subrule()
+            return [MyInfo(result = res)]
+
+        _my_aspect = aspect(implementation = _aspect_impl, subrules = [_my_subrule])
+
+        my_rule = rule(
+            implementation = lambda ctx: [ctx.attr.dep[MyInfo]],
+            attrs = {"dep": attr.label(mandatory = True, aspects = [_my_aspect])},
+        )
+        """);
+    scratch.file(
+        "subrule_testing/BUILD",
+        """
+        load("myrule.bzl", "my_rule")
+        filegroup(name = 'bar')
+        my_rule(name = "foo", dep = ":bar")
         """);
 
     StructImpl provider =
@@ -1812,6 +1919,7 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
 
   @Test
   public void testSubrulesParamForAspect_isPrivateAPI() throws Exception {
+    evOutsideAllowlist.setSemantics("--noexperimental_rule_extension_api");
     evOutsideAllowlist.checkEvalErrorContains(
         "'//foo:bar' cannot use private API", "aspect(implementation = lambda: 0, subrules = [1])");
   }

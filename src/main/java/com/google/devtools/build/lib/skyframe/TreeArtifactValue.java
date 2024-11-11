@@ -58,6 +58,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ForkJoinPool;
+import java.util.function.BiConsumer;
 import javax.annotation.Nullable;
 
 /**
@@ -148,11 +149,11 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     }
 
     /**
-     * For each unique parent seen by this builder, passes the aggregated metadata to {@link
-     * TreeArtifactInjector#injectTree}.
+     * For each unique parent seen by this builder, passes the aggregated metadata to the specified
+     * {@link BiConsumer}.
      */
-    public void injectTo(TreeArtifactInjector treeInjector) {
-      map.forEach((parent, builder) -> treeInjector.injectTree(parent, builder.build()));
+    public void forEach(BiConsumer<SpecialArtifact, TreeArtifactValue> consumer) {
+      map.forEach((parent, builder) -> consumer.accept(parent, builder.build()));
     }
   }
 
@@ -414,13 +415,6 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
   }
 
   /**
-   * Represents a tree artifact that was intentionally omitted, similar to {@link
-   * FileArtifactValue#OMITTED_FILE_MARKER}.
-   */
-  @SerializationConstant
-  public static final TreeArtifactValue OMITTED_TREE_MARKER = createMarker("OMITTED_TREE_MARKER");
-
-  /**
    * A TreeArtifactValue that represents a missing TreeArtifact. This is occasionally useful because
    * Java's concurrent collections disallow null members.
    */
@@ -635,11 +629,6 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
      * <p>Children may be added in any order. The children are sorted prior to constructing the
      * final {@link TreeArtifactValue}.
      *
-     * <p>It is illegal to call this method with {@link FileArtifactValue#OMITTED_FILE_MARKER}. When
-     *
-     * <p>It is illegal to call this method with {@link FileArtifactValue#OMITTED_FILE_MARKER}. When
-     * children are omitted, use {@link TreeArtifactValue#OMITTED_TREE_MARKER}.
-     *
      * @return {@code this} for convenience
      */
     @CanIgnoreReturnValue
@@ -650,11 +639,6 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
           parent,
           child,
           child.getParent());
-      checkArgument(
-          !FileArtifactValue.OMITTED_FILE_MARKER.equals(metadata),
-          "Cannot construct TreeArtifactValue for %s because child %s was omitted",
-          parent,
-          child);
       childData.put(child, metadata);
       return this;
     }
@@ -674,11 +658,6 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
       checkArgument(
           parent.equals(archivedRepresentation.archivedTreeFileArtifact().getParent()),
           "Cannot add archived representation: %s for a mismatching tree artifact: %s",
-          archivedRepresentation,
-          parent);
-      checkArgument(
-          !archivedRepresentation.archivedFileValue().equals(FileArtifactValue.OMITTED_FILE_MARKER),
-          "Cannot add archived representation: %s to %s because it has omitted metadata.",
           archivedRepresentation,
           parent);
       this.archivedRepresentation = archivedRepresentation;

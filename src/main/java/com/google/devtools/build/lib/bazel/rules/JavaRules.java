@@ -19,8 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
-import com.google.devtools.build.lib.bazel.rules.java.BazelJavaBinaryRule;
-import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaSemantics;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.extra.ActionListenerRule;
@@ -30,7 +28,6 @@ import com.google.devtools.build.lib.rules.java.JavaPluginsFlagAliasRule;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaRuntimeBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaToolchainBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaStarlarkCommon;
-import com.google.devtools.build.lib.rules.java.ProguardLibraryRule;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaBootstrap;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
@@ -50,13 +47,9 @@ public class JavaRules implements RuleSet {
   public void init(ConfiguredRuleClassProvider.Builder builder) {
     builder.addConfigurationFragment(JavaConfiguration.class);
 
-    builder.addRuleDefinition(new BazelJavaRuleClasses.BaseJavaBinaryRule());
     builder.addRuleDefinition(new JavaToolchainBaseRule());
     builder.addRuleDefinition(new JavaRuntimeBaseRule());
-    builder.addRuleDefinition(new BazelJavaRuleClasses.JavaBaseRule());
-    builder.addRuleDefinition(new ProguardLibraryRule());
-    builder.addRuleDefinition(new BazelJavaRuleClasses.JavaRule());
-    builder.addRuleDefinition(new BazelJavaBinaryRule());
+    builder.addRuleDefinition(new BaseRuleClasses.EmptyRule("java_binary") {});
     builder.addRuleDefinition(new BaseRuleClasses.EmptyRule("java_library") {});
     builder.addRuleDefinition(new BaseRuleClasses.EmptyRule("java_import") {});
     builder.addRuleDefinition(new BaseRuleClasses.EmptyRule("java_test") {});
@@ -80,11 +73,6 @@ public class JavaRules implements RuleSet {
             EXPERIMENTAL_JAVA_LIBRARY_EXPORT, Starlark.NONE));
 
     try {
-      builder.addWorkspaceFilePrefix(
-          ResourceFileLoader.loadResource(
-              BazelJavaRuleClasses.class, "rules_java_builtin.WORKSPACE"));
-      builder.addWorkspaceFileSuffix(
-          ResourceFileLoader.loadResource(BazelJavaRuleClasses.class, "jdk.WORKSPACE"));
       builder.addWorkspaceFileSuffix(
           ResourceFileLoader.loadResource(JavaRules.class, "coverage.WORKSPACE"));
     } catch (IOException e) {

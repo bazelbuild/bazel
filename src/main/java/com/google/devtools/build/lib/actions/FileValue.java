@@ -19,13 +19,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.FileKey;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.skyframe.AbstractSkyKey;
-import com.google.devtools.build.skyframe.SkyFunctionName;
-import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -51,10 +47,6 @@ import javax.annotation.Nullable;
 @Immutable
 @ThreadSafe
 public interface FileValue extends SkyValue {
-  // Depends non-hermetically on package path, but that is under the control of a flag, so use
-  // semi-hermetic.
-  public static final SkyFunctionName FILE = SkyFunctionName.createSemiHermetic("FILE");
-
   default boolean exists() {
     return realFileStateValue().getType() != FileStateType.NONEXISTENT;
   }
@@ -110,6 +102,11 @@ public interface FileValue extends SkyValue {
   /**
    * If a symlink pointing back to its own ancestor was encountered during the resolution of this
    * {@link FileValue}, returns the symlinks in the cycle. Otherwise, returns null.
+   *
+   * <p>If you're about to attempt a recursive directory traversal starting at the original path,
+   * you should first use this method to check if there's an unbounded ancestor symlink expansion.
+   * If there is, you should either error out and give up, or you should perform the traversal
+   * carefully (e.g. with a visited set) lest the traversal never terminate.
    */
   ImmutableList<RootedPath> unboundedAncestorSymlinkExpansionChain();
 
@@ -146,39 +143,8 @@ public interface FileValue extends SkyValue {
 
   /** Returns a key for building a file value for the given root-relative path. */
   @ThreadSafe
-  static Key key(RootedPath rootedPath) {
-    return Key.create(rootedPath);
-  }
-
-  /** Key type for FileValue. */
-  @VisibleForSerialization
-  @AutoCodec
-  class Key extends AbstractSkyKey<RootedPath> {
-    private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
-
-    private Key(RootedPath arg) {
-      super(arg);
-    }
-
-    private static Key create(RootedPath arg) {
-      return interner.intern(new Key(arg));
-    }
-
-    @VisibleForSerialization
-    @AutoCodec.Interner
-    static Key intern(Key key) {
-      return interner.intern(key);
-    }
-
-    @Override
-    public SkyFunctionName functionName() {
-      return FILE;
-    }
-
-    @Override
-    public SkyKeyInterner<Key> getSkyKeyInterner() {
-      return interner;
-    }
+  static FileKey key(RootedPath rootedPath) {
+    return FileKey.create(rootedPath);
   }
 
   /**

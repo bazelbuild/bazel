@@ -23,13 +23,10 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
  */
 public class TestConstants {
 
-  public static final String LOAD_PROTO_LIBRARY =
-      "load('@rules_proto//proto:defs.bzl', 'proto_library')";
-  public static final String PROTO_TOOLCHAIN =  "@rules_proto//proto:toolchain_type";
-  public static final String LOAD_PROTO_TOOLCHAIN =
-      "load('@rules_proto//proto:proto_toolchain.bzl', 'proto_toolchain')";
+  public static final String PROTO_TOOLCHAIN = "@protobuf//bazel/private:proto_toolchain_type";
+
   public static final String LOAD_PROTO_LANG_TOOLCHAIN =
-      "load('@rules_proto//proto:defs.bzl', 'proto_lang_toolchain')";
+      "load('@protobuf//bazel/toolchains:proto_lang_toolchain.bzl', 'proto_lang_toolchain')";
 
   private TestConstants() {
   }
@@ -127,8 +124,10 @@ public class TestConstants {
   /* Prefix for loads from rules_cc */
   public static final String RULES_CC = "@rules_cc//cc";
 
-  /** The repo/package rules_python is rooted at. If empty, builtin rules are used. */
-  public static final String RULES_PYTHON_PACKAGE_ROOT = "";
+  /**
+   * The repo/package rules_python is rooted at. If empty, builtin rules are used.
+   */
+  public static final String RULES_PYTHON_PACKAGE_ROOT = "@@rules_python+/";
 
   public static final ImmutableList<String> DOCS_RULES_PATHS = ImmutableList.of(
       "src/main/java/com/google/devtools/build/lib/rules");
@@ -151,13 +150,18 @@ public class TestConstants {
           // TODO(#7849): Remove after flag flip.
           "--incompatible_use_toolchain_resolution_for_java_rules");
 
+  public static final ImmutableList<String> PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS =
+      ImmutableList.of(
+          // Don't apply autoloads in unit tests, because not all repos are available
+          "--incompatible_autoload_externally=");
+
   /** Partial query to filter out implicit dependencies of C/C++ rules. */
   public static final String CC_DEPENDENCY_CORRECTION =
       " - deps(" + TOOLS_REPOSITORY + "//tools/cpp:current_cc_toolchain)"
       + " - deps(" + TOOLS_REPOSITORY + "//tools/cpp:grep-includes)";
 
   public static final String APPLE_PLATFORM_PATH = "build_bazel_apple_support/platforms";
-  public static final String APPLE_PLATFORM_PACKAGE_ROOT = "@build_bazel_apple_support//platforms";
+  public static final String APPLE_PLATFORM_PACKAGE_ROOT = "@@build_bazel_apple_support+//platforms";
   public static final String CONSTRAINTS_PACKAGE_ROOT = "@platforms//";
 
   public static final String PLATFORMS_PATH = "embedded_tools/platforms";

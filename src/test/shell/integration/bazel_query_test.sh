@@ -57,16 +57,9 @@ msys*)
   ;;
 esac
 
-if "$is_windows"; then
-  # Disable MSYS path conversion that converts path-looking command arguments to
-  # Windows paths (even if they arguments are not in fact paths).
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 function set_up() {
   add_to_bazelrc "build --package_path=%workspace%"
-  setup_skylib_support
+  add_bazel_skylib "MODULE.bazel"
 }
 
 function tear_down() {
@@ -498,6 +491,7 @@ EOF
 }
 
 function test_location_output_source_files() {
+  add_rules_python "MODULE.bazel"
   rm -rf foo
   mkdir -p foo
   cat > foo/BUILD <<EOF
@@ -530,6 +524,7 @@ EOF
 }
 
 function test_proto_output_source_files() {
+  add_rules_python "MODULE.bazel"
   rm -rf foo
   mkdir -p foo
   cat > foo/BUILD <<EOF
@@ -550,6 +545,7 @@ EOF
 }
 
 function test_xml_output_source_files() {
+  add_rules_python "MODULE.bazel"
   rm -rf foo
   mkdir -p foo
   cat > foo/BUILD <<EOF
@@ -978,7 +974,8 @@ EOF
 }
 
 function test_unnecessary_external_workspaces_not_loaded() {
-  cat > WORKSPACE <<'EOF'
+  cat > MODULE.bazel <<'EOF'
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "notthere",
     path = "/nope",

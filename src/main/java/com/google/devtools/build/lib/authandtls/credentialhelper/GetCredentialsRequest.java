@@ -81,19 +81,18 @@ public abstract class GetCredentialsRequest {
       while (reader.hasNext()) {
         String name = reader.nextName();
         switch (name) {
-          case "uri":
+          case "uri" -> {
             if (reader.peek() != JsonToken.STRING) {
               throw new JsonSyntaxException(
                   String.format(
                       Locale.US, "Expected value of 'url' to be a string, got %s", reader.peek()));
             }
             request.setUri(URI.create(reader.nextString()));
-            break;
-
-          default:
-            // We intentionally ignore unknown keys to achieve forward compatibility with requests
-            // coming from newer tools.
-            reader.skipValue();
+          }
+          default ->
+              // We intentionally ignore unknown keys to achieve forward compatibility with requests
+              // coming from newer tools.
+              reader.skipValue();
         }
       }
       reader.endObject();

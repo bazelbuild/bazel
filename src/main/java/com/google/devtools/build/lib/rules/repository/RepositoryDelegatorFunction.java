@@ -21,7 +21,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
@@ -51,6 +50,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -67,8 +67,7 @@ import net.starlark.java.eval.StarlarkSemantics;
 /**
  * A {@link SkyFunction} that implements delegation to the correct repository fetcher.
  *
- * <p>
- * Each repository in the WORKSPACE file is represented by a {@link SkyValue} that is computed by
+ * <p>Each repository in the WORKSPACE file is represented by a {@link SkyValue} that is computed by
  * this function.
  */
 public final class RepositoryDelegatorFunction implements SkyFunction {
@@ -129,20 +128,31 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws InterruptedException, RepositoryFunctionException {
+    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
+    if (starlarkSemantics == null) {
+      return null;
+    }
+
     RepositoryName repositoryName = (RepositoryName) skyKey.argument();
     if (!repositoryName.isVisible()) {
+      String workspaceDeprecationMsg =
+          externalPackageHelper.getWorkspaceDeprecationErrorMessage(
+              env,
+              starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_WORKSPACE),
+              repositoryName.isOwnerRepoMainRepo());
+      if (env.valuesMissing()) {
+        return null;
+      }
       return new NoRepositoryDirectoryValue(
           String.format(
-              "No repository visible as '@%s' from %s",
-              repositoryName.getName(), repositoryName.getOwnerRepoDisplayString()));
+              "No repository visible as '@%s' from %s%s",
+              repositoryName.getName(),
+              repositoryName.getOwnerRepoDisplayString(),
+              workspaceDeprecationMsg));
     }
 
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.REPOSITORY_FETCH, repositoryName.toString())) {
-      StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
-      if (starlarkSemantics == null) {
-        return null;
-      }
       Path repoRoot =
           RepositoryFunction.getExternalRepositoryDirectory(directories)
               .getRelative(repositoryName.getName());
@@ -218,18 +228,21 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         // repository as valid even though it is in an inconsistent state. Clear the marker file and
         // only recreate it after fetching is done to prevent this scenario.
         DigestWriter.clearMarkerFile(directories, repositoryName);
-        RepositoryDirectoryValue.Builder builder =
-            fetchRepository(
-                skyKey, repoRoot, env, digestWriter.getRecordedInputValues(), handler, rule);
-        if (builder == null) {
+        RepositoryFunction.FetchResult result =
+            fetchRepository(skyKey, repoRoot, env, handler, rule);
+        if (result == null) {
           return null;
         }
         // No new Skyframe dependencies must be added between calling the repository implementation
         // and writing the marker file because if they aren't computed, it would cause a Skyframe
         // restart thus calling the possibly very slow (networking, decompression...) fetch()
         // operation again. So we write the marker file here immediately.
-        byte[] digest = digestWriter.writeMarkerFile();
-        return builder.setDigest(digest).setExcludeFromVendoring(excludeRepoFromVendoring).build();
+        byte[] digest = digestWriter.writeMarkerFile(result.recordedInputValues());
+        return result
+            .repoBuilder()
+            .setDigest(digest)
+            .setExcludeFromVendoring(excludeRepoFromVendoring)
+            .build();
       }
 
       if (!repoRoot.exists()) {
@@ -419,13 +432,8 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   }
 
   @Nullable
-  private RepositoryDirectoryValue.Builder fetchRepository(
-      SkyKey skyKey,
-      Path repoRoot,
-      Environment env,
-      Map<RepoRecordedInput, String> recordedInputValues,
-      RepositoryFunction handler,
-      Rule rule)
+  private RepositoryFunction.FetchResult fetchRepository(
+      SkyKey skyKey, Path repoRoot, Environment env, RepositoryFunction handler, Rule rule)
       throws InterruptedException, RepositoryFunctionException {
 
     handler.setupRepoRootBeforeFetching(repoRoot);
@@ -433,9 +441,9 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     RepositoryName repoName = (RepositoryName) skyKey.argument();
     env.getListener().post(RepositoryFetchProgress.ongoing(repoName, "starting"));
 
-    RepositoryDirectoryValue.Builder repoBuilder;
+    RepositoryFunction.FetchResult result;
     try {
-      repoBuilder = handler.fetch(rule, repoRoot, directories, env, recordedInputValues, skyKey);
+      result = handler.fetch(rule, repoRoot, directories, env, skyKey);
     } catch (RepositoryFunctionException e) {
       // Upon an exceptional exit, the fetching of that repository is over as well.
       env.getListener().post(RepositoryFetchProgress.finished(repoName));
@@ -460,7 +468,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       return null;
     }
     env.getListener().post(RepositoryFetchProgress.finished(repoName));
-    return Preconditions.checkNotNull(repoBuilder);
+    return Preconditions.checkNotNull(result);
   }
 
   /**
@@ -486,7 +494,6 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       PathFragment sourcePath, Environment env, Path repoRoot, RepositoryName repoName)
       throws RepositoryFunctionException, InterruptedException {
     DigestWriter.clearMarkerFile(directories, repoName);
-    RepositoryFunction.setupRepoRoot(repoRoot);
     RepositoryDirectoryValue.Builder directoryValue =
         symlinkRepoRoot(
             directories,
@@ -509,8 +516,15 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       String userDefinedPath,
       Environment env)
       throws RepositoryFunctionException, InterruptedException {
+    if (source.isDirectory(Symlinks.NOFOLLOW)) {
+      try {
+        source.deleteTree();
+      } catch (IOException e) {
+        throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+      }
+    }
     try {
-      source.createSymbolicLink(destination);
+      FileSystemUtils.ensureSymbolicLink(source, destination);
     } catch (IOException e) {
       throw new RepositoryFunctionException(
           new IOException(
@@ -589,11 +603,11 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     for (int i = 0; i < str.length(); i++) {
       char c = str.charAt(i);
       if (escaped) {
-        if (c == 'n') {  // n means new line
+        if (c == 'n') { // n means new line
           result.append("\n");
         } else if (c == 's') { // s means space
           result.append(" ");
-        } else {  // Any other escaped characters are just un-escaped
+        } else { // Any other escaped characters are just un-escaped
           result.append(c);
         }
         escaped = false;
@@ -607,11 +621,13 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   }
 
   private static class DigestWriter {
+    // Input value map to force repo invalidation.
+    private static final ImmutableMap<RepoRecordedInput, String> NOT_UP_TO_DATE =
+        ImmutableMap.of(RepoRecordedInput.NEVER_UP_TO_DATE, "");
+
     private final BlazeDirectories directories;
     private final Path markerPath;
     private final Rule rule;
-    // not just Map<> to signal that iteration order must be deterministic
-    private final TreeMap<RepoRecordedInput, String> recordedInputValues;
     private final String ruleKey;
 
     DigestWriter(
@@ -623,13 +639,14 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       ruleKey = computeRuleKey(rule, starlarkSemantics);
       markerPath = getMarkerPath(directories, repositoryName);
       this.rule = rule;
-      recordedInputValues = Maps.newTreeMap();
     }
 
-    byte[] writeMarkerFile() throws RepositoryFunctionException {
+    byte[] writeMarkerFile(Map<? extends RepoRecordedInput, String> recordedInputValues)
+        throws RepositoryFunctionException {
       StringBuilder builder = new StringBuilder();
       builder.append(ruleKey).append("\n");
-      for (Map.Entry<RepoRecordedInput, String> recordedInput : recordedInputValues.entrySet()) {
+      for (Map.Entry<RepoRecordedInput, String> recordedInput :
+          new TreeMap<RepoRecordedInput, String>(recordedInputValues).entrySet()) {
         String key = recordedInput.getKey().toString();
         String value = recordedInput.getValue();
         builder.append(escape(key)).append(" ").append(escape(value)).append("\n");
@@ -668,57 +685,58 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         return null;
       }
 
-      Map<RepoRecordedInput, String> recordedInputValues = new TreeMap<>();
-      String content;
       try {
-        content = FileSystemUtils.readContent(markerPath, UTF_8);
-        String markerRuleKey = readMarkerFile(content, recordedInputValues);
-        boolean verified = false;
-        if (Preconditions.checkNotNull(ruleKey).equals(markerRuleKey)) {
-          verified = handler.verifyRecordedInputs(rule, directories, recordedInputValues, env);
-          if (env.valuesMissing()) {
-            return null;
-          }
-        }
-
-        if (verified) {
-          return new Fingerprint().addString(content).digestAndReset();
-        } else {
+        String content = FileSystemUtils.readContent(markerPath, UTF_8);
+        Map<RepoRecordedInput, String> recordedInputValues =
+            readMarkerFile(content, Preconditions.checkNotNull(ruleKey));
+        if (!handler.verifyRecordedInputs(rule, directories, recordedInputValues, env)) {
           return null;
         }
+        if (env.valuesMissing()) {
+          return null;
+        }
+        return new Fingerprint().addString(content).digestAndReset();
       } catch (IOException e) {
         throw new RepositoryFunctionException(e, Transience.TRANSIENT);
       }
     }
 
-    Map<RepoRecordedInput, String> getRecordedInputValues() {
-      return recordedInputValues;
-    }
-
     @Nullable
-    private static String readMarkerFile(
-        String content, Map<RepoRecordedInput, String> recordedInputValues) {
-      String markerRuleKey = null;
+    private static Map<RepoRecordedInput, String> readMarkerFile(
+        String content, String expectedRuleKey) {
       Iterable<String> lines = Splitter.on('\n').split(content);
 
-      boolean firstLine = true;
+      @Nullable Map<RepoRecordedInput, String> recordedInputValues = null;
+      boolean firstLineVerified = false;
       for (String line : lines) {
-        if (firstLine) {
-          markerRuleKey = line;
-          firstLine = false;
+        if (line.isEmpty()) {
+          continue;
+        }
+        if (!firstLineVerified) {
+          if (!line.equals(expectedRuleKey)) {
+            // Break early, need to reload anyway. This also detects marker file version changes
+            // so that unknown formats are not parsed.
+            return NOT_UP_TO_DATE;
+          }
+          firstLineVerified = true;
+          recordedInputValues = new TreeMap<>();
         } else {
           int sChar = line.indexOf(' ');
           if (sChar > 0) {
             RepoRecordedInput input = RepoRecordedInput.parse(unescape(line.substring(0, sChar)));
-            if (input == null) {
-              // ignore invalid entries.
+            if (!input.equals(RepoRecordedInput.NEVER_UP_TO_DATE)) {
+              recordedInputValues.put(input, unescape(line.substring(sChar + 1)));
               continue;
             }
-            recordedInputValues.put(input, unescape(line.substring(sChar + 1)));
           }
+          // On parse failure, just forget everything else and mark the whole input out of date.
+          return NOT_UP_TO_DATE;
         }
       }
-      return markerRuleKey;
+      if (!firstLineVerified) {
+        return NOT_UP_TO_DATE;
+      }
+      return Preconditions.checkNotNull(recordedInputValues);
     }
 
     private String computeRuleKey(Rule rule, StarlarkSemantics starlarkSemantics) {

@@ -14,12 +14,9 @@
 
 package com.google.devtools.build.lib.rules.proto;
 
-import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -39,16 +36,11 @@ import net.starlark.java.eval.Sequence;
 public final class ProtoInfo {
   public static final ProtoInfoProvider PROVIDER = new ProtoInfoProvider();
 
-  public StarlarkProviderWrapper<ProtoInfo> getProvider() {
-    return PROVIDER;
-  }
-
   /** Provider class for {@link ProtoInfo} objects. */
   public static class ProtoInfoProvider extends StarlarkProviderWrapper<ProtoInfo> {
+
     public ProtoInfoProvider() {
-      super(
-          keyForBuiltins(Label.parseCanonicalUnchecked("@_builtins//:common/proto/proto_info.bzl")),
-          "ProtoInfo");
+      super(ProtoConstants.PROTO_INFO_KEY, "ProtoInfo");
     }
 
     @Override

@@ -86,9 +86,17 @@ public interface OsPathPolicy {
 
   boolean isCaseSensitive();
 
+  /**
+   * Modifies the given string to be suitable for execution on the OS represented by this policy.
+   */
+  String postProcessPathStringForExecution(String callablePathString);
+
+  static OsPathPolicy of(OS os) {
+    return os == OS.WINDOWS ? WindowsOsPathPolicy.INSTANCE : UnixOsPathPolicy.INSTANCE;
+  }
+
   // We *should* use a case-insensitive policy for OS.DARWIN, but we currently don't handle this.
-  OsPathPolicy HOST_POLICY =
-      OS.getCurrent() == OS.WINDOWS ? WindowsOsPathPolicy.INSTANCE : UnixOsPathPolicy.INSTANCE;
+  OsPathPolicy HOST_POLICY = of(OS.getCurrent());
 
   static OsPathPolicy getFilePathOs() {
     return HOST_POLICY;

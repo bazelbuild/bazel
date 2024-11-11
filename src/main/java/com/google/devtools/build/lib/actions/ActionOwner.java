@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import static java.util.stream.Collectors.joining;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -97,6 +99,27 @@ public abstract class ActionOwner {
         executionPlatform,
         aspectDescriptors,
         execProperties);
+  }
+
+  @Nullable
+  public String getDescription() {
+    Label label = getLabel();
+    if (label == null) {
+      return null;
+    }
+    String targetDescription = "target " + label;
+
+    ImmutableList<AspectDescriptor> aspectDescriptors = getAspectDescriptors();
+    if (aspectDescriptors.isEmpty()) {
+      return targetDescription;
+    }
+
+    String aspectNames =
+        aspectDescriptors.stream().map(AspectDescriptor::getDescription).collect(joining(", "));
+
+    return String.format(
+        "aspect%s [%s] on %s",
+        aspectDescriptors.size() >= 1 ? "s" : "", aspectNames, targetDescription);
   }
 
   /**

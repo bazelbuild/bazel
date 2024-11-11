@@ -11,6 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#include "src/main/cpp/util/file.h"
+
 #include <stdio.h>
 #include <string.h>
 
@@ -18,9 +20,8 @@
 #include <map>
 #include <memory>  // unique_ptr
 #include <thread>  // NOLINT (to silence Google-internal linter)
-#include <vector>
 
-#include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/path.h"
 #include "src/main/cpp/util/path_platform.h"
 #include "src/test/cpp/util/test_util.h"
@@ -156,32 +157,31 @@ TEST(FileTest, TestMtimeHandling) {
   ASSERT_NE(tempdir_cstr[0], 0);
   Path tempdir(tempdir_cstr);
 
-  std::unique_ptr<IFileMtime> mtime(CreateFileMtime());
   // Assert that a directory is always untampered with. (We do
   // not care about directories' mtimes.)
-  ASSERT_TRUE(mtime->IsUntampered(tempdir));
+  ASSERT_TRUE(IsUntampered(tempdir));
   // Create a new file, assert its mtime is not in the future.
   Path file = tempdir.GetRelative("foo.txt");
   ASSERT_TRUE(WriteFile("hello", 5, file));
-  ASSERT_FALSE(mtime->IsUntampered(file));
+  ASSERT_FALSE(IsUntampered(file));
   // Set the file's mtime to the future, assert that it's so.
-  ASSERT_TRUE(mtime->SetToDistantFuture(file));
-  ASSERT_TRUE(mtime->IsUntampered(file));
+  ASSERT_TRUE(SetMtimeToDistantFuture(file));
+  ASSERT_TRUE(IsUntampered(file));
   // Overwrite the file, resetting its mtime, assert that
   // IsUntampered notices.
   ASSERT_TRUE(WriteFile("world", 5, file));
-  ASSERT_FALSE(mtime->IsUntampered(file));
+  ASSERT_FALSE(IsUntampered(file));
   // Set it to the future again so we can reset it using SetToNow.
-  ASSERT_TRUE(mtime->SetToDistantFuture(file));
-  ASSERT_TRUE(mtime->IsUntampered(file));
+  ASSERT_TRUE(SetMtimeToDistantFuture(file));
+  ASSERT_TRUE(IsUntampered(file));
   // Assert that SetToNow resets the timestamp.
-  ASSERT_TRUE(mtime->SetToNow(file));
-  ASSERT_FALSE(mtime->IsUntampered(file));
+  ASSERT_TRUE(SetMtimeToNow(file));
+  ASSERT_FALSE(IsUntampered(file));
   // Delete the file and assert that we can no longer set or query its mtime.
   ASSERT_TRUE(UnlinkPath(file));
-  ASSERT_FALSE(mtime->SetToNow(file));
-  ASSERT_FALSE(mtime->SetToDistantFuture(file));
-  ASSERT_FALSE(mtime->IsUntampered(file));
+  ASSERT_FALSE(SetMtimeToNow(file));
+  ASSERT_FALSE(SetMtimeToDistantFuture(file));
+  ASSERT_FALSE(IsUntampered(file));
 }
 
 TEST(FileTest, TestCreateTempDir) {

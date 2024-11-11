@@ -28,7 +28,7 @@ test_pkg_tar() {
   rm -rf main
   mkdir main
   cd main
-  create_workspace_with_default_repos WORKSPACE
+  setup_module_dot_bazel
   echo Hello World > foo.txt
   echo Hello World, again > bar.txt
   cat > BUILD <<'EOF'
@@ -51,7 +51,7 @@ test_pkg_tar_quoting() {
   rm -rf main out
   mkdir main
   cd main
-  create_workspace_with_default_repos WORKSPACE
+  setup_module_dot_bazel
   mkdir data
   echo 'with equal' > data/'foo=bar'
   echo 'like an option' > data/--foo
@@ -85,8 +85,8 @@ EOF
   EXTREPODIR=`pwd`
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   urls=["file://${EXTREPODIR}/ext.zip"],
@@ -128,8 +128,8 @@ EOF
 
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
+  cat > $(setup_module_dot_bazel) <<EOF
+new_git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
 new_git_repository(
   name="ext",
   remote="file://${EXTREPODIR}/extgit/.git",

@@ -259,6 +259,15 @@ public class PythonOptions extends FragmentOptions {
               + " more information and migration instructions.")
   public boolean disallowNativeRules;
 
+  @Option(
+      name = "experimental_py_binaries_include_label",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "py_binary targets include their label even when stamping is disabled.")
+  public boolean includeLabelInPyBinariesLinkstamp;
+
   // Helper field to store hostForcePython in exec configuration
   private PythonVersion defaultPythonVersion = null;
 

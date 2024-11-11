@@ -158,4 +158,21 @@ public class RegexFilterTest {
                 .collect(toImmutableList()))
         .runTests();
   }
+
+  @Test
+  public void initialDoubleDash_error() {
+    OptionsParsingException e =
+        assertThrows(OptionsParsingException.class, () -> createFilter("--compilation_mode"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "Failed to build filter: value looks like another flag (--compilation_mode). Either"
+                + " escape the value with \"\\-\\-\", or pass an explicit value to the flag.");
+  }
+
+  @Test
+  public void initialDoubleDash_escaped() throws OptionsParsingException {
+    createFilter("\\-\\-compilation_mode");
+    assertIncluded("--compilation_mode");
+  }
 }

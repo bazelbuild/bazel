@@ -17,6 +17,10 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.exec.Protos.SpawnExec;
+import com.google.devtools.build.lib.exec.SpawnLogReconstructor;
+import com.google.devtools.build.lib.util.io.MessageInputStream;
+import com.google.devtools.build.lib.util.io.MessageInputStreamWrapper.BinaryInputStreamWrapper;
+import com.google.devtools.build.lib.util.io.MessageInputStreamWrapper.JsonInputStreamWrapper;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.BufferedWriter;
 import java.io.FileInputStream;
@@ -32,42 +36,78 @@ import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Queue;
+import javax.annotation.Nullable;
 
-/**
- * A tool to inspect and parse the Bazel execution log.
- */
-final class ExecLogParser {
+/** A tool to inspect and parse the Bazel execution log. */
+public final class ExecLogParser {
+  private ExecLogParser() {}
 
-  static final String DELIMITER = "\n---------------------------------------------------------\n";
+  private static final String DELIMITER =
+      "\n---------------------------------------------------------\n";
 
-  @VisibleForTesting
-  interface Parser {
-    SpawnExec getNext() throws IOException;
+  private static byte[] readFirstFourBytes(String path) throws IOException {
+    try (InputStream in = new FileInputStream(path)) {
+      return in.readNBytes(4);
+    }
   }
 
   @VisibleForTesting
-  static class FilteringLogParser implements Parser {
-    final InputStream in;
+  static MessageInputStream<SpawnExec> getMessageInputStream(String path) throws IOException {
+    byte[] b = readFirstFourBytes(path);
+    if (b.length == 4
+        && b[0] == 0x28
+        && b[1] == (byte) 0xb5
+        && b[2] == 0x2f
+        && b[3] == (byte) 0xfd) {
+      // Looks like a compact file (zstd-compressed).
+      // This is definitely not a JSON file (the first byte is not '{') and definitely not a
+      // binary file (the first byte would indicate the size of the first message, and the
+      // second byte would indicate an invalid wire type).
+      return new SpawnLogReconstructor(new FileInputStream(path));
+    }
+    if (b.length >= 2 && b[0] == '{' && b[1] == '\n') {
+      // Looks like a JSON file.
+      // This is definitely not a compact file (the first byte is not 0x28) and definitely not a
+      // binary file (the first byte would indicate the size of the first message, and the
+      // second byte would indicate a field with number 1 and wire type I32, which doesn't match
+      // the proto definition).
+      return new JsonInputStreamWrapper<>(
+          new FileInputStream(path), SpawnExec.getDefaultInstance());
+    }
+    // Otherwise assume it's a binary file.
+    return new BinaryInputStreamWrapper<>(
+        new FileInputStream(path), SpawnExec.getDefaultInstance());
+  }
+
+  @VisibleForTesting
+  static class FilteredStream implements MessageInputStream<SpawnExec> {
+    final MessageInputStream<SpawnExec> in;
     final String restrictToRunner;
 
-    FilteringLogParser(InputStream in, String restrictToRunner) {
+    FilteredStream(MessageInputStream<SpawnExec> in, String restrictToRunner) {
       this.in = in;
       this.restrictToRunner = restrictToRunner;
     }
 
     @Override
-    public SpawnExec getNext() throws IOException {
+    @Nullable
+    public SpawnExec read() throws IOException {
       SpawnExec ex;
-      // Find the next record whose runner matches
-      while ((ex = SpawnExec.parseDelimitedFrom(in)) != null) {
+      while ((ex = in.read()) != null) {
         if (restrictToRunner == null || restrictToRunner.equals(ex.getRunner())) {
           return ex;
         }
       }
       return null;
     }
+
+    @Override
+    public void close() throws IOException {
+      in.close();
+    }
   }
 
+  @Nullable
   static String getFirstOutput(SpawnExec e) {
     if (e.getListedOutputsCount() > 0) {
       return e.getListedOutputs(0);
@@ -76,7 +116,7 @@ final class ExecLogParser {
   }
 
   @VisibleForTesting
-  static class ReorderingParser implements Parser {
+  static class OrderedStream implements MessageInputStream<SpawnExec> {
 
     public static class Golden {
       // A map of positions of actions in the first file.
@@ -116,11 +156,13 @@ final class ExecLogParser {
       }
     }
 
+    private final MessageInputStream<SpawnExec> in;
     private final Golden golden;
 
-    ReorderingParser(Golden golden, Parser input) throws IOException {
+    OrderedStream(Golden golden, MessageInputStream<SpawnExec> in) throws IOException {
+      this.in = in;
       this.golden = golden;
-      processInputFile(input);
+      processInputFile();
     }
 
     // actions from input that appear in golden, indexed by their position in the golden.
@@ -128,12 +170,12 @@ final class ExecLogParser {
     // actions in input that are not in the golden, in order received.
     Queue<SpawnExec> uniqueActions;
 
-    private void processInputFile(Parser input) throws IOException {
+    private void processInputFile() throws IOException {
       sameActions = new PriorityQueue<>((e1, e2) -> (e1.position - e2.position));
       uniqueActions = new ArrayDeque<>();
 
       SpawnExec ex;
-      while ((ex = input.getNext()) != null) {
+      while ((ex = in.read()) != null) {
         int position = golden.positionFor(ex);
         if (position >= 0) {
           sameActions.add(new Element(position, ex));
@@ -144,20 +186,26 @@ final class ExecLogParser {
     }
 
     @Override
-    public SpawnExec getNext() {
+    public SpawnExec read() {
       if (sameActions.isEmpty()) {
         return uniqueActions.poll();
       }
       return sameActions.remove().element;
     }
+
+    @Override
+    public void close() throws IOException {
+      in.close();
+    }
   }
 
-  public static void output(Parser p, OutputStream outStream, ReorderingParser.Golden golden)
+  public static void output(
+      MessageInputStream<SpawnExec> in, OutputStream outStream, OrderedStream.Golden golden)
       throws IOException {
     PrintWriter out =
         new PrintWriter(new BufferedWriter(new OutputStreamWriter(outStream, UTF_8)), true);
     SpawnExec ex;
-    while ((ex = p.getNext()) != null) {
+    while ((ex = in.read()) != null) {
       out.println(ex);
       out.println(DELIMITER);
       if (golden != null) {
@@ -211,13 +259,13 @@ final class ExecLogParser {
       }
     }
 
-    ReorderingParser.Golden golden = null;
+    OrderedStream.Golden golden = null;
     if (secondPath != null) {
-      golden = new ReorderingParser.Golden();
+      golden = new OrderedStream.Golden();
     }
 
-    try (InputStream input = new FileInputStream(logPath)) {
-      Parser parser = new FilteringLogParser(input, options.restrictToRunner);
+    try (MessageInputStream<SpawnExec> input = getMessageInputStream(logPath)) {
+      FilteredStream parser = new FilteredStream(input, options.restrictToRunner);
 
       if (output1 == null) {
         output(parser, System.out, golden);
@@ -229,12 +277,12 @@ final class ExecLogParser {
     }
 
     if (secondPath != null) {
-      try (InputStream file2 = new FileInputStream(secondPath);
+      try (MessageInputStream<SpawnExec> file2 = getMessageInputStream(secondPath);
           OutputStream output = new FileOutputStream(output2)) {
-        Parser parser = new FilteringLogParser(file2, options.restrictToRunner);
+        MessageInputStream<SpawnExec> parser = new FilteredStream(file2, options.restrictToRunner);
         // ReorderingParser will read the whole golden on initialization,
         // so it is safe to close after.
-        parser = new ReorderingParser(golden, parser);
+        parser = new OrderedStream(golden, parser);
         output(parser, output, null);
       }
     }

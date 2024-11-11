@@ -20,6 +20,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -49,7 +50,7 @@ public class RecursivePkgFunctionTest extends BuildViewTestCase {
       Path root, PathFragment rootRelativePath, ImmutableSet<PathFragment> excludedPaths) {
     RootedPath rootedPath = RootedPath.toRootedPath(Root.fromPath(root), rootRelativePath);
     return RecursivePkgValue.key(
-        RepositoryName.MAIN, rootedPath, excludedPaths);
+        RepositoryName.MAIN, rootedPath, IgnoredSubdirectories.of(excludedPaths));
   }
 
   private RecursivePkgValue buildRecursivePkgValue(Path root, PathFragment rootRelativePath)

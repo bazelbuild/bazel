@@ -25,7 +25,7 @@ function set_up() {
 
   # Set up empty remote repo.
   mkdir -p $REMOTE
-  touch $REMOTE/WORKSPACE
+  touch $REMOTE/REPO.bazel
   cat > $REMOTE/BUILD <<EOF
 genrule(
     name = "get-input",
@@ -37,7 +37,8 @@ genrule(
 EOF
 
   # Set up local repo that uses $REMOTE as an external repo.
-  cat > $LOCAL/WORKSPACE <<EOF
+  cat > $LOCAL/MODULE.bazel <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "a",
     path = "$REMOTE",
@@ -142,14 +143,14 @@ genrule(
 )
 EOF
   bazel build @a//b/c:echo-d &> $TEST_log || fail "Build failed"
-  assert_contains "bazel-out/.*-fastbuild/.*/external/a/b/c" \
-    "bazel-genfiles/external/a/b/c/d"
+  assert_contains "bazel-out/.*-fastbuild/.*/external/+_repo_rules+a/b/c" \
+    "bazel-genfiles/external/+_repo_rules+a/b/c/d"
 }
 
 function test_package_group_in_external_repos() {
   REMOTE=$TEST_TMPDIR/r
   mkdir -p $REMOTE/v $REMOTE/a v a
-  touch $REMOTE/WORKSPACE
+  touch $REMOTE/REPO.bazel
 
   echo 'filegroup(name="rv", srcs=["//:fg"])' > $REMOTE/v/BUILD
   echo 'filegroup(name="ra", srcs=["//:fg"])' > $REMOTE/a/BUILD
@@ -160,14 +161,14 @@ package_group(name="pg", packages=["//v"])
 filegroup(name="fg", visibility=[":pg"])
 EOF
 
-  echo "local_repository(name='r', path='$REMOTE')" > WORKSPACE
+  echo "local_repository(name='r', path='$REMOTE')" >> MODULE.bazel
   bazel build @r//v:rv >& $TEST_log || fail "Build failed"
   bazel build @r//a:ra >& $TEST_log && fail "Build succeeded"
-  expect_log "target '@@r//:fg' is not visible"
+  expect_log "target '@@+_repo_rules+r//:fg' is not visible"
   bazel build //a:ma >& $TEST_log && fail "Build succeeded"
-  expect_log "target '@@r//:fg' is not visible"
+  expect_log "target '@@+_repo_rules+r//:fg' is not visible"
   bazel build //v:mv >& $TEST_log && fail "Build succeeded"
-  expect_log "target '@@r//:fg' is not visible"
+  expect_log "target '@@+_repo_rules+r//:fg' is not visible"
 
 }
 
@@ -176,7 +177,7 @@ function test_refs_btwn_repos() {
   REMOTE1=$TEST_TMPDIR/remote1
   REMOTE2=$TEST_TMPDIR/remote2
   mkdir -p $REMOTE1 $REMOTE2
-  touch $REMOTE1/WORKSPACE $REMOTE2/WORKSPACE
+  touch $REMOTE1/REPO.bazel $REMOTE2/REPO.bazel
   cat > $REMOTE1/input <<EOF
 1.0
 EOF
@@ -191,7 +192,7 @@ genrule(
     outs = ["x.out"],
 )
 EOF
-  cat > WORKSPACE <<EOF
+  cat >> MODULE.bazel <<EOF
 local_repository(
     name = "remote1",
     path = "$REMOTE1",
@@ -203,13 +204,13 @@ local_repository(
 EOF
 
   bazel build @remote2//:x &> $TEST_log || fail "Build failed"
-  assert_contains 1.0 bazel-genfiles/external/remote2/x.out
+  assert_contains 1.0 bazel-genfiles/external/+_repo_rules+remote2/x.out
 }
 
 function test_visibility_attributes_in_external_repos() {
   REMOTE=$TEST_TMPDIR/r
   mkdir -p $REMOTE/v $REMOTE/r
-  touch $REMOTE/WORKSPACE
+  touch $REMOTE/REPO.bazel
 
   cat > $REMOTE/r/BUILD <<EOF
 package(default_visibility=["//v:v"])
@@ -225,7 +226,7 @@ EOF
 filegroup(name="fg", srcs=["//r:fg1", "//r:fg2"])
 EOF
 
-  cat > WORKSPACE <<EOF
+  cat >> MODULE.bazel <<EOF
 local_repository(name = "r", path = "$REMOTE")
 EOF
 
@@ -235,14 +236,14 @@ EOF
 
   bazel build @r//:fg || fail "Build failed"
   bazel build //:fg >& $TEST_log && fail "Build succeeded"
-  expect_log "target '@@r//r:fg1' is not visible"
+  expect_log "target '@@+_repo_rules+r//r:fg1' is not visible"
 
 }
 
 function test_select_in_external_repo() {
   REMOTE=$TEST_TMPDIR/r
   mkdir -p $REMOTE/a $REMOTE/c d
-  touch $REMOTE/WORKSPACE
+  touch $REMOTE/REPO.bazel
 
   cat > $REMOTE/a/BUILD <<'EOF'
 genrule(
@@ -265,7 +266,7 @@ package(default_visibility=["//visibility:public"])
 config_setting(name = "one", values = { "define": "ARG=one" })
 EOF
 
-  cat > WORKSPACE <<EOF
+  cat >> MODULE.bazel <<EOF
 local_repository(name="r", path="$REMOTE")
 EOF
 
@@ -280,15 +281,15 @@ config_setting(name = "four", values = { "define": "ARG=four" })
 EOF
 
   bazel build @r//a:gr || fail "build failed"
-  assert_contains "default" bazel-genfiles/external/r/a/gro
+  assert_contains "default" bazel-genfiles/external/+_repo_rules+r/a/gro
   bazel build @r//a:gr --define=ARG=one|| fail "build failed"
-  assert_contains "one" bazel-genfiles/external/r/a/gro
+  assert_contains "one" bazel-genfiles/external/+_repo_rules+r/a/gro
   bazel build @r//a:gr --define=ARG=two || fail "build failed"
-  assert_contains "two" bazel-genfiles/external/r/a/gro
+  assert_contains "two" bazel-genfiles/external/+_repo_rules+r/a/gro
   bazel build @r//a:gr --define=ARG=three || fail "build failed"
-  assert_contains "three" bazel-genfiles/external/r/a/gro
+  assert_contains "three" bazel-genfiles/external/+_repo_rules+r/a/gro
   bazel build @r//a:gr --define=ARG=four || fail "build failed"
-  assert_contains "four" bazel-genfiles/external/r/a/gro
+  assert_contains "four" bazel-genfiles/external/+_repo_rules+r/a/gro
 
 }
 
@@ -297,7 +298,8 @@ function top_level_dir_changes_helper() {
   mkdir -p r/subdir m
   touch r/one r/subdir/two
 
-  cat > m/WORKSPACE <<'EOF'
+  cat > $(setup_module_dot_bazel "m/MODULE.bazel") <<'EOF'
+new_local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "new_local_repository")
 new_local_repository(
     name = "r",
     path = "../r",
@@ -310,18 +312,18 @@ genrule(
 )""",
 )
 EOF
-  write_default_lockfile "m/MODULE.bazel.lock"
+
   cd m
   bazel "$batch_flag" build @r//:fg &> $TEST_log || \
     fail "Expected build to succeed"
   touch ../r/three
   bazel "$batch_flag" build @r//:fg &> $TEST_log || \
     fail "Expected build to succeed"
-  assert_contains "external/r/three" bazel-genfiles/external/r/fg.out
+  assert_contains "external/+_repo_rules+r/three" bazel-genfiles/external/+_repo_rules+r/fg.out
   touch ../r/subdir/four
   bazel "$batch_flag" build @r//:fg &> $TEST_log || \
     fail "Expected build to succeed"
-  assert_contains "external/r/subdir/four" bazel-genfiles/external/r/fg.out
+  assert_contains "external/+_repo_rules+r/subdir/four" bazel-genfiles/external/+_repo_rules+r/fg.out
 }
 
 function test_top_level_dir_changes_batch() {

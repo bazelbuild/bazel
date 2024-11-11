@@ -13,10 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.configurationId;
+import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.ProjectFileFeature.ANALYSIS_CACHING;
+import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.ProjectFileFeature.SCL_CONFIG;
+import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.ProjectFileFeature.SKYFOCUS;
+import static com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching.Code.PROJECT_FILE_NOT_FOUND;
+import static com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode.OFF;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
+import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.BuildFailedException;
@@ -42,8 +50,8 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetPattern.Parser;
+import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -52,6 +60,7 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
@@ -60,15 +69,19 @@ import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TestAnalyzedE
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetAnalyzedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetSkippedEvent;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collection;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
@@ -82,8 +95,9 @@ public final class AnalysisPhaseRunner {
   public static AnalysisResult execute(
       CommandEnvironment env,
       BuildRequest request,
-      BuildOptions buildOptionsBeforeFlagSets,
-      TargetValidator validator)
+      TargetPatternPhaseValue targetPatternPhaseValue,
+      BuildOptions buildOptions,
+      RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider)
       throws BuildFailedException,
           InterruptedException,
           ViewCreationFailedException,
@@ -92,37 +106,6 @@ public final class AnalysisPhaseRunner {
           AbruptExitException,
           InvalidConfigurationException,
           RepositoryMappingResolutionException {
-
-    // Target pattern evaluation.
-    TargetPatternPhaseValue targetPatternPhaseValue;
-    Profiler.instance().markPhase(ProfilePhase.TARGET_PATTERN_EVAL);
-    try (SilentCloseable c = Profiler.instance().profile("evaluateTargetPatterns")) {
-      targetPatternPhaseValue = evaluateTargetPatterns(env, request, validator);
-    }
-    env.setWorkspaceName(targetPatternPhaseValue.getWorkspaceName());
-
-    BuildOptions postFlagsetsBuildOptions;
-    String sclConfig = buildOptionsBeforeFlagSets.get(CoreOptions.class).sclConfig;
-    if (sclConfig != null && !sclConfig.isEmpty()) {
-      Label projectFile =
-          BuildTool.getProjectFile(
-              targetPatternPhaseValue.getTargetLabels(),
-              env.getSkyframeExecutor(),
-              env.getReporter());
-      if (projectFile != null) {
-        postFlagsetsBuildOptions =
-            BuildTool.applySclConfigs(
-                buildOptionsBeforeFlagSets,
-                projectFile,
-                request.getBuildOptions().enforceProjectConfigs,
-                env.getSkyframeExecutor(),
-                env.getReporter());
-      } else {
-        postFlagsetsBuildOptions = buildOptionsBeforeFlagSets;
-      }
-    } else {
-      postFlagsetsBuildOptions = buildOptionsBeforeFlagSets;
-    }
 
     // Compute the heuristic instrumentation filter if needed.
     if (request.needsInstrumentationFilter()) {
@@ -137,7 +120,7 @@ public final class AnalysisPhaseRunner {
           // We're modifying the buildOptions in place, which is not ideal, but we also don't want
           // to pay the price for making a copy. Maybe reconsider later if this turns out to be a
           // problem (and the performance loss may not be a big deal).
-          postFlagsetsBuildOptions.get(CoreOptions.class).instrumentationFilter =
+          buildOptions.get(CoreOptions.class).instrumentationFilter =
               new RegexFilter.RegexFilterConverter().convert(instrumentationFilter);
         } catch (OptionsParsingException e) {
           throw new InvalidConfigurationException(Code.HEURISTIC_INSTRUMENTATION_FILTER_INVALID, e);
@@ -154,11 +137,16 @@ public final class AnalysisPhaseRunner {
 
       try (SilentCloseable c = Profiler.instance().profile("runAnalysisPhase")) {
         analysisResult =
-            runAnalysisPhase(env, request, targetPatternPhaseValue, postFlagsetsBuildOptions);
+            runAnalysisPhase(
+                env,
+                request,
+                targetPatternPhaseValue,
+                buildOptions,
+                remoteAnalysisCachingDependenciesProvider);
       }
 
       for (BlazeModule module : env.getRuntime().getBlazeModules()) {
-        module.afterAnalysis(env, request, postFlagsetsBuildOptions, analysisResult);
+        module.afterAnalysis(env, request, buildOptions, analysisResult);
       }
 
       if (request.shouldRunTests()) {
@@ -187,6 +175,107 @@ public final class AnalysisPhaseRunner {
     return analysisResult;
   }
 
+  /** A simple container for storing processed evaluation results of the PROJECT.scl file. */
+  record ProjectEvaluationResult(
+      BuildOptions buildOptions, Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher) {
+
+    public ProjectEvaluationResult {
+      checkArgument(buildOptions != null, "buildOptions cannot be null.");
+      checkArgument(activeDirectoriesMatcher != null, "activeDirectoriesMatcher cannot be null.");
+    }
+  }
+
+  enum ProjectFileFeature {
+    ANALYSIS_CACHING,
+    SCL_CONFIG,
+    SKYFOCUS;
+  }
+
+  /**
+   * Evaluates the PROJECT.scl file and set corresponding options, if required by specific feature
+   * flags (e.g. canonical configurations, remote analysis caching).
+   *
+   * <p>May have a side-effect from updating the fields in the {@link CommandEnvironment} {@code
+   * env} parameter.
+   *
+   * <p>Shared by both Skymeld and non-Skymeld analysis.
+   */
+  static ProjectEvaluationResult evaluateProjectFile(
+      BuildRequest request,
+      BuildOptions buildOptions,
+      ImmutableMap<String, String> userOptions,
+      TargetPatternPhaseValue targetPatternPhaseValue,
+      CommandEnvironment env)
+      throws LoadingFailedException, InvalidConfigurationException {
+    EnumSet<ProjectFileFeature> featureFlags = EnumSet.noneOf(ProjectFileFeature.class);
+
+    if (env.getCommand().buildPhase().executes()
+        && env.getOptions().getOptions(RemoteAnalysisCachingOptions.class).mode != OFF) {
+      // RemoteAnalysisCachingOptions is never null because it's a build command flag, and this
+      // method only runs for build commands.
+      featureFlags.add(ANALYSIS_CACHING);
+    }
+
+    if (!Strings.isNullOrEmpty(buildOptions.get(CoreOptions.class).sclConfig)
+        || request.getBuildOptions().enforceProjectConfigs) {
+      featureFlags.add(SCL_CONFIG);
+    }
+
+    if (env.getSkyframeExecutor().getSkyfocusState().enabled()) {
+      featureFlags.add(SKYFOCUS);
+    }
+
+    if (featureFlags.isEmpty()) {
+      // All feature flags disabled.
+      return new ProjectEvaluationResult(buildOptions, Optional.empty());
+    }
+
+    Label projectFile =
+        BuildTool.getProjectFile(
+            targetPatternPhaseValue.getTargetLabels(),
+            env.getSkyframeExecutor(),
+            env.getReporter());
+
+    if (featureFlags.contains(ANALYSIS_CACHING) && projectFile == null) {
+      // TODO: b/353233779 - consider falling back on full serialization when there is no
+      // project matcher.
+      String message =
+          "Failed to find PROJECT.scl file for: " + targetPatternPhaseValue.getTargetLabels();
+      throw new LoadingFailedException(
+          message,
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage(message)
+                  .setRemoteAnalysisCaching(
+                      RemoteAnalysisCaching.newBuilder().setCode(PROJECT_FILE_NOT_FOUND))
+                  .build()));
+    }
+
+    PathFragmentPrefixTrie projectMatcher = null;
+
+    if (featureFlags.contains(ANALYSIS_CACHING) || featureFlags.contains(SKYFOCUS)) {
+      projectMatcher =
+          projectFile == null
+              ? null // Skyfocus can work without a project directory matcher.
+              : BuildTool.getWorkingSetMatcherForSkyfocus(
+                  projectFile, env.getSkyframeExecutor(), env.getReporter());
+    }
+
+    if (featureFlags.contains(SCL_CONFIG) && projectFile != null) {
+      // Do not apply canonical configurations if the project file doesn't exist.
+      buildOptions =
+          BuildTool.applySclConfigs(
+              buildOptions,
+              userOptions,
+              projectFile,
+              request.getBuildOptions().enforceProjectConfigs,
+              env.getSkyframeExecutor(),
+              env.getReporter());
+    }
+
+    return new ProjectEvaluationResult(buildOptions, Optional.ofNullable(projectMatcher));
+  }
+
   static void postAbortedEventsForSkippedTargets(
       CommandEnvironment env, ImmutableSet<ConfiguredTarget> targetsToSkip) {
     for (ConfiguredTarget target : targetsToSkip) {
@@ -204,28 +293,6 @@ public final class AnalysisPhaseRunner {
     }
   }
 
-  private static TargetPatternPhaseValue evaluateTargetPatterns(
-      CommandEnvironment env, final BuildRequest request, final TargetValidator validator)
-      throws LoadingFailedException, TargetParsingException, InterruptedException {
-    boolean keepGoing = request.getKeepGoing();
-    TargetPatternPhaseValue result =
-        env.getSkyframeExecutor()
-            .loadTargetPatternsWithFilters(
-                env.getReporter(),
-                request.getTargets(),
-                env.getRelativeWorkingDirectory(),
-                request.getLoadingOptions(),
-                request.getLoadingPhaseThreadCount(),
-                keepGoing,
-                request.shouldRunTests());
-    if (validator != null) {
-      Collection<Target> targets =
-          result.getTargets(env.getReporter(), env.getSkyframeExecutor().getPackageManager());
-      validator.validateTargets(targets, keepGoing);
-    }
-    return result;
-  }
-
   /**
    * Performs the initial phases 0-2 of the build: Setup, Loading and Analysis.
    *
@@ -240,9 +307,12 @@ public final class AnalysisPhaseRunner {
       CommandEnvironment env,
       BuildRequest request,
       TargetPatternPhaseValue loadingResult,
-      BuildOptions targetOptions)
-      throws InterruptedException, InvalidConfigurationException,
-          RepositoryMappingResolutionException, ViewCreationFailedException {
+      BuildOptions targetOptions,
+      RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider)
+      throws InterruptedException,
+          InvalidConfigurationException,
+          RepositoryMappingResolutionException,
+          ViewCreationFailedException {
     Stopwatch timer = Stopwatch.createStarted();
     env.getReporter().handle(Event.progress("Loading complete.  Analyzing..."));
 
@@ -285,7 +355,8 @@ public final class AnalysisPhaseRunner {
               /* executionSetupCallback= */ null,
               /* buildConfigurationsCreatedCallback= */ null,
               /* buildDriverKeyTestContext= */ null,
-              env.getAdditionalConfigurationChangeEvent());
+              env.getAdditionalConfigurationChangeEvent(),
+              remoteAnalysisCachingDependenciesProvider);
     } catch (BuildFailedException | TestExecException | AbruptExitException unexpected) {
       throw new IllegalStateException("Unexpected execution exception type: ", unexpected);
     }
@@ -297,6 +368,7 @@ public final class AnalysisPhaseRunner {
                 analysisResult.getTargetsToBuild(),
                 view.getEvaluatedCounts(),
                 view.getEvaluatedActionsCounts(),
+                view.getEvaluatedActionsCountsByMnemonic(),
                 timer.stop().elapsed(TimeUnit.MILLISECONDS),
                 view.getAndClearPkgManagerStatistics(),
                 env.getSkyframeExecutor().wasAnalysisCacheInvalidatedAndResetBit()));

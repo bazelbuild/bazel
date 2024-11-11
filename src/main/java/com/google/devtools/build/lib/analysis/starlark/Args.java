@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -183,10 +182,7 @@ public abstract class Args implements CommandLineArgsApi {
 
     @Override
     public CommandLineArgsApi addArgument(
-        Object argNameOrValue,
-        Object value,
-        Object format,
-        StarlarkThread thread)
+        Object argNameOrValue, Object value, Object format, StarlarkThread thread)
         throws EvalException {
       throw Starlark.errorf("cannot modify frozen value");
     }
@@ -250,6 +246,7 @@ public abstract class Args implements CommandLineArgsApi {
 
     private final List<NestedSet<?>> potentialDirectoryArtifacts = new ArrayList<>();
     private final Set<Artifact> directoryArtifacts = new HashSet<>();
+
     /**
      * If true, flag names and values will be grouped with '=', e.g.
      *
@@ -286,12 +283,11 @@ public abstract class Args implements CommandLineArgsApi {
       if (flagFormatString == null) {
         return null;
       } else {
-        return ParamFileInfo.builder(getParameterFileType())
-            .setFlagFormatString(flagFormatString)
-            .setUseAlways(alwaysUseParamFile)
-            .setCharset(StandardCharsets.UTF_8)
-            .setFlagsOnly(flagPerLine)
-            .build();
+        ParamFileInfo.Builder builder =
+            ParamFileInfo.builder(getParameterFileType())
+                .setFlagFormatString(flagFormatString)
+                .setUseAlways(alwaysUseParamFile);
+        return builder.setFlagsOnly(flagPerLine).build();
       }
     }
 
@@ -380,7 +376,7 @@ public abstract class Args implements CommandLineArgsApi {
         // This unfortunately disallows such trivially safe non-global
         // functions as "lambda x: x".
         // See https://github.com/bazelbuild/bazel/issues/12701.
-        if (sfn.getModule().getGlobal(sfn.getName()) != sfn && !allowClosure) {
+        if (!(sfn.isGlobal() || allowClosure)) {
           throw Starlark.errorf(
               "to avoid unintended retention of analysis data structures, "
                   + "the map_each function (declared at %s) must be declared "
@@ -572,22 +568,22 @@ public abstract class Args implements CommandLineArgsApi {
       final ParameterFileType parameterFileType;
       final boolean flagPerLine;
       switch (format) {
-        case "shell":
+        case "shell" -> {
           parameterFileType = ParameterFileType.SHELL_QUOTED;
           flagPerLine = false;
-          break;
-        case "multiline":
+        }
+        case "multiline" -> {
           parameterFileType = ParameterFileType.UNQUOTED;
           flagPerLine = false;
-          break;
-        case "flag_per_line":
+        }
+        case "flag_per_line" -> {
           parameterFileType = ParameterFileType.UNQUOTED;
           flagPerLine = true;
-          break;
-        default:
-          throw Starlark.errorf(
-              "Invalid value for parameter \"format\": Expected one of \"shell\", \"multiline\","
-                  + " \"flag_per_line\"");
+        }
+        default ->
+            throw Starlark.errorf(
+                "Invalid value for parameter \"format\": Expected one of \"shell\", \"multiline\","
+                    + " \"flag_per_line\"");
       }
       this.parameterFileType = parameterFileType;
       this.flagPerLine = flagPerLine;
@@ -623,6 +619,5 @@ public abstract class Args implements CommandLineArgsApi {
       potentialDirectoryArtifacts.clear();
       return ImmutableSet.copyOf(directoryArtifacts);
     }
-
   }
 }

@@ -92,6 +92,7 @@ import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -164,6 +165,22 @@ public class RunCommand implements BlazeCommand {
             "If true, includes paths to replace in ExecRequest to make the resulting paths"
                 + " portable.")
     public boolean portablePaths;
+
+    @Option(
+        name = "run_env",
+        converter = Converters.OptionalAssignmentConverter.class,
+        allowMultiple = true,
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        help =
+            "Specifies the set of environment variables available to actions with target"
+                + " configuration. Variables can be either specified by name, in which case the"
+                + " value will be taken from the invocation environment, or by the name=value pair"
+                + " which sets the value independent of the invocation environment. This option can"
+                + " be used multiple times; for options given for the same variable, the latest"
+                + " wins, options for different variables accumulate.")
+    public List<Map.Entry<String, String>> runEnvironment;
   }
 
   private static final String NO_TARGET_MESSAGE = "No targets found to run";
@@ -267,6 +284,11 @@ public class RunCommand implements BlazeCommand {
       // Only necessary in --batch since the command runs as a subprocess of the java server.
       finalRunEnv.putAll(env.getClientEnv());
     }
+
+    for (Map.Entry<String, String> entry : runOptions.runEnvironment) {
+      finalRunEnv.put(entry.getKey(), entry.getValue());
+    }
+
     ExecRequest.Builder execRequest;
     try {
       boolean shouldRunTarget = runOptions.scriptPath == null && runOptions.runBuiltTarget;
@@ -525,32 +547,18 @@ public class RunCommand implements BlazeCommand {
 
   private static ImmutableList<PathToReplace> getPathsToReplace(
       CommandEnvironment env, String testLogDir, boolean isTestTarget) {
-    ImmutableList.Builder<PathToReplace> pathsToReplace =
-        ImmutableList.<PathToReplace>builder()
-            .add(
-                CommandProtos.PathToReplace.newBuilder()
-                    .setType(PathToReplace.Type.OUTPUT_BASE)
-                    .setValue(ByteString.copyFrom(env.getOutputBase().getPathString(), ISO_8859_1))
-                    .build())
-            .add(
-                CommandProtos.PathToReplace.newBuilder()
-                    .setType(PathToReplace.Type.BUILD_WORKING_DIRECTORY)
-                    .setValue(
-                        ByteString.copyFrom(env.getWorkingDirectory().getPathString(), ISO_8859_1))
-                    .build())
-            .add(
-                CommandProtos.PathToReplace.newBuilder()
-                    .setType(PathToReplace.Type.BUILD_WORKSPACE_DIRECTORY)
-                    .setValue(ByteString.copyFrom(env.getWorkspace().getPathString(), ISO_8859_1))
-                    .build());
+    ImmutableList<PathToReplace> pathsToReplace = ExecRequestUtils.getPathsToReplace(env);
     if (isTestTarget) {
-      pathsToReplace.add(
-          CommandProtos.PathToReplace.newBuilder()
-              .setType(PathToReplace.Type.TEST_LOG_SUBDIR)
-              .setValue(ByteString.copyFrom(testLogDir, ISO_8859_1))
-              .build());
+      return ImmutableList.<PathToReplace>builder()
+          .addAll(pathsToReplace)
+          .add(
+              PathToReplace.newBuilder()
+                  .setType(PathToReplace.Type.TEST_LOG_SUBDIR)
+                  .setValue(ByteString.copyFrom(testLogDir, ISO_8859_1))
+                  .build())
+          .build();
     }
-    return pathsToReplace.build();
+    return pathsToReplace;
   }
 
   private static ImmutableList<ByteString> getArgvForExecRequest(
@@ -926,7 +934,7 @@ public class RunCommand implements BlazeCommand {
     // On Windows, runfiles tree is disabled.
     // Workspace name directory doesn't exist, so don't add it.
     if (configuration.runfilesEnabled()) {
-      workingDir = workingDir.getRelative(runfilesSupport.getRunfiles().getSuffix());
+      workingDir = workingDir.getRelative(runfilesSupport.getRunfiles().getPrefix());
     }
 
     // Always create runfiles directory and the workspace-named directory underneath, even if we

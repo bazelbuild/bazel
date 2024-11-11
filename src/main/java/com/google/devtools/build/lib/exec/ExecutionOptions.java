@@ -465,7 +465,9 @@ public class ExecutionOptions extends OptionsBase {
       converter = OptionsUtils.EmptyToNullPathFragmentConverter.class,
       help =
           "Log the executed spawns into this file as length-delimited SpawnExec protos, according"
-              + " to src/main/protobuf/spawn.proto. Related flags:"
+              + " to src/main/protobuf/spawn.proto. Prefer --execution_log_compact_file, which is"
+              + " significantly smaller and cheaper to produce. Related flags:"
+              + " --execution_log_compact_file (compact format; mutually exclusive),"
               + " --execution_log_json_file (text JSON format; mutually exclusive),"
               + " --execution_log_sort (whether to sort the execution log),"
               + " --subcommands (for displaying subcommands in terminal output).")
@@ -480,14 +482,18 @@ public class ExecutionOptions extends OptionsBase {
       converter = OptionsUtils.EmptyToNullPathFragmentConverter.class,
       help =
           "Log the executed spawns into this file as newline-delimited JSON representations of"
-              + " SpawnExec protos, according to src/main/protobuf/spawn.proto. Related flags:"
+              + " SpawnExec protos, according to src/main/protobuf/spawn.proto. Prefer"
+              + " --execution_log_compact_file, which is significantly smaller and cheaper to"
+              + " produce. Related flags:"
+              + " --execution_log_compact_file (compact format; mutually exclusive),"
               + " --execution_log_binary_file (binary protobuf format; mutually exclusive),"
               + " --execution_log_sort (whether to sort the execution log),"
               + " --subcommands (for displaying subcommands in terminal output).")
   public PathFragment executionLogJsonFile;
 
   @Option(
-      name = "experimental_execution_log_compact_file",
+      name = "execution_log_compact_file",
+      oldName = "experimental_execution_log_compact_file",
       defaultValue = "null",
       category = "verbosity",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -496,8 +502,7 @@ public class ExecutionOptions extends OptionsBase {
       help =
           "Log the executed spawns into this file as length-delimited ExecLogEntry protos,"
               + " according to src/main/protobuf/spawn.proto. The entire file is zstd compressed."
-              + " This is an experimental format under active development, and may change at any"
-              + " time. Related flags:"
+              + " Related flags:"
               + " --execution_log_binary_file (binary protobuf format; mutually exclusive),"
               + " --execution_log_json_file (text JSON format; mutually exclusive),"
               + " --subcommands (for displaying subcommands in terminal output).")
@@ -534,24 +539,28 @@ public class ExecutionOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
-          "If set to true, Bazel will use new exit code 39 instead of 34 if remote cache evicts"
-              + " blobs during the build.")
+          "If set to true, Bazel will use new exit code 39 instead of 34 if remote cache"
+              + "errors, including cache evictions, cause the build to fail.")
   public boolean useNewExitCodeForLostInputs;
 
   @Option(
+      // TODO: when this flag is moved to non-experimental, rename it to a more general name
+      // to reflect the new logic - it's not only about cache evictions.
       name = "experimental_remote_cache_eviction_retries",
-      defaultValue = "0",
+      defaultValue = "5",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.EXECUTION},
       help =
-          "The maximum number of attempts to retry if the build encountered remote cache eviction"
-              + " error. A non-zero value will implicitly set"
+          "The maximum number of attempts to retry if the build encountered a transient remote"
+              + " cache error that would otherwise fail the build. Applies for example when"
+              + " artifacts are evicted from the remote cache, or in certain cache failure"
+              + " conditions. A non-zero value will implicitly set"
               + " --incompatible_remote_use_new_exit_code_for_lost_inputs to true. A new invocation"
               + " id will be generated for each attempt. If you generate invocation id and provide"
               + " it to Bazel with --invocation_id, you should not use this flag. Instead, set flag"
               + " --incompatible_remote_use_new_exit_code_for_lost_inputs and check for the exit"
               + " code 39.")
-  public int remoteRetryOnCacheEviction;
+  public int remoteRetryOnTransientCacheError;
 
   /** An enum for specifying different formats of test output. */
   public enum TestOutputFormat {

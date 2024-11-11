@@ -106,7 +106,10 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
         platform(name = "execution_platform_2")
         """);
 
-    rewriteWorkspace("register_execution_platforms('//extra:execution_platform_2')");
+    rewriteModuleDotBazel(
+        """
+        register_execution_platforms("//extra:execution_platform_2")
+        """);
     useConfiguration("--extra_execution_platforms=//extra:execution_platform_1");
 
     SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
@@ -164,7 +167,10 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
         platform(name = "execution_platform_2")
         """);
 
-    rewriteWorkspace("register_execution_platforms('//extra/...')");
+    rewriteModuleDotBazel(
+        """
+        register_execution_platforms("//extra/...")
+        """);
 
     SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
     EvaluationResult<RegisteredExecutionPlatformsValue> result =
@@ -198,7 +204,10 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
         alias(name = "alias_platform_2", actual = "//extra:execution_platform_2");
         """);
 
-    rewriteWorkspace("register_execution_platforms('//alias/...')");
+    rewriteModuleDotBazel(
+        """
+        register_execution_platforms("//alias/...")
+        """);
 
     SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
     EvaluationResult<RegisteredExecutionPlatformsValue> result =
@@ -215,7 +224,12 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
 
   @Test
   public void testRegisteredExecutionPlatforms_targetPattern_otherRepo() throws Exception {
-    scratch.file("myrepo/WORKSPACE", "workspace(name='myrepo')");
+    setBuildLanguageOptions("--enable_workspace");
+    scratch.file(
+        "myrepo/WORKSPACE",
+        """
+        workspace(name = "myrepo")
+        """);
     scratch.file("myrepo/BUILD");
     scratch.file(
         "myrepo/platforms/BUILD",
@@ -225,12 +239,20 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
         platform(name = "execution_platform_2")
         """);
     scratch.file(
-        "myrepo/macro.bzl", "def reg(): native.register_execution_platforms('//platforms:all')");
+        "myrepo/macro.bzl",
+        """
+        def reg():
+            native.register_execution_platforms("//platforms:all")
+        """);
 
     rewriteWorkspace(
-        "local_repository(name='myrepo',path='myrepo')",
-        "load('@myrepo//:macro.bzl', 'reg')",
-        "reg()");
+        """
+        local_repository(name = "myrepo", path = "myrepo")
+
+        load("@myrepo//:macro.bzl", "reg")
+
+        reg()
+        """);
 
     SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
     EvaluationResult<RegisteredExecutionPlatformsValue> result =
@@ -258,7 +280,10 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
         filegroup(name = "not_an_execution_platform")
         """);
 
-    rewriteWorkspace("register_execution_platforms('//extra:all')");
+    rewriteModuleDotBazel(
+        """
+        register_execution_platforms("//extra:all")
+        """);
 
     SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
     EvaluationResult<RegisteredExecutionPlatformsValue> result =
@@ -306,9 +331,16 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
 
   @Test
   public void testRegisteredExecutionPlatforms_notExecutionPlatform() throws Exception {
-    rewriteWorkspace("register_execution_platforms(", "    '//error:not_an_execution_platform')");
+    rewriteModuleDotBazel(
+        """
+        register_execution_platforms("//error:not_an_execution_platform")
+        """);
     // Have to use a rule that doesn't require a target platform, or else there will be a cycle.
-    scratch.file("error/BUILD", "toolchain_type(name = 'not_an_execution_platform')");
+    scratch.file(
+        "error/BUILD",
+        """
+        toolchain_type(name = "not_an_execution_platform")
+        """);
 
     // Request the executionPlatforms.
     SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
@@ -336,7 +368,10 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
         platform(name = "execution_platform_2")
         """);
 
-    rewriteWorkspace("register_execution_platforms('//platform:execution_platform_1')");
+    rewriteModuleDotBazel(
+        """
+        register_execution_platforms("//platform:execution_platform_1")
+        """);
 
     SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
     EvaluationResult<RegisteredExecutionPlatformsValue> result =
@@ -345,8 +380,10 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
     assertExecutionPlatformLabels(result.get(executionPlatformsKey))
         .contains(Label.parseCanonicalUnchecked("//platform:execution_platform_1"));
 
-    // Re-write the WORKSPACE.
-    rewriteWorkspace("register_execution_platforms('//platform:execution_platform_2')");
+    rewriteModuleDotBazel(
+        """
+        register_execution_platforms("//platform:execution_platform_2")
+        """);
 
     executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
     result = requestExecutionPlatformsFromSkyframe(executionPlatformsKey);
@@ -357,50 +394,72 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
 
   @Test
   public void testRegisteredExecutionPlatforms_bzlmod() throws Exception {
+    setBuildLanguageOptions("--enable_workspace");
     scratch.overwriteFile(
         "MODULE.bazel",
-        "register_execution_platforms('//:plat')",
-        "register_execution_platforms('//:dev_plat',dev_dependency=True)",
-        "bazel_dep(name='bbb',version='1.0')",
-        "bazel_dep(name='ccc',version='1.1')");
+        """
+        register_execution_platforms("//:plat")
+        register_execution_platforms("//:dev_plat", dev_dependency = True)
+        bazel_dep(name = "bbb", version = "1.0")
+        bazel_dep(name = "ccc", version = "1.1")
+        """);
     registry
         .addModule(
             createModuleKey("bbb", "1.0"),
-            "module(name='bbb',version='1.0')",
-            "register_execution_platforms('//:plat')",
-            "register_execution_platforms('//:dev_plat',dev_dependency=True)",
-            "bazel_dep(name='ddd',version='1.0')")
+            """
+            module(name = "bbb", version = "1.0")
+            register_execution_platforms("//:plat")
+            register_execution_platforms("//:dev_plat", dev_dependency = True)
+            bazel_dep(name = "ddd", version = "1.0")
+            """)
         .addModule(
             createModuleKey("ccc", "1.1"),
-            "module(name='ccc',version='1.1')",
-            "register_execution_platforms('//:plat')",
-            "register_execution_platforms('//:dev_plat',dev_dependency=True)",
-            "bazel_dep(name='ddd',version='1.1')")
+            """
+            module(name = "ccc", version = "1.1")
+            register_execution_platforms("//:plat")
+            register_execution_platforms("//:dev_plat", dev_dependency = True)
+            bazel_dep(name = "ddd", version = "1.1")
+            """)
         // ddd@1.0 is not selected
         .addModule(
             createModuleKey("ddd", "1.0"),
-            "module(name='ddd',version='1.0')",
-            "register_execution_platforms('//:plat')")
+            """
+            module(name = "ddd", version = "1.0")
+            register_execution_platforms('//:plat')
+            """)
         .addModule(
             createModuleKey("ddd", "1.1"),
-            "module(name='ddd',version='1.1')",
-            "register_execution_platforms('@eee//:plat', '//:plat')",
-            "bazel_dep(name='eee',version='1.0')")
-        .addModule(createModuleKey("eee", "1.0"), "module(name='eee', version='1.0')");
+            """
+            module(name = "ddd", version = "1.1")
+            register_execution_platforms("@eee//:plat", "//:plat")
+            bazel_dep(name = "eee", version = "1.0")
+            """)
+        .addModule(
+            createModuleKey("eee", "1.0"),
+            """
+            module(name = "eee", version = "1.0")
+            """);
     for (String repo : ImmutableList.of("bbb+1.0", "ccc+1.1", "ddd+1.0", "ddd+1.1", "eee+1.0")) {
       scratch.file(moduleRoot.getRelative(repo).getRelative("WORKSPACE").getPathString());
       scratch.file(
           moduleRoot.getRelative(repo).getRelative("BUILD").getPathString(),
-          "platform(name='plat')");
+          """
+          platform(name = "plat")
+          """);
     }
     scratch.overwriteFile(
         "BUILD",
-        "platform(name='plat')",
-        "platform(name='dev_plat')",
-        "platform(name='wsplat')",
-        "platform(name='wsplat2')");
+        """
+        platform(name = "plat")
+        platform(name = "dev_plat")
+        platform(name = "wsplat")
+        platform(name = "wsplat2")
+        """);
     rewriteWorkspace(
-        "register_execution_platforms('//:wsplat')", "register_execution_platforms('//:wsplat2')");
+        """
+        register_execution_platforms("//:wsplat")
+        register_execution_platforms("//:wsplat2")
+        """);
 
     SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
     EvaluationResult<RegisteredExecutionPlatformsValue> result =
@@ -467,9 +526,20 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
    */
   @Test
   public void testInvalidExecutionPlatformLabelDoesntCrash() throws Exception {
-    rewriteWorkspace("register_execution_platforms('//test:bad_exec_platform_label')");
+    rewriteModuleDotBazel(
+        """
+        register_execution_platforms("//test:bad_exec_platform_label")
+        """);
     scratch.file(
-        "test/BUILD", "genrule(name = 'g', srcs = [], outs = ['g.out'], cmd = 'echo hi > $@')");
+        "test/BUILD",
+        """
+        genrule(
+            name = "g",
+            srcs = [],
+            outs = ["g.out"],
+            cmd = "echo hi > $@",
+        )
+        """);
     reporter.removeHandler(failFastHandler);
     assertThrows(
         "invalid registered execution platform '//test:bad_exec_platform_label': "

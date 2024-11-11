@@ -56,12 +56,12 @@ public class TestTargetProperties {
       ResourceSet.createWithLocalTestCount(1);
 
   private static ResourceSet getResourceSetFromSize(TestSize size) {
-    switch (size) {
-      case SMALL: return SMALL_RESOURCES;
-      case MEDIUM: return MEDIUM_RESOURCES;
-      case LARGE: return LARGE_RESOURCES;
-      default: return ENORMOUS_RESOURCES;
-    }
+    return switch (size) {
+      case SMALL -> SMALL_RESOURCES;
+      case MEDIUM -> MEDIUM_RESOURCES;
+      case LARGE -> LARGE_RESOURCES;
+      default -> ENORMOUS_RESOURCES;
+    };
   }
 
   private final TestSize size;

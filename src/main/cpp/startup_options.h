@@ -191,7 +191,9 @@ class StartupOptions {
 
   bool write_command_log;
 
-  // If true, Blaze will listen to OS-level file change notifications.
+  // No-op.
+  // TODO: b/375052752 - Remove this after the 6 month compatibility window ends
+  //   in April 2025.
   bool watchfs;
 
   // Temporary flag for enabling EventBus exceptions to be fatal.
@@ -242,6 +244,9 @@ class StartupOptions {
   // Invocation policy can only be specified once.
   bool have_invocation_policy_;
 
+  // Whether to emit as little output as possible.
+  bool quiet;
+
   // Whether to output addition debugging information in the client.
   bool client_debug;
 
@@ -251,8 +256,6 @@ class StartupOptions {
 
   // Value of the java.util.logging.FileHandler.formatter Java property.
   std::string java_logging_formatter;
-
-  bool expand_configs_in_place;
 
   // The hash function to use when computing file digests.
   std::string digest_function;
@@ -272,6 +275,10 @@ class StartupOptions {
 
   // Whether to raise the soft coredump limit to the hard one or not.
   bool unlimit_coredumps;
+
+#ifdef __linux__
+  std::string cgroup_parent;
+#endif
 
   // Whether to create symbolic links on Windows for files. Requires
   // developer mode to be enabled.

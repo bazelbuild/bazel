@@ -58,15 +58,11 @@ msys*)
   ;;
 esac
 
-if "$is_windows"; then
-  # Disable MSYS path conversion that converts path-looking command arguments to
-  # Windows paths (even if they arguments are not in fact paths).
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 # override rules_java in bazel otherwise no build succeeds without injection
 [[ $(type -t mock_rules_java_to_avoid_downloading) == function ]] && mock_rules_java_to_avoid_downloading
+
+# use an empty prelude else no build succeeds without injection
+rm -f tools/build_rules/{blaze_prelude,prelude_bazel}
 
 function test_injection() {
   # //pkg prints _builtins_dummy when loaded.
@@ -118,6 +114,7 @@ EOF
   bazel build --nobuild //pkg:BUILD --experimental_builtins_dummy=true \
       --experimental_builtins_bzl_path= \
       --experimental_exec_config=//exec:dummy_exec_platforms.bzl%noop \
+      --incompatible_autoload_externally= \
       &>"$TEST_log" || fail "bazel build failed"
   expect_log "dummy :: original value"
 
@@ -125,6 +122,7 @@ EOF
   bazel build --nobuild //pkg:BUILD --experimental_builtins_dummy=true \
       --experimental_builtins_bzl_path=%bundled% \
       --experimental_exec_config=//exec:dummy_exec_platforms.bzl%noop \
+      --incompatible_autoload_externally= \
       &>"$TEST_log" || fail "bazel build failed"
   # "overridden value" comes from the exports.bzl in production Bazel.
   expect_log "dummy :: overridden value"
@@ -134,6 +132,7 @@ EOF
   bazel build --nobuild //pkg:BUILD --experimental_builtins_dummy=true \
       --experimental_builtins_bzl_path=%workspace% \
       --experimental_exec_config=//exec:dummy_exec_platforms.bzl%noop \
+      --incompatible_autoload_externally= \
       &>"$TEST_log" || fail "bazel build failed"
   expect_log "dummy :: workspace value"
 
@@ -142,6 +141,7 @@ EOF
   bazel build --nobuild //pkg:BUILD --experimental_builtins_dummy=true \
       --experimental_builtins_bzl_path=alternate \
       --experimental_exec_config=//exec:dummy_exec_platforms.bzl%noop \
+      --incompatible_autoload_externally= \
       &>"$TEST_log" || fail "bazel build failed"
   expect_log "dummy :: alternate value"
 
@@ -154,6 +154,7 @@ EOF
   bazel build --nobuild //pkg:BUILD --experimental_builtins_dummy=true \
       --experimental_builtins_bzl_path=alternate \
       --experimental_exec_config=//exec:dummy_exec_platforms.bzl%noop \
+      --incompatible_autoload_externally= \
       &>"$TEST_log" || fail "bazel build failed"
   expect_log "dummy :: second alternate value"
 
@@ -161,6 +162,7 @@ EOF
   # files are.
   bazel query 'buildfiles(//pkg:BUILD)' --experimental_builtins_dummy=true \
       --experimental_builtins_bzl_path=alternate \
+      --incompatible_autoload_externally= \
       &>"$TEST_log" || fail "bazel query failed"
   expect_not_log "exports.bzl"
 }

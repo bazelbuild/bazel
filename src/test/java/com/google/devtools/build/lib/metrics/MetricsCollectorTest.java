@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.metrics;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static com.google.devtools.build.lib.testutil.TestConstants.PLATFORM_LABEL;
@@ -135,6 +136,99 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
   }
 
   @Test
+  public void testActionsCreatedForIndividualMnemonics() throws Exception {
+    write(
+        "bar/BUILD",
+        """
+        load(":bar.bzl", "bar")
+        bar(name = "bar")
+        """);
+    write(
+        "bar/bar.bzl",
+        """
+        def _impl(ctx):
+            output1 = ctx.actions.declare_file(ctx.attr.name + ".out1")
+            output2 = ctx.actions.declare_file(ctx.attr.name + ".out2")
+            ctx.actions.write(output1, "foo")
+            ctx.actions.write(output2, "bar")
+            # Note that we created 2 actions, but pass along only one of their outputs.
+            return [DefaultInfo(files = depset([output1]))]
+
+        bar = rule(
+            implementation = _impl,
+        )
+        """);
+    buildTarget("//bar:bar");
+
+    BuildMetrics buildMetrics = buildMetricsEventListener.event.getBuildMetrics();
+    List<ActionData> actionData = buildMetrics.getActionSummary().getActionDataList();
+    ImmutableList<ActionData> fileWriteActions =
+        actionData.stream()
+            .filter(a -> a.getMnemonic().equals("FileWrite"))
+            .collect(toImmutableList());
+    assertThat(fileWriteActions).hasSize(1);
+    ActionData fileWriteAction = fileWriteActions.get(0);
+    assertThat(fileWriteAction.getActionsCreated()).isEqualTo(2);
+    assertThat(fileWriteAction.getActionsExecuted()).isEqualTo(1);
+
+    long totalActionsCreated = actionData.stream().mapToLong(ActionData::getActionsCreated).sum();
+    long totalActionsExecuted = actionData.stream().mapToLong(ActionData::getActionsExecuted).sum();
+    assertThat(totalActionsCreated).isEqualTo(3);
+    assertThat(totalActionsExecuted).isEqualTo(2);
+    assertThat(totalActionsCreated).isEqualTo(buildMetrics.getActionSummary().getActionsCreated());
+    assertThat(totalActionsExecuted)
+        .isEqualTo(buildMetrics.getActionSummary().getActionsExecuted());
+  }
+
+  @Test
+  public void testAspectActionsCreatedNotOverCountedForAlias() throws Exception {
+    write(
+        "pkg/BUILD",
+        """
+        load(":defs.bzl", "my_rule")
+        my_rule(name = "foo", dep = "dep_alias_alias")
+        alias(name = "dep_alias_alias", actual = ":dep_alias")
+        alias(name = "dep_alias", actual = ":dep")
+        my_rule(name = "dep")
+        """);
+    write(
+        "pkg/defs.bzl",
+        """
+        def _aspect_impl(target, ctx):
+            f = ctx.actions.declare_file(target.label.name + ".out")
+            ctx.actions.run_shell(
+                outputs = [f],
+                command = "touch $@",
+                mnemonic = "MyAspectAction",
+            )
+            return [OutputGroupInfo(my_out = depset([f]))]
+
+        my_aspect = aspect(implementation = _aspect_impl)
+
+        def _impl(ctx):
+            pass
+
+        my_rule = rule(
+            implementation = _impl,
+            attrs = {
+                "dep": attr.label(aspects = [my_aspect]),
+            },
+        )
+        """);
+    buildTarget("//pkg:foo");
+
+    BuildMetrics buildMetrics = buildMetricsEventListener.event.getBuildMetrics();
+    List<ActionData> actionData = buildMetrics.getActionSummary().getActionDataList();
+    ImmutableList<ActionData> aspectActions =
+        actionData.stream()
+            .filter(a -> a.getMnemonic().equals("MyAspectAction"))
+            .collect(toImmutableList());
+    assertThat(aspectActions).hasSize(1);
+    ActionData aspectAction = aspectActions.get(0);
+    assertThat(aspectAction.getActionsCreated()).isEqualTo(1);
+  }
+
+  @Test
   public void buildGraphAndArtifactMetrics() throws Exception {
     write(
         "a/BUILD",
@@ -180,7 +274,7 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
 
     // Do one build of a target in a standalone package. Gets us a baseline for analysis/execution.
     buildTarget("//e:facade");
-    boolean skymeldWasInvolved =
+    boolean skymeldWasInvolvedForBaselineBuild =
         getCommandEnvironment().withMergedAnalysisAndExecutionSourceOfTruth();
     BuildGraphMetrics buildGraphMetrics =
         buildMetricsEventListener.event.getBuildMetrics().getBuildGraphMetrics();
@@ -250,7 +344,7 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
 
     // Do a null build. No useful analysis stats.
     buildTarget("//a");
-    if (skymeldWasInvolved) {
+    if (skymeldWasInvolvedForBaselineBuild) {
       // The BuildDriverKey of //e:facade is gone.
       newGraphSize -= 1;
     }
@@ -310,7 +404,7 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
         "a/BUILD",
         "genrule(name = 'a', srcs = ['//b:c', '//b:b'], outs = ['a.out'], cmd = 'cat $(SRCS) >"
             + " $@')");
-    addOptions("--nobuild");
+    addOptions("--nobuild"); // this disables skymeld, because there is no execution phase
     buildTarget("//a");
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getBuildGraphMetrics())
         .comparingExpectedFieldsOnly()
@@ -331,13 +425,13 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
 
     // Null --nobuild.
     buildTarget("//a");
-    if (skymeldWasInvolved) {
-      // When doing --nobuild, no new BuildDriverKey entry is put in the graph while the old one is
-      // deleted.
+    if (skymeldWasInvolvedForBaselineBuild) {
+      // When doing --nobuild, which doesn't trigger skymeld, no new BuildDriverKey entry is put in
+      // the graph while the old one is deleted.
       newGraphSize -= 1;
     }
 
-    // Stale action execution nodes have been GC'ed.
+    // Stale action execution have been GC'ed.
     assertThat(
             buildMetricsEventListener
                 .event
@@ -349,7 +443,7 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
     // Do a null full build. Back to baseline.
     addOptions("--build");
     buildTarget("//a");
-    if (skymeldWasInvolved) {
+    if (skymeldWasInvolvedForBaselineBuild) {
       // Extra BuildDriverKey
       newGraphSize += 1;
     }

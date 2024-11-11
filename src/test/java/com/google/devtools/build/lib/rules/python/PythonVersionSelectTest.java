@@ -45,7 +45,7 @@ public class PythonVersionSelectTest extends BuildViewTestCase {
     Artifact py3 = getSourceArtifact("pkg/py3");
     scratch.file(
         "pkg/BUILD",
-        "sh_binary(",
+        "filegroup(",
         "    name = 'foo',",
         "    srcs = select({",
         "        '" + TestConstants.TOOLS_REPOSITORY + "//tools/python:PY2': ['py2'],",

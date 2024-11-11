@@ -14,5 +14,4 @@ py_library(
     imports = ["."],
     srcs_version = "PY3",
     visibility = ["//visibility:public"],
-    deps = ["//third_party/py/six"],
 )

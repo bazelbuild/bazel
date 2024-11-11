@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.HasDigest;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.io.FileSymlinkException;
 import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionException;
 import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionUniquenessFunction;
@@ -47,6 +46,7 @@ import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.vfs.DetailedIOException;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
@@ -91,7 +91,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
     public enum Type {
       /**
        * The traversal encountered a subdirectory with a BUILD file but is not allowed to recurse
-       * into it. See {@code PackageBoundaryMode#REPORT_ERROR}.
+       * into it.
        */
       CANNOT_CROSS_PACKAGE_BOUNDARY,
 
@@ -109,13 +109,22 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
 
       /** The filesystem told us inconsistent information. */
       INCONSISTENT_FILESYSTEM,
+
+      /** The filesystem threw a {@link DetailedIOException}. */
+      DETAILED_IO_EXCEPTION,
     }
 
     private final RecursiveFilesystemTraversalException.Type type;
 
+    RecursiveFilesystemTraversalException(String message, DetailedIOException cause) {
+      super(message, cause);
+      this.type = RecursiveFilesystemTraversalException.Type.DETAILED_IO_EXCEPTION;
+    }
+
     RecursiveFilesystemTraversalException(
         String message, RecursiveFilesystemTraversalException.Type type) {
       super(message);
+      checkArgument(type != Type.DETAILED_IO_EXCEPTION);
       this.type = type;
     }
 
@@ -215,27 +224,15 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
         // with a source package. We can't handle that, bail out.
         throw createGeneratedPathConflictException(traversal);
       } else if (pkgLookupResult.isPackage() && !traversal.skipTestingForSubpackage()) {
-        // The traversal was requested for a directory that defines a package.
+        // The traversal was requested for a directory that defines a package which we should not
+        // traverse and should complain loudly (display an error).
         String msg =
             traversal.errorInfo()
                 + " crosses package boundary into package rooted at "
                 + traversal.root().getRelativePart().getPathString();
-        switch (traversal.crossPkgBoundaries()) {
-          case CROSS:
-            // We are free to traverse the subpackage but we need to display a warning.
-            env.getListener().handle(Event.warn(null, msg));
-            break;
-          case DONT_CROSS:
-            // We cannot traverse the subpackage and should skip it silently. Return empty results.
-            return RecursiveFilesystemTraversalValue.EMPTY;
-          case REPORT_ERROR:
-            // We cannot traverse the subpackage and should complain loudly (display an error).
-            throw new RecursiveFilesystemTraversalFunctionException(
-                new RecursiveFilesystemTraversalException(
-                    msg, RecursiveFilesystemTraversalException.Type.CANNOT_CROSS_PACKAGE_BOUNDARY));
-          default:
-            throw new IllegalStateException(traversal.toString());
-        }
+        throw new RecursiveFilesystemTraversalFunctionException(
+            new RecursiveFilesystemTraversalException(
+                msg, RecursiveFilesystemTraversalException.Type.CANNOT_CROSS_PACKAGE_BOUNDARY));
       }
 
       // We are free to traverse this directory.
@@ -250,6 +247,12 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
           String.format(
               "Error while traversing directory %s: %s",
               traversal.root().getRelativePart(), e.getMessage());
+
+      if (e instanceof DetailedIOException detailedException) {
+        throw new RecursiveFilesystemTraversalFunctionException(
+            new RecursiveFilesystemTraversalException(message, detailedException));
+      }
+
       // Trying to stat the starting point of this root may have failed with a symlink cycle or
       // trying to get a package lookup value may have failed due to a symlink cycle.
       RecursiveFilesystemTraversalException.Type exceptionType =
@@ -716,7 +719,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
       if (value == null) {
         continue;
       }
-      if (key instanceof FileValue.Key fileKey) {
+      if (key instanceof FileKey fileKey) {
         FileInfo fileInfo =
             toFileInfo(
                 fileKey.argument(),

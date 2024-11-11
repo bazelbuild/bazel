@@ -188,14 +188,16 @@ public final class ActionListenerIntegrationTest extends BuildIntegrationTestCas
 
   @Test
   public void testBasicActionListener() throws Exception {
-    write("nobuild/BUILD",
+    write(
+        "nobuild/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
         "java_library(name= 'javalib',",
         "             srcs=[])",
         "extra_action(name = 'baz',",
         "             out_templates = ['$(OWNER_LABEL_DIGEST)_$(ACTION_ID).tst'],",
-        "             cmd = " +
-        "                 'echo $(EXTRA_ACTION_FILE)>$(output $(OWNER_LABEL_DIGEST)" +
-            "_$(ACTION_ID).tst)')",
+        "             cmd = "
+            + "                 'echo $(EXTRA_ACTION_FILE)>$(output $(OWNER_LABEL_DIGEST)"
+            + "_$(ACTION_ID).tst)')",
         "action_listener(name = 'bar',",
         "                mnemonics = ['Javac'],",
         "                extra_actions = [':baz'])");
@@ -213,15 +215,17 @@ public final class ActionListenerIntegrationTest extends BuildIntegrationTestCas
 
    @Test
    public void testActionListenerThatRequiresActionOutputs() throws Exception {
-    write("nobuild/BUILD",
+    write(
+        "nobuild/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
         "java_library(name= 'javalib',",
         "             srcs=[])",
         "extra_action(name = 'baz',",
         "             out_templates = ['$(OWNER_LABEL_DIGEST)_$(ACTION_ID).tst'],",
         "             requires_action_output = 1,",
-        "             cmd = " +
-        "                 'echo $(EXTRA_ACTION_FILE)>$(output $(OWNER_LABEL_DIGEST)" +
-        "_$(ACTION_ID).tst)')",
+        "             cmd = "
+            + "                 'echo $(EXTRA_ACTION_FILE)>$(output $(OWNER_LABEL_DIGEST)"
+            + "_$(ACTION_ID).tst)')",
         "action_listener(name = 'bar',",
         "                mnemonics = ['Javac'],",
         "                extra_actions = [':baz'])");
@@ -239,16 +243,18 @@ public final class ActionListenerIntegrationTest extends BuildIntegrationTestCas
 
   @Test
   public void testFilteredActionListener() throws Exception {
-    write("filtered/BUILD",
+    write(
+        "filtered/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
         "java_library(name= 'a',",
         "             srcs=[])",
         "java_library(name= 'b',",
         "             exports=[':a'])",
         "extra_action(name = 'baz',",
         "             out_templates = ['$(OWNER_LABEL_DIGEST)_$(ACTION_ID).tst'],",
-        "             cmd = " +
-        "                 'echo $(EXTRA_ACTION_FILE)>$(output $(OWNER_LABEL_DIGEST)" +
-            "_$(ACTION_ID).tst)')",
+        "             cmd = "
+            + "                 'echo $(EXTRA_ACTION_FILE)>$(output $(OWNER_LABEL_DIGEST)"
+            + "_$(ACTION_ID).tst)')",
         "action_listener(name = 'bar',",
         "                mnemonics = ['Javac'],",
         "                extra_actions = [':baz'])");
@@ -268,16 +274,18 @@ public final class ActionListenerIntegrationTest extends BuildIntegrationTestCas
 
   @Test
   public void testTopLevelOnlyActionListener() throws Exception {
-    write("filtered/BUILD",
+    write(
+        "filtered/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
         "java_library(name= 'a',",
         "             srcs=[])",
         "java_library(name= 'b',",
         "             exports=[':a'])",
         "extra_action(name = 'baz',",
         "             out_templates = ['$(OWNER_LABEL_DIGEST)_$(ACTION_ID).tst'],",
-        "             cmd = " +
-        "                 'echo $(EXTRA_ACTION_FILE)>$(output $(OWNER_LABEL_DIGEST)" +
-            "_$(ACTION_ID).tst)')",
+        "             cmd = "
+            + "                 'echo $(EXTRA_ACTION_FILE)>$(output $(OWNER_LABEL_DIGEST)"
+            + "_$(ACTION_ID).tst)')",
         "action_listener(name = 'bar',",
         "                mnemonics = ['Javac'],",
         "                extra_actions = [':baz'])");
@@ -390,13 +398,14 @@ public final class ActionListenerIntegrationTest extends BuildIntegrationTestCas
 
   @Test
   public void testActionListenerNotEnabled() throws Exception {
-    write("nobuild/BUILD",
+    write(
+        "nobuild/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
         "java_library(name= 'javalib',",
         "             srcs=[])",
         "extra_action(name = 'baz',",
         "             out_templates = ['$(ACTION_ID).tst'],",
-        "             cmd = " +
-            "'echo $(EXTRA_ACTION_FILE)>$(output $(ACTION_ID).tst)')",
+        "             cmd = " + "'echo $(EXTRA_ACTION_FILE)>$(output $(ACTION_ID).tst)')",
         "action_listener(name = 'bar',",
         "                mnemonics = ['Javac'],",
         "                extra_actions = [':baz'])");
@@ -437,6 +446,7 @@ public final class ActionListenerIntegrationTest extends BuildIntegrationTestCas
     write(
         "nobuild/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
             name = "javalib1",
             srcs = [],
@@ -464,6 +474,7 @@ public final class ActionListenerIntegrationTest extends BuildIntegrationTestCas
     write(
         "nobuild/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
             name = "javalib",
             srcs = [],
@@ -493,6 +504,7 @@ public final class ActionListenerIntegrationTest extends BuildIntegrationTestCas
     write(
         "nobuild/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
             name = "javalib",
             srcs = [],

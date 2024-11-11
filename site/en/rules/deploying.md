@@ -50,7 +50,7 @@ For example, when writing new rules for the (make-believe)
 /
   LICENSE
   README
-  WORKSPACE
+  MODULE.bazel
   mockascript/
     constraints/
       BUILD
@@ -70,9 +70,9 @@ For example, when writing new rules for the (make-believe)
     test.mocs
 ```
 
-### WORKSPACE
+### MODULE.bazel
 
-In the project's `WORKSPACE`, you should define the name that users will use
+In the project's `MODULE.bazel`, you should define the name that users will use
 to reference your rules. If your rules belong to the
 [bazelbuild](https://github.com/bazelbuild) organization, you must use
 `rules_<lang>` (such as `rules_mockascript`). Otherwise, you should name your
@@ -85,36 +85,13 @@ In the following sections, assume the repository belongs to the
 [bazelbuild](https://github.com/bazelbuild) organization.
 
 ```
-workspace(name = "rules_mockascript")
+module(name = "rules_mockascript")
 ```
 
 ### README
 
-At the top level, there should be a `README` that contains (at least) what
-users will need to copy-paste into their `WORKSPACE` file to use your rule.
-In general, this will be a `http_archive` pointing to your GitHub release and
-a macro call that downloads/configures any tools your rule needs. For example,
-for the [Go
-rules](https://github.com/bazelbuild/rules_go#setup), this
-looks like:
-
-```
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-http_archive(
-    name = "rules_go",
-    urls = ["https://github.com/bazelbuild/rules_go/releases/download/0.18.5/rules_go-0.18.5.tar.gz"],
-    sha256 = "a82a352bffae6bee4e95f68a8d80a70e87f42c4741e6a448bec11998fcc82329",
-)
-load("@rules_go//go:deps.bzl", "go_rules_dependencies", "go_register_toolchains")
-go_rules_dependencies()
-go_register_toolchains()
-```
-
-If your rules depend on another repository's rules, specify that in the
-rules documentation (for example, see the
-[Skydoc rules](https://skydoc.bazel.build/docs/getting_started_stardoc.html),
-which depend on the Sass rules), and provide a `WORKSPACE`
-macro that will download all dependencies (see `rules_go` above).
+At the top level, there should be a `README` that contains a brief description
+of your ruleset, and the API users should expect.
 
 ### Rules
 
@@ -169,35 +146,13 @@ dependencies will typically add this target to their `deps` attribute.
 
 #### Dependencies
 
-Your rules might have external dependencies. To make depending on your rules
-simpler, please provide a `WORKSPACE` macro that will declare dependencies on
-those external dependencies. Do not declare dependencies of tests there, only
-dependencies that rules require to work. Put development dependencies into the
-`WORKSPACE` file.
-
-Create a file named `<LANG>/repositories.bzl` and provide a single entry point
-macro named `rules_<LANG>_dependencies`. Our directory will look as follows:
-
-```
-/
-  mockascript/
-    constraints/
-      BUILD
-    BUILD
-    defs.bzl
-    repositories.bzl
-```
-
+Your rules might have external dependencies, which you'll need to specify in
+your MODULE.bazel file.
 
 #### Registering toolchains
 
-Your rules might also register toolchains. Please provide a separate `WORKSPACE`
-macro that registers these toolchains. This way users can decide to omit the
-previous macro and control dependencies manually, while still being allowed to
-register toolchains.
-
-Therefore add a `WORKSPACE` macro named `rules_<LANG>_toolchains` into
-`<LANG>/repositories.bzl` file.
+Your rules might also register toolchains, which you can also specify in the
+MODULE.bazel file.
 
 Note that in order to resolve toolchains in the analysis phase Bazel needs to
 analyze all `toolchain` targets that are registered. Bazel will not need to
@@ -211,18 +166,10 @@ the latter will only be fetched when user actually needs to build `<LANG>` code.
 #### Release snippet
 
 In your release announcement provide a snippet that your users can copy-paste
-into their `WORKSPACE` file. This snippet in general will look as follows:
+into their `MODULE.bazel` file. This snippet in general will look as follows:
 
 ```
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-http_archive(
-    name = "rules_<LANG>",
-    urls = ["<url_to_the_release.zip"],
-    sha256 = "4242424242",
-)
-load("@rules_<LANG>//<LANG>:repositories.bzl", "rules_<LANG>_dependencies", "rules_<LANG>_toolchains")
-rules_<LANG>_dependencies()
-rules_<LANG>_toolchains()
+bazel_dep(name = "rules_<LANG>", version = "<VERSION>")
 ```
 
 
@@ -270,8 +217,7 @@ GitHub repository. Getting submit access to Bazel itself is a much more involved
 process.
 
 The downside is a more complicated one-time installation process for our users:
-they have to copy-paste a rule into their `WORKSPACE` file, as shown in the
-`README.md` section above.
+they have to add a dependency on your ruleset in their `MODULE.bazel` file.
 
 We used to have all of the rules in the Bazel repository (under
 `//tools/build_rules` or `//tools/build_defs`). We still have a couple rules

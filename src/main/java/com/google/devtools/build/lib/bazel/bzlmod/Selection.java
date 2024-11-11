@@ -130,8 +130,12 @@ final class Selection {
           moduleName, compatibilityLevel);
     }
 
+    @SuppressWarnings("unused")
+    // Used in equals.
     abstract String getModuleName();
 
+    @SuppressWarnings("unused")
+    // Used in equals.
     abstract int getCompatibilityLevel();
   }
 
@@ -155,7 +159,7 @@ final class Selection {
       ImmutableList<Version> allowedVersions = ((MultipleVersionOverride) override).getVersions();
       for (Version allowedVersion : allowedVersions) {
         InterimModule allowedVersionModule =
-            depGraph.get(ModuleKey.create(moduleName, allowedVersion));
+            depGraph.get(new ModuleKey(moduleName, allowedVersion));
         if (allowedVersionModule == null) {
           throw ExternalDepsException.withMessage(
               Code.VERSION_RESOLUTION_ERROR,
@@ -194,10 +198,10 @@ final class Selection {
     if (allowedVersionSet == null) {
       // This means that this module has no multiple-version override.
       return SelectionGroup.create(
-          module.getKey().getName(), module.getCompatibilityLevel(), Version.EMPTY);
+          module.getKey().name(), module.getCompatibilityLevel(), Version.EMPTY);
     }
     return SelectionGroup.create(
-        module.getKey().getName(),
+        module.getKey().name(),
         module.getCompatibilityLevel(),
         // We use the `ceiling` method here to quickly locate the lowest allowed version that's
         // still no lower than this module's version.
@@ -244,7 +248,7 @@ final class Selection {
                 Comparators::min))
         .values()
         .stream()
-        .map(v -> ModuleKey.create(depSpec.getName(), v))
+        .map(v -> new ModuleKey(depSpec.getName(), v))
         .collect(toImmutableList());
   }
 
@@ -316,7 +320,7 @@ final class Selection {
     for (Map.Entry<ModuleKey, SelectionGroup> entry : selectionGroups.entrySet()) {
       ModuleKey key = entry.getKey();
       SelectionGroup selectionGroup = entry.getValue();
-      selectedVersions.merge(selectionGroup, key.getVersion(), Comparators::max);
+      selectedVersions.merge(selectionGroup, key.version(), Comparators::max);
     }
 
     // Compute the possible list of ModuleKeys that each DepSpec could resolve to.
@@ -427,8 +431,7 @@ final class Selection {
         @Nullable ModuleKey from,
         HashMap<String, ExistingModule> moduleByName)
         throws ExternalDepsException {
-      ModuleOverride override = overrides.get(key.getName());
-      if (override instanceof MultipleVersionOverride) {
+      if (overrides.get(key.name()) instanceof MultipleVersionOverride override) {
         if (selectionGroups.get(key).getTargetAllowedVersion().isEmpty()) {
           // This module has no target allowed version, which means that there's no allowed version
           // higher than its version at the same compatibility level.
@@ -440,8 +443,8 @@ final class Selection {
                   + " which allows only [%s]",
               from,
               key,
-              key.getName(),
-              JOINER.join(((MultipleVersionOverride) override).getVersions()));
+              key.name(),
+              JOINER.join(override.getVersions()));
         }
       } else {
         ExistingModule existingModuleWithSameName =
@@ -482,7 +485,7 @@ final class Selection {
               depSpec.toModuleKey(),
               repoName,
               previousRepoName,
-              key.getName());
+              key.name());
         }
       }
     }

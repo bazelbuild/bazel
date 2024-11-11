@@ -115,17 +115,17 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
             PlatformMappingException.class,
             () ->
                 executeFunction(
-                    PlatformMappingValue.Key.create(PathFragment.create("random_location"))));
+                    PlatformMappingKey.createExplicitlySet(
+                        PathFragment.create("random_location"))));
     assertThat(exception).hasCauseThat().isInstanceOf(MissingInputFileException.class);
     assertThat(exception).hasMessageThat().contains("random_location");
   }
 
   @Test
   public void invalidMappingFile_doesNotExist_defaultLocation() throws Exception {
-    PlatformMappingValue platformMappingValue =
-        executeFunction(PlatformMappingValue.Key.create(null));
+    PlatformMappingValue platformMappingValue = executeFunction(PlatformMappingKey.DEFAULT);
 
-    BuildOptions mapped = platformMappingValue.map(createBuildOptions());
+    BuildOptions mapped = platformMappingValue.map(createBuildOptions()).getOptions();
 
     assertThat(mapped.get(PlatformOptions.class).platforms)
         .containsExactly(Label.parseCanonicalUnchecked("@bazel_tools//tools:host_platform"));
@@ -138,7 +138,9 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     PlatformMappingException exception =
         assertThrows(
             PlatformMappingException.class,
-            () -> executeFunction(PlatformMappingValue.Key.create(PathFragment.create("somedir"))));
+            () ->
+                executeFunction(
+                    PlatformMappingKey.createExplicitlySet(PathFragment.create("somedir"))));
     assertThat(exception).hasCauseThat().isInstanceOf(MissingInputFileException.class);
     assertThat(exception).hasMessageThat().contains("somedir");
   }
@@ -154,11 +156,12 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
         """);
 
     PlatformMappingValue platformMappingValue =
-        executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
+        executeFunction(
+            PlatformMappingKey.createExplicitlySet(PathFragment.create("my_mapping_file")));
 
     BuildOptions modifiedOptions = createBuildOptions("--platforms=//platforms:one");
 
-    BuildOptions mapped = platformMappingValue.map(modifiedOptions);
+    BuildOptions mapped = platformMappingValue.map(modifiedOptions).getOptions();
 
     assertThat(mapped.get(DummyTestOptions.class).strOption).isEqualTo("one");
   }
@@ -177,11 +180,12 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
         """);
 
     PlatformMappingValue platformMappingValue =
-        executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
+        executeFunction(
+            PlatformMappingKey.createExplicitlySet(PathFragment.create("my_mapping_file")));
 
     BuildOptions modifiedOptions = createBuildOptions("--platforms=//platforms:one");
 
-    BuildOptions mapped = platformMappingValue.map(modifiedOptions);
+    BuildOptions mapped = platformMappingValue.map(modifiedOptions).getOptions();
 
     assertThat(mapped.get(DummyTestOptions.class).strOption).isEqualTo("one");
   }
@@ -205,10 +209,11 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     setPackageOptions("--package_path=/other/package/path");
 
     PlatformMappingValue platformMappingValue =
-        executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
+        executeFunction(
+            PlatformMappingKey.createExplicitlySet(PathFragment.create("my_mapping_file")));
     BuildOptions modifiedOptions = createBuildOptions("--platforms=//platforms:one");
 
-    BuildOptions mapped = platformMappingValue.map(modifiedOptions);
+    BuildOptions mapped = platformMappingValue.map(modifiedOptions).getOptions();
 
     assertThat(mapped.get(DummyTestOptions.class).strOption).isEqualTo("one");
   }
@@ -226,11 +231,12 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     setPackageOptions("--package_path=%workspace%:/other/package/path");
 
     PlatformMappingValue platformMappingValue =
-        executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
+        executeFunction(
+            PlatformMappingKey.createExplicitlySet(PathFragment.create("my_mapping_file")));
 
     BuildOptions modifiedOptions = createBuildOptions("--platforms=//platforms:one");
 
-    BuildOptions mapped = platformMappingValue.map(modifiedOptions);
+    BuildOptions mapped = platformMappingValue.map(modifiedOptions).getOptions();
 
     assertThat(mapped.get(DummyTestOptions.class).strOption).isEqualTo("one");
   }
@@ -255,11 +261,12 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     setPackageOptions("--package_path=%workspace%:/other/package/path");
 
     PlatformMappingValue platformMappingValue =
-        executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
+        executeFunction(
+            PlatformMappingKey.createExplicitlySet(PathFragment.create("my_mapping_file")));
 
     BuildOptions modifiedOptions = createBuildOptions("--platforms=//platforms:one");
 
-    BuildOptions mapped = platformMappingValue.map(modifiedOptions);
+    BuildOptions mapped = platformMappingValue.map(modifiedOptions).getOptions();
 
     assertThat(mapped.get(DummyTestOptions.class).strOption).isEqualTo("one");
   }
@@ -277,11 +284,12 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
         """);
 
     PlatformMappingValue platformMappingValue =
-        executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
+        executeFunction(
+            PlatformMappingKey.createExplicitlySet(PathFragment.create("my_mapping_file")));
 
     BuildOptions modifiedOptions = createBuildOptions("--platforms=//platforms:one");
 
-    BuildOptions mapped = platformMappingValue.map(modifiedOptions);
+    BuildOptions mapped = platformMappingValue.map(modifiedOptions).getOptions();
 
     assertThat(mapped.get(DummyTestOptions.class).internalOption).isEqualTo("something_new");
   }
@@ -298,11 +306,12 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
         """);
 
     PlatformMappingValue platformMappingValue =
-        executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
+        executeFunction(
+            PlatformMappingKey.createExplicitlySet(PathFragment.create("my_mapping_file")));
 
     BuildOptions modifiedOptions = createBuildOptions("--platforms=//platforms:one");
 
-    BuildOptions mapped = platformMappingValue.map(modifiedOptions);
+    BuildOptions mapped = platformMappingValue.map(modifiedOptions).getOptions();
 
     assertThat(mapped.getStarlarkOptions())
         .containsExactly(Label.parseCanonical("//flag:my_string_flag"), "mapped_value");
@@ -319,12 +328,13 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
         """);
 
     PlatformMappingValue platformMappingValue =
-        executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
+        executeFunction(
+            PlatformMappingKey.createExplicitlySet(PathFragment.create("my_mapping_file")));
 
     BuildOptions modifiedOptions =
         createBuildOptions("--platforms=//platforms:one", "--list=from_config");
 
-    BuildOptions mapped = platformMappingValue.map(modifiedOptions);
+    BuildOptions mapped = platformMappingValue.map(modifiedOptions).getOptions();
 
     // The mapping should completely replace the list, because it is not accumulating.
     assertThat(mapped.get(DummyTestOptions.class).list).containsExactly("from_mapping");
@@ -346,7 +356,8 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
             PlatformMappingException.class,
             () ->
                 executeFunction(
-                    PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file"))));
+                    PlatformMappingKey.createExplicitlySet(
+                        PathFragment.create("my_mapping_file"))));
     assertThat(exception).hasCauseThat().isInstanceOf(PlatformMappingParsingException.class);
     assertThat(exception).hasMessageThat().contains("Failed to load //test:this_flag_doesnt_exist");
   }
@@ -440,11 +451,12 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
         """);
 
     PlatformMappingValue platformMappingValue =
-        executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
+        executeFunction(
+            PlatformMappingKey.createExplicitlySet(PathFragment.create("my_mapping_file")));
 
     BuildOptions modifiedOptions = createBuildOptions("--str_option=one");
 
-    BuildOptions mapped = platformMappingValue.map(modifiedOptions);
+    BuildOptions mapped = platformMappingValue.map(modifiedOptions).getOptions();
 
     assertThat(mapped.get(PlatformOptions.class).platforms).containsExactly(PLATFORM1);
   }
@@ -461,11 +473,12 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
         """);
 
     PlatformMappingValue platformMappingValue =
-        executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
+        executeFunction(
+            PlatformMappingKey.createExplicitlySet(PathFragment.create("my_mapping_file")));
 
     BuildOptions modifiedOptions = createBuildOptions("--//flag:my_string_flag=mapped_value");
 
-    BuildOptions mapped = platformMappingValue.map(modifiedOptions);
+    BuildOptions mapped = platformMappingValue.map(modifiedOptions).getOptions();
 
     assertThat(mapped.get(PlatformOptions.class).platforms).containsExactly(PLATFORM1);
   }
@@ -486,7 +499,8 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
             PlatformMappingException.class,
             () ->
                 executeFunction(
-                    PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file"))));
+                    PlatformMappingKey.createExplicitlySet(
+                        PathFragment.create("my_mapping_file"))));
     assertThat(exception).hasCauseThat().isInstanceOf(PlatformMappingParsingException.class);
     assertThat(exception).hasMessageThat().contains("Failed to load //test:this_flag_doesnt_exist");
   }
@@ -510,7 +524,8 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
             PlatformMappingException.class,
             () ->
                 executeFunction(
-                    PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file"))));
+                    PlatformMappingKey.createExplicitlySet(
+                        PathFragment.create("my_mapping_file"))));
     assertThat(exception).hasCauseThat().isInstanceOf(PlatformMappingParsingException.class);
     assertThat(exception).hasMessageThat().contains("Got duplicate platform entries");
   }
@@ -539,7 +554,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
         """);
   }
 
-  private PlatformMappingValue executeFunction(PlatformMappingValue.Key key) throws Exception {
+  private PlatformMappingValue executeFunction(PlatformMappingKey key) throws Exception {
     SkyframeExecutor skyframeExecutor = getSkyframeExecutor();
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(

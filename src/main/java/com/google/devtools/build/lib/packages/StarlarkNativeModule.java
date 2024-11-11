@@ -31,11 +31,12 @@ import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.io.FileSymlinkException;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
-import com.google.devtools.build.lib.packages.TargetDefinitionContext.NameConflictException;
+import com.google.devtools.build.lib.packages.TargetRecorder.NameConflictException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkNativeModuleApi;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.vfs.DetailedIOException;
 import java.io.IOException;
 import java.util.AbstractMap;
 import java.util.ArrayList;
@@ -346,15 +347,18 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       }
       String attributeName = (String) key;
       switch (attributeName) {
-        case "name":
+        case "name" -> {
           return rule.getName();
-        case "kind":
+        }
+        case "kind" -> {
           return rule.getRuleClass();
-        default:
+        }
+        default -> {
           Object value = starlarkifyAttribute(attributeName);
           if (value != null) {
             return value;
           }
+        }
       }
       return defaultValue;
     }
@@ -371,14 +375,11 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
             @Nullable private String nextRelevantAttributeName;
 
             private boolean isRelevant(String attributeName) {
-              switch (attributeName) {
-                case "name":
-                case "kind":
-                  // pseudo-names handled specially
-                  return false;
-                default:
-                  return starlarkifyAttribute(attributeName) != null;
-              }
+              return switch (attributeName) {
+                // pseudo-names handled specially
+                case "name", "kind" -> false;
+                default -> starlarkifyAttribute(attributeName) != null;
+              };
             }
 
             private void findNextRelevantName() {
@@ -433,17 +434,10 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       return Starlark.NONE;
     }
     Package.Builder pkgBuilder =
-        Package.Builder.fromOrFailDisallowSymbolicMacros(thread, "existing_rule()");
-    Target target = pkgBuilder.getTarget(name);
-    if (target instanceof Rule /* `instanceof` also verifies that target != null */) {
-      Rule rule = (Rule) target;
-      if (thread
-          .getSemantics()
-          .getBool(BuildLanguageOptions.INCOMPATIBLE_EXISTING_RULES_IMMUTABLE_VIEW)) {
-        return new ExistingRuleView(rule);
-      } else {
-        return getRuleDict(rule, thread.mutability());
-      }
+        Package.Builder.fromOrFailDisallowNonFinalizerMacros(thread, "existing_rule()");
+    @Nullable Rule rule = pkgBuilder.getNonFinalizerInstantiatedRule(name);
+    if (rule != null) {
+      return new ExistingRuleView(rule);
     } else {
       return Starlark.NONE;
     }
@@ -506,22 +500,8 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       return Dict.empty();
     }
     Package.Builder pkgBuilder =
-        Package.Builder.fromOrFailDisallowSymbolicMacros(thread, "existing_rules()");
-    if (thread
-        .getSemantics()
-        .getBool(BuildLanguageOptions.INCOMPATIBLE_EXISTING_RULES_IMMUTABLE_VIEW)) {
-      return new ExistingRulesView(pkgBuilder.getRulesSnapshotView());
-    } else {
-      Collection<Target> targets = pkgBuilder.getTargets();
-      Mutability mu = thread.mutability();
-      Dict.Builder<String, Dict<String, Object>> rules = Dict.builder();
-      for (Target t : targets) {
-        if (t instanceof Rule) {
-          rules.put(t.getName(), getRuleDict((Rule) t, mu));
-        }
-      }
-      return rules.build(mu);
-    }
+        Package.Builder.fromOrFailDisallowNonFinalizerMacros(thread, "existing_rules()");
+    return new ExistingRulesView(pkgBuilder.getRulesSnapshotView());
   }
 
   @Override
@@ -574,6 +554,10 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
             : RuleVisibility.parse(
                 BuildType.LABEL_LIST.convert(
                     visibilityO, "'exports_files' operand", pkgBuilder.getLabelConverter()));
+    MacroInstance currentMacro = pkgBuilder.currentMacro();
+    if (currentMacro != null) {
+      visibility = visibility.concatWithPackage(currentMacro.getDefinitionPackage());
+    }
 
     // TODO(bazel-team): is licenses plural or singular?
     License license = BuildType.LICENSE.convertOptional(licensesO, "'exports_files' operand");
@@ -586,6 +570,11 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       }
       try {
         InputFile inputFile = pkgBuilder.createInputFile(file, loc);
+        // TODO: #19922 - The use of identity inequality in this visibility check seems suspect,
+        // since the same logical visibility may have multiple RuleVisibility instances. But it's
+        // unclear why we want to support idempotent exports_files() with the same logical
+        // visibility at all. With Macro-Aware Visibility, it becomes possible for two identical
+        // visibility lines to declare different actual visibility values depending on context.
         if (inputFile.isVisibilitySpecified() && inputFile.getVisibility() != visibility) {
           throw Starlark.errorf(
               "visibility for exported file '%s' declared twice", inputFile.getName());
@@ -656,26 +645,6 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     Package.Builder pkgBuilder =
         Package.Builder.fromOrFailDisallowWorkspace(thread, "module_version()");
     return pkgBuilder.getAssociatedModuleVersion().orElse(null);
-  }
-
-  private static Dict<String, Object> getRuleDict(Rule rule, Mutability mu) throws EvalException {
-    Dict.Builder<String, Object> values = Dict.builder();
-
-    for (Attribute attr : rule.getAttributes()) {
-      if (!isPotentiallyExportableAttribute(rule.getRuleClassObject(), attr.getName())) {
-        continue;
-      }
-
-      Object val = starlarkifyValue(mu, rule.getAttr(attr.getName()), rule.getPackage());
-      if (val == null) {
-        continue;
-      }
-      values.put(attr.getName(), val);
-    }
-
-    values.put("name", rule.getName());
-    values.put("kind", rule.getRuleClass());
-    return values.build(mu);
   }
 
   /**
@@ -754,14 +723,11 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     }
 
     if (val instanceof TriState) {
-      switch ((TriState) val) {
-        case AUTO:
-          return StarlarkInt.of(-1);
-        case YES:
-          return StarlarkInt.of(1);
-        case NO:
-          return StarlarkInt.of(0);
-      }
+      return switch ((TriState) val) {
+        case AUTO -> StarlarkInt.of(-1);
+        case YES -> StarlarkInt.of(1);
+        case NO -> StarlarkInt.of(0);
+      };
     }
 
     if (val instanceof Label) {
@@ -898,15 +864,17 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
               e.getMessage());
       Location loc = thread.getCallerLocation();
       Event error =
-          Package.error(
-              loc,
-              errorMessage,
-              // If there are other IOExceptions that can result from user error, they should be
-              // tested for here. Currently FileNotFoundException is not one of those, because globs
-              // only encounter that error in the presence of an inconsistent filesystem.
-              e instanceof FileSymlinkException
-                  ? Code.EVAL_GLOBS_SYMLINK_ERROR
-                  : Code.GLOB_IO_EXCEPTION);
+          switch (e) {
+            case DetailedIOException detailed ->
+                Package.errorWithDetailedExitCode(
+                    loc, errorMessage, detailed.getDetailedExitCode());
+            case FileSymlinkException symlink ->
+                Package.error(loc, errorMessage, Code.EVAL_GLOBS_SYMLINK_ERROR);
+            // If there are other IOExceptions that can result from user error, they should be
+            // tested for here. Currently, FileNotFoundException is not one of those, because globs
+            // only encounter that error in the presence of an inconsistent filesystem.
+            default -> Package.error(loc, errorMessage, Code.GLOB_IO_EXCEPTION);
+          };
       pkgBuilder.getLocalEventHandler().handle(error);
       pkgBuilder.setIOException(e, errorMessage, error.getProperty(DetailedExitCode.class));
       return ImmutableList.of();

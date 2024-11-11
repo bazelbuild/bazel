@@ -23,7 +23,7 @@ filegroup(
         "//tools/build_defs/cc:srcs",
         "//tools/build_defs/cc/whitelists/parse_headers_and_layering_check:srcs",
         "//tools/build_defs/cc/whitelists/starlark_hdrs_check:srcs",
-        "//tools/build_defs/hash:srcs",
+        "//tools/build_defs/hash:embedded_tools",
         "//tools/build_defs/pkg:embedded_tools",
         "//tools/build_defs/repo:embedded_tools",
     ],

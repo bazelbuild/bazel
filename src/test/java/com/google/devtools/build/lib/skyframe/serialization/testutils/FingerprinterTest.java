@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.skyframe.serialization.testutils.Fin
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
@@ -36,6 +37,7 @@ public final class FingerprinterTest {
 
   @Test
   public void inlinedValues_leaveNoFingerprints() {
+    String contents = "contents";
     var subject =
         new TypeWithInlinedData(
             (byte) 0x10,
@@ -47,6 +49,7 @@ public final class FingerprinterTest {
             true,
             'c',
             "text",
+            new WeakReference<Object>(contents),
             ImmutableList.of());
     IdentityHashMap<Object, String> fingerprints = computeFingerprints(subject);
     // There's one entry for `subject`, and one for the `nonInlinedValue` field. None of the inlined
@@ -62,7 +65,8 @@ public final class FingerprinterTest {
                     + " floatValue=java.lang.Float:0.01, intValue=java.lang.Integer:65536,"
                     + " longValue=java.lang.Long:4294967296,"
                     + " nonInlinedValue=7cf245bfdbbfb29e4da6143f7b67ac98,"
-                    + " shortValue=java.lang.Short:12345, stringValue=java.lang.String:text]"),
+                    + " shortValue=java.lang.Short:12345, stringValue=java.lang.String:text,"
+                    + " weakReferenceValue=java.lang.ref.WeakReference]"),
             subject.nonInlinedValue,
             fingerprintString("com.google.common.collect.RegularImmutableList: []"));
   }
@@ -78,6 +82,7 @@ public final class FingerprinterTest {
     private final Boolean boolValue;
     private final Character charValue;
     private final String stringValue;
+    private final WeakReference<Object> weakReferenceValue;
 
     /** A non-inlined value for contrast. */
     private final ImmutableList<Object> nonInlinedValue;
@@ -92,6 +97,7 @@ public final class FingerprinterTest {
         boolean boolValue,
         char charValue,
         String stringValue,
+        WeakReference<Object> weakReferenceValue,
         ImmutableList<Object> nonInlinedValue) {
       this.byteValue = byteValue;
       this.shortValue = shortValue;
@@ -102,6 +108,7 @@ public final class FingerprinterTest {
       this.boolValue = boolValue;
       this.charValue = charValue;
       this.stringValue = stringValue;
+      this.weakReferenceValue = weakReferenceValue;
       this.nonInlinedValue = nonInlinedValue;
     }
   }

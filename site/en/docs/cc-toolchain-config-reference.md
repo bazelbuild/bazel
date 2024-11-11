@@ -796,7 +796,7 @@ Note: The **Action** column indicates the relevant action type, if applicable.
    </td>
   </tr>
   <tr>
-   <td><strong><code>stripotps</code></strong>
+   <td><strong><code>stripopts</code></strong>
    </td>
    <td>strip</td>
    <td>Sequence of <code>stripopts</code>.

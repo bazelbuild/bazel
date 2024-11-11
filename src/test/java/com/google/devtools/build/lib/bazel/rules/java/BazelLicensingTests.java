@@ -30,6 +30,7 @@ public class BazelLicensingTests extends BuildViewTestCase {
     scratch.file(
         "ise/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library", "java_plugin")
         licenses(["restricted"])
 
         java_library(
@@ -48,6 +49,7 @@ public class BazelLicensingTests extends BuildViewTestCase {
     scratch.file(
         "gsa/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         licenses(["unencumbered"])
 
         java_library(

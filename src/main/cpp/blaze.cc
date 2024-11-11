@@ -26,7 +26,6 @@
 #include "src/main/cpp/blaze.h"
 
 #include <assert.h>
-#include <ctype.h>
 #include <fcntl.h>
 #include <grpc/grpc.h>
 #include <grpcpp/channel.h>
@@ -35,16 +34,16 @@
 #include <grpcpp/security/credentials.h>
 #include <limits.h>
 #include <stdarg.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include <algorithm>
 #include <chrono>  // NOLINT (gRPC requires this)
-#include <cinttypes>
 #include <map>
 #include <memory>
 #include <mutex>  // NOLINT
+#include <optional>
 #include <set>
 #include <sstream>
 #include <string>
@@ -95,8 +94,10 @@ using std::vector;
 // The following is a treatise on how the interaction between the client and the
 // server works.
 //
-// First, the client unconditionally acquires an flock() lock on
-// $OUTPUT_BASE/lock then verifies if it has already extracted itself by
+// First, the client acquires a lock on $OUTPUT_BASE/lock (on Unix, we use
+// fcntl(F_OFD_SETLK) if available or fcntl(F_SETLK) otherwise; on Windows, we
+// use LockFileEx), blocking until it's available unless otherwise requested by
+// the startup options. Then it verifies if it has already extracted itself by
 // checking if the directory it extracts itself to (install base + a checksum)
 // is present. If not, then it does the extraction. Care is taken that this
 // process is atomic so that Blazen in multiple output bases do not clash.
@@ -195,8 +196,8 @@ class BlazeServer final {
  public:
   explicit BlazeServer(const StartupOptions &startup_options);
 
-  // Acquire a lock for the server running in this output base. Returns the
-  // number of milliseconds spent waiting for the lock.
+  // Acquire a lock for the output base this server is running in.
+  // Returns the number of milliseconds spent waiting for the lock.
   uint64_t AcquireLock();
 
   // Whether there is an active connection to a server.
@@ -232,7 +233,7 @@ class BlazeServer final {
   const ServerProcessInfo &ProcessInfo() const { return process_info_; }
 
  private:
-  BlazeLock blaze_lock_;
+  std::optional<LockHandle> output_base_lock_;
 
   enum CancelThreadAction { NOTHING, JOIN, CANCEL, COMMAND_ID_RECEIVED };
 
@@ -250,6 +251,7 @@ class BlazeServer final {
   // actions from.
   std::unique_ptr<blaze_util::IPipe> pipe_;
 
+  void ReleaseLock();
   bool TryConnect(CommandServer::Stub *client);
   void CancelThread();
   void SendAction(CancelThreadAction action);
@@ -259,6 +261,7 @@ class BlazeServer final {
   const int connect_timeout_secs_;
   const bool batch_;
   const bool block_for_lock_;
+  const bool quiet_;
   const bool preemptible_;
   const blaze_util::Path output_base_;
 };
@@ -273,8 +276,28 @@ static BlazeServer *blaze_server;
 // objects before those.
 
 uint64_t BlazeServer::AcquireLock() {
-  return blaze::AcquireLock(output_base_, batch_, block_for_lock_,
-                            &blaze_lock_);
+  if (output_base_lock_.has_value()) {
+    BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+        << "AcquireLock() called but the lock is already held.";
+  }
+  // Take an exclusive lock on the output base, because two simultaneous
+  // commands may not run against the same output base. Note that this lock will
+  // be released by ReleaseLock() once the server is running, as it can handle
+  // concurrent clients on its own.
+  uint64_t wait_time;
+  output_base_lock_ = blaze::AcquireLock(
+      "output base", output_base_.GetRelative("lock"), LockMode::kExclusive,
+      batch_, block_for_lock_, &wait_time);
+  return wait_time;
+}
+
+void BlazeServer::ReleaseLock() {
+  if (!output_base_lock_.has_value()) {
+    BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+        << "ReleaseLock() called without a lock to release.";
+  }
+  blaze::ReleaseLock(*output_base_lock_);
+  output_base_lock_ = std::nullopt;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -349,7 +372,9 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
   }
   result.push_back(java_library_path.str());
 
-  // Force use of latin1 for file names.
+  // TODO: Investigate whether this still has any effect. File name encoding is
+  // governed by sun.jnu.encoding in JDKs with JEP 400, which can't be
+  // influenced by setting a property.
   result.push_back("-Dfile.encoding=ISO-8859-1");
   // Force into the root locale to ensure consistent behavior of string
   // operations across machines (e.g. in the tr_TR locale, capital ASCII 'I'
@@ -424,11 +449,6 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
         startup_options.failure_detail_out.AsCommandLineArgument());
   }
 
-  if (startup_options.expand_configs_in_place) {
-    result.push_back("--expand_configs_in_place");
-  } else {
-    result.push_back("--noexpand_configs_in_place");
-  }
   if (!startup_options.digest_function.empty()) {
     // Only include this if a value is requested - we rely on the empty case
     // being "null" to set the programmatic default in the server.
@@ -450,11 +470,6 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
     result.push_back("--nowrite_command_log");
   }
 
-  if (startup_options.watchfs) {
-    result.push_back("--watchfs");
-  } else {
-    result.push_back("--nowatchfs");
-  }
   if (startup_options.fatal_event_bus_exceptions) {
     result.push_back("--fatal_event_bus_exceptions");
   } else {
@@ -501,6 +516,13 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
   }
 
   result.push_back("--product_name=" + startup_options.product_name);
+
+#ifdef __linux__
+  if (!startup_options.cgroup_parent.empty()) {
+    result.push_back("--experimental_cgroup_parent=" +
+                     startup_options.cgroup_parent);
+  }
+#endif
 
   startup_options.AddExtraOptions(&result);
 
@@ -1005,11 +1027,9 @@ static void EnsureCorrectRunningVersion(const StartupOptions &startup_options,
     }
 
     // Update the mtime of the install base so that cleanup tools can
-    // find install bases that haven't been used for a long time
-    std::unique_ptr<blaze_util::IFileMtime> mtime(
-        blaze_util::CreateFileMtime());
-    // Ignore permissions errors (i.e. if the install base is not writable):
-    if (!mtime->SetToNowIfPossible(
+    // find install bases that haven't been used for a long time.
+    // Ignore permissions errors (i.e. if the install base is not writable).
+    if (!SetMtimeToNowIfPossible(
             blaze_util::Path(startup_options.install_base))) {
       string err = GetLastErrorString();
       BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
@@ -1500,7 +1520,14 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
   StartupOptions *startup_options = option_processor->GetParsedStartupOptions();
   startup_options->MaybeLogStartupOptionWarnings();
 
-  SetDebugLog(startup_options->client_debug);
+  if (startup_options->client_debug) {
+    SetDebugLog(blaze_util::LOGGINGDETAIL_DEBUG);
+  } else if (startup_options->quiet) {
+    SetDebugLog(blaze_util::LOGGINGDETAIL_QUIET);
+  } else {
+    SetDebugLog(blaze_util::LOGGINGDETAIL_USER);
+  }
+
   // If client_debug was false, this is ignored, so it's accurate.
   BAZEL_LOG(INFO) << "Debug logging requested, sending all client log "
                      "statements to stderr";
@@ -1554,6 +1581,7 @@ BlazeServer::BlazeServer(const StartupOptions &startup_options)
       connect_timeout_secs_(startup_options.connect_timeout_secs),
       batch_(startup_options.batch),
       block_for_lock_(startup_options.block_for_lock),
+      quiet_(startup_options.quiet),
       preemptible_(startup_options.preemptible),
       output_base_(startup_options.output_base) {
   pipe_.reset(blaze_util::CreatePipe());
@@ -1823,6 +1851,7 @@ unsigned int BlazeServer::Communicate(
   command_server::RunRequest request;
   request.set_cookie(request_cookie_);
   request.set_block_for_lock(block_for_lock_);
+  request.set_quiet(quiet_);
   request.set_preemptible(preemptible_);
   request.set_client_description("pid=" + blaze::GetProcessIdAsString());
   for (const string &arg : arg_vector) {
@@ -1845,12 +1874,12 @@ unsigned int BlazeServer::Communicate(
   std::unique_ptr<grpc::ClientReader<command_server::RunResponse>> reader(
       client_->Run(context.get(), request));
 
-  // Release the server lock because the gRPC handles concurrent clients just
-  // fine. Note that this may result in two "waiting for other client" messages
-  // (one during server startup and one emitted by the server)
-  BAZEL_LOG(INFO)
-      << "Releasing client lock, let the server manage concurrent requests.";
-  blaze::ReleaseLock(&blaze_lock_);
+  // Release the client lock because the gRPC server handles concurrent clients
+  // just fine. Note that this may result in two "waiting for other client"
+  // messages (one during server startup and one emitted by the server).
+  BAZEL_LOG(INFO) << "Releasing the client lock, as the server can manage "
+                     "concurrent clients on its own.";
+  ReleaseLock();
 
   std::thread cancel_thread(&BlazeServer::CancelThread, this);
   bool command_id_set = false;

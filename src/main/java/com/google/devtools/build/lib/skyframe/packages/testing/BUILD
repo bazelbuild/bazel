@@ -24,10 +24,12 @@ java_binary(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/skyframe/packages:BazelPackageLoader",
         "//src/main/java/com/google/devtools/build/lib/skyframe/packages:PackageLoader",
         "//src/main/java/com/google/devtools/build/lib/unix",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
     ],
 )

@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker;
-import com.google.devtools.build.lib.analysis.producers.BuildConfigurationKeyCache;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -51,7 +50,6 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
   private final RuleClassProvider ruleClassProvider;
   private final LabelPrinter labelPrinter;
   private final StarlarkTransitionCache transitionCache;
-  private final BuildConfigurationKeyCache buildConfigurationKeyCache;
 
   @Override
   public String getName() {
@@ -74,8 +72,6 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
     this.partialResultMap = Maps.newHashMap();
     this.labelPrinter = labelPrinter;
     this.transitionCache = skyframeExecutor.getSkyframeBuildView().getStarlarkTransitionCache();
-    this.buildConfigurationKeyCache =
-        skyframeExecutor.getSkyframeBuildView().getBuildConfigurationKeyCache();
   }
 
   @Override
@@ -107,12 +103,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
         // anyway.
         dependencies =
             new CqueryTransitionResolver(
-                    eventHandler,
-                    accessor,
-                    this,
-                    ruleClassProvider,
-                    transitionCache,
-                    buildConfigurationKeyCache)
+                    eventHandler, accessor, this, ruleClassProvider, transitionCache)
                 .dependencies(keyedConfiguredTarget);
       } catch (EvaluateException e) {
         eventHandler.handle(

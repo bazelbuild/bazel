@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.util;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.truth.Truth.assertThat;
@@ -59,7 +60,6 @@ import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.MapBasedActionGraph;
 import com.google.devtools.build.lib.actions.MiddlemanAction;
-import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.RunfilesTree;
@@ -109,7 +109,6 @@ import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -133,8 +132,9 @@ import com.google.devtools.build.lib.packages.PackageOverheadEstimator;
 import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.packages.RuleVisibility;
+import com.google.devtools.build.lib.packages.RuleClassUtils;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.Target;
@@ -189,6 +189,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.ForOverride;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -352,7 +353,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       SkyframeExecutorTestHelper.process(skyframeExecutor);
     }
     skyframeExecutor.injectExtraPrecomputedValues(extraPrecomputedValues);
-    packageOptions.defaultVisibility = RuleVisibility.PUBLIC;
     packageOptions.showLoadingProgress = true;
     packageOptions.globbingThreads = 7;
     skyframeExecutor.preparePackageLoading(
@@ -468,7 +468,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   protected Target getTarget(String label)
-      throws NoSuchPackageException, NoSuchTargetException, LabelSyntaxException,
+      throws NoSuchPackageException,
+          NoSuchTargetException,
+          LabelSyntaxException,
           InterruptedException {
     return getTarget(Label.parseCanonical(label));
   }
@@ -520,7 +522,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty())));
+                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
+            PrecomputedValue.injected(
+                RepositoryDelegatorFunction.VENDOR_DIRECTORY, Optional.empty())));
   }
 
   protected void setPackageOptions(String... options) throws Exception {
@@ -535,14 +539,22 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     invalidatePackages(/* alsoConfigs= */ false);
   }
 
-  private static PackageOptions parsePackageOptions(String... options) throws Exception {
+  /**
+   * Override to change the default visibility for a test suite. Visibility can also be controlled
+   * with {@link #setPackageOptions}.
+   */
+  protected String getDefaultVisibility() {
+    return "public";
+  }
+
+  private PackageOptions parsePackageOptions(String... options) throws Exception {
     OptionsParser parser = OptionsParser.builder().optionsClasses(PackageOptions.class).build();
-    parser.parse("--default_visibility=public");
+    parser.parse("--default_visibility=" + getDefaultVisibility());
     parser.parse(options);
     return parser.getOptions(PackageOptions.class);
   }
 
-  private BuildLanguageOptions parseBuildLanguageOptions(String... options) throws Exception {
+  protected BuildLanguageOptions parseBuildLanguageOptions(String... options) throws Exception {
     OptionsParser parser =
         OptionsParser.builder().optionsClasses(BuildLanguageOptions.class).build();
     parser.parse(getDefaultBuildLanguageOptions());
@@ -552,9 +564,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected List<String> getDefaultBuildLanguageOptions() throws Exception {
     ImmutableList.Builder<String> ans = ImmutableList.builder();
-    if (!analysisMock.isThisBazel()) {
-      ans.add("--experimental_google_legacy_api"); // For starlark java_binary;
-    }
+    ans.addAll(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
     ans.add("--enable_bzlmod");
     return ans.build();
   }
@@ -661,7 +671,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     skyframeExecutor.handleAnalysisInvalidatingChange();
 
     view = new BuildViewForTesting(directories, ruleClassProvider, skyframeExecutor, null);
-    view.setConfigurationForTesting(event -> {}, targetConfig);
+    view.setConfigurationForTesting(targetConfig);
 
     view.setArtifactRoots(new PackageRootsNoSymlinkCreation(Root.fromPath(rootDirectory)));
   }
@@ -692,11 +702,26 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             return null;
           }
         },
-        /*extendedSanityChecks=*/ false,
-        /*allowAnalysisFailures=*/ false,
+        /* extendedSanityChecks= */ false,
+        /* allowAnalysisFailures= */ false,
         reporter,
         env,
         starlarkBuiltinsValue);
+  }
+
+  /**
+   * Returns the sorted list of all rule classes available in builtins, following the logic of
+   * {@code bazel info build-language}.
+   *
+   * @param includeMacroWrappedRules if true, include rule classes for rules wrapped in macros.
+   */
+  protected ImmutableList<RuleClass> getBuiltinRuleClasses(boolean includeMacroWrappedRules)
+      throws Exception {
+    SkyFunction.Environment env = new SkyFunctionEnvironmentForTesting(reporter, skyframeExecutor);
+    StarlarkBuiltinsValue builtins =
+        (StarlarkBuiltinsValue) checkNotNull(env.getValue(StarlarkBuiltinsValue.key()));
+    return RuleClassUtils.getBuiltinRuleClasses(
+        builtins, ruleClassProvider, includeMacroWrappedRules);
   }
 
   /**
@@ -768,7 +793,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected static void assertConfigurationsEqual(
       BuildConfigurationValue config1, BuildConfigurationValue config2) {
-    assertConfigurationsEqual(config1, config2, /*excludeFragmentOptions=*/ ImmutableSet.of());
+    assertConfigurationsEqual(config1, config2, /* excludeFragmentOptions= */ ImmutableSet.of());
   }
 
   /**
@@ -915,11 +940,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         if (pair.paramFileInfo != null) {
           ByteArrayOutputStream out = new ByteArrayOutputStream();
           ParameterFile.writeParameterFile(
-              out,
-              pair.commandLine.arguments(),
-              pair.paramFileInfo.getFileType(),
-              pair.paramFileInfo.getCharset());
-          return out.toString(pair.paramFileInfo.getCharset());
+              out, pair.commandLine.arguments(), pair.paramFileInfo.getFileType());
+          return out.toString(StandardCharsets.ISO_8859_1);
         }
       }
     }
@@ -1090,7 +1112,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected ConfiguredTargetAndData getConfiguredTargetAndData(
       Label label, BuildConfigurationValue config)
-      throws StarlarkTransition.TransitionException, InvalidConfigurationException,
+      throws StarlarkTransition.TransitionException,
+          InvalidConfigurationException,
           InterruptedException {
     return view.getConfiguredTargetAndDataForTesting(reporter, label, config);
   }
@@ -1101,8 +1124,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * config in the ConfiguredTargetAndData's ConfiguredTarget.
    */
   public ConfiguredTargetAndData getConfiguredTargetAndData(String label)
-      throws LabelSyntaxException, StarlarkTransition.TransitionException,
-          InvalidConfigurationException, InterruptedException {
+      throws LabelSyntaxException,
+          StarlarkTransition.TransitionException,
+          InvalidConfigurationException,
+          InterruptedException {
     return getConfiguredTargetAndData(Label.parseCanonical(label), targetConfig);
   }
 
@@ -1193,6 +1218,16 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
+   * Rewrites the MODULE.bazel file
+   *
+   * <p>Triggers Skyframe to reinitialize everything.
+   */
+  public void rewriteModuleDotBazel(String... lines) throws Exception {
+    scratch.overwriteFile("MODULE.bazel", lines);
+    invalidatePackages();
+  }
+
+  /**
    * Create and return a configured scratch rule.
    *
    * @param packageName the package name of the rule.
@@ -1263,12 +1298,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       throws Exception {
     // Allow to create the BUILD file also in the top package.
     String buildFilePathString = packageName.isEmpty() ? "BUILD" : packageName + "/BUILD";
-    if (packageName.equals(LabelConstants.EXTERNAL_PACKAGE_NAME.getPathString())) {
-      buildFilePathString = "WORKSPACE";
-      scratch.overwriteFile(buildFilePathString, lines);
-    } else {
-      scratch.file(buildFilePathString, lines);
-    }
+    scratch.file(buildFilePathString, lines);
     skyframeExecutor.invalidateFilesUnderPathForTesting(
         reporter,
         new ModifiedFileSet.Builder().modify(PathFragment.create(buildFilePathString)).build(),
@@ -1925,7 +1955,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return update(
         ImmutableList.of(target),
         ImmutableList.of(),
-        /*keepGoing=*/ true, // value doesn't matter since we have only one target.
+        /* keepGoing= */ true, // value doesn't matter since we have only one target.
         loadingPhaseThreads,
         doAnalysis,
         new EventBus());
@@ -1966,7 +1996,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             loadingOptions,
             loadingPhaseThreads,
             keepGoing,
-            /*determineTests=*/ false);
+            /* determineTests= */ false);
     if (!doAnalysis) {
       // TODO(bazel-team): What's supposed to happen in this case?
       return null;
@@ -1974,9 +2004,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return view.update(
         loadingResult,
         targetConfig.getOptions(),
-        /*explicitTargetPatterns=*/ ImmutableSet.of(),
+        /* explicitTargetPatterns= */ ImmutableSet.of(),
         aspects,
-        /*aspectsParameters=*/ ImmutableMap.of(),
+        /* aspectsParameters= */ ImmutableMap.of(),
         viewOptions,
         keepGoing,
         loadingPhaseThreads,
@@ -2057,7 +2087,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected static String getErrorMsgWrongAttributeValue(String value, String... expected) {
     return String.format(
         "has to be one of %s instead of '%s'",
-        StringUtil.joinEnglishList(ImmutableSet.copyOf(expected), "or", "'"), value);
+        StringUtil.joinEnglishListSingleQuoted(ImmutableSet.copyOf(expected)), value);
   }
 
   protected static String getErrorMsgMandatoryProviderMissing(
@@ -2104,6 +2134,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
 
     @Override
+    public SpecialArtifact getRunfilesArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
     public SpecialArtifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
       throw new UnsupportedOperationException();
     }
@@ -2116,11 +2151,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     @Override
     public ExtendedEventHandler getEventHandler() {
       return reporter;
-    }
-
-    @Override
-    public MiddlemanFactory getMiddlemanFactory() {
-      throw new UnsupportedOperationException();
     }
 
     @Override

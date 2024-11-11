@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.actions;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
@@ -27,9 +26,24 @@ public interface ArtifactExpander {
   /**
    * Returns the expansion of the given {@linkplain SpecialArtifactType#TREE tree artifact}.
    *
+   * @throws MissingExpansionException if this expander does not have data for the given tree
+   *     artifact
+   */
+  ImmutableSortedSet<TreeFileArtifact> expandTreeArtifact(Artifact treeArtifact)
+      throws MissingExpansionException;
+
+  /**
+   * Returns the expansion of the given {@linkplain SpecialArtifactType#TREE tree artifact}.
+   *
    * <p>If this expander does not have data for the given tree artifact, returns an empty set.
    */
-  ImmutableSortedSet<TreeFileArtifact> expandTreeArtifact(Artifact treeArtifact);
+  default ImmutableSortedSet<TreeFileArtifact> tryExpandTreeArtifact(Artifact treeArtifact) {
+    try {
+      return expandTreeArtifact(treeArtifact);
+    } catch (MissingExpansionException e) {
+      return ImmutableSortedSet.of();
+    }
+  }
 
   /**
    * Returns the expansion of the given {@linkplain SpecialArtifactType#FILESET fileset artifact}.
@@ -37,8 +51,7 @@ public interface ArtifactExpander {
    * @throws MissingExpansionException if the expander is missing data needed to expand provided
    *     fileset.
    */
-  default ImmutableList<FilesetOutputSymlink> expandFileset(Artifact fileset)
-      throws MissingExpansionException {
+  default FilesetOutputTree expandFileset(Artifact fileset) throws MissingExpansionException {
     throw new MissingExpansionException("Cannot expand fileset " + fileset);
   }
 

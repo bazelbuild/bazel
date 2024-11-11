@@ -297,7 +297,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
           AspectParameters.Builder builder = new AspectParameters.Builder();
           for (Attribute aspectAttr : attributes) {
             String param = aspectAttr.getName();
-            if (Attribute.isImplicit(param) || Attribute.isLateBound(param)) {
+            if (Attribute.isImplicit(param) || Attribute.isAnalysisDependent(param)) {
               // These attributes are the private matters of the aspect
               continue;
             }
@@ -342,7 +342,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
       String parameterName = aspectParameter.getName();
       Type<?> parameterType = aspectParameter.getType();
 
-      if (Attribute.isImplicit(parameterName) || Attribute.isLateBound(parameterName)) {
+      if (Attribute.isImplicit(parameterName) || Attribute.isAnalysisDependent(parameterName)) {
         // These attributes are the private matters of the aspect
         continue;
       }
@@ -430,6 +430,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     StarlarkDefinedAspect that = (StarlarkDefinedAspect) o;
     return Objects.equals(implementation, that.implementation)
         && Objects.equals(attributeAspects, that.attributeAspects)
+        && Objects.equals(toolchainsAspects, that.toolchainsAspects)
         && Objects.equals(attributes, that.attributes)
         && Objects.equals(requiredProviders, that.requiredProviders)
         && Objects.equals(requiredAspectProviders, that.requiredAspectProviders)
@@ -446,6 +447,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     return Objects.hash(
         implementation,
         attributeAspects,
+        toolchainsAspects,
         attributes,
         requiredProviders,
         requiredAspectProviders,

@@ -40,6 +40,7 @@ genrule(
 )
 
 REPO_BZL_FILES = [
+    "cache",
     "git",
     "http",
     "local",

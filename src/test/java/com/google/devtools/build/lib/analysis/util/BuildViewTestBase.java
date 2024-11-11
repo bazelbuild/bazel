@@ -53,10 +53,18 @@ public abstract class BuildViewTestBase extends AnalysisTestCase {
   protected void runAnalysisWithOutputFilter(Pattern outputFilter) throws Exception {
     scratch.file("java/a/BUILD",
         "exports_files(['A.java'])");
-    scratch.file("java/b/BUILD",
-        "java_library(name = 'b', srcs = ['//java/a:A.java'])");
-    scratch.file("java/c/BUILD",
-        "java_library(name = 'c', exports = ['//java/b:b'])");
+    scratch.file(
+        "java/b/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(name = 'b', srcs = ['//java/a:A.java'])
+        """);
+    scratch.file(
+        "java/c/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(name = 'c', exports = ['//java/b:b'])
+        """);
     reporter.setOutputFilter(RegexOutputFilter.forPattern(outputFilter));
     update("//java/c:c");
   }
@@ -74,7 +82,8 @@ public abstract class BuildViewTestBase extends AnalysisTestCase {
     scratch.file(
         "parent/BUILD",
         """
-        sh_library(
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(
             name = "foo",
             srcs = [
                 "//badpkg:okay-target",
@@ -82,14 +91,18 @@ public abstract class BuildViewTestBase extends AnalysisTestCase {
             ],
         )
         """);
-    Path symlinkcycleBuildFile = scratch.file("symlinkcycle/BUILD",
-        "sh_library(name = 'cycle', srcs = glob(['*.sh']))");
+    Path symlinkcycleBuildFile =
+        scratch.file(
+            "symlinkcycle/BUILD",
+            "load('//test_defs:foo_library.bzl', 'foo_library')",
+            "foo_library(name = 'cycle', srcs = glob(['*.sh']))");
     Path dirPath = symlinkcycleBuildFile.getParentDirectory();
     dirPath.getRelative("foo.sh").createSymbolicLink(PathFragment.create("foo.sh"));
     scratch.file(
         "okaypkg/BUILD",
         """
-        sh_library(
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(
             name = "transitively-a-cycle",
             srcs = ["//symlinkcycle:cycle"],
         )

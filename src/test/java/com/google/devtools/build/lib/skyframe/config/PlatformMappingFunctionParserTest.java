@@ -36,6 +36,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Objects;
 import javax.annotation.Nullable;
 import org.junit.Test;
@@ -67,8 +68,10 @@ public class PlatformMappingFunctionParserTest extends AnalysisTestCase {
             "    //platforms:two");
 
     assertThat(mappings.platformsToFlags.keySet()).containsExactly(PLATFORM1, PLATFORM2);
-    assertThat(mappings.platformsToFlags.get(PLATFORM1).nativeFlags()).containsExactly("--cpu=one");
-    assertThat(mappings.platformsToFlags.get(PLATFORM2).nativeFlags()).containsExactly("--cpu=two");
+    assertThat(mappings.platformsToFlags.get(PLATFORM1).parsingResult().canonicalize())
+        .containsExactly("--cpu=one");
+    assertThat(mappings.platformsToFlags.get(PLATFORM2).parsingResult().canonicalize())
+        .containsExactly("--cpu=two");
 
     assertThat(mappings.flagsToPlatforms.keySet())
         .containsExactly(createFlags("--cpu=one"), createFlags("--cpu=two"));
@@ -97,8 +100,9 @@ public class PlatformMappingFunctionParserTest extends AnalysisTestCase {
             "    @dep//platforms:two");
 
     assertThat(mappings.platformsToFlags.keySet()).containsExactly(PLATFORM1, EXTERNAL_PLATFORM);
-    assertThat(mappings.platformsToFlags.get(PLATFORM1).nativeFlags()).containsExactly("--cpu=one");
-    assertThat(mappings.platformsToFlags.get(EXTERNAL_PLATFORM).nativeFlags())
+    assertThat(mappings.platformsToFlags.get(PLATFORM1).parsingResult().canonicalize())
+        .containsExactly("--cpu=one");
+    assertThat(mappings.platformsToFlags.get(EXTERNAL_PLATFORM).parsingResult().canonicalize())
         .containsExactly("--cpu=two");
 
     assertThat(mappings.flagsToPlatforms.keySet())
@@ -130,8 +134,10 @@ public class PlatformMappingFunctionParserTest extends AnalysisTestCase {
             "    //platforms:two");
 
     assertThat(mappings.platformsToFlags.keySet()).containsExactly(PLATFORM1, PLATFORM2);
-    assertThat(mappings.platformsToFlags.get(PLATFORM1).nativeFlags()).containsExactly("--cpu=one");
-    assertThat(mappings.platformsToFlags.get(PLATFORM2).nativeFlags()).containsExactly("--cpu=two");
+    assertThat(mappings.platformsToFlags.get(PLATFORM1).parsingResult().canonicalize())
+        .containsExactly("--cpu=one");
+    assertThat(mappings.platformsToFlags.get(PLATFORM2).parsingResult().canonicalize())
+        .containsExactly("--cpu=two");
 
     assertThat(mappings.flagsToPlatforms.keySet())
         .containsExactly(createFlags("--cpu=one"), createFlags("--cpu=two"));
@@ -160,8 +166,10 @@ public class PlatformMappingFunctionParserTest extends AnalysisTestCase {
             "  //platforms:two");
 
     assertThat(mappings.platformsToFlags.keySet()).containsExactly(PLATFORM1, PLATFORM2);
-    assertThat(mappings.platformsToFlags.get(PLATFORM1).nativeFlags()).containsExactly("--cpu=one");
-    assertThat(mappings.platformsToFlags.get(PLATFORM2).nativeFlags()).containsExactly("--cpu=two");
+    assertThat(mappings.platformsToFlags.get(PLATFORM1).parsingResult().canonicalize())
+        .containsExactly("--cpu=one");
+    assertThat(mappings.platformsToFlags.get(PLATFORM2).parsingResult().canonicalize())
+        .containsExactly("--cpu=two");
 
     assertThat(mappings.flagsToPlatforms.keySet())
         .containsExactly(createFlags("--cpu=one"), createFlags("--cpu=two"));
@@ -181,7 +189,7 @@ public class PlatformMappingFunctionParserTest extends AnalysisTestCase {
             "    --cpu=two");
 
     assertThat(mappings.platformsToFlags.keySet()).containsExactly(PLATFORM1, PLATFORM2);
-    assertThat(mappings.platformsToFlags.get(PLATFORM1).nativeFlags())
+    assertThat(mappings.platformsToFlags.get(PLATFORM1).parsingResult().canonicalize())
         .containsExactly("--cpu=one", "--compilation_mode=dbg");
   }
 
@@ -213,7 +221,8 @@ public class PlatformMappingFunctionParserTest extends AnalysisTestCase {
             );
 
     assertThat(mappings.platformsToFlags.keySet()).containsExactly(PLATFORM1);
-    assertThat(mappings.platformsToFlags.get(PLATFORM1).nativeFlags()).containsExactly("--cpu=one");
+    assertThat(mappings.platformsToFlags.get(PLATFORM1).parsingResult().canonicalize())
+        .containsExactly("--cpu=one");
     assertThat(mappings.flagsToPlatforms).isEmpty();
   }
 
@@ -256,7 +265,7 @@ public class PlatformMappingFunctionParserTest extends AnalysisTestCase {
   }
 
   @Test
-  public void testParseExtraPlatformInFlags() throws Exception {
+  public void testParseExtraPlatformInFlags() {
     PlatformMappingParsingException exception =
         assertThrows(
             PlatformMappingParsingException.class,
@@ -272,7 +281,7 @@ public class PlatformMappingFunctionParserTest extends AnalysisTestCase {
   }
 
   @Test
-  public void testParsePlatformWithoutFlags() throws Exception {
+  public void testParsePlatformWithoutFlags() {
     PlatformMappingParsingException exception =
         assertThrows(
             PlatformMappingParsingException.class,
@@ -286,7 +295,7 @@ public class PlatformMappingFunctionParserTest extends AnalysisTestCase {
   }
 
   @Test
-  public void testParseFlagsWithoutPlatform() throws Exception {
+  public void testParseFlagsWithoutPlatform() {
     PlatformMappingParsingException exception =
         assertThrows(
             PlatformMappingParsingException.class,
@@ -313,7 +322,7 @@ public class PlatformMappingFunctionParserTest extends AnalysisTestCase {
   }
 
   @Test
-  public void testParseUnknownSection() throws Exception {
+  public void testParseUnknownSection() {
     PlatformMappingParsingException exception =
         assertThrows(
             PlatformMappingParsingException.class,
@@ -342,7 +351,7 @@ public class PlatformMappingFunctionParserTest extends AnalysisTestCase {
   }
 
   @Test
-  public void testParsePlatformsInvalidPlatformLabel() throws Exception {
+  public void testParsePlatformsInvalidPlatformLabel() {
     PlatformMappingParsingException exception =
         assertThrows(
             PlatformMappingParsingException.class,
@@ -356,7 +365,7 @@ public class PlatformMappingFunctionParserTest extends AnalysisTestCase {
   }
 
   @Test
-  public void testParseFlagsInvalidPlatformLabel() throws Exception {
+  public void testParseFlagsInvalidPlatformLabel() {
     PlatformMappingParsingException exception =
         assertThrows(
             PlatformMappingParsingException.class,
@@ -370,7 +379,7 @@ public class PlatformMappingFunctionParserTest extends AnalysisTestCase {
   }
 
   @Test
-  public void testParsePlatformsInvalidFlag() throws Exception {
+  public void testParsePlatformsInvalidFlag() {
     PlatformMappingParsingException exception =
         assertThrows(
             PlatformMappingParsingException.class,
@@ -384,7 +393,7 @@ public class PlatformMappingFunctionParserTest extends AnalysisTestCase {
   }
 
   @Test
-  public void testParseFlagsInvalidFlag() throws Exception {
+  public void testParseFlagsInvalidFlag() {
     PlatformMappingParsingException exception =
         assertThrows(
             PlatformMappingParsingException.class,
@@ -398,7 +407,7 @@ public class PlatformMappingFunctionParserTest extends AnalysisTestCase {
   }
 
   @Test
-  public void testParsePlatformsDuplicatePlatform() throws Exception {
+  public void testParsePlatformsDuplicatePlatform() {
     PlatformMappingParsingException exception =
         assertThrows(
             PlatformMappingParsingException.class,
@@ -414,7 +423,7 @@ public class PlatformMappingFunctionParserTest extends AnalysisTestCase {
   }
 
   @Test
-  public void testParseFlagsDuplicateFlags() throws Exception {
+  public void testParseFlagsDuplicateFlags() {
     PlatformMappingParsingException exception =
         assertThrows(
             PlatformMappingParsingException.class,
@@ -431,17 +440,19 @@ public class PlatformMappingFunctionParserTest extends AnalysisTestCase {
     assertThat(exception).hasMessageThat().contains("duplicate");
   }
 
-  private NativeAndStarlarkFlags createFlags(String... nativeFlags) {
+  private ParsedFlagsValue createFlags(String... nativeFlags) throws OptionsParsingException {
     return createFlags(RepositoryMapping.ALWAYS_FALLBACK, nativeFlags);
   }
 
-  private NativeAndStarlarkFlags createFlags(
-      RepositoryMapping mainRepoMapping, String... nativeFlags) {
-    return NativeAndStarlarkFlags.builder()
-        .nativeFlags(ImmutableList.copyOf(nativeFlags))
-        .optionsClasses(ruleClassProvider.getFragmentRegistry().getOptionsClasses())
-        .repoMapping(mainRepoMapping)
-        .build();
+  private ParsedFlagsValue createFlags(RepositoryMapping mainRepoMapping, String... nativeFlags)
+      throws OptionsParsingException {
+    NativeAndStarlarkFlags flags =
+        NativeAndStarlarkFlags.builder()
+            .nativeFlags(ImmutableList.copyOf(nativeFlags))
+            .optionsClasses(ruleClassProvider.getFragmentRegistry().getOptionsClasses())
+            .repoMapping(mainRepoMapping)
+            .build();
+    return ParsedFlagsValue.parseAndCreate(flags);
   }
 
   private PlatformMappingFunction.Mappings parse(String... lines)
@@ -460,9 +471,7 @@ public class PlatformMappingFunctionParserTest extends AnalysisTestCase {
               skyframeExecutor, key, /* keepGoing= */ false, reporter);
       if (evalResult.hasError()) {
         ErrorInfo errorInfo = evalResult.getError(key);
-        PlatformMappingParsingException exception =
-            (PlatformMappingParsingException) errorInfo.getException();
-        throw exception;
+        throw (PlatformMappingParsingException) errorInfo.getException();
       }
       return evalResult.get(key).mappings();
     } finally {
@@ -470,7 +479,8 @@ public class PlatformMappingFunctionParserTest extends AnalysisTestCase {
     }
   }
 
-  static final SkyFunctionName SKYFUNCTION_NAME = SkyFunctionName.createHermetic("PARSE_MAPPINGS");
+  private static final SkyFunctionName SKYFUNCTION_NAME =
+      SkyFunctionName.createHermetic("PARSE_MAPPINGS");
 
   @AutoCodec
   static final class Key implements SkyKey {
@@ -501,7 +511,10 @@ public class PlatformMappingFunctionParserTest extends AnalysisTestCase {
 
     @Override
     public boolean equals(Object o) {
-      if (o == null || !(o instanceof Key other)) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof Key other)) {
         return false;
       }
       return Objects.equals(mainRepoMapping, other.mainRepoMapping)

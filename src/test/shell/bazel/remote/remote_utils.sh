@@ -105,3 +105,7 @@ function remote_cas_file_exist() {
 function append_remote_cas_files() {
   find "$cas_path/cas" -type f >> $1
 }
+
+function delete_remote_cas_files() {
+  rm -rf "$cas_path/cas"
+}

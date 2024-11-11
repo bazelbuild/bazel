@@ -39,7 +39,7 @@ java_test(
         "//third_party:mockito",
         "//third_party:netty",
         "//third_party:truth",
-        "//third_party/protobuf:protobuf_java",
+        "@protobuf//:protobuf_java",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )

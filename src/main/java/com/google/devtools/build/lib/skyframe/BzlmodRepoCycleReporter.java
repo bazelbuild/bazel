@@ -186,12 +186,25 @@ public class BzlmodRepoCycleReporter implements CyclesReporter.SingleCycleReport
     } else if (Iterables.any(cycle, IS_BZL_LOAD)) {
       Label fileLabel =
           ((BzlLoadValue.Key) Iterables.getLast(Iterables.filter(cycle, IS_BZL_LOAD))).getLabel();
-      eventHandler.handle(
-          Event.error(
-              null,
-              String.format(
-                  "Failed to load .bzl file '%s': possible dependency cycle detected.\n",
-                  fileLabel)));
+      final String errorMessage;
+      if (cycle.get(0).equals(StarlarkBuiltinsValue.key(true))) {
+        // We know `fileLabel` is the last .bzl visited in the cycle. We also know that
+        // BzlLoadFunction triggered the cycle by requesting StarlarkBuiltinsValue w/autoloads.
+        // We know that we're not in builtins .bzls, because they don't request w/autoloads.
+        // Thus, `fileLabel` is a .bzl transitively depended on by an autoload.
+        errorMessage =
+            String.format(
+                "Cycle caused by autoloads, failed to load .bzl file '%s'.\n"
+                    + "Add '%s' to --repositories_without_autoloads or disable autoloads by setting"
+                    + " '--incompatible_autoload_externally='\n"
+                    + "More information on https://github.com/bazelbuild/bazel/issues/23043.\n",
+                fileLabel, fileLabel.getRepository().getName());
+      } else {
+        errorMessage =
+            String.format(
+                "Failed to load .bzl file '%s': possible dependency cycle detected.\n", fileLabel);
+      }
+      eventHandler.handle(Event.error(null, errorMessage));
       return true;
     } else if (Iterables.any(cycle, IS_PACKAGE_LOOKUP)) {
       PackageIdentifier pkg =

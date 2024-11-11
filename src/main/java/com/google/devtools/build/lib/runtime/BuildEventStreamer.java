@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.buildeventstream.AbortedEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildCompletingEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
+import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions.OutputGroupFileModes;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted.AbortReason;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
@@ -94,6 +95,7 @@ public class BuildEventStreamer {
 
   private final Collection<BuildEventTransport> transports;
   private final BuildEventStreamOptions besOptions;
+  private final OutputGroupFileModes outputGroupFileModes;
   private final boolean publishTargetSummaries;
 
   @GuardedBy("this")
@@ -233,11 +235,13 @@ public class BuildEventStreamer {
   private BuildEventStreamer(
       Collection<BuildEventTransport> transports,
       BuildEventStreamOptions options,
+      OutputGroupFileModes outputGroupFileModes,
       boolean publishTargetSummaries,
       CountingArtifactGroupNamer artifactGroupNamer,
       String oomMessage) {
     this.transports = transports;
     this.besOptions = options;
+    this.outputGroupFileModes = outputGroupFileModes;
     this.publishTargetSummaries = publishTargetSummaries;
     this.announcedEvents = null;
     this.progressCount = 0;
@@ -434,7 +438,7 @@ public class BuildEventStreamer {
   }
 
   public void close() {
-    close(/*reason=*/ null);
+    close(/* reason= */ null);
   }
 
   private synchronized void close(@Nullable AbortReason reason) {
@@ -559,7 +563,8 @@ public class BuildEventStreamer {
     }
 
     if (event instanceof EventReportingArtifacts eventReportingArtifacts) {
-      ReportedArtifacts reportedArtifacts = eventReportingArtifacts.reportedArtifacts();
+      ReportedArtifacts reportedArtifacts =
+          eventReportingArtifacts.reportedArtifacts(outputGroupFileModes);
       for (NestedSet<Artifact> artifactSet : reportedArtifacts.artifacts) {
         maybeReportArtifactSet(reportedArtifacts.completionContext, artifactSet);
       }
@@ -954,6 +959,7 @@ public class BuildEventStreamer {
   public static final class Builder {
     private Set<BuildEventTransport> buildEventTransports;
     private BuildEventStreamOptions besStreamOptions;
+    private OutputGroupFileModes outputGroupFileModes = OutputGroupFileModes.DEFAULT;
     private boolean publishTargetSummaries;
     private CountingArtifactGroupNamer artifactGroupNamer;
     private String oomMessage;
@@ -967,6 +973,12 @@ public class BuildEventStreamer {
     @CanIgnoreReturnValue
     public Builder besStreamOptions(BuildEventStreamOptions value) {
       this.besStreamOptions = value;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder outputGroupFileModes(OutputGroupFileModes outputGroupFileModes) {
+      this.outputGroupFileModes = outputGroupFileModes;
       return this;
     }
 
@@ -992,6 +1004,7 @@ public class BuildEventStreamer {
       return new BuildEventStreamer(
           checkNotNull(buildEventTransports),
           checkNotNull(besStreamOptions),
+          outputGroupFileModes,
           publishTargetSummaries,
           checkNotNull(artifactGroupNamer),
           nullToEmpty(oomMessage));

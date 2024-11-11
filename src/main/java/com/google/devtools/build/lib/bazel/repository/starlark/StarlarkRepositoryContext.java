@@ -16,12 +16,12 @@ package com.google.devtools.build.lib.bazel.repository.starlark;
 
 import com.github.difflib.patch.PatchFailedException;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.debug.WorkspaceRuleEvent;
 import com.google.devtools.build.lib.bazel.repository.PatchUtil;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -58,7 +58,6 @@ import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -79,7 +78,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
   private final Rule rule;
   private final PathPackageLocator packageLocator;
   private final StructImpl attrObject;
-  private final ImmutableSet<PathFragment> ignoredPatterns;
+  private final IgnoredSubdirectories ignoredSubdirectories;
   private final SyscallCache syscallCache;
   private final HashMap<RepoRecordedInput.DirTree, String> recordedDirTreeInputs = new HashMap<>();
 
@@ -91,7 +90,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       Rule rule,
       PathPackageLocator packageLocator,
       Path outputDirectory,
-      ImmutableSet<PathFragment> ignoredPatterns,
+      IgnoredSubdirectories ignoredSubdirectories,
       Environment environment,
       ImmutableMap<String, String> env,
       DownloadManager downloadManager,
@@ -117,7 +116,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
         /* allowWatchingPathsOutsideWorkspace= */ true);
     this.rule = rule;
     this.packageLocator = packageLocator;
-    this.ignoredPatterns = ignoredPatterns;
+    this.ignoredSubdirectories = ignoredSubdirectories;
     this.syscallCache = syscallCache;
     WorkspaceAttributeMapper attrs = WorkspaceAttributeMapper.of(rule);
     ImmutableMap.Builder<String, Object> attrBuilder = new ImmutableMap.Builder<>();
@@ -170,7 +169,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
 
   private StarlarkPath externalPath(String method, Object pathObject)
       throws EvalException, InterruptedException {
-    StarlarkPath starlarkPath = getPath(method, pathObject);
+    StarlarkPath starlarkPath = getPath(pathObject);
     Path path = starlarkPath.getPath();
     if (packageLocator.getPathEntries().stream().noneMatch(root -> path.startsWith(root.asPath()))
         || path.startsWith(workingDirectory)) {
@@ -178,10 +177,8 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
     }
     Path workspaceRoot = packageLocator.getWorkspaceFile(syscallCache).getParentDirectory();
     PathFragment relativePath = path.relativeTo(workspaceRoot);
-    for (PathFragment ignoredPattern : ignoredPatterns) {
-      if (relativePath.startsWith(ignoredPattern)) {
-        return starlarkPath;
-      }
+    if (ignoredSubdirectories.matchingEntry(relativePath) != null) {
+      return starlarkPath;
     }
     throw Starlark.errorf(
         "%s can only be applied to external paths (that is, outside the workspace or ignored in"
@@ -213,8 +210,8 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       })
   public void symlink(Object target, Object linkName, StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
-    StarlarkPath targetPath = getPath("symlink()", target);
-    StarlarkPath linkPath = getPath("symlink()", linkName);
+    StarlarkPath targetPath = getPath(target);
+    StarlarkPath linkPath = getPath(linkName);
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newSymlinkEvent(
             targetPath.toString(),
@@ -305,8 +302,8 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       String watchTemplate,
       StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
-    StarlarkPath p = getPath("template()", path);
-    StarlarkPath t = getPath("template()", template);
+    StarlarkPath p = getPath(path);
+    StarlarkPath t = getPath(template);
     Map<String, String> substitutionMap =
         Dict.cast(substitutions, String.class, String.class, "substitutions");
     WorkspaceRuleEvent w =
@@ -396,6 +393,74 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
   }
 
   @StarlarkMethod(
+      name = "rename",
+      doc =
+          """
+          Renames the file or directory from <code>src</code> to <code>dst</code>. \
+          Parent directories are created as needed. Fails if the destination path
+          already exists. Both paths must be located within the repository.
+          """,
+      useStarlarkThread = true,
+      parameters = {
+        @Param(
+            name = "src",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Label.class),
+              @ParamType(type = StarlarkPath.class)
+            },
+            doc =
+                """
+                The path of the existing file or directory to rename, relative
+                to the repository directory.
+                """),
+        @Param(
+            name = "dst",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Label.class),
+              @ParamType(type = StarlarkPath.class)
+            },
+            doc =
+                """
+                The new name to which the file or directory will be renamed to,
+                relative to the repository directory.
+                """),
+      })
+  public void rename(Object srcName, Object dstName, StarlarkThread thread)
+      throws RepositoryFunctionException, EvalException, InterruptedException {
+    StarlarkPath srcPath = getPath(srcName);
+    StarlarkPath dstPath = getPath(dstName);
+    WorkspaceRuleEvent w =
+        WorkspaceRuleEvent.newRenameEvent(
+            srcPath.toString(),
+            dstPath.toString(),
+            identifyingStringForLogging,
+            thread.getCallerLocation());
+    env.getListener().post(w);
+    try {
+      checkInOutputDirectory("write", srcPath);
+      checkInOutputDirectory("write", dstPath);
+      if (dstPath.exists()) {
+        throw new RepositoryFunctionException(
+            new IOException("Could not rename " + srcPath + " to " + dstPath + ": already exists"),
+            Transience.TRANSIENT);
+      }
+      makeDirectories(dstPath.getPath());
+      srcPath.getPath().renameTo(dstPath.getPath());
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(
+          new IOException(
+              "Could not rename " + srcPath + " to " + dstPath + ": " + e.getMessage(), e),
+          Transience.TRANSIENT);
+    } catch (InvalidPathException e) {
+      throw new RepositoryFunctionException(
+          Starlark.errorf("Could not rename %s to %s: %s", srcPath, dstPath, e.getMessage()),
+          Transience.PERSISTENT);
+    }
+  }
+
+  @StarlarkMethod(
       name = "patch",
       doc =
           """
@@ -443,7 +508,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
   public void patch(Object patchFile, StarlarkInt stripI, String watchPatch, StarlarkThread thread)
       throws EvalException, RepositoryFunctionException, InterruptedException {
     int strip = Starlark.toInt(stripI, "strip");
-    StarlarkPath starlarkPath = getPath("patch()", patchFile);
+    StarlarkPath starlarkPath = getPath(patchFile);
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newPatchEvent(
             starlarkPath.toString(),
@@ -488,7 +553,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       })
   public void watchTree(Object path)
       throws EvalException, InterruptedException, RepositoryFunctionException {
-    StarlarkPath p = getPath("watch_tree()", path);
+    StarlarkPath p = getPath(path);
     if (!p.isDir()) {
       throw Starlark.errorf("can't call watch_tree() on non-directory %s", p);
     }
@@ -515,67 +580,5 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
   @Override
   public String toString() {
     return "repository_ctx[" + rule.getLabel() + "]";
-  }
-
-  /**
-   * Try to compute the paths of all attributes that are labels, including labels in list and dict
-   * arguments.
-   *
-   * <p>The value is ignored, but any missing information from the environment is detected (and an
-   * exception thrown). In this way, we can enforce that all arguments are evaluated before we start
-   * potentially more expensive operations.
-   */
-  // TODO(wyv): somehow migrate this to the base context too.
-  public void enforceLabelAttributes()
-      throws EvalException, InterruptedException, NeedsSkyframeRestartException {
-    // TODO: If a labels fails to resolve to an existing regular file, we do not add a dependency on
-    //  that fact - if the file is created later or changes its type, it will not trigger a rerun of
-    //  the repository function.
-    StructImpl attr = getAttr();
-    // Batch restarts as they are expensive
-    boolean needsRestart = false;
-    for (String name : attr.getFieldNames()) {
-      Object value = attr.getValue(name);
-      if (value instanceof Label label) {
-        if (dependOnLabelIgnoringErrors(label)) {
-          needsRestart = true;
-        }
-      }
-      if (value instanceof Sequence<?> sequence) {
-        for (Object entry : sequence) {
-          if (entry instanceof Label label2) {
-            if (dependOnLabelIgnoringErrors(label2)) {
-              needsRestart = true;
-            }
-          }
-        }
-      }
-      if (value instanceof Dict<?, ?> dict) {
-        for (Object entry : dict.keySet()) {
-          if (entry instanceof Label label2) {
-            if (dependOnLabelIgnoringErrors(label2)) {
-              needsRestart = true;
-            }
-          }
-        }
-      }
-    }
-
-    if (needsRestart) {
-      throw new NeedsSkyframeRestartException();
-    }
-  }
-
-  private boolean dependOnLabelIgnoringErrors(Label label) throws InterruptedException {
-    try {
-      getPathFromLabel(label);
-    } catch (NeedsSkyframeRestartException e) {
-      return true;
-    } catch (EvalException e) {
-      // EvalExceptions indicate labels not referring to existing files. This is fine,
-      // as long as they are never resolved to files in the execution of the rule; we allow
-      // non-strict rules.
-    }
-    return false;
   }
 }

@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
-import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.AspectValue;
@@ -66,6 +65,7 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
+import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnFilesystemErrorCodeLoadingBzlFile;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump;
@@ -165,6 +165,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
       ExternalPackageHelper externalPackageHelper,
       @Nullable SkyframeExecutorRepositoryHelpersHolder repositoryHelpersHolder,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
+      ActionOnFilesystemErrorCodeLoadingBzlFile actionOnFilesystemErrorCodeLoadingBzlFile,
       boolean shouldUseRepoDotBazel,
       SkyKeyStateReceiver skyKeyStateReceiver,
       BugReporter bugReporter,
@@ -184,6 +185,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
         buildFilesByPriority,
         externalPackageHelper,
         actionOnIOExceptionReadingBuildFile,
+        actionOnFilesystemErrorCodeLoadingBzlFile,
         shouldUseRepoDotBazel,
         /* shouldUnblockCpuWorkWhenFetchingDeps= */ false,
         new PackageProgressReceiver(),
@@ -234,12 +236,12 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     return new SequencedSkyframeProgressReceiver();
   }
 
-  /** A {@link SkyframeProgressReceiver} tracks dirty {@link FileValue.Key}s. */
+  /** A {@link SkyframeProgressReceiver} tracks dirty {@link FileKey}s. */
   protected class SequencedSkyframeProgressReceiver extends SkyframeProgressReceiver {
     @Override
     public void dirtied(SkyKey skyKey, DirtyType dirtyType) {
       super.dirtied(skyKey, dirtyType);
-      if (skyKey instanceof FileValue.Key) {
+      if (skyKey instanceof FileKey) {
         incrementalBuildMonitor.reportInvalidatedFileValue();
       }
     }
@@ -332,7 +334,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
   private static final ImmutableSet<SkyFunctionName> PACKAGE_LOCATOR_DEPENDENT_VALUES =
       ImmutableSet.of(
           FileStateKey.FILE_STATE,
-          FileValue.FILE,
+          SkyFunctions.FILE,
           SkyFunctions.DIRECTORY_LISTING_STATE,
           SkyFunctions.PREPARE_DEPS_OF_PATTERN,
           SkyFunctions.TARGET_PATTERN,
@@ -790,6 +792,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     private ImmutableList<BuildFileName> buildFilesByPriority;
     private ExternalPackageHelper externalPackageHelper;
     private ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile;
+    private ActionOnFilesystemErrorCodeLoadingBzlFile actionOnFilesystemErrorCodeLoadingBzlFile;
     private boolean shouldUseRepoDotBazel = true;
 
     // Fields with default values.
@@ -818,6 +821,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
       Preconditions.checkNotNull(buildFilesByPriority);
       Preconditions.checkNotNull(externalPackageHelper);
       Preconditions.checkNotNull(actionOnIOExceptionReadingBuildFile);
+      Preconditions.checkNotNull(actionOnFilesystemErrorCodeLoadingBzlFile);
       Preconditions.checkNotNull(ignoredPackagePrefixesFunction);
 
       SequencedSkyframeExecutor skyframeExecutor =
@@ -838,6 +842,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
               externalPackageHelper,
               repositoryHelpersHolder,
               actionOnIOExceptionReadingBuildFile,
+              actionOnFilesystemErrorCodeLoadingBzlFile,
               shouldUseRepoDotBazel,
               skyKeyStateReceiver,
               bugReporter,
@@ -939,6 +944,13 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     public Builder setActionOnIOExceptionReadingBuildFile(
         ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile) {
       this.actionOnIOExceptionReadingBuildFile = actionOnIOExceptionReadingBuildFile;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setActionOnFilesystemErrorCodeLoadingBzlFile(
+        ActionOnFilesystemErrorCodeLoadingBzlFile actionOnFilesystemErrorCodeLoadingBzlFile) {
+      this.actionOnFilesystemErrorCodeLoadingBzlFile = actionOnFilesystemErrorCodeLoadingBzlFile;
       return this;
     }
 

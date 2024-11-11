@@ -217,31 +217,6 @@ public final class TreeArtifactValueTest {
   }
 
   @Test
-  public void cannotAddOmittedChildToBuilder() {
-    SpecialArtifact parent = createTreeArtifact("bin/tree");
-    TreeFileArtifact child = TreeFileArtifact.createTreeOutput(parent, "child");
-
-    TreeArtifactValue.Builder builder = TreeArtifactValue.newBuilder(parent);
-
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> builder.putChild(child, FileArtifactValue.OMITTED_FILE_MARKER));
-  }
-
-  @Test
-  public void cannotAddOmittedArchivedRepresentation() {
-    SpecialArtifact parent = createTreeArtifact("bin/tree");
-    ArchivedTreeArtifact archivedTreeArtifact = createArchivedTreeArtifact(parent);
-    TreeArtifactValue.Builder builder = TreeArtifactValue.newBuilder(parent);
-
-    assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            builder.setArchivedRepresentation(
-                archivedTreeArtifact, FileArtifactValue.OMITTED_FILE_MARKER));
-  }
-
-  @Test
   public void orderIndependence() {
     SpecialArtifact parent = createTreeArtifact("bin/tree");
     TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(parent, "child1");
@@ -642,7 +617,7 @@ public final class TreeArtifactValueTest {
   public void multiBuilder_empty_injectsNothing() {
     Map<SpecialArtifact, TreeArtifactValue> results = new HashMap<>();
 
-    TreeArtifactValue.newMultiBuilder().injectTo(results::put);
+    TreeArtifactValue.newMultiBuilder().forEach(results::put);
 
     assertThat(results).isEmpty();
   }
@@ -658,7 +633,7 @@ public final class TreeArtifactValueTest {
     treeArtifacts
         .putChild(child1, metadataWithId(1))
         .putChild(child2, metadataWithId(2))
-        .injectTo(results::put);
+        .forEach(results::put);
 
     assertThat(results)
         .containsExactly(
@@ -683,7 +658,7 @@ public final class TreeArtifactValueTest {
         .putChild(parent1Child1, metadataWithId(1))
         .putChild(parent2Child, metadataWithId(3))
         .putChild(parent1Child2, metadataWithId(2))
-        .injectTo(results::put);
+        .forEach(results::put);
 
     assertThat(results)
         .containsExactly(
@@ -711,7 +686,7 @@ public final class TreeArtifactValueTest {
     builder
         .putChild(child, childMetadata)
         .setArchivedRepresentation(archivedTreeArtifact, archivedTreeArtifactMetadata)
-        .injectTo(results::put);
+        .forEach(results::put);
 
     assertThat(results)
         .containsExactly(
@@ -730,7 +705,7 @@ public final class TreeArtifactValueTest {
     FileArtifactValue metadata = metadataWithId(1);
     Map<SpecialArtifact, TreeArtifactValue> results = new HashMap<>();
 
-    builder.setArchivedRepresentation(archivedTreeArtifact, metadata).injectTo(results::put);
+    builder.setArchivedRepresentation(archivedTreeArtifact, metadata).forEach(results::put);
 
     assertThat(results)
         .containsExactly(
@@ -757,7 +732,7 @@ public final class TreeArtifactValueTest {
         .setArchivedRepresentation(archivedArtifact1, archivedArtifact1Metadata)
         .putChild(parent1Child, parent1ChildMetadata)
         .putChild(parent2Child, parent2ChildMetadata)
-        .injectTo(results::put);
+        .forEach(results::put);
 
     assertThat(results)
         .containsExactly(
@@ -787,7 +762,7 @@ public final class TreeArtifactValueTest {
         .putChild(parent1Child, parent1ChildMetadata)
         .putChild(parent2Child, parent2ChildMetadata)
         .remove(parent1)
-        .injectTo(results::put);
+        .forEach(results::put);
 
     assertThat(results)
         .containsExactly(
@@ -803,7 +778,7 @@ public final class TreeArtifactValueTest {
     SpecialArtifact missingTree = createTreeArtifact("bin/tree");
     Map<SpecialArtifact, TreeArtifactValue> results = new HashMap<>();
 
-    builder.remove(missingTree).injectTo(results::put);
+    builder.remove(missingTree).forEach(results::put);
 
     assertThat(results).isEmpty();
   }
@@ -838,7 +813,7 @@ public final class TreeArtifactValueTest {
         .setArchivedRepresentation(archivedArtifact, archivedArtifactMetadata)
         .remove(parent)
         .putChild(child2, child2Metadata)
-        .injectTo(results::put);
+        .forEach(results::put);
 
     assertThat(results)
         .containsExactly(

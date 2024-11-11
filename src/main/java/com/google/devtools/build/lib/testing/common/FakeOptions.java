@@ -114,4 +114,9 @@ public final class FakeOptions implements OptionsProvider {
       Predicate<? super ParsedOptionDescription> filter) {
     return ImmutableMap.of();
   }
+
+  @Override
+  public ImmutableMap<String, String> getUserOptions() {
+    return ImmutableMap.of();
+  }
 }

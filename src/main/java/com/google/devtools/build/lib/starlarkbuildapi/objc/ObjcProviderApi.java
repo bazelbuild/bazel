@@ -38,19 +38,25 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue
       doc =
           "Non-propagated include search paths specified with '-I' on the command line. Also known "
               + "as header search paths (and distinct from <em>user</em> header search paths).")
-  Depset strictIncludeForStarlark();
+  default Depset strictIncludeForStarlark() {
+    throw new UnsupportedOperationException(); // just for docs
+  }
 
   @StarlarkMethod(
       name = "j2objc_library",
       structField = true,
       doc = "Static libraries that are built from J2ObjC-translated Java code.")
-  Depset /*<FileApiT>*/ j2objcLibrary();
+  default Depset /*<FileApiT>*/ j2objcLibrary() {
+    throw new UnsupportedOperationException(); // just for docs
+  }
 
   @StarlarkMethod(
       name = "module_map",
       structField = true,
       doc = "Clang module maps, used to enforce proper use of private header files.")
-  Depset /*<FileApiT>*/ moduleMap();
+  default Depset /*<FileApiT>*/ moduleMap() {
+    throw new UnsupportedOperationException(); // just for docs
+  }
 
   @StarlarkMethod(
       name = "direct_module_maps",
@@ -58,10 +64,14 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue
       doc =
           "Module map files from this target directly (no transitive module maps). "
               + "Used to enforce proper use of private header files and for Swift compilation.")
-  Sequence<FileApiT> directModuleMaps();
+  default Sequence<FileApiT> directModuleMaps() {
+    throw new UnsupportedOperationException(); // just for docs
+  }
 
   @StarlarkMethod(name = "source", structField = true, doc = "All transitive source files.")
-  Depset /*<FileApiT>*/ sourceForStarlark();
+  default Depset /*<FileApiT>*/ sourceForStarlark() {
+    throw new UnsupportedOperationException(); // just for docs
+  }
 
   @StarlarkMethod(
       name = "direct_sources",
@@ -69,7 +79,9 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue
       doc =
           "All direct source files from this target (no transitive files), "
               + "including any headers in the 'srcs' attribute.")
-  Sequence<FileApiT> directSources();
+  default Sequence<FileApiT> directSources() {
+    throw new UnsupportedOperationException(); // just for docs
+  }
 
   @StarlarkMethod(
       name = "umbrella_header",
@@ -77,5 +89,7 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue
       doc =
           "Clang umbrella header. Public headers are #included in umbrella headers to be "
               + "compatible with J2ObjC segmented headers.")
-  Depset /*<FileApiT>*/ umbrellaHeader();
+  default Depset /*<FileApiT>*/ umbrellaHeader() {
+    throw new UnsupportedOperationException(); // just for docs
+  }
 }

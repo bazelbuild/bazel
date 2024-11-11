@@ -38,6 +38,7 @@ java_library(
     name = "profiler",
     srcs = [
         "AutoProfiler.java",
+        "CounterSeriesTask.java",
         "CounterSeriesTraceData.java",
         "JsonTraceFileWriter.java",
         "LocalResourceCollector.java",

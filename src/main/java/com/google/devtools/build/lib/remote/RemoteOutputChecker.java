@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.ProviderCollection;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
@@ -36,7 +37,9 @@ import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.ConcurrentPathTrie;
+import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
@@ -55,6 +58,8 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
   private final CommandMode commandMode;
   private final RemoteOutputsMode outputsMode;
   private final ImmutableList<Pattern> patternsToDownload;
+  @Nullable private final RemoteOutputChecker lastRemoteOutputChecker;
+
   private final ConcurrentPathTrie pathsToDownload = new ConcurrentPathTrie();
 
   public RemoteOutputChecker(
@@ -62,6 +67,15 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
       String commandName,
       RemoteOutputsMode outputsMode,
       ImmutableList<Pattern> patternsToDownload) {
+    this(clock, commandName, outputsMode, patternsToDownload, /* lastRemoteOutputChecker= */ null);
+  }
+
+  public RemoteOutputChecker(
+      Clock clock,
+      String commandName,
+      RemoteOutputsMode outputsMode,
+      ImmutableList<Pattern> patternsToDownload,
+      RemoteOutputChecker lastRemoteOutputChecker) {
     this.clock = clock;
     this.commandMode =
         switch (commandName) {
@@ -73,6 +87,7 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
         };
     this.outputsMode = outputsMode;
     this.patternsToDownload = patternsToDownload;
+    this.lastRemoteOutputChecker = lastRemoteOutputChecker;
   }
 
   // Skymeld-only.
@@ -148,6 +163,7 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
               .getImportantArtifacts();
       addOutputsToDownload(artifactsToBuild.toList());
       addRunfiles(target);
+      addExtraActionArtifacts(target);
     }
   }
 
@@ -180,6 +196,14 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
         continue;
       }
       addOutputToDownload(artifact);
+    }
+  }
+
+  private void addExtraActionArtifacts(ProviderCollection target) {
+    ExtraActionArtifactsProvider extraActionArtifactsProvider =
+        target.getProvider(ExtraActionArtifactsProvider.class);
+    if (extraActionArtifactsProvider != null) {
+      addOutputsToDownload(extraActionArtifactsProvider.getExtraActionArtifacts().toList());
     }
   }
 
@@ -264,13 +288,40 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
 
   @Override
   public boolean shouldTrustRemoteArtifact(ActionInput file, RemoteFileArtifactValue metadata) {
+    // If Bazel should download this file, but it does not exist locally, returns false to rerun
+    // the generating action to trigger the download (just like in the normal build, when local
+    // outputs are missing).
+
+    if (lastRemoteOutputChecker != null) {
+      // This is an incremental build. If the file was downloaded by previous build and is now
+      // missing, invalidate the action.
+      if (lastRemoteOutputChecker.shouldDownloadOutput(file)) {
+        return false;
+      }
+    }
+
     if (shouldDownloadOutput(file)) {
-      // If Bazel should download this file, but it does not exist locally, returns false to rerun
-      // the generating action to trigger the download (just like in the normal build, when local
-      // outputs are missing).
       return false;
     }
 
     return metadata.isAlive(clock.now());
+  }
+
+  public void maybeInvalidateSkyframeValues(MemoizingEvaluator memoizingEvaluator) {
+    if (lastRemoteOutputChecker == null) {
+      return;
+    }
+
+    // If the outputsMode or commandMode is changed, we invalidate completion functions. Otherwise,
+    // some requested outputs might not be correctly downloaded.
+    if (lastRemoteOutputChecker.outputsMode != outputsMode
+        || lastRemoteOutputChecker.commandMode != commandMode) {
+      memoizingEvaluator.delete(
+          k -> {
+            var functionName = k.functionName();
+            return functionName.equals(SkyFunctions.TARGET_COMPLETION)
+                || functionName.equals(SkyFunctions.ASPECT_COMPLETION);
+          });
+    }
   }
 }

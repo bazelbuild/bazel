@@ -44,7 +44,8 @@ public abstract class TraceEvent {
       @Nullable ImmutableMap<String, Object> args,
       @Nullable String primaryOutputPath,
       @Nullable String targetLabel,
-      @Nullable String mnemonic) {
+      @Nullable String mnemonic,
+      @Nullable String configuration) {
     return new AutoValue_TraceEvent(
         category,
         name,
@@ -56,7 +57,8 @@ public abstract class TraceEvent {
         args,
         primaryOutputPath,
         targetLabel,
-        mnemonic);
+        mnemonic,
+        configuration);
   }
 
   @Nullable
@@ -90,6 +92,9 @@ public abstract class TraceEvent {
   @Nullable
   public abstract String mnemonic();
 
+  @Nullable
+  public abstract String configuration();
+
   private static TraceEvent createFromJsonReader(JsonReader reader) throws IOException {
     String category = null;
     String name = null;
@@ -101,6 +106,7 @@ public abstract class TraceEvent {
     String targetLabel = null;
     String mnemonic = null;
     String type = null;
+    String configuration = null;
     ImmutableMap<String, Object> args = null;
 
     reader.beginObject();
@@ -122,6 +128,8 @@ public abstract class TraceEvent {
           targetLabel = target instanceof String ? (String) target : null;
           Object mnemonicValue = args.get("mnemonic");
           mnemonic = mnemonicValue instanceof String ? (String) mnemonicValue : null;
+          Object configurationValue = args.get("configuration");
+          configuration = configurationValue instanceof String ? (String) configurationValue : null;
         }
         default -> reader.skipValue();
       }
@@ -138,7 +146,8 @@ public abstract class TraceEvent {
         args,
         primaryOutputPath,
         targetLabel,
-        mnemonic);
+        mnemonic,
+        configuration);
   }
 
   private static ImmutableMap<String, Object> parseMap(JsonReader reader) throws IOException {

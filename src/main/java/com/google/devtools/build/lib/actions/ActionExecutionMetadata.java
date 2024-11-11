@@ -79,7 +79,8 @@ public interface ActionExecutionMetadata extends ActionAnalysisMetadata {
   String describeKey();
 
   /**
-   * Returns true iff the {@link #getInputs} set is known to be complete.
+   * Returns true iff the {@link #getInputs} set has been updated taking input discovery into
+   * account.
    *
    * <p>For most actions, this always returns true. For actions which {@linkplain #discoversInputs
    * discover inputs} (e.g. C++ compilation), inputs are dynamically discovered from the previous
@@ -112,6 +113,16 @@ public interface ActionExecutionMetadata extends ActionAnalysisMetadata {
    * <p>This property is relevant for action rewinding and top-level output fetching.
    */
   default boolean mayInsensitivelyPropagateInputs() {
+    return false;
+  }
+
+  /**
+   * Returns true if the action may modify spawn outputs after the spawn has executed.
+   *
+   * <p>If this returns true, any kind of spawn output caching or reuse needs to happen
+   * synchronously directly after the spawn execution.
+   */
+  default boolean mayModifySpawnOutputsAfterExecution() {
     return false;
   }
 }

@@ -145,35 +145,6 @@ public final class OptionsUtils {
     }
   }
 
-  /**
-   * Converter from String to PathFragment requiring the provided path to be relative. If the input
-   * is empty returns {@code null} instead.
-   */
-  public static class EmptyToNullRelativePathFragmentConverter
-      extends Converter.Contextless<PathFragment> {
-
-    @Override
-    @Nullable
-    public PathFragment convert(String input) throws OptionsParsingException {
-      if (input.isEmpty()) {
-        return null;
-      }
-
-      PathFragment pathFragment = convertOptionsPathFragment(input);
-
-      if (pathFragment.isAbsolute()) {
-        throw new OptionsParsingException("Expected relative path but got '" + input + "'.");
-      }
-
-      return pathFragment;
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "a relative path";
-    }
-  }
-
   /** Converts from a colon-separated list of strings into a list of PathFragment instances. */
   public static class PathFragmentListConverter
       extends Converter.Contextless<ImmutableList<PathFragment>> {

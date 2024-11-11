@@ -17,7 +17,17 @@
 # This script creates from the full JDK a minimized version that only contains
 # the specified JDK modules.
 
-set -euo pipefail
+# --- begin runfiles.bash initialization v3 ---
+# Copy-pasted from the Bazel Bash runfiles library v3.
+set -uo pipefail; set +e; f=bazel_tools/tools/bash/runfiles/runfiles.bash
+# shellcheck disable=SC1090
+source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "${RUNFILES_MANIFEST_FILE:-/dev/null}" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$0.runfiles/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.exe.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
+# --- end runfiles.bash initialization v3 ---
 
 if [ "$1" == "--allmodules" ]; then
   shift
@@ -54,6 +64,7 @@ if [[ "$UNAME" =~ msys_nt* ]]; then
   ./bin/jlink --module-path ./jmods/ --add-modules "$modules" \
     --vm=server --strip-debug --no-man-pages \
     --output reduced
+  "$(rlocation "io_bazel/src/patch_java_manifest_for_utf8.exe")" reduced/bin/java.exe
   cp $DOCS legal/java.base/ASSEMBLY_EXCEPTION \
     reduced/
   # These are necessary for --host_jvm_debug to work.

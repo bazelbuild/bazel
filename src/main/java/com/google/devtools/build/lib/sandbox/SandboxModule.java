@@ -67,8 +67,11 @@ import javax.annotation.Nullable;
 /** This module provides the Sandbox spawn strategy. */
 public final class SandboxModule extends BlazeModule {
 
+  private static final String MAC_INDEX_FILE = ".DS_Store";
+
   private static final ImmutableSet<String> SANDBOX_BASE_PERSISTENT_DIRS =
       ImmutableSet.of(
+          MAC_INDEX_FILE,
           SandboxStash.SANDBOX_STASH_BASE,
           SandboxStash.TEMPORARY_SANDBOX_STASH_BASE,
           AsynchronousTreeDeleter.MOVED_TRASH_DIR);
@@ -94,7 +97,7 @@ public final class SandboxModule extends BlazeModule {
   private final Set<SandboxFallbackSpawnRunner> spawnRunners = new HashSet<>();
 
   /**
-   * Handler to process expensive tree deletions outside of the critical path.
+   * Handler to process expensive tree deletions, potentially outside of the critical path.
    *
    * <p>Sandboxing creates one separate tree for each action, and this tree is used to run the
    * action commands in. These trees are disjoint for all actions and have unique identifiers.

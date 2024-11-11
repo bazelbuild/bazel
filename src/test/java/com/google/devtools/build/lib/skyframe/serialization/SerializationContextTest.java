@@ -117,7 +117,7 @@ public final class SerializationContextTest {
     codedOut.flush();
 
     CodedInputStream codedIn = CodedInputStream.newInstance(bytes.toByteArray());
-    assertThat(codedIn.readSInt32()).isEqualTo(registry.getCodecDescriptorForObject(obj).getTag());
+    assertThat(codedIn.readSInt32()).isEqualTo(registry.getCodecDescriptorForObject(obj).tag());
     assertThat(codedIn.readString()).isEqualTo(obj.getDataToSerialize());
     assertThat(codedIn.isAtEnd()).isTrue();
   }
@@ -134,7 +134,7 @@ public final class SerializationContextTest {
     codedOut.flush();
 
     CodedInputStream codedIn = CodedInputStream.newInstance(bytes.toByteArray());
-    assertThat(codedIn.readSInt32()).isEqualTo(registry.getCodecDescriptorForObject(obj).getTag());
+    assertThat(codedIn.readSInt32()).isEqualTo(registry.getCodecDescriptorForObject(obj).tag());
     assertThat(codedIn.readString()).isEqualTo(obj.getDataToSerialize());
     assertThat(codedIn.isAtEnd()).isFalse();
     assertThat(exampleCodecSerializeCalls).isEqualTo(1);

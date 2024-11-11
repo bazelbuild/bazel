@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.FailedTestCasesStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
-import com.google.devtools.build.lib.view.test.TestStatus.TestCase.Status;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -167,6 +166,9 @@ public class TestSummaryPrinter {
       for (TestCase testCase : summary.getPassedTestCases()) {
         TestSummaryPrinter.printTestCase(terminalPrinter, testCase);
       }
+      for (TestCase testCase : summary.getSkippedTestCases()) {
+        TestSummaryPrinter.printTestCase(terminalPrinter, testCase);
+      }
 
       if (summary.getStatus() == BlazeTestStatus.FAILED) {
         if (summary.getFailedTestCasesStatus() == FailedTestCasesStatus.NOT_AVAILABLE) {
@@ -227,7 +229,12 @@ public class TestSummaryPrinter {
       timeSummary = "";
     }
 
-    Mode mode = (testCase.getStatus() == Status.PASSED) ? Mode.INFO : Mode.ERROR;
+    Mode mode =
+        switch (testCase.getStatus()) {
+          case PASSED -> Mode.INFO;
+          case SKIPPED -> Mode.WARNING;
+          default -> Mode.ERROR;
+        };
     terminalPrinter.print(
         "    "
             + mode

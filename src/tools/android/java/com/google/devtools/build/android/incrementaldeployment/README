@@ -1,4 +1,0 @@
-These classes enable incremental deployment support for Android devices. They
-are compiled into Android packages that are to be deployed incrementally.
-
-For more information how this works, see the class-level Javadoc.

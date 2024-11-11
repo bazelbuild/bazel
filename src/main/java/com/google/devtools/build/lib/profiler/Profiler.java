@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -48,6 +49,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import java.util.zip.GZIPOutputStream;
 import javax.annotation.Nullable;
@@ -196,7 +198,9 @@ public final class Profiler {
           // Primary outputs are non-mergeable, thus incompatible with slim profiles.
           jsonWriter.name("out").value(actionTaskData.primaryOutputPath);
         }
-        if (actionTaskData.targetLabel != null || actionTaskData.mnemonic != null) {
+        if (actionTaskData.targetLabel != null
+            || actionTaskData.mnemonic != null
+            || actionTaskData.configuration != null) {
           jsonWriter.name("args");
           jsonWriter.beginObject();
           if (actionTaskData.targetLabel != null) {
@@ -204,6 +208,9 @@ public final class Profiler {
           }
           if (actionTaskData.mnemonic != null) {
             jsonWriter.name("mnemonic").value(actionTaskData.mnemonic);
+          }
+          if (actionTaskData.configuration != null) {
+            jsonWriter.name("configuration").value(actionTaskData.configuration);
           }
           jsonWriter.endObject();
         }
@@ -233,6 +240,7 @@ public final class Profiler {
     @Nullable final String primaryOutputPath;
     @Nullable final String targetLabel;
     @Nullable final String mnemonic;
+    @Nullable final String configuration;
 
     ActionTaskData(
         long threadId,
@@ -242,11 +250,13 @@ public final class Profiler {
         @Nullable String mnemonic,
         String description,
         @Nullable String primaryOutputPath,
-        @Nullable String targetLabel) {
+        @Nullable String targetLabel,
+        @Nullable String configuration) {
       super(threadId, startTimeNanos, durationNanos, eventType, description);
       this.primaryOutputPath = primaryOutputPath;
       this.targetLabel = targetLabel;
       this.mnemonic = mnemonic;
+      this.configuration = configuration;
     }
   }
 
@@ -306,9 +316,12 @@ public final class Profiler {
 
   private Clock clock;
   private Set<ProfilerTask> profiledTasks;
-  private volatile long profileStartTime;
+  private volatile boolean active = false;
   private volatile boolean recordAllDurations = false;
-  private Duration profileCpuStartTime;
+  private Duration profileCpuStartTime = Duration.ZERO;
+  private Duration profileCpuEndTime = Duration.ZERO;
+  private Duration profileStartTime = Duration.ZERO;
+  private Duration profileEndTime = Duration.ZERO;
 
   /**
    * The reference to the current writer, if any. If the referenced writer is null, then disk writes
@@ -333,6 +346,7 @@ public final class Profiler {
   private boolean collectTaskHistograms;
   private boolean includePrimaryOutput;
   private boolean includeTargetLabel;
+  private boolean includeConfiguration;
 
   private Profiler() {
     actionCountTimeSeriesRef = new AtomicReference<>();
@@ -376,7 +390,8 @@ public final class Profiler {
   // stop instead? However, this is currently only called from one location in a module, and that
   // can't call stop itself. What to do?
   public synchronized ImmutableList<StatRecorder> getTasksHistograms() {
-    return isActive() ? ImmutableList.copyOf(tasksHistograms) : ImmutableList.of();
+    Preconditions.checkState(isActive());
+    return ImmutableList.copyOf(tasksHistograms);
   }
 
   public static Profiler instance() {
@@ -393,14 +408,12 @@ public final class Profiler {
     return -1;
   }
 
-  // Returns the elapsed wall clock time since the profile has been started or null if inactive.
-  @Nullable
-  public static Duration elapsedTimeMaybe() {
-    if (instance.isActive()) {
-      return Duration.ofNanos(instance.clock.nanoTime())
-          .minus(Duration.ofNanos(instance.profileStartTime));
-    }
-    return null;
+  // Returns the elapsed wall clock time since the profile has been started.
+  public static Duration getProfileElapsedTime() {
+    Duration endTime =
+        instance.isActive() ? Duration.ofNanos(instance.clock.nanoTime()) : instance.profileEndTime;
+
+    return endTime.minus(instance.profileStartTime);
   }
 
   private static Duration getProcessCpuTime() {
@@ -409,13 +422,10 @@ public final class Profiler {
     return Duration.ofNanos(bean.getProcessCpuTime());
   }
 
-  // Returns the CPU time since the profile has been started or null if inactive.
-  @Nullable
-  public static Duration getProcessCpuTimeMaybe() {
-    if (instance().isActive()) {
-      return getProcessCpuTime().minus(instance().profileCpuStartTime);
-    }
-    return null;
+  // Returns the CPU time since the profile has been started.
+  public static Duration getServerProcessCpuTime() {
+    Duration cpuEndTime = instance.isActive() ? getProcessCpuTime() : instance.profileCpuEndTime;
+    return cpuEndTime.minus(instance.profileCpuStartTime);
   }
 
   /**
@@ -444,10 +454,12 @@ public final class Profiler {
       boolean slimProfile,
       boolean includePrimaryOutput,
       boolean includeTargetLabel,
+      boolean includeConfiguration,
       boolean collectTaskHistograms,
       LocalResourceCollector localResourceCollector)
       throws IOException {
-    checkState(!isActive(), "Profiler already active");
+    checkState(!active, "Profiler already active");
+
     initHistograms();
 
     this.profiledTasks = profiledTasks.isEmpty() ? profiledTasks : EnumSet.copyOf(profiledTasks);
@@ -462,6 +474,7 @@ public final class Profiler {
     this.collectTaskHistograms = collectTaskHistograms;
     this.includePrimaryOutput = includePrimaryOutput;
     this.includeTargetLabel = includeTargetLabel;
+    this.includeConfiguration = includeConfiguration;
     this.recordAllDurations = recordAllDurations;
 
     JsonTraceFileWriter writer = null;
@@ -484,8 +497,9 @@ public final class Profiler {
     this.writerRef.set(writer);
 
     // Activate profiler.
-    profileStartTime = execStartTimeNanos;
+    profileStartTime = Duration.ofNanos(execStartTimeNanos);
     profileCpuStartTime = getProcessCpuTime();
+    active = true;
 
     this.localResourceCollector = localResourceCollector;
     // Start collecting Bazel and system-wide CPU metric collection.
@@ -512,29 +526,35 @@ public final class Profiler {
   private void collectActionCounts() {
     Duration endTime = Duration.ofNanos(clock.nanoTime());
     int len = (int) endTime.minus(actionCountStartTime).dividedBy(ACTION_COUNT_BUCKET_DURATION) + 1;
-    Map<ProfilerTask, double[]> counterSeriesMap = new LinkedHashMap<>();
+    Map<CounterSeriesTask, double[]> counterSeriesMap = new LinkedHashMap<>();
     TimeSeries actionCountTimeSeries = actionCountTimeSeriesRef.get();
     if (actionCountTimeSeries != null) {
       double[] actionCountValues = actionCountTimeSeries.toDoubleArray(len);
       actionCountTimeSeriesRef.set(null);
-      counterSeriesMap.put(ProfilerTask.ACTION_COUNTS, actionCountValues);
+      counterSeriesMap.put(
+          new CounterSeriesTask("action count", "action", /* color= */ null), actionCountValues);
     }
     TimeSeries actionCacheCountTimeSeries = actionCacheCountTimeSeriesRef.get();
     if (actionCacheCountTimeSeries != null) {
       double[] actionCacheCountValues = actionCacheCountTimeSeries.toDoubleArray(len);
       actionCacheCountTimeSeriesRef.set(null);
-      counterSeriesMap.put(ProfilerTask.ACTION_CACHE_COUNTS, actionCacheCountValues);
+      counterSeriesMap.put(
+          new CounterSeriesTask("action cache count", "local action cache", /* color= */ null),
+          actionCacheCountValues);
     }
     if (!counterSeriesMap.isEmpty()) {
       instance.logCounters(counterSeriesMap, actionCountStartTime, ACTION_COUNT_BUCKET_DURATION);
     }
 
-    Map<ProfilerTask, double[]> localCounterSeriesMap = new LinkedHashMap<>();
+    Map<CounterSeriesTask, double[]> localCounterSeriesMap = new LinkedHashMap<>();
     TimeSeries localActionCountTimeSeries = localActionCountTimeSeriesRef.get();
     if (localActionCountTimeSeries != null) {
       double[] localActionCountValues = localActionCountTimeSeries.toDoubleArray(len);
       localActionCountTimeSeriesRef.set(null);
-      localCounterSeriesMap.put(ProfilerTask.LOCAL_ACTION_COUNTS, localActionCountValues);
+      localCounterSeriesMap.put(
+          new CounterSeriesTask(
+              "action count (local)", "local action", CounterSeriesTask.Color.DETAILED_MEMORY_DUMP),
+          localActionCountValues);
     }
     if (hasNonZeroValues(localCounterSeriesMap)) {
       instance.logCounters(
@@ -542,7 +562,7 @@ public final class Profiler {
     }
   }
 
-  private boolean hasNonZeroValues(Map<ProfilerTask, double[]> countersSeriesMap) {
+  private boolean hasNonZeroValues(Map<CounterSeriesTask, double[]> countersSeriesMap) {
     return countersSeriesMap.values().stream()
         .flatMapToDouble(Arrays::stream)
         .anyMatch(v -> v != 0);
@@ -553,24 +573,41 @@ public final class Profiler {
    * will no longer be recorded in the profile.
    */
   public synchronized void stop() throws IOException {
-    if (!isActive()) {
+    if (!active) {
       return;
     }
 
     collectActionCounts();
-
     localResourceCollector.stop();
 
     // Log a final event to update the duration of ProfilePhase.FINISH.
     logEvent(ProfilerTask.INFO, "Finishing");
-    JsonTraceFileWriter writer = writerRef.getAndSet(null);
-    if (writer != null) {
-      writer.shutdown();
-      writer = null;
+    try {
+      JsonTraceFileWriter writer = writerRef.getAndSet(null);
+      if (writer != null) {
+        writer.shutdown();
+        writer = null;
+      }
+    } finally {
+      profileCpuEndTime = getProcessCpuTime();
+      profileEndTime = Duration.ofNanos(clock.nanoTime());
+      active = false;
     }
+  }
+
+  /**
+   * Clears the records the profiler instance keeps.
+   *
+   * <p>Should always be called between a {@link #stop()} and a subsequent {@link #start}.
+   */
+  public synchronized void clear() {
+    Preconditions.checkState(!active);
+
     Arrays.fill(tasksHistograms, null);
-    profileStartTime = 0L;
-    profileCpuStartTime = null;
+    profileStartTime = Duration.ZERO;
+    profileEndTime = Duration.ZERO;
+    profileCpuStartTime = Duration.ZERO;
+    profileCpuEndTime = Duration.ZERO;
 
     for (SlowestTaskAggregator aggregator : slowestTasks) {
       if (aggregator != null) {
@@ -583,7 +620,7 @@ public final class Profiler {
 
   /** Returns true iff profiling is currently enabled. */
   public boolean isActive() {
-    return profileStartTime != 0L;
+    return active;
   }
 
   public boolean isProfiling(ProfilerTask type) {
@@ -598,9 +635,22 @@ public final class Profiler {
     return (recordAllDurations || duration >= type.minDuration);
   }
 
+  /** Interface for collecting counter series */
+  public interface CounterSeriesCollector {
+    void collect(double deltaNanos, BiConsumer<CounterSeriesTask, Double> consumer);
+  }
+
+  public void registerCounterSeriesCollector(CounterSeriesCollector collector) {
+    if (!isActive()) {
+      return;
+    }
+
+    localResourceCollector.registerCounterSeriesCollector(collector);
+  }
+
   /** Adds a whole action count series to the writer bypassing histogram and subtask creation. */
   public void logCounters(
-      Map<ProfilerTask, double[]> counterSeriesMap,
+      Map<CounterSeriesTask, double[]> counterSeriesMap,
       Duration profileStart,
       Duration bucketDuration) {
     JsonTraceFileWriter currentWriter = writerRef.get();
@@ -792,7 +842,8 @@ public final class Profiler {
       String mnemonic,
       String description,
       String primaryOutput,
-      String targetLabel) {
+      String targetLabel,
+      String configuration) {
     checkNotNull(description);
     if (isActive() && isProfiling(type)) {
       final long startTimeNanos = clock.nanoTime();
@@ -806,7 +857,8 @@ public final class Profiler {
               description,
               mnemonic,
               includePrimaryOutput ? primaryOutput : null,
-              includeTargetLabel ? targetLabel : null);
+              includeTargetLabel ? targetLabel : null,
+              includeConfiguration ? configuration : null);
         } finally {
           releaseLane(lane);
         }
@@ -814,11 +866,6 @@ public final class Profiler {
     } else {
       return NOP;
     }
-  }
-
-  public SilentCloseable profileAction(
-      ProfilerTask type, String description, String primaryOutput, String targetLabel) {
-    return profileAction(type, /* mnemonic= */ null, description, primaryOutput, targetLabel);
   }
 
   private static final SilentCloseable NOP = () -> {};
@@ -855,7 +902,8 @@ public final class Profiler {
       String description,
       String mnemonic,
       @Nullable String primaryOutput,
-      @Nullable String targetLabel) {
+      @Nullable String targetLabel,
+      @Nullable String configuration) {
     if (isActive()) {
       long endTimeNanos = clock.nanoTime();
       long duration = endTimeNanos - startTimeNanos;
@@ -870,7 +918,8 @@ public final class Profiler {
                 mnemonic,
                 description,
                 primaryOutput,
-                targetLabel));
+                targetLabel,
+                configuration));
       }
     }
   }

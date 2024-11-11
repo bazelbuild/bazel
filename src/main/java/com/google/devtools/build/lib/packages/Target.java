@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.License.DistributionType;
-import com.google.devtools.build.lib.starlarkbuildapi.TargetApi;
 import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -27,16 +27,51 @@ import javax.annotation.Nullable;
  * <p>This StarlarkBuiltin does not contain any documentation since Starlark's Target type refers to
  * TransitiveInfoCollection.class, which contains the appropriate documentation.
  */
-public interface Target extends TargetApi, TargetData {
+public interface Target extends TargetData {
 
   /** Returns the Package to which this target belongs. */
   Package getPackage();
 
   /**
+   * Returns the innermost symbolic macro that declared this target, or null if it was declared
+   * outside any symbolic macro (i.e. directly in a BUILD file or only in one or more legacy
+   * macros).
+   *
+   * <p>For targets in deserialized packages, throws {@link IllegalStateException}.
+   */
+  @Nullable
+  default MacroInstance getDeclaringMacro() {
+    // TODO: #19922 - We might replace Package#getDeclaringMacroForTarget by storing a reference to
+    // the declaring macro in implementations of this interface (sharing memory with the field for
+    // the package).
+    return getPackage().getDeclaringMacroForTarget(getName());
+  }
+
+  /**
+   * Returns the package that is considered to be the declaring location of this target.
+   *
+   * <p>For targets created inside a symbolic macro, this is the package containing the .bzl code of
+   * the innermost running symbolic macro. For targets not in any symbolic macro, this is the same
+   * as the package the target lives in.
+   */
+  default PackageIdentifier getDeclaringPackage() {
+    PackageIdentifier pkgId = getPackage().getDeclaringPackageForTargetIfInMacro(getName());
+    return pkgId != null ? pkgId : getPackage().getPackageIdentifier();
+  }
+
+  /**
+   * Returns true if this target was declared within one or more symbolic macros, or false if it was
+   * the product of running only a BUILD file and the legacy macros it called.
+   */
+  default boolean isCreatedInSymbolicMacro() {
+    return getPackage().getDeclaringPackageForTargetIfInMacro(getName()) != null;
+  }
+
+  /**
    * Returns the rule associated with this target, if any.
    *
-   * If this is a Rule, returns itself; it this is an OutputFile, returns its
-   * generating rule; if this is an input file, returns null.
+   * <p>If this is a Rule, returns itself; it this is an OutputFile, returns its generating rule; if
+   * this is an input file, returns null.
    */
   @Nullable
   Rule getAssociatedRule();

@@ -61,16 +61,12 @@ public class TargetConfiguredEvent implements BuildEventWithConfiguration {
 
   private static BuildEventStreamProtos.TestSize bepTestSize(String targetName, TestSize size) {
     if (size != null) {
-      switch (size) {
-        case SMALL:
-          return BuildEventStreamProtos.TestSize.SMALL;
-        case MEDIUM:
-          return BuildEventStreamProtos.TestSize.MEDIUM;
-        case LARGE:
-          return BuildEventStreamProtos.TestSize.LARGE;
-        case ENORMOUS:
-          return BuildEventStreamProtos.TestSize.ENORMOUS;
-      }
+      return switch (size) {
+        case SMALL -> BuildEventStreamProtos.TestSize.SMALL;
+        case MEDIUM -> BuildEventStreamProtos.TestSize.MEDIUM;
+        case LARGE -> BuildEventStreamProtos.TestSize.LARGE;
+        case ENORMOUS -> BuildEventStreamProtos.TestSize.ENORMOUS;
+      };
     }
     logger.atInfo().log("Target %s has a test size of: %s", targetName, size);
     return BuildEventStreamProtos.TestSize.UNKNOWN;

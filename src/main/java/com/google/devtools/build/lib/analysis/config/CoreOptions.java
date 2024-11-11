@@ -26,13 +26,12 @@ import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.BooleanConverter;
+import com.google.devtools.common.options.Converters.CommaSeparatedOptionSetConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
-import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
 import java.util.AbstractMap.SimpleEntry;
@@ -62,8 +61,6 @@ import java.util.TreeSet;
  * string.
  */
 public class CoreOptions extends FragmentOptions implements Cloneable {
-  public static final OptionDefinition CPU =
-      OptionsParser.getOptionDefinitionByName(CoreOptions.class, "cpu");
 
   @Option(
       name = "scl_config",
@@ -188,6 +185,16 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + " In case of multiple values for a variable, the last one wins.")
   public List<Map.Entry<String, String>> commandLineBuildVariables;
 
+  // TODO: blaze-configurability-team - Remove this when --cpu is fully deprecated.
+  @Option(
+      name = "allowed_cpu_values",
+      defaultValue = "",
+      converter = CommaSeparatedOptionSetConverter.class,
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Allowed values for the --cpu flag.")
+  public ImmutableList<String> allowedCpuValues;
+
   @Option(
       name = "cpu",
       defaultValue = "",
@@ -246,6 +253,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           "If this option is enabled, filesets will treat all output artifacts as regular files. "
               + "They will not traverse directories or be sensitive to symlinks.")
@@ -481,6 +489,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       name = "experimental_collect_code_coverage_for_generated_files",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
           "If specified, Bazel will also generate collect coverage information for generated"
@@ -509,7 +518,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "legacy_external_runfiles",
-      defaultValue = "true",
+      defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
@@ -638,14 +647,10 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public OutputDirectoryNamingScheme outputDirectoryNamingScheme;
 
   public boolean useBaselineForOutputDirectoryNamingScheme() {
-    switch (outputDirectoryNamingScheme) {
-      case DIFF_AGAINST_BASELINE:
-      case DIFF_AGAINST_DYNAMIC_BASELINE:
-        return true;
-      case LEGACY:
-        return false;
-    }
-    throw new IllegalStateException("unreachable");
+    return switch (outputDirectoryNamingScheme) {
+      case DIFF_AGAINST_BASELINE, DIFF_AGAINST_DYNAMIC_BASELINE -> true;
+      case LEGACY -> false;
+    };
   }
 
   @Option(
@@ -888,12 +893,14 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "experimental_inprocess_symlink_creation",
-      defaultValue = "false",
+      defaultValue = "true",
       converter = BooleanConverter.class,
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
-      help = "Whether to make direct file system calls to create symlink trees")
+      help =
+          "Whether to make direct filesystem calls to create symlink trees instead of delegating"
+              + " to a helper process.")
   public boolean inProcessSymlinkCreation;
 
   @Option(
@@ -935,6 +942,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           "When set, select functions with no matching clause will return an empty value, instead"
               + " of failing. This is to help use cquery diagnose failures in select.")
@@ -1040,6 +1048,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   @Override
   public CoreOptions getNormalized() {
     CoreOptions result = (CoreOptions) clone();
+    result.allowedCpuValues = dedupAndSort(allowedCpuValues);
     result.commandLineBuildVariables = sortEntries(normalizeEntries(commandLineBuildVariables));
 
     // Normalize features.

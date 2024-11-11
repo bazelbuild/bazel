@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.exec.ExecutorLifecycleListener;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.includescanning.IncludeParser.Inclusion;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.rules.cpp.CppIncludeExtractionContext;
 import com.google.devtools.build.lib.rules.cpp.CppIncludeScanningContext;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
@@ -290,7 +291,7 @@ public class IncludeScanningModule extends BlazeModule {
         throws AbruptExitException, InterruptedException {
       IncludeParser.HintsRules hintsRules;
       if (useIncludeHints) {
-        try {
+        try (var sc = Profiler.instance().profile("evaluateSkyKeyForExecutionSetup")) {
           hintsRules =
               (IncludeParser.HintsRules)
                   env.getSkyframeExecutor()

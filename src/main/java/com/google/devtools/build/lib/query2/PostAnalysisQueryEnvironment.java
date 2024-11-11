@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
@@ -69,7 +70,7 @@ import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.GraphBackedRecursivePackageProvider;
 import com.google.devtools.build.lib.skyframe.GraphBackedRecursivePackageProvider.UniverseTargetPattern;
-import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesValue;
+import com.google.devtools.build.lib.skyframe.IgnoredSubdirectoriesValue;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.RecursivePackageProviderBackedTargetPatternResolver;
 import com.google.devtools.build.lib.skyframe.RecursivePkgValueRootPackageExtractor;
@@ -77,7 +78,6 @@ import com.google.devtools.build.lib.skyframe.SimplePackageIdentifierBatchingCal
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
@@ -89,6 +89,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Function;
@@ -193,6 +194,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
             eventHandler,
             FilteringPolicies.NO_FILTER,
             MultisetSemaphore.unbounded(),
+            /* maxConcurrentGetTargetsTasks= */ Optional.empty(),
             SimplePackageIdentifierBatchingCallback::new);
     checkSettings(settings);
   }
@@ -258,15 +260,15 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
 
   protected abstract boolean isAliasConfiguredTarget(T target);
 
-  public InterruptibleSupplier<ImmutableSet<PathFragment>> getIgnoredPackagePrefixesPathFragments(
+  public InterruptibleSupplier<IgnoredSubdirectories> getIgnoredPackagePrefixesPathFragments(
       RepositoryName repositoryName) {
     return () -> {
-      IgnoredPackagePrefixesValue ignoredPackagePrefixesValue =
-          (IgnoredPackagePrefixesValue)
-              walkableGraphSupplier.get().getValue(IgnoredPackagePrefixesValue.key(repositoryName));
-      return ignoredPackagePrefixesValue == null
-          ? ImmutableSet.of()
-          : ignoredPackagePrefixesValue.getPatterns();
+      IgnoredSubdirectoriesValue ignoredSubdirectoriesValue =
+          (IgnoredSubdirectoriesValue)
+              walkableGraphSupplier.get().getValue(IgnoredSubdirectoriesValue.key(repositoryName));
+      return ignoredSubdirectoriesValue == null
+          ? IgnoredSubdirectories.EMPTY
+          : ignoredSubdirectoriesValue.asIgnoredSubdirectories();
     };
   }
 

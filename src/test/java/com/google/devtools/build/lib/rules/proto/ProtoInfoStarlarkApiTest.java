@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -64,6 +63,7 @@ public class ProtoInfoStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/test.bzl",
         """
+        load('@protobuf//bazel/common:proto_info.bzl', 'ProtoInfo')
         load("//myinfo:myinfo.bzl", "MyInfo")
 
         def _impl(ctx):
@@ -76,7 +76,7 @@ public class ProtoInfoStarlarkApiTest extends BuildViewTestCase {
 
     scratch.file(
         "foo/BUILD",
-        TestConstants.LOAD_PROTO_LIBRARY,
+        "load('@protobuf//bazel:proto_library.bzl', 'proto_library')",
         "load(':test.bzl', 'test')",
         "test(name='test', dep=':proto')",
         "proto_library(name='proto', srcs=['p.proto'])");
@@ -93,6 +93,7 @@ public class ProtoInfoStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "third_party/foo/myTestRule.bzl",
         """
+        load('@protobuf//bazel/common:proto_info.bzl', 'ProtoInfo')
         load("//myinfo:myinfo.bzl", "MyInfo")
 
         def _my_test_rule_impl(ctx):
@@ -108,7 +109,7 @@ public class ProtoInfoStarlarkApiTest extends BuildViewTestCase {
 
     scratch.file(
         "third_party/foo/BUILD",
-        TestConstants.LOAD_PROTO_LIBRARY,
+        "load('@protobuf//bazel:proto_library.bzl', 'proto_library')",
         "licenses(['unencumbered'])",
         "load(':myTestRule.bzl', 'my_test_rule')",
         "my_test_rule(",

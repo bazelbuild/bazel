@@ -115,11 +115,11 @@ public class NewRepositoryFileHandler {
       } else if (hasFile) {
 
         Pair<RootedPath, FileValue> rootedPathAndFileValue = getFileValue(rule, env);
-        rootedPath = rootedPathAndFileValue.getFirst();
-        fileValue = rootedPathAndFileValue.getSecond();
         if (env.valuesMissing()) {
           return false;
         }
+        rootedPath = rootedPathAndFileValue.getFirst();
+        fileValue = rootedPathAndFileValue.getSecond();
 
       } else if (hasFileContent) {
 

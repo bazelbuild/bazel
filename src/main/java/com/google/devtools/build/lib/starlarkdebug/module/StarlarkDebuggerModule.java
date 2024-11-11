@@ -16,17 +16,18 @@ package com.google.devtools.build.lib.starlarkdebug.module;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.starlarkdebug.server.StarlarkDebugServer;
 import com.google.devtools.build.lib.starlarkdebug.server.StarlarkDebugServer.DebugCallback;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.common.options.OptionsBase;
 import java.io.IOException;
+import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 import net.starlark.java.eval.Debug;
 
@@ -100,7 +101,7 @@ public final class StarlarkDebuggerModule extends BlazeModule {
             .getEvaluator()
             .delete(
                 skyKey ->
-                    FileValue.FILE.equals(skyKey.functionName())
+                    Objects.equals(skyKey.functionName(), SkyFunctions.FILE)
                         && breakPointPaths.contains(
                             ((RootedPath) skyKey.argument()).asPath().toString()));
         handle(Event.debug("analysis reset complete"));

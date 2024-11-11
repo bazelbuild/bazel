@@ -27,6 +27,8 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 /** A provider that gives information about the aliases a rule was resolved through. */
 @Immutable
 public final class AliasProvider implements TransitiveInfoProvider {
+  // Non-empty list of labels of alias targets, with first one pointing to second pointing to third
+  // etc., terminating in the alias that points to the actual non-alias target.
   // We don't expect long alias chains, so it's better to have a list instead of a nested set
   private final ImmutableList<Label> aliasChain;
 
@@ -39,22 +41,24 @@ public final class AliasProvider implements TransitiveInfoProvider {
   }
 
   /**
-   * Creates an alias provider indicating that the given rule is an alias to {@code actual}.
+   * Creates an alias provider indicating that {@code aliasRule} is an alias to {@code actual}.
    *
-   * <p>The given rule must either explicitly advertise {@link AliasProvider} or advertise that it
-   * {@linkplain AdvertisedProviderSet#canHaveAnyProvider() can have any provider}.
+   * <p>{@code aliasRule} must either explicitly advertise {@link AliasProvider} or advertise that
+   * it {@linkplain AdvertisedProviderSet#canHaveAnyProvider() can have any provider}.
    */
-  public static AliasProvider fromAliasRule(Rule rule, ConfiguredTarget actual) {
-    checkArgument(mayBeAlias(rule), "%s does not advertise AliasProvider", rule);
+  public static AliasProvider fromAliasRule(Rule aliasRule, ConfiguredTarget actual) {
+    checkArgument(mayBeAlias(aliasRule), "%s does not advertise AliasProvider", aliasRule);
 
     ImmutableList<Label> chain;
     AliasProvider dep = actual.getProvider(AliasProvider.class);
     if (dep == null) {
-      chain = ImmutableList.of(rule.getLabel());
+      // No other aliases to chain.
+      chain = ImmutableList.of(aliasRule.getLabel());
     } else {
+      // Put ourselves at the head of the new chain.
       chain =
           ImmutableList.<Label>builderWithExpectedSize(dep.aliasChain.size() + 1)
-              .add(rule.getLabel())
+              .add(aliasRule.getLabel())
               .addAll(dep.aliasChain)
               .build();
     }
@@ -62,11 +66,16 @@ public final class AliasProvider implements TransitiveInfoProvider {
   }
 
   /**
-   * Returns the label by which it was referred to in the BUILD file.
+   * Returns the label by which {@code dep} was referred to in the BUILD file.
    *
-   * <p>For non-alias rules, it's the label of the rule itself, for alias rules, it's the label of
+   * <p>For non-alias rules, it's the label of the rule itself. For alias rules, it's the label of
    * the alias rule.
+   *
+   * <p>Note that {@link ConfiguredTarget#getLabel} isn't suitable for this use case because {@link
+   * AliasConfiguredTarget}'s implementation of this method returns the alias's {@code actual}
+   * prerequisite (and not even the transitive actual target at the end of the chain!).
    */
+  // TODO(bazel-team): Rename this and getDependencyLabels to something more descriptive.
   public static Label getDependencyLabel(TransitiveInfoCollection dep) {
     AliasProvider aliasProvider = dep.getProvider(AliasProvider.class);
     return aliasProvider != null ? aliasProvider.aliasChain.get(0) : dep.getLabel();
@@ -78,6 +87,8 @@ public final class AliasProvider implements TransitiveInfoProvider {
    * <p>For non-alias rules, it's the label of the rule itself. For alias rules, they're the label
    * of the alias and the label of alias' target rule.
    */
+  // TODO(bazel-team): "all labels"? This returns at most two labels, so it omits the entire middle
+  // of the alias chain. Should we change this behavior or the javadoc?
   public static ImmutableList<Label> getDependencyLabels(TransitiveInfoCollection dep) {
     AliasProvider aliasProvider = dep.getProvider(AliasProvider.class);
     return aliasProvider != null

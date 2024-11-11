@@ -24,7 +24,9 @@ import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoC
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.FieldInfo;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.ObjectInfo;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.PrimitiveInfo;
+import java.lang.ref.WeakReference;
 import java.lang.reflect.Array;
+import java.util.Collection;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -103,6 +105,14 @@ public final class Dumper {
     }
 
     var type = obj.getClass();
+
+    if (WeakReference.class.isAssignableFrom(type)) {
+      // A WeakReference is always be deserialized with empty referents. No information other than
+      // the presence of the WeakReference can be expected to match upon deserialization.
+      out.append(WeakReference.class.getCanonicalName());
+      return;
+    }
+
     if (shouldInline(type)) {
       out.append(obj);
       return;
@@ -158,8 +168,8 @@ public final class Dumper {
       addedLine = outputArrayElements(obj);
     } else if (obj instanceof Map) {
       addedLine = outputMapEntries((Map<?, ?>) obj);
-    } else if (obj instanceof Iterable) {
-      addedLine = outputIterableElements((Iterable<?>) obj);
+    } else if (obj instanceof Collection) {
+      addedLine = outputCollectionElements((Collection<?>) obj);
     } else {
       addedLine = outputObjectFields(obj);
     }
@@ -224,6 +234,10 @@ public final class Dumper {
       return false;
     }
 
+    // In theory, there could be special casing WeakReferences here, to match the handling in
+    // `outputObject`. However, since Java does not support generic arrays we don't expect to
+    // encounter an array of WeakReferences.
+
     if (shouldInline(componentType)) {
       // It's a type that should be inlined. Outputs elements delimited by commas.
       boolean isFirst = true;
@@ -258,12 +272,12 @@ public final class Dumper {
     return !map.isEmpty();
   }
 
-  private boolean outputIterableElements(Iterable<?> iterable) {
-    for (var next : iterable) {
+  private boolean outputCollectionElements(Collection<?> collection) {
+    for (var next : collection) {
       addNewlineAndIndent();
       outputObject(next);
     }
-    return !isEmpty(iterable);
+    return !isEmpty(collection);
   }
 
   private boolean outputObjectFields(Object obj) {
@@ -293,16 +307,22 @@ public final class Dumper {
   }
 
   static boolean shouldInline(Class<?> type) {
-    return !type.isArray()
-        && (type.isPrimitive()
-            || DIRECT_INLINE_TYPES.contains(type)
-            || type.isSynthetic()
-            // Reflectively inaccessible classes will be represented directly using their string
-            // representations as there's nothing else we can do with them.
-            //
-            // TODO: b/331765692 - this might cause a loss of fidelity. Consider including a hash of
-            // the serialized representation in such cases.
-            || getClassInfo(type) instanceof ClosedClassInfo);
+    if (type.isArray()) {
+      return false;
+    }
+    if (Collection.class.isAssignableFrom(type) || Map.class.isAssignableFrom(type)) {
+      // These types have custom handling and do not depend on reflective class information.
+      return false;
+    }
+    return type.isPrimitive()
+        || DIRECT_INLINE_TYPES.contains(type)
+        || type.isSynthetic()
+        // Reflectively inaccessible classes will be represented directly using their string
+        // representations as there's nothing else we can do with them.
+        //
+        // TODO: b/331765692 - this might cause a loss of fidelity. Consider including a hash of
+        // the serialized representation in such cases.
+        || getClassInfo(type) instanceof ClosedClassInfo;
   }
 
   private static final ImmutableSet<Class<?>> WRAPPER_TYPES =

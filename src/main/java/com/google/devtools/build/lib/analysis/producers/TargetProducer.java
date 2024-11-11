@@ -104,7 +104,8 @@ final class TargetProducer implements StateMachine, ValueOrExceptionSink<NoSuchP
     }
 
     if (pkg.containsErrors()) {
-      FailureDetail failureDetail = pkg.contextualizeFailureDetailForTarget(target);
+      FailureDetail failureDetail =
+          Package.contextualizeFailureDetailForTarget(pkg.getFailureDetail(), target);
       // The target can be loaded but may have associated errors, for example, a missing required
       // attribute. In these cases, instead of failing fast, it's possible to perform dependency
       // resolution using the target-in-error to uncover any other errors that could be present in

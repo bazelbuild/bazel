@@ -15,9 +15,12 @@
 package com.google.devtools.build.lib.packages.util;
 
 import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
+import static java.lang.Integer.MAX_VALUE;
 
 import com.google.devtools.build.lib.rules.proto.ProtoConstants;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.runfiles.Runfiles;
 import java.io.IOException;
 
 /**
@@ -41,10 +44,11 @@ public final class MockProtoSupport {
   }
 
   private static void registerProtoToolchain(MockToolsConfig config) throws IOException {
-    config.append("WORKSPACE", "register_toolchains('tools/proto/toolchains:all')");
+    config.append("WORKSPACE", "register_toolchains('//tools/proto/toolchains:all')");
+    config.append("MODULE.bazel", "register_toolchains('//tools/proto/toolchains:all')");
     config.create(
         "tools/proto/toolchains/BUILD",
-        TestConstants.LOAD_PROTO_TOOLCHAIN,
+        "load('@protobuf//bazel/toolchains:proto_toolchain.bzl', 'proto_toolchain')",
         TestConstants.LOAD_PROTO_LANG_TOOLCHAIN,
         "proto_toolchain(name = 'protoc_sources',"
             + "proto_compiler = '"
@@ -60,9 +64,10 @@ public final class MockProtoSupport {
     config.create(
         "net/proto2/compiler/public/BUILD",
         """
+        load("//test_defs:foo_binary.bzl", "foo_binary")
         package(default_visibility = ["//visibility:public"])
 
-        sh_binary(
+        foo_binary(
             name = "protocol_compiler",
             srcs = ["protocol_compiler.sh"],
         )
@@ -72,9 +77,10 @@ public final class MockProtoSupport {
     config.create(
         "third_party/protobuf/compiler/BUILD",
         """
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
         package(default_visibility = ["//visibility:public"])
 
-        sh_binary(
+        foo_binary(
             name = "protoc_minimal",
             srcs = ["protoc_minimal.sh"],
         )
@@ -85,6 +91,7 @@ public final class MockProtoSupport {
       config.create(
           "java/com/google/io/protocol/BUILD",
           """
+          load("@rules_java//java:defs.bzl", "java_import")
           package(default_visibility = ["//visibility:public"])
 
           java_import(
@@ -95,6 +102,7 @@ public final class MockProtoSupport {
       config.create(
           "java/com/google/io/protocol2/BUILD",
           """
+          load("@rules_java//java:defs.bzl", "java_import")
           package(default_visibility = ["//visibility:public"])
 
           java_import(
@@ -113,6 +121,7 @@ public final class MockProtoSupport {
       config.create(
           "java/com/google/io/protocol/BUILD",
           """
+          load("@rules_java//java:defs.bzl", "java_library")
           package(default_visibility = ["//visibility:public"])
 
           java_library(
@@ -124,6 +133,7 @@ public final class MockProtoSupport {
       config.create(
           "java/com/google/io/protocol2/BUILD",
           """
+          load("@rules_java//java:defs.bzl", "java_library")
           package(default_visibility = ["//visibility:public"])
 
           java_library(
@@ -248,6 +258,7 @@ public final class MockProtoSupport {
     config.create(
         "java/com/google/net/rpc/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         package(default_visibility = ["//visibility:public"])
 
         java_library(
@@ -263,6 +274,7 @@ public final class MockProtoSupport {
     config.create(
         "java/com/google/net/rpc3/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         package(default_visibility = ["//visibility:public"])
 
         java_library(
@@ -279,7 +291,7 @@ public final class MockProtoSupport {
         """);
     config.create(
         "net/proto2/proto/BUILD",
-        TestConstants.LOAD_PROTO_LIBRARY,
+        "load('@protobuf//bazel:proto_library.bzl', 'proto_library')",
         "package(default_visibility=['//visibility:public'])",
         "genrule(name = 'go_internal_bootstrap_hack',",
         "        srcs = [ 'descriptor.pb.go-prebuilt' ],",
@@ -290,6 +302,7 @@ public final class MockProtoSupport {
     config.create(
         "net/proto2/go/BUILD",
         """
+        load("//tools/build_defs/go:go_library.bzl", "go_library")
         package(default_visibility = ["//visibility:public"])
 
         go_library(
@@ -300,6 +313,7 @@ public final class MockProtoSupport {
     config.create(
         "net/proto2/compiler/go/BUILD",
         """
+        load("//tools/build_defs/go:go_binary.bzl", "go_binary")
         package(default_visibility = ["//visibility:public"])
 
         go_binary(
@@ -310,6 +324,7 @@ public final class MockProtoSupport {
     config.create(
         "net/rpc/go/BUILD",
         """
+        load("//tools/build_defs/go:go_library.bzl", "go_library")
         package(default_visibility = ["//visibility:public"])
 
         go_library(
@@ -320,6 +335,7 @@ public final class MockProtoSupport {
     config.create(
         "go/context/BUILD",
         """
+        load("//tools/build_defs/go:go_library.bzl", "go_library")
         package(default_visibility = ["//visibility:public"])
 
         go_library(
@@ -331,6 +347,7 @@ public final class MockProtoSupport {
     config.create(
         "third_party/java/jsr250_annotations/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         package(default_visibility = ["//visibility:public"])
 
         licenses(["notice"])
@@ -343,6 +360,7 @@ public final class MockProtoSupport {
     config.create(
         "third_party/golang/grpc/metadata/BUILD",
         """
+        load("//tools/build_defs/go:go_library.bzl", "go_library")
         package(default_visibility = ["//visibility:public"])
 
         licenses(["notice"])
@@ -355,15 +373,7 @@ public final class MockProtoSupport {
   }
 
   public static void setupWorkspace(MockToolsConfig config) throws IOException {
-    if (TestConstants.PRODUCT_NAME.equals("bazel")) {
-      config.append(
-          "WORKSPACE",
-          "local_repository(",
-          "    name = 'rules_proto',",
-          "    path = 'third_party/bazel_rules/rules_proto',",
-          ")");
-    }
-
+    // TODO - ilist@: Remove after Google proto_library doesn't depend on rules_proto
     config.create(
         "third_party/bazel_rules/rules_proto/proto/BUILD",
         """
@@ -374,104 +384,35 @@ public final class MockProtoSupport {
             visibility = ["//visibility:public"],
         )
         """);
-    config.create(
-        "third_party/bazel_rules/rules_proto/proto/defs.bzl",
-        """
-        load(":proto_lang_toolchain.bzl", _proto_lang_toolchain = "proto_lang_toolchain")
-
-        def _add_tags(kargs):
-            if "tags" in kargs:
-                kargs["tags"] += ["__PROTO_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__"]
-            else:
-                kargs["tags"] = ["__PROTO_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__"]
-            return kargs
-
-        def proto_library(**kargs):
-            native.proto_library(**_add_tags(kargs))
-
-        def proto_lang_toolchain(**kargs):
-            _proto_lang_toolchain(**_add_tags(kargs))
-        """);
-    config.create(
-        "third_party/bazel_rules/rules_proto/proto/proto_toolchain.bzl",
-        "load(':proto_toolchain_rule.bzl', _proto_toolchain_rule = 'proto_toolchain')",
-        "def proto_toolchain(*, name, proto_compiler, exec_compatible_with = []):",
-        "  _proto_toolchain_rule(name = name, proto_compiler = proto_compiler)",
-        "  native.toolchain(",
-        "    name = name + '_toolchain',",
-        "    toolchain_type = '" + TestConstants.PROTO_TOOLCHAIN + "',",
-        "    exec_compatible_with = exec_compatible_with,",
-        "    target_compatible_with = [],",
-        "    toolchain = name,",
-        "  )");
-    config.create(
-        "third_party/bazel_rules/rules_proto/proto/proto_toolchain_rule.bzl",
-        """
-ProtoLangToolchainInfo = proto_common_do_not_use.ProtoLangToolchainInfo
-
-def _impl(ctx):
-    return [
-        DefaultInfo(
-            files = depset(),
-            runfiles = ctx.runfiles(),
-        ),
-        platform_common.ToolchainInfo(
-            proto = ProtoLangToolchainInfo(
-                out_replacement_format_flag = ctx.attr.command_line,
-                output_files = ctx.attr.output_files,
-                plugin = None,
-                runtime = None,
-                proto_compiler = ctx.attr.proto_compiler.files_to_run,
-                protoc_opts = ctx.fragments.proto.experimental_protoc_opts,
-                progress_message = ctx.attr.progress_message,
-                mnemonic = ctx.attr.mnemonic,
-                allowlist_different_package = None,
-                toolchain_type =
-                    "//third_party/bazel_rules/rules_proto/proto:toolchain_type",
-            ),
-        ),
-    ]
-
-proto_toolchain = rule(
-    _impl,
-    attrs = {
-        "progress_message": attr.string(default =
-                                            "Generating Descriptor Set proto_library %{label}"),
-        "mnemonic": attr.string(default = "GenProtoDescriptorSet"),
-        "command_line": attr.string(default = "--descriptor_set_out=%s"),
-        "output_files": attr.string(
-            values = ["single", "multiple", "legacy"],
-            default = "single",
-        ),
-        "proto_compiler": attr.label(
-            cfg = "exec",
-            executable = True,
-            allow_files = True,
-        ),
-    },
-    provides = [platform_common.ToolchainInfo],
-    fragments = ["proto"],
-)
-""");
-    config.create(
-        "third_party/bazel_rules/rules_proto/proto/proto_lang_toolchain.bzl",
-        """
-        def proto_lang_toolchain(
-                *,
-                name,
-                toolchain_type = None,
-                exec_compatible_with = [],
-                target_compatible_with = [],
-                **attrs):
-            native.proto_lang_toolchain(name = name, toolchain_type = toolchain_type, **attrs)
-            if toolchain_type:
-                native.toolchain(
-                    name = name + "_toolchain",
-                    toolchain_type = toolchain_type,
-                    exec_compatible_with = exec_compatible_with,
-                    target_compatible_with = target_compatible_with,
-                    toolchain = name,
-                )
-        """);
+    if (TestConstants.PRODUCT_NAME.equals("bazel")) {
+      Runfiles runfiles = Runfiles.preload().withSourceRepository("");
+      PathFragment path = PathFragment.create(runfiles.rlocation("protobuf/bazel/BUILD.bazel"));
+      config.copyDirectory(
+          path.getParentDirectory(), "third_party/protobuf/bazel", MAX_VALUE, false);
+      config.overwrite(
+          "third_party/protobuf/BUILD",
+          "filegroup(name = 'license')",
+          "genrule(name='protoc_gen', cmd='', executable = True, outs = ['protoc'])");
+      config.overwrite(
+          "proto_bazel_features_workspace/MODULE.bazel", "module(name = 'proto_bazel_features')");
+      // Overwritten to remove bazel7 toolchains from protobuf
+      config.overwrite(
+          "third_party/protobuf/bazel/private/toolchains/BUILD.bazel",
+          "load('@protobuf//bazel/toolchains:proto_toolchain.bzl', 'proto_toolchain')",
+          TestConstants.LOAD_PROTO_LANG_TOOLCHAIN,
+          "proto_toolchain(name = 'protoc_sources',"
+              + "proto_compiler = '"
+              + ProtoConstants.DEFAULT_PROTOC_LABEL
+              + "')");
+      config.overwrite("proto_bazel_features_workspace/BUILD");
+      config.overwrite("proto_bazel_features_workspace/WORKSPACE");
+      config.overwrite(
+          "proto_bazel_features_workspace/features.bzl",
+          "bazel_features = struct(",
+          "  globals = struct(PackageSpecificationInfo = PackageSpecificationInfo),",
+          "  proto = struct(starlark_proto_info = True),",
+          "  cc = struct(protobuf_on_allowlist = True),",
+          ")");
+    }
   }
 }

@@ -20,7 +20,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -28,6 +27,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -63,6 +63,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
+import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -303,29 +304,41 @@ public class IncrementalLoadingTest {
 
   @Test
   public void testBuildFileWithSyntaxError() throws Exception {
-    tester.addFile("a/BUILD", "sh_library(xyz='a')");
+    tester.addFile(
+        "a/BUILD", "load('//test_defs:foo_library.bzl', 'foo_library')", "foo_library(xyz='a')");
     tester.sync();
     assertThrows(NoSuchThingException.class, () -> tester.getTarget("//a:a"));
 
-    tester.modifyFile("a/BUILD", "sh_library(name='a')");
+    tester.modifyFile(
+        "a/BUILD", "load('//test_defs:foo_library.bzl', 'foo_library')", "foo_library(name='a')");
     tester.sync();
     tester.getTarget("//a:a");
   }
 
   @Test
   public void testSymlinkedBuildFileWithSyntaxError() throws Exception {
-    tester.addFile("a/BUILD.real", "sh_library(xyz='a')");
+    tester.addFile(
+        "a/BUILD.real",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(xyz='a')");
     tester.addSymlink("a/BUILD", "BUILD.real");
     tester.sync();
     assertThrows(NoSuchThingException.class, () -> tester.getTarget("//a:a"));
-    tester.modifyFile("a/BUILD.real", "sh_library(name='a')");
+    tester.modifyFile(
+        "a/BUILD.real",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name='a')");
     tester.sync();
     tester.getTarget("//a:a");
   }
 
   @Test
   public void testTransientErrorsInGlobbing() throws Exception {
-    Path buildFile = tester.addFile("e/BUILD", "sh_library(name = 'e', data = glob(['*.txt']))");
+    Path buildFile =
+        tester.addFile(
+            "e/BUILD",
+            "load('//test_defs:foo_library.bzl', 'foo_library')",
+            "foo_library(name = 'e', srcs = glob(['*.txt']))");
     Path parentDir = buildFile.getParentDirectory();
     tester.addFile("e/data.txt");
     throwOnReaddir = parentDir;
@@ -335,13 +348,16 @@ public class IncrementalLoadingTest {
     tester.sync();
     Target target = tester.getTarget("//e:e");
     assertThat(((Rule) target).containsErrors()).isFalse();
-    List<?> globList = (List<?>) ((Rule) target).getAttr("data");
+    List<?> globList = (List<?>) ((Rule) target).getAttr("srcs");
     assertThat(globList).containsExactly(Label.parseCanonical("//e:data.txt"));
   }
 
   @Test
   public void testIrrelevantFileInSubdirDoesntReloadPackage() throws Exception {
-    tester.addFile("pkg/BUILD", "sh_library(name = 'pkg', srcs = glob(['**/*.sh']))");
+    tester.addFile(
+        "pkg/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'pkg', srcs = glob(['**/*.sh']))");
     tester.addFile("pkg/pkg.sh", "#!/bin/bash");
     tester.addFile("pkg/bar/bar.sh", "#!/bin/bash");
     Package pkg = tester.getTarget("//pkg:pkg").getPackage();
@@ -358,7 +374,8 @@ public class IncrementalLoadingTest {
 
     assertThrows(NoSuchThingException.class, () -> tester.getTarget("//a:a"));
 
-    tester.addFile("a/BUILD", "sh_library(name='a')");
+    tester.addFile(
+        "a/BUILD", "load('//test_defs:foo_library.bzl', 'foo_library')", "foo_library(name='a')");
     tester.sync();
     tester.getTarget("//a:a");
   }
@@ -423,7 +440,7 @@ public class IncrementalLoadingTest {
       @Nullable
       @Override
       public DiffAwareness maybeCreate(
-          Root pathEntry, ImmutableSet<Path> ignoredPaths, OptionsProvider optionsProvider) {
+          Root pathEntry, IgnoredSubdirectories ignoredPaths, OptionsProvider optionsProvider) {
         return pathEntry.asPath().equals(workspace) ? new ManualDiffAwareness() : null;
       }
     }
@@ -437,10 +454,25 @@ public class IncrementalLoadingTest {
     private boolean everythingModified = false;
     private ModifiedFileSet modifiedFileSet;
 
-    PackageLoadingTester(FileSystem fs, ManualClock clock) throws IOException {
+    PackageLoadingTester(FileSystem fs, ManualClock clock)
+        throws IOException, OptionsParsingException {
       this.clock = clock;
       workspace = fs.getPath("/workspace");
       workspace.createDirectory();
+      addFile("test_defs/BUILD");
+      addFile(
+          "test_defs/foo_library.bzl",
+          """
+          def _impl(ctx):
+            pass
+          foo_library = rule(
+            implementation = _impl,
+            attrs = {
+              "srcs": attr.label_list(allow_files=True),
+              "deps": attr.label_list(),
+            },
+          )
+          """);
       outputBase = fs.getPath("/output_base");
       outputBase.createDirectory();
       addFile("WORKSPACE");
@@ -482,15 +514,18 @@ public class IncrementalLoadingTest {
       skyframeExecutor.injectExtraPrecomputedValues(
           ImmutableList.of(
               PrecomputedValue.injected(
-                  RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE,
-                  Optional.empty())));
+                  RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
+              PrecomputedValue.injected(
+                  RepositoryDelegatorFunction.VENDOR_DIRECTORY, Optional.empty())));
+      BuildLanguageOptions buildLanguageOptions = Options.getDefaults(BuildLanguageOptions.class);
+      buildLanguageOptions.incompatibleAutoloadExternally = ImmutableList.of();
       skyframeExecutor.preparePackageLoading(
           new PathPackageLocator(
               outputBase,
               ImmutableList.of(Root.fromPath(workspace)),
               BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
           packageOptions,
-          Options.getDefaults(BuildLanguageOptions.class),
+          buildLanguageOptions,
           UUID.randomUUID(),
           ImmutableMap.of(),
           QuiescingExecutorsImpl.forTesting(),
@@ -575,13 +610,15 @@ public class IncrementalLoadingTest {
       packageOptions.defaultVisibility = RuleVisibility.PUBLIC;
       packageOptions.showLoadingProgress = true;
       packageOptions.globbingThreads = 7;
+      BuildLanguageOptions buildLanguageOptions = Options.getDefaults(BuildLanguageOptions.class);
+      buildLanguageOptions.incompatibleAutoloadExternally = ImmutableList.of();
       skyframeExecutor.preparePackageLoading(
           new PathPackageLocator(
               outputBase,
               ImmutableList.of(Root.fromPath(workspace)),
               BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
           packageOptions,
-          Options.getDefaults(BuildLanguageOptions.class),
+          buildLanguageOptions,
           UUID.randomUUID(),
           ImmutableMap.of(),
           QuiescingExecutorsImpl.forTesting(),

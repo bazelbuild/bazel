@@ -242,23 +242,13 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     return options.strictPublicImports.toString();
   }
 
-  @StarlarkMethod(
-      name = "cc_proto_library_header_suffixes",
-      useStarlarkThread = true,
-      documented = false)
-  public List<String> ccProtoLibraryHeaderSuffixesForStarlark(StarlarkThread thread)
-      throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
+  @StarlarkMethod(name = "cc_proto_library_header_suffixes", structField = true, documented = false)
+  public List<String> ccProtoLibraryHeaderSuffixesForStarlark() {
     return ccProtoLibraryHeaderSuffixes;
   }
 
-  @StarlarkMethod(
-      name = "cc_proto_library_source_suffixes",
-      useStarlarkThread = true,
-      documented = false)
-  public List<String> ccProtoLibrarySourceSuffixesForStarlark(StarlarkThread thread)
-      throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
+  @StarlarkMethod(name = "cc_proto_library_source_suffixes", structField = true, documented = false)
+  public List<String> ccProtoLibrarySourceSuffixesForStarlark() {
     return ccProtoLibrarySourceSuffixes;
   }
 }

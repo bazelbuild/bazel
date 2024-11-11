@@ -38,6 +38,7 @@ public final class JavaCompileActionBuilderTest extends BuildViewTestCase {
     scratch.file(
         "java/com/google/test/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_binary")
         java_binary(
             name = "a",
             srcs = ["a.java"],
@@ -61,6 +62,7 @@ public final class JavaCompileActionBuilderTest extends BuildViewTestCase {
     scratch.file(
         "java/com/google/test/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
             name = "a",
             srcs = [
@@ -80,6 +82,7 @@ public final class JavaCompileActionBuilderTest extends BuildViewTestCase {
     scratch.file(
         "java/com/google/test/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
             name = "a",
             srcs = [
@@ -100,6 +103,7 @@ public final class JavaCompileActionBuilderTest extends BuildViewTestCase {
     scratch.file(
         "java/com/google/test/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library", "java_plugin")
         java_plugin(
             name = "foo",
             srcs = ["Foo.java"],
@@ -138,6 +142,7 @@ public final class JavaCompileActionBuilderTest extends BuildViewTestCase {
     scratch.file(
         "java/com/google/test/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
             name = "a",
             srcs = ["A.java"],
@@ -146,7 +151,7 @@ public final class JavaCompileActionBuilderTest extends BuildViewTestCase {
     JavaCompileAction action =
         (JavaCompileAction) getGeneratingActionForLabel("//java/com/google/test:liba.jar");
     assertThat(action.getIncompleteEnvironmentForTesting())
-        .containsEntry("LC_CTYPE", "en_US.UTF-8");
+        .containsEntry("LC_CTYPE", analysisMock.isThisBazel() ? "C.UTF-8" : "en_US.UTF-8");
   }
 
   @Test
@@ -154,6 +159,7 @@ public final class JavaCompileActionBuilderTest extends BuildViewTestCase {
     scratch.file(
         "java/com/google/test/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
             name = "a",
             srcs = ["A.java"],

@@ -153,14 +153,14 @@ public final class SelectorList implements StarlarkValue, HasBinary {
     return of(Arrays.asList(x, y));
   }
 
+  private static TokenKind binaryOpToken(Object value) {
+    return getNativeType(value).equals(Dict.class) ? TokenKind.PIPE : TokenKind.PLUS;
+  }
+
   @Override
   @Nullable
   public SelectorList binaryOp(TokenKind op, Object that, boolean thisLeft) throws EvalException {
-    if (getNativeType(that).equals(Dict.class)) {
-      if (op == TokenKind.PIPE) {
-        return thisLeft ? concat(this, that) : concat(that, this);
-      }
-    } else if (op == TokenKind.PLUS) {
+    if (op == binaryOpToken(that)) {
       return thisLeft ? concat(this, that) : concat(that, this);
     }
     return null;
@@ -206,7 +206,7 @@ public final class SelectorList implements StarlarkValue, HasBinary {
 
   @Override
   public void repr(Printer printer) {
-    printer.printList(elements, "", " + ", "");
+    printer.printList(elements, "", String.format(" %s ", binaryOpToken(this)), "");
   }
 
   @Override

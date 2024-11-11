@@ -39,6 +39,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           "No-op. Kept here for backwards compatibility. This field will be removed in a "
               + "future release.")
@@ -46,14 +47,13 @@ public class AppleCommandLineOptions extends FragmentOptions {
   public boolean objcProviderFromLinked;
 
   @Option(
-    name = "xcode_version",
-    defaultValue = "null",
-    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
-    help =
-        "If specified, uses Xcode of the given version for relevant build actions. "
-            + "If unspecified, uses the executor default version of Xcode."
-  )
+      name = "xcode_version",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
+      help =
+          "If specified, uses Xcode of the given version for relevant build actions. "
+              + "If unspecified, uses the executor default version of Xcode.")
   public String xcodeVersion;
 
   @Option(
@@ -160,6 +160,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           "If true, use the most recent Xcode that is available both locally and remotely. If"
               + " false, or if there are no mutual available versions, use the local Xcode version"
@@ -192,15 +193,14 @@ public class AppleCommandLineOptions extends FragmentOptions {
   public static final String DEFAULT_CATALYST_CPU = "x86_64";
 
   @Option(
-    name = "apple_crosstool_top",
-    defaultValue = "@bazel_tools//tools/cpp:toolchain",
-    converter = LabelConverter.class,
-    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.CHANGES_INPUTS},
-    help =
-        "The label of the crosstool package to be used in Apple and Objc rules and their"
-            + " dependencies."
-  )
+      name = "apple_crosstool_top",
+      defaultValue = "@bazel_tools//tools/cpp:toolchain",
+      converter = LabelConverter.class,
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.CHANGES_INPUTS},
+      help =
+          "The label of the crosstool package to be used in Apple and Objc rules and their"
+              + " dependencies.")
   public Label appleCrosstoolTop;
 
   @Option(
@@ -215,14 +215,13 @@ public class AppleCommandLineOptions extends FragmentOptions {
   public String applePlatformType;
 
   @Option(
-    name = "apple_split_cpu",
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-    help =
-        "Don't set this value from the command line - it is derived from other flags and "
-            + "configuration transitions derived from rule attributes"
-  )
+      name = "apple_split_cpu",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help =
+          "Don't set this value from the command line - it is derived from other flags and "
+              + "configuration transitions derived from rule attributes")
   public String appleSplitCpu;
 
   // This option exists because two configurations are not allowed to have the same cache key
@@ -323,6 +322,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
         OptionEffectTag.LOADING_AND_ANALYSIS,
         OptionEffectTag.EXECUTION
       },
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           "If set, add a \"requires-xcode:{version}\" execution requirement to every Xcode action."
               + "  If the Xcode version has a hyphenated label,  also add a"

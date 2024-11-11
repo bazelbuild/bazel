@@ -47,6 +47,9 @@ public interface ObjectCodec<T> {
    * dispatcher may choose to use this codec for the subtype, rather than raise {@link
    * SerializationException.NoCodecException}.
    *
+   * <p>If the additional subtype already has an existing codec registered with {@link
+   * ObjectCodec#getEncodedClass()}, this codec will take precedence and overwrite the other codec.
+   *
    * <p>This method should not be used if the codec's serialization and deserialization methods
    * perform their own dispatching to other codecs for subtypes of {@code T}.
    *

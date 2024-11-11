@@ -926,7 +926,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
             if (objectFile.isTreeArtifact() && expander != null) {
               expandedObjectFiles.addAll(
                   Collections2.transform(
-                      expander.expandTreeArtifact(objectFile), Artifact::getExecPathString));
+                      expander.tryExpandTreeArtifact(objectFile), Artifact::getExecPathString));
             } else {
               expandedObjectFiles.add(objectFile.getExecPathString());
             }
@@ -1043,7 +1043,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       ImmutableList.Builder<VariableValue> sequences =
           ImmutableList.builderWithExpectedSize(values.size());
       for (String value : values) {
-        sequences.add(new StringValue(value));
+        sequences.add(new StringValue(pathMapper.mapHeuristically(value)));
       }
       return sequences.build();
     }
@@ -1177,6 +1177,54 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
         return false;
       }
       return values.shallowEquals(otherPathFragments.values);
+    }
+
+    @Override
+    public int hashCode() {
+      return values.shallowHashCode();
+    }
+  }
+
+  @Immutable
+  private static final class ArtifactSetSequence extends VariableValueAdapter {
+    private final NestedSet<Artifact> values;
+
+    private ArtifactSetSequence(NestedSet<Artifact> values) {
+      Preconditions.checkNotNull(values);
+      this.values = values;
+    }
+
+    @Override
+    public ImmutableList<VariableValue> getSequenceValue(
+        String variableName, PathMapper pathMapper) {
+      ImmutableList<Artifact> valuesList = values.toList();
+      ImmutableList.Builder<VariableValue> sequences =
+          ImmutableList.builderWithExpectedSize(valuesList.size());
+      for (Artifact value : valuesList) {
+        sequences.add(new StringValue(pathMapper.getMappedExecPathString(value)));
+      }
+      return sequences.build();
+    }
+
+    @Override
+    public String getVariableTypeName() {
+      return Sequence.SEQUENCE_VARIABLE_TYPE_NAME;
+    }
+
+    @Override
+    public boolean isTruthy() {
+      return !values.isEmpty();
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (this == other) {
+        return true;
+      }
+      if (!(other instanceof ArtifactSetSequence otherArtifacts)) {
+        return false;
+      }
+      return values.shallowEquals(otherArtifacts.values);
     }
 
     @Override
@@ -1493,6 +1541,19 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       checkVariableNotPresentAlready(name);
       Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
       variablesMap.put(name, new PathFragmentSetSequence(values));
+      return this;
+    }
+
+    /**
+     * Add a sequence variable that expands {@code name} to {@link Artifact} {@code values}.
+     *
+     * <p>Accepts values as NestedSet. Nested set is stored directly, not cloned, not flattened.
+     */
+    @CanIgnoreReturnValue
+    public Builder addArtifactSequenceVariable(String name, NestedSet<Artifact> values) {
+      checkVariableNotPresentAlready(name);
+      Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
+      variablesMap.put(name, new ArtifactSetSequence(values));
       return this;
     }
 

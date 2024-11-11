@@ -28,7 +28,7 @@ import java.util.regex.Pattern;
 /** Represents a cgroup hierarchy of a process from `/proc/self/cgroup`. */
 @AutoValue
 public abstract class Hierarchy {
-  public abstract Integer id();
+  public abstract int id();
 
   public abstract ImmutableList<String> controllers();
 
@@ -46,7 +46,7 @@ public abstract class Hierarchy {
   private static final Pattern PROC_CGROUPS_PATTERN =
       Pattern.compile("^(?<id>\\d+):(?<controllers>[^:]*):(?<file>.+)");
 
-  static Hierarchy create(Integer id, ImmutableList<String> controllers, Path path) {
+  static Hierarchy create(int id, ImmutableList<String> controllers, Path path) {
     return new AutoValue_Hierarchy(id, controllers, path);
   }
 

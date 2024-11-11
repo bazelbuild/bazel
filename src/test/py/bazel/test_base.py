@@ -57,6 +57,13 @@ class TestBase(absltest.TestCase):
   _worker_proc = None
   _cas_path = None
 
+  def WorkspaceContent(self):
+    with open(
+        self.Rlocation('io_bazel/src/test/py/bazel/default_repos_stanza.txt'),
+        'r',
+    ) as s:
+      return s.readlines()
+
   def setUp(self):
     absltest.TestCase.setUp(self)
     if self._runfiles is None:
@@ -88,6 +95,14 @@ class TestBase(absltest.TestCase):
         # Prefer ipv6 network on macOS
         f.write('startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true\n')
         f.write('build --jvmopt=-Djava.net.preferIPv6Addresses\n')
+
+      if TestBase.IsWindows():
+        # Use a specific Python toolchain on Windows to avoid blowing up the
+        # size of py_binary and py_test which slowed down tests significantly.
+        # Use @@rules_python+//python/runtime_env_toolchains:all when WORKSPACE
+        # is fully removed.
+        # pylint: disable=line-too-long
+        f.write('common --extra_toolchains=@bazel_tools//tools/python:autodetecting_toolchain\n')
 
       # Disable WORKSPACE in python tests by default
       # TODO(pcloudy): Remove when --enable_workspace defaults to false

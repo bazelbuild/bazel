@@ -52,6 +52,9 @@ cc_library(
     ],
     hdrs = ["latin1_jni_path.h"],
     includes = ["."],  # For jni headers.
+    deps = [
+        "//src/main/cpp/util:logging",
+    ],
 )
 
 cc_library(
@@ -65,23 +68,6 @@ cc_library(
     visibility = ["//src/main/native:__subpackages__"],
     deps = [
         "@blake3",
-    ],
-    alwayslink = 1,
-)
-
-cc_library(
-    name = "sqlite_jni",
-    srcs = [
-        "sqlite_jni.cc",
-        ":jni.h",
-        ":jni_md.h",
-    ],
-    includes = ["."],  # For jni headers.
-    visibility = ["//src/main/native:__subpackages__"],
-    deps = [
-        ":latin1_jni_path",
-        "//src/main/cpp/util:logging",
-        "@sqlite3",
     ],
     alwayslink = 1,
 )
@@ -114,7 +100,6 @@ cc_binary(
     deps = [
         ":blake3_jni",
         ":latin1_jni_path",
-        ":sqlite_jni",
         "//src/main/cpp/util:logging",
         "//src/main/cpp/util:md5",
         "//src/main/cpp/util:port",

@@ -100,11 +100,6 @@ wstring GetParentDirFromPath(const wstring& path) {
   return path.substr(0, path.find_last_of(L"\\/"));
 }
 
-inline void Trim(wstring& str) {
-  str.erase(0, str.find_first_not_of(' '));
-  str.erase(str.find_last_not_of(' ') + 1);
-}
-
 bool ReadSymlink(const wstring& abs_path, wstring* target, wstring* error) {
   switch (bazel::windows::ReadSymlinkOrJunction(abs_path, target, error)) {
     case bazel::windows::ReadSymlinkOrJunctionResult::kSuccess:
@@ -127,6 +122,39 @@ bool ReadSymlink(const wstring& abs_path, wstring* target, wstring* error) {
       break;
   }
   return false;
+}
+
+// Replaces \s, \n, and \b with their respective characters.
+std::string Unescape(const std::string& path) {
+  std::string result;
+  result.reserve(path.size());
+  for (size_t i = 0; i < path.size(); ++i) {
+    if (path[i] == '\\' && i + 1 < path.size()) {
+      switch (path[i + 1]) {
+        case 's': {
+          result.push_back(' ');
+          break;
+        }
+        case 'n': {
+          result.push_back('\n');
+          break;
+        }
+        case 'b': {
+          result.push_back('\\');
+          break;
+        }
+        default: {
+          result.push_back(path[i]);
+          result.push_back(path[i + 1]);
+          break;
+        }
+      }
+      ++i;
+    } else {
+      result.push_back(path[i]);
+    }
+  }
+  return result;
 }
 
 }  // namespace
@@ -164,20 +192,26 @@ class RunfilesCreator {
         continue;
       }
 
-      size_t space_pos = line.find_first_of(' ');
-      wstring wline = blaze_util::CstringToWstring(line);
-      wstring link, target;
-      if (space_pos == string::npos) {
-        link = wline;
-        target = wstring();
+      wstring link;
+      wstring target;
+      if (!line.empty() && line[0] == ' ') {
+        // The link path contains escape sequences for spaces and backslashes.
+        string::size_type idx = line.find(' ', 1);
+        if (idx == string::npos) {
+          die(L"Missing separator in manifest line: %hs", line.c_str());
+        }
+        std::string link_path = Unescape(line.substr(1, idx - 1));
+        link = blaze_util::CstringToWstring(link_path);
+        std::string target_path = Unescape(line.substr(idx + 1));
+        target = blaze_util::CstringToWstring(target_path);
       } else {
-        link = wline.substr(0, space_pos);
-        target = wline.substr(space_pos + 1);
+        string::size_type idx = line.find(' ');
+        if (idx == string::npos) {
+          die(L"Missing separator in manifest line: %hs", line.c_str());
+        }
+        link = blaze_util::CstringToWstring(line.substr(0, idx));
+        target = blaze_util::CstringToWstring(line.substr(idx + 1));
       }
-
-      // Removing leading and trailing spaces
-      Trim(link);
-      Trim(target);
 
       // We sometimes need to create empty files under the runfiles tree.
       // For example, for python binary, __init__.py is needed under every

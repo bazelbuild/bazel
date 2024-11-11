@@ -20,7 +20,9 @@ load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/cc_shared_library_hint_info.bzl", "CcSharedLibraryHintInfo")
 load(":common/cc/semantics.bzl", "semantics")
 load(":common/paths.bzl", "paths")
-load(":common/proto/proto_info.bzl", "ProtoInfo")
+load(":common/proto/proto_info.bzl", _BuiltinProtoInfo = "ProtoInfo")
+
+_RepositoryProtoInfo = _builtins.toplevel.proto_common.ProtoInfo()
 
 # TODO(#5200): Add export_define to library_to_link and cc_library
 
@@ -382,10 +384,7 @@ def _filter_inputs(
         dependency_linker_inputs_sets.append(dep[CcInfo].linking_context.linker_inputs)
         deps_root_tree_nodes.append(dep[GraphNodeInfo])
 
-    if ctx.attr.experimental_disable_topo_sort_do_not_use_remove_before_7_0:
-        dependency_linker_inputs = depset(transitive = dependency_linker_inputs_sets).to_list()
-    else:
-        dependency_linker_inputs = depset(transitive = dependency_linker_inputs_sets, order = "topological").to_list()
+    dependency_linker_inputs = depset(transitive = dependency_linker_inputs_sets, order = "topological").to_list()
 
     can_be_linked_dynamically = {}
     for linker_input in dependency_linker_inputs:
@@ -446,7 +445,15 @@ def _filter_inputs(
             continue
         linker_inputs_seen[stringified_linker_input] = True
         owner = str(linker_input.owner)
-        if owner in targets_to_be_linked_dynamically_set:
+        if semantics.is_bazel and not linker_input.libraries:
+            # Linker inputs that only provide flags, no code, are considered
+            # safe to link statically multiple times.
+            # TODO(bazel-team): semantics.should_create_empty_archive() should be
+            # cleaned up and return False in every case. cc_libraries shouldn't
+            # produce empty archives. For now issue #19920 is only fixed in Bazel.
+            _add_linker_input_to_dict(linker_input.owner, linker_input)
+            linker_inputs_count += 1
+        elif owner in targets_to_be_linked_dynamically_set:
             unused_dynamic_linker_inputs[transitive_exports[owner].owner] = None
 
             # Link the library in this iteration dynamically,
@@ -455,11 +462,6 @@ def _filter_inputs(
             _add_linker_input_to_dict(linker_input.owner, transitive_exports[owner])
             linker_inputs_count += 1
         elif owner in targets_to_be_linked_statically_map:
-            if semantics.is_bazel and not linker_input.libraries:
-                # TODO(bazel-team): semantics.should_create_empty_archive() should be
-                # cleaned up and return False in every case. cc_libraries shouldn't
-                # produce empty archives. For now issue #19920 is only fixed in Bazel.
-                continue
             if owner in link_once_static_libs_map:
                 # We are building a dictionary that will allow us to give
                 # proper errors for libraries that have been linked multiple
@@ -521,14 +523,11 @@ def _filter_inputs(
 
     linker_inputs_count += _add_unused_dynamic_deps(ctx, unused_dynamic_linker_inputs, _add_linker_input_to_dict, topologically_sorted_labels, link_indirect_deps = False)
 
-    if ctx.attr.experimental_disable_topo_sort_do_not_use_remove_before_7_0:
-        linker_inputs = experimental_remove_before_7_0_linker_inputs
-    else:
-        linker_inputs = _sort_linker_inputs(
-            topologically_sorted_labels,
-            label_to_linker_inputs,
-            linker_inputs_count,
-        )
+    linker_inputs = _sort_linker_inputs(
+        topologically_sorted_labels,
+        label_to_linker_inputs,
+        linker_inputs_count,
+    )
 
     _throw_linked_but_not_exported_errors(linked_statically_but_not_exported)
     return (exports, linker_inputs, curr_link_once_static_libs_set.keys(), precompiled_only_dynamic_libraries)
@@ -838,7 +837,7 @@ def _graph_structure_aspect_impl(target, ctx):
 
 graph_structure_aspect = aspect(
     attr_aspects = ["*"],
-    required_providers = [[CcInfo], [ProtoInfo], [CcSharedLibraryHintInfo]],
+    required_providers = [[CcInfo], [_BuiltinProtoInfo], [_RepositoryProtoInfo], [CcSharedLibraryHintInfo]],
     required_aspect_providers = [[CcInfo], [CcSharedLibraryHintInfo]],
     implementation = _graph_structure_aspect_impl,
 )
@@ -1011,7 +1010,6 @@ current target's <code>dynamic_deps</code>) to decide which <code>cc_libraries</
 the transitive <code>deps</code> should not be linked in because they are already provided
 by a different <code>cc_shared_library</code>.
 </p>"""),
-        "experimental_disable_topo_sort_do_not_use_remove_before_7_0": attr.bool(default = False),
         "exports_filter": attr.string_list(doc = """
 This attribute contains a list of targets that are claimed to be exported by the current
 shared library.
@@ -1032,7 +1030,7 @@ symbols should be exported.
 </p>
 
 <p>The following syntax is allowed:</p>
-<p><code>//foo:__package__</code> to account for any target in foo/BUILD</p>
+<p><code>//foo:__pkg__</code> to account for any target in foo/BUILD</p>
 <p><code>//foo:__subpackages__</code> to account for any target in foo/BUILD or any other
 package below foo/ like foo/bar/BUILD</p>"""),
         "win_def_file": attr.label(allow_single_file = [".def"], doc = """

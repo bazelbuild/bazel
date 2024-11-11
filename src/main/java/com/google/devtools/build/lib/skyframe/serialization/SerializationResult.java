@@ -53,7 +53,7 @@ public abstract class SerializationResult<T> {
     return object;
   }
 
-  static <T> SerializationResult<T> create(
+  public static <T> SerializationResult<T> create(
       T object, @Nullable ListenableFuture<Void> futureToBlockWritesOn) {
     return futureToBlockWritesOn != null
         ? new ObjectWithFuture<>(object, futureToBlockWritesOn)

@@ -85,11 +85,11 @@ StartupOptions::StartupOptions(const string &product_name,
       connect_timeout_secs(30),
       local_startup_timeout_secs(120),
       have_invocation_policy_(false),
+      quiet(false),
       client_debug(false),
       preemptible(false),
       java_logging_formatter(
           "com.google.devtools.build.lib.util.SingleLineFormatter"),
-      expand_configs_in_place(true),
       digest_function(),
       idle_server_tasks(true),
       original_startup_options_(std::vector<RcStartupFlag>()),
@@ -97,6 +97,9 @@ StartupOptions::StartupOptions(const string &product_name,
       macos_qos_class(QOS_CLASS_UNSPECIFIED),
 #endif
       unlimit_coredumps(false),
+#ifdef __linux__
+      cgroup_parent(),
+#endif
       windows_enable_symlinks(false) {
   // To ensure predictable behavior from PathFragmentConverter in Java,
   // output_root must be an absolute path. In particular, if we were to return a
@@ -134,10 +137,9 @@ StartupOptions::StartupOptions(const string &product_name,
   RegisterNullaryStartupFlag("batch", &batch);
   RegisterNullaryStartupFlag("batch_cpu_scheduling", &batch_cpu_scheduling);
   RegisterNullaryStartupFlag("block_for_lock", &block_for_lock);
+  RegisterNullaryStartupFlag("quiet", &quiet);
   RegisterNullaryStartupFlag("client_debug", &client_debug);
   RegisterNullaryStartupFlag("preemptible", &preemptible);
-  RegisterNullaryStartupFlag("expand_configs_in_place",
-                             &expand_configs_in_place);
   RegisterNullaryStartupFlag("fatal_event_bus_exceptions",
                              &fatal_event_bus_exceptions);
   RegisterNullaryStartupFlag("host_jvm_debug", &host_jvm_debug);
@@ -169,6 +171,7 @@ StartupOptions::StartupOptions(const string &product_name,
   RegisterUnaryStartupFlag("output_user_root");
   RegisterUnaryStartupFlag("server_jvm_out");
   RegisterUnaryStartupFlag("failure_detail_out");
+  RegisterUnaryStartupFlag("experimental_cgroup_parent");
 }
 
 StartupOptions::~StartupOptions() {}
@@ -386,6 +389,12 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
           "multiple times.";
       return blaze_exit_code::BAD_ARGV;
     }
+  } else if ((value = GetUnaryOption(
+                  arg, next_arg, "--experimental_cgroup_parent")) != nullptr) {
+#ifdef __linux__
+    cgroup_parent = value;
+    option_sources["cgroup_parent"] = rcfile;
+#endif
   } else {
     bool extra_argument_processed;
     blaze_exit_code::ExitCode process_extra_arg_exit_code = ProcessArgExtra(
@@ -595,6 +604,8 @@ blaze_exit_code::ExitCode StartupOptions::AddJVMArguments(
   // kernel allowed limit of kern.maxfilesperproc (which is what we set
   // ourselves to).
   result->push_back("-XX:-MaxFDLimit");
+
+  result->push_back("-Djava.lang.Thread.allowVirtualThreads=true");
 
   return AddJVMMemoryArguments(server_javabase, result, user_options, error);
 }

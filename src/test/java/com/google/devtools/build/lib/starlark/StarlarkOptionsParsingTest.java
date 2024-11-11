@@ -78,9 +78,9 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
   // test --@main_workspace//flag=value parses out to //flag=value
   // test --@other_workspace//flag=value parses out to @other_workspace//flag=value
   @Test
-  public void testFlagNameWithWorkspace() throws Exception {
+  public void testFlagNameWithExternalRepo() throws Exception {
     writeBasicIntFlag();
-    scratch.file("test/repo2/WORKSPACE");
+    scratch.file("test/repo2/MODULE.bazel", "module(name = 'repo2')");
     scratch.file(
         "test/repo2/defs.bzl",
         """
@@ -103,12 +103,17 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
         )
         """);
 
-    rewriteWorkspace(
-        "workspace(name = 'starlark_options_test')",
-        "local_repository(",
-        "  name = 'repo2',",
-        "  path = 'test/repo2',",
-        ")");
+    rewriteModuleDotBazel(
+        """
+        module(name = "starlark_options_test")
+
+        bazel_dep(name = "repo2")
+
+        local_path_override(
+            module_name = "repo2",
+            path = "test/repo2",
+        )
+        """);
 
     OptionsParsingResult result =
         parseStarlarkOptions(
@@ -118,7 +123,7 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
     assertThat(result.getStarlarkOptions()).hasSize(2);
     assertThat(result.getStarlarkOptions().get("//test:my_int_setting"))
         .isEqualTo(StarlarkInt.of(666));
-    assertThat(result.getStarlarkOptions().get("@@repo2//:flag2")).isEqualTo(StarlarkInt.of(222));
+    assertThat(result.getStarlarkOptions().get("@@repo2+//:flag2")).isEqualTo(StarlarkInt.of(222));
     assertThat(result.getResidue()).isEmpty();
   }
 
@@ -659,9 +664,18 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
     scratch.file(
         "test/pkg/BUILD",
         """
+        # Needed to avoid select() being eliminated as trivial.
+        config_setting(
+            name = "config",
+            values = {"define": "pi=3"},
+        )
+
         alias(
             name = "two",
-            actual = select({"//conditions:default": "//test:three"}),
+            actual = select({
+                ":config": "//test:three",
+                "//conditions:default": "//test:three",
+            }),
         )
         """);
 

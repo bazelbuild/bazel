@@ -141,6 +141,7 @@ public class WorkerFactoryTest {
         /* workerFilesCombinedHash= */ HashCode.fromInt(0),
         /* workerFilesWithDigests= */ ImmutableSortedMap.of(),
         /* sandboxed= */ mustBeSandboxed,
+        /* useInMemoryTracking= */ false,
         /* multiplex= */ multiplex,
         /* cancellable= */ false,
         WorkerProtocolFormat.PROTO);

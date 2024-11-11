@@ -96,7 +96,7 @@ public class DirtyAndInflightTrackingProgressReceiver implements InflightTrackin
   }
 
   @Override
-  public final void stateEnding(SkyKey skyKey, NodeState nodeState) {
+  public void stateEnding(SkyKey skyKey, NodeState nodeState) {
     progressReceiver.stateEnding(skyKey, nodeState);
   }
 

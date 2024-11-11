@@ -61,6 +61,7 @@ public class SingleExtensionUsagesFunction implements SkyFunction {
             .collect(toImmutableList()),
         // TODO(wyv): Maybe cache these mappings?
         usagesTable.row(id).keySet().stream()
-            .collect(toImmutableMap(key -> key, bazelDepGraphValue::getFullRepoMapping)));
+            .collect(toImmutableMap(key -> key, bazelDepGraphValue::getFullRepoMapping)),
+        bazelDepGraphValue.getRepoOverrides().row(id));
   }
 }

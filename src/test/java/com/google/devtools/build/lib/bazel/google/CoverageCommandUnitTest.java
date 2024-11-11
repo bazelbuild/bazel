@@ -30,6 +30,7 @@ public final class CoverageCommandUnitTest extends BuildViewTestCase {
     scratch.file(
         "javatests/com/google/foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
             name = "l",
             srcs = ["foo.java"],

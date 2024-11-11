@@ -1,4 +1,4 @@
-load("@rules_java//java:defs.bzl", "java_plugin")
+load("@rules_java//java:defs.bzl", "java_library", "java_plugin")
 
 # Description:
 #   A preprocessor for Starlark annotations.

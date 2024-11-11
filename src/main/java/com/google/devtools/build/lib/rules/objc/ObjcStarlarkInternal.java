@@ -14,38 +14,26 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.docgen.annot.DocCategory;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.Expander;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
-import com.google.devtools.build.lib.packages.StarlarkInfoWithSchema;
-import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
-import com.google.devtools.build.lib.rules.apple.ApplePlatform;
-import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
-import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
-import com.google.devtools.build.lib.rules.cpp.CppModuleMap.UmbrellaHeaderStrategy;
-import com.google.devtools.build.lib.rules.objc.IntermediateArtifacts.AlwaysLink;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
-import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
@@ -148,176 +136,43 @@ public class ObjcStarlarkInternal implements StarlarkValue {
   }
 
   @StarlarkMethod(
-      name = "create_intermediate_artifacts",
-      documented = false,
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true),
-      })
-  public IntermediateArtifacts createIntermediateArtifacts(
-      StarlarkRuleContext starlarkRuleContext) {
-    return new IntermediateArtifacts(starlarkRuleContext.getRuleContext());
-  }
-
-  @StarlarkMethod(
-      name = "j2objc_create_intermediate_artifacts",
-      documented = false,
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true),
-      })
-  public IntermediateArtifacts j2objcCreateIntermediateArtifacts(
-      StarlarkRuleContext starlarkRuleContext) {
-    return new IntermediateArtifacts(
-        starlarkRuleContext.getRuleContext(),
-        /* archiveFileNameSuffix= */ "_j2objc",
-        UmbrellaHeaderStrategy.GENERATE,
-        AlwaysLink.TRUE);
-  }
-
-  @StarlarkMethod(
-      name = "create_compilation_artifacts",
-      documented = false,
-      parameters = {
-        @Param(
-            name = "ctx",
-            positional = false,
-            named = true,
-            defaultValue = "None",
-            allowedTypes = {
-              @ParamType(type = StarlarkRuleContext.class),
-              @ParamType(type = NoneType.class)
-            }),
-      })
-  public CompilationArtifacts createCompilationArtifacts(Object starlarkRuleContextObject) {
-    StarlarkRuleContext starlarkRuleContext =
-        convertFromNoneable(starlarkRuleContextObject, /* defaultValue= */ null);
-    if (starlarkRuleContext != null) {
-      return CompilationSupport.compilationArtifacts(starlarkRuleContext.getRuleContext());
-    } else {
-      return new CompilationArtifacts();
-    }
-  }
-
-  @StarlarkMethod(
-      name = "j2objc_create_compilation_artifacts",
-      documented = false,
-      parameters = {
-        @Param(name = "srcs", positional = false, named = true),
-        @Param(name = "non_arc_srcs", positional = false, named = true),
-        @Param(name = "hdrs", positional = false, named = true),
-        @Param(name = "intermediate_artifacts", positional = false, named = true),
-      })
-  public CompilationArtifacts j2objcCreateCompilationArtifacts(
-      Sequence<?> srcs,
-      Sequence<?> nonArcSrcs,
-      Sequence<?> hdrs,
-      Object intermediateArtifactsObject)
-      throws EvalException {
-    IntermediateArtifacts intermediateArtifacts =
-        convertFromNoneable(intermediateArtifactsObject, /* defaultValue= */ null);
-    return new CompilationArtifacts(
-        Sequence.cast(srcs, Artifact.class, "srcs"),
-        Sequence.cast(nonArcSrcs, Artifact.class, "non_arc_srcs"),
-        Sequence.cast(hdrs, Artifact.class, "hdrs"),
-        intermediateArtifacts);
-  }
-
-  @StarlarkMethod(
-      name = "create_compilation_context",
-      documented = false,
-      parameters = {
-        @Param(name = "public_hdrs", positional = false, defaultValue = "[]", named = true),
-        @Param(name = "public_textual_hdrs", positional = false, defaultValue = "[]", named = true),
-        @Param(name = "private_hdrs", positional = false, defaultValue = "[]", named = true),
-        @Param(name = "providers", positional = false, defaultValue = "[]", named = true),
-        @Param(
-            name = "direct_cc_compilation_contexts",
-            positional = false,
-            defaultValue = "[]",
-            named = true),
-        @Param(
-            name = "cc_compilation_contexts",
-            positional = false,
-            defaultValue = "[]",
-            named = true),
-        @Param(
-            name = "implementation_cc_compilation_contexts",
-            positional = false,
-            defaultValue = "[]",
-            named = true),
-        @Param(name = "defines", positional = false, defaultValue = "[]", named = true),
-        @Param(name = "includes", positional = false, defaultValue = "[]", named = true),
-      })
-  public ObjcCompilationContext createCompilationContext(
-      Sequence<?> publicHdrs,
-      Sequence<?> publicTextualHdrs,
-      Sequence<?> privateHdrs,
-      Sequence<?> providers,
-      Sequence<?> directCcCompilationContexts,
-      Sequence<?> ccCompilationContexts,
-      Sequence<?> implementationCcCompilationContexts,
-      Sequence<?> defines,
-      Sequence<?> includes)
-      throws InterruptedException, EvalException {
-    return ObjcCompilationContext.builder()
-        .addPublicHeaders(Sequence.cast(publicHdrs, Artifact.class, "public_hdrs"))
-        .addPublicTextualHeaders(
-            Sequence.cast(publicTextualHdrs, Artifact.class, "public_textual_hdrs"))
-        .addPrivateHeaders(Sequence.cast(privateHdrs, Artifact.class, "private_hdrs"))
-        .addObjcProviders(Sequence.cast(providers, StarlarkInfoWithSchema.class, "providers"))
-        .addDirectCcCompilationContexts(
-            Sequence.cast(
-                directCcCompilationContexts, CcCompilationContext.class, "cc_compilation_contexts"))
-        .addCcCompilationContexts(
-            Sequence.cast(
-                ccCompilationContexts, CcCompilationContext.class, "cc_compilation_contexts"))
-        .addImplementationCcCompilationContexts(
-            Sequence.cast(
-                implementationCcCompilationContexts,
-                CcCompilationContext.class,
-                "implementation_cc_compilation_contexts"))
-        .addDefines(Sequence.cast(defines, String.class, "defines"))
-        .addIncludes(
-            Sequence.cast(includes, String.class, "includes").stream()
-                .map(PathFragment::create)
-                .collect(toImmutableList()))
-        .build();
-  }
-
-  @StarlarkMethod(
-      name = "subtract_linking_contexts",
-      documented = false,
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true),
-        @Param(name = "linking_contexts", positional = false, defaultValue = "[]", named = true),
-        @Param(
-            name = "avoid_dep_linking_contexts",
-            positional = false,
-            defaultValue = "[]",
-            named = true),
-      })
-  public CcLinkingContext subtractLinkingContexts(
-      StarlarkRuleContext starlarkRuleContext,
-      Sequence<?> linkingContexts,
-      Sequence<?> avoidDepLinkingContexts)
-      throws InterruptedException, EvalException {
-    return MultiArchBinarySupport.ccLinkingContextSubtractSubtrees(
-        starlarkRuleContext.getRuleContext(),
-        Sequence.cast(linkingContexts, CcLinkingContext.class, "linking_contexts"),
-        Sequence.cast(
-            avoidDepLinkingContexts, CcLinkingContext.class, "avoid_dep_linking_contexts"));
-  }
-
-  @StarlarkMethod(
-      name = "get_split_target_triplet",
+      name = "get_split_prerequisites",
       documented = false,
       parameters = {@Param(name = "ctx", named = true)})
-  public Dict<String, StructImpl> getSplitTargetTriplet(StarlarkRuleContext starlarkRuleContext)
-      throws EvalException {
-    return MultiArchBinarySupport.getSplitTargetTripletFromCtads(
+  public ImmutableMap<String, BuildConfigurationValue> getSplitPrerequisites(
+      StarlarkRuleContext starlarkRuleContext) throws EvalException {
+    Map<Optional<String>, List<ConfiguredTargetAndData>> ctads =
         starlarkRuleContext
             .getRuleContext()
             .getRulePrerequisitesCollection()
-            .getSplitPrerequisites(ObjcRuleClasses.CHILD_CONFIG_ATTR));
+            .getSplitPrerequisites(ObjcRuleClasses.CHILD_CONFIG_ATTR);
+    ImmutableMap.Builder<String, BuildConfigurationValue> result = ImmutableMap.builder();
+    for (Optional<String> splitTransitionKey : ctads.keySet()) {
+      if (!splitTransitionKey.isPresent()) {
+        throw new EvalException("unexpected empty key in split transition");
+      }
+      result.put(
+          splitTransitionKey.get(),
+          Iterables.getOnlyElement(ctads.get(splitTransitionKey)).getConfiguration());
+    }
+    return result.buildOrThrow();
+  }
+
+  @StarlarkMethod(
+      name = "get_apple_config",
+      documented = false,
+      parameters = {@Param(name = "build_config", named = true)})
+  public AppleConfiguration getAppleConfig(BuildConfigurationValue buildConfiguration)
+      throws EvalException {
+    return buildConfiguration.getFragment(AppleConfiguration.class);
+  }
+
+  @StarlarkMethod(
+      name = "get_cpu",
+      documented = false,
+      parameters = {@Param(name = "build_config", named = true)})
+  public String getCpu(BuildConfigurationValue buildConfiguration) throws EvalException {
+    return buildConfiguration.getCpu();
   }
 
   @StarlarkMethod(
@@ -341,14 +196,5 @@ public class ObjcStarlarkInternal implements StarlarkValue {
           Iterables.getOnlyElement(ctads.get(splitTransitionKey)).getConfiguration());
     }
     return result.buildImmutable();
-  }
-
-  @StarlarkMethod(
-      name = "get_target_platform",
-      documented = false,
-      parameters = {@Param(name = "build_config", positional = true, named = true)})
-  public ApplePlatform getTargetPlatform(BuildConfigurationValue buildConfiguration)
-      throws EvalException {
-    return buildConfiguration.getFragment(AppleConfiguration.class).getSingleArchPlatform();
   }
 }

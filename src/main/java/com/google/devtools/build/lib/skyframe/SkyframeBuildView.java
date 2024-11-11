@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.actions.TotalAndConfiguredTargetOnlyMetric;
 import com.google.devtools.build.lib.analysis.AnalysisFailureEvent;
 import com.google.devtools.build.lib.analysis.AnalysisOperationWatcher;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
+import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -65,13 +66,13 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.AdditionalConfigurationChangeEvent;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader;
 import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader.StarlarkExecTransitionLoadingException;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
-import com.google.devtools.build.lib.analysis.producers.BuildConfigurationKeyCache;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailurePropagationException;
 import com.google.devtools.build.lib.analysis.test.CoverageArtifactsKnownEvent;
@@ -124,6 +125,7 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 
@@ -157,6 +159,7 @@ public final class SkyframeBuildView {
 
   // Null until the build configuration is set.
   @Nullable private BuildConfigurationValue configuration;
+  @Nullable private BuildOptions originalConfigurationOptions;
 
   /**
    * If the last build was executed with {@code Options#discard_analysis_cache} and we are not
@@ -169,8 +172,6 @@ public final class SkyframeBuildView {
   private boolean foundActionConflictInLatestCheck;
 
   private final StarlarkTransitionCache starlarkTransitionCache = new StarlarkTransitionCache();
-  private final BuildConfigurationKeyCache buildConfigurationKeyCache =
-      new BuildConfigurationKeyCache();
 
   public SkyframeBuildView(
       ArtifactFactory artifactFactory,
@@ -207,6 +208,15 @@ public final class SkyframeBuildView {
         progressReceiver.actionCount.get(), progressReceiver.configuredTargetActionCount.get());
   }
 
+  public ImmutableMap<String, Integer> getEvaluatedActionCountsByMnemonic() {
+    ImmutableMap.Builder<String, Integer> builder = ImmutableMap.builder();
+    for (Map.Entry<String, AtomicInteger> entry :
+        progressReceiver.actionCountByMnemonic.entrySet()) {
+      builder.put(entry.getKey(), entry.getValue().get());
+    }
+    return builder.buildOrThrow();
+  }
+
   /**
    * Returns a description of the analysis-cache affecting changes between the current configuration
    * and the incoming one.
@@ -218,16 +228,8 @@ public final class SkyframeBuildView {
    */
   @Nullable
   private String describeConfigurationDifference(
-      BuildConfigurationValue configuration, int maxDifferencesToShow) {
-    if (this.configuration == null) {
-      return null;
-    }
-    if (configuration.equals(this.configuration)) {
-      return null;
-    }
-
-    OptionsDiff diff =
-        OptionsDiff.diff(this.configuration.getOptions(), configuration.getOptions());
+      BuildOptions oldOptions, BuildOptions newOptions, int maxDifferencesToShow) {
+    OptionsDiff diff = OptionsDiff.diff(oldOptions, newOptions);
 
     ImmutableSet<OptionDefinition> nativeCacheInvalidatingDifferences =
         getNativeCacheInvalidatingDifferences(configuration, diff);
@@ -276,8 +278,7 @@ public final class SkyframeBuildView {
   // TODO(schmitt): This method assumes that the only option that can cause multiple target
   //  configurations is --cpu which (with the presence of split transitions) is no longer true.
   private ImmutableSet<OptionDefinition> getNativeCacheInvalidatingDifferences(
-      BuildConfigurationValue newConfig,
-      OptionsDiff diff) {
+      BuildConfigurationValue newConfig, OptionsDiff diff) {
     return diff.getFirst().keySet().stream()
         .filter(
             (definition) ->
@@ -289,51 +290,80 @@ public final class SkyframeBuildView {
         .collect(toImmutableSet());
   }
 
-  /** Sets the configuration. Not thread-safe. DO NOT CALL except from tests! */
-  @VisibleForTesting
-  public void setConfiguration(
+  /**
+   * Returns whether the analysis results from previous invocations should be discarded or report an
+   * error if it should be, but it's disallowed.
+   *
+   * <p>This should happen when the top-level configuration has changed or if the previous
+   * invocation decided that this should happen. Either way, this method also emits a message
+   * informing the user about this decision.
+   */
+  public boolean shouldDiscardAnalysisCache(
       EventHandler eventHandler,
-      BuildConfigurationValue configuration,
+      BuildOptions newOptions,
       int maxDifferencesToShow,
       boolean allowAnalysisCacheDiscards,
       Optional<AdditionalConfigurationChangeEvent> additionalConfigurationChangeEvent)
       throws InvalidConfigurationException {
+    if (this.configuration == null) {
+      return false;
+    }
+
     if (skyframeAnalysisWasDiscarded) {
+      logger.atInfo().log("Discarding analysis cache because the previous invocation told us to");
       eventHandler.handle(
           Event.warn(
               "--discard_analysis_cache was used in the previous build, "
                   + "discarding analysis cache."));
-      logger.atInfo().log("Discarding analysis cache because the previous invocation told us to");
+      return true;
+    }
+
+    String diff =
+        describeConfigurationDifference(
+            originalConfigurationOptions, newOptions, maxDifferencesToShow);
+
+    if (diff == null && additionalConfigurationChangeEvent.isPresent()) {
+      diff = additionalConfigurationChangeEvent.get().getChangeDescription();
+    }
+
+    if (diff != null) {
+      if (!allowAnalysisCacheDiscards) {
+        String message = String.format("%s, analysis cache would have been discarded.", diff);
+        throw new InvalidConfigurationException(
+            message, FailureDetails.BuildConfiguration.Code.CONFIGURATION_DISCARDED_ANALYSIS_CACHE);
+      }
+      eventHandler.handle(
+          Event.warn(
+              diff
+                  + ", discarding analysis cache (this can be expensive, see"
+                  + " https://bazel.build/advanced/performance/iteration-speed)."));
+      logger.atInfo().log(
+          "Discarding analysis cache because the build configuration changed: %s", diff);
+      return true;
+    }
+
+    return false;
+  }
+
+  /** Sets the configuration. Not thread-safe. */
+  @VisibleForTesting
+  public void setConfiguration(
+      BuildConfigurationValue configuration,
+      BuildOptions originalOptions,
+      boolean discardAnalysisCache) {
+    if (discardAnalysisCache) {
+      // Note that clearing the analysis cache is currently required for correctness. It is also
+      // helpful to save memory.
+      //
+      // If we had more memory, fixing the correctness issue (see also b/144932999) would allow us
+      // to not invalidate the cache, leading to potentially better performance on incremental
+      // builds.
       this.configuration = configuration;
+      this.originalConfigurationOptions = originalOptions;
       skyframeExecutor.handleAnalysisInvalidatingChange();
-    } else {
-      String diff = describeConfigurationDifference(configuration, maxDifferencesToShow);
-      if (diff == null && additionalConfigurationChangeEvent.isPresent()) {
-        diff = additionalConfigurationChangeEvent.get().getChangeDescription();
-      }
+    } else if (this.configuration == null) {
       this.configuration = configuration;
-      if (diff != null) {
-        if (!allowAnalysisCacheDiscards) {
-          String message = String.format("%s, analysis cache would have been discarded.", diff);
-          throw new InvalidConfigurationException(
-              message,
-              FailureDetails.BuildConfiguration.Code.CONFIGURATION_DISCARDED_ANALYSIS_CACHE);
-        }
-        eventHandler.handle(
-            Event.warn(
-                diff
-                    + ", discarding analysis cache (this can be expensive, see"
-                    + " https://bazel.build/advanced/performance/iteration-speed)."));
-        logger.atInfo().log(
-            "Discarding analysis cache because the build configuration changed: %s", diff);
-        // Note that clearing the analysis cache is currently required for correctness. It is also
-        // helpful to save memory.
-        //
-        // If we had more memory, fixing the correctness issue (see also b/144932999) would allow us
-        // to not invalidate the cache, leading to potentially better performance on incremental
-        // builds.
-        skyframeExecutor.handleAnalysisInvalidatingChange();
-      }
+      this.originalConfigurationOptions = originalOptions;
     }
 
     skyframeAnalysisWasDiscarded = false;
@@ -360,7 +390,6 @@ public final class SkyframeBuildView {
       skyframeExecutor.clearAnalysisCache(topLevelTargets, topLevelAspects);
     }
     starlarkTransitionCache.clear();
-    buildConfigurationKeyCache.clear();
   }
 
   /**
@@ -733,7 +762,7 @@ public final class SkyframeBuildView {
           // Run exclusive tests sequentially.
           Iterable<SkyKey> testCompletionKeys =
               TestCompletionValue.keys(
-                  exclusiveTestsToRun, topLevelArtifactContext, /*exclusiveTesting=*/ true);
+                  exclusiveTestsToRun, topLevelArtifactContext, /* exclusiveTesting= */ true);
           for (SkyKey testCompletionKey : testCompletionKeys) {
             EvaluationResult<SkyValue> testRunResult =
                 skyframeExecutor.runExclusiveTestSkymeld(
@@ -828,7 +857,6 @@ public final class SkyframeBuildView {
               /* includeExecutionPhase= */ true);
       detailedExitCodes.add(errorProcessingResult.executionDetailedExitCode());
 
-
       foundActionConflictInLatestCheck = !errorProcessingResult.actionConflicts().isEmpty();
       TopLevelActionConflictReport topLevelActionConflictReport =
           foundActionConflictInLatestCheck
@@ -922,6 +950,7 @@ public final class SkyframeBuildView {
             buildResultListener.getAnalyzedTargets(),
             getEvaluatedCounts(),
             getEvaluatedActionCounts(),
+            getEvaluatedActionCountsByMnemonic(),
             measuredAnalysisTime,
             skyframeExecutor.getPackageManager().getAndClearStatistics(),
             skyframeExecutor.wasAnalysisCacheInvalidatedAndResetBit()));
@@ -1374,7 +1403,6 @@ public final class SkyframeBuildView {
   void clearLegacyData() {
     artifactFactory.clear();
     starlarkTransitionCache.clear();
-    buildConfigurationKeyCache.clear();
   }
 
   /**
@@ -1383,6 +1411,7 @@ public final class SkyframeBuildView {
    */
   public void reset() {
     configuration = null;
+    originalConfigurationOptions = null;
     skyframeAnalysisWasDiscarded = false;
     clearLegacyData();
   }
@@ -1399,7 +1428,6 @@ public final class SkyframeBuildView {
   public void clearInvalidatedActionLookupKeys() {
     dirtiedActionLookupKeys = Sets.newConcurrentHashSet();
     starlarkTransitionCache.clear();
-    buildConfigurationKeyCache.clear();
   }
 
   /**
@@ -1416,15 +1444,13 @@ public final class SkyframeBuildView {
     return starlarkTransitionCache;
   }
 
-  public BuildConfigurationKeyCache getBuildConfigurationKeyCache() {
-    return buildConfigurationKeyCache;
-  }
-
   private final class ActionLookupValueProgressReceiver implements EvaluationProgressReceiver {
     private final AtomicInteger configuredObjectCount = new AtomicInteger();
     private final AtomicInteger actionCount = new AtomicInteger();
     private final AtomicInteger configuredTargetCount = new AtomicInteger();
     private final AtomicInteger configuredTargetActionCount = new AtomicInteger();
+    private final ConcurrentHashMap<String, AtomicInteger> actionCountByMnemonic =
+        new ConcurrentHashMap<>();
 
     @Override
     public void dirtied(SkyKey skyKey, DirtyType dirtyType) {
@@ -1449,7 +1475,7 @@ public final class SkyframeBuildView {
       if (!(skyKey instanceof ActionLookupKey)) {
         return;
       }
-      if (!state.changed()) {
+      if (!state.versionChanged()) {
         // ActionLookupValue subclasses don't implement equality, so must have been marked clean.
         dirtiedActionLookupKeys.remove(skyKey);
       } else if (state.succeeded()) {
@@ -1467,10 +1493,29 @@ public final class SkyframeBuildView {
           configuredTargetCount.incrementAndGet();
         }
         configuredObjectCount.incrementAndGet();
-        if (newValue instanceof ActionLookupValue) {
+        if (newValue instanceof ActionLookupValue alv) {
+          if (alv instanceof AspectValue) {
+            if (AspectValue.isForAliasTarget((AspectValue) alv)) {
+              // Created actions will be counted from {@link AspectValue} on the original target.
+              return;
+            }
+          }
+          if (alv.getNumActions() == 0) {
+            // No actions in deserialized action lookup values, and calling #getActions will
+            // cause an NPE.
+            return;
+          }
+
           // During multithreaded operation, this is only set to true, so no concurrency issues.
           someActionLookupValueEvaluated = true;
-          int numActions = ((ActionLookupValue) newValue).getNumActions();
+          ImmutableList<ActionAnalysisMetadata> actions = alv.getActions();
+          for (ActionAnalysisMetadata action : actions) {
+            actionCountByMnemonic
+                .computeIfAbsent(action.getMnemonic(), (m) -> new AtomicInteger(0))
+                .incrementAndGet();
+          }
+
+          int numActions = actions.size();
           actionCount.addAndGet(numActions);
           if (isConfiguredTarget) {
             configuredTargetActionCount.addAndGet(numActions);

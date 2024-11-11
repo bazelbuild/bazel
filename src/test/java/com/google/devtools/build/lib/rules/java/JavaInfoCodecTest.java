@@ -44,6 +44,7 @@ public class JavaInfoCodecTest extends BuildViewTestCase {
     scratch.file(
         "java/com/google/test/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
             name = "a",
             srcs = ["a.java"],

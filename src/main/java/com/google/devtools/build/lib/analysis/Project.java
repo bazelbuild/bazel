@@ -120,6 +120,7 @@ public final class Project {
   public static FlagSetValue modifyBuildOptionsWithFlagSets(
       Label projectFile,
       BuildOptions targetOptions,
+      ImmutableMap<String, String> userOptions,
       boolean enforceCanonicalConfigs,
       ExtendedEventHandler eventHandler,
       SkyframeExecutor skyframeExecutor)
@@ -130,6 +131,7 @@ public final class Project {
             projectFile,
             targetOptions.get(CoreOptions.class).sclConfig,
             targetOptions,
+            userOptions,
             enforceCanonicalConfigs);
 
     EvaluationResult<SkyValue> result =

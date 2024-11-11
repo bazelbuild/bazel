@@ -78,6 +78,12 @@ public abstract class BlazeJavacArguments {
 
   public abstract OptionalInt requestId();
 
+  /**
+   * The working directory for the compilation relative to which paths should be emitted in
+   * diagnostics.
+   */
+  public abstract Path workDir();
+
   public static Builder builder() {
     return new AutoValue_BlazeJavacArguments.Builder()
         .classPath(ImmutableList.of())
@@ -91,7 +97,8 @@ public abstract class BlazeJavacArguments {
         .plugins(ImmutableList.of())
         .failFast(false)
         .inputsAndDigest(ImmutableMap.of())
-        .requestId(OptionalInt.empty());
+        .requestId(OptionalInt.empty())
+        .workDir(Path.of(""));
   }
 
   /** {@link BlazeJavacArguments}Builder. */
@@ -126,6 +133,8 @@ public abstract class BlazeJavacArguments {
     Builder inputsAndDigest(ImmutableMap<String, ByteString> inputsAndDigest);
 
     Builder requestId(OptionalInt requestId);
+
+    Builder workDir(Path workDir);
 
     BlazeJavacArguments build();
   }

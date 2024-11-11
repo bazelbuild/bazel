@@ -13,7 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.config;
 
+import static com.google.common.base.Strings.nullToEmpty;
+
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
@@ -23,6 +26,7 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Objects;
+import javax.annotation.Nullable;
 
 /** A return value of {@link FlagSetFunction} */
 public class FlagSetValue implements SkyValue {
@@ -37,20 +41,31 @@ public class FlagSetValue implements SkyValue {
     private final Label projectFile;
     private final String sclConfig;
     private final BuildOptions targetOptions;
+    private final ImmutableMap<String, String> userOptions;
 
     private final boolean enforceCanonical;
 
     public Key(
-        Label projectFile, String sclConfig, BuildOptions targetOptions, boolean enforceCanonical) {
+        Label projectFile,
+        @Nullable String sclConfig,
+        BuildOptions targetOptions,
+        ImmutableMap<String, String> userOptions,
+        boolean enforceCanonical) {
       this.projectFile = Verify.verifyNotNull(projectFile);
-      this.sclConfig = Verify.verifyNotNull(sclConfig);
+      this.sclConfig = nullToEmpty(sclConfig);
       this.targetOptions = Verify.verifyNotNull(targetOptions);
+      this.userOptions = Verify.verifyNotNull(userOptions);
       this.enforceCanonical = enforceCanonical;
     }
 
     public static Key create(
-        Label projectFile, String sclConfig, BuildOptions targetOptions, boolean enforceCanonical) {
-      return interner.intern(new Key(projectFile, sclConfig, targetOptions, enforceCanonical));
+        Label projectFile,
+        String sclConfig,
+        BuildOptions targetOptions,
+        ImmutableMap<String, String> userOptions,
+        boolean enforceCanonical) {
+      return interner.intern(
+          new Key(projectFile, sclConfig, targetOptions, userOptions, enforceCanonical));
     }
 
     public Label getProjectFile() {
@@ -63,6 +78,10 @@ public class FlagSetValue implements SkyValue {
 
     public BuildOptions getTargetOptions() {
       return targetOptions;
+    }
+
+    public ImmutableMap<String, String> getUserOptions() {
+      return userOptions;
     }
 
     /**
@@ -95,12 +114,13 @@ public class FlagSetValue implements SkyValue {
       return Objects.equals(projectFile, key.projectFile)
           && Objects.equals(sclConfig, key.sclConfig)
           && Objects.equals(targetOptions, key.targetOptions)
+          && Objects.equals(userOptions, key.userOptions)
           && (enforceCanonical == key.enforceCanonical);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(projectFile, sclConfig, targetOptions, enforceCanonical);
+      return Objects.hash(projectFile, sclConfig, targetOptions, userOptions, enforceCanonical);
     }
   }
 

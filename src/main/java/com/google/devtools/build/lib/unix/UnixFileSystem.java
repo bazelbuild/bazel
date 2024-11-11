@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.unix.NativePosixFiles.Dirents;
 import com.google.devtools.build.lib.unix.NativePosixFiles.ReadTypes;
 import com.google.devtools.build.lib.util.Blocker;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.AbstractFileSystemWithCustomStat;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -34,8 +35,8 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
+import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -66,8 +67,8 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
 
   /**
    * Eager implementation of FileStatus for file systems that have an atomic stat(2) syscall. A
-   * proxy for {@link com.google.devtools.build.lib.unix.FileStatus}. Note that isFile and
-   * getLastModifiedTime have slightly different meanings between UNIX and VFS.
+   * proxy for {@link com.google.devtools.build.lib.unix.FileStatus}. Note that isFile has a
+   * slightly different meaning between UNIX and VFS.
    */
   @VisibleForTesting
   protected static class UnixFileStatus implements FileStatus {
@@ -105,13 +106,12 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
 
     @Override
     public long getLastModifiedTime() {
-      return (status.getLastModifiedTime() * 1000)
-          + (status.getFractionalLastModifiedTime() / 1000000);
+      return status.getLastModifiedTime();
     }
 
     @Override
     public long getLastChangeTime() {
-      return (status.getLastChangeTime() * 1000) + (status.getFractionalLastChangeTime() / 1000000);
+      return status.getLastChangeTime();
     }
 
     @Override
@@ -142,11 +142,7 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
     } finally {
       profiler.logSimpleTask(startTime, ProfilerTask.VFS_DIR, name);
     }
-    Collection<String> result = new ArrayList<>(entries.length);
-    for (String entry : entries) {
-      result.add(entry);
-    }
-    return result;
+    return Arrays.asList(entries);
   }
 
   @Override
@@ -355,9 +351,10 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
   public boolean createDirectory(PathFragment path) throws IOException {
     var comp = Blocker.begin();
     try {
+      // Use 0777 so that the permissions can be overridden by umask(2).
       // Note: UNIX mkdir(2), FilesystemUtils.mkdir() and createDirectory all
       // have different ways of representing failure!
-      if (NativePosixFiles.mkdir(path.toString(), 0755)) {
+      if (NativePosixFiles.mkdir(path.toString(), 0777)) {
         return true; // successfully created
       }
     } finally {
@@ -386,7 +383,8 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
   public void createDirectoryAndParents(PathFragment path) throws IOException {
     var comp = Blocker.begin();
     try {
-      NativePosixFiles.mkdirs(path.toString(), 0755);
+      // Use 0777 so that the permissions can be overridden by umask(2).
+      NativePosixFiles.mkdirs(path.toString(), 0777);
     } finally {
       Blocker.end(comp);
     }
@@ -457,13 +455,7 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
   public void setLastModifiedTime(PathFragment path, long newTime) throws IOException {
     var comp = Blocker.begin();
     try {
-      if (newTime == Path.NOW_SENTINEL_TIME) {
-        NativePosixFiles.utime(path.toString(), true, 0);
-      } else {
-        // newTime > MAX_INT => -ve unixTime
-        int unixTime = (int) (newTime / 1000);
-        NativePosixFiles.utime(path.toString(), false, unixTime);
-      }
+      NativePosixFiles.utimensat(path.toString(), newTime == Path.NOW_SENTINEL_TIME, newTime);
     } finally {
       Blocker.end(comp);
     }
@@ -534,27 +526,19 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
     }
   }
 
-  private static File createJavaIoFile(PathFragment path) {
-    final String pathStr = path.getPathString();
-    if (pathStr.chars().allMatch(c -> c < 128)) {
-      return new File(pathStr);
-    }
+  @Override
+  protected File getIoFile(PathFragment path) {
+    return new File(StringEncoding.internalToPlatform(path.getPathString()));
+  }
 
-    // Paths returned from NativePosixFiles are Strings containing raw bytes from the filesystem.
-    // Java's IO subsystem expects paths to be encoded per the `sun.jnu.encoding` setting. This
-    // is difficult to handle generically, but we can special-case the most common case (UTF-8).
-    if ("UTF-8".equals(System.getProperty("sun.jnu.encoding"))) {
-      final byte[] pathBytes = pathStr.getBytes(StandardCharsets.ISO_8859_1);
-      return new File(new String(pathBytes, StandardCharsets.UTF_8));
-    }
-
-    // This will probably fail but not much that can be done without migrating to `java.nio.Files`.
-    return new File(pathStr);
+  @Override
+  protected java.nio.file.Path getNioPath(PathFragment path) {
+    return Paths.get(StringEncoding.internalToPlatform(path.getPathString()));
   }
 
   @Override
   protected InputStream createFileInputStream(PathFragment path) throws IOException {
-    return new FileInputStream(createJavaIoFile(path));
+    return new FileInputStream(StringEncoding.internalToPlatform(path.getPathString()));
   }
 
   protected OutputStream createFileOutputStream(PathFragment path, boolean append)
@@ -645,7 +629,7 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
   private static final class ProfiledNativeFileOutputStream extends NativeFileOutputStream {
     private final String name;
 
-    public ProfiledNativeFileOutputStream(int fd, String name) throws FileNotFoundException {
+    public ProfiledNativeFileOutputStream(int fd, String name) {
       super(fd);
       this.name = name;
     }

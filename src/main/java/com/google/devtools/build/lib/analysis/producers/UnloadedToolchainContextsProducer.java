@@ -90,6 +90,9 @@ public final class UnloadedToolchainContextsProducer implements StateMachine {
     var defaultToolchainContextKey = unloadedToolchainContextsInputs.targetToolchainContextKey();
     if (defaultToolchainContextKey == null) {
       // Doesn't use toolchain resolution and short-circuits.
+      // TODO(bazel-team): return empty {@link ToolchainCollection} instead of {@code null} to help
+      // consumers distinguish between not yet evaluated collections and collections evaluated to be
+      // empty.
       sink.acceptUnloadedToolchainContexts(null);
       return runAfter;
     }

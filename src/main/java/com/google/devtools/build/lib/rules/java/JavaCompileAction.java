@@ -18,7 +18,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.flogger.LazyArgs.lazy;
 import static com.google.devtools.build.lib.actions.ActionAnalysisMetadata.mergeMaps;
-import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 
@@ -82,6 +81,7 @@ import com.google.devtools.build.lib.util.OnDemandString;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.proto.Deps;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.ExtensionRegistry;
 import java.io.IOException;
 import java.io.InputStream;
@@ -106,10 +106,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
   private static final UUID GUID = UUID.fromString("e423747c-2827-49e6-b961-f6c08c10bb51");
 
   private static final ParamFileInfo PARAM_FILE_INFO =
-      ParamFileInfo.builder(ParameterFile.ParameterFileType.UNQUOTED)
-          .setCharset(ISO_8859_1)
-          .setUseAlways(true)
-          .build();
+      ParamFileInfo.builder(ParameterFile.ParameterFileType.UNQUOTED).setUseAlways(true).build();
 
   enum CompilationType {
     JAVAC("Javac"),
@@ -128,6 +125,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
 
   private final NestedSet<Artifact> tools;
   private final CompilationType compilationType;
+  private final ActionEnvironment env;
   private final ImmutableMap<String, String> executionInfo;
   private final CommandLine executableLine;
   private final CommandLine flagLine;
@@ -152,6 +150,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       NestedSet<Artifact> transitiveInputs,
       NestedSet<Artifact> directJars,
       ImmutableSet<Artifact> outputs,
+      ActionEnvironment env,
       ImmutableMap<String, String> executionInfo,
       ExtraActionInfoSupplier extraActionInfoSupplier,
       CommandLine executableLine,
@@ -173,6 +172,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     }
     this.tools = tools;
     this.compilationType = compilationType;
+    this.env = env;
     this.executionInfo =
         configuration.modifiedExecutionInfo(executionInfo, compilationType.mnemonic);
     this.executableLine = executableLine;
@@ -211,9 +211,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
 
   @Override
   public ActionEnvironment getEnvironment() {
-    return configuration
-        .getActionEnvironment()
-        .withAdditionalFixedVariables(JavaCompileActionBuilder.UTF8_ENVIRONMENT);
+    return env;
   }
 
   @Override
@@ -506,38 +504,37 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     return progressMessage.toString();
   }
 
-  static class ProgressMessage extends OnDemandString {
+  abstract static class ProgressMessage extends OnDemandString {
 
-    private final String prefix;
     private final Artifact output;
-    private final ImmutableSet<Artifact> sourceFiles;
-    private final ImmutableList<Artifact> sourceJars;
-    private final JavaPluginData plugins;
+    private final int sourceFiles;
+    private final int sourceJars;
+    private final NestedSet<String> processorClasses;
 
     ProgressMessage(
-        String prefix,
         Artifact output,
         ImmutableSet<Artifact> sourceFiles,
         ImmutableList<Artifact> sourceJars,
         JavaPluginData plugins) {
-      this.prefix = prefix;
       this.output = output;
-      this.sourceFiles = sourceFiles;
-      this.sourceJars = sourceJars;
-      this.plugins = plugins;
+      this.sourceFiles = sourceFiles.size();
+      this.sourceJars = sourceJars.size();
+      this.processorClasses = plugins.processorClasses();
     }
+
+    abstract String prefix();
 
     @Override
     public String toString() {
-      StringBuilder sb = new StringBuilder(prefix);
+      StringBuilder sb = new StringBuilder(prefix());
       sb.append(' ');
       sb.append(output.prettyPrint());
       sb.append(" (");
       boolean first = true;
-      first = appendCount(sb, first, sourceFiles.size(), "source file");
-      appendCount(sb, first, sourceJars.size(), "source jar");
+      first = appendCount(sb, first, sourceFiles, "source file");
+      appendCount(sb, first, sourceJars, "source jar");
       sb.append(")");
-      appendProcessorNames(sb, plugins.processorClasses());
+      appendProcessorNames(sb, processorClasses);
       return sb.toString();
     }
 
@@ -709,6 +706,14 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     return null;
   }
 
+  @Override
+  public boolean mayModifySpawnOutputsAfterExecution() {
+    // Causes of spawn output modification after execution:
+    // - Fallback to the full classpath with --experimental_java_classpath=bazel.
+    // - In-place rewriting of .jdeps files with --experimental_output_paths=strip.
+    return true;
+  }
+
   /**
    * Locally rewrites a .jdeps file to replace missing config prefixes.
    *
@@ -834,11 +839,11 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       Artifact outputDepsProto,
       ActionExecutionContext actionExecutionContext)
       throws IOException {
-    InputStream inMemoryOutput = spawnResult.getInMemoryOutput(outputDepsProto);
+    ByteString inMemoryOutput = spawnResult.getInMemoryOutput(outputDepsProto);
     try (InputStream inputStream =
         inMemoryOutput == null
             ? actionExecutionContext.getInputPath(outputDepsProto).getInputStream()
-            : inMemoryOutput) {
+            : inMemoryOutput.newInput()) {
       return Deps.Dependencies.parseFrom(inputStream, ExtensionRegistry.getEmptyRegistry());
     }
   }

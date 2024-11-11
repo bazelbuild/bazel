@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.HasDigest;
 import com.google.devtools.build.lib.actions.HasDigest.ByteStringDigest;
 import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
@@ -258,7 +259,7 @@ public final class ActionOutputMetadataStoreTest {
     assertThat(tree.getMetadata()).isEqualTo(treeMetadata);
     assertThat(tree.getChildValues())
         .containsExactly(child1, child1Metadata, child2, child2Metadata);
-    assertThat(store.getTreeArtifactChildren(treeArtifact)).isEqualTo(tree.getChildren());
+    assertThat(store.getTreeArtifactValue(treeArtifact)).isEqualTo(tree);
     assertThat(store.getAllArtifactData()).isEmpty();
     assertThat(chmodCalls).isEmpty();
   }
@@ -389,13 +390,13 @@ public final class ActionOutputMetadataStoreTest {
     assertThat(store.getAllTreeArtifactData().get(treeArtifact)).isEqualTo(tree);
     assertThat(chmodCalls).isEmpty();
 
-    assertThat(store.getTreeArtifactChildren(treeArtifact)).isEqualTo(tree.getChildren());
+    assertThat(store.getTreeArtifactValue(treeArtifact)).isEqualTo(tree);
 
     // Make sure that all children are transferred properly into the ActionExecutionValue. If any
     // child is missing, getExistingFileArtifactValue will throw.
     ActionExecutionValue actionExecutionValue =
         ActionExecutionValue.createFromOutputMetadataStore(
-            store, /* outputSymlinks= */ ImmutableList.of(), new NullAction());
+            store, FilesetOutputTree.EMPTY, new NullAction());
     tree.getChildren().forEach(actionExecutionValue::getExistingFileArtifactValue);
   }
 
@@ -566,8 +567,8 @@ public final class ActionOutputMetadataStoreTest {
     Artifact artifact =
         ActionsTestUtil.createArtifactWithRootRelativePath(
             outputRoot, PathFragment.create("foo/bar"));
-    ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets =
-        ImmutableMap.of(artifact, symlinks);
+    ImmutableMap<Artifact, FilesetOutputTree> expandedFilesets =
+        ImmutableMap.of(artifact, FilesetOutputTree.create(symlinks));
 
     ActionInputMetadataProvider inputMetadataProvider =
         new ActionInputMetadataProvider(
@@ -584,7 +585,7 @@ public final class ActionOutputMetadataStoreTest {
   private FilesetOutputSymlink createFilesetOutputSymlink(HasDigest digest, String identifier) {
     return FilesetOutputSymlink.create(
         PathFragment.create(identifier + "_symlink"),
-        PathFragment.create(identifier),
+        execRoot.getRelative(identifier).asFragment(),
         digest,
         execRoot.asFragment(),
         /* enclosingTreeArtifact= */ null);
@@ -610,8 +611,6 @@ public final class ActionOutputMetadataStoreTest {
 
     assertThat(store.artifactOmitted(omitted)).isTrue();
     assertThat(store.artifactOmitted(consumed)).isFalse();
-    assertThat(store.getAllArtifactData())
-        .containsExactly(omitted, FileArtifactValue.OMITTED_FILE_MARKER);
     assertThat(store.getAllTreeArtifactData()).isEmpty();
     assertThat(chmodCalls).isEmpty();
   }
@@ -633,8 +632,6 @@ public final class ActionOutputMetadataStoreTest {
 
     assertThat(store.artifactOmitted(omittedTree)).isTrue();
     assertThat(store.artifactOmitted(consumedTree)).isFalse();
-    assertThat(store.getAllTreeArtifactData())
-        .containsExactly(omittedTree, TreeArtifactValue.OMITTED_TREE_MARKER);
     assertThat(store.getAllArtifactData()).isEmpty();
     assertThat(chmodCalls).isEmpty();
   }
@@ -702,7 +699,7 @@ public final class ActionOutputMetadataStoreTest {
     assertThat(tree.getMetadata()).isEqualTo(treeMetadata);
     assertThat(tree.getChildValues())
         .containsExactly(child1, child1Metadata, child2, child2Metadata);
-    assertThat(store.getTreeArtifactChildren(treeArtifact)).isEqualTo(tree.getChildren());
+    assertThat(store.getTreeArtifactValue(treeArtifact)).isEqualTo(tree);
     assertThat(store.getAllArtifactData()).isEmpty();
     assertThat(chmodCalls)
         .containsExactly(
@@ -714,15 +711,6 @@ public final class ActionOutputMetadataStoreTest {
             0555,
             child2Path.getParentDirectory(),
             0555);
-  }
-
-  @Test
-  public void getTreeArtifactChildren_noData_returnsEmptySet() {
-    SpecialArtifact treeArtifact =
-        ActionsTestUtil.createTreeArtifactWithGeneratingAction(
-            outputRoot, PathFragment.create("tree"));
-    ActionOutputMetadataStore store = createStore(/* outputs= */ ImmutableSet.of(treeArtifact));
-    assertThat(store.getTreeArtifactChildren(treeArtifact)).isEmpty();
   }
 
   @Test

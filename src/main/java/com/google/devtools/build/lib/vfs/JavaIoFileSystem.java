@@ -13,12 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs;
 
-import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.util.StringEncoding;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -31,7 +32,7 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import javax.annotation.Nullable;
 
@@ -63,14 +64,9 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
     this.clock = new JavaClock();
   }
 
-  @VisibleForTesting
-  JavaIoFileSystem(Clock clock, DigestHashFunction hashFunction) {
-    super(hashFunction);
-    this.clock = clock;
-  }
-
+  @Override
   protected File getIoFile(PathFragment path) {
-    return new File(path.toString());
+    return new File(StringEncoding.internalToPlatform(path.getPathString()));
   }
 
   /**
@@ -81,8 +77,9 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
    * avoids extra allocations and does not lose track of the underlying Java filesystem, which is
    * useful for some in-memory filesystem implementations like JimFS.
    */
+  @Override
   protected java.nio.file.Path getNioPath(PathFragment path) {
-    return Paths.get(path.toString());
+    return Paths.get(StringEncoding.internalToPlatform(path.getPathString()));
   }
 
   private LinkOption[] linkOpts(boolean followSymlinks) {
@@ -92,7 +89,7 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
   @Override
   protected Collection<String> getDirectoryEntries(PathFragment path) throws IOException {
     File file = getIoFile(path);
-    String[] entries = null;
+    String[] entries;
     long startTime = Profiler.nanoTimeMaybe();
     try {
       entries = file.list();
@@ -106,13 +103,7 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
     } finally {
       profiler.logSimpleTask(startTime, ProfilerTask.VFS_DIR, file.getPath());
     }
-    Collection<String> result = new ArrayList<>(entries.length);
-    for (String entry : entries) {
-      if (!entry.equals(".") && !entry.equals("..")) {
-        result.add(entry);
-      }
-    }
-    return result;
+    return Lists.transform(Arrays.asList(entries), StringEncoding::platformToInternal);
   }
 
   @Override
@@ -292,7 +283,9 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
       throws IOException {
     java.nio.file.Path nioPath = getNioPath(linkPath);
     try {
-      Files.createSymbolicLink(nioPath, Paths.get(targetFragment.getSafePathString()));
+      Files.createSymbolicLink(
+          nioPath,
+          Paths.get(StringEncoding.internalToPlatform(targetFragment.getSafePathString())));
     } catch (java.nio.file.FileAlreadyExistsException e) {
       throw new IOException(linkPath + ERR_FILE_EXISTS, e);
     } catch (java.nio.file.AccessDeniedException e) {
@@ -308,7 +301,7 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
     long startTime = Profiler.nanoTimeMaybe();
     try {
       String link = Files.readSymbolicLink(nioPath).toString();
-      return PathFragment.create(link);
+      return PathFragment.create(StringEncoding.platformToInternal(link));
     } catch (java.nio.file.NotLinkException e) {
       throw new NotASymlinkException(path, e);
     } catch (java.nio.file.NoSuchFileException e) {
@@ -530,8 +523,6 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
   @Override
   protected void createFSDependentHardLink(PathFragment linkPath, PathFragment originalPath)
       throws IOException {
-    Files.createLink(
-        java.nio.file.Paths.get(linkPath.toString()),
-        java.nio.file.Paths.get(originalPath.toString()));
+    Files.createLink(getNioPath(linkPath), getNioPath(originalPath));
   }
 }

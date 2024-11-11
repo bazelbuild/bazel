@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Types.STRING_LIST;
 
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
+import com.google.devtools.build.lib.analysis.config.transitions.NoConfigTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
@@ -64,6 +65,11 @@ public class StarlarkConfig implements StarlarkConfigApi {
   @Override
   public ConfigurationTransitionApi target() {
     return (ConfigurationTransitionApi) NoTransition.getFactory();
+  }
+
+  @Override
+  public ConfigurationTransitionApi none() {
+    return (ConfigurationTransitionApi) NoConfigTransition.getFactory();
   }
 
   @Override

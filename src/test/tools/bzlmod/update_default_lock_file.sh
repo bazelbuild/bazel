@@ -36,6 +36,7 @@ function generate_lock_file() {
 
   cd "${tmpdir}"
   touch MODULE.bazel
+  echo 'common --incompatible_use_plus_in_repo_names' > .bazelrc
   bazel=$(rlocation io_bazel/src/bazel)
 
   echo "Running: $bazel mod deps $@"

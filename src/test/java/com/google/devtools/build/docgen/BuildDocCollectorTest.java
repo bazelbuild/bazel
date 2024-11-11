@@ -48,7 +48,7 @@ public final class BuildDocCollectorTest {
       new SourceUrlMapper(
           /* sourceUrlRoot= */ "https://example.com/",
           /* inputRoot= */ "/tmp/io_bazel/",
-          ImmutableMap.of("@_builtins//:", "//src/main/starlark/builtins_bzl:"));
+          ImmutableMap.of("@_builtins//", "https://example.com/src/main/starlark/builtins_bzl/"));
 
   @Before
   public void setUpCollectorState() {

@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
+import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions.OutputGroupFileModes;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.File;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -76,8 +77,7 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
             /* announceTargetSummary= */ false);
 
     assertThat(event.referencedLocalFiles())
-        .containsExactly(
-            new LocalFile(artifact.getPath(), LocalFileType.OUTPUT_FILE, artifact, metadata));
+        .containsExactly(new LocalFile(artifact.getPath(), LocalFileType.OUTPUT_FILE, metadata));
   }
 
   @Test
@@ -100,7 +100,7 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
 
     assertThat(event.referencedLocalFiles())
         .containsExactly(
-            new LocalFile(artifact.getPath(), LocalFileType.OUTPUT_DIRECTORY, artifact, metadata));
+            new LocalFile(artifact.getPath(), LocalFileType.OUTPUT_DIRECTORY, metadata));
   }
 
   @Test
@@ -149,9 +149,8 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
 
     assertThat(event.referencedLocalFiles())
         .containsExactly(
-            new LocalFile(fileChild.getPath(), LocalFileType.OUTPUT_FILE, fileChild, fileMetadata),
-            new LocalFile(
-                dirChild.getPath(), LocalFileType.OUTPUT_DIRECTORY, dirChild, dirMetadata));
+            new LocalFile(fileChild.getPath(), LocalFileType.OUTPUT_FILE, fileMetadata),
+            new LocalFile(dirChild.getPath(), LocalFileType.OUTPUT_DIRECTORY, dirMetadata));
   }
 
   @Test
@@ -188,8 +187,7 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
             /* announceTargetSummary= */ false);
 
     assertThat(event.referencedLocalFiles())
-        .containsExactly(
-            new LocalFile(artifact.getPath(), LocalFileType.OUTPUT_SYMLINK, artifact, metadata));
+        .containsExactly(new LocalFile(artifact.getPath(), LocalFileType.OUTPUT_SYMLINK, metadata));
   }
 
   /** Regression test for b/165671166. */
@@ -218,7 +216,7 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
             /*announceTargetSummary=*/ false);
 
     ArrayList<File> fileProtos = new ArrayList<>();
-    ReportedArtifacts reportedArtifacts = event.reportedArtifacts();
+    ReportedArtifacts reportedArtifacts = event.reportedArtifacts(OutputGroupFileModes.DEFAULT);
     for (NestedSet<Artifact> artifactSet : reportedArtifacts.artifacts) {
       for (Artifact a : artifactSet.toListInterruptibly()) {
         fileProtos.add(
@@ -238,7 +236,10 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
 
   @Test
   public void baselineCoverage_referencedWithMetadata() throws Exception {
-    scratch.file("foo/BUILD", "sh_test(name = 'test', srcs = ['test.sh'])");
+    scratch.file(
+        "foo/BUILD",
+        "load('//test_defs:foo_test.bzl', 'foo_test')",
+        "foo_test(name = 'test', srcs = ['test.sh'])");
     Path testSh = scratch.file("foo/test.sh");
     useConfiguration("--collect_code_coverage");
     ConfiguredTargetAndData ctAndData = getCtAndData("//foo:test");
@@ -272,7 +273,6 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
             new LocalFile(
                 baselineCoverageArtifact.getPath(),
                 LocalFileType.COVERAGE_OUTPUT,
-                baselineCoverageArtifact,
                 baselineCoverageMetadata));
   }
 

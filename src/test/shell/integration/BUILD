@@ -37,10 +37,9 @@ filegroup(
 )
 
 gen_workspace_stanza(
-    name = "rules_proto_stanza",
-    out = "rules_proto_stanza.txt",
+    name = "protobuf_stanza",
+    out = "protobuf_stanza.txt",
     repos = [
-        "rules_proto",
         "rules_python",
     ],
 )
@@ -234,7 +233,9 @@ sh_test(
     size = "medium",
     srcs = ["stub_finds_runfiles_test.sh"],
     data = [":test-deps"],
-    tags = ["no_windows"],
+    tags = [
+        "no_windows",
+    ],
 )
 
 sh_test(
@@ -246,7 +247,9 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
-    tags = ["no_windows"],
+    tags = [
+        "no_windows",
+    ],
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
 
@@ -370,12 +373,12 @@ sh_test(
     name = "modify_execution_info_test",
     srcs = ["modify_execution_info_test.sh"],
     data = [
-        ":rules_proto_stanza.txt",
+        ":protobuf_stanza.txt",
         ":test-deps",
         "//third_party/zlib",
         "@bazel_tools//tools/bash/runfiles",
     ],
-    tags = ["requires-network"],  # Allow this test to access internet to fetch rules_proto dependencies.
+    tags = ["requires-network"],  # Allow this test to access internet to fetch protobuf dependencies.
 )
 
 sh_test(
@@ -673,6 +676,17 @@ sh_test(
     ],
 )
 
+sh_test(
+    name = "flagset_test",
+    size = "large",
+    srcs = ["flagset_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    shard_count = 3,
+)
+
 # Copy protoc into a known location, since //third_party/protobuf:protoc
 # might be an alias.  This is referenced from testenv.sh.
 genrule(
@@ -759,6 +773,17 @@ sh_test(
     srcs = ["prelude_test.sh"],
     data = [":test-deps"],
     tags = ["no_windows"],
+)
+
+sh_test(
+    name = "load_removed_symbols_test",
+    size = "medium",
+    srcs = ["load_removed_symbols_test.sh"],
+    data = [":test-deps"],
+    tags = [
+        "no_windows",
+        "requires-network",
+    ],
 )
 
 sh_test(
@@ -868,7 +893,10 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
-    tags = ["no_windows"],
+    tags = [
+        "exclusive",
+        "no_windows",
+    ],
 )
 
 sh_test(

@@ -137,7 +137,9 @@ public abstract class BuildEncyclopediaProcessor {
     List<RuleFamily> ruleFamilies = new ArrayList<>(ruleFamilyNames.size());
     for (String name : ruleFamilyNames) {
       ListMultimap<RuleType, RuleDocumentation> ruleTypeMap = ruleMapping.get(name);
-      ruleFamilies.add(new RuleFamily(ruleTypeMap, name, familySummary.get(name).toString()));
+      ruleFamilies.add(
+          new RuleFamily(
+              ruleTypeMap, name, familySummary.getOrDefault(name, new StringBuilder()).toString()));
     }
     return ruleFamilies;
   }
@@ -159,7 +161,9 @@ public abstract class BuildEncyclopediaProcessor {
           ruleMapping.get(ruleFamily).put(ruleDoc.getRuleType(), ruleDoc);
         }
       } else {
-        throw ruleDoc.createException("Can't find RuleClass for " + ruleDoc.getRuleName());
+        String ruleFamily = ruleDoc.getRuleFamily();
+        ruleMapping.putIfAbsent(ruleFamily, LinkedListMultimap.create());
+        ruleMapping.get(ruleFamily).put(ruleDoc.getRuleType(), ruleDoc);
       }
     }
   }

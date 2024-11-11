@@ -50,11 +50,6 @@ msys*|mingw*|cygwin*)
   ;;
 esac
 
-if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 function set_up() {
   mkdir -p subrule_testing
   cat > subrule_testing/rule.bzl <<EOF

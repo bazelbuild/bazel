@@ -30,7 +30,7 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 # repo structure:
 # ${WORKSPACE_DIR}/
 #   vinegar/
-#     WORKSPACE
+#     MODULE.bazel
 #       local_repository
 #     rules.bzl
 #       rule_with_external_dep
@@ -73,7 +73,8 @@ EOF
 
   cd ${WORKSPACE_DIR}
   mkdir -p vinegar
-  cat > WORKSPACE <<EOF
+  cat > MODULE.bazel <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name = 'secret_ingredient', path = "${repo2}")
 EOF
   cat > vinegar/rules.bzl <<EOF

@@ -52,7 +52,8 @@ public class SingleExtensionFunction implements SkyFunction {
     for (ModuleExtensionUsage usage : usagesValue.getExtensionUsages().values()) {
       for (ModuleExtensionUsage.Proxy proxy : usage.getProxies()) {
         for (Entry<String, String> repoImport : proxy.getImports().entrySet()) {
-          if (!evalOnlyValue.getGeneratedRepoSpecs().containsKey(repoImport.getValue())) {
+          if (!evalOnlyValue.getGeneratedRepoSpecs().containsKey(repoImport.getValue())
+              && !usagesValue.getRepoOverrides().containsKey(repoImport.getValue())) {
             throw new SingleExtensionFunctionException(
                 ExternalDepsException.withMessage(
                     Code.INVALID_EXTENSION_IMPORT,
@@ -67,6 +68,38 @@ public class SingleExtensionFunction implements SkyFunction {
                         repoImport.getValue(), evalOnlyValue.getGeneratedRepoSpecs().keySet())),
                 Transience.PERSISTENT);
           }
+        }
+      }
+    }
+
+    // Check that repo overrides apply as declared.
+    for (ModuleExtensionUsage usage : usagesValue.getExtensionUsages().values()) {
+      for (var override : usage.getRepoOverrides().entrySet()) {
+        boolean repoExists = evalOnlyValue.getGeneratedRepoSpecs().containsKey(override.getKey());
+        if (repoExists && !override.getValue().mustExist()) {
+          throw new SingleExtensionFunctionException(
+              ExternalDepsException.withMessage(
+                  Code.INVALID_EXTENSION_IMPORT,
+                  "module extension \"%s\" from \"%s\" generates repository \"%s\", yet"
+                      + " it is injected via inject_repo() at %s. Use override_repo() instead to"
+                      + " override an existing repository.",
+                  extensionId.getExtensionName(),
+                  extensionId.getBzlFileLabel(),
+                  override.getKey(),
+                  override.getValue().location()),
+              Transience.PERSISTENT);
+        } else if (!repoExists && override.getValue().mustExist()) {
+          throw new SingleExtensionFunctionException(
+              ExternalDepsException.withMessage(
+                  Code.INVALID_EXTENSION_IMPORT,
+                  "module extension \"%s\" from \"%s\" does not generate repository \"%s\", yet"
+                      + " it is overridden via override_repo() at %s. Use inject_repo() instead to"
+                      + " inject a new repository.",
+                  extensionId.getExtensionName(),
+                  extensionId.getBzlFileLabel(),
+                  override.getKey(),
+                  override.getValue().location()),
+              Transience.PERSISTENT);
         }
       }
     }

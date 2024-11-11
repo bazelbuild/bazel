@@ -15,7 +15,6 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
@@ -50,7 +49,7 @@ import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.eval.Structure;
 import net.starlark.java.eval.Tuple;
-import net.starlark.java.syntax.Location;
+import net.starlark.java.syntax.Identifier;
 
 /** A collection of global Starlark build API functions that apply to MODULE.bazel files. */
 @GlobalMethods(environment = Environment.MODULE)
@@ -172,11 +171,10 @@ public class ModuleFileGlobals {
     }
     if (repoName.isEmpty()) {
       repoName = name;
-      context.addRepoNameUsage(name, "as the current module name", thread.getCallerLocation());
+      context.addRepoNameUsage(name, "as the current module name", thread.getCallStack());
     } else {
       RepositoryName.validateUserProvidedRepoName(repoName);
-      context.addRepoNameUsage(
-          repoName, "as the module's own repo name", thread.getCallerLocation());
+      context.addRepoNameUsage(repoName, "as the module's own repo name", thread.getCallStack());
     }
     Version parsedVersion;
     try {
@@ -294,7 +292,7 @@ public class ModuleFileGlobals {
               name, parsedVersion, maxCompatibilityLevel.toInt("max_compatibility_level")));
     }
 
-    context.addRepoNameUsage(repoName, "by a bazel_dep", thread.getCallerLocation());
+    context.addRepoNameUsage(repoName, "by a bazel_dep", thread.getCallStack());
   }
 
   @StarlarkMethod(
@@ -439,9 +437,8 @@ public class ModuleFileGlobals {
     ModuleThreadContext context = ModuleThreadContext.fromOrFail(thread, "use_extension()");
     context.setNonModuleCalled();
 
-    if (extensionName.equals(ModuleExtensionId.INNATE_EXTENSION_NAME)) {
-      throw Starlark.errorf(
-          "innate extensions cannot be directly used; try `use_repo_rule` instead");
+    if (!Identifier.isValid(extensionName)) {
+      throw Starlark.errorf("extension name is not a valid identifier: %s", extensionName);
     }
 
     var proxyBuilder =
@@ -542,10 +539,23 @@ public class ModuleFileGlobals {
       usageBuilder.addProxyBuilder(proxyBuilder);
     }
 
-    void addImport(String localRepoName, String exportedName, String byWhat, Location location)
+    void addImport(
+        String localRepoName,
+        String exportedName,
+        String byWhat,
+        ImmutableList<StarlarkThread.CallStackEntry> stack)
         throws EvalException {
-      usageBuilder.addImport(localRepoName, exportedName, byWhat, location);
+      usageBuilder.addImport(localRepoName, exportedName, byWhat, stack);
       proxyBuilder.addImport(localRepoName, exportedName);
+    }
+
+    void addOverride(
+        String overriddenRepoName,
+        String overridingRepoName,
+        boolean mustExist,
+        ImmutableList<StarlarkThread.CallStackEntry> stack)
+        throws EvalException {
+      usageBuilder.addRepoOverride(overriddenRepoName, overridingRepoName, mustExist, stack);
     }
 
     class TagCallable implements StarlarkValue {
@@ -627,13 +637,120 @@ public class ModuleFileGlobals {
       throws EvalException {
     ModuleThreadContext context = ModuleThreadContext.fromOrFail(thread, "use_repo()");
     context.setNonModuleCalled();
-    Location location = thread.getCallerLocation();
+    ImmutableList<StarlarkThread.CallStackEntry> stack = thread.getCallStack();
     for (String arg : Sequence.cast(args, String.class, "args")) {
-      extensionProxy.addImport(arg, arg, "by a use_repo() call", location);
+      extensionProxy.addImport(arg, arg, "by a use_repo() call", stack);
     }
     for (Map.Entry<String, String> entry :
         Dict.cast(kwargs, String.class, String.class, "kwargs").entrySet()) {
-      extensionProxy.addImport(entry.getKey(), entry.getValue(), "by a use_repo() call", location);
+      extensionProxy.addImport(entry.getKey(), entry.getValue(), "by a use_repo() call", stack);
+    }
+  }
+
+  @StarlarkMethod(
+      name = "override_repo",
+      doc =
+          """
+          Overrides one or more repos defined by the given module extension with the given repos
+          visible to the current module. This is ignored if the current module is not the root
+          module or `--ignore_dev_dependency` is enabled.
+
+          <p>Use <a href="#inject_repo"><code>inject_repo</code></a> instead to add a new repo.
+          """,
+      parameters = {
+        @Param(
+            name = "extension_proxy",
+            doc = "A module extension proxy object returned by a <code>use_extension</code> call."),
+      },
+      extraPositionals =
+          @Param(
+              name = "args",
+              doc =
+                  """
+                  The repos in the extension that should be overridden with the repos of the same
+                  name in the current module."""),
+      extraKeywords =
+          @Param(
+              name = "kwargs",
+              doc =
+                  """
+                  The overrides to apply to the repos generated by the extension, where the values
+                  are the names of repos in the scope of the current module and the keys are the
+                  names of the repos they will override in the extension."""),
+      useStarlarkThread = true)
+  public void overrideRepo(
+      ModuleExtensionProxy extensionProxy,
+      Tuple args,
+      Dict<String, Object> kwargs,
+      StarlarkThread thread)
+      throws EvalException {
+    ModuleThreadContext context = ModuleThreadContext.fromOrFail(thread, "override_repo()");
+    context.setNonModuleCalled();
+    if (context.shouldIgnoreDevDeps()) {
+      // Ignore calls early as they may refer to repos that are dev dependencies (or this is not the
+      // root module).
+      return;
+    }
+    ImmutableList<StarlarkThread.CallStackEntry> stack = thread.getCallStack();
+    for (String arg : Sequence.cast(args, String.class, "args")) {
+      extensionProxy.addOverride(arg, arg, /* mustExist= */ true, stack);
+    }
+    for (Map.Entry<String, String> entry :
+        Dict.cast(kwargs, String.class, String.class, "kwargs").entrySet()) {
+      extensionProxy.addOverride(entry.getKey(), entry.getValue(), /* mustExist= */ true, stack);
+    }
+  }
+
+  @StarlarkMethod(
+      name = "inject_repo",
+      doc =
+          """
+          Injects one or more new repos into the given module extension.
+          This is ignored if the current module is not the root module or `--ignore_dev_dependency`
+          is enabled.
+          <p>Use <a href="#override_repo"><code>override_repo</code></a> instead to override an
+          existing repo.""",
+      parameters = {
+        @Param(
+            name = "extension_proxy",
+            doc = "A module extension proxy object returned by a <code>use_extension</code> call."),
+      },
+      extraPositionals =
+          @Param(
+              name = "args",
+              doc =
+                  """
+                  The repos visible to the current module that should be injected into the
+                  extension under the same name."""),
+      extraKeywords =
+          @Param(
+              name = "kwargs",
+              doc =
+                  """
+                  The new repos to inject into the extension, where the values are the names of
+                  repos in the scope of the current module and the keys are the name they will be
+                  visible under in the extension."""),
+      useStarlarkThread = true)
+  public void injectRepo(
+      ModuleExtensionProxy extensionProxy,
+      Tuple args,
+      Dict<String, Object> kwargs,
+      StarlarkThread thread)
+      throws EvalException {
+    ModuleThreadContext context = ModuleThreadContext.fromOrFail(thread, "inject_repo()");
+    context.setNonModuleCalled();
+    if (context.shouldIgnoreDevDeps()) {
+      // Ignore calls early as they may refer to repos that are dev dependencies (or this is not the
+      // root module).
+      return;
+    }
+    ImmutableList<StarlarkThread.CallStackEntry> stack = thread.getCallStack();
+    for (String arg : Sequence.cast(args, String.class, "args")) {
+      extensionProxy.addOverride(arg, arg, /* mustExist= */ false, stack);
+    }
+    for (Map.Entry<String, String> entry :
+        Dict.cast(kwargs, String.class, String.class, "kwargs").entrySet()) {
+      extensionProxy.addOverride(entry.getKey(), entry.getValue(), /* mustExist= */ false, stack);
     }
   }
 
@@ -661,30 +778,27 @@ public class ModuleFileGlobals {
       throws EvalException {
     ModuleThreadContext context = ModuleThreadContext.fromOrFail(thread, "use_repo_rule()");
     context.setNonModuleCalled();
+    // Not a valid Starlark identifier so that it can't collide with a real extension.
+    String extensionName = bzlFile + '%' + ruleName;
     // Find or create the builder for the singular "innate" extension of this module.
     for (ModuleExtensionUsageBuilder usageBuilder : context.getExtensionUsageBuilders()) {
-      if (usageBuilder.isForExtension("//:MODULE.bazel", ModuleExtensionId.INNATE_EXTENSION_NAME)) {
-        return new RepoRuleProxy(usageBuilder, bzlFile + '%' + ruleName);
+      if (usageBuilder.isForExtension("//:MODULE.bazel", extensionName)) {
+        return new RepoRuleProxy(usageBuilder);
       }
     }
     ModuleExtensionUsageBuilder newUsageBuilder =
         new ModuleExtensionUsageBuilder(
-            context,
-            "//:MODULE.bazel",
-            ModuleExtensionId.INNATE_EXTENSION_NAME,
-            /* isolate= */ false);
+            context, "//:MODULE.bazel", extensionName, /* isolate= */ false);
     context.getExtensionUsageBuilders().add(newUsageBuilder);
-    return new RepoRuleProxy(newUsageBuilder, bzlFile + '%' + ruleName);
+    return new RepoRuleProxy(newUsageBuilder);
   }
 
   @StarlarkBuiltin(name = "repo_rule_proxy", documented = false)
   static class RepoRuleProxy implements StarlarkValue {
     private final ModuleExtensionUsageBuilder usageBuilder;
-    private final String tagName;
 
-    private RepoRuleProxy(ModuleExtensionUsageBuilder usageBuilder, String tagName) {
+    private RepoRuleProxy(ModuleExtensionUsageBuilder usageBuilder) {
       this.usageBuilder = usageBuilder;
-      this.tagName = tagName;
     }
 
     @StarlarkMethod(
@@ -713,8 +827,8 @@ public class ModuleFileGlobals {
                   .setLocation(thread.getCallerLocation())
                   .setContainingModuleFilePath(
                       usageBuilder.getContext().getCurrentModuleFilePath()));
-      extensionProxy.getValue(tagName).call(kwargs, thread);
-      extensionProxy.addImport(name, name, "by a repo rule", thread.getCallerLocation());
+      extensionProxy.getValue("repo").call(kwargs, thread);
+      extensionProxy.addImport(name, name, "by a repo rule", thread.getCallStack());
     }
   }
 
@@ -784,7 +898,10 @@ public class ModuleFileGlobals {
             doc =
                 "A list of labels pointing to patch files to apply for this module. The patch files"
                     + " must exist in the source tree of the top level project. They are applied in"
-                    + " the list order.",
+                    + " the list order."
+                    + ""
+                    + "<p>If a patch makes changes to the MODULE.bazel file, these changes will"
+                    + " only be effective if the patch file is provided by the root module.",
             allowedTypes = {@ParamType(type = Iterable.class, generic1 = String.class)},
             named = true,
             positional = false,
@@ -792,7 +909,9 @@ public class ModuleFileGlobals {
         @Param(
             name = "patch_cmds",
             doc =
-                "Sequence of Bash commands to be applied on Linux/Macos after patches are applied.",
+                "Sequence of Bash commands to be applied on Linux/Macos after patches are applied."
+                    + ""
+                    + "<p>Changes to the MODULE.bazel file will not be effective.",
             allowedTypes = {@ParamType(type = Iterable.class, generic1 = String.class)},
             named = true,
             positional = false,

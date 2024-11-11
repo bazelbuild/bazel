@@ -55,8 +55,7 @@ public final class CompletionContextTest {
 
   private final ActionInputMap inputMap = new ActionInputMap(BugReporter.defaultInstance(), 0);
   private final Map<Artifact, TreeArtifactValue> treeExpansions = new HashMap<>();
-  private final Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetExpansions =
-      new HashMap<>();
+  private final Map<Artifact, FilesetOutputTree> filesetExpansions = new HashMap<>();
   private Path execRoot;
   private ArtifactRoot outputRoot;
 
@@ -96,20 +95,13 @@ public final class CompletionContextTest {
   }
 
   @Test
-  public void treeArtifact_omitted() {
-    SpecialArtifact tree = createTreeArtifact("tree");
-    inputMap.putTreeArtifact(tree, TreeArtifactValue.OMITTED_TREE_MARKER, /* depOwner= */ null);
-    CompletionContext ctx = createCompletionContext(/* expandFilesets= */ true);
-
-    assertThat(visit(ctx, tree)).isEmpty();
-  }
-
-  @Test
   public void fileset_noExpansion() {
     SpecialArtifact fileset = createFileset("fs");
     inputMap.put(fileset, DUMMY_METADATA, /* depOwner= */ null);
     filesetExpansions.put(
-        fileset, ImmutableList.of(filesetLink("a1", "b1"), filesetLink("a2", "b2")));
+        fileset,
+        FilesetOutputTree.create(
+            ImmutableList.of(filesetLink("a1", "b1"), filesetLink("a2", "b2"))));
     CompletionContext ctx = createCompletionContext(/* expandFilesets= */ false);
 
     ArtifactReceiver receiver = mock(ArtifactReceiver.class);
@@ -126,7 +118,7 @@ public final class CompletionContextTest {
     inputMap.put(fileset, DUMMY_METADATA, /* depOwner= */ null);
     ImmutableList<FilesetOutputSymlink> links =
         ImmutableList.of(filesetLink("a1", "b1"), filesetLink("a2", "b2"));
-    filesetExpansions.put(fileset, links);
+    filesetExpansions.put(fileset, FilesetOutputTree.create(links));
     CompletionContext ctx = createCompletionContext(/* expandFilesets= */ true);
 
     ArtifactReceiver receiver = mock(ArtifactReceiver.class);
@@ -139,7 +131,7 @@ public final class CompletionContextTest {
         .verify(receiver)
         .acceptFilesetMapping(fileset, PathFragment.create("a2"), execRoot.getRelative("b2"));
 
-    assertThat(ctx.expandFileset(fileset)).isEqualTo(links);
+    assertThat(ctx.expandFileset(fileset).symlinks()).isEqualTo(links);
   }
 
   private static List<Artifact> visit(CompletionContext ctx, Artifact artifact) {

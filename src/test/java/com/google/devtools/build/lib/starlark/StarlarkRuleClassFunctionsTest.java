@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
+import com.google.devtools.build.lib.analysis.config.transitions.NoConfigTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttrModule;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkConfig;
@@ -59,6 +60,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
+import com.google.devtools.build.lib.packages.MacroClass;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PredicateWithMessage;
@@ -147,15 +149,11 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   @org.junit.Rule public ExpectedException thrown = ExpectedException.none();
 
   @Before
-  public void allowExperimentalApi() throws Exception {
-    setBuildLanguageOptions("--experimental_rule_extension_api");
-  }
-
-  @Before
   public void createBuildFile() throws Exception {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         genrule(
             name = "foo",
             srcs = [
@@ -272,7 +270,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name):
+        def _impl(name, visibility):
             pass
         my_macro = macro(implementation=_impl)
         """);
@@ -290,12 +288,10 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testSymbolicMacro_instantiationRegistersOnPackage() throws Exception {
-    setBuildLanguageOptions("--experimental_enable_first_class_macros");
-
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name):
+        def _impl(name, visibility):
             pass
         my_macro = macro(implementation=_impl)
         """);
@@ -309,18 +305,16 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         """);
 
     Package pkg = getPackage("pkg");
-    assertThat(pkg.getMacros().keySet()).containsExactly("abc", "def", "ghi").inOrder();
-    assertThat(pkg.getMacros().get("abc").getMacroClass().getName()).isEqualTo("my_macro");
+    assertThat(pkg.getMacrosById().keySet()).containsExactly("abc:1", "def:1", "ghi:1").inOrder();
+    assertThat(pkg.getMacrosById().get("abc:1").getMacroClass().getName()).isEqualTo("my_macro");
   }
 
   @Test
   public void testSymbolicMacro_instantiationRequiresExport() throws Exception {
-    setBuildLanguageOptions("--experimental_enable_first_class_macros");
-
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name):
+        def _impl(name, visibility):
             pass
         s = struct(m = macro(implementation=_impl))
         """);
@@ -340,12 +334,10 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testSymbolicMacro_cannotInstantiateInBzlThread() throws Exception {
-    setBuildLanguageOptions("--experimental_enable_first_class_macros");
-
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name):
+        def _impl(name, visibility):
             pass
         my_macro = macro(implementation=_impl)
 
@@ -370,12 +362,10 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testSymbolicMacro_requiresNameAttribute() throws Exception {
-    setBuildLanguageOptions("--experimental_enable_first_class_macros");
-
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name):
+        def _impl(name, visibility):
             pass
         my_macro = macro(implementation=_impl)
         """);
@@ -395,12 +385,10 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testSymbolicMacro_prohibitsPositionalArgs() throws Exception {
-    setBuildLanguageOptions("--experimental_enable_first_class_macros");
-
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name):
+        def _impl(name, visibility):
             pass
         my_macro = macro(implementation=_impl)
         """);
@@ -420,12 +408,10 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testSymbolicMacroCanAcceptAttributes() throws Exception {
-    setBuildLanguageOptions("--experimental_enable_first_class_macros");
-
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name, target_suffix):
+        def _impl(name, visibility, target_suffix):
             native.cc_library(name = name + "_" + target_suffix)
         my_macro = macro(
             implementation=_impl,
@@ -451,12 +437,10 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testSymbolicMacro_rejectsUnknownAttribute() throws Exception {
-    setBuildLanguageOptions("--experimental_enable_first_class_macros");
-
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name):
+        def _impl(name, visibility):
             pass
         my_macro = macro(
             implementation = _impl,
@@ -484,13 +468,11 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testSymbolicMacro_rejectsReservedAttributeName() throws Exception {
-    ev.setSemantics("--experimental_enable_first_class_macros");
-
     ev.setFailFast(false);
     evalAndExport(
         ev,
         """
-        def _impl(name):
+        def _impl(name, visibility):
             pass
         my_macro = macro(
             implementation = _impl,
@@ -505,12 +487,10 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testSymbolicMacro_requiresMandatoryAttribute() throws Exception {
-    setBuildLanguageOptions("--experimental_enable_first_class_macros");
-
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name):
+        def _impl(name, visibility):
             pass
         my_macro = macro(
             implementation = _impl,
@@ -535,12 +515,10 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testSymbolicMacro_cannotOverrideImplicitAttribute() throws Exception {
-    setBuildLanguageOptions("--experimental_enable_first_class_macros");
-
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name, _xyz):
+        def _impl(name, visibility, _xyz):
             print("_xyz is %s" % _xyz)
         my_macro = macro(
             implementation=_impl,
@@ -567,12 +545,10 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testSymbolicMacro_doesNotSupportComputedDefaults() throws Exception {
-    ev.setSemantics("--experimental_enable_first_class_macros");
-
     ev.checkEvalErrorContains(
         "In macro attribute 'xyz': Macros do not support computed defaults or late-bound defaults",
         """
-        def _impl(name, xyz): pass
+        def _impl(name, visibility, xyz): pass
         def _computed_default(): return "DEFAULT"
         my_macro = macro(
             implementation=_impl,
@@ -594,12 +570,10 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     // getPackage() returns null and no events are emitted.)
     ev.setFragmentNameToClass(ImmutableMap.of("cpp", CppConfiguration.class));
 
-    ev.setSemantics("--experimental_enable_first_class_macros");
-
     ev.checkEvalErrorContains(
         "In macro attribute 'xyz': Macros do not support computed defaults or late-bound defaults",
         """
-        def _impl(name, xyz): pass
+        def _impl(name, visibility, xyz): pass
         _latebound_default = configuration_field(fragment = "cpp", name = "cc_toolchain")
         my_macro = macro(
             implementation=_impl,
@@ -612,12 +586,10 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testSymbolicMacro_macroFunctionApi() throws Exception {
-    ev.setSemantics("--experimental_enable_first_class_macros");
-
     evalAndExport(
         ev,
         """
-        def _impl(name):
+        def _impl(name, visibility):
             pass
         exported = macro(
             implementation=_impl,
@@ -662,6 +634,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         .containsExactly(
             "name",
             RuleClass.NAME_ATTRIBUTE,
+            "visibility",
+            MacroClass.VISIBILITY_ATTRIBUTE,
             "abc",
             Attribute.attr("abc", Type.INTEGER).starlarkDefined().build(),
             "xyz",
@@ -851,8 +825,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name, xyz):
-            print("xyz is %s" % xyz)
+        def _impl(ctx):
+            print("xyz is %s" % ctx.attr.xyz)
         my_rule = rule(
             implementation=_impl,
             attrs = {
@@ -884,8 +858,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name, xyz):
-            print("xyz is %s" % xyz)
+        def _impl(ctx):
+            print("xyz is %s" % ctx.attr.xyz)
         my_aspect = aspect(
             implementation=_impl,
             attrs = {
@@ -1399,6 +1373,12 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     assertThat(NoTransition.isInstance(attr.getTransitionFactory())).isTrue();
   }
 
+  @Test
+  public void testAttrCfgNone() throws Exception {
+    Attribute attr = buildAttribute("a1", "attr.label(cfg = config.none(), allow_files = True)");
+    assertThat(NoConfigTransition.isInstance(attr.getTransitionFactory())).isTrue();
+  }
+
   private void writeRuleCfgTestRule(String cfg) throws Exception {
     scratch.file(
         "rule_testing/rule.bzl",
@@ -1569,9 +1549,51 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     StarlarkRuleFunction longDocumentedRule =
         (StarlarkRuleFunction) ev.lookup("long_documented_rule");
     StarlarkRuleFunction undocumentedRule = (StarlarkRuleFunction) ev.lookup("undocumented_rule");
-    assertThat(documentedRule.getDocumentation()).hasValue("My doc string");
-    assertThat(longDocumentedRule.getDocumentation()).hasValue("Long doc\n\nWith details");
-    assertThat(undocumentedRule.getDocumentation()).isEmpty();
+    assertThat(documentedRule.getRuleClass().getStarlarkDocumentation()).isEqualTo("My doc string");
+    assertThat(longDocumentedRule.getRuleClass().getStarlarkDocumentation())
+        .isEqualTo("Long doc\n\nWith details");
+    assertThat(undocumentedRule.getRuleClass().getStarlarkDocumentation()).isNull();
+  }
+
+  @Test
+  public void testStarlarkLabelAndName() throws Exception {
+    scratch.file(
+        "p/rule_meta_constructor.bzl",
+        """
+        def rule_meta_constructor(impl):
+            return rule(impl)
+        """);
+    scratch.file(
+        "p/rule_definition.bzl",
+        """
+        load("rule_meta_constructor.bzl", "rule_meta_constructor")
+
+        def _impl(ctx):
+            pass
+
+        original_rule_symbol = rule_meta_constructor(_impl)
+        """);
+    scratch.file(
+        "p/rule_alias.bzl",
+        """
+        load("rule_definition.bzl", "original_rule_symbol")
+
+        aliased_rule_symbol = original_rule_symbol
+        """);
+    scratch.file(
+        "p/BUILD",
+        """
+        load("rule_alias.bzl", "aliased_rule_symbol")
+
+        aliased_rule_symbol(name = "p")
+        """);
+
+    RuleClass ruleClass = createRuleContext("//p").getRuleClassUnderEvaluation();
+    assertThat(ruleClass.getRuleDefinitionEnvironmentLabel())
+        .isEqualTo(Label.parseCanonicalUnchecked("//p:rule_definition.bzl"));
+    assertThat(ruleClass.getStarlarkExtensionLabel())
+        .isEqualTo(Label.parseCanonicalUnchecked("//p:rule_definition.bzl"));
+    assertThat(ruleClass.getName()).isEqualTo("original_rule_symbol");
   }
 
   @Test
@@ -1695,17 +1717,6 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "def _impl(ctx): return None",
         "r1 = rule(_impl, attrs = { 'srcs': attr.label_list(flags = ['NO-SUCH-FLAG']) })");
     ev.assertContainsError("unknown attribute flag 'NO-SUCH-FLAG'");
-  }
-
-  @Test
-  public void duplicateRuleAttributeFlags_forbidden() throws Exception {
-    ev.setFailFast(false);
-    evalAndExport(
-        ev,
-        "def _impl(ctx): return None",
-        "r1 = rule(_impl, attrs = { 'srcs': attr.label_list(mandatory = True,",
-        "                                                   flags = ['MANDATORY']) })");
-    ev.assertContainsError("'MANDATORY' flag is already set");
   }
 
   @Test
@@ -3321,9 +3332,9 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "r/def.bzl",
         """
         load(":create.bzl", "create")
-
+        Info = provider()
         def f(ctx):
-            return struct(value = "NEW")
+            return Info(value = "NEW")
 
         r = create(f)
         """);
@@ -3669,6 +3680,103 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
     assertThat(((Map<String, List<String>>) info.getValue("dict")).keySet()).containsExactly("k");
     assertThat(((Map<String, List<String>>) info.getValue("dict")).get("k")).containsExactly("val");
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void stringKeyedLabelDictWithSplitConfiguration() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        """
+        load(":a.bzl", "a")
+        a(name="a", dict={"foo_key": ":foo", "gen_key": ":gen"})
+
+        filegroup(name="foo", srcs=["foo.txt"])
+        genrule(name="gen", srcs=[], outs=["gen.txt"], cmd="exit 1")
+        """);
+
+    scratch.file(
+        "a/a.bzl",
+        """
+        DictInfo = provider(fields=["dict"])
+
+        def _a_impl(ctx):
+            return [DictInfo(dict = ctx.split_attr.dict)]
+
+        def _trans_impl(settings, attr):
+          return {
+            "fastbuild_key": {"//command_line_option:compilation_mode": "fastbuild"},
+            "dbg_key": {"//command_line_option:compilation_mode": "dbg"},
+          }
+
+        trans = transition(
+            implementation = _trans_impl,
+            inputs = [],
+            outputs = ["//command_line_option:compilation_mode"])
+
+        a = rule(
+            implementation=_a_impl,
+            attrs={"dict": attr.string_keyed_label_dict(cfg=trans)})
+        """);
+
+    ConfiguredTarget a = getConfiguredTarget("//a:a");
+    StructImpl info =
+        (StructImpl)
+            a.get(
+                new StarlarkProvider.Key(
+                    keyForBuild(Label.parseCanonical("//a:a.bzl")), "DictInfo"));
+    Map<String, Map<String, ConfiguredTarget>> dict =
+        (Map<String, Map<String, ConfiguredTarget>>) info.getValue("dict");
+    assertThat(dict.keySet()).containsExactly("fastbuild_key", "dbg_key");
+    Map<String, ConfiguredTarget> fastbuild = dict.get("fastbuild_key");
+    Map<String, ConfiguredTarget> dbg = dict.get("dbg_key");
+    assertThat(fastbuild.keySet()).containsExactly("foo_key", "gen_key");
+    assertThat(dbg.keySet()).containsExactly("foo_key", "gen_key");
+
+    assertThat(getFilesToBuild(fastbuild.get("foo_key")).getSingleton().getExecPathString())
+        .isEqualTo("a/foo.txt");
+    assertThat(getFilesToBuild(dbg.get("foo_key")).getSingleton().getExecPathString())
+        .isEqualTo("a/foo.txt");
+    assertThat(getFilesToBuild(fastbuild.get("gen_key")).getSingleton().getExecPathString())
+        .endsWith("-fastbuild/bin/a/gen.txt");
+    assertThat(getFilesToBuild(dbg.get("gen_key")).getSingleton().getExecPathString())
+        .endsWith("-dbg/bin/a/gen.txt");
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void stringKeyedLabelDict() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        """
+        load(":a.bzl", "a")
+        a(name="a", dict={"foo_key": ":foo", "gen_key": ":gen"})
+
+        filegroup(name="foo", srcs=["foo.txt"])
+        genrule(name="gen", srcs=[], outs=["gen.txt"], cmd="exit 1")
+        """);
+
+    scratch.file(
+        "a/a.bzl",
+        """
+        DictInfo = provider(fields=["dict"])
+
+        def _a_impl(ctx):
+            return [DictInfo(dict = ctx.attr.dict)]
+
+        a = rule(implementation=_a_impl, attrs={"dict": attr.string_keyed_label_dict()})
+        """);
+
+    ConfiguredTarget a = getConfiguredTarget("//a:a");
+    StructImpl info =
+        (StructImpl)
+            a.get(
+                new StarlarkProvider.Key(
+                    keyForBuild(Label.parseCanonical("//a:a.bzl")), "DictInfo"));
+    Map<String, ConfiguredTarget> dict = (Map<String, ConfiguredTarget>) info.getValue("dict");
+    assertThat(dict.keySet()).containsExactly("foo_key", "gen_key");
+    assertThat(dict.get("foo_key").getLabel()).isEqualTo(Label.parseCanonicalUnchecked("//a:foo"));
+    assertThat(dict.get("gen_key").getLabel()).isEqualTo(Label.parseCanonicalUnchecked("//a:gen"));
   }
 
   @Test
@@ -4302,9 +4410,10 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   public void initializer_failsCreatingAnotherRule() throws Exception {
     scratch.file(
         "initializer_testing/b.bzl",
+        analysisMock.javaSupport().getLoadStatementForRule("java_library"),
         """
         def initializer(name, srcs = [], deps = []):
-            native.java_library(name = "jl", srcs = ["a.java"])
+            java_library(name = "jl", srcs = ["a.java"])
             return {"srcs": srcs, "deps": deps}
 
         def impl(ctx):
@@ -4376,8 +4485,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     getConfiguredTarget("//initializer_testing:my_target");
 
     ev.assertContainsError(
-        "existing_rules() can only be used while evaluating a BUILD file (or macro) or a WORKSPACE"
-            + " file");
+        "existing_rules() can only be used while evaluating a BUILD file (or legacy macro), a rule"
+            + " finalizer, or a WORKSPACE file");
   }
 
   @Test
@@ -4424,7 +4533,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   @Test
   @SuppressWarnings("unchecked")
   public void initializer_nativeModule() throws Exception {
-    scratch.appendFile("MODULE.bazel", "module(name = 'my_mod', version = '1.2.3')");
+    scratch.overwriteFile("MODULE.bazel", "module(name = 'my_mod', version = '1.2.3')");
     scratch.file("initializer_testing/rules/BUILD");
     scratch.file(
         "initializer_testing/rules/b.bzl",
@@ -4520,6 +4629,10 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         """
         package_group(
             name = "extend_rule_allowlist",
+            packages = ["//..."],
+        )
+        package_group(
+            name = "extend_rule_api_allowlist",
             packages = ["//..."],
         )
         """);
@@ -6477,13 +6590,34 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testLabelListComputedDefaultChecksElementTypes() throws Exception {
+    scratch.file(
+        "p/a.bzl",
+        """
+        def _compute():
+            return ["this is a string"]
+        my_rule = rule(lambda ctx: [], attrs = {"_a" : attr.label_list(default = _compute)})
+        """);
+    scratch.file(
+        "p/BUILD",
+        """
+        load(":a.bzl", "my_rule")
+        my_rule(name = "bad")
+        """);
+
+    AssertionError error = assertThrows(AssertionError.class, () -> getConfiguredTarget("//p:bad"));
+
+    assertThat(error).hasMessageThat().contains("expected 'label', but got 'string'");
+  }
+
+  @Test
   public void starlarkRuleFunctionCodec() throws Exception {
     scratch.file("lib/BUILD");
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name, xyz):
-            print("xyz is %s" % xyz)
+        def _impl(ctx):
+            print("xyz is %s" % ctx.attr.xyz)
         my_rule = rule(
             implementation=_impl,
             attrs = {

@@ -52,6 +52,8 @@ public class AsynchronousTreeDeleter implements TreeDeleter {
 
   private final Path trashBase;
 
+  private boolean trashBaseCreated = false;
+
   /** Constructs a new asynchronous tree deleter backed by just one thread. */
   public AsynchronousTreeDeleter(Path trashBase) {
     logger.atInfo().log("Starting async tree deletion pool with 1 thread");
@@ -87,8 +89,12 @@ public class AsynchronousTreeDeleter implements TreeDeleter {
 
   @Override
   public void deleteTree(Path path) throws IOException {
-    if (!trashBase.exists()) {
+    if (!trashBaseCreated) {
       trashBase.createDirectory();
+      trashBaseCreated = true;
+    }
+    if (!path.exists()) {
+      return;
     }
     Path trashPath = trashBase.getRelative(Integer.toString(trashCount.getAndIncrement()));
     path.renameTo(trashPath);

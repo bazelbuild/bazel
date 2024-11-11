@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileGlobals;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.BuildGlobals;
 import com.google.devtools.build.lib.packages.Proto;
-import com.google.devtools.build.lib.packages.RepoCallable;
+import com.google.devtools.build.lib.packages.RepoFileGlobals;
 import com.google.devtools.build.lib.packages.SelectorList;
 import com.google.devtools.build.lib.packages.StarlarkGlobals;
 import com.google.devtools.build.lib.packages.StarlarkNativeModule;
@@ -133,7 +133,7 @@ public final class StarlarkGlobalsImpl implements StarlarkGlobals {
   @Override
   public ImmutableMap<String, Object> getRepoToplevels() {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
-    Starlark.addMethods(env, RepoCallable.INSTANCE);
+    Starlark.addMethods(env, RepoFileGlobals.INSTANCE);
     return env.buildOrThrow();
   }
 

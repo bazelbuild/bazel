@@ -21,6 +21,8 @@ import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.runfiles.Runfiles;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -31,8 +33,26 @@ import org.junit.runners.JUnit4;
 public class BazelShTestConfiguredTargetTest extends BuildViewTestCase {
 
   @Before
+  public void copyRules() throws Exception {
+    Runfiles runfiles = Runfiles.preload().withSourceRepository("");
+    PathFragment rulesShellRoot =
+        PathFragment.create(runfiles.rlocation("rules_shell/shell/sh_library.bzl"))
+            .getParentDirectory();
+    mockToolsConfig.copyDirectory(
+        rulesShellRoot, "third_party/bazel_rules/rules_shell/shell", Integer.MAX_VALUE, true);
+    mockToolsConfig.overwrite(
+        "third_party/bazel_rules/rules_shell/shell/BUILD",
+        "toolchain_type(name = 'toolchain_type')");
+    mockToolsConfig.overwrite("third_party/bazel_rules/rules_shell/shell/private/BUILD");
+  }
+
+  @Before
   public void setUp() throws Exception {
-    scratch.file("BUILD", "sh_test(name = 'test', srcs = ['test.sh'])");
+
+    scratch.file(
+        "BUILD",
+        "load('@rules_shell//shell:sh_test.bzl', 'sh_test')",
+        "sh_test(name = 'test', srcs = ['test.sh'])");
   }
 
   @Test

@@ -433,8 +433,7 @@ public final class TestActionBuilder {
                 run,
                 config,
                 ruleContext.getWorkspaceName(),
-                (!isUsingTestWrapperInsteadOfTestSetupScript
-                        || executionSettings.needsShell(ruleContext.isExecutedOnWindows()))
+                (!isUsingTestWrapperInsteadOfTestSetupScript || executionSettings.needsShell())
                     ? ShToolchain.getPathForPlatform(
                         ruleContext.getConfiguration(), ruleContext.getExecutionPlatform())
                     : null,
@@ -447,8 +446,7 @@ public final class TestActionBuilder {
                 MoreObjects.firstNonNull(
                     Allowlist.fetchPackageSpecificationProviderOrNull(
                         ruleContext, "external_network"),
-                    PackageSpecificationProvider.EMPTY),
-                ruleContext.isExecutedOnWindows());
+                    PackageSpecificationProvider.EMPTY));
 
         testOutputs.addAll(testRunnerAction.getSpawnOutputs());
         testOutputs.addAll(testRunnerAction.getOutputs());

@@ -86,7 +86,9 @@ tokens:
   hyphen, underscore, colon, dollar sign, tilde, left square brace, right square
   brace). However, unquoted words may not start with a hyphen `-` or asterisk `*`
   even though relative [target names](/concepts/labels#target-names) may start
-  with those characters.
+  with those characters. As a special rule meant to simplify the handling of
+  labels referring to external repositories, unquoted words that start with
+  `@@` may contain `+` characters.
 
   Unquoted words also may not include the characters plus sign `+` or equals
   sign `=`, even though those characters are permitted in target names. When

@@ -29,5 +29,6 @@ java_test(
         "//third_party:mockito",
         "//third_party:rxjava3",
         "//third_party:truth",
+        "//third_party/grpc-java:grpc-jar",
     ],
 )

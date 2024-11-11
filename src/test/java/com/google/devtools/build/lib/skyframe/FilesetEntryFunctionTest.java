@@ -15,8 +15,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode.CROSS;
-import static com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode.DONT_CROSS;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Suppliers;
@@ -26,12 +24,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
-import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams;
-import com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode;
 import com.google.devtools.build.lib.actions.FilesetTraversalParamsFactory;
-import com.google.devtools.build.lib.actions.FilesetTraversalParamsFactory.SymlinkBehavior;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
@@ -109,7 +104,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             Suppliers.ofInstance(new TimestampGranularityMonitor(BlazeClock.instance())),
             SyscallCache.NO_CACHE,
             externalFilesHelper));
-    skyFunctions.put(FileValue.FILE, new FileFunction(pkgLocator, directories));
+    skyFunctions.put(SkyFunctions.FILE, new FileFunction(pkgLocator, directories));
     skyFunctions.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
     skyFunctions.put(
         SkyFunctions.DIRECTORY_LISTING_STATE,
@@ -124,10 +119,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             CrossRepositoryLabelViolationStrategy.ERROR,
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
             BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
-    skyFunctions.put(
-        SkyFunctions.IGNORED_PACKAGE_PREFIXES,
-        new IgnoredPackagePrefixesFunction(
-            /*ignoredPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT));
+    skyFunctions.put(SkyFunctions.IGNORED_SUBDIRECTORIES, IgnoredSubdirectoriesFunction.NOOP);
     skyFunctions.put(
         SkyFunctions.FILESET_ENTRY, new FilesetEntryFunction((unused) -> rootDirectory));
     skyFunctions.put(SkyFunctions.WORKSPACE_NAME, new TestWorkspaceNameFunction());
@@ -201,10 +193,6 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
     return symlink(PathFragment.create(from), to.getPath().asFragment());
   }
 
-  private FilesetOutputSymlink symlink(String from, String to) {
-    return symlink(PathFragment.create(from), PathFragment.create(to));
-  }
-
   private FilesetOutputSymlink symlink(String from, RootedPath to) {
     return symlink(PathFragment.create(from), to.asPath().asFragment());
   }
@@ -237,48 +225,11 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             /* ownerLabel= */ label("//foo"),
             /* fileToTraverse= */ file,
             PathFragment.create("output-name"),
-            /* symlinkBehaviorMode= */ FilesetTraversalParamsFactory.SymlinkBehavior.COPY,
-            /* pkgBoundaryMode= */ DONT_CROSS,
             /* strictFilesetOutput= */ false,
             /* permitDirectories= */ false);
     assertSymlinksCreatedInOrder(params, symlink("output-name", file));
   }
 
-  private void assertFileTraversalForFileSymlink(SymlinkBehavior symlinks) throws Exception {
-    Artifact file = createSourceArtifact("foo/file.real");
-    Artifact symlink = getSourceArtifact("foo/file.sym");
-    symlink.getPath().createSymbolicLink(PathFragment.create("file.real"));
-
-    FilesetTraversalParams params =
-        FilesetTraversalParamsFactory.fileTraversal(
-            /* ownerLabel= */ label("//foo"),
-            /* fileToTraverse= */ symlink,
-            PathFragment.create("output-name"),
-            /* symlinkBehaviorMode= */ symlinks,
-            /* pkgBoundaryMode= */ DONT_CROSS,
-            /* strictFilesetOutput= */ false,
-            /* permitDirectories= */ false);
-    switch (symlinks) {
-      case COPY:
-        assertSymlinksCreatedInOrder(params, symlink("output-name", "file.real"));
-        break;
-      case DEREFERENCE:
-        assertSymlinksCreatedInOrder(params, symlink("output-name", file));
-        break;
-      default:
-        throw new IllegalStateException(symlinks.toString());
-    }
-  }
-
-  @Test
-  public void testFileTraversalForFileSymlinkNoFollow() throws Exception {
-    assertFileTraversalForFileSymlink(FilesetTraversalParamsFactory.SymlinkBehavior.COPY);
-  }
-
-  @Test
-  public void testFileTraversalForFileSymlinkFollow() throws Exception {
-    assertFileTraversalForFileSymlink(FilesetTraversalParamsFactory.SymlinkBehavior.DEREFERENCE);
-  }
 
   @Test
   public void testFileTraversalForDirectory() throws Exception {
@@ -291,8 +242,6 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             /* ownerLabel= */ label("//foo"),
             /* fileToTraverse= */ dir,
             PathFragment.create("output-name"),
-            /* symlinkBehaviorMode= */ FilesetTraversalParamsFactory.SymlinkBehavior.COPY,
-            /* pkgBoundaryMode= */ DONT_CROSS,
             /* strictFilesetOutput= */ false,
             /* permitDirectories= */ true);
     assertSymlinksCreatedInOrder(
@@ -310,8 +259,6 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             /* ownerLabel= */ label("//foo"),
             /* fileToTraverse= */ dir,
             PathFragment.create("output-name"),
-            /* symlinkBehaviorMode= */ FilesetTraversalParamsFactory.SymlinkBehavior.COPY,
-            /* pkgBoundaryMode= */ DONT_CROSS,
             /* strictFilesetOutput= */ false,
             /* permitDirectories= */ false);
 
@@ -323,44 +270,6 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
         .contains("foo contains a directory");
   }
 
-  private void assertFileTraversalForDirectorySymlink(SymlinkBehavior symlinks) throws Exception {
-    Artifact dir = getSourceArtifact("foo/dir_real");
-    Artifact symlink = getSourceArtifact("foo/dir_sym");
-    createFile(childOf(dir, "file.a"), "hello");
-    createFile(childOf(dir, "sub/file.b"), "world");
-    symlink.getPath().createSymbolicLink(PathFragment.create("dir_real"));
-
-    FilesetTraversalParams params =
-        FilesetTraversalParamsFactory.fileTraversal(
-            /* ownerLabel= */ label("//foo"),
-            /* fileToTraverse= */ symlink,
-            PathFragment.create("output-name"),
-            /* symlinkBehaviorMode= */ symlinks,
-            /* pkgBoundaryMode= */ DONT_CROSS,
-            /* strictFilesetOutput= */ false,
-            /* permitDirectories= */ true);
-    switch (symlinks) {
-      case COPY:
-        assertSymlinksCreatedInOrder(params, symlink("output-name", "dir_real"));
-        break;
-      case DEREFERENCE:
-        assertSymlinksCreatedInOrder(params, symlink("output-name", dir));
-        break;
-      default:
-        throw new IllegalStateException(symlinks.toString());
-    }
-  }
-
-  @Test
-  public void testFileTraversalForDirectorySymlinkFollow() throws Exception {
-    assertFileTraversalForDirectorySymlink(FilesetTraversalParamsFactory.SymlinkBehavior.COPY);
-  }
-
-  @Test
-  public void testFileTraversalForDirectorySymlinkNoFollow() throws Exception {
-    assertFileTraversalForDirectorySymlink(
-        FilesetTraversalParamsFactory.SymlinkBehavior.DEREFERENCE);
-  }
 
   @Test
   public void testFileTraversalForDanglingSymlink() throws Exception {
@@ -374,8 +283,6 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             /* ownerLabel= */ label("//foo"),
             /* fileToTraverse= */ linkName,
             PathFragment.create("output-name"),
-            /* symlinkBehaviorMode= */ FilesetTraversalParamsFactory.SymlinkBehavior.COPY,
-            /* pkgBoundaryMode= */ DONT_CROSS,
             /* strictFilesetOutput= */ false,
             /* permitDirectories= */ false);
     assertSymlinksCreatedInOrder(params); // expect empty results
@@ -389,8 +296,6 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             /* ownerLabel= */ label("//foo"),
             /* fileToTraverse= */ path,
             PathFragment.create("output-name"),
-            /* symlinkBehaviorMode= */ FilesetTraversalParamsFactory.SymlinkBehavior.COPY,
-            /* pkgBoundaryMode= */ DONT_CROSS,
             /* strictFilesetOutput= */ false,
             /* permitDirectories= */ false);
     assertSymlinksCreatedInOrder(params); // expect empty results
@@ -492,12 +397,6 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             .put("ownerLabel", notPartOfFingerprint("//bar"))
             .put("fileToTraverse", partOfFingerprint("foo/file.a", "bar/file.b"))
             .put("destPath", partOfFingerprint("out1", "out2"))
-            .put(
-                "symlinkBehaviorMode",
-                partOfFingerprint(
-                    FilesetTraversalParamsFactory.SymlinkBehavior.COPY,
-                    FilesetTraversalParamsFactory.SymlinkBehavior.DEREFERENCE))
-            .put("pkgBoundaryMode", partOfFingerprint(CROSS, DONT_CROSS))
             .put("strictFilesetOutput", partOfFingerprint(true, false))
             .put("permitDirectories", partOfFingerprint(true, false))
             .buildOrThrow()) {
@@ -507,8 +406,6 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             label((String) kwArgs.get("ownerLabel")),
             getSourceArtifact((String) kwArgs.get("fileToTraverse")),
             PathFragment.create((String) kwArgs.get("destPath")),
-            ((SymlinkBehavior) kwArgs.get("symlinkBehaviorMode")),
-            (PackageBoundaryMode) kwArgs.get("pkgBoundaryMode"),
             (Boolean) kwArgs.get("strictFilesetOutput"),
             (Boolean) kwArgs.get("permitDirectories"));
       }

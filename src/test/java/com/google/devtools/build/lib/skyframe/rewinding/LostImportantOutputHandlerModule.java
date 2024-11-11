@@ -39,7 +39,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.ForOverride;
 import java.io.IOException;
-import java.util.List;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
@@ -54,9 +54,15 @@ public class LostImportantOutputHandlerModule extends BlazeModule {
 
   private final Set<String> pathsToConsiderLost = Sets.newConcurrentHashSet();
   private final Function<byte[], String> digestFn;
+  private boolean outputHandlerEnabled = true;
 
   protected LostImportantOutputHandlerModule(Function<byte[], String> digestFn) {
     this.digestFn = checkNotNull(digestFn);
+  }
+
+  /** Controls whether an {@link ImportantOutputHandler} will be installed. */
+  public final void setOutputHandlerEnabled(boolean enabled) {
+    outputHandlerEnabled = enabled;
   }
 
   final void addLostOutput(String execPath) {
@@ -72,7 +78,9 @@ public class LostImportantOutputHandlerModule extends BlazeModule {
       ModuleActionContextRegistry.Builder registryBuilder,
       CommandEnvironment env,
       BuildRequest buildRequest) {
-    registryBuilder.register(ImportantOutputHandler.class, createOutputHandler(env));
+    if (outputHandlerEnabled) {
+      registryBuilder.register(ImportantOutputHandler.class, createOutputHandler(env));
+    }
   }
 
   @ForOverride
@@ -115,7 +123,7 @@ public class LostImportantOutputHandlerModule extends BlazeModule {
     }
 
     @Override
-    public void processTestOutputs(List<Path> testOutputs) {
+    public void processTestOutputs(Collection<Path> testOutputs) {
       throw new UnsupportedOperationException();
     }
 
@@ -163,7 +171,7 @@ public class LostImportantOutputHandlerModule extends BlazeModule {
 
     private Stream<OutputAndOwner> expand(Artifact output, ArtifactExpander expander) {
       if (output.isTreeArtifact()) {
-        var children = expander.expandTreeArtifact(output).stream();
+        var children = expander.tryExpandTreeArtifact(output).stream();
         var archivedTreeArtifact = expander.getArchivedTreeArtifact(output);
         var expansion =
             archivedTreeArtifact == null
@@ -174,7 +182,7 @@ public class LostImportantOutputHandlerModule extends BlazeModule {
       if (output.isFileset()) {
         ImmutableList<FilesetOutputSymlink> links;
         try {
-          links = expander.expandFileset(output);
+          links = expander.expandFileset(output).symlinks();
         } catch (MissingExpansionException e) {
           throw new IllegalStateException(e);
         }

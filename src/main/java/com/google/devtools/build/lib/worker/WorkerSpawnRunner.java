@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Worker.Code;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -274,7 +275,10 @@ final class WorkerSpawnRunner implements SpawnRunner {
         digest = ByteString.copyFromUtf8(HashCode.fromBytes(digestBytes).toString());
       }
 
-      requestBuilder.addInputsBuilder().setPath(input.getExecPathString()).setDigest(digest);
+      requestBuilder
+          .addInputsBuilder()
+          .setPath(StringEncoding.internalToUnicode(input.getExecPathString()))
+          .setDigest(digest);
     }
     if (workerOptions.workerVerbose) {
       requestBuilder.setVerbosity(VERBOSE_LEVEL);
@@ -372,7 +376,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       List<String> flagFiles,
       InputMetadataProvider inputFileCache,
       SpawnMetrics.Builder spawnMetrics)
-      throws InterruptedException, ExecException {
+      throws ExecException, ForbiddenActionInputException, IOException, InterruptedException {
     WorkerOwner workerOwner = null;
     WorkResponse response;
     WorkRequest request;
@@ -385,16 +389,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.WORKER_SETUP, "Preparing inputs")) {
-      try {
-        context.prefetchInputsAndWait();
-      } catch (IOException e) {
-        restoreInterrupt(e);
-        String message = "IOException while prefetching for worker:";
-        throw createUserExecException(e, message, Code.PREFETCH_FAILURE);
-      } catch (ForbiddenActionInputException e) {
-        throw createUserExecException(
-            e, "Forbidden input found while prefetching for worker:", Code.FORBIDDEN_INPUT);
-      }
+      context.prefetchInputsAndWait();
     }
     Duration setupInputsTime = setupInputsStopwatch.elapsed();
     spawnMetrics.setSetupTimeInMs((int) setupInputsTime.toMillis());
@@ -701,12 +696,6 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
   private static UserExecException createUserExecException(
       IOException e, String message, Code detailedCode) {
-    return createUserExecException(
-        ErrorMessage.builder().message(message).exception(e).build().toString(), detailedCode);
-  }
-
-  private static UserExecException createUserExecException(
-      ForbiddenActionInputException e, String message, Code detailedCode) {
     return createUserExecException(
         ErrorMessage.builder().message(message).exception(e).build().toString(), detailedCode);
   }

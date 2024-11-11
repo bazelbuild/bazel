@@ -68,10 +68,8 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/grpc-java:grpc-jar",
-        "//third_party/protobuf:protobuf_java",
-        "//third_party/protobuf:protobuf_java_util",
-        "@googleapis//:google_devtools_build_v1_build_events_java_proto",
-        "@googleapis//:google_devtools_build_v1_build_status_java_proto",
-        "@googleapis//:google_devtools_build_v1_publish_build_event_java_proto",
+        "@googleapis//google/devtools/build/v1:build_java_proto",
+        "@protobuf//:protobuf_java",
+        "@protobuf//:protobuf_java_util",
     ],
 )

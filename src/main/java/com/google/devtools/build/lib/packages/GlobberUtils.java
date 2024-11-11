@@ -24,33 +24,33 @@ public final class GlobberUtils {
   public static void throwBadGlobExceptionEmptyResult(
       String pattern, Globber.Operation globberOperation) throws Globber.BadGlobException {
     switch (globberOperation) {
-      case SUBPACKAGES:
-        throw new Globber.BadGlobException(
-            "subpackages pattern '"
-                + pattern
-                + "' didn't match anything, but allow_empty is set to False (the default value)");
-      default:
-        throw new Globber.BadGlobException(
-            "glob pattern '"
-                + pattern
-                + "' didn't match anything, but allow_empty is set to False "
-                + "(the default value of allow_empty can be set with "
-                + "--incompatible_disallow_empty_glob).");
+      case SUBPACKAGES ->
+          throw new Globber.BadGlobException(
+              "subpackages pattern '"
+                  + pattern
+                  + "' didn't match anything, but allow_empty is set to False (the default value)");
+      default ->
+          throw new Globber.BadGlobException(
+              "glob pattern '"
+                  + pattern
+                  + "' didn't match anything, but allow_empty is set to False "
+                  + "(the default value of allow_empty can be set with "
+                  + "--incompatible_disallow_empty_glob).");
     }
   }
 
   public static void throwBadGlobExceptionAllExcluded(Globber.Operation globberOperation)
       throws Globber.BadGlobException {
     switch (globberOperation) {
-      case SUBPACKAGES:
-        throw new Globber.BadGlobException(
-            "all subpackages in subpackages() have been excluded, but allow_empty is"
-                + " set to False ");
-      default:
-        throw new Globber.BadGlobException(
-            "all files in the glob have been excluded, but allow_empty is set to False "
-                + "(the default value of allow_empty can be set with "
-                + "--incompatible_disallow_empty_glob).");
+      case SUBPACKAGES ->
+          throw new Globber.BadGlobException(
+              "all subpackages in subpackages() have been excluded, but allow_empty is"
+                  + " set to False ");
+      default ->
+          throw new Globber.BadGlobException(
+              "all files in the glob have been excluded, but allow_empty is set to False "
+                  + "(the default value of allow_empty can be set with "
+                  + "--incompatible_disallow_empty_glob).");
     }
   }
 }

@@ -33,6 +33,12 @@ public interface CommandDispatcher {
     ERROR_OUT, // Return with an error
   }
 
+  /** How much output to emit on the console. */
+  enum UiVerbosity {
+    QUIET, // Only errors
+    NORMAL, // Everything
+  }
+
   /**
    * Executes a single command. Returns a {@link BlazeCommandResult} to indicate either an exit
    * code, the desire to shut down the server, or that a given binary should be executed by the
@@ -43,6 +49,7 @@ public interface CommandDispatcher {
       List<String> args,
       OutErr outErr,
       LockingMode lockingMode,
+      UiVerbosity uiVerbosity,
       String clientDescription,
       long firstContactTimeMillis,
       Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,

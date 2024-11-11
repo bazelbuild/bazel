@@ -56,23 +56,10 @@ msys*)
   ;;
 esac
 
-if "$is_windows"; then
-  # Disable MSYS path conversion that converts path-looking command arguments to
-  # Windows paths (even if they arguments are not in fact paths).
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
-
-if $is_windows; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 function set_up() {
   WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
   cd "${WRKDIR}"
-  write_default_lockfile "MODULE.bazel.lock"
+  setup_module_dot_bazel
   # create an archive file with files interesting for patching
   mkdir hello_world-0.1.2
   cat > hello_world-0.1.2/hello_world.c <<'EOF'
@@ -117,25 +104,25 @@ cc_binary(
 )
 EOF
   touch BUILD.bazel
-  touch WORKSPACE
+  touch REPO.bazel
 
   mkdir main
   cd main
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat >> $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="hello_world",
   strip_prefix="hello_world-0.1.2",
   urls=["${EXTREPOURL}/hello_world.zip"],
   remote_file_urls={
-    "WORKSPACE": ["${EXTREPOURL}/WORKSPACE"],
+    "REPO.bazel": ["${EXTREPOURL}/REPO.bazel"],
     "BUILD.bazel": ["${EXTREPOURL}/BUILD.bazel"],
     "child/foo_bar.c": ["${EXTREPOURL}/child/foo_bar.c"],
     "child/BUILD.bazel": ["${EXTREPOURL}/child/BUILD.bazel"],
   },
 )
 EOF
-  write_default_lockfile "MODULE.bazel.lock"
+  add_rules_cc "MODULE.bazel"
 
   bazel build @hello_world//child:foo_bar
 }
@@ -153,27 +140,27 @@ cc_binary(
     srcs = ["hello_world.c"],
 )
 EOF
-  touch WORKSPACE
+  touch REPO.bazel
 
   mkdir main
   cd main
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat >> $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="hello_world",
   strip_prefix="hello_world-0.1.2",
   urls=["${EXTREPOURL}/hello_world.zip"],
   remote_file_urls={
-    "WORKSPACE": ["${EXTREPOURL}/WORKSPACE"],
+    "REPO.bazel": ["${EXTREPOURL}/REPO.bazel"],
     "BUILD.bazel": ["${EXTREPOURL}/BUILD.bazel"],
   },
   remote_file_integrity={
-    "WORKSPACE": "sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=",
+    "REPO.bazel": "sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=",
     "BUILD.bazel": "sha256-0bs+dwSOzHTbNAgDS02I3giLAZu2/NLn7BJWwQGN/Pk=",
   },
 )
 EOF
-  write_default_lockfile "MODULE.bazel.lock"
+  add_rules_cc "MODULE.bazel"
 
   bazel build @hello_world//:hello_world
 }
@@ -191,27 +178,27 @@ cc_binary(
     srcs = ["hello_world.c"],
 )
 EOF
-  touch WORKSPACE
+  touch REPO.bazel
 
   mkdir main
   cd main
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat >> $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="hello_world",
   strip_prefix="hello_world-0.1.2",
   urls=["${EXTREPOURL}/hello_world.zip"],
   remote_file_urls={
-    "WORKSPACE": ["${EXTREPOURL}/WORKSPACE"],
+    "REPO.bazel": ["${EXTREPOURL}/REPO.bazel"],
     "BUILD.bazel": ["${EXTREPOURL}/BUILD.bazel"],
   },
   remote_file_integrity={
-    "WORKSPACE": "sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFZ=",
+    "REPO.bazel": "sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFZ=",
     "BUILD.bazel": "sha256-0bs+dwSOzHTbNAgDS02I3giLAZu2/NLn7BJWwQGN/Pk=",
   },
 )
 EOF
-  write_default_lockfile "MODULE.bazel.lock"
+  add_rules_cc "MODULE.bazel"
 
   bazel build @hello_world//:hello_world &> $TEST_log 2>&1 && fail "Expected to fail"
   expect_log "but wanted sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFY="
@@ -230,23 +217,23 @@ cc_binary(
     srcs = ["hello_world.c"],
 )
 EOF
-  touch WORKSPACE
+  touch REPO.bazel
 
   mkdir main
   cd main
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat >> $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="hello_world",
   strip_prefix="hello_world-0.1.2",
   urls=["${EXTREPOURL}/hello_world.zip"],
   remote_file_urls={
-    "WORKSPACE": ["${EXTREPOURL}/WORKSPACE"],
+    "REPO.bazel": ["${EXTREPOURL}/REPO.bazel"],
     "BUILD.bazel": ["${EXTREPOURL}/BUILD.bazel"],
   },
 )
 EOF
-  write_default_lockfile "MODULE.bazel.lock"
+  add_rules_cc "MODULE.bazel"
 
   bazel build @hello_world//:hello_world
 }
@@ -264,23 +251,23 @@ cc_binary(
     srcs = ["hello_world.c"],
 )
 EOF
-  touch WORKSPACE
+  touch REPO.bazel
 
   mkdir main
   cd main
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat >> $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="hello_world",
   strip_prefix="hello_world-0.1.2",
   urls=["${EXTREPOURL}/hello_world.zip"],
   remote_file_urls={
-    "../../../WORKSPACE": ["${EXTREPOURL}/WORKSPACE"],
+    "../../../REPO.bazel": ["${EXTREPOURL}/REPO.bazel"],
     "BUILD.bazel": ["${EXTREPOURL}/BUILD.bazel"],
   },
 )
 EOF
-  write_default_lockfile "MODULE.bazel.lock"
+  add_rules_cc "MODULE.bazel"
 
   bazel build @hello_world//:hello_world &> $TEST_log 2>&1 && fail "Expected to fail"
   expect_log "Error in download: Cannot write outside of the repository directory"
@@ -298,23 +285,23 @@ cc_binary(
     srcs = ["hello_world.c"],
 )
 EOF
-  touch WORKSPACE
+  touch REPO.bazel
 
   mkdir main
   cd main
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat >> $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="hello_world",
   strip_prefix="hello_world-0.1.2",
   urls=["${EXTREPOURL}/hello_world.zip"],
   remote_file_urls={
-    "/tmp/WORKSPACE": ["${EXTREPOURL}/WORKSPACE"],
+    "/tmp/REPO.bazel": ["${EXTREPOURL}/REPO.bazel"],
     "BUILD.bazel": ["${EXTREPOURL}/BUILD.bazel"],
   },
 )
 EOF
-  write_default_lockfile "MODULE.bazel.lock"
+  add_rules_cc "MODULE.bazel"
 
   bazel build @hello_world//:hello_world &> $TEST_log 2>&1 && fail "Expected to fail"
   expect_log "Error in download: Cannot write outside of the repository directory"

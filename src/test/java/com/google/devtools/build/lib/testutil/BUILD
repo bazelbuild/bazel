@@ -75,6 +75,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
+        "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:error_prone_annotations",
@@ -133,6 +134,30 @@ java_library(
 )
 
 java_library(
+    name = "external_file_system_lock",
+    srcs = ["ExternalFileSystemLock.java"],
+    data = [":external_file_system_lock_helper"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/shell",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:guava",
+        "@bazel_tools//tools/java/runfiles",
+    ],
+)
+
+java_binary(
+    name = "external_file_system_lock_helper",
+    srcs = ["ExternalFileSystemLockHelper.java"],
+    jvm_flags = [
+        # Prevent the JVM from polluting stdout and interfere with communication with the parent.
+        "-Xlog:disable",
+        "-Xlog:all=warning:stderr",
+    ],
+    main_class = "com.google.devtools.build.lib.testutil.ExternalFileSystemLockHelper",
+)
+
+java_library(
     name = "spawn_controller",
     srcs = ["SpawnController.java"],
     deps = [
@@ -153,6 +178,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:artifact_expander",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_symlink",
+        "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_tree",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:guava",
     ],
@@ -201,6 +227,7 @@ java_library(
     name = "TestUtils",
     srcs = ["TestUtils.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:jsr305",
@@ -257,7 +284,7 @@ write_file(
     content = [
         "package com.google.devtools.build.lib.testutil;",
         "class RulesCcRepoName {",
-        "  protected static final String CANONICAL_REPO_NAME = \"%s\";" % get_canonical_repo_name("@rules_cc").replace("+", "~"),
+        "  protected static final String CANONICAL_REPO_NAME = \"%s\";" % get_canonical_repo_name("@rules_cc"),
         "}",
     ],
 )

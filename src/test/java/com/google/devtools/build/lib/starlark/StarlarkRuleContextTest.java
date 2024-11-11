@@ -61,7 +61,6 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
@@ -123,6 +122,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library", "java_import")
         package(features = ['-f1', 'f2', 'f3'])
         genrule(name = 'foo',
           cmd = 'dummy_cmd',
@@ -163,6 +163,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         load('//test:macros.bzl', 'macro_native_rule', 'macro_starlark_rule', 'starlark_rule')
         macro_native_rule(name = 'm_native',
           deps = [':jlib'])
@@ -212,7 +213,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     setUpAttributeErrorTest();
     assertThrows(Exception.class, () -> createRuleContext("//test:m_starlark"));
     assertContainsEvent(
-        "ERROR /workspace/test/BUILD:4:20: in deps attribute of starlark_rule rule "
+        "ERROR /workspace/test/BUILD:5:20: in deps attribute of starlark_rule rule "
             + "//test:m_starlark: '//test:jlib' does not have mandatory providers:"
             + " 'some_provider'. "
             + "Since this rule was created by the macro 'macro_starlark_rule', the error might "
@@ -234,7 +235,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     setUpAttributeErrorTest();
     assertThrows(Exception.class, () -> createRuleContext("//test:skyrule"));
     assertContainsEvent(
-        "ERROR /workspace/test/BUILD:10:14: in deps attribute of "
+        "ERROR /workspace/test/BUILD:11:14: in deps attribute of "
             + "starlark_rule rule //test:skyrule: '//test:jlib' does not have mandatory providers: "
             + "'some_provider'");
   }
@@ -409,6 +410,8 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   /* The error message for this case used to be wrong. */
   @Test
   public void testPackageBoundaryError_externalRepository_boundary() throws Exception {
+    // Doesn't work with Bzlmod due to https://github.com/bazelbuild/bazel/issues/22208
+    setBuildLanguageOptions("--enable_workspace");
     scratch.file("r/WORKSPACE");
     scratch.file("r/BUILD");
     scratch.overwriteFile(
@@ -430,7 +433,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   /* The error message for this case used to be wrong. */
   @Test
   public void testPackageBoundaryError_externalRepository_entirelyInside() throws Exception {
-    scratch.file("/r/WORKSPACE");
+    scratch.file("/r/MODULE.bazel", "module(name = 'r')");
     scratch.file(
         "/r/BUILD",
         """
@@ -439,19 +442,15 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         """);
     scratch.file("/r/sub/BUILD", "cc_library(name = 'my_sub_lib', srcs = ['my_sub_lib.h'])");
     scratch.overwriteFile(
-        "WORKSPACE",
-        new ImmutableList.Builder<String>()
-            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
-            .add("local_repository(name='r', path='/r')")
-            .build());
+        "MODULE.bazel", "bazel_dep(name = 'r')", "local_path_override(module_name='r', path='/r')");
     invalidatePackages(
         /*alsoConfigs=*/ false); // Repository shuffling messes with toolchain labels.
     reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("@r//:cclib");
+    getConfiguredTarget("@@r+//:cclib");
     assertContainsEvent(
-        "/external/r/BUILD:1:11: Label '@@r//:sub/my_sub_lib.h' is invalid because "
-            + "'@@r//sub' is a subpackage; perhaps you meant to put the colon here: "
-            + "'@@r//sub:my_sub_lib.h'?");
+        "/external/r+/BUILD:1:11: Label '@@r+//:sub/my_sub_lib.h' is invalid because "
+            + "'@@r+//sub' is a subpackage; perhaps you meant to put the colon here: "
+            + "'@@r+//sub:my_sub_lib.h'?");
   }
 
   /*
@@ -1740,24 +1739,20 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
     scratch.file("BUILD", "filegroup(name='dep')");
 
-    scratch.file("/r/WORKSPACE");
+    scratch.file("/r/MODULE.bazel", "module(name='r')");
     scratch.file(
         "/r/a/BUILD",
         """
-        load('@//:external_rule.bzl', 'external_rule')
+        load('@@//:external_rule.bzl', 'external_rule')
         external_rule(name='r')
         """);
 
     scratch.overwriteFile(
-        "WORKSPACE",
-        new ImmutableList.Builder<String>()
-            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
-            .add("local_repository(name='r', path='/r')")
-            .build());
+        "MODULE.bazel", "bazel_dep(name='r')", "local_path_override(module_name='r', path='/r')");
 
     invalidatePackages(
         /*alsoConfigs=*/ false); // Repository shuffling messes with toolchain labels.
-    setRuleContext(createRuleContext("@r//a:r"));
+    setRuleContext(createRuleContext("@@r+//a:r"));
     Label depLabel = (Label) ev.eval("ruleContext.attr.internal_dep.label");
     assertThat(depLabel).isEqualTo(Label.parseCanonical("//:dep"));
   }
@@ -1768,6 +1763,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     // safe to execute in parallel. Disable checks with package loader to avoid parallel
     // evaluations.
     initializeSkyframeExecutor(/*doPackageLoadingChecks=*/ false);
+    setBuildLanguageOptions("--enable_workspace");
     scratch.file(
         "/r1/BUILD",
         """
@@ -1813,6 +1809,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testLoadBlockRepositoryRedefinition() throws Exception {
+    setBuildLanguageOptions("--enable_workspace");
     reporter.removeHandler(failFastHandler);
     scratch.file("/bar/WORKSPACE");
     scratch.file("/bar/bar.txt");
@@ -1911,7 +1908,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
             'symlink_' + f.short_path: f
             for f in ctx.files.symlink
           }
-          return struct(
+          return DefaultInfo(
             runfiles = ctx.runfiles(
               symlinks=symlinks,
             )
@@ -1927,8 +1924,9 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "test/BUILD",
         """
         load('//test:rule.bzl', 'symlink_rule')
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
         symlink_rule(name = 'lib_with_symlink', symlink = ':a.py')
-        sh_binary(
+        foo_binary(
           name = 'test_with_symlink',
           srcs = ['test/b.py'],
           data = [':lib_with_symlink'],
@@ -1977,8 +1975,9 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "test/BUILD",
         """
         load('//test:rule.bzl', 'symlink_rule')
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
         symlink_rule(name = 'lib_with_symlink', symlink = ':a.py')
-        sh_binary(
+        foo_binary(
           name = 'test_with_symlink',
           srcs = ['test/b.py'],
           data = [':lib_with_symlink'],
@@ -2012,7 +2011,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
             'root_symlink_' + f.short_path: f
             for f in ctx.files.root_symlink
           }
-          return struct(
+          return DefaultInfo(
             runfiles = ctx.runfiles(
               root_symlinks=root_symlinks,
             )
@@ -2028,8 +2027,9 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "test/BUILD",
         """
         load('//test:rule.bzl', 'root_symlink_rule')
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
         root_symlink_rule(name = 'lib_with_root_symlink', root_symlink = ':a.py')
-        sh_binary(
+        foo_binary(
           name = 'test_with_root_symlink',
           srcs = ['test/b.py'],
           data = [':lib_with_root_symlink'],
@@ -2078,8 +2078,9 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "test/BUILD",
         """
         load('//test:rule.bzl', 'root_symlink_rule')
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
         root_symlink_rule(name = 'lib_with_root_symlink', root_symlink = ':a.py')
-        sh_binary(
+        foo_binary(
           name = 'test_with_root_symlink',
           srcs = ['test/b.py'],
           data = [':lib_with_root_symlink'],
@@ -2122,6 +2123,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file(
         "bar/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         load(':rules.bzl', 'forward_default_info')
         java_library(
             name = 'lib',
@@ -2183,8 +2185,9 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "test/BUILD",
         """
         load('//test:rule.bzl', 'symlink_rule')
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
         symlink_rule(name = 'lib_with_symlink', symlink = ':a.py')
-        sh_binary(
+        foo_binary(
           name = 'test_with_symlink',
           srcs = ['test/b.py'],
           data = [':lib_with_symlink'],
@@ -2250,9 +2253,10 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "test/BUILD",
         """
         load('//test:rule.bzl', 'symlink_merge_rule')
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
         symlink_merge_rule(name = 'lib_a', symlink = ':a.py', dep = 'lib_b')
         symlink_merge_rule(name = 'lib_b', symlink = ':b.py')
-        sh_binary(
+        foo_binary(
           name = 'test',
           srcs = ['test/other.py'],
           data = [':lib_a'],
@@ -2299,10 +2303,11 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "test/BUILD",
         """
         load('//test:rule.bzl', 'symlink_merge_all_rule')
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
         symlink_merge_all_rule(name = 'lib_a', symlink = ':a.py', deps = [':lib_b', ':lib_c'])
         symlink_merge_all_rule(name = 'lib_b', symlink = ':b.py')
         symlink_merge_all_rule(name = 'lib_c', symlink = ':c.py')
-        sh_binary(
+        foo_binary(
           name = 'test',
           srcs = ['test/other.py'],
           data = [':lib_a'],
@@ -2368,11 +2373,13 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testExternalShortPath() throws Exception {
-    scratch.file("/bar/WORKSPACE");
+    scratch.file("/bar/MODULE.bazel", "module(name='foo')");
     scratch.file("/bar/bar.txt");
     scratch.file("/bar/BUILD", "exports_files(['bar.txt'])");
-    FileSystemUtils.appendIsoLatin1(
-        scratch.resolve("WORKSPACE"), "local_repository(name = 'foo', path = '/bar')");
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        "bazel_dep(name='foo')",
+        "local_path_override(module_name='foo', path='/bar')");
     scratch.file(
         "test/BUILD",
         """
@@ -2388,7 +2395,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     StarlarkRuleContext ruleContext = createRuleContext("//test:lib");
     setRuleContext(ruleContext);
     String filename = ev.eval("ruleContext.files.srcs[0].short_path").toString();
-    assertThat(filename).isEqualTo("../foo/bar.txt");
+    assertThat(filename).isEqualTo("../foo+/bar.txt");
   }
 
   // Borrowed from Scratch.java.
@@ -3808,19 +3815,17 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testBuildFilePath() throws Exception {
-    scratch.file("/foo/WORKSPACE");
+    scratch.file("/foo/MODULE.bazel", "module(name='foo')");
     scratch.file("/foo/bar/BUILD", "genrule(name = 'baz', cmd = 'dummy_cmd', outs = ['a.txt'])");
 
     scratch.overwriteFile(
-        "WORKSPACE",
-        new ImmutableList.Builder<String>()
-            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
-            .add("local_repository(name='foo', path='/foo')")
-            .build());
+        "MODULE.bazel",
+        "bazel_dep(name='foo')",
+        "local_path_override(module_name='foo', path='/foo')");
 
     invalidatePackages(false);
 
-    setRuleContext(createRuleContext("@foo//bar:baz"));
+    setRuleContext(createRuleContext("@@foo+//bar:baz"));
     Object result = ev.eval("ruleContext.build_file_path");
     assertThat(result).isEqualTo("bar/BUILD");
 
@@ -3832,20 +3837,18 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testStopExportingBuildFilePath() throws Exception {
-    scratch.file("/foo/WORKSPACE");
+    scratch.file("/foo/MODULE.bazel", "module(name='foo')");
     scratch.file("/foo/bar/BUILD", "genrule(name = 'baz', cmd = 'dummy_cmd', outs = ['a.txt'])");
 
     scratch.overwriteFile(
-        "WORKSPACE",
-        new ImmutableList.Builder<String>()
-            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
-            .add("local_repository(name='foo', path='/foo')")
-            .build());
+        "MODULE.bazel",
+        "bazel_dep(name='foo')",
+        "local_path_override(module_name='foo', path='/foo')");
 
     invalidatePackages(false);
     setBuildLanguageOptions("--incompatible_stop_exporting_build_file_path");
 
-    setRuleContext(createRuleContext("@foo//bar:baz"));
+    setRuleContext(createRuleContext("@@foo+//bar:baz"));
 
     EvalException evalException =
         assertThrows(EvalException.class, () -> ev.eval("ruleContext.build_file_path"));

@@ -182,7 +182,7 @@ public class FileFunctionTest {
                 .put(
                     FileSymlinkInfiniteExpansionUniquenessFunction.NAME,
                     new FileSymlinkInfiniteExpansionUniquenessFunction())
-                .put(FileValue.FILE, new FileFunction(pkgLocatorRef, directories))
+                .put(SkyFunctions.FILE, new FileFunction(pkgLocatorRef, directories))
                 .put(SkyFunctions.PACKAGE, PackageFunction.newBuilder().build())
                 .put(
                     SkyFunctions.PACKAGE_LOOKUP,
@@ -456,9 +456,6 @@ public class FileFunctionTest {
         getFilesSeenAndAssertValueChangesIfContentsOfFileChanges(externalPath, true, "a"));
     assertThat(seenFiles)
         .containsExactly(
-            rootedPath("WORKSPACE"),
-            rootedPath("WORKSPACE.bazel"),
-            rootedPath("WORKSPACE.bzlmod"),
             rootedPath("a"),
             rootedPath(""),
             rootedPath("/output_base"),

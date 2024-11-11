@@ -1,4 +1,9 @@
 common --enable_platform_specific_config
+common --incompatible_use_plus_in_repo_names
+common --experimental_google_legacy_api # needed by protobuf
+
+# For @rules_java doc generation only, can be dropped after Bazel 8
+common --experimental_rule_extension_api
 
 # Shared configuration flags to build and test Bazel on RBE.
 build:remote_shared --remote_instance_name=projects/bazel-untrusted/instances/default_instance
@@ -34,6 +39,8 @@ common --check_direct_dependencies=error
 # Add mirrors for certain download URLs
 common --experimental_downloader_config=bazel_downloader.cfg
 
+common --noenable_workspace
+
 # Enable modern C++ features
 build:linux --cxxopt=-std=c++17
 build:linux --host_cxxopt=-std=c++17
@@ -41,6 +48,14 @@ build:macos --cxxopt=-std=c++17
 build:macos --host_cxxopt=-std=c++17
 build:windows --cxxopt=/std:c++17
 build:windows --host_cxxopt=/std:c++17
+
+# Suppress warnings from external repos, we have no direct control on them anyway.
+build:linux --per_file_copt=external/.*@-w
+build:linux --host_per_file_copt=external/.*@-w
+build:macos --per_file_copt=external/.*@-w
+build:macos --host_per_file_copt=external/.*@-w
+build:windows --per_file_copt=external/.*@/w
+build:windows --host_per_file_copt=external/.*@/w
 
 # Enable Java 21 language features
 build --java_runtime_version=21
@@ -77,7 +92,8 @@ test:ci-macos --test_env=TEST_INSTALL_BASE=/Users/buildkite/bazeltest/install_ba
 test:ci-macos --test_env=REPOSITORY_CACHE=/Users/buildkite/bazeltest/repo_cache
 test:ci-macos --test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80
 test:ci-macos --sandbox_writable_path=/Users/buildkite/bazeltest
-test:ci-macos --sandbox_default_allow_network=false
+# TODO(pcloudy): Revert to false once https://github.com/bazelbuild/bazel/issues/23726 is resolved.
+test:ci-macos --sandbox_default_allow_network=true
 test:ci-macos --test_tag_filters=-no_macos
 
 ## For Windows

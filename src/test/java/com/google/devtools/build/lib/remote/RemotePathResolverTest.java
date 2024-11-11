@@ -112,27 +112,12 @@ public class RemotePathResolverTest {
 
   @Test
   public void convertPaths_siblingCompatible_relativeToWorkingDirectory() {
-    RemotePathResolver remotePathResolver =
-        new SiblingRepositoryLayoutResolver(
-            execRoot, /* incompatibleRemoteOutputPathsRelativeToInputRoot= */ false);
+    RemotePathResolver remotePathResolver = new SiblingRepositoryLayoutResolver(execRoot);
 
     String outputPath = remotePathResolver.localPathToOutputPath(PathFragment.create("bar"));
     Path localPath = remotePathResolver.outputPathToLocalPath(outputPath);
 
     assertThat(outputPath).isEqualTo("bar");
-    assertThat(localPath).isEqualTo(execRoot.getRelative("bar"));
-  }
-
-  @Test
-  public void localPathToOutputPath_siblingIncompatible_relativeToWorkingDirectory() {
-    RemotePathResolver remotePathResolver =
-        new SiblingRepositoryLayoutResolver(
-            execRoot, /* incompatibleRemoteOutputPathsRelativeToInputRoot= */ true);
-
-    String outputPath = remotePathResolver.localPathToOutputPath(PathFragment.create("bar"));
-    Path localPath = remotePathResolver.outputPathToLocalPath(outputPath);
-
-    assertThat(outputPath).isEqualTo("main/bar");
     assertThat(localPath).isEqualTo(execRoot.getRelative("bar"));
   }
 }

@@ -45,8 +45,7 @@ source "$(rlocation "io_bazel/src/test/shell/bazel/remote/remote_utils.sh")" \
   || { echo "remote_utils.sh not found!" >&2; exit 1; }
 
 function set_up() {
-  start_worker \
-        --incompatible_remote_symlinks
+  start_worker
 }
 
 function tear_down() {
@@ -64,8 +63,6 @@ msys*|mingw*|cygwin*)
 esac
 
 if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
   declare -r EXE_EXT=".exe"
 else
   declare -r EXE_EXT=""
@@ -270,10 +267,10 @@ EOF
       --build_event_json_file=$BEP_JSON \
       //a:foo >& $TEST_log || fail "Failed to build"
 
-  expect_bes_file_not_uploaded foo.txt
+  expect_bes_file_uploaded foo.txt
   expect_bes_file_uploaded command.profile.gz
   remote_cas_files="$(count_remote_cas_files)"
-  [[ "$remote_cas_files" == 1 ]] || fail "Expected 1 remote cas entries, not $remote_cas_files"
+  [[ "$remote_cas_files" == 2 ]] || fail "Expected 2 remote cas entries, not $remote_cas_files"
   disk_cas_files="$(count_disk_cas_files $cache_dir)"
   # foo.txt, stdout and stderr for action 'foo'
   [[ "$disk_cas_files" == 3 ]] || fail "Expected 3 disk cas entries, not $disk_cas_files"

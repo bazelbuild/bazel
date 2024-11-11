@@ -179,6 +179,39 @@ string GetEnv(const string& key) {
 #endif
 }
 
+// Replaces \s, \n, and \b with their respective characters.
+string Unescape(const string& path) {
+  string result;
+  result.reserve(path.size());
+  for (size_t i = 0; i < path.size(); ++i) {
+    if (path[i] == '\\' && i + 1 < path.size()) {
+      switch (path[i + 1]) {
+        case 's': {
+          result.push_back(' ');
+          break;
+        }
+        case 'n': {
+          result.push_back('\n');
+          break;
+        }
+        case 'b': {
+          result.push_back('\\');
+          break;
+        }
+        default: {
+          result.push_back(path[i]);
+          result.push_back(path[i + 1]);
+          break;
+        }
+      }
+      ++i;
+    } else {
+      result.push_back(path[i]);
+    }
+  }
+  return result;
+}
+
 string Runfiles::Rlocation(const string& path) const {
   return Rlocation(path, source_repository_);
 }
@@ -254,18 +287,39 @@ bool ParseManifest(const string& path, map<string, string>* result,
   std::getline(stm, line);
   size_t line_count = 1;
   while (!line.empty()) {
-    string::size_type idx = line.find_first_of(' ');
-    if (idx == string::npos) {
-      if (error) {
-        std::ostringstream err;
-        err << "ERROR: " << __FILE__ << "(" << __LINE__
-            << "): bad runfiles manifest entry in \"" << path << "\" line #"
-            << line_count << ": \"" << line << "\"";
-        *error = err.str();
+    std::string source;
+    std::string target;
+    if (line[0] == ' ') {
+      // The link path contains escape sequences for spaces and backslashes.
+      string::size_type idx = line.find(' ', 1);
+      if (idx == string::npos) {
+        if (error) {
+          std::ostringstream err;
+          err << "ERROR: " << __FILE__ << "(" << __LINE__
+              << "): bad runfiles manifest entry in \"" << path << "\" line #"
+              << line_count << ": \"" << line << "\"";
+          *error = err.str();
+        }
+        return false;
       }
-      return false;
+      source = Unescape(line.substr(1, idx - 1));
+      target = Unescape(line.substr(idx + 1));
+    } else {
+      string::size_type idx = line.find(' ');
+      if (idx == string::npos) {
+        if (error) {
+          std::ostringstream err;
+          err << "ERROR: " << __FILE__ << "(" << __LINE__
+              << "): bad runfiles manifest entry in \"" << path << "\" line #"
+              << line_count << ": \"" << line << "\"";
+          *error = err.str();
+        }
+        return false;
+      }
+      source = line.substr(0, idx);
+      target = line.substr(idx + 1);
     }
-    (*result)[line.substr(0, idx)] = line.substr(idx + 1);
+    (*result)[source] = target;
     std::getline(stm, line);
     ++line_count;
   }

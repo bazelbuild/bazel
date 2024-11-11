@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe.config;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.producers.BuildConfigurationKeyCache;
 import com.google.devtools.build.lib.analysis.producers.BuildConfigurationKeyMapProducer;
 import com.google.devtools.build.lib.analysis.producers.BuildConfigurationKeyMapProducer.ResultSink;
 import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
@@ -29,19 +28,13 @@ import com.google.devtools.common.options.OptionsParsingException;
 import javax.annotation.Nullable;
 
 /** Function that returns a fully updated {@link BuildConfigurationKey}. */
-public class BuildConfigurationKeyFunction implements SkyFunction {
+public final class BuildConfigurationKeyFunction implements SkyFunction {
   /**
    * {@link BuildConfigurationKeyMapProducer} works on a {@code Map<String, BuildOptions>}, but this
    * skyfunction only operates on a single {@link BuildOptions}, so this static key is used to
    * create that map and read the resulting {@link BuildConfigurationKey}.
    */
   private static final String BUILD_OPTIONS_MAP_SINGLETON_KEY = "key";
-
-  private final BuildConfigurationKeyCache buildConfigurationKeyCache;
-
-  public BuildConfigurationKeyFunction(BuildConfigurationKeyCache buildConfigurationKeyCache) {
-    this.buildConfigurationKeyCache = buildConfigurationKeyCache;
-  }
 
   @Nullable
   @Override
@@ -56,7 +49,6 @@ public class BuildConfigurationKeyFunction implements SkyFunction {
             new BuildConfigurationKeyMapProducer(
                 sink,
                 /* runAfter= */ StateMachine.DONE,
-                buildConfigurationKeyCache,
                 ImmutableMap.of(BUILD_OPTIONS_MAP_SINGLETON_KEY, buildOptions)));
 
     boolean complete = driver.drive(env);
@@ -82,13 +74,13 @@ public class BuildConfigurationKeyFunction implements SkyFunction {
   /** Sink implementation to handle results from {@link BuildConfigurationKeyMapProducer}. */
   private static final class Sink implements ResultSink {
     @Nullable private ImmutableMap<String, BuildConfigurationKey> transitionedOptions;
-    @Nullable private OptionsParsingException transitionError;
+    @Nullable private OptionsParsingException optionsParsingException;
     @Nullable private PlatformMappingException platformMappingException;
     @Nullable private InvalidPlatformException invalidPlatformException;
 
     @Override
-    public void acceptTransitionError(OptionsParsingException e) {
-      this.transitionError = e;
+    public void acceptOptionsParsingError(OptionsParsingException e) {
+      this.optionsParsingException = e;
     }
 
     @Override
@@ -109,8 +101,8 @@ public class BuildConfigurationKeyFunction implements SkyFunction {
 
     void checkErrors()
         throws OptionsParsingException, PlatformMappingException, InvalidPlatformException {
-      if (this.transitionError != null) {
-        throw this.transitionError;
+      if (this.optionsParsingException != null) {
+        throw this.optionsParsingException;
       }
       if (this.platformMappingException != null) {
         throw this.platformMappingException;

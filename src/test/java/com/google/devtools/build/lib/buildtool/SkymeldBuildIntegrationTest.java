@@ -685,13 +685,13 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
     write(
         "foo/BUILD",
         """
-        sh_library(
+        filegroup(
             name = "good_bar",
             srcs = ["bar.sh"],
             compatible_with = ["//buildenv:one"],
         )
 
-        sh_library(
+        filegroup(
             name = "bad_bar",
             srcs = ["bar.sh"],
             compatible_with = ["//buildenv:two"],

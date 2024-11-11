@@ -23,7 +23,8 @@ import com.google.devtools.build.skyframe.SkyValue;
 import net.starlark.java.eval.StarlarkSemantics;
 
 /**
- * A Skyframe value representing the result of evaluating the {@code @_builtins} pseudo-repository.
+ * A Skyframe value representing the result of evaluating the {@code @_builtins} pseudo-repository,
+ * and in Bazel where applicable, applying autoloads.
  *
  * <p>To avoid unnecessary Skyframe edges, the {@code StarlarkSemantics} are included in this value,
  * so that a caller who obtains a StarlarkBuiltinsValue can also access the StarlarkSemantics
@@ -135,9 +136,17 @@ public final class StarlarkBuiltinsValue implements SkyValue {
         starlarkSemantics);
   }
 
-  /** Returns the singleton SkyKey for this type of value. */
+  /** Returns the SkyKey for BuiltinsValue containing only additional builtin symbols and rules. */
   public static Key key() {
     return Key.INSTANCE;
+  }
+
+  /**
+   * Returns the SkyKey for BuiltinsValue optionally amended with externally loaded symbols and
+   * rules.
+   */
+  public static Key key(boolean withAutoloads) {
+    return withAutoloads ? Key.INSTANCE_WITH_AUTOLOADS : Key.INSTANCE;
   }
 
   /**
@@ -147,9 +156,18 @@ public final class StarlarkBuiltinsValue implements SkyValue {
    */
   static final class Key implements SkyKey {
 
-    private static final Key INSTANCE = new Key();
+    private final boolean withAutoloads;
 
-    private Key() {}
+    private static final Key INSTANCE = new Key(false);
+    private static final Key INSTANCE_WITH_AUTOLOADS = new Key(true);
+
+    private Key(boolean withAutoloads) {
+      this.withAutoloads = withAutoloads;
+    }
+
+    public boolean isWithAutoloads() {
+      return withAutoloads;
+    }
 
     @Override
     public SkyFunctionName functionName() {
@@ -163,12 +181,12 @@ public final class StarlarkBuiltinsValue implements SkyValue {
 
     @Override
     public boolean equals(Object other) {
-      return other instanceof Key;
+      return other instanceof Key key && this.withAutoloads == key.withAutoloads;
     }
 
     @Override
     public int hashCode() {
-      return 7727; // more or less xkcd/221
+      return withAutoloads ? 7727 : 7277; // more or less xkcd/221
     }
   }
 }

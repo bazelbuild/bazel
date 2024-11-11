@@ -48,7 +48,7 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.LostInputsEvent;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
-import com.google.devtools.build.lib.remote.util.TempPathGenerator;
+import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
@@ -534,8 +534,9 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                         })
                     .doOnError(
                         error -> {
-                          if (error instanceof CacheNotFoundException) {
-                            reporter.post(new LostInputsEvent());
+                          if (error instanceof CacheNotFoundException cacheNotFoundException) {
+                            reporter.post(
+                                new LostInputsEvent(cacheNotFoundException.getMissingDigest()));
                           }
                         }));
 
@@ -669,7 +670,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       }
 
       if (output.isTreeArtifact()) {
-        var children = outputMetadataStore.getTreeArtifactChildren((SpecialArtifact) output);
+        var children =
+            outputMetadataStore.getTreeArtifactValue((SpecialArtifact) output).getChildren();
         for (var file : children) {
           if (remoteOutputChecker.shouldDownloadOutput(file)) {
             outputsToDownload.add(file);

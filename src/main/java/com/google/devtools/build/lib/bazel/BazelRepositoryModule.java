@@ -76,8 +76,6 @@ import com.google.devtools.build.lib.bazel.repository.downloader.UrlRewriter;
 import com.google.devtools.build.lib.bazel.repository.downloader.UrlRewriterParseException;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
-import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryFunction;
-import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRule;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -163,6 +161,9 @@ public class BazelRepositoryModule extends BlazeModule {
   private List<String> allowedYankedVersions = ImmutableList.of();
   private boolean disableNativeRepoRules;
   private SingleExtensionEvalFunction singleExtensionEvalFunction;
+  private ModuleFileFunction moduleFileFunction;
+  private RepoSpecFunction repoSpecFunction;
+  private YankedVersionsFunction yankedVersionsFunction;
 
   private final VendorCommand vendorCommand = new VendorCommand(clientEnvironmentSupplier);
   private final RegistryFactoryImpl registryFactory =
@@ -195,7 +196,6 @@ public class BazelRepositoryModule extends BlazeModule {
     return ImmutableMap.<String, RepositoryFunction>builder()
         .put(LocalRepositoryRule.NAME, new LocalRepositoryFunction())
         .put(NewLocalRepositoryRule.NAME, new NewLocalRepositoryFunction())
-        .put(AndroidSdkRepositoryRule.NAME, new AndroidSdkRepositoryFunction())
         .put(LocalConfigPlatformRule.NAME, new LocalConfigPlatformFunction())
         .buildOrThrow();
   }
@@ -251,14 +251,17 @@ public class BazelRepositoryModule extends BlazeModule {
       builtinModules = ModuleFileFunction.getBuiltinModules(directories.getEmbeddedBinariesRoot());
     }
 
+    moduleFileFunction =
+        new ModuleFileFunction(
+            runtime.getRuleClassProvider().getBazelStarlarkEnvironment(),
+            directories.getWorkspace(),
+            builtinModules);
+    repoSpecFunction = new RepoSpecFunction();
+    yankedVersionsFunction = new YankedVersionsFunction();
+
     builder
         .addSkyFunction(SkyFunctions.REPOSITORY_DIRECTORY, repositoryDelegatorFunction)
-        .addSkyFunction(
-            SkyFunctions.MODULE_FILE,
-            new ModuleFileFunction(
-                runtime.getRuleClassProvider().getBazelStarlarkEnvironment(),
-                directories.getWorkspace(),
-                builtinModules))
+        .addSkyFunction(SkyFunctions.MODULE_FILE, moduleFileFunction)
         .addSkyFunction(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction())
         .addSkyFunction(
             SkyFunctions.BAZEL_LOCK_FILE, new BazelLockFileFunction(directories.getWorkspace()))
@@ -272,8 +275,8 @@ public class BazelRepositoryModule extends BlazeModule {
         .addSkyFunction(
             SkyFunctions.REGISTRY,
             new RegistryFunction(registryFactory, directories.getWorkspace()))
-        .addSkyFunction(SkyFunctions.REPO_SPEC, new RepoSpecFunction())
-        .addSkyFunction(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction())
+        .addSkyFunction(SkyFunctions.REPO_SPEC, repoSpecFunction)
+        .addSkyFunction(SkyFunctions.YANKED_VERSIONS, yankedVersionsFunction)
         .addSkyFunction(
             SkyFunctions.VENDOR_FILE,
             new VendorFileFunction(runtime.getRuleClassProvider().getBazelStarlarkEnvironment()))
@@ -308,8 +311,10 @@ public class BazelRepositoryModule extends BlazeModule {
     DownloadManager downloadManager =
         new DownloadManager(repositoryCache, env.getDownloaderDelegate(), env.getHttpDownloader());
     this.starlarkRepositoryFunction.setDownloadManager(downloadManager);
+    this.moduleFileFunction.setDownloadManager(downloadManager);
+    this.repoSpecFunction.setDownloadManager(downloadManager);
+    this.yankedVersionsFunction.setDownloadManager(downloadManager);
     this.vendorCommand.setDownloadManager(downloadManager);
-    this.registryFactory.setDownloadManager(downloadManager);
 
     clientEnvironmentSupplier.set(env.getRepoEnv());
     PackageOptions pkgOptions = env.getOptions().getOptions(PackageOptions.class);

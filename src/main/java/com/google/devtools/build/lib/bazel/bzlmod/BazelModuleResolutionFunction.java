@@ -349,7 +349,7 @@ public class BazelModuleResolutionFunction implements SkyFunction {
         // No yanked version information available for this module.
         continue;
       }
-      String yankedInfo = yankedVersionsValue.yankedVersions().get().get(key.getVersion());
+      String yankedInfo = yankedVersionsValue.yankedVersions().get().get(key.version());
       if (yankedInfo == null) {
         // The selected version is not yanked.
         continue;
@@ -384,7 +384,7 @@ public class BazelModuleResolutionFunction implements SkyFunction {
           entry.getKey(),
           InterimModule.toModule(
               entry.getValue(),
-              overrides.get(entry.getKey().getName()),
+              overrides.get(entry.getKey().name()),
               remoteRepoSpecs.get(entry.getKey())));
     }
     return finalDepGraph.buildOrThrow();

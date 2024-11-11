@@ -22,7 +22,6 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore.MissingFingerprintValueException;
-import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
 import javax.annotation.Nullable;
@@ -44,7 +43,8 @@ public final class FingerprintValueCache {
    * <p>Used to deduplicate fetches, or in some cases, where the object to be fetched was already
    * serialized, retrieves the already existing object.
    *
-   * <p>The keys can either be a {@link ByteString} or a {@link FingerprintWithDistinguisher}.
+   * <p>The keys can either be a {@link PackedFingerprint} or a {@link
+   * FingerprintWithDistinguisher}.
    *
    * <p>The values in this cache are always {@code Object} or {@code ListenableFuture<Object>}. We
    * avoid a common wrapper object both for memory efficiency and because our cache eviction policy
@@ -69,7 +69,7 @@ public final class FingerprintValueCache {
    * <ul>
    *   <li>key: the content value object, using reference equality
    *   <li>value: either a {@code ListenableFuture<PutOperation>} when the operation is in flight or
-   *       a {@link ByteString} fingerprint when it is complete
+   *       a {@link PackedFingerprint} fingerprint when it is complete
    * </ul>
    *
    * <p>{@code ListenableFuture<PutOperation>} contains two distinct asynchronous operations.
@@ -132,7 +132,7 @@ public final class FingerprintValueCache {
    *
    * <ul>
    *   <li>a {@code ListenableFuture<PutOperation>} if it is still in flight; or
-   *   <li>a {@link ByteString} fingerprint if writing to remote storage is successful.
+   *   <li>a {@link PackedFingerprint} fingerprint if writing to remote storage is successful.
    * </ul>
    *
    * <p>If a {@code ListenableFuture<PutOperation>} is returned, its expected {@link
@@ -185,7 +185,7 @@ public final class FingerprintValueCache {
    */
   @Nullable
   Object getOrClaimGetOperation(
-      ByteString fingerprint,
+      PackedFingerprint fingerprint,
       @Nullable Object distinguisher,
       ListenableFuture<Object> getOperation) {
     Object key = createKey(fingerprint, distinguisher);
@@ -244,7 +244,7 @@ public final class FingerprintValueCache {
 
   /** Unwraps the future and populates the reverse mapping when done. */
   private void unwrapValueWhenDone(
-      ByteString fingerprint, Object key, ListenableFuture<Object> getOperation) {
+      PackedFingerprint fingerprint, Object key, ListenableFuture<Object> getOperation) {
     Futures.addCallback(
         getOperation,
         new FutureCallback<Object>() {
@@ -265,7 +265,7 @@ public final class FingerprintValueCache {
         directExecutor());
   }
 
-  private static Object createKey(ByteString fingerprint, @Nullable Object distinguisher) {
+  private static Object createKey(PackedFingerprint fingerprint, @Nullable Object distinguisher) {
     if (distinguisher == null) {
       return fingerprint;
     }
@@ -289,12 +289,12 @@ public final class FingerprintValueCache {
   @AutoValue
   abstract static class FingerprintWithDistinguisher {
     /** The primary key for a {@link #deserializationCache} entry. */
-    abstract ByteString fingerprint();
+    abstract PackedFingerprint fingerprint();
 
     /** A secondary key, sometimes needed to resolve ambiguity. */
     abstract Object distinguisher();
 
-    static FingerprintWithDistinguisher of(ByteString fingerprint, Object distinguisher) {
+    static FingerprintWithDistinguisher of(PackedFingerprint fingerprint, Object distinguisher) {
       return new AutoValue_FingerprintValueCache_FingerprintWithDistinguisher(
           fingerprint, distinguisher);
     }

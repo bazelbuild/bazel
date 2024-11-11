@@ -33,6 +33,7 @@ java_library(
         exclude = [
             "AbstractConfiguredTargetTest.java",
             "AbstractRunfilesSupportTest.java",
+            "AnalysisFailureInfoTest.java",
             "AnalysisUtilsTest.java",
             "CachingTest.java",
             "ConfiguredTargetTransitivePackagesTest.java",
@@ -42,7 +43,7 @@ java_library(
             "RuleConfiguredTargetTest.java",
             "RunfilesRepoMappingManifestTest.java",
             "SourceManifestActionTest.java",
-            "AnalysisFailureInfoTest.java",
+            "SymbolicMacroTest.java",
         ],
     ),
     deps = [
@@ -62,7 +63,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/custom_command_line",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/deterministic_writer",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/file_write_action_context",
-        "//src/main/java/com/google/devtools/build/lib/analysis:actions/launcher_file_write_action",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/lazy_write_paths_file_action",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/parameter_file_write_action",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/path_mappers",
@@ -116,6 +116,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_provider_map_impl",
         "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",
+        "//src/main/java/com/google/devtools/build/lib/analysis:visibility_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/analysis/stringtemplate",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
@@ -141,6 +142,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:workspace_status_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/config:platform_mapping_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:depsutils",
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:toolchain_context_key",
@@ -302,10 +304,10 @@ java_test(
     srcs = ["SourceManifestActionTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
@@ -359,6 +361,26 @@ java_test(
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "SymbolicMacroTest",
+    srcs = ["SymbolicMacroTest.java"],
+    shard_count = 12,
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis:test/analysis_failure",
+        "//src/main/java/com/google/devtools/build/lib/analysis:test/analysis_failure_info",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//third_party:error_prone_annotations",
+        "//third_party:guava",
+        "//third_party:jsr305",
+        "//third_party:junit4",
+        "//third_party:truth",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
     ],
 )
 
@@ -417,6 +439,7 @@ test_suite(
     name = "AllAnalysisTests",
     tests = [
         ":AbstractConfiguredTargetTest",
+        ":AnalysisFailureInfoTest",
         ":AnalysisTests",
         ":AnalysisUtilsTest",
         ":CachingTest",
@@ -426,5 +449,6 @@ test_suite(
         ":PackageGroupBuildViewTest",
         ":RuleConfiguredTargetTest",
         ":SourceManifestActionTest",
+        ":SymbolicMacroTest",
     ],
 )

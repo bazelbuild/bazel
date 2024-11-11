@@ -53,6 +53,7 @@ public class JavaOptions extends FragmentOptions {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           "If enabled, disallow legacy Java toolchain flags (--javabase, --host_javabase,"
               + " --java_toolchain, --host_java_toolchain) and require the use of --platforms"
@@ -305,6 +306,7 @@ public class JavaOptions extends FragmentOptions {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "Do not use.")
   public boolean runLocalJavaOptimizations;
 
@@ -415,9 +417,7 @@ public class JavaOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "Flag to help transition from allowing to disallowing runtime_deps on neverlink"
-              + " Java archives. The depot needs to be cleaned up to roll this out by default.")
+      help = "No-op, kept only for backwards compatibility")
   public boolean allowRuntimeDepsOnNeverLink;
 
   @Option(
@@ -425,6 +425,7 @@ public class JavaOptions extends FragmentOptions {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           "Flag to help transition away from adding test support libraries to the compile-time"
               + " deps of Java test rules.")
@@ -435,6 +436,7 @@ public class JavaOptions extends FragmentOptions {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "Whether to validate java_* sources.")
   public boolean runAndroidLint;
 
@@ -443,6 +445,7 @@ public class JavaOptions extends FragmentOptions {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "No-op, kept only for backwards compatibility")
   public boolean limitAndroidLintToAndroidCompatible;
 
@@ -474,8 +477,7 @@ public class JavaOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "Disables the resource_jars attribute; use java_import and deps or runtime_deps instead.")
+      help = "No-op, kept only for backwards compatibility")
   public boolean disallowResourceJars;
 
   @Option(
@@ -483,7 +485,8 @@ public class JavaOptions extends FragmentOptions {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "If enabled, header compilation actions support --java_classpath=bazel")
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "No-op, kept only for backwards compatibility")
   public boolean experimentalJavaHeaderInputPruning;
 
   @Option(
@@ -491,6 +494,7 @@ public class JavaOptions extends FragmentOptions {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "If enabled, turbine is used for all annotation processing")
   public boolean experimentalTurbineAnnotationProcessing;
 
@@ -568,6 +572,7 @@ public class JavaOptions extends FragmentOptions {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "Enable experimental jspecify integration.")
   public boolean experimentalEnableJspecify;
 
@@ -576,6 +581,7 @@ public class JavaOptions extends FragmentOptions {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "DO NOT USE")
   public boolean autoCreateDeployJarForJavaTests;
 }

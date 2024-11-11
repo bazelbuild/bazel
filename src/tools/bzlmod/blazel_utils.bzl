@@ -19,5 +19,4 @@ def get_canonical_repo_name(apparent_repo_name):
     if not apparent_repo_name.startswith("@"):
         apparent_repo_name = "@" + apparent_repo_name
 
-    # TODO: remove the `replace` part once we're building with 7.3.0
-    return Label(apparent_repo_name).workspace_name.replace("~", "+")
+    return Label(apparent_repo_name).workspace_name

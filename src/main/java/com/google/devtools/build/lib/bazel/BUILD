@@ -1,4 +1,4 @@
-load("@rules_java//java:defs.bzl", "java_library")
+load("@rules_java//java:defs.bzl", "java_binary", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
@@ -29,6 +29,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/authandtls",
         "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper",
         "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper:credential_module",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:extension_eval_impl",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:inspection_impl",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:registry",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution",
@@ -41,7 +42,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/cache",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/starlark",
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules/android",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
@@ -99,7 +99,6 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifact_expander",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis:build_info",
@@ -136,10 +135,12 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec:executor_builder",
         "//src/main/java/com/google/devtools/build/lib/exec:module_action_context_registry",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_log_context",
+        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/remote/options",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -200,6 +201,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/runtime/mobileinstall",
         "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_module",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skymeld_module",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:serialization_module",
         "//src/main/java/com/google/devtools/build/lib/standalone",
         "//src/main/java/com/google/devtools/build/lib/starlarkdebug/module",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_module",

@@ -86,6 +86,7 @@ public class ExternalPackageTest extends BuildViewTestCase {
         ")");
     FileSystemUtils.writeIsoLatin1(
         rootDirectory.getRelative("BUILD"),
+        "load('@rules_java//java:defs.bzl', 'java_library')",
         "config_setting(",
         "    name = 'setting',",
         "    values = {'define': 'foo=bar'},",

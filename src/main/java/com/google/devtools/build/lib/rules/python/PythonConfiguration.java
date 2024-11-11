@@ -52,6 +52,9 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
   // TODO(brandjon): Remove this once migration to Python toolchains is complete.
   private final boolean useToolchains;
 
+  /* Whether to include the build label in unstamped builds. */
+  private final boolean includeLabelInLinkstamp;
+
   private final boolean defaultToExplicitInitPy;
   private final boolean disablePy2;
   @Nullable private final Label nativeRulesAllowlist;
@@ -70,6 +73,7 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
     this.disablePy2 = pythonOptions.disablePy2;
     this.nativeRulesAllowlist = pythonOptions.nativeRulesAllowlist;
     this.disallowNativeRules = pythonOptions.disallowNativeRules;
+    this.includeLabelInLinkstamp = pythonOptions.includeLabelInPyBinariesLinkstamp;
   }
 
   @Override
@@ -198,5 +202,14 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
   @Nullable
   public Label getNativeRulesAllowlist() {
     return nativeRulesAllowlist;
+  }
+
+  /** Returns whether the build label is included in unstamped builds. */
+  @StarlarkMethod(
+      name = "include_label_in_linkstamp",
+      doc = "Whether the build label is included in unstamped builds.",
+      structField = true)
+  public boolean isIncludeLabelInLinkstamp() {
+    return includeLabelInLinkstamp;
   }
 }

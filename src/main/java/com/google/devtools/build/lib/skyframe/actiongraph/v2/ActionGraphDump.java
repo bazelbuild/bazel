@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.actiongraph.v2;
 
+import static com.google.devtools.build.lib.query2.aquery.AqueryUtils.getActionInputs;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -68,7 +70,7 @@ public class ActionGraphDump {
   @Nullable private final AqueryActionFilter actionFilters;
   private final boolean includeActionCmdLine;
   private final boolean includeArtifacts;
-  private final boolean includeSchedulingDependencies;
+  private final boolean includePrunedInputs;
   private final boolean includeParamFiles;
   private final boolean includeFileWriteContents;
   private final AqueryOutputHandler aqueryOutputHandler;
@@ -79,7 +81,7 @@ public class ActionGraphDump {
   public ActionGraphDump(
       boolean includeActionCmdLine,
       boolean includeArtifacts,
-      boolean includeSchedulingDependencies,
+      boolean includePrunedInputs,
       AqueryActionFilter actionFilters,
       boolean includeParamFiles,
       boolean includeFileWriteContents,
@@ -89,7 +91,7 @@ public class ActionGraphDump {
         /* actionGraphTargets= */ ImmutableList.of("..."),
         includeActionCmdLine,
         includeArtifacts,
-        includeSchedulingDependencies,
+        includePrunedInputs,
         actionFilters,
         includeParamFiles,
         includeFileWriteContents,
@@ -101,7 +103,7 @@ public class ActionGraphDump {
       List<String> actionGraphTargets,
       boolean includeActionCmdLine,
       boolean includeArtifacts,
-      boolean includeSchedulingDependencies,
+      boolean includePrunedInputs,
       AqueryActionFilter actionFilters,
       boolean includeParamFiles,
       boolean includeFileWriteContents,
@@ -110,7 +112,7 @@ public class ActionGraphDump {
     this.actionGraphTargets = ImmutableSet.copyOf(actionGraphTargets);
     this.includeActionCmdLine = includeActionCmdLine;
     this.includeArtifacts = includeArtifacts;
-    this.includeSchedulingDependencies = includeSchedulingDependencies;
+    this.includePrunedInputs = includePrunedInputs;
     this.actionFilters = actionFilters;
     this.includeParamFiles = includeParamFiles;
     this.includeFileWriteContents = includeFileWriteContents;
@@ -150,7 +152,8 @@ public class ActionGraphDump {
       getParamFileNameToContentMap().put(paramFileExecPath, fileContent);
     }
 
-    if (actionFilters != null && !AqueryUtils.matchesAqueryFilters(action, actionFilters)) {
+    if (actionFilters != null
+        && !AqueryUtils.matchesAqueryFilters(action, actionFilters, includePrunedInputs)) {
       return;
     }
 
@@ -217,7 +220,7 @@ public class ActionGraphDump {
     if (includeParamFiles) {
       // Assumption: if an Action takes a params file as an input, it will be used
       // to provide params to the command.
-      for (Artifact input : action.getInputs().toList()) {
+      for (Artifact input : getActionInputs(action, includePrunedInputs).toList()) {
         String inputFileExecPath = input.getExecPathString();
         if (getParamFileNameToContentMap().containsKey(inputFileExecPath)) {
           AnalysisProtosV2.ParamFile paramFile =
@@ -257,19 +260,13 @@ public class ActionGraphDump {
     }
 
     if (includeArtifacts) {
-      // Store inputs
-      NestedSet<Artifact> inputs = action.getInputs();
+      // Store inputs.
+      NestedSet<Artifact> inputs = getActionInputs(action, includePrunedInputs);
       if (!inputs.isEmpty()) {
         actionBuilder.addInputDepSetIds(knownNestedSets.dataToIdAndStreamOutputProto(inputs));
       }
 
-      NestedSet<Artifact> schedulingDependencies = action.getSchedulingDependencies();
-      if (includeSchedulingDependencies && !schedulingDependencies.isEmpty()) {
-        actionBuilder.addInputDepSetIds(
-            knownNestedSets.dataToIdAndStreamOutputProto(schedulingDependencies));
-      }
-
-      // store outputs
+      // Store outputs.
       for (Artifact artifact : action.getOutputs()) {
         actionBuilder.addOutputIds(knownArtifacts.dataToIdAndStreamOutputProto(artifact));
       }

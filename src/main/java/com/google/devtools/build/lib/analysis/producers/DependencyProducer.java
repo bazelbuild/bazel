@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.AnalysisRootCauseEvent;
 import com.google.devtools.build.lib.analysis.DependencyKind;
+import com.google.devtools.build.lib.analysis.DependencyKind.AttributeDependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyKind.ToolchainDependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolutionHelpers;
 import com.google.devtools.build.lib.analysis.DependencyResolutionHelpers.ExecutionPlatformResult;
@@ -159,19 +160,21 @@ final class DependencyProducer
             .attributes(parameters.attributeMap())
             .analysisData(parameters.starlarkTransitionProvider());
     ExecutionPlatformResult executionPlatformResult =
-        getExecutionPlatformLabel(kind, parameters.toolchainContexts(), parameters.aspects());
+        getExecutionPlatformLabel(
+            (AttributeDependencyKind) kind,
+            parameters.toolchainContexts(),
+            parameters.baseTargetToolchainContexts(),
+            parameters.aspects());
     switch (executionPlatformResult.kind()) {
-      case LABEL:
-        transitionData.executionPlatform(executionPlatformResult.label());
-        break;
-      case NULL_LABEL:
-        transitionData.executionPlatform(null);
-        break;
-      case SKIP:
+      case LABEL -> transitionData.executionPlatform(executionPlatformResult.label());
+      case NULL_LABEL -> transitionData.executionPlatform(null);
+      case SKIP -> {
         sink.acceptDependencyValues(index, EMPTY_OUTPUT);
         return DONE;
-      case ERROR:
+      }
+      case ERROR -> {
         return new ExecGroupErrorEmitter(executionPlatformResult.error());
+      }
     }
     ConfigurationTransition attributeTransition;
     try {
@@ -185,7 +188,6 @@ final class DependencyProducer
         configurationKey,
         attributeTransition,
         parameters.transitionCache(),
-        parameters.buildConfigurationKeyCache(),
         (TransitionApplier.ResultSink) this,
         parameters.eventHandler(),
         /* runAfter= */ this::processTransitionResult);
@@ -204,7 +206,7 @@ final class DependencyProducer
   }
 
   @Override
-  public void acceptTransitionError(OptionsParsingException e) {
+  public void acceptOptionsParsingError(OptionsParsingException e) {
     sink.acceptDependencyError(
         DependencyError.of(
             new OptionsParsingException(

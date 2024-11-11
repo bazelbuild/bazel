@@ -33,7 +33,7 @@ import java.util.List;
 import java.util.function.Predicate;
 
 /** Provides support for reading target patterns from a file or the command-line. */
-final class TargetPatternsHelper {
+public final class TargetPatternsHelper {
 
   private TargetPatternsHelper() {}
 
@@ -77,7 +77,7 @@ final class TargetPatternsHelper {
   }
 
   /** Thrown when target patterns couldn't be read. */
-  static class TargetPatternsHelperException extends Exception {
+  public static class TargetPatternsHelperException extends Exception {
     private final TargetPatterns.Code detailedCode;
 
     private TargetPatternsHelperException(String message, TargetPatterns.Code detailedCode) {
@@ -85,7 +85,7 @@ final class TargetPatternsHelper {
       this.detailedCode = detailedCode;
     }
 
-    FailureDetail getFailureDetail() {
+    public FailureDetail getFailureDetail() {
       return FailureDetail.newBuilder()
           .setMessage(getMessage())
           .setTargetPatterns(TargetPatterns.newBuilder().setCode(detailedCode))

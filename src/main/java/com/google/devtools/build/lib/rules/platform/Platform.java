@@ -31,6 +31,8 @@ import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Types;
 import java.util.List;
@@ -82,6 +84,15 @@ public class Platform implements RuleConfiguredTargetFactory {
             .map(target -> target.getProvider(ConfigMatchingProvider.class))
             .collect(toImmutableList());
     platformBuilder.addRequiredSettings(requiredSettings);
+
+    if (ruleContext.attributes().get("check_toolchain_types", Type.BOOLEAN)) {
+      List<Label> allowedToolchainTypes =
+          ruleContext.attributes().get("allowed_toolchain_types", BuildType.NODEP_LABEL_LIST);
+      platformBuilder.checkToolchainTypes(true);
+      platformBuilder.addAllowedToolchainTypes(allowedToolchainTypes);
+    } else {
+      platformBuilder.checkToolchainTypes(false);
+    }
 
     PlatformInfo platformInfo;
     try {

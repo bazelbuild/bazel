@@ -47,7 +47,7 @@ public class CppOptions extends FragmentOptions {
       } else if (!input.equals("no")) { // "no" is another special case that disables all modes.
         CompilationMode.Converter modeConverter = new CompilationMode.Converter();
         for (String mode : Splitter.on(',').split(input)) {
-          modes.add(modeConverter.convert(mode, /*conversionContext=*/ null));
+          modes.add(modeConverter.convert(mode, /* conversionContext= */ null));
         }
       }
       return modes.build().asList();
@@ -723,9 +723,7 @@ public class CppOptions extends FragmentOptions {
    * <p>We want to make sure this stays bound to the top-level configuration (as opposed to a
    * configuration that comes out of a transition). Otherwise we risk multiple exec configurations
    * writing to the same path and creating C++ action conflicts (C++ actions can not be shared
-   * across configurations: see {@link ActionAnalysisMetadata#isShareable}). {@link
-   * com.google.devtools.build.lib.rules.android.AndroidSplitTransition}, for example, changes
-   * {@link #libcTopLabel} to an Android-specific variant.
+   * across configurations: see {@link ActionAnalysisMetadata#isShareable}).
    *
    * <p>To accomplish this, we initialize this to a special value that means "I haven't been set
    * yet" and use {@link #getNormalized} to rewrite it to {@link #libcTopLabel} <b>only</b> from
@@ -964,6 +962,7 @@ public class CppOptions extends FragmentOptions {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "If true, coverage for clang will generate an LCOV report.")
   public boolean generateLlvmLcov;
 
@@ -976,9 +975,12 @@ public class CppOptions extends FragmentOptions {
       help = "If enabled, give distinguishing mnemonic to header processing actions")
   public boolean useCppCompileHeaderMnemonic;
 
+  // TODO: When moving this flag to the graveyard, also delete
+  // tools/cpp/osx_cc_wrapper.sh.tpl and make tools/cpp/linux_cc_wrapper.sh.tpl
+  // the generic wrapper for header parsing on all Unix platforms.
   @Option(
       name = "incompatible_macos_set_install_name",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
@@ -1007,6 +1009,7 @@ public class CppOptions extends FragmentOptions {
         OptionEffectTag.EXECUTION,
         OptionEffectTag.CHANGES_INPUTS
       },
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           "Whether to narrow inputs to C/C++ compilation by parsing #include lines from input"
               + " files. This can improve performance and incrementality by decreasing the size of"

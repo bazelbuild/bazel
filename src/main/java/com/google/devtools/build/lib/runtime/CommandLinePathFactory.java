@@ -127,7 +127,14 @@ public final class CommandLinePathFactory {
     String pathVariable = env.getOrDefault("PATH", "");
     if (!Strings.isNullOrEmpty(pathVariable)) {
       for (String lookupPath : PATH_SPLITTER.split(pathVariable)) {
-        Path maybePath = fileSystem.getPath(lookupPath).getRelative(path);
+        PathFragment lookupPathFragment = PathFragment.create(lookupPath);
+        if (lookupPathFragment.isEmpty() || !lookupPathFragment.isAbsolute()) {
+          // Ignore empty or relative path components. These are uncommon and may be confusing if
+          // bazel is running in a different directory than the user's current directory.
+          continue;
+        }
+
+        Path maybePath = fileSystem.getPath(lookupPathFragment).getRelative(path);
         if (maybePath.exists(Symlinks.FOLLOW)
             && maybePath.isFile(Symlinks.FOLLOW)
             && maybePath.isExecutable()) {

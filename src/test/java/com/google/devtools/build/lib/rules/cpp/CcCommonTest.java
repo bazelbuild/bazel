@@ -375,9 +375,7 @@ public class CcCommonTest extends BuildViewTestCase {
         .setupCcToolchainConfig(
             mockToolsConfig,
             CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_START_END_LIB));
-    useConfiguration(
-        // Prevent Android from trying to setup ARM crosstool by forcing it on system cpu.
-        "--fat_apk_cpu=k8", "--start_end_lib");
+    useConfiguration("--start_end_lib");
     scratch.file(
         "test/BUILD",
         """
@@ -742,17 +740,16 @@ public class CcCommonTest extends BuildViewTestCase {
   public void testCcLibraryExternalIncludesNotWarned() throws Exception {
     eventCollector.clear();
     FileSystemUtils.appendIsoLatin1(
-        scratch.resolve("WORKSPACE"),
-        "local_repository(",
-        "    name = 'pkg',",
-        "    path = '/foo')");
+        scratch.resolve("MODULE.bazel"),
+        "bazel_dep(name = 'pkg')",
+        "local_path_override(module_name = 'pkg', path = '/foo')");
     getSkyframeExecutor()
         .invalidateFilesUnderPathForTesting(
             reporter,
-            new ModifiedFileSet.Builder().modify(PathFragment.create("WORKSPACE")).build(),
+            new ModifiedFileSet.Builder().modify(PathFragment.create("MODULE.bazel")).build(),
             Root.fromPath(rootDirectory));
     scratch.resolve("/foo/bar").createDirectoryAndParents();
-    scratch.file("/foo/WORKSPACE", "workspace(name = 'pkg')");
+    scratch.file("/foo/MODULE.bazel", "module(name = 'pkg')");
     scratch.file(
         "/foo/bar/BUILD",
         """
@@ -762,7 +759,7 @@ public class CcCommonTest extends BuildViewTestCase {
             includes = ["./"],
         )
         """);
-    Label label = Label.parseCanonical("@pkg//bar:lib");
+    Label label = Label.parseCanonical("@@pkg+//bar:lib");
     ConfiguredTarget target = view.getConfiguredTargetForTesting(reporter, label, targetConfig);
     assertThat(view.hasErrors(target)).isFalse();
     assertNoEvents();

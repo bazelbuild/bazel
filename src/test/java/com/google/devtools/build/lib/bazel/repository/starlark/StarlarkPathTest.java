@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import net.starlark.java.eval.Starlark;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -50,5 +51,11 @@ public class StarlarkPathTest {
     assertThat(ev.eval("wd.get_child('foo')")).isEqualTo(makePath(wd.getChild("foo")));
     assertThat(ev.eval("wd.get_child('a','b/c','/d/')"))
         .isEqualTo(makePath(wd.getRelative("a/b/c/d")));
+  }
+
+  @Test
+  public void testStarlarkPathStringifications() throws Exception {
+    assertThat(ev.eval("repr(wd)")).isEqualTo(Starlark.repr(wd.toString()));
+    assertThat(ev.eval("str(wd)")).isEqualTo(wd.toString());
   }
 }

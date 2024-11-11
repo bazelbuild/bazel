@@ -18,79 +18,21 @@ import static java.util.stream.Collectors.joining;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import javax.annotation.Nullable;
 
 /** Utility methods for use by Java-related parts of Bazel. */
 // TODO(bazel-team): Merge with JavaUtil.
 public abstract class JavaHelper {
 
   private JavaHelper() {}
-
-  /**
-   * Returns the java launcher implementation for the given target, if any. A null return value
-   * means "use the JDK launcher".
-   */
-  @Nullable
-  public static TransitiveInfoCollection launcherForTarget(
-      JavaSemantics semantics, RuleContext ruleContext) {
-    String launcher = filterLauncherForTarget(ruleContext);
-    return (launcher == null) ? null : ruleContext.getPrerequisite(launcher);
-  }
-
-  /**
-   * Returns the java launcher artifact for the given target, if any. A null return value means "use
-   * the JDK launcher".
-   */
-  @Nullable
-  public static Artifact launcherArtifactForTarget(
-      JavaSemantics semantics, RuleContext ruleContext) {
-    String launcher = filterLauncherForTarget(ruleContext);
-    return (launcher == null) ? null : ruleContext.getPrerequisiteArtifact(launcher);
-  }
-
-  /**
-   * Control structure abstraction for safely extracting a prereq from the launcher attribute or
-   * {@code --java_launcher} flag.
-   *
-   * <p>Returns {@code null} if either {@code create_executable} or {@code use_launcher} are
-   * disabled.
-   */
-  @Nullable
-  private static String filterLauncherForTarget(RuleContext ruleContext) {
-    // create_executable=0 disables the launcher
-    if (ruleContext.getRule().isAttrDefined("create_executable", Type.BOOLEAN)
-        && !ruleContext.attributes().get("create_executable", Type.BOOLEAN)) {
-      return null;
-    }
-    // use_launcher=False disables the launcher
-    if (ruleContext.getRule().isAttrDefined("use_launcher", Type.BOOLEAN)
-        && !ruleContext.attributes().get("use_launcher", Type.BOOLEAN)) {
-      return null;
-    }
-    // BUILD rule "launcher" attribute
-    if (ruleContext.getRule().isAttrDefined("launcher", BuildType.LABEL)
-        && ruleContext.attributes().get("launcher", BuildType.LABEL) != null) {
-      return "launcher";
-    }
-    // Blaze flag --java_launcher
-    JavaConfiguration javaConfig = ruleContext.getFragment(JavaConfiguration.class);
-    if (ruleContext.getRule().isAttrDefined(":java_launcher", BuildType.LABEL)
-        && javaConfig.getJavaLauncherLabel() != null) {
-      return ":java_launcher";
-    }
-    return null;
-  }
 
   /**
    * Flattens a set of javacopts and tokenizes the contents.

@@ -363,8 +363,8 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
 
   private Optional<ImmutableSet<String>> getRootModuleDirectDevDeps(Set<String> allRepos)
       throws EvalException {
-    switch (getUseAllRepos()) {
-      case NO:
+    return switch (getUseAllRepos()) {
+      case NO -> {
         if (getExplicitRootModuleDirectDevDeps() != null) {
           Set<String> invalidRepos =
               Sets.difference(getExplicitRootModuleDirectDevDeps(), allRepos);
@@ -375,13 +375,11 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
                 String.join(", ", invalidRepos));
           }
         }
-        return Optional.ofNullable(getExplicitRootModuleDirectDevDeps());
-      case REGULAR:
-        return Optional.of(ImmutableSet.of());
-      case DEV:
-        return Optional.of(ImmutableSet.copyOf(allRepos));
-    }
-    throw new IllegalStateException("not reached");
+        yield Optional.ofNullable(getExplicitRootModuleDirectDevDeps());
+      }
+      case REGULAR -> Optional.of(ImmutableSet.of());
+      case DEV -> Optional.of(ImmutableSet.copyOf(allRepos));
+    };
   }
 
   enum UseAllRepos {

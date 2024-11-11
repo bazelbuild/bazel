@@ -93,11 +93,11 @@ public interface ModuleArg {
             Code.INVALID_ARGUMENTS);
       }
       if (mod == null || (!includeUnused && !mod.isUsed())) {
-        ImmutableSet<ModuleKey> existingKeys = modulesIndex.get(moduleKey().getName());
+        ImmutableSet<ModuleKey> existingKeys = modulesIndex.get(moduleKey().name());
         if (existingKeys == null) {
           throw new InvalidArgumentException(
               String.format(
-                  "Module %s does not exist in the dependency graph.", moduleKey().getName()),
+                  "Module %s does not exist in the dependency graph.", moduleKey().name()),
               Code.INVALID_ARGUMENTS);
         }
         // If --include_unused is not true, unused modules will be considered non-existent and an
@@ -379,7 +379,7 @@ public interface ModuleArg {
         }
         try {
           Version version = versionStr.equals("_") ? Version.EMPTY : Version.parse(versionStr);
-          return SpecificVersionOfModule.create(ModuleKey.create(moduleName, version));
+          return SpecificVersionOfModule.create(new ModuleKey(moduleName, version));
         } catch (ParseException e) {
           throw new OptionsParsingException("invalid argument '" + input + "': " + e.getMessage());
         }

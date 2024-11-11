@@ -52,20 +52,6 @@ public abstract class JavaPluginInfo extends NativeInfo
       new AutoValue_JavaPluginInfo(
           ImmutableList.of(), JavaPluginData.empty(), JavaPluginData.empty());
 
-  public static ImmutableList<JavaPluginInfo> wrapSequence(Sequence<?> sequence, String what)
-      throws EvalException {
-    ImmutableList.Builder<JavaPluginInfo> builder = ImmutableList.builder();
-    Sequence<Info> plugins = Sequence.cast(sequence, Info.class, what);
-    for (int i = 0; i < plugins.size(); i++) {
-      try {
-        builder.add(PROVIDER.wrap(plugins.get(i)));
-      } catch (RuleErrorException e) {
-        throw Starlark.errorf("at index %s of %s, %s", i, what, e.getMessage());
-      }
-    }
-    return builder.build();
-  }
-
   @Override
   public Provider getProvider() {
     return PROVIDER;
@@ -198,16 +184,6 @@ public abstract class JavaPluginInfo extends NativeInfo
     public boolean isEmpty() {
       return processorClasses().isEmpty() && processorClasspath().isEmpty() && data().isEmpty();
     }
-
-    private JavaPluginData disableAnnotationProcessing() {
-      return JavaPluginData.create(
-          /* processorClasses= */ NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
-          // Preserve the processor path, since it may contain Error Prone plugins which
-          // will be service-loaded by JavaBuilder.
-          processorClasspath(),
-          // Preserve data, which may be used by Error Prone plugins.
-          data());
-    }
   }
 
   public static JavaPluginInfo mergeWithoutJavaOutputs(JavaPluginInfo a, JavaPluginInfo b) {
@@ -263,15 +239,6 @@ public abstract class JavaPluginInfo extends NativeInfo
   public boolean hasProcessors() {
     // apiGeneratingPlugins is a subset of plugins, so checking if plugins is empty is sufficient
     return !plugins().processorClasses().isEmpty();
-  }
-
-  /**
-   * Returns a copy of this {@code JavaPluginInfo} with annotation processors disabled. Does not
-   * remove the processor path or data, which may be needed for Error Prone plugins.
-   */
-  public JavaPluginInfo disableAnnotationProcessing() {
-    return JavaPluginInfo.create(
-        plugins().disableAnnotationProcessing(), /* generatesApi= */ false, getJavaOutputs());
   }
 
   /**

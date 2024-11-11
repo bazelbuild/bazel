@@ -14,11 +14,11 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.ENABLE_WORKSPACE;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
@@ -102,7 +102,7 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
             Suppliers.ofInstance(new TimestampGranularityMonitor(BlazeClock.instance())),
             SyscallCache.NO_CACHE,
             externalFilesHelper));
-    skyFunctions.put(FileValue.FILE, new FileFunction(pkgLocator, directories));
+    skyFunctions.put(SkyFunctions.FILE, new FileFunction(pkgLocator, directories));
     skyFunctions.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
     skyFunctions.put(
         SkyFunctions.DIRECTORY_LISTING_STATE,
@@ -145,7 +145,10 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
     RecordingDifferencer differencer = new SequencedRecordingDifferencer();
     evaluator = new InMemoryMemoizingEvaluator(skyFunctions, differencer);
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
-    PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
+    // Local repository lookup doesn't work with Bzlmod
+    // https://github.com/bazelbuild/bazel/issues/22208
+    PrecomputedValue.STARLARK_SEMANTICS.set(
+        differencer, StarlarkSemantics.DEFAULT.toBuilder().setBool(ENABLE_WORKSPACE, true).build());
     RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(
         differencer, Optional.empty());
   }

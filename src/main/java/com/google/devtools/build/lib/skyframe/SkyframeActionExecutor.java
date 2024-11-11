@@ -38,12 +38,12 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
 import com.google.devtools.build.lib.actions.ActionLookupData;
-import com.google.devtools.build.lib.actions.ActionMiddlemanEvent;
 import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
 import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper.CreateOutputDirectoryException;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -63,7 +63,7 @@ import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
@@ -77,7 +77,6 @@ import com.google.devtools.build.lib.actions.SpawnResult.MetadataLog;
 import com.google.devtools.build.lib.actions.StoppedScanningActionEvent;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.UserExecException;
-import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.bugreport.BugReport;
@@ -141,8 +140,38 @@ public final class SkyframeActionExecutor {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  private static final MetadataInjector THROWING_METADATA_INJECTOR_FOR_ACTIONFS =
-      new MetadataInjector() {
+  private static final OutputMetadataStore THROWING_OUTPUT_METADATA_STORE_FOR_ACTIONFS =
+      new OutputMetadataStore() {
+        @Override
+        public FileArtifactValue getOutputMetadata(ActionInput output) {
+          throw new IllegalStateException();
+        }
+
+        @Override
+        public void setDigestForVirtualArtifact(Artifact artifact, byte[] digest) {
+          throw new IllegalStateException();
+        }
+
+        @Override
+        public TreeArtifactValue getTreeArtifactValue(SpecialArtifact treeArtifact) {
+          throw new IllegalStateException();
+        }
+
+        @Override
+        public void markOmitted(Artifact output) {
+          throw new IllegalStateException();
+        }
+
+        @Override
+        public boolean artifactOmitted(Artifact artifact) {
+          throw new IllegalStateException();
+        }
+
+        @Override
+        public void resetOutputs(Iterable<? extends Artifact> outputs) {
+          throw new IllegalStateException();
+        }
+
         @Override
         public void injectFile(Artifact output, FileArtifactValue metadata) {
           throw new IllegalStateException(
@@ -395,10 +424,10 @@ public final class SkyframeActionExecutor {
       Action action,
       FileSystem actionFileSystem,
       Environment env,
-      MetadataInjector metadataInjector,
-      ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesets) {
+      OutputMetadataStore outputMetadataStore,
+      ImmutableMap<Artifact, FilesetOutputTree> filesets) {
     outputService.updateActionFileSystemContext(
-        action, actionFileSystem, env, metadataInjector, filesets);
+        action, actionFileSystem, env, outputMetadataStore, filesets);
   }
 
   void executionOver() {
@@ -497,8 +526,8 @@ public final class SkyframeActionExecutor {
       long actionStartTime,
       ActionLookupData actionLookupData,
       ArtifactExpander artifactExpander,
-      ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets,
-      ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets,
+      ImmutableMap<Artifact, FilesetOutputTree> expandedFilesets,
+      ImmutableMap<Artifact, FilesetOutputTree> topLevelFilesets,
       @Nullable FileSystem actionFileSystem,
       @Nullable Object skyframeDepsResult,
       ActionPostprocessing postprocessing,
@@ -592,7 +621,7 @@ public final class SkyframeActionExecutor {
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
       ArtifactExpander artifactExpander,
-      ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets,
+      ImmutableMap<Artifact, FilesetOutputTree> topLevelFilesets,
       @Nullable FileSystem actionFileSystem,
       @Nullable Object skyframeDepsResult,
       ActionLookupData actionLookupData) {
@@ -647,6 +676,7 @@ public final class SkyframeActionExecutor {
       Action action,
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
+      ArtifactPathResolver artifactPathResolver,
       ArtifactExpander artifactExpander,
       long actionStartTime,
       List<Artifact> resolvedCacheArtifacts,
@@ -687,13 +717,6 @@ public final class SkyframeActionExecutor {
 
       if (token == null) {
         boolean eventPosted = false;
-        // Notify BlazeRuntimeStatistics about the action middleman 'execution'.
-        if (action.getActionType().isMiddleman()) {
-          eventHandler.post(
-              new ActionMiddlemanEvent(
-                  action, inputMetadataProvider, actionStartTime, BlazeClock.nanoTime()));
-          eventPosted = true;
-        }
 
         if (action instanceof NotifyOnActionCacheHit notify) {
           ExtendedEventHandler contextEventHandler = selectEventHandler(action);
@@ -707,6 +730,11 @@ public final class SkyframeActionExecutor {
                 @Override
                 public Path getExecRoot() {
                   return executorEngine.getExecRoot();
+                }
+
+                @Override
+                public ArtifactPathResolver getPathResolver() {
+                  return artifactPathResolver;
                 }
 
                 @Override
@@ -737,7 +765,7 @@ public final class SkyframeActionExecutor {
             checkOutputs(
                 action,
                 outputMetadataStore,
-                /* filesetOutputSymlinksForMetrics= */ null,
+                /* filesetOutputForMetrics= */ null,
                 /* isActionCacheHitForMetrics= */ true);
         if (!eventPosted) {
           eventHandler.post(
@@ -859,7 +887,7 @@ public final class SkyframeActionExecutor {
           action,
           actionFileSystem,
           env,
-          THROWING_METADATA_INJECTOR_FOR_ACTIONFS,
+          THROWING_OUTPUT_METADATA_STORE_FOR_ACTIONFS,
           /* filesets= */ ImmutableMap.of());
       // Note that when not using ActionFS, a global setup of the parent directories of the OutErr
       // streams is sufficient.
@@ -1020,7 +1048,8 @@ public final class SkyframeActionExecutor {
               action.getMnemonic(),
               action.describe(),
               action.getPrimaryOutput().getExecPathString(),
-              getOwnerLabelAsString(action))) {
+              getOwnerLabelAsString(action),
+              getOwnerConfigurationAsString(action))) {
         String message = action.getProgressMessage();
         if (message != null) {
           reporter.startTask(null, prependExecPhaseStats(message));
@@ -1087,6 +1116,14 @@ public final class SkyframeActionExecutor {
         return "";
       }
       return ownerLabel.getCanonicalForm();
+    }
+
+    private String getOwnerConfigurationAsString(Action action) {
+      ActionOwner owner = action.getOwner();
+      if (owner == null) {
+        return "";
+      }
+      return owner.getConfigurationChecksum();
     }
 
     private void notifyActionCompletion(
@@ -1220,7 +1257,7 @@ public final class SkyframeActionExecutor {
         if (!checkOutputs(
             action,
             outputMetadataStore,
-            actionExecutionContext.getOutputSymlinks(),
+            actionExecutionContext.getFilesetOutput(),
             /* isActionCacheHitForMetrics= */ false)) {
           throw toActionExecutionException(
               "not all outputs were created or valid",
@@ -1275,15 +1312,12 @@ public final class SkyframeActionExecutor {
       }
 
       FileArtifactValue primaryOutputMetadata;
-      if (outputMetadataStore.artifactOmitted(primaryOutput)) {
-        primaryOutputMetadata = FileArtifactValue.OMITTED_FILE_MARKER;
-      } else {
-        try {
-          primaryOutputMetadata = outputMetadataStore.getOutputMetadata(primaryOutput);
-        } catch (IOException e) {
-          throw new IllegalStateException("Metadata already obtained for " + primaryOutput, e);
-        }
+      try {
+        primaryOutputMetadata = outputMetadataStore.getOutputMetadata(primaryOutput);
+      } catch (IOException e) {
+        throw new IllegalStateException("Metadata already obtained for " + primaryOutput, e);
       }
+
       reportActionExecution(
           eventHandler,
           primaryOutputPath,
@@ -1294,17 +1328,16 @@ public final class SkyframeActionExecutor {
           fileOutErr,
           ErrorTiming.NO_ERROR);
 
-      ImmutableList<FilesetOutputSymlink> outputSymlinks =
-          actionExecutionContext.getOutputSymlinks();
+      FilesetOutputTree filesetOutput = actionExecutionContext.getFilesetOutput();
       checkState(
-          outputSymlinks.isEmpty() || action instanceof SkyframeAwareAction,
+          filesetOutput.isEmpty() || action instanceof SkyframeAwareAction,
           "Unexpected to find outputSymlinks set in an action which is not a SkyframeAwareAction."
               + "\nAction: %s"
               + "\nSymlinks: %s",
           action,
-          outputSymlinks);
+          filesetOutput);
       return ActionExecutionValue.createFromOutputMetadataStore(
-          this.outputMetadataStore, outputSymlinks, action);
+          this.outputMetadataStore, filesetOutput, action);
     }
 
     /**
@@ -1527,15 +1560,15 @@ public final class SkyframeActionExecutor {
   private boolean checkOutputs(
       Action action,
       OutputMetadataStore outputMetadataStore,
-      @Nullable ImmutableList<FilesetOutputSymlink> filesetOutputSymlinksForMetrics,
+      @Nullable FilesetOutputTree filesetOutputForMetrics,
       boolean isActionCacheHitForMetrics)
       throws InterruptedException {
     boolean success = true;
     try (SilentCloseable c = profiler.profile(ProfilerTask.INFO, "checkOutputs")) {
       for (Artifact output : action.getOutputs()) {
         // getOutputMetadata() has the side effect of adding the artifact to the cache if it's not
-        // there already (e.g., due to a previous call to MetadataInjector.injectFile()), therefore
-        // we only call it if we know the artifact is not omitted.
+        // there already (e.g., due to a previous call to OutputMetadataStore.injectFile()),
+        // therefore we only call it if we know the artifact is not omitted.
         if (!outputMetadataStore.artifactOmitted(output)) {
           try {
             FileArtifactValue metadata = outputMetadataStore.getOutputMetadata(output);
@@ -1548,7 +1581,7 @@ public final class SkyframeActionExecutor {
                 output,
                 metadata,
                 outputMetadataStore,
-                filesetOutputSymlinksForMetrics,
+                filesetOutputForMetrics,
                 isActionCacheHitForMetrics,
                 action);
           } catch (IOException e) {
@@ -1577,7 +1610,7 @@ public final class SkyframeActionExecutor {
       Artifact output,
       FileArtifactValue metadata,
       OutputMetadataStore outputMetadataStore,
-      @Nullable ImmutableList<FilesetOutputSymlink> filesetOutputSymlinks,
+      @Nullable FilesetOutputTree filesetOutput,
       boolean isActionCacheHit,
       Action actionForDebugging)
       throws IOException, InterruptedException {
@@ -1589,8 +1622,8 @@ public final class SkyframeActionExecutor {
                   output, outputMetadataStore, actionForDebugging)));
       return;
     }
-    if (output.isFileset() && filesetOutputSymlinks != null) {
-      outputArtifactsSeen.accumulate(filesetOutputSymlinks);
+    if (output.isFileset() && filesetOutput != null) {
+      outputArtifactsSeen.accumulate(filesetOutput);
     } else if (!output.isTreeArtifact()) {
       outputArtifactsSeen.accumulate(metadata);
       if (isActionCacheHit) {

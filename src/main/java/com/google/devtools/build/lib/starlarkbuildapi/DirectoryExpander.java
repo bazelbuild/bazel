@@ -19,6 +19,7 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkValue;
 
 /** A class that can be used to expand directories at execution time. */
@@ -44,5 +45,5 @@ public interface DirectoryExpander extends StarlarkValue {
             named = false,
             doc = "The directory or file to expand."),
       })
-  ImmutableList<FileApi> list(FileApi artifact);
+  ImmutableList<FileApi> list(FileApi artifact) throws EvalException;
 }

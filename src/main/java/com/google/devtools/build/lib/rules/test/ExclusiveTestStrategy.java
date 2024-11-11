@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.test;
 
+import com.google.common.collect.ImmutableMultimap;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -52,8 +53,12 @@ public class ExclusiveTestStrategy implements TestActionContext {
 
   @Override
   public TestResult newCachedTestResult(
-      Path execRoot, TestRunnerAction action, TestResultData cached) throws IOException {
-    return parent.newCachedTestResult(execRoot, action, cached);
+      Path execRoot,
+      TestRunnerAction action,
+      TestResultData cachedResult,
+      ImmutableMultimap<String, Path> testOutputs)
+      throws IOException {
+    return parent.newCachedTestResult(execRoot, action, cachedResult, testOutputs);
   }
 
   @Override

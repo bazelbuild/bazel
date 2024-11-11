@@ -42,7 +42,7 @@ public final class JsonWorkerMessageProcessor implements WorkRequestHandler.Work
     reader.setLenient(true);
     this.jsonWriter = jsonWriter;
     jsonPrinter =
-        JsonFormat.printer().omittingInsignificantWhitespace().includingDefaultValueFields();
+        JsonFormat.printer().omittingInsignificantWhitespace().alwaysPrintFieldsWithNoPresence();
   }
 
   private static ImmutableList<String> readArguments(JsonReader reader) throws IOException {

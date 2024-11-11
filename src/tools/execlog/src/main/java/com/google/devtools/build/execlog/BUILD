@@ -18,9 +18,12 @@ java_library(
         "ParserOptions.java",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/exec:spawn_log_context_utils",
+        "//src/main/java/com/google/devtools/build/lib/util/io:io-proto",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:spawn_java_proto",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 

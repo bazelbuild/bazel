@@ -46,9 +46,9 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
             ],
         )
 
-        sh_library(
+        filegroup(
             name = "lib",
-            deps = [":files"],
+            srcs = [":files"],
         )
         """);
   }
@@ -79,9 +79,9 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
             actual = "//files:files",
         )
 
-        sh_library(
+        filegroup(
             name = "lib",
-            deps = [":files_alias"],
+            srcs = [":files_alias"],
         )
         """);
 
@@ -110,9 +110,9 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
             actual = ":files_alias",
         )
 
-        sh_library(
+        filegroup(
             name = "lib",
-            deps = [":files_alias_alias"],
+            srcs = [":files_alias_alias"],
         )
         """);
 
@@ -141,9 +141,9 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
             ],
         )
 
-        sh_library(
+        filegroup(
             name = "lib",
-            deps = [":files"],
+            srcs = [":files"],
         )
         """);
 
@@ -165,13 +165,12 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
             cmd = "never executed",
         )
 
-        sh_library(
+        filegroup(
             name = "lib",
             srcs = [":foo"],
         )
         """);
-
-    FileSystemUtils.appendIsoLatin1(scratch.resolve("WORKSPACE"), "workspace(name='workspace')");
+    scratch.overwriteFile("MODULE.bazel", "module(name='workspace')");
     // Invalidate WORKSPACE to pick up the name.
     getSkyframeExecutor()
         .invalidateFilesUnderPathForTesting(
@@ -206,11 +205,11 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void otherPathExternalExpansionLegacyExternalRunfiles() throws Exception {
-    scratch.file(
-        "expansion/BUILD",
-        "sh_library(name='lib', srcs=['@r//p:foo'])");
-    FileSystemUtils.appendIsoLatin1(
-        scratch.resolve("WORKSPACE"), "local_repository(name='r', path='/r')");
+    scratch.file("expansion/BUILD", "filegroup(name='lib', srcs=['@r//p:foo'])");
+    scratch.appendFile(
+        "MODULE.bazel",
+        "bazel_dep(name = 'r')",
+        "local_path_override(module_name = 'r', path = '/r')");
 
     // Invalidate WORKSPACE so @r can be resolved.
     getSkyframeExecutor()
@@ -218,30 +217,32 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
             reporter, ModifiedFileSet.EVERYTHING_MODIFIED, Root.fromPath(rootDirectory));
 
     FileSystemUtils.createDirectoryAndParents(scratch.resolve("/foo/bar"));
-    scratch.file("/r/WORKSPACE", "workspace(name = 'r')");
+    scratch.file("/r/MODULE.bazel", "module(name = 'r')");
     scratch.file("/r/p/BUILD", "genrule(name='foo', outs=['foo.txt'], cmd='never executed')");
 
     useConfiguration("--legacy_external_runfiles");
     LocationExpander expander = makeExpander("//expansion:lib");
     assertThat(expander.expand("foo $(execpath @r//p:foo) bar"))
-        .matches("foo .*-out/.*/external/r/p/foo\\.txt bar");
+        .matches("foo .*-out/.*/external/r\\+/p/foo\\.txt bar");
     assertThat(expander.expand("foo $(execpaths @r//p:foo) bar"))
-        .matches("foo .*-out/.*/external/r/p/foo\\.txt bar");
+        .matches("foo .*-out/.*/external/r\\+/p/foo\\.txt bar");
     assertThat(expander.expand("foo $(rootpath @r//p:foo) bar"))
-        .matches("foo external/r/p/foo.txt bar");
+        .matches("foo external/r\\+/p/foo.txt bar");
     assertThat(expander.expand("foo $(rootpaths @r//p:foo) bar"))
-        .matches("foo external/r/p/foo.txt bar");
+        .matches("foo external/r\\+/p/foo.txt bar");
     assertThat(expander.expand("foo $(rlocationpath @r//p:foo) bar"))
-        .isEqualTo("foo r/p/foo.txt bar");
+        .isEqualTo("foo r+/p/foo.txt bar");
     assertThat(expander.expand("foo $(rlocationpath @r//p:foo) bar"))
-        .isEqualTo("foo r/p/foo.txt bar");
+        .isEqualTo("foo r+/p/foo.txt bar");
   }
 
   @Test
   public void otherPathExternalExpansionNoLegacyExternalRunfiles() throws Exception {
-    scratch.file("expansion/BUILD", "sh_library(name='lib', srcs=['@r//p:foo'])");
-    FileSystemUtils.appendIsoLatin1(
-        scratch.resolve("WORKSPACE"), "local_repository(name='r', path='/r')");
+    scratch.file("expansion/BUILD", "filegroup(name='lib', srcs=['@r//p:foo'])");
+    scratch.appendFile(
+        "MODULE.bazel",
+        "bazel_dep(name = 'r')",
+        "local_path_override(module_name = 'r', path = '/r')");
 
     // Invalidate WORKSPACE so @r can be resolved.
     getSkyframeExecutor()
@@ -249,29 +250,33 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
             reporter, ModifiedFileSet.EVERYTHING_MODIFIED, Root.fromPath(rootDirectory));
 
     FileSystemUtils.createDirectoryAndParents(scratch.resolve("/foo/bar"));
-    scratch.file("/r/WORKSPACE", "workspace(name = 'r')");
+    scratch.file("/r/MODULE.bazel", "module(name = 'r')");
     scratch.file("/r/p/BUILD", "genrule(name='foo', outs=['foo.txt'], cmd='never executed')");
 
     useConfiguration("--nolegacy_external_runfiles");
     LocationExpander expander = makeExpander("//expansion:lib");
     assertThat(expander.expand("foo $(execpath @r//p:foo) bar"))
-        .matches("foo .*-out/.*/external/r/p/foo\\.txt bar");
+        .matches("foo .*-out/.*/external/r\\+/p/foo\\.txt bar");
     assertThat(expander.expand("foo $(execpaths @r//p:foo) bar"))
-        .matches("foo .*-out/.*/external/r/p/foo\\.txt bar");
-    assertThat(expander.expand("foo $(rootpath @r//p:foo) bar")).matches("foo ../r/p/foo.txt bar");
-    assertThat(expander.expand("foo $(rootpaths @r//p:foo) bar")).matches("foo ../r/p/foo.txt bar");
+        .matches("foo .*-out/.*/external/r\\+/p/foo\\.txt bar");
+    assertThat(expander.expand("foo $(rootpath @r//p:foo) bar"))
+        .matches("foo ../r\\+/p/foo.txt bar");
+    assertThat(expander.expand("foo $(rootpaths @r//p:foo) bar"))
+        .matches("foo ../r\\+/p/foo.txt bar");
     assertThat(expander.expand("foo $(rlocationpath @r//p:foo) bar"))
-        .isEqualTo("foo r/p/foo.txt bar");
+        .isEqualTo("foo r+/p/foo.txt bar");
     assertThat(expander.expand("foo $(rlocationpath @r//p:foo) bar"))
-        .isEqualTo("foo r/p/foo.txt bar");
+        .isEqualTo("foo r+/p/foo.txt bar");
   }
 
   @Test
   public void otherPathExternalExpansionNoLegacyExternalRunfilesSiblingRepositoryLayout()
       throws Exception {
-    scratch.file("expansion/BUILD", "sh_library(name='lib', srcs=['@r//p:foo'])");
-    FileSystemUtils.appendIsoLatin1(
-        scratch.resolve("WORKSPACE"), "local_repository(name='r', path='/r')");
+    scratch.file("expansion/BUILD", "filegroup(name='lib', srcs=['@r//p:foo'])");
+    scratch.appendFile(
+        "MODULE.bazel",
+        "bazel_dep(name = 'r')",
+        "local_path_override(module_name = 'r', path = '/r')");
 
     // Invalidate WORKSPACE so @r can be resolved.
     getSkyframeExecutor()
@@ -279,22 +284,24 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
             reporter, ModifiedFileSet.EVERYTHING_MODIFIED, Root.fromPath(rootDirectory));
 
     FileSystemUtils.createDirectoryAndParents(scratch.resolve("/foo/bar"));
-    scratch.file("/r/WORKSPACE", "workspace(name = 'r')");
+    scratch.file("/r/MODULE.bazel", "module(name = 'r')");
     scratch.file("/r/p/BUILD", "genrule(name='foo', outs=['foo.txt'], cmd='never executed')");
 
     useConfiguration("--nolegacy_external_runfiles");
     setBuildLanguageOptions("--experimental_sibling_repository_layout");
     LocationExpander expander = makeExpander("//expansion:lib");
     assertThat(expander.expand("foo $(execpath @r//p:foo) bar"))
-        .matches("foo .*-out/r/.*/p/foo\\.txt bar");
+        .matches("foo .*-out/r\\+/.*/p/foo\\.txt bar");
     assertThat(expander.expand("foo $(execpaths @r//p:foo) bar"))
-        .matches("foo .*-out/r/.*/p/foo\\.txt bar");
-    assertThat(expander.expand("foo $(rootpath @r//p:foo) bar")).matches("foo ../r/p/foo.txt bar");
-    assertThat(expander.expand("foo $(rootpaths @r//p:foo) bar")).matches("foo ../r/p/foo.txt bar");
+        .matches("foo .*-out/r\\+/.*/p/foo\\.txt bar");
+    assertThat(expander.expand("foo $(rootpath @r//p:foo) bar"))
+        .matches("foo ../r\\+/p/foo.txt bar");
+    assertThat(expander.expand("foo $(rootpaths @r//p:foo) bar"))
+        .matches("foo ../r\\+/p/foo.txt bar");
     assertThat(expander.expand("foo $(rlocationpath @r//p:foo) bar"))
-        .isEqualTo("foo r/p/foo.txt bar");
+        .isEqualTo("foo r+/p/foo.txt bar");
     assertThat(expander.expand("foo $(rlocationpaths @r//p:foo) bar"))
-        .isEqualTo("foo r/p/foo.txt bar");
+        .isEqualTo("foo r+/p/foo.txt bar");
   }
 
   @Test
@@ -311,7 +318,7 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
             cmd = "never executed",
         )
 
-        sh_library(
+        filegroup(
             name = "lib",
             srcs = [":foo"],
         )

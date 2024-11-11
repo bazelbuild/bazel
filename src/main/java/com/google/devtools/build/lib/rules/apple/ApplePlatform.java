@@ -110,33 +110,6 @@ public enum ApplePlatform implements ApplePlatformApi {
   }
 
   /**
-   * Returns the target platform as it would be represented in a target triple.
-   *
-   * <p>Note that the target platform for Catalyst is "ios", despite it being represented here as
-   * its own value.
-   */
-  public String getTargetPlatform() {
-    if (platformType.equals(PlatformType.CATALYST)) {
-      return PlatformType.IOS;
-    }
-    return platformType;
-  }
-
-  /**
-   * Returns the platform's target environment as it would be represented in a target triple.
-   *
-   * <p>Note that the target environment corresponds to the target platform (as returned by {@link
-   * #getTargetPlatform()}, so "macabi" is an environment of iOS, not a separate platform as it is
-   * represented in this enumerated type.
-   */
-  public String getTargetEnvironment() {
-    if (platformType.equals(PlatformType.CATALYST)) {
-      return "macabi";
-    }
-    return isDevice ? "device" : "simulator";
-  }
-
-  /**
    * Returns the name of the "platform" as it appears in the plist when it appears in all-lowercase.
    */
   public String getLowerCaseNameInPlist() {

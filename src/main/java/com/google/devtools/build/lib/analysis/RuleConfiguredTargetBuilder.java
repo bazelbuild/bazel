@@ -281,22 +281,17 @@ public final class RuleConfiguredTargetBuilder {
             .isAttributeValueExplicitlySpecified(allowlistChecker.attributeSetTrigger())) {
       return;
     }
-    boolean passing = false;
-    switch (allowlistChecker.locationCheck()) {
-      case INSTANCE:
-        passing = Allowlist.isAvailable(ruleContext, allowlistChecker.allowlistAttr());
-        break;
-      case DEFINITION:
-        passing =
-            Allowlist.isAvailableBasedOnRuleLocation(ruleContext, allowlistChecker.allowlistAttr());
-        break;
-      case INSTANCE_OR_DEFINITION:
-        passing =
-            Allowlist.isAvailable(ruleContext, allowlistChecker.allowlistAttr())
-                || Allowlist.isAvailableBasedOnRuleLocation(
-                    ruleContext, allowlistChecker.allowlistAttr());
-        break;
-    }
+    boolean passing =
+        switch (allowlistChecker.locationCheck()) {
+          case INSTANCE -> Allowlist.isAvailable(ruleContext, allowlistChecker.allowlistAttr());
+          case DEFINITION ->
+              Allowlist.isAvailableBasedOnRuleLocation(
+                  ruleContext, allowlistChecker.allowlistAttr());
+          case INSTANCE_OR_DEFINITION ->
+              Allowlist.isAvailable(ruleContext, allowlistChecker.allowlistAttr())
+                  || Allowlist.isAvailableBasedOnRuleLocation(
+                      ruleContext, allowlistChecker.allowlistAttr());
+        };
     if (!passing) {
       ruleContext.ruleError(allowlistChecker.errorMessage());
     }

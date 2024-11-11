@@ -31,6 +31,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
+        "//src/main/java/com/google/devtools/build/lib/util:hash_codes",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
@@ -38,8 +39,8 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:netty",
-        "//third_party/protobuf:protobuf_java",
-        "//third_party/protobuf:protobuf_java_util",
+        "@protobuf//:protobuf_java",
+        "@protobuf//:protobuf_java_util",
     ],
 )
 

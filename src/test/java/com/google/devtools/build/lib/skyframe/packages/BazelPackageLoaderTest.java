@@ -17,18 +17,21 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertNoEvents;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import java.io.IOException;
 import java.util.concurrent.ForkJoinPool;
+import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -56,16 +59,7 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
     mockEmbeddedTools(installBase);
     fetchExternalRepo(RepositoryName.create("bazel_tools"));
 
-    createWorkspaceFile("");
-  }
-
-  private static String getDefaultWorkspaceContent() {
-    // Skip the WORKSPACE suffix to avoid loading rules_java
-    return "# __SKIP_WORKSPACE_SUFFIX__";
-  }
-
-  private void createWorkspaceFile(String content) throws Exception {
-    file("WORKSPACE", getDefaultWorkspaceContent(), content);
+    file("MODULE.bazel", "");
   }
 
   private static void mockEmbeddedTools(Path embeddedBinaries) throws IOException {
@@ -127,7 +121,7 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
 
   private void fetchExternalRepo(RepositoryName externalRepo) {
     try (PackageLoader pkgLoaderForFetch =
-        newPackageLoaderBuilder(root).setFetchForTesting().useDefaultStarlarkSemantics().build()) {
+        newPackageLoaderBuilder(root).setFetchForTesting().build()) {
       // Load the package '' in this repo. This package may or may not exist; we don't care since we
       // merely need the side-effects of the 'fetch' work.
       PackageIdentifier pkgId = PackageIdentifier.create(externalRepo, PathFragment.create(""));
@@ -141,7 +135,12 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
 
   @Override
   protected BazelPackageLoader.Builder newPackageLoaderBuilder(Root workspaceDir) {
-    return BazelPackageLoader.builder(workspaceDir, installBase, outputBase);
+    return (BazelPackageLoader.Builder)
+        BazelPackageLoader.builder(workspaceDir, installBase, outputBase)
+            .setStarlarkSemantics(
+                StarlarkSemantics.builder()
+                    .set(BuildLanguageOptions.INCOMPATIBLE_AUTOLOAD_EXTERNALLY, ImmutableList.of())
+                    .build());
   }
 
   @Override
@@ -151,10 +150,13 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
 
   @Test
   public void simpleLocalRepositoryPackage() throws Exception {
-    createWorkspaceFile("local_repository(name = 'r', path='r')");
-    file("r/WORKSPACE", "workspace(name = 'r')");
-    file("r/good/BUILD", "sh_library(name = 'good')");
-    RepositoryName rRepoName = RepositoryName.create("r");
+    file(
+        "MODULE.bazel",
+        "bazel_dep(name = 'r')",
+        "local_path_override(module_name = 'r', path='r')");
+    file("r/MODULE.bazel", "module(name = 'r')");
+    file("r/good/BUILD", "filegroup(name = 'good')");
+    RepositoryName rRepoName = RepositoryName.create("r+");
     fetchExternalRepo(rRepoName);
 
     PackageIdentifier pkgId = PackageIdentifier.create(rRepoName, PathFragment.create("good"));
@@ -165,32 +167,7 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
       repoMapping = pkgLoader.makeLoadingContext().getRepositoryMapping();
     }
     assertThat(goodPkg.containsErrors()).isFalse();
-    assertThat(goodPkg.getTarget("good").getAssociatedRule().getRuleClass())
-        .isEqualTo("sh_library");
-    assertThat(repoMapping.entries().get("r")).isEqualTo(rRepoName);
-    assertNoEvents(handler.getEvents());
-  }
-
-  @Test
-  public void newLocalRepository() throws Exception {
-    createWorkspaceFile(
-        "new_local_repository(name = 'r', path = '/r', "
-            + "build_file_content = 'sh_library(name = \"good\")')");
-    fs.getPath("/r").createDirectoryAndParents();
-    RepositoryName rRepoName = RepositoryName.create("r");
-    fetchExternalRepo(rRepoName);
-
-    PackageIdentifier pkgId =
-        PackageIdentifier.create(rRepoName, PathFragment.create(""));
-    Package goodPkg;
-    RepositoryMapping repoMapping;
-    try (PackageLoader pkgLoader = newPackageLoader()) {
-      goodPkg = pkgLoader.loadPackage(pkgId);
-      repoMapping = pkgLoader.makeLoadingContext().getRepositoryMapping();
-    }
-    assertThat(goodPkg.containsErrors()).isFalse();
-    assertThat(goodPkg.getTarget("good").getAssociatedRule().getRuleClass())
-        .isEqualTo("sh_library");
+    assertThat(goodPkg.getTarget("good").getAssociatedRule().getRuleClass()).isEqualTo("filegroup");
     assertThat(repoMapping.entries().get("r")).isEqualTo(rRepoName);
     assertNoEvents(handler.getEvents());
   }

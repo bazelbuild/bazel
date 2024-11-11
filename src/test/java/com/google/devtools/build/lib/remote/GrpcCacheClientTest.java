@@ -24,7 +24,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.verify;
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionCacheGrpc.ActionCacheImplBase;
@@ -53,6 +52,7 @@ import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.common.eventbus.EventBus;
@@ -70,7 +70,6 @@ import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
 import com.google.devtools.build.lib.remote.Retrier.Backoff;
@@ -283,34 +282,11 @@ public class GrpcCacheClientTest {
   }
 
   @Test
-  public void testSpawnCheckingCacheEvent() throws Exception {
-    GrpcCacheClient client = newClient();
-
-    serviceRegistry.addService(
-        new ActionCacheImplBase() {
-          @Override
-          public void getActionResult(
-              GetActionResultRequest request, StreamObserver<ActionResult> responseObserver) {
-            responseObserver.onError(Status.NOT_FOUND.asRuntimeException());
-          }
-        });
-
-    var unused =
-        getFromFuture(
-            client.downloadActionResult(
-                context,
-                DIGEST_UTIL.asActionKey(DIGEST_UTIL.computeAsUtf8("key")),
-                /* inlineOutErr= */ false));
-
-    verify(context.getSpawnExecutionContext())
-        .report(SpawnCheckingCacheEvent.create("remote-cache"));
-  }
-
-  @Test
   public void testVirtualActionInputSupport() throws Exception {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     RemoteExecutionCache client =
-        new RemoteExecutionCache(newClient(options), options, DIGEST_UTIL);
+        new RemoteExecutionCache(
+            newClient(options), /* diskCacheClient= */ null, options, DIGEST_UTIL);
     PathFragment execPath = PathFragment.create("my/exec/path");
     VirtualActionInput virtualActionInput =
         ActionsTestUtil.createVirtualActionInput(execPath, "hello");
@@ -501,7 +477,8 @@ public class GrpcCacheClientTest {
     // arrange
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     GrpcCacheClient client = newClient(remoteOptions);
-    RemoteCache remoteCache = new RemoteCache(client, remoteOptions, DIGEST_UTIL);
+    CombinedCache combinedCache =
+        new CombinedCache(client, /* diskCacheClient= */ null, remoteOptions, DIGEST_UTIL);
 
     Digest fooDigest = DIGEST_UTIL.computeAsUtf8("foo-contents");
     Digest barDigest = DIGEST_UTIL.computeAsUtf8("bar-contents");
@@ -510,9 +487,10 @@ public class GrpcCacheClientTest {
         new FakeImmutableCacheByteStreamImpl(fooDigest, "foo-contents", barDigest, "bar-contents"));
 
     // act
-    getFromFuture(remoteCache.downloadFile(context, execRoot.getRelative("a/foo"), fooDigest));
-    getFromFuture(remoteCache.downloadFile(context, execRoot.getRelative("b/empty"), emptyDigest));
-    getFromFuture(remoteCache.downloadFile(context, execRoot.getRelative("a/bar"), barDigest));
+    getFromFuture(combinedCache.downloadFile(context, execRoot.getRelative("a/foo"), fooDigest));
+    getFromFuture(
+        combinedCache.downloadFile(context, execRoot.getRelative("b/empty"), emptyDigest));
+    getFromFuture(combinedCache.downloadFile(context, execRoot.getRelative("a/bar"), barDigest));
 
     // assert
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/foo"))).isEqualTo(fooDigest);
@@ -524,7 +502,8 @@ public class GrpcCacheClientTest {
   public void testUploadDirectory() throws Exception {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     GrpcCacheClient client = newClient(remoteOptions);
-    RemoteCache remoteCache = new RemoteCache(client, remoteOptions, DIGEST_UTIL);
+    CombinedCache combinedCache =
+        new CombinedCache(client, /* diskCacheClient= */ null, remoteOptions, DIGEST_UTIL);
 
     final Digest fooDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("a/foo"), "xyz");
@@ -571,7 +550,7 @@ public class GrpcCacheClientTest {
           }
         });
 
-    ActionResult result = uploadDirectory(remoteCache, ImmutableList.<Path>of(fooFile, barDir));
+    ActionResult result = uploadDirectory(combinedCache, ImmutableList.<Path>of(fooFile, barDir));
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     // output files will have permission 0555 after action execution regardless the current
     // permission
@@ -592,7 +571,8 @@ public class GrpcCacheClientTest {
   public void testUploadDirectoryEmpty() throws Exception {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     GrpcCacheClient client = newClient(remoteOptions);
-    RemoteCache remoteCache = new RemoteCache(client, remoteOptions, DIGEST_UTIL);
+    CombinedCache combinedCache =
+        new CombinedCache(client, /* diskCacheClient= */ null, remoteOptions, DIGEST_UTIL);
 
     final Digest barDigest =
         fakeFileCache.createScratchInputDirectory(
@@ -621,7 +601,7 @@ public class GrpcCacheClientTest {
           }
         });
 
-    ActionResult result = uploadDirectory(remoteCache, ImmutableList.<Path>of(barDir));
+    ActionResult result = uploadDirectory(combinedCache, ImmutableList.<Path>of(barDir));
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     expectedResult
         .addOutputDirectoriesBuilder()
@@ -635,7 +615,8 @@ public class GrpcCacheClientTest {
   public void testUploadDirectoryNested() throws Exception {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     GrpcCacheClient client = newClient(remoteOptions);
-    RemoteCache remoteCache = new RemoteCache(client, remoteOptions, DIGEST_UTIL);
+    CombinedCache combinedCache =
+        new CombinedCache(client, /* diskCacheClient= */ null, remoteOptions, DIGEST_UTIL);
 
     final Digest wobbleDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("bar/test/wobble"), "xyz");
@@ -692,7 +673,7 @@ public class GrpcCacheClientTest {
           }
         });
 
-    ActionResult result = uploadDirectory(remoteCache, ImmutableList.of(barDir));
+    ActionResult result = uploadDirectory(combinedCache, ImmutableList.of(barDir));
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     expectedResult
         .addOutputDirectoriesBuilder()
@@ -703,7 +684,7 @@ public class GrpcCacheClientTest {
   }
 
   private ActionResult upload(
-      RemoteCache remoteCache,
+      CombinedCache combinedCache,
       ActionKey actionKey,
       Action action,
       Command command,
@@ -711,9 +692,9 @@ public class GrpcCacheClientTest {
       throws Exception {
     UploadManifest uploadManifest =
         UploadManifest.create(
-            remoteCache.options,
-            remoteCache.getCacheCapabilities(),
-            remoteCache.digestUtil,
+            combinedCache.options,
+            combinedCache.getRemoteCacheCapabilities(),
+            combinedCache.digestUtil,
             remotePathResolver,
             actionKey,
             action,
@@ -723,15 +704,15 @@ public class GrpcCacheClientTest {
             /* exitCode= */ 0,
             /* startTime= */ null,
             /* wallTimeInMs= */ 0);
-    return uploadManifest.upload(context, remoteCache, NullEventHandler.INSTANCE);
+    return uploadManifest.upload(context, combinedCache, NullEventHandler.INSTANCE);
   }
 
-  private ActionResult uploadDirectory(RemoteCache remoteCache, List<Path> outputs)
+  private ActionResult uploadDirectory(CombinedCache combinedCache, List<Path> outputs)
       throws Exception {
     Action action = Action.getDefaultInstance();
     ActionKey actionKey = DIGEST_UTIL.computeActionKey(action);
     Command cmd = Command.getDefaultInstance();
-    return upload(remoteCache, actionKey, action, cmd, outputs);
+    return upload(combinedCache, actionKey, action, cmd, outputs);
   }
 
   @Test
@@ -798,18 +779,22 @@ public class GrpcCacheClientTest {
     serviceRegistry.addService(ServerInterceptors.intercept(actionCache, interceptor));
 
     GrpcCacheClient client = newClient(remoteOptions);
-    RemoteCache remoteCache = new RemoteCache(client, remoteOptions, DIGEST_UTIL);
-    remoteCache.downloadActionResult(
-        context,
-        DIGEST_UTIL.asActionKey(DIGEST_UTIL.computeAsUtf8("key")),
-        /* inlineOutErr= */ false);
+    CombinedCache combinedCache =
+        new CombinedCache(client, /* diskCacheClient= */ null, remoteOptions, DIGEST_UTIL);
+    var unused =
+        combinedCache.downloadActionResult(
+            context,
+            DIGEST_UTIL.asActionKey(DIGEST_UTIL.computeAsUtf8("key")),
+            /* inlineOutErr= */ false,
+            /* inlineOutputFiles= */ ImmutableSet.of());
   }
 
   @Test
   public void testUpload() throws Exception {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     GrpcCacheClient client = newClient(remoteOptions);
-    RemoteCache remoteCache = new RemoteCache(client, remoteOptions, DIGEST_UTIL);
+    CombinedCache combinedCache =
+        new CombinedCache(client, /* diskCacheClient= */ null, remoteOptions, DIGEST_UTIL);
 
     final Digest fooDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("a/foo"), "xyz");
@@ -857,7 +842,7 @@ public class GrpcCacheClientTest {
 
     ActionResult result =
         upload(
-            remoteCache,
+            combinedCache,
             DIGEST_UTIL.asActionKey(actionDigest),
             action,
             command,
@@ -885,7 +870,8 @@ public class GrpcCacheClientTest {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     remoteOptions.maxOutboundMessageSize = 80; // Enough for one digest, but not two.
     GrpcCacheClient client = newClient(remoteOptions);
-    RemoteCache remoteCache = new RemoteCache(client, remoteOptions, DIGEST_UTIL);
+    CombinedCache combinedCache =
+        new CombinedCache(client, /* diskCacheClient= */ null, remoteOptions, DIGEST_UTIL);
 
     final Digest fooDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("a/foo"), "xyz");
@@ -924,7 +910,7 @@ public class GrpcCacheClientTest {
 
     ActionResult result =
         upload(
-            remoteCache,
+            combinedCache,
             DIGEST_UTIL.asActionKey(actionDigest),
             action,
             command,
@@ -950,7 +936,8 @@ public class GrpcCacheClientTest {
   public void testUploadCacheMissesWithRetries() throws Exception {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     GrpcCacheClient client = newClient(remoteOptions);
-    RemoteCache remoteCache = new RemoteCache(client, remoteOptions, DIGEST_UTIL);
+    CombinedCache combinedCache =
+        new CombinedCache(client, /* diskCacheClient= */ null, remoteOptions, DIGEST_UTIL);
 
     final Digest fooDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("a/foo"), "xyz");
@@ -1088,12 +1075,13 @@ public class GrpcCacheClientTest {
                 }))
         .when(mockByteStreamImpl)
         .queryWriteStatus(any(), any());
-    upload(
-        remoteCache,
-        actionKey,
-        Action.getDefaultInstance(),
-        Command.getDefaultInstance(),
-        ImmutableList.<Path>of(fooFile, barFile, bazFile, foobarFile));
+    var unused =
+        upload(
+            combinedCache,
+            actionKey,
+            Action.getDefaultInstance(),
+            Command.getDefaultInstance(),
+            ImmutableList.<Path>of(fooFile, barFile, bazFile, foobarFile));
     // 4 times for the errors, 4 times for the successful uploads.
     Mockito.verify(mockByteStreamImpl, Mockito.times(8))
         .write(ArgumentMatchers.<StreamObserver<WriteResponse>>any());
@@ -1116,7 +1104,11 @@ public class GrpcCacheClientTest {
         });
     assertThat(
             getFromFuture(
-                client.downloadActionResult(context, actionKey, /* inlineOutErr= */ false)))
+                client.downloadActionResult(
+                    context,
+                    actionKey,
+                    /* inlineOutErr= */ false,
+                    /* inlineOutputFiles= */ ImmutableSet.of())))
         .isNull();
   }
 
@@ -1242,6 +1234,7 @@ public class GrpcCacheClientTest {
       throws IOException, InterruptedException {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     options.cacheCompression = true;
+    options.cacheCompressionThreshold = 0;
     final GrpcCacheClient client = newClient(options);
     final Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
     ByteString chunk1 = ByteString.copyFrom(Zstd.compress("abc".getBytes(UTF_8)));

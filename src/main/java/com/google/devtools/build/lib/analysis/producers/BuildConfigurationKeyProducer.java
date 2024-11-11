@@ -15,13 +15,13 @@ package com.google.devtools.build.lib.analysis.producers;
 
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.platform.PlatformValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
-import com.google.devtools.build.lib.skyframe.config.NativeAndStarlarkFlags;
+import com.google.devtools.build.lib.skyframe.config.ParsedFlagsValue;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingException;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingValue;
 import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.state.StateMachine;
 import com.google.devtools.build.skyframe.state.StateMachine.ValueOrExceptionSink;
@@ -31,22 +31,34 @@ import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
- * Creates the needed {@link BuildConfigurationKey} instances for a single {@link BuildOptions}.
+ * Creates the needed {@link BuildConfigurationKey} instance for a single {@link BuildOptions},
+ * including merging in any platform-based flags or a platform mapping.
  *
- * <p>This includes merging in platform mappings and platform-based flags.
+ * <p>Platform-based flags and platform mappings are mutually exclusive: only one will be applied if
+ * they are present. Trying to mix and match would be possible but confusing, especially if they try
+ * to change the same flag. The logic is:
  *
- * @param <C> The type of the context variable that the producer will pass via the {@link #Sink} so
- *     that consumers can identify which options are which.
+ * <ul>
+ *   <li>If {@link PlatformOptions#platforms} specifies a target platform, look up the {@link
+ *       PlatformValue}. If it specifies {@linkplain PlatformValue#parsedFlags flags}, use {@link
+ *       ParsedFlagsValue#mergeWith}.
+ *   <li>If {@link PlatformOptions#platforms} does not specify a target platform, or if the target
+ *       platform does not specify {@linkplain PlatformValue#parsedFlags flags}, look up the {@link
+ *       PlatformMappingValue} and use {@link PlatformMappingValue#map}.
+ * </ul>
+ *
+ * @param <C> The type of the context variable that the producer will pass via the {@link
+ *     ResultSink} so that consumers can identify which options are which.
  */
-public class BuildConfigurationKeyProducer<C>
+public final class BuildConfigurationKeyProducer<C>
     implements StateMachine,
         ValueOrExceptionSink<PlatformMappingException>,
-        PlatformFlagsProducer.ResultSink {
+        PlatformProducer.ResultSink {
 
   /** Interface for clients to accept results of this computation. */
   public interface ResultSink<C> {
 
-    void acceptTransitionError(OptionsParsingException e);
+    void acceptOptionsParsingError(OptionsParsingException e);
 
     void acceptPlatformMappingError(PlatformMappingException e);
 
@@ -58,54 +70,70 @@ public class BuildConfigurationKeyProducer<C>
   // -------------------- Input --------------------
   private final ResultSink<C> sink;
   private final StateMachine runAfter;
-  private final BuildConfigurationKeyCache cache;
   private final C context;
   private final BuildOptions options;
 
   // -------------------- Internal State --------------------
+  private PlatformValue targetPlatformValue;
   private PlatformMappingValue platformMappingValue;
-  private NativeAndStarlarkFlags platformFlags;
 
-  public BuildConfigurationKeyProducer(
-      ResultSink<C> sink,
-      StateMachine runAfter,
-      BuildConfigurationKeyCache cache,
-      C context,
-      BuildOptions options) {
+  BuildConfigurationKeyProducer(
+      ResultSink<C> sink, StateMachine runAfter, C context, BuildOptions options) {
     this.sink = sink;
     this.runAfter = runAfter;
-    this.cache = cache;
     this.context = context;
     this.options = options;
   }
 
   @Override
   public StateMachine step(Tasks tasks) throws InterruptedException {
-    BuildConfigurationKey result = cache.get(this.options);
-    if (result != null) {
-      this.sink.acceptTransitionedConfiguration(this.context, result);
-      return this.runAfter;
-    }
-
     // Short-circuit if there are no platform options.
-    if (!this.options.contains(PlatformOptions.class)) {
-      return finishConfigurationKeyProcessing(BuildConfigurationKey.create(this.options));
+    var platformOptions = options.get(PlatformOptions.class);
+    if (platformOptions == null) {
+      return finishConfigurationKeyProcessing(BuildConfigurationKey.create(options));
     }
 
-    // Find platform mappings and platform-based flags for merging.
-    findPlatformMapping(tasks);
-    findTargetPlatformInfo(tasks);
-    return this::applyFlags;
+    List<Label> targetPlatforms = platformOptions.platforms;
+    if (targetPlatforms.size() == 1) {
+      // TODO: https://github.com/bazelbuild/bazel/issues/19807 - We define this flag to only use
+      //  the first value and ignore any subsequent ones. Remove this check as part of cleanup.
+      tasks.enqueue(
+          new PlatformProducer(targetPlatforms.getFirst(), this, this::checkTargetPlatformFlags));
+      return runAfter;
+    } else {
+      return mergeFromPlatformMapping(tasks, platformOptions);
+    }
   }
 
-  private void findPlatformMapping(Tasks tasks) {
-    if (!options.contains(PlatformOptions.class)) {
-      return;
+  private StateMachine checkTargetPlatformFlags(Tasks tasks) {
+    if (targetPlatformValue == null) {
+      return DONE; // Error.
     }
-    PathFragment platformMappingsPath = options.get(PlatformOptions.class).platformMappings;
-    PlatformMappingValue.Key platformMappingValueKey =
-        PlatformMappingValue.Key.create(platformMappingsPath);
-    tasks.lookUp(platformMappingValueKey, PlatformMappingException.class, this);
+    Optional<ParsedFlagsValue> parsedFlags = targetPlatformValue.parsedFlags();
+    if (parsedFlags.isPresent()) {
+      BuildConfigurationKey updatedKey = parsedFlags.get().mergeWith(options);
+      return finishConfigurationKeyProcessing(updatedKey);
+    } else {
+      return mergeFromPlatformMapping(tasks, options.get(PlatformOptions.class));
+    }
+  }
+
+  private StateMachine mergeFromPlatformMapping(Tasks tasks, PlatformOptions platformOptions) {
+    tasks.lookUp(platformOptions.platformMappingKey, PlatformMappingException.class, this);
+    return this::applyPlatformMapping;
+  }
+
+  private StateMachine applyPlatformMapping(Tasks tasks) {
+    if (platformMappingValue == null) {
+      return DONE; // Error.
+    }
+    try {
+      BuildConfigurationKey updatedKey = platformMappingValue.map(options);
+      return finishConfigurationKeyProcessing(updatedKey);
+    } catch (OptionsParsingException e) {
+      sink.acceptOptionsParsingError(e);
+      return runAfter;
+    }
   }
 
   // Handles results from the PlatformMappingValueKey lookup.
@@ -121,97 +149,28 @@ public class BuildConfigurationKeyProducer<C>
 
     if (exception != null) {
       sink.acceptPlatformMappingError(exception);
-    } else if (value instanceof PlatformMappingValue platformMappingValue) {
-      this.platformMappingValue = platformMappingValue;
+    } else {
+      this.platformMappingValue = (PlatformMappingValue) value;
     }
-  }
-
-  private void findTargetPlatformInfo(Tasks tasks) {
-    Optional<Label> targetPlatform = getTargetPlatform(this.options);
-    if (targetPlatform.isEmpty()) {
-      return;
-    }
-
-    tasks.enqueue(new PlatformFlagsProducer(targetPlatform.get(), this, StateMachine.DONE));
-  }
-
-  private static Optional<Label> getTargetPlatform(BuildOptions options) {
-    if (!options.contains(PlatformOptions.class)) {
-      return Optional.empty();
-    }
-
-    List<Label> targetPlatforms = options.get(PlatformOptions.class).platforms;
-    if (targetPlatforms != null && targetPlatforms.size() == 1) {
-      // TODO: https://github.com/bazelbuild/bazel/issues/19807 - We define this flag to only use
-      // the first value and ignore any subsequent ones. Remove this check as part of cleanup.
-      return Optional.of(targetPlatforms.get(0));
-    }
-
-    return Optional.empty();
-  }
-
-  // Handle results from PlatformFlagsProducer.
-  @Override
-  public void acceptPlatformFlags(Label unused, NativeAndStarlarkFlags flags) {
-    this.platformFlags = flags;
   }
 
   @Override
-  public void acceptPlatformFlagsError(Label unusedPlatform, InvalidPlatformException error) {
-    // The requested platform is in the exception already, so it's fine to drop.
+  public void acceptPlatformValue(PlatformValue value) {
+    this.targetPlatformValue = value;
+  }
+
+  @Override
+  public void acceptPlatformInfoError(InvalidPlatformException error) {
     sink.acceptPlatformFlagsError(error);
   }
 
   @Override
-  public void acceptPlatformFlagsError(Label unusedPlatform, OptionsParsingException error) {
-    // TODO: blaze-configurability-team - See if this should include the requested platform in the
-    // error message.
-    sink.acceptTransitionError(error);
-  }
-
-  private StateMachine applyFlags(Tasks tasks) {
-    if (this.platformMappingValue == null) {
-      return DONE; // There was an error.
-    }
-
-    try {
-      BuildConfigurationKey newConfigurationKey = applyFlagsForOptions(options);
-      return finishConfigurationKeyProcessing(newConfigurationKey);
-    } catch (OptionsParsingException e) {
-      sink.acceptTransitionError(e);
-      return runAfter;
-    }
+  public void acceptOptionsParsingError(OptionsParsingException error) {
+    sink.acceptOptionsParsingError(error);
   }
 
   private StateMachine finishConfigurationKeyProcessing(BuildConfigurationKey newConfigurationKey) {
-    cache.put(this.options, newConfigurationKey);
-    sink.acceptTransitionedConfiguration(this.context, newConfigurationKey);
-    return this.runAfter;
-  }
-
-  /**
-   * Apply discovered flags from platforms or platform mappings to the given options, and return the
-   * {@link BuildConfigurationKey}.
-   *
-   * <p>Platform-based flags and platform mappings are mutually exclusive: only one will be applied
-   * if they are present. Trying to mix and match would be possible but confusing, especially if
-   * they try to change the same flag.
-   */
-  private BuildConfigurationKey applyFlagsForOptions(BuildOptions options)
-      throws OptionsParsingException {
-    // Does the target platform provide any flags?
-    if (this.platformFlags != null && !this.platformFlags.isEmpty()) {
-      BuildOptions updatedOptions = platformFlags.mergeWith(options);
-      return BuildConfigurationKey.create(updatedOptions);
-    }
-
-    // Is there a platform mapping?
-    if (this.platformMappingValue != null) {
-      BuildOptions mappedOptions = this.platformMappingValue.map(options);
-      return BuildConfigurationKey.create(mappedOptions);
-    }
-
-    // Just use the original options.
-    return BuildConfigurationKey.create(options);
+    sink.acceptTransitionedConfiguration(context, newConfigurationKey);
+    return runAfter;
   }
 }

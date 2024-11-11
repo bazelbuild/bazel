@@ -1050,6 +1050,7 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_test")
         load(":lib.bzl", "starlark_lib")
 
         starlark_lib(

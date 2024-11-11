@@ -25,6 +25,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages:label_printer",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",

@@ -125,6 +125,14 @@ service Execution {
   // operation completes, and then respond with the completed operation. The
   // server MAY choose to stream additional updates as execution progresses,
   // such as to provide an update as to the state of the execution.
+  //
+  // In addition to the cases describe for Execute, the WaitExecution method
+  // may fail as follows:
+  //
+  // * `NOT_FOUND`: The operation no longer exists due to any of a transient
+  //   condition, an unknown operation name, or if the server implements the
+  //   Operations API DeleteOperation method and it was called for the current
+  //   execution. The client should call `Execute` to retry.
   rpc WaitExecution(WaitExecutionRequest) returns (stream google.longrunning.Operation) {
     option (google.api.http) = { post: "/v2/{name=operations/**}:waitExecution" body: "*" };
   }
@@ -212,10 +220,11 @@ service ActionCache {
 // `{instance_name}/uploads/{uuid}/blobs/{digest_function/}{hash}/{size}{/optional_metadata}`
 //
 // Where:
-// * `instance_name` is an identifier, possibly containing multiple path
-//   segments, used to distinguish between the various instances on the server,
-//   in a manner defined by the server. If it is the empty path, the leading
-//   slash is omitted, so that  the `resource_name` becomes
+// * `instance_name` is an identifier used to distinguish between the various
+//   instances on the server. Syntax and semantics of this field are defined
+//   by the server; Clients must not make any assumptions about it (e.g.,
+//   whether it spans multiple path segments or not). If it is the empty path,
+//   the leading slash is omitted, so that  the `resource_name` becomes
 //   `uploads/{uuid}/blobs/{digest_function/}{hash}/{size}{/optional_metadata}`.
 //   To simplify parsing, a path segment cannot equal any of the following
 //   keywords: `blobs`, `uploads`, `actions`, `actionResults`, `operations`,
@@ -604,7 +613,7 @@ message Command {
   // to execution, even if they are not explicitly part of the input root.
   //
   // DEPRECATED since v2.1: Use `output_paths` instead.
-  repeated string output_files = 3;
+  repeated string output_files = 3 [ deprecated = true ];
 
   // A list of the output directories that the client expects to retrieve from
   // the action. Only the listed directories will be returned (an entire
@@ -635,7 +644,7 @@ message Command {
   // if they are not explicitly part of the input root.
   //
   // DEPRECATED since 2.1: Use `output_paths` instead.
-  repeated string output_directories = 4;
+  repeated string output_directories = 4 [ deprecated = true ];
 
   // A list of the output paths that the client expects to retrieve from the
   // action. Only the listed paths will be returned to the client as output.
@@ -675,7 +684,7 @@ message Command {
   // DEPRECATED as of v2.2: platform properties are now specified directly in
   // the action. See documentation note in the
   // [Action][build.bazel.remote.execution.v2.Action] for migration.
-  Platform platform = 5;
+  Platform platform = 5 [ deprecated = true ];
 
   // The working directory, relative to the input root, for the command to run
   // in. It must be a directory which exists in the input tree. If it is left
@@ -694,6 +703,33 @@ message Command {
   // property is not recognized by the server, the server will return an
   // `INVALID_ARGUMENT`.
   repeated string output_node_properties = 8;
+
+  enum OutputDirectoryFormat {
+    // The client is only interested in receiving output directories in
+    // the form of a single Tree object, using the `tree_digest` field.
+    TREE_ONLY = 0;
+
+    // The client is only interested in receiving output directories in
+    // the form of a hierarchy of separately stored Directory objects,
+    // using the `root_directory_digest` field.
+    DIRECTORY_ONLY = 1;
+
+    // The client is interested in receiving output directories both in
+    // the form of a single Tree object and a hierarchy of separately
+    // stored Directory objects, using both the `tree_digest` and
+    // `root_directory_digest` fields.
+    TREE_AND_DIRECTORY = 2;
+  }
+
+  // The format that the worker should use to store the contents of
+  // output directories.
+  //
+  // In case this field is set to a value that is not supported by the
+  // worker, the worker SHOULD interpret this field as TREE_ONLY. The
+  // worker MAY store output directories in formats that are a superset
+  // of what was requested (e.g., interpreting DIRECTORY_ONLY as
+  // TREE_AND_DIRECTORY).
+  OutputDirectoryFormat output_directory_format = 9;
 }
 
 // A `Platform` is a set of requirements, such as hardware, operating system, or
@@ -945,8 +981,8 @@ message SymlinkNode {
 // serializing, but care should be taken to avoid shortcuts. For instance,
 // concatenating two messages to merge them may produce duplicate fields.
 message Digest {
-  // The hash. In the case of SHA-256, it will always be a lowercase hex string
-  // exactly 64 characters long.
+  // The hash, represented as a lowercase hexadecimal string, padded with
+  // leading zeroes up to the hash function length.
   string hash = 1;
 
   // The size of the blob, in bytes.
@@ -1051,7 +1087,7 @@ message ActionResult {
   //
   // DEPRECATED as of v2.1. Servers that wish to be compatible with v2.0 API
   // should still populate this field in addition to `output_symlinks`.
-  repeated OutputSymlink output_file_symlinks = 10;
+  repeated OutputSymlink output_file_symlinks = 10 [ deprecated = true ];
 
   // New in v2.1: this field will only be populated if the command
   // `output_paths` field was used, and not the pre v2.1 `output_files` or
@@ -1151,7 +1187,7 @@ message ActionResult {
   //
   // DEPRECATED as of v2.1. Servers that wish to be compatible with v2.0 API
   // should still populate this field in addition to `output_symlinks`.
-  repeated OutputSymlink output_directory_symlinks = 11;
+  repeated OutputSymlink output_directory_symlinks = 11 [ deprecated = true ];
 
   // The exit code of the command.
   int32 exit_code = 4;
@@ -1286,6 +1322,15 @@ message OutputDirectory {
   // compute their digests, constructing the Tree object manually avoids
   // redundant marshaling.
   bool is_topologically_sorted = 4;
+
+  // The digest of the encoded
+  // [Directory][build.bazel.remote.execution.v2.Directory] proto
+  // containing the contents the directory's root.
+  //
+  // If both `tree_digest` and `root_directory_digest` are set, this
+  // field MUST match the digest of the root directory contained in the
+  // Tree message.
+  Digest root_directory_digest = 5;
 }
 
 // An `OutputSymlink` is similar to a
@@ -1388,6 +1433,20 @@ message ExecuteRequest {
   // length of the action digest hash and the digest functions announced
   // in the server's capabilities.
   DigestFunction.Value digest_function = 9;
+
+  // A hint to the server to request inlining stdout in the
+  // [ActionResult][build.bazel.remote.execution.v2.ActionResult] message.
+  bool inline_stdout = 10;
+
+  // A hint to the server to request inlining stderr in the
+  // [ActionResult][build.bazel.remote.execution.v2.ActionResult] message.
+  bool inline_stderr = 11;
+
+  // A hint to the server to inline the contents of the listed output files.
+  // Each path needs to exactly match one file path in either `output_paths` or
+  // `output_files` (DEPRECATED since v2.1) in the
+  // [Command][build.bazel.remote.execution.v2.Command] message.
+  repeated string inline_output_files = 12;
 }
 
 // A `LogFile` is a log stored in the CAS.
@@ -2038,7 +2097,7 @@ message ToolDetails {
 //
 // * name: `build.bazel.remote.execution.v2.requestmetadata-bin`
 // * contents: the base64 encoded binary `RequestMetadata` message.
-// Note: the gRPC library serializes binary headers encoded in base 64 by
+// Note: the gRPC library serializes binary headers encoded in base64 by
 // default (https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md#requests).
 // Therefore, if the gRPC library is used to pass/retrieve this
 // metadata, the user may ignore the base64 encoding and assume it is simply

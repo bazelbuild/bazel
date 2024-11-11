@@ -56,10 +56,10 @@ public class DocLinkMapTest {
             + "    \"build-ref3\": \"build-ref3.html\""
             + "},"
             + "\"sourceUrlRoot\": \"https://example.com/\","
-            + "\"labelRewrites\": {"
-            + "    \"@_builtins//:common/\": \"//common/builtins_bzl:\","
-            + "    \"@_builtins//:uncommon/\": \"//uncommon/builtins_bzl:\","
-            + "    \"@_builtins//:\": \"//main/builtins_bzl:\""
+            + "\"repoPathRewrites\": {"
+            + "    \"@_builtins//common/\": \"https://example.com/common/builtins_bzl\","
+            + "    \"@_builtins//uncommon/\": \"https://example.com/uncommon/builtins_bzl\","
+            + "    \"@_builtins//\": \"https://example.com/main/builtins_bzl\""
             + "}"
             + "}";
 
@@ -78,14 +78,14 @@ public class DocLinkMapTest {
             "build-ref3.html")
         .inOrder();
     assertThat(map.sourceUrlRoot).isEqualTo("https://example.com/");
-    assertThat(map.labelRewrites)
+    assertThat(map.repoPathRewrites)
         .containsExactly(
-            "@_builtins//:common/",
-            "//common/builtins_bzl:",
-            "@_builtins//:uncommon/",
-            "//uncommon/builtins_bzl:",
-            "@_builtins//:",
-            "//main/builtins_bzl:")
+            "@_builtins//common/",
+            "https://example.com/common/builtins_bzl",
+            "@_builtins//uncommon/",
+            "https://example.com/uncommon/builtins_bzl",
+            "@_builtins//",
+            "https://example.com/main/builtins_bzl")
         .inOrder();
   }
 }

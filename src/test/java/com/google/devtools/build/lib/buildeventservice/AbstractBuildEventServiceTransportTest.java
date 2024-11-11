@@ -604,13 +604,8 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
     BuildEvent withFiles =
         new BuildEventWithFiles(
             ImmutableList.of(
-                new LocalFile(
-                    file1, LocalFileType.OUTPUT, /*artifact=*/ null, /*artifactMetadata=*/ null),
-                new LocalFile(
-                    file2,
-                    LocalFileType.OUTPUT_FILE,
-                    /*artifact=*/ null,
-                    /*artifactMetadata=*/ null)));
+                new LocalFile(file1, LocalFileType.OUTPUT, /* artifactMetadata= */ null),
+                new LocalFile(file2, LocalFileType.OUTPUT_FILE, /* artifactMetadata= */ null)));
 
     BuildEventArtifactUploader uploader =
         new BuildEventArtifactUploaderWithRefCounting() {
@@ -651,13 +646,11 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
                     new LocalFile(
                         file1,
                         LocalFileType.OUTPUT,
-                        /*artifact=*/ null,
                         /*artifactMetadata=*/ null),
                     file2,
                     new LocalFile(
                         file2,
                         LocalFileType.OUTPUT_FILE,
-                        /*artifact=*/ null,
                         /*artifactMetadata=*/ null))));
 
     List<PublishBuildToolEventStreamRequest> events =
@@ -690,10 +683,8 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
     BuildEvent withFiles =
         new BuildEventWithFiles(
             ImmutableList.of(
-                new LocalFile(
-                    file1, LocalFileType.OUTPUT, /*artifact=*/ null, /*artifactMetadata=*/ null),
-                new LocalFile(
-                    file1, LocalFileType.OUTPUT, /*artifact=*/ null, /*artifactMetadata=*/ null)));
+                new LocalFile(file1, LocalFileType.OUTPUT, /* artifactMetadata= */ null),
+                new LocalFile(file1, LocalFileType.OUTPUT, /* artifactMetadata= */ null)));
 
     BuildEventArtifactUploader uploader =
         new BuildEventArtifactUploaderWithRefCounting() {
@@ -723,7 +714,6 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
                     new LocalFile(
                         file1,
                         LocalFileType.OUTPUT,
-                        /*artifact=*/ null,
                         /*artifactMetadata=*/ null))));
   }
 

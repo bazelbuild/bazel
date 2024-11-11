@@ -18,7 +18,6 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -33,7 +32,7 @@ import java.util.Optional;
  */
 @AutoValue
 @GenerateTypeAdapter
-public abstract class BazelLockFileValue implements SkyValue, Postable {
+public abstract class BazelLockFileValue implements SkyValue {
 
   // NOTE: See "HACK" note on 7.x:
   // https://cs.opensource.google/bazel/bazel/+/release-7.3.0:src/main/java/com/google/devtools/build/lib/bazel/bzlmod/BazelLockFileModule.java;l=120-127;drc=5f5355b75c7c93fba1e15f6658f308953f4baf51

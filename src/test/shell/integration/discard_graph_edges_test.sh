@@ -64,8 +64,6 @@ jmaptool="$(rlocation "${javabase}/bin/jmap${EXE_EXT}")"
 
 #### SETUP #############################################################
 
-disable_bzlmod
-
 set -e
 
 function set_up() {
@@ -270,14 +268,19 @@ function test_packages_cleared() {
   local histo_file="$(prepare_histogram "$BUILD_FLAGS")"
   package_count="$(extract_histogram_count "$histo_file" \
       'devtools\.build\.lib\..*\.Package$')"
-  # A few packages aren't cleared.
-  [[ "$package_count" -le 26 ]] \
+  # In Bzlmod, every external repo is in its own "external" package. This blows
+  # up the package count, while in reality the actual BUILD package count is
+  # around 26. We can rely on the fact that the number of RuleConfiguredTargets
+  # is still low (external packages don't contribute there). We can lower this
+  # number again once we remove WORKSPACE logic and move repo rules to not use
+  # Package anymore.
+  [[ "$package_count" -le 60 ]] \
       || fail "package count $package_count too high"
   globs_count="$(extract_histogram_count "$histo_file" "GlobsValue$")"
   [[ "$globs_count" -le 1 ]] \
       || fail "globs count $globs_count too high"
   module_count="$(extract_histogram_count "$histo_file" 'eval.Module$')"
-  [[ "$module_count" -lt 200 ]] \
+  [[ "$module_count" -le 295 ]] \
       || fail "Module count $module_count too high"
   ct_count="$(extract_histogram_count "$histo_file" \
        'RuleConfiguredTarget$')"

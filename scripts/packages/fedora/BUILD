@@ -1,4 +1,4 @@
-load("@rules_pkg//:rpm.bzl", "pkg_rpm")
+load("@rules_pkg//pkg:rpm.bzl", "pkg_rpm")
 
 package(default_visibility = ["//scripts/packages:__subpackages__"])
 

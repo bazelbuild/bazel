@@ -183,7 +183,7 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
         """
         def _aspect_impl(target, ctx):
             if not getattr(ctx.rule.attr, "outs", None):
-                return struct(output_groups = {})
+                return  [OutputGroupInfo()]
             conflict_outputs = list()
             for out in ctx.rule.attr.outs:
                 if out.name[1:] == ".bad":
@@ -271,7 +271,7 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
         """
         def _aspect_impl(target, ctx):
             if not getattr(ctx.rule.attr, "outs", None):
-                return struct(output_groups = {})
+                return [OutputGroupInfo()]
             conflict_outputs = list()
             for out in ctx.rule.attr.outs:
                 if out.name[1:] == ".bad":
@@ -477,8 +477,14 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
 
         my_rule(name = "second")
         """);
-    write("x/BUILD", "sh_library(name = 'x', deps = ['//y:y'])");
-    write("y/BUILD", "sh_library(name = 'y', visibility = ['//visibility:private'])");
+    write(
+        "x/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'x', deps = ['//y:y'])");
+    write(
+        "y/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'y', visibility = ['//visibility:private'])");
 
     assertThrows(
         BuildFailedException.class, () -> buildTarget("//x:x", "//foo:first", "//foo:second"));
@@ -501,7 +507,7 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
         """
         def _aspect_impl(target, ctx):
             if not getattr(ctx.rule.attr, "outs", None):
-                return struct(output_groups = {})
+                return [OutputGroupInfo()]
             conflict_outputs = list()
             for out in ctx.rule.attr.outs:
                 if out.name[1:] == ".bad":
@@ -522,19 +528,23 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
     write(
         "x/BUILD",
         """
+        load('//test_defs:foo_library.bzl', 'foo_library')
         genrule(
             name = "y",
             outs = ["y.bad"],
             cmd = "touch $@",
         )
 
-        sh_library(
+        foo_library(
             name = "fail_analysis",
             deps = ["//private:y"],
         )
         """);
     write("x/y/BUILD", "genrule(name = 'y', outs = ['whatever'], cmd = 'touch $@')");
-    write("private/BUILD", "sh_library(name = 'y', visibility = ['//visibility:private'])");
+    write(
+        "private/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'y', visibility = ['//visibility:private'])");
     addOptions("--aspects=//x:aspect.bzl%my_aspect", "--output_groups=files");
 
     Code errorCode =
@@ -613,8 +623,9 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
         "foo/BUILD",
         """
         load("//foo:aspect.bzl", "bad_rule")
+        load('//test_defs:foo_library.bzl', 'foo_library')
 
-        sh_library(
+        foo_library(
             name = "dep",
             srcs = ["dep.sh"],
         )
@@ -713,7 +724,7 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
         """
         def _aspect_impl(target, ctx):
             if not getattr(ctx.rule.attr, "outs", None):
-                return struct(output_groups = {})
+                return [OutputGroupInfo()]
             conflict_outputs = list()
             for out in ctx.rule.attr.outs:
                 if out.name[1:] == ".bad":

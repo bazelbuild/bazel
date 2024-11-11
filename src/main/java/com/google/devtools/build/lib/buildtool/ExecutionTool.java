@@ -85,6 +85,8 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.InstrumentationOutput;
+import com.google.devtools.build.lib.runtime.InstrumentationOutputFactory.DestinationRelativeTo;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
@@ -323,15 +325,15 @@ public class ExecutionTool {
     }
 
     skyframeExecutor.drainChangedFiles();
-    // With Skymeld, we don't have enough information at this stage to consider remote files.
-    // This allows BwoB to function (in the sense that it's now compatible with Skymeld), but
-    // there's a performance penalty for incremental build: all action nodes will be dirtied.
-    // We'll be relying on the other forms of caching (local action cache or remote cache).
-    // TODO(b/281655526): Improve this.
+
+    var remoteArtifactChecker =
+        env.getOutputService() != null
+            ? env.getOutputService().getRemoteArtifactChecker()
+            : RemoteArtifactChecker.IGNORE_ALL;
     skyframeExecutor.detectModifiedOutputFiles(
         modifiedOutputFiles,
         env.getBlazeWorkspace().getLastExecutionTimeRange(),
-        RemoteArtifactChecker.IGNORE_ALL,
+        remoteArtifactChecker,
         buildRequestOptions.fsvcThreads);
     try (SilentCloseable c = Profiler.instance().profile("configureActionExecutor")) {
       skyframeExecutor.configureActionExecutor(
@@ -519,12 +521,9 @@ public class ExecutionTool {
       informedOutputServiceToStartTheBuild = true;
     }
     if (!request.getPackageOptions().checkOutputFiles) {
-      // Do not skip output invalidation in the following cases:
-      // 1. If the output tree is empty: this can happen after it's cleaned or corrupted.
-      // 2. For a run command: so that outputs are downloaded even if they were previously built
-      //    with --remote_download_minimal. See https://github.com/bazelbuild/bazel/issues/20843.
-      if (!modifiedOutputFiles.treatEverythingAsDeleted()
-          && !request.getCommandName().equals("run")) {
+      // Do not skip output invalidation if the output tree is empty: this can happen after it's
+      // cleaned or corrupted.
+      if (!modifiedOutputFiles.treatEverythingAsDeleted()) {
         return ModifiedFileSet.NOTHING_MODIFIED;
       }
     }
@@ -722,7 +721,7 @@ public class ExecutionTool {
   private static BuildConfigurationValue getConfiguration(
       SkyframeExecutor executor, Reporter reporter, BuildOptions options) {
     try {
-      return executor.getConfiguration(reporter, options, /*keepGoing=*/ false);
+      return executor.getConfiguration(reporter, options, /* keepGoing= */ false);
     } catch (InvalidConfigurationException e) {
       reporter.handle(
           Event.warn(
@@ -846,9 +845,18 @@ public class ExecutionTool {
     }
     ExplanationHandler handler;
     try {
-      handler =
-          new ExplanationHandler(
-              getWorkspace().getRelative(explanationPath).getOutputStream(), allOptions);
+      InstrumentationOutput instrumentationOutput =
+          runtime
+              .getInstrumentationOutputFactory()
+              .createInstrumentationOutput(
+                  /* name= */ "explain",
+                  /* destination= */ explanationPath,
+                  DestinationRelativeTo.WORKSPACE_OR_HOME,
+                  env,
+                  getReporter(),
+                  /* append= */ null,
+                  /* internal= */ null);
+      handler = new ExplanationHandler(instrumentationOutput.createOutputStream(), allOptions);
     } catch (IOException e) {
       getReporter()
           .handle(
@@ -1039,10 +1047,6 @@ public class ExecutionTool {
     return env.getReporter();
   }
 
-  private Path getWorkspace() {
-    return env.getWorkspace();
-  }
-
   private Path getExecRoot() {
     return env.getExecRoot();
   }
@@ -1087,9 +1091,7 @@ public class ExecutionTool {
       if (progressReceiverStarted.compareAndSet(false, true)) {
         // TODO(leba): count test actions
         ExecutionProgressReceiver executionProgressReceiver =
-            new ExecutionProgressReceiver(
-                /*exclusiveTestsCount=*/ 0,
-                env.getEventBus());
+            new ExecutionProgressReceiver(/* exclusiveTestsCount= */ 0, env.getEventBus());
         env.getEventBus()
             .post(new ExecutionProgressReceiverAvailableEvent(executionProgressReceiver));
 

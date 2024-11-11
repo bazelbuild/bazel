@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
@@ -191,7 +190,7 @@ public class StarlarkFileContentHashTests extends BuildViewTestCase {
                 ImmutableList.of(Root.fromPath(rootDirectory)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
             packageOptions,
-            Options.getDefaults(BuildLanguageOptions.class),
+            parseBuildLanguageOptions(),
             UUID.randomUUID(),
             ImmutableMap.<String, String>of(),
             QuiescingExecutorsImpl.forTesting(),

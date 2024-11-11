@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.runtime.Command.BuildPhase.ANALYZES;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelFetchAllValue;
@@ -44,11 +45,11 @@ import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
+import com.google.devtools.build.lib.runtime.commands.TargetPatternsHelper;
 import com.google.devtools.build.lib.runtime.commands.TestCommand;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.FetchCommand.Code;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
@@ -124,10 +125,7 @@ public final class VendorCommand implements BlazeCommand {
 
   @Override
   public void editOptions(OptionsParser optionsParser) {
-    // We only need to inject these options with fetch target (when there is a residue)
-    if (!optionsParser.getResidue().isEmpty()) {
-      TargetFetcher.injectNoBuildOption(optionsParser);
-    }
+    TargetFetcher.injectNoBuildOption(optionsParser);
   }
 
   @Override
@@ -159,9 +157,20 @@ public final class VendorCommand implements BlazeCommand {
     Path vendorDirectory =
         env.getWorkspace().getRelative(options.getOptions(RepositoryOptions.class).vendorDirectory);
     this.vendorManager = new VendorManager(vendorDirectory);
+    List<String> targets;
     try {
-      if (!options.getResidue().isEmpty()) {
-        result = vendorTargets(env, options, options.getResidue());
+      targets = TargetPatternsHelper.readFrom(env, options);
+    } catch (TargetPatternsHelper.TargetPatternsHelperException e) {
+      env.getReporter().handle(Event.error(e.getMessage()));
+      return BlazeCommandResult.failureDetail(e.getFailureDetail());
+    }
+    try {
+      if (!targets.isEmpty()) {
+        if (!vendorOptions.repos.isEmpty()) {
+          return createFailedBlazeCommandResult(
+              env.getReporter(), "Target patterns and --repo cannot both be specified");
+        }
+        result = vendorTargets(env, options, targets);
       } else if (!vendorOptions.repos.isEmpty()) {
         result = vendorRepos(env, threadsOption, vendorOptions.repos);
       } else {
@@ -282,12 +291,7 @@ public final class VendorCommand implements BlazeCommand {
     // Traverse the graph created from build to collect repos and vendor them
     ImmutableList<SkyKey> targetKeys =
         buildResult.getActualTargets().stream()
-            .map(
-                target ->
-                    ConfiguredTargetKey.builder()
-                        .setConfigurationKey(target.getConfigurationKey())
-                        .setLabel(target.getLabel())
-                        .build())
+            .map(ConfiguredTarget::getLookupKey)
             .collect(toImmutableList());
     InMemoryGraph inMemoryGraph = env.getSkyframeExecutor().getEvaluator().getInMemoryGraph();
     ImmutableSet<RepositoryName> reposToVendor = collectReposFromTargets(inMemoryGraph, targetKeys);

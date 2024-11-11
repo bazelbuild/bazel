@@ -39,7 +39,7 @@ a target's restrictions are.
 
 You may declare third-party dependencies:
 
-*   Either declare them as remote repositories in the `WORKSPACE` file.
+*   Either declare them as remote repositories in the `MODULE.bazel` file.
 *   Or put them in a directory called `third_party/` under your workspace directory.
 
 ## Depending on binaries {:#binaries}

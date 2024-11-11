@@ -36,10 +36,10 @@ import net.starlark.java.syntax.Location;
 public final class BzlmodTestUtil {
   private BzlmodTestUtil() {}
 
-  /** Simple wrapper around {@link ModuleKey#create} that takes a string version. */
+  /** Simple wrapper around the {@link ModuleKey} constructor that takes a string version. */
   public static ModuleKey createModuleKey(String name, String version) {
     try {
-      return ModuleKey.create(name, Version.parse(version));
+      return new ModuleKey(name, Version.parse(version));
     } catch (Version.ParseException e) {
       throw new IllegalArgumentException(e);
     }
@@ -76,7 +76,7 @@ public final class BzlmodTestUtil {
     public static InterimModuleBuilder create(
         String name, Version version, int compatibilityLevel) {
       InterimModuleBuilder moduleBuilder = new InterimModuleBuilder();
-      ModuleKey key = ModuleKey.create(name, version);
+      ModuleKey key = new ModuleKey(name, version);
       moduleBuilder.key = key;
       moduleBuilder.builder =
           InterimModule.builder()
@@ -193,7 +193,11 @@ public final class BzlmodTestUtil {
       AugmentedModuleBuilder myBuilder = new AugmentedModuleBuilder();
       myBuilder.key = key;
       myBuilder.builder =
-          AugmentedModule.builder(key).setName(name).setVersion(version).setLoaded(loaded);
+          AugmentedModule.builder(key)
+              .setName(name)
+              .setVersion(version)
+              .setRepoName(name)
+              .setLoaded(loaded);
       return myBuilder;
     }
 
@@ -210,7 +214,7 @@ public final class BzlmodTestUtil {
     }
 
     public static AugmentedModuleBuilder buildAugmentedModule(ModuleKey key, String name) {
-      return buildAugmentedModule(key, name, key.getVersion(), true);
+      return buildAugmentedModule(key, name, key.version(), true);
     }
 
     private AugmentedModule.Builder builder;
@@ -311,7 +315,7 @@ public final class BzlmodTestUtil {
   }
 
   public static TagClass createTagClass(Attribute... attrs) {
-    return TagClass.create(ImmutableList.copyOf(attrs), Optional.of("doc"), Location.BUILTIN);
+    return TagClass.create(ImmutableList.copyOf(attrs), Optional.of("doc"));
   }
 
   /** A builder for {@link Tag} for testing purposes. */

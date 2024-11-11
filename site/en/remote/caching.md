@@ -292,9 +292,8 @@ This feature is unsupported on Windows.
 
 Bazel can use a directory on the file system as a remote cache. This is
 useful for sharing build artifacts when switching branches and/or working
-on multiple workspaces of the same project, such as multiple checkouts. Since
-Bazel does not garbage-collect the directory, you might want to automate a
-periodic cleanup of this directory. Enable the disk cache as follows:
+on multiple workspaces of the same project, such as multiple checkouts.
+Enable the disk cache as follows:
 
 ```posix-terminal
 build --disk_cache={{ '<var>' }}path/to/build/cache{{ '</var>' }}
@@ -304,6 +303,18 @@ You can pass a user-specific path to the `--disk_cache` flag using the `~` alias
 (Bazel will substitute the current user's home directory). This comes in handy
 when enabling the disk cache for all developers of a project via the project's
 checked in `.bazelrc` file.
+
+### Garbage collection {:#disk-cache-gc}
+
+Starting with Bazel 7.4, you can use `--experimental_disk_cache_gc_max_size` and
+`--experimental_disk_cache_gc_max_age` to set a maximum size for the disk cache
+or for the age of individual cache entries. Bazel will automatically garbage
+collect the disk cache while idling between builds; the idle timer can be set
+with `--experimental_disk_cache_gc_idle_delay` (defaulting to 5 minutes).
+
+As an alternative to automatic garbage collection, we also provide a [tool](
+https://github.com/bazelbuild/bazel/tree/master/src/tools/diskcache) to run a
+garbage collection on demand.
 
 ## Known issues {:#known-issues}
 

@@ -117,11 +117,9 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
     // which does the same setup. But that's explicitly documented as not supported command
     // invocations, which is exactly what we we need here.
     params.addAll(TestConstants.PRODUCT_SPECIFIC_FLAGS);
+    params.addAll(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
     params.add("//test:buildme");
     params.add("--nobuild"); // Execution phase isn't necessary to collect configurations.
-    // TODO: Enable Bzlmod for this test
-    // https://github.com/bazelbuild/bazel/issues/19823
-    params.add("--noenable_bzlmod");
     Collections.addAll(params, args);
     dispatcher.exec(params, "my client", outErr);
   }
@@ -136,11 +134,9 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
     // which does the same setup. But that's explicitly documented as not supported command
     // invocations, which is exactly what we we need here.
     params.addAll(TestConstants.PRODUCT_SPECIFIC_FLAGS);
+    params.addAll(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
     params.add("//test:buildme_with_transition");
     params.add("--nobuild"); // Execution phase isn't necessary to collect configurations.
-    // TODO: Enable Bzlmod for this test
-    // https://github.com/bazelbuild/bazel/issues/19823
-    params.add("--noenable_bzlmod");
     Collections.addAll(params, args);
     dispatcher.exec(params, "my client", outErr);
   }
@@ -153,9 +149,6 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
   private RecordingOutErr callConfigCommand(String... args) throws Exception {
     List<String> params = Lists.newArrayList("config");
     params.add("--output=json");
-    // TODO: Enable Bzlmod for this test
-    // https://github.com/bazelbuild/bazel/issues/19823
-    params.add("--noenable_bzlmod");
     Collections.addAll(params, args);
     RecordingOutErr recordingOutErr = new RecordingOutErr();
     dispatcher.exec(params, "my client", recordingOutErr);

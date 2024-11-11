@@ -162,7 +162,7 @@ public final class BazelEvaluationTestCase {
     // TODO(adonovan): stop creating threads in tests. This is the responsibility of the
     // production code. Tests should provide only files and commands.
     new BzlInitThreadContext(
-            Label.parseCanonicalUnchecked("//:dummy.bzl"),
+            label,
             /* transitiveDigest= */ new byte[0], // dummy value for tests
             TestConstants.TOOLS_REPOSITORY,
             /* networkAllowlistForTests= */ Optional.empty(),

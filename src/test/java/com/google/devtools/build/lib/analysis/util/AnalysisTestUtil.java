@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
-import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -151,6 +150,11 @@ public final class AnalysisTestUtil {
     }
 
     @Override
+    public SpecialArtifact getRunfilesArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
+      return original.getRunfilesArtifact(rootRelativePath, root);
+    }
+
+    @Override
     public SpecialArtifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
       return original.getTreeArtifact(rootRelativePath, root);
     }
@@ -163,11 +167,6 @@ public final class AnalysisTestUtil {
     @Override
     public Artifact getFilesetArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
       return original.getFilesetArtifact(rootRelativePath, root);
-    }
-
-    @Override
-    public MiddlemanFactory getMiddlemanFactory() {
-      return original.getMiddlemanFactory();
     }
 
     @Override
@@ -364,6 +363,11 @@ public final class AnalysisTestUtil {
     }
 
     @Override
+    public SpecialArtifact getRunfilesArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
+      return null;
+    }
+
+    @Override
     public SpecialArtifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
       return null;
     }
@@ -375,11 +379,6 @@ public final class AnalysisTestUtil {
 
     @Override
     public ExtendedEventHandler getEventHandler() {
-      return null;
-    }
-
-    @Override
-    public MiddlemanFactory getMiddlemanFactory() {
       return null;
     }
 
@@ -511,9 +510,6 @@ public final class AnalysisTestUtil {
     computeRootPaths(
         targetConfiguration.getGenfilesDirectory(RepositoryName.MAIN),
         path -> rootMap.put(path, "bin"));
-    computeRootPaths(
-        targetConfiguration.getMiddlemanDirectory(RepositoryName.MAIN),
-        path -> rootMap.put(path, "internal"));
 
     Set<String> files = new LinkedHashSet<>();
     for (Artifact artifact : artifacts) {

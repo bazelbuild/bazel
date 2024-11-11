@@ -94,7 +94,9 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
     if (debug
         && toolchains.rejectedToolchains() != null
         && !toolchains.rejectedToolchains().isEmpty()) {
-      for (Map.Entry<Label, String> entry : toolchains.rejectedToolchains().entrySet()) {
+      ImmutableMap<Label, String> rejectedToolchainImplementations =
+          toolchains.rejectedToolchains().row(key.toolchainType().toolchainType());
+      for (Map.Entry<Label, String> entry : rejectedToolchainImplementations.entrySet()) {
         Label toolchainLabel = entry.getKey();
         String message = entry.getValue();
         debugMessage(
@@ -213,6 +215,24 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
         }
 
         PlatformInfo executionPlatform = platforms.get(executionPlatformKey);
+
+        // Check if the platform allows this toolchain type.
+        if (executionPlatform.checkToolchainTypes()
+            && !executionPlatform.allowedToolchainTypes().contains(toolchainType.toolchainType())) {
+          debugMessage(
+              resolutionTrace,
+              IndentLevel.EXECUTION_PLATFORM_LEVEL,
+              "Skipping execution platform %s; its allowed toolchain types does not contain the"
+                  + " current toolchain type %s",
+              executionPlatformKey.getLabel(),
+              toolchainType.toolchainType());
+
+          // Keep looking for a valid toolchain for this exec platform
+          done = false;
+          continue;
+        }
+
+        // Check if the execution constraints match.
         if (!checkConstraints(
             resolutionTrace,
             toolchain.execConstraints(),

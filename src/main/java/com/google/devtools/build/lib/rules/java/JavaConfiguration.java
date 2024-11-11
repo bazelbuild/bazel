@@ -76,7 +76,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final boolean generateJavaDeps;
   private final OneVersionEnforcementLevel enforceOneVersion;
   private final boolean enforceOneVersionOnJavaTests;
-  private final boolean allowRuntimeDepsOnNeverLink;
   private final JavaClasspathMode javaClasspath;
   private final boolean inmemoryJdepsFiles;
   private final ImmutableList<String> defaultJvmFlags;
@@ -93,7 +92,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final boolean explicitJavaTestDeps;
   private final boolean addTestSupportToCompileTimeDeps;
   private final ImmutableList<Label> pluginList;
-  private final boolean disallowResourceJars;
   private final boolean experimentalTurbineAnnotationProcessing;
   private final boolean experimentalEnableJspecify;
   private final boolean multiReleaseDeployJars;
@@ -123,9 +121,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.enforceProguardFileExtension = javaOptions.enforceProguardFileExtension;
     this.enforceOneVersion = javaOptions.enforceOneVersion;
     this.enforceOneVersionOnJavaTests = javaOptions.enforceOneVersionOnJavaTests;
-    this.allowRuntimeDepsOnNeverLink = javaOptions.allowRuntimeDepsOnNeverLink;
     this.explicitJavaTestDeps = javaOptions.explicitJavaTestDeps;
-    this.disallowResourceJars = javaOptions.disallowResourceJars;
     this.addTestSupportToCompileTimeDeps = javaOptions.addTestSupportToCompileTimeDeps;
     this.runAndroidLint = javaOptions.runAndroidLint;
     this.multiReleaseDeployJars = javaOptions.multiReleaseDeployJars;
@@ -268,21 +264,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   @Override
   public ImmutableList<String> getDefaultJvmFlags() {
     return defaultJvmFlags;
-  }
-
-  public StrictDepsMode getStrictJavaDeps() {
-    return strictJavaDeps;
-  }
-
-  public StrictDepsMode getFilteredStrictJavaDeps() {
-    StrictDepsMode strict = getStrictJavaDeps();
-    switch (strict) {
-      case STRICT:
-      case DEFAULT:
-        return StrictDepsMode.ERROR;
-      default: // OFF, WARN, ERROR
-        return strict;
-    }
   }
 
   /** Which tool to use for fixing dependency errors. */
@@ -452,10 +433,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return enforceOneVersionOnJavaTests;
   }
 
-  public boolean getAllowRuntimeDepsOnNeverLink() {
-    return allowRuntimeDepsOnNeverLink;
-  }
-
   @Override
   public boolean addTestSupportToCompileTimeDeps() {
     return addTestSupportToCompileTimeDeps;
@@ -469,10 +446,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   @Override
   public ImmutableList<Label> getPlugins() {
     return pluginList;
-  }
-
-  public boolean disallowResourceJars() {
-    return disallowResourceJars;
   }
 
   public boolean experimentalTurbineAnnotationProcessing() {

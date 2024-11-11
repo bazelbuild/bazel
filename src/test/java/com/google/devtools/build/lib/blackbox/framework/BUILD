@@ -45,7 +45,6 @@ gen_workspace_stanza(
     preamble = "load('@bazel_tools//tools/build_defs/repo:http.bzl', 'http_archive')",
     repos = [
         "rules_cc",
-        "rules_proto",
         "rules_python",
     ],
     visibility = ["//visibility:private"],

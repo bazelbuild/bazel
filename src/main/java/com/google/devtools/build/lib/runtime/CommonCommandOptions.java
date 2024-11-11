@@ -168,7 +168,7 @@ public class CommonCommandOptions extends OptionsBase {
       name = "invocation_id",
       defaultValue = "",
       converter = UUIDConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.BAZEL_MONITORING, OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       help =
           "Unique identifier, in UUID format, for the command being run. If explicitly specified"
@@ -258,12 +258,23 @@ public class CommonCommandOptions extends OptionsBase {
   public boolean profileIncludeTargetLabel;
 
   @Option(
-      name = "experimental_announce_profile_path",
+      name = "experimental_profile_include_target_configuration",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
-      help = "If enabled, adds the JSON profile path to the log.")
-  public boolean announceProfilePath;
+      help = "Includes target configuration hash in action events' JSON profile data.")
+  public boolean profileIncludeTargetConfiguration;
+
+  @Option(
+      name = "profiles_to_retain",
+      defaultValue = "5",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
+      help =
+          "Number of profiles to retain in the output base. If there are more than this number of"
+              + " profiles in the output base, the oldest are deleted until the total is under the"
+              + " limit.")
+  public int profilesToRetain;
 
   @Option(
       name = "profile",
@@ -585,4 +596,14 @@ public class CommonCommandOptions extends OptionsBase {
       super(ProfilerTask.class, "profiler task");
     }
   }
+
+  @Option(
+      name = "redirect_local_instrumentation_output_writes",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
+      help =
+          "If true and supported, instrumentation output is redirected to be written locally on a"
+              + " different machine than where bazel is running on.")
+  public boolean redirectLocalInstrumentationOutputWrites;
 }

@@ -348,16 +348,12 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
     boolean critical = false;
     ErrorClassification errorClassification = errorClassifier.classify(e);
     switch (errorClassification) {
-      case AS_CRITICAL_AS_POSSIBLE:
-      case CRITICAL_AND_LOG:
+      case AS_CRITICAL_AS_POSSIBLE, CRITICAL_AND_LOG -> {
         critical = true;
         logger.atWarning().withCause(e).log("Found critical error in queue visitor");
-        break;
-      case CRITICAL:
-        critical = true;
-        break;
-      default:
-        break;
+      }
+      case CRITICAL -> critical = true;
+      default -> {}
     }
     if (unhandled == null
         || errorClassification.compareTo(errorClassifier.classify(unhandled)) > 0) {

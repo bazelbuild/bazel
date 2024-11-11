@@ -1,2 +1,0 @@
-com/google/devtools/build/android/dexer/DexFileMergerTest.class
-com/google/devtools/build/android/dexer/DexFileAggregatorTest.class

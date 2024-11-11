@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.analysis.util.MockRuleDefaults;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -349,6 +350,66 @@ public final class RuleAttributeStorageTest extends BuildViewTestCase {
     assertThat(rule.getAttrIfStored(lateBoundDefaultIndex)).isNull();
     assertThat(rule.getAttr(lateBoundDefaultAttr.getName())).isEqualTo(lateBoundDefault);
     assertThat(rule.isAttributeValueExplicitlySpecified(lateBoundDefaultAttr)).isFalse();
+  }
+
+  @Test
+  public void incompatibleSimplifyUnconditionalSelectsInRuleAttrs() throws Exception {
+    setBuildLanguageOptions("--incompatible_simplify_unconditional_selects_in_rule_attrs=true");
+    scratch.file(
+        "x/BUILD",
+        """
+        cc_binary(
+            name = "simplifiable_single_select",
+            srcs = select({"//conditions:default": ["unconditional.cc"]})
+        )
+
+        cc_binary(
+            name = "simplifiable_concat_of_selects",
+            srcs = ["direct.cc"] + select({"//conditions:default": ["unconditional.cc"]})
+        )
+
+        cc_binary(
+            name = "non_simplifiable",
+            srcs = ["direct.cc"] + select({
+                "//conditions:default": ["default.cc"],
+                "//conditions:a": ["other.c"],
+            })
+        )
+        """);
+    Rule simplifiableSingleSelect = (Rule) getTarget("//x:simplifiable_single_select");
+    assertThat(
+            BuildType.LABEL_LIST.cast(
+                simplifiableSingleSelect.getAttr("srcs", BuildType.LABEL_LIST)))
+        .containsExactly(Label.parseCanonicalUnchecked("//x:unconditional.cc"));
+
+    Rule simplifiableConcatOfSelects = (Rule) getTarget("//x:simplifiable_concat_of_selects");
+    assertThat(
+            BuildType.LABEL_LIST.cast(
+                simplifiableConcatOfSelects.getAttr("srcs", BuildType.LABEL_LIST)))
+        .containsExactly(
+            Label.parseCanonicalUnchecked("//x:direct.cc"),
+            Label.parseCanonicalUnchecked("//x:unconditional.cc"))
+        .inOrder();
+
+    Rule nonSimplifiable = (Rule) getTarget("//x:non_simplifiable");
+    assertThat(nonSimplifiable.getAttr("srcs", BuildType.LABEL_LIST))
+        .isInstanceOf(BuildType.SelectorList.class);
+  }
+
+  @Test
+  public void noIncompatibleSimplifyUnconditionalSelectsInRuleAttrs() throws Exception {
+    setBuildLanguageOptions("--incompatible_simplify_unconditional_selects_in_rule_attrs=false");
+    scratch.file(
+        "x/BUILD",
+        """
+        cc_binary(
+            name = "simplifiable",
+            srcs = select({"//conditions:default": ["unconditional.cc"]})
+        )
+        """);
+    Rule simplifiable = (Rule) getTarget("//x:simplifiable");
+    assertThat(simplifiable.getAttr("srcs", BuildType.LABEL_LIST))
+        .isInstanceOf(BuildType.SelectorList.class);
   }
 
   private Attribute attrAt(int attrIndex) {

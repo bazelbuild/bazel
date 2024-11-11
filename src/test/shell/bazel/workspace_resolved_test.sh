@@ -506,7 +506,7 @@ broken_rule = repository_rule(
 )
 EOF
   touch BUILD
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<'EOF'
+  cat > WORKSPACE <<'EOF'
 load("//:rule.bzl", "broken_rule")
 
 broken_rule(name = "broken")

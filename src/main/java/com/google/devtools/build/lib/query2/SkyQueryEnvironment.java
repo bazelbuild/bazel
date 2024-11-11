@@ -27,6 +27,7 @@ import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
@@ -86,6 +87,7 @@ import com.google.devtools.build.lib.query2.engine.QueryUtil.ThreadSafeMutableKe
 import com.google.devtools.build.lib.query2.engine.QueryUtil.UniquifierImpl;
 import com.google.devtools.build.lib.query2.engine.StreamableQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
+import com.google.devtools.build.lib.query2.engine.TotalWeightQueryExpressionVisitor;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import com.google.devtools.build.lib.query2.query.BlazeTargetAccessor;
 import com.google.devtools.build.lib.server.FailureDetails;
@@ -95,7 +97,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Query.Code;
 import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.skyframe.GraphBackedRecursivePackageProvider;
 import com.google.devtools.build.lib.skyframe.GraphBackedRecursivePackageProvider.UniverseTargetPattern;
-import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesValue;
+import com.google.devtools.build.lib.skyframe.IgnoredSubdirectoriesValue;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.PrepareDepsOfPatternsFunction;
@@ -299,6 +301,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         eventHandler,
         FilteringPolicies.NO_FILTER,
         packageSemaphore,
+        /* maxConcurrentGetTargetsTasks= */ Optional.empty(),
         SimplePackageIdentifierBatchingCallback::new);
   }
 
@@ -357,6 +360,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   }
 
   private static final Duration MIN_LOGGING = Duration.ofMillis(50);
+  private static final int MAX_QUERY_WEIGHT_TO_LOG = 10 * 1024 * 1024;
 
   @Override
   public final QueryExpression transformParsedQuery(QueryExpression queryExpression) {
@@ -365,9 +369,15 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     try (AutoProfiler p = GoogleAutoProfilerUtils.logged("transforming query", MIN_LOGGING)) {
       transformedQueryExpression = queryExpression.accept(mapper);
     }
-    logger.atInfo().log(
-        "transformed query [%s] to [%s]",
-        queryExpression.toTrunctatedString(), transformedQueryExpression.toTrunctatedString());
+    long queryWeightEstimate = queryExpression.accept(new TotalWeightQueryExpressionVisitor());
+    if (queryWeightEstimate <= MAX_QUERY_WEIGHT_TO_LOG) {
+      logger.atInfo().log(
+          "transformed query [%s] to [%s]",
+          queryExpression.toTrunctatedString(), transformedQueryExpression.toTrunctatedString());
+    } else {
+      logger.atInfo().log(
+          "not logging transformed query with estimated size: %d", queryWeightEstimate);
+    }
     return transformedQueryExpression;
   }
 
@@ -559,8 +569,10 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     for (Target target : targets) {
       targetsByKey.put(TARGET_TO_SKY_KEY.apply(target), target);
     }
+    ImmutableMap<SkyKey, Iterable<SkyKey>> fwdDepLabels =
+        getFwdDepLabels(targetsByKey.keySet(), context.extraGlobalDeps());
     Map<SkyKey, Collection<Target>> directDeps =
-        targetifyValues(getFwdDepLabels(targetsByKey.keySet()), missingTargetCollector);
+        targetifyValues(fwdDepLabels, missingTargetCollector);
     ThreadSafeMutableSet<Target> result = createThreadSafeMutableSet();
     for (Map.Entry<SkyKey, Collection<Target>> entry : directDeps.entrySet()) {
       result.addAll(filterFwdDeps(targetsByKey.get(entry.getKey()), entry.getValue()));
@@ -568,15 +580,20 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     return result;
   }
 
-  /** Returns the target dependencies' {@link Label}s of the passed in target {@code Label}s. */
-  protected Map<SkyKey, Iterable<SkyKey>> getFwdDepLabels(Iterable<SkyKey> targetLabels)
+  public ImmutableMap<SkyKey, Iterable<SkyKey>> getFwdDepLabels(
+      Iterable<SkyKey> targetLabels, ImmutableSetMultimap<SkyKey, SkyKey> extraGlobalDeps)
       throws InterruptedException {
     Preconditions.checkState(
         Iterables.all(targetLabels, IS_LABEL), "Expected all labels: %s", targetLabels);
-    return graph.getDirectDeps(targetLabels).entrySet().stream()
-        .collect(
-            ImmutableMap.toImmutableMap(
-                Map.Entry::getKey, entry -> Iterables.filter(entry.getValue(), IS_LABEL)));
+    Map<SkyKey, Iterable<SkyKey>> deps = graph.getDirectDeps(targetLabels);
+    ImmutableMap.Builder<SkyKey, Iterable<SkyKey>> resultsBuilder = ImmutableMap.builder();
+    for (Map.Entry<SkyKey, Iterable<SkyKey>> entry : deps.entrySet()) {
+      Iterable<SkyKey> depsLabels = Iterables.filter(entry.getValue(), IS_LABEL);
+      Iterable<SkyKey> globals = Iterables.concat(extraGlobalDeps.get(entry.getKey()));
+      depsLabels = Iterables.concat(depsLabels, globals);
+      resultsBuilder.put(entry.getKey(), depsLabels);
+    }
+    return resultsBuilder.buildOrThrow();
   }
 
   @Override
@@ -885,10 +902,10 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         patternToEval.evalAsync(
             resolver,
             () ->
-                ((IgnoredPackagePrefixesValue)
+                ((IgnoredSubdirectoriesValue)
                         graph.getValue(
-                            IgnoredPackagePrefixesValue.key(patternToEval.getRepository())))
-                    .getPatterns(),
+                            IgnoredSubdirectoriesValue.key(patternToEval.getRepository())))
+                    .asIgnoredSubdirectories(),
             targetPatternKey.getExcludedSubdirectories(),
             filteredCallback,
             QueryException.class,

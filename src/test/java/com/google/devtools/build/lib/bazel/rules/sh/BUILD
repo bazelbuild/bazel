@@ -18,15 +18,18 @@ java_library(
     srcs = glob(
         ["*.java"],
     ),
+    data = ["@rules_shell//shell:rules_bzl"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
+        "//tools/java/runfiles",
     ],
 )
 

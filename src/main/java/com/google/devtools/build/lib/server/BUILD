@@ -14,14 +14,20 @@ filegroup(
 )
 
 java_library(
+    name = "idle_task",
+    srcs = ["IdleTask.java"],
+)
+
+java_library(
     name = "server",
     srcs = [
         "CommandManager.java",
         "GrpcServerImpl.java",
-        "IdleServerTasks.java",
+        "IdleTaskManager.java",
         "ServerWatcherRunnable.java",
     ],
     deps = [
+        ":idle_task",
         ":pid_file_watcher",
         ":rpc_server",
         ":shutdown_hooks",
@@ -55,7 +61,7 @@ java_library(
         "//third_party:jsr305",
         "//third_party:netty",
         "//third_party/grpc-java:grpc-jar",
-        "//third_party/protobuf:protobuf_java",
+        "@protobuf//:protobuf_java",
     ],
 )
 

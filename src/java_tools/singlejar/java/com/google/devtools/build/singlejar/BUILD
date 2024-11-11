@@ -31,6 +31,9 @@ java_library(
         "//src/java_tools/singlejar/javatests/com/google/devtools/build/singlejar:__pkg__",
         "//src/test/java/com/google/devtools/build/android:__pkg__",
         "//src/tools/android/java/com/google/devtools/build/android:__pkg__",
+        "//third_party/bazel_rules/rules_android/src/tools/java/com/google/devtools/build/android:__pkg__",
+        "//third_party/bazel_rules/rules_android/src/tools/javatests/com/google/devtools/build/android:__pkg__",
+        "//third_party/bazel_rules/rules_android/src/tools/javatests/com/google/devtools/build/android/r8:__pkg__",
     ],
     deps = [
         "//src/java_tools/singlejar/java/com/google/devtools/build/zip",

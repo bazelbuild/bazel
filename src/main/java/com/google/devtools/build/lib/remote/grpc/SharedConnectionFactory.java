@@ -13,10 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.grpc;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import io.grpc.CallOptions;
 import io.grpc.ClientCall;
+import io.grpc.ForwardingClientCall.SimpleForwardingClientCall;
+import io.grpc.ForwardingClientCallListener.SimpleForwardingClientCallListener;
+import io.grpc.Metadata;
 import io.grpc.MethodDescriptor;
+import io.grpc.Status;
+import io.netty.channel.unix.Errors;
 import io.reactivex.rxjava3.core.Single;
 import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.functions.Action;
@@ -25,6 +31,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
@@ -41,6 +48,7 @@ import javax.annotation.concurrent.GuardedBy;
 public class SharedConnectionFactory implements ConnectionPool {
   private final TokenBucket<Integer> tokenBucket;
   private final ConnectionFactory factory;
+  private final Predicate<Throwable> fatalErrorPredicate;
 
   @Nullable
   @GuardedBy("this")
@@ -50,6 +58,12 @@ public class SharedConnectionFactory implements ConnectionPool {
       new AtomicReference<>(null);
 
   public SharedConnectionFactory(ConnectionFactory factory, int maxConcurrency) {
+    this(factory, maxConcurrency, SharedConnectionFactory::isFatalError);
+  }
+
+  @VisibleForTesting
+  SharedConnectionFactory(
+      ConnectionFactory factory, int maxConcurrency, Predicate<Throwable> fatalErrorPredicate) {
     this.factory = factory;
 
     List<Integer> initialTokens = new ArrayList<>(maxConcurrency);
@@ -57,6 +71,7 @@ public class SharedConnectionFactory implements ConnectionPool {
       initialTokens.add(i);
     }
     this.tokenBucket = new TokenBucket<>(initialTokens);
+    this.fatalErrorPredicate = fatalErrorPredicate;
   }
 
   @Override
@@ -118,7 +133,14 @@ public class SharedConnectionFactory implements ConnectionPool {
                     .map(
                         conn ->
                             new SharedConnection(
-                                conn, /* onClose= */ () -> tokenBucket.addToken(token))));
+                                conn,
+                                /* onClose= */ () -> tokenBucket.addToken(token),
+                                fatalErrorPredicate,
+                                /* onFatalError= */ () -> {
+                                  synchronized (this) {
+                                    connectionAsyncSubject = null;
+                                  }
+                                })));
   }
 
   /** Returns current number of available connections. */
@@ -130,16 +152,39 @@ public class SharedConnectionFactory implements ConnectionPool {
   public static class SharedConnection implements Connection {
     private final Connection connection;
     private final Action onClose;
+    private final Predicate<Throwable> fatalErrorPredicate;
+    private final Runnable onFatalError;
 
-    public SharedConnection(Connection connection, Action onClose) {
+    public SharedConnection(
+        Connection connection,
+        Action onClose,
+        Predicate<Throwable> fatalErrorPredicate,
+        Runnable onFatalError) {
       this.connection = connection;
       this.onClose = onClose;
+      this.fatalErrorPredicate = fatalErrorPredicate;
+      this.onFatalError = onFatalError;
     }
 
     @Override
     public <ReqT, RespT> ClientCall<ReqT, RespT> call(
         MethodDescriptor<ReqT, RespT> method, CallOptions options) {
-      return connection.call(method, options);
+      return new SimpleForwardingClientCall<>(connection.call(method, options)) {
+        @Override
+        public void start(Listener<RespT> responseListener, Metadata headers) {
+          super.start(
+              new SimpleForwardingClientCallListener<>(responseListener) {
+                @Override
+                public void onClose(Status status, Metadata trailers) {
+                  if (fatalErrorPredicate.test(status.getCause())) {
+                    onFatalError.run();
+                  }
+                  super.onClose(status, trailers);
+                }
+              },
+              headers);
+        }
+      };
     }
 
     @Override
@@ -155,5 +200,11 @@ public class SharedConnectionFactory implements ConnectionPool {
     public Connection getUnderlyingConnection() {
       return connection;
     }
+  }
+
+  private static boolean isFatalError(@Nullable Throwable t) {
+    // A low-level netty error indicates that the connection is fundamentally broken
+    // and should not be reused for retries.
+    return t instanceof Errors.NativeIoException;
   }
 }

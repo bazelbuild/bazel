@@ -17,17 +17,27 @@ package com.google.devtools.build.lib.skyframe.serialization;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Basic tests for {@link PackageIdentifier}'s codec. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class PackageIdentifierCodecTest {
 
   @Test
-  public void testCodec() throws Exception {
-    new SerializationTester(PackageIdentifier.create("foo", PathFragment.create("bar/baz")))
-        .runTests();
+  public void testCodec(@TestParameter boolean useSharedValues) throws Exception {
+    var tester =
+        new SerializationTester(PackageIdentifier.create("foo", PathFragment.create("bar/baz")));
+
+    if (useSharedValues) {
+      tester
+          .addCodec(PackageIdentifier.valueSharingCodec())
+          .makeMemoizingAndAllowFutureBlocking(true);
+    }
+
+    tester.runTests();
   }
+
 }

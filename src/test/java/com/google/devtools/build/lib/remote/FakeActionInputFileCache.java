@@ -55,7 +55,7 @@ final class FakeActionInputFileCache implements InputMetadataProvider {
   }
 
   @Override
-  public FileArtifactValue getInputMetadata(ActionInput input) throws IOException {
+  public FileArtifactValue getInputMetadataChecked(ActionInput input) throws IOException {
     String hexDigest = Preconditions.checkNotNull(cas.get(input), input);
     Path path = execRoot.getRelative(input.getExecPath());
     FileStatus stat = path.stat(Symlinks.FOLLOW);
@@ -87,7 +87,6 @@ final class FakeActionInputFileCache implements InputMetadataProvider {
     runfilesMap.put(
         runfilesMiddleman,
         new RunfilesArtifactValue(
-            FileArtifactValue.createForNormalFile(new byte[] {}, null, 0),
             runfilesTree,
             ImmutableList.of(),
             ImmutableList.of(),

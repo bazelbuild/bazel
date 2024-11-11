@@ -24,9 +24,10 @@ class BazelWindowsTest(test_base.TestBase):
         'MODULE.bazel',
         [
             'bazel_dep(name = "platforms", version = "0.0.9")',
+            'bazel_dep(name = "rules_cc", version = "0.0.12")',
             (
                 'cc_configure ='
-                ' use_extension("@bazel_tools//tools/cpp:cc_configure.bzl",'
+                ' use_extension("@rules_cc//cc:extensions.bzl",'
                 ' "cc_configure_extension")'
             ),
             'use_repo(cc_configure, "local_config_cc")',
@@ -552,6 +553,37 @@ class BazelWindowsTest(test_base.TestBase):
 
     self.RunBazel(
         ['test', '--incompatible_check_sharding_support', '//:foo_test']
+    )
+
+  def testTestPrematureExitFile(self):
+    self.ScratchFile(
+        'BUILD',
+        [
+            'sh_test(',
+            '  name = "foo_test",',
+            '  srcs = ["foo.sh"],',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'foo.sh',
+        [
+            '#!/bin/sh',
+            'touch "$TEST_PREMATURE_EXIT_FILE"',
+            'echo "fake pass"',
+            'exit 0',
+        ],
+    )
+
+    exit_code, stdout, stderr = self.RunBazel(
+        ['test', '--test_output=errors', '//:foo_test'],
+        allow_failure=True,
+    )
+    # Check for "tests failed" exit code
+    self.AssertExitCode(exit_code, 3, stderr, stdout)
+    self.assertIn(
+        '-- Test exited prematurely (TEST_PREMATURE_EXIT_FILE exists) --',
+        stdout,
     )
 
   def testMakeVariableForDumpbinExecutable(self):

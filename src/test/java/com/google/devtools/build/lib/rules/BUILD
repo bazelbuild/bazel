@@ -10,7 +10,6 @@ filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["*"]) + [
-        "//src/test/java/com/google/devtools/build/lib/rules/android:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/apple:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/config:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/cpp:srcs",
@@ -46,6 +45,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis:licenses_provider",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/rules:alias",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",

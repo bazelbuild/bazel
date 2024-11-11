@@ -204,6 +204,12 @@ public final class ActionInputMap implements InputMetadataProvider, ActionInputM
   @Nullable
   @Override
   public FileArtifactValue getInputMetadata(ActionInput input) {
+    return getInputMetadataChecked(input);
+  }
+
+  @Nullable
+  @Override
+  public FileArtifactValue getInputMetadataChecked(ActionInput input) {
     if (isARunfilesMiddleman(input)) {
       RunfilesArtifactValue runfilesMetadata = getRunfilesMetadata(input);
       return runfilesMetadata == null ? null : runfilesMetadata.getMetadata();
@@ -380,14 +386,8 @@ public final class ActionInputMap implements InputMetadataProvider, ActionInputM
       return;
     }
 
-    // Overwrite the placeholder.
-    if (treeArtifactValue.equals(TreeArtifactValue.OMITTED_TREE_MARKER)) {
-      // No trie entry for omitted tree -- it cannot have any children anyway.
-      values[size - 1] = FileArtifactValue.OMITTED_FILE_MARKER;
-    } else {
-      treeArtifactsRoot.add(tree.getExecPath(), treeArtifactValue);
-      values[size - 1] = treeArtifactValue;
-    }
+    treeArtifactsRoot.add(tree.getExecPath(), treeArtifactValue);
+    values[size - 1] = treeArtifactValue;
   }
 
   public void putWithNoDepOwner(ActionInput input, FileArtifactValue metadata) {

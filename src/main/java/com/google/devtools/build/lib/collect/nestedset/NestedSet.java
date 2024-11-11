@@ -165,20 +165,14 @@ public final class NestedSet<E> {
     boolean preorder;
 
     switch (order) {
-      case LINK_ORDER:
+      case LINK_ORDER -> {
         directOrder = ImmutableList.copyOf(direct).reverse();
         transitiveOrder = ImmutableList.copyOf(transitive).reverse();
         preorder = false;
-        break;
-      case STABLE_ORDER:
-      case COMPILE_ORDER:
-        preorder = false;
-        break;
-      case NAIVE_LINK_ORDER:
-        preorder = true;
-        break;
-      default:
-        throw new AssertionError(order);
+      }
+      case STABLE_ORDER, COMPILE_ORDER -> preorder = false;
+      case NAIVE_LINK_ORDER -> preorder = true;
+      default -> throw new AssertionError(order);
     }
 
     // Remember children we extracted from one-element subsets. Otherwise we can end up with two of
@@ -342,13 +336,10 @@ public final class NestedSet<E> {
    */
   private Object getChildrenInternal(InterruptStrategy interruptStrategy)
       throws InterruptedException {
-    switch (interruptStrategy) {
-      case CRASH:
-        return getChildrenUninterruptibly();
-      case PROPAGATE:
-        return getChildrenInterruptibly();
-    }
-    throw new IllegalStateException("Unknown interrupt strategy " + interruptStrategy);
+    return switch (interruptStrategy) {
+      case CRASH -> getChildrenUninterruptibly();
+      case PROPAGATE -> getChildrenInterruptibly();
+    };
   }
 
   /** Returns true if the set is empty. Runs in O(1) time (i.e. does not flatten the set). */

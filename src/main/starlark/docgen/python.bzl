@@ -11,19 +11,27 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-"""Python"""
+#
 # Build Encyclopedia entry point for Python rules implemented in Starlark in Bazel's @_builtins
+"""Python"""
+
+load("@rules_python//python/private/common:py_binary_rule_bazel.bzl", "py_binary")  # buildifier: disable=bzl-visibility
+load("@rules_python//python/private/common:py_library_rule_bazel.bzl", "py_library")  # buildifier: disable=bzl-visibility
+load("@rules_python//python/private/common:py_runtime_rule.bzl", "py_runtime")  # buildifier: disable=bzl-visibility
+load("@rules_python//python/private/common:py_test_rule_bazel.bzl", "py_test")  # buildifier: disable=bzl-visibility
 
 binary_rules = struct(
+    py_binary = py_binary,
 )
 
 library_rules = struct(
-    py_library = native.py_library,
+    py_library = py_library,
 )
 
 test_rules = struct(
+    py_test = py_test,
 )
 
 other_rules = struct(
+    py_runtime = py_runtime,
 )

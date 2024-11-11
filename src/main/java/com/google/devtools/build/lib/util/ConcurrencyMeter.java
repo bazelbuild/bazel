@@ -27,6 +27,7 @@ import java.time.Instant;
 import java.util.PriorityQueue;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.annotation.Nullable;
 
 /**
  * A dispenser for up to 'total' simultaneous units of some resource. The resource itself is not
@@ -72,6 +73,10 @@ public final class ConcurrencyMeter {
     return queue.size();
   }
 
+  public ListenableFuture<Ticket> request(long quantity, long priority) {
+    return request(quantity, priority, () -> {});
+  }
+
   /**
    * Enqueues a request for {@code quantity} units of the resource managed by this meter. When the
    * request is filled, the result becomes available.
@@ -81,21 +86,52 @@ public final class ConcurrencyMeter {
    *
    * @param quantity number of units of resources to acquire
    * @param priority requests with greater priority complete earlier
+   * @param ifQueued a callback to be executed if the request is queued
    * @return a future which grants resources only when it completes successfully
    */
-  public ListenableFuture<Ticket> request(long quantity, long priority) {
+  public ListenableFuture<Ticket> request(long quantity, long priority, Runnable ifQueued) {
     checkArgument(quantity >= 0);
     PendingJob job = new PendingJob(quantity, priority);
-    synchronized (this) {
-      queue.add(job);
+    ReleasingTicket ticket = maybeLease(job);
+    if (ticket != null) {
+      setTicket(job, ticket);
+    } else {
+      ifQueued.run();
+      synchronized (this) {
+        queue.add(job);
+      }
     }
     schedule();
     return job.futureTicket;
   }
 
+  @Nullable
+  private synchronized ReleasingTicket maybeLease(PendingJob job) {
+    if (leased + job.quantity > total && leased > 0) {
+      return null;
+    }
+
+    leased += job.quantity;
+
+    if (leased >= maxLeased) {
+      maxLeased = leased;
+      maxLeasedTimestamp = clock.now();
+    }
+
+    return new ReleasingTicket(job.quantity);
+  }
+
+  private void setTicket(PendingJob job, ReleasingTicket ticket) {
+    if (!job.futureTicket.set(ticket)) {
+      // The future may have been cancelled. Release immediately. If the build was interrupted, we
+      // may encounter a long chain of cancelled tickets - avoid calling ticket.done() or
+      // releaseAndSchedule() which would process them recursively.
+      release(job.quantity);
+    }
+  }
+
   /** Statistics about a ConcurrencyMeter. */
-  public record Stats(
-      String name, long total, long leased, long maxLeased, long maxLeasedTimeMs) {}
+  public record Stats(String name, long total, long leased, long maxLeased, long maxLeasedTimeMs) {}
 
   public synchronized Stats getStats() {
     return new Stats(
@@ -115,29 +151,19 @@ public final class ConcurrencyMeter {
   private void schedule() {
     while (true) {
       PendingJob job;
+      ReleasingTicket ticket;
       synchronized (this) {
         job = queue.peek();
-        if (job == null || (leased + job.quantity > total && leased > 0)) {
+        if (job == null || (ticket = maybeLease(job)) == null) {
           return;
         }
         queue.remove();
-        leased += job.quantity;
-
-        if (leased >= maxLeased) {
-          maxLeased = leased;
-          maxLeasedTimestamp = clock.now();
-        }
       }
 
       // Set the future outside synchronized block to avoid holding the lock when executing future's
       // callbacks which may hold other locks and call into ConcurrencyMeter causing deadlocks.
       // See: b/319411390
-      if (!job.futureTicket.set(new ReleasingTicket(job.quantity))) {
-        // The future may have been cancelled. Release immediately. If the build was interrupted, we
-        // may encounter a long chain of cancelled tickets - avoid calling ticket.done() or
-        // releaseAndSchedule() which would process them recursively.
-        release(job.quantity);
-      }
+      setTicket(job, ticket);
     }
   }
 

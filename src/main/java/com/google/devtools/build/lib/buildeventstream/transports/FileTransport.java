@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
+import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions.OutputGroupFileModes;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
@@ -292,6 +293,9 @@ abstract class FileTransport implements BuildEventTransport {
         results -> {
           BuildEventContext context =
               new BuildEventContext() {
+                private final OutputGroupFileModes outputGroupModes =
+                    options.getOutputGroupFileModesMapping();
+
                 @Override
                 public PathConverter pathConverter() {
                   return Futures.getUnchecked(converterFuture);
@@ -305,6 +309,11 @@ abstract class FileTransport implements BuildEventTransport {
                 @Override
                 public BuildEventProtocolOptions getOptions() {
                   return options;
+                }
+
+                @Override
+                public OutputGroupFileMode getFileModeForOutputGroup(String outputGroup) {
+                  return outputGroupModes.getMode(outputGroup);
                 }
               };
           try {

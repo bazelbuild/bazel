@@ -13,9 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.concurrent;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
+
 import com.google.common.collect.Interner;
 import com.google.common.collect.Interners;
-import com.google.common.collect.Interners.InternerBuilder;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /** Wrapper around {@link Interners}, with Blaze-specific predetermined concurrency levels. */
 public class BlazeInterners {
@@ -31,10 +34,6 @@ public class BlazeInterners {
     return CONCURRENCY_LEVEL;
   }
 
-  private static InternerBuilder setConcurrencyLevel(InternerBuilder builder) {
-    return builder.concurrencyLevel(CONCURRENCY_LEVEL);
-  }
-
   /**
    * Creates an interner which retains a weak reference to each instance it has interned.
    *
@@ -42,11 +41,24 @@ public class BlazeInterners {
    * types.
    */
   public static <T> Interner<T> newWeakInterner() {
-    return setConcurrencyLevel(Interners.newBuilder().weak()).build();
+    return Interners.newBuilder().concurrencyLevel(CONCURRENCY_LEVEL).weak().build();
   }
 
   public static <T> Interner<T> newStrongInterner() {
-    return setConcurrencyLevel(Interners.newBuilder().strong()).build();
+    return new StrongInterner<>();
+  }
+
+  /**
+   * Interner based on {@link ConcurrentHashMap}, which offers faster lookups than Guava's strong
+   * interner.
+   */
+  private static final class StrongInterner<T> implements Interner<T> {
+    private final Map<T, T> map = new ConcurrentHashMap<>(CONCURRENCY_LEVEL);
+
+    @Override
+    public T intern(T sample) {
+      T existing = map.putIfAbsent(sample, sample);
+      return firstNonNull(existing, sample);
+    }
   }
 }
-

@@ -38,7 +38,7 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.packages.TargetDefinitionContext.NameConflictException;
+import com.google.devtools.build.lib.packages.TargetRecorder.NameConflictException;
 import com.google.devtools.build.lib.packages.WorkspaceFactory;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
@@ -100,6 +100,15 @@ public class WorkspaceFileFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws WorkspaceFileFunctionException, InterruptedException {
     WorkspaceFileKey key = (WorkspaceFileKey) skyKey.argument();
+
+    if (key.getIndex() == 0 && directories.getProductName().equals("bazel")) {
+      env.getListener()
+          .handle(
+              Event.warn(
+                  "WORKSPACE support will be removed in Bazel 9 (late 2025), please migrate to"
+                      + " Bzlmod, see https://bazel.build/external/migration."));
+    }
+
     RootedPath workspaceFile = key.getPath();
     StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     if (starlarkSemantics == null) {
@@ -351,7 +360,8 @@ public class WorkspaceFileFunction implements SkyFunction {
               keys.build(),
               starlarkSemantics,
               bzlLoadFunctionForInlining,
-              /* checkVisibility= */ true);
+              /* checkVisibility= */ true,
+              BazelSkyframeExecutorConstants.ACTION_ON_FILESYSTEM_ERROR_CODE_LOADING_BZL_FILE);
     } catch (NoSuchPackageException e) {
       throw new WorkspaceFileFunctionException(e, Transience.PERSISTENT);
     }

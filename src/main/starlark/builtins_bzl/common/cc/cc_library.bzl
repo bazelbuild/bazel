@@ -58,7 +58,9 @@ def _cc_library_impl(ctx):
         name = ctx.label.name,
         cc_toolchain = cc_toolchain,
         feature_configuration = feature_configuration,
-        user_compile_flags = runtimes_copts + cc_helper.get_copts(ctx, feature_configuration, additional_make_variable_substitutions),
+        user_compile_flags = runtimes_copts + cc_helper.get_copts(ctx, feature_configuration, additional_make_variable_substitutions, attr = "copts"),
+        conly_flags = cc_helper.get_copts(ctx, feature_configuration, additional_make_variable_substitutions, attr = "conlyopts"),
+        cxx_flags = cc_helper.get_copts(ctx, feature_configuration, additional_make_variable_substitutions, attr = "cxxopts"),
         defines = cc_helper.defines(ctx, additional_make_variable_substitutions),
         local_defines = cc_helper.local_defines(ctx, additional_make_variable_substitutions) + cc_helper.get_local_defines_for_runfiles_lookup(ctx, ctx.attr.deps + ctx.attr.implementation_deps),
         system_includes = cc_helper.system_include_dirs(ctx, additional_make_variable_substitutions),
@@ -850,8 +852,6 @@ The list of other libraries that the library target depends on. Unlike with
 transitive deps) are only used for compilation of this library, and not libraries that
 depend on it. Libraries specified with <code>implementation_deps</code> are still linked in
 binary targets that depend on this library.
-<p>For now usage is limited to cc_libraries and guarded by the flag
-<code>--experimental_cc_implementation_deps</code>.</p>
 """),
         "strip_include_prefix": attr.string(doc = """
 The prefix to strip from the paths of the headers of this rule.

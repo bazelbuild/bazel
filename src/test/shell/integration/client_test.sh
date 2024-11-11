@@ -19,9 +19,6 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-# Less network flakiness without bzlmod
-disable_bzlmod
-
 function strip_lines_from_bazel_cc() {
   # sed can't redirect back to its input file (it'll only generate an empty
   # file). In newer versions of gnu sed there is a -i option to edit in place.
@@ -442,7 +439,8 @@ function test_client_is_quiet_by_default() {
 
   strip_lines_from_bazel_cc
 
-  assert_equals 2 $(cat $TEST_log | wc -l)
+  lines=$(cat $TEST_log | wc -l)
+  [[ $lines -ge 2 && $lines -le 3 ]] || fail "Log has incorrect number of lines"
   expect_log "^\$TEST_TMPDIR defined: output root default"
   expect_log "^Starting local $capitalized_product_name server and connecting to it...$"
   cp stdout $TEST_log || fail "cp failed"
@@ -458,7 +456,8 @@ function test_client_is_quiet_by_default() {
 
   strip_lines_from_bazel_cc
 
-  assert_equals 1 $(cat $TEST_log | wc -l)
+  lines=$(cat $TEST_log | wc -l)
+  [[ $lines -ge 1 && $lines -le 2 ]] || fail "Log has incorrect number of lines"
   expect_log "^\$TEST_TMPDIR defined: output root default"
   cp stdout $TEST_log || fail "cp failed"
 

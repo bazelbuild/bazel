@@ -140,10 +140,10 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
     packageOptions.showLoadingProgress = true;
     packageOptions.globbingThreads = 7;
-    BuildLanguageOptions options = Options.getDefaults(BuildLanguageOptions.class);
-    // TODO: enable Bzlmod for this test case
-    // https://github.com/bazelbuild/bazel/issues/19824
-    options.enableBzlmod = false;
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(BuildLanguageOptions.class).build();
+    parser.parse(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
+    BuildLanguageOptions options = parser.getOptions(BuildLanguageOptions.class);
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageOptions,

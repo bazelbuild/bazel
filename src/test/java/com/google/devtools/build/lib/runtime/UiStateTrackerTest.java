@@ -211,7 +211,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
         Label.parseCanonical("//foo:a"),
         new Location("dummy-file", 0, 0),
         /* targetKind= */ "",
-        /* mnemonic= */ "",
+        /* buildConfigurationMnemonic= */ "",
         /* configurationChecksum= */ "",
         new BuildConfigurationEvent(
             BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
@@ -229,6 +229,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
       // SkymeldUiStateTracker needs to be in the configuration phase before the execution phase.
       ((SkymeldUiStateTracker) uiStateTracker)
           .setBuildStatusForTestingOnly(BuildStatus.ANALYSIS_COMPLETE);
+      uiStateTracker.executionPhaseStarted();
     } else {
       String unused = uiStateTracker.analysisComplete();
     }
@@ -647,7 +648,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
             label,
             new Location("dummy-file", 0, 0),
             /* targetKind= */ "dummy-target-kind",
-            /* mnemonic= */ "dummy-mnemonic",
+            /* buildConfigurationMnemonic= */ "dummy-mnemonic",
             /* configurationChecksum= */ "fedcba",
             new BuildConfigurationEvent(
                 BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
@@ -1193,7 +1194,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
             labelFooTest,
             new Location("dummy-file", 0, 0),
             /* targetKind= */ "dummy-target-kind",
-            /* mnemonic= */ "TestRunner",
+            /* buildConfigurationMnemonic= */ "TestRunner",
             /* configurationChecksum= */ "abcdef",
             new BuildConfigurationEvent(
                 BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
@@ -1211,7 +1212,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
             labelBarTest,
             new Location("dummy-file", 0, 0),
             /* targetKind= */ "dummy-target-kind",
-            /* mnemonic= */ "TestRunner",
+            /* buildConfigurationMnemonic= */ "TestRunner",
             /* configurationChecksum= */ "abcdef",
             new BuildConfigurationEvent(
                 BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
@@ -1229,7 +1230,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
             labelBazTest,
             new Location("dummy-file", 0, 0),
             /* targetKind= */ "dummy-target-kind",
-            /* mnemonic= */ "NonTestAction",
+            /* buildConfigurationMnemonic= */ "NonTestAction",
             /* configurationChecksum= */ "fedcba",
             new BuildConfigurationEvent(
                 BuildEventStreamProtos.BuildEventId.getDefaultInstance(),

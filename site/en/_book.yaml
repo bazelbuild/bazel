@@ -258,6 +258,10 @@ upper_tabs:
       contents:
       - title: Glossary
         path: /reference/glossary
+    - name: Flag cheatsheet
+      contents:
+      - title: Flag cheatsheet
+        path: /reference/flag-cheatsheet
 
 - name: Extending
   heading: Guides to maximize Bazel's power through advanced concepts and extensions

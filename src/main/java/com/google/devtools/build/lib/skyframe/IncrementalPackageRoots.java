@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.buildtool.SymlinkForest;
 import com.google.devtools.build.lib.buildtool.SymlinkForest.SymlinkPlantingException;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet.Node;
@@ -84,7 +85,7 @@ public class IncrementalPackageRoots implements PackageRoots {
   private final Root singleSourceRoot;
   private final String prefix;
 
-  private final ImmutableSet<Path> ignoredPaths;
+  private final IgnoredSubdirectories ignoredPaths;
   private final boolean useSiblingRepositoryLayout;
 
   private final boolean allowExternalRepositories;
@@ -98,7 +99,7 @@ public class IncrementalPackageRoots implements PackageRoots {
       Root singleSourceRoot,
       EventBus eventBus,
       String prefix,
-      ImmutableSet<Path> ignoredPaths,
+      IgnoredSubdirectories ignoredPaths,
       boolean useSiblingRepositoryLayout,
       boolean allowExternalRepositories) {
     this.threadSafeExternalRepoPackageRootsMap = Maps.newConcurrentMap();
@@ -121,7 +122,7 @@ public class IncrementalPackageRoots implements PackageRoots {
       Root singleSourceRoot,
       EventBus eventBus,
       String prefix,
-      ImmutableSet<Path> ignoredPaths,
+      IgnoredSubdirectories ignoredSubdirectories,
       boolean useSiblingRepositoryLayout,
       boolean allowExternalRepositories) {
     IncrementalPackageRoots incrementalPackageRoots =
@@ -130,7 +131,7 @@ public class IncrementalPackageRoots implements PackageRoots {
             singleSourceRoot,
             eventBus,
             prefix,
-            ignoredPaths,
+            ignoredSubdirectories,
             useSiblingRepositoryLayout,
             allowExternalRepositories);
     eventBus.register(incrementalPackageRoots);

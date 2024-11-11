@@ -216,11 +216,12 @@ public final class TestXmlOutputParser {
       throws XMLStreamException, TestXmlOutputParserException {
     int failures = 0;
     int errors = 0;
+    boolean skipped = false;
 
     while (true) {
       int event = parser.next();
       switch (event) {
-        case XMLStreamConstants.START_ELEMENT:
+        case XMLStreamConstants.START_ELEMENT -> {
           String childElementName = parser.getLocalName().intern();
 
           // We are not parsing four elements here: system-out, system-err,
@@ -243,6 +244,10 @@ public final class TestXmlOutputParser {
               errors += 1;
               skipCompleteElement(parser);
               break;
+            case "skipped":
+              skipped = true;
+              skipCompleteElement(parser);
+              break;
             case "testdecorator":
               builder.addChild(parseTestDecorator(parser));
               break;
@@ -252,9 +257,8 @@ public final class TestXmlOutputParser {
               // is bliss.
               skipCompleteElement(parser);
           }
-          break;
-
-        case XMLStreamConstants.END_ELEMENT:
+        }
+        case XMLStreamConstants.END_ELEMENT -> {
           // Propagate errors/failures from children up to the current case
           for (int i = 0; i < builder.getChildCount(); i += 1) {
             if (builder.getChild(i).getStatus() == TestCase.Status.ERROR) {
@@ -269,6 +273,8 @@ public final class TestXmlOutputParser {
             builder.setStatus(TestCase.Status.ERROR);
           } else if (failures > 0) {
             builder.setStatus(TestCase.Status.FAILED);
+          } else if (skipped) {
+            builder.setStatus(TestCase.Status.SKIPPED);
           } else {
             builder.setStatus(TestCase.Status.PASSED);
           }
@@ -278,7 +284,8 @@ public final class TestXmlOutputParser {
             throw createBadElementException(elementName, parser);
           }
           return;
-        default: // fall out
+        }
+        default -> {}
       }
     }
   }
@@ -299,27 +306,18 @@ public final class TestXmlOutputParser {
       String value = parser.getAttributeValue(i);
 
       switch (name) {
-        case "name":
-          builder.setName(value);
-          break;
-        case "classname":
-          builder.setClassName(value);
-          break;
-        case "time":
-          builder.setRunDurationMillis(parseTime(value));
-          break;
-        case "result":
-          builder.setResult(value);
-          break;
-        case "status":
+        case "name" -> builder.setName(value);
+        case "classname" -> builder.setClassName(value);
+        case "time" -> builder.setRunDurationMillis(parseTime(value));
+        case "result" -> builder.setResult(value);
+        case "status" -> {
           if (value.equals("notrun")) {
             builder.setRun(false);
           } else if (value.equals("run")) {
             builder.setRun(true);
           }
-          break;
-        default:
-          // fall through
+        }
+        default -> {}
       }
     }
 
@@ -339,16 +337,13 @@ public final class TestXmlOutputParser {
       int event = parser.next();
 
       switch (event) {
-        case XMLStreamConstants.START_ELEMENT:
-          depth++;
-          break;
-
-        case XMLStreamConstants.END_ELEMENT:
+        case XMLStreamConstants.START_ELEMENT -> depth++;
+        case XMLStreamConstants.END_ELEMENT -> {
           if (--depth == 0) {
             return;
           }
-          break;
-        default: // fall out
+        }
+        default -> {}
       }
     }
   }

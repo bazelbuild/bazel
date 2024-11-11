@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.cmdline.LabelConstants.EXTERNAL_PACK
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -171,23 +170,27 @@ public abstract class RepositoryFunction {
    *       repository function would be restarted <b>after</b> that SkyFunction has been run, and it
    *       would wipe the output directory clean.
    * </ul>
-   *
-   * <p>The {@code markerData} argument can be mutated to augment the data to write to the
-   * repository marker file. If any data in the {@code markerData} change between 2 execute of the
-   * {@link RepositoryDelegatorFunction} then this should be a reason to invalidate the repository.
-   * The {@link #verifyRecordedInputs} method is responsible for checking the value added to that
-   * map when checking the content of a marker file.
    */
   @ThreadSafe
   @Nullable
-  public abstract RepositoryDirectoryValue.Builder fetch(
-      Rule rule,
-      Path outputDirectory,
-      BlazeDirectories directories,
-      Environment env,
-      Map<RepoRecordedInput, String> recordedInputValues,
-      SkyKey key)
+  public abstract FetchResult fetch(
+      Rule rule, Path outputDirectory, BlazeDirectories directories, Environment env, SkyKey key)
       throws InterruptedException, RepositoryFunctionException;
+
+  /**
+   * The result of the {@link #fetch} method.
+   *
+   * @param repoBuilder A builder for the eventual {@link RepositoryDirectoryValue} with necessary
+   *     fields set.
+   * @param recordedInputValues Any recorded inputs (and their values) encountered during the fetch
+   *     of the repo. Changes to these inputs will result in the repo being refetched in the future.
+   *     The {@link #verifyRecordedInputs} method is responsible for checking the value added to
+   *     that map when checking the content of a marker file. Not an ImmutableMap, because
+   *     regrettably the values can be null sometimes.
+   */
+  public record FetchResult(
+      RepositoryDirectoryValue.Builder repoBuilder,
+      Map<? extends RepoRecordedInput, String> recordedInputValues) {}
 
   protected static void ensureNativeRepoRuleEnabled(Rule rule, Environment env, String replacement)
       throws RepositoryFunctionException, InterruptedException {
@@ -242,31 +245,6 @@ public abstract class RepositoryFunction {
     // And now for the file
     Root packageRoot = pkgLookupValue.getRoot();
     return RootedPath.toRootedPath(packageRoot, label.toPathFragment());
-  }
-
-  /**
-   * A method that can be called from a implementation of {@link #fetch(Rule, Path,
-   * BlazeDirectories, Environment, Map, SkyKey)} to declare a list of Skyframe dependencies on
-   * environment variable. It also add the information to the marker file. It returns the list of
-   * environment variable on which the function depends, or null if the skyframe function needs to
-   * be restarted.
-   */
-  @Nullable
-  protected Map<String, String> declareEnvironmentDependencies(
-      Map<RepoRecordedInput, String> recordedInputValues, Environment env, Set<String> keys)
-      throws InterruptedException {
-    if (keys.isEmpty()) {
-      return ImmutableMap.of();
-    }
-
-    ImmutableMap<String, Optional<String>> envDepOptionals = getEnvVarValues(env, keys);
-    if (envDepOptionals == null) {
-      return null;
-    }
-    // Add the dependencies to the marker file. The repository marker file supports null values.
-    recordedInputValues.putAll(
-        Maps.transformValues(RepoRecordedInput.EnvVar.wrap(envDepOptionals), v -> v.orElse(null)));
-    return Maps.transformValues(envDepOptionals, v -> v.orElse(null));
   }
 
   /**

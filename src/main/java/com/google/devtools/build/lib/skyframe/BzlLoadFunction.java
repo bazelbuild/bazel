@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
+import com.google.devtools.build.lib.packages.AutoloadSymbols;
 import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.BzlInitThreadContext;
@@ -52,6 +53,7 @@ import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsFunction.BuiltinsF
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.vfs.DetailedIOException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.RecordingSkyFunctionEnvironment;
@@ -609,13 +611,19 @@ public class BzlLoadFunction implements SkyFunction {
       }
       return StarlarkBuiltinsValue.createEmpty(starlarkSemantics);
     }
+    AutoloadSymbols autoloadSymbols = AutoloadSymbols.AUTOLOAD_SYMBOLS.get(env);
+    if (autoloadSymbols == null) {
+      return null;
+    }
     try {
+      boolean withAutoloads = requiresAutoloads(key, autoloadSymbols);
       if (inliningState == null) {
         return (StarlarkBuiltinsValue)
-            env.getValueOrThrow(StarlarkBuiltinsValue.key(), BuiltinsFailedException.class);
+            env.getValueOrThrow(
+                StarlarkBuiltinsValue.key(withAutoloads), BuiltinsFailedException.class);
       } else {
         return StarlarkBuiltinsFunction.computeInline(
-            StarlarkBuiltinsValue.key(),
+            StarlarkBuiltinsValue.key(withAutoloads),
             inliningState,
             ruleClassProvider.getBazelStarlarkEnvironment(),
             /* bzlLoadFunction= */ this);
@@ -633,6 +641,23 @@ public class BzlLoadFunction implements SkyFunction {
         // to avoid a cyclic dependency
         || (key instanceof BzlLoadValue.KeyForBzlmod
             && !(key instanceof BzlLoadValue.KeyForBzlmodBootstrap));
+  }
+
+  private static boolean requiresAutoloads(BzlLoadValue.Key key, AutoloadSymbols autoloadSymbols) {
+    // We do autoloads for all BUILD files and BUILD-loaded .bzl files, except for files in
+    // certain rule repos (see AutoloadSymbols#reposDisallowingAutoloads).
+    //
+    // We don't do autoloads for the WORKSPACE file, Bzlmod files, or .bzls loaded by them,
+    // because in general the rules repositories that we would load are not yet available.
+    //
+    // We never do autoloads for builtins bzls.
+    //
+    // We don't do autoloads for the prelude file, but that's a single file so users can migrate it
+    // easily. (We do autoloads in .bzl files that are loaded by the prelude file.)
+    return autoloadSymbols.isEnabled()
+        && key instanceof BzlLoadValue.KeyForBuild
+        && !key.isBuildPrelude()
+        && !autoloadSymbols.autoloadsDisabledForRepo(key.getLabel());
   }
 
   /**
@@ -1607,13 +1632,22 @@ public class BzlLoadFunction implements SkyFunction {
           errorMessage, detailedExitCode, cause, Transience.PERSISTENT);
     }
 
-    static BzlLoadFailedException errorReadingBzl(
-        PathFragment file, BzlCompileFunction.FailedIOException cause) {
-      String errorMessage =
-          String.format(
-              "Encountered error while reading extension file '%s': %s", file, cause.getMessage());
-      return new BzlLoadFailedException(errorMessage, Code.IO_ERROR, cause, cause.getTransience());
+  static BzlLoadFailedException errorReadingBzl(
+      PathFragment file, BzlCompileFunction.FailedIOException cause) {
+    String errorMessage =
+        String.format(
+            "Encountered error while reading extension file '%s': %s", file, cause.getMessage());
+
+    if (cause.getCause() instanceof DetailedIOException detailedException) {
+      return new BzlLoadFailedException(
+          errorMessage,
+          detailedException.getDetailedExitCode(),
+          detailedException,
+          detailedException.getTransience());
     }
+
+    return new BzlLoadFailedException(errorMessage, Code.IO_ERROR, cause, cause.getTransience());
+  }
 
     static BzlLoadFailedException noBuildFile(Label file, @Nullable String reason) {
       if (reason != null) {

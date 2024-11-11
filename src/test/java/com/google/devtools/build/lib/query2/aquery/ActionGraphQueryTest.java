@@ -65,6 +65,7 @@ public class ActionGraphQueryTest extends PostAnalysisQueryTest<ConfiguredTarget
     writeFile(
         "test/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
             name = "my_java",
             srcs = ["foo.java"],
@@ -142,7 +143,7 @@ public class ActionGraphQueryTest extends PostAnalysisQueryTest<ConfiguredTarget
             toolchains = ["//q:type"],
         )
         """);
-    appendToWorkspace("register_toolchains('//q:tc.toolchain')");
+    overwriteFile("MODULE.bazel", "register_toolchains('//q:tc.toolchain')");
 
     Set<ConfiguredTargetValue> result = eval("deps('//q:r')");
 

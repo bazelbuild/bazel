@@ -17,9 +17,11 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.AnalysisProtosV2.ActionGraphContainer;
 import com.google.devtools.build.lib.buildtool.AqueryProcessor.AqueryActionFilterException;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
+import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.query2.aquery.ActionGraphQueryEnvironment;
 import com.google.devtools.build.lib.query2.aquery.AqueryOptions;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
@@ -29,6 +31,9 @@ import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.commands.AqueryCommand;
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery.Code;
+import com.google.protobuf.ExtensionRegistry;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -85,5 +90,50 @@ public class AqueryBuildToolTest extends BuildIntegrationTestCase {
     assertThat(result.isSuccess()).isFalse();
     assertThat(result.getDetailedExitCode().getFailureDetail().getActionQuery().getCode())
         .isEqualTo(Code.SKYFRAME_STATE_PREREQ_UNMET);
+  }
+
+  @Test
+  public void testAquerySkyframeStateProtoNotCutoff() throws Exception {
+    // First, prepare and run the build.
+    write(
+        "x/BUILD",
+        """
+        genrule(
+            name = "x",
+            srcs = ["in"],
+            # This has the length 10, so it will include a 0x0a / newline character
+            # that triggers the cutoff.
+            outs = ["1234567890"],
+            cmd = "touch $(OUTS)",
+        )
+        """);
+    write("x/in", "");
+    buildTarget("//x");
+
+    // Then, run aquery and dump the action graph as of the previous skyframe state.
+    addOptions("--output=proto", "--skyframe_state");
+    CommandEnvironment env = runtimeWrapper.newCommand(AqueryCommand.class);
+    ByteArrayOutputStream stdout = new ByteArrayOutputStream();
+    env.getReporter()
+        .addHandler(
+            event -> {
+              if (event.getKind().equals(EventKind.STDOUT)) {
+                try {
+                  stdout.write(event.getMessageBytes());
+                } catch (IOException e) {
+                  throw new IllegalStateException(e);
+                }
+              }
+            });
+
+    AqueryProcessor aqueryProcessor = new AqueryProcessor(null, TargetPattern.defaultParser());
+    BlazeCommandResult result = aqueryProcessor.dumpActionGraphFromSkyframe(env);
+    assertThat(result.isSuccess()).isTrue();
+
+    // Test whether stdout is a valid proto.
+    assertThat(stdout.size()).isGreaterThan(0);
+    ActionGraphContainer actionGraphContainer =
+        ActionGraphContainer.parseFrom(stdout.toByteArray(), ExtensionRegistry.getEmptyRegistry());
+    assertThat(actionGraphContainer.getActionsList()).isNotEmpty();
   }
 }

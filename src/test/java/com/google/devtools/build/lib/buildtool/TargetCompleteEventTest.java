@@ -18,6 +18,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.MoreCollectors;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.hash.HashCode;
 import com.google.common.io.BaseEncoding;
@@ -34,6 +35,8 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.IdCase;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.NamedSetOfFiles;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.OutputGroup;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.TargetComplete;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -181,6 +184,7 @@ public final class TargetCompleteEventTest extends BuildIntegrationTestCase {
   public void outputFile() throws Exception {
     write("foo/BUILD", "genrule(name = 'foobin', outs = ['out.txt'], cmd = 'echo -n Hello > $@')");
 
+    addOptions("--experimental_build_event_output_group_mode=default=named_set_of_files_only");
     File bep = buildTargetAndCaptureBEP("//foo:foobin");
 
     BuildEventStreamProtos.File outFile = findOutputFileInBEPStream(bep, "out.txt");
@@ -214,6 +218,7 @@ public final class TargetCompleteEventTest extends BuildIntegrationTestCase {
         directory(name = "dir")
         """);
 
+    addOptions("--experimental_build_event_output_group_mode=default=named_set_of_files_only");
     File bep = buildTargetAndCaptureBEP("//foo:dir");
 
     BuildEventStreamProtos.TargetComplete targetComplete = findTargetCompleteEventInBEPStream(bep);
@@ -252,6 +257,7 @@ public final class TargetCompleteEventTest extends BuildIntegrationTestCase {
         symlink(name = "sym")
         """);
 
+    addOptions("--experimental_build_event_output_group_mode=default=named_set_of_files_only");
     File bep = buildTargetAndCaptureBEP("//foo:sym");
 
     BuildEventStreamProtos.File outFile = findOutputFileInBEPStream(bep, "sym");
@@ -259,6 +265,119 @@ public final class TargetCompleteEventTest extends BuildIntegrationTestCase {
     assertThat(outFile.getSymlinkTargetPath()).isEqualTo("/some/path");
     assertThat(outFile.getLength()).isEqualTo(0);
     assertThat(outFile.getDigest()).isEmpty();
+  }
+
+  @Test
+  public void outputFile_inlineOutputGroup() throws Exception {
+    write("foo/BUILD", "genrule(name = 'foobin', outs = ['out.txt'], cmd = 'echo -n Hello > $@')");
+
+    addOptions("--experimental_build_event_output_group_mode=default=inline_only");
+    File bep = buildTargetAndCaptureBEP("//foo:foobin");
+
+    BuildEventStreamProtos.File outFileFromNestedSet = findOutputFileInBEPStream(bep, "out.txt");
+    assertThat(outFileFromNestedSet).isNull();
+
+    TargetComplete completeEvent = findTargetCompleteEventInBEPStream(bep);
+    assertThat(completeEvent).isNotNull();
+    assertThat(completeEvent.getOutputGroupCount()).isEqualTo(1);
+    assertThat(completeEvent.getOutputGroup(0).getInlineFilesCount()).isEqualTo(1);
+
+    BuildEventStreamProtos.File outFile = completeEvent.getOutputGroup(0).getInlineFiles(0);
+    assertThat(outFile.getUri()).startsWith("file://");
+    assertThat(outFile.getUri()).endsWith("/bin/foo/out.txt");
+    assertThat(outFile.getLength()).isEqualTo("Hello".length());
+    assertDigest("Hello", BaseEncoding.base16().lowerCase().decode(outFile.getDigest()));
+  }
+
+  @Test
+  public void outputFile_outputGroupFileModeOptionRepeated_lastValueTaken() throws Exception {
+    write("foo/BUILD", "genrule(name = 'foobin', outs = ['out.txt'], cmd = 'echo -n Hello > $@')");
+
+    addOptions("--experimental_build_event_output_group_mode=default=named_set_of_files_only");
+    addOptions("--experimental_build_event_output_group_mode=default=inline_only");
+    File bep = buildTargetAndCaptureBEP("//foo:foobin");
+
+    BuildEventStreamProtos.File outFileFromNestedSet = findOutputFileInBEPStream(bep, "out.txt");
+    assertThat(outFileFromNestedSet).isNull();
+
+    TargetComplete completeEvent = findTargetCompleteEventInBEPStream(bep);
+    assertThat(completeEvent).isNotNull();
+    assertThat(completeEvent.getOutputGroupCount()).isEqualTo(1);
+    assertThat(completeEvent.getOutputGroup(0).getInlineFilesCount()).isEqualTo(1);
+    BuildEventStreamProtos.File outFile = completeEvent.getOutputGroup(0).getInlineFiles(0);
+    assertDigest("Hello", BaseEncoding.base16().lowerCase().decode(outFile.getDigest()));
+  }
+
+  @Test
+  public void outputFile_multipleOutputGroups() throws Exception {
+    write(
+        "foo/defs.bzl",
+        """
+        def _impl(ctx):
+            inline_out = ctx.actions.declare_file(ctx.label.name + '.inline.txt')
+            ctx.actions.write(output = inline_out, content = 'Hello')
+            fileset_out = ctx.actions.declare_file(ctx.label.name + '.fileset.txt')
+            ctx.actions.write(output = fileset_out, content = 'Hola')
+            both_out = ctx.actions.declare_file(ctx.label.name + '.both.txt')
+            ctx.actions.write(output = both_out, content = 'Bonjour')
+            output_groups = {
+                "inlinegroup": depset([inline_out]),
+                "filesetgroup": depset([fileset_out]),
+                "bothgroup": depset([both_out]),
+            }
+            return [
+                OutputGroupInfo(**output_groups),
+            ]
+
+        multiple_groups = rule(implementation = _impl)
+        """);
+    write(
+        "foo/BUILD",
+        """
+        load(":defs.bzl", "multiple_groups")
+
+        multiple_groups(name = "myrule")
+        """);
+
+    addOptions("--experimental_build_event_output_group_mode=inlinegroup=inline_only");
+    addOptions("--experimental_build_event_output_group_mode=filesetgroup=named_set_of_files_only");
+    addOptions("--experimental_build_event_output_group_mode=bothgroup=both");
+    addOptions("--output_groups=+inlinegroup,+filesetgroup,+bothgroup");
+    File bep = buildTargetAndCaptureBEP("//foo:myrule");
+
+    TargetComplete completeEvent = findTargetCompleteEventInBEPStream(bep);
+    assertThat(completeEvent).isNotNull();
+    assertThat(completeEvent.getOutputGroupCount()).isEqualTo(3);
+    OutputGroup inlineOutputGroup = findOutputGroupWithName(completeEvent, "inlinegroup");
+    OutputGroup filesetOutputGroup = findOutputGroupWithName(completeEvent, "filesetgroup");
+    OutputGroup bothOutputGroup = findOutputGroupWithName(completeEvent, "bothgroup");
+
+    assertThat(inlineOutputGroup.getInlineFilesCount()).isEqualTo(1);
+    assertThat(findOutputFileInBEPStream(bep, "myrule.inline.txt")).isNull();
+    BuildEventStreamProtos.File inlineOutFile = inlineOutputGroup.getInlineFiles(0);
+    assertThat(inlineOutFile.getUri()).startsWith("file://");
+    assertThat(inlineOutFile.getUri()).endsWith("/bin/foo/myrule.inline.txt");
+    assertThat(inlineOutFile.getLength()).isEqualTo("Hello".length());
+    assertDigest("Hello", BaseEncoding.base16().lowerCase().decode(inlineOutFile.getDigest()));
+
+    assertThat(filesetOutputGroup.getInlineFilesCount()).isEqualTo(0);
+    BuildEventStreamProtos.File filesetOutFile =
+        findOutputFileInBEPStream(bep, "myrule.fileset.txt");
+    assertThat(filesetOutFile.getUri()).startsWith("file://");
+    assertThat(filesetOutFile.getUri()).endsWith("/bin/foo/myrule.fileset.txt");
+    assertThat(filesetOutFile.getLength()).isEqualTo("Hola".length());
+    assertDigest("Hola", BaseEncoding.base16().lowerCase().decode(filesetOutFile.getDigest()));
+
+    assertThat(bothOutputGroup.getInlineFilesCount()).isEqualTo(1);
+    BuildEventStreamProtos.File bothOutFileInline = bothOutputGroup.getInlineFiles(0);
+    BuildEventStreamProtos.File bothOutFileInFileset =
+        findOutputFileInBEPStream(bep, "myrule.both.txt");
+    for (var outfile : ImmutableList.of(bothOutFileInline, bothOutFileInFileset)) {
+      assertThat(outfile.getUri()).startsWith("file://");
+      assertThat(outfile.getUri()).endsWith("/bin/foo/myrule.both.txt");
+      assertThat(outfile.getLength()).isEqualTo("Bonjour".length());
+      assertDigest("Bonjour", BaseEncoding.base16().lowerCase().decode(outfile.getDigest()));
+    }
   }
 
   private File buildTargetAndCaptureBEP(String target) throws Exception {
@@ -273,6 +392,13 @@ public final class TargetCompleteEventTest extends BuildIntegrationTestCase {
     // if --bes_upload_mode=WAIT_FOR_UPLOAD_COMPLETE.
     afterBuildCommand();
     return bep;
+  }
+
+  private static OutputGroup findOutputGroupWithName(
+      TargetComplete completeEvent, String bothgroup) {
+    return completeEvent.getOutputGroupList().stream()
+        .filter(og -> og.getName().equals(bothgroup))
+        .collect(MoreCollectors.onlyElement());
   }
 
   private static void assertDigest(String contents, byte[] bepDigest) {

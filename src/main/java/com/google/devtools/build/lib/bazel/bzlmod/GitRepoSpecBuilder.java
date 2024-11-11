@@ -86,11 +86,6 @@ public class GitRepoSpecBuilder {
     return setAttr("patch_cmds", patchCmds);
   }
 
-  @CanIgnoreReturnValue
-  public GitRepoSpecBuilder setPatchCmdsWin(List<String> patchCmdsWin) {
-    return setAttr("patch_cmds_win", patchCmdsWin);
-  }
-
   public RepoSpec build() {
     return RepoSpec.builder()
         .setBzlFile(GIT_REPO_PATH)

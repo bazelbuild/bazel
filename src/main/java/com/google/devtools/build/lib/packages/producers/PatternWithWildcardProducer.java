@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionUniquenessFu
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.producers.GlobComputationProducer.GlobDetail;
 import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
+import com.google.devtools.build.lib.skyframe.FileKey;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -64,7 +65,7 @@ final class PatternWithWildcardProducer
   private DirectoryListingValue directoryListingValue = null;
 
   /** Holds both symlink path and target path for all symlink type dirents. */
-  private ArrayList<Pair<FileValue.Key, FileValue>> symlinks = null;
+  private ArrayList<Pair<FileKey, FileValue>> symlinks = null;
 
   private int symlinksCount = 0;
   @Nullable private final Set<Pair<PathFragment, Integer>> visitedGlobSubTasks;
@@ -151,7 +152,7 @@ final class PatternWithWildcardProducer
   }
 
   @Override
-  public void acceptSymlinkFileValue(FileValue symlinkValue, FileValue.Key symlinkKey) {
+  public void acceptSymlinkFileValue(FileValue symlinkValue, FileKey symlinkKey) {
     symlinks.add(Pair.of(symlinkKey, symlinkValue));
   }
 
@@ -168,8 +169,8 @@ final class PatternWithWildcardProducer
       return DONE;
     }
 
-    for (Pair<FileValue.Key, FileValue> symlink : symlinks) {
-      FileValue.Key symlinkKey = symlink.first;
+    for (Pair<FileKey, FileValue> symlink : symlinks) {
+      FileKey symlinkKey = symlink.first;
       FileValue symlinkValue = symlink.second;
 
       if (!symlinkValue.exists()) {

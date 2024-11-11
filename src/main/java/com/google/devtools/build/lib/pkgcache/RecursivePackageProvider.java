@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.pkgcache;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.BatchCallback.SafeBatchCallback;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -57,9 +58,11 @@ public interface RecursivePackageProvider extends PackageProvider {
       ExtendedEventHandler eventHandler,
       RepositoryName repository,
       PathFragment directory,
-      ImmutableSet<PathFragment> ignoredSubdirectories,
+      IgnoredSubdirectories ignoredSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories)
-      throws InterruptedException, QueryException, NoSuchPackageException,
+      throws InterruptedException,
+          QueryException,
+          NoSuchPackageException,
           ProcessPackageDirectoryException;
 
   /**
@@ -124,7 +127,7 @@ public interface RecursivePackageProvider extends PackageProvider {
         ExtendedEventHandler eventHandler,
         RepositoryName repository,
         PathFragment directory,
-        ImmutableSet<PathFragment> ignoredSubdirectories,
+        IgnoredSubdirectories ignoredSubdirectories,
         ImmutableSet<PathFragment> excludedSubdirectories) {
       throw new UnsupportedOperationException();
     }

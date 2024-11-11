@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-/** The action type. */
+/** Deprecated, slated to be removed. */
 public enum MiddlemanType {
 
   /** A normal action. */
@@ -27,6 +27,9 @@ public enum MiddlemanType {
   RUNFILES_MIDDLEMAN;
 
   public boolean isMiddleman() {
-    return this != NORMAL;
+    // This value is always false, which means that in theory, the MiddlemanType enum is not useful
+    // anymore. It's kept here to facilitate an easy rollback for the change that made the enum
+    // unnecessary should trouble arise.
+    return false;
   }
 }

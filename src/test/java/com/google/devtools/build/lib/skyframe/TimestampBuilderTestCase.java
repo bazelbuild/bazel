@@ -47,7 +47,6 @@ import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
 import com.google.devtools.build.lib.actions.TestExecException;
@@ -85,6 +84,7 @@ import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAc
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider.DisabledDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -244,11 +244,14 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                 .put(
                     FileStateKey.FILE_STATE,
                     new FileStateFunction(() -> tsgm, SyscallCache.NO_CACHE, externalFilesHelper))
-                .put(FileValue.FILE, new FileFunction(pkgLocator, directories))
+                .put(SkyFunctions.FILE, new FileFunction(pkgLocator, directories))
                 .put(
                     Artifact.ARTIFACT,
                     new ArtifactFunction(
-                        () -> true, MetadataConsumerForMetrics.NO_OP, SyscallCache.NO_CACHE))
+                        () -> true,
+                        MetadataConsumerForMetrics.NO_OP,
+                        SyscallCache.NO_CACHE,
+                        () -> DisabledDependenciesProvider.INSTANCE))
                 .put(
                     SkyFunctions.ACTION_EXECUTION,
                     new ActionExecutionFunction(
@@ -259,6 +262,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                         directories,
                         () -> tsgm,
                         BugReporter.defaultInstance(),
+                        () -> null,
                         () -> null))
                 .put(SkyFunctions.PACKAGE, PackageFunction.newBuilder().build())
                 .put(

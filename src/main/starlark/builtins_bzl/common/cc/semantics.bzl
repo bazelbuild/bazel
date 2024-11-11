@@ -25,9 +25,6 @@ def _get_proto_aspects():
 def _should_create_empty_archive():
     return False
 
-def _validate_deps(ctx):
-    pass
-
 def _validate_attributes(ctx):
     pass
 
@@ -134,6 +131,20 @@ def _get_experimental_link_static_libraries_once(ctx):
 def _check_cc_shared_library_tags(ctx):
     pass
 
+def _cpp_modules_tools():
+    return {
+        "_aggregate_ddi": attr.label(
+            executable = True,
+            cfg = "exec",
+            default = "@" + _get_repo() + "//tools/cpp:aggregate-ddi",
+        ),
+        "_generate_modmap": attr.label(
+            executable = True,
+            cfg = "exec",
+            default = "@" + _get_repo() + "//tools/cpp:generate-modmap",
+        ),
+    }
+
 semantics = struct(
     toolchain = "@bazel_tools//tools/cpp:toolchain_type",
     ALLOWED_RULES_IN_DEPS = [
@@ -148,7 +159,6 @@ semantics = struct(
         ".ldscript",
     ],
     ALLOWED_RULES_WITH_WARNINGS_IN_DEPS = [],
-    validate_deps = _validate_deps,
     validate_attributes = _validate_attributes,
     get_semantics = _get_semantics,
     get_repo = _get_repo,
@@ -172,6 +182,7 @@ semantics = struct(
     get_proto_aspects = _get_proto_aspects,
     get_nocopts_attr = _get_nocopts_attr,
     get_experimental_link_static_libraries_once = _get_experimental_link_static_libraries_once,
+    cpp_modules_tools = _cpp_modules_tools,
     check_cc_shared_library_tags = _check_cc_shared_library_tags,
     BUILD_INFO_TRANLATOR_LABEL = "@bazel_tools//tools/build_defs/build_info:cc_build_info",
     CC_PROTO_TOOLCHAIN = "@rules_cc//cc/proto:toolchain_type",

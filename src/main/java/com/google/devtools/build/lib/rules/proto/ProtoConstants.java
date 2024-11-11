@@ -14,20 +14,29 @@
 
 package com.google.devtools.build.lib.rules.proto;
 
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
+
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.BzlLoadValue;
+
 /** Constants used in Proto rules. */
 public final class ProtoConstants {
+
+  public static final BzlLoadValue.Key PROTO_INFO_KEY = keyForBuild(Label.parseCanonicalUnchecked("@@protobuf+//bazel/private:proto_info.bzl"));
+
+
   /** Default label for proto compiler. */
-  public static final String DEFAULT_PROTOC_LABEL =  "@bazel_tools//tools/proto:protoc";
+  public static final String DEFAULT_PROTOC_LABEL =  "@@protobuf+//:protoc";
 
   /** Default label for java proto toolchains. */
-  static final String DEFAULT_JAVA_PROTO_LABEL = "@bazel_tools//tools/proto:java_toolchain";
+  static final String DEFAULT_JAVA_PROTO_LABEL = "@@protobuf+//:java_toolchain";
 
   /** Default label for java lite proto toolchains. */
   static final String DEFAULT_JAVA_LITE_PROTO_LABEL =
-      "@bazel_tools//tools/proto:javalite_toolchain";
+      "@@protobuf+//:javalite_toolchain";
 
   /** Default label for cc proto toolchains. */
-  static final String DEFAULT_CC_PROTO_LABEL = "@bazel_tools//tools/proto:cc_toolchain";
+  static final String DEFAULT_CC_PROTO_LABEL = "@@protobuf+//:cc_toolchain";
 
   /** Default label for j2objc proto toolchains. */
   static final String DEFAULT_J2OBJC_PROTO_LABEL =

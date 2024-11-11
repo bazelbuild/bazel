@@ -20,6 +20,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
@@ -39,6 +40,7 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.InlineFileArtifactValue;
@@ -58,7 +60,6 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil.DummyWorkspaceStatusActionContext;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
-import com.google.devtools.build.lib.bazel.BazelRepositoryModule;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.bugreport.Crash;
@@ -89,7 +90,6 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
-import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
@@ -114,8 +114,6 @@ import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkymeldModule;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
@@ -159,7 +157,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.logging.Formatter;
@@ -221,16 +218,6 @@ public abstract class BuildIntegrationTestCase {
   protected RecordingExceptionHandler subscriberException = new RecordingExceptionHandler();
 
   @Nullable private UncaughtExceptionHandler oldExceptionHandler;
-
-  private static final ImmutableList<Injected> BAZEL_REPOSITORY_PRECOMPUTED_VALUES =
-      ImmutableList.of(
-          PrecomputedValue.injected(
-              RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()),
-          PrecomputedValue.injected(
-              RepositoryDelegatorFunction.FORCE_FETCH,
-              RepositoryDelegatorFunction.FORCE_FETCH_DISABLED),
-          PrecomputedValue.injected(
-              RepositoryDelegatorFunction.VENDOR_DIRECTORY, Optional.empty()));
 
   /**
    * Returns additional types of events for {@link #events} to collect.
@@ -418,9 +405,12 @@ public abstract class BuildIntegrationTestCase {
       bestEffortDeleteTreesBelow(
           testRoot,
           filename -> {
-            // Bazel runtime still holds the file handle of windows_jni.dll making it impossible to
-            // delete on Windows.
+            // Bazel runtime still holds the file handle of windows_jni.dll or libzstd-jni-xxxx.dll
+            // making it impossible to delete on Windows.
             if (filename.equals("windows_jni.dll")) {
+              return true;
+            }
+            if (filename.startsWith("libzstd-jni") && filename.endsWith(".dll")) {
               return true;
             }
 
@@ -591,22 +581,6 @@ public abstract class BuildIntegrationTestCase {
     return TestStrategyModule.getModule();
   }
 
-  private static BlazeModule getMockBazelRepositoryModule() {
-    return new BlazeModule() {
-      @Override
-      public ImmutableList<Injected> getPrecomputedValues() {
-        ImmutableList.Builder<Injected> builder = ImmutableList.builder();
-        return builder
-            .add(
-                PrecomputedValue.injected(
-                    RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE,
-                    Optional.empty()))
-            .addAll(BAZEL_REPOSITORY_PRECOMPUTED_VALUES)
-            .build();
-      }
-    };
-  }
-
   /**
    * Gets a module that returns a connectivity status.
    *
@@ -643,14 +617,11 @@ public abstract class BuildIntegrationTestCase {
 
     if (AnalysisMock.get().isThisBazel()) {
       // Add in modules implicitly added in internal integration test case.
-      builder
-          .addBlazeModule(new NoSpawnCacheModule())
-          .addBlazeModule(new WorkerModule())
-          .addBlazeModule(
-              new BazelRepositoryModule(AnalysisMock.get().getBuiltinModules(directories)));
-    } else {
-      builder.addBlazeModule(getMockBazelRepositoryModule());
+      builder.addBlazeModule(new NoSpawnCacheModule()).addBlazeModule(new WorkerModule());
     }
+
+    // Get BlazeModule for external repository, which is different internally.
+    builder.addBlazeModule(AnalysisMock.get().getBazelRepositoryModule(directories));
 
     // Modules that are involved in the collection of heap-related metrics of a
     // build. They need to be last in the modules order, so when the GCs happen
@@ -688,6 +659,7 @@ public abstract class BuildIntegrationTestCase {
 
     runtimeWrapper.addOptions("--experimental_extended_sanity_checks");
     runtimeWrapper.addOptions(TestConstants.PRODUCT_SPECIFIC_FLAGS);
+    runtimeWrapper.addOptions(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
     // TODO(rosica): Remove this once g3 is migrated.
     runtimeWrapper.addOptions("--noincompatible_use_specific_tool_files");
   }
@@ -737,12 +709,37 @@ public abstract class BuildIntegrationTestCase {
    * Given a label (which has typically, but not necessarily, just been built), returns the
    * collection of files that it produces.
    *
-   * @param target the label of the target whose artifacts are requested.
+   * @param target the label of the target whose artifacts are requested
    */
   protected ImmutableList<Artifact> getArtifacts(String target)
-      throws LabelSyntaxException, NoSuchPackageException, NoSuchTargetException,
-          InterruptedException, TransitionException, InvalidConfigurationException {
+      throws LabelSyntaxException,
+          NoSuchPackageException,
+          NoSuchTargetException,
+          InterruptedException,
+          TransitionException,
+          InvalidConfigurationException {
     return getFilesToBuild(getConfiguredTarget(target)).toList();
+  }
+
+  /**
+   * Given a label (which has typically, but not necessarily, just been built), returns the file it
+   * produces ending with the given suffix.
+   *
+   * <p>It is an error if the given target produces multiple files with the given suffix.
+   *
+   * @param target the label of the target whose artifact is requested
+   * @param suffix suffix of the artifact requested
+   */
+  protected Artifact getArtifact(String target, String suffix)
+      throws LabelSyntaxException,
+          NoSuchPackageException,
+          NoSuchTargetException,
+          InterruptedException,
+          TransitionException,
+          InvalidConfigurationException {
+    return getArtifacts(target).stream()
+        .filter(a -> a.getExecPathString().endsWith(suffix))
+        .collect(onlyElement());
   }
 
   /**
@@ -752,8 +749,12 @@ public abstract class BuildIntegrationTestCase {
    * @param target the label of the requested target.
    */
   protected ConfiguredTarget getConfiguredTarget(String target)
-      throws LabelSyntaxException, NoSuchPackageException, NoSuchTargetException,
-          InterruptedException, TransitionException, InvalidConfigurationException {
+      throws LabelSyntaxException,
+          NoSuchPackageException,
+          NoSuchTargetException,
+          InterruptedException,
+          TransitionException,
+          InvalidConfigurationException {
     getPackageManager().getTarget(events.reporter(), Label.parseCanonical(target));
     return getSkyframeExecutor()
         .getConfiguredTargetForTesting(events.reporter(), label(target), getTargetConfiguration());
@@ -1025,21 +1026,30 @@ public abstract class BuildIntegrationTestCase {
   }
 
   protected String readInlineOutput(Artifact output) throws IOException, InterruptedException {
-    assertThat(output).isInstanceOf(DerivedArtifact.class);
+    FileArtifactValue metadata = getOutputMetadata(output);
+    assertThat(metadata).isInstanceOf(InlineFileArtifactValue.class);
+    return new String(
+        FileSystemUtils.readContentAsLatin1(((InlineFileArtifactValue) metadata).getInputStream()));
+  }
 
+  protected FileArtifactValue getOutputMetadata(Artifact output)
+      throws IOException, InterruptedException {
+    assertThat(output).isInstanceOf(DerivedArtifact.class);
     SkyValue actionExecutionValue =
         getSkyframeExecutor()
             .getEvaluator()
             .getExistingValue(((DerivedArtifact) output).getGeneratingActionKey());
     assertThat(actionExecutionValue).isInstanceOf(ActionExecutionValue.class);
+    return ((ActionExecutionValue) actionExecutionValue).getExistingFileArtifactValue(output);
+  }
 
-    FileArtifactValue fileArtifactValue =
-        ((ActionExecutionValue) actionExecutionValue).getExistingFileArtifactValue(output);
-    assertThat(fileArtifactValue).isInstanceOf(InlineFileArtifactValue.class);
-
-    return new String(
-        FileSystemUtils.readContentAsLatin1(
-            ((InlineFileArtifactValue) fileArtifactValue).getInputStream()));
+  protected FileArtifactValue getSourceArtifactMetadata(Artifact sourceArtifact)
+      throws InterruptedException {
+    assertThat(sourceArtifact).isInstanceOf(SourceArtifact.class);
+    SkyValue sourceArtifactValue =
+        getSkyframeExecutor().getEvaluator().getExistingValue(sourceArtifact);
+    assertThat(sourceArtifactValue).isInstanceOf(FileArtifactValue.class);
+    return (FileArtifactValue) sourceArtifactValue;
   }
 
   /**

@@ -18,8 +18,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.hash.HashCode;
+import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
@@ -72,6 +74,16 @@ public abstract class SpawnLogContext implements ActionContext {
       SpawnResult result)
       throws IOException, InterruptedException, ExecException;
 
+  /**
+   * Logs an internal symlink action, which is not backed by a spawn.
+   *
+   * <p>May be called concurrently.
+   *
+   * @param action the action to log
+   */
+  public abstract void logSymlinkAction(AbstractAction action)
+      throws IOException, InterruptedException;
+
   /** Finishes writing the log and performs any required post-processing. */
   public abstract void close() throws IOException;
 
@@ -113,8 +125,7 @@ public abstract class SpawnLogContext implements ActionContext {
    *
    * <p>Do not call for action outputs.
    */
-  protected boolean isInputDirectory(
-      ActionInput input, Path path, InputMetadataProvider inputMetadataProvider)
+  protected boolean isInputDirectory(ActionInput input, InputMetadataProvider inputMetadataProvider)
       throws IOException {
     if (input.isDirectory()) {
       return true;
@@ -126,17 +137,12 @@ public abstract class SpawnLogContext implements ActionContext {
     if (input instanceof VirtualActionInput) {
       return false;
     }
-    // There are two cases in which an input's declared type may disagree with the filesystem:
-    //   (1) a source artifact pointing to a directory;
-    //   (2) an output artifact declared as a file but materialized as a directory, when allowed by
-    //       --noincompatible_disallow_unsound_directory_outputs.
-    // Try to avoid unnecessary I/O by inspecting its metadata, which in most cases should have
-    // already been collected and cached.
-    FileArtifactValue metadata = inputMetadataProvider.getInputMetadata(input);
-    if (metadata != null) {
-      return metadata.getType().isDirectory();
+    // Source artifacts are always of file type, but may be directories in the filesystem.
+    if (input instanceof SourceArtifact) {
+      FileArtifactValue metadata = inputMetadataProvider.getInputMetadata(input);
+      return metadata != null && metadata.getType().isDirectory();
     }
-    return path.isDirectory();
+    return false;
   }
 
   /**

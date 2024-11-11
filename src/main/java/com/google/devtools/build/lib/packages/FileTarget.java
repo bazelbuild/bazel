@@ -35,11 +35,6 @@ public abstract class FileTarget implements Target, FileType.HasFileType {
     this.label = label;
   }
 
-  @Override
-  public boolean isImmutable() {
-    return true; // immutable and Starlark-hashable
-  }
-
   public String getFilename() {
     return label.getName();
   }
@@ -47,11 +42,6 @@ public abstract class FileTarget implements Target, FileType.HasFileType {
   @Override
   public Label getLabel() {
     return label;
-  }
-
-  @Override
-  public String getName() {
-    return label.getName();
   }
 
   @Override

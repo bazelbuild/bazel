@@ -116,6 +116,7 @@ public class ParallelSkyQueryUtils {
                                 env,
                                 env.createSkyKeyUniquifier(),
                                 processResultsBatchSize,
+                                context.extraGlobalDeps(),
                                 aggregateAllCallback)
                             .create();
                     visitor.visitAndWaitForCompletion(

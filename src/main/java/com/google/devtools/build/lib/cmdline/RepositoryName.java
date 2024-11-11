@@ -20,12 +20,14 @@ import static com.google.devtools.build.lib.skyframe.serialization.strings.Unsaf
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.skyframe.serialization.LeafDeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.LeafObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.LeafSerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.OsPathPolicy;
@@ -47,6 +49,8 @@ public final class RepositoryName {
   public static final RepositoryName BAZEL_TOOLS = new RepositoryName("bazel_tools");
 
   @SerializationConstant public static final RepositoryName MAIN = new RepositoryName("");
+
+  @SerializationConstant static final RepositoryName BUILTINS = new RepositoryName("_builtins");
 
   private static final Pattern VALID_REPO_NAME = Pattern.compile("[\\w\\-.+]*");
 
@@ -77,6 +81,9 @@ public final class RepositoryName {
     if (name.isEmpty()) {
       return MAIN;
     }
+    if (name.equals(BUILTINS.name)) {
+      return BUILTINS;
+    }
     try {
       return repositoryNameCache.get(name);
     } catch (CompletionException e) {
@@ -93,6 +100,9 @@ public final class RepositoryName {
       //   failing. This suggests to me that something is comparing RepositoryName objects using
       //   reference equality instead of #equals().
       return MAIN;
+    }
+    if (name.equals(BUILTINS.name)) {
+      return BUILTINS;
     }
     return repositoryNameCache.get(name);
   }
@@ -139,13 +149,27 @@ public final class RepositoryName {
    */
   @Nullable private final RepositoryName ownerRepoIfNotVisible;
 
-  private RepositoryName(String name, @Nullable RepositoryName ownerRepoIfNotVisible) {
+  /**
+   * If ownerRepoIfNotVisible is not null, this field stores the suffix to be appended to the error
+   */
+  @Nullable private final String didYouMeanSuffix;
+
+  private final int hashCode;
+
+  private RepositoryName(
+      String name,
+      @Nullable RepositoryName ownerRepoIfNotVisible,
+      @Nullable String didYouMeanSuffix) {
     this.name = name;
     this.ownerRepoIfNotVisible = ownerRepoIfNotVisible;
+    this.didYouMeanSuffix = didYouMeanSuffix;
+    this.hashCode =
+        31 * OsPathPolicy.getFilePathOs().hash(name)
+            + HashCodes.hashObjects(ownerRepoIfNotVisible, didYouMeanSuffix);
   }
 
   private RepositoryName(String name) {
-    this(name, null);
+    this(name, /* ownerRepoIfNotVisible= */ null, /* didYouMeanSuffix= */ null);
   }
 
   /**
@@ -153,7 +177,7 @@ public final class RepositoryName {
    * message is sanitized.
    */
   static void validate(String name) throws LabelSyntaxException {
-    if (name.isEmpty()) {
+    if (name.isEmpty() || name.equals(BUILTINS.name)) {
       return;
     }
 
@@ -199,14 +223,24 @@ public final class RepositoryName {
    * actually not visible from the owner repository and should fail in {@code
    * RepositoryDelegatorFunction} when fetching with this {@link RepositoryName} instance.
    */
-  public RepositoryName toNonVisible(RepositoryName ownerRepo) {
+  public RepositoryName toNonVisible(RepositoryName ownerRepo, String didYouMeanSuffix) {
     Preconditions.checkNotNull(ownerRepo);
     Preconditions.checkArgument(ownerRepo.isVisible());
-    return new RepositoryName(name, ownerRepo);
+    Preconditions.checkNotNull(didYouMeanSuffix);
+    return new RepositoryName(name, ownerRepo, didYouMeanSuffix);
+  }
+
+  @VisibleForTesting
+  public RepositoryName toNonVisible(RepositoryName ownerRepo) {
+    return toNonVisible(ownerRepo, "");
   }
 
   public boolean isVisible() {
     return ownerRepoIfNotVisible == null;
+  }
+
+  public boolean isOwnerRepoMainRepo() {
+    return !isVisible() && ownerRepoIfNotVisible.isMain();
   }
 
   // Must only be called if isVisible() returns true.
@@ -216,20 +250,6 @@ public final class RepositoryName {
       return "main repository";
     } else {
       return String.format("repository '%s'", ownerRepoIfNotVisible);
-    }
-  }
-
-  // Must only be called if isVisible() returns true.
-  public String getOwnerModuleDisplayString() {
-    Preconditions.checkNotNull(ownerRepoIfNotVisible);
-    if (ownerRepoIfNotVisible.isMain()) {
-      return "root module";
-    } else {
-      return String.format(
-          "module '%s'",
-          ownerRepoIfNotVisible
-              .getName()
-              .substring(0, ownerRepoIfNotVisible.getName().indexOf('+')));
     }
   }
 
@@ -245,7 +265,9 @@ public final class RepositoryName {
   // TODO(bazel-team): Rename to "getCanonicalForm".
   public String getNameWithAt() {
     if (!isVisible()) {
-      return String.format("@@[unknown repo '%s' requested from %s]", name, ownerRepoIfNotVisible);
+      return String.format(
+          "@@[unknown repo '%s' requested from %s%s]",
+          name, ownerRepoIfNotVisible, didYouMeanSuffix);
     }
     return "@@" + name;
   }
@@ -345,17 +367,17 @@ public final class RepositoryName {
     if (this == object) {
       return true;
     }
-    if (!(object instanceof RepositoryName)) {
+    if (!(object instanceof RepositoryName other)) {
       return false;
     }
-    RepositoryName other = (RepositoryName) object;
     return OsPathPolicy.getFilePathOs().equals(name, other.name)
-        && Objects.equals(ownerRepoIfNotVisible, other.ownerRepoIfNotVisible);
+        && Objects.equals(ownerRepoIfNotVisible, other.ownerRepoIfNotVisible)
+        && Objects.equals(didYouMeanSuffix, other.didYouMeanSuffix);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(OsPathPolicy.getFilePathOs().hash(name), ownerRepoIfNotVisible);
+    return hashCode;
   }
 
   public static Codec repositoryNameCodec() {
@@ -376,13 +398,16 @@ public final class RepositoryName {
         throws SerializationException, IOException {
       context.serializeLeaf(obj.getName(), stringCodec(), codedOut);
       context.serializeLeaf(obj.ownerRepoIfNotVisible, this, codedOut);
+      context.serializeLeaf(obj.didYouMeanSuffix, stringCodec(), codedOut);
     }
 
     @Override
     public RepositoryName deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
       return new RepositoryName(
-          context.deserializeLeaf(codedIn, stringCodec()), context.deserializeLeaf(codedIn, this));
+          context.deserializeLeaf(codedIn, stringCodec()),
+          context.deserializeLeaf(codedIn, this),
+          context.deserializeLeaf(codedIn, stringCodec()));
     }
   }
 }

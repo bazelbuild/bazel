@@ -129,6 +129,18 @@ public class AspectTest extends AnalysisTestCase {
   }
 
   @Test
+  public void fileProviderMerged() throws Exception {
+    setRulesAvailableInTests(
+        TestAspects.BASE_RULE, TestAspects.FILE_PROVIDER_ASPECT_REQUIRING_RULE);
+    pkg("a", "file_provider_aspect(name='a', dep=':b')", "filegroup(name='b', srcs=['source'])");
+
+    ConfiguredTarget a = getConfiguredTarget("//a:a");
+    NestedSet<Artifact> filesToBuild = a.getProvider(FileProvider.class).getFilesToBuild();
+    assertThat(ActionsTestUtil.baseArtifactNames(filesToBuild))
+        .containsExactly("file_provider_aspect_file", "source");
+  }
+
+  @Test
   public void providersOfAspectAreMergedIntoDependency() throws Exception {
     setRulesAvailableInTests(TestAspects.BASE_RULE, TestAspects.ASPECT_REQUIRING_RULE);
     pkg("a",
@@ -172,10 +184,6 @@ public class AspectTest extends AnalysisTestCase {
         .containsExactly("rule //a:a", "aspect //a:b", "aspect //a:c");
   }
 
-
-
-
-
   @Test
   public void aspectCreationWorksThroughBind() throws Exception {
     if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
@@ -193,6 +201,9 @@ public class AspectTest extends AnalysisTestCase {
             .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
             .add("bind(name='b', actual='//a:b')")
             .build());
+
+    useConfiguration("--enable_workspace");
+    update();
 
     skyframeExecutor.invalidateFilesUnderPathForTesting(
         reporter, ModifiedFileSet.EVERYTHING_MODIFIED, Root.fromPath(rootDirectory));
@@ -928,8 +939,8 @@ public class AspectTest extends AnalysisTestCase {
     setRulesAndAspectsAvailableInTests(ImmutableList.of(aspectApplyingToFiles), ImmutableList.of());
     pkg(
         "a",
-        "java_binary(name = 'x', main_class = 'x.FooBar', srcs = ['x.java'])"
-    );
+        "load('@rules_java//java:defs.bzl', 'java_binary')",
+        "java_binary(name = 'x', main_class = 'x.FooBar', srcs = ['x.java'])");
 
     var collector = new AspectConfiguredCollector();
     eventBus.register(collector);
@@ -964,8 +975,8 @@ public class AspectTest extends AnalysisTestCase {
     setRulesAndAspectsAvailableInTests(ImmutableList.of(aspectApplyingToFiles), ImmutableList.of());
     pkg(
         "a",
-        "java_binary(name = 'x', main_class = 'x.FooBar', srcs = ['x.java'])"
-    );
+        "load('@rules_java//java:defs.bzl', 'java_binary')",
+        "java_binary(name = 'x', main_class = 'x.FooBar', srcs = ['x.java'])");
     scratch.file("a/x.java", "");
     AnalysisResult analysisResult = update(new EventBus(), defaultFlags(),
         ImmutableList.of(aspectApplyingToFiles.getName()),
@@ -981,6 +992,7 @@ public class AspectTest extends AnalysisTestCase {
     pkg("b");
     pkg(
         "a",
+        "load('@rules_java//java:defs.bzl', 'java_binary')",
         "package_group(name = 'group', packages = ['//b'])",
         "java_binary(name = 'x', main_class = 'x.F', srcs = ['x.java'], visibility = [':group'])");
     scratch.file("a/x.java", "");
@@ -999,7 +1011,10 @@ public class AspectTest extends AnalysisTestCase {
   public void duplicateTopLevelAspects_duplicateAspectsNotAllowed() throws Exception {
     AspectApplyingToFiles aspectApplyingToFiles = new AspectApplyingToFiles();
     setRulesAndAspectsAvailableInTests(ImmutableList.of(aspectApplyingToFiles), ImmutableList.of());
-    pkg("a", "java_binary(name = 'x', main_class = 'x.FooBar', srcs = ['x.java'])");
+    pkg(
+        "a",
+        "load('@rules_java//java:defs.bzl', 'java_binary')",
+        "java_binary(name = 'x', main_class = 'x.FooBar', srcs = ['x.java'])");
     reporter.removeHandler(failFastHandler);
 
     assertThrows(
@@ -1207,7 +1222,7 @@ public class AspectTest extends AnalysisTestCase {
             "aspect1 = aspect(implementation = _aspect1_impl)",
             "aspect2 = aspect(implementation = _aspect2_impl)");
     scratch.file("foo/aspect.bzl", String.format(bzlFileTemplate, "2"));
-    scratch.file("foo/BUILD", "sh_library(name = 'foo', srcs = ['foo.sh'])");
+    scratch.file("foo/BUILD", "filegroup(name = 'foo', srcs = ['foo.sh'])");
     // Expect errors.
     reporter.removeHandler(failFastHandler);
     ViewCreationFailedException exception =
@@ -1297,7 +1312,7 @@ public class AspectTest extends AnalysisTestCase {
             deps = [":dep"],
         )
 
-        sh_library(
+        filegroup(
             name = "dep",
             srcs = ["dep.sh"],
         )
@@ -1322,36 +1337,42 @@ public class AspectTest extends AnalysisTestCase {
     scratch.file(
         "aspect/build_defs.bzl",
         """
+        DuplicateInfo = provider(fields=[])
         def _aspect_impl(target, ctx):
-            return [DefaultInfo()]
+            return [DuplicateInfo()]
 
-        returns_default_info_aspect = aspect(implementation = _aspect_impl)
+        returns_duplicate_aspect = aspect(implementation = _aspect_impl)
+
+        def _duplicate_rule_impl(ctx):
+          return [DefaultInfo(), DuplicateInfo()]
+
+        duplicate_rule = rule(implementation = _duplicate_rule_impl, attrs = {})
 
         def _rule_impl(ctx):
             pass
 
-        duplicate_provider_aspect_applying_rule = rule(
+        duplicate_aspect_applying_rule = rule(
             implementation = _rule_impl,
-            attrs = {"to": attr.label(aspects = [returns_default_info_aspect])},
+            attrs = {"to": attr.label(aspects = [returns_duplicate_aspect])},
         )
         """);
     scratch.file(
         "aspect/BUILD",
         """
-        load("build_defs.bzl", "duplicate_provider_aspect_applying_rule")
+        load("build_defs.bzl", "duplicate_aspect_applying_rule", "duplicate_rule")
 
-        cc_library(name = "rule_target")
+        duplicate_rule(name = "duplicate")
 
-        duplicate_provider_aspect_applying_rule(
+        duplicate_aspect_applying_rule(
             name = "applies_aspect",
-            to = ":rule_target",
+            to = ":duplicate",
         )
         """);
     assertThat(
             assertThrows(
                 AssertionError.class, () -> getConfiguredTarget("//aspect:applies_aspect")))
         .hasMessageThat()
-        .contains("Provider DefaultInfo provided twice");
+        .contains("Provider DuplicateInfo provided twice");
   }
 
   @Test
@@ -1564,7 +1585,7 @@ public class AspectTest extends AnalysisTestCase {
             },
         )
         """);
-    scratch.file("tool/BUILD", "sh_library(name='tool', visibility = ['//defs:__pkg__'])");
+    scratch.file("tool/BUILD", "filegroup(name='tool', visibility = ['//defs:__pkg__'])");
     scratch.file(
         "pkg/BUILD",
         """
@@ -1590,7 +1611,7 @@ public class AspectTest extends AnalysisTestCase {
 
   @Test
   public void nativeAspectFailIfDepsNotVisible() throws Exception {
-    scratch.file("tool/BUILD", "sh_library(name='tool', visibility = ['//visibility:private'])");
+    scratch.file("tool/BUILD", "filegroup(name='tool', visibility = ['//visibility:private'])");
     ExtraAttributeAspect extraAttributeAspect = new ExtraAttributeAspect("//tool:tool", false);
     setRulesAndAspectsAvailableInTests(ImmutableList.of(extraAttributeAspect), ImmutableList.of());
     scratch.file(

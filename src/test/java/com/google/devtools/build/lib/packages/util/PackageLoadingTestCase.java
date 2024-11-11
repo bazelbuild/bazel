@@ -26,8 +26,10 @@ import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
+import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.packages.Rule;
@@ -45,6 +47,7 @@ import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -54,6 +57,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
+import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -114,16 +118,78 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
                         directories.getWorkspace(),
                         ImmutableMap.of())))
             .setPackageValidator(
-                (pkg, handler) -> {
-                  // Delegate to late-bound this.validator.
-                  if (validator != null) {
-                    validator.validate(pkg, handler);
+                new PackageValidator() {
+                  @Override
+                  public void validate(Package pkg, ExtendedEventHandler eventHandler)
+                      throws InvalidPackageException {
+                    if (validator != null) {
+                      validator.validate(pkg, eventHandler);
+                    }
                   }
                 })
             .build(ruleClassProvider, fileSystem);
     delegatingSyscallCache.setDelegate(SyscallCache.NO_CACHE);
     skyframeExecutor = createSkyframeExecutor();
     setUpSkyframe();
+  }
+
+  @Before
+  public void initializeMockTestingRules() throws IOException {
+    MockToolsConfig mockToolsConfig = new MockToolsConfig(rootDirectory);
+    mockToolsConfig.create("test_defs/BUILD");
+    mockToolsConfig.create(
+        "test_defs/foo_library.bzl",
+        """
+        def _impl(ctx):
+          pass
+        foo_library = rule(
+          implementation = _impl,
+          attrs = {
+            "srcs": attr.label_list(allow_files=True),
+            "deps": attr.label_list(),
+          },
+        )
+        """);
+    mockToolsConfig.create(
+        "test_defs/foo_binary.bzl",
+        """
+        def _impl(ctx):
+          symlink = ctx.actions.declare_file(ctx.label.name)
+          ctx.actions.symlink(output = symlink, target_file = ctx.files.srcs[0],
+            is_executable = True)
+          files = depset(ctx.files.srcs)
+          return [DefaultInfo(files = files, executable = symlink,
+             runfiles = ctx.runfiles(transitive_files = files, collect_default = True))]
+        foo_binary = rule(
+          implementation = _impl,
+          executable = True,
+          attrs = {
+            "srcs": attr.label_list(allow_files=True),
+            "deps": attr.label_list(),
+            "data": attr.label_list(allow_files=True),
+          },
+        )
+        """);
+    mockToolsConfig.create(
+        "test_defs/foo_test.bzl",
+        """
+        def _impl(ctx):
+          symlink = ctx.actions.declare_file(ctx.label.name)
+          ctx.actions.symlink(output = symlink, target_file = ctx.files.srcs[0],
+            is_executable = True)
+          files = depset(ctx.files.srcs)
+          return [DefaultInfo(files = files, executable = symlink,
+             runfiles = ctx.runfiles(transitive_files = files, collect_default = True))]
+        foo_test = rule(
+          implementation = _impl,
+          test = True,
+          attrs = {
+            "srcs": attr.label_list(allow_files=True),
+            "deps": attr.label_list(),
+            "data": attr.label_list(allow_files=True),
+          },
+        )
+        """);
   }
 
   @After
@@ -149,6 +215,10 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
         ImmutableList.of(
             PrecomputedValue.injected(
                 RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty())));
+    skyframeExecutor.injectExtraPrecomputedValues(
+        ImmutableList.of(
+            PrecomputedValue.injected(
+                RepositoryDelegatorFunction.VENDOR_DIRECTORY, Optional.empty())));
     SkyframeExecutorTestHelper.process(skyframeExecutor);
     return skyframeExecutor;
   }
@@ -164,7 +234,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
             ImmutableList.of(Root.fromPath(rootDirectory)),
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
         packageOptions,
-        Options.getDefaults(BuildLanguageOptions.class),
+        buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.of(),
         QuiescingExecutorsImpl.forTesting(),
@@ -206,6 +276,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
       throws Exception {
     OptionsParser parser =
         OptionsParser.builder().optionsClasses(BuildLanguageOptions.class).build();
+    parser.parse(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
     parser.parse(options);
     return parser.getOptions(BuildLanguageOptions.class);
   }

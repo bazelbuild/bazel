@@ -19,6 +19,7 @@
 
 #include <errno.h>
 #include <jni.h>
+#include <stdint.h>
 #include <sys/stat.h>
 
 #include <string>
@@ -58,18 +59,16 @@ extern std::string ErrorMessage(int error_number);
 int portable_fstatat(int dirfd, char *name, portable_stat_struct *statbuf,
                      int flags);
 
-// Encoding for different timestamps in a struct stat{}.
+// Encoding for different timestamps in a struct stat.
 enum StatTimes {
   STAT_ATIME,  // access
   STAT_MTIME,  // modification
   STAT_CTIME,  // status change
 };
 
-// Returns seconds from a stat buffer.
-int StatSeconds(const portable_stat_struct &statbuf, StatTimes t);
-
-// Returns nanoseconds from a stat buffer.
-int StatNanoSeconds(const portable_stat_struct &statbuf, StatTimes t);
+// Returns milliseconds since Unix epoch from the given struct stat field.
+uint64_t StatEpochMilliseconds(const portable_stat_struct &statbuf,
+                               StatTimes t);
 
 // Runs getxattr(2). If the attribute is not found, returns -1 and sets
 // attr_not_found to true. For all other errors, returns -1, sets attr_not_found

@@ -44,7 +44,9 @@ java_test(
         "RepoWithRuleWritingTextGenerator.java",
         "WorkspaceTestUtils.java",
     ],
-    tags = ["black_box_test"],
+    tags = [
+        "black_box_test",
+    ],
     deps = common_deps + [
         "//src/main/java/com/google/devtools/build/lib/bazel/repository",
         "//src/main/java/com/google/devtools/build/lib/vfs",

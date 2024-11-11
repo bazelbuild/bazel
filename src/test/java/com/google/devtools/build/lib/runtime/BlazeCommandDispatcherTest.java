@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.runtime.CommandDispatcher.LockingMode;
+import com.google.devtools.build.lib.runtime.CommandDispatcher.UiVerbosity;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.BuildProgress;
@@ -475,6 +476,7 @@ public final class BlazeCommandDispatcherTest {
                     ImmutableList.of("bar"),
                     outErr,
                     LockingMode.WAIT,
+                    UiVerbosity.NORMAL,
                     "test client",
                     runtime.getClock().currentTimeMillis(),
                     /* startupOptionsTaggedWithBazelRc= */ Optional.empty(),
