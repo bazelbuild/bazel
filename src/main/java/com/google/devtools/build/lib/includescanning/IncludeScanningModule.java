@@ -329,6 +329,7 @@ public class IncludeScanningModule extends BlazeModule {
       }
     }
 
+    @SuppressWarnings("AllowVirtualThreads")
     @Override
     public void executorCreated() {
       var buildRequestOptions = env.getOptions().getOptions(BuildRequestOptions.class);

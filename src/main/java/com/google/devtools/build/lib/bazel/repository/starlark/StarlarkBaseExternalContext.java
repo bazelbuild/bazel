@@ -171,6 +171,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
 
   private boolean wasSuccessful = false;
 
+  @SuppressWarnings("AllowVirtualThreads")
   protected StarlarkBaseExternalContext(
       Path workingDirectory,
       BlazeDirectories directories,

@@ -787,7 +787,8 @@ public class HttpDownloaderTest {
       String context)
       throws IOException, InterruptedException {
     Phaser downloadPhaser = new Phaser();
-    try (ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor()) {
+    try (@SuppressWarnings("AllowVirtualThreads")
+        ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor()) {
       Future<Path> future =
           downloadManager.startDownload(
               executorService,
