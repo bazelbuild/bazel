@@ -143,12 +143,20 @@ public class AutoloadSymbols {
                 symbolWithoutPrefix));
       }
       if (!AUTOLOAD_CONFIG.containsKey(symbolWithoutPrefix)) {
-        throw new IllegalStateException("Undefined symbol in --incompatible_autoload_externally");
+        throw new IllegalStateException(
+            String.format(
+                "Undefined symbol in --incompatible_autoload_externally: %s", symbolWithoutPrefix));
       }
     }
 
-    this.autoloadedSymbols = filterSymbols(symbolConfiguration, symbol -> !symbol.startsWith("-"));
-    this.removedSymbols = filterSymbols(symbolConfiguration, symbol -> symbol.startsWith("-"));
+    this.autoloadedSymbols =
+        filterSymbols(
+            symbolConfiguration,
+            symbol -> !symbol.startsWith("-") && !symbol.endsWith("proto_common_do_not_use"));
+    this.removedSymbols =
+        filterSymbols(
+            symbolConfiguration,
+            symbol -> symbol.startsWith("-") || symbol.endsWith("proto_common_do_not_use"));
     this.partiallyRemovedSymbols =
         filterSymbols(symbolConfiguration, symbol -> !symbol.startsWith("+"));
 
@@ -182,6 +190,14 @@ public class AutoloadSymbols {
                         (StarlarkInfo) uninjectedBuildBzlEnvWithoutAutoloads.get("native"))
                     .keySet())
             .build();
+    if (partiallyRemovedSymbols.contains("ProtoInfo")) {
+      // special case, because only partially removed
+      if (!removedSymbols.contains("proto_common_do_not_use")) {
+        throw new IllegalStateException(
+            "Symbol in 'ProtoInfo' can't be removed, because it's still used by:"
+                + " 'proto_common_do_not_use'");
+      }
+    }
     for (String symbol : partiallyRemovedSymbols) {
       ImmutableList<String> unsatisfiedRdeps =
           AUTOLOAD_CONFIG.get(symbol).getRdeps().stream()
@@ -190,7 +206,7 @@ public class AutoloadSymbols {
       if (!unsatisfiedRdeps.isEmpty()) {
         throw new IllegalStateException(
             String.format(
-                "Symbol in '%s' can't be removed, because it's still used by: %s",
+                "Symbol '%s' can't be removed, because it's still used by: %s",
                 symbol, String.join(", ", unsatisfiedRdeps)));
       }
     }
@@ -280,19 +296,23 @@ public class AutoloadSymbols {
       if (AUTOLOAD_CONFIG.get(symbol).isRule()) {
         nativeBindings.remove(symbol);
       } else {
-        if (symbol.equals("proto_common_do_not_use")
-            && envBuilder.get("proto_common_do_not_use") instanceof StarlarkInfo) {
-          // proto_common_do_not_use can't be completely removed, because the implementation of
-          // proto rules in protobuf still relies on INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION,
-          // that reads the build language flag.
-          envBuilder.put(
-              "proto_common_do_not_use",
-              StructProvider.STRUCT.create(
-                  ImmutableMap.of(
-                      "INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION",
-                      ((StarlarkInfo) envBuilder.get("proto_common_do_not_use"))
-                          .getValue("INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION")),
-                  "no native symbol '%s'"));
+        if (symbol.equals("proto_common_do_not_use")) {
+          if (envBuilder.get("proto_common_do_not_use") instanceof StarlarkInfo) {
+            // proto_common_do_not_use can't be completely removed, because the implementation of
+            // proto rules in protobuf still relies on
+            // INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION,
+            // that reads the build language flag.
+            envBuilder.put(
+                "proto_common_do_not_use",
+                StructProvider.STRUCT.create(
+                    ImmutableMap.of(
+                        "INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION",
+                        ((StarlarkInfo) envBuilder.get("proto_common_do_not_use"))
+                            .getValue("INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION")),
+                    "no native symbol '%s'"));
+          }
+          // else GuardedValue used in BzlCompileFunction (where we need to keep the symbol, but
+          // the value doesn't matter)
         } else {
           envBuilder.remove(symbol);
         }
@@ -438,11 +458,6 @@ public class AutoloadSymbols {
         ImmutableMap.builderWithExpectedSize(autoloadedSymbols.size());
     ImmutableSet.Builder<String> missingRepositories = ImmutableSet.builder();
     for (String symbol : autoloadedSymbols) {
-      if (symbol.equals("proto_common_do_not_use")) {
-        // Special case that is not autoloaded, just removed
-        continue;
-      }
-
       String requiredModule = AUTOLOAD_CONFIG.get(symbol).getModuleName();
       // Skip if version doesn't have the rules
       if (highestVersions.containsKey(requiredModule)
@@ -646,9 +661,8 @@ public class AutoloadSymbols {
                   "java_lite_proto_library",
                   "java_proto_library",
                   "proto_lang_toolchain",
-                  "java_binary",
-                  "proto_common_do_not_use"))
-          .put("proto_common_do_not_use", symbolRedirect(""))
+                  "java_binary"))
+          .put("proto_common_do_not_use", symbolRedirect("@protobuf//:dummy.bzl"))
           .put("cc_common", symbolRedirect("@rules_cc//cc/common:cc_common.bzl"))
           .put(
               "CcInfo",
