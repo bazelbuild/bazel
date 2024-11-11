@@ -82,6 +82,20 @@ public final class BazelMockCcSupport extends MockCcSupport {
     PathFragment path = PathFragment.create(runfiles.rlocation("rules_cc/cc/defs.bzl"));
     config.copyDirectory(
         path.getParentDirectory(), "third_party/bazel_rules/rules_cc/cc", MAX_VALUE, true);
+    config.overwrite(
+        "third_party/bazel_rules/rules_cc/cc/defs.bzl",
+        """
+        load("//cc:cc_binary.bzl", _cc_binary = "cc_binary")
+        load("//cc:cc_library.bzl", _cc_library = "cc_library")
+        load("//cc:cc_test.bzl", _cc_test = "cc_test")
+        load("//cc/common:cc_common.bzl", _cc_common = "cc_common")
+        load("//cc/common:cc_info.bzl", _CcInfo = "CcInfo")
+        cc_library = _cc_library
+        cc_binary = _cc_binary
+        cc_test = _cc_test
+        cc_common = _cc_common
+        CcInfo = _CcInfo
+        """);
     config.overwrite("third_party/bazel_rules/rules_cc/cc/toolchains/BUILD");
     config.overwrite("third_party/bazel_rules/rules_cc/cc/common/BUILD");
   }
