@@ -1412,7 +1412,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     useConfiguration("--incompatible_auto_exec_groups");
 
     ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
-    JavaInfo javaInfo = target.get(JavaInfo.PROVIDER);
+    JavaInfo javaInfo = JavaInfo.getJavaInfo(target);
     Action genSrcOutputAction =
         getGeneratingAction(javaInfo.getOutputJars().getAllSrcOutputJars().get(0));
     JavaGenJarsProvider javaGenJarsProvider = javaInfo.getGenJarsProvider();
@@ -1469,7 +1469,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     useConfiguration("--incompatible_auto_exec_groups=False");
 
     ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
-    JavaInfo javaInfo = target.get(JavaInfo.PROVIDER);
+    JavaInfo javaInfo = JavaInfo.getJavaInfo(target);
     Action genSrcOutputAction =
         getGeneratingAction(javaInfo.getOutputJars().getAllSrcOutputJars().get(0));
     JavaGenJarsProvider javaGenJarsProvider = javaInfo.getGenJarsProvider();

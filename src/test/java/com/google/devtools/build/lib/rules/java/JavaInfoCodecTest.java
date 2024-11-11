@@ -66,7 +66,7 @@ public class JavaInfoCodecTest extends BuildViewTestCase {
         )
         """);
 
-    new SerializationTester(getConfiguredTarget("//java/com/google/test:a").get(JavaInfo.PROVIDER))
+    new SerializationTester(JavaInfo.getJavaInfo(getConfiguredTarget("//java/com/google/test:a")))
         .makeMemoizingAndAllowFutureBlocking(/* allowFutureBlocking= */ true)
         .addDependency(FileSystem.class, scratch.getFileSystem())
         .addDependency(OptionsChecksumCache.class, new MapBackedChecksumCache())

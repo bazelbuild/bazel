@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
 
 import com.google.auto.value.AutoValue;
@@ -39,6 +40,7 @@ import com.google.devtools.build.lib.packages.StarlarkInfoWithSchema;
 import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
+import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
@@ -49,10 +51,23 @@ import net.starlark.java.eval.StarlarkValue;
 @Immutable
 public final class JavaToolchainProvider extends StarlarkInfoWrapper {
 
+  public static final StarlarkProviderWrapper<JavaToolchainProvider> LEGACY_BUILTINS_PROVIDER =
+      new BuiltinsProvider();
   public static final StarlarkProviderWrapper<JavaToolchainProvider> PROVIDER = new Provider();
 
   private JavaToolchainProvider(StarlarkInfo underlying) {
     super(underlying);
+  }
+
+  public static JavaToolchainProvider wrap(Info info) throws RuleErrorException {
+    com.google.devtools.build.lib.packages.Provider.Key key = info.getProvider().getKey();
+    if (key.equals(PROVIDER.getKey())) {
+      return PROVIDER.wrap(info);
+    } else if (key.equals(LEGACY_BUILTINS_PROVIDER.getKey())) {
+      return LEGACY_BUILTINS_PROVIDER.wrap(info);
+    } else {
+      throw new RuleErrorException("expected JavaToolchainInfo, got: " + key);
+    }
   }
 
   @Override
@@ -98,7 +113,7 @@ public final class JavaToolchainProvider extends StarlarkInfoWrapper {
     if (toolchainInfo != null) {
       try {
         JavaToolchainProvider provider =
-            JavaToolchainProvider.PROVIDER.wrap(toolchainInfo.getValue("java", Info.class));
+            JavaToolchainProvider.wrap(toolchainInfo.getValue("java", Info.class));
         if (provider != null) {
           return provider;
         }
@@ -122,7 +137,7 @@ public final class JavaToolchainProvider extends StarlarkInfoWrapper {
 
   /** Returns the target Java bootclasspath. */
   public BootClassPathInfo getBootclasspath() throws RuleErrorException {
-    return BootClassPathInfo.PROVIDER.wrap(getUnderlyingValue("_bootclasspath_info", Info.class));
+    return BootClassPathInfo.wrap(getUnderlyingValue("_bootclasspath_info", Info.class));
   }
 
   /** Returns the {@link Artifact}s of compilation tools. */
@@ -249,7 +264,7 @@ public final class JavaToolchainProvider extends StarlarkInfoWrapper {
   }
 
   public JavaRuntimeInfo getJavaRuntime() throws RuleErrorException {
-    return JavaRuntimeInfo.PROVIDER.wrap(getUnderlyingValue("java_runtime", Info.class));
+    return JavaRuntimeInfo.wrap(getUnderlyingValue("java_runtime", Info.class));
   }
 
   @AutoValue
@@ -298,13 +313,24 @@ public final class JavaToolchainProvider extends StarlarkInfoWrapper {
     }
   }
 
-  private static class Provider extends StarlarkProviderWrapper<JavaToolchainProvider> {
-
-    private Provider() {
+  private static class BuiltinsProvider extends Provider {
+    private BuiltinsProvider() {
       super(
           keyForBuiltins(
-              Label.parseCanonicalUnchecked("@_builtins//:common/java/java_toolchain.bzl")),
-          "JavaToolchainInfo");
+              Label.parseCanonicalUnchecked("@_builtins//:common/java/java_toolchain.bzl")));
+    }
+  }
+
+  private static class Provider extends StarlarkProviderWrapper<JavaToolchainProvider> {
+    private Provider() {
+      this(
+          keyForBuild(
+              Label.parseCanonicalUnchecked(
+                  "@rules_java//java/common/rules:java_toolchain.bzl")));
+    }
+
+    private Provider(BzlLoadValue.Key key) {
+      super(key, "JavaToolchainInfo");
     }
 
     @Override

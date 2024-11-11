@@ -1224,7 +1224,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
                 "plugins", JavaPluginData.empty(),
                 "api_generating_plugins", JavaPluginData.empty()));
 
-    JavaPluginInfo pluginInfo = JavaPluginInfo.PROVIDER.wrap(starlarkPluginInfo);
+    JavaPluginInfo pluginInfo = JavaPluginInfo.wrap(starlarkPluginInfo);
 
     assertThat(pluginInfo).isNotNull();
     assertThat(pluginInfo.getJavaOutputs()).hasSize(1);
@@ -1293,8 +1293,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
     JavaOutput nativeOutput =
         JavaOutput.builder().setClassJar(createArtifact("native.jar")).build();
     StarlarkList<?> starlarkOutputs =
-        ((StarlarkInfo)
-                getConfiguredTarget("//foo:my_starlark_rule").get(JavaInfo.PROVIDER.getKey()))
+        JavaInfo.getJavaInfo(getConfiguredTarget("//foo:my_starlark_rule"))
             .getValue("java_outputs", StarlarkList.class);
 
     Depset depset =
@@ -1328,7 +1327,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
         my_rule(name = "my_starlark_rule")
         """);
 
-    JavaInfo javaInfo = getConfiguredTarget("//foo:my_starlark_rule").get(JavaInfo.PROVIDER);
+    JavaInfo javaInfo = JavaInfo.getJavaInfo(getConfiguredTarget("//foo:my_starlark_rule"));
 
     assertThat(javaInfo).isNotNull();
     assertThat(javaInfo.isNeverlink()).isTrue();
@@ -1339,13 +1338,13 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
     ImmutableMap<String, Object> fields = getBuilderWithMandataryFields().buildOrThrow();
     StarlarkInfo starlarkInfo = makeStruct(fields);
 
-    JavaInfo javaInfo = JavaInfo.PROVIDER.wrap(starlarkInfo);
+    JavaInfo javaInfo = JavaInfo.wrap(starlarkInfo);
 
     assertThat(javaInfo).isNotNull();
     assertThat(javaInfo.getProvider(JavaCompilationArgsProvider.class)).isNotNull();
     assertThat(javaInfo.getCompilationInfoProvider()).isNull();
     assertThat(javaInfo.getJavaModuleFlagsInfo()).isEqualTo(JavaModuleFlagsProvider.EMPTY);
-    assertThat(javaInfo.getJavaPluginInfo()).isEqualTo(JavaPluginInfo.empty());
+    assertThat(javaInfo.getJavaPluginInfo()).isEqualTo(JavaPluginInfo.empty(false));
   }
 
   @Test
@@ -1354,7 +1353,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
         getBuilderWithMandataryFields().put("_is_binary", true).buildOrThrow();
     StarlarkInfo starlarkInfo = makeStruct(fields);
 
-    JavaInfo javaInfo = JavaInfo.PROVIDER.wrap(starlarkInfo);
+    JavaInfo javaInfo = JavaInfo.wrap(starlarkInfo);
 
     assertThat(javaInfo).isNotNull();
     assertThat(javaInfo.getProvider(JavaCompilationArgsProvider.class)).isNull();
@@ -1376,7 +1375,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
             .buildOrThrow();
     StarlarkInfo starlarkInfo = makeStruct(fields);
 
-    JavaInfo javaInfo = JavaInfo.PROVIDER.wrap(starlarkInfo);
+    JavaInfo javaInfo = JavaInfo.wrap(starlarkInfo);
 
     assertThat(javaInfo).isNotNull();
     assertThat(javaInfo.getCompilationInfoProvider()).isNotNull();
@@ -1433,7 +1432,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
             .buildOrThrow();
     StarlarkInfo starlarkInfo = makeStruct(fields);
 
-    JavaInfo javaInfo = JavaInfo.PROVIDER.wrap(starlarkInfo);
+    JavaInfo javaInfo = JavaInfo.wrap(starlarkInfo);
 
     assertThat(javaInfo).isNotNull();
     assertThat(javaInfo.getJavaModuleFlagsInfo()).isNotNull();
@@ -1456,7 +1455,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
             .buildKeepingLast();
     StarlarkInfo starlarkInfo = makeStruct(fields);
 
-    JavaInfo javaInfo = JavaInfo.PROVIDER.wrap(starlarkInfo);
+    JavaInfo javaInfo = JavaInfo.wrap(starlarkInfo);
 
     assertThat(javaInfo).isNotNull();
     assertThat(javaInfo.plugins()).isNotNull();
@@ -1653,6 +1652,6 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
                 new StarlarkProvider.Key(
                     keyForBuild(Label.parseCanonical("//foo:extension.bzl")), "result"));
 
-    return JavaInfo.PROVIDER.wrap(info.getValue("property", Info.class));
+    return JavaInfo.wrap(info.getValue("property", Info.class));
   }
 }

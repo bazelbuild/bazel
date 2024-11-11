@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
 
 import com.google.devtools.build.lib.actions.Artifact;
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkInfoWithSchema;
 import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
 import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Optional;
 import net.starlark.java.eval.Starlark;
@@ -36,6 +38,9 @@ import net.starlark.java.eval.Starlark;
 public class BootClassPathInfo extends StarlarkInfoWrapper {
 
   /** Provider singleton constant. */
+  public static final StarlarkProviderWrapper<BootClassPathInfo> LEGACY_BUILTINS_PROVIDER =
+      new BuiltinsProvider();
+
   public static final StarlarkProviderWrapper<BootClassPathInfo> PROVIDER = new Provider();
 
   private static final BootClassPathInfo EMPTY =
@@ -74,6 +79,17 @@ public class BootClassPathInfo extends StarlarkInfoWrapper {
     super(underlying);
   }
 
+  public static BootClassPathInfo wrap(Info info) throws RuleErrorException {
+    com.google.devtools.build.lib.packages.Provider.Key key = info.getProvider().getKey();
+    if (key.equals(PROVIDER.getKey())) {
+      return PROVIDER.wrap(info);
+    } else if (key.equals(LEGACY_BUILTINS_PROVIDER.getKey())) {
+      return LEGACY_BUILTINS_PROVIDER.wrap(info);
+    } else {
+      throw new RuleErrorException("expected BootClassPathInfo, got: " + key);
+    }
+  }
+
   /** The jar files containing classes for system APIs, i.e. a Java <= 8 bootclasspath. */
   public NestedSet<Artifact> bootclasspath() throws RuleErrorException {
     return getUnderlyingNestedSet("bootclasspath", Artifact.class);
@@ -105,12 +121,24 @@ public class BootClassPathInfo extends StarlarkInfoWrapper {
         && systemPath().isEmpty();
   }
 
-  private static class Provider extends StarlarkProviderWrapper<BootClassPathInfo> {
-    private Provider() {
+  private static class BuiltinsProvider extends Provider {
+    private BuiltinsProvider() {
       super(
           keyForBuiltins(
-              Label.parseCanonicalUnchecked("@_builtins//:common/java/boot_class_path_info.bzl")),
-          "BootClassPathInfo");
+              Label.parseCanonicalUnchecked("@_builtins//:common/java/boot_class_path_info.bzl")));
+    }
+  }
+
+  private static class Provider extends StarlarkProviderWrapper<BootClassPathInfo> {
+    private Provider() {
+      this(
+          keyForBuild(
+              Label.parseCanonicalUnchecked(
+                  "@rules_java//java/private:boot_class_path_info.bzl")));
+    }
+
+    private Provider(BzlLoadValue.Key key) {
+      super(key, "BootClassPathInfo");
     }
 
     @Override

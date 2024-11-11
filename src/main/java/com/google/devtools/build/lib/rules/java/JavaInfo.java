@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
 import static com.google.devtools.build.lib.unsafe.UnsafeProvider.unsafe;
 
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
 import com.google.devtools.build.lib.packages.StructImpl;
@@ -36,6 +38,7 @@ import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
+import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.serialization.AsyncDeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.DynamicCodec;
@@ -63,11 +66,12 @@ import net.starlark.java.syntax.Location;
 
 /** A Starlark declared provider that encapsulates all providers that are needed by Java rules. */
 @Immutable
-public final class JavaInfo extends NativeInfo
+public class JavaInfo extends NativeInfo
     implements JavaInfoApi<Artifact, JavaOutput, JavaPluginData> {
 
   public static final String STARLARK_NAME = "JavaInfo";
 
+  public static final JavaInfoProvider LEGACY_BUILTINS_PROVIDER = new BuiltinsJavaInfoProvider();
   public static final JavaInfoProvider PROVIDER = new JavaInfoProvider();
 
   // Ideally we would check if the target has a JavaInfo, but this check predates the Starlark
@@ -202,7 +206,20 @@ public final class JavaInfo extends NativeInfo
   }
 
   public static JavaInfo getJavaInfo(TransitiveInfoCollection target) throws RuleErrorException {
-    return target.get(JavaInfo.PROVIDER);
+    JavaInfo info = target.get(PROVIDER);
+    if (info == null) {
+      info = target.get(LEGACY_BUILTINS_PROVIDER);
+    }
+    return info;
+  }
+
+  public static JavaInfo wrap(Info info) throws RuleErrorException {
+    Provider.Key key = info.getProvider().getKey();
+    if (key.equals(LEGACY_BUILTINS_PROVIDER.getKey())) {
+      return LEGACY_BUILTINS_PROVIDER.wrap(info);
+    } else {
+      return JavaInfo.PROVIDER.wrap(info);
+    }
   }
 
   private JavaInfo(
@@ -481,13 +498,73 @@ public final class JavaInfo extends NativeInfo
         providerJavaPlugin);
   }
 
+  private static class BuiltinsJavaInfo extends JavaInfo {
+
+    private BuiltinsJavaInfo(StructImpl javaInfo)
+        throws EvalException, TypeException, RuleErrorException {
+      super(javaInfo);
+    }
+
+    private BuiltinsJavaInfo(
+        JavaCcInfoProvider javaCcInfoProvider,
+        JavaCompilationArgsProvider javaCompilationArgsProvider,
+        JavaCompilationInfoProvider javaCompilationInfoProvider,
+        JavaGenJarsProvider javaGenJarsProvider,
+        JavaModuleFlagsProvider javaModuleFlagsProvider,
+        JavaPluginInfo javaPluginInfo,
+        JavaRuleOutputJarsProvider javaRuleOutputJarsProvider,
+        JavaSourceJarsProvider javaSourceJarsProvider,
+        ImmutableList<Artifact> directRuntimeJars,
+        boolean neverlink,
+        ImmutableList<String> javaConstraints,
+        Location creationLocation) {
+      super(
+          javaCcInfoProvider,
+          javaCompilationArgsProvider,
+          javaCompilationInfoProvider,
+          javaGenJarsProvider,
+          javaModuleFlagsProvider,
+          javaPluginInfo,
+          javaRuleOutputJarsProvider,
+          javaSourceJarsProvider,
+          directRuntimeJars,
+          neverlink,
+          javaConstraints,
+          creationLocation);
+    }
+
+    @Override
+    public JavaInfoProvider getProvider() {
+      return LEGACY_BUILTINS_PROVIDER;
+    }
+  }
+
+  /** Legacy Provider class for {@link JavaInfo} objects. */
+  public static class BuiltinsJavaInfoProvider extends JavaInfoProvider {
+    private BuiltinsJavaInfoProvider() {
+      super(
+          keyForBuiltins(Label.parseCanonicalUnchecked("@_builtins//:common/java/java_info.bzl")));
+    }
+
+    @Override
+    protected JavaInfo makeNewInstance(StructImpl info)
+        throws RuleErrorException, TypeException, EvalException {
+      return new BuiltinsJavaInfo(info);
+    }
+  }
+
   /** Provider class for {@link JavaInfo} objects. */
   public static class JavaInfoProvider extends StarlarkProviderWrapper<JavaInfo>
       implements com.google.devtools.build.lib.packages.Provider {
     private JavaInfoProvider() {
-      super(
-          keyForBuiltins(Label.parseCanonicalUnchecked("@_builtins//:common/java/java_info.bzl")),
-          STARLARK_NAME);
+      this(
+          keyForBuild(
+              Label.parseCanonicalUnchecked(
+                  "@rules_java//java/private:java_info.bzl")));
+    }
+
+    public JavaInfoProvider(BzlLoadValue.Key key) {
+      super(key, STARLARK_NAME);
     }
 
     @Override
@@ -496,12 +573,17 @@ public final class JavaInfo extends NativeInfo
         return javaInfo;
       } else if (info instanceof StructImpl) {
         try {
-          return new JavaInfo((StructImpl) info);
+          return makeNewInstance((StructImpl) info);
         } catch (EvalException | TypeException e) {
           throw new RuleErrorException(e);
         }
       }
       throw new RuleErrorException("got " + Starlark.type(info) + ", wanted JavaInfo");
+    }
+
+    protected JavaInfo makeNewInstance(StructImpl info)
+        throws RuleErrorException, TypeException, EvalException {
+      return new JavaInfo(info);
     }
 
     @Override
@@ -531,6 +613,7 @@ public final class JavaInfo extends NativeInfo
     private ImmutableList<String> javaConstraints;
     private boolean neverlink;
     private Location creationLocation = Location.BUILTIN;
+    private Provider provider = PROVIDER;
 
     private Builder() {}
 
@@ -588,20 +671,42 @@ public final class JavaInfo extends NativeInfo
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public Builder setProvider(Provider provider) {
+      this.provider = provider;
+      return this;
+    }
+
     public JavaInfo build() {
-      return new JavaInfo(
-          /* javaCcInfoProvider= */ null,
-          providerJavaCompilationArgs,
-          providerJavaCompilationInfo,
-          /* javaGenJarsProvider= */ null,
-          /* javaModuleFlagsProvider= */ null,
-          /* javaPluginInfo= */ null,
-          providerJavaRuleOutputJars,
-          providerJavaSourceJars,
-          runtimeJars,
-          neverlink,
-          javaConstraints,
-          creationLocation);
+      if (provider.getKey().equals(LEGACY_BUILTINS_PROVIDER.getKey())) {
+        return new BuiltinsJavaInfo(
+            /* javaCcInfoProvider= */ null,
+            providerJavaCompilationArgs,
+            providerJavaCompilationInfo,
+            /* javaGenJarsProvider= */ null,
+            /* javaModuleFlagsProvider= */ null,
+            /* javaPluginInfo= */ null,
+            providerJavaRuleOutputJars,
+            providerJavaSourceJars,
+            runtimeJars,
+            neverlink,
+            javaConstraints,
+            creationLocation);
+      } else {
+        return new JavaInfo(
+            /* javaCcInfoProvider= */ null,
+            providerJavaCompilationArgs,
+            providerJavaCompilationInfo,
+            /* javaGenJarsProvider= */ null,
+            /* javaModuleFlagsProvider= */ null,
+            /* javaPluginInfo= */ null,
+            providerJavaRuleOutputJars,
+            providerJavaSourceJars,
+            runtimeJars,
+            neverlink,
+            javaConstraints,
+            creationLocation);
+      }
     }
   }
 

@@ -77,8 +77,8 @@ public class AndroidStarlarkCommonTest extends BuildViewTestCase {
             dep = ":foo",
         )
         """);
-    JavaInfo fooJavaInfo = getConfiguredTarget("//java/android:foo").get(JavaInfo.PROVIDER);
-    JavaInfo barJavaInfo = getConfiguredTarget("//java/android:bar").get(JavaInfo.PROVIDER);
+    JavaInfo fooJavaInfo = JavaInfo.getJavaInfo(getConfiguredTarget("//java/android:foo"));
+    JavaInfo barJavaInfo = JavaInfo.getJavaInfo(getConfiguredTarget("//java/android:bar"));
     assertThat(barJavaInfo.getProvider(JavaCompilationArgsProvider.class))
         .isEqualTo(fooJavaInfo.getProvider(JavaCompilationArgsProvider.class));
     assertThat(fooJavaInfo.getJavaPluginInfo()).isNotNull();

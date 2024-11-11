@@ -14,11 +14,14 @@
 
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -32,6 +35,7 @@ import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
+import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaPluginInfoApi;
 import java.util.ArrayList;
 import java.util.List;
@@ -46,24 +50,68 @@ import net.starlark.java.syntax.Location;
 public abstract class JavaPluginInfo extends NativeInfo
     implements JavaPluginInfoApi<Artifact, JavaPluginData, JavaOutput> {
   public static final String PROVIDER_NAME = "JavaPluginInfo";
+  public static final Provider LEGACY_BUILTINS_PROVIDER = new BuiltinsProvider();
   public static final Provider PROVIDER = new Provider();
+
+  private static final JavaPluginInfo EMPTY_BUILTIN =
+      new AutoValue_JavaPluginInfo(
+          ImmutableList.of(), JavaPluginData.empty(), JavaPluginData.empty(), true);
 
   private static final JavaPluginInfo EMPTY =
       new AutoValue_JavaPluginInfo(
-          ImmutableList.of(), JavaPluginData.empty(), JavaPluginData.empty());
+          ImmutableList.of(), JavaPluginData.empty(), JavaPluginData.empty(), false);
+
+  public static JavaPluginInfo wrap(Info info) throws RuleErrorException {
+    com.google.devtools.build.lib.packages.Provider.Key key = info.getProvider().getKey();
+    if (key.equals(LEGACY_BUILTINS_PROVIDER.getKey())) {
+      return LEGACY_BUILTINS_PROVIDER.wrap(info);
+    } else {
+      return PROVIDER.wrap(info);
+    }
+  }
+
+  @VisibleForTesting
+  public static JavaPluginInfo get(ConfiguredTarget target) throws RuleErrorException {
+    JavaPluginInfo info = target.get(PROVIDER);
+    JavaPluginInfo builtinInfo = target.get(LEGACY_BUILTINS_PROVIDER);
+    if (info == null) {
+      return builtinInfo;
+    } else if (builtinInfo == null) {
+      return info;
+    }
+    return mergeWithoutJavaOutputs(info, builtinInfo);
+  }
 
   @Override
   public Provider getProvider() {
-    return PROVIDER;
+    return builtin() ? LEGACY_BUILTINS_PROVIDER : PROVIDER;
+  }
+
+  /** Legacy Provider class for {@link JavaPluginInfo} objects. */
+  public static class BuiltinsProvider extends Provider {
+    private BuiltinsProvider() {
+      super(
+          keyForBuiltins(Label.parseCanonicalUnchecked("@_builtins//:common/java/java_info.bzl")));
+    }
+
+    @Override
+    protected boolean isBuiltin() {
+      return true;
+    }
   }
 
   /** Provider class for {@link JavaPluginInfo} objects. */
   public static class Provider extends StarlarkProviderWrapper<JavaPluginInfo>
       implements com.google.devtools.build.lib.packages.Provider {
     private Provider() {
-      super(
-          keyForBuiltins(Label.parseCanonicalUnchecked("@_builtins//:common/java/java_info.bzl")),
-          PROVIDER_NAME);
+      this(
+          keyForBuild(
+              Label.parseCanonicalUnchecked(
+                  "@rules_java//java/private:java_info.bzl")));
+    }
+
+    private Provider(BzlLoadValue.Key key) {
+      super(key, PROVIDER_NAME);
     }
 
     @Override
@@ -95,7 +143,8 @@ public abstract class JavaPluginInfo extends NativeInfo
               JavaOutput.wrapSequence(
                   Sequence.cast(info.getValue("java_outputs"), Object.class, "java_outputs")),
               JavaPluginData.wrap(info.getValue("plugins")),
-              JavaPluginData.wrap(info.getValue("api_generating_plugins")));
+              JavaPluginData.wrap(info.getValue("api_generating_plugins")),
+              isBuiltin());
         } catch (EvalException e) {
           throw new RuleErrorException(e);
         }
@@ -103,6 +152,10 @@ public abstract class JavaPluginInfo extends NativeInfo
         throw new RuleErrorException(
             "got element of type " + Starlark.type(value) + ", want JavaPluginInfo");
       }
+    }
+
+    protected boolean isBuiltin() {
+      return false;
     }
   }
 
@@ -187,10 +240,15 @@ public abstract class JavaPluginInfo extends NativeInfo
   }
 
   public static JavaPluginInfo mergeWithoutJavaOutputs(JavaPluginInfo a, JavaPluginInfo b) {
-    return a.isEmpty() ? b : b.isEmpty() ? a : mergeWithoutJavaOutputs(ImmutableList.of(a, b));
+    return a.isEmpty()
+        ? b
+        : b.isEmpty()
+            ? a
+            : mergeWithoutJavaOutputs(ImmutableList.of(a, b), a.builtin() && b.builtin());
   }
 
-  public static JavaPluginInfo mergeWithoutJavaOutputs(Iterable<JavaPluginInfo> providers) {
+  public static JavaPluginInfo mergeWithoutJavaOutputs(
+      Iterable<JavaPluginInfo> providers, boolean builtin) {
     List<JavaPluginData> plugins = new ArrayList<>();
     List<JavaPluginData> apiGeneratingPlugins = new ArrayList<>();
     for (JavaPluginInfo provider : providers) {
@@ -200,24 +258,20 @@ public abstract class JavaPluginInfo extends NativeInfo
       if (!provider.apiGeneratingPlugins().isEmpty()) {
         apiGeneratingPlugins.add(provider.apiGeneratingPlugins());
       }
+      builtin = builtin && provider.builtin();
     }
     if (plugins.isEmpty() && apiGeneratingPlugins.isEmpty()) {
-      return JavaPluginInfo.empty();
+      return JavaPluginInfo.empty(builtin);
     }
     return new AutoValue_JavaPluginInfo(
         ImmutableList.of(),
         JavaPluginData.merge(plugins),
-        JavaPluginData.merge(apiGeneratingPlugins));
+        JavaPluginData.merge(apiGeneratingPlugins),
+        builtin);
   }
 
-  public static JavaPluginInfo create(
-      JavaPluginData javaPluginData, boolean generatesApi, ImmutableList<JavaOutput> javaOutputs) {
-    return new AutoValue_JavaPluginInfo(
-        javaOutputs, javaPluginData, generatesApi ? javaPluginData : JavaPluginData.empty());
-  }
-
-  public static JavaPluginInfo empty() {
-    return EMPTY;
+  public static JavaPluginInfo empty(boolean builtin) {
+    return builtin ? EMPTY_BUILTIN : EMPTY;
   }
 
   @Override
@@ -225,6 +279,8 @@ public abstract class JavaPluginInfo extends NativeInfo
 
   @Override
   public abstract JavaPluginData apiGeneratingPlugins();
+
+  protected abstract boolean builtin();
 
   /** Returns true if the provider has no associated data. */
   public boolean isEmpty() {
@@ -252,12 +308,15 @@ public abstract class JavaPluginInfo extends NativeInfo
    */
   static JavaPluginInfo fromStarlarkJavaInfo(StructImpl javaInfo)
       throws EvalException, RuleErrorException {
+    boolean builtin =
+        javaInfo.getProvider().getKey().equals(JavaInfo.LEGACY_BUILTINS_PROVIDER.getKey());
     JavaPluginData plugins = JavaPluginData.wrap(javaInfo.getValue("plugins"));
     JavaPluginData apiGeneratingPlugins =
         JavaPluginData.wrap(javaInfo.getValue("api_generating_plugins"));
     if (plugins.isEmpty() && apiGeneratingPlugins.isEmpty()) {
-      return JavaPluginInfo.empty();
+      return JavaPluginInfo.empty(builtin);
     }
-    return new AutoValue_JavaPluginInfo(ImmutableList.of(), plugins, apiGeneratingPlugins);
+    return new AutoValue_JavaPluginInfo(
+        ImmutableList.of(), plugins, apiGeneratingPlugins, /* builtin= */ builtin);
   }
 }

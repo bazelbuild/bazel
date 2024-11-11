@@ -65,14 +65,13 @@ public class AndroidStarlarkCommon
             ? JavaCompilationArgsProvider.ClasspathType.COMPILE_ONLY
             : JavaCompilationArgsProvider.ClasspathType.BOTH;
     JavaInfo.Builder builder = JavaInfo.Builder.create();
-    JavaInfo.PROVIDER
-        .wrap(javaInfo)
+    JavaInfo.wrap(javaInfo)
         .compilationArgsProvider()
         .ifPresent(
             args ->
                 builder.javaCompilationArgs(
                     JavaCompilationArgsProvider.builder().addExports(args, type).build()));
-    return builder.setNeverlink(neverlink).build();
+    return builder.setProvider(javaInfo.getProvider()).setNeverlink(neverlink).build();
   }
 
   @Override
