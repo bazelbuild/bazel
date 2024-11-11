@@ -157,7 +157,8 @@ public final class JavaRuntimeInfo extends StarlarkInfoWrapper {
       this(
           keyForBuild(
               Label.parseCanonicalUnchecked(
-                  "@rules_java//java/common/rules:java_runtime.bzl")));
+                  JavaSemantics.RULES_JAVA_PROVIDER_LABELS_PREFIX
+                      + "java/common/rules:java_runtime.bzl")));
     }
 
     private Provider(BzlLoadValue.Key key) {

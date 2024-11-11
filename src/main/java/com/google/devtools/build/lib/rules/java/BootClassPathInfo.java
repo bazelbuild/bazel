@@ -134,7 +134,8 @@ public class BootClassPathInfo extends StarlarkInfoWrapper {
       this(
           keyForBuild(
               Label.parseCanonicalUnchecked(
-                  "@rules_java//java/private:boot_class_path_info.bzl")));
+                  JavaSemantics.RULES_JAVA_PROVIDER_LABELS_PREFIX
+                      + "java/private:boot_class_path_info.bzl")));
     }
 
     private Provider(BzlLoadValue.Key key) {
