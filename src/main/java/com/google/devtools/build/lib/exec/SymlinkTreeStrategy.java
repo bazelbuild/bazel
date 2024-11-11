@@ -110,10 +110,8 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
         } else if (action.getRunfileSymlinksMode() == RunfileSymlinksMode.INTERNAL
             && !action.isFilesetTree()) {
           try {
-            Map<PathFragment, Artifact> runfiles = runfilesToMap(action);
             createSymlinkTreeHelper(action, actionExecutionContext)
-                .createSymlinksDirectly(
-                    action.getOutputManifest().getPath().getParentDirectory(), runfiles);
+                .createSymlinksDirectly(runfilesToMap(action));
           } catch (IOException e) {
             throw ActionExecutionException.fromExecException(
                 new EnvironmentalExecException(e, Code.SYMLINK_TREE_CREATION_IO_EXCEPTION), action);
@@ -126,10 +124,7 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
           action.getEnvironment().resolve(resolvedEnv, actionExecutionContext.getClientEnv());
           createSymlinkTreeHelper(action, actionExecutionContext)
               .createSymlinksUsingCommand(
-                  actionExecutionContext.getExecRoot(),
-                  binTools,
-                  resolvedEnv,
-                  actionExecutionContext.getFileOutErr());
+                  binTools, resolvedEnv, actionExecutionContext.getFileOutErr());
         }
       } catch (ExecException e) {
         throw ActionExecutionException.fromExecException(e, action);
@@ -165,6 +160,7 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
   private SymlinkTreeHelper createSymlinkTreeHelper(
       SymlinkTreeAction action, ActionExecutionContext actionExecutionContext) {
     return new SymlinkTreeHelper(
+        actionExecutionContext.getExecRoot(),
         actionExecutionContext.getInputPath(action.getInputManifest()),
         actionExecutionContext.getInputPath(action.getOutputManifest()).getParentDirectory(),
         action.isFilesetTree(),
