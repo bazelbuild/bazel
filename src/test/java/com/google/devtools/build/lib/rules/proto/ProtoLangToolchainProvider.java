@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.proto;
 
-import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
 
 import com.google.auto.value.AutoValue;
@@ -44,11 +43,7 @@ public abstract class ProtoLangToolchainProvider {
           PROVIDER_NAME);
 
   public static final StarlarkProvider.Key protobufProtoLangToolchainKey =
-      new StarlarkProvider.Key(
-          keyForBuild(
-              Label.parseCanonicalUnchecked(
-                  "@protobuf//bazel/common:proto_lang_toolchain_info.bzl")),
-          PROVIDER_NAME);
+      new StarlarkProvider.Key(ProtoConstants.PROTO_LANG_TOOLCHAIN_INFO, PROVIDER_NAME);
 
   // Format string used when passing output to the plugin used by proto compiler.
   public abstract String outReplacementFormatFlag();
