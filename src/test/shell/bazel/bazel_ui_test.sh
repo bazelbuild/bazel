@@ -94,6 +94,18 @@ function test_fetch {
   expect_log 'Fetching.*remote_file'
 }
 
+function expect_log_with_msys_unicode_fix() {
+  if $is_windows; then
+    # MSYS grep for some reason doesn't find Unicode characters, so we convert
+    # both the pattern and the log to hex and search for the hex pattern.
+    local -r pattern_hex="$(echo -n "$1" | hexdump -ve '1/1 "%.2x"')"
+    hexdump -ve '1/1 "%.2x"' $TEST_log | grep -q -F "$pattern_hex" ||
+      fail "Could not find \"$1\" in \"$(cat $TEST_log)\" (via hexdump)"
+  else
+    expect_log "$1"
+  fi
+}
+
 function test_unicode_output {
   local -r unicode_string="äöüÄÖÜß🌱"
 
@@ -109,8 +121,8 @@ genrule(
 EOF
 
   bazel build //pkg:gen 2>$TEST_log || fail "bazel build failed"
-  expect_log "str_${unicode_string}"
-  expect_log "out_${unicode_string}"
+  expect_log_with_msys_unicode_fix "str_${unicode_string}"
+  expect_log_with_msys_unicode_fix "out_${unicode_string}"
 }
 
 run_suite "Bazel-specific integration tests for the UI"
