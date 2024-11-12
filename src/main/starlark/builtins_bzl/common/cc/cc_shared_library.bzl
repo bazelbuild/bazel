@@ -22,7 +22,7 @@ load(":common/cc/semantics.bzl", "semantics")
 load(":common/paths.bzl", "paths")
 load(":common/proto/proto_info.bzl", _BuiltinProtoInfo = "ProtoInfo")
 
-_external_proto_infos = [[k] for k in _builtins.toplevel.proto_common.external_proto_infos()]
+_external_proto_infos = [[k] for k in _builtins.toplevel.proto_common_do_not_use.external_proto_infos()]
 
 # TODO(#5200): Add export_define to library_to_link and cc_library
 
