@@ -32,6 +32,14 @@ Build and test software of any size, quickly and reliably.
     - [Android](https://bazel.build/tutorials/android-app)
     - [iOS](https://github.com/bazelbuild/rules_apple/blob/master/doc/tutorials/ios-app.md)
 
+## Cloning the Repository
+
+To clone the Bazel repository, use the following command:
+
+```sh
+gh repo clone bazelbuild/bazel
+```
+
 ## Documentation
 
   * [Bazel command line](https://bazel.build/docs/user-manual)
