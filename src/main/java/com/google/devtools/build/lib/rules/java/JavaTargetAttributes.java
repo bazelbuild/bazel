@@ -63,7 +63,7 @@ public class JavaTargetAttributes {
     private ImmutableList<Artifact> sourcePath = ImmutableList.of();
     private final ImmutableList.Builder<Artifact> nativeLibraries = ImmutableList.builder();
 
-    private JavaPluginInfo plugins = JavaPluginInfo.empty(false);
+    private JavaPluginInfo plugins = JavaPluginInfo.empty(JavaPluginInfo.PROVIDER);
 
     private final Map<PathFragment, Artifact> resources = new LinkedHashMap<>();
     private final NestedSetBuilder<Artifact> resourceJars = NestedSetBuilder.stableOrder();

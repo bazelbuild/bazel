@@ -72,6 +72,7 @@ public class JavaInfo extends NativeInfo
   public static final String STARLARK_NAME = "JavaInfo";
 
   public static final JavaInfoProvider LEGACY_BUILTINS_PROVIDER = new BuiltinsJavaInfoProvider();
+  public static final JavaInfoProvider RULES_JAVA_PROVIDER = new RulesJavaJavaInfoProvider();
   public static final JavaInfoProvider PROVIDER = new JavaInfoProvider();
 
   // Ideally we would check if the target has a JavaInfo, but this check predates the Starlark
@@ -210,6 +211,9 @@ public class JavaInfo extends NativeInfo
     if (info == null) {
       info = target.get(LEGACY_BUILTINS_PROVIDER);
     }
+    if (info == null) {
+      info = target.get(RULES_JAVA_PROVIDER);
+    }
     return info;
   }
 
@@ -217,6 +221,8 @@ public class JavaInfo extends NativeInfo
     Provider.Key key = info.getProvider().getKey();
     if (key.equals(LEGACY_BUILTINS_PROVIDER.getKey())) {
       return LEGACY_BUILTINS_PROVIDER.wrap(info);
+    } else if (key.equals(RULES_JAVA_PROVIDER.getKey())) {
+      return RULES_JAVA_PROVIDER.wrap(info);
     } else {
       return JavaInfo.PROVIDER.wrap(info);
     }
@@ -539,6 +545,19 @@ public class JavaInfo extends NativeInfo
     }
   }
 
+  private static class RulesJavaJavaInfo extends JavaInfo {
+
+    private RulesJavaJavaInfo(StructImpl javaInfo)
+        throws EvalException, TypeException, RuleErrorException {
+      super(javaInfo);
+    }
+
+    @Override
+    public JavaInfoProvider getProvider() {
+      return RULES_JAVA_PROVIDER;
+    }
+  }
+
   /** Legacy Provider class for {@link JavaInfo} objects. */
   public static class BuiltinsJavaInfoProvider extends JavaInfoProvider {
     private BuiltinsJavaInfoProvider() {
@@ -550,6 +569,19 @@ public class JavaInfo extends NativeInfo
     protected JavaInfo makeNewInstance(StructImpl info)
         throws RuleErrorException, TypeException, EvalException {
       return new BuiltinsJavaInfo(info);
+    }
+  }
+
+  /** Legacy Provider class for {@link JavaInfo} objects. */
+  public static class RulesJavaJavaInfoProvider extends JavaInfoProvider {
+    private RulesJavaJavaInfoProvider() {
+      super(keyForBuild(Label.parseCanonicalUnchecked("//java/private:java_info.bzl")));
+    }
+
+    @Override
+    protected JavaInfo makeNewInstance(StructImpl info)
+        throws RuleErrorException, TypeException, EvalException {
+      return new RulesJavaJavaInfo(info);
     }
   }
 

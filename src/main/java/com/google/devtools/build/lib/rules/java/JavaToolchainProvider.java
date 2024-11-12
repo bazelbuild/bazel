@@ -53,6 +53,8 @@ public final class JavaToolchainProvider extends StarlarkInfoWrapper {
 
   public static final StarlarkProviderWrapper<JavaToolchainProvider> LEGACY_BUILTINS_PROVIDER =
       new BuiltinsProvider();
+  public static final StarlarkProviderWrapper<JavaToolchainProvider> RULES_JAVA_PROVIDER =
+      new RulesJavaProvider();
   public static final StarlarkProviderWrapper<JavaToolchainProvider> PROVIDER = new Provider();
 
   private JavaToolchainProvider(StarlarkInfo underlying) {
@@ -65,6 +67,8 @@ public final class JavaToolchainProvider extends StarlarkInfoWrapper {
       return PROVIDER.wrap(info);
     } else if (key.equals(LEGACY_BUILTINS_PROVIDER.getKey())) {
       return LEGACY_BUILTINS_PROVIDER.wrap(info);
+    } else if (key.equals(RULES_JAVA_PROVIDER.getKey())) {
+      return RULES_JAVA_PROVIDER.wrap(info);
     } else {
       throw new RuleErrorException("expected JavaToolchainInfo, got: " + key);
     }
@@ -318,6 +322,12 @@ public final class JavaToolchainProvider extends StarlarkInfoWrapper {
       super(
           keyForBuiltins(
               Label.parseCanonicalUnchecked("@_builtins//:common/java/java_toolchain.bzl")));
+    }
+  }
+
+  private static class RulesJavaProvider extends Provider {
+    private RulesJavaProvider() {
+      super(keyForBuild(Label.parseCanonicalUnchecked("//java/common/rules:java_toolchain.bzl")));
     }
   }
 
