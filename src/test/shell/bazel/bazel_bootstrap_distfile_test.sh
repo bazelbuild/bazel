@@ -145,15 +145,14 @@ default_java_toolchain(
 )
 EOF
 
-    # TODO(pcloudy): Uncomment this once the bootstrap test is fixed.
-    # ./output/bazel \
-    #   --server_javabase=$JAVABASE --host_jvm_args=--add-opens=java.base/java.nio=ALL-UNNAMED \
-    #   build --nobuild --repository_cache=derived/repository_cache \
-    #   --override_repository=$(cat derived/maven/MAVEN_CANONICAL_REPO_NAME)=derived/maven \
-    #   --java_language_version=${JAVA_VERSION} --tool_java_language_version=${JAVA_VERSION} \
-    #   --tool_java_runtime_version=local_jdk \
-    #   --extra_toolchains=fake_java_toolchain:all \
-    #   src:bazel_nojdk &> "${TEST_log}" || fail "analysis with bootstrapped Bazel failed"
+    ./output/bazel \
+      --server_javabase=$JAVABASE --host_jvm_args=--add-opens=java.base/java.nio=ALL-UNNAMED \
+      build --nobuild --repository_cache=derived/repository_cache \
+      --override_repository=$(cat derived/maven/MAVEN_CANONICAL_REPO_NAME)=derived/maven \
+      --java_language_version=${JAVA_VERSION} --tool_java_language_version=${JAVA_VERSION} \
+      --tool_java_runtime_version=local_jdk \
+      --extra_toolchains=fake_java_toolchain:all \
+      src:bazel_nojdk &> "${TEST_log}" || fail "analysis with bootstrapped Bazel failed"
 }
 
 run_suite "bootstrap test"
