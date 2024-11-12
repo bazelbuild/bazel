@@ -98,6 +98,7 @@ function expect_log_with_msys_unicode_fix() {
   if $is_windows; then
     # MSYS grep for some reason doesn't find Unicode characters, so we convert
     # both the pattern and the log to hex and search for the hex pattern.
+    # https://github.com/msys2/MSYS2-packages/issues/5001
     local -r pattern_hex="$(echo -n "$1" | hexdump -ve '1/1 "%.2x"')"
     hexdump -ve '1/1 "%.2x"' $TEST_log | grep -q -F "$pattern_hex" ||
       fail "Could not find \"$1\" in \"$(cat $TEST_log)\" (via hexdump)"
