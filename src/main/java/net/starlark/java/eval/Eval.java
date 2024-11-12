@@ -22,6 +22,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import net.starlark.java.spelling.SpellChecker;
 import net.starlark.java.syntax.Argument;
 import net.starlark.java.syntax.AssignmentStatement;
@@ -469,20 +470,66 @@ final class Eval {
 
   private static Object inplaceBinaryOp(StarlarkThread.Frame fr, TokenKind op, Object x, Object y)
       throws EvalException {
-    // list += iterable  behaves like  list.extend(iterable)
-    // TODO(b/141263526): following Python, allow list+=iterable (but not list+iterable).
-    if (op == TokenKind.PLUS && x instanceof StarlarkList && y instanceof StarlarkList) {
-      StarlarkList<?> list = (StarlarkList) x;
-      list.extend(y);
-      return list;
-    } else if (op == TokenKind.PIPE && x instanceof Dict && y instanceof Map) {
-      // dict |= map merges the contents of the second operand (usually a dict) into the first.
-      @SuppressWarnings("unchecked")
-      Dict<Object, Object> xDict = (Dict<Object, Object>) x;
-      @SuppressWarnings("unchecked")
-      Map<Object, Object> yMap = (Map<Object, Object>) y;
-      xDict.putEntries(yMap);
-      return xDict;
+    switch (op) {
+      case PLUS:
+        // list += iterable  behaves like  list.extend(iterable)
+        // TODO(b/141263526): following Python, allow list+=iterable (but not list+iterable).
+        if (x instanceof StarlarkList && y instanceof StarlarkList) {
+          StarlarkList<?> list = (StarlarkList) x;
+          list.extend(y);
+          return list;
+        }
+        break;
+
+      case PIPE:
+        if (x instanceof Dict && y instanceof Map) {
+          // dict |= map merges the contents of the second operand (usually a dict) into the first.
+          @SuppressWarnings("unchecked")
+          Dict<Object, Object> xDict = (Dict<Object, Object>) x;
+          @SuppressWarnings("unchecked")
+          Map<Object, Object> yMap = (Map<Object, Object>) y;
+          xDict.putEntries(yMap);
+          return xDict;
+        } else if (x instanceof StarlarkSet && y instanceof Set) {
+          // set |= set merges the contents of the second operand into the first.
+          @SuppressWarnings("unchecked")
+          StarlarkSet<Object> xSet = (StarlarkSet<Object>) x;
+          xSet.update(Tuple.of(y));
+          return xSet;
+        }
+        break;
+
+      case AMPERSAND:
+        if (x instanceof StarlarkSet && y instanceof Set) {
+          // set &= set replaces the first set with the intersection of the two sets.
+          @SuppressWarnings("unchecked")
+          StarlarkSet<Object> xSet = (StarlarkSet<Object>) x;
+          xSet.intersectionUpdate(Tuple.of(y));
+          return xSet;
+        }
+        break;
+
+      case CARET:
+        if (x instanceof StarlarkSet && y instanceof Set) {
+          // set ^= set replaces the first set with the symmetric difference of the two sets.
+          @SuppressWarnings("unchecked")
+          StarlarkSet<Object> xSet = (StarlarkSet<Object>) x;
+          xSet.symmetricDifferenceUpdate(y);
+          return xSet;
+        }
+        break;
+
+      case MINUS:
+        if (x instanceof StarlarkSet && y instanceof Set) {
+          // set -= set removes all elements of the second set from the first set.
+          @SuppressWarnings("unchecked")
+          StarlarkSet<Object> xSet = (StarlarkSet<Object>) x;
+          xSet.differenceUpdate(Tuple.of(y));
+          return xSet;
+        }
+        break;
+
+      default: // fall through
     }
     return EvalUtils.binaryOp(op, x, y, fr.thread);
   }

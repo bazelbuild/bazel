@@ -406,7 +406,7 @@ class MethodLibrary {
   @StarlarkMethod(
       name = "len",
       doc =
-          "Returns the length of a string, sequence (such as a list or tuple), dict, or other"
+          "Returns the length of a string, sequence (such as a list or tuple), dict, set, or other"
               + " iterable.",
       parameters = {@Param(name = "x", doc = "The value whose length to report.")},
       useStarlarkThread = true)
@@ -640,6 +640,27 @@ class MethodLibrary {
     Dict<Object, Object> dict = Dict.of(thread.mutability());
     Dict.update("dict", dict, pairs, kwargs);
     return dict;
+  }
+
+  @StarlarkMethod(
+      name = "set",
+      doc =
+          "<b>Experimental</b>. This API is experimental and may change at any time. Please do not"
+              + " depend on it. It may be enabled on an experimental basis by setting"
+              + " <code>--experimental_enable_starlark_set</code>.\n" //
+              + "<p>Creates a new <a href=\"../core/set.html\">set</a>, optionally initialized to"
+              + " contain the elements from a given iterable.",
+      parameters = {
+        @Param(name = "elements", defaultValue = "[]", doc = "A set, sequence, or dict."),
+      },
+      useStarlarkThread = true)
+  public StarlarkSet<Object> set(Object elements, StarlarkThread thread) throws EvalException {
+    // Ordinarily we would use StarlarkMethod#enableOnlyWithFlag, but this doesn't work for
+    // top-level symbols, so enforce it here instead.
+    if (!thread.getSemantics().getBool(StarlarkSemantics.EXPERIMENTAL_ENABLE_STARLARK_SET)) {
+      throw Starlark.errorf("Use of set() requires --experimental_enable_starlark_set");
+    }
+    return StarlarkSet.checkedCopyOf(thread.mutability(), elements);
   }
 
   @StarlarkMethod(

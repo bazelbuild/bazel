@@ -15,6 +15,7 @@ package net.starlark.java.eval;
 
 import java.util.IllegalFormatException;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.TokenKind;
 
@@ -133,6 +134,11 @@ final class EvalUtils {
             // map | map (usually dicts)
             return Dict.builder().putAll((Map<?, ?>) x).putAll((Map<?, ?>) y).build(mu);
           }
+        } else if (x instanceof Set && y instanceof Set) {
+          // set | set
+          if (semantics.getBool(StarlarkSemantics.EXPERIMENTAL_ENABLE_STARLARK_SET)) {
+            return StarlarkSet.empty().union(Tuple.of(x, y), starlarkThread);
+          }
         }
         break;
 
@@ -140,6 +146,13 @@ final class EvalUtils {
         if (x instanceof StarlarkInt && y instanceof StarlarkInt) {
           // int & int
           return StarlarkInt.and((StarlarkInt) x, (StarlarkInt) y);
+        } else if (x instanceof Set && y instanceof Set) {
+          // set & set
+          if (semantics.getBool(StarlarkSemantics.EXPERIMENTAL_ENABLE_STARLARK_SET)) {
+            StarlarkSet<?> xSet =
+                x instanceof StarlarkSet ? (StarlarkSet<?>) x : StarlarkSet.checkedCopyOf(mu, x);
+            return xSet.intersection(Tuple.of(y), starlarkThread);
+          }
         }
         break;
 
@@ -147,6 +160,13 @@ final class EvalUtils {
         if (x instanceof StarlarkInt && y instanceof StarlarkInt) {
           // int ^ int
           return StarlarkInt.xor((StarlarkInt) x, (StarlarkInt) y);
+        } else if (x instanceof Set && y instanceof Set) {
+          // set ^ set
+          if (semantics.getBool(StarlarkSemantics.EXPERIMENTAL_ENABLE_STARLARK_SET)) {
+            StarlarkSet<?> xSet =
+                x instanceof StarlarkSet ? (StarlarkSet<?>) x : StarlarkSet.checkedCopyOf(mu, x);
+            return xSet.symmetricDifference(y, starlarkThread);
+          }
         }
         break;
 
@@ -185,6 +205,13 @@ final class EvalUtils {
             // float - int
             double z = xf - ((StarlarkInt) y).toFiniteDouble();
             return StarlarkFloat.of(z);
+          }
+        } else if (x instanceof Set && y instanceof Set) {
+          // set - set
+          if (semantics.getBool(StarlarkSemantics.EXPERIMENTAL_ENABLE_STARLARK_SET)) {
+            StarlarkSet<?> xSet =
+                x instanceof StarlarkSet ? (StarlarkSet<?>) x : StarlarkSet.checkedCopyOf(mu, x);
+            return xSet.difference(Tuple.of(y), starlarkThread);
           }
         }
         break;
@@ -344,8 +371,8 @@ final class EvalUtils {
         return compare(x, y) >= 0;
 
       case IN:
-        if (y instanceof StarlarkIndexable) {
-          return ((StarlarkIndexable) y).containsKey(semantics, x);
+        if (y instanceof StarlarkMembershipTestable) {
+          return ((StarlarkMembershipTestable) y).containsKey(semantics, x);
         } else if (y instanceof StarlarkIndexable.Threaded) {
           return ((StarlarkIndexable.Threaded) y).containsKey(starlarkThread, semantics, x);
         } else if (y instanceof String) {

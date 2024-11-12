@@ -817,6 +817,15 @@ public final class BuildLanguageOptions extends OptionsBase {
               + " attributes of symbolic macros or attribute default values.")
   public boolean incompatibleSimplifyUnconditionalSelectsInRuleAttrs;
 
+  @Option(
+      name = "experimental_enable_starlark_set",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "If true, enable the set data type and set() constructor in Starlark.")
+  public boolean experimentalEnableStarlarkSet;
+
   /**
    * An interner to reduce the number of StarlarkSemantics instances. A single Blaze instance should
    * never accumulate a large number of these and being able to shortcut on object identity makes a
@@ -930,6 +939,8 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(
                 INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS,
                 incompatibleSimplifyUnconditionalSelectsInRuleAttrs)
+            .setBool(
+                StarlarkSemantics.EXPERIMENTAL_ENABLE_STARLARK_SET, experimentalEnableStarlarkSet)
             .build();
     return INTERNER.intern(semantics);
   }
