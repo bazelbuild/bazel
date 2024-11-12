@@ -541,7 +541,11 @@ public class AutoloadSymbols {
     // These fields are used to generate all other private fields.
     // Thus, other fields don't need to be included in hash code.
     return Objects.hash(
-        autoloadedSymbols, removedSymbols, partiallyRemovedSymbols, reposDisallowingAutoloads);
+        bzlmodEnabled,
+        autoloadedSymbols,
+        removedSymbols,
+        partiallyRemovedSymbols,
+        reposDisallowingAutoloads);
   }
 
   @Override
@@ -553,7 +557,8 @@ public class AutoloadSymbols {
       AutoloadSymbols other = (AutoloadSymbols) that;
       // These fields are used to generate all other private fields.
       // Thus, other fields don't need to be included in comparison.
-      return this.autoloadedSymbols.equals(other.autoloadedSymbols)
+      return this.bzlmodEnabled == other.bzlmodEnabled
+          && this.autoloadedSymbols.equals(other.autoloadedSymbols)
           && this.removedSymbols.equals(other.removedSymbols)
           && this.partiallyRemovedSymbols.equals(other.partiallyRemovedSymbols)
           && this.reposDisallowingAutoloads.equals(other.reposDisallowingAutoloads);
