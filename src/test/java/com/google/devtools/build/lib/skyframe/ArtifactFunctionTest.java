@@ -417,7 +417,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
                   .build();
           treeArtifactData.put(output, tree);
         } else if (output.isRunfilesTree()) {
-          artifactData.put(output, FileArtifactValue.DEFAULT_MIDDLEMAN);
+          artifactData.put(output, FileArtifactValue.RUNFILES_TREE_MARKER);
         } else {
           Path path = output.getPath();
           FileArtifactValue noDigest =

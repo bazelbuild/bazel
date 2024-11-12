@@ -189,8 +189,20 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
    */
   interface Singleton {}
 
+  /**
+   * Metadata for runfiles trees.
+   *
+   * <p>This should really be more nuanced so that runfiles trees don't need to be special-cased in
+   * the local action cache, but it works well enough. The only downsides are that we don't detect
+   * when someone changed a runfiles tree like we do for other output artifacts and a number of
+   * extra branches.
+   *
+   * <p>In Skyframe, we check whether a runfiles tree changed based on {@link
+   * RunfilesArtifactValue}, which does contain data about its contents.
+   */
   @SerializationConstant
-  public static final FileArtifactValue DEFAULT_MIDDLEMAN = new SingletonMarkerValue();
+  public static final FileArtifactValue RUNFILES_TREE_MARKER = new SingletonMarkerValue();
+
   /** Data that marks that a file is not present on the filesystem. */
   @SerializationConstant
   public static final FileArtifactValue MISSING_FILE_MARKER = new SingletonMarkerValue();

@@ -197,8 +197,8 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
       if (value != null) {
         return checkExists(value, artifact);
       }
-      putArtifactData(artifact, FileArtifactValue.DEFAULT_MIDDLEMAN);
-      return FileArtifactValue.DEFAULT_MIDDLEMAN;
+      putArtifactData(artifact, FileArtifactValue.RUNFILES_TREE_MARKER);
+      return FileArtifactValue.RUNFILES_TREE_MARKER;
     }
 
     if (artifact.isTreeArtifact()) {
