@@ -15,10 +15,15 @@ package com.google.devtools.build.lib.runtime;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
 import com.google.devtools.build.lib.server.FailureDetails.Query.Code;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
+
+import java.io.IOException;
 import java.io.OutputStream;
 
 /**
@@ -47,7 +52,7 @@ public interface QueryRuntimeHelper extends AutoCloseable {
 
   /** Factory for {@link QueryRuntimeHelper} instances. */
   interface Factory {
-    QueryRuntimeHelper create(CommandEnvironment env) throws QueryRuntimeHelperException;
+    QueryRuntimeHelper create(CommandEnvironment env, CommonQueryOptions options) throws QueryRuntimeHelperException;
   }
 
   /**
@@ -63,8 +68,18 @@ public interface QueryRuntimeHelper extends AutoCloseable {
     private StdoutQueryRuntimeHelperFactory() {}
 
     @Override
-    public QueryRuntimeHelper create(CommandEnvironment env) {
-      return createInternal(env.getReporter().getOutErr().getOutputStream());
+    public QueryRuntimeHelper create(CommandEnvironment env, CommonQueryOptions options) throws QueryRuntimeHelperException {
+      PathFragment outputFile = options.outputFile;
+
+        if (outputFile == null) {
+            return createInternal(env.getReporter().getOutErr().getOutputStream());
+        }
+      Path fullPath = env.getWorkspace().getRelative(outputFile);
+      try {
+          return new FileQueryRuntimeHelper(fullPath);
+        } catch (IOException e) {
+            throw new QueryRuntimeHelperException("Could not write to " + fullPath, Code.QUERY_OUTPUT_WRITE_FAILURE, e);
+        }
     }
 
     public QueryRuntimeHelper createInternal(OutputStream stdoutOutputStream) {
@@ -90,6 +105,29 @@ public interface QueryRuntimeHelper extends AutoCloseable {
 
       @Override
       public void close() {}
+    }
+
+    private static class FileQueryRuntimeHelper implements QueryRuntimeHelper {
+      private final OutputStream out;
+
+      public FileQueryRuntimeHelper(Path path) throws IOException {
+        out = path.getOutputStream();
+      }
+
+      @Override
+      public OutputStream getOutputStreamForQueryOutput() {
+        return out;
+      }
+
+      @Override
+      public void afterQueryOutputIsWritten()  {
+
+      }
+
+      @Override
+      public void close() throws QueryRuntimeHelperException {
+
+      }
     }
   }
 

@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.query2.NamedThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
+import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
@@ -83,7 +84,7 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
       }
 
       try (QueryRuntimeHelper queryRuntimeHelper =
-          env.getRuntime().getQueryRuntimeHelperFactory().create(env)) {
+          env.getRuntime().getQueryRuntimeHelperFactory().create(env, getQueryOptions(env))) {
         doPostAnalysisQuery(
             request,
             env,
@@ -123,6 +124,8 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
       }
     }
   }
+
+  protected abstract CommonQueryOptions getQueryOptions(CommandEnvironment env);
 
   protected abstract PostAnalysisQueryEnvironment<T> getQueryEnvironment(
       BuildRequest request,

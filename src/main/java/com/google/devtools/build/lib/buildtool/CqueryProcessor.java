@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.buildtool;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
+import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
 import com.google.devtools.build.lib.query2.cquery.ConfiguredTargetQueryEnvironment;
 import com.google.devtools.build.lib.query2.cquery.CqueryOptions;
 import com.google.devtools.build.lib.query2.cquery.KeyedConfiguredTarget;
@@ -34,7 +35,12 @@ public final class CqueryProcessor extends PostAnalysisQueryProcessor<KeyedConfi
     super(queryExpression, mainRepoTargetParser);
   }
 
-  @Override
+    @Override
+    protected CommonQueryOptions getQueryOptions(CommandEnvironment env) {
+        return env.getOptions().getOptions(CqueryOptions.class);
+    }
+
+    @Override
   protected ConfiguredTargetQueryEnvironment getQueryEnvironment(
       BuildRequest request,
       CommandEnvironment env,

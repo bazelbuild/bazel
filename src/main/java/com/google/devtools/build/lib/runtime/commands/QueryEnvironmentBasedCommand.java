@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
+import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
 import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
@@ -156,7 +157,7 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
     }
 
     try (QueryRuntimeHelper queryRuntimeHelper =
-        env.getRuntime().getQueryRuntimeHelperFactory().create(env)) {
+        env.getRuntime().getQueryRuntimeHelperFactory().create(env, queryOptions)) {
       Either<BlazeCommandResult, QueryEvalResult> result;
       try (AbstractBlazeQueryEnvironment<Target> queryEnv =
           newQueryEnvironment(

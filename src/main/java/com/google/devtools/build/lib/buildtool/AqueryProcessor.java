@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.query2.aquery.ActionGraphQueryEnvironment;
 import com.google.devtools.build.lib.query2.aquery.AqueryActionFilter;
 import com.google.devtools.build.lib.query2.aquery.AqueryOptions;
 import com.google.devtools.build.lib.query2.aquery.KeyedConfiguredTargetValue;
+import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
 import com.google.devtools.build.lib.query2.engine.ActionFilterFunction;
 import com.google.devtools.build.lib.query2.engine.FunctionExpression;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
@@ -65,11 +66,16 @@ public final class AqueryProcessor extends PostAnalysisQueryProcessor<KeyedConfi
     actionFilters = buildActionFilters(queryExpression);
   }
 
+  @Override
+  protected AqueryOptions getQueryOptions(CommandEnvironment env) {
+    return env.getOptions().getOptions(AqueryOptions.class);
+  }
+
   /** Outputs the current action graph from Skyframe. */
   public BlazeCommandResult dumpActionGraphFromSkyframe(CommandEnvironment env) {
+    AqueryOptions aqueryOptions = getQueryOptions(env);
     try (QueryRuntimeHelper queryRuntimeHelper =
-        env.getRuntime().getQueryRuntimeHelperFactory().create(env)) {
-      AqueryOptions aqueryOptions = env.getOptions().getOptions(AqueryOptions.class);
+        env.getRuntime().getQueryRuntimeHelperFactory().create(env, aqueryOptions)) {
 
       PrintStream printStream =
           queryRuntimeHelper.getOutputStreamForQueryOutput() == null
