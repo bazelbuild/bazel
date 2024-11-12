@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PrecomputedFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
@@ -196,7 +197,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     PrecomputedValue.STARLARK_SEMANTICS.set(
         differencer,
         StarlarkSemantics.builder().setBool(BuildLanguageOptions.ENABLE_BZLMOD, true).build());
-    RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
+    RepositoryMappingFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
     RepositoryDelegatorFunction.FORCE_FETCH.set(
         differencer, RepositoryDelegatorFunction.FORCE_FETCH_DISABLED);
     RepositoryDelegatorFunction.VENDOR_DIRECTORY.set(differencer, Optional.empty());
@@ -206,6 +207,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         differencer, Optional.empty());
     PrecomputedValue.REPO_ENV.set(differencer, ImmutableMap.of());
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
+    ModuleFileFunction.INJECTED_REPOSITORIES.set(differencer, ImmutableMap.of());
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());
     YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
     BazelLockFileFunction.LOCKFILE_MODE.set(differencer, LockfileMode.UPDATE);
@@ -347,6 +349,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, true);
+    ModuleFileFunction.INJECTED_REPOSITORIES.set(differencer, ImmutableMap.of());
 
     EvaluationResult<RootModuleFileValue> result =
         evaluator.evaluate(

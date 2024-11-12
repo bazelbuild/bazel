@@ -266,7 +266,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, semantics);
     AutoloadSymbols.AUTOLOAD_SYMBOLS.set(
         differencer, new AutoloadSymbols(ruleClassProvider, semantics));
-    RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
+    RepositoryMappingFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
     RepositoryDelegatorFunction.FORCE_FETCH.set(
         differencer, RepositoryDelegatorFunction.FORCE_FETCH_DISABLED);
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, packageLocator.get());
@@ -274,6 +274,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         differencer, Optional.empty());
     PrecomputedValue.REPO_ENV.set(differencer, ImmutableMap.of());
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
+    ModuleFileFunction.INJECTED_REPOSITORIES.set(differencer, ImmutableMap.of());
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());
     YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
@@ -647,6 +648,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         "ext=module_extension(implementation=_ext_impl,tag_classes={'tag':tag})");
 
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, true);
+    ModuleFileFunction.INJECTED_REPOSITORIES.set(differencer, ImmutableMap.of());
 
     SkyKey skyKey =
         BzlLoadValue.keyForBuild(Label.parseCanonical("@@ext++ext+ext_repo//:data.bzl"));

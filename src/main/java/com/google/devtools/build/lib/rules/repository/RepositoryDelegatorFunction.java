@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.rules.repository;
 
+import static com.google.devtools.build.lib.skyframe.RepositoryMappingFunction.REPOSITORY_OVERRIDES;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -71,9 +72,6 @@ import net.starlark.java.eval.StarlarkSemantics;
  * this function.
  */
 public final class RepositoryDelegatorFunction implements SkyFunction {
-  public static final Precomputed<Map<RepositoryName, PathFragment>> REPOSITORY_OVERRIDES =
-      new Precomputed<>("repository_overrides");
-
   public static final String FORCE_FETCH_DISABLED = "";
 
   public static final Precomputed<String> FORCE_FETCH =
