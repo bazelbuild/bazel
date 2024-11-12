@@ -29,7 +29,7 @@ exported_toplevels = {
         JAVA_LIBRARY_ATTRS = JAVA_LIBRARY_ATTRS,
     ),
     "py_internal": py_internal,
-    "proto_common_do_not_use": struct(INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION = _builtins.toplevel.proto_common.incompatible_enable_proto_toolchain_resolution()),
+    "proto_common_do_not_use": struct(INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION = _builtins.toplevel.proto_common_do_not_use.incompatible_enable_proto_toolchain_resolution()),
 }
 exported_rules = {
     "java_package_configuration": java_package_configuration,
