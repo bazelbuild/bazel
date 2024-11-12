@@ -196,7 +196,13 @@ EOF
 }
 
 function test_cc_dependency_with_utf8_filename() {
-  local -r unicode='äöüÄÖÜß🌱'
+  # TODO: Find a way to get cl.exe to output Unicode when not running in a
+  # console or migrate to /sourceDependencies.
+  if $is_windows; then
+    echo "Skipping test on Windows." && return
+  fi
+
+  local unicode="äöüÄÖÜß🌱"
 
   setup_module_dot_bazel
 
