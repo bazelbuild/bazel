@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
+import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
 import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.cquery.ConfiguredTargetQueryEnvironment;
 import com.google.devtools.build.lib.query2.cquery.CqueryOptions;
@@ -36,7 +37,12 @@ public final class CqueryProcessor extends PostAnalysisQueryProcessor<CqueryNode
     super(queryExpression, mainRepoTargetParser);
   }
 
-  @Override
+    @Override
+    protected CommonQueryOptions getQueryOptions(CommandEnvironment env) {
+        return env.getOptions().getOptions(CqueryOptions.class);
+    }
+
+    @Override
   protected ConfiguredTargetQueryEnvironment getQueryEnvironment(
       BuildRequest request,
       CommandEnvironment env,

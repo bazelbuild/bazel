@@ -19,6 +19,8 @@ import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver.Mode;
+import com.google.devtools.build.lib.util.OptionsUtils;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.EnumConverter;
@@ -202,6 +204,17 @@ public class CommonQueryOptions extends OptionsBase {
         ? LabelPrinter.starlark(starlarkSemantics)
         : LabelPrinter.displayForm(mainRepoMapping);
   }
+
+  @Option(
+      name = "output_file",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      converter = OptionsUtils.PathFragmentConverter.class,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "When specified, query results will be written directly to this file, and "
+              + "nothing will be printed to Bazel's standard output stream (stdout).")
+  public PathFragment outputFile;
 
   ///////////////////////////////////////////////////////////
   // PROTO OUTPUT FORMATTER OPTIONS                        //
