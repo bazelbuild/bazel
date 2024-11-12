@@ -44,7 +44,7 @@ public class StreamedProtoOutputFormatter extends ProtoOutputFormatter {
       public void processOutput(Iterable<Target> partialResult)
           throws IOException, InterruptedException {
         try {
-          StreamSupport.stream(partialResult.spliterator(), /* parallel= */true)
+          StreamSupport.stream(partialResult.spliterator(), /* parallel= */ true)
               .map(this::toProto)
               .map(StreamedProtoOutputFormatter::writeDelimited)
               .forEach(this::writeToOutputStreamThreadSafe);
@@ -67,7 +67,7 @@ public class StreamedProtoOutputFormatter extends ProtoOutputFormatter {
         try {
           bout.writeTo(out);
         } catch (IOException e) {
-          throw new RuntimeException(e);
+          throw new WrappedIOException(e);
         }
       }
     };
