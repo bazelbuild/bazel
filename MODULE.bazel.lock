@@ -253,7 +253,7 @@
     "@@googleapis+//:extensions.bzl%switched_rules": {
       "general": {
         "bzlTransitiveDigest": "vG6fuTzXD8MMvHWZEQud0MMH7eoC4GXY0va7VrFFh04=",
-        "usagesDigest": "uYQNfFrBVxWtH6yUF3NICvGxQi7HVUcOL/ibsn4/BWc=",
+        "usagesDigest": "j8fHsgO+aNMh/Z+YD89CYnrB0Auw7X8No5mV6rskRlE=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -1268,7 +1268,7 @@
     "@@rules_graalvm+//:extensions.bzl%graalvm": {
       "general": {
         "bzlTransitiveDigest": "h5NoLe6qf+ziboLGAdcXrD+fgwCizx5PmMd0VH19SXY=",
-        "usagesDigest": "9ti2DgD4vux69Lw+Y5sosEyWg4oi/gn5Z/rh7kXzpDY=",
+        "usagesDigest": "Bm/wfVXwbTI4i7wzT0+ghwVWZb+0rwPnPZQkXZoAcVE=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -1306,7 +1306,7 @@
     "@@rules_jvm_external+//:extensions.bzl%maven": {
       "general": {
         "bzlTransitiveDigest": "6gDYyySuiGewh893nm2Hweq//l1UzIzMRE42K/CxHdc=",
-        "usagesDigest": "jW5Zm/JG2f6S1+udGjUnWyD+iuZEqVmoV1dZ/Rpn+1c=",
+        "usagesDigest": "ianLViHd9awrCPzKwZSGPYrPkoTOokyDOWGy3yk6kAE=",
         "recordedFileInputs": {
           "@@rules_jvm_external+//rules_jvm_external_deps_install.json": "cafb5d2d8119391eb2b322ce3840d3352ea82d496bdb8cbd4b6779ec4d044dda",
           "@@stardoc+//maven_install.json": "25f3c138ca52c61e0e7a564fe21f5709261b33d78d35427b6c18d7aa202d973b",
