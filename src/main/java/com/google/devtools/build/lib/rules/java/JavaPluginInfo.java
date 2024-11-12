@@ -52,14 +52,22 @@ public abstract class JavaPluginInfo extends NativeInfo
   public static final String PROVIDER_NAME = "JavaPluginInfo";
   public static final Provider LEGACY_BUILTINS_PROVIDER = new BuiltinsProvider();
   public static final Provider PROVIDER = new Provider();
+  public static final Provider RULES_JAVA_PROVIDER = new RulesJavaProvider();
 
   private static final JavaPluginInfo EMPTY_BUILTIN =
       new AutoValue_JavaPluginInfo(
-          ImmutableList.of(), JavaPluginData.empty(), JavaPluginData.empty(), true);
+          ImmutableList.of(),
+          JavaPluginData.empty(),
+          JavaPluginData.empty(),
+          LEGACY_BUILTINS_PROVIDER);
 
   private static final JavaPluginInfo EMPTY =
       new AutoValue_JavaPluginInfo(
-          ImmutableList.of(), JavaPluginData.empty(), JavaPluginData.empty(), false);
+          ImmutableList.of(), JavaPluginData.empty(), JavaPluginData.empty(), PROVIDER);
+
+  private static final JavaPluginInfo EMPTY_RULES_JAVA =
+      new AutoValue_JavaPluginInfo(
+          ImmutableList.of(), JavaPluginData.empty(), JavaPluginData.empty(), RULES_JAVA_PROVIDER);
 
   public static JavaPluginInfo wrap(Info info) throws RuleErrorException {
     com.google.devtools.build.lib.packages.Provider.Key key = info.getProvider().getKey();
@@ -83,8 +91,8 @@ public abstract class JavaPluginInfo extends NativeInfo
   }
 
   @Override
-  public Provider getProvider() {
-    return builtin() ? LEGACY_BUILTINS_PROVIDER : PROVIDER;
+  public com.google.devtools.build.lib.packages.Provider getProvider() {
+    return providerType();
   }
 
   /** Legacy Provider class for {@link JavaPluginInfo} objects. */
@@ -93,10 +101,12 @@ public abstract class JavaPluginInfo extends NativeInfo
       super(
           keyForBuiltins(Label.parseCanonicalUnchecked("@_builtins//:common/java/java_info.bzl")));
     }
+  }
 
-    @Override
-    protected boolean isBuiltin() {
-      return true;
+  /** Provider class for {@link JavaPluginInfo} objects in rules_java itself. */
+  public static class RulesJavaProvider extends Provider {
+    private RulesJavaProvider() {
+      super(keyForBuild(Label.parseCanonicalUnchecked("//java/private:java_info.bzl")));
     }
   }
 
@@ -144,7 +154,7 @@ public abstract class JavaPluginInfo extends NativeInfo
                   Sequence.cast(info.getValue("java_outputs"), Object.class, "java_outputs")),
               JavaPluginData.wrap(info.getValue("plugins")),
               JavaPluginData.wrap(info.getValue("api_generating_plugins")),
-              isBuiltin());
+              value.getProvider());
         } catch (EvalException e) {
           throw new RuleErrorException(e);
         }
@@ -152,10 +162,6 @@ public abstract class JavaPluginInfo extends NativeInfo
         throw new RuleErrorException(
             "got element of type " + Starlark.type(value) + ", want JavaPluginInfo");
       }
-    }
-
-    protected boolean isBuiltin() {
-      return false;
     }
   }
 
@@ -242,13 +248,12 @@ public abstract class JavaPluginInfo extends NativeInfo
   public static JavaPluginInfo mergeWithoutJavaOutputs(JavaPluginInfo a, JavaPluginInfo b) {
     return a.isEmpty()
         ? b
-        : b.isEmpty()
-            ? a
-            : mergeWithoutJavaOutputs(ImmutableList.of(a, b), a.builtin() && b.builtin());
+        : b.isEmpty() ? a : mergeWithoutJavaOutputs(ImmutableList.of(a, b), a.providerType());
   }
 
   public static JavaPluginInfo mergeWithoutJavaOutputs(
-      Iterable<JavaPluginInfo> providers, boolean builtin) {
+      Iterable<JavaPluginInfo> providers,
+      com.google.devtools.build.lib.packages.Provider providerType) {
     List<JavaPluginData> plugins = new ArrayList<>();
     List<JavaPluginData> apiGeneratingPlugins = new ArrayList<>();
     for (JavaPluginInfo provider : providers) {
@@ -258,20 +263,24 @@ public abstract class JavaPluginInfo extends NativeInfo
       if (!provider.apiGeneratingPlugins().isEmpty()) {
         apiGeneratingPlugins.add(provider.apiGeneratingPlugins());
       }
-      builtin = builtin && provider.builtin();
     }
     if (plugins.isEmpty() && apiGeneratingPlugins.isEmpty()) {
-      return JavaPluginInfo.empty(builtin);
+      return JavaPluginInfo.empty(providerType);
     }
     return new AutoValue_JavaPluginInfo(
         ImmutableList.of(),
         JavaPluginData.merge(plugins),
         JavaPluginData.merge(apiGeneratingPlugins),
-        builtin);
+        providerType);
   }
 
-  public static JavaPluginInfo empty(boolean builtin) {
-    return builtin ? EMPTY_BUILTIN : EMPTY;
+  public static JavaPluginInfo empty(com.google.devtools.build.lib.packages.Provider providerType) {
+    if (providerType.equals(LEGACY_BUILTINS_PROVIDER)) {
+      return EMPTY_BUILTIN;
+    } else if (providerType.equals(RULES_JAVA_PROVIDER)) {
+      return EMPTY_RULES_JAVA;
+    }
+    return EMPTY;
   }
 
   @Override
@@ -280,7 +289,7 @@ public abstract class JavaPluginInfo extends NativeInfo
   @Override
   public abstract JavaPluginData apiGeneratingPlugins();
 
-  protected abstract boolean builtin();
+  protected abstract com.google.devtools.build.lib.packages.Provider providerType();
 
   /** Returns true if the provider has no associated data. */
   public boolean isEmpty() {
@@ -308,15 +317,14 @@ public abstract class JavaPluginInfo extends NativeInfo
    */
   static JavaPluginInfo fromStarlarkJavaInfo(StructImpl javaInfo)
       throws EvalException, RuleErrorException {
-    boolean builtin =
-        javaInfo.getProvider().getKey().equals(JavaInfo.LEGACY_BUILTINS_PROVIDER.getKey());
+    com.google.devtools.build.lib.packages.Provider providerType = javaInfo.getProvider();
     JavaPluginData plugins = JavaPluginData.wrap(javaInfo.getValue("plugins"));
     JavaPluginData apiGeneratingPlugins =
         JavaPluginData.wrap(javaInfo.getValue("api_generating_plugins"));
     if (plugins.isEmpty() && apiGeneratingPlugins.isEmpty()) {
-      return JavaPluginInfo.empty(builtin);
+      return JavaPluginInfo.empty(providerType);
     }
     return new AutoValue_JavaPluginInfo(
-        ImmutableList.of(), plugins, apiGeneratingPlugins, /* builtin= */ builtin);
+        ImmutableList.of(), plugins, apiGeneratingPlugins, providerType);
   }
 }
