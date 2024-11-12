@@ -89,7 +89,7 @@ public class StreamedProtoOutputFormatter extends ProtoOutputFormatter {
     }
 
     @Override
-    public synchronized IOException getCause() {
+    public IOException getCause() {
       return (IOException) super.getCause();
     }
   }
@@ -100,7 +100,7 @@ public class StreamedProtoOutputFormatter extends ProtoOutputFormatter {
     }
 
     @Override
-    public synchronized InterruptedException getCause() {
+    public InterruptedException getCause() {
       return (InterruptedException) super.getCause();
     }
   }
