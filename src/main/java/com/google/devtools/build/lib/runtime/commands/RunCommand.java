@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
+import com.google.devtools.build.lib.analysis.config.RunUnder.LabelRunUnder;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
@@ -350,8 +351,8 @@ public class RunCommand implements BlazeCommand {
       @Nullable RunUnder runUnder)
       throws RunCommandException {
     ImmutableList<String> targetsToBuild =
-        (runUnder != null) && (runUnder.getLabel() != null)
-            ? ImmutableList.of(targetString, runUnder.getLabel().toString())
+        runUnder instanceof LabelRunUnder runUnderLabel
+            ? ImmutableList.of(targetString, runUnderLabel.label().toString())
             : ImmutableList.of(targetString);
     BuildRequest request =
         BuildRequest.builder()
@@ -394,7 +395,7 @@ public class RunCommand implements BlazeCommand {
       // Make sure that we have exactly 1 built target (excluding --run_under) and that it is
       // executable. These checks should only fail if keepGoing is true, because we already did
       // validation before the build began in validateTargets().
-      int maxTargets = runUnder != null && runUnder.getLabel() != null ? 2 : 1;
+      int maxTargets = runUnder instanceof LabelRunUnder ? 2 : 1;
       if (topLevelTargets.size() > maxTargets) {
         throw new RunCommandException(
             reportAndCreateFailureResult(
@@ -411,7 +412,8 @@ public class RunCommand implements BlazeCommand {
         if (!targetValidationResult.isSuccess()) {
           throw new RunCommandException(targetValidationResult, result.getStopTime());
         }
-        if (runUnder != null && target.getOriginalLabel().equals(runUnder.getLabel())) {
+        if (runUnder instanceof LabelRunUnder labelRunUnder
+            && target.getOriginalLabel().equals(labelRunUnder.label())) {
           if (runUnderTarget != null) {
             throw new RunCommandException(
                 reportAndCreateFailureResult(
@@ -828,9 +830,9 @@ public class RunCommand implements BlazeCommand {
                 .getProvider(FilesToRunProvider.class)
                 .getExecutable()
                 .getPath();
-        runCommandLine.setRunUnderTarget(runUnderPath, runUnder.getOptions(), prettyPrinter);
+        runCommandLine.setRunUnderTarget(runUnderPath, runUnder.options(), prettyPrinter);
       } else {
-        runCommandLine.setRunUnderPrefix(runUnder.getValue());
+        runCommandLine.setRunUnderPrefix(runUnder.value());
       }
     }
 
@@ -990,7 +992,7 @@ public class RunCommand implements BlazeCommand {
     Target runUnderTarget = null;
 
     boolean singleTargetWarningWasOutput = false;
-    int maxTargets = runUnder != null && runUnder.getLabel() != null ? 2 : 1;
+    int maxTargets = runUnder instanceof LabelRunUnder ? 2 : 1;
     if (targets.size() > maxTargets) {
       warningOrException(
           reporter,
@@ -1007,7 +1009,8 @@ public class RunCommand implements BlazeCommand {
             reporter, notExecutableError(target), keepGoing, Code.TARGET_NOT_EXECUTABLE);
       }
 
-      if (runUnder != null && target.getLabel().equals(runUnder.getLabel())) {
+      if (runUnder instanceof LabelRunUnder labelRunUnder
+          && target.getLabel().equals(labelRunUnder.label())) {
         // It's impossible to have two targets with the same label.
         Preconditions.checkState(runUnderTarget == null);
         runUnderTarget = target;

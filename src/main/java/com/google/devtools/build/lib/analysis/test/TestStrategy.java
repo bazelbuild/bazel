@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
+import com.google.devtools.build.lib.analysis.config.RunUnder.CommandRunUnder;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction.ResolvedPaths;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
@@ -260,9 +261,9 @@ public abstract class TestStrategy implements TestActionContext {
         args.add("\"$@\"");
         args.add(shellExecutable); // Sets $0.
       }
-      args.add(execSettings.getRunUnder().getCommand());
+      args.add(((CommandRunUnder) execSettings.getRunUnder()).command());
     }
-    args.addAll(testAction.getExecutionSettings().getRunUnder().getOptions());
+    args.addAll(testAction.getExecutionSettings().getRunUnder().options());
   }
 
   /**

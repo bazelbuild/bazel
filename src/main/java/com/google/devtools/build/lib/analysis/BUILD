@@ -2038,7 +2038,10 @@ java_library(
 java_library(
     name = "config/run_under",
     srcs = ["config/RunUnder.java"],
-    deps = ["//src/main/java/com/google/devtools/build/lib/cmdline"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//third_party:guava",
+    ],
 )
 
 java_library(

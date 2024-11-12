@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
+import com.google.devtools.build.lib.analysis.config.RunUnder.LabelRunUnder;
 import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader.StarlarkExecTransitionLoadingException;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker;
@@ -334,19 +335,17 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       // the parent: --run_under targets are configured in the exec configuration, but the
       // --run_under build option doesn't pass to the exec config.
       BuildConfigurationValue config = prereqs.getTargetAndConfiguration().getConfiguration();
-      if (config != null
-          && config.getRunUnder() != null
-          && config.getRunUnder().getLabel() != null) {
+      if (config != null && config.getRunUnder() instanceof LabelRunUnder runUnder) {
         Optional<ConfiguredTarget> runUnderTarget =
             prereqs.getDepValueMap().values().stream()
                 .map(ConfiguredTargetAndData::getConfiguredTarget)
-                .filter(d -> d.getLabel().equals(config.getRunUnder().getLabel()))
+                .filter(d -> d.getLabel().equals(runUnder.label()))
                 .findAny();
         if (runUnderTarget.isPresent()
             && runUnderTarget.get().getProvider(FilesToRunProvider.class).getExecutable() == null) {
           throw new ConfiguredValueCreationException(
               prereqs.getTargetAndConfiguration().getTarget(),
-              "run_under target " + config.getRunUnder().getLabel() + " is not executable");
+              "run_under target " + runUnder.label() + " is not executable");
         }
       }
 
