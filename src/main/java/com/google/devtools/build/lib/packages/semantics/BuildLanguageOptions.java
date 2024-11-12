@@ -804,6 +804,15 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean incompatibleSimplifyUnconditionalSelectsInRuleAttrs;
 
   @Option(
+      name = "experimental_enable_starlark_set",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "If true, enable the set data type and set() constructor in Starlark.")
+  public boolean experimentalEnableStarlarkSet;
+
+  @Option(
       name = "incompatible_locations_prefers_executable",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -929,6 +938,8 @@ public final class BuildLanguageOptions extends OptionsBase {
                 incompatibleSimplifyUnconditionalSelectsInRuleAttrs)
             .setBool(
                 INCOMPATIBLE_LOCATIONS_PREFERS_EXECUTABLE, incompatibleLocationsPrefersExecutable)
+            .setBool(
+                StarlarkSemantics.EXPERIMENTAL_ENABLE_STARLARK_SET, experimentalEnableStarlarkSet)
             .build();
     return INTERNER.intern(semantics);
   }
