@@ -44,23 +44,6 @@ public final class BazelRulesModule extends BlazeModule {
   @SuppressWarnings("deprecation") // These fields have no JavaDoc by design
   public static class BuildGraveyardOptions extends OptionsBase {
     @Option(
-        name = "experimental_execution_graph_log_middleman",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        defaultValue = "false",
-        help = "Subscribe to ActionMiddlemanEvent in ExecutionGraphModule.")
-    public boolean logRunfilesTreeActions;
-
-    @Option(
-        name = "experimental_correct_runfiles_middleman_paths",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP},
-        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-        help = "Deprecated. No-op.")
-    public boolean correctRunfilesTreePaths;
-
-    @Option(
         name = "experimental_proto_extra_actions",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -76,14 +59,6 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         help = "Deprecated. No-op.")
     public boolean enableFdoProfileAbsolutePath;
-
-    @Option(
-        name = "experimental_use_scheduling_middlemen",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP},
-        help = "Deprecated. No-op.")
-    public boolean useSchedulingMiddlemen;
 
     @Option(
         name = "experimental_genquery_use_graphless_query",
