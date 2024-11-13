@@ -553,8 +553,7 @@ public class AutoloadSymbols {
     if (this == that) {
       return true;
     }
-    if (that instanceof AutoloadSymbols) {
-      AutoloadSymbols other = (AutoloadSymbols) that;
+    if (that instanceof AutoloadSymbols other) {
       // These fields are used to generate all other private fields.
       // Thus, other fields don't need to be included in comparison.
       return this.bzlmodEnabled == other.bzlmodEnabled
