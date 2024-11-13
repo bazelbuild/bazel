@@ -609,6 +609,11 @@ EOF
 }
 
 function test_run_under_command_change_preserves_cache() {
+  if $is_windows; then
+    echo "This test requires --run_under to be able to run echo."
+    return
+  fi
+
   local -r pkg="pkg${LINENO}"
   mkdir -p "${pkg}"
   cat > "$pkg/BUILD" <<'EOF'
