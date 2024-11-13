@@ -69,9 +69,9 @@ import javax.annotation.Nullable;
 
 /**
  * A builder of values for {@link Artifact} keys when the key is not a simple generated artifact. To
- * save memory, ordinary generated artifacts (non-middleman, non-tree) have their metadata accessed
+ * save memory, ordinary generated artifacts (non-runfiles, non-tree) have their metadata accessed
  * directly from the corresponding {@link ActionExecutionValue}. This SkyFunction is therefore only
- * usable for source, middleman, and tree artifacts.
+ * usable for source, runfiles trees and tree artifacts.
  */
 public final class ArtifactFunction implements SkyFunction {
 
@@ -188,7 +188,7 @@ public final class ArtifactFunction implements SkyFunction {
     Action action =
         Preconditions.checkNotNull(
             artifactDependencies.actionLookupValue.getAction(generatingActionKey.getActionIndex()),
-            "Null middleman action? %s",
+            "Null runfiles tree action? %s",
             artifactDependencies);
 
     return createRunfilesArtifactValue(artifact, (RunfilesTreeAction) action, env);
@@ -410,7 +410,7 @@ public final class ArtifactFunction implements SkyFunction {
         trees.add(input);
         treeValues.add((TreeArtifactValue) inputValue);
       } else {
-        // We do not recurse in middleman artifacts.
+        // We do not recurse into runfiles tree artifacts.
         Preconditions.checkState(
             !(inputValue instanceof RunfilesArtifactValue),
             "%s %s %s",
@@ -492,8 +492,6 @@ public final class ArtifactFunction implements SkyFunction {
   }
 
   /** Describes dependencies of derived artifacts. */
-  // TODO(b/19539699): extend this to comprehensively support all special artifact types (e.g.
-  // middleman, etc).
   public static final class ArtifactDependencies {
     private final DerivedArtifact artifact;
     private final ActionLookupValue actionLookupValue;

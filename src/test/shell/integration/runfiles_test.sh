@@ -403,7 +403,7 @@ EOF
 }
 
 # regression test for b/237547165
-function test_fail_on_middleman_in_transitive_runfiles_for_executable() {
+function test_fail_on_runfiles_tree_in_transitive_runfiles_for_executable() {
   cat > rule.bzl <<EOF
 def _impl(ctx):
     exe = ctx.actions.declare_file(ctx.label.name + '.out')

@@ -47,10 +47,10 @@ import javax.annotation.Nullable;
 /**
  * A value that represents a file for the purposes of up-to-dateness checks of actions.
  *
- * <p>It always stands for an actual file. In particular, tree artifacts and middlemen do not have a
- * corresponding {@link FileArtifactValue}. However, the file is not necessarily present in the file
- * system; this happens when intermediate build outputs are not downloaded (and maybe when an input
- * artifact of an action is missing?)
+ * <p>It always stands for an actual file. In particular, tree artifacts and runfiles trees do not
+ * have a corresponding {@link FileArtifactValue}. However, the file is not necessarily present in
+ * the file system; this happens when intermediate build outputs are not downloaded (and maybe when
+ * an input artifact of an action is missing?)
  *
  * <p>It makes its main appearance in {@code ActionExecutionValue.artifactData}. It has two main
  * uses:

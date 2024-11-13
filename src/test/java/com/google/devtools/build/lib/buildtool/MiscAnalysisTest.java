@@ -246,8 +246,7 @@ public class MiscAnalysisTest extends BuildIntegrationTestCase {
         )
         """);
     buildTarget("//sh:sh");
-    // We test with dep because target completion middleman actions keep references to the
-    // top-level configured targets.
+    // We test with dep because we may keep references to the top-level configured targets.
     ConfiguredTarget ct = getConfiguredTarget("//sh:dep");
     addOptions("--discard_analysis_cache");
     buildTarget("//sh:sh");

@@ -128,9 +128,10 @@ public final class Runfiles implements RunfilesApi {
   /**
    * The artifacts that should be present in the runfiles directory.
    *
-   * <p>This collection may not include any middlemen. These artifacts will be placed at a location
-   * that corresponds to the output-dir-relative path of each artifact. It's possible for several
-   * artifacts to have the same output-dir-relative path, in which case the last one will win.
+   * <p>This collection may not include any runfiles trees. These artifacts will be placed at a
+   * location that corresponds to the output-dir-relative path of each artifact. It's possible for
+   * several artifacts to have the same output-dir-relative path, in which case the last one will
+   * win.
    */
   private final NestedSet<Artifact> artifacts;
 
@@ -619,7 +620,7 @@ public final class Runfiles implements RunfilesApi {
         return;
       }
       // TODO(b/304440811): Check if this assertion is reached.
-      // test_fail_on_middleman_in_transitive_runfiles_for_executable with the renaming halfway
+      // test_fail_on_runfiles_tree_in_transitive_runfiles_for_executable with the renaming halfway
       // done indicated that it is; check the exit code in that test.
       Preconditions.checkArgument(artifact == null || !artifact.isRunfilesTree(), "%s", artifact);
       if (policy != ConflictPolicy.IGNORE && map.containsKey(path)) {
@@ -715,7 +716,7 @@ public final class Runfiles implements RunfilesApi {
     public Builder addArtifact(Artifact artifact) {
       Preconditions.checkNotNull(artifact);
       Preconditions.checkArgument(
-          !artifact.isRunfilesTree(), "unexpected middleman artifact: %s", artifact);
+          !artifact.isRunfilesTree(), "unexpected runfiles tree artifact: %s", artifact);
       artifactsBuilder.add(artifact);
       return this;
     }

@@ -1000,8 +1000,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   protected RunfilesTree runfilesTreeFor(TestRunnerAction testRunnerAction) throws Exception {
-    Artifact middleman = testRunnerAction.getRunfilesTree();
-    RunfilesTreeAction runfilesTreeAction = (RunfilesTreeAction) getGeneratingAction(middleman);
+    Artifact runfilesTreeArtifact = testRunnerAction.getRunfilesTree();
+    RunfilesTreeAction runfilesTreeAction =
+        (RunfilesTreeAction) getGeneratingAction(runfilesTreeArtifact);
     return runfilesTreeAction.getRunfilesTree();
   }
 

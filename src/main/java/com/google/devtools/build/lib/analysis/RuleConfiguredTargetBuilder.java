@@ -406,8 +406,8 @@ public final class RuleConfiguredTargetBuilder {
 
   /**
    * Compute the artifacts to put into the {@link FilesToRunProvider} for this target. These are the
-   * filesToBuild, any artifacts added by the rule with {@link #addFilesToRun}, and the runfiles'
-   * middlemen if they exists.
+   * filesToBuild, any artifacts added by the rule with {@link #addFilesToRun}, and the runfiles
+   * tree of the rule if it exists.
    */
   private NestedSet<Artifact> buildFilesToRun(
       NestedSet<Artifact> runfilesTrees, NestedSet<Artifact> filesToBuild) {
@@ -483,7 +483,7 @@ public final class RuleConfiguredTargetBuilder {
 
   /**
    * Add files required to run the target. Artifacts from {@link #setFilesToBuild} and the runfiles
-   * middleman, if any, are added automatically.
+   * tree, if any, are added automatically.
    */
   @CanIgnoreReturnValue
   public RuleConfiguredTargetBuilder addFilesToRun(NestedSet<Artifact> files) {

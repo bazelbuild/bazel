@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
@@ -81,16 +80,12 @@ public class CriticalPathComputerTest extends FoundationTestCase {
   private CriticalPathComputer computer;
   private ArtifactRoot artifactRoot;
   private ArtifactRoot derivedArtifactRoot;
-  private ArtifactRoot middlemanRoot;
 
   @Before
   public final void initializeRoots() {
     Path workspaceRoot = scratch.resolve("/workspace");
     derivedArtifactRoot = ArtifactRoot.asDerivedRoot(workspaceRoot, RootType.Output, "test");
     artifactRoot = ArtifactRoot.asSourceRoot(Root.fromPath(workspaceRoot));
-    middlemanRoot =
-        ArtifactRoot.asDerivedRoot(
-            scratch.resolve("/exec"), RootType.Output, PathFragment.create("out"));
   }
 
   @Before
@@ -196,64 +191,6 @@ public class CriticalPathComputerTest extends FoundationTestCase {
             "50.00",
             "12.50");
     assertThat(stats.getSpawnMetrics().getRemoteMetrics().queueTimeInMs()).isEqualTo(1 * 1000);
-  }
-
-  /**
-   * Test that if an action depends on a middleman artifact we get the correct critical path:
-   *
-   * <p>a --> b(5 seconds) \--> c1 [MIDDLEMAN] --> c2 [MIDDLEMAN] --> d (1 second) --> e (6 seconds)
-   *
-   * <p>Note : 'a --> b' means that a need the outputs of b for being executed.
-   */
-  @Test
-  public void testCriticalPathMiddleman() throws Exception {
-    MockAction actionE = new MockAction(ImmutableSet.of(), ImmutableSet.of(artifact("e.out")));
-
-    MockAction actionD =
-        new MockAction(
-            Collections.singleton(artifact("e.out")), ImmutableSet.of(artifact("d.out")));
-
-    MockAction actionC1 =
-        new MockAction(
-            Collections.singleton(middlemanArtifact("c2.out")),
-            ImmutableSet.of(middlemanArtifact("c1.out")));
-
-    MockAction actionC2 =
-        new MockAction(
-            Collections.singleton(artifact("d.out")), ImmutableSet.of(middlemanArtifact("c2.out")));
-
-    MockAction sharedActionC2 =
-        new MockAction(
-            Collections.singleton(artifact("d.out")), ImmutableSet.of(middlemanArtifact("c2.out")));
-
-    MockAction actionB = new MockAction(ImmutableSet.of(), ImmutableSet.of(artifact("b.out")));
-
-    MockAction actionA =
-        new MockAction(
-            Lists.newArrayList(artifact("b.out"), middlemanArtifact("c1.out")),
-            ImmutableSet.of(artifact("a.out")));
-
-    // Executing the leaf node that is not part of the critical path first to make sure gaps do not
-    // affect the total critical path run time.
-    simulateActionExec(actionB, 5 * 1000, 5 * 1000, true);
-    simulateActionExec(actionE, 6 * 1000, 6 * 1000, true);
-    simulateActionExec(actionD, 1 * 1000, 1 * 1000, true);
-    simulateActionExec(actionC2, 0, 0, true);
-    // Check that we do not crash if we execute a shareable middleman twice.
-    simulateActionExec(sharedActionC2, 0);
-    simulateActionExec(actionC1, 0, 0, true);
-    simulateActionExec(actionA, 1 * 1000, 1 * 1000, true);
-
-    // 8s = 1s (a) + 1s (d) + 6s (e)
-    checkCriticalPath(
-        Duration.ofSeconds(8),
-        Duration.ofSeconds(8),
-        Duration.ofSeconds(8),
-        "8.00",
-        "100.00",
-        "100.00");
-
-    checkTopComponentsTimes(computer, 6000L, 5000L, 1000, 1000, 0L, 0L);
   }
 
   /**
@@ -586,12 +523,12 @@ public class CriticalPathComputerTest extends FoundationTestCase {
     MockAction action1 =
         new MockAction(
             Collections.singleton(artifact("shared.out")),
-            ImmutableSet.of(middlemanArtifact("action1.out")));
+            ImmutableSet.of(artifact("action1.out")));
 
     MockAction action2 =
         new MockAction(
             Collections.singleton(artifact("shared.out")),
-            ImmutableSet.of(middlemanArtifact("action2.out")));
+            ImmutableSet.of(artifact("action2.out")));
 
     long shared1Start = clock.nanoTime();
     computer.actionStarted(new ActionStartedEvent(shared1, shared1Start));
@@ -1253,10 +1190,6 @@ public class CriticalPathComputerTest extends FoundationTestCase {
 
   private Artifact artifact(String path) {
     return ActionsTestUtil.createArtifactWithExecPath(artifactRoot, PathFragment.create(path));
-  }
-
-  private Artifact middlemanArtifact(String path) {
-    return ActionsTestUtil.createArtifact(middlemanRoot, path);
   }
 
   private void checkCriticalPath(int totalWallTimeInMillis, String totalWallTimeStr) {

@@ -579,8 +579,8 @@ public final class ActionExecutionFunction implements SkyFunction {
    * ownership information from {@code inputDeps}.
    *
    * <p>This compensates for how the ownership information in {@code e.getOwners()} is potentially
-   * incomplete. E.g., it may lack knowledge of a runfiles middleman owning a fileset, even if it
-   * knows that fileset owns a lost input.
+   * incomplete. E.g., it may lack knowledge of a runfiles tree owning a fileset, even if it knows
+   * that fileset owns a lost input.
    */
   private ActionInputDepOwners createAugmentedInputDepOwners(
       LostInputsActionExecutionException e,

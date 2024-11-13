@@ -132,7 +132,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
   }
 
   @Test
-  public void testMiddlemanArtifact() throws Throwable {
+  public void testRunfilesTree() throws Throwable {
     DerivedArtifact output = createRunfilesArtifact("output");
     Artifact input1 = createSourceArtifact("input1");
     Artifact input2 = createDerivedArtifact("input2");

@@ -224,7 +224,7 @@ class BuildResultPrinter {
       ProviderCollection target, TopLevelArtifactContext context) {
     var artifacts = new ArrayList<Artifact>();
     // For up-to-date targets report generated artifacts, but only if they have associated action
-    // and not middleman artifacts.
+    // and not runfiles trees.
     for (Artifact artifact :
         TopLevelArtifactHelper.getAllArtifactsToBuild(target, context)
             .getImportantArtifacts()

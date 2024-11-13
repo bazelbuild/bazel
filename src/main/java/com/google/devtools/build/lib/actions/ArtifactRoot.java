@@ -182,8 +182,8 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, FileRootApi
     ExternalSource,
     Output,
     // Sibling root types are in effect when --experimental_sibling_repository_layout is activated.
-    // These will eventually replace the above Output and Middleman types when the flag becomes
-    // the default option and then removed.
+    // These will eventually replace the above Output types when the flag becomes the default option
+    // and then removed.
     SiblingMainOutput,
     SiblingExternalOutput,
   }

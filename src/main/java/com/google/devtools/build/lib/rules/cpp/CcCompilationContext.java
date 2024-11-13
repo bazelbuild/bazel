@@ -723,12 +723,9 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     private Builder() {}
 
     /**
-     * Overrides the purpose of this context. This is useful if a Target needs more than one
-     * CcCompilationContext. (The purpose is used to construct the name of the prerequisites
-     * middleman for the context, and all artifacts for a given Target must have distinct names.)
+     * Overrides the purpose of this context.
      *
-     * @param purpose must be a string which is suitable for use as a filename. A single rule may
-     *     have many middlemen with distinct purposes.
+     * @param a string suitable for use as a filename.
      */
     @CanIgnoreReturnValue
     public Builder setPurpose(String purpose) {

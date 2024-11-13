@@ -177,7 +177,7 @@ public class TestAction extends AbstractAction {
     return "Test";
   }
 
-  /** No-op action that has exactly one output, and can be a middleman action. */
+  /** No-op action that has exactly one output. */
   @AutoCodec
   public static class DummyAction extends TestAction {
     @AutoCodec.Instantiator

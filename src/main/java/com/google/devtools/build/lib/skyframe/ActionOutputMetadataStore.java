@@ -192,7 +192,7 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
     }
 
     if (artifact.isRunfilesTree()) {
-      // A middleman artifact's data has the default middleman value.
+      // Runfiles trees get a placeholder value, see the Javadoc of RUNFILES_TREE_MARKER as to why
       value = artifactData.get(artifact);
       if (value != null) {
         return checkExists(value, artifact);
@@ -478,8 +478,8 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
   }
 
   /**
-   * Constructs a {@link FileArtifactValue} for a regular (non-tree, non-middleman) artifact for the
-   * purpose of determining whether an existing {@link FileArtifactValue} is still valid.
+   * Constructs a {@link FileArtifactValue} for a regular (non-tree, non-runfiles tree) artifact for
+   * the purpose of determining whether an existing {@link FileArtifactValue} is still valid.
    *
    * <p>The returned metadata may be compared with metadata present in an {@link
    * ActionExecutionValue} using {@link FileArtifactValue#couldBeModifiedSince} to check for

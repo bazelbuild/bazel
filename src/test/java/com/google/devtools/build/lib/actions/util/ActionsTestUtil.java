@@ -452,8 +452,8 @@ public final class ActionsTestUtil {
   }
 
   /**
-   * A mocked action containing the inputs and outputs of the action and determines whether or not
-   * the action is a middleman. Used for tests that do not need to execute the action.
+   * A mocked action containing the inputs and outputs of the action. Used for tests that do not
+   * need to execute the action.
    */
   public static class MockAction extends AbstractAction {
     private final boolean isShareable;
