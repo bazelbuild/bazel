@@ -63,7 +63,9 @@ public class PsInfoCollector {
     if (currentPsSnapshot == null
         || Duration.between(currentPsSnapshot.collectionTime(), now)
                 .compareTo(MIN_COLLECTION_INTERVAL)
-            > 0) {
+            > 0
+        || currentPsSnapshot.processPidsHash() != processIds.hashCode()) {
+
       updatePsSnapshot(clock, processIds);
     }
 
