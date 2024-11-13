@@ -69,7 +69,7 @@ import net.starlark.java.syntax.Location;
 @Immutable
 public sealed class JavaInfo extends NativeInfo
     implements JavaInfoApi<Artifact, JavaOutput, JavaPluginData>
-    permits JavaInfo.BuiltinsJavaInfo, JavaInfo.RulesJavaJavaInfo {
+    permits JavaInfo.BuiltinsJavaInfo, JavaInfo.RulesJavaJavaInfo, JavaInfo.WorkspaceJavaInfo {
 
   public static final String STARLARK_NAME = "JavaInfo";
 
@@ -78,6 +78,8 @@ public sealed class JavaInfo extends NativeInfo
 
   // Not serialized
   public static final JavaInfoProvider RULES_JAVA_PROVIDER = new RulesJavaJavaInfoProvider();
+  // Not serialized
+  public static final JavaInfoProvider WORKSPACE_PROVIDER = new WorkspaceJavaInfoProvider();
 
   @SerializationConstant public static final JavaInfoProvider PROVIDER = new JavaInfoProvider();
 
@@ -222,6 +224,9 @@ public sealed class JavaInfo extends NativeInfo
     if (info == null) {
       info = target.get(RULES_JAVA_PROVIDER);
     }
+    if (info == null) {
+      info = target.get(WORKSPACE_PROVIDER);
+    }
     return info;
   }
 
@@ -231,6 +236,8 @@ public sealed class JavaInfo extends NativeInfo
       return LEGACY_BUILTINS_PROVIDER.wrap(info);
     } else if (key.equals(RULES_JAVA_PROVIDER.getKey())) {
       return RULES_JAVA_PROVIDER.wrap(info);
+    } else if (key.equals(WORKSPACE_PROVIDER.getKey())) {
+      return WORKSPACE_PROVIDER.wrap(info);
     } else {
       return JavaInfo.PROVIDER.wrap(info);
     }
@@ -567,6 +574,19 @@ public sealed class JavaInfo extends NativeInfo
     }
   }
 
+  static final class WorkspaceJavaInfo extends JavaInfo {
+
+    private WorkspaceJavaInfo(StructImpl javaInfo)
+        throws EvalException, TypeException, RuleErrorException {
+      super(javaInfo);
+    }
+
+    @Override
+    public JavaInfoProvider getProvider() {
+      return WORKSPACE_PROVIDER;
+    }
+  }
+
   /** Legacy Provider class for {@link JavaInfo} objects. */
   public static final class BuiltinsJavaInfoProvider extends JavaInfoProvider {
     private BuiltinsJavaInfoProvider() {
@@ -594,9 +614,23 @@ public sealed class JavaInfo extends NativeInfo
     }
   }
 
+  /** Legacy Provider class for {@link JavaInfo} objects in WORKSPACE mode. */
+  public static final class WorkspaceJavaInfoProvider extends JavaInfoProvider {
+    private WorkspaceJavaInfoProvider() {
+      super(keyForBuild(Label.parseCanonicalUnchecked("@@rules_java//java/private:java_info.bzl")));
+    }
+
+    @Override
+    protected JavaInfo makeNewInstance(StructImpl info)
+        throws RuleErrorException, TypeException, EvalException {
+      return new WorkspaceJavaInfo(info);
+    }
+  }
+
   /** Provider class for {@link JavaInfo} objects. */
   public static sealed class JavaInfoProvider extends StarlarkProviderWrapper<JavaInfo>
-      implements Provider permits BuiltinsJavaInfoProvider, RulesJavaJavaInfoProvider {
+      implements Provider
+      permits BuiltinsJavaInfoProvider, RulesJavaJavaInfoProvider, WorkspaceJavaInfoProvider {
     private JavaInfoProvider() {
       this(
           keyForBuild(
@@ -807,6 +841,8 @@ public sealed class JavaInfo extends NativeInfo
       switch (obj.getProvider()) {
         case BuiltinsJavaInfoProvider unused -> codedOut.writeBoolNoTag(true);
         case RulesJavaJavaInfoProvider unused ->
+            throw new UnsupportedOperationException("not implemented");
+        case WorkspaceJavaInfoProvider unused ->
             throw new UnsupportedOperationException("not implemented");
         case JavaInfoProvider unused -> codedOut.writeBoolNoTag(false);
       }
