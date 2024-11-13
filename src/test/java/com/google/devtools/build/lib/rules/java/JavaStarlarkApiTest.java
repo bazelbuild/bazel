@@ -4951,7 +4951,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   public void testNativeJavaInfoPrintableType_isJavaInfo() {
-    String type = JavaStarlarkCommon.printableType(JavaInfo.EMPTY);
+    String type = JavaStarlarkCommon.printableType(JavaInfo.EMPTY_JAVA_INFO_FOR_TESTING);
 
     assertThat(type).isEqualTo("JavaInfo");
   }
