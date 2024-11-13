@@ -437,7 +437,7 @@ public final class ActionRewindStrategy {
 
           if (expandedDeps.contains(Artifact.key(transitiveOwner))) {
             // The lost input is included in an aggregation artifact (e.g. a tree artifact or
-            // fileset) that is included by an aggregation artifact (e.g. a middleman) that the
+            // fileset) that is included by an aggregation artifact (e.g. a runfiles tree) that the
             // action directly depends on.
             lostInputOwningDirectDeps.add((DerivedArtifact) transitiveOwner);
             foundLostInputDepOwner = true;
@@ -446,7 +446,7 @@ public final class ActionRewindStrategy {
 
         if (expandedDeps.contains(Artifact.key(owner))) {
           // The lost input is included in an aggregation artifact (e.g. a tree artifact, fileset,
-          // or middleman) that the action directly depends on.
+          // or runfiles tree) that the action directly depends on.
           lostInputOwningDirectDeps.add((DerivedArtifact) owner);
           foundLostInputDepOwner = true;
         }
