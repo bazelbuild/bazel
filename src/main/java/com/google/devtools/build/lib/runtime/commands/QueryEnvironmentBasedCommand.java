@@ -126,7 +126,7 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
 
     String query = null;
     try {
-      query = QueryOptionHelper.readQuery(queryOptions, options, env, /* allowEmptyQuery= */ false);
+      query = QueryOptionHelper.readQuery(queryOptions, options, env, /* allowEmptyQuery =*/ false);
     } catch (QueryException e) {
       return BlazeCommandResult.failureDetail(e.getFailureDetail());
     }
