@@ -125,6 +125,9 @@ import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.Collection;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import javax.annotation.Nullable;
 
 /**
@@ -1096,10 +1099,10 @@ public class BuildTool {
   private static final class RemoteAnalysisCachingDependenciesProviderImpl
       implements RemoteAnalysisCachingDependenciesProvider {
     private final Supplier<ObjectCodecs> analysisObjectCodecsSupplier;
-    private final FingerprintValueService fingerprintValueService;
     private final PathFragmentPrefixTrie activeDirectoriesMatcher;
     private final RemoteAnalysisCachingEventListener listener;
     private final HashCode blazeInstallMD5;
+    private final Future<FingerprintValueService> fingerprintValueServiceFuture;
 
     // Non-final because the top level BuildConfigurationValue is determined just before analysis
     // begins in BuildView for the download/deserialization pass, which is later than when this
@@ -1133,8 +1136,12 @@ public class BuildTool {
                           .get(),
                       env.getRuntime().getRuleClassProvider(),
                       env.getBlazeWorkspace().getSkyframeExecutor()));
-      this.fingerprintValueService =
-          env.getBlazeWorkspace().getFingerprintValueServiceFactory().create(env.getOptions());
+      this.fingerprintValueServiceFuture =
+          CompletableFuture.supplyAsync(
+              () ->
+                  env.getBlazeWorkspace()
+                      .getFingerprintValueServiceFactory()
+                      .create(env.getOptions()));
       this.activeDirectoriesMatcher = activeDirectoriesMatcher;
       this.listener = env.getRemoteAnalysisCachingEventListener();
       if (env.getSkyframeBuildView().getBuildConfiguration() != null) {
@@ -1206,7 +1213,11 @@ public class BuildTool {
 
     @Override
     public FingerprintValueService getFingerprintValueService() {
-      return fingerprintValueService;
+      try {
+        return fingerprintValueServiceFuture.get();
+      } catch (InterruptedException | ExecutionException e) {
+        throw new IllegalStateException("Unable to initialize fingerprint value service", e);
+      }
     }
 
     @Override
