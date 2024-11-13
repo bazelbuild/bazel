@@ -42,7 +42,6 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.AbstractCollection;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -1333,9 +1332,9 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     public static class Builder {
       private DerivedArtifact headerModule = null;
       private DerivedArtifact picHeaderModule = null;
-      private final Set<Artifact> modularPublicHeaders = new HashSet<>();
-      private final Set<Artifact> modularPrivateHeaders = new HashSet<>();
-      private final Set<Artifact> textualHeaders = new HashSet<>();
+      private final LinkedHashSet<Artifact> modularPublicHeaders = new LinkedHashSet<>();
+      private final LinkedHashSet<Artifact> modularPrivateHeaders = new LinkedHashSet<>();
+      private final LinkedHashSet<Artifact> textualHeaders = new LinkedHashSet<>();
       private Collection<Artifact> separateModuleHeaders = ImmutableList.of();
       private DerivedArtifact separateModule = null;
       private DerivedArtifact separatePicModule = null;
