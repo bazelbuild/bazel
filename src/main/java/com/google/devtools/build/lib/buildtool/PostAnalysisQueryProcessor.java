@@ -161,7 +161,10 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
       Collection<SkyKey> transitiveConfigurationKeys,
       QueryRuntimeHelper queryRuntimeHelper,
       QueryExpression queryExpression)
-      throws InterruptedException, QueryException, IOException, QueryRuntimeHelperException,
+      throws InterruptedException,
+          QueryException,
+          IOException,
+          QueryRuntimeHelperException,
           OptionsParsingException {
     WalkableGraph walkableGraph =
         SkyframeExecutorWrappingWalkableGraph.of(env.getSkyframeExecutor());
@@ -217,7 +220,7 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
     }
     callback.start();
     callback.process(aggregateResultsCallback.getResult());
-    callback.close(/*failFast=*/ !result.getSuccess());
+    callback.close(/* failFast= */ !result.getSuccess());
 
     queryRuntimeHelper.afterQueryOutputIsWritten();
   }

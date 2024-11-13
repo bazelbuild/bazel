@@ -37,12 +37,12 @@ public final class CqueryProcessor extends PostAnalysisQueryProcessor<CqueryNode
     super(queryExpression, mainRepoTargetParser);
   }
 
-    @Override
-    protected CommonQueryOptions getQueryOptions(CommandEnvironment env) {
-        return env.getOptions().getOptions(CqueryOptions.class);
-    }
+  @Override
+  protected CommonQueryOptions getQueryOptions(CommandEnvironment env) {
+    return env.getOptions().getOptions(CqueryOptions.class);
+  }
 
-    @Override
+  @Override
   protected ConfiguredTargetQueryEnvironment getQueryEnvironment(
       BuildRequest request,
       CommandEnvironment env,

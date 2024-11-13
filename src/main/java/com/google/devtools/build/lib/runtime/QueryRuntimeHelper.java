@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.server.FailureDetails.Query;
 import com.google.devtools.build.lib.server.FailureDetails.Query.Code;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.io.IOException;
 import java.io.OutputStream;
 
@@ -52,7 +51,8 @@ public interface QueryRuntimeHelper extends AutoCloseable {
 
   /** Factory for {@link QueryRuntimeHelper} instances. */
   interface Factory {
-    QueryRuntimeHelper create(CommandEnvironment env, CommonQueryOptions options) throws QueryRuntimeHelperException;
+    QueryRuntimeHelper create(CommandEnvironment env, CommonQueryOptions options)
+        throws QueryRuntimeHelperException;
   }
 
   /**
