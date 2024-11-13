@@ -29,7 +29,9 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
+import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.config.RunUnder.CommandRunUnder;
+import com.google.devtools.build.lib.analysis.config.RunUnder.LabelRunUnder;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction.ResolvedPaths;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
@@ -243,27 +245,31 @@ public abstract class TestStrategy implements TestActionContext {
   private static void addRunUnderArgs(TestRunnerAction testAction, List<String> args) {
     TestTargetExecutionSettings execSettings = testAction.getExecutionSettings();
     OS executionOs = execSettings.getExecutionOs();
-    if (execSettings.getRunUnderExecutable() != null) {
-      args.add(
-          execSettings
-              .getRunUnderExecutable()
-              .getRunfilesPath()
-              .getCallablePathStringForOs(executionOs));
-    } else {
-      if (execSettings.needsShell()) {
-        // TestActionBuilder constructs TestRunnerAction with a 'null' shell only when none is
-        // required. Something clearly went wrong.
-        Preconditions.checkNotNull(testAction.getShExecutableMaybe(), "%s", testAction);
-        String shellExecutable =
-            testAction.getShExecutableMaybe().getCallablePathStringForOs(executionOs);
-        args.add(shellExecutable);
-        args.add("-c");
-        args.add("\"$@\"");
-        args.add(shellExecutable); // Sets $0.
+    RunUnder runUnder = execSettings.getRunUnder();
+    switch (runUnder) {
+      case LabelRunUnder ignored -> {
+        args.add(
+            execSettings
+                .getRunUnderExecutable()
+                .getRunfilesPath()
+                .getCallablePathStringForOs(executionOs));
       }
-      args.add(((CommandRunUnder) execSettings.getRunUnder()).command());
+      case CommandRunUnder commandRunUnder -> {
+        if (execSettings.needsShell()) {
+          // TestActionBuilder constructs TestRunnerAction with a 'null' shell only when none is
+          // required. Something clearly went wrong.
+          Preconditions.checkNotNull(testAction.getShExecutableMaybe(), "%s", testAction);
+          String shellExecutable =
+              testAction.getShExecutableMaybe().getCallablePathStringForOs(executionOs);
+          args.add(shellExecutable);
+          args.add("-c");
+          args.add("\"$@\"");
+          args.add(shellExecutable); // Sets $0.
+        }
+        args.add(commandRunUnder.command());
+      }
     }
-    args.addAll(testAction.getExecutionSettings().getRunUnder().options());
+    args.addAll(runUnder.options());
   }
 
   /**
