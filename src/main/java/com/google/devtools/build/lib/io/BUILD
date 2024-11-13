@@ -91,3 +91,11 @@ java_library(
         "//third_party:guava",
     ],
 )
+
+java_library(
+    name = "lazy_file_output_stream",
+    srcs = ["LazyFileOutputStream.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+    ],
+)
