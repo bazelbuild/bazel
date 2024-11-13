@@ -15,7 +15,8 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
-import com.google.auto.value.AutoValue;
+import static java.util.Objects.requireNonNull;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
@@ -25,20 +26,31 @@ import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.errorprone.annotations.InlineMe;
 
 /** The value for {@link ModuleExtensionRepoMappingEntriesFunction}. */
 @AutoCodec
-@AutoValue
-public abstract class ModuleExtensionRepoMappingEntriesValue implements SkyValue {
+public record ModuleExtensionRepoMappingEntriesValue(
+    ImmutableMap<String, RepositoryName> entries, ModuleKey moduleKey) implements SkyValue {
+  public ModuleExtensionRepoMappingEntriesValue {
+    requireNonNull(entries, "entries");
+    requireNonNull(moduleKey, "moduleKey");
+  }
 
-  public abstract ImmutableMap<String, RepositoryName> getEntries();
+  @InlineMe(replacement = "this.entries()")
+  public ImmutableMap<String, RepositoryName> getEntries() {
+    return entries();
+  }
 
-  public abstract ModuleKey getModuleKey();
+  @InlineMe(replacement = "this.moduleKey()")
+  public ModuleKey getModuleKey() {
+    return moduleKey();
+  }
 
   @AutoCodec.Instantiator
   public static ModuleExtensionRepoMappingEntriesValue create(
       ImmutableMap<String, RepositoryName> entries, ModuleKey moduleKey) {
-    return new AutoValue_ModuleExtensionRepoMappingEntriesValue(entries, moduleKey);
+    return new ModuleExtensionRepoMappingEntriesValue(entries, moduleKey);
   }
 
   public static ModuleExtensionRepoMappingEntriesValue.Key key(ModuleExtensionId id) {

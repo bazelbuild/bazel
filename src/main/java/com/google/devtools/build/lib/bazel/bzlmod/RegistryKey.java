@@ -15,23 +15,31 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
-import com.google.auto.value.AutoValue;
+import static java.util.Objects.requireNonNull;
+
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.errorprone.annotations.InlineMe;
 
 /** The key for {@link RegistryFunction}. */
 @AutoCodec
-@AutoValue
-abstract class RegistryKey implements SkyKey {
-  private static final SkyKeyInterner<RegistryKey> interner = SkyKey.newInterner();
+record RegistryKey(String url) implements SkyKey {
+  RegistryKey {
+    requireNonNull(url, "url");
+  }
 
-  abstract String getUrl();
+  @InlineMe(replacement = "this.url()")
+  String getUrl() {
+    return url();
+  }
+
+  private static final SkyKeyInterner<RegistryKey> interner = SkyKey.newInterner();
 
   @AutoCodec.Instantiator
   static RegistryKey create(String url) {
-    return interner.intern(new AutoValue_RegistryKey(url));
+    return interner.intern(new RegistryKey(url));
   }
 
   @Override

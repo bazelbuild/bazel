@@ -17,8 +17,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.util.Objects.requireNonNull;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.concurrent.ErrorClassifier;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -168,16 +169,17 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
    * <p>Contains both the {@linkplain ArchivedTreeArtifact artifact} for the archived file and the
    * metadata for it.
    */
-  @AutoValue
-  public abstract static class ArchivedRepresentation {
-    public abstract ArchivedTreeArtifact archivedTreeFileArtifact();
-
-    public abstract FileArtifactValue archivedFileValue();
+  @AutoCodec
+  public record ArchivedRepresentation(
+      ArchivedTreeArtifact archivedTreeFileArtifact, FileArtifactValue archivedFileValue) {
+    public ArchivedRepresentation {
+      requireNonNull(archivedTreeFileArtifact, "archivedTreeFileArtifact");
+      requireNonNull(archivedFileValue, "archivedFileValue");
+    }
 
     public static ArchivedRepresentation create(
         ArchivedTreeArtifact archivedTreeFileArtifact, FileArtifactValue fileArtifactValue) {
-      return new AutoValue_TreeArtifactValue_ArchivedRepresentation(
-          archivedTreeFileArtifact, fileArtifactValue);
+      return new ArchivedRepresentation(archivedTreeFileArtifact, fileArtifactValue);
     }
   }
 

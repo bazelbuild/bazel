@@ -13,24 +13,35 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.auto.value.AutoValue;
-import com.google.common.collect.ImmutableSet;
+import static java.util.Objects.requireNonNull;
 
-/**
- * Object encapsulating which additional toolchain features should be enabled and/or disabled.
- */
-@AutoValue
-public abstract class FeatureSpecification {
+import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.InlineMe;
+
+/** Object encapsulating which additional toolchain features should be enabled and/or disabled. */
+public record FeatureSpecification(
+    ImmutableSet<String> requestedFeatures, ImmutableSet<String> unsupportedFeatures) {
+  public FeatureSpecification {
+    requireNonNull(requestedFeatures, "requestedFeatures");
+    requireNonNull(unsupportedFeatures, "unsupportedFeatures");
+  }
+
+  @InlineMe(replacement = "this.requestedFeatures()")
+  public ImmutableSet<String> getRequestedFeatures() {
+    return requestedFeatures();
+  }
+
+  @InlineMe(replacement = "this.unsupportedFeatures()")
+  public ImmutableSet<String> getUnsupportedFeatures() {
+    return unsupportedFeatures();
+  }
 
   public static final FeatureSpecification EMPTY =
       create(ImmutableSet.<String>of(), ImmutableSet.<String>of());
 
   public static final FeatureSpecification create(
       ImmutableSet<String> requestedFeatures, ImmutableSet<String> unsupportedFeatures) {
-    return new AutoValue_FeatureSpecification(requestedFeatures, unsupportedFeatures);
+    return new FeatureSpecification(requestedFeatures, unsupportedFeatures);
   }
 
-  public abstract ImmutableSet<String> getRequestedFeatures();
-
-  public abstract ImmutableSet<String> getUnsupportedFeatures();
 }

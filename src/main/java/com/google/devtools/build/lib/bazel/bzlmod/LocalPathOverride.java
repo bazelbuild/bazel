@@ -15,19 +15,32 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
-import com.google.auto.value.AutoValue;
+import static java.util.Objects.requireNonNull;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule.ResolutionReason;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.errorprone.annotations.InlineMe;
 
-/** Specifies that a module should be retrieved from a local directory. */
-@AutoValue
-public abstract class LocalPathOverride implements NonRegistryOverride {
-  public static LocalPathOverride create(String path) {
-    return new AutoValue_LocalPathOverride(path);
+/**
+ * Specifies that a module should be retrieved from a local directory.
+ *
+ * @param path The path to the local directory where the module contents should be found.
+ */
+@AutoCodec
+public record LocalPathOverride(String path) implements NonRegistryOverride {
+  public LocalPathOverride {
+    requireNonNull(path, "path");
   }
 
-  /** The path to the local directory where the module contents should be found. */
-  public abstract String getPath();
+  @InlineMe(replacement = "this.path()")
+  public String getPath() {
+    return path();
+  }
+
+  public static LocalPathOverride create(String path) {
+    return new LocalPathOverride(path);
+  }
 
   /** Returns the {@link RepoSpec} that defines this repository. */
   @Override

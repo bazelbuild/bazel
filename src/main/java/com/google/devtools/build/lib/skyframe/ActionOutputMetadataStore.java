@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -619,26 +619,24 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
     return FileArtifactStatAndValue.create(pathNoFollow, realPath, statNoFollow, fileArtifactValue);
   }
 
-  @AutoValue
-  abstract static class FileArtifactStatAndValue {
+  record FileArtifactStatAndValue(
+      Path pathNoFollow,
+      @Nullable Path realPath,
+      @Nullable FileStatusWithDigest statNoFollow,
+      FileArtifactValue fileArtifactValue) {
+    FileArtifactStatAndValue {
+      requireNonNull(pathNoFollow, "pathNoFollow");
+      requireNonNull(fileArtifactValue, "fileArtifactValue");
+    }
+
     public static FileArtifactStatAndValue create(
         Path pathNoFollow,
         @Nullable Path realPath,
         @Nullable FileStatusWithDigest statNoFollow,
         FileArtifactValue fileArtifactValue) {
-      return new AutoValue_ActionOutputMetadataStore_FileArtifactStatAndValue(
-          pathNoFollow, realPath, statNoFollow, fileArtifactValue);
+      return new FileArtifactStatAndValue(pathNoFollow, realPath, statNoFollow, fileArtifactValue);
     }
 
-    public abstract Path pathNoFollow();
-
-    @Nullable
-    public abstract Path realPath();
-
-    @Nullable
-    public abstract FileStatusWithDigest statNoFollow();
-
-    public abstract FileArtifactValue fileArtifactValue();
   }
 
   private static FileArtifactValue fileArtifactValueFromStat(

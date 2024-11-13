@@ -14,11 +14,15 @@
 
 package com.google.devtools.build.lib.authandtls.credentialhelper;
 
+import static java.util.Objects.requireNonNull;
+
+import com.google.auto.value.AutoBuilder;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.Immutable;
+import com.google.errorprone.annotations.InlineMe;
 import com.google.gson.JsonSyntaxException;
 import com.google.gson.TypeAdapter;
 import com.google.gson.annotations.JsonAdapter;
@@ -43,30 +47,42 @@ import java.util.Optional;
  *
  * <p>See the <a
  * href="https://github.com/EngFlow/credential-helper-spec/blob/main/schemas/get-credentials-response.schema.json">specification</a>.
+ *
+ * @param headers Returns the headers to attach to the request.
+ * @param expires Returns the time the credentials expire and must be revalidated.
  */
-@AutoValue
 @AutoValue.CopyAnnotations
 @Immutable
 @JsonAdapter(GetCredentialsResponse.GsonTypeAdapter.class)
-public abstract class GetCredentialsResponse {
+public record GetCredentialsResponse(
+    ImmutableMap<String, ImmutableList<String>> headers, Optional<Instant> expires) {
+  public GetCredentialsResponse {
+    requireNonNull(headers, "headers");
+    requireNonNull(expires, "expires");
+  }
+
+  @InlineMe(replacement = "this.headers()")
+  public ImmutableMap<String, ImmutableList<String>> getHeaders() {
+    return headers();
+  }
+
+  @InlineMe(replacement = "this.expires()")
+  public Optional<Instant> getExpires() {
+    return expires();
+  }
+
   public static final DateTimeFormatter RFC_3339_FORMATTER =
       DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX")
           .withZone(ZoneId.from(ZoneOffset.UTC))
           .withResolverStyle(ResolverStyle.LENIENT);
 
-  /** Returns the headers to attach to the request. */
-  public abstract ImmutableMap<String, ImmutableList<String>> getHeaders();
-
-  /** Returns the time the credentials expire and must be revalidated. */
-  public abstract Optional<Instant> getExpires();
-
   /** Returns a new builder for {@link GetCredentialsRequest}. */
   public static Builder newBuilder() {
-    return new AutoValue_GetCredentialsResponse.Builder();
+    return new AutoBuilder_GetCredentialsResponse_Builder();
   }
 
   /** Builder for {@link GetCredentialsResponse}. */
-  @AutoValue.Builder
+  @AutoBuilder
   public abstract static class Builder {
     public abstract ImmutableMap.Builder<String, ImmutableList<String>> headersBuilder();
 

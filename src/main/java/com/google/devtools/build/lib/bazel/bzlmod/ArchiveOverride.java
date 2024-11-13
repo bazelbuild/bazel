@@ -15,14 +15,69 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
-import com.google.auto.value.AutoValue;
+import static java.util.Objects.requireNonNull;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule.ResolutionReason;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.errorprone.annotations.InlineMe;
 
-/** Specifies that a module should be retrieved from an archive. */
-@AutoValue
-public abstract class ArchiveOverride implements NonRegistryOverride {
+/**
+ * Specifies that a module should be retrieved from an archive.
+ *
+ * @param urls The URLs pointing at the archives. Can be HTTP(S) or file URLs.
+ * @param patches The labels of patches to apply after extracting the archive.
+ * @param patchCmds The patch commands to execute after extracting the archive. Should be a list of
+ *     commands.
+ * @param integrity The subresource integirty metadata of the archive.
+ * @param stripPrefix The prefix to strip from paths in the archive.
+ * @param patchStrip The number of path segments to strip from the paths in the supplied patches.
+ */
+public record ArchiveOverride(
+    ImmutableList<String> urls,
+    ImmutableList<Label> patches,
+    ImmutableList<String> patchCmds,
+    String integrity,
+    String stripPrefix,
+    int patchStrip)
+    implements NonRegistryOverride {
+  public ArchiveOverride {
+    requireNonNull(urls, "urls");
+    requireNonNull(patches, "patches");
+    requireNonNull(patchCmds, "patchCmds");
+    requireNonNull(integrity, "integrity");
+    requireNonNull(stripPrefix, "stripPrefix");
+  }
+
+  @InlineMe(replacement = "this.urls()")
+  public ImmutableList<String> getUrls() {
+    return urls();
+  }
+
+  @InlineMe(replacement = "this.patches()")
+  public ImmutableList<Label> getPatches() {
+    return patches();
+  }
+
+  @InlineMe(replacement = "this.patchCmds()")
+  public ImmutableList<String> getPatchCmds() {
+    return patchCmds();
+  }
+
+  @InlineMe(replacement = "this.integrity()")
+  public String getIntegrity() {
+    return integrity();
+  }
+
+  @InlineMe(replacement = "this.stripPrefix()")
+  public String getStripPrefix() {
+    return stripPrefix();
+  }
+
+  @InlineMe(replacement = "this.patchStrip()")
+  public int getPatchStrip() {
+    return patchStrip();
+  }
 
   public static ArchiveOverride create(
       ImmutableList<String> urls,
@@ -31,27 +86,8 @@ public abstract class ArchiveOverride implements NonRegistryOverride {
       String integrity,
       String stripPrefix,
       int patchStrip) {
-    return new AutoValue_ArchiveOverride(
-        urls, patches, patchCmds, integrity, stripPrefix, patchStrip);
+    return new ArchiveOverride(urls, patches, patchCmds, integrity, stripPrefix, patchStrip);
   }
-
-  /** The URLs pointing at the archives. Can be HTTP(S) or file URLs. */
-  public abstract ImmutableList<String> getUrls();
-
-  /** The labels of patches to apply after extracting the archive. */
-  public abstract ImmutableList<Label> getPatches();
-
-  /** The patch commands to execute after extracting the archive. Should be a list of commands. */
-  public abstract ImmutableList<String> getPatchCmds();
-
-  /** The subresource integirty metadata of the archive. */
-  public abstract String getIntegrity();
-
-  /** The prefix to strip from paths in the archive. */
-  public abstract String getStripPrefix();
-
-  /** The number of path segments to strip from the paths in the supplied patches. */
-  public abstract int getPatchStrip();
 
   /** Returns the {@link RepoSpec} that defines this repository. */
   @Override

@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.analysis.testing.ToolchainCollectionSubject.assertThat;
 import static com.google.devtools.build.lib.analysis.testing.ToolchainContextSubject.assertThat;
 import static com.google.devtools.build.lib.skyframe.DependencyResolver.getDependencyContext;
+import static java.util.Objects.requireNonNull;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
@@ -47,6 +48,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.DependencyResolver;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -55,6 +57,7 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.errorprone.annotations.InlineMe;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -102,12 +105,20 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
    * Returns a {@link ToolchainCollection< UnloadedToolchainContext >} as the result of {@link
    * DependencyResolver#getDependencyContext}.
    */
-  @AutoValue
-  abstract static class Value implements SkyValue {
-    abstract ToolchainCollection<UnloadedToolchainContext> getToolchainCollection();
+  @AutoCodec
+  record Value(ToolchainCollection<UnloadedToolchainContext> toolchainCollection)
+      implements SkyValue {
+    Value {
+      requireNonNull(toolchainCollection, "toolchainCollection");
+    }
+
+    @InlineMe(replacement = "this.toolchainCollection()")
+    ToolchainCollection<UnloadedToolchainContext> getToolchainCollection() {
+      return toolchainCollection();
+    }
 
     static Value create(ToolchainCollection<UnloadedToolchainContext> toolchainCollection) {
-      return new AutoValue_ToolchainsForTargetsTest_Value(toolchainCollection);
+      return new Value(toolchainCollection);
     }
   }
 

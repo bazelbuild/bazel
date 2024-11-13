@@ -14,9 +14,9 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod.modcommand;
 
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
 import com.google.devtools.build.lib.bazel.bzlmod.Version;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModExecutor.ResultNode;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModOptions.OutputFormat;
+import com.google.errorprone.annotations.InlineMe;
 import java.io.PrintWriter;
 import javax.annotation.Nullable;
 
@@ -62,26 +63,41 @@ public final class OutputFormatters {
     protected PrintWriter printer;
     protected ModOptions options;
 
-    /** Compact representation of the data provided by the {@code --verbose} flag. */
-    @AutoValue
-    abstract static class Explanation {
+    /**
+     * Compact representation of the data provided by the {@code --verbose} flag.
+     *
+     * @param changedVersion The version from/to which the module was changed after resolution.
+     * @param requestedByModules The list of modules who originally requested the selected version
+     *     in the case of Minimal-Version-Selection.
+     */
+    record Explanation(
+        Version changedVersion,
+        ResolutionReason resolutionReason,
+        @Nullable ImmutableSet<ModuleKey> requestedByModules) {
+      Explanation {
+        requireNonNull(changedVersion, "changedVersion");
+        requireNonNull(resolutionReason, "resolutionReason");
+      }
 
-      /** The version from/to which the module was changed after resolution. */
-      abstract Version getChangedVersion();
+      @InlineMe(replacement = "this.changedVersion()")
+      Version getChangedVersion() {
+        return changedVersion();
+      }
 
-      abstract ResolutionReason getResolutionReason();
+      @InlineMe(replacement = "this.resolutionReason()")
+      ResolutionReason getResolutionReason() {
+        return resolutionReason();
+      }
 
-      /**
-       * The list of modules who originally requested the selected version in the case of
-       * Minimal-Version-Selection.
-       */
+      @InlineMe(replacement = "this.requestedByModules()")
       @Nullable
-      abstract ImmutableSet<ModuleKey> getRequestedByModules();
+      ImmutableSet<ModuleKey> getRequestedByModules() {
+        return requestedByModules();
+      }
 
       static Explanation create(
           Version version, ResolutionReason reason, ImmutableSet<ModuleKey> requestedByModules) {
-        return new AutoValue_OutputFormatters_OutputFormatter_Explanation(
-            version, reason, requestedByModules);
+        return new Explanation(version, reason, requestedByModules);
       }
 
       /**

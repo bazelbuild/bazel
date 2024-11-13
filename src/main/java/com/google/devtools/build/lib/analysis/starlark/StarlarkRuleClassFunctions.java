@@ -31,10 +31,10 @@ import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.INTEGER;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Types.STRING_LIST;
+import static java.util.Objects.requireNonNull;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
-import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -116,6 +116,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransi
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.errorprone.annotations.FormatMethod;
+import com.google.errorprone.annotations.InlineMe;
 import com.google.errorprone.annotations.Keep;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -1876,17 +1877,28 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
    *
    * <p>{@link com.google.devtools.build.lib.rules.test.StarlarkTestingModule#analysisTest} is a
    * special case where a rule is instantiated in a BUILD file instead of a .bzl file.
+   *
+   * @param label Label of the BUILD file exporting the analysis_test.
    */
-  @AutoValue
-  abstract static class AnalysisTestKey {
-    private static AnalysisTestKey create(Label label, String name) {
-      return new AutoValue_StarlarkRuleClassFunctions_AnalysisTestKey(label, name);
+  record AnalysisTestKey(Label label, String name) {
+    AnalysisTestKey {
+      requireNonNull(label, "label");
+      requireNonNull(name, "name");
     }
 
-    /** Label of the BUILD file exporting the analysis_test. */
-    abstract Label getLabel();
+    @InlineMe(replacement = "this.label()")
+    Label getLabel() {
+      return label();
+    }
 
-    abstract String getName();
+    @InlineMe(replacement = "this.name()")
+    String getName() {
+      return name();
+    }
+
+    private static AnalysisTestKey create(Label label, String name) {
+      return new AnalysisTestKey(label, name);
+    }
   }
 
   @SerializationConstant

@@ -14,7 +14,8 @@
 
 package com.google.devtools.build.lib.authandtls;
 
-import com.google.auto.value.AutoValue;
+import static java.util.Objects.requireNonNull;
+
 import com.google.common.base.Preconditions;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
@@ -25,6 +26,7 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.errorprone.annotations.InlineMe;
 import java.net.IDN;
 import java.time.Duration;
 import java.util.List;
@@ -186,18 +188,28 @@ public class AuthAndTLSOptions extends OptionsBase {
               + " the helper does not provide when the credentials expire.")
   public Duration credentialHelperCacheTimeout;
 
-  /** One of the values of the `--credential_helper` flag. */
-  @AutoValue
-  public abstract static class CredentialHelperOption {
-    /**
-     * Returns the scope of the credential helper (if any).
-     *
-     * <p>The scope is a valid ASCII domain name with an optional leading '.*' wildcard.
-     */
-    public abstract Optional<String> getScope();
+  /**
+   * One of the values of the `--credential_helper` flag.
+   *
+   * @param scope Returns the scope of the credential helper (if any).
+   *     <p>The scope is a valid ASCII domain name with an optional leading '.*' wildcard.
+   * @param path Returns the (unparsed) path of the credential helper.
+   */
+  public record CredentialHelperOption(Optional<String> scope, String path) {
+    public CredentialHelperOption {
+      requireNonNull(scope, "scope");
+      requireNonNull(path, "path");
+    }
 
-    /** Returns the (unparsed) path of the credential helper. */
-    public abstract String getPath();
+    @InlineMe(replacement = "this.scope()")
+    public Optional<String> getScope() {
+      return scope();
+    }
+
+    @InlineMe(replacement = "this.path()")
+    public String getPath() {
+      return path();
+    }
   }
 
   /** A {@link Converter} for the `--credential_helper` flag. */
@@ -223,12 +235,11 @@ public class AuthAndTLSOptions extends OptionsBase {
       if (pos >= 0) {
         String scope = parseScope(input.substring(0, pos));
         String path = parsePath(input.substring(pos + 1));
-        return new AutoValue_AuthAndTLSOptions_CredentialHelperOption(Optional.of(scope), path);
+        return new CredentialHelperOption(Optional.of(scope), path);
       }
 
       // `input` does not specify a scope.
-      return new AutoValue_AuthAndTLSOptions_CredentialHelperOption(
-          Optional.empty(), parsePath(input));
+      return new CredentialHelperOption(Optional.empty(), parsePath(input));
     }
 
     private String parseScope(String scope) throws OptionsParsingException {

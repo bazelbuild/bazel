@@ -15,14 +15,77 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
-import com.google.auto.value.AutoValue;
+import static java.util.Objects.requireNonNull;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule.ResolutionReason;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.errorprone.annotations.InlineMe;
 
-/** Specifies that a module should be retrieved from a Git repository. */
-@AutoValue
-public abstract class GitOverride implements NonRegistryOverride {
+/**
+ * Specifies that a module should be retrieved from a Git repository.
+ *
+ * @param remote The URL pointing to the git repository.
+ * @param commit The commit hash to use.
+ * @param patches The labels of patches to apply after fetching from Git.
+ * @param patchCmds The patch commands to execute after fetching from Git. Should be a list of
+ *     commands.
+ * @param patchStrip The number of path segments to strip from the paths in the supplied patches.
+ * @param initSubmodules Whether submodules in the fetched repo should be recursively initialized.
+ * @param stripPrefix The directory prefix to strip from the extracted files.
+ */
+public record GitOverride(
+    String remote,
+    String commit,
+    ImmutableList<Label> patches,
+    ImmutableList<String> patchCmds,
+    int patchStrip,
+    boolean initSubmodules,
+    String stripPrefix)
+    implements NonRegistryOverride {
+  public GitOverride {
+    requireNonNull(remote, "remote");
+    requireNonNull(commit, "commit");
+    requireNonNull(patches, "patches");
+    requireNonNull(patchCmds, "patchCmds");
+    requireNonNull(stripPrefix, "stripPrefix");
+  }
+
+  @InlineMe(replacement = "this.remote()")
+  public String getRemote() {
+    return remote();
+  }
+
+  @InlineMe(replacement = "this.commit()")
+  public String getCommit() {
+    return commit();
+  }
+
+  @InlineMe(replacement = "this.patches()")
+  public ImmutableList<Label> getPatches() {
+    return patches();
+  }
+
+  @InlineMe(replacement = "this.patchCmds()")
+  public ImmutableList<String> getPatchCmds() {
+    return patchCmds();
+  }
+
+  @InlineMe(replacement = "this.patchStrip()")
+  public int getPatchStrip() {
+    return patchStrip();
+  }
+
+  @InlineMe(replacement = "this.initSubmodules()")
+  public boolean getInitSubmodules() {
+    return initSubmodules();
+  }
+
+  @InlineMe(replacement = "this.stripPrefix()")
+  public String getStripPrefix() {
+    return stripPrefix();
+  }
+
   public static GitOverride create(
       String remote,
       String commit,
@@ -31,30 +94,9 @@ public abstract class GitOverride implements NonRegistryOverride {
       int patchStrip,
       boolean initSubmodules,
       String stripPrefix) {
-    return new AutoValue_GitOverride(
+    return new GitOverride(
         remote, commit, patches, patchCmds, patchStrip, initSubmodules, stripPrefix);
   }
-
-  /** The URL pointing to the git repository. */
-  public abstract String getRemote();
-
-  /** The commit hash to use. */
-  public abstract String getCommit();
-
-  /** The labels of patches to apply after fetching from Git. */
-  public abstract ImmutableList<Label> getPatches();
-
-  /** The patch commands to execute after fetching from Git. Should be a list of commands. */
-  public abstract ImmutableList<String> getPatchCmds();
-
-  /** The number of path segments to strip from the paths in the supplied patches. */
-  public abstract int getPatchStrip();
-
-  /** Whether submodules in the fetched repo should be recursively initialized. */
-  public abstract boolean getInitSubmodules();
-
-  /** The directory prefix to strip from the extracted files. */
-  public abstract String getStripPrefix();
 
   /** Returns the {@link RepoSpec} that defines this repository. */
   @Override

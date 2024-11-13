@@ -662,8 +662,8 @@ class BazelLockfileTest(test_base.TestBase):
         (
             'ERROR: MODULE.bazel.lock is no longer up-to-date because: The '
             'implementation of the extension '
-            "'ModuleExtensionId{bzlFileLabel=//:extension.bzl, "
-            "extensionName=lockfile_ext, isolationKey=Optional.empty}' or one "
+            "'ModuleExtensionId[bzlFileLabel=//:extension.bzl, "
+            "extensionName=lockfile_ext, isolationKey=Optional.empty]' or one "
             'of its transitive .bzl files has changed. Please run'
             ' `bazel mod deps --lockfile_mode=update` to update your lockfile.'
         ),
@@ -845,8 +845,8 @@ class BazelLockfileTest(test_base.TestBase):
         (
             'ERROR: MODULE.bazel.lock is no longer up-to-date because: The'
             ' environment variables the extension'
-            " 'ModuleExtensionId{bzlFileLabel=//:extension.bzl,"
-            " extensionName=lockfile_ext, isolationKey=Optional.empty}' depends"
+            " 'ModuleExtensionId[bzlFileLabel=//:extension.bzl,"
+            " extensionName=lockfile_ext, isolationKey=Optional.empty]' depends"
             ' on (or their values) have changed. Please run'
             ' `bazel mod deps --lockfile_mode=update` to update your lockfile.'
         ),
@@ -2187,8 +2187,8 @@ class BazelLockfileTest(test_base.TestBase):
     )
     self.assertIn(
         'ERROR: The module extension '
-        "'ModuleExtensionId{bzlFileLabel=//:extension.bzl, "
-        "extensionName=ext, isolationKey=Optional.empty}' does "
+        "'ModuleExtensionId[bzlFileLabel=//:extension.bzl, "
+        "extensionName=ext, isolationKey=Optional.empty]' does "
         'not exist in the lockfile',
         stderr,
     )

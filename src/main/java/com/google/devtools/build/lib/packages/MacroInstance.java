@@ -14,7 +14,8 @@
 
 package com.google.devtools.build.lib.packages;
 
-import com.google.auto.value.AutoValue;
+import static java.util.Objects.requireNonNull;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -272,14 +273,14 @@ public final class MacroInstance {
    * Logical tuple of the package and id within the package. Used to label the Starlark evaluation
    * environment.
    */
-  @AutoValue
-  abstract static class UniqueId {
-    static UniqueId create(PackageIdentifier packageId, String id) {
-      return new AutoValue_MacroInstance_UniqueId(packageId, id);
+  record UniqueId(PackageIdentifier packageId, String id) {
+    UniqueId {
+      requireNonNull(packageId, "packageId");
+      requireNonNull(id, "id");
     }
 
-    abstract PackageIdentifier packageId();
-
-    abstract String id();
+    static UniqueId create(PackageIdentifier packageId, String id) {
+      return new UniqueId(packageId, id);
+    }
   }
 }

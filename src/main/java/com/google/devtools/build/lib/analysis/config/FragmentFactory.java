@@ -15,11 +15,12 @@ package com.google.devtools.build.lib.analysis.config;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static java.util.Objects.requireNonNull;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
-import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.InlineMe;
 import java.lang.reflect.InvocationTargetException;
 import java.util.concurrent.CompletionException;
 import javax.annotation.Nullable;
@@ -84,16 +85,30 @@ public final class FragmentFactory {
     return trimmed.build();
   }
 
-  @AutoValue
-  abstract static class FragmentKey {
-    // These BuildOptions should be already-trimmed to maximize cache efficacy
-    abstract BuildOptions getBuildOptions();
+  /**
+   * A fragment key.
+   *
+   * @param buildOptions These BuildOptions should be already-trimmed to maximize cache efficacy
+   */
+  record FragmentKey(BuildOptions buildOptions, Class<? extends Fragment> fragmentClass) {
+    FragmentKey {
+      requireNonNull(buildOptions, "buildOptions");
+      requireNonNull(fragmentClass, "fragmentClass");
+    }
 
-    abstract Class<? extends Fragment> getFragmentClass();
+    @InlineMe(replacement = "this.buildOptions()")
+    BuildOptions getBuildOptions() {
+      return buildOptions();
+    }
+
+    @InlineMe(replacement = "this.fragmentClass()")
+    Class<? extends Fragment> getFragmentClass() {
+      return fragmentClass();
+    }
 
     private static FragmentKey create(
         BuildOptions buildOptions, Class<? extends Fragment> fragmentClass) {
-      return new AutoValue_FragmentFactory_FragmentKey(buildOptions, fragmentClass);
+      return new FragmentKey(buildOptions, fragmentClass);
     }
   }
 

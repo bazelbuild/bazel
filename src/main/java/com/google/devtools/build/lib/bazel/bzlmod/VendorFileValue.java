@@ -14,26 +14,39 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
-import com.google.auto.value.AutoValue;
+import static java.util.Objects.requireNonNull;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.errorprone.annotations.InlineMe;
 
 /** Represent the parsed VENDOR.bazel file */
-@AutoValue
-public abstract class VendorFileValue implements SkyValue {
+public record VendorFileValue(
+    ImmutableList<RepositoryName> ignoredRepos, ImmutableList<RepositoryName> pinnedRepos)
+    implements SkyValue {
+  public VendorFileValue {
+    requireNonNull(ignoredRepos, "ignoredRepos");
+    requireNonNull(pinnedRepos, "pinnedRepos");
+  }
+
+  @InlineMe(replacement = "this.ignoredRepos()")
+  public ImmutableList<RepositoryName> getIgnoredRepos() {
+    return ignoredRepos();
+  }
+
+  @InlineMe(replacement = "this.pinnedRepos()")
+  public ImmutableList<RepositoryName> getPinnedRepos() {
+    return pinnedRepos();
+  }
 
   @SerializationConstant public static final SkyKey KEY = () -> SkyFunctions.VENDOR_FILE;
 
-  public abstract ImmutableList<RepositoryName> getIgnoredRepos();
-
-  public abstract ImmutableList<RepositoryName> getPinnedRepos();
-
   public static VendorFileValue create(
       ImmutableList<RepositoryName> ignoredRepos, ImmutableList<RepositoryName> pinnedRepos) {
-    return new AutoValue_VendorFileValue(ignoredRepos, pinnedRepos);
+    return new VendorFileValue(ignoredRepos, pinnedRepos);
   }
 }

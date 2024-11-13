@@ -17,8 +17,8 @@ package com.google.devtools.build.lib.actions.cache;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.util.Objects.requireNonNull;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
@@ -112,14 +112,24 @@ public interface ActionCache {
      *
      * <p>We can't serialize {@link TreeArtifactValue} directly as it contains some objects that we
      * don't want to serialize, e.g. {@link SpecialArtifact}.
+     *
+     * @param childValues A map from parentRelativePath to the file metadata
      */
-    @AutoValue
-    public abstract static class SerializableTreeArtifactValue {
+    public record SerializableTreeArtifactValue(
+        ImmutableMap<String, RemoteFileArtifactValue> childValues,
+        Optional<RemoteFileArtifactValue> archivedFileValue,
+        Optional<PathFragment> materializationExecPath) {
+      public SerializableTreeArtifactValue {
+        requireNonNull(childValues, "childValues");
+        requireNonNull(archivedFileValue, "archivedFileValue");
+        requireNonNull(materializationExecPath, "materializationExecPath");
+      }
+
       public static SerializableTreeArtifactValue create(
           ImmutableMap<String, RemoteFileArtifactValue> childValues,
           Optional<RemoteFileArtifactValue> archivedFileValue,
           Optional<PathFragment> materializationExecPath) {
-        return new AutoValue_ActionCache_Entry_SerializableTreeArtifactValue(
+        return new SerializableTreeArtifactValue(
             childValues, archivedFileValue, materializationExecPath);
       }
 
@@ -159,13 +169,6 @@ public interface ActionCache {
             SerializableTreeArtifactValue.create(
                 childValues, archivedFileValue, materializationExecPath));
       }
-
-      // A map from parentRelativePath to the file metadata
-      public abstract ImmutableMap<String, RemoteFileArtifactValue> childValues();
-
-      public abstract Optional<RemoteFileArtifactValue> archivedFileValue();
-
-      public abstract Optional<PathFragment> materializationExecPath();
     }
 
     public Entry(

@@ -18,8 +18,8 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSortedMap.toImmutableSortedMap;
 import static java.util.Comparator.naturalOrder;
+import static java.util.Objects.requireNonNull;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Comparators;
@@ -30,6 +30,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.bazel.bzlmod.InterimModule.DepSpec;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
+import com.google.errorprone.annotations.InlineMe;
 import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -85,58 +86,95 @@ import javax.annotation.Nullable;
 final class Selection {
   private Selection() {}
 
-  /** The result of selection. */
-  @AutoValue
-  abstract static class Result {
-    /** Final dep graph sorted in BFS iteration order, with unused modules removed. */
-    abstract ImmutableMap<ModuleKey, InterimModule> getResolvedDepGraph();
+  /**
+   * The result of selection.
+   *
+   * @param resolvedDepGraph Final dep graph sorted in BFS iteration order, with unused modules
+   *     removed.
+   * @param unprunedDepGraph Un-pruned dep graph, with updated dep keys, and additionally containing
+   *     the unused modules which were initially discovered (and their MODULE.bazel files loaded).
+   *     Does not contain modules overridden by {@code single_version_override} or {@link
+   *     NonRegistryOverride}, only by {@code multiple_version_override}.
+   */
+  record Result(
+      ImmutableMap<ModuleKey, InterimModule> resolvedDepGraph,
+      ImmutableMap<ModuleKey, InterimModule> unprunedDepGraph) {
+    Result {
+      requireNonNull(resolvedDepGraph, "resolvedDepGraph");
+      requireNonNull(unprunedDepGraph, "unprunedDepGraph");
+    }
 
-    /**
-     * Un-pruned dep graph, with updated dep keys, and additionally containing the unused modules
-     * which were initially discovered (and their MODULE.bazel files loaded). Does not contain
-     * modules overridden by {@code single_version_override} or {@link NonRegistryOverride}, only by
-     * {@code multiple_version_override}.
-     */
-    abstract ImmutableMap<ModuleKey, InterimModule> getUnprunedDepGraph();
+    @InlineMe(replacement = "this.resolvedDepGraph()")
+    ImmutableMap<ModuleKey, InterimModule> getResolvedDepGraph() {
+      return resolvedDepGraph();
+    }
+
+    @InlineMe(replacement = "this.unprunedDepGraph()")
+    ImmutableMap<ModuleKey, InterimModule> getUnprunedDepGraph() {
+      return unprunedDepGraph();
+    }
 
     static Result create(
         ImmutableMap<ModuleKey, InterimModule> resolvedDepGraph,
         ImmutableMap<ModuleKey, InterimModule> unprunedDepGraph) {
-      return new AutoValue_Selection_Result(resolvedDepGraph, unprunedDepGraph);
+      return new Result(resolvedDepGraph, unprunedDepGraph);
     }
   }
 
-  /** During selection, a version is selected for each distinct "selection group". */
-  @AutoValue
-  abstract static class SelectionGroup {
+  /**
+   * During selection, a version is selected for each distinct "selection group".
+   *
+   * @param targetAllowedVersion This is only used for modules with multiple-version overrides.
+   */
+  record SelectionGroup(String moduleName, int compatibilityLevel, Version targetAllowedVersion) {
+    SelectionGroup {
+      requireNonNull(moduleName, "moduleName");
+      requireNonNull(targetAllowedVersion, "targetAllowedVersion");
+    }
+
+    @InlineMe(replacement = "this.moduleName()")
+    String getModuleName() {
+      return moduleName();
+    }
+
+    @InlineMe(replacement = "this.compatibilityLevel()")
+    int getCompatibilityLevel() {
+      return compatibilityLevel();
+    }
+
+    @InlineMe(replacement = "this.targetAllowedVersion()")
+    Version getTargetAllowedVersion() {
+      return targetAllowedVersion();
+    }
+
     static SelectionGroup create(
         String moduleName, int compatibilityLevel, Version targetAllowedVersion) {
-      return new AutoValue_Selection_SelectionGroup(
-          moduleName, compatibilityLevel, targetAllowedVersion);
+      return new SelectionGroup(moduleName, compatibilityLevel, targetAllowedVersion);
     }
-
-    abstract String getModuleName();
-
-    abstract int getCompatibilityLevel();
-
-    /** This is only used for modules with multiple-version overrides. */
-    abstract Version getTargetAllowedVersion();
   }
 
-  @AutoValue
-  abstract static class ModuleNameAndCompatibilityLevel {
-    static ModuleNameAndCompatibilityLevel create(String moduleName, int compatibilityLevel) {
-      return new AutoValue_Selection_ModuleNameAndCompatibilityLevel(
-          moduleName, compatibilityLevel);
+  record ModuleNameAndCompatibilityLevel(
+      @SuppressWarnings("unused") String moduleName,
+      @SuppressWarnings("unused") int compatibilityLevel) {
+    ModuleNameAndCompatibilityLevel {
+      requireNonNull(moduleName, "moduleName");
     }
 
+    @InlineMe(replacement = "this.moduleName()")
     @SuppressWarnings("unused")
-    // Used in equals.
-    abstract String getModuleName();
+    String getModuleName() {
+      return moduleName();
+    }
 
+    @InlineMe(replacement = "this.compatibilityLevel()")
     @SuppressWarnings("unused")
-    // Used in equals.
-    abstract int getCompatibilityLevel();
+    int getCompatibilityLevel() {
+      return compatibilityLevel();
+    }
+
+    static ModuleNameAndCompatibilityLevel create(String moduleName, int compatibilityLevel) {
+      return new ModuleNameAndCompatibilityLevel(moduleName, compatibilityLevel);
+    }
   }
 
   /**
@@ -490,31 +528,52 @@ final class Selection {
       }
     }
 
-    @AutoValue
-    abstract static class ModuleKeyAndDependent {
-      abstract ModuleKey getModuleKey();
+    record ModuleKeyAndDependent(ModuleKey moduleKey, @Nullable ModuleKey dependent) {
+      ModuleKeyAndDependent {
+        requireNonNull(moduleKey, "moduleKey");
+      }
 
+      @InlineMe(replacement = "this.moduleKey()")
+      ModuleKey getModuleKey() {
+        return moduleKey();
+      }
+
+      @InlineMe(replacement = "this.dependent()")
       @Nullable
-      abstract ModuleKey getDependent();
+      ModuleKey getDependent() {
+        return dependent();
+      }
 
       static ModuleKeyAndDependent create(ModuleKey moduleKey, @Nullable ModuleKey dependent) {
-        return new AutoValue_Selection_DepGraphWalker_ModuleKeyAndDependent(moduleKey, dependent);
+        return new ModuleKeyAndDependent(moduleKey, dependent);
       }
     }
 
-    @AutoValue
-    abstract static class ExistingModule {
-      abstract ModuleKey getModuleKey();
+    record ExistingModule(
+        ModuleKey moduleKey, int compatibilityLevel, @Nullable ModuleKey dependent) {
+      ExistingModule {
+        requireNonNull(moduleKey, "moduleKey");
+      }
 
-      abstract int getCompatibilityLevel();
+      @InlineMe(replacement = "this.moduleKey()")
+      ModuleKey getModuleKey() {
+        return moduleKey();
+      }
 
+      @InlineMe(replacement = "this.compatibilityLevel()")
+      int getCompatibilityLevel() {
+        return compatibilityLevel();
+      }
+
+      @InlineMe(replacement = "this.dependent()")
       @Nullable
-      abstract ModuleKey getDependent();
+      ModuleKey getDependent() {
+        return dependent();
+      }
 
       static ExistingModule create(
           ModuleKey moduleKey, int compatibilityLevel, ModuleKey dependent) {
-        return new AutoValue_Selection_DepGraphWalker_ExistingModule(
-            moduleKey, compatibilityLevel, dependent);
+        return new ExistingModule(moduleKey, compatibilityLevel, dependent);
       }
     }
   }

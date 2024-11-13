@@ -14,11 +14,11 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static java.util.Objects.requireNonNull;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.errorprone.annotations.InlineMe;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
@@ -60,18 +61,31 @@ public final class TreeArtifactValueTest {
       ArtifactRoot.asDerivedRoot(
           scratch.resolve("root"), RootType.Output, PathFragment.create("bin"));
 
-  @AutoValue
-  abstract static class VisitTreeArgs {
-    abstract PathFragment getParentRelativePath();
+  record VisitTreeArgs(
+      PathFragment parentRelativePath, Dirent.Type type, boolean traversedSymlink) {
+    VisitTreeArgs {
+      requireNonNull(parentRelativePath, "parentRelativePath");
+      requireNonNull(type, "type");
+    }
 
-    abstract Dirent.Type getType();
+    @InlineMe(replacement = "this.parentRelativePath()")
+    PathFragment getParentRelativePath() {
+      return parentRelativePath();
+    }
 
-    abstract boolean getTraversedSymlink();
+    @InlineMe(replacement = "this.type()")
+    Dirent.Type getType() {
+      return type();
+    }
+
+    @InlineMe(replacement = "this.traversedSymlink()")
+    boolean getTraversedSymlink() {
+      return traversedSymlink();
+    }
 
     static VisitTreeArgs of(
         PathFragment parentRelativePath, Dirent.Type type, boolean traversedSymlink) {
-      return new AutoValue_TreeArtifactValueTest_VisitTreeArgs(
-          parentRelativePath, type, traversedSymlink);
+      return new VisitTreeArgs(parentRelativePath, type, traversedSymlink);
     }
   }
 

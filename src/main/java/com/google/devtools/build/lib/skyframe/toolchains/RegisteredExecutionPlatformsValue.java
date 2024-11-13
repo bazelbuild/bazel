@@ -14,7 +14,8 @@
 
 package com.google.devtools.build.lib.skyframe.toolchains;
 
-import com.google.auto.value.AutoValue;
+import static java.util.Objects.requireNonNull;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
@@ -29,8 +30,12 @@ import java.util.Objects;
 /**
  * A value which represents every execution platform known to Bazel and available to run actions.
  */
-@AutoValue
-public abstract class RegisteredExecutionPlatformsValue implements SkyValue {
+@AutoCodec
+public record RegisteredExecutionPlatformsValue(
+    ImmutableList<ConfiguredTargetKey> registeredExecutionPlatformKeys) implements SkyValue {
+  public RegisteredExecutionPlatformsValue {
+    requireNonNull(registeredExecutionPlatformKeys, "registeredExecutionPlatformKeys");
+  }
 
   /** Returns the {@link SkyKey} for {@link RegisteredExecutionPlatformsValue}s. */
   public static SkyKey key(BuildConfigurationKey configurationKey) {
@@ -89,9 +94,8 @@ public abstract class RegisteredExecutionPlatformsValue implements SkyValue {
 
   static RegisteredExecutionPlatformsValue create(
       Iterable<ConfiguredTargetKey> registeredExecutionPlatformKeys) {
-    return new AutoValue_RegisteredExecutionPlatformsValue(
+    return new RegisteredExecutionPlatformsValue(
         ImmutableList.copyOf(registeredExecutionPlatformKeys));
   }
 
-  public abstract ImmutableList<ConfiguredTargetKey> registeredExecutionPlatformKeys();
 }

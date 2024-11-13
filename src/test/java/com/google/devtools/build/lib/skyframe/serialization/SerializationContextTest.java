@@ -15,10 +15,11 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.truth.Truth.assertThat;
+import static java.util.Objects.requireNonNull;
 import static org.junit.Assert.assertThrows;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableClassToInstanceMap;
+import com.google.errorprone.annotations.InlineMe;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -36,12 +37,18 @@ public final class SerializationContextTest {
 
   private static final Object CONSTANT = new Object();
 
-  @AutoValue
-  abstract static class Example {
-    abstract String getDataToSerialize();
+  record Example(String dataToSerialize) {
+    Example {
+      requireNonNull(dataToSerialize, "dataToSerialize");
+    }
+
+    @InlineMe(replacement = "this.dataToSerialize()")
+    String getDataToSerialize() {
+      return dataToSerialize();
+    }
 
     static Example withData(String data) {
-      return new AutoValue_SerializationContextTest_Example(data);
+      return new Example(data);
     }
   }
 

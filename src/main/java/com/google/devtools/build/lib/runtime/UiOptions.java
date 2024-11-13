@@ -13,7 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
-import com.google.auto.value.AutoValue;
+import static java.util.Objects.requireNonNull;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.events.EventKind;
@@ -27,6 +28,7 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.errorprone.annotations.InlineMe;
 import java.util.HashSet;
 import java.util.List;
 
@@ -52,15 +54,26 @@ public class UiOptions extends OptionsBase {
       extends Converter.Contextless<EventFiltersConverter.EventKindFilters> {
 
     /** Container for an EventKind input filter. */
-    @AutoValue
-    public abstract static class EventKindFilters {
-      public abstract ImmutableSet<EventKind> getFilteredEventKinds();
+    public record EventKindFilters(
+        ImmutableSet<EventKind> filteredEventKinds, ImmutableSet<EventKind> unfilteredEventKinds) {
+      public EventKindFilters {
+        requireNonNull(filteredEventKinds, "filteredEventKinds");
+        requireNonNull(unfilteredEventKinds, "unfilteredEventKinds");
+      }
 
-      public abstract ImmutableSet<EventKind> getUnfilteredEventKinds();
+      @InlineMe(replacement = "this.filteredEventKinds()")
+      public ImmutableSet<EventKind> getFilteredEventKinds() {
+        return filteredEventKinds();
+      }
+
+      @InlineMe(replacement = "this.unfilteredEventKinds()")
+      public ImmutableSet<EventKind> getUnfilteredEventKinds() {
+        return unfilteredEventKinds();
+      }
 
       public static EventKindFilters from(
           ImmutableSet<EventKind> filtered, ImmutableSet<EventKind> unfiltered) {
-        return new AutoValue_UiOptions_EventFiltersConverter_EventKindFilters(filtered, unfiltered);
+        return new EventKindFilters(filtered, unfiltered);
       }
     }
 

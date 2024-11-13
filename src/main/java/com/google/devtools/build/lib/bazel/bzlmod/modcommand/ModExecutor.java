@@ -18,6 +18,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.ImmutableSortedMap.toImmutableSortedMap;
 import static com.google.common.collect.ImmutableSortedSet.toImmutableSortedSet;
 import static java.util.Comparator.reverseOrder;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
 import com.google.auto.value.AutoValue;
@@ -557,24 +558,24 @@ public class ModExecutor {
       TRUE
     }
 
-    /** Detailed edge type for the {@link ResultNode} graph. */
-    @AutoValue
-    public abstract static class NodeMetadata {
-      /**
-       * Whether the node should be expanded from this edge (the same node can appear in multiple
-       * places in a flattened graph).
-       */
-      public abstract IsExpanded isExpanded();
-
-      /** Whether the edge is a direct edge or an indirect (transitive) one. */
-      public abstract IsIndirect isIndirect();
-
-      /** Whether the edge is cycling back inside the flattened graph. */
-      public abstract IsCycle isCycle();
+    /**
+     * Detailed edge type for the {@link ResultNode} graph.
+     *
+     * @param isExpanded Whether the node should be expanded from this edge (the same node can
+     *     appear in multiple places in a flattened graph).
+     * @param isIndirect Whether the edge is a direct edge or an indirect (transitive) one.
+     * @param isCycle Whether the edge is cycling back inside the flattened graph.
+     */
+    public record NodeMetadata(IsExpanded isExpanded, IsIndirect isIndirect, IsCycle isCycle) {
+      public NodeMetadata {
+        requireNonNull(isExpanded, "isExpanded");
+        requireNonNull(isIndirect, "isIndirect");
+        requireNonNull(isCycle, "isCycle");
+      }
 
       private static NodeMetadata create(
           IsExpanded isExpanded, IsIndirect isIndirect, IsCycle isCycle) {
-        return new AutoValue_ModExecutor_ResultNode_NodeMetadata(isExpanded, isIndirect, isCycle);
+        return new NodeMetadata(isExpanded, isIndirect, isCycle);
       }
     }
 

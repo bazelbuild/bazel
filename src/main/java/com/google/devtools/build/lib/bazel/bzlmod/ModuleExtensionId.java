@@ -17,17 +17,41 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.collect.Comparators.emptiesFirst;
 import static java.util.Comparator.comparing;
+import static java.util.Objects.requireNonNull;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.base.Splitter;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.errorprone.annotations.InlineMe;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
 /** A unique identifier for a {@link ModuleExtension}. */
-@AutoValue
-public abstract class ModuleExtensionId {
+@AutoCodec
+public record ModuleExtensionId(
+    Label bzlFileLabel, String extensionName, Optional<IsolationKey> isolationKey) {
+  public ModuleExtensionId {
+    requireNonNull(bzlFileLabel, "bzlFileLabel");
+    requireNonNull(extensionName, "extensionName");
+    requireNonNull(isolationKey, "isolationKey");
+  }
+
+  @InlineMe(replacement = "this.bzlFileLabel()")
+  public Label getBzlFileLabel() {
+    return bzlFileLabel();
+  }
+
+  @InlineMe(replacement = "this.extensionName()")
+  public String getExtensionName() {
+    return extensionName();
+  }
+
+  @InlineMe(replacement = "this.isolationKey()")
+  public Optional<IsolationKey> getIsolationKey() {
+    return isolationKey();
+  }
+
   public static final Comparator<ModuleExtensionId> LEXICOGRAPHIC_COMPARATOR =
       comparing(ModuleExtensionId::getBzlFileLabel)
           .thenComparing(ModuleExtensionId::getExtensionName)
@@ -35,21 +59,34 @@ public abstract class ModuleExtensionId {
               ModuleExtensionId::getIsolationKey,
               emptiesFirst(IsolationKey.LEXICOGRAPHIC_COMPARATOR));
 
-  /** A unique identifier for a single isolated usage of a fixed module extension. */
-  @AutoValue
-  abstract static class IsolationKey {
+  /**
+   * A unique identifier for a single isolated usage of a fixed module extension.
+   *
+   * @param module The module which contains this isolated usage of a module extension.
+   * @param usageExportedName The exported name of the first extension proxy for this usage.
+   */
+  record IsolationKey(ModuleKey module, String usageExportedName) {
+    IsolationKey {
+      requireNonNull(module, "module");
+      requireNonNull(usageExportedName, "usageExportedName");
+    }
+
+    @InlineMe(replacement = "this.module()")
+    ModuleKey getModule() {
+      return module();
+    }
+
+    @InlineMe(replacement = "this.usageExportedName()")
+    String getUsageExportedName() {
+      return usageExportedName();
+    }
+
     static final Comparator<IsolationKey> LEXICOGRAPHIC_COMPARATOR =
         comparing(IsolationKey::getModule, ModuleKey.LEXICOGRAPHIC_COMPARATOR)
             .thenComparing(IsolationKey::getUsageExportedName);
 
-    /** The module which contains this isolated usage of a module extension. */
-    public abstract ModuleKey getModule();
-
-    /** The exported name of the first extension proxy for this usage. */
-    public abstract String getUsageExportedName();
-
     public static IsolationKey create(ModuleKey module, String usageExportedName) {
-      return new AutoValue_ModuleExtensionId_IsolationKey(module, usageExportedName);
+      return new IsolationKey(module, usageExportedName);
     }
 
     @Override
@@ -64,15 +101,9 @@ public abstract class ModuleExtensionId {
     }
   }
 
-  public abstract Label getBzlFileLabel();
-
-  public abstract String getExtensionName();
-
-  public abstract Optional<IsolationKey> getIsolationKey();
-
   public static ModuleExtensionId create(
       Label bzlFileLabel, String extensionName, Optional<IsolationKey> isolationKey) {
-    return new AutoValue_ModuleExtensionId(bzlFileLabel, extensionName, isolationKey);
+    return new ModuleExtensionId(bzlFileLabel, extensionName, isolationKey);
   }
 
   public final boolean isInnate() {

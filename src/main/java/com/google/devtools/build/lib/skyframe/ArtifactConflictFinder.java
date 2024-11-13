@@ -14,7 +14,8 @@
 
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.auto.value.AutoValue;
+import static java.util.Objects.requireNonNull;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.Sharder;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
+import com.google.errorprone.annotations.InlineMe;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -143,16 +145,27 @@ class ArtifactConflictFinder {
     allArtifacts.addAll(myArtifacts);
   }
 
-  @AutoValue
-  abstract static class ActionConflictsAndStats {
-    abstract ImmutableMap<ActionAnalysisMetadata, ActionConflictException> getConflicts();
+  record ActionConflictsAndStats(
+      ImmutableMap<ActionAnalysisMetadata, ActionConflictException> conflicts,
+      int outputArtifactCount) {
+    ActionConflictsAndStats {
+      requireNonNull(conflicts, "conflicts");
+    }
 
-    abstract int getOutputArtifactCount();
+    @InlineMe(replacement = "this.conflicts()")
+    ImmutableMap<ActionAnalysisMetadata, ActionConflictException> getConflicts() {
+      return conflicts();
+    }
+
+    @InlineMe(replacement = "this.outputArtifactCount()")
+    int getOutputArtifactCount() {
+      return outputArtifactCount();
+    }
 
     static ActionConflictsAndStats create(
         ImmutableMap<ActionAnalysisMetadata, ActionConflictException> conflicts,
         int artifactCount) {
-      return new AutoValue_ArtifactConflictFinder_ActionConflictsAndStats(conflicts, artifactCount);
+      return new ActionConflictsAndStats(conflicts, artifactCount);
     }
   }
 }

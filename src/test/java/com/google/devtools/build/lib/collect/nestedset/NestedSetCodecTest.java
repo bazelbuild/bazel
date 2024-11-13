@@ -18,6 +18,7 @@ import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint.getFingerprintForTesting;
+import static java.util.Objects.requireNonNull;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -29,7 +30,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
@@ -562,14 +562,14 @@ public final class NestedSetCodecTest {
     assertThat(topWriteFuture.isDone()).isTrue();
   }
 
-  @AutoValue
-  abstract static class ColorfulThing {
-    abstract String thing();
-
-    abstract Color color();
+  record ColorfulThing(String thing, Color color) {
+    ColorfulThing {
+      requireNonNull(thing, "thing");
+      requireNonNull(color, "color");
+    }
 
     static ColorfulThing of(String thing, Color color) {
-      return new AutoValue_NestedSetCodecTest_ColorfulThing(thing, color);
+      return new ColorfulThing(thing, color);
     }
   }
 
