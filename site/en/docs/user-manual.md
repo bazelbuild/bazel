@@ -1659,7 +1659,7 @@ command.
 The environment can be accessed from within a test by using
 `System.getenv("var")` (Java), `getenv("var")` (C or C++),
 
-#### `--run_under={{ "<var>" }}command-prefix{{ "</var>" }}` {:#run_under}
+#### `--run_under={{ "<var>" }}command-prefix{{ "</var>" }}` {:#test-run-under}
 
 This specifies a prefix that the test runner will insert in front
 of the test command before running it. The
@@ -1761,10 +1761,10 @@ a user-friendly way.
 
 ### Options for `bazel run` {:#bazel-run-options}
 
-#### `--run_under={{ "<var>" }}command-prefix{{ "</var>" }}` {:#run-under}
+#### `--run_under={{ "<var>" }}command-prefix{{ "</var>" }}` {:#run-run-under}
 
 This has the same effect as the `--run_under` option for
-`bazel test` ([see above](#run-under)),
+`bazel test` ([see above](#test-run-under)),
 except that it applies to the command being run by `bazel
 run` rather than to the tests being run by `bazel test`
 and cannot run under label.
