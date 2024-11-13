@@ -611,15 +611,13 @@ public final class Resolver extends NodeVisitor {
     pushLocalBlock(node, this.locals.frame, this.locals.freevars);
 
     for (Comprehension.Clause clause : clauses) {
-      if (clause instanceof Comprehension.For) {
-        Comprehension.For forClause = (Comprehension.For) clause;
+      if (clause instanceof Comprehension.For forClause) {
         createBindingsForLHS(forClause.getVars());
       }
     }
     for (int i = 0; i < clauses.size(); i++) {
       Comprehension.Clause clause = clauses.get(i);
-      if (clause instanceof Comprehension.For) {
-        Comprehension.For forClause = (Comprehension.For) clause;
+      if (clause instanceof Comprehension.For forClause) {
         if (i > 0) {
           visit(forClause.getIterable());
         }
