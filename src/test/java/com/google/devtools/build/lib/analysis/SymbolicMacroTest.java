@@ -176,6 +176,25 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         "pkg", "_impl() got unexpected keyword arguments: name, visibility");
   }
 
+  @Test
+  public void implementationMustNotReturnAValue() throws Exception {
+    scratch.file(
+        "pkg/foo.bzl",
+        """
+        def _impl(name, visibility):
+            return True
+        my_macro = macro(implementation=_impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro")
+        my_macro(name="abc")
+        """);
+
+    assertGetPackageFailsWithEvent("pkg", "macro 'abc' may not return a non-None value (got True)");
+  }
+
   /**
    * Writes source files for package with a given name such that there is a macro by the given name
    * declaring a target by the given name.
