@@ -15,7 +15,6 @@ java_library(
     name = "execution_requirements",
     srcs = ["ExecutionRequirements.java"],
     deps = [
-        "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -413,8 +412,10 @@ java_library(
     deps = [
         ":artifacts",
         ":has_digest",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:auto_value",
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -596,7 +597,4 @@ java_library(
 java_library(
     name = "total_and_configured_target_only_metric",
     srcs = ["TotalAndConfiguredTargetOnlyMetric.java"],
-    deps = [
-        "//third_party:auto_value",
-    ],
 )

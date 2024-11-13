@@ -23,8 +23,8 @@ import static com.google.devtools.build.lib.remote.util.RxFutures.toCompletable;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toListenableFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.mergeBulkTransfer;
+import static java.util.Objects.requireNonNull;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.InlineMe;
 import io.reactivex.rxjava3.core.Completable;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -183,16 +184,25 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   private final DirectoryTracker directoryTracker = new DirectoryTracker();
 
   /** A symlink in the output tree. */
-  @AutoValue
-  abstract static class Symlink {
+  record Symlink(PathFragment linkExecPath, PathFragment targetExecPath) {
+    Symlink {
+      requireNonNull(linkExecPath, "linkExecPath");
+      requireNonNull(targetExecPath, "targetExecPath");
+      checkArgument(!linkExecPath.equals(targetExecPath));
+    }
 
-    abstract PathFragment getLinkExecPath();
+    @InlineMe(replacement = "this.linkExecPath()")
+    PathFragment getLinkExecPath() {
+      return linkExecPath();
+    }
 
-    abstract PathFragment getTargetExecPath();
+    @InlineMe(replacement = "this.targetExecPath()")
+    PathFragment getTargetExecPath() {
+      return targetExecPath();
+    }
 
     static Symlink of(PathFragment linkExecPath, PathFragment targetExecPath) {
-      checkArgument(!linkExecPath.equals(targetExecPath));
-      return new AutoValue_AbstractActionInputPrefetcher_Symlink(linkExecPath, targetExecPath);
+      return new Symlink(linkExecPath, targetExecPath);
     }
   }
 

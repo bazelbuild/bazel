@@ -14,8 +14,8 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.collect.ImmutableSetMultimap.flatteningToImmutableSetMultimap;
+import static java.util.Objects.requireNonNull;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -504,15 +504,15 @@ final class TargetPatternPhaseFunction implements SkyFunction {
   }
 
   /** Represents the expansion of a single target pattern. */
-  @AutoValue
-  abstract static class ExpandedPattern {
-
-    static ExpandedPattern of(TargetPatternKey pattern, ResolvedTargets<Target> resolvedTargets) {
-      return new AutoValue_TargetPatternPhaseFunction_ExpandedPattern(pattern, resolvedTargets);
+  record ExpandedPattern(TargetPatternKey pattern, ResolvedTargets<Target> resolvedTargets) {
+    ExpandedPattern {
+      requireNonNull(pattern, "pattern");
+      requireNonNull(resolvedTargets, "resolvedTargets");
     }
 
-    abstract TargetPatternKey pattern();
+    static ExpandedPattern of(TargetPatternKey pattern, ResolvedTargets<Target> resolvedTargets) {
+      return new ExpandedPattern(pattern, resolvedTargets);
+    }
 
-    abstract ResolvedTargets<Target> resolvedTargets();
   }
 }

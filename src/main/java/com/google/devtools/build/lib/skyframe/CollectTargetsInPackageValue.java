@@ -13,7 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.auto.value.AutoValue;
+import static java.util.Objects.requireNonNull;
+
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
@@ -22,6 +23,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.Serializat
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.errorprone.annotations.InlineMe;
 
 /** Singleton result of {@link CollectTargetsInPackageFunction}. */
 public class CollectTargetsInPackageValue implements SkyValue {
@@ -40,23 +42,32 @@ public class CollectTargetsInPackageValue implements SkyValue {
   }
 
   /** {@link SkyKey} argument. */
-  @AutoValue
   @AutoCodec
-  public abstract static class CollectTargetsInPackageKey implements SkyKey {
+  public record CollectTargetsInPackageKey(
+      PackageIdentifier packageId, FilteringPolicy filteringPolicy) implements SkyKey {
+    public CollectTargetsInPackageKey {
+      requireNonNull(packageId, "packageId");
+      requireNonNull(filteringPolicy, "filteringPolicy");
+    }
+
+    @InlineMe(replacement = "this.packageId()")
+    public PackageIdentifier getPackageId() {
+      return packageId();
+    }
+
+    @InlineMe(replacement = "this.filteringPolicy()")
+    public FilteringPolicy getFilteringPolicy() {
+      return filteringPolicy();
+    }
+
     private static final SkyKeyInterner<CollectTargetsInPackageKey> interner = SkyKey.newInterner();
 
     @VisibleForSerialization
     @AutoCodec.Instantiator
     public static CollectTargetsInPackageKey create(
         PackageIdentifier packageId, FilteringPolicy filteringPolicy) {
-      return interner.intern(
-          new AutoValue_CollectTargetsInPackageValue_CollectTargetsInPackageKey(
-              packageId, filteringPolicy));
+      return interner.intern(new CollectTargetsInPackageKey(packageId, filteringPolicy));
     }
-
-    public abstract PackageIdentifier getPackageId();
-
-    public abstract FilteringPolicy getFilteringPolicy();
 
     @Override
     public SkyFunctionName functionName() {

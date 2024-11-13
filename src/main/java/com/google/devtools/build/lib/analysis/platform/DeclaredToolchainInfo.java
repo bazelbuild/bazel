@@ -14,11 +14,13 @@
 
 package com.google.devtools.build.lib.analysis.platform;
 
-import com.google.auto.value.AutoValue;
+import static java.util.Objects.requireNonNull;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import javax.annotation.Nullable;
 
@@ -27,25 +29,29 @@ import javax.annotation.Nullable;
  * constraints, and the actual toolchain label. The toolchain is then available for use but will be
  * lazily resolved only when it is actually needed for toolchain-aware rules. Toolchain definitions
  * are exposed to Starlark and Bazel via {@link ToolchainInfo} providers.
+ *
+ * @param toolchainType The type of the toolchain being declared. This will be a label of a
+ *     toolchain_type() target.
+ * @param execConstraints The constraints describing the execution environment.
+ * @param targetConstraints The constraints describing the target environment.
+ * @param targetSettings The setting, that target build configuration needs to satisfy.
+ * @param toolchainLabel The label of the toolchain to resolve for use in toolchain-aware rules.
  */
-@AutoValue
-public abstract class DeclaredToolchainInfo implements TransitiveInfoProvider {
-  /**
-   * The type of the toolchain being declared. This will be a label of a toolchain_type() target.
-   */
-  public abstract ToolchainTypeInfo toolchainType();
-
-  /** The constraints describing the execution environment. */
-  public abstract ConstraintCollection execConstraints();
-
-  /** The constraints describing the target environment. */
-  public abstract ConstraintCollection targetConstraints();
-
-  /** The setting, that target build configuration needs to satisfy. */
-  public abstract ImmutableList<ConfigMatchingProvider> targetSettings();
-
-  /** The label of the toolchain to resolve for use in toolchain-aware rules. */
-  public abstract Label toolchainLabel();
+@AutoCodec
+public record DeclaredToolchainInfo(
+    ToolchainTypeInfo toolchainType,
+    ConstraintCollection execConstraints,
+    ConstraintCollection targetConstraints,
+    ImmutableList<ConfigMatchingProvider> targetSettings,
+    Label toolchainLabel)
+    implements TransitiveInfoProvider {
+  public DeclaredToolchainInfo {
+    requireNonNull(toolchainType, "toolchainType");
+    requireNonNull(execConstraints, "execConstraints");
+    requireNonNull(targetConstraints, "targetConstraints");
+    requireNonNull(targetSettings, "targetSettings");
+    requireNonNull(toolchainLabel, "toolchainLabel");
+  }
 
   /** Builder class to assist in creating {@link DeclaredToolchainInfo} instances. */
   public static class Builder {
@@ -123,7 +129,7 @@ public abstract class DeclaredToolchainInfo implements TransitiveInfoProvider {
         throw new DuplicateConstraintException(
             execConstraintsException, targetConstraintsException);
       }
-      return new AutoValue_DeclaredToolchainInfo(
+      return new DeclaredToolchainInfo(
           toolchainType,
           execConstraints,
           targetConstraints,

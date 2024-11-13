@@ -17,9 +17,9 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
+import static java.util.Objects.requireNonNull;
 import static org.junit.Assert.fail;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -71,6 +71,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.errorprone.annotations.InlineMe;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -90,22 +91,36 @@ public class DiscoveryTest extends FoundationTestCase {
   private EvaluationContext evaluationContext;
   private FakeRegistry.Factory registryFactory;
 
-  @AutoValue
-  abstract static class DiscoveryValue implements SkyValue {
+  record DiscoveryValue(
+      ImmutableMap<ModuleKey, InterimModule> depGraph,
+      ImmutableMap<String, Optional<String>> registryFileHashes)
+      implements SkyValue {
+    DiscoveryValue {
+      requireNonNull(depGraph, "depGraph");
+      requireNonNull(registryFileHashes, "registryFileHashes");
+    }
+
+    @InlineMe(replacement = "this.depGraph()")
+    ImmutableMap<ModuleKey, InterimModule> getDepGraph() {
+      return depGraph();
+    }
+
+    @InlineMe(replacement = "this.registryFileHashes()")
+    ImmutableMap<String, Optional<String>> getRegistryFileHashes() {
+      return registryFileHashes();
+    }
+
     static final SkyFunctionName FUNCTION_NAME = SkyFunctionName.createHermetic("test_discovery");
     static final SkyKey KEY = () -> FUNCTION_NAME;
 
     static DiscoveryValue create(
         ImmutableMap<ModuleKey, InterimModule> depGraph,
         ImmutableMap<String, Optional<String>> registryFileHashes) {
-      return new AutoValue_DiscoveryTest_DiscoveryValue(depGraph, registryFileHashes);
+      return new DiscoveryValue(depGraph, registryFileHashes);
     }
-
-    abstract ImmutableMap<ModuleKey, InterimModule> getDepGraph();
 
     // Uses Optional<String> rather than Optional<Checksum> for easier testing (Checksum doesn't
     // implement equals()).
-    abstract ImmutableMap<String, Optional<String>> getRegistryFileHashes();
   }
 
   static class DiscoveryFunction implements SkyFunction {

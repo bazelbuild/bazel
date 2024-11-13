@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.profiler;
 
-import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.profiler.statistics.PhaseSummaryStatistics;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonToken;
@@ -135,20 +134,12 @@ public final class JsonProfile {
   }
 
   /** Value class to hold build metadata (id, date, output base) if available. */
-  @AutoValue
-  public abstract static class BuildMetadata {
+  public record BuildMetadata(
+      @Nullable String buildId, @Nullable String date, @Nullable String outputBase) {
     public static BuildMetadata create(
         @Nullable String buildId, @Nullable String date, @Nullable String outputBase) {
-      return new AutoValue_JsonProfile_BuildMetadata(buildId, date, outputBase);
+      return new BuildMetadata(buildId, date, outputBase);
     }
 
-    @Nullable
-    public abstract String buildId();
-
-    @Nullable
-    public abstract String date();
-
-    @Nullable
-    public abstract String outputBase();
   }
 }

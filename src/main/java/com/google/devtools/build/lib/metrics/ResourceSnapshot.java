@@ -14,25 +14,42 @@
 
 package com.google.devtools.build.lib.metrics;
 
-import com.google.auto.value.AutoValue;
+import static java.util.Objects.requireNonNull;
+
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.InlineMe;
 import java.time.Instant;
 
-/** Contains a snapshot of the resource usage of multiple processes. */
-@AutoValue
-public abstract class ResourceSnapshot {
-  /** Overall memory consumption by all descendant processes including initial process. */
-  public abstract ImmutableMap<Long, Integer> getPidToMemoryInKb();
+/**
+ * Contains a snapshot of the resource usage of multiple processes.
+ *
+ * @param pidToMemoryInKb Overall memory consumption by all descendant processes including initial
+ *     process.
+ * @param collectionTime Time when this snapshot was collected.
+ */
+public record ResourceSnapshot(
+    ImmutableMap<Long, Integer> pidToMemoryInKb, Instant collectionTime) {
+  public ResourceSnapshot {
+    requireNonNull(pidToMemoryInKb, "pidToMemoryInKb");
+    requireNonNull(collectionTime, "collectionTime");
+  }
 
-  /** Time when this snapshot was collected. */
-  public abstract Instant getCollectionTime();
+  @InlineMe(replacement = "this.pidToMemoryInKb()")
+  public ImmutableMap<Long, Integer> getPidToMemoryInKb() {
+    return pidToMemoryInKb();
+  }
+
+  @InlineMe(replacement = "this.collectionTime()")
+  public Instant getCollectionTime() {
+    return collectionTime();
+  }
 
   public static ResourceSnapshot create(
       ImmutableMap<Long, Integer> pidToMemoryInKb, Instant collectionTime) {
-    return new AutoValue_ResourceSnapshot(pidToMemoryInKb, collectionTime);
+    return new ResourceSnapshot(pidToMemoryInKb, collectionTime);
   }
 
   public static ResourceSnapshot createEmpty(Instant collectionTime) {
-    return new AutoValue_ResourceSnapshot(ImmutableMap.of(), collectionTime);
+    return new ResourceSnapshot(ImmutableMap.of(), collectionTime);
   }
 }

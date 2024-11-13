@@ -17,10 +17,10 @@ package com.google.devtools.build.lib.repository;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
+import static java.util.Objects.requireNonNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -369,12 +369,13 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
   private static final SkyFunctionName GET_RULE_BY_NAME_FUNCTION =
       SkyFunctionName.createHermetic("GET_RULE_BY_NAME");
 
-  @AutoValue
-  abstract static class GetRuleByNameValue implements SkyValue {
-    abstract Rule rule();
+  record GetRuleByNameValue(Rule rule) implements SkyValue {
+    GetRuleByNameValue {
+      requireNonNull(rule, "rule");
+    }
 
     static GetRuleByNameValue create(Rule rule) {
-      return new AutoValue_ExternalPackageHelperTest_GetRuleByNameValue(rule);
+      return new GetRuleByNameValue(rule);
     }
   }
 
@@ -403,13 +404,14 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
   private static final SkyFunctionName GET_REGISTERED_TOOLCHAINS_FUNCTION =
       SkyFunctionName.createHermetic("GET_REGISTERED_TOOLCHAINS");
 
-  @AutoValue
-  abstract static class GetRegisteredToolchainsValue implements SkyValue {
-    abstract ImmutableList<String> registeredToolchains();
+  record GetRegisteredToolchainsValue(ImmutableList<String> registeredToolchains)
+      implements SkyValue {
+    GetRegisteredToolchainsValue {
+      requireNonNull(registeredToolchains, "registeredToolchains");
+    }
 
     static GetRegisteredToolchainsValue create(Iterable<String> registeredToolchains) {
-      return new AutoValue_ExternalPackageHelperTest_GetRegisteredToolchainsValue(
-          ImmutableList.copyOf(registeredToolchains));
+      return new GetRegisteredToolchainsValue(ImmutableList.copyOf(registeredToolchains));
     }
   }
 
@@ -448,13 +450,15 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
   private static final SkyFunctionName GET_REGISTERED_EXECUTION_PLATFORMS_FUNCTION =
       SkyFunctionName.createHermetic("GET_REGISTERED_EXECUTION_PLATFORMS_FUNCTION");
 
-  @AutoValue
-  abstract static class GetRegisteredExecutionPlatformsValue implements SkyValue {
-    abstract ImmutableList<String> registeredExecutionPlatforms();
+  record GetRegisteredExecutionPlatformsValue(ImmutableList<String> registeredExecutionPlatforms)
+      implements SkyValue {
+    GetRegisteredExecutionPlatformsValue {
+      requireNonNull(registeredExecutionPlatforms, "registeredExecutionPlatforms");
+    }
 
     static GetRegisteredExecutionPlatformsValue create(
         Iterable<String> registeredExecutionPlatforms) {
-      return new AutoValue_ExternalPackageHelperTest_GetRegisteredExecutionPlatformsValue(
+      return new GetRegisteredExecutionPlatformsValue(
           ImmutableList.copyOf(registeredExecutionPlatforms));
     }
   }

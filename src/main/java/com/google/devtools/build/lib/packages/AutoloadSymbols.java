@@ -17,8 +17,8 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.util.Objects.requireNonNull;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.errorprone.annotations.InlineMe;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -566,17 +567,32 @@ public class AutoloadSymbols {
   }
 
   /** Configuration of a symbol */
-  @AutoValue
-  public abstract static class SymbolRedirect {
+  public record SymbolRedirect(
+      String loadLabel, boolean rule, @Nullable String newName, ImmutableSet<String> rdeps) {
+    public SymbolRedirect {
+      requireNonNull(loadLabel, "loadLabel");
+      requireNonNull(rdeps, "rdeps");
+    }
 
-    public abstract String getLoadLabel();
+    @InlineMe(replacement = "this.loadLabel()")
+    public String getLoadLabel() {
+      return loadLabel();
+    }
 
-    public abstract boolean isRule();
+    @InlineMe(replacement = "this.rule()")
+    public boolean isRule() {
+      return rule();
+    }
 
-    @Nullable
-    public abstract String getNewName();
+    @InlineMe(replacement = "this.newName()")
+    public @Nullable String getNewName() {
+      return newName();
+    }
 
-    public abstract ImmutableSet<String> getRdeps();
+    @InlineMe(replacement = "this.rdeps()")
+    public ImmutableSet<String> getRdeps() {
+      return rdeps();
+    }
 
     String getModuleName() throws InterruptedException {
       return Label.parseCanonicalUnchecked(getLoadLabel()).getRepository().getName();
@@ -600,18 +616,16 @@ public class AutoloadSymbols {
   }
 
   private static SymbolRedirect ruleRedirect(String label) {
-    return new AutoValue_AutoloadSymbols_SymbolRedirect(label, true, null, ImmutableSet.of());
+    return new SymbolRedirect(label, true, null, ImmutableSet.of());
   }
 
   private static SymbolRedirect symbolRedirect(String label, String... rdeps) {
-    return new AutoValue_AutoloadSymbols_SymbolRedirect(
-        label, false, null, ImmutableSet.copyOf(rdeps));
+    return new SymbolRedirect(label, false, null, ImmutableSet.copyOf(rdeps));
   }
 
   private static SymbolRedirect renamedSymbolRedirect(
       String label, String newName, String... rdeps) {
-    return new AutoValue_AutoloadSymbols_SymbolRedirect(
-        label, false, newName, ImmutableSet.copyOf(rdeps));
+    return new SymbolRedirect(label, false, newName, ImmutableSet.copyOf(rdeps));
   }
 
   private static final ImmutableSet<String> PREDECLARED_REPOS_DISALLOWING_AUTOLOADS =

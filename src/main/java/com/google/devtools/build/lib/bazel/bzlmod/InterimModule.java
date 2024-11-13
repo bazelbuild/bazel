@@ -15,11 +15,15 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static java.util.Objects.requireNonNull;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.errorprone.annotations.InlineMe;
 import java.util.Optional;
 import java.util.function.UnaryOperator;
 import javax.annotation.Nullable;
@@ -49,16 +53,30 @@ public abstract class InterimModule extends ModuleBase {
   public abstract ImmutableList<String> getBazelCompatibility();
 
   /** The specification of a dependency. */
-  @AutoValue
-  public abstract static class DepSpec {
-    public abstract String getName();
+  @AutoCodec
+  public record DepSpec(String name, Version version, int maxCompatibilityLevel) {
+    public DepSpec {
+      requireNonNull(name, "name");
+      requireNonNull(version, "version");
+    }
 
-    public abstract Version getVersion();
+    @InlineMe(replacement = "this.name()")
+    public String getName() {
+      return name();
+    }
 
-    public abstract int getMaxCompatibilityLevel();
+    @InlineMe(replacement = "this.version()")
+    public Version getVersion() {
+      return version();
+    }
+
+    @InlineMe(replacement = "this.maxCompatibilityLevel()")
+    public int getMaxCompatibilityLevel() {
+      return maxCompatibilityLevel();
+    }
 
     public static DepSpec create(String name, Version version, int maxCompatibilityLevel) {
-      return new AutoValue_InterimModule_DepSpec(name, version, maxCompatibilityLevel);
+      return new DepSpec(name, version, maxCompatibilityLevel);
     }
 
     public static DepSpec fromModuleKey(ModuleKey key) {

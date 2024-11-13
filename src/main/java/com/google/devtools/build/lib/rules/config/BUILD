@@ -92,10 +92,8 @@ java_library(
     deps = [
         ":config_feature_flag_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/invalid_configuration_exception",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//third_party:auto_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )

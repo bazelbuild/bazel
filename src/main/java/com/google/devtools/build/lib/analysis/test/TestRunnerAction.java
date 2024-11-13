@@ -17,8 +17,8 @@ package com.google.devtools.build.lib.analysis.test;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.actions.ActionAnalysisMetadata.mergeMaps;
+import static java.util.Objects.requireNonNull;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
@@ -72,6 +72,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import com.google.devtools.common.options.TriState;
+import com.google.errorprone.annotations.InlineMe;
 import com.google.protobuf.ExtensionRegistry;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -1282,15 +1283,24 @@ public class TestRunnerAction extends AbstractAction
   }
 
   /** Value type used to store computed next runner and max attempts. */
-  @AutoValue
   @VisibleForTesting
-  abstract static class TestRunnerSpawnAndMaxAttempts {
-    public abstract TestRunnerSpawn getSpawn();
+  record TestRunnerSpawnAndMaxAttempts(TestRunnerSpawn spawn, int maxAttempts) {
+    TestRunnerSpawnAndMaxAttempts {
+      requireNonNull(spawn, "spawn");
+    }
 
-    public abstract int getMaxAttempts();
+    @InlineMe(replacement = "this.spawn()")
+    TestRunnerSpawn getSpawn() {
+      return spawn();
+    }
+
+    @InlineMe(replacement = "this.maxAttempts()")
+    int getMaxAttempts() {
+      return maxAttempts();
+    }
 
     public static TestRunnerSpawnAndMaxAttempts create(TestRunnerSpawn spawn, int maxAttempts) {
-      return new AutoValue_TestRunnerAction_TestRunnerSpawnAndMaxAttempts(spawn, maxAttempts);
+      return new TestRunnerSpawnAndMaxAttempts(spawn, maxAttempts);
     }
   }
 

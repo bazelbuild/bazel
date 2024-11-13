@@ -14,7 +14,8 @@
 
 package com.google.devtools.build.lib.profiler;
 
-import com.google.auto.value.AutoValue;
+import static java.util.Objects.requireNonNull;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Splitter;
@@ -22,6 +23,7 @@ import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.util.HeapOffsetHelper;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.errorprone.annotations.InlineMe;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.lang.management.ManagementFactory;
@@ -224,14 +226,24 @@ public final class MemoryProfiler {
   }
 
   @VisibleForTesting
-  @AutoValue
-  abstract static class HeapAndNonHeap {
-    abstract MemoryUsage getHeap();
+  record HeapAndNonHeap(MemoryUsage heap, MemoryUsage nonHeap) {
+    HeapAndNonHeap {
+      requireNonNull(heap, "heap");
+      requireNonNull(nonHeap, "nonHeap");
+    }
 
-    abstract MemoryUsage getNonHeap();
+    @InlineMe(replacement = "this.heap()")
+    MemoryUsage getHeap() {
+      return heap();
+    }
+
+    @InlineMe(replacement = "this.nonHeap()")
+    MemoryUsage getNonHeap() {
+      return nonHeap();
+    }
 
     static HeapAndNonHeap create(MemoryUsage heap, MemoryUsage nonHeap) {
-      return new AutoValue_MemoryProfiler_HeapAndNonHeap(heap, nonHeap);
+      return new HeapAndNonHeap(heap, nonHeap);
     }
   }
 }

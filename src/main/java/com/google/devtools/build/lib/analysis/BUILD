@@ -450,6 +450,7 @@ java_library(
         "//src/main/protobuf:test_status_java_proto",
         "//third_party:auto_value",
         "//third_party:caffeine",
+        "//third_party:error_prone_annotations",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -534,6 +535,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
         "//third_party:auto_value",
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
     ],
 )
@@ -804,6 +806,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/platform",
         "//third_party:auto_value",
         "//third_party:guava",
@@ -841,8 +844,10 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/net/starlark/java/syntax",
         "//third_party:auto_value",
+        "//third_party:error_prone_annotations",
     ],
 )
 
@@ -1025,9 +1030,11 @@ java_library(
         ":transitive_info_provider",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//third_party:auto_value",
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
     ],
 )
@@ -1186,7 +1193,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages:exec_group",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//third_party:auto_value",
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
     ],
 )
@@ -1342,6 +1351,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:auto_value",
         "//third_party:error_prone_annotations",
@@ -1359,6 +1369,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:auto_value",
         "//third_party:error_prone_annotations",
@@ -1936,6 +1947,7 @@ java_library(
     name = "config/feature_set",
     srcs = ["config/FeatureSet.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//third_party:auto_value",
         "//third_party:guava",
     ],
@@ -1966,6 +1978,7 @@ java_library(
         ":config/invalid_configuration_exception",
         "//third_party:auto_value",
         "//third_party:caffeine",
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -2085,6 +2098,7 @@ java_library(
     srcs = ["config/ToolchainTypeRequirement.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/config:starlark_toolchain_type_requirement",
         "//third_party:auto_value",
         "//third_party:guava",
@@ -2352,6 +2366,7 @@ java_library(
         ":label_and_location",
         ":transitive_info_provider",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//third_party:auto_value",
     ],
 )

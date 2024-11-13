@@ -13,7 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
-import com.google.auto.value.AutoValue;
+import static java.util.Objects.requireNonNull;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -23,6 +24,7 @@ import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.errorprone.annotations.InlineMe;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -202,15 +204,25 @@ public final class AspectCollection {
    * <p>(a list of (dependent aspect, visible) pairs would work, though and the code would probably
    * be somewhat simpler)
    */
-  @AutoValue
-  public abstract static class AspectDeps {
-    public abstract AspectDescriptor getAspect();
+  public record AspectDeps(AspectDescriptor aspect, ImmutableList<AspectDeps> usedAspects) {
+    public AspectDeps {
+      requireNonNull(aspect, "aspect");
+      requireNonNull(usedAspects, "usedAspects");
+    }
 
-    public abstract ImmutableList<AspectDeps> getUsedAspects();
+    @InlineMe(replacement = "this.aspect()")
+    public AspectDescriptor getAspect() {
+      return aspect();
+    }
+
+    @InlineMe(replacement = "this.usedAspects()")
+    public ImmutableList<AspectDeps> getUsedAspects() {
+      return usedAspects();
+    }
 
     private static AspectDeps create(
         AspectDescriptor aspect, ImmutableList<AspectDeps> usedAspects) {
-      return new AutoValue_AspectCollection_AspectDeps(aspect, usedAspects);
+      return new AspectDeps(aspect, usedAspects);
     }
   }
 
