@@ -44,6 +44,9 @@ def _cc_semantics_get_cc_runtimes(*args, **kwargs):
 def _cc_semantics_get_runtimes_toolchain(*args, **kwargs):
     return cc_semantics.get_runtimes_toolchain(*args, **kwargs)
 
+def _cc_semantics_get_stl(*args, **kwargs):
+    return cc_semantics.get_stl(*args, **kwargs)
+
 def _cc_toolchain_strip_files(cc_toolchain, *args, **kwargs):
     return cc_toolchain._strip_files
 
@@ -163,6 +166,7 @@ py_internal = struct(
     cc_launcher_info_cc_info = _cc_launcher_info_cc_info,
     cc_semantics_get_cc_runtimes = _cc_semantics_get_cc_runtimes,
     cc_semantics_get_runtimes_toolchain = _cc_semantics_get_runtimes_toolchain,
+    cc_semantics_get_stl = _cc_semantics_get_stl,
     cc_toolchain_strip_files = _cc_toolchain_strip_files,
     cc_toolchain_build_info_files = _cc_toolchain_build_info_files,
     compilation_outputs = _compilation_outputs,

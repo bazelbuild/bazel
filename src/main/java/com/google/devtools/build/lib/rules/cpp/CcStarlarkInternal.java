@@ -44,12 +44,15 @@ import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.LibraryToLinkValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.SequenceBuilder;
@@ -59,6 +62,7 @@ import com.google.devtools.build.lib.rules.cpp.LegacyLinkerInputs.LibraryInput;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
@@ -284,6 +288,25 @@ public class CcStarlarkInternal implements StarlarkValue {
     } catch (CommandLineExpansionException | InterruptedException ex) {
       throw new EvalException(ex);
     }
+  }
+
+  /**
+   * TODO(bazel-team): This can be re-written directly to Starlark but it will cause a memory
+   * regression due to the way StarlarkComputedDefault is stored for each rule.
+   */
+  static class StlComputedDefault extends ComputedDefault implements NativeComputedDefaultApi {
+    @Override
+    @Nullable
+    public Object getDefault(AttributeMap rule) {
+      return rule.getOrDefault("tags", Types.STRING_LIST, ImmutableList.of()).contains("__CC_STL__")
+          ? null
+          : Label.parseCanonicalUnchecked("@//third_party/stl");
+    }
+  }
+
+  @StarlarkMethod(name = "stl_computed_default", documented = false)
+  public ComputedDefault getStlComputedDefault() {
+    return new StlComputedDefault();
   }
 
   @StarlarkMethod(
