@@ -25,7 +25,4 @@ public interface InstrumentationOutput {
 
   /** Publishes instrumentation output information to the {@link BuildToolLogCollection}. */
   void publish(BuildToolLogCollection buildToolLogCollection);
-
-  /** A string we might show the user in an error message to describe this file and/or its path */
-  String getHumanReadableName();
 }
