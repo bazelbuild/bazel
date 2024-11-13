@@ -743,8 +743,7 @@ final class AspectFunction implements SkyFunction {
               initialValues.getOrThrow(
                   configuredTargetLookupKey, ConfiguredValueCreationException.class);
       if (baseConfiguredTargetValue == null) {
-        BugReport.logUnexpected(
-            "Unexpected exception with %s and AspectKey %s", key.getBaseConfiguredTargetKey(), key);
+        // Assigned target might not be configured yet, in which case Skyframe restart is needed.
         return null;
       }
       baseConfiguredTarget = baseConfiguredTargetValue.getConfiguredTarget();
