@@ -59,7 +59,11 @@ public class StreamedProtoOutputFormatter extends ProtoOutputFormatter {
           StreamSupport.stream(partialResult.spliterator(), /* parallel= */ true)
               .map(this::toProto)
               .map(StreamedProtoOutputFormatter::writeDelimited)
-              .forEach(this::writeToOutputStreamThreadSafe);
+              // I imagine forEachOrdered hurts performance somewhat in some cases. While we may
+              // not need to actually produce output in order, this code does not know whether
+              // ordering was requested. So we just always write it in order, and hope performance
+              // is OK.
+              .forEachOrdered(this::writeToOutputStreamThreadSafe);
         } catch (WrappedIOException e) {
           throw e.getCause();
         } catch (WrappedInterruptedException e) {
