@@ -618,16 +618,11 @@ public class ModuleFileFunction implements SkyFunction {
 
       // Try to extract a MODULE.bazel file from the patches without
       // triggering the underlying repository rule.
-      ModuleFile moduleFileFromPatches = maybePatchModuleFile(
-          null,
-          moduleFileLabel.getUnambiguousCanonicalForm(),
-          override,
-          env);
+      ModuleFile moduleFileFromPatches =
+          maybePatchModuleFile(null, moduleFileLabel.getUnambiguousCanonicalForm(), override, env);
       if (moduleFileFromPatches != null) {
         return new GetModuleFileResult(
-            moduleFileFromPatches,
-            /* registry= */ null,
-            new StoredEventHandler());
+            moduleFileFromPatches, /* registry= */ null, new StoredEventHandler());
       }
 
       // Otherwise use the MODULE.bazel from the repository
@@ -700,11 +695,12 @@ public class ModuleFileFunction implements SkyFunction {
         if (maybeModuleFile.isEmpty()) {
           continue;
         }
-        ModuleFile moduleFile = maybePatchModuleFile(
-            maybeModuleFile.get().getContent(),
-            maybeModuleFile.get().getLocation(),
-            override,
-            env);
+        ModuleFile moduleFile =
+            maybePatchModuleFile(
+                maybeModuleFile.get().getContent(),
+                maybeModuleFile.get().getLocation(),
+                override,
+                env);
         if (moduleFile == null) {
           return null;
         }
@@ -735,9 +731,13 @@ public class ModuleFileFunction implements SkyFunction {
    */
   @Nullable
   private ModuleFile maybePatchModuleFile(
-      @Nullable byte[] moduleFileBytes, String moduleFileLocation, ModuleOverride override, Environment env)
+      @Nullable byte[] moduleFileBytes,
+      String moduleFileLocation,
+      ModuleOverride override,
+      Environment env)
       throws InterruptedException, ModuleFileFunctionException {
-    var moduleFile = moduleFileBytes == null ? null : ModuleFile.create(moduleFileBytes, moduleFileLocation);
+    var moduleFile =
+        moduleFileBytes == null ? null : ModuleFile.create(moduleFileBytes, moduleFileLocation);
     ImmutableList<Label> patches;
     int patchStrip;
     switch (override) {
@@ -758,9 +758,7 @@ public class ModuleFileFunction implements SkyFunction {
       }
     }
     var patchesInMainRepo =
-        patches.stream()
-            .filter(label -> label.getRepository().isMain())
-            .collect(toImmutableList());
+        patches.stream().filter(label -> label.getRepository().isMain()).collect(toImmutableList());
     if (patchesInMainRepo.isEmpty()) {
       return moduleFile;
     }
@@ -826,11 +824,7 @@ public class ModuleFileFunction implements SkyFunction {
       for (var patchPath : patchPaths) {
         try {
           PatchUtil.applyToSingleFile(
-              patchPath.asPath(),
-              patchStrip,
-              moduleRoot,
-              moduleFilePath,
-              moduleFileBytes != null);
+              patchPath.asPath(), patchStrip, moduleRoot, moduleFilePath, moduleFileBytes != null);
         } catch (PatchFailedException e) {
           throw errorf(
               Code.BAD_MODULE,
@@ -844,8 +838,7 @@ public class ModuleFileFunction implements SkyFunction {
       if (moduleFile == null && !moduleFilePath.exists()) {
         return null;
       }
-      return ModuleFile.create(
-          FileSystemUtils.readContent(moduleFilePath), moduleFileLocation);
+      return ModuleFile.create(FileSystemUtils.readContent(moduleFilePath), moduleFileLocation);
     } catch (IOException e) {
       throw errorf(
           Code.BAD_MODULE,
