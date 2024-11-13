@@ -398,7 +398,6 @@ this option is off.
     "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
     "_cc_binary": attr.bool(),
     "_is_test": attr.bool(default = False),
-    "_stl": semantics.get_stl(),
     # TODO(b/288421584): necessary because IDE aspect can't see toolchains
     "_cc_toolchain": attr.label(default = "@" + semantics.get_repo() + "//tools/cpp:current_cc_toolchain"),
     "_def_parser": semantics.get_def_parser(),

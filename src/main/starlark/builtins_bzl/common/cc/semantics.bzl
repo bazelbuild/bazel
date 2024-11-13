@@ -31,9 +31,6 @@ def _validate_attributes(ctx):
 def _get_semantics():
     return _builtins.internal.bazel_cc_internal.semantics
 
-def _get_stl():
-    return attr.label()
-
 def _get_repo():
     return "bazel_tools"
 
@@ -170,7 +167,6 @@ semantics = struct(
     get_distribs_attr = _get_distribs_attr,
     get_licenses_attr = _get_licenses_attr,
     get_def_parser = _get_def_parser,
-    get_stl = _get_stl,
     should_create_empty_archive = _should_create_empty_archive,
     get_grep_includes = _get_grep_includes,
     get_implementation_deps_allowed_attr = _get_implementation_deps_allowed_attr,
