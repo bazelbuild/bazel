@@ -421,7 +421,7 @@ public class PatchUtil {
    */
   public static void apply(Path patchFile, int strip, Path outputDirectory)
       throws IOException, PatchFailedException {
-    applyInternal(patchFile, strip, outputDirectory, /* singleFile= */ null);
+    applyInternal(patchFile, strip, outputDirectory, /* singleFile= */ null, /* singleFileExists= */ false);
   }
 
   /**
@@ -433,15 +433,17 @@ public class PatchUtil {
    * @param outputDirectory the directory to apply the patch file to
    * @param singleFile only apply the parts of the patch file that apply to this file. Renaming the
    *     file is not supported in this case.
+   * @param singleFileExists true if the singleFile already exists, false if the file is expected
+   *     to be created by the patches.
    */
   public static void applyToSingleFile(
-      Path patchFile, int strip, Path outputDirectory, Path singleFile)
+      Path patchFile, int strip, Path outputDirectory, Path singleFile, boolean singleFileExists)
       throws IOException, PatchFailedException {
-    applyInternal(patchFile, strip, outputDirectory, singleFile);
+    applyInternal(patchFile, strip, outputDirectory, singleFile, singleFileExists);
   }
 
   private static void applyInternal(
-      Path patchFile, int strip, Path outputDirectory, @Nullable Path singleFile)
+      Path patchFile, int strip, Path outputDirectory, @Nullable Path singleFile, boolean singleFileExists)
       throws IOException, PatchFailedException {
     if (!patchFile.exists()) {
       throw new PatchFailedException("Cannot find patch file: " + patchFile.getPathString());
@@ -595,12 +597,16 @@ public class PatchUtil {
               }
             }
 
-            if (singleFile == null || (singleFile.equals(newFile) && singleFile.equals(oldFile))) {
+            if (singleFile == null || (
+                singleFile.equals(newFile) &&
+                (singleFile.equals(oldFile) || (oldFile == null && !singleFileExists))
+            )) {
               Patch<String> patch = UnifiedDiffUtils.parseUnifiedDiff(patchContent);
               checkFilesStatusForPatching(
                   patch, oldFile, newFile, oldFileStr, newFileStr, patchStartLocation);
 
               applyPatchToFile(patch, oldFile, newFile, isRenaming, filePermission);
+              singleFileExists = true;
             }
           }
 

@@ -611,6 +611,26 @@ public class ModuleFileFunction implements SkyFunction {
       // A module with a non-registry override always has a unique version across the entire dep
       // graph.
       RepositoryName canonicalRepoName = key.getCanonicalRepoNameWithoutVersion();
+      Label moduleFileLabel =
+          Label.createUnvalidated(
+              PackageIdentifier.create(canonicalRepoName, PathFragment.EMPTY_FRAGMENT),
+              LabelConstants.MODULE_DOT_BAZEL_FILE_NAME.getBaseName());
+
+      // Try to extract a MODULE.bazel file from the patches without
+      // triggering the underlying repository rule.
+      ModuleFile moduleFileFromPatches = maybePatchModuleFile(
+          null,
+          moduleFileLabel.getUnambiguousCanonicalForm(),
+          override,
+          env);
+      if (moduleFileFromPatches != null) {
+        return new GetModuleFileResult(
+            moduleFileFromPatches,
+            /* registry= */ null,
+            new StoredEventHandler());
+      }
+
+      // Otherwise use the MODULE.bazel from the repository
       RepositoryDirectoryValue repoDir =
           (RepositoryDirectoryValue) env.getValue(RepositoryDirectoryValue.key(canonicalRepoName));
       if (repoDir == null) {
@@ -622,10 +642,6 @@ public class ModuleFileFunction implements SkyFunction {
       if (env.getValue(FileValue.key(moduleFilePath)) == null) {
         return null;
       }
-      Label moduleFileLabel =
-          Label.createUnvalidated(
-              PackageIdentifier.create(canonicalRepoName, PathFragment.EMPTY_FRAGMENT),
-              LabelConstants.MODULE_DOT_BAZEL_FILE_NAME.getBaseName());
       return new GetModuleFileResult(
           ModuleFile.create(
               readModuleFile(moduleFilePath.asPath()),
@@ -684,7 +700,11 @@ public class ModuleFileFunction implements SkyFunction {
         if (maybeModuleFile.isEmpty()) {
           continue;
         }
-        ModuleFile moduleFile = maybePatchModuleFile(maybeModuleFile.get(), override, env);
+        ModuleFile moduleFile = maybePatchModuleFile(
+            maybeModuleFile.get().getContent(),
+            maybeModuleFile.get().getLocation(),
+            override,
+            env);
         if (moduleFile == null) {
           return null;
         }
@@ -715,13 +735,30 @@ public class ModuleFileFunction implements SkyFunction {
    */
   @Nullable
   private ModuleFile maybePatchModuleFile(
-      ModuleFile moduleFile, ModuleOverride override, Environment env)
+      @Nullable byte[] moduleFileBytes, String moduleFileLocation, ModuleOverride override, Environment env)
       throws InterruptedException, ModuleFileFunctionException {
-    if (!(override instanceof SingleVersionOverride singleVersionOverride)) {
-      return moduleFile;
+    var moduleFile = moduleFileBytes == null ? null : ModuleFile.create(moduleFileBytes, moduleFileLocation);
+    ImmutableList<Label> patches;
+    int patchStrip;
+    switch (override) {
+      case SingleVersionOverride singleVersionOverride -> {
+        patches = singleVersionOverride.getPatches();
+        patchStrip = singleVersionOverride.getPatchStrip();
+      }
+      case ArchiveOverride archiveOverride -> {
+        patches = archiveOverride.getPatches();
+        patchStrip = archiveOverride.getPatchStrip();
+      }
+      case GitOverride gitOverride -> {
+        patches = gitOverride.getPatches();
+        patchStrip = gitOverride.getPatchStrip();
+      }
+      case null, default -> {
+        return moduleFile;
+      }
     }
     var patchesInMainRepo =
-        singleVersionOverride.getPatches().stream()
+        patches.stream()
             .filter(label -> label.getRepository().isMain())
             .collect(toImmutableList());
     if (patchesInMainRepo.isEmpty()) {
@@ -783,14 +820,17 @@ public class ModuleFileFunction implements SkyFunction {
       Path moduleRoot = patchFs.getPath("/module");
       moduleRoot.createDirectoryAndParents();
       Path moduleFilePath = moduleRoot.getChild("MODULE.bazel");
-      FileSystemUtils.writeContent(moduleFilePath, moduleFile.getContent());
+      if (moduleFileBytes != null) {
+        FileSystemUtils.writeContent(moduleFilePath, moduleFileBytes);
+      }
       for (var patchPath : patchPaths) {
         try {
           PatchUtil.applyToSingleFile(
               patchPath.asPath(),
-              singleVersionOverride.getPatchStrip(),
+              patchStrip,
               moduleRoot,
-              moduleFilePath);
+              moduleFilePath,
+              moduleFileBytes != null);
         } catch (PatchFailedException e) {
           throw errorf(
               Code.BAD_MODULE,
@@ -799,8 +839,13 @@ public class ModuleFileFunction implements SkyFunction {
               e.getMessage());
         }
       }
+      // Allow returning null if no module file was provided and one was
+      // not created by the patches.
+      if (moduleFile == null && !moduleFilePath.exists()) {
+        return null;
+      }
       return ModuleFile.create(
-          FileSystemUtils.readContent(moduleFilePath), moduleFile.getLocation());
+          FileSystemUtils.readContent(moduleFilePath), moduleFileLocation);
     } catch (IOException e) {
       throw errorf(
           Code.BAD_MODULE,
