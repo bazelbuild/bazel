@@ -404,12 +404,18 @@ public final class MacroClass {
       MacroFrame childMacroFrame = new MacroFrame(macro);
       @Nullable MacroFrame parentMacroFrame = builder.setCurrentMacroFrame(childMacroFrame);
       try {
-        Starlark.call(
-            thread,
-            macro.getMacroClass().getImplementation(),
-            /* args= */ ImmutableList.of(),
-            /* kwargs= */ macro.getAttrValues());
-      } catch (EvalException ex) {
+        Object returnValue =
+            Starlark.call(
+                thread,
+                macro.getMacroClass().getImplementation(),
+                /* args= */ ImmutableList.of(),
+                /* kwargs= */ macro.getAttrValues());
+        if (returnValue != Starlark.NONE) {
+          throw Starlark.errorf(
+              "macro '%s' may not return a non-None value (got %s)",
+              macro.getName(), Starlark.repr(returnValue));
+        }
+      } catch (EvalException ex) { // from either call() or non-None return
         builder
             .getLocalEventHandler()
             .handle(
