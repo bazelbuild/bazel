@@ -1701,6 +1701,7 @@ java_library(
         ":config/run_under",
         ":config/starlark_defined_config_transition",
         ":platform_options",
+        ":test/test_configuration",
         "//src/main/java/com/google/devtools/build/lib/actions:action_environment",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:build_configuration_event",
