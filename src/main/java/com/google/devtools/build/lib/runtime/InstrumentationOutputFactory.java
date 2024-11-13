@@ -121,12 +121,13 @@ public final class InstrumentationOutputFactory {
 
     // Since PathFragmentConverter for flag value replaces prefixed `~/` with user's home path, the
     // destination is either an absolute path or a path relative to output_base/workspace.
-    Path path = switch (destinationRelativeTo) {
-        case OUTPUT_BASE -> env.getOutputBase().getRelative(destination);
-        case WORKSPACE_OR_HOME -> env.getWorkspace().getRelative(destination);
-        case WORKING_DIR -> env.getWorkingDirectory().getRelative(destination);
-    };
-      return localInstrumentationOutputBuilderSupplier
+    Path path =
+        switch (destinationRelativeTo) {
+          case OUTPUT_BASE -> env.getOutputBase().getRelative(destination);
+          case WORKSPACE_OR_HOME -> env.getWorkspace().getRelative(destination);
+          case WORKING_DIR -> env.getWorkingDirectory().getRelative(destination);
+        };
+    return localInstrumentationOutputBuilderSupplier
         .get()
         .setName(name)
         .setPath(path)
