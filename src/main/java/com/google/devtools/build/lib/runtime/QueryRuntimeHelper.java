@@ -15,13 +15,14 @@ package com.google.devtools.build.lib.runtime;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
+import com.google.devtools.build.lib.io.LazyFileOutputStream;
 import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
 import com.google.devtools.build.lib.server.FailureDetails.Query.Code;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.OutputStream;
 
@@ -70,17 +71,11 @@ public interface QueryRuntimeHelper extends AutoCloseable {
     @Override
     public QueryRuntimeHelper create(CommandEnvironment env, CommonQueryOptions options)
         throws QueryRuntimeHelperException {
-      PathFragment outputFile = options.outputFile;
-
-      if (outputFile == null) {
+      if (Strings.isNullOrEmpty(options.outputFile)) {
         return createInternal(env.getReporter().getOutErr().getOutputStream());
-      }
-      Path fullPath = env.getWorkspace().getRelative(outputFile);
-      try {
-        return new FileQueryRuntimeHelper(fullPath);
-      } catch (IOException e) {
-        throw new QueryRuntimeHelperException(
-            "Could not write to " + fullPath, Code.QUERY_OUTPUT_WRITE_FAILURE, e);
+      } else {
+        return new FileQueryRuntimeHelper(
+            env.getWorkingDirectory().getRelative(options.outputFile));
       }
     }
 
@@ -113,9 +108,9 @@ public interface QueryRuntimeHelper extends AutoCloseable {
       private final Path path;
       private final OutputStream out;
 
-      public FileQueryRuntimeHelper(Path path) throws IOException {
-        out = path.getOutputStream();
+      public FileQueryRuntimeHelper(Path path) {
         this.path = path;
+        this.out = new LazyFileOutputStream(this.path);
       }
 
       @Override

@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver.Mode;
 import com.google.devtools.build.lib.util.OptionsUtils;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.EnumConverter;
@@ -205,17 +204,6 @@ public class CommonQueryOptions extends OptionsBase {
         : LabelPrinter.displayForm(mainRepoMapping);
   }
 
-  @Option(
-      name = "output_file",
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.QUERY,
-      converter = OptionsUtils.PathFragmentConverter.class,
-      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      help =
-          "When specified, query results will be written directly to this file, and "
-              + "nothing will be printed to Bazel's standard output stream (stdout).")
-  public PathFragment outputFile;
-
   ///////////////////////////////////////////////////////////
   // PROTO OUTPUT FORMATTER OPTIONS                        //
   ///////////////////////////////////////////////////////////
@@ -382,6 +370,10 @@ public class CommonQueryOptions extends OptionsBase {
               + "applicable to --output=graph.")
   public boolean graphFactored;
 
+  ///////////////////////////////////////////////////////////
+  // INPUT / OUTPUT OPTIONS                                //
+  ///////////////////////////////////////////////////////////
+
   @Option(
       name = "query_file",
       defaultValue = "",
@@ -391,4 +383,16 @@ public class CommonQueryOptions extends OptionsBase {
           "If set, query will read the query from the file named here, rather than on the command "
               + "line. It is an error to specify a file here as well as a command-line query.")
   public String queryFile;
+
+  @Option(
+      name = "output_file",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      converter = OptionsUtils.PathFragmentConverter.class,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "When specified, query results will be written directly to this file, and nothing will be"
+              + " printed to Bazel's standard output stream (stdout). In benchmarks, this is"
+              + " generally faster than <code>bazel query &gt; file</code>.")
+  public String outputFile;
 }
