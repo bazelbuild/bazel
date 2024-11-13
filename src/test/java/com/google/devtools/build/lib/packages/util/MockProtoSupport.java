@@ -75,7 +75,7 @@ public final class MockProtoSupport {
 
     // TODO: b/305068148 - Remove this after blaze is released with protoc_minimal.
     config.create(
-        "third_party/protobuf/compiler/BUILD",
+        "third_party/protobuf/compiler/release/BUILD",
         """
         load('//test_defs:foo_binary.bzl', 'foo_binary')
         package(default_visibility = ["//visibility:public"])
