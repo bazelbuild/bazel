@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.skyframe.serialization.DynamicCodec;
 import com.google.devtools.build.lib.skyframe.serialization.DynamicCodec.FieldHandler;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaModuleFlagsProviderApi;
@@ -66,14 +67,19 @@ import net.starlark.java.syntax.Location;
 
 /** A Starlark declared provider that encapsulates all providers that are needed by Java rules. */
 @Immutable
-public class JavaInfo extends NativeInfo
-    implements JavaInfoApi<Artifact, JavaOutput, JavaPluginData> {
+public sealed class JavaInfo extends NativeInfo
+    implements JavaInfoApi<Artifact, JavaOutput, JavaPluginData>
+    permits JavaInfo.BuiltinsJavaInfo, JavaInfo.RulesJavaJavaInfo {
 
   public static final String STARLARK_NAME = "JavaInfo";
 
+  @SerializationConstant
   public static final JavaInfoProvider LEGACY_BUILTINS_PROVIDER = new BuiltinsJavaInfoProvider();
+
+  // Not serialized
   public static final JavaInfoProvider RULES_JAVA_PROVIDER = new RulesJavaJavaInfoProvider();
-  public static final JavaInfoProvider PROVIDER = new JavaInfoProvider();
+
+  @SerializationConstant public static final JavaInfoProvider PROVIDER = new JavaInfoProvider();
 
   // Ideally we would check if the target has a JavaInfo, but this check predates the Starlark
   // sandwich and consumers depend on this returning `false` for java_binary/java_test targets. When
@@ -137,7 +143,9 @@ public class JavaInfo extends NativeInfo
     return object != Starlark.NONE ? type.cast(object) : null;
   }
 
-  public static final JavaInfo EMPTY = JavaInfo.Builder.create().build();
+  static final JavaInfo EMPTY_JAVA_INFO_FOR_TESTING = Builder.create().build();
+  static final BuiltinsJavaInfo EMPTY_BUILTINS_JAVA_INFO_FOR_TESTING =
+      (BuiltinsJavaInfo) new Builder().setProvider(LEGACY_BUILTINS_PROVIDER).build();
 
   private final JavaCompilationArgsProvider providerJavaCompilationArgs;
   private final JavaSourceJarsProvider providerJavaSourceJars;
@@ -504,7 +512,8 @@ public class JavaInfo extends NativeInfo
         providerJavaPlugin);
   }
 
-  private static class BuiltinsJavaInfo extends JavaInfo {
+  @VisibleForTesting // package-private for testing.
+  static final class BuiltinsJavaInfo extends JavaInfo {
 
     private BuiltinsJavaInfo(StructImpl javaInfo)
         throws EvalException, TypeException, RuleErrorException {
@@ -545,7 +554,7 @@ public class JavaInfo extends NativeInfo
     }
   }
 
-  private static class RulesJavaJavaInfo extends JavaInfo {
+  static final class RulesJavaJavaInfo extends JavaInfo {
 
     private RulesJavaJavaInfo(StructImpl javaInfo)
         throws EvalException, TypeException, RuleErrorException {
@@ -559,7 +568,7 @@ public class JavaInfo extends NativeInfo
   }
 
   /** Legacy Provider class for {@link JavaInfo} objects. */
-  public static class BuiltinsJavaInfoProvider extends JavaInfoProvider {
+  public static final class BuiltinsJavaInfoProvider extends JavaInfoProvider {
     private BuiltinsJavaInfoProvider() {
       super(
           keyForBuiltins(Label.parseCanonicalUnchecked("@_builtins//:common/java/java_info.bzl")));
@@ -573,7 +582,7 @@ public class JavaInfo extends NativeInfo
   }
 
   /** Legacy Provider class for {@link JavaInfo} objects. */
-  public static class RulesJavaJavaInfoProvider extends JavaInfoProvider {
+  public static final class RulesJavaJavaInfoProvider extends JavaInfoProvider {
     private RulesJavaJavaInfoProvider() {
       super(keyForBuild(Label.parseCanonicalUnchecked("//java/private:java_info.bzl")));
     }
@@ -586,8 +595,8 @@ public class JavaInfo extends NativeInfo
   }
 
   /** Provider class for {@link JavaInfo} objects. */
-  public static class JavaInfoProvider extends StarlarkProviderWrapper<JavaInfo>
-      implements com.google.devtools.build.lib.packages.Provider {
+  public static sealed class JavaInfoProvider extends StarlarkProviderWrapper<JavaInfo>
+      implements Provider permits BuiltinsJavaInfoProvider, RulesJavaJavaInfoProvider {
     private JavaInfoProvider() {
       this(
           keyForBuild(
@@ -795,6 +804,12 @@ public class JavaInfo extends NativeInfo
     @Override
     public void serialize(SerializationContext context, JavaInfo obj, CodedOutputStream codedOut)
         throws SerializationException, IOException {
+      switch (obj.getProvider()) {
+        case BuiltinsJavaInfoProvider unused -> codedOut.writeBoolNoTag(true);
+        case RulesJavaJavaInfoProvider unused ->
+            throw new UnsupportedOperationException("not implemented");
+        case JavaInfoProvider unused -> codedOut.writeBoolNoTag(false);
+      }
       for (FieldHandler handler : handlers) {
         handler.serialize(context, codedOut, obj);
       }
@@ -808,10 +823,14 @@ public class JavaInfo extends NativeInfo
 
       JavaInfo obj;
       try {
-        obj = (JavaInfo) unsafe().allocateInstance(JavaInfo.class);
+        obj =
+            codedIn.readBool()
+                ? (BuiltinsJavaInfo) unsafe().allocateInstance(BuiltinsJavaInfo.class)
+                : (JavaInfo) unsafe().allocateInstance(JavaInfo.class);
       } catch (InstantiationException e) {
         throw new SerializationException("Could not instantiate JavaInfo with Unsafe", e);
       }
+
       for (FieldHandler handler : handlers) {
         handler.deserialize(context, codedIn, obj);
       }
