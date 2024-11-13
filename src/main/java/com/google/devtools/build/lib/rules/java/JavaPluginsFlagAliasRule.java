@@ -53,6 +53,8 @@ public final class JavaPluginsFlagAliasRule implements RuleDefinition {
                 .mandatoryProvidersList(
                     ImmutableList.of(
                         ImmutableList.of(JavaPluginInfo.PROVIDER.id()),
+                        ImmutableList.of(JavaPluginInfo.RULES_JAVA_PROVIDER.id()),
+                        ImmutableList.of(JavaPluginInfo.WORKSPACE_PROVIDER.id()),
                         ImmutableList.of(JavaPluginInfo.LEGACY_BUILTINS_PROVIDER.id())))
                 .silentRuleClassFilter()
                 .value(JavaSemantics.JAVA_PLUGINS))
@@ -98,17 +100,26 @@ public final class JavaPluginsFlagAliasRule implements RuleDefinition {
                 .getRulePrerequisitesCollection()
                 .getPrerequisites(":java_plugins", JavaPluginInfo.RULES_JAVA_PROVIDER);
       }
+      if (plugins.isEmpty()) {
+        plugins =
+            ruleContext
+                .getRulePrerequisitesCollection()
+                .getPrerequisites(":java_plugins", JavaPluginInfo.WORKSPACE_PROVIDER);
+      }
       JavaPluginInfo javaPluginInfo =
           JavaPluginInfo.mergeWithoutJavaOutputs(plugins, JavaPluginInfo.PROVIDER);
       JavaPluginInfo builtinsProviderInfo =
           JavaPluginInfo.mergeWithoutJavaOutputs(plugins, JavaPluginInfo.LEGACY_BUILTINS_PROVIDER);
       JavaPluginInfo rulesJavaProviderInfo =
           JavaPluginInfo.mergeWithoutJavaOutputs(plugins, JavaPluginInfo.RULES_JAVA_PROVIDER);
+      JavaPluginInfo workspaceProviderInfo =
+          JavaPluginInfo.mergeWithoutJavaOutputs(plugins, JavaPluginInfo.WORKSPACE_PROVIDER);
 
       return new RuleConfiguredTargetBuilder(ruleContext)
           .addStarlarkDeclaredProvider(javaPluginInfo)
           .addStarlarkDeclaredProvider(builtinsProviderInfo)
           .addStarlarkDeclaredProvider(rulesJavaProviderInfo)
+          .addStarlarkDeclaredProvider(workspaceProviderInfo)
           .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
           .build();
     }

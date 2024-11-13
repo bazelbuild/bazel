@@ -53,6 +53,7 @@ public abstract class JavaPluginInfo extends NativeInfo
   public static final Provider LEGACY_BUILTINS_PROVIDER = new BuiltinsProvider();
   public static final Provider PROVIDER = new Provider();
   public static final Provider RULES_JAVA_PROVIDER = new RulesJavaProvider();
+  public static final Provider WORKSPACE_PROVIDER = new WorkspaceProvider();
 
   private static final JavaPluginInfo EMPTY_BUILTIN =
       new AutoValue_JavaPluginInfo(
@@ -69,8 +70,14 @@ public abstract class JavaPluginInfo extends NativeInfo
       new AutoValue_JavaPluginInfo(
           ImmutableList.of(), JavaPluginData.empty(), JavaPluginData.empty(), RULES_JAVA_PROVIDER);
 
+  private static final JavaPluginInfo EMPTY_WORKSPACE =
+      new AutoValue_JavaPluginInfo(
+          ImmutableList.of(), JavaPluginData.empty(), JavaPluginData.empty(), WORKSPACE_PROVIDER);
+
   public static JavaPluginInfo wrap(Info info) throws RuleErrorException {
     com.google.devtools.build.lib.packages.Provider.Key key = info.getProvider().getKey();
+    // this wrapped instance is not propagated back to Starlark, so we don't need every type
+    // we just use the two types that are checked for in tests
     if (key.equals(LEGACY_BUILTINS_PROVIDER.getKey())) {
       return LEGACY_BUILTINS_PROVIDER.wrap(info);
     } else {
@@ -80,6 +87,7 @@ public abstract class JavaPluginInfo extends NativeInfo
 
   @VisibleForTesting
   public static JavaPluginInfo get(ConfiguredTarget target) throws RuleErrorException {
+    // we just use the two types that are checked for in tests
     JavaPluginInfo info = target.get(PROVIDER);
     JavaPluginInfo builtinInfo = target.get(LEGACY_BUILTINS_PROVIDER);
     if (info == null) {
@@ -107,6 +115,13 @@ public abstract class JavaPluginInfo extends NativeInfo
   public static class RulesJavaProvider extends Provider {
     private RulesJavaProvider() {
       super(keyForBuild(Label.parseCanonicalUnchecked("//java/private:java_info.bzl")));
+    }
+  }
+
+  /** Provider class for {@link JavaPluginInfo} objects in WORKSPACE mode. */
+  public static class WorkspaceProvider extends Provider {
+    private WorkspaceProvider() {
+      super(keyForBuild(Label.parseCanonicalUnchecked("@@rules_java//java/private:java_info.bzl")));
     }
   }
 
@@ -279,6 +294,8 @@ public abstract class JavaPluginInfo extends NativeInfo
       return EMPTY_BUILTIN;
     } else if (providerType.equals(RULES_JAVA_PROVIDER)) {
       return EMPTY_RULES_JAVA;
+    } else if (providerType.equals(WORKSPACE_PROVIDER)) {
+      return EMPTY_WORKSPACE;
     }
     return EMPTY;
   }
