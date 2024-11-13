@@ -33,8 +33,7 @@ import javax.annotation.Nullable;
  */
 @Immutable
 public final class RunfilesTreeAction extends AbstractAction {
-  // TODO(b/304440811): This is a misnomer, replace it with "RunfilesTree".
-  public static final String MNEMONIC = "Middleman";
+  public static final String MNEMONIC = "RunfilesTree";
 
   /** The runfiles tree created by this action. */
   private final RunfilesTree runfilesTree;
