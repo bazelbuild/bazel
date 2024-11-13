@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Wa
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.WaitingForLookupContinuation;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.GetRecordingStore;
+import com.google.devtools.build.skyframe.IntVersion;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -168,7 +169,8 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
         new FrontierNodeVersion(
             /* topLevelConfigChecksum= */ "42",
             /* directoryMatcherStringRepr= */ "some_string",
-            /* blazeInstallMD5= */ HashCode.fromInt(42));
+            /* blazeInstallMD5= */ HashCode.fromInt(42),
+            /* evaluatingVersion= */ IntVersion.of(9000));
     uploadKeyValuePair(key, version, value, fingerprintValueService);
 
     RetrievalResult result =
@@ -195,7 +197,8 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
         new FrontierNodeVersion(
             /* topLevelConfigChecksum= */ "42",
             /* directoryMatcherStringRepr= */ "some_string",
-            /* blazeInstallMD5= */ HashCode.fromInt(42));
+            /* blazeInstallMD5= */ HashCode.fromInt(42),
+            /* evaluatingVersion= */ IntVersion.of(1234));
     uploadKeyValuePair(key, version, value, fingerprintValueService);
 
     RetrievalResult result =
@@ -209,7 +212,8 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             /* frontierNodeVersion= */ new FrontierNodeVersion(
                 /* topLevelConfigChecksum= */ "9000",
                 /* directoryMatcherStringRepr= */ "another_string",
-                /* blazeInstallMD5= */ HashCode.fromInt(9000)));
+                /* blazeInstallMD5= */ HashCode.fromInt(9000),
+                /* evaluatingVersion= */ IntVersion.of(5678)));
 
     assertThat(result).isSameInstanceAs(NO_CACHED_DATA);
   }
@@ -546,8 +550,8 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
 
   @Test
   public void frontierNodeVersions_areEqual_ifTupleComponentsAreEqual() {
-    var first = new FrontierNodeVersion("foo", "bar", HashCode.fromInt(42));
-    var second = new FrontierNodeVersion("foo", "bar", HashCode.fromInt(42));
+    var first = new FrontierNodeVersion("foo", "bar", HashCode.fromInt(42), IntVersion.of(9000));
+    var second = new FrontierNodeVersion("foo", "bar", HashCode.fromInt(42), IntVersion.of(9000));
 
     assertThat(first.getPrecomputedFingerprint()).isEqualTo(second.getPrecomputedFingerprint());
     assertThat(first).isEqualTo(second);
@@ -555,8 +559,9 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
 
   @Test
   public void frontierNodeVersions_areNotEqual_ifTopLevelConfigChecksumIsDifferent() {
-    var first = new FrontierNodeVersion("foo", "bar", HashCode.fromInt(42));
-    var second = new FrontierNodeVersion("CHANGED", "bar", HashCode.fromInt(42));
+    var first = new FrontierNodeVersion("foo", "bar", HashCode.fromInt(42), IntVersion.of(9000));
+    var second =
+        new FrontierNodeVersion("CHANGED", "bar", HashCode.fromInt(42), IntVersion.of(9000));
 
     assertThat(first.getPrecomputedFingerprint()).isNotEqualTo(second.getPrecomputedFingerprint());
     assertThat(first).isNotEqualTo(second);
@@ -564,8 +569,9 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
 
   @Test
   public void frontierNodeVersions_areNotEqual_ifActiveDirectoriesAreDifferent() {
-    var first = new FrontierNodeVersion("foo", "bar", HashCode.fromInt(42));
-    var second = new FrontierNodeVersion("foo", "CHANGED", HashCode.fromInt(42));
+    var first = new FrontierNodeVersion("foo", "bar", HashCode.fromInt(42), IntVersion.of(9000));
+    var second =
+        new FrontierNodeVersion("foo", "CHANGED", HashCode.fromInt(42), IntVersion.of(9000));
 
     assertThat(first.getPrecomputedFingerprint()).isNotEqualTo(second.getPrecomputedFingerprint());
     assertThat(first).isNotEqualTo(second);
@@ -573,8 +579,18 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
 
   @Test
   public void frontierNodeVersions_areNotEqual_ifBlazeInstallMD5IsDifferent() {
-    var first = new FrontierNodeVersion("foo", "bar", HashCode.fromInt(42));
-    var second = new FrontierNodeVersion("foo", "bar", HashCode.fromInt(9000));
+    var first = new FrontierNodeVersion("foo", "bar", HashCode.fromInt(42), IntVersion.of(9000));
+    var second = new FrontierNodeVersion("foo", "bar", HashCode.fromInt(9000), IntVersion.of(9000));
+
+    assertThat(first.getPrecomputedFingerprint()).isNotEqualTo(second.getPrecomputedFingerprint());
+    assertThat(first).isNotEqualTo(second);
+  }
+
+  @Test
+  public void frontierNodeVersions_areNotEqual_ifEvaluatingVersionIsDifferent() {
+    var first = new FrontierNodeVersion("foo", "bar", HashCode.fromInt(42), IntVersion.of(9000));
+    var second =
+        new FrontierNodeVersion("foo", "bar", HashCode.fromInt(9000), IntVersion.of(10000));
 
     assertThat(first.getPrecomputedFingerprint()).isNotEqualTo(second.getPrecomputedFingerprint());
     assertThat(first).isNotEqualTo(second);

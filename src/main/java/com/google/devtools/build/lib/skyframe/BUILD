@@ -3145,6 +3145,9 @@ java_library(
 java_library(
     name = "workspace_info",
     srcs = ["WorkspaceInfoFromDiff.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+    ],
 )
 
 java_library(

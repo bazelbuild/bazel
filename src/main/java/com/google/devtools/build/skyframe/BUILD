@@ -12,6 +12,7 @@ SKYFRAME_OBJECT_SRCS = [
     "AbstractSkyKey.java",
     "FunctionHermeticity.java",
     "GroupedDeps.java",
+    "IntVersion.java",
     "NodeVersion.java",
     "NotComparableSkyValue.java",
     "SkyframeLookupResult.java",

@@ -116,6 +116,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.EvaluationResult;
+import com.google.devtools.build.skyframe.IntVersion;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.RegexPatternOption;
@@ -1103,6 +1104,7 @@ public class BuildTool {
     private final RemoteAnalysisCachingEventListener listener;
     private final HashCode blazeInstallMD5;
     private final Future<FingerprintValueService> fingerprintValueServiceFuture;
+    private final IntVersion evaluatingVersion;
 
     // Non-final because the top level BuildConfigurationValue is determined just before analysis
     // begins in BuildView for the download/deserialization pass, which is later than when this
@@ -1152,6 +1154,13 @@ public class BuildTool {
       }
       this.blazeInstallMD5 = requireNonNull(env.getDirectories().getInstallMD5());
       this.diffFromEvaluatingVersion = env.getSkyframeExecutor().getDiffFromEvaluatingVersion();
+      if (env.getWorkspaceInfoFromDiff() == null) {
+        // If there is no workspace info, we cannot confidently version the nodes. Use the min
+        // version as a sentinel.
+        this.evaluatingVersion = IntVersion.of(Long.MIN_VALUE);
+      } else {
+        this.evaluatingVersion = env.getWorkspaceInfoFromDiff().getEvaluatingVersion();
+      }
     }
 
     private static ObjectCodecs initAnalysisObjectCodecs(
@@ -1196,7 +1205,10 @@ public class BuildTool {
           if (frontierNodeVersionSingleton == null) {
             frontierNodeVersionSingleton =
                 new FrontierNodeVersion(
-                    topLevelConfigChecksum, activeDirectoriesMatcher.toString(), blazeInstallMD5);
+                    topLevelConfigChecksum,
+                    activeDirectoriesMatcher.toString(),
+                    blazeInstallMD5,
+                    evaluatingVersion);
             logger.atInfo().log(
                 "Remote analysis caching SkyValue version: %s", frontierNodeVersionSingleton);
             listener.recordSkyValueVersion(frontierNodeVersionSingleton);

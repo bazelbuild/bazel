@@ -13,5 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.devtools.build.skyframe.IntVersion;
+
 /** Information for a workspace computed at the time of collecting diff. */
-public interface WorkspaceInfoFromDiff {}
+public interface WorkspaceInfoFromDiff {
+
+  default IntVersion getEvaluatingVersion() {
+    // TODO: b/367284400 - handle this for external version control systems.
+    return IntVersion.of(Long.MIN_VALUE);
+  }
+}
