@@ -74,7 +74,10 @@ public final class InstrumentationOutputFactory {
     WORKSPACE_OR_HOME,
 
     /** Output is relative to the {@code output_base} directory. */
-    OUTPUT_BASE
+    OUTPUT_BASE,
+
+    /** Output is relative to the directory from which the user ran Bazel. */
+    WORKING_DIR
   }
 
   /**
@@ -118,13 +121,15 @@ public final class InstrumentationOutputFactory {
 
     // Since PathFragmentConverter for flag value replaces prefixed `~/` with user's home path, the
     // destination is either an absolute path or a path relative to output_base/workspace.
-    return localInstrumentationOutputBuilderSupplier
+    Path path = switch (destinationRelativeTo) {
+        case OUTPUT_BASE -> env.getOutputBase().getRelative(destination);
+        case WORKSPACE_OR_HOME -> env.getWorkspace().getRelative(destination);
+        case WORKING_DIR -> env.getWorkingDirectory().getRelative(destination);
+    };
+      return localInstrumentationOutputBuilderSupplier
         .get()
         .setName(name)
-        .setPath(
-            destinationRelativeTo.equals(DestinationRelativeTo.OUTPUT_BASE)
-                ? env.getOutputBase().getRelative(destination)
-                : env.getWorkspace().getRelative(destination))
+        .setPath(path)
         .setAppend(append)
         .setInternal(internal)
         .build();

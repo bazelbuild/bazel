@@ -45,6 +45,11 @@ public final class BuildEventArtifactInstrumentationOutput implements Instrument
   }
 
   @Override
+  public String getHumanReadableName() {
+    return name;
+  }
+
+  @Override
   public OutputStream createOutputStream() {
     uploadContext = buildEventArtifactUploader.startUpload(LocalFileType.LOG, null);
     return uploadContext.getOutputStream();

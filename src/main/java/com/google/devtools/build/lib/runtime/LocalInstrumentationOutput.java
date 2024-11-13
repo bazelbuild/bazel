@@ -50,6 +50,11 @@ final class LocalInstrumentationOutput implements InstrumentationOutput {
     buildToolLogCollection.addLocalFile(name, path);
   }
 
+  @Override
+  public String getHumanReadableName() {
+    return path.getPathString();
+  }
+
   public void makeConvenienceLink() throws IOException {
     if (convenienceName != null) {
       var link = path.getParentDirectory().getChild(convenienceName);

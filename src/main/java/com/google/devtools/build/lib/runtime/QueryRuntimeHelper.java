@@ -16,13 +16,13 @@ package com.google.devtools.build.lib.runtime;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
-import com.google.devtools.build.lib.io.LazyFileOutputStream;
 import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
+import com.google.devtools.build.lib.runtime.InstrumentationOutputFactory.DestinationRelativeTo;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
 import com.google.devtools.build.lib.server.FailureDetails.Query.Code;
-import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.OutputStream;
 
@@ -74,8 +74,25 @@ public interface QueryRuntimeHelper extends AutoCloseable {
       if (Strings.isNullOrEmpty(options.outputFile)) {
         return createInternal(env.getReporter().getOutErr().getOutputStream());
       } else {
-        return new FileQueryRuntimeHelper(
-            env.getWorkingDirectory().getRelative(options.outputFile));
+        InstrumentationOutput instrumentationOutput =
+            env.getRuntime()
+                .getInstrumentationOutputFactory()
+                .createInstrumentationOutput(
+                    "query_output",
+                    PathFragment.create(options.outputFile),
+                    DestinationRelativeTo.WORKING_DIR,
+                    env,
+                    env.getReporter(),
+                    false,
+                    false);
+        try {
+          return new FileQueryRuntimeHelper(instrumentationOutput);
+        } catch (IOException e) {
+          throw new QueryRuntimeHelperException(
+              "Could not open query output file " + instrumentationOutput.getHumanReadableName(),
+              Code.QUERY_OUTPUT_WRITE_FAILURE,
+              e);
+        }
       }
     }
 
@@ -105,12 +122,12 @@ public interface QueryRuntimeHelper extends AutoCloseable {
     }
 
     private static class FileQueryRuntimeHelper implements QueryRuntimeHelper {
-      private final Path path;
+      private final InstrumentationOutput output;
       private final OutputStream out;
 
-      public FileQueryRuntimeHelper(Path path) {
-        this.path = path;
-        this.out = new LazyFileOutputStream(this.path);
+      public FileQueryRuntimeHelper(InstrumentationOutput output) throws IOException {
+        this.output = output;
+        this.out = output.createOutputStream();
       }
 
       @Override
@@ -127,7 +144,9 @@ public interface QueryRuntimeHelper extends AutoCloseable {
           out.close();
         } catch (IOException e) {
           throw new QueryRuntimeHelperException(
-              "Could not close query output file " + path, Code.QUERY_OUTPUT_WRITE_FAILURE, e);
+              "Could not close query output file " + output.getHumanReadableName(),
+              Code.QUERY_OUTPUT_WRITE_FAILURE,
+              e);
         }
       }
     }
