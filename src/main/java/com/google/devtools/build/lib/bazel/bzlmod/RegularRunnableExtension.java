@@ -231,6 +231,7 @@ final class RegularRunnableExtension implements RunnableExtension {
                     workerEnv, usagesValue, starlarkSemantics, extensionId, mainRepositoryMapping));
       } catch (ExecutionException e) {
         Throwables.throwIfInstanceOf(e.getCause(), ExternalDepsException.class);
+        Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
         Throwables.throwIfUnchecked(e.getCause());
         throw new IllegalStateException(
             "unexpected exception type: " + e.getCause().getClass(), e.getCause());

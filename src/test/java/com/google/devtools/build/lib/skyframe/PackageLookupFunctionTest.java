@@ -192,7 +192,7 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
     // https://github.com/bazelbuild/bazel/issues/22208
     PrecomputedValue.STARLARK_SEMANTICS.set(
         differencer, StarlarkSemantics.DEFAULT.toBuilder().setBool(ENABLE_WORKSPACE, true).build());
-    RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
+    RepositoryMappingFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
     RepositoryDelegatorFunction.FORCE_FETCH.set(
         differencer, RepositoryDelegatorFunction.FORCE_FETCH_DISABLED);
     RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES.set(differencer, false);

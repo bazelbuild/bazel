@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SnapshottingFileSystem;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import java.util.HashMap;
@@ -53,6 +54,7 @@ public final class SymlinkTreeHelper {
   @VisibleForTesting
   public static final String BUILD_RUNFILES = "build-runfiles" + OsUtils.executableExtension();
 
+  private final Path execRoot;
   private final Path inputManifest;
   private final Path symlinkTreeRoot;
   private final boolean filesetTree;
@@ -68,11 +70,26 @@ public final class SymlinkTreeHelper {
    * @param workspaceName the name of the workspace, used to create the workspace subdirectory
    */
   public SymlinkTreeHelper(
-      Path inputManifest, Path symlinkTreeRoot, boolean filesetTree, String workspaceName) {
-    this.inputManifest = inputManifest;
-    this.symlinkTreeRoot = symlinkTreeRoot;
+      Path execRoot,
+      Path inputManifest,
+      Path symlinkTreeRoot,
+      boolean filesetTree,
+      String workspaceName) {
+    this.execRoot = ensureNonSnapshotting(execRoot);
+    this.inputManifest = ensureNonSnapshotting(inputManifest);
+    this.symlinkTreeRoot = ensureNonSnapshotting(symlinkTreeRoot);
     this.filesetTree = filesetTree;
     this.workspaceName = workspaceName;
+  }
+
+  private static Path ensureNonSnapshotting(Path path) {
+    // Changes made to a file referenced by a symlink tree should be reflected in the symlink tree
+    // without having to rebuild. Therefore, if a snapshotting file system is used, we must use the
+    // underlying non-snapshotting file system instead to create the symlink tree.
+    if (path.getFileSystem() instanceof SnapshottingFileSystem snapshottingFs) {
+      return snapshottingFs.getUnderlyingNonSnapshottingFileSystem().getPath(path.asFragment());
+    }
+    return path;
   }
 
   private Path getOutputManifest() {
@@ -80,8 +97,7 @@ public final class SymlinkTreeHelper {
   }
 
   /** Creates a symlink tree by making VFS calls. */
-  public void createSymlinksDirectly(Path symlinkTreeRoot, Map<PathFragment, Artifact> symlinks)
-      throws IOException {
+  public void createSymlinksDirectly(Map<PathFragment, Artifact> symlinkMap) throws IOException {
     // Our strategy is to minimize mutating file system operations as much as possible. Ideally, if
     // there is an existing symlink tree with the expected contents, we don't make any changes. Our
     // algorithm goes as follows:
@@ -115,7 +131,7 @@ public final class SymlinkTreeHelper {
     try (SilentCloseable c = Profiler.instance().profile("Create symlink tree in-process")) {
       Preconditions.checkState(!filesetTree);
       Directory root = new Directory();
-      for (Map.Entry<PathFragment, Artifact> entry : symlinks.entrySet()) {
+      for (Map.Entry<PathFragment, Artifact> entry : symlinkMap.entrySet()) {
         // This creates intermediate directory nodes as a side effect.
         Directory parentDir = root.walk(entry.getKey().getParentDirectory());
         parentDir.addSymlink(entry.getKey().getBaseName(), entry.getValue());
@@ -177,10 +193,10 @@ public final class SymlinkTreeHelper {
    * kind of synchronization, locking, or anything else.
    */
   public void createSymlinksUsingCommand(
-      Path execRoot, BinTools binTools, Map<String, String> shellEnvironment, OutErr outErr)
+      BinTools binTools, Map<String, String> shellEnvironment, OutErr outErr)
       throws EnvironmentalExecException, InterruptedException {
     try (SilentCloseable c = Profiler.instance().profile("Create symlink tree out-of-process")) {
-      Command command = createCommand(execRoot, binTools, shellEnvironment);
+      Command command = createCommand(binTools, shellEnvironment);
       try {
         if (outErr != null) {
           command.execute(outErr.getOutputStream(), outErr.getErrorStream());
@@ -205,7 +221,7 @@ public final class SymlinkTreeHelper {
   }
 
   @VisibleForTesting
-  Command createCommand(Path execRoot, BinTools binTools, Map<String, String> shellEnvironment) {
+  Command createCommand(BinTools binTools, Map<String, String> shellEnvironment) {
     Preconditions.checkNotNull(shellEnvironment);
     List<String> args = Lists.newArrayList();
     args.add(binTools.getEmbeddedPath(BUILD_RUNFILES).asFragment().getPathString());
@@ -265,13 +281,15 @@ public final class SymlinkTreeHelper {
       } else if (!stat.isDirectory()) {
         at.deleteTree();
         at.createDirectoryAndParents();
+      } else {
+        // If the directory already exists, ensure it has appropriate permissions.
+        int perms = stat.getPermissions();
+        if (perms == -1) {
+          at.chmod(0755);
+        } else if ((perms & 0700) != 0700) {
+          at.chmod(stat.getPermissions() | 0700);
+        }
       }
-      // TODO(ulfjack): provide the mode bits from FileStatus and use that to construct the correct
-      //  chmod call here. Note that we do not have any tests for this right now. Something like
-      //  this:
-      // if (!stat.isExecutable() || !stat.isReadable()) {
-      //   at.chmod(stat.getMods() | 0700);
-      // }
       for (Dirent dirent : at.readdir(Symlinks.NOFOLLOW)) {
         String basename = dirent.getName();
         Path next = at.getChild(basename);
@@ -289,8 +307,7 @@ public final class SymlinkTreeHelper {
             if (dirent.getType() != Dirent.Type.SYMLINK) {
               next.deleteTree();
             }
-            // TODO(ulfjack): On Windows, this call makes a copy rather than creating a symlink.
-            FileSystemUtils.ensureSymbolicLink(next, value.getPath().asFragment());
+            FileSystemUtils.ensureSymbolicLink(next, getSymlinkTargetPath(value));
           }
         } else if (directories.containsKey(basename)) {
           Directory nextDir = directories.remove(basename);
@@ -305,17 +322,24 @@ public final class SymlinkTreeHelper {
 
       for (Map.Entry<String, Artifact> entry : symlinks.entrySet()) {
         Path next = at.getChild(entry.getKey());
-        if (entry.getValue() == null) {
+        Artifact value = entry.getValue();
+        if (value == null) {
           FileSystemUtils.createEmptyFile(next);
-        } else if (entry.getValue().isSymlink()) {
-          FileSystemUtils.ensureSymbolicLink(next, entry.getValue().getPath().readSymbolicLink());
         } else {
-          FileSystemUtils.ensureSymbolicLink(next, entry.getValue().getPath().asFragment());
+          FileSystemUtils.ensureSymbolicLink(next, getSymlinkTargetPath(value));
         }
       }
       for (Map.Entry<String, Directory> entry : directories.entrySet()) {
         entry.getValue().syncTreeRecursively(at.getChild(entry.getKey()));
       }
     }
+  }
+
+  private static PathFragment getSymlinkTargetPath(Artifact artifact) throws IOException {
+    if (artifact.isSymlink()) {
+      // Unresolved symlinks are created textually.
+      return artifact.getPath().readSymbolicLink();
+    }
+    return artifact.getPath().asFragment();
   }
 }
