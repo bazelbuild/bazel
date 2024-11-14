@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
@@ -328,7 +327,8 @@ public class GenQuery implements RuleConfiguredTargetFactory {
               /* extraFunctions= */ ImmutableList.of(),
               /* packagePath= */ null,
               /* useGraphlessQuery= */ graphlessQuery,
-              LabelPrinter.legacy());
+              queryOptions.getLabelPrinterLegacy(
+                  ruleContext.getAnalysisEnvironment().getStarlarkSemantics()));
       QueryExpression expr = QueryExpression.parse(query, queryEnvironment);
       formatter.verifyCompatible(queryEnvironment, expr);
       targets =
