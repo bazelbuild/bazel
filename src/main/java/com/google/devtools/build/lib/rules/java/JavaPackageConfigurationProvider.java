@@ -14,10 +14,13 @@
 
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -28,6 +31,7 @@ import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupC
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
 import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
@@ -37,13 +41,25 @@ import net.starlark.java.eval.StarlarkValue;
 @Immutable
 public final class JavaPackageConfigurationProvider implements StarlarkValue {
 
-  public static final StarlarkProviderWrapper<JavaPackageConfigurationProvider> PROVIDER =
+  private static final StarlarkProviderWrapper<JavaPackageConfigurationProvider> PROVIDER =
       new Provider();
+  private static final StarlarkProviderWrapper<JavaPackageConfigurationProvider> BUILTINS_PROVIDER =
+      new BuiltinsProvider();
 
   private final StructImpl underlying;
 
   private JavaPackageConfigurationProvider(StructImpl underlying) {
     this.underlying = underlying;
+  }
+
+  @VisibleForTesting
+  public static JavaPackageConfigurationProvider get(ConfiguredTarget target)
+      throws RuleErrorException {
+    JavaPackageConfigurationProvider info = target.get(PROVIDER);
+    if (info == null) {
+      info = target.get(BUILTINS_PROVIDER);
+    }
+    return info;
   }
 
   /** Package specifications for which the configuration should be applied. */
@@ -96,11 +112,15 @@ public final class JavaPackageConfigurationProvider implements StarlarkValue {
   private static class Provider extends StarlarkProviderWrapper<JavaPackageConfigurationProvider> {
 
     private Provider() {
-      super(
-          keyForBuiltins(
+      this(
+          keyForBuild(
               Label.parseCanonicalUnchecked(
-                  "@_builtins//:common/java/java_package_configuration.bzl")),
-          "JavaPackageConfigurationInfo");
+                  JavaSemantics.RULES_JAVA_PROVIDER_LABELS_PREFIX
+                      + "java/common/rules:java_package_configuration.bzl")));
+    }
+
+    private Provider(BzlLoadValue.Key key) {
+      super(key, "JavaPackageConfigurationInfo");
     }
 
     @Override
@@ -115,10 +135,21 @@ public final class JavaPackageConfigurationProvider implements StarlarkValue {
     }
   }
 
+  private static class BuiltinsProvider extends JavaPackageConfigurationProvider.Provider {
+
+    private BuiltinsProvider() {
+      super(
+          keyForBuiltins(
+              Label.parseCanonicalUnchecked(
+                  "@_builtins//:common/java/java_package_configuration.bzl")));
+    }
+  }
+
   static ImmutableList<JavaPackageConfigurationProvider> wrapSequence(Sequence<StructImpl> sequence)
       throws RuleErrorException {
     ImmutableList.Builder<JavaPackageConfigurationProvider> builder = ImmutableList.builder();
     for (StructImpl struct : sequence) {
+      // this result isn't propagated back to Starlark so we just need any type
       builder.add(PROVIDER.wrap(struct));
     }
     return builder.build();

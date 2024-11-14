@@ -1236,6 +1236,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/extension.bzl",
         """
+        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
         MyInfo = provider()
 
         def _impl(ctx):
@@ -1536,7 +1537,8 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
       assertThat(useIJar && stampJar).isFalse();
       ImmutableList.Builder<String> lines = ImmutableList.builder();
       lines.add(
-          "load('@rules_java//java:defs.bzl', 'java_common')",
+          "load('@rules_java//java:defs.bzl', 'java_common', 'JavaInfo',"
+              + " 'JavaPluginInfo')",
           "result = provider()",
           "def _impl(ctx):",
           "  ctx.actions.write(ctx.outputs.output_jar, 'JavaInfo API Test', is_executable=False) ",
