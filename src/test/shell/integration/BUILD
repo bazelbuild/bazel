@@ -909,7 +909,10 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
-    tags = ["no_windows"],
+    tags = [
+        "exclusive",
+        "no_windows",
+    ],
 )
 
 sh_test(

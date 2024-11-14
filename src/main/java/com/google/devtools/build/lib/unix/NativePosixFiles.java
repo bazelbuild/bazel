@@ -15,12 +15,11 @@
 package com.google.devtools.build.lib.unix;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.jni.JniLoader;
 import com.google.devtools.build.lib.util.Blocker;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.logging.LogManager;
 
 /**
  * Utility methods for access to UNIX filesystem calls not exposed by the Java
@@ -31,23 +30,6 @@ public final class NativePosixFiles {
   private NativePosixFiles() {}
 
   static {
-    if (!java.nio.charset.Charset.defaultCharset().name().equals("ISO-8859-1")) {
-      // Defer the Logger call, so we don't deadlock if this is called from Logger
-      // initialization code.
-      new Thread(
-              () -> {
-                // wait (if necessary) until the logging system is initialized
-                synchronized (LogManager.getLogManager()) {
-                }
-                @SuppressWarnings("FloggerRequiredModifiers")
-                GoogleLogger logger = GoogleLogger.forEnclosingClass();
-                logger.atFine().log(
-                    "WARNING: Default character set is not latin1; java.io.File and"
-                        + " com.google.devtools.build.lib.unix.FilesystemUtils will represent"
-                        + " some filenames differently.");
-              })
-          .start();
-    }
     JniLoader.loadJni();
     initJNIClasses();
   }
@@ -398,4 +380,10 @@ public final class NativePosixFiles {
   public static native int close(int fd, Object ignored) throws IOException;
 
   private static native void initJNIClasses();
+
+  /** Logs a path string that does not have a Latin-1 coder. Called from JNI. */
+  private static void logBadPath(String path) {
+    BugReport.sendNonFatalBugReport(
+        new IllegalStateException("Path string does not have a Latin-1 coder: %s".formatted(path)));
+  }
 }
