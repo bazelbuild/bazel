@@ -25,6 +25,9 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 
 set -e
 
+# Used to pass --noenable_bzlmod, --enable_workpace flags
+add_to_bazelrc "build $@"
+
 #### TESTS #############################################################
 
 function mock_rules_android() {
@@ -57,6 +60,14 @@ local_path_override(
     path = "${rules_android_workspace}",
 )
 EOF
+
+  cat > WORKSPACE << EOF
+workspace(name = "test")
+local_repository(
+    name = "rules_android",
+    path = "${rules_android_workspace}",
+)
+EOF
 }
 
 
@@ -64,6 +75,12 @@ function mock_rules_java() {
   rules_java_workspace="${TEST_TMPDIR}/rules_java_workspace"
   mkdir -p "${rules_java_workspace}/java"
   touch "${rules_java_workspace}/java/BUILD"
+  cat > "${rules_java_workspace}/java/repositories.bzl" <<EOF
+def rules_java_dependencies():
+  pass
+def rules_java_toolchains():
+  pass
+EOF
   touch "${rules_java_workspace}/WORKSPACE"
   cat > "${rules_java_workspace}/MODULE.bazel" << EOF
 module(name = "rules_java")
@@ -77,33 +94,44 @@ local_path_override(
     path = "${rules_java_workspace}",
 )
 EOF
-}
 
-# TODO - ilist@: reeenable with a fake repository (we now have autoload all of them)
-function disabled_test_missing_necessary_bzlmod_dep() {
-  # Intentionally not adding rules_android to MODULE.bazel
-  cat > BUILD << EOF
-sh_library(
-    name = 'aar',
-    aar = 'aar.file',
-    deps = [],
+  cat > WORKSPACE << EOF
+workspace(name = "test")
+local_repository(
+    name = "rules_java",
+    path = "${rules_java_workspace}",
 )
 EOF
-  bazel build --incompatible_autoload_externally=sh_library :aar >&$TEST_log 2>&1 && fail "build unexpectedly succeeded"
-  expect_log "WARNING: Couldn't auto load rules or symbols, because no dependency on module/repository 'rules_sh' found. This will result in a failure if there's a reference to those rules or symbols."
 }
 
-# TODO - ilist@: reeenable with a fake repository (we now have autoload all of them)
-function disabled_test_missing_unnecessary_bzmod_dep() {
-  # Intentionally not adding rules_android to MODULE.bazel
+function test_missing_necessary_repo_fails() {
+  # Intentionally not adding apple_support to MODULE.bazel (and it's not in MODULE.tools)
+  cat > WORKSPACE << EOF
+workspace(name = "test")
+EOF
+  cat > BUILD << EOF
+xcode_version(
+    name = 'xcode_version',
+    version = "5.1.2",
+)
+EOF
+  bazel build --incompatible_autoload_externally=xcode_version :xcode_version >&$TEST_log 2>&1 && fail "build unexpectedly succeeded"
+  expect_log "WARNING: Couldn't auto load rules or symbols, because no dependency on module/repository 'apple_support' found. This will result in a failure if there's a reference to those rules or symbols."
+}
+
+function test_missing_unnecessary_repo_doesnt_fail() {
+  # Intentionally not adding apple_support to MODULE.bazel (and it's not in MODULE.tools)
+  cat > WORKSPACE << EOF
+workspace(name = "test")
+EOF
   cat > BUILD << EOF
 filegroup(
     name = 'filegroup',
     srcs = [],
 )
 EOF
-  bazel build --incompatible_autoload_externally=sh_library :filegroup >&$TEST_log 2>&1 || fail "build failed"
-  expect_log "WARNING: Couldn't auto load rules or symbols, because no dependency on module/repository 'rules_sh' found. This will result in a failure if there's a reference to those rules or symbols."
+  bazel build --incompatible_autoload_externally=xcode_version :filegroup >&$TEST_log 2>&1 || fail "build failed"
+  expect_log "WARNING: Couldn't auto load rules or symbols, because no dependency on module/repository 'apple_support' found. This will result in a failure if there's a reference to those rules or symbols."
 }
 
 function test_removed_rule_loaded() {
@@ -117,8 +145,8 @@ aar_import(
     deps = [],
 )
 EOF
+
   bazel build --incompatible_autoload_externally=aar_import :aar >&$TEST_log 2>&1 || fail "build failed"
-  # TODO(b/355260271): add test with workspace enabled
 }
 
 function test_removed_rule_loaded_from_bzl() {
@@ -138,14 +166,12 @@ EOF
 load(":macro.bzl", "macro")
 macro()
 EOF
+
   bazel build --incompatible_autoload_externally=aar_import :aar >&$TEST_log 2>&1 || fail "build failed"
-  # TODO(b/355260271): add test with workspace enabled
+
 }
 
-# TODO(b/355260271): enable this once we have a removed symbol
-function disabled_test_removed_symbol_loaded() {
-  setup_module_dot_bazel
-
+function test_removed_symbol_loaded() {
   cat > symbol.bzl << EOF
 def symbol():
   a = ProtoInfo
@@ -155,12 +181,11 @@ EOF
 load(":symbol.bzl", "symbol")
 symbol()
 EOF
-  bazel build --incompatible_autoload_externally=ProtoInfo :all >&$TEST_log 2>&1 || fail "build failed"
+
+  bazel build --incompatible_autoload_externally=ProtoInfo,proto_common_do_not_use,java_binary :all >&$TEST_log 2>&1 || fail "build failed"
 }
 
 function test_proto_common_do_not_use() {
-  setup_module_dot_bazel
-
   cat > symbol.bzl << EOF
 def symbol():
   print("\n".join(dir(proto_common_do_not_use)))
@@ -170,15 +195,13 @@ EOF
 load(":symbol.bzl", "symbol")
 symbol()
 EOF
+
   bazel build --incompatible_autoload_externally=proto_common_do_not_use :all >&$TEST_log 2>&1 || fail "build failed"
   expect_log INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION
   expect_not_log "compile"
 }
 
-
 function test_existing_rule_is_redirected() {
-  setup_module_dot_bazel
-
   cat > BUILD << EOF
 sh_library(
     name = 'sh_library',
@@ -189,8 +212,6 @@ EOF
 }
 
 function test_existing_rule_is_redirected_in_bzl() {
-  setup_module_dot_bazel
-
   cat > macro.bzl << EOF
 def macro():
     native.sh_library(
@@ -202,14 +223,12 @@ EOF
 load(":macro.bzl", "macro")
 macro()
 EOF
+
   bazel query --incompatible_autoload_externally=+sh_library ':sh_library' --output=build >&$TEST_log 2>&1 || fail "build failed"
   expect_log "rules_shell./shell/private/sh_library.bzl"
 }
 
-
 function test_removed_rule_not_loaded() {
-  setup_module_dot_bazel
-
   cat > BUILD << EOF
 aar_import(
     name = 'aar',
@@ -224,8 +243,6 @@ EOF
 }
 
 function test_removed_rule_not_loaded_in_bzl() {
-  setup_module_dot_bazel
-
   cat > macro.bzl << EOF
 def macro():
     native.aar_import(
@@ -245,8 +262,7 @@ EOF
   expect_log "no native function or rule 'aar_import'"
 }
 
-# TODO: enable once we have a removed symbol
-function disabled_test_removed_symbol_not_loaded_in_bzl() {
+function test_removed_symbol_not_loaded_in_bzl() {
   setup_module_dot_bazel
 
   cat > symbol.bzl << EOF
@@ -265,8 +281,6 @@ EOF
 
 
 function test_removing_existing_rule() {
-  setup_module_dot_bazel
-
   cat > BUILD << EOF
 android_binary(
     name = "bin",
@@ -287,8 +301,6 @@ EOF
 }
 
 function test_removing_existing_rule_in_bzl() {
-  setup_module_dot_bazel
-
   cat > macro.bzl << EOF
 def macro():
     native.android_binary(
@@ -315,8 +327,6 @@ EOF
 }
 
 function test_removing_symbol_incompletely() {
-  setup_module_dot_bazel
-
   cat > symbol.bzl << EOF
 def symbol():
    a = CcInfo
@@ -332,8 +342,6 @@ EOF
 }
 
 function test_removing_existing_symbol() {
-  setup_module_dot_bazel
-
   cat > symbol.bzl << EOF
 def symbol():
    a = DebugPackageInfo
@@ -349,8 +357,6 @@ EOF
 }
 
 function test_removing_symbol_typo() {
-  setup_module_dot_bazel
-
   cat > bzl_file.bzl << EOF
 def bzl_file():
     pass
@@ -365,8 +371,6 @@ EOF
 }
 
 function test_removing_rule_typo() {
-  setup_module_dot_bazel
-
   touch BUILD
 
   bazel build --incompatible_autoload_externally=-androidzzz_binary :all >&$TEST_log 2>&1 && fail "build unexpectedly succeeded"
@@ -374,8 +378,6 @@ function test_removing_rule_typo() {
 }
 
 function test_redirecting_rule_with_bzl_typo() {
-  setup_module_dot_bazel
-
   # Bzl file is evaluated first, so this should cover bzl file support
   cat > bzl_file.bzl << EOF
 def bzl_file():
@@ -391,8 +393,6 @@ EOF
 }
 
 function test_redirecting_rule_typo() {
-  setup_module_dot_bazel
-
   cat > BUILD << EOF
 EOF
 
@@ -402,8 +402,6 @@ EOF
 }
 
 function test_redirecting_symbols_typo() {
-  setup_module_dot_bazel
-
   # Bzl file is evaluated first, so this should cover bzl file support
   cat > bzl_file.bzl << EOF
 def bzl_file():
@@ -419,8 +417,6 @@ EOF
 }
 
 function test_bad_flag_value() {
-  setup_module_dot_bazel
-
   cat > BUILD << EOF
 py_library(
     name = 'py_library',
@@ -431,7 +427,6 @@ EOF
 }
 
 function test_missing_symbol_error() {
-  setup_module_dot_bazel
   mock_rules_android
   rules_android_workspace="${TEST_TMPDIR}/rules_android_workspace"
   # emptying the file simulates a missing symbol
@@ -450,7 +445,6 @@ EOF
 }
 
 function test_missing_bzlfile_error() {
-  setup_module_dot_bazel
   mock_rules_android
   rules_android_workspace="${TEST_TMPDIR}/rules_android_workspace"
   rm "${rules_android_workspace}/rules/rules.bzl"
@@ -463,13 +457,11 @@ aar_import(
 )
 EOF
   bazel build --incompatible_autoload_externally=aar_import :aar >&$TEST_log 2>&1 && fail "build unexpectedly succeeded"
-  expect_log "Failed to autoload external symbols: cannot load '@@rules_android+//rules:rules.bzl': no such file"
+  expect_log "Failed to autoload external symbols: cannot load '@@\?rules_android+\?//rules:rules.bzl': no such file"
 }
 
 
 function test_whole_repo_flag() {
-  setup_module_dot_bazel
-
   cat > BUILD << EOF
 sh_library(
     name = 'sh_library',
@@ -512,7 +504,4 @@ EOF
   expect_log "Starlark provider"
 }
 
-
-
-
-run_suite "load_removed_symbols"
+run_suite "Tests for incompatible_autoload_externally flag"
