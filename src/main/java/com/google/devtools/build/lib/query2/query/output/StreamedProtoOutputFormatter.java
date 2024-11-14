@@ -83,7 +83,9 @@ public class StreamedProtoOutputFormatter extends ProtoOutputFormatter {
       var serializedSize = targetProtoBuffer.getSerializedSize();
       var headerSize = CodedOutputStream.computeUInt32SizeNoTag(serializedSize);
       var output = new byte[headerSize + serializedSize];
-      targetProtoBuffer.writeTo(CodedOutputStream.newInstance(output, headerSize, output.length - headerSize));
+      var codedOut = CodedOutputStream.newInstance(output, headerSize, output.length - headerSize);
+      targetProtoBuffer.writeTo(codedOut);
+      codedOut.flush();
       return output;
     } catch (IOException e) {
       throw new WrappedIOException(e);
