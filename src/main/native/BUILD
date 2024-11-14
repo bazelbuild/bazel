@@ -52,6 +52,9 @@ cc_library(
     ],
     hdrs = ["latin1_jni_path.h"],
     includes = ["."],  # For jni headers.
+    deps = [
+        "//src/main/cpp/util:logging",
+    ],
 )
 
 cc_library(
