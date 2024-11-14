@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
@@ -45,9 +46,14 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.GuardedValue;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.Tuple;
 
 /**
  * Implementation of --incompatible_autoload_externally.
@@ -445,12 +451,11 @@ public class AutoloadSymbols {
       if (repositoryMappingValue == null) {
         return null;
       }
-      // Create with owner, so that we can report missing references (isVisible is false if missing)
       repoContext =
           Label.RepoContext.of(
               RepositoryName.MAIN,
-              RepositoryMapping.create(
-                  repositoryMappingValue.getRepositoryMapping().entries(), RepositoryName.MAIN));
+              RepositoryMapping.createAllowingFallback(
+                  repositoryMappingValue.getRepositoryMapping().entries()));
     }
 
     // Inject loads for rules and symbols removed from Bazel
@@ -473,8 +478,21 @@ public class AutoloadSymbols {
       }
 
       Label label = AUTOLOAD_CONFIG.get(symbol).getLabel(repoContext);
+
+      boolean repositoryExists;
+      if (bzlmodEnabled) {
+        repositoryExists = label.getRepository().isVisible();
+      } else {
+        RepositoryDirectoryValue repo =
+            (RepositoryDirectoryValue)
+                env.getValue(RepositoryDirectoryValue.key(label.getRepository()));
+        if (repo == null) {
+          return null;
+        }
+        repositoryExists = repo.repositoryExists();
+      }
       // Only load if the dependency is present
-      if (label.getRepository().isVisible()) {
+      if (repositoryExists) {
         loadKeysBuilder.put(symbol, BzlLoadValue.keyForBuild(label));
       } else {
         missingRepositories.add(label.getRepository().getName());
@@ -503,7 +521,7 @@ public class AutoloadSymbols {
    */
   public ImmutableMap<String, Object> processLoads(
       ImmutableMap<String, BzlLoadValue> autoloadValues) throws AutoloadException {
-    if (autoloadValues.isEmpty()) {
+    if (autoloadedSymbols.isEmpty()) {
       return ImmutableMap.of();
     }
 
@@ -532,6 +550,28 @@ public class AutoloadSymbols {
                 symbol, newName, AUTOLOAD_CONFIG.get(symbol).getLoadLabel(), workspaceWarning));
       }
       newSymbols.put(symbol, symbolValue); // Exposed as old name
+    }
+    // Add also symbols that couldn't be autoloaded (missing dependency on the repository)
+    // This way we get consistent behaviour for symbols that are still part of Bazel
+    for (String symbol : autoloadedSymbols) {
+      if (!autoloadValues.containsKey(symbol)) {
+        newSymbols.put(
+            symbol,
+            new StarlarkCallable() {
+              @Override
+              public String getName() {
+                return symbol;
+              }
+
+              @Override
+              public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
+                  throws EvalException {
+                throw Starlark.errorf(
+                    "Couldn't auto load '%s' from '%s'.",
+                    getName(), AUTOLOAD_CONFIG.get(getName()).getLoadLabel());
+              }
+            });
+      }
     }
     return newSymbols.buildOrThrow();
   }
@@ -619,14 +659,16 @@ public class AutoloadSymbols {
       ImmutableSet.of(
           "protobuf",
           "com_google_protobuf",
+          "proto_bazel_features",
           "rules_android",
           "rules_cc",
           "rules_java",
           "rules_java_builtin",
+          "compatibility_proxy",
           "rules_python",
           "rules_python_internal",
           "rules_shell",
-          "apple_common",
+          "apple_support",
           "bazel_skylib",
           "bazel_tools",
           "bazel_features");
