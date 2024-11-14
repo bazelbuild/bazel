@@ -91,8 +91,8 @@ public final class CommandUsingLinuxSandboxTest {
     ImmutableList<String> commandArguments =
         ImmutableList.of(
             getCpuTimeSpenderPath().getPathString(),
-            Long.toString(userTimeToSpend.getSeconds()),
-            Long.toString(systemTimeToSpend.getSeconds()));
+            Long.toString(userTimeToSpend.toSeconds()),
+            Long.toString(systemTimeToSpend.toSeconds()));
 
     Path outputDir = TestUtils.createUniqueTmpDir(testFS);
     Path statisticsFilePath = outputDir.getRelative("stats.out");

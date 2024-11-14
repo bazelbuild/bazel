@@ -716,7 +716,7 @@ public class TestRunnerAction extends AbstractAction
   public void setupEnvVariables(Map<String, String> env, Duration timeout) {
     env.put("TEST_TARGET", Label.print(getOwner().getLabel()));
     env.put("TEST_SIZE", getTestProperties().getSize().toString());
-    env.put("TEST_TIMEOUT", Long.toString(timeout.getSeconds()));
+    env.put("TEST_TIMEOUT", Long.toString(timeout.toSeconds()));
     env.put("TEST_WORKSPACE", getRunfilesPrefix());
     env.put(
         "TEST_BINARY",

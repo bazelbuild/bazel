@@ -620,6 +620,6 @@ public final class TargetCompleteEvent
         .getFragment(TestConfiguration.class)
         .getTestTimeout()
         .get(categoricalTimeout)
-        .getSeconds();
+        .toSeconds();
   }
 }

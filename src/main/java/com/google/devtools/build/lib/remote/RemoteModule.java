@@ -542,7 +542,7 @@ public final class RemoteModule extends BlazeModule {
             invocationId,
             remoteOptions.remoteInstanceName,
             callCredentials,
-            remoteOptions.remoteTimeout.getSeconds(),
+            remoteOptions.remoteTimeout.toSeconds(),
             retrier);
 
     ReferenceCountedChannel execChannel = null;

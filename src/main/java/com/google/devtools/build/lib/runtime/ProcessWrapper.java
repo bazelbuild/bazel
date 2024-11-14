@@ -146,10 +146,10 @@ public final class ProcessWrapper {
       fullCommandLine.add(processWrapperPath);
 
       if (timeout != null) {
-        fullCommandLine.add("--timeout=" + timeout.getSeconds());
+        fullCommandLine.add("--timeout=" + timeout.toSeconds());
       }
       if (killDelay != null) {
-        fullCommandLine.add("--kill_delay=" + killDelay.getSeconds());
+        fullCommandLine.add("--kill_delay=" + killDelay.toSeconds());
       }
       if (stdoutPath != null) {
         fullCommandLine.add("--stdout=" + stdoutPath);

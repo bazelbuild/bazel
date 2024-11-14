@@ -125,7 +125,7 @@ public class ServerWatcherRunnableTest {
         new ServerWatcherRunnable(
             mockServer,
             // Shut down after an hour if we see no memory issues.
-            /*maxIdleSeconds=*/ Duration.ofHours(1).getSeconds(),
+            /* maxIdleSeconds= */ Duration.ofHours(1).toSeconds(),
             shutdownOnLowSysMem,
             mockCommandManager,
             new ProcMeminfoLowMemoryChecker(() -> mockParser));

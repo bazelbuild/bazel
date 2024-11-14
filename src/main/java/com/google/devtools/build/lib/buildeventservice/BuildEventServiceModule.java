@@ -515,7 +515,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
     try {
       Uninterruptibles.getUninterruptibly(
           Futures.allAsList(closeFuturesWithTimeoutsMap.values()),
-          getMaxWaitForPreviousInvocation().getSeconds(),
+          getMaxWaitForPreviousInvocation().toSeconds(),
           TimeUnit.SECONDS);
     } catch (TimeoutException | ExecutionException exception) {
       logger.atWarning().withCause(exception).log(

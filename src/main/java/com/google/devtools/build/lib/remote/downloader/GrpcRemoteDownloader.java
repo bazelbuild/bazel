@@ -271,7 +271,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
             TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()))
         .withInterceptors(TracingMetadataUtils.newDownloaderHeadersInterceptor(options))
         .withCallCredentials(credentials.orElse(null))
-        .withDeadlineAfter(options.remoteTimeout.getSeconds(), TimeUnit.SECONDS);
+        .withDeadlineAfter(options.remoteTimeout.toSeconds(), TimeUnit.SECONDS);
   }
 
   private OutputStream newOutputStream(Path destination, Optional<Checksum> checksum)
