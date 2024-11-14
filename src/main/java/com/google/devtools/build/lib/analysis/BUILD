@@ -2037,7 +2037,11 @@ java_library(
 java_library(
     name = "config/run_under",
     srcs = ["config/RunUnder.java"],
-    deps = ["//src/main/java/com/google/devtools/build/lib/cmdline"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//third_party:guava",
+    ],
 )
 
 java_library(
@@ -2050,7 +2054,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 
