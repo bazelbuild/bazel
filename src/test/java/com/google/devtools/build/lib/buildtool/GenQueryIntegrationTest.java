@@ -954,6 +954,46 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
     assertQueryResult("//fruits:q", "@@//fruits:melon", "@@//fruits:papaya");
   }
 
+  @Test
+  public void testGenQueryInExternalRepo() throws Exception {
+    write(
+        "MODULE.bazel",
+        """
+        bazel_dep(name = "other_module")
+        local_path_override(
+            module_name = "other_module",
+            path = "other_module",
+        )
+        """);
+    write(
+        "other_module/MODULE.bazel",
+        """
+        module(name = 'other_module')
+        """);
+    write(
+        "other_module/fruits/BUILD",
+        """
+        load('@@//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(
+            name = "melon",
+            deps = [":papaya"],
+        )
+
+        foo_library(name = "papaya")
+
+        genquery(
+            name = "q",
+            expression = "deps(//fruits:melon)",
+            scope = [":melon"],
+        )
+        """);
+
+    assertQueryResult(
+        "@@other_module+//fruits:q",
+        "@@other_module+//fruits:melon",
+        "@@other_module+//fruits:papaya");
+  }
+
   private void assertQueryResult(String queryTarget, String... expected) throws Exception {
     assertThat(getQueryResult(queryTarget).split("\n"))
         .asList()
