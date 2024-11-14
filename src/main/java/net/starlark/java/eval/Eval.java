@@ -89,22 +89,21 @@ final class Eval {
       // We enable it only for statements outside any function (isToplevelFunction)
       // and outside any if- or for- statements (!indented).
       if (isToplevelFunction && !indented && fr.thread.postAssignHook != null) {
-        if (stmt instanceof AssignmentStatement) {
-          AssignmentStatement assign = (AssignmentStatement) stmt;
+        if (stmt instanceof AssignmentStatement assign) {
           for (Identifier id : Identifier.boundIdentifiers(assign.getLHS())) {
             Object value = fn(fr).getGlobal(id.getBinding().getIndex());
             // TODO(bazel-team): Instead of special casing StarlarkFunction, make it implement
             // StarlarkExportable.
-            if (value instanceof StarlarkFunction) {
+            if (value instanceof StarlarkFunction func) {
               // Optimization: The id token of a StarlarkFunction should be based on its global
               // identifier when available. This enables an name-based lookup on deserialization.
-              ((StarlarkFunction) value).export(fr.thread, id.getName());
+              func.export(fr.thread, id.getName());
             } else {
               fr.thread.postAssignHook.assign(id.getName(), value);
             }
           }
-        } else if (stmt instanceof DefStatement) {
-          Identifier id = ((DefStatement) stmt).getIdentifier();
+        } else if (stmt instanceof DefStatement def) {
+          Identifier id = def.getIdentifier();
           ((StarlarkFunction) fn(fr).getGlobal(id.getBinding().getIndex()))
               .export(fr.thread, id.getName());
         }
@@ -314,24 +313,22 @@ final class Eval {
    */
   private static void assign(StarlarkThread.Frame fr, Expression lhs, Object value)
       throws EvalException, InterruptedException {
-    if (lhs instanceof Identifier) {
+    if (lhs instanceof Identifier ident) {
       // x = ...
-      assignIdentifier(fr, (Identifier) lhs, value);
+      assignIdentifier(fr, ident, value);
 
-    } else if (lhs instanceof IndexExpression) {
+    } else if (lhs instanceof IndexExpression index) {
       // x[i] = ...
-      Object object = eval(fr, ((IndexExpression) lhs).getObject());
-      Object key = eval(fr, ((IndexExpression) lhs).getKey());
+      Object object = eval(fr, index.getObject());
+      Object key = eval(fr, index.getKey());
       EvalUtils.setIndex(object, key, value);
 
-    } else if (lhs instanceof ListExpression) {
+    } else if (lhs instanceof ListExpression list) {
       // a, b, c = ...
-      ListExpression list = (ListExpression) lhs;
       assignSequence(fr, list.getElements(), value);
 
-    } else if (lhs instanceof DotExpression) {
+    } else if (lhs instanceof DotExpression dot) {
       // x.f = ...
-      DotExpression dot = (DotExpression) lhs;
       Object object = eval(fr, dot.getObject());
       String field = dot.getField().getName();
       try {
@@ -398,7 +395,7 @@ final class Eval {
     TokenKind op = stmt.getOperator();
     Expression rhs = stmt.getRHS();
 
-    if (lhs instanceof Identifier) {
+    if (lhs instanceof Identifier ident) {
       // x op= y    (lhs must be evaluated only once)
       Object x = eval(fr, lhs);
       Object y = eval(fr, rhs);
@@ -409,12 +406,11 @@ final class Eval {
         fr.setErrorLocation(stmt.getOperatorLocation());
         throw ex;
       }
-      assignIdentifier(fr, (Identifier) lhs, z);
+      assignIdentifier(fr, ident, z);
 
-    } else if (lhs instanceof IndexExpression) {
+    } else if (lhs instanceof IndexExpression index) {
       // object[index] op= y
       // The object and key should be evaluated only once, so we don't use lhs.eval().
-      IndexExpression index = (IndexExpression) lhs;
       Object object = eval(fr, index.getObject());
       Object key = eval(fr, index.getKey());
       Object x = EvalUtils.index(fr.thread, object, key);
@@ -434,9 +430,8 @@ final class Eval {
         throw ex;
       }
 
-    } else if (lhs instanceof DotExpression) {
+    } else if (lhs instanceof DotExpression dot) {
       // object.field op= y  (lhs must be evaluated only once)
-      DotExpression dot = (DotExpression) lhs;
       Object object = eval(fr, dot.getObject());
       String field = dot.getField().getName();
       try {
@@ -474,10 +469,9 @@ final class Eval {
       case PLUS:
         // list += iterable  behaves like  list.extend(iterable)
         // TODO(b/141263526): following Python, allow list+=iterable (but not list+iterable).
-        if (x instanceof StarlarkList && y instanceof StarlarkList) {
-          StarlarkList<?> list = (StarlarkList) x;
-          list.extend(y);
-          return list;
+        if (x instanceof StarlarkList<?> xList && y instanceof StarlarkList<?> yList) {
+          xList.extend(yList);
+          return xList;
         }
         break;
 
@@ -490,41 +484,33 @@ final class Eval {
           Map<Object, Object> yMap = (Map<Object, Object>) y;
           xDict.putEntries(yMap);
           return xDict;
-        } else if (x instanceof StarlarkSet && y instanceof Set) {
+        } else if (x instanceof StarlarkSet<?> xSet && y instanceof Set<?> ySet) {
           // set |= set merges the contents of the second operand into the first.
-          @SuppressWarnings("unchecked")
-          StarlarkSet<Object> xSet = (StarlarkSet<Object>) x;
-          xSet.update(Tuple.of(y));
+          xSet.update(Tuple.of(ySet));
           return xSet;
         }
         break;
 
       case AMPERSAND:
-        if (x instanceof StarlarkSet && y instanceof Set) {
+        if (x instanceof StarlarkSet<?> xSet && y instanceof Set<?> ySet) {
           // set &= set replaces the first set with the intersection of the two sets.
-          @SuppressWarnings("unchecked")
-          StarlarkSet<Object> xSet = (StarlarkSet<Object>) x;
-          xSet.intersectionUpdate(Tuple.of(y));
+          xSet.intersectionUpdate(Tuple.of(ySet));
           return xSet;
         }
         break;
 
       case CARET:
-        if (x instanceof StarlarkSet && y instanceof Set) {
+        if (x instanceof StarlarkSet<?> xSet && y instanceof Set<?> ySet) {
           // set ^= set replaces the first set with the symmetric difference of the two sets.
-          @SuppressWarnings("unchecked")
-          StarlarkSet<Object> xSet = (StarlarkSet<Object>) x;
-          xSet.symmetricDifferenceUpdate(y);
+          xSet.symmetricDifferenceUpdate(ySet);
           return xSet;
         }
         break;
 
       case MINUS:
-        if (x instanceof StarlarkSet && y instanceof Set) {
+        if (x instanceof StarlarkSet<?> xSet && y instanceof Set<?> ySet) {
           // set -= set removes all elements of the second set from the first set.
-          @SuppressWarnings("unchecked")
-          StarlarkSet<Object> xSet = (StarlarkSet<Object>) x;
-          xSet.differenceUpdate(Tuple.of(y));
+          xSet.differenceUpdate(Tuple.of(ySet));
           return xSet;
         }
         break;
@@ -568,10 +554,10 @@ final class Eval {
         // the StarlarkInt in the IntLiteral (a temporary hack
         // until we use a compiled representation).
         Number n = ((IntLiteral) expr).getValue();
-        if (n instanceof Integer) {
-          return StarlarkInt.of((Integer) n);
-        } else if (n instanceof Long) {
-          return StarlarkInt.of((Long) n);
+        if (n instanceof Integer nInt) {
+          return StarlarkInt.of(nInt);
+        } else if (n instanceof Long nLong) {
+          return StarlarkInt.of(nLong);
         } else {
           return StarlarkInt.of((BigInteger) n);
         }
@@ -707,14 +693,14 @@ final class Eval {
     // f(*args) -- varargs
     if (star != null) {
       Object value = eval(fr, star.getValue());
-      if (!(value instanceof StarlarkIterable)) {
+      if (!(value instanceof StarlarkIterable<?> iter)) {
         fr.setErrorLocation(star.getStartLocation());
         throw Starlark.errorf("argument after * must be an iterable, not %s", Starlark.type(value));
       }
       // TODO(adonovan): opt: if value.size is known, preallocate (and skip if empty).
       ArrayList<Object> list = new ArrayList<>();
       Collections.addAll(list, positional);
-      Iterables.addAll(list, ((Iterable<?>) value));
+      Iterables.addAll(list, iter);
       positional = list.toArray();
     }
 
@@ -723,11 +709,10 @@ final class Eval {
       Object value = eval(fr, starstar.getValue());
       // Unlike *args, we don't have a Starlark-specific mapping interface to check for in **kwargs,
       // so check for Java's Map instead.
-      if (!(value instanceof Map)) {
+      if (!(value instanceof Map<?, ?> kwargs)) {
         fr.setErrorLocation(starstar.getStartLocation());
         throw Starlark.errorf("argument after ** must be a dict, not %s", Starlark.type(value));
       }
-      Map<?, ?> kwargs = (Map<?, ?>) value;
       int j = named.length;
       named = Arrays.copyOf(named, j + 2 * kwargs.size());
       for (Map.Entry<?, ?> e : kwargs.entrySet()) {
@@ -847,8 +832,7 @@ final class Eval {
         // recursive case: one or more clauses
         if (index < comp.getClauses().size()) {
           Comprehension.Clause clause = comp.getClauses().get(index);
-          if (clause instanceof Comprehension.For) {
-            Comprehension.For forClause = (Comprehension.For) clause;
+          if (clause instanceof Comprehension.For forClause) {
 
             Iterable<?> seq = evalAsIterable(fr, forClause.getIterable());
             EvalUtils.addIterator(seq);

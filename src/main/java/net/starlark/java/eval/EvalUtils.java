@@ -217,8 +217,7 @@ final class EvalUtils {
         break;
 
       case STAR:
-        if (x instanceof StarlarkInt) {
-          StarlarkInt xi = (StarlarkInt) x;
+        if (x instanceof StarlarkInt xi) {
           if (y instanceof StarlarkInt) {
             // int * int
             return StarlarkInt.multiply(xi, (StarlarkInt) y);
@@ -327,9 +326,8 @@ final class EvalUtils {
             return StarlarkFloat.mod(xf, yf);
           }
 
-        } else if (x instanceof String) {
+        } else if (x instanceof String xs) {
           // string % any
-          String xs = (String) x;
           try {
             if (y instanceof Tuple) {
               return Starlark.formatWithList(semantics, xs, (Tuple) y);
@@ -487,8 +485,7 @@ final class EvalUtils {
       // it should go in the implementations of StarlarkIndexable#getIndex that produce non-Starlark
       // values.
       return result == null ? null : Starlark.fromJava(result, mu);
-    } else if (object instanceof String) {
-      String string = (String) object;
+    } else if (object instanceof String string) {
       int index = Starlark.toInt(key, "string index");
       index = getSequenceIndex(index, string.length());
       return StringModule.memoizedCharToString(string.charAt(index));

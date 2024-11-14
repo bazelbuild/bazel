@@ -196,8 +196,7 @@ class MethodLibrary {
             doc = "A number (int or float)")
       })
   public Object abs(Object x) throws EvalException {
-    if (x instanceof StarlarkInt) {
-      StarlarkInt starlarkInt = (StarlarkInt) x;
+    if (x instanceof StarlarkInt starlarkInt) {
       if (starlarkInt.signum() < 0) {
         return StarlarkInt.uminus(starlarkInt);
       }
@@ -474,8 +473,7 @@ class MethodLibrary {
         @Param(name = "x", doc = "The value to convert.", defaultValue = "unbound"),
       })
   public StarlarkFloat floatForStarlark(Object x) throws EvalException {
-    if (x instanceof String) {
-      String s = (String) x;
+    if (x instanceof String s) {
       if (s.isEmpty()) {
         throw Starlark.errorf("empty string");
       }

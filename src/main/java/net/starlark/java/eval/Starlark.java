@@ -901,8 +901,7 @@ public final class Starlark {
     }
 
     // user-defined field?
-    if (x instanceof Structure) {
-      Structure struct = (Structure) x;
+    if (x instanceof Structure struct) {
       Object field = struct.getValue(semantics, name);
       if (field != null) {
         return Starlark.checkValid(field);
