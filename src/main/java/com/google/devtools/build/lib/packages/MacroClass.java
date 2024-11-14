@@ -230,6 +230,9 @@ public final class MacroClass {
     }
 
     // Special processing of the "visibility" attribute.
+    // TODO(brandjon): When we add introspection of attributes of symbolic macros, we'll want to
+    // distinguish between the different types of visibility a la Target#getRawVisibility /
+    // #getVisibility / #getActualVisibility.
     @Nullable MacroFrame parentMacroFrame = pkgBuilder.getCurrentMacroFrame();
     @Nullable Object rawVisibility = attrValues.get("visibility");
     RuleVisibility parsedVisibility;
@@ -254,8 +257,8 @@ public final class MacroClass {
         parentMacroFrame == null
             ? pkgBuilder.getPackageIdentifier()
             : parentMacroFrame.macroInstance.getDefinitionPackage();
-    parsedVisibility = parsedVisibility.concatWithPackage(instantiatingLoc);
-    attrValues.put("visibility", parsedVisibility.getDeclaredLabels());
+    RuleVisibility actualVisibility = parsedVisibility.concatWithPackage(instantiatingLoc);
+    attrValues.put("visibility", actualVisibility.getDeclaredLabels());
 
     // Populate defaults for the rest, and validate that no mandatory attr was missed.
     for (Attribute attr : attributes.values()) {

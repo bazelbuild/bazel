@@ -90,7 +90,7 @@ public class DigraphTest {
     }
 
     @Override
-    public RuleVisibility getVisibility() {
+    public RuleVisibility getRawVisibility() {
       return null;
     }
 

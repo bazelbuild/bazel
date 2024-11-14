@@ -155,7 +155,7 @@ public final class MacroInstance {
   }
 
   /**
-   * Returns the visibility of this macro instance.
+   * Returns the visibility of this macro instance, analogous to {@link Target#getActualVisibility}.
    *
    * <p>This value will be observed as the {@code visibility} parameter of the implementation
    * function. It is not necessarily the same as the {@code visibility} value passed in when
@@ -164,7 +164,7 @@ public final class MacroInstance {
    *
    * <p>It can be assumed that the returned list satisfies {@link RuleVisibility#validate}.
    */
-  public ImmutableList<Label> getVisibility() {
+  public ImmutableList<Label> getActualVisibility() {
     @SuppressWarnings("unchecked")
     List<Label> visibility = (List<Label>) Preconditions.checkNotNull(attrValues.get("visibility"));
     return ImmutableList.copyOf(visibility);
