@@ -696,7 +696,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
 
   /** Builder class for {@link CcCompilationContext}. */
   public static class Builder {
-    private String purpose;
     private final NestedSetBuilder<Artifact> compilationPrerequisites =
         NestedSetBuilder.stableOrder();
     private final TransitiveSetHelper<PathFragment> includeDirs = new TransitiveSetHelper<>();
@@ -721,21 +720,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
 
     /** Creates a new builder for a {@link CcCompilationContext} instance. */
     private Builder() {}
-
-    /**
-     * Overrides the purpose of this context.
-     *
-     * @param a string suitable for use as a filename.
-     */
-    @CanIgnoreReturnValue
-    public Builder setPurpose(String purpose) {
-      this.purpose = purpose;
-      return this;
-    }
-
-    public String getPurpose() {
-      return purpose;
-    }
 
     /**
      * Merges the {@link CcCompilationContext} of a dependency into this one by adding the contents

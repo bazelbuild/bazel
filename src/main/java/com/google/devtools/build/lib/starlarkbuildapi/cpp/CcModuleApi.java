@@ -1748,7 +1748,7 @@ public interface CcModuleApi<
       Sequence<?> directTextualHdrs,
       Sequence<?> directPublicHdrs,
       Sequence<?> directPrivateHdrs,
-      Object purpose,
+      Object unused3,
       Object moduleMap,
       Object unused1,
       Object unused2,
