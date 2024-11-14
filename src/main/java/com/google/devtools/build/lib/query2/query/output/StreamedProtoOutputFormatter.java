@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
 import com.google.protobuf.CodedOutputStream;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.stream.StreamSupport;
