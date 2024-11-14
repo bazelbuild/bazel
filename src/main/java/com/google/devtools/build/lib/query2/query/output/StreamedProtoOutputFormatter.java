@@ -17,7 +17,8 @@ import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
-import java.io.ByteArrayOutputStream;
+import com.google.protobuf.CodedOutputStream;
+
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.stream.StreamSupport;
@@ -28,18 +29,6 @@ import java.util.stream.StreamSupport;
  * on a {@code Build.QueryResult} object the full result can be reconstructed.
  */
 public class StreamedProtoOutputFormatter extends ProtoOutputFormatter {
-
-  /**
-   * The most bytes that protobuf delimited proto format will prepend to a proto message. See <a
-   * href="https://github.com/protocolbuffers/protobuf/blob/c11033dc27c3e9c1913e45b62fb5d4c5b5644b3e/java/core/src/main/java/com/google/protobuf/AbstractMessageLite.java#L72">
-   * <code>writeDelimitedTo</code></a> and <a
-   * href="https://github.com/protocolbuffers/protobuf/blob/c11033dc27c3e9c1913e45b62fb5d4c5b5644b3e/java/core/src/main/java/com/google/protobuf/WireFormat.java#L28">
-   * <code>MAX_VARINT32_SIZE</code></a>.
-   *
-   * <p>The value for int32 (used by {@code writeDelimitedTo} is actually 5, but we pick 10 just to
-   * be safe.
-   */
-  private static final int MAX_BYTES_FOR_VARINT32_ENCODING = 10;
 
   @Override
   public String getName() {
@@ -79,9 +68,9 @@ public class StreamedProtoOutputFormatter extends ProtoOutputFormatter {
         }
       }
 
-      private synchronized void writeToOutputStreamThreadSafe(ByteArrayOutputStream bout) {
+      private synchronized void writeToOutputStreamThreadSafe(byte[] data) {
         try {
-          bout.writeTo(out);
+          out.write(data);
         } catch (IOException e) {
           throw new WrappedIOException(e);
         }
@@ -89,13 +78,13 @@ public class StreamedProtoOutputFormatter extends ProtoOutputFormatter {
     };
   }
 
-  private static ByteArrayOutputStream writeDelimited(Build.Target targetProtoBuffer) {
+  private static byte[] writeDelimited(Build.Target targetProtoBuffer) {
     try {
-      var bout =
-          new ByteArrayOutputStream(
-              targetProtoBuffer.getSerializedSize() + MAX_BYTES_FOR_VARINT32_ENCODING);
-      targetProtoBuffer.writeDelimitedTo(bout);
-      return bout;
+      var serializedSize = targetProtoBuffer.getSerializedSize();
+      var headerSize = CodedOutputStream.computeUInt32SizeNoTag(serializedSize);
+      var output = new byte[headerSize + serializedSize];
+      targetProtoBuffer.writeTo(CodedOutputStream.newInstance(output, headerSize, output.length - headerSize));
+      return output;
     } catch (IOException e) {
       throw new WrappedIOException(e);
     }
