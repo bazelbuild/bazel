@@ -508,7 +508,7 @@ public class TestRunnerAction extends AbstractAction
     fp.addString(Strings.nullToEmpty(executionSettings.getTestFilter()));
     fp.addBoolean(executionSettings.getTestRunnerFailFast());
     RunUnder runUnder = executionSettings.getRunUnder();
-    fp.addString(runUnder == null ? "" : runUnder.getValue());
+    fp.addString(runUnder == null ? "" : runUnder.value());
     extraTestEnv.addTo(fp);
     // TODO(ulfjack): It might be better for performance to hash the action and test envs in config,
     // and only add a hash here.

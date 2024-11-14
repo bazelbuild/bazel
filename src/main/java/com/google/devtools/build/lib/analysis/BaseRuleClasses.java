@@ -32,6 +32,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
+import com.google.devtools.build.lib.analysis.config.RunUnder.LabelRunUnder;
 import com.google.devtools.build.lib.analysis.config.transitions.NoConfigTransition;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintConstants;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
@@ -181,7 +182,7 @@ public class BaseRuleClasses {
                 || config.getRunUnder() == null) {
               return null;
             }
-            return config.getRunUnder().getLabel();
+            return config.getRunUnder() instanceof LabelRunUnder runUnder ? runUnder.label() : null;
           });
 
   // TODO(b/65746853): provide a way to do this without passing the entire configuration
@@ -203,7 +204,7 @@ public class BaseRuleClasses {
                 || config.getRunUnder() == null) {
               return null;
             }
-            return config.getRunUnder().getLabel();
+            return config.getRunUnder() instanceof LabelRunUnder runUnder ? runUnder.label() : null;
           });
 
   /**
