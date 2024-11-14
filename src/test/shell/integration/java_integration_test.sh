@@ -254,8 +254,11 @@ function assert_singlejar_works() {
     local -r javabase="${BAZEL_RUNFILES}/${runfiles_relative_javabase}"
   fi
 
+  add_rules_java "MODULE.bazel"
+
   mkdir -p "$pkg/jvm"
   cat > "$pkg/jvm/BUILD" <<EOF
+load("@rules_java//java/toolchains:java_runtime.bzl", "java_runtime")
 package(default_visibility=["//visibility:public"])
 java_runtime(
     name='runtime',

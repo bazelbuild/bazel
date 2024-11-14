@@ -135,6 +135,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "a/rule.bzl",
         """
         load("//myinfo:myinfo.bzl", "MyInfo")
+        load("@rules_java//java/common:java_common.bzl", "java_common")
 
         def _impl(ctx):
             provider = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]
@@ -185,6 +186,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "a/rule.bzl",
         """
         load("//myinfo:myinfo.bzl", "MyInfo")
+        load("@rules_java//java/common:java_common.bzl", "java_common")
 
         def _impl(ctx):
             provider = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]
@@ -236,6 +238,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "a/rule.bzl",
         """
         load("//myinfo:myinfo.bzl", "MyInfo")
+        load("@rules_java//java/common:java_common.bzl", "java_common")
 
         def _impl(ctx):
             provider = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]
@@ -286,6 +289,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "java/test/extension.bzl",
         """
+        load("@rules_java//java/common:java_common.bzl", "java_common")
         result = provider()
 
         def impl(ctx):
@@ -364,6 +368,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "java/test/extension.bzl",
         """
+        load("@rules_java//java/common:java_plugin_info.bzl",
+         "JavaPluginInfo")
         result = provider()
 
         def impl(ctx):
@@ -409,6 +415,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "java/test/custom_rule.bzl",
         """
+        load("@rules_java//java/common:java_common.bzl", "java_common")
         def _impl(ctx):
             jacoco = ctx.attr._java_toolchain[java_common.JavaToolchainInfo].jacocorunner
             return [
@@ -456,6 +463,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "java/test/extension.bzl",
         """
+        load("@rules_java//java/common:java_common.bzl", "java_common")
         result = provider()
 
         def impl(ctx):
@@ -473,6 +481,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         """);
     scratch.file(
         "java/test/custom_rule.bzl",
+        "load('@rules_java//java/common:java_common.bzl', 'java_common')",
         "def _impl(ctx):",
         "  output_jar = ctx.actions.declare_file('lib' + ctx.label.name + '.jar')",
         "  compilation_provider = java_common.compile(",
@@ -554,6 +563,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         """);
     scratch.file(
         "java/test/custom_rule.bzl",
+        "load('@rules_java//java/common:java_common.bzl', 'java_common')",
+        "load('@rules_java//java/common:java_info.bzl', 'JavaInfo')",
         "def _impl(ctx):",
         "  output_jar = ctx.actions.declare_file('lib' + ctx.label.name + '.jar')",
         "  deps = [dep[JavaInfo] for dep in ctx.attr.deps]",
@@ -628,7 +639,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/custom_rule.bzl",
-        "load('@rules_java//java:defs.bzl', 'java_common')",
+        "load('@rules_java//java:defs.bzl', 'java_common', 'JavaInfo',"
+            + " 'JavaPluginInfo')",
         "def _impl(ctx):",
         "  output_jar = ctx.actions.declare_file('lib' + ctx.label.name + '.jar')",
         "  return java_common.compile(",
@@ -670,7 +682,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/custom_rule.bzl",
-        "load('@rules_java//java:defs.bzl', 'java_common')",
+        "load('@rules_java//java:defs.bzl', 'java_common', 'JavaInfo')",
         "def _impl(ctx):",
         "  output_jar = ctx.actions.declare_file('lib' + ctx.label.name + '.jar')",
         "  return java_common.compile(",
@@ -1172,6 +1184,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "java/test/extension.bzl",
         """
+        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
         result = provider()
 
         def impl(ctx):
@@ -1259,6 +1272,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     String pkg = apiGenerating ? "java/getplugininfo" : "java/getapiplugininfo";
     scratch.file(
         pkg + "/extension.bzl",
+        "load('@rules_java//java:defs.bzl', 'JavaInfo', 'JavaPluginInfo')",
         "result = provider()",
         "def impl(ctx):",
         "   depj = ctx.attr.dep[" + provider + "]",
@@ -1436,6 +1450,9 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "java/test/myplugin.bzl",
         """
+        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
+        load("@rules_java//java/common:java_plugin_info.bzl",
+         "JavaPluginInfo")
         def _impl(ctx):
             output_jar = ctx.actions.declare_file("lib.jar")
             ctx.actions.write(output_jar, "")
@@ -1499,6 +1516,9 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "java/test/myplugin.bzl",
         """
+        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
+        load("@rules_java//java/common:java_plugin_info.bzl",
+         "JavaPluginInfo")
         def _impl(ctx):
             output_jar = ctx.actions.declare_file("lib.jar")
             ctx.actions.write(output_jar, "")
@@ -1562,6 +1582,9 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "java/test/myplugin.bzl",
         """
+        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
+        load("@rules_java//java/common:java_plugin_info.bzl",
+         "JavaPluginInfo")
         def _impl(ctx):
             output_jar = ctx.actions.declare_file("lib.jar")
             ctx.actions.write(output_jar, "")
@@ -1623,6 +1646,9 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "java/test/myplugin.bzl",
         """
+        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
+        load("@rules_java//java/common:java_plugin_info.bzl",
+         "JavaPluginInfo")
         def _impl(ctx):
             output_jar = ctx.actions.declare_file("lib.jar")
             ctx.actions.write(output_jar, "")
@@ -1688,6 +1714,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "java/test/extension.bzl",
         """
+        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
         result = provider()
 
         def impl(ctx):
@@ -1768,6 +1795,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/extension.bzl",
         """
+        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
         my_provider = provider()
 
         def _impl(ctx):
@@ -1812,6 +1840,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/extension.bzl",
         """
+        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
         def _impl(ctx):
             dep_params = ctx.attr.dep[JavaInfo]
             return [dep_params]
@@ -1866,6 +1895,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/extension.bzl",
         """
+        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
         def _impl(ctx):
             dep_params = ctx.attr.dep[JavaInfo]
             return [dep_params]
@@ -1953,6 +1983,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/extension.bzl",
         """
+        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
         def _impl(ctx):
             dep_params = ctx.attr.dep[JavaInfo]
             return [dep_params]
@@ -2012,6 +2043,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/extension.bzl",
         """
+        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
         def _impl(ctx):
             dep_params = ctx.attr.dep[JavaInfo]
             return [dep_params]
@@ -2066,6 +2098,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/bad_rules.bzl",
         """
+        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
         def make_file(ctx):
             f = ctx.actions.declare_file("out")
             ctx.actions.write(f, "out")
@@ -2121,6 +2154,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/javainfo_rules.bzl",
         """
+        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
         def make_file(ctx):
             f = ctx.actions.declare_file("out")
             ctx.actions.write(f, "out")
@@ -2149,6 +2183,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/javainfo_rules.bzl",
         """
+        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
         def make_file(ctx):
             f = ctx.actions.declare_file("out")
             ctx.actions.write(f, "out")
@@ -2176,6 +2211,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/javainfo_rules.bzl",
         """
+        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
         def make_file(ctx):
             f = ctx.actions.declare_file("out")
             ctx.actions.write(f, "out")
@@ -2205,6 +2241,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/extension.bzl",
         """
+        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
         result = provider()
 
         def _impl(ctx):
@@ -2253,6 +2290,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/extension.bzl",
         """
+        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
         result = provider()
 
         def _impl(ctx):
@@ -2311,6 +2349,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/extension.bzl",
         """
+        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
         result = provider()
 
         def _impl(ctx):
@@ -2369,6 +2408,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/extension.bzl",
         """
+        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
         result = provider()
 
         def _impl(ctx):
@@ -2426,6 +2466,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/extension.bzl",
         """
+        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
         result = provider()
 
         def _impl(ctx):
@@ -2705,6 +2746,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/extension.bzl",
         """
+        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
         my_provider = provider()
 
         def _impl(ctx):
@@ -2811,6 +2853,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "java/test/custom_rule.bzl",
         """
+        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
         def _impl(ctx):
             output_jar = ctx.actions.declare_file("lib" + ctx.label.name + ".jar")
             ctx.actions.write(output_jar, "")
@@ -2858,6 +2901,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/extension.bzl",
         """
+        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
         result = provider()
 
         def _impl(ctx):
@@ -2904,6 +2948,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/extension.bzl",
         """
+        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
         result = provider()
 
         def _impl(ctx):
@@ -2953,6 +2998,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/extension.bzl",
         """
+        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
         result = provider()
 
         def _impl(ctx):
@@ -3157,7 +3203,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         """);
     scratch.file(
         "java/test/custom_rule.bzl",
-        "load('@rules_java//java:defs.bzl', 'java_common')",
+        "load('@rules_java//java:defs.bzl', 'java_common', 'JavaInfo')",
         "def _impl(ctx):",
         "  output_jar = ctx.actions.declare_file('lib' + ctx.label.name + '.jar')",
         "  java_info = java_common.compile(",
@@ -3243,7 +3289,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         """);
     scratch.file(
         "java/test/custom_rule.bzl",
-        "load('@rules_java//java:defs.bzl', 'java_common')",
+        "load('@rules_java//java:defs.bzl', 'java_common', 'JavaInfo')",
         "def _impl(ctx):",
         "  output_jar = ctx.actions.declare_file('lib' + ctx.label.name + '.jar')",
         "  compilation_provider = java_common.compile(",
@@ -3352,6 +3398,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "foo/custom_library.bzl",
         """
         load("@rules_java//java:defs.bzl", "java_common")
+        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
         def _impl(ctx):
             java_provider = java_common.merge([dep[JavaInfo] for dep in ctx.attr.deps])
             if not ctx.attr.strict_deps:
@@ -3404,6 +3451,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "foo/custom_library.bzl",
         """
         load("@rules_java//java:defs.bzl", "java_common")
+        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
         def _impl(ctx):
             java_provider = java_common.merge([dep[JavaInfo] for dep in ctx.attr.deps])
             if not ctx.attr.strict_deps:
@@ -3518,6 +3566,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "foo/custom_library.bzl",
         """
         load("@rules_java//java:defs.bzl", "java_common")
+        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
         def _impl(ctx):
             java_provider = java_common.merge([dep[JavaInfo] for dep in ctx.attr.deps])
             return [java_provider]
@@ -3784,7 +3833,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "foo/java_custom_library.bzl",
-        "load('@rules_java//java:defs.bzl', 'java_common')",
+        "load('@rules_java//java:defs.bzl', 'java_common', 'JavaInfo')",
         "def _impl(ctx):",
         "  output_jar = ctx.actions.declare_file('lib%s.jar' % ctx.label.name)",
         "  deps = [deps[JavaInfo] for deps in ctx.attr.deps]",
@@ -3840,7 +3889,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "foo/java_custom_library.bzl",
-        "load('@rules_java//java:defs.bzl', 'java_common')",
+        "load('@rules_java//java:defs.bzl', 'java_common', 'JavaInfo')",
         "def _impl(ctx):",
         "  output_jar = ctx.actions.declare_file('lib%s.jar' % ctx.label.name)",
         "  exports = [export[JavaInfo] for export in ctx.attr.exports]",
@@ -4083,6 +4132,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "a/rule.bzl",
         """
+        load("@rules_java//java/common:java_common.bzl", "java_common")
         def _impl(ctx):
             provider = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]
             return DefaultInfo(
@@ -4130,7 +4180,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "foo/custom_rule.bzl",
-        "load('@rules_java//java:defs.bzl', 'java_common')",
+        "load('@rules_java//java:defs.bzl', 'java_common', 'JavaInfo',"
+            + " 'JavaPluginInfo')",
         "def _impl(ctx):",
         "  output_jar = ctx.actions.declare_file('lib' + ctx.label.name + '.jar')",
         "  compilation_provider = java_common.compile(",
@@ -4642,7 +4693,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/custom_library.bzl",
         """
-        load("@rules_java//java:defs.bzl", "java_common")
+        load("@rules_java//java:defs.bzl", "java_common", "JavaInfo")
         def _impl(ctx):
             java_provider = java_common.merge([dep[JavaInfo] for dep in ctx.attr.deps])
             return [java_provider]
@@ -4710,6 +4761,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "a/rule.bzl",
         """
         load("//myinfo:myinfo.bzl", "MyInfo")
+        load("@rules_java//java/common:java_common.bzl", "java_common")
 
         def _impl(ctx):
             provider = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]
@@ -4764,6 +4816,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "a/rule.bzl",
         """
         load("//myinfo:myinfo.bzl", "MyInfo")
+        load("@rules_java//java/common:java_common.bzl", "java_common")
 
         def _impl(ctx):
             provider = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]
@@ -4814,6 +4867,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "a/rule.bzl",
         """
         load("//myinfo:myinfo.bzl", "MyInfo")
+        load("@rules_java//java/common:java_common.bzl", "java_common")
 
         def _impl(ctx):
             provider = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]
@@ -4919,6 +4973,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/rule.bzl",
         """
+        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
         def _impl(ctx):
             cc_info = ctx.attr.dep[CcInfo]
             JavaInfo(output_jar = None, compile_jar = None, deps = [cc_info])

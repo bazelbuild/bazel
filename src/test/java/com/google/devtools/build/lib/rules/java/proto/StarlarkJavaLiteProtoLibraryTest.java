@@ -391,6 +391,7 @@ proto_lang_toolchain(
     scratch.file(
         "proto/extensions.bzl",
         """
+        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
         def _impl(ctx):
             print(ctx.attr.dep[JavaInfo])
 

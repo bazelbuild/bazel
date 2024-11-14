@@ -39,6 +39,8 @@ public class AndroidStarlarkCommonTest extends BuildViewTestCase {
     scratch.file(
         "java/android/compatible.bzl",
         """
+        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
+
         def _impl(ctx):
             return [
                 android_common.enable_implicit_sourceless_deps_exports_compatibility(
