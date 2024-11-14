@@ -611,6 +611,7 @@ public class ModuleFileFunction implements SkyFunction {
       // A module with a non-registry override always has a unique version across the entire dep
       // graph.
       RepositoryName canonicalRepoName = key.getCanonicalRepoNameWithoutVersion();
+
       Label moduleFileLabel =
           Label.createUnvalidated(
               PackageIdentifier.create(canonicalRepoName, PathFragment.EMPTY_FRAGMENT),
@@ -738,6 +739,7 @@ public class ModuleFileFunction implements SkyFunction {
       throws InterruptedException, ModuleFileFunctionException {
     var moduleFile =
         moduleFileBytes == null ? null : ModuleFile.create(moduleFileBytes, moduleFileLocation);
+
     ImmutableList<Label> patches;
     int patchStrip;
     switch (override) {
@@ -757,6 +759,7 @@ public class ModuleFileFunction implements SkyFunction {
         return moduleFile;
       }
     }
+
     var patchesInMainRepo =
         patches.stream().filter(label -> label.getRepository().isMain()).collect(toImmutableList());
     if (patchesInMainRepo.isEmpty()) {
@@ -823,8 +826,7 @@ public class ModuleFileFunction implements SkyFunction {
       }
       for (var patchPath : patchPaths) {
         try {
-          PatchUtil.applyToSingleFile(
-              patchPath.asPath(), patchStrip, moduleRoot, moduleFilePath, moduleFileBytes != null);
+          PatchUtil.applyToSingleFile(patchPath.asPath(), patchStrip, moduleRoot, moduleFilePath);
         } catch (PatchFailedException e) {
           throw errorf(
               Code.BAD_MODULE,
