@@ -49,6 +49,10 @@ public final class BuiltinRestriction {
               BuiltinRestriction.allowlistEntry("rules_android", ""),
               BuiltinRestriction.allowlistEntry("build_bazel_rules_android", ""),
 
+              // Apple rules
+              BuiltinRestriction.allowlistEntry("", "third_party/bazel_rules/rules_apple"),
+              BuiltinRestriction.allowlistEntry("rules_apple", ""),
+
               // Cc rules
               BuiltinRestriction.allowlistEntry("", "third_party/bazel_rules/rules_cc"),
               BuiltinRestriction.allowlistEntry("rules_cc", ""),
