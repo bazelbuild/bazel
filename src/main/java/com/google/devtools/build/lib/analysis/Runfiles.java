@@ -1084,9 +1084,6 @@ public final class Runfiles implements RunfilesApi {
         artifacts);
 
     emptyFilesSupplier.fingerprint(fp);
-
-    // extraMiddlemen does not affect the shape of the runfiles tree described by this instance and
-    // thus does not need to be fingerprinted.
   }
 
   /** Describes the inputs {@link #fingerprint} uses to aid describeKey() descriptions. */

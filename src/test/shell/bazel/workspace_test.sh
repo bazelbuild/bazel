@@ -77,8 +77,7 @@ function test_path_with_spaces() {
   bazel help &> $TEST_log || fail "Help failed"
 }
 
-# Tests for middleman conflict when using workspace repository
-function test_middleman_conflict() {
+function test_targets_with_identical_names_in_different_repos() {
   local test_repo1=$TEST_TMPDIR/repo1
   local test_repo2=$TEST_TMPDIR/repo2
 
