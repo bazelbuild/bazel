@@ -61,6 +61,9 @@ import net.starlark.java.eval.Structure;
  *   <li>{@code actual} has a self transition. Self transitions don't get applied to the alias rule,
  *       and so the configuration keys actually differ.
  * </ul>
+ *
+ * <p>An {@code alias} target may not be used to redirect a {@code package_group} target in a {@code
+ * visibility} declaration or a {@code package_group}'s {@code includes} attribute.
  */
 @Immutable
 public final class AliasConfiguredTarget implements ConfiguredTarget, Structure {

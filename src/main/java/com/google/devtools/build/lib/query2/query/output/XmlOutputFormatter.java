@@ -228,6 +228,8 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
             String.valueOf(inputFile.getPackage().containsErrors()));
       }
 
+      // TODO(bazel-team): We're being inconsistent about whether we include the package's
+      // default_visibility in the target. For files we do, but for rules we don't.
       addPackageGroupsToElement(doc, elem, inputFile, labelPrinter);
     } else if (target instanceof EnvironmentGroup envGroup) {
       elem = doc.createElement("environment-group");

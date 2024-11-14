@@ -335,6 +335,9 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
         input.setPackageContainsErrors(inputFile.getPackage().containsErrors());
       }
 
+      // TODO(bazel-team): We're being inconsistent about whether we include the package's
+      // default_visibility in the target. For files we do, but for rules we don't.
+
       for (Label visibilityDependency : target.getVisibilityDependencyLabels()) {
         input.addPackageGroup(labelPrinter.toString(visibilityDependency));
       }

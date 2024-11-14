@@ -87,7 +87,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
       throws Exception {
     Target target = pkg.getTarget(name);
     assertThat(target).isNotNull();
-    return asStringList(target.getVisibility().getDeclaredLabels());
+    return asStringList(target.getActualVisibility().getDeclaredLabels());
   }
 
   /**
@@ -95,7 +95,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
    * package.
    */
   private static ImmutableList<String> getMacroVisibility(Package pkg, String id) throws Exception {
-    return asStringList(getMacroById(pkg, id).getVisibility());
+    return asStringList(getMacroById(pkg, id).getActualVisibility());
   }
 
   /**
