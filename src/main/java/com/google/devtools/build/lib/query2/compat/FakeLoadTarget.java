@@ -80,7 +80,7 @@ public class FakeLoadTarget implements Target {
   }
 
   @Override
-  public RuleVisibility getVisibility() {
+  public RuleVisibility getRawVisibility() {
     return RuleVisibility.PUBLIC;
   }
 

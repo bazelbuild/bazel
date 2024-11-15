@@ -15,11 +15,11 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.packages.RuleVisibility.concatWithElement;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import net.starlark.java.eval.EvalException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -33,6 +33,10 @@ public final class RuleVisibilityTest {
     return Label.parseCanonicalUnchecked(labelString);
   }
 
+  private static PackageIdentifier pkg(String labelString) {
+    return label(labelString).getPackageIdentifier();
+  }
+
   private static RuleVisibility ruleVisibility(String... labelStrings) {
     ImmutableList.Builder<Label> labels = ImmutableList.builder();
     for (String labelString : labelStrings) {
@@ -41,15 +45,9 @@ public final class RuleVisibilityTest {
     return RuleVisibility.parseUnchecked(labels.build());
   }
 
-  // Needed because RuleVisibility has no equals() override.
-  private static void assertEqual(RuleVisibility vis1, RuleVisibility vis2) {
-    assertThat(vis1.getDependencyLabels()).isEqualTo(vis2.getDependencyLabels());
-    assertThat(vis1.getDeclaredLabels()).isEqualTo(vis2.getDeclaredLabels());
-  }
-
   private static final String A = "//a:__pkg__";
   // Package group labels are represented differently than __pkg__ labels, so cover both cases.
-  private static final String B = "//b:pkggroup";
+  private static final String B_PG = "//b:pkggroup";
   private static final String C = "//c:__pkg__";
   private static final String PUBLIC = "//visibility:public";
   private static final String PRIVATE = "//visibility:private";
@@ -87,7 +85,7 @@ public final class RuleVisibilityTest {
   public void validateAndSimplify_simplifiesPublic() throws Exception {
     assertThat(RuleVisibility.validateAndSimplify(ImmutableList.of(label(A), label(PUBLIC))))
         .containsExactly(label(PUBLIC));
-    assertThat(RuleVisibility.validateAndSimplify(ImmutableList.of(label(PUBLIC), label(B))))
+    assertThat(RuleVisibility.validateAndSimplify(ImmutableList.of(label(PUBLIC), label(B_PG))))
         .containsExactly(label(PUBLIC));
     assertThat(RuleVisibility.validateAndSimplify(ImmutableList.of(label(PUBLIC), label(PRIVATE))))
         .containsExactly(label(PUBLIC));
@@ -99,8 +97,8 @@ public final class RuleVisibilityTest {
   public void validateAndSimplify_simplifiesPrivate() throws Exception {
     assertThat(RuleVisibility.validateAndSimplify(ImmutableList.of(label(A), label(PRIVATE))))
         .containsExactly(label(A));
-    assertThat(RuleVisibility.validateAndSimplify(ImmutableList.of(label(PRIVATE), label(B))))
-        .containsExactly(label(B));
+    assertThat(RuleVisibility.validateAndSimplify(ImmutableList.of(label(PRIVATE), label(B_PG))))
+        .containsExactly(label(B_PG));
     assertThat(RuleVisibility.validateAndSimplify(ImmutableList.of(label(PRIVATE), label(PRIVATE))))
         .containsExactly(label(PRIVATE));
   }
@@ -160,23 +158,19 @@ public final class RuleVisibilityTest {
 
   @Test
   public void concatenation() throws Exception {
-    assertEqual(concatWithElement(ruleVisibility(A, B), label(C)), ruleVisibility(A, B, C));
-    assertEqual(concatWithElement(ruleVisibility(A, B), label(PUBLIC)), PUBLIC_VIS);
-    assertEqual(concatWithElement(ruleVisibility(A, B), label(PRIVATE)), ruleVisibility(A, B));
+    assertThat(ruleVisibility(A, B_PG).concatWithPackage(pkg(C)))
+        .isEqualTo(ruleVisibility(A, B_PG, C));
 
-    assertEqual(concatWithElement(PUBLIC_VIS, label(C)), PUBLIC_VIS);
-    assertEqual(concatWithElement(PUBLIC_VIS, label(PUBLIC)), PUBLIC_VIS);
-    assertEqual(concatWithElement(PUBLIC_VIS, label(PRIVATE)), PUBLIC_VIS);
+    assertThat(PUBLIC_VIS.concatWithPackage(pkg(C))).isEqualTo(PUBLIC_VIS);
 
-    assertEqual(concatWithElement(PRIVATE_VIS, label(C)), ruleVisibility(C));
-    assertEqual(concatWithElement(PRIVATE_VIS, label(PUBLIC)), PUBLIC_VIS);
-    assertEqual(concatWithElement(PRIVATE_VIS, label(PRIVATE)), PRIVATE_VIS);
+    assertThat(PRIVATE_VIS.concatWithPackage(pkg(C))).isEqualTo(ruleVisibility(C));
 
     // Duplicates are not added, though they are preserved.
-    assertEqual(concatWithElement(ruleVisibility(A, B), label(A)), ruleVisibility(A, B));
-    assertEqual(
-        concatWithElement(ruleVisibility(A, B, B, A), label(A)), ruleVisibility(A, B, B, A));
-    assertEqual(
-        concatWithElement(ruleVisibility(A, B, B, A), label(C)), ruleVisibility(A, B, B, A, C));
+    assertThat(ruleVisibility(A, B_PG).concatWithPackage(pkg(A)))
+        .isEqualTo(ruleVisibility(A, B_PG));
+    assertThat(ruleVisibility(A, B_PG, B_PG, A).concatWithPackage(pkg(A)))
+        .isEqualTo(ruleVisibility(A, B_PG, B_PG, A));
+    assertThat(ruleVisibility(A, B_PG, B_PG, A).concatWithPackage(pkg(C)))
+        .isEqualTo(ruleVisibility(A, B_PG, B_PG, A, C));
   }
 }
