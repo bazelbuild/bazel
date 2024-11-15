@@ -21,10 +21,12 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.OptionsDiffPredicate;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
+import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.test.CoverageConfiguration.CoverageOptions;
 import com.google.devtools.build.lib.analysis.test.TestShardingStrategy.ShardingStrategyConverter;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -44,6 +46,7 @@ import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /** Test-related options. */
 @RequiresOptions(options = {TestConfiguration.TestOptions.class})
@@ -54,13 +57,21 @@ public class TestConfiguration extends Fragment {
           // changes in --trim_test_configuration itself or related flags always prompt invalidation
           return true;
         }
+        // LINT.IfChange
         Class<? extends FragmentOptions> affectedOptionsClass =
             changedOption.getDeclaringClass(FragmentOptions.class);
         if (!affectedOptionsClass.equals(TestOptions.class)
             && !affectedOptionsClass.equals(CoverageOptions.class)) {
-          // options outside of TestOptions always prompt invalidation
+          // options outside of TestOptions always prompt invalidation, except for --run_under.
+          if (affectedOptionsClass.equals(CoreOptions.class)
+              && changedOption.getOptionName().equals("run_under")) {
+            return !Objects.equals(
+                RunUnder.trimForNonTestConfiguration((RunUnder) oldValue),
+                RunUnder.trimForNonTestConfiguration((RunUnder) newValue));
+          }
           return true;
         }
+        // LINT.ThenChange(TestTrimmingLogic.java)
         // other options in TestOptions require invalidation when --trim_test_configuration is off
         return !options.get(TestOptions.class).trimTestConfiguration;
       };

@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
+import com.google.devtools.build.lib.analysis.test.CoverageConfiguration.CoverageOptions;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.DummyTestFragment;
@@ -1353,11 +1354,12 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
 
         my_rule(name = "test")
         """);
-    // --trim_test_configuration means only the top-level configuration has TestOptions.
+    // --trim_test_configuration means only the top-level configuration has CoverageOptions and
+    // TestOptions.
     assertConfigurationsEqual(
         getConfiguration(getConfiguredTarget("//test")),
         targetConfig,
-        ImmutableSet.of(TestOptions.class));
+        ImmutableSet.of(CoverageOptions.class, TestOptions.class));
   }
 
   @Test
