@@ -68,11 +68,6 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
   }
 
   @Override
-  public boolean requiresTreeMetadataWhenTreeFileIsInput() {
-    return true;
-  }
-
-  @Override
   protected void prefetchVirtualActionInput(VirtualActionInput input) throws IOException {
     input.atomicallyWriteRelativeTo(execRoot);
   }
