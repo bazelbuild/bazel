@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.errorprone.annotations.InlineMe;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -207,7 +206,7 @@ public class AutoloadSymbols {
     }
     for (String symbol : partiallyRemovedSymbols) {
       ImmutableList<String> unsatisfiedRdeps =
-          AUTOLOAD_CONFIG.get(symbol).getRdeps().stream()
+          AUTOLOAD_CONFIG.get(symbol).rdeps().stream()
               .filter(allAvailableSymbols::contains)
               .collect(toImmutableList());
       if (!unsatisfiedRdeps.isEmpty()) {
@@ -293,14 +292,14 @@ public class AutoloadSymbols {
         convertNativeStructToMap((StarlarkInfo) envBuilder.remove("native"));
 
     for (Map.Entry<String, Object> symbol : add.entrySet()) {
-      if (AUTOLOAD_CONFIG.get(symbol.getKey()).isRule()) {
+      if (AUTOLOAD_CONFIG.get(symbol.getKey()).rule()) {
         nativeBindings.put(symbol.getKey(), symbol.getValue());
       } else {
         envBuilder.put(symbol.getKey(), symbol.getValue());
       }
     }
     for (String symbol : remove) {
-      if (AUTOLOAD_CONFIG.get(symbol).isRule()) {
+      if (AUTOLOAD_CONFIG.get(symbol).rule()) {
         nativeBindings.remove(symbol);
       } else {
         if (symbol.equals("proto_common_do_not_use")) {
@@ -367,12 +366,12 @@ public class AutoloadSymbols {
     }
     Map<String, Object> envBuilder = new LinkedHashMap<>(originalEnv);
     for (Map.Entry<String, Object> symbol : add.entrySet()) {
-      if (AUTOLOAD_CONFIG.get(symbol.getKey()).isRule()) {
+      if (AUTOLOAD_CONFIG.get(symbol.getKey()).rule()) {
         envBuilder.put(symbol.getKey(), symbol.getValue());
       }
     }
     for (String symbol : removedSymbols) {
-      if (AUTOLOAD_CONFIG.get(symbol).isRule()) {
+      if (AUTOLOAD_CONFIG.get(symbol).rule()) {
         envBuilder.remove(symbol);
       }
     }
@@ -391,7 +390,7 @@ public class AutoloadSymbols {
 
   private ImmutableList<String> getAllSymbols(String repository, String prefix) {
     return AUTOLOAD_CONFIG.entrySet().stream()
-        .filter(entry -> entry.getValue().getLoadLabel().startsWith(repository + "//"))
+        .filter(entry -> entry.getValue().loadLabel().startsWith(repository + "//"))
         .map(entry -> prefix + entry.getKey())
         .collect(toImmutableList());
   }
@@ -459,7 +458,7 @@ public class AutoloadSymbols {
           Label.RepoContext.of(
               RepositoryName.MAIN,
               RepositoryMapping.createAllowingFallback(
-                  repositoryMappingValue.getRepositoryMapping().entries()));
+                  repositoryMappingValue.repositoryMapping().entries()));
     }
 
     // Inject loads for rules and symbols removed from Bazel
@@ -540,7 +539,7 @@ public class AutoloadSymbols {
       String symbol = autoload.getKey();
       // Check if the symbol is named differently in the bzl file than natively. Renames are rare:
       // Example is renaming native.ProguardSpecProvider to ProguardSpecInfo.
-      String newName = AUTOLOAD_CONFIG.get(symbol).getNewName();
+      String newName = AUTOLOAD_CONFIG.get(symbol).newName();
       if (newName == null) {
         newName = symbol;
       }
@@ -551,7 +550,7 @@ public class AutoloadSymbols {
             String.format(
                 "The toplevel symbol '%s' set by --incompatible_load_symbols_externally couldn't"
                     + " be loaded. '%s' not found in auto loaded '%s'.%s",
-                symbol, newName, AUTOLOAD_CONFIG.get(symbol).getLoadLabel(), workspaceWarning));
+                symbol, newName, AUTOLOAD_CONFIG.get(symbol).loadLabel(), workspaceWarning));
       }
       newSymbols.put(symbol, symbolValue); // Exposed as old name
     }
@@ -572,7 +571,7 @@ public class AutoloadSymbols {
                   throws EvalException {
                 throw Starlark.errorf(
                     "Couldn't auto load '%s' from '%s'.",
-                    getName(), AUTOLOAD_CONFIG.get(getName()).getLoadLabel());
+                    getName(), AUTOLOAD_CONFIG.get(getName()).loadLabel());
               }
             });
       }
@@ -618,33 +617,13 @@ public class AutoloadSymbols {
       requireNonNull(rdeps, "rdeps");
     }
 
-    @InlineMe(replacement = "this.loadLabel()")
-    public String getLoadLabel() {
-      return loadLabel();
-    }
-
-    @InlineMe(replacement = "this.rule()")
-    public boolean isRule() {
-      return rule();
-    }
-
-    @InlineMe(replacement = "this.newName()")
-    public @Nullable String getNewName() {
-      return newName();
-    }
-
-    @InlineMe(replacement = "this.rdeps()")
-    public ImmutableSet<String> getRdeps() {
-      return rdeps();
-    }
-
     String getModuleName() throws InterruptedException {
-      return Label.parseCanonicalUnchecked(getLoadLabel()).getRepository().getName();
+      return Label.parseCanonicalUnchecked(loadLabel()).getRepository().getName();
     }
 
     Label getLabel(RepoContext repoContext) throws InterruptedException {
       try {
-        return Label.parseWithRepoContext(getLoadLabel(), repoContext);
+        return Label.parseWithRepoContext(loadLabel(), repoContext);
       } catch (LabelSyntaxException e) {
         throw new IllegalStateException(e);
       }

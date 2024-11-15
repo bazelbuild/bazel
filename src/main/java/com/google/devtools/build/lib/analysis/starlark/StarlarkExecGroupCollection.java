@@ -72,7 +72,7 @@ public abstract class StarlarkExecGroupCollection implements ExecGroupCollection
   @VisibleForTesting
   public ImmutableMap<String, ? extends ResolvedToolchainsDataInterface<?>>
       getToolchainCollectionForTesting() {
-    return toolchainCollection().getContextMap();
+    return toolchainCollection().contextMap();
   }
 
   public static boolean isValidGroupName(String execGroupName) {

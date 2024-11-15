@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.errorprone.annotations.InlineMe;
 import java.util.Optional;
 
 /** A class holding information about the versions of a particular module that have been yanked. */
@@ -46,16 +45,6 @@ public record YankedVersionsValue(Optional<ImmutableMap<Version, String>> yanked
     Key {
       requireNonNull(moduleName, "moduleName");
       requireNonNull(registryUrl, "registryUrl");
-    }
-
-    @InlineMe(replacement = "this.moduleName()")
-    String getModuleName() {
-      return moduleName();
-    }
-
-    @InlineMe(replacement = "this.registryUrl()")
-    String getRegistryUrl() {
-      return registryUrl();
     }
 
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();

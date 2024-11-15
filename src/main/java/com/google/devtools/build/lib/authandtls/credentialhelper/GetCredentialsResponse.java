@@ -22,7 +22,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.Immutable;
-import com.google.errorprone.annotations.InlineMe;
 import com.google.gson.JsonSyntaxException;
 import com.google.gson.TypeAdapter;
 import com.google.gson.annotations.JsonAdapter;
@@ -61,16 +60,6 @@ public record GetCredentialsResponse(
     requireNonNull(expires, "expires");
   }
 
-  @InlineMe(replacement = "this.headers()")
-  public ImmutableMap<String, ImmutableList<String>> getHeaders() {
-    return headers();
-  }
-
-  @InlineMe(replacement = "this.expires()")
-  public Optional<Instant> getExpires() {
-    return expires();
-  }
-
   public static final DateTimeFormatter RFC_3339_FORMATTER =
       DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX")
           .withZone(ZoneId.from(ZoneOffset.UTC))
@@ -101,7 +90,7 @@ public record GetCredentialsResponse(
 
       writer.beginObject();
 
-      ImmutableMap<String, ImmutableList<String>> headers = response.getHeaders();
+      ImmutableMap<String, ImmutableList<String>> headers = response.headers();
       if (!headers.isEmpty()) {
         writer.name("headers");
         writer.beginObject();
@@ -117,7 +106,7 @@ public record GetCredentialsResponse(
         writer.endObject();
       }
 
-      var expires = response.getExpires();
+      var expires = response.expires();
       if (expires.isPresent()) {
         writer.name("expires");
         writer.value(RFC_3339_FORMATTER.format(expires.get()));

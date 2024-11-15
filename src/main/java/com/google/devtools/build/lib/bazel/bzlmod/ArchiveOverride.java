@@ -20,7 +20,6 @@ import static java.util.Objects.requireNonNull;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule.ResolutionReason;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.errorprone.annotations.InlineMe;
 
 /**
  * Specifies that a module should be retrieved from an archive.
@@ -49,36 +48,6 @@ public record ArchiveOverride(
     requireNonNull(stripPrefix, "stripPrefix");
   }
 
-  @InlineMe(replacement = "this.urls()")
-  public ImmutableList<String> getUrls() {
-    return urls();
-  }
-
-  @InlineMe(replacement = "this.patches()")
-  public ImmutableList<Label> getPatches() {
-    return patches();
-  }
-
-  @InlineMe(replacement = "this.patchCmds()")
-  public ImmutableList<String> getPatchCmds() {
-    return patchCmds();
-  }
-
-  @InlineMe(replacement = "this.integrity()")
-  public String getIntegrity() {
-    return integrity();
-  }
-
-  @InlineMe(replacement = "this.stripPrefix()")
-  public String getStripPrefix() {
-    return stripPrefix();
-  }
-
-  @InlineMe(replacement = "this.patchStrip()")
-  public int getPatchStrip() {
-    return patchStrip();
-  }
-
   public static ArchiveOverride create(
       ImmutableList<String> urls,
       ImmutableList<Label> patches,
@@ -93,12 +62,12 @@ public record ArchiveOverride(
   @Override
   public RepoSpec getRepoSpec() {
     return new ArchiveRepoSpecBuilder()
-        .setUrls(getUrls())
-        .setIntegrity(getIntegrity())
-        .setStripPrefix(getStripPrefix())
-        .setPatches(getPatches())
-        .setPatchCmds(getPatchCmds())
-        .setPatchStrip(getPatchStrip())
+        .setUrls(urls())
+        .setIntegrity(integrity())
+        .setStripPrefix(stripPrefix())
+        .setPatches(patches())
+        .setPatchCmds(patchCmds())
+        .setPatchStrip(patchStrip())
         .build();
   }
 

@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.Sharder;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
-import com.google.errorprone.annotations.InlineMe;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -150,16 +149,6 @@ class ArtifactConflictFinder {
       int outputArtifactCount) {
     ActionConflictsAndStats {
       requireNonNull(conflicts, "conflicts");
-    }
-
-    @InlineMe(replacement = "this.conflicts()")
-    ImmutableMap<ActionAnalysisMetadata, ActionConflictException> getConflicts() {
-      return conflicts();
-    }
-
-    @InlineMe(replacement = "this.outputArtifactCount()")
-    int getOutputArtifactCount() {
-      return outputArtifactCount();
     }
 
     static ActionConflictsAndStats create(

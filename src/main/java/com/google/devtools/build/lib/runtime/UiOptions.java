@@ -28,7 +28,6 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
-import com.google.errorprone.annotations.InlineMe;
 import java.util.HashSet;
 import java.util.List;
 
@@ -59,16 +58,6 @@ public class UiOptions extends OptionsBase {
       public EventKindFilters {
         requireNonNull(filteredEventKinds, "filteredEventKinds");
         requireNonNull(unfilteredEventKinds, "unfilteredEventKinds");
-      }
-
-      @InlineMe(replacement = "this.filteredEventKinds()")
-      public ImmutableSet<EventKind> getFilteredEventKinds() {
-        return filteredEventKinds();
-      }
-
-      @InlineMe(replacement = "this.unfilteredEventKinds()")
-      public ImmutableSet<EventKind> getUnfilteredEventKinds() {
-        return unfilteredEventKinds();
       }
 
       public static EventKindFilters from(
@@ -296,8 +285,8 @@ public class UiOptions extends OptionsBase {
   public ImmutableSet<EventKind> getFilteredEventKinds() {
     HashSet<EventKind> filtered = new HashSet<>();
     for (EventFiltersConverter.EventKindFilters filters : eventKindFilters) {
-      filtered.addAll(filters.getFilteredEventKinds());
-      filtered.removeAll(filters.getUnfilteredEventKinds());
+      filtered.addAll(filters.filteredEventKinds());
+      filtered.removeAll(filters.unfilteredEventKinds());
     }
     return ImmutableSet.copyOf(filtered);
   }

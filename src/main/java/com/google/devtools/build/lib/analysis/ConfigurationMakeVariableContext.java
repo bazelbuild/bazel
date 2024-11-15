@@ -55,7 +55,7 @@ public class ConfigurationMakeVariableContext implements TemplateContext {
     if (ruleContext.getToolchainContexts() != null) {
       ruleContext
           .getToolchainContexts()
-          .getContextMap()
+          .contextMap()
           .values()
           .forEach(context -> providers.addAll(context.templateVariableProviders()));
     }

@@ -106,7 +106,7 @@ public class BazelLockFileModule extends BlazeModule {
                   && entry.getKey() instanceof SingleExtensionValue.EvalKey key
                   // entry.getValue() can be null if the extension evaluation failed.
                   && entry.getValue() instanceof SingleExtensionValue value) {
-                newExtensionInfos.put(key.argument(), value.getLockFileInfo().get());
+                newExtensionInfos.put(key.argument(), value.lockFileInfo().get());
               }
             });
     var combinedExtensionInfos =

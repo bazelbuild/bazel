@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.rules.java.JavaInfo.JavaInfoInternalProvide
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import com.google.errorprone.annotations.InlineMe;
 import java.util.Collection;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
@@ -53,16 +52,6 @@ public record JavaSourceJarsProvider(
   public JavaSourceJarsProvider {
     requireNonNull(transitiveSourceJars, "transitiveSourceJars");
     requireNonNull(sourceJars, "sourceJars");
-  }
-
-  @InlineMe(replacement = "this.transitiveSourceJars()")
-  public NestedSet<Artifact> getTransitiveSourceJars() {
-    return transitiveSourceJars();
-  }
-
-  @InlineMe(replacement = "this.sourceJars()")
-  public ImmutableList<Artifact> getSourceJars() {
-    return sourceJars();
   }
 
   @SerializationConstant

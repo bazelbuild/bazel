@@ -20,7 +20,6 @@ import static java.util.Objects.requireNonNull;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule.ResolutionReason;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.errorprone.annotations.InlineMe;
 
 /**
  * Specifies that a module should be retrieved from a local directory.
@@ -33,11 +32,6 @@ public record LocalPathOverride(String path) implements NonRegistryOverride {
     requireNonNull(path, "path");
   }
 
-  @InlineMe(replacement = "this.path()")
-  public String getPath() {
-    return path();
-  }
-
   public static LocalPathOverride create(String path) {
     return new LocalPathOverride(path);
   }
@@ -47,7 +41,7 @@ public record LocalPathOverride(String path) implements NonRegistryOverride {
   public RepoSpec getRepoSpec() {
     return RepoSpec.builder()
         .setRuleClassName("local_repository")
-        .setAttributes(AttributeValues.create(ImmutableMap.of("path", getPath())))
+        .setAttributes(AttributeValues.create(ImmutableMap.of("path", path())))
         .build();
   }
 

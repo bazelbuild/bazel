@@ -453,10 +453,10 @@ public final class SkyframeBuildView {
         BuildGraphMetrics buildGraphMetrics =
             analysisTraversalResult
                 .getMetrics()
-                .setOutputArtifactCount(conflictsAndStats.getOutputArtifactCount())
+                .setOutputArtifactCount(conflictsAndStats.outputArtifactCount())
                 .build();
         eventBus.post(new AnalysisGraphStatsEvent(buildGraphMetrics));
-        interTargetConflicts = conflictsAndStats.getConflicts();
+        interTargetConflicts = conflictsAndStats.conflicts();
         someActionLookupValueEvaluated = false;
       }
     }

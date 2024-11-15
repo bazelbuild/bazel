@@ -116,7 +116,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransi
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.errorprone.annotations.FormatMethod;
-import com.google.errorprone.annotations.InlineMe;
 import com.google.errorprone.annotations.Keep;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -1884,16 +1883,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     AnalysisTestKey {
       requireNonNull(label, "label");
       requireNonNull(name, "name");
-    }
-
-    @InlineMe(replacement = "this.label()")
-    Label getLabel() {
-      return label();
-    }
-
-    @InlineMe(replacement = "this.name()")
-    String getName() {
-      return name();
     }
 
     private static AnalysisTestKey create(Label label, String name) {

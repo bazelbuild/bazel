@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.Serializat
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.errorprone.annotations.InlineMe;
 
 /** Singleton result of {@link CollectTargetsInPackageFunction}. */
 public class CollectTargetsInPackageValue implements SkyValue {
@@ -48,16 +47,6 @@ public class CollectTargetsInPackageValue implements SkyValue {
     public CollectTargetsInPackageKey {
       requireNonNull(packageId, "packageId");
       requireNonNull(filteringPolicy, "filteringPolicy");
-    }
-
-    @InlineMe(replacement = "this.packageId()")
-    public PackageIdentifier getPackageId() {
-      return packageId();
-    }
-
-    @InlineMe(replacement = "this.filteringPolicy()")
-    public FilteringPolicy getFilteringPolicy() {
-      return filteringPolicy();
     }
 
     private static final SkyKeyInterner<CollectTargetsInPackageKey> interner = SkyKey.newInterner();

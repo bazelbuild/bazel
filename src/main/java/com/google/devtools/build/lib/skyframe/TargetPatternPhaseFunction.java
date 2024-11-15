@@ -83,8 +83,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
     // Determine targets to build:
     List<String> failedPatterns = new ArrayList<>();
     List<ExpandedPattern> expandedPatterns =
-        getTargetsToBuild(
-            env, options, repositoryMappingValue.getRepositoryMapping(), failedPatterns);
+        getTargetsToBuild(env, options, repositoryMappingValue.repositoryMapping(), failedPatterns);
     ResolvedTargets<Target> targets =
         env.valuesMissing()
             ? null
@@ -101,7 +100,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
               env,
               options.getTargetPatterns(),
               options.getOffset(),
-              repositoryMappingValue.getRepositoryMapping(),
+              repositoryMappingValue.repositoryMapping(),
               options.getTestFilter());
       Preconditions.checkState(env.valuesMissing() || (testTargets != null));
     }
@@ -240,7 +239,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
             new LoadingPhaseCompleteEvent(
                 result.getTargetLabels(),
                 removedTargetLabels,
-                repositoryMappingValue.getRepositoryMapping()));
+                repositoryMappingValue.repositoryMapping()));
     return result;
   }
 

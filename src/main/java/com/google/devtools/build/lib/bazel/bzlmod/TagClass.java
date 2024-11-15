@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryModuleApi.TagClassApi;
-import com.google.errorprone.annotations.InlineMe;
 import java.util.Optional;
 
 /**
@@ -40,21 +39,6 @@ public record TagClass(
     requireNonNull(attributes, "attributes");
     requireNonNull(doc, "doc");
     requireNonNull(attributeIndices, "attributeIndices");
-  }
-
-  @InlineMe(replacement = "this.attributes()")
-  public ImmutableList<Attribute> getAttributes() {
-    return attributes();
-  }
-
-  @InlineMe(replacement = "this.doc()")
-  public Optional<String> getDoc() {
-    return doc();
-  }
-
-  @InlineMe(replacement = "this.attributeIndices()")
-  public ImmutableMap<String, Integer> getAttributeIndices() {
-    return attributeIndices();
   }
 
   public static TagClass create(ImmutableList<Attribute> attributes, Optional<String> doc) {

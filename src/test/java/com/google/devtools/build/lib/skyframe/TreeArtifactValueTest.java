@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import com.google.errorprone.annotations.InlineMe;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
@@ -66,21 +65,6 @@ public final class TreeArtifactValueTest {
     VisitTreeArgs {
       requireNonNull(parentRelativePath, "parentRelativePath");
       requireNonNull(type, "type");
-    }
-
-    @InlineMe(replacement = "this.parentRelativePath()")
-    PathFragment getParentRelativePath() {
-      return parentRelativePath();
-    }
-
-    @InlineMe(replacement = "this.type()")
-    Dirent.Type getType() {
-      return type();
-    }
-
-    @InlineMe(replacement = "this.traversedSymlink()")
-    boolean getTraversedSymlink() {
-      return traversedSymlink();
     }
 
     static VisitTreeArgs of(

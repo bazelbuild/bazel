@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import com.google.errorprone.annotations.InlineMe;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -210,16 +209,6 @@ public final class AspectCollection {
       requireNonNull(usedAspects, "usedAspects");
     }
 
-    @InlineMe(replacement = "this.aspect()")
-    public AspectDescriptor getAspect() {
-      return aspect();
-    }
-
-    @InlineMe(replacement = "this.usedAspects()")
-    public ImmutableList<AspectDeps> getUsedAspects() {
-      return usedAspects();
-    }
-
     private static AspectDeps create(
         AspectDescriptor aspect, ImmutableList<AspectDeps> usedAspects) {
       return new AspectDeps(aspect, usedAspects);
@@ -242,13 +231,13 @@ public final class AspectCollection {
       AspectDeps aspectDeps,
       Map<AspectDescriptor, AspectKey> visited,
       ConfiguredTargetKey baseKey) {
-    AspectDescriptor aspect = aspectDeps.getAspect();
+    AspectDescriptor aspect = aspectDeps.aspect();
     AspectKey aspectKey = visited.get(aspect);
     if (aspectKey != null) {
       return aspectKey;
     }
 
-    ImmutableList<AspectDeps> usedAspects = aspectDeps.getUsedAspects();
+    ImmutableList<AspectDeps> usedAspects = aspectDeps.usedAspects();
     var usedAspectKeys = ImmutableList.<AspectKey>builderWithExpectedSize(usedAspects.size());
     for (AspectCollection.AspectDeps usedAspect : usedAspects) {
       usedAspectKeys.add(buildAspectKey(usedAspect, visited, baseKey));

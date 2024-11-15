@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.util.HeapOffsetHelper;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.common.options.OptionsParsingException;
-import com.google.errorprone.annotations.InlineMe;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.lang.management.ManagementFactory;
@@ -97,7 +96,7 @@ public final class MemoryProfiler {
           prepareBeanAndGetLocalMinUsage(
               nextPhase, bean, (duration) -> Thread.sleep(duration.toMillis()));
       String name = currentPhase.description;
-      MemoryUsage memoryUsage = memoryUsages.getHeap();
+      MemoryUsage memoryUsage = memoryUsages.heap();
       var usedMemory = memoryUsage.getUsed();
       // TODO(b/311665999) Remove the subtraction of FillerArray once we figure out an alternative.
       if (nextPhase == ProfilePhase.FINISH) {
@@ -111,7 +110,7 @@ public final class MemoryProfiler {
       memoryProfile.println(name + ":heap:commited:" + memoryUsage.getCommitted());
       memoryProfile.println(name + ":heap:max:" + memoryUsage.getMax());
 
-      memoryUsage = memoryUsages.getNonHeap();
+      memoryUsage = memoryUsages.nonHeap();
       memoryProfile.println(name + ":non-heap:init:" + memoryUsage.getInit());
       memoryProfile.println(name + ":non-heap:used:" + memoryUsage.getUsed());
       memoryProfile.println(name + ":non-heap:commited:" + memoryUsage.getCommitted());
@@ -230,16 +229,6 @@ public final class MemoryProfiler {
     HeapAndNonHeap {
       requireNonNull(heap, "heap");
       requireNonNull(nonHeap, "nonHeap");
-    }
-
-    @InlineMe(replacement = "this.heap()")
-    MemoryUsage getHeap() {
-      return heap();
-    }
-
-    @InlineMe(replacement = "this.nonHeap()")
-    MemoryUsage getNonHeap() {
-      return nonHeap();
     }
 
     static HeapAndNonHeap create(MemoryUsage heap, MemoryUsage nonHeap) {

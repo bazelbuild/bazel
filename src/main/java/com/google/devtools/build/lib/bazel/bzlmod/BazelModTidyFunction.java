@@ -69,7 +69,7 @@ public class BazelModTidyFunction implements SkyFunction {
               // label that works on all platforms.
               "@buildozer_binary//:buildozer.exe",
               Label.RepoContext.of(
-                  RepositoryName.BAZEL_TOOLS, bazelToolsRepoMapping.getRepositoryMapping()));
+                  RepositoryName.BAZEL_TOOLS, bazelToolsRepoMapping.repositoryMapping()));
     } catch (LabelSyntaxException e) {
       throw new IllegalStateException(e);
     }
@@ -107,7 +107,7 @@ public class BazelModTidyFunction implements SkyFunction {
         return null;
       }
       if (result.get(extension) instanceof SingleExtensionValue evalValue) {
-        evalValue.getFixup().ifPresent(fixups::add);
+        evalValue.fixup().ifPresent(fixups::add);
       }
     }
 

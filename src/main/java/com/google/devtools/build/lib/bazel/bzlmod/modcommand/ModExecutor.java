@@ -411,9 +411,9 @@ public class ModExecutor {
     while (!toVisit.isEmpty()) {
       ModuleKey key = toVisit.pop();
       AugmentedModule module = depGraph.get(key);
-      Set<ModuleKey> parents = new HashSet<>(module.getDependants());
+      Set<ModuleKey> parents = new HashSet<>(module.dependants());
       if (options.includeUnused) {
-        parents.addAll(module.getOriginalDependants());
+        parents.addAll(module.originalDependants());
       }
       for (ModuleKey parent : parents) {
         if (isBuiltin(parent) && !options.includeBuiltin) {
@@ -510,14 +510,14 @@ public class ModExecutor {
       for (Tag tag : usage.getTags()) {
         printer.printf(
             "%s.%s(%s)\n",
-            extension.getExtensionName(),
+            extension.extensionName(),
             tag.getTagName(),
             tag.getAttributeValues().attributes().entrySet().stream()
                 .map(e -> String.format("%s=%s", e.getKey(), Starlark.repr(e.getValue())))
                 .collect(joining(", ")));
       }
       printer.printf("use_repo(\n");
-      printer.printf("  %s,\n", extension.getExtensionName());
+      printer.printf("  %s,\n", extension.extensionName());
       for (ModuleExtensionUsage.Proxy proxy : usage.getProxies()) {
         for (Entry<String, String> repo : proxy.getImports().entrySet()) {
           printer.printf(

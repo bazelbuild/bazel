@@ -19,7 +19,6 @@ import static java.util.Objects.requireNonNull;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.errorprone.annotations.InlineMe;
 
 /**
  * Specifies that the module should:
@@ -51,30 +50,9 @@ public record SingleVersionOverride(
     requireNonNull(patchCmds, "patchCmds");
   }
 
-  @InlineMe(replacement = "this.version()")
-  public Version getVersion() {
-    return version();
-  }
-
-  @InlineMe(replacement = "this.registry()")
   @Override
   public String getRegistry() {
     return registry();
-  }
-
-  @InlineMe(replacement = "this.patches()")
-  public ImmutableList<Label> getPatches() {
-    return patches();
-  }
-
-  @InlineMe(replacement = "this.patchCmds()")
-  public ImmutableList<String> getPatchCmds() {
-    return patchCmds();
-  }
-
-  @InlineMe(replacement = "this.patchStrip()")
-  public int getPatchStrip() {
-    return patchStrip();
   }
 
   public static SingleVersionOverride create(

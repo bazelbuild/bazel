@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import com.google.errorprone.annotations.InlineMe;
 import java.util.Optional;
 import java.util.function.UnaryOperator;
 import javax.annotation.Nullable;
@@ -60,21 +59,6 @@ public abstract class InterimModule extends ModuleBase {
       requireNonNull(version, "version");
     }
 
-    @InlineMe(replacement = "this.name()")
-    public String getName() {
-      return name();
-    }
-
-    @InlineMe(replacement = "this.version()")
-    public Version getVersion() {
-      return version();
-    }
-
-    @InlineMe(replacement = "this.maxCompatibilityLevel()")
-    public int getMaxCompatibilityLevel() {
-      return maxCompatibilityLevel();
-    }
-
     public static DepSpec create(String name, Version version, int maxCompatibilityLevel) {
       return new DepSpec(name, version, maxCompatibilityLevel);
     }
@@ -84,7 +68,7 @@ public abstract class InterimModule extends ModuleBase {
     }
 
     public final ModuleKey toModuleKey() {
-      return new ModuleKey(getName(), getVersion());
+      return new ModuleKey(name(), version());
     }
   }
 
@@ -232,14 +216,14 @@ public abstract class InterimModule extends ModuleBase {
     if (!(override instanceof SingleVersionOverride singleVersion)) {
       return repoSpec;
     }
-    if (singleVersion.getPatches().isEmpty()) {
+    if (singleVersion.patches().isEmpty()) {
       return repoSpec;
     }
     ImmutableMap.Builder<String, Object> attrBuilder = ImmutableMap.builder();
     attrBuilder.putAll(repoSpec.attributes().attributes());
-    attrBuilder.put("patches", singleVersion.getPatches());
-    attrBuilder.put("patch_cmds", singleVersion.getPatchCmds());
-    attrBuilder.put("patch_args", ImmutableList.of("-p" + singleVersion.getPatchStrip()));
+    attrBuilder.put("patches", singleVersion.patches());
+    attrBuilder.put("patch_cmds", singleVersion.patchCmds());
+    attrBuilder.put("patch_args", ImmutableList.of("-p" + singleVersion.patchStrip()));
     return RepoSpec.builder()
         .setBzlFile(repoSpec.bzlFile())
         .setRuleClassName(repoSpec.ruleClassName())
@@ -250,22 +234,22 @@ public abstract class InterimModule extends ModuleBase {
   static UnaryOperator<DepSpec> applyOverrides(
       ImmutableMap<String, ModuleOverride> overrides, String rootModuleName) {
     return depSpec -> {
-      if (rootModuleName.equals(depSpec.getName())) {
+      if (rootModuleName.equals(depSpec.name())) {
         return DepSpec.fromModuleKey(ModuleKey.ROOT);
       }
 
-      Version newVersion = depSpec.getVersion();
-      @Nullable ModuleOverride override = overrides.get(depSpec.getName());
+      Version newVersion = depSpec.version();
+      @Nullable ModuleOverride override = overrides.get(depSpec.name());
       if (override instanceof NonRegistryOverride) {
         newVersion = Version.EMPTY;
       } else if (override instanceof SingleVersionOverride singleVersionOverride) {
-        Version overrideVersion = singleVersionOverride.getVersion();
+        Version overrideVersion = singleVersionOverride.version();
         if (!overrideVersion.isEmpty()) {
           newVersion = overrideVersion;
         }
       }
 
-      return DepSpec.create(depSpec.getName(), newVersion, depSpec.getMaxCompatibilityLevel());
+      return DepSpec.create(depSpec.name(), newVersion, depSpec.maxCompatibilityLevel());
     };
   }
 }

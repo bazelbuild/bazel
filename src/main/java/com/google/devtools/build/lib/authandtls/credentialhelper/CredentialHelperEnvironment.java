@@ -20,7 +20,6 @@ import com.google.auto.value.AutoBuilder;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.errorprone.annotations.InlineMe;
 import java.time.Duration;
 import javax.annotation.Nullable;
 
@@ -46,27 +45,6 @@ public record CredentialHelperEnvironment(
     requireNonNull(eventReporter, "eventReporter");
     requireNonNull(clientEnvironment, "clientEnvironment");
     requireNonNull(helperExecutionTimeout, "helperExecutionTimeout");
-  }
-
-  @InlineMe(replacement = "this.eventReporter()")
-  public Reporter getEventReporter() {
-    return eventReporter();
-  }
-
-  @InlineMe(replacement = "this.workspacePath()")
-  @Nullable
-  public Path getWorkspacePath() {
-    return workspacePath();
-  }
-
-  @InlineMe(replacement = "this.clientEnvironment()")
-  public ImmutableMap<String, String> getClientEnvironment() {
-    return clientEnvironment();
-  }
-
-  @InlineMe(replacement = "this.helperExecutionTimeout()")
-  public Duration getHelperExecutionTimeout() {
-    return helperExecutionTimeout();
   }
 
   /** Returns a new builder for {@link CredentialHelperEnvironment}. */

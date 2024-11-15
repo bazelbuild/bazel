@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.metrics;
 import static java.util.Objects.requireNonNull;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.errorprone.annotations.InlineMe;
 import java.time.Instant;
 
 /**
@@ -32,16 +31,6 @@ public record ResourceSnapshot(
   public ResourceSnapshot {
     requireNonNull(pidToMemoryInKb, "pidToMemoryInKb");
     requireNonNull(collectionTime, "collectionTime");
-  }
-
-  @InlineMe(replacement = "this.pidToMemoryInKb()")
-  public ImmutableMap<Long, Integer> getPidToMemoryInKb() {
-    return pidToMemoryInKb();
-  }
-
-  @InlineMe(replacement = "this.collectionTime()")
-  public Instant getCollectionTime() {
-    return collectionTime();
   }
 
   public static ResourceSnapshot create(

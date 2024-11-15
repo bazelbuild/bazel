@@ -80,7 +80,7 @@ final class Discovery {
           }
           predecessors.putIfAbsent(depSpec.toModuleKey(), module.getKey());
           unexpandedSkyKeys.add(
-              ModuleFileValue.key(depSpec.toModuleKey(), overrides.get(depSpec.getName())));
+              ModuleFileValue.key(depSpec.toModuleKey(), overrides.get(depSpec.name())));
         }
       }
       SkyframeLookupResult result = env.getValuesAndExceptions(unexpandedSkyKeys);

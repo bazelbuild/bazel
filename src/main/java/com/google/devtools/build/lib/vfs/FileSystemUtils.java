@@ -23,7 +23,6 @@ import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadSafe;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.StringEncoding;
-import com.google.errorprone.annotations.InlineMe;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -625,23 +624,9 @@ public class FileSystemUtils {
   }
 
   /**
-   * Attempts to create a directory with the name of the given path, creating ancestors as
-   * necessary.
-   *
-   * <p>Deprecated. Prefer to call {@link Path#createDirectoryAndParents()} directly.
-   */
-  @Deprecated
-  @ThreadSafe
-  @InlineMe(replacement = "dir.createDirectoryAndParents()")
-  public static void createDirectoryAndParents(Path dir) throws IOException {
-    dir.createDirectoryAndParents();
-  }
-
-  /**
-   * Attempts to remove a relative chain of directories under a given base.
-   * Returns {@code true} if the removal was successful, and returns {@code
-   * false} if the removal fails because a directory was not empty. An
-   * {@link IOException} is thrown for any other errors.
+   * Attempts to remove a relative chain of directories under a given base. Returns {@code true} if
+   * the removal was successful, and returns {@code false} if the removal fails because a directory
+   * was not empty. An {@link IOException} is thrown for any other errors.
    */
   @ThreadSafe
   public static boolean removeDirectoryAndParents(Path base, PathFragment toRemove) {

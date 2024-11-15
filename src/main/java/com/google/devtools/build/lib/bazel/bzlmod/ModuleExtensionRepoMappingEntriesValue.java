@@ -26,7 +26,6 @@ import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.errorprone.annotations.InlineMe;
 
 /** The value for {@link ModuleExtensionRepoMappingEntriesFunction}. */
 @AutoCodec
@@ -35,16 +34,6 @@ public record ModuleExtensionRepoMappingEntriesValue(
   public ModuleExtensionRepoMappingEntriesValue {
     requireNonNull(entries, "entries");
     requireNonNull(moduleKey, "moduleKey");
-  }
-
-  @InlineMe(replacement = "this.entries()")
-  public ImmutableMap<String, RepositoryName> getEntries() {
-    return entries();
-  }
-
-  @InlineMe(replacement = "this.moduleKey()")
-  public ModuleKey getModuleKey() {
-    return moduleKey();
   }
 
   @AutoCodec.Instantiator

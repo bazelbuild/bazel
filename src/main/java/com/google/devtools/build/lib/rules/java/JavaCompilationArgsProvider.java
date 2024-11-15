@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.rules.java.JavaInfo.JavaInfoInternalProvide
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import com.google.errorprone.annotations.InlineMe;
 import java.util.Iterator;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -72,36 +71,6 @@ public record JavaCompilationArgsProvider(
     requireNonNull(directFullCompileTimeJars, "directFullCompileTimeJars");
     requireNonNull(transitiveFullCompileTimeJars, "transitiveFullCompileTimeJars");
     requireNonNull(compileTimeJavaDependencyArtifacts, "compileTimeJavaDependencyArtifacts");
-  }
-
-  @InlineMe(replacement = "this.runtimeJars()")
-  public NestedSet<Artifact> getRuntimeJars() {
-    return runtimeJars();
-  }
-
-  @InlineMe(replacement = "this.directCompileTimeJars()")
-  public NestedSet<Artifact> getDirectCompileTimeJars() {
-    return directCompileTimeJars();
-  }
-
-  @InlineMe(replacement = "this.transitiveCompileTimeJars()")
-  public NestedSet<Artifact> getTransitiveCompileTimeJars() {
-    return transitiveCompileTimeJars();
-  }
-
-  @InlineMe(replacement = "this.directFullCompileTimeJars()")
-  public NestedSet<Artifact> getDirectFullCompileTimeJars() {
-    return directFullCompileTimeJars();
-  }
-
-  @InlineMe(replacement = "this.transitiveFullCompileTimeJars()")
-  public NestedSet<Artifact> getTransitiveFullCompileTimeJars() {
-    return transitiveFullCompileTimeJars();
-  }
-
-  @InlineMe(replacement = "this.compileTimeJavaDependencyArtifacts()")
-  public NestedSet<Artifact> getCompileTimeJavaDependencyArtifacts() {
-    return compileTimeJavaDependencyArtifacts();
   }
 
   @SerializationConstant
@@ -152,9 +121,9 @@ public record JavaCompilationArgsProvider(
     // so there's nothing to prune, and reading jdeps at compile-time isn't free.
     return builder()
         .addDirectCompileTimeJars(
-            /* interfaceJars= */ args.getTransitiveCompileTimeJars(),
-            /* fullJars= */ args.getTransitiveFullCompileTimeJars())
-        .addRuntimeJars(args.getRuntimeJars())
+            /* interfaceJars= */ args.transitiveCompileTimeJars(),
+            /* fullJars= */ args.transitiveFullCompileTimeJars())
+        .addRuntimeJars(args.runtimeJars())
         .build();
   }
 
@@ -288,16 +257,16 @@ public record JavaCompilationArgsProvider(
         JavaCompilationArgsProvider args, ClasspathType type, boolean recursive) {
       if (!ClasspathType.RUNTIME_ONLY.equals(type)) {
         if (recursive) {
-          directCompileTimeJarsBuilder.addTransitive(args.getDirectCompileTimeJars());
-          directFullCompileTimeJarsBuilder.addTransitive(args.getDirectFullCompileTimeJars());
+          directCompileTimeJarsBuilder.addTransitive(args.directCompileTimeJars());
+          directFullCompileTimeJarsBuilder.addTransitive(args.directFullCompileTimeJars());
           compileTimeJavaDependencyArtifactsBuilder.addTransitive(
-              args.getCompileTimeJavaDependencyArtifacts());
+              args.compileTimeJavaDependencyArtifacts());
         }
-        transitiveCompileTimeJarsBuilder.addTransitive(args.getTransitiveCompileTimeJars());
-        transitiveFullCompileTimeJarsBuilder.addTransitive(args.getTransitiveFullCompileTimeJars());
+        transitiveCompileTimeJarsBuilder.addTransitive(args.transitiveCompileTimeJars());
+        transitiveFullCompileTimeJarsBuilder.addTransitive(args.transitiveFullCompileTimeJars());
       }
       if (!ClasspathType.COMPILE_ONLY.equals(type)) {
-        runtimeJarsBuilder.addTransitive(args.getRuntimeJars());
+        runtimeJarsBuilder.addTransitive(args.runtimeJars());
       }
       return this;
     }

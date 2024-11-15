@@ -984,8 +984,8 @@ public abstract class PackageFunction implements SkyFunction {
     }
 
     String workspaceName = workspaceNameValue.getName();
-    RepositoryMapping repositoryMapping = repositoryMappingValue.getRepositoryMapping();
-    RepositoryMapping mainRepositoryMapping = mainRepositoryMappingValue.getRepositoryMapping();
+    RepositoryMapping repositoryMapping = repositoryMappingValue.repositoryMapping();
+    RepositoryMapping mainRepositoryMapping = mainRepositoryMappingValue.repositoryMapping();
     IgnoredSubdirectories repositoryIgnoredSubdirectories =
         repositoryIgnoredPackagePrefixes.asIgnoredSubdirectories();
     Label preludeLabel = null;
@@ -1129,8 +1129,8 @@ public abstract class PackageFunction implements SkyFunction {
               packageId,
               buildFileRootedPath,
               workspaceName,
-              repositoryMappingValue.getAssociatedModuleName(),
-              repositoryMappingValue.getAssociatedModuleVersion(),
+              repositoryMappingValue.associatedModuleName(),
+              repositoryMappingValue.associatedModuleVersion(),
               starlarkBuiltinsValue.starlarkSemantics,
               repositoryMapping,
               mainRepositoryMapping,

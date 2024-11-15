@@ -26,7 +26,6 @@ import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.errorprone.annotations.InlineMe;
 
 /**
  * Empty result of running Bazel fetch all dependencies, to indicate that all repos have been
@@ -35,11 +34,6 @@ import com.google.errorprone.annotations.InlineMe;
 public record BazelFetchAllValue(ImmutableList<RepositoryName> reposToVendor) implements SkyValue {
   public BazelFetchAllValue {
     requireNonNull(reposToVendor, "reposToVendor");
-  }
-
-  @InlineMe(replacement = "this.reposToVendor()")
-  public ImmutableList<RepositoryName> getReposToVendor() {
-    return reposToVendor();
   }
 
   /** Creates a key from the given repository name. */

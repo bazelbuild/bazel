@@ -175,7 +175,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
               usagesValue,
               starlarkSemantics,
               extensionId,
-              mainRepoMappingValue.getRepositoryMapping());
+              mainRepoMappingValue.repositoryMapping());
     } catch (ExternalDepsException e) {
       throw new SingleExtensionEvalFunctionException(e);
     }
@@ -412,7 +412,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       // case.
       if (repoMappingValue.equals(RepositoryMappingValue.NOT_FOUND_VALUE)
           || !cell.getValue()
-              .equals(repoMappingValue.getRepositoryMapping().get(cell.getColumnKey()))) {
+              .equals(repoMappingValue.repositoryMapping().get(cell.getColumnKey()))) {
         // Wee woo wee woo -- diff detected!
         return true;
       }
@@ -467,8 +467,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
             ExternalDepsException.withMessage(
                 Code.BAD_MODULE,
                 "error evaluating module extension %s in %s",
-                extensionId.getExtensionName(),
-                extensionId.getBzlFileLabel()));
+                extensionId.extensionName(),
+                extensionId.bzlFileLabel()));
       }
     }
 

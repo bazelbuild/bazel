@@ -19,7 +19,6 @@ import static java.util.Objects.requireNonNull;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableClassToInstanceMap;
-import com.google.errorprone.annotations.InlineMe;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -42,11 +41,6 @@ public final class SerializationContextTest {
       requireNonNull(dataToSerialize, "dataToSerialize");
     }
 
-    @InlineMe(replacement = "this.dataToSerialize()")
-    String getDataToSerialize() {
-      return dataToSerialize();
-    }
-
     static Example withData(String data) {
       return new Example(data);
     }
@@ -63,7 +57,7 @@ public final class SerializationContextTest {
     public void serialize(SerializationContext context, Example obj, CodedOutputStream codedOut)
         throws IOException {
       exampleCodecSerializeCalls++;
-      codedOut.writeStringNoTag(obj.getDataToSerialize());
+      codedOut.writeStringNoTag(obj.dataToSerialize());
     }
 
     @Override
@@ -125,7 +119,7 @@ public final class SerializationContextTest {
 
     CodedInputStream codedIn = CodedInputStream.newInstance(bytes.toByteArray());
     assertThat(codedIn.readSInt32()).isEqualTo(registry.getCodecDescriptorForObject(obj).tag());
-    assertThat(codedIn.readString()).isEqualTo(obj.getDataToSerialize());
+    assertThat(codedIn.readString()).isEqualTo(obj.dataToSerialize());
     assertThat(codedIn.isAtEnd()).isTrue();
   }
 
@@ -142,7 +136,7 @@ public final class SerializationContextTest {
 
     CodedInputStream codedIn = CodedInputStream.newInstance(bytes.toByteArray());
     assertThat(codedIn.readSInt32()).isEqualTo(registry.getCodecDescriptorForObject(obj).tag());
-    assertThat(codedIn.readString()).isEqualTo(obj.getDataToSerialize());
+    assertThat(codedIn.readString()).isEqualTo(obj.dataToSerialize());
     assertThat(codedIn.isAtEnd()).isFalse();
     assertThat(exampleCodecSerializeCalls).isEqualTo(1);
   }

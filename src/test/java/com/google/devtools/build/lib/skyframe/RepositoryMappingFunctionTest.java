@@ -628,10 +628,10 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         RepositoryMappingValue.Key.create(ruleClassProvider.getToolsRepository(), false);
     EvaluationResult<RepositoryMappingValue> builtinsResult = eval(builtinsKey);
     assertThat(builtinsResult.hasError()).isFalse();
-    RepositoryMapping builtinsMapping = builtinsResult.get(builtinsKey).getRepositoryMapping();
+    RepositoryMapping builtinsMapping = builtinsResult.get(builtinsKey).repositoryMapping();
     EvaluationResult<RepositoryMappingValue> toolsResult = eval(toolsKey);
     assertThat(toolsResult.hasError()).isFalse();
-    RepositoryMapping toolsMapping = toolsResult.get(toolsKey).getRepositoryMapping();
+    RepositoryMapping toolsMapping = toolsResult.get(toolsKey).repositoryMapping();
 
     assertThat(builtinsMapping.entries()).containsAtLeastEntriesIn(toolsMapping.entries());
     assertThat(builtinsMapping.get("_builtins")).isEqualTo(RepositoryName.create("_builtins"));

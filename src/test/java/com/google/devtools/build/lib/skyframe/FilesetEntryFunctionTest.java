@@ -213,7 +213,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             // Strip the metadata from the actual results.
             (input) ->
                 FilesetOutputSymlink.createAlreadyRelativizedForTesting(
-                    input.getName(), input.getTargetPath(), input.isRelativeToExecRoot()));
+                    input.name(), input.targetPath(), input.relativeToExecRoot()));
     assertThat(actual).containsExactlyElementsIn(expectedSymlinks).inOrder();
   }
 

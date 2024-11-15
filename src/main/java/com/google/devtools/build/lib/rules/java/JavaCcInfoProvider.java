@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.rules.cpp.CcNativeLibraryInfo;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaInfo.JavaInfoInternalProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.errorprone.annotations.InlineMe;
 import java.util.Collection;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -38,11 +37,6 @@ import net.starlark.java.eval.EvalException;
 public record JavaCcInfoProvider(CcInfo ccInfo) implements JavaInfoInternalProvider {
   public JavaCcInfoProvider {
     requireNonNull(ccInfo, "ccInfo");
-  }
-
-  @InlineMe(replacement = "this.ccInfo()")
-  public CcInfo getCcInfo() {
-    return ccInfo();
   }
 
   // TODO(b/183579145): Replace CcInfo with only linking information.
@@ -59,7 +53,7 @@ public record JavaCcInfoProvider(CcInfo ccInfo) implements JavaInfoInternalProvi
   /** Merges several JavaCcInfoProvider providers into one. */
   public static JavaCcInfoProvider merge(Collection<JavaCcInfoProvider> providers) {
     ImmutableList<CcInfo> ccInfos =
-        providers.stream().map(JavaCcInfoProvider::getCcInfo).collect(toImmutableList());
+        providers.stream().map(JavaCcInfoProvider::ccInfo).collect(toImmutableList());
     return create(CcInfo.merge(ccInfos));
   }
 

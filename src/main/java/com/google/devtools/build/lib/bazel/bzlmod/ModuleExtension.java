@@ -20,7 +20,6 @@ import com.google.auto.value.AutoBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.errorprone.annotations.InlineMe;
 import java.util.Optional;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkValue;
@@ -52,46 +51,6 @@ public record ModuleExtension(
     requireNonNull(definingBzlFileLabel, "definingBzlFileLabel");
     requireNonNull(location, "location");
     requireNonNull(envVariables, "envVariables");
-  }
-
-  @InlineMe(replacement = "this.implementation()")
-  public StarlarkCallable getImplementation() {
-    return implementation();
-  }
-
-  @InlineMe(replacement = "this.tagClasses()")
-  public ImmutableMap<String, TagClass> getTagClasses() {
-    return tagClasses();
-  }
-
-  @InlineMe(replacement = "this.doc()")
-  public Optional<String> getDoc() {
-    return doc();
-  }
-
-  @InlineMe(replacement = "this.definingBzlFileLabel()")
-  public Label getDefiningBzlFileLabel() {
-    return definingBzlFileLabel();
-  }
-
-  @InlineMe(replacement = "this.location()")
-  public Location getLocation() {
-    return location();
-  }
-
-  @InlineMe(replacement = "this.envVariables()")
-  public ImmutableList<String> getEnvVariables() {
-    return envVariables();
-  }
-
-  @InlineMe(replacement = "this.osDependent()")
-  public boolean getOsDependent() {
-    return osDependent();
-  }
-
-  @InlineMe(replacement = "this.archDependent()")
-  public boolean getArchDependent() {
-    return archDependent();
   }
 
   public static Builder builder() {

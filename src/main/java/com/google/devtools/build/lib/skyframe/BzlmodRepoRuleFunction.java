@@ -129,11 +129,11 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
       return null;
     }
 
-    String internalRepo = extensionValue.getCanonicalRepoNameToInternalNames().get(repositoryName);
+    String internalRepo = extensionValue.canonicalRepoNameToInternalNames().get(repositoryName);
     if (internalRepo == null) {
       return BzlmodRepoRuleValue.REPO_RULE_NOT_FOUND_VALUE;
     }
-    RepoSpec extRepoSpec = extensionValue.getGeneratedRepoSpecs().get(internalRepo);
+    RepoSpec extRepoSpec = extensionValue.generatedRepoSpecs().get(internalRepo);
     return createRuleFromSpec(extRepoSpec, repositoryName, starlarkSemantics, env);
   }
 

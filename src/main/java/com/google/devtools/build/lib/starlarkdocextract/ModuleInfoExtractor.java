@@ -438,15 +438,15 @@ public final class ModuleInfoExtractor {
               // make ModuleExtension a StarlarkExportable (partially reverting cl/513213080).
               // Alternatively, we'd need to search the defining module's globals, similarly to what
               // we do in FunctionUtil#getFunctionOriginKey.
-              .setFile(context.labelRenderer().render(moduleExtension.getDefiningBzlFileLabel())));
-      moduleExtension.getDoc().ifPresent(moduleExtensionInfoBuilder::setDocString);
-      for (Map.Entry<String, TagClass> entry : moduleExtension.getTagClasses().entrySet()) {
+              .setFile(context.labelRenderer().render(moduleExtension.definingBzlFileLabel())));
+      moduleExtension.doc().ifPresent(moduleExtensionInfoBuilder::setDocString);
+      for (Map.Entry<String, TagClass> entry : moduleExtension.tagClasses().entrySet()) {
         ModuleExtensionTagClassInfo.Builder tagClassInfoBuilder =
             ModuleExtensionTagClassInfo.newBuilder();
         tagClassInfoBuilder.setTagName(entry.getKey());
-        entry.getValue().getDoc().ifPresent(tagClassInfoBuilder::setDocString);
+        entry.getValue().doc().ifPresent(tagClassInfoBuilder::setDocString);
         AttributeInfoExtractor.addDocumentableAttributes(
-            context, entry.getValue().getAttributes(), tagClassInfoBuilder::addAttribute);
+            context, entry.getValue().attributes(), tagClassInfoBuilder::addAttribute);
         moduleExtensionInfoBuilder.addTagClass(tagClassInfoBuilder);
       }
       moduleInfoBuilder.addModuleExtensionInfo(moduleExtensionInfoBuilder);

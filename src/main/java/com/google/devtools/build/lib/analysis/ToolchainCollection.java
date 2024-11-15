@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import com.google.errorprone.annotations.InlineMe;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -42,31 +41,26 @@ public record ToolchainCollection<T extends ToolchainContext>(ImmutableMap<Strin
     requireNonNull(contextMap, "contextMap");
   }
 
-  @InlineMe(replacement = "this.contextMap()")
-  public ImmutableMap<String, T> getContextMap() {
-    return contextMap();
-  }
-
   public T getDefaultToolchainContext() {
-    return getContextMap().get(ExecGroup.DEFAULT_EXEC_GROUP_NAME);
+    return contextMap().get(ExecGroup.DEFAULT_EXEC_GROUP_NAME);
   }
 
   public boolean hasToolchainContext(String execGroup) {
-    return getContextMap().containsKey(execGroup);
+    return contextMap().containsKey(execGroup);
   }
 
   public T getToolchainContext(String execGroup) {
-    return getContextMap().get(execGroup);
+    return contextMap().get(execGroup);
   }
 
   public ImmutableSet<Label> getResolvedToolchains() {
-    return getContextMap().values().stream()
+    return contextMap().values().stream()
         .flatMap(c -> c.resolvedToolchainLabels().stream())
         .collect(toImmutableSet());
   }
 
   public ImmutableSet<String> getExecGroupNames() {
-    return getContextMap().keySet();
+    return contextMap().keySet();
   }
 
   /**

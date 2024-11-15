@@ -20,7 +20,6 @@ import com.google.auto.value.AutoBuilder;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.flogger.LazyArgs;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import com.google.errorprone.annotations.InlineMe;
 import java.io.ByteArrayOutputStream;
 import java.time.Duration;
 import java.util.Optional;
@@ -55,36 +54,6 @@ public record CommandResult(
     requireNonNull(systemExecutionTime, "systemExecutionTime");
   }
 
-  @InlineMe(replacement = "this.stdoutStream()")
-  public ByteArrayOutputStream getStdoutStream() {
-    return stdoutStream();
-  }
-
-  @InlineMe(replacement = "this.stderrStream()")
-  public ByteArrayOutputStream getStderrStream() {
-    return stderrStream();
-  }
-
-  @InlineMe(replacement = "this.terminationStatus()")
-  public TerminationStatus getTerminationStatus() {
-    return terminationStatus();
-  }
-
-  @InlineMe(replacement = "this.wallExecutionTime()")
-  public Optional<Duration> getWallExecutionTime() {
-    return wallExecutionTime();
-  }
-
-  @InlineMe(replacement = "this.userExecutionTime()")
-  public Optional<Duration> getUserExecutionTime() {
-    return userExecutionTime();
-  }
-
-  @InlineMe(replacement = "this.systemExecutionTime()")
-  public Optional<Duration> getSystemExecutionTime() {
-    return systemExecutionTime();
-  }
-
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private static final byte[] NO_BYTES = new byte[0];
@@ -115,7 +84,7 @@ public record CommandResult(
    * @throws IllegalStateException if output was not collected
    */
   public byte[] getStdout() {
-    return getStdoutStream().toByteArray();
+    return stdoutStream().toByteArray();
   }
 
   /**
@@ -126,13 +95,13 @@ public record CommandResult(
    * @throws IllegalStateException if output was not collected
    */
   public byte[] getStderr() {
-    return getStderrStream().toByteArray();
+    return stderrStream().toByteArray();
   }
 
   void logThis() {
-    logger.atFiner().log("%s", LazyArgs.lazy(() -> getTerminationStatus()));
+    logger.atFiner().log("%s", LazyArgs.lazy(() -> terminationStatus()));
 
-    if (getStdoutStream() == NO_OUTPUT_COLLECTED) {
+    if (stdoutStream() == NO_OUTPUT_COLLECTED) {
       return;
     }
     logger.atFiner().log("Stdout: %s", LazyArgs.lazy(() -> LogUtil.toTruncatedString(getStdout())));

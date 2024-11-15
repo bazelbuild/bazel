@@ -755,7 +755,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
     ImmutableSet<String> toolchainContextsKeys =
-        getRuleContext(target).getToolchainContexts().getContextMap().keySet();
+        getRuleContext(target).getToolchainContexts().contextMap().keySet();
 
     assertThat(toolchainContextsKeys)
         .containsExactly(

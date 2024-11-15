@@ -2112,7 +2112,7 @@ public class RuleContext extends TargetContext
 
       // Validate toolchains.
       if (toolchainContexts != null) {
-        for (var toolchainContext : toolchainContexts.getContextMap().values()) {
+        for (var toolchainContext : toolchainContexts.contextMap().values()) {
           for (var prerequisite : toolchainContext.prerequisiteTargets()) {
             validateDirectPrerequisite(TOOLCHAIN_ATTRIBUTE, prerequisite);
           }
