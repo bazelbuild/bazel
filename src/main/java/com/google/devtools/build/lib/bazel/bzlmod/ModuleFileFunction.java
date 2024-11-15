@@ -721,7 +721,7 @@ public class ModuleFileFunction implements SkyFunction {
       return moduleFile;
     }
     var patchesInMainRepo =
-        singleVersionOverride.getPatches().stream()
+        singleVersionOverride.patches().stream()
             .filter(label -> label.getRepository().isMain())
             .collect(toImmutableList());
     if (patchesInMainRepo.isEmpty()) {
@@ -787,10 +787,7 @@ public class ModuleFileFunction implements SkyFunction {
       for (var patchPath : patchPaths) {
         try {
           PatchUtil.applyToSingleFile(
-              patchPath.asPath(),
-              singleVersionOverride.getPatchStrip(),
-              moduleRoot,
-              moduleFilePath);
+              patchPath.asPath(), singleVersionOverride.patchStrip(), moduleRoot, moduleFilePath);
         } catch (PatchFailedException e) {
           throw errorf(
               Code.BAD_MODULE,

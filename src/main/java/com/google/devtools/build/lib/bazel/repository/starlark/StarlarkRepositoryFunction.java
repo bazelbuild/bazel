@@ -212,7 +212,7 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
       if (mainRepoMappingValue == null) {
         return null;
       }
-      mainRepoMapping = mainRepoMappingValue.getRepositoryMapping();
+      mainRepoMapping = mainRepoMappingValue.repositoryMapping();
     } else {
       mainRepoMapping = rule.getPackage().getRepositoryMapping();
     }

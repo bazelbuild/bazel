@@ -20,7 +20,6 @@ import static java.util.Objects.requireNonNull;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule.ResolutionReason;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.errorprone.annotations.InlineMe;
 
 /**
  * Specifies that a module should be retrieved from a Git repository.
@@ -51,41 +50,6 @@ public record GitOverride(
     requireNonNull(stripPrefix, "stripPrefix");
   }
 
-  @InlineMe(replacement = "this.remote()")
-  public String getRemote() {
-    return remote();
-  }
-
-  @InlineMe(replacement = "this.commit()")
-  public String getCommit() {
-    return commit();
-  }
-
-  @InlineMe(replacement = "this.patches()")
-  public ImmutableList<Label> getPatches() {
-    return patches();
-  }
-
-  @InlineMe(replacement = "this.patchCmds()")
-  public ImmutableList<String> getPatchCmds() {
-    return patchCmds();
-  }
-
-  @InlineMe(replacement = "this.patchStrip()")
-  public int getPatchStrip() {
-    return patchStrip();
-  }
-
-  @InlineMe(replacement = "this.initSubmodules()")
-  public boolean getInitSubmodules() {
-    return initSubmodules();
-  }
-
-  @InlineMe(replacement = "this.stripPrefix()")
-  public String getStripPrefix() {
-    return stripPrefix();
-  }
-
   public static GitOverride create(
       String remote,
       String commit,
@@ -102,13 +66,13 @@ public record GitOverride(
   @Override
   public RepoSpec getRepoSpec() {
     return new GitRepoSpecBuilder()
-        .setRemote(getRemote())
-        .setCommit(getCommit())
-        .setPatches(getPatches())
-        .setPatchCmds(getPatchCmds())
-        .setPatchArgs(ImmutableList.of("-p" + getPatchStrip()))
-        .setInitSubmodules(getInitSubmodules())
-        .setStripPrefix(getStripPrefix())
+        .setRemote(remote())
+        .setCommit(commit())
+        .setPatches(patches())
+        .setPatchCmds(patchCmds())
+        .setPatchArgs(ImmutableList.of("-p" + patchStrip()))
+        .setInitSubmodules(initSubmodules())
+        .setStripPrefix(stripPrefix())
         .build();
   }
 

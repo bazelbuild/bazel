@@ -312,7 +312,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
               new TargetPattern.Parser(
                   PathFragment.EMPTY_FRAGMENT,
                   RepositoryName.MAIN,
-                  repositoryMappingValue.getRepositoryMapping()),
+                  repositoryMappingValue.repositoryMapping()),
               PathFragment.EMPTY_FRAGMENT,
               /* keepGoing= */ false,
               ruleContext.attributes().get("strict", Type.BOOLEAN),

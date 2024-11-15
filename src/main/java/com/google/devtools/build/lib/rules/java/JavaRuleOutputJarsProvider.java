@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.Serializat
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaOutputApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaRuleOutputJarsProviderApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import com.google.errorprone.annotations.InlineMe;
 import java.util.Collection;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -57,7 +56,6 @@ public record JavaRuleOutputJarsProvider(@Override ImmutableList<JavaOutput> jav
     requireNonNull(javaOutputs, "javaOutputs");
   }
 
-  @InlineMe(replacement = "this.javaOutputs()")
   @Override
   public ImmutableList<JavaOutput> getJavaOutputs() {
     return javaOutputs();
@@ -90,64 +88,51 @@ public record JavaRuleOutputJarsProvider(@Override ImmutableList<JavaOutput> jav
       requireNonNull(sourceJars, "sourceJars");
     }
 
-    @InlineMe(replacement = "this.classJar()")
     @Override
     public Artifact getClassJar() {
       return classJar();
     }
 
-    @InlineMe(replacement = "this.compileJar()")
     @Nullable
     @Override
     public Artifact getCompileJar() {
       return compileJar();
     }
 
-    @InlineMe(replacement = "this.compileJdeps()")
     @Nullable
     @Override
     public Artifact getCompileJdeps() {
       return compileJdeps();
     }
 
-    @InlineMe(replacement = "this.generatedClassJar()")
     @Nullable
     @Override
     public Artifact getGeneratedClassJar() {
       return generatedClassJar();
     }
 
-    @InlineMe(replacement = "this.generatedSourceJar()")
     @Nullable
     @Override
     public Artifact getGeneratedSourceJar() {
       return generatedSourceJar();
     }
 
-    @InlineMe(replacement = "this.nativeHeadersJar()")
     @Nullable
     @Override
     public Artifact getNativeHeadersJar() {
       return nativeHeadersJar();
     }
 
-    @InlineMe(replacement = "this.manifestProto()")
     @Nullable
     @Override
     public Artifact getManifestProto() {
       return manifestProto();
     }
 
-    @InlineMe(replacement = "this.jdeps()")
     @Nullable
     @Override
     public Artifact getJdeps() {
       return jdeps();
-    }
-
-    @InlineMe(replacement = "this.sourceJars()")
-    public NestedSet<Artifact> getSourceJars() {
-      return sourceJars();
     }
 
     /**
@@ -184,7 +169,7 @@ public record JavaRuleOutputJarsProvider(@Override ImmutableList<JavaOutput> jav
     @Deprecated
     @Override
     public Artifact getIJar() {
-      return getCompileJar();
+      return compileJar();
     }
 
     @Nullable
@@ -195,13 +180,13 @@ public record JavaRuleOutputJarsProvider(@Override ImmutableList<JavaOutput> jav
     }
 
     public ImmutableList<Artifact> getSourceJarsAsList() {
-      return getSourceJars().toList();
+      return sourceJars().toList();
     }
 
     @Nullable
     @Override
     public Depset getSrcJarsStarlark(StarlarkSemantics semantics) {
-      return Depset.of(Artifact.class, getSourceJars());
+      return Depset.of(Artifact.class, sourceJars());
     }
 
     public static JavaOutput fromStarlarkJavaOutput(StructImpl struct) throws EvalException {
@@ -304,12 +289,12 @@ public record JavaRuleOutputJarsProvider(@Override ImmutableList<JavaOutput> jav
 
   /** Collects all class output jars from {@link #getJavaOutputs} */
   public Iterable<Artifact> getAllClassOutputJars() {
-    return getJavaOutputs().stream().map(JavaOutput::getClassJar).collect(Collectors.toList());
+    return javaOutputs().stream().map(JavaOutput::classJar).collect(Collectors.toList());
   }
 
   /** Collects all source output jars from {@link #getJavaOutputs} */
   public ImmutableList<Artifact> getAllSrcOutputJars() {
-    return getJavaOutputs().stream()
+    return javaOutputs().stream()
         .map(JavaOutput::getSourceJarsAsList)
         .flatMap(ImmutableList::stream)
         .collect(toImmutableList());
@@ -320,8 +305,8 @@ public record JavaRuleOutputJarsProvider(@Override ImmutableList<JavaOutput> jav
   @Deprecated
   public Artifact getJdeps() {
     ImmutableList<Artifact> jdeps =
-        getJavaOutputs().stream()
-            .map(JavaOutput::getJdeps)
+        javaOutputs().stream()
+            .map(JavaOutput::jdeps)
             .filter(Objects::nonNull)
             .collect(toImmutableList());
     return jdeps.size() == 1 ? jdeps.get(0) : null;
@@ -332,8 +317,8 @@ public record JavaRuleOutputJarsProvider(@Override ImmutableList<JavaOutput> jav
   @Deprecated
   public Artifact getNativeHeaders() {
     ImmutableList<Artifact> nativeHeaders =
-        getJavaOutputs().stream()
-            .map(JavaOutput::getNativeHeadersJar)
+        javaOutputs().stream()
+            .map(JavaOutput::nativeHeadersJar)
             .filter(Objects::nonNull)
             .collect(toImmutableList());
     return nativeHeaders.size() == 1 ? nativeHeaders.get(0) : null;

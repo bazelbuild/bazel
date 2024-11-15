@@ -453,7 +453,7 @@ final class AspectFunction implements SkyFunction {
         ToolchainCollection.Builder<ResolvedToolchainContext> contextsBuilder =
             ToolchainCollection.builder();
         for (Map.Entry<String, UnloadedToolchainContext> unloadedContext :
-            unloadedToolchainContexts.getContextMap().entrySet()) {
+            unloadedToolchainContexts.contextMap().entrySet()) {
           ImmutableSet<ConfiguredTargetAndData> toolchainDependencies =
               ImmutableSet.copyOf(
                   depValueMap.get(DependencyKind.forExecGroup(unloadedContext.getKey())));
@@ -547,7 +547,7 @@ final class AspectFunction implements SkyFunction {
         ToolchainCollection.builder();
 
     for (Map.Entry<String, UnloadedToolchainContext> unloadedContext :
-        baseTargetUnloadedToolchainContexts.getContextMap().entrySet()) {
+        baseTargetUnloadedToolchainContexts.contextMap().entrySet()) {
       // For each requested toolchain type, collect the targets of its resolved toolchains. If
       // multiple types are resolved to the same toolchain, the `ConfiguredTargetAndData`
       // of the toolchain can be different for each of them depending on the aspects

@@ -356,7 +356,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
         ToolchainCollection.Builder<ResolvedToolchainContext> contextsBuilder =
             ToolchainCollection.builder();
         for (Map.Entry<String, UnloadedToolchainContext> unloadedContext :
-            prereqs.getUnloadedToolchainContexts().getContextMap().entrySet()) {
+            prereqs.getUnloadedToolchainContexts().contextMap().entrySet()) {
           ImmutableSet<ConfiguredTargetAndData> toolchainDependencies =
               ImmutableSet.copyOf(
                   prereqs

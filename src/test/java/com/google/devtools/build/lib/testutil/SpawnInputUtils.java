@@ -57,8 +57,8 @@ public final class SpawnInputUtils {
         continue;
       }
       for (FilesetOutputSymlink filesetOutputSymlink : entry.getValue().symlinks()) {
-        if (filesetOutputSymlink.getTargetPath().toString().contains(inputName)) {
-          Path inputPath = execRoot.getRelative(filesetOutputSymlink.getTargetPath());
+        if (filesetOutputSymlink.targetPath().toString().contains(inputName)) {
+          Path inputPath = execRoot.getRelative(filesetOutputSymlink.targetPath());
           return ActionInputHelper.fromPath(inputPath.asFragment());
         }
       }
@@ -78,8 +78,8 @@ public final class SpawnInputUtils {
       throw new IllegalStateException(e);
     }
     for (FilesetOutputSymlink filesetOutputSymlink : filesetLinks) {
-      if (filesetOutputSymlink.getTargetPath().toString().contains(inputName)) {
-        Path inputPath = context.getExecRoot().getRelative(filesetOutputSymlink.getTargetPath());
+      if (filesetOutputSymlink.targetPath().toString().contains(inputName)) {
+        Path inputPath = context.getExecRoot().getRelative(filesetOutputSymlink.targetPath());
         return ActionInputHelper.fromPath(inputPath.asFragment());
       }
     }

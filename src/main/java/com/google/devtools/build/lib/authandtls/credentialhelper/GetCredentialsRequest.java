@@ -20,7 +20,6 @@ import com.google.auto.value.AutoBuilder;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.errorprone.annotations.Immutable;
-import com.google.errorprone.annotations.InlineMe;
 import com.google.gson.JsonSyntaxException;
 import com.google.gson.TypeAdapter;
 import com.google.gson.annotations.JsonAdapter;
@@ -46,11 +45,6 @@ public record GetCredentialsRequest(URI uri) {
     requireNonNull(uri, "uri");
   }
 
-  @InlineMe(replacement = "this.uri()")
-  public URI getUri() {
-    return uri();
-  }
-
   /** Returns a new builder for {@link GetCredentialsRequest}. */
   public static Builder newBuilder() {
     return new AutoBuilder_GetCredentialsRequest_Builder();
@@ -74,7 +68,7 @@ public record GetCredentialsRequest(URI uri) {
       Preconditions.checkNotNull(value);
 
       writer.beginObject();
-      writer.name("uri").value(value.getUri().toString());
+      writer.name("uri").value(value.uri().toString());
       writer.endObject();
     }
 

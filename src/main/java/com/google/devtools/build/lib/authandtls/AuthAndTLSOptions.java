@@ -26,7 +26,6 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
-import com.google.errorprone.annotations.InlineMe;
 import java.net.IDN;
 import java.time.Duration;
 import java.util.List;
@@ -201,15 +200,6 @@ public class AuthAndTLSOptions extends OptionsBase {
       requireNonNull(path, "path");
     }
 
-    @InlineMe(replacement = "this.scope()")
-    public Optional<String> getScope() {
-      return scope();
-    }
-
-    @InlineMe(replacement = "this.path()")
-    public String getPath() {
-      return path();
-    }
   }
 
   /** A {@link Converter} for the `--credential_helper` flag. */

@@ -90,6 +90,6 @@ public final class PsInfoCollectorTest {
 
     ImmutableMap<Long, Integer> expectedMemoryUsageByPid =
         ImmutableMap.of(1L, 3216 + 1234 + 2345 + 3456, 2L, 4232 + 1001 + 1032, 5L, 40000);
-    assertThat(resourceSnapshot.getPidToMemoryInKb()).isEqualTo(expectedMemoryUsageByPid);
+    assertThat(resourceSnapshot.pidToMemoryInKb()).isEqualTo(expectedMemoryUsageByPid);
   }
 }

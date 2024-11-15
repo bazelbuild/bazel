@@ -72,7 +72,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import com.google.devtools.common.options.TriState;
-import com.google.errorprone.annotations.InlineMe;
 import com.google.protobuf.ExtensionRegistry;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -1224,8 +1223,8 @@ public class TestRunnerAction extends AbstractAction
               .getEventHandler()
               .post(new SpawnExecutedEvent.ChangePhase(this));
 
-          testRunnerSpawn = nextRunnerAndAttempts.getSpawn();
-          maxAttempts = nextRunnerAndAttempts.getMaxAttempts();
+          testRunnerSpawn = nextRunnerAndAttempts.spawn();
+          maxAttempts = nextRunnerAndAttempts.maxAttempts();
           continue;
         }
       }
@@ -1287,16 +1286,6 @@ public class TestRunnerAction extends AbstractAction
   record TestRunnerSpawnAndMaxAttempts(TestRunnerSpawn spawn, int maxAttempts) {
     TestRunnerSpawnAndMaxAttempts {
       requireNonNull(spawn, "spawn");
-    }
-
-    @InlineMe(replacement = "this.spawn()")
-    TestRunnerSpawn getSpawn() {
-      return spawn();
-    }
-
-    @InlineMe(replacement = "this.maxAttempts()")
-    int getMaxAttempts() {
-      return maxAttempts();
     }
 
     public static TestRunnerSpawnAndMaxAttempts create(TestRunnerSpawn spawn, int maxAttempts) {

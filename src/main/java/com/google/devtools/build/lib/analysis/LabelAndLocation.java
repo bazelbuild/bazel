@@ -19,7 +19,6 @@ import static java.util.Objects.requireNonNull;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.errorprone.annotations.InlineMe;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -33,16 +32,6 @@ public record LabelAndLocation(Label label, Location location) {
   public LabelAndLocation {
     requireNonNull(label, "label");
     requireNonNull(location, "location");
-  }
-
-  @InlineMe(replacement = "this.label()")
-  public Label getLabel() {
-    return label();
-  }
-
-  @InlineMe(replacement = "this.location()")
-  public Location getLocation() {
-    return location();
   }
 
   public static LabelAndLocation of(Target target) {

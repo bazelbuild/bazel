@@ -99,10 +99,10 @@ public class JavaInfoCodecTest extends BuildViewTestCase {
                   inInfo.getProvider(JavaCompilationArgsProvider.class);
               JavaCompilationArgsProvider outProvider =
                   outInfo.getProvider(JavaCompilationArgsProvider.class);
-              assertThat(inProvider.getRuntimeJars().toList()).hasSize(4);
-              assertThat(Dumper.dumpStructureWithEquivalenceReduction(inProvider.getRuntimeJars()))
+              assertThat(inProvider.runtimeJars().toList()).hasSize(4);
+              assertThat(Dumper.dumpStructureWithEquivalenceReduction(inProvider.runtimeJars()))
                   .isEqualTo(
-                      Dumper.dumpStructureWithEquivalenceReduction(outProvider.getRuntimeJars()));
+                      Dumper.dumpStructureWithEquivalenceReduction(outProvider.runtimeJars()));
             })
         .runTests();
   }

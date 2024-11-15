@@ -124,12 +124,9 @@ public final class GsonTypeAdapterUtil {
       new TypeAdapter<>() {
         @Override
         public void write(JsonWriter jsonWriter, ModuleExtensionId moduleExtId) throws IOException {
-          String isolationKeyPart = moduleExtId.getIsolationKey().map(key -> "%" + key).orElse("");
+          String isolationKeyPart = moduleExtId.isolationKey().map(key -> "%" + key).orElse("");
           jsonWriter.value(
-              moduleExtId.getBzlFileLabel()
-                  + "%"
-                  + moduleExtId.getExtensionName()
-                  + isolationKeyPart);
+              moduleExtId.bzlFileLabel() + "%" + moduleExtId.extensionName() + isolationKeyPart);
         }
 
         @Override

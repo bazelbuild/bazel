@@ -41,7 +41,7 @@ public class RepoSpecFunction implements SkyFunction {
       throws InterruptedException, RepoSpecException {
     RepoSpecKey key = (RepoSpecKey) skyKey.argument();
 
-    Registry registry = (Registry) env.getValue(RegistryKey.create(key.getRegistryUrl()));
+    Registry registry = (Registry) env.getValue(RegistryKey.create(key.registryUrl()));
     if (registry == null) {
       return null;
     }
@@ -50,15 +50,15 @@ public class RepoSpecFunction implements SkyFunction {
     RepoSpec repoSpec;
     try (SilentCloseable c =
         Profiler.instance()
-            .profile(ProfilerTask.BZLMOD, () -> "compute repo spec: " + key.getModuleKey())) {
-      repoSpec = registry.getRepoSpec(key.getModuleKey(), downloadEvents, this.downloadManager);
+            .profile(ProfilerTask.BZLMOD, () -> "compute repo spec: " + key.moduleKey())) {
+      repoSpec = registry.getRepoSpec(key.moduleKey(), downloadEvents, this.downloadManager);
     } catch (IOException e) {
       throw new RepoSpecException(
           ExternalDepsException.withCauseAndMessage(
               FailureDetails.ExternalDeps.Code.ERROR_ACCESSING_REGISTRY,
               e,
               "Unable to get module repo spec for %s from registry",
-              key.getModuleKey()));
+              key.moduleKey()));
     }
     downloadEvents.replayOn(env.getListener());
     return RepoSpecValue.create(

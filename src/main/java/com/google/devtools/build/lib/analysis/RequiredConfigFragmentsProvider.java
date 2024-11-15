@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.ClassName;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import com.google.errorprone.annotations.InlineMe;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -57,26 +56,6 @@ public record RequiredConfigFragmentsProvider(
     requireNonNull(starlarkOptions, "starlarkOptions");
   }
 
-  @InlineMe(replacement = "this.optionsClasses()")
-  public ImmutableSet<Class<? extends FragmentOptions>> getOptionsClasses() {
-    return optionsClasses();
-  }
-
-  @InlineMe(replacement = "this.fragmentClasses()")
-  public ImmutableSet<Class<? extends Fragment>> getFragmentClasses() {
-    return fragmentClasses();
-  }
-
-  @InlineMe(replacement = "this.defines()")
-  public ImmutableSet<String> getDefines() {
-    return defines();
-  }
-
-  @InlineMe(replacement = "this.starlarkOptions()")
-  public ImmutableSet<Label> getStarlarkOptions() {
-    return starlarkOptions();
-  }
-
   private static final Interner<RequiredConfigFragmentsProvider> interner =
       BlazeInterners.newWeakInterner();
 
@@ -90,12 +69,12 @@ public record RequiredConfigFragmentsProvider(
     return MoreObjects.toStringHelper(RequiredConfigFragmentsProvider.class)
         .add(
             "optionsClasses",
-            Collections2.transform(getOptionsClasses(), ClassName::getSimpleNameWithOuter))
+            Collections2.transform(optionsClasses(), ClassName::getSimpleNameWithOuter))
         .add(
             "fragmentClasses",
-            Collections2.transform(getFragmentClasses(), ClassName::getSimpleNameWithOuter))
-        .add("defines", getDefines())
-        .add("starlarkOptions", getStarlarkOptions())
+            Collections2.transform(fragmentClasses(), ClassName::getSimpleNameWithOuter))
+        .add("defines", defines())
+        .add("starlarkOptions", starlarkOptions())
         .toString();
   }
 
@@ -188,10 +167,10 @@ public record RequiredConfigFragmentsProvider(
     @CanIgnoreReturnValue
     public Builder merge(RequiredConfigFragmentsProvider provider) {
       if (provider != null) {
-        optionsClasses = appendAll(optionsClasses, provider.getOptionsClasses());
-        fragmentClasses = appendAll(fragmentClasses, provider.getFragmentClasses());
-        defines = appendAll(defines, provider.getDefines());
-        starlarkOptions = appendAll(starlarkOptions, provider.getStarlarkOptions());
+        optionsClasses = appendAll(optionsClasses, provider.optionsClasses());
+        fragmentClasses = appendAll(fragmentClasses, provider.fragmentClasses());
+        defines = appendAll(defines, provider.defines());
+        starlarkOptions = appendAll(starlarkOptions, provider.starlarkOptions());
       }
       return this;
     }

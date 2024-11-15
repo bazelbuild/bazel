@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.cpp;
 import static java.util.Objects.requireNonNull;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.errorprone.annotations.InlineMe;
 
 /** Object encapsulating which additional toolchain features should be enabled and/or disabled. */
 public record FeatureSpecification(
@@ -24,16 +23,6 @@ public record FeatureSpecification(
   public FeatureSpecification {
     requireNonNull(requestedFeatures, "requestedFeatures");
     requireNonNull(unsupportedFeatures, "unsupportedFeatures");
-  }
-
-  @InlineMe(replacement = "this.requestedFeatures()")
-  public ImmutableSet<String> getRequestedFeatures() {
-    return requestedFeatures();
-  }
-
-  @InlineMe(replacement = "this.unsupportedFeatures()")
-  public ImmutableSet<String> getUnsupportedFeatures() {
-    return unsupportedFeatures();
   }
 
   public static final FeatureSpecification EMPTY =

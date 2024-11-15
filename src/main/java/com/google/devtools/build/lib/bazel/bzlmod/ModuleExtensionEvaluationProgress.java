@@ -26,17 +26,16 @@ public class ModuleExtensionEvaluationProgress implements FetchProgress {
   public static String moduleExtensionEvaluationContextString(ModuleExtensionId extensionId) {
     String suffix =
         extensionId
-            .getIsolationKey()
+            .isolationKey()
             .map(
                 isolationKey ->
                     String.format(
-                        " for %s in %s",
-                        isolationKey.getUsageExportedName(), isolationKey.getModule()))
+                        " for %s in %s", isolationKey.usageExportedName(), isolationKey.module()))
             .orElse("");
     return String.format(
         "module extension %s in %s%s",
-        extensionId.getExtensionName(),
-        extensionId.getBzlFileLabel().getUnambiguousCanonicalForm(),
+        extensionId.extensionName(),
+        extensionId.bzlFileLabel().getUnambiguousCanonicalForm(),
         suffix);
   }
 

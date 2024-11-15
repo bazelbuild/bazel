@@ -20,7 +20,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.errorprone.annotations.InlineMe;
 import javax.annotation.Nullable;
 
 /**
@@ -59,32 +58,6 @@ public record FilesetOutputSymlink(
     requireNonNull(metadata, "metadata");
   }
 
-  @InlineMe(replacement = "this.name()")
-  public PathFragment getName() {
-    return name();
-  }
-
-  @InlineMe(replacement = "this.targetPath()")
-  public PathFragment getTargetPath() {
-    return targetPath();
-  }
-
-  @InlineMe(replacement = "this.metadata()")
-  public HasDigest getMetadata() {
-    return metadata();
-  }
-
-  @InlineMe(replacement = "this.relativeToExecRoot()")
-  public boolean isRelativeToExecRoot() {
-    return relativeToExecRoot();
-  }
-
-  @InlineMe(replacement = "this.enclosingTreeArtifactExecPath()")
-  @Nullable
-  public PathFragment getEnclosingTreeArtifactExecPath() {
-    return enclosingTreeArtifactExecPath();
-  }
-
   /**
    * Reconstitutes the original target path of this symlink.
    *
@@ -92,19 +65,18 @@ public record FilesetOutputSymlink(
    * execution root was stripped originally, it is re-prepended.
    */
   public final PathFragment reconstituteTargetPath(PathFragment execRoot) {
-    return isRelativeToExecRoot() ? execRoot.getRelative(getTargetPath()) : getTargetPath();
+    return relativeToExecRoot() ? execRoot.getRelative(targetPath()) : targetPath();
   }
 
   @Override
   public final String toString() {
-    if (getMetadata() == HasDigest.EMPTY) {
+    if (metadata() == HasDigest.EMPTY) {
       return String.format(
-          "FilesetOutputSymlink(%s -> %s)",
-          getName().getPathString(), getTargetPath().getPathString());
+          "FilesetOutputSymlink(%s -> %s)", name().getPathString(), targetPath().getPathString());
     } else {
       return String.format(
           "FilesetOutputSymlink(%s -> %s | metadataHash=%s)",
-          getName().getPathString(), getTargetPath().getPathString(), getMetadata());
+          name().getPathString(), targetPath().getPathString(), metadata());
     }
   }
 

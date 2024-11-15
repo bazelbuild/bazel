@@ -79,8 +79,8 @@ public class BazelModuleInspectorFunction implements SkyFunction {
             depGraph.values().stream()
                 .collect(
                     Collectors.groupingBy(
-                        AugmentedModule::getName,
-                        Collectors.mapping(AugmentedModule::getKey, toImmutableSet()))));
+                        AugmentedModule::name,
+                        Collectors.mapping(AugmentedModule::key, toImmutableSet()))));
 
     return BazelModuleInspectorValue.create(
         depGraph,
@@ -214,7 +214,7 @@ public class BazelModuleInspectorFunction implements SkyFunction {
         return null;
       }
       extensionToRepoInternalNames.putAll(
-          singleExtensionKey.argument(), singleExtensionValue.getGeneratedRepoSpecs().keySet());
+          singleExtensionKey.argument(), singleExtensionValue.generatedRepoSpecs().keySet());
     }
     return new ExtensionRepos(extensionToRepoInternalNames.build(), errors.build());
   }

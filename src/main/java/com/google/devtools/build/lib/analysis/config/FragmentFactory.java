@@ -20,7 +20,6 @@ import static java.util.Objects.requireNonNull;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.collect.ImmutableSet;
-import com.google.errorprone.annotations.InlineMe;
 import java.lang.reflect.InvocationTargetException;
 import java.util.concurrent.CompletionException;
 import javax.annotation.Nullable;
@@ -96,16 +95,6 @@ public final class FragmentFactory {
       requireNonNull(fragmentClass, "fragmentClass");
     }
 
-    @InlineMe(replacement = "this.buildOptions()")
-    BuildOptions getBuildOptions() {
-      return buildOptions();
-    }
-
-    @InlineMe(replacement = "this.fragmentClass()")
-    Class<? extends Fragment> getFragmentClass() {
-      return fragmentClass();
-    }
-
     private static FragmentKey create(
         BuildOptions buildOptions, Class<? extends Fragment> fragmentClass) {
       return new FragmentKey(buildOptions, fragmentClass);
@@ -114,8 +103,8 @@ public final class FragmentFactory {
 
   private static Fragment makeFragment(FragmentKey fragmentKey)
       throws InvalidConfigurationException {
-    BuildOptions buildOptions = fragmentKey.getBuildOptions();
-    Class<? extends Fragment> fragmentClass = fragmentKey.getFragmentClass();
+    BuildOptions buildOptions = fragmentKey.buildOptions();
+    Class<? extends Fragment> fragmentClass = fragmentKey.fragmentClass();
     String noConstructorPattern = "%s lacks constructor(BuildOptions)";
     try {
       Fragment fragment =

@@ -22,7 +22,6 @@ import static java.util.Objects.requireNonNull;
 import com.google.common.base.Splitter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.errorprone.annotations.InlineMe;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -37,27 +36,11 @@ public record ModuleExtensionId(
     requireNonNull(isolationKey, "isolationKey");
   }
 
-  @InlineMe(replacement = "this.bzlFileLabel()")
-  public Label getBzlFileLabel() {
-    return bzlFileLabel();
-  }
-
-  @InlineMe(replacement = "this.extensionName()")
-  public String getExtensionName() {
-    return extensionName();
-  }
-
-  @InlineMe(replacement = "this.isolationKey()")
-  public Optional<IsolationKey> getIsolationKey() {
-    return isolationKey();
-  }
-
   public static final Comparator<ModuleExtensionId> LEXICOGRAPHIC_COMPARATOR =
-      comparing(ModuleExtensionId::getBzlFileLabel)
-          .thenComparing(ModuleExtensionId::getExtensionName)
+      comparing(ModuleExtensionId::bzlFileLabel)
+          .thenComparing(ModuleExtensionId::extensionName)
           .thenComparing(
-              ModuleExtensionId::getIsolationKey,
-              emptiesFirst(IsolationKey.LEXICOGRAPHIC_COMPARATOR));
+              ModuleExtensionId::isolationKey, emptiesFirst(IsolationKey.LEXICOGRAPHIC_COMPARATOR));
 
   /**
    * A unique identifier for a single isolated usage of a fixed module extension.
@@ -71,19 +54,9 @@ public record ModuleExtensionId(
       requireNonNull(usageExportedName, "usageExportedName");
     }
 
-    @InlineMe(replacement = "this.module()")
-    ModuleKey getModule() {
-      return module();
-    }
-
-    @InlineMe(replacement = "this.usageExportedName()")
-    String getUsageExportedName() {
-      return usageExportedName();
-    }
-
     static final Comparator<IsolationKey> LEXICOGRAPHIC_COMPARATOR =
-        comparing(IsolationKey::getModule, ModuleKey.LEXICOGRAPHIC_COMPARATOR)
-            .thenComparing(IsolationKey::getUsageExportedName);
+        comparing(IsolationKey::module, ModuleKey.LEXICOGRAPHIC_COMPARATOR)
+            .thenComparing(IsolationKey::usageExportedName);
 
     public static IsolationKey create(ModuleKey module, String usageExportedName) {
       return new IsolationKey(module, usageExportedName);
@@ -91,7 +64,7 @@ public record ModuleExtensionId(
 
     @Override
     public final String toString() {
-      return getModule() + "+" + getUsageExportedName();
+      return module() + "+" + usageExportedName();
     }
 
     public static IsolationKey fromString(String s) throws Version.ParseException {
@@ -107,13 +80,13 @@ public record ModuleExtensionId(
   }
 
   public final boolean isInnate() {
-    return getExtensionName().contains("%");
+    return extensionName().contains("%");
   }
 
   public String asTargetString() {
-    String isolationKeyPart = getIsolationKey().map(key -> "%" + key).orElse("");
+    String isolationKeyPart = isolationKey().map(key -> "%" + key).orElse("");
     return String.format(
         "%s%%%s%s",
-        getBzlFileLabel().getUnambiguousCanonicalForm(), getExtensionName(), isolationKeyPart);
+        bzlFileLabel().getUnambiguousCanonicalForm(), extensionName(), isolationKeyPart);
   }
 }

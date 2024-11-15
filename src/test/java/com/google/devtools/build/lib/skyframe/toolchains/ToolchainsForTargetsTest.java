@@ -57,7 +57,6 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import com.google.errorprone.annotations.InlineMe;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -110,11 +109,6 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
       implements SkyValue {
     Value {
       requireNonNull(toolchainCollection, "toolchainCollection");
-    }
-
-    @InlineMe(replacement = "this.toolchainCollection()")
-    ToolchainCollection<UnloadedToolchainContext> getToolchainCollection() {
-      return toolchainCollection();
     }
 
     static Value create(ToolchainCollection<UnloadedToolchainContext> toolchainCollection) {
@@ -234,7 +228,7 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
         SkyframeExecutorTestUtils.evaluate(skyframeExecutor, key, /*keepGoing=*/ false, reporter);
     // Test call has finished, to reset the state.
     skyframeExecutor.getSkyframeBuildView().enableAnalysis(false);
-    return evalResult.get(key).getToolchainCollection();
+    return evalResult.get(key).toolchainCollection();
   }
 
   public ToolchainCollection<UnloadedToolchainContext> getToolchainCollection(String targetLabel)

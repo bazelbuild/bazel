@@ -19,7 +19,6 @@ import static java.util.Objects.requireNonNull;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.errorprone.annotations.InlineMe;
 
 /**
  * Specifies that the module should still come from a registry, but multiple versions of it should
@@ -35,12 +34,6 @@ public record MultipleVersionOverride(ImmutableList<Version> versions, @Override
     requireNonNull(registry, "registry");
   }
 
-  @InlineMe(replacement = "this.versions()")
-  public ImmutableList<Version> getVersions() {
-    return versions();
-  }
-
-  @InlineMe(replacement = "this.registry()")
   @Override
   public String getRegistry() {
     return registry();

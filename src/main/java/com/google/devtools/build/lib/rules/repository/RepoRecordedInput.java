@@ -699,7 +699,7 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
       try {
         return repoMappingValue != RepositoryMappingValue.NOT_FOUND_VALUE
             && RepositoryName.create(oldValue)
-                .equals(repoMappingValue.getRepositoryMapping().get(apparentName));
+                .equals(repoMappingValue.repositoryMapping().get(apparentName));
       } catch (LabelSyntaxException e) {
         // malformed old value causes refetch
         return false;

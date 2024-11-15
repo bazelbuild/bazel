@@ -115,20 +115,20 @@ public class StarlarkBazelModule implements StarlarkValue {
             repoMapping);
     ImmutableList<Tag> tags = usage == null ? ImmutableList.of() : usage.getTags();
     HashMap<String, ArrayList<TypeCheckedTag>> typeCheckedTags = new HashMap<>();
-    for (String tagClassName : extension.getTagClasses().keySet()) {
+    for (String tagClassName : extension.tagClasses().keySet()) {
       typeCheckedTags.put(tagClassName, new ArrayList<>());
     }
     for (Tag tag : tags) {
-      TagClass tagClass = extension.getTagClasses().get(tag.getTagName());
+      TagClass tagClass = extension.tagClasses().get(tag.getTagName());
       if (tagClass == null) {
         throw ExternalDepsException.withMessage(
             Code.BAD_MODULE,
             "The module extension defined at %s does not have a tag class named %s, but its use is"
                 + " attempted at %s%s",
-            extension.getLocation(),
+            extension.location(),
             tag.getTagName(),
             tag.getLocation(),
-            SpellChecker.didYouMean(tag.getTagName(), extension.getTagClasses().keySet()));
+            SpellChecker.didYouMean(tag.getTagName(), extension.tagClasses().keySet()));
       }
 
       // Now we need to type-check the attribute values and convert them into "build language types"

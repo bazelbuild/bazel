@@ -28,7 +28,6 @@ import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.errorprone.annotations.InlineMe;
 import java.util.Optional;
 
 /**
@@ -56,26 +55,6 @@ public record SingleExtensionValue(
     requireNonNull(canonicalRepoNameToInternalNames, "canonicalRepoNameToInternalNames");
     requireNonNull(lockFileInfo, "lockFileInfo");
     requireNonNull(fixup, "fixup");
-  }
-
-  @InlineMe(replacement = "this.generatedRepoSpecs()")
-  public ImmutableMap<String, RepoSpec> getGeneratedRepoSpecs() {
-    return generatedRepoSpecs();
-  }
-
-  @InlineMe(replacement = "this.canonicalRepoNameToInternalNames()")
-  public ImmutableBiMap<RepositoryName, String> getCanonicalRepoNameToInternalNames() {
-    return canonicalRepoNameToInternalNames();
-  }
-
-  @InlineMe(replacement = "this.lockFileInfo()")
-  public Optional<LockFileModuleExtension.WithFactors> getLockFileInfo() {
-    return lockFileInfo();
-  }
-
-  @InlineMe(replacement = "this.fixup()")
-  public Optional<RootModuleFileFixup> getFixup() {
-    return fixup();
   }
 
   @AutoCodec.Instantiator

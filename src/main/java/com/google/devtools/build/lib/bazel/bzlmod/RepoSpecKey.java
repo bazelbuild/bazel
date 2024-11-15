@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.errorprone.annotations.InlineMe;
 
 /** The key for {@link RepoSpecFunction}. */
 @AutoCodec
@@ -30,16 +29,6 @@ record RepoSpecKey(ModuleKey moduleKey, String registryUrl) implements SkyKey {
   RepoSpecKey {
     requireNonNull(moduleKey, "moduleKey");
     requireNonNull(registryUrl, "registryUrl");
-  }
-
-  @InlineMe(replacement = "this.moduleKey()")
-  ModuleKey getModuleKey() {
-    return moduleKey();
-  }
-
-  @InlineMe(replacement = "this.registryUrl()")
-  String getRegistryUrl() {
-    return registryUrl();
   }
 
   private static final SkyKeyInterner<RepoSpecKey> interner = SkyKey.newInterner();

@@ -120,7 +120,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   private static void checkToolchainParameterIsSet(
       RuleContext ruleContext, Object toolchainUnchecked) throws EvalException {
     if ((ruleContext.getToolchainContexts() == null
-            || ruleContext.getToolchainContexts().getContextMap().size() > 1)
+            || ruleContext.getToolchainContexts().contextMap().size() > 1)
         && toolchainUnchecked == Starlark.UNBOUND) {
       throw Starlark.errorf(
           "Couldn't identify if tools are from implicit dependencies or a toolchain. Please"

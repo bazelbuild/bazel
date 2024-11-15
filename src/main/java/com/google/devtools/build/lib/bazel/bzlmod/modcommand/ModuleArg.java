@@ -309,7 +309,7 @@ public interface ModuleArg {
         throws InvalidArgumentException {
       Optional<AugmentedModule> mod =
           depGraph.values().stream()
-              .filter(m -> repoName().equals(moduleKeyToCanonicalNames.get(m.getKey())))
+              .filter(m -> repoName().equals(moduleKeyToCanonicalNames.get(m.key())))
               .findAny();
       if (mod.isPresent() && !includeUnused && warnUnused && !mod.get().isUsed()) {
         // Warn the user when unused modules are allowed and the specified version exists, but the
@@ -318,7 +318,7 @@ public interface ModuleArg {
             String.format(
                 "Module version %s is unused as a result of module resolution. Use the"
                     + " --include_unused flag to include it.",
-                mod.get().getKey()),
+                mod.get().key()),
             Code.INVALID_ARGUMENTS);
       }
       if (mod.isEmpty() || (!includeUnused && !mod.get().isUsed())) {
@@ -330,7 +330,7 @@ public interface ModuleArg {
                 repoName().getName()),
             Code.INVALID_ARGUMENTS);
       }
-      return ImmutableSet.of(mod.get().getKey());
+      return ImmutableSet.of(mod.get().key());
     }
 
     @Override

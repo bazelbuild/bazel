@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.errorprone.annotations.InlineMe;
 import io.reactivex.rxjava3.core.Completable;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -189,16 +188,6 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       requireNonNull(linkExecPath, "linkExecPath");
       requireNonNull(targetExecPath, "targetExecPath");
       checkArgument(!linkExecPath.equals(targetExecPath));
-    }
-
-    @InlineMe(replacement = "this.linkExecPath()")
-    PathFragment getLinkExecPath() {
-      return linkExecPath();
-    }
-
-    @InlineMe(replacement = "this.targetExecPath()")
-    PathFragment getTargetExecPath() {
-      return targetExecPath();
     }
 
     static Symlink of(PathFragment linkExecPath, PathFragment targetExecPath) {
@@ -356,9 +345,9 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       @Nullable Symlink symlink = maybeGetSymlink(action, input, metadata, metadataSupplier);
 
       if (symlink != null) {
-        checkState(execPath.startsWith(symlink.getLinkExecPath()));
+        checkState(execPath.startsWith(symlink.linkExecPath()));
         execPath =
-            symlink.getTargetExecPath().getRelative(execPath.relativeTo(symlink.getLinkExecPath()));
+            symlink.targetExecPath().getRelative(execPath.relativeTo(symlink.linkExecPath()));
       }
 
       @Nullable PathFragment treeRootExecPath = maybeGetTreeRoot(action, input, metadataSupplier);
@@ -628,11 +617,11 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
   private Completable plantSymlink(Symlink symlink) {
     return downloadCache.executeIfNot(
-        execRoot.getRelative(symlink.getLinkExecPath()),
+        execRoot.getRelative(symlink.linkExecPath()),
         Completable.defer(
             () -> {
-              Path link = execRoot.getRelative(symlink.getLinkExecPath());
-              Path target = execRoot.getRelative(symlink.getTargetExecPath());
+              Path link = execRoot.getRelative(symlink.linkExecPath());
+              Path target = execRoot.getRelative(symlink.targetExecPath());
               // Delete the link path if it already exists. This is the case for tree artifacts,
               // whose root directory is created before the action runs.
               link.delete();

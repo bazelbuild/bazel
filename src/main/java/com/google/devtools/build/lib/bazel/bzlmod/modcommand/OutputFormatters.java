@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
 import com.google.devtools.build.lib.bazel.bzlmod.Version;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModExecutor.ResultNode;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModOptions.OutputFormat;
-import com.google.errorprone.annotations.InlineMe;
 import java.io.PrintWriter;
 import javax.annotation.Nullable;
 
@@ -79,22 +78,6 @@ public final class OutputFormatters {
         requireNonNull(resolutionReason, "resolutionReason");
       }
 
-      @InlineMe(replacement = "this.changedVersion()")
-      Version getChangedVersion() {
-        return changedVersion();
-      }
-
-      @InlineMe(replacement = "this.resolutionReason()")
-      ResolutionReason getResolutionReason() {
-        return resolutionReason();
-      }
-
-      @InlineMe(replacement = "this.requestedByModules()")
-      @Nullable
-      ImmutableSet<ModuleKey> getRequestedByModules() {
-        return requestedByModules();
-      }
-
       static Explanation create(
           Version version, ResolutionReason reason, ImmutableSet<ModuleKey> requestedByModules) {
         return new Explanation(version, reason, requestedByModules);
@@ -106,12 +89,12 @@ public final class OutputFormatters {
        */
       String toExplanationString(boolean unused) {
         String changedVersionLabel =
-            getChangedVersion().equals(Version.EMPTY) ? "_" : getChangedVersion().toString();
+            changedVersion().equals(Version.EMPTY) ? "_" : changedVersion().toString();
         String toOrWasString = unused ? "to" : "was";
         String reasonString =
-            getRequestedByModules() != null
-                ? getRequestedByModules().stream().map(ModuleKey::toString).collect(joining(", "))
-                : Ascii.toLowerCase(getResolutionReason().toString());
+            requestedByModules() != null
+                ? requestedByModules().stream().map(ModuleKey::toString).collect(joining(", "))
+                : Ascii.toLowerCase(resolutionReason().toString());
         return String.format("(%s %s, cause %s)", toOrWasString, changedVersionLabel, reasonString);
       }
     }
@@ -166,18 +149,18 @@ public final class OutputFormatters {
       String repoName = parentModule.getAllDeps(options.includeUnused).get(key);
       Version changedVersion;
       ImmutableSet<ModuleKey> changedByModules = null;
-      ResolutionReason reason = parentModule.getDepReasons().get(repoName);
+      ResolutionReason reason = parentModule.depReasons().get(repoName);
       AugmentedModule replacement =
-          module.isUsed() ? module : depGraph.get(parentModule.getDeps().get(repoName));
+          module.isUsed() ? module : depGraph.get(parentModule.deps().get(repoName));
       if (reason != ResolutionReason.ORIGINAL) {
         if (!module.isUsed()) {
-          changedVersion = replacement.getVersion();
+          changedVersion = replacement.version();
         } else {
-          AugmentedModule old = depGraph.get(parentModule.getUnusedDeps().get(repoName));
-          changedVersion = old.getVersion();
+          AugmentedModule old = depGraph.get(parentModule.unusedDeps().get(repoName));
+          changedVersion = old.version();
         }
         if (reason == ResolutionReason.MINIMAL_VERSION_SELECTION) {
-          changedByModules = replacement.getOriginalDependants();
+          changedByModules = replacement.originalDependants();
         }
         return Explanation.create(changedVersion, reason, changedByModules);
       }

@@ -78,7 +78,7 @@ public class PathMappersTest extends BuildViewTestCase {
     ConfiguredTarget configuredTarget = getConfiguredTarget("//java/com/google/test:a");
     Artifact compiledArtifact =
         JavaInfo.getProvider(JavaCompilationArgsProvider.class, configuredTarget)
-            .getDirectCompileTimeJars()
+            .directCompileTimeJars()
             .toList()
             .get(0);
     SpawnAction action = (SpawnAction) getGeneratingAction(compiledArtifact);

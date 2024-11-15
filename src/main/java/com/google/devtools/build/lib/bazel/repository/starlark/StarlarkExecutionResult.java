@@ -214,23 +214,24 @@ final class StarlarkExecutionResult implements StarlarkValue {
         CommandResult result =
             command.execute(delegator.getOutputStream(), delegator.getErrorStream());
         return new StarlarkExecutionResult(
-            result.getTerminationStatus().getExitCode(),
+            result.terminationStatus().getExitCode(),
             recorder.outAsLatin1(),
             recorder.errAsLatin1());
       } catch (BadExitStatusException e) {
         return new StarlarkExecutionResult(
-            e.getResult().getTerminationStatus().getExitCode(), recorder.outAsLatin1(),
+            e.getResult().terminationStatus().getExitCode(),
+            recorder.outAsLatin1(),
             recorder.errAsLatin1());
       } catch (AbnormalTerminationException e) {
-        TerminationStatus status = e.getResult().getTerminationStatus();
+        TerminationStatus status = e.getResult().terminationStatus();
         if (status.timedOut()) {
           // Signal a timeout by an exit code outside the normal range
           return new StarlarkExecutionResult(256, "", e.getMessage());
         } else if (status.exited()) {
           return new StarlarkExecutionResult(
               status.getExitCode(),
-              toString(e.getResult().getStdoutStream()),
-              toString(e.getResult().getStderrStream()));
+              toString(e.getResult().stdoutStream()),
+              toString(e.getResult().stderrStream()));
         } else if (status.getTerminatingSignal() == 15) {
           // We have a bit of a problem here: we cannot distingusih between the case where
           // the SIGTERM was sent by something that the calling rule wants to legitimately handle,
@@ -243,8 +244,8 @@ final class StarlarkExecutionResult implements StarlarkValue {
         } else {
           return new StarlarkExecutionResult(
               status.getRawExitCode(),
-              toString(e.getResult().getStdoutStream()),
-              toString(e.getResult().getStderrStream()));
+              toString(e.getResult().stdoutStream()),
+              toString(e.getResult().stderrStream()));
         }
       } catch (CommandException e) {
         // 256 is outside of the standard range for exit code on Unixes. We are not guaranteed that

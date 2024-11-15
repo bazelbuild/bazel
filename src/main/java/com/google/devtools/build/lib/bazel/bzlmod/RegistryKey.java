@@ -21,18 +21,12 @@ import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.errorprone.annotations.InlineMe;
 
 /** The key for {@link RegistryFunction}. */
 @AutoCodec
 record RegistryKey(String url) implements SkyKey {
   RegistryKey {
     requireNonNull(url, "url");
-  }
-
-  @InlineMe(replacement = "this.url()")
-  String getUrl() {
-    return url();
   }
 
   private static final SkyKeyInterner<RegistryKey> interner = SkyKey.newInterner();

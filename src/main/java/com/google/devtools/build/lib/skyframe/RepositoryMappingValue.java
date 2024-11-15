@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.errorprone.annotations.InlineMe;
 import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -74,22 +73,6 @@ public record RepositoryMappingValue(
     requireNonNull(associatedModuleVersion, "associatedModuleVersion");
   }
 
-  @InlineMe(replacement = "this.repositoryMapping()")
-  @Nullable
-  public RepositoryMapping getRepositoryMapping() {
-    return repositoryMapping();
-  }
-
-  @InlineMe(replacement = "this.associatedModuleName()")
-  public Optional<String> getAssociatedModuleName() {
-    return associatedModuleName();
-  }
-
-  @InlineMe(replacement = "this.associatedModuleVersion()")
-  public Optional<String> getAssociatedModuleVersion() {
-    return associatedModuleVersion();
-  }
-
   public static final Key KEY_FOR_ROOT_MODULE_WITHOUT_WORKSPACE_REPOS =
       Key.create(RepositoryName.MAIN, /* rootModuleShouldSeeWorkspaceRepos= */ false);
 
@@ -127,9 +110,9 @@ public record RepositoryMappingValue(
    */
   public final RepositoryMappingValue withAdditionalMappings(Map<String, RepositoryName> mappings) {
     return new RepositoryMappingValue(
-        getRepositoryMapping().withAdditionalMappings(mappings),
-        getAssociatedModuleName(),
-        getAssociatedModuleVersion());
+        repositoryMapping().withAdditionalMappings(mappings),
+        associatedModuleName(),
+        associatedModuleVersion());
   }
 
   /**
@@ -138,9 +121,9 @@ public record RepositoryMappingValue(
    */
   public final RepositoryMappingValue withCachedInverseMap() {
     return new RepositoryMappingValue(
-        getRepositoryMapping().withCachedInverseMap(),
-        getAssociatedModuleName(),
-        getAssociatedModuleVersion());
+        repositoryMapping().withCachedInverseMap(),
+        associatedModuleName(),
+        associatedModuleVersion());
   }
 
   /** Returns the {@link Key} for {@link RepositoryMappingValue}s. */

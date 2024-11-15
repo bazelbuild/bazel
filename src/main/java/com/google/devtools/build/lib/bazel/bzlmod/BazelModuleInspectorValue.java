@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.Serializat
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import com.google.errorprone.annotations.InlineMe;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -64,31 +63,6 @@ public record BazelModuleInspectorValue(
     requireNonNull(extensionToRepoInternalNames, "extensionToRepoInternalNames");
     requireNonNull(moduleKeyToCanonicalNames, "moduleKeyToCanonicalNames");
     requireNonNull(errors, "errors");
-  }
-
-  @InlineMe(replacement = "this.depGraph()")
-  public ImmutableMap<ModuleKey, AugmentedModule> getDepGraph() {
-    return depGraph();
-  }
-
-  @InlineMe(replacement = "this.modulesIndex()")
-  public ImmutableMap<String, ImmutableSet<ModuleKey>> getModulesIndex() {
-    return modulesIndex();
-  }
-
-  @InlineMe(replacement = "this.extensionToRepoInternalNames()")
-  public ImmutableSetMultimap<ModuleExtensionId, String> getExtensionToRepoInternalNames() {
-    return extensionToRepoInternalNames();
-  }
-
-  @InlineMe(replacement = "this.moduleKeyToCanonicalNames()")
-  public ImmutableMap<ModuleKey, RepositoryName> getModuleKeyToCanonicalNames() {
-    return moduleKeyToCanonicalNames();
-  }
-
-  @InlineMe(replacement = "this.errors()")
-  public ImmutableList<ExternalDepsException> getErrors() {
-    return errors();
   }
 
   @SerializationConstant
@@ -152,74 +126,24 @@ public record BazelModuleInspectorValue(
       requireNonNull(depReasons, "depReasons");
     }
 
-    @InlineMe(replacement = "this.name()")
-    public String getName() {
-      return name();
-    }
-
-    @InlineMe(replacement = "this.version()")
-    public Version getVersion() {
-      return version();
-    }
-
-    @InlineMe(replacement = "this.key()")
-    public ModuleKey getKey() {
-      return key();
-    }
-
-    @InlineMe(replacement = "this.repoName()")
-    public String getRepoName() {
-      return repoName();
-    }
-
-    @InlineMe(replacement = "this.dependants()")
-    public ImmutableSet<ModuleKey> getDependants() {
-      return dependants();
-    }
-
-    @InlineMe(replacement = "this.originalDependants()")
-    public ImmutableSet<ModuleKey> getOriginalDependants() {
-      return originalDependants();
-    }
-
-    @InlineMe(replacement = "this.deps()")
-    public ImmutableBiMap<String, ModuleKey> getDeps() {
-      return deps();
-    }
-
-    @InlineMe(replacement = "this.unusedDeps()")
-    public ImmutableBiMap<String, ModuleKey> getUnusedDeps() {
-      return unusedDeps();
-    }
-
-    @InlineMe(replacement = "this.depReasons()")
-    public ImmutableMap<String, ResolutionReason> getDepReasons() {
-      return depReasons();
-    }
-
-    @InlineMe(replacement = "this.loaded()")
-    public boolean isLoaded() {
-      return loaded();
-    }
-
     /**
      * Shortcut for retrieving the sorted union of both used and unused deps based on the unused
      * flag.
      */
     public ImmutableSortedMap<ModuleKey, String> getAllDeps(boolean unused) {
       if (!unused) {
-        return ImmutableSortedMap.copyOf(getDeps().inverse(), ModuleKey.LEXICOGRAPHIC_COMPARATOR);
+        return ImmutableSortedMap.copyOf(deps().inverse(), ModuleKey.LEXICOGRAPHIC_COMPARATOR);
       } else {
         Map<ModuleKey, String> map = new HashMap<>();
-        map.putAll(getDeps().inverse());
-        map.putAll(getUnusedDeps().inverse());
+        map.putAll(deps().inverse());
+        map.putAll(unusedDeps().inverse());
         return ImmutableSortedMap.copyOf(map, ModuleKey.LEXICOGRAPHIC_COMPARATOR);
       }
     }
 
     /** Flag for checking whether the module is present in the resolved dep graph. */
     public boolean isUsed() {
-      return getKey().equals(ModuleKey.ROOT) || !getDependants().isEmpty();
+      return key().equals(ModuleKey.ROOT) || !dependants().isEmpty();
     }
 
     /** Returns a new {@link AugmentedModule.Builder} with {@code key} set. */

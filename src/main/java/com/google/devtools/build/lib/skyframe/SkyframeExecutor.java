@@ -1666,7 +1666,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     RepositoryMappingValue mainRepositoryMappingValue =
         (RepositoryMappingValue) mainRepoMappingResult.get(mainRepositoryMappingKey);
     RepoContext mainRepoContext =
-        RepoContext.of(RepositoryName.MAIN, mainRepositoryMappingValue.getRepositoryMapping());
+        RepoContext.of(RepositoryName.MAIN, mainRepositoryMappingValue.repositoryMapping());
 
     // Parse the options.
     PackageContext rootPackage = mainRepoContext.rootPackage();
@@ -3028,7 +3028,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
                   .build()),
           e);
     }
-    return evalResult.get(mainRepoMappingKey).getRepositoryMapping();
+    return evalResult.get(mainRepoMappingKey).repositoryMapping();
   }
 
   @Nullable

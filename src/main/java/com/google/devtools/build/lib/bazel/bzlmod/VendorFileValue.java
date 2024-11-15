@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.errorprone.annotations.InlineMe;
 
 /** Represent the parsed VENDOR.bazel file */
 public record VendorFileValue(
@@ -31,16 +30,6 @@ public record VendorFileValue(
   public VendorFileValue {
     requireNonNull(ignoredRepos, "ignoredRepos");
     requireNonNull(pinnedRepos, "pinnedRepos");
-  }
-
-  @InlineMe(replacement = "this.ignoredRepos()")
-  public ImmutableList<RepositoryName> getIgnoredRepos() {
-    return ignoredRepos();
-  }
-
-  @InlineMe(replacement = "this.pinnedRepos()")
-  public ImmutableList<RepositoryName> getPinnedRepos() {
-    return pinnedRepos();
   }
 
   @SerializationConstant public static final SkyKey KEY = () -> SkyFunctions.VENDOR_FILE;

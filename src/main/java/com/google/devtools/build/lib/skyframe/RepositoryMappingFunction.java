@@ -117,7 +117,7 @@ public class RepositoryMappingFunction implements SkyFunction {
                         "",
                         RepositoryName.MAIN),
                     StarlarkBuiltinsValue.BUILTINS_REPO)
-                .withAdditionalMappings(bazelToolsMapping.getRepositoryMapping()),
+                .withAdditionalMappings(bazelToolsMapping.repositoryMapping()),
             // The "associated module" doesn't exist here (@_builtins doesn't come from a module),
             // so we just supply dummy values.
             "",
@@ -181,9 +181,9 @@ public class RepositoryMappingFunction implements SkyFunction {
           return null;
         }
         return RepositoryMappingValue.createForBzlmodRepo(
-            RepositoryMapping.create(repoMappingEntriesValue.getEntries(), repositoryName),
-            repoMappingEntriesValue.getModuleKey().name(),
-            repoMappingEntriesValue.getModuleKey().version());
+            RepositoryMapping.create(repoMappingEntriesValue.entries(), repositoryName),
+            repoMappingEntriesValue.moduleKey().name(),
+            repoMappingEntriesValue.moduleKey().version());
       }
     }
 
@@ -202,7 +202,7 @@ public class RepositoryMappingFunction implements SkyFunction {
       RepositoryMapping rootModuleRepoMapping =
           rootModuleRepoMappingValue == null
               ? null
-              : rootModuleRepoMappingValue.getRepositoryMapping();
+              : rootModuleRepoMappingValue.repositoryMapping();
       return computeFromWorkspace(repositoryName, externalPackageValue, rootModuleRepoMapping);
     }
 

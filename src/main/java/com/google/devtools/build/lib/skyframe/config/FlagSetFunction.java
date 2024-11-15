@@ -269,7 +269,7 @@ public final class FlagSetFunction implements SkyFunction {
       return null;
     }
     RepoContext mainRepoContext =
-        RepoContext.of(RepositoryName.MAIN, mainRepositoryMappingValue.getRepositoryMapping());
+        RepoContext.of(RepositoryName.MAIN, mainRepositoryMappingValue.repositoryMapping());
     return (ParsedFlagsValue)
         env.getValue(
             ParsedFlagsValue.Key.create(
