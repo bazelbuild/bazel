@@ -162,6 +162,10 @@ java_test(
 java_test(
     name = "WorkRequestHandlerTest",
     srcs = ["WorkRequestHandlerTest.java"],
+    jvm_flags = [
+        # TODO: b/222158599 - GoogleTestSecurityManager is being turned down
+        "-Dcom.google.testing.junit.runner.shouldInstallTestSecurityManager=true",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/worker:work_request_handlers",
         "//src/main/protobuf:worker_protocol_java_proto",

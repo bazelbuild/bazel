@@ -41,6 +41,10 @@ java_library(
 
 java_test(
     name = "BugReportTests",
+    jvm_flags = [
+        # TODO: b/222158599 - GoogleTestSecurityManager is being turned down
+        "-Dcom.google.testing.junit.runner.shouldInstallTestSecurityManager=true",
+    ],
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         ":bugreport_tests_lib",
