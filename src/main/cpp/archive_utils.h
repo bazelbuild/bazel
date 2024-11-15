@@ -18,6 +18,7 @@
 #include <string>
 #include <vector>
 
+#include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/startup_options.h"
 #include "src/main/cpp/util/logging.h"
 
@@ -29,26 +30,12 @@ void DetermineArchiveContents(const std::string &archive_path,
                               std::vector<std::string> *files,
                               std::string *install_md5);
 
-struct DurationMillis {
- public:
-  const uint64_t millis;
-
-  DurationMillis() : millis(kUnknownDuration) {}
-  DurationMillis(const uint64_t ms) : millis(ms) {}
-
-  bool IsUnknown() const { return millis == kUnknownDuration; }
-
- private:
-  // Value representing that a timing event never occurred or is unknown.
-  static constexpr uint64_t kUnknownDuration = 0;
-};
-
 // DurationMillis that tracks if an archive was extracted.
 struct ExtractionDurationMillis : DurationMillis {
   const bool archive_extracted;
   ExtractionDurationMillis() : DurationMillis(), archive_extracted(false) {}
-  ExtractionDurationMillis(const uint64_t ms, const bool archive_extracted)
-      : DurationMillis(ms), archive_extracted(archive_extracted) {}
+  ExtractionDurationMillis(const uint64_t start, const uint64_t end, const bool archive_extracted)
+      : DurationMillis(start, end), archive_extracted(archive_extracted) {}
 };
 
 // The reason for a blaze server restart.

@@ -126,8 +126,7 @@ ExtractionDurationMillis ExtractData(const string &self_path,
     BlessFiles(tmp_install);
 
     uint64_t et = GetMillisecondsMonotonic();
-    const ExtractionDurationMillis extract_data_duration(
-        et - st, /*archived_extracted=*/true);
+    const ExtractionDurationMillis extract_data_duration(st, et, /*archived_extracted=*/true);
 
     // Now rename the completed installation to its final name.
     int attempts = 0;

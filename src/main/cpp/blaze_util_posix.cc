@@ -712,7 +712,8 @@ LockHandle AcquireLock(const std::string& name, const blaze_util::Path& path,
   // avoid unnecessary noise in the logs.  In this metric, we are only
   // interested in knowing how long it took for other commands to complete, not
   // how fast acquiring a lock is.
-  const uint64_t elapsed_time = !multiple_attempts ? 0 : end_time - start_time;
+  DurationMillis *elapsed_time =
+      !multiple_attempts ? new DurationMillis() : new DurationMillis(start_time, end_time);
 
   // If taking an exclusive lock, identify ourselves in the lockfile.
   // The contents are printed for human consumption when another client
@@ -731,7 +732,7 @@ LockHandle AcquireLock(const std::string& name, const blaze_util::Path& path,
     }
   }
 
-  *wait_time = elapsed_time;
+  *wait_time = elapsed_time->millis;
   return static_cast<LockHandle>(fd);
 }
 

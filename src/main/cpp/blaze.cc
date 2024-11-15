@@ -197,8 +197,8 @@ class BlazeServer final {
   explicit BlazeServer(const StartupOptions &startup_options);
 
   // Acquire a lock for the output base this server is running in.
-  // Returns the number of milliseconds spent waiting for the lock.
-  uint64_t AcquireLock();
+  // Returns the time spent waiting for the lock.
+  DurationMillis AcquireLock();
 
   // Whether there is an active connection to a server.
   bool Connected() const { return client_.get(); }
@@ -275,7 +275,7 @@ static BlazeServer *blaze_server;
 // _exit(2) (attributed with ATTRIBUTE_NORETURN) meaning we have to delete the
 // objects before those.
 
-uint64_t BlazeServer::AcquireLock() {
+DurationMillis BlazeServer::AcquireLock() {
   if (output_base_lock_.has_value()) {
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
         << "AcquireLock() called but the lock is already held.";
@@ -288,7 +288,7 @@ uint64_t BlazeServer::AcquireLock() {
   output_base_lock_ = blaze::AcquireLock(
       "output base", output_base_.GetRelative("lock"), LockMode::kExclusive,
       batch_, block_for_lock_, &wait_time);
-  return wait_time;
+  return DurationMillis(wait_time);
 }
 
 void BlazeServer::ReleaseLock() {
@@ -557,14 +557,14 @@ static void AddLoggingArgs(const LoggingInfo &logging_info,
 
   // The time in ms a command had to wait on a busy Blaze server process.
   // This is part of startup_time.
-  if (command_wait_duration_ms.IsUnknown()) {
+  if (!command_wait_duration_ms.IsUnknown()) {
     args->push_back("--command_wait_time=" +
                     blaze_util::ToString(command_wait_duration_ms.millis));
   }
 
   // The time in ms spent on extracting the new blaze version.
   // This is part of startup_time.
-  if (extract_data_duration.IsUnknown()) {
+  if (!extract_data_duration.IsUnknown()) {
     args->push_back("--extract_data_time=" +
                     blaze_util::ToString(extract_data_duration.millis));
   }
@@ -657,8 +657,7 @@ static void RunBatchMode(
     server->KillRunningServer();
   }
 
-  const DurationMillis client_startup_duration(GetMillisecondsMonotonic() -
-                                               logging_info->start_time_ms);
+  const DurationMillis client_startup_duration(logging_info->start_time_ms, GetMillisecondsMonotonic());
 
   BAZEL_LOG(INFO) << "Starting " << startup_options.product_name
                   << " in batch mode.";
@@ -1093,8 +1092,7 @@ static ATTRIBUTE_NORETURN void RunClientServerMode(
                   << server->ProcessInfo().server_pid_ << ").";
 
   // Wall clock time since process startup.
-  const DurationMillis client_startup_duration =
-      (GetMillisecondsMonotonic() - logging_info->start_time_ms);
+  const DurationMillis client_startup_duration(logging_info->start_time_ms, GetMillisecondsMonotonic());
 
   SignalHandler::Get().Install(startup_options.product_name,
                                startup_options.output_base,

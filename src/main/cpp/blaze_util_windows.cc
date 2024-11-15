@@ -1164,7 +1164,7 @@ LockHandle AcquireLock(const std::string& name, const blaze_util::Path& path,
   // a concurrent process can read and display it. On Windows we can't do so
   // because locks are mandatory, thus we cannot read the file concurrently.
 
-  *wait_time = GetMillisecondsMonotonic() - start_time;
+  *wait_time = DurationMillis(start_time, GetMillisecondsMonotonic()).millis;
   return reinterpret_cast<LockHandle>(handle);
 }
 
