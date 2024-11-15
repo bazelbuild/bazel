@@ -1132,6 +1132,50 @@ class BazelModuleTest(test_base.TestBase):
     )
     self.RunBazel(['build', '@module//:choose_me'])
 
+  def testUnicodeTags(self):
+    unicode_str = 'äöüÄÖÜß'
+    self.ScratchFile(
+      'MODULE.bazel',
+      [
+        'ext = use_extension("extensions.bzl", "ext")',
+        'ext.tag(attr = "%s")' % unicode_str,
+        'use_repo(ext, "ext")',
+      ],
+    )
+    self.ScratchFile('BUILD')
+    self.ScratchFile(
+      'extensions.bzl',
+      [
+        'def repo_rule_impl(ctx):',
+        '  ctx.file("BUILD")',
+        '  print("DATA: " + ctx.attr.tag)',
+        'repo_rule = repository_rule(',
+        '  implementation = repo_rule_impl,',
+        '  attrs = {',
+        '    "tag": attr.string(),',
+        '  },',
+        ')',
+        'def ext_impl(module_ctx):',
+        '  repo_rule(',
+        '    name = "ext",',
+        '    tag = module_ctx.modules[0].tags.tag[0].attr,',
+        '  )',
+        'tag = tag_class(',
+        '  attrs = {',
+        '    "attr": attr.string(),',
+        '  },',
+        ')',
+        'ext = module_extension('
+        '  implementation = ext_impl,',
+        '  tag_classes = {',
+        '    "tag": tag,',
+        '  },',
+        ')',
+      ],
+    )
+    _, _, stderr = self.RunBazel(['build', '@ext//:all'])
+    self.assertIn("DATA: " + unicode_str, '\n'.join(stderr))
+
 
 if __name__ == '__main__':
   absltest.main()
