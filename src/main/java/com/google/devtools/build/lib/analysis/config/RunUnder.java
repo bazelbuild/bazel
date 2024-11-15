@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import com.google.devtools.build.lib.cmdline.Label;
-import java.util.List;
+import javax.annotation.Nullable;
 
 /** Components of the {@code --run_under} option. */
 public interface RunUnder {
@@ -37,6 +37,22 @@ public interface RunUnder {
    * @return if the first word (according to shell tokenization) passed to
    *         --run_under starts with {@code "//"} returns {@code null}
    *         otherwise the first word
+   * Returns a new instance that only retains the information that is relevant for the analysis of
+   * non-test targets.
+   */
+  @Nullable
+  static RunUnder trimForNonTestConfiguration(@Nullable RunUnder runUnder) {
+    return switch (runUnder) {
+      case LabelRunUnder labelRunUnder ->
+          new LabelRunUnder("", ImmutableList.of(), labelRunUnder.label());
+      case null, default -> null;
+    };
+  }
+
+  /**
+   * Represents a value of {@code --run_under} whose first word (according to shell tokenization)
+   * starts with {@code "//"} or {@code "@"}. It is treated as a label referencing a target that
+   * should be used as the {@code --run_under} executable.
    */
   String getCommand();
 

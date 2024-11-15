@@ -1200,7 +1200,10 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
         my_rule(name = "foo")
         """);
     // TODO: b/293304174 - use a custom fragment instead of coverage
-    useConfiguration("--collect_code_coverage", "--coverage_output_generator=//my:tool");
+    useConfiguration(
+        "--collect_code_coverage",
+        "--coverage_output_generator=//my:tool",
+        "--notrim_test_configuration");
 
     StructImpl provider =
         getProvider("//subrule_testing:foo", "//subrule_testing:myrule.bzl", "MyInfo");
