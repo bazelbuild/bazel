@@ -13,14 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.query.output;
 
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
 import com.google.protobuf.CodedOutputStream;
+
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.stream.StreamSupport;
+import java.util.List;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * An output formatter that outputs a protocol buffer representation of a query result and outputs
@@ -38,25 +42,62 @@ public class StreamedProtoOutputFormatter extends ProtoOutputFormatter {
   public OutputFormatterCallback<Target> createPostFactoStreamCallback(
       final OutputStream out, final QueryOptions options, LabelPrinter labelPrinter) {
     return new OutputFormatterCallback<Target>() {
+      private static final int MAX_CHUNKS_IN_QUEUE = Runtime.getRuntime().availableProcessors() * 2;
+      private static final int TARGETS_PER_CHUNK = 500;
+
       private final LabelPrinter ourLabelPrinter = labelPrinter;
 
       @Override
       public void processOutput(Iterable<Target> partialResult)
           throws IOException, InterruptedException {
-        try {
-          StreamSupport.stream(partialResult.spliterator(), /* parallel= */ true)
-              .map(this::toProto)
-              .map(StreamedProtoOutputFormatter::writeDelimited)
-              // I imagine forEachOrdered hurts performance somewhat in some cases. While we may
-              // not need to actually produce output in order, this code does not know whether
-              // ordering was requested. So we just always write it in order, and hope performance
-              // is OK.
-              .forEachOrdered(this::writeToOutputStreamThreadSafe);
-        } catch (WrappedIOException e) {
-          throw e.getCause();
-        } catch (WrappedInterruptedException e) {
-          throw e.getCause();
+        ForkJoinTask<?> writeAllTargetsFuture;
+        try (ForkJoinPool executor =
+            new ForkJoinPool(
+                Runtime.getRuntime().availableProcessors(),
+                ForkJoinPool.defaultForkJoinWorkerThreadFactory,
+                null,
+                // we use asyncMode to ensure the queue is processed FIFO, which maximizes
+                // throughput
+                true)) {
+          var targetQueue = new LinkedBlockingQueue<Future<List<byte[]>>>(MAX_CHUNKS_IN_QUEUE);
+          var stillAddingTargetsToQueue = new AtomicBoolean(true);
+          writeAllTargetsFuture =
+              executor.submit(
+                  () -> {
+                    try {
+                      while (stillAddingTargetsToQueue.get() || !targetQueue.isEmpty()) {
+                        Future<List<byte[]>> targets = targetQueue.take();
+                        for (byte[] target : targets.get()) {
+                          out.write(target);
+                        }
+                      }
+                    } catch (InterruptedException e) {
+                      throw new WrappedInterruptedException(e);
+                    } catch (IOException e) {
+                      throw new WrappedIOException(e);
+                    } catch (ExecutionException e) {
+                      // TODO: figure out what might be in here and propagate
+                      throw new RuntimeException(e);
+                    }
+                  });
+          try {
+            for (List<Target> targets : Iterables.partition(partialResult, TARGETS_PER_CHUNK)) {
+              targetQueue.put(executor.submit(() -> writeTargetsDelimitedToByteArrays(targets)));
+            }
+          } finally {
+            stillAddingTargetsToQueue.set(false);
+          }
         }
+        try {
+          writeAllTargetsFuture.get();
+        } catch (ExecutionException e) {
+          // TODO: propagate
+          throw new RuntimeException(e);
+        }
+      }
+
+      private List<byte[]> writeTargetsDelimitedToByteArrays(List<Target> targets) {
+        return targets.stream().map(target -> writeDelimited(toProto(target))).toList();
       }
 
       private Build.Target toProto(Target target) {
@@ -64,14 +105,6 @@ public class StreamedProtoOutputFormatter extends ProtoOutputFormatter {
           return toTargetProtoBuffer(target, ourLabelPrinter);
         } catch (InterruptedException e) {
           throw new WrappedInterruptedException(e);
-        }
-      }
-
-      private synchronized void writeToOutputStreamThreadSafe(byte[] data) {
-        try {
-          out.write(data);
-        } catch (IOException e) {
-          throw new WrappedIOException(e);
         }
       }
     };
