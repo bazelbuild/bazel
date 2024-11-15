@@ -1060,7 +1060,7 @@ function test_starlark_repository_executable_flag() {
   cat >test.bzl <<EOF
 def _impl(repository_ctx):
   repository_ctx.file("test.sh", "exit 0")
-  repository_ctx.file("BUILD", "sh_binary(name='bar',srcs=['test.sh'])", False)
+  repository_ctx.file("BUILD", "genrule(name='bar',cmd='touch \$@',outs=['bar'],executable=True)", False)
   repository_ctx.template("test2", Label("//:bar"), {}, False)
   repository_ctx.template("test2.sh", Label("//:bar"), {}, True)
 repo = repository_rule(implementation=_impl, local=True)

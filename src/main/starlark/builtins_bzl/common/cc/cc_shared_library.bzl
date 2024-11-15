@@ -20,7 +20,9 @@ load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/cc_shared_library_hint_info.bzl", "CcSharedLibraryHintInfo")
 load(":common/cc/semantics.bzl", "semantics")
 load(":common/paths.bzl", "paths")
-load(":common/proto/proto_info.bzl", "ProtoInfo")
+load(":common/proto/proto_info.bzl", _BuiltinProtoInfo = "ProtoInfo")
+
+_external_proto_infos = [[k] for k in _builtins.toplevel.proto_common_do_not_use.external_proto_infos()]
 
 # TODO(#5200): Add export_define to library_to_link and cc_library
 
@@ -841,7 +843,7 @@ def _graph_structure_aspect_impl(target, ctx):
 
 graph_structure_aspect = aspect(
     attr_aspects = ["*"],
-    required_providers = [[CcInfo], [ProtoInfo], [CcSharedLibraryHintInfo]],
+    required_providers = [[CcInfo], [_BuiltinProtoInfo], [CcSharedLibraryHintInfo]] + _external_proto_infos,
     required_aspect_providers = [[CcInfo], [CcSharedLibraryHintInfo]],
     implementation = _graph_structure_aspect_impl,
 )

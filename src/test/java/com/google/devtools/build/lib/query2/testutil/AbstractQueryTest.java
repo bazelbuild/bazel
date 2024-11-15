@@ -1790,7 +1790,8 @@ public abstract class AbstractQueryTest<T> {
         "/workspace/bazel_skylib_workspace/MODULE.bazel", "module(name='bazel_skylib')");
     helper.writeFile("/workspace/third_party/protobuf/BUILD");
     helper.writeFile("/workspace/third_party/protobuf/WORKSPACE");
-    helper.writeFile("/workspace/third_party/protobuf/MODULE.bazel", "module(name='protobuf')");
+    helper.writeFile(
+        "/workspace/third_party/protobuf/MODULE.bazel", "module(name='com_google_protobuf')");
     helper.writeFile("/workspace/proto_bazel_features_workspace/BUILD");
     helper.writeFile("/workspace/proto_bazel_features_workspace/WORKSPACE");
     helper.writeFile(
