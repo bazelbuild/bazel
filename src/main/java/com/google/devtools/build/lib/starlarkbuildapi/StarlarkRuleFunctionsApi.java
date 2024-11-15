@@ -277,6 +277,10 @@ the macro should inherit attributes.
 <a href="/reference/be/common-definitions#common-attributes">common rule attribute definitions</a>
 used by all Starlark rules.
 
+<p>Note that if the return value of <code>rule()</code> or <code>macro()</code> was not assigned to
+a global variable in a .bzl file, then such a value has not been registered as a rule or macro
+symbol, and therefore cannot be used for <code>inherit_attrs</code>.
+
 <p>By convention, a macro should pass inherited, non-overridden attributes unchanged to the "main"
 rule or macro symbol which the macro is wrapping. Typically, most inherited attributes will not have
 a parameter in the implementation function's parameter list, and will simply be passed via

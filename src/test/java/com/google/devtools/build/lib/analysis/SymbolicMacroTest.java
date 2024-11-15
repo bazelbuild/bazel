@@ -1183,15 +1183,18 @@ my_macro = macro(
     assertContainsEvent(
         """
 attr_using_schema_default is select({Label("//common:some_configsetting"): None, \
-Label("//conditions:default"): None})""");
+Label("//conditions:default"): None})\
+""");
     assertContainsEvent(
         """
 attr_using_hardcoded_nonnull_default is select({Label("//common:some_configsetting"): None, \
-Label("//conditions:default"): None})""");
+Label("//conditions:default"): None})\
+""");
     assertContainsEvent(
         """
 attr_using_hardcoded_null_default is select({Label("//common:some_configsetting"): None, \
-Label("//conditions:default"): None})""");
+Label("//conditions:default"): None})\
+""");
   }
 
   @Test
@@ -1813,49 +1816,6 @@ Label("//conditions:default"): None})""");
   public void inheritAttrs_fromExportedStarlarkRule() throws Exception {
     setBuildLanguageOptions("--experimental_enable_macro_inherit_attrs");
     scratch.file(
-        "pkg/my_rule.bzl",
-        """
-        def _my_rule_impl(ctx):
-            pass
-
-        my_rule = rule(
-            implementation = _my_rule_impl,
-            attrs = {
-                "srcs": attr.label_list(),
-            },
-        )
-        """);
-    scratch.file(
-        "pkg/my_macro.bzl",
-        """
-        load(":my_rule.bzl", "my_rule")
-
-        def _my_macro_impl(name, visibility, **kwargs):
-            my_rule(name = name + "_my_rule", visibility = visibility, **kwargs)
-
-        my_macro = macro(
-            implementation = _my_macro_impl,
-            inherit_attrs = my_rule,
-        )
-        """);
-    scratch.file(
-        "pkg/BUILD",
-        """
-        load(":my_macro.bzl", "my_macro")
-        my_macro(name = "abc")
-        """);
-    Package pkg = getPackage("pkg");
-    assertPackageNotInError(pkg);
-    assertThat(getMacroById(pkg, "abc:1").getMacroClass().getAttributes().keySet())
-        .containsAtLeast("srcs", "tags");
-    assertThat(getMacroById(pkg, "abc:1").getMacroClass().getAttributes().keySet())
-        .containsNoneOf("generator_name", "generator_location", "generator_function");
-  }
-
-  @Test
-  public void inheritAttrs_fromUnexportedStarlarkRule() throws Exception {
-    setBuildLanguageOptions("--experimental_enable_macro_inherit_attrs");
-    scratch.file(
         "pkg/my_macro.bzl",
         """
         def _my_rule_impl(ctx):
@@ -1891,32 +1851,29 @@ Label("//conditions:default"): None})""");
   }
 
   @Test
-  public void inheritAttrs_fromExportedMacro() throws Exception {
+  public void inheritAttrs_fromUnexportedStarlarkRule_fails() throws Exception {
     setBuildLanguageOptions("--experimental_enable_macro_inherit_attrs");
-    scratch.file(
-        "pkg/other_macro.bzl",
-        """
-        def _other_macro_impl(name, visibility, **kwargs):
-            pass
-
-        other_macro = macro(
-            implementation = _other_macro_impl,
-            attrs = {
-                "srcs": attr.label_list(),
-            },
-        )
-        """);
     scratch.file(
         "pkg/my_macro.bzl",
         """
-        load(":other_macro.bzl", "other_macro")
+        def _my_rule_impl(ctx):
+            pass
+
+        _unexported = struct(
+            rule = rule(
+                implementation = _my_rule_impl,
+                attrs = {
+                    "srcs": attr.label_list(),
+                },
+            ),
+        )
 
         def _my_macro_impl(name, visibility, **kwargs):
-            other_macro(name = name + "_other_macro", visibility = visibility, **kwargs)
+            pass
 
         my_macro = macro(
             implementation = _my_macro_impl,
-            inherit_attrs = other_macro,
+            inherit_attrs = _unexported.rule,
         )
         """);
     scratch.file(
@@ -1925,14 +1882,15 @@ Label("//conditions:default"): None})""");
         load(":my_macro.bzl", "my_macro")
         my_macro(name = "abc")
         """);
-    Package pkg = getPackage("pkg");
-    assertPackageNotInError(pkg);
-    assertThat(getMacroById(pkg, "abc:1").getMacroClass().getAttributes().keySet())
-        .containsExactly("name", "visibility", "srcs");
+    reporter.removeHandler(failFastHandler);
+    assertThat(getPackage("pkg")).isNull();
+    assertContainsEvent(
+        "a rule or macro callable must be assigned to a global variable in a .bzl file before it"
+            + " can be inherited from");
   }
 
   @Test
-  public void inheritAttrs_fromUnexportedMacro() throws Exception {
+  public void inheritAttrs_fromExportedMacro() throws Exception {
     setBuildLanguageOptions("--experimental_enable_macro_inherit_attrs");
     scratch.file(
         "pkg/my_macro.bzl",
@@ -1965,5 +1923,44 @@ Label("//conditions:default"): None})""");
     assertPackageNotInError(pkg);
     assertThat(getMacroById(pkg, "abc:1").getMacroClass().getAttributes().keySet())
         .containsExactly("name", "visibility", "srcs");
+  }
+
+  @Test
+  public void inheritAttrs_fromUnexportedMacro_fails() throws Exception {
+    setBuildLanguageOptions("--experimental_enable_macro_inherit_attrs");
+    scratch.file(
+        "pkg/my_macro.bzl",
+        """
+        def _other_macro_impl(name, visibility, **kwargs):
+            pass
+
+        _unexported = struct(
+            macro = macro(
+                implementation = _other_macro_impl,
+                attrs = {
+                    "srcs": attr.label_list(),
+                },
+            ),
+        )
+
+        def _my_macro_impl(name, visibility, **kwargs):
+            pass
+
+        my_macro = macro(
+            implementation = _my_macro_impl,
+            inherit_attrs = _unexported.macro,
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":my_macro.bzl", "my_macro")
+        my_macro(name = "abc")
+        """);
+    reporter.removeHandler(failFastHandler);
+    assertThat(getPackage("pkg")).isNull();
+    assertContainsEvent(
+        "a rule or macro callable must be assigned to a global variable in a .bzl file before it"
+            + " can be inherited from");
   }
 }
