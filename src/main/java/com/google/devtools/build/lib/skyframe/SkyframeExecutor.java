@@ -539,6 +539,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return remoteAnalysisCachingDependenciesProvider;
   }
 
+  @VisibleForTesting
+  public boolean isRemoteAnalysisCachingEnabled() {
+    return remoteAnalysisCachingDependenciesProvider.enabled();
+  }
+
   @Nullable
   public ModifiedFileSet getDiffFromEvaluatingVersion() {
     return diffFromEvaluatingVersion;

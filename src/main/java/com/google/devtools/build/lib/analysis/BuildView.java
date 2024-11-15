@@ -343,9 +343,9 @@ public class BuildView {
     if (remoteAnalysisCachingDependenciesProvider.enabled()) {
       remoteAnalysisCachingDependenciesProvider.setTopLevelConfigChecksum(
           topLevelConfigurationTrimmedOfTestOptionsChecksum);
-      skyframeExecutor.setRemoteAnalysisCachingDependenciesProvider(
-          remoteAnalysisCachingDependenciesProvider);
     }
+    skyframeExecutor.setRemoteAnalysisCachingDependenciesProvider(
+        remoteAnalysisCachingDependenciesProvider);
 
     getArtifactFactory().noteAnalysisStarting();
     SkyframeAnalysisResult skyframeAnalysisResult;
