@@ -39,6 +39,11 @@
 extern char **environ;
 #endif
 
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
+
 namespace blaze {
 
 using std::map;
@@ -48,7 +53,6 @@ using std::vector;
 
 constexpr char WorkspaceLayout::WorkspacePrefix[];
 static constexpr const char* kRcBasename = ".bazelrc";
-static std::vector<std::string> GetProcessedEnv();
 
 OptionProcessor::OptionProcessor(
     const WorkspaceLayout* workspace_layout,
@@ -512,8 +516,8 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
     return parse_startup_options_exit_code;
   }
 
-  blazerc_and_env_command_args_ =
-      GetBlazercAndEnvCommandArgs(cwd, rc_file_ptrs, GetProcessedEnv());
+  blazerc_and_env_command_args_ = GetBlazercAndEnvCommandArgs(
+      cwd, rc_file_ptrs, blaze::internal::GetProcessedEnv());
   return blaze_exit_code::SUCCESS;
 }
 
@@ -581,70 +585,6 @@ blaze_exit_code::ExitCode OptionProcessor::ParseStartupOptions(
   }
 
   return startup_options_->ProcessArgs(rcstartup_flags, error);
-}
-
-static bool IsValidEnvName(const char* p) {
-#if defined(_WIN32) || defined(__CYGWIN__)
-  for (; *p && *p != '='; ++p) {
-    if (!((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') ||
-          (*p >= '0' && *p <= '9') || *p == '_' || *p == '(' || *p == ')')) {
-      return false;
-    }
-  }
-#endif
-  return true;
-}
-
-#if defined(_WIN32)
-static void PreprocessEnvString(string* env_str) {
-  static constexpr const char* vars_to_uppercase[] = {"PATH", "SYSTEMROOT",
-                                                      "SYSTEMDRIVE",
-                                                      "TEMP", "TEMPDIR", "TMP"};
-
-  int pos = env_str->find_first_of('=');
-  if (pos == string::npos) return;
-
-  string name = env_str->substr(0, pos);
-  // We do not care about locale. All variable names are ASCII.
-  std::transform(name.begin(), name.end(), name.begin(), ::toupper);
-  if (std::find(std::begin(vars_to_uppercase), std::end(vars_to_uppercase),
-                name) != std::end(vars_to_uppercase)) {
-    env_str->assign(name + "=" + env_str->substr(pos + 1));
-  }
-}
-
-#elif defined(__CYGWIN__)  // not defined(_WIN32)
-
-static void PreprocessEnvString(string* env_str) {
-  int pos = env_str->find_first_of('=');
-  if (pos == string::npos) return;
-  string name = env_str->substr(0, pos);
-  if (name == "PATH") {
-    env_str->assign("PATH=" + env_str->substr(pos + 1));
-  } else if (name == "TMP") {
-    // A valid Windows path "c:/foo" is also a valid Unix path list of
-    // ["c", "/foo"] so must use ConvertPath here. See GitHub issue #1684.
-    env_str->assign("TMP=" + blaze_util::ConvertPath(env_str->substr(pos + 1)));
-  }
-}
-
-#else  // Non-Windows platforms.
-
-static void PreprocessEnvString(const string* env_str) {
-  // do nothing.
-}
-#endif  // defined(_WIN32)
-
-static std::vector<std::string> GetProcessedEnv() {
-  std::vector<std::string> processed_env;
-  for (char** env = environ; *env != nullptr; env++) {
-    string env_str(*env);
-    if (IsValidEnvName(*env)) {
-      PreprocessEnvString(&env_str);
-      processed_env.push_back(std::move(env_str));
-    }
-  }
-  return processed_env;
 }
 
 // IMPORTANT: The options added here do not come from the user. In order for

@@ -22,6 +22,7 @@ import com.google.common.io.ByteSource;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadSafe;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.errorprone.annotations.InlineMe;
 import java.io.IOException;
 import java.io.InputStream;
@@ -245,7 +246,11 @@ public class FileSystemUtils {
    * 'user.dir'. This version does not require a {@link FileSystem}.
    */
   public static PathFragment getWorkingDirectory() {
-    return PathFragment.create(System.getProperty("user.dir", "/"));
+    // System properties obtained from host are encoded using sun.jnu.encoding, so reencode them to
+    // the internal representation.
+    // https://github.com/openjdk/jdk/blob/285385247aaa262866697ed848040f05f4d94988/src/java.base/share/native/libjava/System.c#L121
+    return PathFragment.create(
+        StringEncoding.platformToInternal(System.getProperty("user.dir", "/")));
   }
 
   /**
