@@ -110,7 +110,7 @@ struct PartialZipExtractor : public devtools_ijar::ZipExtractorProcessor {
 // it is in place. Concurrency during extraction is handled by
 // extracting in a tmp dir and then renaming it into place where it
 // becomes visible atomically at the new path.
-ExtractionDurationMillis ExtractData(const string &self_path,
+DurationMillis ExtractData(const string &self_path,
                                      const vector<string> &archive_contents,
                                      const string &expected_install_md5,
                                      const StartupOptions &startup_options,
@@ -126,7 +126,7 @@ ExtractionDurationMillis ExtractData(const string &self_path,
     BlessFiles(tmp_install);
 
     uint64_t et = GetMillisecondsMonotonic();
-    const ExtractionDurationMillis extract_data_duration(st, et, /*archived_extracted=*/true);
+    const DurationMillis extract_data_duration(st, et);
 
     // Now rename the completed installation to its final name.
     int attempts = 0;
@@ -196,7 +196,7 @@ ExtractionDurationMillis ExtractData(const string &self_path,
           << expected_install_md5
           << ").  Remove it or specify a different --install_base.";
     }
-    return ExtractionDurationMillis();
+    return DurationMillis();
   }
 }
 

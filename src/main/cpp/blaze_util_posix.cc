@@ -632,9 +632,11 @@ static int setlk(int fd, struct flock* lock) {
   return -1;
 }
 
-LockHandle AcquireLock(const std::string& name, const blaze_util::Path& path,
-                       LockMode mode, bool batch_mode, bool block,
-                       uint64_t* wait_time) {
+std::pair<LockHandle, DurationMillis> AcquireLock(const std::string &name,
+                                                  const blaze_util::Path &path,
+                                                  LockMode mode,
+                                                  bool batch_mode,
+                                                  bool block) {
   int flags = O_CREAT;
   switch (mode) {
     case LockMode::kShared:
@@ -712,8 +714,8 @@ LockHandle AcquireLock(const std::string& name, const blaze_util::Path& path,
   // avoid unnecessary noise in the logs.  In this metric, we are only
   // interested in knowing how long it took for other commands to complete, not
   // how fast acquiring a lock is.
-  DurationMillis *elapsed_time =
-      !multiple_attempts ? new DurationMillis() : new DurationMillis(start_time, end_time);
+  DurationMillis elapsed_time =
+      !multiple_attempts ? DurationMillis() : DurationMillis(start_time, end_time);
 
   // If taking an exclusive lock, identify ourselves in the lockfile.
   // The contents are printed for human consumption when another client
@@ -732,8 +734,7 @@ LockHandle AcquireLock(const std::string& name, const blaze_util::Path& path,
     }
   }
 
-  *wait_time = elapsed_time->millis;
-  return static_cast<LockHandle>(fd);
+  return std::make_pair(static_cast<LockHandle>(fd), elapsed_time);
 }
 
 void ReleaseLock(LockHandle lock_handle) {

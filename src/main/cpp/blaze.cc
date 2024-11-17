@@ -284,8 +284,8 @@ DurationMillis BlazeServer::AcquireLock() {
   // commands may not run against the same output base. Note that this lock will
   // be released by ReleaseLock() once the server is running, as it can handle
   // concurrent clients on its own.
-  uint64_t wait_time;
-  output_base_lock_ = blaze::AcquireLock(
+  DurationMillis wait_time;
+  output_base_lock_, wait_time = blaze::AcquireLock(
       "output base", output_base_.GetRelative("lock"), LockMode::kExclusive,
       batch_, block_for_lock_, &wait_time);
   return DurationMillis(wait_time);
@@ -557,17 +557,14 @@ static void AddLoggingArgs(const LoggingInfo &logging_info,
 
   // The time in ms a command had to wait on a busy Blaze server process.
   // This is part of startup_time.
-  if (!command_wait_duration_ms.IsUnknown()) {
-    args->push_back("--command_wait_time=" +
-                    blaze_util::ToString(command_wait_duration_ms.millis));
-  }
+  args->push_back("--command_wait_time=" +
+                  blaze_util::ToString(command_wait_duration_ms.millis));
 
   // The time in ms spent on extracting the new blaze version.
   // This is part of startup_time.
-  if (!extract_data_duration.IsUnknown()) {
-    args->push_back("--extract_data_time=" +
-                    blaze_util::ToString(extract_data_duration.millis));
-  }
+  args->push_back("--extract_data_time=" +
+                  blaze_util::ToString(extract_data_duration.millis));
+
   if (logging_info.restart_reason != NO_RESTART) {
     args->push_back(string("--restart_reason=") +
                     ReasonString(logging_info.restart_reason));
@@ -1401,7 +1398,7 @@ static void RunLauncher(const string &self_path,
 
   WarnFilesystemType(startup_options.output_base);
 
-  const ExtractionDurationMillis extract_data_duration = ExtractData(
+  const DurationMillis extract_data_duration = ExtractData(
       self_path, archive_contents, install_md5, startup_options, logging_info);
 
   blaze_server->Connect();

@@ -208,12 +208,11 @@ enum class LockMode {
 // Acquires a `mode` lock on `path`, busy-waiting until it becomes available if
 // `block` is true, and releasing it on exec if `batch_mode` is false.
 // Crashes if the lock cannot be acquired. Returns a handle that can be
-// subsequently passed to ReleaseLock. Sets `wait_time` to the number of
-// milliseconds spent waiting for the lock. The `name` argument is used to
-// distinguish it from other locks in human-readable error messages.
-LockHandle AcquireLock(const std::string& name, const blaze_util::Path& path,
-                       LockMode mode, bool batch_mode, bool block,
-                       uint64_t* wait_time);
+// subsequently passed to ReleaseLock as well as the time spent waiting for the
+// lock. The `name` argument is used to distinguish it from other locks in
+// human-readable error messages.
+std::pair<LockHandle, DurationMillis> AcquireLock(
+    const std::string &name, const blaze_util::Path &path, LockMode mode, bool batch_mode, bool block);
 
 // Releases a lock previously obtained from AcquireLock.
 void ReleaseLock(LockHandle lock_handle);

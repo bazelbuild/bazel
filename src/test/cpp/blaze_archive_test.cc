@@ -121,7 +121,7 @@ TEST_F(BlazeArchiveTest, TestZipExtractionAndFarOutMTimes) {
   set_startup_options(startup_options, blaze_path, output_dir);
   LoggingInfo logging_info(blaze_path, blaze::GetMillisecondsMonotonic());
 
-  ExtractionDurationMillis extraction_time =
+  DurationMillis extraction_time =
       ExtractData(blaze_path, archive_contents, expected_install_md5,
                   startup_options, &logging_info);
 
@@ -155,15 +155,14 @@ TEST_F(BlazeArchiveTest, TestNoDataExtractionIfInstallBaseExists) {
   set_startup_options(startup_options, blaze_path, output_dir);
   LoggingInfo logging_info(blaze_path, blaze::GetMillisecondsMonotonic());
 
-  ExtractionDurationMillis extraction_time_one =
+  DurationMillis extraction_time_one =
       ExtractData(blaze_path, archive_contents, expected_install_md5,
                   startup_options, &logging_info);
-  ASSERT_TRUE(extraction_time_one.archive_extracted);
+  ASSERT_NEQ(extraction_time_one, DurationMillis(0));
 
-  ExtractionDurationMillis extraction_time_two =
+  DurationMillis extraction_time_two =
       ExtractData(blaze_path, archive_contents, expected_install_md5,
                   startup_options, &logging_info);
-
-  ASSERT_FALSE(extraction_time_two.archive_extracted);
+  ASSERT_EQ(extraction_time_two, DurationMillis(0));
 }
 }  // namespace blaze

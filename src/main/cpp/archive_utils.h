@@ -30,14 +30,6 @@ void DetermineArchiveContents(const std::string &archive_path,
                               std::vector<std::string> *files,
                               std::string *install_md5);
 
-// DurationMillis that tracks if an archive was extracted.
-struct ExtractionDurationMillis : DurationMillis {
-  const bool archive_extracted;
-  ExtractionDurationMillis() : DurationMillis(), archive_extracted(false) {}
-  ExtractionDurationMillis(const uint64_t start, const uint64_t end, const bool archive_extracted)
-      : DurationMillis(start, end), archive_extracted(archive_extracted) {}
-};
-
 // The reason for a blaze server restart.
 // Keep in sync with logging.proto.
 enum RestartReason {
@@ -81,7 +73,7 @@ struct LoggingInfo {
 // BlessFiles. If the install base, the location the archive is unpacked,
 // already exists, extraction is skipped. Kills the client if an error is
 // encountered.
-ExtractionDurationMillis ExtractData(
+DurationMillis ExtractData(
     const std::string &self_path,
     const std::vector<std::string> &archive_contents,
     const std::string &expected_install_md5,
