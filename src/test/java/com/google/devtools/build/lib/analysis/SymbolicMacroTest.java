@@ -1728,7 +1728,9 @@ Label("//conditions:default"): None})\
     // wrapping of all builtin rule classes which are accessible from Starlark. We do not test rule
     // classes which are exposed to Starlark via macro wrappers in @_builtins, because Starlark code
     // typically cannot get at the wrapped native rule's rule class symbol from which to inherit
-    // attributes.
+    // attributes. We also do not test rule target instantiation (and thus, do not test whether such
+    // a target would pass analysis) because declaring arbitrary native rule targets is difficult to
+    // automate.
     //
     // This test is expected to fail if:
     // * a native rule adds a mandatory attribute of a type which is not supported by this test's
@@ -1810,6 +1812,47 @@ Label("//conditions:default"): None})\
       assertThat(getMacroById(pkg, "abc:1").getMacroClass().getAttributes().keySet())
           .containsNoneOf("generator_name", "generator_location", "generator_function");
     }
+  }
+
+  @Test
+  public void inheritAttrs_fromGenrule_producesTargetThatPassesAnalysis() throws Exception {
+    // inheritAttrs_fromAnyNativeRule() above is loading-phase only; by contrast, this test verifies
+    // that we can wrap a native rule (in this case, genrule) in a macro with inherit_attrs, and
+    // that the macro-wrapped rule target passes analysis.
+    setBuildLanguageOptions("--experimental_enable_macro_inherit_attrs");
+    scratch.file(
+        "pkg/my_genrule.bzl",
+        """
+def _my_genrule_impl(name, visibility, tags, **kwargs):
+    print("my_genrule: tags = %s" % tags)
+    for k in kwargs:
+        print("my_genrule: kwarg %s = %s" % (k, kwargs[k]))
+    native.genrule(name = name + "_wrapped_genrule", visibility = visibility, **kwargs)
+
+my_genrule = macro(
+    implementation = _my_genrule_impl,
+    inherit_attrs = native.genrule,
+)
+""");
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":my_genrule.bzl", "my_genrule")
+        my_genrule(
+            name = "abc",
+            outs = ["out.txt"],
+            cmd = "touch $@",
+        )
+        """);
+
+    Package pkg = getPackage("pkg");
+    assertPackageNotInError(pkg);
+    assertThat(getConfiguredTarget("//pkg:abc_wrapped_genrule")).isNotNull();
+    assertContainsEvent("my_genrule: tags = None"); // Not []
+    assertContainsEvent(
+        "my_genrule: kwarg srcs = None"); // Not select({"//conditions:default": []})
+    assertContainsEvent(
+        "my_genrule: kwarg testonly = None"); // Not select({"//conditions:default": False})
   }
 
   @Test
@@ -1895,24 +1938,28 @@ Label("//conditions:default"): None})\
     scratch.file(
         "pkg/my_macro.bzl",
         """
-        def _other_macro_impl(name, visibility, **kwargs):
-            pass
+def _other_macro_impl(name, visibility, **kwargs):
+    pass
 
-        _other_macro = macro(
-            implementation = _other_macro_impl,
-            attrs = {
-                "srcs": attr.label_list(),
-            },
-        )
+_other_macro = macro(
+    implementation = _other_macro_impl,
+    attrs = {
+        "srcs": attr.label_list(),
+        "tags": attr.string_list(configurable = False),
+    },
+)
 
-        def _my_macro_impl(name, visibility, **kwargs):
-            _other_macro(name = name + "_other_macro", visibility = visibility, **kwargs)
+def _my_macro_impl(name, visibility, tags, **kwargs):
+    print("my_macro: tags = %s" % tags)
+    for k in kwargs:
+        print("my_macro: kwarg %s = %s" % (k, kwargs[k]))
+    _other_macro(name = name + "_other_macro", visibility = visibility, tags = tags, **kwargs)
 
-        my_macro = macro(
-            implementation = _my_macro_impl,
-            inherit_attrs = _other_macro,
-        )
-        """);
+my_macro = macro(
+    implementation = _my_macro_impl,
+    inherit_attrs = _other_macro,
+)
+""");
     scratch.file(
         "pkg/BUILD",
         """
@@ -1922,7 +1969,9 @@ Label("//conditions:default"): None})\
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
     assertThat(getMacroById(pkg, "abc:1").getMacroClass().getAttributes().keySet())
-        .containsExactly("name", "visibility", "srcs");
+        .containsExactly("name", "visibility", "srcs", "tags");
+    assertContainsEvent("my_macro: tags = None"); // Not []
+    assertContainsEvent("my_macro: kwarg srcs = None"); // Not select({"//conditions:default": []})
   }
 
   @Test
