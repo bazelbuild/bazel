@@ -82,6 +82,22 @@ EOF
   expect_log "//peach:harken"
 }
 
+function test_output_to_file() {
+  rm -rf peach
+  mkdir -p peach
+  cat > peach/BUILD <<EOF
+sh_library(name='brighton', deps=[':harken'])
+sh_library(name='harken')
+EOF
+
+  bazel query 'deps(//peach:brighton)' --output_file=$TEST_log > $TEST_TMPDIR/query_stdout
+
+  expect_log "//peach:brighton"
+  expect_log "//peach:harken"
+
+  assert_equals "" "$(<$TEST_TMPDIR/query_stdout)"
+}
+
 function test_invalid_query_fails_parsing() {
   bazel query 'deps("--bad_target_name_from_bad_script")' >& "$TEST_log" \
     && fail "Expected failure"
