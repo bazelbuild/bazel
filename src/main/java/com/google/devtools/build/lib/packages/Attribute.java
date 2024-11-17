@@ -710,6 +710,18 @@ public final class Attribute implements Comparable<Attribute> {
       return defaultValue(defaultValue, null, null);
     }
 
+    /**
+     * Force the default value to be {@code None}. This method is meant only for usage by symbolic
+     * macro machinery.
+     */
+    @CanIgnoreReturnValue
+    public Builder<TYPE> defaultValueNone() {
+      value = null;
+      valueSet = true;
+      valueSource = AttributeValueSource.DIRECT;
+      return this;
+    }
+
     /** Returns where the value of this attribute comes from. Useful only for Starlark. */
     public AttributeValueSource getValueSource() {
       return valueSource;

@@ -271,9 +271,6 @@ site of the rule. Such attributes can be assigned a default value (as in
 A rule symbol, macro symbol, or the name of a built-in common attribute list (see below) from which
 the macro should inherit attributes.
 
-<p>If <code>inherit_attrs</code> is set, the macro's implementation function <em>must</em> have a
-<code>**kwargs</code> residual keyword parameter.
-
 <p>If <code>inherit_attrs</code> is set to the string <code>"common"</code>, the macro will inherit
 <a href="/reference/be/common-definitions#common-attributes">common rule attribute definitions</a>
 used by all Starlark rules.
@@ -282,29 +279,41 @@ used by all Starlark rules.
 a global variable in a .bzl file, then such a value has not been registered as a rule or macro
 symbol, and therefore cannot be used for <code>inherit_attrs</code>.
 
-<p>By convention, a macro should pass inherited, non-overridden attributes unchanged to the "main"
-rule or macro symbol which the macro is wrapping. Typically, most inherited attributes will not have
-a parameter in the implementation function's parameter list, and will simply be passed via
-<code>**kwargs</code>. However, it may be convenient for the implementation function to have
-explicit parameters for some inherited attributes (most commonly, <code>tags</code> and
-<code>testonly</code>) if the macro needs to pass those attributes to both "main" and non-"main"
-targets.
-
 <p>The inheritance mechanism works as follows:</p>
 <ol>
   <li>The special <code>name</code> and <code>visibility</code> attributes are never inherited;
   <li>Hidden attributes (ones whose name starts with <code>"_"</code>) are never inherited;
-  <li>The remaining inherited attributes are merged with the <code>attrs</code> dictionary, with
-    the entries in <code>attrs</code> dictionary taking precedence in case of conflicts.
+  <li>Attributes whose names are already defined in the <code>attrs</code> dictionary are never
+    inherited (the entry in <code>attrs</code> takes precedence; note that an entry may be set to
+    <code>None</code> to ensure that no attribute by that name gets defined on the macro);
+  <li>All other attributes are inherited from the rule or macro and effectively merged into the
+    <code>attrs</code> dict.
 </ol>
 
-<p>For example, the following macro inherits all attributes from <code>native.cc_library</code>, except
-for <code>cxxopts</code> (which is removed from the attribute list) and <code>copts</code> (which is
-given a new definition):
+<p>When a non-mandatory attribute is inherited, the default value of the attribute is overridden
+to be <code>None</code>, regardless of what it was specified in the original rule or macro. This
+ensures that when the macro forwards the attribute's value to an instance of the wrapped rule or
+macro &ndash; such as by passing in the unmodified <code>**kwargs</code> &ndash; a value that was
+absent from the outer macro's call will also be absent in the inner rule or macro's call (since
+passing <code>None</code> to an attribute is treated the same as omitting the attribute).
+This is important because omitting an attribute has subtly different semantics from passing
+its apparent default value. In particular, omitted attributes are not shown in some <code>bazel
+query</code> output formats, and computed defaults only execute when the value is omitted. If the
+macro needs to examine or modify an inherited attribute &ndash; for example, to add a value to an
+inherited <code>tags</code> attribute &ndash; you must make sure to handle the <code>None</code>
+case in the macro's implementation function.
+
+<p>For example, the following macro inherits all attributes from <code>native.cc_library</code>,
+except for <code>cxxopts</code> (which is removed from the attribute list) and <code>copts</code>
+(which is given a new definition). It also takes care to checks for the default <code>None</code>
+value of the inherited <code>tags</code> attribute before appending an additional tag.
 
 <pre class="language-python">
-def _my_cc_library_impl(name, visibility, **kwargs):
-    ...
+def _my_cc_library_impl(name, visibility, tags, **kwargs):
+    # Append a tag; tags attr is inherited from native.cc_library, and therefore is None unless
+    # explicitly set by the caller of my_cc_library()
+    my_tags = (tags or []) + ["my_custom_tag"]
+    native.cc_library(name = name, visibility = visibility, tags = my_tags, **kwargs)
 
 my_cc_library = macro(
     implementation = _my_cc_library_impl,
@@ -316,12 +325,17 @@ my_cc_library = macro(
 )
 </pre>
 
-<p>Note that a macro may inherit a non-hidden attribute with a computed default (for example,
-<a href="/reference/be/common-definitions#common.testonly"><code>testonly</code></a>); normally,
-macros do not allow attributes with computed defaults. If such an attribute is unset in a macro
-invocation, the value passed to the implementation function will be <code>None</code>, and the
-<code>None</code> may be safely passed on to the corresponding attribute of a rule target, causing
-the rule to compute the default as expected.
+<p>If <code>inherit_attrs</code> is set, the macro's implementation function <em>must</em> have a
+<code>**kwargs</code> residual keyword parameter.
+
+<p>By convention, a macro should pass inherited, non-overridden attributes unchanged to the "main"
+rule or macro symbol which the macro is wrapping. Typically, most inherited attributes will not have
+a parameter in the implementation function's parameter list, and will simply be passed via
+<code>**kwargs</code>. It can be convenient for the implementation function to have explicit
+parameters for some inherited attributes (most commonly, <code>tags</code> and
+<code>testonly</code>) if the macro needs to pass those attributes to both "main" and non-"main"
+targets &ndash; but if the macro also needs to examine or manipulate those attributes, you must take
+care to handle the <code>None</code> default value of non-mandatory inherited attributes.
 """),
         // TODO: #19922 - Make a concepts page for symbolic macros, migrate some details like the
         // list of disallowed APIs to there.

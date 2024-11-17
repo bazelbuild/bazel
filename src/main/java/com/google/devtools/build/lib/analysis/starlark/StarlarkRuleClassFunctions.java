@@ -425,6 +425,12 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
           && attr.isDocumented()
           && !MacroClass.RESERVED_MACRO_ATTR_NAMES.contains(attrName)
           && !attrs.containsKey(attrName)) {
+        // Force the default value of optional inherited attributes to None.
+        if (!attr.isMandatory()
+            && attr.getDefaultValueUnchecked() != null
+            && attr.getDefaultValueUnchecked() != Starlark.NONE) {
+          attr = attr.cloneBuilder().defaultValueNone().build();
+        }
         builder.addAttribute(attr);
       }
     }
