@@ -1166,7 +1166,7 @@ std::pair<LockHandle, DurationMillis> AcquireLock(const std::string &name,
   // a concurrent process can read and display it. On Windows we can't do so
   // because locks are mandatory, thus we cannot read the file concurrently.
 
-  return std::make_pair(reinterpret_cast<LockHandle>(handle), DurationMillis(start_time, GetMillisecondsMonotonic());
+  return std::make_pair(reinterpret_cast<LockHandle>(handle), DurationMillis(start_time, GetMillisecondsMonotonic()));
 }
 
 void ReleaseLock(LockHandle lock_handle) {

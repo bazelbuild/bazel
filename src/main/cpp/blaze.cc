@@ -284,11 +284,11 @@ DurationMillis BlazeServer::AcquireLock() {
   // commands may not run against the same output base. Note that this lock will
   // be released by ReleaseLock() once the server is running, as it can handle
   // concurrent clients on its own.
-  DurationMillis wait_time;
-  output_base_lock_, wait_time = blaze::AcquireLock(
+  auto lock_and_time = blaze::AcquireLock(
       "output base", output_base_.GetRelative("lock"), LockMode::kExclusive,
-      batch_, block_for_lock_, &wait_time);
-  return DurationMillis(wait_time);
+      batch_, block_for_lock_);
+  output_base_lock_ = lock_and_time.first;
+  return lock_and_time.second;
 }
 
 void BlazeServer::ReleaseLock() {

@@ -135,24 +135,18 @@ struct DurationMillis {
  public:
   const uint64_t millis;
 
-  DurationMillis() : millis(kUnknownDuration) {}
-  DurationMillis(const uint64_t millis) : millis(millis) {}
+  DurationMillis() : millis(0) {}
   DurationMillis(const uint64_t start, const uint64_t end) : millis(ComputeDuration(start, end)) {}
-
-  bool IsUnknown() const { return millis == kUnknownDuration; }
 
  private:
   static uint64_t ComputeDuration(const uint64_t start, const uint64_t end) {
     if (end < start) {
       BAZEL_LOG(WARNING) << "Invalid duration: start=" << start << ", end=" << end;
-      return kUnknownDuration;
+      return 0;
     } else {
       return end - start;
     }
   }
-
-  // Value representing that a timing event never occurred or is unknown.
-  static constexpr uint64_t kUnknownDuration = 0;
 };
 
 }  // namespace blaze
