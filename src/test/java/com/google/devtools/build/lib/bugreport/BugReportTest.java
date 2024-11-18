@@ -69,9 +69,8 @@ import org.mockito.ArgumentCaptor;
 /**
  * Tests for {@link BugReport}.
  *
- * <p>Assuming that {@link GoogleTestSecurityManager} is not already installed, uses {@link
- * ExitProhibitingSecurityManager} to exercise attempting to halt the JVM without aborting the whole
- * test.
+ * <p>Uses {@link ExitProhibitingSecurityManager} to exercise attempting to halt the JVM without
+ * aborting the whole test.
  */
 // TODO(b/222158599): Remove handling for GoogleTestSecurityManager.
 @RunWith(TestParameterInjector.class)
@@ -84,11 +83,8 @@ public final class BugReportTest {
 
   @BeforeClass
   public static void installCustomSecurityManager() {
-    if (System.getSecurityManager() == null) {
-      System.setSecurityManager(new ExitProhibitingSecurityManager());
-    } else {
-      assertThat(System.getSecurityManager()).isInstanceOf(GoogleTestSecurityManager.class);
-    }
+    GoogleTestSecurityManager.uninstallIfInstalled();
+    System.setSecurityManager(new ExitProhibitingSecurityManager());
   }
 
   @Before
@@ -229,12 +225,9 @@ public final class BugReportTest {
     Throwable t = crashType.createThrowable();
     FailureDetail expectedFailureDetail =
         createExpectedFailureDetail(t, crashType, oomDetectorOverride);
-    // TODO(b/222158599): This should always be ExitException.
-    SecurityException e = assertThrows(SecurityException.class, () -> BugReport.handleCrash(t));
-    if (e instanceof ExitException exitException) {
-      int code = exitException.code;
-      assertThat(code).isEqualTo(crashType.expectedExitCode.getNumericExitCode());
-    }
+    ExitException exitException = assertThrows(ExitException.class, () -> BugReport.handleCrash(t));
+    int code = exitException.code;
+    assertThat(code).isEqualTo(expectedExitCode(crashType).getNumericExitCode());
     assertThat(BugReport.getAndResetLastCrashingThrowableIfInTest()).isSameInstanceAs(t);
 
     verify(mockRuntime)
@@ -255,22 +248,16 @@ public final class BugReportTest {
     FailureDetail expectedFailureDetail =
         createExpectedFailureDetail(t, crashType, oomDetectorOverride);
 
-    // TODO(b/222158599): This should always be ExitException.
-    SecurityException e =
+    ExitException exitException =
         assertThrows(
-            SecurityException.class,
-            () -> BugReport.handleCrash(Crash.from(t), CrashContext.halt()));
-    if (e instanceof ExitException exitException) {
-      int code = exitException.code;
-      assertThat(code).isEqualTo(crashType.expectedExitCode.getNumericExitCode());
-    }
+            ExitException.class, () -> BugReport.handleCrash(Crash.from(t), CrashContext.halt()));
+    int code = exitException.code;
+    ExitCode expectedExitCode = expectedExitCode(crashType);
+    assertThat(code).isEqualTo(expectedExitCode.getNumericExitCode());
     assertThat(BugReport.getAndResetLastCrashingThrowableIfInTest()).isSameInstanceAs(t);
 
     verify(mockRuntime)
-        .cleanUpForCrash(
-            DetailedExitCode.of(
-                oomDetectorOverride ? EXIT_CODE_BLAZE_OOMING : crashType.expectedExitCode,
-                expectedFailureDetail));
+        .cleanUpForCrash(DetailedExitCode.of(expectedExitCode, expectedFailureDetail));
     verifyExitCodeWritten(
         oomDetectorOverride
             ? EXIT_CODE_BLAZE_OOMING.getNumericExitCode()
@@ -316,10 +303,10 @@ public final class BugReportTest {
     Throwable firstThrown = new IllegalStateException("second crash in background thread");
     ThrowingRunnable doFirstCrash =
         () -> BugReport.handleCrash(Crash.from(firstThrown), CrashContext.halt());
-    AtomicReference<SecurityException> firstCrashThrownRef = new AtomicReference<>(null);
+    AtomicReference<ExitException> firstCrashThrownRef = new AtomicReference<>(null);
     TestThread firstCrashThread =
         new TestThread(
-            () -> firstCrashThrownRef.set(assertThrows(SecurityException.class, doFirstCrash)));
+            () -> firstCrashThrownRef.set(assertThrows(ExitException.class, doFirstCrash)));
     firstCrashThread.start();
     cleanupBegunLatch.await();
 
@@ -338,18 +325,15 @@ public final class BugReportTest {
     cleanupMayFinishLatch.countDown();
     firstCrashThread.joinAndAssertState(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
 
-    // TODO(b/222158599): These should always be ExitException.
-    SecurityException firstException = firstCrashThrownRef.get();
-    if (firstException instanceof ExitException exitException) {
-      int code = exitException.code;
-      assertThat(code).isEqualTo(ExitCode.BLAZE_INTERNAL_ERROR.getNumericExitCode());
-    }
+    ExitException firstException = firstCrashThrownRef.get();
+    int firstCode = firstException.code;
+    ExitCode expectedExitCode =
+        oomDetectorOverride ? EXIT_CODE_BLAZE_OOMING : ExitCode.BLAZE_INTERNAL_ERROR;
+    assertThat(firstCode).isEqualTo(expectedExitCode.getNumericExitCode());
 
-    SecurityException secondException = assertThrows(SecurityException.class, doSecondCrash);
-    if (secondException instanceof ExitException exitException) {
-      int code = exitException.code;
-      assertThat(code).isEqualTo(crashType.expectedExitCode.getNumericExitCode());
-    }
+    ExitException secondException = assertThrows(ExitException.class, doSecondCrash);
+    int secondCode = secondException.code;
+    assertThat(secondCode).isEqualTo(expectedExitCode(crashType).getNumericExitCode());
   }
 
   @Test
@@ -439,6 +423,10 @@ public final class BugReportTest {
         .setMessage(String.format("Crashed: (%s) %s", t.getClass().getName(), t.getMessage()))
         .setCrash(crash)
         .build();
+  }
+
+  private ExitCode expectedExitCode(CrashType crashType) {
+    return oomDetectorOverride ? EXIT_CODE_BLAZE_OOMING : crashType.expectedExitCode;
   }
 
   private static final class ExitException extends SecurityException {
