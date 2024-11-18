@@ -27,8 +27,11 @@ import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.analysis.Runfiles.ConflictChecker;
+import com.google.devtools.build.lib.analysis.Runfiles.ConflictType;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
@@ -39,10 +42,12 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiConsumer;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
@@ -81,8 +86,14 @@ public class RunfilesTest extends FoundationTestCase {
     Artifact artifactA = ActionsTestUtil.createArtifact(root, "x");
     obscuringMap.put(pathA, artifactA);
     obscuringMap.put(PathFragment.create("a/b"), ActionsTestUtil.createArtifact(root, "c/b"));
-    assertThat(Runfiles.filterListForObscuringSymlinks(reporter, null, obscuringMap).entrySet())
-        .containsExactly(Maps.immutableEntry(pathA, artifactA)).inOrder();
+    assertThat(
+            Runfiles.filterListForObscuringSymlinks(
+                    true,
+                    message -> reporter.handle(Event.of(EventKind.WARNING, message)),
+                    obscuringMap)
+                .entrySet())
+        .containsExactly(Maps.immutableEntry(pathA, artifactA))
+        .inOrder();
     checkWarning();
   }
 
@@ -94,8 +105,14 @@ public class RunfilesTest extends FoundationTestCase {
     Artifact artifactA = ActionsTestUtil.createArtifact(root, "x");
     obscuringMap.put(pathA, artifactA);
     obscuringMap.put(PathFragment.create("a/b/c"), ActionsTestUtil.createArtifact(root, "b/c"));
-    assertThat(Runfiles.filterListForObscuringSymlinks(reporter, null, obscuringMap).entrySet())
-        .containsExactly(Maps.immutableEntry(pathA, artifactA)).inOrder();
+    assertThat(
+            Runfiles.filterListForObscuringSymlinks(
+                    true,
+                    message -> reporter.handle(Event.of(EventKind.WARNING, message)),
+                    obscuringMap)
+                .entrySet())
+        .containsExactly(Maps.immutableEntry(pathA, artifactA))
+        .inOrder();
     checkWarning();
   }
 
@@ -107,8 +124,14 @@ public class RunfilesTest extends FoundationTestCase {
     Artifact artifactA = ActionsTestUtil.createArtifact(root, "a");
     obscuringMap.put(pathA, artifactA);
     obscuringMap.put(PathFragment.create("a/b"), ActionsTestUtil.createArtifact(root, "c/b"));
-    assertThat(Runfiles.filterListForObscuringSymlinks(null, null, obscuringMap).entrySet())
-        .containsExactly(Maps.immutableEntry(pathA, artifactA)).inOrder();
+    assertThat(
+            Runfiles.filterListForObscuringSymlinks(
+                    true,
+                    message -> reporter.handle(Event.of(EventKind.WARNING, message)),
+                    obscuringMap)
+                .entrySet())
+        .containsExactly(Maps.immutableEntry(pathA, artifactA))
+        .inOrder();
   }
 
   @Test
@@ -120,8 +143,14 @@ public class RunfilesTest extends FoundationTestCase {
     obscuringMap.put(pathA, artifactA);
     obscuringMap.put(PathFragment.create("a/b"), ActionsTestUtil.createArtifact(root, "a/b"));
 
-    assertThat(Runfiles.filterListForObscuringSymlinks(reporter, null, obscuringMap).entrySet())
-        .containsExactly(Maps.immutableEntry(pathA, artifactA)).inOrder();
+    assertThat(
+            Runfiles.filterListForObscuringSymlinks(
+                    true,
+                    message -> reporter.handle(Event.of(EventKind.WARNING, message)),
+                    obscuringMap)
+                .entrySet())
+        .containsExactly(Maps.immutableEntry(pathA, artifactA))
+        .inOrder();
     assertNoEvents();
   }
 
@@ -135,9 +164,14 @@ public class RunfilesTest extends FoundationTestCase {
     PathFragment pathBC = PathFragment.create("b/c");
     Artifact artifactBC = ActionsTestUtil.createArtifact(root, "a/b");
     obscuringMap.put(pathBC, artifactBC);
-    assertThat(Runfiles.filterListForObscuringSymlinks(reporter, null, obscuringMap)
-        .entrySet()).containsExactly(Maps.immutableEntry(pathA, artifactA),
-        Maps.immutableEntry(pathBC, artifactBC));
+    assertThat(
+            Runfiles.filterListForObscuringSymlinks(
+                    true,
+                    message -> reporter.handle(Event.of(EventKind.WARNING, message)),
+                    obscuringMap)
+                .entrySet())
+        .containsExactly(
+            Maps.immutableEntry(pathA, artifactA), Maps.immutableEntry(pathBC, artifactBC));
     assertNoEvents();
   }
 
@@ -195,11 +229,10 @@ public class RunfilesTest extends FoundationTestCase {
 
     Map<PathFragment, Artifact> map = new LinkedHashMap<>();
 
-    Runfiles.ConflictChecker checker =
-        new Runfiles.ConflictChecker(Runfiles.ConflictPolicy.WARN, reporter, null);
-    checker.put(map, path, artifact1);
+    Runfiles.ConflictChecker checker = eventConflictChecker(Runfiles.ConflictPolicy.WARN);
+    checker.put(map, path, artifact1, ConflictType.OTHER);
     assertThat(map.entrySet()).containsExactly(Maps.immutableEntry(path, artifact1));
-    checker.put(map, path, artifact2);
+    checker.put(map, path, artifact2, ConflictType.OTHER);
     assertThat(map.entrySet()).containsExactly(Maps.immutableEntry(path, artifact2));
     assertNoEvents();
   }
@@ -219,14 +252,30 @@ public class RunfilesTest extends FoundationTestCase {
 
     Map<PathFragment, Artifact> map = new LinkedHashMap<>();
 
-    Runfiles.ConflictChecker checker =
-        new Runfiles.ConflictChecker(Runfiles.ConflictPolicy.WARN, reporter, null);
-    checker.put(map, path, artifact1);
+    Runfiles.ConflictChecker checker = eventConflictChecker(Runfiles.ConflictPolicy.WARN);
+    checker.put(map, path, artifact1, ConflictType.OTHER);
     assertThat(map.entrySet()).containsExactly(Maps.immutableEntry(path, artifact1));
-    checker.put(map, path, artifact2);
+    checker.put(map, path, artifact2, ConflictType.OTHER);
     assertThat(map.entrySet()).containsExactly(Maps.immutableEntry(path, artifact2));
     checkConflictWarning();
   }
+
+  private BiConsumer<ConflictType, String> eventConflictReceiver(EventKind eventKind) {
+    return (conflictType, message) -> reporter.handle(Event.of(eventKind, message));
+  }
+
+  private Runfiles.ConflictChecker eventConflictChecker(Runfiles.ConflictPolicy conflictPolicy) {
+    return new ConflictChecker(
+        eventConflictReceiver(
+            conflictPolicy == Runfiles.ConflictPolicy.ERROR ? EventKind.ERROR : EventKind.WARNING),
+        conflictPolicy == Runfiles.ConflictPolicy.IGNORE
+            ? EnumSet.of(
+                ConflictType.NESTED_RUNFILES_TREE,
+                ConflictType.NESTED_RUNFILES_TREE,
+                ConflictType.PREFIX_CONFLICT)
+            : EnumSet.allOf(ConflictType.class));
+  }
+  ;
 
   @Test
   public void testPutCatchesConflict() {
@@ -236,11 +285,10 @@ public class RunfilesTest extends FoundationTestCase {
     Artifact artifactC = ActionsTestUtil.createArtifact(root, "c");
     Map<PathFragment, Artifact> map = new LinkedHashMap<>();
 
-    Runfiles.ConflictChecker checker =
-        new Runfiles.ConflictChecker(Runfiles.ConflictPolicy.WARN, reporter, null);
-    checker.put(map, pathA, artifactB);
+    Runfiles.ConflictChecker checker = eventConflictChecker(Runfiles.ConflictPolicy.WARN);
+    checker.put(map, pathA, artifactB, ConflictType.OTHER);
     assertThat(map.entrySet()).containsExactly(Maps.immutableEntry(pathA, artifactB));
-    checker.put(map, pathA, artifactC);
+    checker.put(map, pathA, artifactC, ConflictType.OTHER);
     assertThat(map.entrySet()).containsExactly(Maps.immutableEntry(pathA, artifactC));
     checkConflictWarning();
   }
@@ -254,11 +302,10 @@ public class RunfilesTest extends FoundationTestCase {
     Map<PathFragment, Artifact> map = new LinkedHashMap<>();
 
     // Same as above but with ERROR not WARNING
-    Runfiles.ConflictChecker checker =
-        new Runfiles.ConflictChecker(Runfiles.ConflictPolicy.ERROR, reporter, null);
-    checker.put(map, pathA, artifactB);
+    Runfiles.ConflictChecker checker = eventConflictChecker(Runfiles.ConflictPolicy.ERROR);
+    checker.put(map, pathA, artifactB, ConflictType.OTHER);
     reporter.removeHandler(failFastHandler); // So it doesn't throw AssertionError
-    checker.put(map, pathA, artifactC);
+    checker.put(map, pathA, artifactC, ConflictType.OTHER);
     assertThat(map.entrySet()).containsExactly(Maps.immutableEntry(pathA, artifactC));
     checkConflictError();
   }
@@ -270,10 +317,9 @@ public class RunfilesTest extends FoundationTestCase {
     Artifact artifactB = ActionsTestUtil.createArtifact(root, "b");
     Map<PathFragment, Artifact> map = new LinkedHashMap<>();
 
-    Runfiles.ConflictChecker checker =
-        new Runfiles.ConflictChecker(Runfiles.ConflictPolicy.WARN, reporter, null);
-    checker.put(map, pathA, null);
-    checker.put(map, pathA, artifactB);
+    Runfiles.ConflictChecker checker = eventConflictChecker(Runfiles.ConflictPolicy.WARN);
+    checker.put(map, pathA, null, ConflictType.OTHER);
+    checker.put(map, pathA, artifactB, ConflictType.OTHER);
     assertThat(map.entrySet()).containsExactly(Maps.immutableEntry(pathA, artifactB));
     checkConflictWarning();
   }
@@ -286,10 +332,9 @@ public class RunfilesTest extends FoundationTestCase {
     Map<PathFragment, Artifact> map = new LinkedHashMap<>();
 
     // Same as above but opposite order
-    Runfiles.ConflictChecker checker =
-        new Runfiles.ConflictChecker(Runfiles.ConflictPolicy.WARN, reporter, null);
-    checker.put(map, pathA, artifactB);
-    checker.put(map, pathA, null);
+    Runfiles.ConflictChecker checker = eventConflictChecker(Runfiles.ConflictPolicy.WARN);
+    checker.put(map, pathA, artifactB, ConflictType.OTHER);
+    checker.put(map, pathA, null, ConflictType.OTHER);
     assertThat(map.entrySet()).containsExactly(Maps.immutableEntry(pathA, null));
     checkConflictWarning();
   }
@@ -302,26 +347,24 @@ public class RunfilesTest extends FoundationTestCase {
     Artifact artifactC = ActionsTestUtil.createArtifact(root, "c");
     Map<PathFragment, Artifact> map = new LinkedHashMap<>();
 
-    Runfiles.ConflictChecker checker =
-        new Runfiles.ConflictChecker(Runfiles.ConflictPolicy.IGNORE, reporter, null);
-    checker.put(map, pathA, artifactB);
-    checker.put(map, pathA, artifactC);
+    Runfiles.ConflictChecker checker = eventConflictChecker(Runfiles.ConflictPolicy.IGNORE);
+    checker.put(map, pathA, artifactB, ConflictType.OTHER);
+    checker.put(map, pathA, artifactC, ConflictType.OTHER);
     assertThat(map.entrySet()).containsExactly(Maps.immutableEntry(pathA, artifactC));
     assertNoEvents();
   }
 
   @Test
-  public void testPutIgnoresConflictNoListener() {
+  public void testPutIgnoresConflictWithIgnorePolicy() {
     ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
     PathFragment pathA = PathFragment.create("a");
     Artifact artifactB = ActionsTestUtil.createArtifact(root, "b");
     Artifact artifactC = ActionsTestUtil.createArtifact(root, "c");
     Map<PathFragment, Artifact> map = new LinkedHashMap<>();
 
-    Runfiles.ConflictChecker checker =
-        new Runfiles.ConflictChecker(Runfiles.ConflictPolicy.WARN, null, null);
-    checker.put(map, pathA, artifactB);
-    checker.put(map, pathA, artifactC);
+    Runfiles.ConflictChecker checker = eventConflictChecker(Runfiles.ConflictPolicy.IGNORE);
+    checker.put(map, pathA, artifactB, ConflictType.OTHER);
+    checker.put(map, pathA, artifactC, ConflictType.OTHER);
     assertThat(map.entrySet()).containsExactly(Maps.immutableEntry(pathA, artifactC));
     assertNoEvents();
   }
@@ -335,10 +378,9 @@ public class RunfilesTest extends FoundationTestCase {
     assertThat(artifactB2).isEqualTo(artifactB);
     Map<PathFragment, Artifact> map = new LinkedHashMap<>();
 
-    Runfiles.ConflictChecker checker =
-        new Runfiles.ConflictChecker(Runfiles.ConflictPolicy.WARN, reporter, null);
-    checker.put(map, pathA, artifactB);
-    checker.put(map, pathA, artifactB2);
+    Runfiles.ConflictChecker checker = eventConflictChecker(Runfiles.ConflictPolicy.WARN);
+    checker.put(map, pathA, artifactB, ConflictType.OTHER);
+    checker.put(map, pathA, artifactB2, ConflictType.OTHER);
     assertThat(map.entrySet()).containsExactly(Maps.immutableEntry(pathA, artifactB2));
     assertNoEvents();
   }
@@ -348,11 +390,10 @@ public class RunfilesTest extends FoundationTestCase {
     PathFragment pathA = PathFragment.create("a");
     Map<PathFragment, Artifact> map = new LinkedHashMap<>();
 
-    Runfiles.ConflictChecker checker =
-        new Runfiles.ConflictChecker(Runfiles.ConflictPolicy.WARN, reporter, null);
-    checker.put(map, pathA, null);
+    Runfiles.ConflictChecker checker = eventConflictChecker(Runfiles.ConflictPolicy.WARN);
+    checker.put(map, pathA, null, ConflictType.OTHER);
     // Add it again
-    checker.put(map, pathA, null);
+    checker.put(map, pathA, null, ConflictType.OTHER);
     assertThat(map.entrySet()).containsExactly(Maps.immutableEntry(pathA, null));
     assertNoEvents();
   }
@@ -367,13 +408,12 @@ public class RunfilesTest extends FoundationTestCase {
     Artifact artifactB = ActionsTestUtil.createArtifact(root, "b");
     Map<PathFragment, Artifact> map = new LinkedHashMap<>();
 
-    Runfiles.ConflictChecker checker =
-        new Runfiles.ConflictChecker(Runfiles.ConflictPolicy.WARN, reporter, null);
-    checker.put(map, pathA, artifactA);
+    Runfiles.ConflictChecker checker = eventConflictChecker(Runfiles.ConflictPolicy.WARN);
+    checker.put(map, pathA, artifactA, ConflictType.OTHER);
     // Add different artifact under different path
-    checker.put(map, pathB, artifactB);
+    checker.put(map, pathB, artifactB, ConflictType.OTHER);
     // Add artifact again under different path
-    checker.put(map, pathC, artifactA);
+    checker.put(map, pathC, artifactA, ConflictType.OTHER);
     assertThat(map.entrySet())
         .containsExactly(
             Maps.immutableEntry(pathA, artifactA),
@@ -424,8 +464,7 @@ public class RunfilesTest extends FoundationTestCase {
 
     Map<PathFragment, Artifact> inputManifest = Maps.newHashMap();
     inputManifest.put(runfilesPathB, artifactB);
-    Runfiles.ConflictChecker checker = new Runfiles.ConflictChecker(
-        Runfiles.ConflictPolicy.WARN, reporter, null);
+    Runfiles.ConflictChecker checker = eventConflictChecker(Runfiles.ConflictPolicy.WARN);
     builder.addUnderWorkspace(inputManifest, checker);
 
     assertThat(builder.build().entrySet())
@@ -447,8 +486,7 @@ public class RunfilesTest extends FoundationTestCase {
     Runfiles.ManifestBuilder builder = new Runfiles.ManifestBuilder(workspaceName, false);
 
     Map<PathFragment, Artifact> inputManifest = ImmutableMap.of(runfilesPathB, artifactB);
-    Runfiles.ConflictChecker checker = new Runfiles.ConflictChecker(
-        Runfiles.ConflictPolicy.WARN, reporter, null);
+    Runfiles.ConflictChecker checker = eventConflictChecker(Runfiles.ConflictPolicy.WARN);
     builder.addUnderWorkspace(inputManifest, checker);
 
     assertThat(builder.build().entrySet()).containsExactly(
@@ -474,8 +512,7 @@ public class RunfilesTest extends FoundationTestCase {
 
     Map<PathFragment, Artifact> inputManifest =
         ImmutableMap.of(pathB, artifactB, externalRunfilesPathB, artifactExternalB);
-    Runfiles.ConflictChecker checker = new Runfiles.ConflictChecker(
-        Runfiles.ConflictPolicy.WARN, reporter, null);
+    Runfiles.ConflictChecker checker = eventConflictChecker(Runfiles.ConflictPolicy.WARN);
     builder.addUnderWorkspace(inputManifest, checker);
 
     assertThat(builder.build().entrySet()).containsExactly(
@@ -499,8 +536,10 @@ public class RunfilesTest extends FoundationTestCase {
     StarlarkThread thread = newStarlarkThread();
 
     Runfiles runfilesC = runfilesA.merge(runfilesB, thread);
-    assertThat(runfilesC.getSymlinksAsMap(null).get(sympathA)).isEqualTo(artifactA);
-    assertThat(runfilesC.getSymlinksAsMap(null).get(sympathB)).isEqualTo(artifactB);
+    assertThat(runfilesC.getSymlinksAsMap(ConflictChecker.IGNORE_CHECKER).get(sympathA))
+        .isEqualTo(artifactA);
+    assertThat(runfilesC.getSymlinksAsMap(ConflictChecker.IGNORE_CHECKER).get(sympathB))
+        .isEqualTo(artifactB);
   }
 
   @Test
@@ -519,7 +558,7 @@ public class RunfilesTest extends FoundationTestCase {
 
     Runfiles runfilesMerged =
         runfilesA.mergeAll(StarlarkList.immutableOf(runfilesB, runfilesC), thread);
-    assertThat(runfilesMerged.getSymlinksAsMap(null))
+    assertThat(runfilesMerged.getSymlinksAsMap(ConflictChecker.IGNORE_CHECKER))
         .containsExactly(sympathA, artifactA, sympathB, artifactB, sympathC, artifactC);
   }
 

@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map.Entry;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.syntax.Location;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -364,7 +363,7 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
     ImmutableList<String> runfilesPaths =
         runfilesSupport
             .getRunfiles()
-            .getRunfilesInputs(reporter, Location.BUILTIN, runfilesSupport.getRepoMappingManifest())
+            .getRunfilesInputs(runfilesSupport.getRepoMappingManifest())
             .keySet()
             .stream()
             .map(PathFragment::getPathString)

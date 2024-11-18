@@ -1177,7 +1177,8 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
             "  symlinks = {'sym1': ruleContext.files.srcs[1]})");
     Runfiles runfiles = (Runfiles) result;
     reporter.removeHandler(failFastHandler); // So it doesn't throw an exception.
-    var unused = runfiles.getRunfilesInputs(reporter, null, null);
+    var unused =
+        runfiles.getRunfilesInputs(runfiles.eventRunfilesConflictReceiver(reporter, null), null);
     assertContainsEvent("ERROR <no location>: overwrote runfile");
   }
 
