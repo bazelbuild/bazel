@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.CommandLineLimits;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
-import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
@@ -166,13 +165,9 @@ public class BuildConfigurationValue
    * be inherited from the client environment.
    */
   private ActionEnvironment setupTestEnvironment() {
-    if (!buildOptions.contains(TestOptions.class)) {
-      // TestOptions have been trimmed.
-      return ActionEnvironment.EMPTY;
-    }
-    // Order doesn't matter here as ActionEnvironment sorts by key.
+    // We make a copy first to remove duplicate entries; last one wins.
     Map<String, String> testEnv = new HashMap<>();
-    for (Map.Entry<String, String> entry : buildOptions.get(TestOptions.class).testEnvironment) {
+    for (Map.Entry<String, String> entry : options.testEnvironment) {
       testEnv.put(entry.getKey(), entry.getValue());
     }
     return ActionEnvironment.split(testEnv);

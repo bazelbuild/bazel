@@ -42,28 +42,22 @@ public final class BuildConfigurationStarlarkTest extends BuildViewTestCase {
         MyInfo = provider()
 
         def _test_rule_impl(ctx):
-            out = ctx.actions.declare_file(ctx.label.name)
-            ctx.actions.write(out, "exit 0", is_executable = True)
-            return [
-                DefaultInfo(executable = out),
-                MyInfo(test_env = ctx.configuration.test_env),
-            ]
+            return MyInfo(test_env = ctx.configuration.test_env)
 
-        my_test = rule(
+        test_rule = rule(
             implementation = _test_rule_impl,
             attrs = {},
-            test = True,
         )
         """);
 
     scratch.file(
         "examples/config_starlark/BUILD",
         """
-        load("//examples/rule:config_test.bzl", "my_test")
+        load("//examples/rule:config_test.bzl", "test_rule")
 
         package(default_visibility = ["//visibility:public"])
 
-        my_test(
+        test_rule(
             name = "my_target",
         )
         """);
