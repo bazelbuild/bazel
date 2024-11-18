@@ -88,6 +88,7 @@ java_library(
         ":action_template_expansion_value",
         ":action_utils",
         ":analysis_cache_clear_event",
+        ":analysis_progress_receiver",
         ":artifact_conflict_finder",
         ":artifact_function",
         ":artifact_nested_set_function",
@@ -116,7 +117,6 @@ java_library(
         ":configuration_phase_started_event",
         ":configured_target_and_data",
         ":configured_target_key",
-        ":configured_target_progress_receiver",
         ":configured_value_creation_exception",
         ":conflict_checking_mode",
         ":consumed_artifacts_tracker",
@@ -1099,7 +1099,7 @@ java_library(
     name = "configuration_phase_started_event",
     srcs = ["ConfigurationPhaseStartedEvent.java"],
     deps = [
-        ":configured_target_progress_receiver",
+        ":analysis_progress_receiver",
         "//src/main/java/com/google/devtools/build/lib/events",
     ],
 )
@@ -1142,8 +1142,8 @@ java_library(
 )
 
 java_library(
-    name = "configured_target_progress_receiver",
-    srcs = ["ConfiguredTargetProgressReceiver.java"],
+    name = "analysis_progress_receiver",
+    srcs = ["AnalysisProgressReceiver.java"],
 )
 
 java_library(

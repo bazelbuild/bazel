@@ -20,14 +20,14 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests {@link ConfiguredTargetProgressReceiver}. */
+/** Tests {@link AnalysisProgressReceiver}. */
 @RunWith(JUnit4.class)
-public class ConfiguredTargetProgressReceiverTest {
+public class AnalysisProgressReceiverTest {
 
   @Test
   public void testTargetCounted() {
     // If the configuration of a target is completed it is counted as fully configured target.
-    ConfiguredTargetProgressReceiver progress = new ConfiguredTargetProgressReceiver();
+    AnalysisProgressReceiver progress = new AnalysisProgressReceiver();
     progress.doneConfigureTarget();
     String progressString1 = progress.getProgressString();
 
@@ -44,9 +44,44 @@ public class ConfiguredTargetProgressReceiverTest {
   }
 
   @Test
+  public void testAspectCounted() {
+    AnalysisProgressReceiver progress = new AnalysisProgressReceiver();
+    progress.doneConfigureAspect();
+    String progressString1 = progress.getProgressString();
+
+    assertWithMessage("One configured aspect should be visible in progress.")
+        .that(progressString1.contains("0 targets and 1 aspect configured"))
+        .isTrue();
+
+    progress.doneConfigureAspect();
+    String progressString2 = progress.getProgressString();
+
+    assertWithMessage("Two configured aspects should be visible in progress.")
+        .that(progressString2.contains("0 targets and 2 aspects configured"))
+        .isTrue();
+  }
+
+  @Test
+  public void testTargetAndAspectCounted() {
+    AnalysisProgressReceiver progress = new AnalysisProgressReceiver();
+    String progressString1 = progress.getProgressString();
+    assertThat(progressString1).contains("0 targets configured");
+
+    progress.doneConfigureTarget();
+    String progressString2 = progress.getProgressString();
+
+    assertThat(progressString2).contains("1 target configured");
+
+    progress.doneConfigureAspect();
+    String progressString3 = progress.getProgressString();
+
+    assertThat(progressString3).contains("1 target and 1 aspect configured");
+  }
+
+  @Test
   public void testReset() {
     // After resetting, messages should be as immediately after creation.
-    ConfiguredTargetProgressReceiver progress = new ConfiguredTargetProgressReceiver();
+    AnalysisProgressReceiver progress = new AnalysisProgressReceiver();
     String defaultProgress = progress.getProgressString();
     progress.doneConfigureTarget();
     assertThat(progress.getProgressString()).isNotEqualTo(defaultProgress);

@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment.MissingDepException;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
+import com.google.devtools.build.lib.analysis.ConfiguredAspect.NonApplicableAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
@@ -169,6 +170,7 @@ final class AspectFunction implements SkyFunction {
   private final BaseTargetPrerequisitesSupplier baseTargetPrerequisitesSupplier;
 
   private final Supplier<RemoteAnalysisCachingDependenciesProvider> cachingDependenciesSupplier;
+  private final AnalysisProgressReceiver analysisProgressReceiver;
 
   AspectFunction(
       BuildViewProvider buildViewProvider,
@@ -176,13 +178,15 @@ final class AspectFunction implements SkyFunction {
       boolean storeTransitivePackages,
       PrerequisitePackageFunction prerequisitePackages,
       BaseTargetPrerequisitesSupplier baseTargetPrerequisitesSupplier,
-      Supplier<RemoteAnalysisCachingDependenciesProvider> cachingDependenciesSupplier) {
+      Supplier<RemoteAnalysisCachingDependenciesProvider> cachingDependenciesSupplier,
+      AnalysisProgressReceiver analysisProgressReceiver) {
     this.buildViewProvider = buildViewProvider;
     this.ruleClassProvider = ruleClassProvider;
     this.storeTransitivePackages = storeTransitivePackages;
     this.prerequisitePackages = prerequisitePackages;
     this.baseTargetPrerequisitesSupplier = baseTargetPrerequisitesSupplier;
     this.cachingDependenciesSupplier = cachingDependenciesSupplier;
+    this.analysisProgressReceiver = analysisProgressReceiver;
   }
 
   static class State
@@ -953,6 +957,8 @@ final class AspectFunction implements SkyFunction {
                 .addTransitive(real.getTransitivePackages())
                 .build()
             : null;
+
+    analysisProgressReceiver.doneConfigureAspect();
     return AspectValue.createForAlias(
         originalKey, aspect, ConfiguredAspect.forAlias(real), transitivePackages);
   }
@@ -1065,6 +1071,9 @@ final class AspectFunction implements SkyFunction {
     analysisEnvironment.disable(associatedTarget);
     Preconditions.checkNotNull(configuredAspect);
 
+    if (configuredAspect != NonApplicableAspect.INSTANCE) {
+      analysisProgressReceiver.doneConfigureAspect();
+    }
     return AspectValue.create(key, aspect, configuredAspect, transitiveState.transitivePackages());
   }
 

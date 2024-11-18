@@ -190,7 +190,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
         shouldUseRepoDotBazel,
         /* shouldUnblockCpuWorkWhenFetchingDeps= */ false,
         new PackageProgressReceiver(),
-        new ConfiguredTargetProgressReceiver(),
+        new AnalysisProgressReceiver(),
         skyKeyStateReceiver,
         bugReporter,
         diffAwarenessFactories,

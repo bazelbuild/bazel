@@ -375,7 +375,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   private final AtomicInteger numPackagesSuccessfullyLoaded = new AtomicInteger(0);
   @Nullable private final PackageProgressReceiver packageProgress;
-  @Nullable private final ConfiguredTargetProgressReceiver configuredTargetProgress;
+  @Nullable private final AnalysisProgressReceiver analysisProgress;
   protected final SyscallCache syscallCache;
 
   private final SkyframeBuildView skyframeBuildView;
@@ -592,7 +592,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       boolean shouldUseRepoDotBazel,
       boolean shouldUnblockCpuWorkWhenFetchingDeps,
       @Nullable PackageProgressReceiver packageProgress,
-      @Nullable ConfiguredTargetProgressReceiver configuredTargetProgress,
+      @Nullable AnalysisProgressReceiver analysisProgress,
       SkyKeyStateReceiver skyKeyStateReceiver,
       BugReporter bugReporter,
       @Nullable Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
@@ -650,7 +650,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.actionOnFilesystemErrorCodeLoadingBzlFile = actionOnFilesystemErrorCodeLoadingBzlFile;
     this.shouldUseRepoDotBazel = shouldUseRepoDotBazel;
     this.packageProgress = packageProgress;
-    this.configuredTargetProgress = configuredTargetProgress;
+    this.analysisProgress = analysisProgress;
     this.diffAwarenessManager =
         diffAwarenessFactories != null ? new DiffAwarenessManager(diffAwarenessFactories) : null;
     this.workspaceInfoFromDiffReceiver = workspaceInfoFromDiffReceiver;
@@ -747,7 +747,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             cpuBoundSemaphore,
             shouldStoreTransitivePackagesInLoadingAndAnalysis(),
             shouldUnblockCpuWorkWhenFetchingDeps,
-            configuredTargetProgress,
+            analysisProgress,
             this::getExistingPackage,
             this::getRemoteAnalysisCachingDependenciesProvider));
     map.put(
@@ -758,7 +758,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             shouldStoreTransitivePackagesInLoadingAndAnalysis(),
             this::getExistingPackage,
             new BaseTargetPrerequisitesSupplierImpl(),
-            this::getRemoteAnalysisCachingDependenciesProvider));
+            this::getRemoteAnalysisCachingDependenciesProvider,
+            analysisProgress));
     map.put(
         SkyFunctions.TOP_LEVEL_ASPECTS,
         new ToplevelStarlarkAspectFunction(
@@ -1703,8 +1704,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ExtendedEventHandler eventHandler, BuildOptions buildOptions, boolean keepGoing)
       throws InvalidConfigurationException {
 
-    if (configuredTargetProgress != null) {
-      configuredTargetProgress.reset();
+    if (analysisProgress != null) {
+      analysisProgress.reset();
     }
 
     BuildConfigurationValue topLevelTargetConfig =
@@ -2147,7 +2148,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       throws InterruptedException {
     checkActive();
 
-    eventHandler.post(new ConfigurationPhaseStartedEvent(configuredTargetProgress));
+    eventHandler.post(new ConfigurationPhaseStartedEvent(analysisProgress));
     EvaluationContext evaluationContext =
         newEvaluationContextBuilder()
             .setParallelism(executors.analysisParallelism())
@@ -2297,7 +2298,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       if (conflictCheckingModeInThisBuild != NONE) {
         initializeSkymeldConflictFindingStates();
       }
-      eventHandler.post(new ConfigurationPhaseStartedEvent(configuredTargetProgress));
+      eventHandler.post(new ConfigurationPhaseStartedEvent(analysisProgress));
       // For the workspace status actions.
       eventHandler.post(SomeExecutionStartedEvent.notCountedInExecutionTime());
       EvaluationContext evaluationContext =

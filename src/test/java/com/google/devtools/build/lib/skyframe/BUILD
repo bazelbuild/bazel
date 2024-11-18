@@ -1024,11 +1024,11 @@ java_test(
 )
 
 java_test(
-    name = "ConfiguredTargetProgressReceiverTest",
+    name = "AnalysisProgressReceiverTest",
     timeout = "short",
-    srcs = ["ConfiguredTargetProgressReceiverTest.java"],
+    srcs = ["AnalysisProgressReceiverTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_progress_receiver",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:analysis_progress_receiver",
         "//third_party:junit4",
         "//third_party:truth",
     ],

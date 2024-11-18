@@ -16,23 +16,33 @@ package com.google.devtools.build.lib.skyframe;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * A class that, when being told the end of a target being configured, keeps track of the
+ * A class that, when being told the end of a target or aspect being configured, keeps track of the
  * configuration progress and provides it as a human-readable string intended for the progress bar.
+ *
+ * <p>Non-final to be mockable.
  */
-public class ConfiguredTargetProgressReceiver {
+public class AnalysisProgressReceiver {
 
   private final AtomicInteger configuredTargetsCompleted = new AtomicInteger();
 
   private final AtomicInteger configuredTargetsFetched = new AtomicInteger();
+
+  private final AtomicInteger configuredAspectsCompleted = new AtomicInteger();
 
   /** Register that a target has been configured. */
   void doneConfigureTarget() {
     configuredTargetsCompleted.incrementAndGet();
   }
 
+  /** Register that a configured target has been downloaded from a remote cache. */
   void doneFetchedTarget() {
     configuredTargetsCompleted.incrementAndGet();
     configuredTargetsFetched.incrementAndGet();
+  }
+
+  /** Register that a aspect has been configured. */
+  void doneConfigureAspect() {
+    configuredAspectsCompleted.incrementAndGet();
   }
 
   /**
@@ -42,19 +52,24 @@ public class ConfiguredTargetProgressReceiver {
   public void reset() {
     configuredTargetsCompleted.set(0);
     configuredTargetsFetched.set(0);
+    configuredAspectsCompleted.set(0);
   }
 
   /**
    * Return a snapshot of the configuration progress as human-readable description of the number of
-   * targets configured so far.
+   * targets and aspects configured so far.
    */
   public String getProgressString() {
     String progress = "" + configuredTargetsCompleted + " ";
     progress += (configuredTargetsCompleted.get() != 1) ? "targets" : "target";
-    progress += " configured";
     if (configuredTargetsFetched.get() > 1) {
       progress += " (" + configuredTargetsFetched + " cache hits)";
     }
+    if (configuredAspectsCompleted.get() > 0) {
+      progress += " and " + configuredAspectsCompleted + " ";
+      progress += (configuredAspectsCompleted.get() != 1) ? "aspects" : "aspect";
+    }
+    progress += " configured";
     return progress;
   }
 }

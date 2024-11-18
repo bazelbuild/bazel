@@ -128,7 +128,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
   private final RuleClassProvider ruleClassProvider;
   // TODO(b/185987566): Remove this semaphore.
   private final AtomicReference<Semaphore> cpuBoundSemaphore;
-  @Nullable private final ConfiguredTargetProgressReceiver configuredTargetProgress;
+  @Nullable private final AnalysisProgressReceiver analysisProgress;
 
   /**
    * Indicates whether the set of packages transitively loaded for a given {@link
@@ -161,7 +161,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       AtomicReference<Semaphore> cpuBoundSemaphore,
       boolean storeTransitivePackages,
       boolean shouldUnblockCpuWorkWhenFetchingDeps,
-      @Nullable ConfiguredTargetProgressReceiver configuredTargetProgress,
+      @Nullable AnalysisProgressReceiver analysisProgress,
       PrerequisitePackageFunction prerequisitePackages,
       Supplier<RemoteAnalysisCachingDependenciesProvider> cachingDependenciesSupplier) {
     this.buildViewProvider = buildViewProvider;
@@ -169,7 +169,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     this.cpuBoundSemaphore = cpuBoundSemaphore;
     this.storeTransitivePackages = storeTransitivePackages;
     this.shouldUnblockCpuWorkWhenFetchingDeps = shouldUnblockCpuWorkWhenFetchingDeps;
-    this.configuredTargetProgress = configuredTargetProgress;
+    this.analysisProgress = analysisProgress;
     this.prerequisitePackages = prerequisitePackages;
     this.cachingDependenciesSupplier = cachingDependenciesSupplier;
   }
@@ -282,7 +282,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
         case SkyValueRetriever.Restart unused:
           return null;
         case SkyValueRetriever.RetrievedValue v:
-          configuredTargetProgress.doneFetchedTarget();
+          analysisProgress.doneFetchedTarget();
           return v.value();
         case SkyValueRetriever.NoCachedData unused:
           break;
@@ -382,8 +382,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               toolchainContexts,
               computeDependenciesState.execGroupCollectionBuilder,
               state.computeDependenciesState.transitivePackages());
-      if (ans != null && configuredTargetProgress != null) {
-        configuredTargetProgress.doneConfigureTarget();
+      if (ans != null && analysisProgress != null) {
+        analysisProgress.doneConfigureTarget();
       }
       return ans;
     } catch (IncompatibleTargetChecker.IncompatibleTargetException e) {
