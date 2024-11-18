@@ -61,6 +61,7 @@ fi
 
 function set_up() {
     cd ${WORKSPACE_DIR}
+    add_rules_java MODULE.bazel
 }
 
 function tear_down() {
@@ -153,6 +154,7 @@ function test_modify_execution_info_various_types() {
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   echo "load('//$pkg:shell.bzl', 'starlark_shell')" > "$pkg/BUILD"
   cat >> "$pkg/BUILD" <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
 load("@rules_python//python:py_binary.bzl", "py_binary")
 
 starlark_shell(
