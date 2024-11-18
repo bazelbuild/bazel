@@ -985,6 +985,75 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     }
   }
 
+  /** Metadata for an artifact obtained via a path proxy. */
+  public static final class ProxyFileArtifactValue extends FileArtifactValue {
+    private final FileArtifactValue delegate;
+    private final Path path;
+
+    public ProxyFileArtifactValue(FileArtifactValue delegate, Path path) {
+      this.delegate = checkNotNull(delegate);
+      this.path = checkNotNull(path);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof ProxyFileArtifactValue that)) {
+        return false;
+      }
+      return this.delegate.equals(that.delegate) && this.path.equals(that.path);
+    }
+
+    @Override
+    public int hashCode() {
+      return HashCodes.hashObjects(delegate, path);
+    }
+
+    public Path getTargetPath() {
+      return path;
+    }
+
+    @Override
+    public FileStateType getType() {
+      return delegate.getType();
+    }
+
+    @Override
+    public byte[] getDigest() {
+      return delegate.getDigest();
+    }
+
+    @Override
+    public FileContentsProxy getContentsProxy() {
+      return delegate.getContentsProxy();
+    }
+
+    @Override
+    public long getSize() {
+      return delegate.getSize();
+    }
+
+    @Override
+    public long getModifiedTime() {
+      return delegate.getModifiedTime();
+    }
+
+    @Override
+    public boolean wasModifiedSinceDigest(Path path) throws IOException {
+      return delegate.wasModifiedSinceDigest(path);
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this)
+          .add("delegate", delegate)
+          .add("path", path)
+          .toString();
+    }
+  }
+
   private static final class SingletonMarkerValue extends FileArtifactValue implements Singleton {
     private static final byte[] FINGERPRINT = new byte[] {0x10};
 
