@@ -63,7 +63,8 @@ public record CompiledModuleFile(
       ExtendedEventHandler eventHandler)
       throws ExternalDepsException {
     StarlarkFile starlarkFile =
-        StarlarkFile.parse(ParserInput.fromUTF8(moduleFile.getContent(), moduleFile.getLocation()));
+        StarlarkFile.parse(
+            ParserInput.fromLatin1(moduleFile.getContent(), moduleFile.getLocation()));
     if (!starlarkFile.ok()) {
       Event.replayEventsOn(eventHandler, starlarkFile.errors());
       throw ExternalDepsException.withMessage(
