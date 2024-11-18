@@ -68,6 +68,8 @@ import com.google.devtools.build.lib.buildtool.BuildTool;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
@@ -112,6 +114,7 @@ import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkymeldModule;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
@@ -721,7 +724,7 @@ public abstract class BuildIntegrationTestCase {
   protected ConfiguredTarget getConfiguredTarget(String target)
       throws LabelSyntaxException, NoSuchPackageException, NoSuchTargetException,
           InterruptedException, TransitionException, InvalidConfigurationException {
-    getPackageManager().getTarget(events.reporter(), Label.parseCanonical(target));
+    getPackageManager().getTarget(events.reporter(), label(target));
     return getSkyframeExecutor()
         .getConfiguredTargetForTesting(events.reporter(), label(target), getTargetConfiguration());
   }
@@ -813,8 +816,15 @@ public abstract class BuildIntegrationTestCase {
   }
 
   /** Utility function: parse a string as a label. */
-  protected static Label label(String labelString) throws LabelSyntaxException {
-    return Label.parseCanonical(labelString);
+  protected Label label(String labelString) throws LabelSyntaxException, InterruptedException {
+    RepositoryMapping mainRepoMapping =
+        ((RepositoryMappingValue)
+                getSkyframeExecutor()
+                    .getEvaluator()
+                    .getExistingValue(RepositoryMappingValue.key(RepositoryName.MAIN)))
+            .getRepositoryMapping();
+    return Label.parseWithRepoContext(
+        labelString, Label.RepoContext.of(RepositoryName.MAIN, mainRepoMapping));
   }
 
   protected String run(Artifact executable, String... arguments) throws Exception {
