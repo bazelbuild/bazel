@@ -44,6 +44,20 @@ public class AnalysisProgressReceiverTest {
   }
 
   @Test
+  public void testDownloadedTargetCounted() {
+    AnalysisProgressReceiver progress = new AnalysisProgressReceiver();
+    progress.doneDownloadedConfiguredTarget();
+    String progressString1 = progress.getProgressString();
+
+    assertThat(progressString1).contains("1 target (1 remote cache hits) configured");
+
+    progress.doneConfigureTarget();
+    String progressString2 = progress.getProgressString();
+
+    assertThat(progressString2).contains("2 targets (1 remote cache hits) configured");
+  }
+
+  @Test
   public void testAspectCounted() {
     AnalysisProgressReceiver progress = new AnalysisProgressReceiver();
     progress.doneConfigureAspect();
@@ -59,6 +73,21 @@ public class AnalysisProgressReceiverTest {
     assertWithMessage("Two configured aspects should be visible in progress.")
         .that(progressString2.contains("0 targets and 2 aspects configured"))
         .isTrue();
+  }
+
+  @Test
+  public void testDownloadedAspectCounted() {
+    AnalysisProgressReceiver progress = new AnalysisProgressReceiver();
+    progress.doneDownloadedConfiguredAspect();
+    String progressString1 = progress.getProgressString();
+
+    assertThat(progressString1).contains("0 targets and 1 aspect (1 remote cache hits) configured");
+
+    progress.doneConfigureAspect();
+    String progressString2 = progress.getProgressString();
+
+    assertThat(progressString2)
+        .contains("0 targets and 2 aspects (1 remote cache hits) configured");
   }
 
   @Test

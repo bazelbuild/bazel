@@ -24,10 +24,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class AnalysisProgressReceiver {
 
   private final AtomicInteger configuredTargetsCompleted = new AtomicInteger();
-
-  private final AtomicInteger configuredTargetsFetched = new AtomicInteger();
-
+  private final AtomicInteger configuredTargetsDownloaded = new AtomicInteger();
   private final AtomicInteger configuredAspectsCompleted = new AtomicInteger();
+  private final AtomicInteger configuredAspectsDownloaded = new AtomicInteger();
 
   /** Register that a target has been configured. */
   void doneConfigureTarget() {
@@ -35,14 +34,20 @@ public class AnalysisProgressReceiver {
   }
 
   /** Register that a configured target has been downloaded from a remote cache. */
-  void doneFetchedTarget() {
+  void doneDownloadedConfiguredTarget() {
     configuredTargetsCompleted.incrementAndGet();
-    configuredTargetsFetched.incrementAndGet();
+    configuredTargetsDownloaded.incrementAndGet();
   }
 
   /** Register that a aspect has been configured. */
   void doneConfigureAspect() {
     configuredAspectsCompleted.incrementAndGet();
+  }
+
+  /** Register that a configured target has been downloaded from a remote cache. */
+  void doneDownloadedConfiguredAspect() {
+    configuredAspectsCompleted.incrementAndGet();
+    configuredAspectsDownloaded.incrementAndGet();
   }
 
   /**
@@ -51,8 +56,9 @@ public class AnalysisProgressReceiver {
    */
   public void reset() {
     configuredTargetsCompleted.set(0);
-    configuredTargetsFetched.set(0);
+    configuredTargetsDownloaded.set(0);
     configuredAspectsCompleted.set(0);
+    configuredAspectsDownloaded.set(0);
   }
 
   /**
@@ -62,12 +68,15 @@ public class AnalysisProgressReceiver {
   public String getProgressString() {
     String progress = "" + configuredTargetsCompleted + " ";
     progress += (configuredTargetsCompleted.get() != 1) ? "targets" : "target";
-    if (configuredTargetsFetched.get() > 1) {
-      progress += " (" + configuredTargetsFetched + " cache hits)";
+    if (configuredTargetsDownloaded.get() > 0) {
+      progress += " (" + configuredTargetsDownloaded + " remote cache hits)";
     }
     if (configuredAspectsCompleted.get() > 0) {
       progress += " and " + configuredAspectsCompleted + " ";
       progress += (configuredAspectsCompleted.get() != 1) ? "aspects" : "aspect";
+      if (configuredAspectsDownloaded.get() > 0) {
+        progress += " (" + configuredAspectsDownloaded + " remote cache hits)";
+      }
     }
     progress += " configured";
     return progress;

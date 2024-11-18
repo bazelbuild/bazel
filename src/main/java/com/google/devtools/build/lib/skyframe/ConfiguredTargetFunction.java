@@ -282,7 +282,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
         case SkyValueRetriever.Restart unused:
           return null;
         case SkyValueRetriever.RetrievedValue v:
-          analysisProgress.doneFetchedTarget();
+          analysisProgress.doneDownloadedConfiguredTarget();
           return v.value();
         case SkyValueRetriever.NoCachedData unused:
           break;

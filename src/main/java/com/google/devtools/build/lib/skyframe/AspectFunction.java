@@ -279,6 +279,7 @@ final class AspectFunction implements SkyFunction {
         case SkyValueRetriever.Restart unused:
           return null;
         case SkyValueRetriever.RetrievedValue v:
+          analysisProgressReceiver.doneDownloadedConfiguredAspect();
           return v.value();
         case SkyValueRetriever.NoCachedData unused:
           break;
