@@ -16,7 +16,6 @@
 
 """Bazel Python integration test framework."""
 
-import locale
 import os
 import shutil
 import socket
@@ -313,7 +312,7 @@ class TestBase(absltest.TestCase):
     if os.path.exists(abspath) and not os.path.isfile(abspath):
       raise IOError('"%s" (%s) exists and is not a file' % (path, abspath))
     self.ScratchDir(os.path.dirname(path))
-    with open(abspath, 'w') as f:
+    with open(abspath, 'w', encoding='utf-8') as f:
       if lines:
         for l in lines:
           f.write(l)
@@ -445,8 +444,7 @@ class TestBase(absltest.TestCase):
 
     self._worker_stdout.seek(0)
     stdout_lines = [
-        l.decode(locale.getpreferredencoding()).strip()
-        for l in self._worker_stdout.readlines()
+        l.decode('utf-8').strip() for l in self._worker_stdout.readlines()
     ]
     if stdout_lines:
       print('Local remote worker stdout')
@@ -455,8 +453,7 @@ class TestBase(absltest.TestCase):
 
     self._worker_stderr.seek(0)
     stderr_lines = [
-        l.decode(locale.getpreferredencoding()).strip()
-        for l in self._worker_stderr.readlines()
+        l.decode('utf-8').strip() for l in self._worker_stderr.readlines()
     ]
     if stderr_lines:
       print('Local remote worker stderr')
@@ -509,17 +506,13 @@ class TestBase(absltest.TestCase):
 
         stdout.seek(0)
         stdout_lines = [
-            l.decode(locale.getpreferredencoding()).rstrip()
-            if rstrip
-            else l.decode(locale.getpreferredencoding()).strip()
+            l.decode('utf-8').rstrip() if rstrip else l.decode('utf-8').strip()
             for l in stdout.readlines()
         ]
 
         stderr.seek(0)
         stderr_lines = [
-            l.decode(locale.getpreferredencoding()).rstrip()
-            if rstrip
-            else l.decode(locale.getpreferredencoding()).strip()
+            l.decode('utf-8').rstrip() if rstrip else l.decode('utf-8').strip()
             for l in stderr.readlines()
         ]
 
