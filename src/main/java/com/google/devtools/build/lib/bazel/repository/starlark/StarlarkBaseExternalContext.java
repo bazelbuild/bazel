@@ -265,11 +265,11 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
 
   /** Returns the file digests used by this context object so far. */
   public ImmutableMap<RepoRecordedInput.File, String> getRecordedFileInputs() {
-    return ImmutableMap.copyOf(recordedFileInputs);
+    return ImmutableSortedMap.copyOf(recordedFileInputs);
   }
 
   public ImmutableMap<Dirents, String> getRecordedDirentsInputs() {
-    return ImmutableMap.copyOf(recordedDirentsInputs);
+    return ImmutableSortedMap.copyOf(recordedDirentsInputs);
   }
 
   public ImmutableMap<RepoRecordedInput.EnvVar, Optional<String>> getRecordedEnvVarInputs()

@@ -244,10 +244,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                       .setUsagesDigest(
                           SingleExtensionUsagesValue.hashForEvaluation(
                               GsonTypeAdapterUtil.SINGLE_EXTENSION_USAGES_VALUE_GSON, usagesValue))
-                      .setRecordedFileInputs(
-                          ImmutableSortedMap.copyOf(moduleExtensionResult.recordedFileInputs()))
-                      .setRecordedDirentsInputs(
-                          ImmutableSortedMap.copyOf(moduleExtensionResult.recordedDirentsInputs()))
+                      .setRecordedFileInputs(moduleExtensionResult.recordedFileInputs())
+                      .setRecordedDirentsInputs(moduleExtensionResult.recordedDirentsInputs())
                       .setEnvVariables(ImmutableSortedMap.copyOf(envVariables))
                       .setGeneratedRepoSpecs(generatedRepoSpecs)
                       .setModuleExtensionMetadata(moduleExtensionMetadata)
