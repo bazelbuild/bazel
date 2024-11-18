@@ -148,8 +148,7 @@ public final class RunfilesSupport {
     @Override
     public Map<PathFragment, Artifact> getMapping() {
       if (cachedMapping == null) {
-        return runfiles.getRunfilesInputs(
-            /* eventHandler= */ null, /* location= */ null, repoMappingManifest);
+        return runfiles.getRunfilesInputs(repoMappingManifest);
       }
 
       Map<PathFragment, Artifact> result = cachedMapping.get();
@@ -163,9 +162,7 @@ public final class RunfilesSupport {
           return result;
         }
 
-        result =
-            runfiles.getRunfilesInputs(
-                /* eventHandler= */ null, /* location= */ null, repoMappingManifest);
+        result = runfiles.getRunfilesInputs(repoMappingManifest);
         cachedMapping = new WeakReference<>(result);
         return result;
       }
