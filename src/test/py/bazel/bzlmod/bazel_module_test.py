@@ -18,6 +18,7 @@ import os
 import pathlib
 import shutil
 import subprocess
+import sys
 import tempfile
 from absl.testing import absltest
 from src.test.py.bazel import test_base
@@ -1108,6 +1109,74 @@ class BazelModuleTest(test_base.TestBase):
     self.ScratchFile('BUILD.bazel', ['print(glob(["testdata/**"]))'])
     self.ScratchFile('testdata/WORKSPACE')
     self.RunBazel(['build', ':all'])
+
+  def testUnicodePaths(self):
+    if sys.getfilesystemencoding() != 'utf-8':
+      self.skipTest('Test requires UTF-8 by default (Python 3.7+)')
+
+    unicode_dir = 'äöüÄÖÜß'
+    self.ScratchFile(unicode_dir + '/MODULE.bazel', ['module(name = "module")'])
+    self.ScratchFile(
+        unicode_dir + '/BUILD',
+        [
+            'filegroup(name = "choose_me")',
+        ],
+    )
+    self.writeMainProjectFiles()
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "module")',
+            'local_path_override(',
+            '  module_name = "module",',
+            '  path = "%s",' % unicode_dir,
+            ')',
+        ],
+    )
+    self.RunBazel(['build', '@module//:choose_me'])
+
+  def testUnicodeTags(self):
+    unicode_str = 'äöüÄÖÜß'
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext = use_extension("extensions.bzl", "ext")',
+            'ext.tag(attr = "%s")' % unicode_str,
+            'use_repo(ext, "ext")',
+        ],
+    )
+    self.ScratchFile('BUILD')
+    self.ScratchFile(
+        'extensions.bzl',
+        [
+            'def repo_rule_impl(ctx):',
+            '  ctx.file("BUILD")',
+            '  print("DATA: " + ctx.attr.tag)',
+            'repo_rule = repository_rule(',
+            '  implementation = repo_rule_impl,',
+            '  attrs = {',
+            '    "tag": attr.string(),',
+            '  },',
+            ')',
+            'def ext_impl(module_ctx):',
+            '  repo_rule(',
+            '    name = "ext",',
+            '    tag = module_ctx.modules[0].tags.tag[0].attr,',
+            '  )',
+            'tag = tag_class(',
+            '  attrs = {',
+            '    "attr": attr.string(),',
+            '  },',
+            ')',
+            'ext = module_extension(  implementation = ext_impl,',
+            '  tag_classes = {',
+            '    "tag": tag,',
+            '  },',
+            ')',
+        ],
+    )
+    _, _, stderr = self.RunBazel(['build', '@ext//:all'])
+    self.assertIn('DATA: ' + unicode_str, '\n'.join(stderr))
 
 
 if __name__ == '__main__':
