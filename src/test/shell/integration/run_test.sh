@@ -201,20 +201,7 @@ function test_script_file_generation {
 }
 
 function test_consistent_command_line_encoding {
-  if "$is_windows"; then
-    # The JVM sets sun.jnu.encoding, which is used to encode command-line
-    # arguments to java.exe, based on the return value of GetACP() on Windows.
-    # On Windows with an English locale, GetACP() returns 1252, which is a
-    # variant of ISO 8859-1 that can represent the characters below, but not
-    # the full Unicode range.
-    # TODO: Fix this by patching the fusion manifest of the embedded java.exe to
-    #  force GetACP() to return 65001 (UTF-8).
-    # äöüÄÖÜß in UTF8
-    local arg=$(echo -e '\xC3\xA4\xC3\xB6\xC3\xBC\xC3\x84\xC3\x96\xC3\x9C\xC3\x9F')
-  else
-    # äöüÄÖÜß🌱 in UTF8
-    local arg=$(echo -e '\xC3\xA4\xC3\xB6\xC3\xBC\xC3\x84\xC3\x96\xC3\x9C\xC3\x9F\xF0\x9F\x8C\xB1')
-  fi
+  local -r arg="äöüÄÖÜß🌱"
 
   mkdir -p foo || fail "mkdir foo failed"
   echo 'sh_binary(name = "foo", srcs = ["foo.sh"])' > foo/BUILD
@@ -240,13 +227,7 @@ EOF
 }
 
 function test_consistent_env_var_encoding {
-  if "$is_windows"; then
-    # äöüÄÖÜß in UTF8
-    local env=$(echo -e '\xC3\xA4\xC3\xB6\xC3\xBC\xC3\x84\xC3\x96\xC3\x9C\xC3\x9F')
-  else
-    # äöüÄÖÜß🌱 in UTF8
-    local env=$(echo -e '\xC3\xA4\xC3\xB6\xC3\xBC\xC3\x84\xC3\x96\xC3\x9C\xC3\x9F\xF0\x9F\x8C\xB1')
-  fi
+  local -r env="äöüÄÖÜß🌱"
 
   mkdir -p foo || fail "mkdir foo failed"
   cat > foo/BUILD <<EOF
@@ -287,13 +268,7 @@ EOF
 }
 
 function test_consistent_working_directory_encoding {
-  if "$is_windows"; then
-    # äöüÄÖÜß in UTF8
-    local unicode_string=$(echo -e '\xC3\xA4\xC3\xB6\xC3\xBC\xC3\x84\xC3\x96\xC3\x9C\xC3\x9F')
-  else
-    # äöüÄÖÜß🌱 in UTF8
-    local unicode_string=$(echo -e '\xC3\xA4\xC3\xB6\xC3\xBC\xC3\x84\xC3\x96\xC3\x9C\xC3\x9F\xF0\x9F\x8C\xB1')
-  fi
+  local -r unicode_string="äöüÄÖÜß🌱"
 
   mkdir -p foo || fail "mkdir foo failed"
   cat > foo/BUILD <<EOF
