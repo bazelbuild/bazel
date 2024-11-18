@@ -827,7 +827,7 @@ static void StartServerAndConnect(
     const blaze_util::Path &server_dir, const WorkspaceLayout &workspace_layout,
     const string &workspace, const OptionProcessor &option_processor,
     const StartupOptions &startup_options, LoggingInfo *logging_info,
-    BlazeServer *server) {
+    BlazeServer *server, const string &build_label) {
   // Delete the old command_port file if it already exists. Otherwise we might
   // run into the race condition that we read the old command_port file before
   // the new server has written the new file and we try to connect to the old
@@ -855,7 +855,8 @@ static void StartServerAndConnect(
                 startup_options.io_nice_level);
 
   BAZEL_LOG(USER) << "Starting local " << startup_options.product_name
-                  << " server and connecting to it...";
+                  << " server (" << build_label << ")"
+                  << " and connecting to it...";
   BlazeServerStartup *server_startup;
   const int server_pid = ExecuteDaemon(
       server_exe, server_exe_args, PrepareEnvironmentForJvm(),
@@ -1051,12 +1052,13 @@ static ATTRIBUTE_NORETURN void RunClientServerMode(
     const string &workspace, const OptionProcessor &option_processor,
     const StartupOptions &startup_options, LoggingInfo *logging_info,
     const DurationMillis extract_data_duration,
-    const DurationMillis command_wait_duration_ms, BlazeServer *server) {
+    const DurationMillis command_wait_duration_ms, BlazeServer *server,
+    const string &build_label) {
   while (true) {
     if (!server->Connected()) {
       StartServerAndConnect(server_exe, server_exe_args, server_dir,
                             workspace_layout, workspace, option_processor,
-                            startup_options, logging_info, server);
+                            startup_options, logging_info, server, build_label);
     }
 
     // Check for the case when the workspace directory deleted and then gets
@@ -1462,10 +1464,12 @@ static void RunLauncher(const string &self_path,
                  option_processor, startup_options, logging_info,
                  extract_data_duration, command_wait_duration_ms, blaze_server);
   } else {
+    string build_label;
+    ExtractBuildLabel(self_path, &build_label);
     RunClientServerMode(server_exe, server_exe_args, server_dir,
                         workspace_layout, workspace, option_processor,
                         startup_options, logging_info, extract_data_duration,
-                        command_wait_duration_ms, blaze_server);
+                        command_wait_duration_ms, blaze_server, build_label);
   }
 }
 
