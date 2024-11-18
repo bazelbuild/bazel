@@ -1,9 +1,10 @@
+
 name: update-lockfiles
 
-on:
+on: master
   pull_request_target:
     branches:
-      - "release-**"
+      - "release-.."
     types:
       - closed
 
