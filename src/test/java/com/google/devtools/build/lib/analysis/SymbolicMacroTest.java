@@ -803,16 +803,19 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name, visibility, dep_nonconfigurable, dep_configurable):
+        def _impl(name, visibility, dep_nonconfigurable, dep_configurable, xyz_configurable):
             print("dep_nonconfigurable is %s" % dep_nonconfigurable)
             print("dep_configurable is %s" % dep_configurable)
+            print("xyz_configurable is %s" % xyz_configurable)
         my_macro = macro(
             implementation = _impl,
             attrs = {
               # Test label type, since LabelType#getDefaultValue returns null.
               "dep_nonconfigurable": attr.label(configurable=False),
-              # Try it again, this time in a select().
-              "dep_configurable": attr.label(configurable=True),
+              # Try it again, this time configurable. Select()-promotion doesn't apply to None.
+              "dep_configurable": attr.label(),
+              # Now do it for a value besides None. Select()-promotion applies.
+              "xyz_configurable": attr.string(),
             },
         )
         """);
@@ -826,7 +829,8 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
     assertContainsEvent("dep_nonconfigurable is None");
-    assertContainsEvent("dep_configurable is select({\"//conditions:default\": None})");
+    assertContainsEvent("dep_configurable is None");
+    assertContainsEvent("xyz_configurable is select({\"//conditions:default\": \"\"})");
   }
 
   @Test
@@ -1195,17 +1199,21 @@ Label("//conditions:default"): None})""");
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name, visibility, configurable_xyz, nonconfigurable_xyz):
+        def _impl(name, visibility,
+                  configurable_xyz, nonconfigurable_xyz, configurable_default_xyz):
             print("configurable_xyz is '%s' (type %s)" %
                 (str(configurable_xyz), type(configurable_xyz)))
             print("nonconfigurable_xyz is '%s' (type %s)" %
                     (str(nonconfigurable_xyz), type(nonconfigurable_xyz)))
+            print("configurable_default_xyz is '%s' (type %s)" %
+                (str(configurable_default_xyz), type(configurable_default_xyz)))
 
         my_macro = macro(
             implementation = _impl,
             attrs = {
               "configurable_xyz": attr.string(),
               "nonconfigurable_xyz": attr.string(configurable=False),
+              "configurable_default_xyz": attr.string(default = "xyz"),
             },
         )
         """);
@@ -1217,6 +1225,7 @@ Label("//conditions:default"): None})""");
             name = "abc",
             configurable_xyz = "configurable",
             nonconfigurable_xyz = "nonconfigurable",
+            # configurable_default_xyz not set
         )
         """);
 
@@ -1225,6 +1234,8 @@ Label("//conditions:default"): None})""");
     assertContainsEvent(
         "configurable_xyz is 'select({\"//conditions:default\": \"configurable\"})' (type select)");
     assertContainsEvent("nonconfigurable_xyz is 'nonconfigurable' (type string)");
+    assertContainsEvent(
+        "configurable_default_xyz is 'select({\"//conditions:default\": \"xyz\"})' (type select)");
   }
 
   @Test
@@ -1330,7 +1341,7 @@ Label("//conditions:default"): None})""");
                 "//Q:cond2": None,
                 "//conditions:default": "//D:D",
             }),
-            configurable_withdefault = select({"//conditions:default": None}),
+            configurable_withdefault = select({"//Q:cond": "//E:E", "//conditions:default": None}),
             visibility = ["//common:my_package_group"],
         )
         """);
@@ -1350,6 +1361,7 @@ Label("//conditions:default"): None})""");
             "//C:C",
             // //Q:cond2 maps to default, which doesn't exist for that attr
             "//D:D",
+            "//E:E",
             "//common:configurable_withdefault", // from attr default
             // `omitted` ignored, it has no default
             // `_implicit_default` ignored because it's implicit
