@@ -102,6 +102,7 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingEventListener;
@@ -1104,7 +1105,12 @@ public class BuildTool {
     private final RemoteAnalysisCachingEventListener listener;
     private final HashCode blazeInstallMD5;
     private final Future<FingerprintValueService> fingerprintValueServiceFuture;
+
+    /** Cache lookup parameter requiring integration with external version control. */
     private final IntVersion evaluatingVersion;
+
+    /** Cache lookup parameter requiring integration with external version control. */
+    private final Optional<ClientId> snapshot;
 
     // Non-final because the top level BuildConfigurationValue is determined just before analysis
     // begins in BuildView for the download/deserialization pass, which is later than when this
@@ -1154,12 +1160,16 @@ public class BuildTool {
       }
       this.blazeInstallMD5 = requireNonNull(env.getDirectories().getInstallMD5());
       this.diffFromEvaluatingVersion = env.getSkyframeExecutor().getDiffFromEvaluatingVersion();
-      if (env.getWorkspaceInfoFromDiff() == null) {
+
+      var workspaceInfoFromDiff = env.getWorkspaceInfoFromDiff();
+      if (workspaceInfoFromDiff == null) {
         // If there is no workspace info, we cannot confidently version the nodes. Use the min
         // version as a sentinel.
         this.evaluatingVersion = IntVersion.of(Long.MIN_VALUE);
+        this.snapshot = Optional.empty();
       } else {
-        this.evaluatingVersion = env.getWorkspaceInfoFromDiff().getEvaluatingVersion();
+        this.evaluatingVersion = workspaceInfoFromDiff.getEvaluatingVersion();
+        this.snapshot = workspaceInfoFromDiff.getSnapshot();
       }
     }
 
@@ -1208,7 +1218,8 @@ public class BuildTool {
                     topLevelConfigChecksum,
                     activeDirectoriesMatcher.toString(),
                     blazeInstallMD5,
-                    evaluatingVersion);
+                    evaluatingVersion,
+                    snapshot);
             logger.atInfo().log(
                 "Remote analysis caching SkyValue version: %s", frontierNodeVersionSingleton);
             listener.recordSkyValueVersion(frontierNodeVersionSingleton);

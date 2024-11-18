@@ -27,6 +27,7 @@ import com.google.common.primitives.Longs;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore.MissingFingerprintValueException;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId;
 import com.google.devtools.build.skyframe.IntVersion;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
@@ -37,6 +38,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
 /** Fetches remotely stored {@link SkyValue}s by {@link SkyKey}. */
@@ -332,7 +334,11 @@ public final class SkyValueRetriever {
   public static final class FrontierNodeVersion {
     public static final FrontierNodeVersion CONSTANT_FOR_TESTING =
         new FrontierNodeVersion(
-            "123", "string_for_testing", HashCode.fromInt(42), IntVersion.of(9000));
+            "123",
+            "string_for_testing",
+            HashCode.fromInt(42),
+            IntVersion.of(9000),
+            Optional.of(new ClientId("for_testing", 123)));
 
     // Fingerprints of version components.
     private final byte[] topLevelConfigFingerprint;
@@ -343,11 +349,14 @@ public final class SkyValueRetriever {
     // Fingerprint of the full version.
     private final byte[] precomputedFingerprint;
 
+    private final Optional<ClientId> clientId;
+
     public FrontierNodeVersion(
         String topLevelConfigChecksum,
         String directoryMatcherStringRepr,
         HashCode blazeInstallMD5,
-        IntVersion evaluatingVersion) {
+        IntVersion evaluatingVersion,
+        Optional<ClientId> clientId) {
       // TODO: b/364831651 - add more fields like source and blaze versions.
       this.topLevelConfigFingerprint = topLevelConfigChecksum.getBytes(UTF_8);
       this.directoryMatcherFingerprint = directoryMatcherStringRepr.getBytes(UTF_8);
@@ -359,6 +368,19 @@ public final class SkyValueRetriever {
               this.directoryMatcherFingerprint,
               this.blazeInstallMD5Fingerprint,
               this.evaluatingVersionFingerprint);
+
+      // This is undigested.
+      this.clientId = clientId;
+    }
+
+    /**
+     * Returns the snapshot of the workspace.
+     *
+     * <p>Can be empty if snapshots are not supported by the workspace.
+     */
+    @SuppressWarnings("unused") // to be integrated
+    public Optional<ClientId> getClientId() {
+      return clientId;
     }
 
     public byte[] getTopLevelConfigFingerprint() {

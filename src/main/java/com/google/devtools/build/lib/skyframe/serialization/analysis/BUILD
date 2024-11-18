@@ -127,3 +127,8 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
     ],
 )
+
+java_library(
+    name = "client_id",
+    srcs = ["ClientId.java"],
+)
