@@ -200,14 +200,69 @@ public interface StarlarkRuleFunctionsApi {
 
   @StarlarkMethod(
       name = "macro",
-      documented = false, // TODO(#19922): Document
+      doc =
+          """
+Defines a symbolic macro, which may be called in <code>BUILD</code> files or macros (legacy or
+symbolic) to define targets &ndash; possibly multiple ones.
+
+<p>The value returned by <code>macro(...)</code> must be assigned to a global variable in a .bzl
+file; the name of the global variable will be the macro symbol's name.
+
+<p>See <a href="/extending/macros">Macros</a> for a comprehensive guide on how to use symbolic
+macros.
+""",
       parameters = {
         @Param(
             name = "implementation",
             positional = false,
             named = true,
-            documented = false // TODO(#19922): Document
-            ),
+            doc =
+                """
+The Starlark function implementing this macro. The values of the macro's attributes are passed to
+the implementation function as keyword arguments. The implementation function must have at least two
+named parameters, <code>name</code> and <code>visibility</code>, and if the macro inherits
+attributes (see <code>inherit_attrs</code> below), it must have a <code>**kwargs</code> residual
+keyword parameter.
+
+<p>By convention, the implementation function should have a named parameter for any attribute that
+the macro needs to examine, modify, or pass to non-"main" targets, while the "bulk" inherited
+attributes which will be passed to the "main" target unchanged are passed as <code>**kwargs</code>.
+
+<p>The implementation function must not return a value. Instead, the implementation function
+<em>declares targets</em> by calling rule or macro symbols.
+
+<p>The name of any target or inner symbolic macro declared by a symbolic macro (including by any
+Starlark function that the macro's implementation function transitively calls) must either equal
+<code>name</code> (this is referred to as the "main" target) or start with <code>name</code>,
+followed by a separator chracter (<code>"_"</code>, <code>"-"</code>, or <code>"."</code>) and a
+string suffix. (Targets violating this naming scheme are allowed to be declared, but cannot be
+built, configured, or depended upon.)
+
+<p>By default, targets declared by a symbolic macro (including by any Starlark function that the
+macro's implementation function transitively calls) are visible only in the package containing the
+.bzl file defining the macro. To declare targets visible externally, <em>including to the caller of
+the symbolic macro</em>, the implementation function must set <code>visibility</code> appropriately
+&ndash; typically, by passing <code>visibility = visibility</code> to the rule or macro symbol being
+called.
+
+<p>The following APIs are unavailable within a macro implementation function and any Starlark
+function it transitively calls:
+<ul>
+  <li><a href="/reference/be/functions#package"><code>package()</code>, <code>licenses()</code>
+  <li><code>environment_group()</code>
+  <li><a href="../toplevel/native#glob"><code>native.glob()</code></a> &ndash; instead, you may pass
+    a glob into the macro via a label list attribute
+  <li><a href="../toplevel/native#subpackages"><code>native.subpackages()</code></a>
+  <li>(allowed in rule finalizers only, see <code>finalizer</code> below)
+    <a href="../toplevel/native#existing_rules"><code>native.existing_rules()</code></a>,
+    <a href="../toplevel/native#existing_rule"><code>native.existing_rule()</code></a>
+  <li>(for <code>WORKSPACE</code> threads)
+    <a href="../globals/workspace#workspace"><code>workspace()</code></a>,
+    <a href="../globals/workspace#register_toolchains"><code>register_toolchains()</code></a>,
+    <a href="../globals/workspace#register_execution_platforms><code>register_execution_platforms()</code></a>,
+    <a href="../globals/workspace#bind"><code>bind()</code></a>, repository rule instantiation
+</ul>
+"""),
         @Param(
             name = "attrs",
             allowedTypes = {
@@ -232,23 +287,6 @@ dictionary.
 <p>Attributes whose names start with <code>_</code> are private -- they cannot be passed at the call
 site of the rule. Such attributes can be assigned a default value (as in
 <code>attr.label(default="//pkg:foo")</code>) to create an implicit dependency on a label.
-
-<p>Certain APIs are not available within symbolic macros. These include:
-<ul>
-  <li><a href="/reference/be/functions#package"><code>package()</code>, <code>licenses()</code>
-  <li><code>environment_group()</code>
-  <li><a href="../toplevel/native#glob"><code>native.glob()</code></a> - instead, you may pass a
-    glob into the macro via a label list attribute
-  <li><a href="../toplevel/native#subpackages"><code>native.subpackages()</code></a>
-  <li>(allowed in rule finalizers only)
-    <a href="../toplevel/native#existing_rules"><code>native.existing_rules()</code></a>,
-    <a href="../toplevel/native#existing_rule"><code>native.existing_rule()</code></a>
-  <li>(for <code>WORKSPACE</code> threads)
-    <a href="../globals/workspace#workspace"><code>workspace()</code></a>,
-    <a href="../globals/workspace#register_toolchains"><code>register_toolchains()</code></a>,
-    <a href="../globals/workspace#register_execution_platforms><code>register_execution_platforms()</code></a>,
-    <a href="../globals/workspace#bind"><code>bind()</code></a>, repository rule instantiation
-</ul>
 
 <p>To limit memory usage, there is a cap on the number of attributes that may be declared.
 """),
@@ -309,10 +347,15 @@ value of the inherited <code>tags</code> attribute before appending an additiona
 
 <pre class="language-python">
 def _my_cc_library_impl(name, visibility, tags, **kwargs):
-    # Append a tag; tags attr is inherited from native.cc_library, and therefore is None unless
-    # explicitly set by the caller of my_cc_library()
+    # Append a tag; tags attr was inherited from native.cc_library, and
+    # therefore is None unless explicitly set by the caller of my_cc_library()
     my_tags = (tags or []) + ["my_custom_tag"]
-    native.cc_library(name = name, visibility = visibility, tags = my_tags, **kwargs)
+    native.cc_library(
+        name = name,
+        visibility = visibility,
+        tags = my_tags,
+        **kwargs
+    )
 
 my_cc_library = macro(
     implementation = _my_cc_library_impl,
