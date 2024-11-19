@@ -745,5 +745,6 @@ question-and-answer webs.
 
 ### [ls-lint](https://github.com/loeffel-io/ls-lint){: .external}
 
-<img src=“https://raw.githubusercontent.com/loeffel-io/ls-lint/master/assets/logo/ls-lint.png” width=“75" align=“right”>
+<img src="https://raw.githubusercontent.com/loeffel-io/ls-lint/master/assets/logo/ls-lint.png" width="75" align="right">
+
 An extremely fast directory and filename linter - Bring some structure to your project filesystem.
