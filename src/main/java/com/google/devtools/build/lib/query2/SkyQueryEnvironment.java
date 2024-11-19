@@ -509,14 +509,26 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   }
 
   private Map<SkyKey, Collection<Target>> getRawReverseDeps(
-      Iterable<SkyKey> transitiveTraversalKeys) throws InterruptedException {
+      Iterable<SkyKey> transitiveTraversalKeys,
+      ImmutableSetMultimap<SkyKey, SkyKey> extraGlobalDeps)
+      throws InterruptedException {
     return targetifyValues(
-        getReverseDepLabelsOfLabels(transitiveTraversalKeys), ImmutableSet.builder());
+        getReverseDepLabelsOfLabels(transitiveTraversalKeys, extraGlobalDeps),
+        ImmutableSet.builder());
   }
 
   protected Map<SkyKey, Iterable<SkyKey>> getReverseDepLabelsOfLabels(
-      Iterable<? extends SkyKey> labels) throws InterruptedException {
-    return graph.getReverseDeps(labels);
+      Iterable<? extends SkyKey> labels, ImmutableSetMultimap<SkyKey, SkyKey> extraGlobalDeps)
+      throws InterruptedException {
+    ImmutableSetMultimap<SkyKey, SkyKey> globalLabelToRdeps = extraGlobalDeps.inverse();
+    Map<SkyKey, Iterable<SkyKey>> reverseDeps = graph.getReverseDeps(labels);
+    ImmutableMap.Builder<SkyKey, Iterable<SkyKey>> resultsBuilder = ImmutableMap.builder();
+
+    for (Map.Entry<SkyKey, Iterable<SkyKey>> entry : reverseDeps.entrySet()) {
+      ImmutableSet<SkyKey> rdepsFromGlobals = globalLabelToRdeps.get(entry.getKey());
+      resultsBuilder.put(entry.getKey(), Iterables.concat(entry.getValue(), rdepsFromGlobals));
+    }
+    return resultsBuilder.buildOrThrow();
   }
 
   private Set<Label> getAllowedDeps(Rule rule) {
@@ -589,7 +601,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     ImmutableMap.Builder<SkyKey, Iterable<SkyKey>> resultsBuilder = ImmutableMap.builder();
     for (Map.Entry<SkyKey, Iterable<SkyKey>> entry : deps.entrySet()) {
       Iterable<SkyKey> depsLabels = Iterables.filter(entry.getValue(), IS_LABEL);
-      Iterable<SkyKey> globals = Iterables.concat(extraGlobalDeps.get(entry.getKey()));
+      ImmutableSet<SkyKey> globals = extraGlobalDeps.get(entry.getKey());
       depsLabels = Iterables.concat(depsLabels, globals);
       resultsBuilder.put(entry.getKey(), depsLabels);
     }
@@ -650,7 +662,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   protected Map<SkyKey, Collection<Target>> getReverseDepsOfLabels(
       Iterable<Label> targetLabels, QueryExpressionContext<Target> context)
       throws InterruptedException {
-    return getRawReverseDeps(Iterables.transform(targetLabels, label -> label));
+    return getRawReverseDeps(
+        Iterables.transform(targetLabels, label -> label), context.extraGlobalDeps());
   }
 
   /** Targetify SkyKeys of reverse deps and filter out targets whose deps are not allowed. */
