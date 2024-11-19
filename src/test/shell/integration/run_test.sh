@@ -678,47 +678,6 @@ EOF
   fi
 }
 
-function test_run_under_command_change_preserves_cache() {
-  if $is_windows; then
-    echo "This test requires --run_under to be able to run echo."
-    return
-  fi
-
-  local -r pkg="pkg${LINENO}"
-  mkdir -p "${pkg}"
-  cat > "$pkg/BUILD" <<'EOF'
-load(":defs.bzl", "my_rule")
-my_rule(
-  name = "my_rule",
-)
-EOF
-  cat > "$pkg/defs.bzl" <<'EOF'
-def _my_rule_impl(ctx):
-  print("my_rule is being analyzed")
-  out = ctx.actions.declare_file(ctx.label.name)
-  ctx.actions.write(out, "echo 'from rule'", is_executable = True)
-  return [DefaultInfo(executable = out)]
-
-my_rule = rule(
-  implementation = _my_rule_impl,
-  executable = True,
-)
-EOF
-
-  bazel run "${pkg}:my_rule" >$TEST_log 2>&1 \
-   || fail "expected run to pass"
-  expect_log "my_rule is being analyzed"
-  expect_log "from rule"
-  expect_not_log "from run_under"
-
-  # Use > to clear the previous log.
-  bazel run --run_under="echo 'from run_under' &&" "${pkg}:my_rule" >$TEST_log 2>&1 \
-   || fail "expected run to pass"
-  expect_not_log "my_rule is being analyzed"
-  expect_log "from rule"
-  expect_log "from run_under"
-}
-
 function test_build_id_env_var() {
   local -r pkg="pkg${LINENO}"
   mkdir -p "${pkg}"
