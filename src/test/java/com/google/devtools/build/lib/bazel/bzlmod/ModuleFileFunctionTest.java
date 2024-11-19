@@ -253,20 +253,18 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     assertThat(rootModuleFileValue.getOverrides())
         .containsExactly(
             "ddd",
-                SingleVersionOverride.create(
-                    Version.parse("18"), "", ImmutableList.of(), ImmutableList.of(), 0),
-            "eee", LocalPathOverride.create("somewhere/else"),
+            SingleVersionOverride.create(
+                Version.parse("18"), "", ImmutableList.of(), ImmutableList.of(), 0),
+            "eee",
+            new NonRegistryOverride(LocalPathRepoSpecs.create("somewhere/else")),
             "fff",
-                MultipleVersionOverride.create(
-                    ImmutableList.of(Version.parse("1.0"), Version.parse("2.0")), ""),
+            MultipleVersionOverride.create(
+                ImmutableList.of(Version.parse("1.0"), Version.parse("2.0")), ""),
             "ggg",
-                ArchiveOverride.create(
-                    ImmutableList.of("https://hello.com/world.zip"),
-                    ImmutableList.of(),
-                    ImmutableList.of(),
-                    "",
-                    "",
-                    0));
+            new NonRegistryOverride(
+                new ArchiveRepoSpecBuilder()
+                    .setUrls(ImmutableList.of("https://hello.com/world.zip"))
+                    .build()));
     assertThat(rootModuleFileValue.getNonRegistryOverrideCanonicalRepoNameLookup())
         .containsExactly(
             RepositoryName.create("eee+"), "eee",
@@ -319,8 +317,9 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     setUpWithBuiltinModules(
         ImmutableMap.of(
             "bazel_tools",
-            LocalPathOverride.create(
-                rootDirectory.getRelative("bazel_tools_original").getPathString())));
+            new NonRegistryOverride(
+                LocalPathRepoSpecs.create(
+                    rootDirectory.getRelative("bazel_tools_original").getPathString()))));
     scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "module(name='aaa')",
@@ -333,8 +332,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
     ModuleOverride bazelToolsOverride =
         result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE).getOverrides().get("bazel_tools");
-    assertThat(bazelToolsOverride).isInstanceOf(LocalPathOverride.class);
-    assertThat(bazelToolsOverride).isEqualTo(LocalPathOverride.create("./bazel_tools_new"));
+    assertThat(bazelToolsOverride)
+        .isEqualTo(new NonRegistryOverride(LocalPathRepoSpecs.create("./bazel_tools_new")));
   }
 
   @Test
@@ -634,7 +633,9 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
 
     // The version is empty here due to the override.
     SkyKey skyKey =
-        ModuleFileValue.key(createModuleKey("bbb", ""), LocalPathOverride.create("code_for_b"));
+        ModuleFileValue.key(
+            createModuleKey("bbb", ""),
+            new NonRegistryOverride(LocalPathRepoSpecs.create("code_for_b")));
     EvaluationResult<ModuleFileValue> result =
         evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     if (result.hasError()) {
@@ -672,7 +673,9 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     // ModuleFileFuncion.MODULE_OVERRIDES should be filled from command line options
     // Inject for testing
     Map<String, ModuleOverride> moduleOverride =
-        new LinkedHashMap<>(ImmutableMap.of("bbb", LocalPathOverride.create("used_override")));
+        new LinkedHashMap<>(
+            ImmutableMap.of(
+                "bbb", new NonRegistryOverride(LocalPathRepoSpecs.create("used_override"))));
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.copyOf(moduleOverride));
 
     FakeRegistry registry =
@@ -685,7 +688,9 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
 
     // The version is empty here due to the override.
     SkyKey skyKey =
-        ModuleFileValue.key(createModuleKey("bbb", ""), LocalPathOverride.create("used_override"));
+        ModuleFileValue.key(
+            createModuleKey("bbb", ""),
+            new NonRegistryOverride(LocalPathRepoSpecs.create("used_override")));
     EvaluationResult<ModuleFileValue> result =
         evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     if (result.hasError()) {
@@ -1382,9 +1387,9 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     ImmutableMap<String, NonRegistryOverride> builtinModules =
         ImmutableMap.of(
             "bazel_tools",
-            LocalPathOverride.create("/tools"),
+            new NonRegistryOverride(LocalPathRepoSpecs.create("/tools")),
             "local_config_platform",
-            LocalPathOverride.create("/local_config_platform"));
+            new NonRegistryOverride(LocalPathRepoSpecs.create("/local_config_platform")));
     setUpWithBuiltinModules(builtinModules);
     scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
@@ -1413,9 +1418,10 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     ImmutableMap<String, NonRegistryOverride> builtinModules =
         ImmutableMap.of(
             "bazel_tools",
-            LocalPathOverride.create(rootDirectory.getRelative("tools").getPathString()),
+            new NonRegistryOverride(
+                LocalPathRepoSpecs.create(rootDirectory.getRelative("tools").getPathString())),
             "local_config_platform",
-            LocalPathOverride.create("/local_config_platform"));
+            new NonRegistryOverride(LocalPathRepoSpecs.create("/local_config_platform")));
     setUpWithBuiltinModules(builtinModules);
     scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
