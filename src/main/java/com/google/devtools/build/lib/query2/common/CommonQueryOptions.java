@@ -203,6 +203,10 @@ public class CommonQueryOptions extends OptionsBase {
         : LabelPrinter.displayForm(mainRepoMapping);
   }
 
+  public LabelPrinter getLabelPrinterLegacy(StarlarkSemantics starlarkSemantics) {
+    return emitConsistentLabels ? LabelPrinter.starlark(starlarkSemantics) : LabelPrinter.LEGACY;
+  }
+
   ///////////////////////////////////////////////////////////
   // PROTO OUTPUT FORMATTER OPTIONS                        //
   ///////////////////////////////////////////////////////////

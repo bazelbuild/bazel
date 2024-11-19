@@ -931,6 +931,29 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
     assertThat(decompressedOut.toString(UTF_8)).isEqualTo("//fruits:melon\n//fruits:papaya\n");
   }
 
+  @Test
+  public void testConsistentLabels() throws Exception {
+    write(
+        "fruits/BUILD",
+        """
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(
+            name = "melon",
+            deps = [":papaya"],
+        )
+
+        foo_library(name = "papaya")
+
+        genquery(
+            name = "q",
+            expression = "deps(//fruits:melon)",
+            scope = [":melon"],
+            opts = ["--consistent_labels"],
+        )
+        """);
+    assertQueryResult("//fruits:q", "@@//fruits:melon", "@@//fruits:papaya");
+  }
+
   private void assertQueryResult(String queryTarget, String... expected) throws Exception {
     assertThat(getQueryResult(queryTarget).split("\n"))
         .asList()
