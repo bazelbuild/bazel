@@ -25,8 +25,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
-import com.google.devtools.build.lib.analysis.test.TestConfiguration;
-import com.google.devtools.build.lib.analysis.test.TestTrimmingLogic;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -300,10 +298,6 @@ public final class OutputPathMnemonicComputer {
       return "";
     }
 
-    if (!toOptions.contains(TestConfiguration.TestOptions.class)) {
-      baselineOptions = TestTrimmingLogic.trim(baselineOptions);
-    }
-
     // TODO(blaze-configurability-team): As a mild performance update, getFirst already includes
     //   details of the corresponding option. Could incorporate this instead of hashChosenOptions
     //   regenerating the OptionDefinitions and values.
@@ -313,8 +307,8 @@ public final class OutputPathMnemonicComputer {
     //   trimmings. See longform note in {@link ConfiguredTargetKey} for details.
     ImmutableSet<String> chosenNativeOptions =
         diff.getFirst().keySet().stream()
+            .filter(optionDef -> !explicitInOutputPathOptions.contains(optionDef.getOptionName()))
             .map(OptionDefinition::getOptionName)
-            .filter(optionName -> !explicitInOutputPathOptions.contains(optionName))
             .collect(toImmutableSet());
     // Note: getChangedStarlarkOptions includes all changed options, added options and removed
     //   options between baselineOptions and toOptions. This is necessary since there is no current
