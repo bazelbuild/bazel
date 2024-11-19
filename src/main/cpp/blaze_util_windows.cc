@@ -12,8 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// clang-format off
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+// clang-format on
 
 #include <fcntl.h>
 #include <io.h>
@@ -28,10 +30,12 @@
 #include <cstdlib>
 #include <memory>
 #include <mutex>  // NOLINT
+#include <optional>
 #include <set>
 #include <sstream>
 #include <thread>       // NOLINT (to silence Google-internal linter)
 #include <type_traits>  // static_assert
+#include <utility>
 #include <vector>
 
 #include "src/main/cpp/blaze_util.h"
@@ -1087,9 +1091,9 @@ uint64_t WindowsClock::GetMilliseconds() const {
   return GetMillisecondsAsLargeInt(kFrequency).QuadPart;
 }
 
-LockHandle AcquireLock(const std::string& name, const blaze_util::Path& path,
-                       LockMode mode, bool batch_mode, bool block,
-                       uint64_t* wait_time) {
+std::pair<LockHandle, std::optional<DurationMillis>> AcquireLock(
+    const std::string& name, const blaze_util::Path& path, LockMode mode,
+    bool batch_mode, bool block) {
   DWORD desired_access = GENERIC_READ;
   if (mode == LockMode::kExclusive) {
     desired_access |= GENERIC_WRITE;
@@ -1164,8 +1168,8 @@ LockHandle AcquireLock(const std::string& name, const blaze_util::Path& path,
   // a concurrent process can read and display it. On Windows we can't do so
   // because locks are mandatory, thus we cannot read the file concurrently.
 
-  *wait_time = GetMillisecondsMonotonic() - start_time;
-  return reinterpret_cast<LockHandle>(handle);
+  return std::make_pair(reinterpret_cast<LockHandle>(handle),
+                        DurationMillis(start_time, GetMillisecondsMonotonic()));
 }
 
 void ReleaseLock(LockHandle lock_handle) {
