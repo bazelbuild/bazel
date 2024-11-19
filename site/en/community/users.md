@@ -1,5 +1,5 @@
-Project: /_project.yaml
-Book: /_book.yaml
+Project: /\_project.yaml
+Book: /\_book.yaml
 
 # Who's Using Bazel
 
@@ -37,7 +37,7 @@ Asana is a web and mobile application designed to help teams track their work.
 In their own words:
 
 > Bazel has increased reliability, stability, and speed for all of builds/tests
-at Asana. We no longer need to clean because of incorrect caches.
+> at Asana. We no longer need to clean because of incorrect caches.
 
 ### [Ascend.io](https://ascend.io)
 
@@ -55,9 +55,9 @@ patterns on silicon through lithography.
 ### [Beeswax](https://www.beeswax.com/){: .external}
 
 > Beeswax is a New York based startup that provides real time bidding as
-service. Bazel powers their Jenkins based continuous integration and deployment
-framework. Beeswax loves Bazel because it is blazingly fast, correct and well
-supported across many languages and platforms.
+> service. Bazel powers their Jenkins based continuous integration and deployment
+> framework. Beeswax loves Bazel because it is blazingly fast, correct and well
+> supported across many languages and platforms.
 
 ### [Braintree](https://www.braintreepayments.com){: .external}
 
@@ -69,6 +69,7 @@ even posted a
 [nice piece about how their switch to Bazel went](https://www.pgrs.net/2015/09/01/migrating-from-gradle-to-bazel/).
 
 ### [Canva](https://www.canva.com/){: .external}
+
 <img src="https://upload.wikimedia.org/wikipedia/commons/b/bb/Canva_Logo.svg" width="90" align="right">
 
 Canva leverages Bazel to manage its large polyglot codebase, which includes
@@ -78,6 +79,7 @@ decreases in average CI build times, and it continues to become the foundation
 of fast, reproducible, and standardised software builds at the company.
 
 ### [CarGurus](https://www.cargurus.com){: .external}
+
 <img src="https://www.cargurus.com/gfx/reskin/logos/logo_CarGurus.svg" width="150" align="right">
 
 CarGurus is on a mission to build the world's most trusted and transparent
@@ -95,11 +97,11 @@ trusted source for home seekers.
 Databricks provides cloud-based integrated workspaces based on Apache Spark™.
 
 > The Databricks codebase is a Monorepo, containing the Scala code that powers
-most of our services, Javascript for front-end UI, Python for scripting,
-Jsonnet to configure our infrastructure, and much more [...] Even though our
-monorepo contains a million lines of Scala, working with code within is fast
-and snappy.
-([Speedy Scala Builds with Bazel at Databricks](https://databricks.com/blog/2019/02/27/speedy-scala-builds-with-bazel-at-databricks.html))
+> most of our services, Javascript for front-end UI, Python for scripting,
+> Jsonnet to configure our infrastructure, and much more [...] Even though our
+> monorepo contains a million lines of Scala, working with code within is fast
+> and snappy.
+> ([Speedy Scala Builds with Bazel at Databricks](https://databricks.com/blog/2019/02/27/speedy-scala-builds-with-bazel-at-databricks.html))
 
 ### [Dataform](https://dataform.co){: .external}
 
@@ -111,16 +113,18 @@ After the migration to Bazel, they
 [reported many benefits](https://github.com/bazelbuild/rules_nodejs#user-testimonials){: .external},
 including:
 
-> * Faster CI: we enabled the remote build caching which has reduced our average build time from 30 minutes to 5 (for the entire repository).
-> * Improvements to local development: no more random bash scripts that you forget to run, incremental builds reduced to seconds from minutes
-> * Developer setup time: New engineers can build all our code with just 3 dependencies - bazel, docker and the JVM. The last engineer to join our team managed to build all our code in < 30 minutes on a brand new, empty laptop
+> - Faster CI: we enabled the remote build caching which has reduced our average build time from 30 minutes to 5 (for the entire repository).
+> - Improvements to local development: no more random bash scripts that you forget to run, incremental builds reduced to seconds from minutes
+> - Developer setup time: New engineers can build all our code with just 3 dependencies - bazel, docker and the JVM. The last engineer to join our team managed to build all our code in < 30 minutes on a brand new, empty laptop
 
 ### [Deep Silver FISHLABS](https://www.dsfishlabs.com){: .external}
+
 Deep Silver FISHLABS is a developer of high-end 3D games. They use Bazel with
 C++/Python/Go/C as a base for their internal build tooling and especially for
 baking and deploying all their 3D Assets.
 
 ### [Dropbox](https://www.dropbox.com/){: .external}
+
 <img src="/community/images/dropbox.png" width="150" align="right">
 At Dropbox, Bazel is a key component to our distributed build and test
 environment. We use Bazel to combine TypeScript/Python/Go/C/Rust into reliable
@@ -132,11 +136,12 @@ Engel & Völkers AG is a privately owned German company that, via a series of
 franchised offices, provides services related to real estate transactions.
 
 > One of our internal project has seen a decrease of compilation time from 11
-minutes to roughly 1 minute, this was an impressive achievement and we are
-currently working on bringing Bazel to more projects.
-([Experimenting with Google Cloud Build and Bazel](https://www.engelvoelkers.com/en/tech/engineering/software-engineering/experimenting-with-google-cloud-build-and-bazel/)){: .external}
+> minutes to roughly 1 minute, this was an impressive achievement and we are
+> currently working on bringing Bazel to more projects.
+> ([Experimenting with Google Cloud Build and Bazel](https://www.engelvoelkers.com/en/tech/engineering/software-engineering/experimenting-with-google-cloud-build-and-bazel/)){: .external}
 
 ### [Etsy](https://www.etsy.com/){: .external}
+
 <img src="https://upload.wikimedia.org/wikipedia/commons/a/aa/Etsy_logo_lg_rgb.png" width="150" align="right">
 
 Etsy is an e-commerce website focused on handmade or vintage items and supplies,
@@ -155,6 +160,7 @@ The website is fully built and deployed with an Angular and Bazel workflow
 ([source](https://twitter.com/MattMackay/status/1113947685508341762){: .external}).
 
 ### [FINDMINE](http://www.findmine.com){: .external}
+
 <img src="https://www.findmine.com/static/assets/landpage/findmine-color-logo.png" width="150" align="right">
 
 FINDMINE is a automation technology for the retail industry that uses machine
@@ -171,6 +177,7 @@ code from protobuf definitions.
 [Read about how we run individual JUnit 5 tests in isolation with Bazel.](https://flexport.engineering/connecting-bazel-and-junit5-by-transforming-arguments-46440c6ea068)
 
 ### [Foursquare](https://foursquare.com){: .external}
+
 <img src="https://upload.wikimedia.org/wikipedia/commons/9/99/FSQ_logo.png" width="150" align="right">
 
 Foursquare's mission is to create technology that constructs meaningful
@@ -180,12 +187,14 @@ applications, including complex codegen and container build processes, with
 Bazel.
 
 ### [GermanTechJobs](https://germantechjobs.de){: .external}
+
 <img src="https://upload.wikimedia.org/wikipedia/commons/9/98/GermanTechJobs_Logo.png" width="150" align="right">
 
 Bazel has simplified our workflows 10-fold and enabled shipping features at
 scale.
 
 ### [Google](https://google.com){: .external}
+
 <img src="https://upload.wikimedia.org/wikipedia/commons/2/2f/Google_2015_logo.svg" width="150" align="right">
 
 Bazel was designed to be able to scale to Google's needs and meet Google's
@@ -196,16 +205,17 @@ builds every day.
 ### [Huawei](http://www.huawei.com/){: .external}
 
 > Huawei Technologies is using Bazel in about 30 projects, they are Java/Scala/Go
-projects, except for Go projects, others originally were built by Maven. We
-write a simple tool to translate a Maven-built project into Bazel-built one.
-More and more projects will use Bazel in recent future.
+> projects, except for Go projects, others originally were built by Maven. We
+> write a simple tool to translate a Maven-built project into Bazel-built one.
+> More and more projects will use Bazel in recent future.
 
 ### [IMC Trading](https://imc.com){: .external}
+
 <img src="https://upload.wikimedia.org/wikipedia/commons/1/17/IMC_Logo.svg" width="150" align="right">
 
 > IMC is a global proprietary trading firm and market maker headquarted in
-Amsterdam. We are using Bazel to continuously build and test our
-Java/C++/Python/SystemVerilog projects.
+> Amsterdam. We are using Bazel to continuously build and test our
+> Java/C++/Python/SystemVerilog projects.
 
 ### [Improbable.io](https://improbable.io/){: .external}
 
@@ -241,10 +251,10 @@ C/C++/Objective-C/Objective-C++
 ([source](https://twitter.com/thi_dt/status/1253334262020886532){: .external}).
 
 > After switching to Bazel, we were able to achieve a huge improvement in the
-build times. This brought a significant improvement in the turn-around time
-during a QA period. Distributing a new build to our testers no longer means
-another hour waiting for building and testing.
-([Improving Build Performance of LINE for iOS with Bazel](https://engineering.linecorp.com/en/blog/improving-build-performance-line-ios-bazel/){: .external})
+> build times. This brought a significant improvement in the turn-around time
+> during a QA period. Distributing a new build to our testers no longer means
+> another hour waiting for building and testing.
+> ([Improving Build Performance of LINE for iOS with Bazel](https://engineering.linecorp.com/en/blog/improving-build-performance-line-ios-bazel/){: .external})
 
 ### [LingoChamp](https://www.liulishuo.com/en){: .external}
 
@@ -287,14 +297,12 @@ The Meetup engineering team contributes to
 maintainer of [rules_avro](https://github.com/meetup/rules_avro){: .external}
 and [rules_openapi](https://github.com/meetup/rules_openapi){: .external}.
 
-
 ### [Nvidia](https://www.nvidia.com/){: .external}
 
 > At Nvidia we have been using dazel(docker bazel) for python to work around
-some of bazel's python short comings. Everything else runs in normal bazel
-(Mostly Go / Scala/ C++/ Cuda)
-([source](https://twitter.com/rwhitcomb/status/1080887723433447424){: .external})
-
+> some of bazel's python short comings. Everything else runs in normal bazel
+> (Mostly Go / Scala/ C++/ Cuda)
+> ([source](https://twitter.com/rwhitcomb/status/1080887723433447424){: .external})
 
 ### [Peloton Technology](http://www.peloton-tech.com){: .external}
 
@@ -327,37 +335,39 @@ Pinterest is the world’s catalog of ideas. They use Bazel to build various
 backend services (Java/C++) and the iOS application (Objective-C/C++).
 
 > We identified Bazel was the best fit for our goals to build a foundation for
-an order of magnitude improvement in performance, eliminate variability in
-build environments and adopt incrementally. As a result, we’re now shipping all
-our iOS releases using Bazel.
-[Developing fast & reliable iOS builds at Pinterest](https://medium.com/@Pinterest_Engineering/developing-fast-reliable-ios-builds-at-pinterest-part-one-cb1810407b92)
+> an order of magnitude improvement in performance, eliminate variability in
+> build environments and adopt incrementally. As a result, we’re now shipping all
+> our iOS releases using Bazel.
+> [Developing fast & reliable iOS builds at Pinterest](https://medium.com/@Pinterest_Engineering/developing-fast-reliable-ios-builds-at-pinterest-part-one-cb1810407b92)
 
 ### [PubRef](https://github.com/pubref){: .external}
 
-PubRef is an emerging scientific publishing platform.  They use Bazel with
+PubRef is an emerging scientific publishing platform. They use Bazel with
 [rules_closure](https://github.com/bazelbuild/rules_closure){: .external} to build the
 frontend, native java rules to build the main backend,
 [rules_go](https://github.com/bazelbuild/rules_go){: .external},
 [rules_node](https://github.com/pubref/rules_node){: .external}, and
 [rules_kotlin](https://github.com/pubref/rules_kotlin){: .external} to build assorted
-backend services.  [rules_protobuf](https://github.com/pubref/rules_protobuf){: .external} is
+backend services. [rules_protobuf](https://github.com/pubref/rules_protobuf){: .external} is
 used to assist with gRPC-based communication between backend services.
 PubRef.org is based in Boulder, CO.
 
 ### [Redfin](https://redfin.com/){: .external}
+
 Redfin is a next-generation real estate brokerage with full-service local
 agents. They use Bazel to build and deploy the website and various backend
 services.
 
 > With the conversion mostly behind us, things are greatly improved! Our CI
-builds are faster (*way* faster: they used to take 40–90 minutes, and now dev
-builds average 5–6 minutes). Reliability is far higher, too. This is harder to
-quantify, but the shift from unexplained build failures being something that
-“just happens” to being viewed as real problems to be solved has put us on a
-virtuous cycle of ever-increasing reliability.
-([We Switched from Maven to Bazel and Builds Got 10x Faster](https://redfin.engineering/we-switched-from-maven-to-bazel-and-builds-got-10x-faster-b265a7845854))
+> builds are faster (_way_ faster: they used to take 40–90 minutes, and now dev
+> builds average 5–6 minutes). Reliability is far higher, too. This is harder to
+> quantify, but the shift from unexplained build failures being something that
+> “just happens” to being viewed as real problems to be solved has put us on a
+> virtuous cycle of ever-increasing reliability.
+> ([We Switched from Maven to Bazel and Builds Got 10x Faster](https://redfin.engineering/we-switched-from-maven-to-bazel-and-builds-got-10x-faster-b265a7845854))
 
 ### [Ritual](https://ritual.co){: .external}
+
 <img src="https://lh3.googleusercontent.com/7Ir6j25ROnsXhtQXveOzup33cizxLf-TiifSC1cI6op0bQVB-WePmPjJOfXUBQ0L3KpkheObAiS28e-TS8hZtDzxOIc" width="150" align="right">
 
 Ritual is a mobile pick up app, connecting restaurants with customers to offer
@@ -371,17 +381,20 @@ in 2020 ([source](https://twitter.com/wew/status/1326957862816509953){: .externa
 details about their process, see their [engineering blog](https://eng.snap.com/blog/){: .external}.
 
 ### [Stripe](https://stripe.com){: .external}
+
 <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/ba/Stripe_Logo%2C_revised_2016.svg/320px-Stripe_Logo%2C_revised_2016.svg.png" width="150" align="right">
 
 Stripe provides mobile payment solutions. They use Bazel in their build and test pipelines, as detailed in their [engineering blog](https://stripe.com/blog/fast-secure-builds-choose-two){: .external}.
 
 ### [Tinder](https://tinder.com){: .external}
+
 <img src="https://policies.tinder.com/static/b0327365f4c0a31c4337157c10e9fadf/c1b63/tinder_full_color_watermark.png" width="150" align="right">
 
 Tinder migrated its iOS app from CocoaPods to Bazel
 in 2021 ([source](https://medium.com/tinder/bazel-hermetic-toolchain-and-tooling-migration-c244dc0d3ae){: .external}).
 
 ### [Tink](https://tink.com/){: .external}
+
 <img src="https://cdn.tink.se/tink-logos/LOW/Tink_Black.png" width="150" align="right">
 
 Tink is a european fintech, building the best way to connect to banks across
@@ -404,6 +417,7 @@ where they explain how Bazel sped up their builds. The build duration went from
 caching.
 
 ### [Trunk.io](https://trunk.io/merge/trunk-merge-and-bazel){: .external}
+
 <img src="/community/images/trunk-logo-dark.svg" width="150" align="right">
 
 Trunk is a San Francisco-based company backed by Andreessen Horowitz and Initialized Capital. Trunk offers a powerful pull request merge service with first-class support for the Bazel build system. By leveraging Bazel's understanding of dependencies within a codebase, Trunk's merge service intelligently creates parallel merge lanes, allowing independent changes to be tested and merged simultaneously.
@@ -417,12 +431,14 @@ build tool
 ([source](https://groups.google.com/forum/#!msg/pants-devel/PHVIbVDLhx8/LpSKIP5cAwAJ)).
 
 ### [Two Sigma](https://www.twosigma.com/){: .external}
+
 <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c6/Two_Sigma_logo.svg/2880px-Two_Sigma_logo.svg.png" width="150" align="right">
 
 Two Sigma is a New York-headquartered technology company dedicated to finding
 value in the world’s data.
 
 ### [TypeDB](https://typedb.com){: .external}
+
 <img src="/community/images/typedb.png" alt="TypeDB Logo" width="150" align="right">
 
 TypeDB is a database technology that can be used to intuitively model
@@ -443,6 +459,7 @@ is likely one of the largest Go repositories using Bazel. See the article
 to learn more about their experience.
 
 ### [Uber Advanced Technologies Group](https://www.uber.com/info/atg/){: .external}
+
 <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/62/Uber_logo.svg/220px-Uber_logo.svg.png" width="150" align="right">
 
 Uber Advanced Technologies Group is focused on autonomous vehicle efforts at
@@ -450,6 +467,7 @@ Uber, including trucking/freight and autonomous ride sharing. The organization
 uses Bazel as its primary build system.
 
 ### [Vistar Media](http://vistarmedia.com){: .external}
+
 Vistar Media is an advertising platform that enables brands to reach consumers
 based on their behavior in the physical world. Their engineering team is
 primarily based out of Philadelphia and is using Bazel for builds, deploys, to
@@ -457,6 +475,7 @@ speed up testing, and to consolidate repositories written with a variety of
 different technologies.
 
 ### [VMware](https://www.vmware.com/){: .external}
+
 VMware uses Bazel to produce deterministic, reliable builds while developing
 innovative products for their customers.
 
@@ -466,19 +485,18 @@ Wix is a cloud-based web development platform. Their backend uses Java and Scala
 code. They use remote execution with Google Cloud Build.
 
 > We have seen about 5 times faster clean builds when running with bazel remote
-execution which utilizes bazel’s great build/test parallelism capabilities when
-it dispatches build/test actions to a worker farm. Average build times are more
-than 10 times faster due to the utilization of bazel’s aggressive caching
-mechanism.
-([Migrating to Bazel from Maven or Gradle? 5 crucial questions you should ask yourself](https://medium.com/wix-engineering/migrating-to-bazel-from-maven-or-gradle-5-crucial-questions-you-should-ask-yourself-f23ac6bca070){: .external})
+> execution which utilizes bazel’s great build/test parallelism capabilities when
+> it dispatches build/test actions to a worker farm. Average build times are more
+> than 10 times faster due to the utilization of bazel’s aggressive caching
+> mechanism.
+> ([Migrating to Bazel from Maven or Gradle? 5 crucial questions you should ask yourself](https://medium.com/wix-engineering/migrating-to-bazel-from-maven-or-gradle-5-crucial-questions-you-should-ask-yourself-f23ac6bca070){: .external})
 
 ### [Zenly](https://zen.ly/){: .external}
 
 Zenly is a live map of your friends and family. It’s the most fun way to meet up
 — or just see what’s up! — so you can feel together, even when you're apart.
 
-
-***
+---
 
 ## Open source projects using Bazel {:#open-source-projects-using-Bazel}
 
@@ -582,10 +600,12 @@ Grakn (https://grakn.ai/) is the knowledge graph engine to organise complex
 networks of data and make it queryable.
 
 ### [GRPC](http://www.grpc.io){: .external}
+
 A language-and-platform-neutral remote procedure call system.
 (Bazel is a supported, although not primary, build system.)
 
 ### [gVisor](https://github.com/google/gvisor){: .external}
+
 gVisor is a container runtime sandbox.
 
 ### [Guetzli](https://github.com/google/guetzli/){: .external}
@@ -721,6 +741,7 @@ cryptographic APIs that are secure, easy to use correctly, and hard(er) to
 misuse.
 
 ### [TensorFlow](http://tensorflow.org){: .external}
+
 <img src="https://upload.wikimedia.org/wikipedia/commons/a/a4/TensorFlowLogo.png" width="150" align="right">
 
 An open source software library for machine intelligence.
@@ -742,3 +763,9 @@ architecture.
 
 ZhihuDailyPurify is a light weight version of Zhihu Daily, a Chinese
 question-and-answer webs.
+
+### [ls-lint](https://github.com/loeffel-io/ls-lint){: .external}
+
+<img src="https://raw.githubusercontent.com/loeffel-io/ls-lint/master/assets/logo/ls-lint.png" width="100" align="right">
+
+An extremely fast directory and filename linter - Bring some structure to your project filesystem.
