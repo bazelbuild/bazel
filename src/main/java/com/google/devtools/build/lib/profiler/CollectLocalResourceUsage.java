@@ -137,7 +137,10 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
     collectors.add(new SystemCpuUsageCollector(osBean));
     collectors.add(new SystemMemoryUsageCollector(osBean));
 
-    if (collectWorkerDataInProfiler) {
+    if (collectWorkerDataInProfiler
+        && (OS.getCurrent() == OS.LINUX || OS.getCurrent() == OS.DARWIN)) {
+      // Enabling the WorkerMemoryUsageCollector will cause hangs on Windows. We should only enable
+      // it on Linux and Darwin.
       collectors.add(new WorkerMemoryUsageCollector(workerProcessMetricsCollector));
     }
     if (collectLoadAverage) {
