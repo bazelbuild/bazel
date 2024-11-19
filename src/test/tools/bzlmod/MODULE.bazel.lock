@@ -79,7 +79,8 @@
     "https://bcr.bazel.build/modules/rules_java/7.10.0/MODULE.bazel": "530c3beb3067e870561739f1144329a21c851ff771cd752a49e06e3dc9c2e71a",
     "https://bcr.bazel.build/modules/rules_java/7.2.0/MODULE.bazel": "06c0334c9be61e6cef2c8c84a7800cef502063269a5af25ceb100b192453d4ab",
     "https://bcr.bazel.build/modules/rules_java/8.3.2/MODULE.bazel": "7336d5511ad5af0b8615fdc7477535a2e4e723a357b6713af439fe8cf0195017",
-    "https://bcr.bazel.build/modules/rules_java/8.3.2/source.json": "76aeec36622f7ff942e691352a548d3cc808c9dc6c195120d06ef7e4f0632992",
+    "https://bcr.bazel.build/modules/rules_java/8.5.0/MODULE.bazel": "c081eda83625b6d97144f2da9dd5f074ecd56ba10f238257e7a90f56ee8a9c3c",
+    "https://bcr.bazel.build/modules/rules_java/8.5.0/source.json": "8aa0f3979d4c41e8575581e877eb2073a922c8f056fe74a67ca12eabf9e58715",
     "https://bcr.bazel.build/modules/rules_jvm_external/4.4.2/MODULE.bazel": "a56b85e418c83eb1839819f0b515c431010160383306d13ec21959ac412d2fe7",
     "https://bcr.bazel.build/modules/rules_jvm_external/5.1/MODULE.bazel": "33f6f999e03183f7d088c9be518a63467dfd0be94a11d0055fe2d210f89aa909",
     "https://bcr.bazel.build/modules/rules_jvm_external/6.3/MODULE.bazel": "c998e060b85f71e00de5ec552019347c8bca255062c990ac02d051bb80a38df0",
@@ -263,45 +264,25 @@
         ]
       }
     },
-    "@@rules_java+//java:extensions.bzl%compatibility_proxy": {
+    "@@rules_java+//java:rules_java_deps.bzl%compatibility_proxy": {
       "general": {
-        "bzlTransitiveDigest": "sY6ScZ/D2fHhfhAXoGfro9vBFDTnZcZeD24Y35G3RQ8=",
-        "usagesDigest": "oTMuZ87Uif8roeNCdLa40yt9GNy30+6DDYIXqCEjm7I=",
+        "bzlTransitiveDigest": "0sQbPK5iRmD8OE3RjFkSKkyZQ8AX+s6fCtyM4TtjrQo=",
+        "usagesDigest": "gTu8Srf8G7tL645OdQBCe0C/Rg1drH4YKoQ4L8eL3K4=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
         "generatedRepoSpecs": {
           "compatibility_proxy": {
-            "bzlFile": "@@rules_java+//java:repositories.bzl",
+            "bzlFile": "@@rules_java+//java:rules_java_deps.bzl",
             "ruleClassName": "_compatibility_proxy_repo_rule",
             "attributes": {}
           }
         },
         "recordedRepoMappingEntries": [
           [
-            "bazel_features+",
-            "bazel_features_globals",
-            "bazel_features++version_extension+bazel_features_globals"
-          ],
-          [
-            "bazel_features+",
-            "bazel_features_version",
-            "bazel_features++version_extension+bazel_features_version"
-          ],
-          [
-            "rules_java+",
-            "bazel_features",
-            "bazel_features+"
-          ],
-          [
             "rules_java+",
             "bazel_tools",
             "bazel_tools"
-          ],
-          [
-            "rules_java+",
-            "remote_java_tools",
-            "rules_java++toolchains+remote_java_tools"
           ]
         ]
       }
