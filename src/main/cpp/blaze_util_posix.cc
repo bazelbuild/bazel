@@ -42,14 +42,18 @@
 #include <cstdlib>
 #include <fstream>
 #include <iterator>
+#include <map>
+#include <optional>
 #include <set>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/startup_options.h"
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
-#include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/md5.h"
 #include "src/main/cpp/util/numbers.h"
@@ -634,9 +638,9 @@ static int setlk(int fd, struct flock* lock) {
   return -1;
 }
 
-LockHandle AcquireLock(const std::string& name, const blaze_util::Path& path,
-                       LockMode mode, bool batch_mode, bool block,
-                       uint64_t* wait_time) {
+std::pair<LockHandle, std::optional<DurationMillis>> AcquireLock(
+    const std::string& name, const blaze_util::Path& path, LockMode mode,
+    bool batch_mode, bool block) {
   int flags = O_CREAT;
   switch (mode) {
     case LockMode::kShared:
@@ -714,7 +718,10 @@ LockHandle AcquireLock(const std::string& name, const blaze_util::Path& path,
   // avoid unnecessary noise in the logs.  In this metric, we are only
   // interested in knowing how long it took for other commands to complete, not
   // how fast acquiring a lock is.
-  const uint64_t elapsed_time = !multiple_attempts ? 0 : end_time - start_time;
+  const auto elapsed_time =
+      multiple_attempts
+          ? std::make_optional(DurationMillis(start_time, end_time))
+          : std::nullopt;
 
   // If taking an exclusive lock, identify ourselves in the lockfile.
   // The contents are printed for human consumption when another client
@@ -733,8 +740,7 @@ LockHandle AcquireLock(const std::string& name, const blaze_util::Path& path,
     }
   }
 
-  *wait_time = elapsed_time;
-  return static_cast<LockHandle>(fd);
+  return std::make_pair(static_cast<LockHandle>(fd), elapsed_time);
 }
 
 void ReleaseLock(LockHandle lock_handle) {

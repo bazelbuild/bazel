@@ -131,6 +131,24 @@ class WithEnvVars {
   ~WithEnvVars();
 };
 
+struct DurationMillis {
+ public:
+  const uint64_t millis;
+
+  DurationMillis(const uint64_t start, const uint64_t end)
+      : millis(ComputeDuration(start, end)) {}
+
+ private:
+  static uint64_t ComputeDuration(const uint64_t start, const uint64_t end) {
+    if (end < start) {
+      BAZEL_LOG(WARNING) << "Invalid duration: start=" << start
+                         << ", end=" << end;
+      return 0;
+    }
+    return end - start;
+  }
+};
+
 }  // namespace blaze
 
 #endif  // BAZEL_SRC_MAIN_CPP_BLAZE_UTIL_H_
