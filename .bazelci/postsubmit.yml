@@ -254,7 +254,6 @@ tasks:
       - "//tools/aquery_differ/..."
       - "//tools/bash/..."
       - "//tools/build_defs/..."
-      - "//tools/cpp/runfiles/..."
       - "//tools/java/..."
       - "//tools/jdk/..."
       - "//tools/python/..."

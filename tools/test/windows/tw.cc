@@ -49,7 +49,7 @@
 #include "third_party/ijar/common.h"
 #include "third_party/ijar/platform_utils.h"
 #include "third_party/ijar/zip.h"
-#include "tools/cpp/runfiles/runfiles.h"
+#include "rules_cc/cc/runfiles/runfiles.h"
 
 namespace bazel {
 namespace tools {
@@ -1146,8 +1146,8 @@ bool FindTestBinary(const Path& argv0, const Path& cwd, std::wstring test_path,
     }
 
     std::string error;
-    std::unique_ptr<bazel::tools::cpp::runfiles::Runfiles> runfiles(
-        bazel::tools::cpp::runfiles::Runfiles::Create(argv0_acp, &error));
+    std::unique_ptr<rules_cc::cc::runfiles::Runfiles> runfiles(
+        rules_cc::cc::runfiles::Runfiles::Create(argv0_acp, &error));
     if (runfiles == nullptr) {
       LogError(__LINE__, "Failed to load runfiles");
       return false;

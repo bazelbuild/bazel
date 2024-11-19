@@ -30,7 +30,7 @@
 #include "src/main/cpp/util/path_platform.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/main/native/windows/util.h"
-#include "tools/cpp/runfiles/runfiles.h"
+#include "rules_cc/cc/runfiles/runfiles.h"
 
 namespace bazel {
 namespace launcher {
