@@ -183,8 +183,8 @@ public class NetrcParser {
     while (!done && tokenStream.hasNext()) {
       // Peek rather than taking next token since we probably won't process it
       Token token = tokenStream.peek();
-      if (token instanceof ItemToken(String item)) {
-        switch (item) {
+      if (token instanceof ItemToken itemToken) {
+        switch (itemToken.item()) {
           case LOGIN -> {
             tokenStream.next();
             builder.setLogin(nextItem(tokenStream));
@@ -202,7 +202,7 @@ public class NetrcParser {
               throw new IOException(
                   String.format(
                       "Unexpected item: %s (expecting %s, %s, %s, %s, %s or %s)",
-                      item, LOGIN, PASSWORD, ACCOUNT, MACHINE, MACDEF, DEFAULT));
+                      itemToken.item(), LOGIN, PASSWORD, ACCOUNT, MACHINE, MACDEF, DEFAULT));
         }
       } else {
         tokenStream.next();
