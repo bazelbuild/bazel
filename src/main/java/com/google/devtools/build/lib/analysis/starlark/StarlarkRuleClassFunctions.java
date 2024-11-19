@@ -418,13 +418,19 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       Attribute attr = descriptor.build(attrName);
       builder.addAttribute(attr);
     }
-    for (Attribute attr : getInheritedAttrs(inheritAttrs)) {
+    for (Attribute attr : getAttrsOf(inheritAttrs)) {
       String attrName = attr.getName();
       if (attr.isPublic()
           // isDocumented() is false only for generator_* magic attrs (for which isPublic() is true)
           && attr.isDocumented()
           && !MacroClass.RESERVED_MACRO_ATTR_NAMES.contains(attrName)
           && !attrs.containsKey(attrName)) {
+        // Force the default value of optional inherited attributes to None.
+        if (!attr.isMandatory()
+            && attr.getDefaultValueUnchecked() != null
+            && attr.getDefaultValueUnchecked() != Starlark.NONE) {
+          attr = attr.cloneBuilder().defaultValueNone().build();
+        }
         builder.addAttribute(attr);
       }
     }
@@ -443,20 +449,31 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         getBzlKeyToken(thread, "Macros"));
   }
 
-  private static ImmutableList<Attribute> getInheritedAttrs(Object inheritAttrs)
-      throws EvalException {
-    if (inheritAttrs == Starlark.NONE) {
+  private static ImmutableList<Attribute> getAttrsOf(Object inheritAttrsArg) throws EvalException {
+    if (inheritAttrsArg == Starlark.NONE) {
       return ImmutableList.of();
-    } else if (inheritAttrs instanceof RuleFunction ruleFunction) {
+    } else if (inheritAttrsArg instanceof RuleFunction ruleFunction) {
+      verifyInheritAttrsArgExportedIfExportable(ruleFunction);
       return ruleFunction.getRuleClass().getAttributes();
-    } else if (inheritAttrs instanceof MacroFunction macroFunction) {
+    } else if (inheritAttrsArg instanceof MacroFunction macroFunction) {
+      verifyInheritAttrsArgExportedIfExportable(macroFunction);
       return macroFunction.getMacroClass().getAttributes().values().asList();
-    } else if (inheritAttrs.equals(COMMON_ATTRIBUTES_NAME)) {
+    } else if (inheritAttrsArg.equals(COMMON_ATTRIBUTES_NAME)) {
       return baseRule.getAttributes();
     }
     throw Starlark.errorf(
         "Invalid 'inherit_attrs' value %s; expected a rule, a macro, or \"common\"",
-        Starlark.repr(inheritAttrs));
+        Starlark.repr(inheritAttrsArg));
+  }
+
+  private static void verifyInheritAttrsArgExportedIfExportable(Object inheritAttrsArg)
+      throws EvalException {
+    // Note that the value of 'inherit_attrs' can be non-exportable (e.g. native rule).
+    if (inheritAttrsArg instanceof StarlarkExportable exportable && !exportable.isExported()) {
+      throw Starlark.errorf(
+          "Invalid 'inherit_attrs' value: a rule or macro callable must be assigned to a global"
+              + " variable in a .bzl file before it can be inherited from");
+    }
   }
 
   private static Symbol<BzlLoadValue.Key> getBzlKeyToken(StarlarkThread thread, String onBehalfOf) {

@@ -25,16 +25,17 @@ referring to **symbolic macros**.
 
 ## Usage {:#usage}
 
-Macros are defined in `.bzl` files by calling the `macro()` function with two
-parameters: `attrs` and `implementation`.
+Macros are defined in `.bzl` files by calling the
+[`macro()`](https://bazel.build/rules/lib/globals/bzl.html#macro) function with
+two required parameters: `attrs` and `implementation`.
 
 ### Attributes {:#attributes}
 
 `attrs` accepts a dictionary of attribute name to [attribute
 types](https://bazel.build/rules/lib/toplevel/attr#members), which represents
-the arguments to the macro. Two common attributes - name and visibility - are
-implicitly added to all macros and are not included in the dictionary passed to
-attrs.
+the arguments to the macro. Two common attributes – `name` and `visibility` –
+are implicitly added to all macros and are not included in the dictionary passed
+to `attrs`.
 
 ```starlark
 # macro/macro.bzl
@@ -52,8 +53,64 @@ Attribute type declarations accept the
 `mandatory`, `default`, and `doc`. Most attribute types also accept the
 `configurable` parameter, which determines wheher the attribute accepts
 `select`s. If an attribute is `configurable`, it will parse non-`select` values
-as an unconfigurable `select` - `"foo"` will become
+as an unconfigurable `select` – `"foo"` will become
 `select({"//conditions:default": "foo"})`. Learn more in [selects](#selects).
+
+#### Attribute inheritance {:#attribute-inheritance}
+
+IMPORTANT: Attribute inheritance is an experimental feature enabled by the
+`--experimental_enable_macro_inherit_attrs` flag. Some of the behaviors
+described in this section may change before the feature is enabled by default.
+
+Macros are often intended to wrap a rule (or another macro), and the macro's
+author often wants to forward the bulk of the wrapped symbol's attributes
+unchanged, using `**kwargs`, to the macro's main target (or main inner macro).
+
+To support this pattern, a macro can *inherit attributes* from a rule or another
+macro by passing the [rule](https://bazel.build/rules/lib/builtins/rule) or
+[macro symbol](https://bazel.build/rules/lib/builtins/macro) to `macro()`'s
+`inherit_attrs` argument. (You can also use the special string `"common"`
+instead of a rule or macro symbol to inherit the [common attributes defined for
+all Starlark build
+rules](https://bazel.build/reference/be/common-definitions#common-attributes).)
+Only public attributes get inherited, and the attributes in the macro's own
+`attrs` dictionary override inherited attributes with the same name. You can
+also *remove* inherited attributes by using `None` as a value in the `attrs`
+dictionary:
+
+```starlark
+# macro/macro.bzl
+my_macro = macro(
+    inherit_attrs = native.cc_library,
+    attrs = {
+        # override native.cc_library's `local_defines` attribute
+        local_defines = attr.string_list(default = ["FOO"]),
+        # do not inherit native.cc_library's `defines` attribute
+        defines = None,
+    },
+    ...
+)
+```
+
+The default value of non-mandatory inherited attributes is always overridden to
+be `None`, regardless of the original attribute definition's default value. If
+you need to examine or modify an inherited non-mandatory attribute – for
+example, if you want to add a tag to an inherited `tags` attribute – you must
+make sure to handle the `None` case in your macro's implementation function:
+
+```starlark
+# macro/macro.bzl
+_my_macro_implementation(name, visibility, tags, **kwargs):
+    # Append a tag; tags attr is an inherited non-mandatory attribute, and
+    # therefore is None unless explicitly set by the caller of our macro.
+    my_tags = (tags or []) + ["another_tag"]
+    native.cc_library(
+        ...
+        tags = my_tags,
+        **kwargs,
+    )
+    ...
+```
 
 ### Implementation {:#implementation}
 
@@ -69,7 +126,7 @@ parameter for each argument.
 
 ```starlark
 # macro/macro.bzl
-def _my_macro_impl(name, deps, create_test):
+def _my_macro_impl(name, visibility, deps, create_test):
     cc_library(
         name = name + "_cc_lib",
         deps = deps,
@@ -82,6 +139,12 @@ def _my_macro_impl(name, deps, create_test):
             deps = deps,
         )
 ```
+
+If a macro inherits attributes, its implementation function *must* have a
+`**kwargs` residual keyword parameter, which can be forwarded to the call that
+invokes the inherited rule or submacro. (This helps ensure that your macro won't
+be broken if the rule or macro which from which you are inheriting adds a new
+attribute.)
 
 ### Declaration {:#declaration}
 
@@ -105,9 +168,22 @@ my_macro(
 This would create targets
 `//pkg:macro_instance_cc_lib` and`//pkg:macro_instance_test`.
 
+Just like in rule calls, if an attribute value in a macro call is set to `None`,
+that attribute is treated as if it was omitted by the macro's caller. For
+example, the following two macro calls are equivalent:
+
+```starlark
+# pkg/BUILD
+my_macro(name = "abc", srcs = ["src.cc"], deps = None)
+my_macro(name = "abc", srcs = ["src.cc"])
+```
+
+This is generally not useful in `BUILD` files, but is helpful when
+programmatically wrapping a macro inside another macro.
+
 ## Details {:#usage-details}
 
-### naming conventions for targets created {:#naming}
+### Naming conventions for targets created {:#naming}
 
 The names of any targets or submacros created by a symbolic macro must
 either match the macro's `name` parameter or must be prefixed by `name` followed
@@ -124,7 +200,7 @@ exclusivity is not enforced. We are in the progress of implementing
 [lazy evaluation](#laziness) as a performance improvement for Symbolic macros,
 which will be impaired in packages that violate the naming schema.
 
-### restrictions {:#restrictions}
+### Restrictions {:#restrictions}
 
 Symbolic macros have some additional restrictions compared to legacy macros.
 
@@ -133,7 +209,7 @@ Symbolic macros
 *   must take a `name` argument and a `visibility` argument
 *   must have an `implementation` function
 *   may not return values
-*   may not mutate their `args`
+*   may not mutate their arguments
 *   may not call `native.existing_rules()` unless they are special `finalizer`
     macros
 *   may not call `native.package()`
@@ -141,26 +217,37 @@ Symbolic macros
 *   may not call `native.environment_group()`
 *   must create targets whose names adhere to the [naming schema](#naming)
 *   can't refer to input files that weren't declared or passed in as an argument
-    (see [visibility](#visibility) for more details).
+    (see [visibility and macros](#visibility) for more details).
 
-### Visibility {:#visibility}
+### Visibility and macros {:#visibility}
 
-TODO: Expand this section
+See [Visibility](/concepts/visibility) for an in-depth discussion of visibility
+in Bazel.
 
 #### Target visibility {:#target-visibility}
 
-At default, targets created by symbolic macros are visible to the package in
-which they are created. They also accept a `visibility` attribute, which can
-expand that visibility to the caller of the macro (by passing the `visibility`
-attribute directly from the macro call to the target created) and to other
-packages (by explicitly specifying them in the target's visibility).
+By default, targets created by a symbolic macro are visible only in the package
+containing the .bzl file defining the macro. In particular, *they are not
+visible to the caller of the symbolic macro* unless the caller happens to be in
+the same package as the macro's .bzl file.
+
+To make a target visible to the caller of the symbolic macro, pass
+`visibility = visibility` to the rule or inner macro. You may also make the
+target visible in additional packages by giving it a wider (or even public)
+visibility.
+
+A package's default visibility (as declared in `package()`) is by default passed
+to the outermost macro's `visibility` parameter, but it is up to the macro to
+then pass (or not pass!) that `visibility` to the targets it instantiates.
 
 #### Dependency visibility {:#dependency-visibility}
 
-Macros must have visibility to the files and targets they refer to. They can do
-so in one of the following ways:
+Targets that are referred to in a macro's implementation must be visible to that
+macro's definition. Visibility can be given in one of the following ways:
 
-*   Explicitly passed in as an `attr` value to the macro
+*   Targets are visible to a macro if they are passed to the macro through
+    label, label list, or label-keyed or -valued dict attributes, either
+    explicitly:
 
 ```starlark
 
@@ -168,18 +255,22 @@ so in one of the following ways:
 my_macro(... deps = ["//other_package:my_tool"] )
 ```
 
-*   Implicit default of an `attr` value
+*   ... or as attribute default values:
 
 ```starlark
 # my_macro:macro.bzl
 my_macro = macro(
-  attrs = {"deps" : attr.label_list(default = ["//other_package:my_tool"])} )
+  attrs = {"deps" : attr.label_list(default = ["//other_package:my_tool"])},
+  ...
+)
 ```
 
-*   Already visible to the macro definition
+*   Targets are also visible to a macro if they are declared visible to the
+    package containing the .bzl file defining the macro:
 
 ```starlark
 # other_package/BUILD
+# Any macro defined in a .bzl file in //my_macro package can use this tool.
 cc_binary(
     name = "my_tool",
     visibility = "//my_macro:\\__pkg__",
@@ -188,9 +279,12 @@ cc_binary(
 
 ### Selects {:#selects}
 
-If an attribute is `configurable`, then the macro implementation function will
-always see the attribute value as `select`-valued. For example, consider the
-following macro:
+If an attribute is `configurable` (the default) and its value is not `None`,
+then the macro implementation function will see the attribute value as wrapped
+in a trivial `select`. This makes it easier for the macro author to catch bugs
+where they did not anticipate that the attribute value could be a `select`.
+
+For example, consider the following macro:
 
 ```starlark
 my_macro = macro(
@@ -201,17 +295,31 @@ my_macro = macro(
 
 If `my_macro` is invoked with `deps = ["//a"]`, that will cause `_my_macro_impl`
 to be invoked with its `deps` parameter set to `select({"//conditions:default":
-["//a"]})`.
+["//a"]})`. If this causes the implementation function to fail (say, because the
+code tried to index into the value as in `deps[0]`, which is not allowed for
+`select`s), the macro author can then make a choice: either they can rewrite
+their macro to only use operations compatible with `select`, or they can mark
+the attribute as nonconfigurable (`attr.label_list(configurable = False)`). The
+latter ensures that users are not permitted to pass a `select` value in.
 
 Rule targets reverse this transformation, and store trivial `select`s as their
-unconditional values; in this example, if `_my_macro_impl` declares a rule
+unconditional values; in the above example, if `_my_macro_impl` declares a rule
 target `my_rule(..., deps = deps)`, that rule target's `deps` will be stored as
-`["//a"]`.
+`["//a"]`. This ensures that `select`-wrapping does not cause trivial `select`
+values to be stored in all targets instantiated by macros.
+
+If the value of a configurable attribute is `None`, it does not get wrapped in a
+`select`. This ensures that tests like `my_attr == None` still work, and that
+when the attribute is forwarded to a rule with a computed default, the rule
+behaves properly (that is, as if the attribute were not passed in at all). It is
+not always possible for an attribute to take on a `None` value, but it can
+happen for the `attr.label()` type, and for any inherited non-mandatory
+attribute.
 
 ## Finalizers {:#finalizers}
 
-A rule finalizer is a special symbolic macro which - regardless of its lexical
-position in a BUILD file - is evaluated in the final stage of loading a package,
+A rule finalizer is a special symbolic macro which – regardless of its lexical
+position in a BUILD file – is evaluated in the final stage of loading a package,
 after all non-finalizer targets have been defined. Unlike ordinary symbolic
 macros, a finalizer can call `native.existing_rules()`, where it behaves
 slightly differently than in legacy macros: it only returns the set of
