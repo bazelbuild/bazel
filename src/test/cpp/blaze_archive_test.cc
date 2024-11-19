@@ -13,8 +13,13 @@
 // limitations under the License.
 #include <stdlib.h>
 
+#include <memory>
+#include <optional>
+#include <string>
+#include <utility>
 #include <vector>
 
+#include "file/base/filesystem.h"
 #include "file/base/helpers.h"
 #include "file/base/path.h"
 #include "file/util/temp_path.h"
@@ -25,8 +30,12 @@
 #include "googletest/include/gtest/gtest.h"
 #include "absl/strings/escaping.h"
 #include "src/main/cpp/blaze.h"
+#include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
+#include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file_platform.h"
+#include "src/main/cpp/workspace_layout.h"
+#include "util/task/status_macros.h"
 
 using ::testing::Gt;
 using ::testing::status::IsOkAndHolds;
@@ -122,11 +131,14 @@ TEST_F(BlazeArchiveTest, TestZipExtractionAndFarOutMTimes) {
   set_startup_options(startup_options, blaze_path, output_dir);
   LoggingInfo logging_info(blaze_path, blaze::GetMillisecondsMonotonic());
 
-  ExtractionDurationMillis extraction_time =
+std::optional<DurationMillis> extraction_time =
       ExtractData(blaze_path, archive_contents, expected_install_md5,
                   startup_options, &logging_info);
 
-  ASSERT_TRUE(extraction_time.archive_extracted);
+ASSERT_TRUE(extraction_time
+.
+has_value()
+);
 
   const std::string foo_path = file::JoinPath(output_dir, "foo");
   const std::string bar_path = file::JoinPath(output_dir, "bar");
@@ -157,15 +169,20 @@ TEST_F(BlazeArchiveTest, TestNoDataExtractionIfInstallBaseExists) {
   set_startup_options(startup_options, blaze_path, output_dir);
   LoggingInfo logging_info(blaze_path, blaze::GetMillisecondsMonotonic());
 
-  ExtractionDurationMillis extraction_time_one =
+std::optional<DurationMillis> extraction_time_one =
       ExtractData(blaze_path, archive_contents, expected_install_md5,
                   startup_options, &logging_info);
-  ASSERT_TRUE(extraction_time_one.archive_extracted);
+ASSERT_TRUE(extraction_time_one
+.
+has_value()
+);
 
-  ExtractionDurationMillis extraction_time_two =
+std::optional<DurationMillis> extraction_time_two =
       ExtractData(blaze_path, archive_contents, expected_install_md5,
                   startup_options, &logging_info);
-
-  ASSERT_FALSE(extraction_time_two.archive_extracted);
+ASSERT_FALSE(extraction_time_two
+.
+has_value()
+);
 }
 }  // namespace blaze

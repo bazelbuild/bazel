@@ -15,11 +15,13 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <thread>  // NOLINT
 #include <vector>
 
+#include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/startup_options.h"
 #include "src/main/cpp/util/errors.h"
@@ -110,11 +112,10 @@ struct PartialZipExtractor : public devtools_ijar::ZipExtractorProcessor {
 // it is in place. Concurrency during extraction is handled by
 // extracting in a tmp dir and then renaming it into place where it
 // becomes visible atomically at the new path.
-ExtractionDurationMillis ExtractData(const string &self_path,
-                                     const vector<string> &archive_contents,
-                                     const string &expected_install_md5,
-                                     const StartupOptions &startup_options,
-                                     LoggingInfo *logging_info) {
+std::optional<DurationMillis> ExtractData(
+    const string &self_path, const vector<string> &archive_contents,
+    const string &expected_install_md5, const StartupOptions &startup_options,
+    LoggingInfo *logging_info) {
   const string &install_base = startup_options.install_base;
   // If the install dir doesn't exist, create it, if it does, we know it's good.
   if (!blaze_util::PathExists(install_base)) {
@@ -126,8 +127,7 @@ ExtractionDurationMillis ExtractData(const string &self_path,
     BlessFiles(tmp_install);
 
     uint64_t et = GetMillisecondsMonotonic();
-    const ExtractionDurationMillis extract_data_duration(
-        et - st, /*archived_extracted=*/true);
+    const DurationMillis extract_data_duration(st, et);
 
     // Now rename the completed installation to its final name.
     int attempts = 0;
@@ -199,7 +199,7 @@ ExtractionDurationMillis ExtractData(const string &self_path,
           << expected_install_md5
           << ").  Remove it or specify a different --install_base.";
     }
-    return ExtractionDurationMillis();
+    return std::nullopt;
   }
 }
 
