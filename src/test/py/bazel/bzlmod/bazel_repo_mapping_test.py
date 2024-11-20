@@ -322,7 +322,7 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
     )
 
     self.main_registry.createLocalPathModule(
-      'test', '1.0', 'test', {'data': '1.0'}
+      'test', '1.0', 'test', {'data': '1.0', 'rules_cc': '0.0.17'}
     )
     scratchFile(
       projects_dir.joinpath('test', 'BUILD'),
