@@ -360,17 +360,24 @@ http_file(
 # =========================================
 
 bazel_dep(name = "bazel_ci_rules", version = "1.0.0")
-
-bazel_test_deps = use_extension("//:extensions.bzl", "bazel_test_deps")
-use_repo(
-    bazel_test_deps,
-    "kythe_release",
-    "local_bazel_source_list",
-    "local_config_winsdk",
+rbe_preconfig = use_repo_rule("@bazel_ci_rules//:rbe_repo.bzl", "rbe_preconfig")
+rbe_preconfig(
+    name = "rbe_ubuntu2004",
+    toolchain = "ubuntu2004",
 )
 
-bazel_rbe_deps = use_extension("//:rbe_extension.bzl", "bazel_rbe_deps")
-use_repo(bazel_rbe_deps, "rbe_ubuntu2004")
+list_source_repository = use_repo_rule("//src/test/shell/bazel:list_source_repository.bzl", "list_source_repository")
+list_source_repository(name = "local_bazel_source_list")
+
+winsdk_configure = use_repo_rule("//src/main/res:winsdk_configure.bzl", "winsdk_configure")
+winsdk_configure(name = "local_config_winsdk")
+
+# /usr/local/kythe is setup on Bazel CI machines
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+local_repository(
+    name = "kythe_release",
+    path = "/usr/local/kythe",
+)
 
 remote_coverage_tools_extension = use_extension("//tools/test:extensions.bzl", "remote_coverage_tools_extension")
 use_repo(remote_coverage_tools_extension, "remote_coverage_tools")
