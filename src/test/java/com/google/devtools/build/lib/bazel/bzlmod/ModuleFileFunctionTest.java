@@ -254,20 +254,18 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     assertThat(rootModuleFileValue.getOverrides())
         .containsExactly(
             "ddd",
-                SingleVersionOverride.create(
-                    Version.parse("18"), "", ImmutableList.of(), ImmutableList.of(), 0),
-            "eee", LocalPathOverride.create("somewhere/else"),
+            SingleVersionOverride.create(
+                Version.parse("18"), "", ImmutableList.of(), ImmutableList.of(), 0),
+            "eee",
+            new NonRegistryOverride(LocalPathRepoSpecs.create("somewhere/else")),
             "fff",
-                MultipleVersionOverride.create(
-                    ImmutableList.of(Version.parse("1.0"), Version.parse("2.0")), ""),
+            MultipleVersionOverride.create(
+                ImmutableList.of(Version.parse("1.0"), Version.parse("2.0")), ""),
             "ggg",
-                ArchiveOverride.create(
-                    ImmutableList.of("https://hello.com/world.zip"),
-                    ImmutableList.of(),
-                    ImmutableList.of(),
-                    "",
-                    "",
-                    0));
+            new NonRegistryOverride(
+                new ArchiveRepoSpecBuilder()
+                    .setUrls(ImmutableList.of("https://hello.com/world.zip"))
+                    .build()));
     assertThat(rootModuleFileValue.getNonRegistryOverrideCanonicalRepoNameLookup())
         .containsExactly(
             RepositoryName.create("eee+"), "eee",
@@ -320,8 +318,9 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     setUpWithBuiltinModules(
         ImmutableMap.of(
             "bazel_tools",
-            LocalPathOverride.create(
-                rootDirectory.getRelative("bazel_tools_original").getPathString())));
+            new NonRegistryOverride(
+                LocalPathRepoSpecs.create(
+                    rootDirectory.getRelative("bazel_tools_original").getPathString()))));
     scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "module(name='aaa')",
@@ -334,8 +333,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
     ModuleOverride bazelToolsOverride =
         result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE).getOverrides().get("bazel_tools");
-    assertThat(bazelToolsOverride).isInstanceOf(LocalPathOverride.class);
-    assertThat(bazelToolsOverride).isEqualTo(LocalPathOverride.create("./bazel_tools_new"));
+    assertThat(bazelToolsOverride)
+        .isEqualTo(new NonRegistryOverride(LocalPathRepoSpecs.create("./bazel_tools_new")));
   }
 
   @Test
@@ -635,7 +634,9 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
 
     // The version is empty here due to the override.
     SkyKey skyKey =
-        ModuleFileValue.key(createModuleKey("bbb", ""), LocalPathOverride.create("code_for_b"));
+        ModuleFileValue.key(
+            createModuleKey("bbb", ""),
+            new NonRegistryOverride(LocalPathRepoSpecs.create("code_for_b")));
     EvaluationResult<ModuleFileValue> result =
         evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     if (result.hasError()) {
@@ -673,7 +674,9 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     // ModuleFileFuncion.MODULE_OVERRIDES should be filled from command line options
     // Inject for testing
     Map<String, ModuleOverride> moduleOverride =
-        new LinkedHashMap<>(ImmutableMap.of("bbb", LocalPathOverride.create("used_override")));
+        new LinkedHashMap<>(
+            ImmutableMap.of(
+                "bbb", new NonRegistryOverride(LocalPathRepoSpecs.create("used_override"))));
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.copyOf(moduleOverride));
 
     FakeRegistry registry =
@@ -686,7 +689,9 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
 
     // The version is empty here due to the override.
     SkyKey skyKey =
-        ModuleFileValue.key(createModuleKey("bbb", ""), LocalPathOverride.create("used_override"));
+        ModuleFileValue.key(
+            createModuleKey("bbb", ""),
+            new NonRegistryOverride(LocalPathRepoSpecs.create("used_override")));
     EvaluationResult<ModuleFileValue> result =
         evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     if (result.hasError()) {
@@ -1383,9 +1388,9 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     ImmutableMap<String, NonRegistryOverride> builtinModules =
         ImmutableMap.of(
             "bazel_tools",
-            LocalPathOverride.create("/tools"),
+            new NonRegistryOverride(LocalPathRepoSpecs.create("/tools")),
             "local_config_platform",
-            LocalPathOverride.create("/local_config_platform"));
+            new NonRegistryOverride(LocalPathRepoSpecs.create("/local_config_platform")));
     setUpWithBuiltinModules(builtinModules);
     scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
@@ -1414,9 +1419,10 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     ImmutableMap<String, NonRegistryOverride> builtinModules =
         ImmutableMap.of(
             "bazel_tools",
-            LocalPathOverride.create(rootDirectory.getRelative("tools").getPathString()),
+            new NonRegistryOverride(
+                LocalPathRepoSpecs.create(rootDirectory.getRelative("tools").getPathString())),
             "local_config_platform",
-            LocalPathOverride.create("/local_config_platform"));
+            new NonRegistryOverride(LocalPathRepoSpecs.create("/local_config_platform")));
     setUpWithBuiltinModules(builtinModules);
     scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
@@ -1873,7 +1879,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         \tFile "/workspace/MODULE.bazel", line 3, column 14, in <toplevel>
         \t\toverride_repo(ext, 'foo')
         Error in override_repo: The repo exported as 'foo' by module extension 'ext' is \
-        overridden with 'foo', but no repo is visible under this name""");
+        overridden with 'foo', but no repo is visible under this name\
+        """);
   }
 
   @Test
@@ -1901,7 +1908,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         \tFile "/workspace/MODULE.bazel", line 6, column 14, in <toplevel>
         \t\toverride_repo(ext, foo = "override2")
         Error in override_repo: The repo exported as 'foo' by module extension 'ext' is already \
-        overridden with 'override1' at /workspace/MODULE.bazel:5:14""");
+        overridden with 'override1' at /workspace/MODULE.bazel:5:14\
+        """);
   }
 
   @Test
@@ -1930,7 +1938,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         \t\toverride_repo(ext, baz = "bar")
         Error in override_repo: The repo 'bar' used as an override for 'baz' in module extension \
         'ext' is itself overridden with 'override' at /workspace/MODULE.bazel:6:14, which is not \
-        supported.""");
+        supported.\
+        """);
   }
 
   @Test
@@ -1960,7 +1969,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         \t\toverride_repo(ext1, baz = "bar")
         Error in override_repo: The repo 'bar' used as an override for 'baz' in module extension \
         'ext1' is itself overridden with 'override' at /workspace/MODULE.bazel:6:14, which is not \
-        supported.""");
+        supported.\
+        """);
   }
 
   @Test
@@ -1988,7 +1998,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         \t\toverride_repo(ext, foo = "my_bar", bar = "my_foo")
         Error in override_repo: The repo 'my_foo' used as an override for 'bar' in module \
         extension 'ext' is itself overridden with 'my_bar' at /workspace/MODULE.bazel:5:14, which \
-        is not supported.""");
+        is not supported.\
+        """);
   }
 
   @Test
@@ -2018,7 +2029,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         \t\toverride_repo(ext2, bar = "my_foo")
         Error in override_repo: The repo 'my_foo' used as an override for 'bar' in module \
         extension 'ext2' is itself overridden with 'my_bar' at /workspace/MODULE.bazel:4:14, \
-        which is not supported.""");
+        which is not supported.\
+        """);
   }
 
   @Test
