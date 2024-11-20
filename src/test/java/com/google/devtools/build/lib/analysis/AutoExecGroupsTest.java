@@ -1262,7 +1262,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         """);
     scratch.file(
         "test/defs.bzl",
-        "load('@rules_java//java:defs.bzl', 'java_common')",
+        "load('@rules_java//java:defs.bzl', 'java_common', 'JavaInfo')",
         "def _impl(ctx):",
         "  output_jar = ctx.actions.declare_file('lib_' + ctx.label.name + '.jar')",
         "  java_info = java_common.compile(",
@@ -1375,7 +1375,8 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
       throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "load('@rules_java//java:defs.bzl', 'java_common')",
+        "load('@rules_java//java:defs.bzl',"
+            + " 'java_common', 'JavaInfo', 'JavaPluginInfo')",
         "def _impl(ctx):",
         "  output_jar = ctx.actions.declare_file('lib_' + ctx.label.name + '.jar')",
         "  java_info = java_common.compile(",
@@ -1412,7 +1413,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     useConfiguration("--incompatible_auto_exec_groups");
 
     ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
-    JavaInfo javaInfo = target.get(JavaInfo.PROVIDER);
+    JavaInfo javaInfo = JavaInfo.getJavaInfo(target);
     Action genSrcOutputAction =
         getGeneratingAction(javaInfo.getOutputJars().getAllSrcOutputJars().get(0));
     JavaGenJarsProvider javaGenJarsProvider = javaInfo.getGenJarsProvider();
@@ -1432,7 +1433,8 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
       throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "load('@rules_java//java:defs.bzl', 'java_common')",
+        "load('@rules_java//java:defs.bzl',"
+            + " 'java_common', 'JavaInfo', 'JavaPluginInfo')",
         "def _impl(ctx):",
         "  output_jar = ctx.actions.declare_file('lib_' + ctx.label.name + '.jar')",
         "  java_info = java_common.compile(",
@@ -1469,7 +1471,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     useConfiguration("--incompatible_auto_exec_groups=False");
 
     ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
-    JavaInfo javaInfo = target.get(JavaInfo.PROVIDER);
+    JavaInfo javaInfo = JavaInfo.getJavaInfo(target);
     Action genSrcOutputAction =
         getGeneratingAction(javaInfo.getOutputJars().getAllSrcOutputJars().get(0));
     JavaGenJarsProvider javaGenJarsProvider = javaInfo.getGenJarsProvider();
@@ -1489,7 +1491,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
       throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "load('@rules_java//java:defs.bzl', 'java_common')",
+        "load('@rules_java//java:defs.bzl', 'java_common', 'JavaInfo')",
         "def _impl(ctx):",
         "  output_jar = ctx.actions.declare_file('lib_' + ctx.label.name + '.jar')",
         "  java_info = java_common.compile(",
@@ -1533,7 +1535,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
       throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "load('@rules_java//java:defs.bzl', 'java_common')",
+        "load('@rules_java//java:defs.bzl', 'java_common', 'JavaInfo')",
         "def _impl(ctx):",
         "  output_jar = ctx.actions.declare_file('lib_' + ctx.label.name + '.jar')",
         "  java_info = java_common.compile(",
@@ -1578,7 +1580,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
           throws Exception {
     scratch.file(
         "bazel_internal/test_rules/defs.bzl",
-        "load('@rules_java//java:defs.bzl', 'java_common')",
+        "load('@rules_java//java:defs.bzl', 'java_common', 'JavaInfo')",
         "def _impl(ctx):",
         "  output_jar = ctx.actions.declare_file('lib_' + ctx.label.name + '.jar')",
         "  java_info = java_common.compile(",
@@ -1627,7 +1629,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
           throws Exception {
     scratch.file(
         "bazel_internal/test_rules/defs.bzl",
-        "load('@rules_java//java:defs.bzl', 'java_common')",
+        "load('@rules_java//java:defs.bzl', 'java_common', 'JavaInfo')",
         "def _impl(ctx):",
         "  output_jar = ctx.actions.declare_file('lib_' + ctx.label.name + '.jar')",
         "  java_info = java_common.compile(",

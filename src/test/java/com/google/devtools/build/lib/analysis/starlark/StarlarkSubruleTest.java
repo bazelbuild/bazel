@@ -1319,7 +1319,9 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
 
     assertThat(toolchainInfo).isNotNull();
     assertThat(toolchainInfo.getValue("java", StarlarkInfo.class).getProvider().getKey())
-        .isEqualTo(JavaToolchainProvider.PROVIDER.getKey());
+        .isAnyOf(
+            JavaToolchainProvider.PROVIDER.getKey(),
+            JavaToolchainProvider.LEGACY_BUILTINS_PROVIDER.getKey());
   }
 
   @Test
@@ -1361,7 +1363,9 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
 
     assertThat(toolchainInfo).isNotNull();
     assertThat(toolchainInfo.getValue("java", StarlarkInfo.class).getProvider().getKey())
-        .isEqualTo(JavaToolchainProvider.PROVIDER.getKey());
+        .isAnyOf(
+            JavaToolchainProvider.PROVIDER.getKey(),
+            JavaToolchainProvider.LEGACY_BUILTINS_PROVIDER.getKey());
   }
 
   @Test

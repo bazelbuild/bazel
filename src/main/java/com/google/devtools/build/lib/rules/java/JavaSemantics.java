@@ -27,6 +27,9 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 /** Pluggable Java compilation semantics. */
 public interface JavaSemantics {
 
+  // transformed by Copybara on export
+  String RULES_JAVA_PROVIDER_LABELS_PREFIX = "@@rules_java+//";
+
   FileType JAVA_SOURCE = FileType.of(".java");
   FileType JAR = FileType.of(".jar");
   FileType PROPERTIES = FileType.of(".properties");

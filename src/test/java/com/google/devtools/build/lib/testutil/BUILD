@@ -2,7 +2,7 @@
 #   A grab-bag of testing utilities.
 
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
-load("@rules_java//java:defs.bzl", "java_library", "java_test")
+load("@rules_java//java:defs.bzl", "java_binary", "java_library", "java_test")
 load("//src/tools/bzlmod:blazel_utils.bzl", "get_canonical_repo_name")
 
 package(
