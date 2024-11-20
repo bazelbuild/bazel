@@ -616,7 +616,7 @@ filegroup(
     srcs = [
         requirement("bazel-runfiles"),  # Fetching the hermetic Python toolchain.
         "@bazel_skylib//:WORKSPACE",
-        "@protobuf//:LICENSE",
+        "@com_google_protobuf//:LICENSE",
         "@remote_coverage_tools//:all_lcov_merger_lib",
         "@remote_java_tools//:GenClass",
         "@remote_java_tools_darwin_arm64//:java_tools/src/tools/singlejar/singlejar_local",
