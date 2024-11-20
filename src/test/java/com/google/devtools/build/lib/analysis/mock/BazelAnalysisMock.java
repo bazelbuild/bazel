@@ -223,7 +223,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "embedded_tools/tools/jdk/BUILD",
         """
 load("@rules_java//java:defs.bzl",
-  "java_binary", "java_import", "java_toolchain")
+  "java_binary", "java_import", "java_toolchain", "java_runtime")
 load(
     ":java_toolchain_alias.bzl",
     "java_host_runtime_alias",
