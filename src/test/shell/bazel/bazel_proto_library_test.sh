@@ -24,6 +24,7 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 
 function set_up() {
   add_protobuf "MODULE.bazel"
+  add_rules_java "MODULE.bazel"
 }
 
 # Creates directories and files with the structure:
@@ -400,6 +401,8 @@ proto_library(
 EOF
 
   cat > java/proto/my_rule_with_aspect.bzl <<EOF
+load("@rules_java//java/common:java_common.bzl", "java_common")
+load("@rules_java//java/common:java_info.bzl", "JavaInfo")
 def _my_rule_impl(ctx):
   aspect_java_infos = []
   for dep in ctx.attr.deps:
