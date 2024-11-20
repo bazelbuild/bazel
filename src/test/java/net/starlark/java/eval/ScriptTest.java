@@ -223,19 +223,27 @@ public final class ScriptTest {
         }
 
         // parse & execute
-        ParserInput input = ParserInput.fromString(buf.toString(), file.toString());
+        boolean useLatin1 = Boolean.getBoolean("net.starlark.java.eval.ScriptTest.latin1");
+        ParserInput input;
+        if (useLatin1) {
+          input = ParserInput.fromLatin1(buf.toString().getBytes(UTF_8), file.toString());
+        } else {
+          input = ParserInput.fromString(buf.toString(), file.toString());
+        }
         ImmutableMap.Builder<String, Object> predeclared = ImmutableMap.builder();
         Starlark.addMethods(predeclared, new ScriptTest()); // e.g. assert_eq
         predeclared.put("json", Json.INSTANCE);
 
         // TODO(b/376078033): remove special set.star handling once Starlark sets are enabled by
         // default.
-        StarlarkSemantics semantics =
-            name.equals("set.star")
-                ? StarlarkSemantics.builder()
-                    .setBool(StarlarkSemantics.EXPERIMENTAL_ENABLE_STARLARK_SET, true)
-                    .build()
-                : StarlarkSemantics.DEFAULT;
+        StarlarkSemantics.Builder semanticsBuilder = StarlarkSemantics.builder();
+        if (name.equals("set.star")) {
+          semanticsBuilder.setBool(StarlarkSemantics.EXPERIMENTAL_ENABLE_STARLARK_SET, true);
+        }
+        if (useLatin1) {
+          semanticsBuilder.setBool(StarlarkSemantics.INTERNAL_BAZEL_ONLY_STRINGS_ARE_BYTES, true);
+        }
+        StarlarkSemantics semantics = semanticsBuilder.build();
         Module module = Module.withPredeclared(semantics, predeclared.buildOrThrow());
         try (Mutability mu = Mutability.createAllowingShallowFreeze("test")) {
           StarlarkThread thread = StarlarkThread.createTransient(mu, semantics);

@@ -174,6 +174,9 @@ public class StarlarkSemantics {
 
     /** Returns an immutable StarlarkSemantics. */
     public StarlarkSemantics build() {
+      if (map.isEmpty()) {
+        return DEFAULT;
+      }
       return new StarlarkSemantics(ImmutableMap.copyOf(map));
     }
   }
@@ -259,4 +262,7 @@ public class StarlarkSemantics {
 
   /** Whether StarlarkSet objects may be constructed by the interpreter. */
   public static final String EXPERIMENTAL_ENABLE_STARLARK_SET = "-experimental_enable_starlark_set";
+
+  public static final String INTERNAL_BAZEL_ONLY_STRINGS_ARE_BYTES =
+      "-internal_bazel_only_strings_are_bytes";
 }
