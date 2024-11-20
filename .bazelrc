@@ -49,6 +49,14 @@ build:macos --host_cxxopt=-std=c++17
 build:windows --cxxopt=/std:c++17
 build:windows --host_cxxopt=/std:c++17
 
+# Suppress warnings from external repos, we have no direct control on them anyway.
+build:linux --per_file_copt=external/.*@-w
+build:linux --host_per_file_copt=external/.*@-w
+build:macos --per_file_copt=external/.*@-w
+build:macos --host_per_file_copt=external/.*@-w
+build:windows --per_file_copt=external/.*@/w
+build:windows --host_per_file_copt=external/.*@/w
+
 # Enable Java 21 language features
 build --java_runtime_version=21
 build --java_language_version=21
