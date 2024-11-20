@@ -4,6 +4,17 @@
 #include <string>
 #include <vector>
 
+// Swaps the byte order of the input value to ensure it matches the host system's endianness.
+//
+// In the context of this code, byte order swapping is required because the Log4j2 plugin cache
+// file format stores multi-byte values (e.g., integers, strings) in big-endian order. Many
+// systems, including most modern desktop and server  processors, use little-endian byte order
+// internally.
+//
+// When reading data from the cache file, the byte order of the stored values must be converted
+// to the host system's endianness for correct interpretation. Similarly, when writing data to
+// the cache file, the values must be converted to big-endian order to maintain compatibility
+// with the file format specification.
 template<typename T>
 inline static T swapByteOrder(const T& val) {
   int totalBytes = sizeof(val);
@@ -21,9 +32,9 @@ bool readBool(std::istringstream &stream) {
 }
 
 uint32_t readInt(std::istringstream &stream) {
-  uint32_t values;
-  stream.read(reinterpret_cast<char *>(&values), sizeof(values));
-  return swapByteOrder(values);
+  uint32_t value;
+  stream.read(reinterpret_cast<char *>(&value), sizeof(value));
+  return swapByteOrder(value);
 }
 
 std::string readUTFString(std::istringstream &stream) {
