@@ -263,10 +263,7 @@ use_repo(
 # =========================================
 
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
-python.toolchain(
-    is_default = True,
-    python_version = "3.11",
-)
+python.toolchain(is_default = True, python_version = "3.11")
 
 pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
 pip.parse(
