@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import net.starlark.java.eval.EvalException;
 import org.junit.Before;
@@ -60,7 +59,7 @@ import org.junit.runners.JUnit4;
 public class TemplateExpansionActionTest extends FoundationTestCase {
 
   private static final String TEMPLATE = Joiner.on('\n').join("key=%key%", "value=%value%");
-  private static final String SPECIAL_CHARS = "Š©±½_strøget";
+  private static final String SPECIAL_CHARS = StringEncoding.unicodeToInternal("Š©±½_strøget");
 
   private ArtifactRoot outputRoot;
   private Artifact inputArtifact;
@@ -94,7 +93,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
     ArtifactRoot workspace = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/workspace")));
     scratch.dir("/workspace/out");
     outputRoot = ArtifactRoot.asDerivedRoot(scratch.dir("/workspace"), RootType.Output, "out");
-    Path input = scratch.overwriteFile("/workspace/input.txt", StandardCharsets.UTF_8, template);
+    Path input = scratch.overwriteFile("/workspace/input.txt", template);
     inputArtifact = ActionsTestUtil.createArtifact(workspace, input);
     output = scratch.resolve("/workspace/out/destination.txt");
     outputArtifact = ActionsTestUtil.createArtifact(outputRoot, output);
