@@ -28,7 +28,7 @@ bazel_dep(name = "rules_cc", version = "0.0.16")
 bazel_dep(name = "rules_java", version = "8.5.0")
 bazel_dep(name = "rules_graalvm", version = "0.11.1")
 bazel_dep(name = "rules_proto", version = "7.0.2")
-bazel_dep(name = "rules_jvm_external", version = "6.0")
+bazel_dep(name = "rules_jvm_external", version = "6.5")
 bazel_dep(name = "rules_python", version = "0.40.0")
 bazel_dep(name = "rules_testing", version = "0.6.0")
 bazel_dep(name = "googletest", version = "1.15.2", repo_name = "com_google_googletest")
@@ -56,8 +56,8 @@ switched_rules.use_languages(
 single_version_override(
     module_name = "rules_jvm_external",
     patch_strip = 1,
-    patches = ["//third_party:rules_jvm_external_6.0.patch"],
-    version = "6.0",
+    patches = ["//third_party:rules_jvm_external_6.5.patch"],
+    version = "6.5",
 )
 
 # TODO(pcloudy): Remove once the next version of rules_graalvm is available.
@@ -262,7 +262,10 @@ use_repo(
 # =========================================
 
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
-python.toolchain(python_version = "3.11", is_default = True)
+python.toolchain(
+    is_default = True,
+    python_version = "3.11",
+)
 
 pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
 pip.parse(
