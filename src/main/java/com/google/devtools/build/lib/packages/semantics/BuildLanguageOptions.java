@@ -770,6 +770,14 @@ public final class BuildLanguageOptions extends OptionsBase {
               + " number of files is not 1.")
   public boolean incompatibleLocationsPrefersExecutable;
 
+  @Option(
+      name = "internal_starlark_utf_8_byte_strings",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.HIDDEN})
+  public boolean internalStarlarkUtf8ByteStrings;
+
   /** An enum for specifying different modes for UTF-8 checking of Starlark files. */
   public enum Utf8EnforcementMode {
     OFF,
@@ -815,6 +823,7 @@ public final class BuildLanguageOptions extends OptionsBase {
     // This function connects command-line flags to their corresponding StarlarkSemantics keys.
     StarlarkSemantics semantics =
         StarlarkSemantics.builder()
+            .setBool(StarlarkSemantics.INTERNAL_BAZEL_ONLY_UTF_8_BYTE_STRINGS, true)
             .setBool(EXPERIMENTAL_JAVA_LIBRARY_EXPORT, experimentalJavaLibraryExport)
             .setBool(
                 INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
@@ -912,6 +921,9 @@ public final class BuildLanguageOptions extends OptionsBase {
                 INCOMPATIBLE_LOCATIONS_PREFERS_EXECUTABLE, incompatibleLocationsPrefersExecutable)
             .setBool(
                 StarlarkSemantics.EXPERIMENTAL_ENABLE_STARLARK_SET, experimentalEnableStarlarkSet)
+            .setBool(
+                StarlarkSemantics.INTERNAL_BAZEL_ONLY_UTF_8_BYTE_STRINGS,
+                internalStarlarkUtf8ByteStrings)
             .build();
     return INTERNER.intern(semantics);
   }
