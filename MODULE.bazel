@@ -29,7 +29,7 @@ bazel_dep(name = "rules_java", version = "8.3.2")
 bazel_dep(name = "rules_graalvm", version = "0.11.1")
 bazel_dep(name = "rules_proto", version = "7.0.2")
 bazel_dep(name = "rules_jvm_external", version = "6.0")
-bazel_dep(name = "rules_python", version = "0.36.0")
+bazel_dep(name = "rules_python", version = "0.40.0")
 bazel_dep(name = "rules_testing", version = "0.6.0")
 bazel_dep(name = "googletest", version = "1.15.2", repo_name = "com_google_googletest")
 bazel_dep(name = "with_cfg.bzl", version = "0.2.4")
@@ -262,7 +262,7 @@ use_repo(
 # =========================================
 
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
-python.toolchain(python_version = "3.11")
+python.toolchain(python_version = "3.11", is_default = True)
 
 pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
 pip.parse(

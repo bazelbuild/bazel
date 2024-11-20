@@ -144,7 +144,7 @@ public final class PyRuntimeInfo {
           keyForBuild(
               Label.parseCanonicalUnchecked(
                   TestConstants.RULES_PYTHON_PACKAGE_ROOT
-                      + "/python/private/common:providers.bzl")));
+                      + "/python/private:py_runtime_info.bzl")));
     }
   }
 }
