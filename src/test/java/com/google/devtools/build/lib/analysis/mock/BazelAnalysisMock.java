@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.analysis.ShellConfiguration;
 import com.google.devtools.build.lib.analysis.util.AbstractMockJavaSupport;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.BazelRepositoryModule;
-import com.google.devtools.build.lib.bazel.bzlmod.LocalPathOverride;
+import com.google.devtools.build.lib.bazel.bzlmod.LocalPathRepoSpecs;
 import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
 import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformFunction;
 import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformRule;
@@ -849,11 +849,12 @@ launcher_flag_alias(
             toImmutableMap(
                 Map.Entry::getKey,
                 e ->
-                    LocalPathOverride.create(
-                        directories
-                            .getWorkingDirectory()
-                            .getRelative(e.getValue())
-                            .getPathString())));
+                    new NonRegistryOverride(
+                        LocalPathRepoSpecs.create(
+                            directories
+                                .getWorkingDirectory()
+                                .getRelative(e.getValue())
+                                .getPathString()))));
   }
 
   @Override
