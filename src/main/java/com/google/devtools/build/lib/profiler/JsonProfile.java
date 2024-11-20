@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.profiler;
 
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
+
 import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.profiler.statistics.PhaseSummaryStatistics;
 import com.google.gson.stream.JsonReader;
@@ -24,7 +26,6 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
@@ -47,8 +48,7 @@ public final class JsonProfile {
 
   public JsonProfile(InputStream inputStream) throws IOException {
     try (JsonReader reader =
-        new JsonReader(
-            new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8)))) {
+        new JsonReader(new BufferedReader(new InputStreamReader(inputStream, ISO_8859_1)))) {
       if (reader.peek() == JsonToken.BEGIN_OBJECT) {
         reader.beginObject();
         while (reader.hasNext()) {

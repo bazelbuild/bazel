@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.authandtls;
 
 import static com.google.common.base.Predicates.not;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Strings;
@@ -77,7 +77,7 @@ public class NetrcParser {
     private final Queue<Token> tokens = new ArrayDeque<>();
 
     TokenStream(InputStream inputStream) throws IOException {
-      bufferedReader = new BufferedReader(new InputStreamReader(inputStream, UTF_8));
+      bufferedReader = new BufferedReader(new InputStreamReader(inputStream, ISO_8859_1));
       processLine();
     }
 
@@ -184,8 +184,7 @@ public class NetrcParser {
       // Peek rather than taking next token since we probably won't process it
       Token token = tokenStream.peek();
       if (token instanceof ItemToken itemToken) {
-        String item = itemToken.item();
-        switch (item) {
+        switch (itemToken.item()) {
           case LOGIN -> {
             tokenStream.next();
             builder.setLogin(nextItem(tokenStream));
@@ -203,7 +202,7 @@ public class NetrcParser {
               throw new IOException(
                   String.format(
                       "Unexpected item: %s (expecting %s, %s, %s, %s, %s or %s)",
-                      item, LOGIN, PASSWORD, ACCOUNT, MACHINE, MACDEF, DEFAULT));
+                      itemToken.item(), LOGIN, PASSWORD, ACCOUNT, MACHINE, MACDEF, DEFAULT));
         }
       } else {
         tokenStream.next();
