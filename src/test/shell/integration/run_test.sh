@@ -708,12 +708,14 @@ EOF
   bazel run "${pkg}:my_rule" >$TEST_log 2>&1 \
    || fail "expected run to pass"
   expect_log "my_rule is being analyzed"
+  expect_not_log "hello"
   expect_log "world"
 
   bazel run --run_under="echo -n hello &&" "${pkg}:my_rule" >$TEST_log 2>&1 \
    || fail "expected run to pass"
   expect_not_log "my_rule is being analyzed"
-  expect_log "helloworld"
+  expect_log "hello"
+  expect_log "world"
 }
 
 function test_build_id_env_var() {
