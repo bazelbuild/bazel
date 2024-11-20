@@ -214,7 +214,7 @@ java_library(
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
-        "@protobuf//:protobuf_java",
+        "@com_google_protobuf//:protobuf_java",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )
@@ -346,7 +346,7 @@ java_library(
         "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
-        "@protobuf//:protobuf_java",
+        "@com_google_protobuf//:protobuf_java",
     ],
 )
 
@@ -476,7 +476,7 @@ java_library(
 java_library(
     name = "has_digest",
     srcs = ["HasDigest.java"],
-    deps = ["@protobuf//:protobuf_java"],
+    deps = ["@com_google_protobuf//:protobuf_java"],
 )
 
 java_library(

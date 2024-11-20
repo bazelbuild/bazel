@@ -321,8 +321,8 @@ java_test(
         "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:truth",
+        "@com_google_protobuf//:protobuf_java",
         "@maven//:com_google_testparameterinjector_test_parameter_injector",
-        "@protobuf//:protobuf_java",
     ],
 )
 
@@ -787,7 +787,7 @@ java_test(
         "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:truth",
-        "@protobuf//:protobuf_java",
+        "@com_google_protobuf//:protobuf_java",
     ],
 )
 
