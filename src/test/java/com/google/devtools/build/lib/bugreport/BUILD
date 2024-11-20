@@ -17,7 +17,6 @@ java_library(
     name = "bugreport_tests_lib",
     srcs = ["BugReportTest.java"],
     deps = [
-        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/util",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/util:crash_failure_details",
