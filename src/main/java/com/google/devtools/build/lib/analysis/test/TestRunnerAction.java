@@ -167,7 +167,6 @@ public class TestRunnerAction extends AbstractAction
 
   private final boolean splitCoveragePostProcessing;
   private final NestedSetBuilder<Artifact> lcovMergerFilesToRun;
-  @Nullable private final Artifact lcovMergerRunfilesTree;
 
   // TODO(b/192694287): Remove once we migrate all tests from the allowlist.
   private final PackageSpecificationProvider networkAllowlist;
@@ -213,7 +212,6 @@ public class TestRunnerAction extends AbstractAction
       boolean cancelConcurrentTestsOnSuccess,
       boolean splitCoveragePostProcessing,
       NestedSetBuilder<Artifact> lcovMergerFilesToRun,
-      @Nullable Artifact lcovMergerRunfilesTree,
       PackageSpecificationProvider networkAllowlist) {
     super(
         owner,
@@ -271,7 +269,6 @@ public class TestRunnerAction extends AbstractAction
     this.cancelConcurrentTestsOnSuccess = cancelConcurrentTestsOnSuccess;
     this.splitCoveragePostProcessing = splitCoveragePostProcessing;
     this.lcovMergerFilesToRun = lcovMergerFilesToRun;
-    this.lcovMergerRunfilesTree = lcovMergerRunfilesTree;
     this.networkAllowlist = networkAllowlist;
 
     // Mark all possible test outputs for deletion before test execution.
@@ -328,11 +325,6 @@ public class TestRunnerAction extends AbstractAction
   @Override
   public final ActionEnvironment getEnvironment() {
     return configuration.getActionEnvironment();
-  }
-
-  @Nullable
-  public Artifact getLcovMergerRunfilesTree() {
-    return lcovMergerRunfilesTree;
   }
 
   public BuildConfigurationValue getConfiguration() {

@@ -136,7 +136,9 @@ public class StandaloneTestStrategy extends TestStrategy {
             ImmutableMap.copyOf(executionInfo),
             ImmutableMap.of(),
             /* inputs= */ action.getInputs(),
-            NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            /* tools= */ NestedSetBuilder.<ActionInput>compileOrder()
+              .addTransitive(action.getLcovMergerFilesToRun().build())
+              .build(),
             ImmutableSet.copyOf(action.getSpawnOutputs()),
             /* mandatoryOutputs= */ ImmutableSet.of(),
             localResourcesSupplier);
@@ -509,7 +511,9 @@ public class StandaloneTestStrategy extends TestStrategy {
             .add(action.getCoverageManifest())
             .addTransitive(action.getLcovMergerFilesToRun().build())
             .build(),
-        /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        /* tools= */ NestedSetBuilder.<ActionInput>compileOrder()
+          .addTransitive(action.getLcovMergerFilesToRun().build())
+          .build(),
         /* outputs= */ ImmutableSet.of(
             ActionInputHelper.fromPath(action.getCoverageData().getExecPath())),
         /* mandatoryOutputs= */ null,
