@@ -135,7 +135,7 @@ gen_workspace_stanza(
         rules_java_toolchains()
         load("@rules_python//python:repositories.bzl", "py_repositories")
         py_repositories()
-        load("@protobuf//:protobuf_deps.bzl", "protobuf_deps")
+        load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
         protobuf_deps()
     """,
     preamble = """
@@ -144,7 +144,7 @@ gen_workspace_stanza(
     """,
     repos = [
         "bazel_skylib",  # Dependency of other rules
-        "protobuf",  # dependency of rules_java
+        "com_google_protobuf",  # dependency of rules_java
         "rules_java",  # For auto-load java rules symbols
         "rules_cc",  # For auto-load cc rules symbols
         "rules_python",  # For auto-load python rules symbols
