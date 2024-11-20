@@ -48,7 +48,6 @@ public final class TestTrimmingLogic {
           (options, unused, unusedNonEventHandler) -> {
             BuildOptions.Builder builder = options.underlying().toBuilder();
             builder.removeFragmentOptions(TestOptions.class);
-            builder.removeFragmentOptions(CoverageOptions.class);
             // Only the label of the --run_under target (if any) needs to be part of the
             // configuration for non-test targets, all other information is directly obtained
             // from the options in RunCommand.
