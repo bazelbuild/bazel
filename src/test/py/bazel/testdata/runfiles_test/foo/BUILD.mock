@@ -25,7 +25,7 @@ java_binary(
         "//bar:bar-sh",
     ],
     main_class = "Foo",
-    deps = ["@rules_java//java/runfiles"],
+    deps = ["@bazel_tools//tools/java/runfiles"],
 )
 
 sh_binary(
