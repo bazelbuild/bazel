@@ -46,10 +46,10 @@ WORKSPACE_REPOS = {
         "urls": ["https://github.com/bazelbuild/rules_license/releases/download/0.0.7/rules_license-0.0.7.tar.gz"],
     },
     "rules_python": {
-        "archive": "rules_python-0.36.0.tar.gz",
-        "sha256": "ca77768989a7f311186a29747e3e95c936a41dffac779aff6b443db22290d913",
-        "strip_prefix": "rules_python-0.36.0",
-        "urls": ["https://github.com/bazelbuild/rules_python/releases/download/0.36.0/rules_python-0.36.0.tar.gz"],
+        "archive": "rules_python-0.40.0.tar.gz",
+        "sha256": "690e0141724abb568267e003c7b6d9a54925df40c275a870a4d934161dc9dd53",
+        "strip_prefix": "rules_python-0.40.0",
+        "urls": ["https://github.com/bazelbuild/rules_python/releases/download/0.40.0/rules_python-0.40.0.tar.gz"],
     },
     "rules_pkg": {
         "archive": "rules_pkg-0.9.1.tar.gz",
