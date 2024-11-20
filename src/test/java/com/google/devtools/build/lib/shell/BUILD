@@ -201,7 +201,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//third_party:junit4",
-        "@bazel_tools//tools/java/runfiles",
+        "@rules_java//java/runfiles",
     ],
 )
 

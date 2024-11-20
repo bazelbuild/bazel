@@ -15,7 +15,7 @@ java_binary(
     srcs = ["Bar.java"],
     data = ["bar-java-data.txt"],
     main_class = "Bar",
-    deps = ["@bazel_tools//tools/java/runfiles"],
+    deps = ["@rules_java//java/runfiles"],
 )
 
 sh_binary(

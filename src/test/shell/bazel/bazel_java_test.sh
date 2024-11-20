@@ -1745,7 +1745,7 @@ EOF
 java_library(
   name = "library",
   srcs = ["Library.java"],
-  deps = ["@bazel_tools//tools/java/runfiles"],
+  deps = ["@rules_java//java/runfiles"],
   visibility = ["//visibility:public"],
 )
 
@@ -1755,7 +1755,7 @@ java_binary(
   main_class = "com.example.Binary",
   deps = [
     ":library",
-    "@bazel_tools//tools/java/runfiles",
+    "@rules_java//java/runfiles",
   ],
 )
 
@@ -1766,7 +1766,7 @@ java_test(
   use_testrunner = False,
   deps = [
     ":library",
-    "@bazel_tools//tools/java/runfiles",
+    "@rules_java//java/runfiles",
   ],
 )
 EOF
@@ -1828,7 +1828,7 @@ EOF
 java_library(
   name = "library2",
   srcs = ["Library2.java"],
-  deps = ["@bazel_tools//tools/java/runfiles"],
+  deps = ["@rules_java//java/runfiles"],
 )
 
 java_binary(
@@ -1838,7 +1838,7 @@ java_binary(
   deps = [
     ":library2",
     "@//pkg:library",
-    "@bazel_tools//tools/java/runfiles",
+    "@rules_java//java/runfiles",
   ],
 )
 java_test(
@@ -1849,7 +1849,7 @@ java_test(
   deps = [
     ":library2",
     "@//pkg:library",
-    "@bazel_tools//tools/java/runfiles",
+    "@rules_java//java/runfiles",
   ],
 )
 EOF

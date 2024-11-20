@@ -334,7 +334,7 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
             '    use_testrunner = False,',
             '    data = ["@data//:foo.txt"],',
             '    args = ["$(rlocationpath @data//:foo.txt)"],',
-            '    deps = ["@bazel_tools//tools/java/runfiles"],',
+            '    deps = ["@rules_java//java/runfiles"],',
             ')',
         ],
     )
