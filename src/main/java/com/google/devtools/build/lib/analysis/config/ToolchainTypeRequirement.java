@@ -49,7 +49,7 @@ public record ToolchainTypeRequirement(
     return new AutoBuilder_ToolchainTypeRequirement_Builder()
         .toolchainType(toolchainType)
         .mandatory(true)
-        .ignoreIfValid(false);
+        .ignoreIfInvalid(false);
   }
 
   /**
