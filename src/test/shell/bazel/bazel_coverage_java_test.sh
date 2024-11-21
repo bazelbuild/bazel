@@ -135,7 +135,9 @@ end_of_record"
 
   assert_coverage_result "$expected_result" "$coverage_file_path"
 
+  bazel clean
   bazel coverage --test_output=all --experimental_worker_multiplex_sandboxing --extra_toolchains=//:custom_toolchain_definition //:test &>$TEST_log || fail "Coverage with default_java_toolchain for //:test failed"
+  expect_log "mddultiplex-worker"
   assert_coverage_result "$expected_result" "$coverage_file_path"
 }
 
