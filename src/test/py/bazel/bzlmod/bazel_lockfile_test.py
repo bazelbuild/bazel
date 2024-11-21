@@ -661,10 +661,8 @@ class BazelLockfileTest(test_base.TestBase):
     self.assertIn(
         (
             'ERROR: MODULE.bazel.lock is no longer up-to-date because: The '
-            'implementation of the extension '
-            "'ModuleExtensionId[bzlFileLabel=//:extension.bzl, "
-            "extensionName=lockfile_ext, isolationKey=Optional.empty]' or one "
-            'of its transitive .bzl files has changed. Please run'
+            "implementation of the extension '@@//:extension.bzl%lockfile_ext' "
+            'or one of its transitive .bzl files has changed. Please run'
             ' `bazel mod deps --lockfile_mode=update` to update your lockfile.'
         ),
         stderr,
@@ -760,7 +758,7 @@ class BazelLockfileTest(test_base.TestBase):
     self.AssertNotExitCode(exit_code, 0, stderr)
     self.assertIn(
         (
-            'ERROR: module extension "other_ext" from "//:extension.bzl" does '
+            'ERROR: module extension @@//:extension.bzl%other_ext does '
             'not generate repository "hello", yet it is imported as '
             '"other_ext_hello" in the usage at '
             + module_file_path
@@ -845,8 +843,7 @@ class BazelLockfileTest(test_base.TestBase):
         (
             'ERROR: MODULE.bazel.lock is no longer up-to-date because: The'
             ' environment variables the extension'
-            " 'ModuleExtensionId[bzlFileLabel=//:extension.bzl,"
-            " extensionName=lockfile_ext, isolationKey=Optional.empty]' depends"
+            " '@@//:extension.bzl%lockfile_ext' depends"
             ' on (or their values) have changed. Please run'
             ' `bazel mod deps --lockfile_mode=update` to update your lockfile.'
         ),
@@ -991,7 +988,7 @@ class BazelLockfileTest(test_base.TestBase):
         stderr,
     )
     self.assertIn(
-        'ERROR: module extension "lockfile_ext" from "//:extension.bzl" does'
+        'ERROR: module extension @@//:extension.bzl%lockfile_ext does'
         ' not generate repository "invalid_dep"',
         stderr,
     )
@@ -1018,7 +1015,7 @@ class BazelLockfileTest(test_base.TestBase):
         stderr,
     )
     self.assertIn(
-        'ERROR: module extension "lockfile_ext" from "//:extension.bzl" does'
+        'ERROR: module extension @@//:extension.bzl%lockfile_ext does'
         ' not generate repository "invalid_dep"',
         stderr,
     )
@@ -1052,7 +1049,7 @@ class BazelLockfileTest(test_base.TestBase):
         stderr,
     )
     self.assertNotIn(
-        'ERROR: module extension "lockfile_ext" from "//:extension.bzl" does'
+        'ERROR: module extension @@//:extension.bzl%lockfile_ext does'
         ' not generate repository "invalid_dep"',
         stderr,
     )
@@ -2186,9 +2183,7 @@ class BazelLockfileTest(test_base.TestBase):
         ['build', '@repo//:all', '--lockfile_mode=error'], allow_failure=True
     )
     self.assertIn(
-        'ERROR: The module extension '
-        "'ModuleExtensionId[bzlFileLabel=//:extension.bzl, "
-        "extensionName=ext, isolationKey=Optional.empty]' does "
+        "ERROR: The module extension '@@//:extension.bzl%ext' does "
         'not exist in the lockfile',
         stderr,
     )

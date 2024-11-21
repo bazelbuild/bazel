@@ -57,10 +57,9 @@ public class SingleExtensionFunction implements SkyFunction {
             throw new SingleExtensionFunctionException(
                 ExternalDepsException.withMessage(
                     Code.INVALID_EXTENSION_IMPORT,
-                    "module extension \"%s\" from \"%s\" does not generate repository \"%s\", yet"
+                    "module extension %s does not generate repository \"%s\", yet"
                         + " it is imported as \"%s\" in the usage at %s%s",
-                    extensionId.extensionName(),
-                    extensionId.bzlFileLabel(),
+                    extensionId,
                     repoImport.getValue(),
                     repoImport.getKey(),
                     proxy.getLocation(),
@@ -80,11 +79,10 @@ public class SingleExtensionFunction implements SkyFunction {
           throw new SingleExtensionFunctionException(
               ExternalDepsException.withMessage(
                   Code.INVALID_EXTENSION_IMPORT,
-                  "module extension \"%s\" from \"%s\" generates repository \"%s\", yet"
+                  "module extension %s generates repository \"%s\", yet"
                       + " it is injected via inject_repo() at %s. Use override_repo() instead to"
                       + " override an existing repository.",
-                  extensionId.extensionName(),
-                  extensionId.bzlFileLabel(),
+                  extensionId,
                   override.getKey(),
                   override.getValue().location()),
               Transience.PERSISTENT);
@@ -92,11 +90,10 @@ public class SingleExtensionFunction implements SkyFunction {
           throw new SingleExtensionFunctionException(
               ExternalDepsException.withMessage(
                   Code.INVALID_EXTENSION_IMPORT,
-                  "module extension \"%s\" from \"%s\" does not generate repository \"%s\", yet"
+                  "module extension %s does not generate repository \"%s\", yet"
                       + " it is overridden via override_repo() at %s. Use inject_repo() instead to"
                       + " inject a new repository.",
-                  extensionId.extensionName(),
-                  extensionId.bzlFileLabel(),
+                  extensionId,
                   override.getKey(),
                   override.getValue().location()),
               Transience.PERSISTENT);

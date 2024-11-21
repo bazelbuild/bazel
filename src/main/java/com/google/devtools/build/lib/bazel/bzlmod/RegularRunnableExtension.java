@@ -225,7 +225,7 @@ final class RegularRunnableExtension implements RunnableExtension {
       try {
         return state.startOrContinueWork(
             env,
-            "module-extension-" + extensionId.asTargetString(),
+            "module-extension-" + extensionId,
             (workerEnv) ->
                 runInternal(
                     workerEnv, usagesValue, starlarkSemantics, extensionId, mainRepositoryMapping));
@@ -281,19 +281,15 @@ final class RegularRunnableExtension implements RunnableExtension {
       thread.setThreadLocal(Label.RepoMappingRecorder.class, repoMappingRecorder);
       try (SilentCloseable c =
           Profiler.instance()
-              .profile(
-                  ProfilerTask.BZLMOD,
-                  () -> "evaluate module extension: " + extensionId.asTargetString())) {
+              .profile(ProfilerTask.BZLMOD, () -> "evaluate module extension: " + extensionId)) {
         Object returnValue =
             Starlark.fastcall(
                 thread, extension.implementation(), new Object[] {moduleContext}, new Object[0]);
         if (returnValue != Starlark.NONE && !(returnValue instanceof ModuleExtensionMetadata)) {
           throw ExternalDepsException.withMessage(
               ExternalDeps.Code.BAD_MODULE,
-              "expected module extension %s in %s to return None or extension_metadata, got"
-                  + " %s",
-              extensionId.extensionName(),
-              extensionId.bzlFileLabel(),
+              "expected module extension %s to return None or extension_metadata, got %s",
+              extensionId,
               Starlark.type(returnValue));
         }
         if (returnValue instanceof ModuleExtensionMetadata retMetadata) {
@@ -317,10 +313,7 @@ final class RegularRunnableExtension implements RunnableExtension {
     } catch (EvalException e) {
       env.getListener().handle(Event.error(e.getInnermostLocation(), e.getMessageWithStack()));
       throw ExternalDepsException.withMessage(
-          ExternalDeps.Code.BAD_MODULE,
-          "error evaluating module extension %s in %s",
-          extensionId.extensionName(),
-          extensionId.bzlFileLabel());
+          ExternalDeps.Code.BAD_MODULE, "error evaluating module extension %s", extensionId);
     } catch (IOException e) {
       throw ExternalDepsException.withCauseAndMessage(
           ExternalDeps.Code.EXTERNAL_DEPS_UNKNOWN,
