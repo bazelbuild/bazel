@@ -59,7 +59,10 @@ java_library(
 )
 
 default_java_toolchain(
-    name = "custom_toolchain"
+    name = "custom_toolchain",
+    source_version = "${JAVA_RUNTIME_VERSION:-8}",
+    target_version = "${JAVA_RUNTIME_VERSION:-8}",
+    javac_supports_worker_multiplex_sandboxing = True,
 )
 EOF
 
@@ -132,7 +135,7 @@ end_of_record"
 
   assert_coverage_result "$expected_result" "$coverage_file_path"
 
-  bazel coverage --test_output=all --java_toolchain=//:custom_toolchain //:test &>$TEST_log || fail "Coverage with default_java_toolchain for //:test failed"
+  bazel coverage --test_output=all --experimental_worker_multiplex_sandboxing --extra_toolchains=//:custom_toolchain_definition //:test &>$TEST_log || fail "Coverage with default_java_toolchain for //:test failed"
   assert_coverage_result "$expected_result" "$coverage_file_path"
 }
 
