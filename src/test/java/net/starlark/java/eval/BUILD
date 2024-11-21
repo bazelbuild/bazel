@@ -74,7 +74,7 @@ java_test(
 
 java_test(
     name = "ScriptTest_Latin1",
-    jvm_flags = ["-Dnet.starlark.java.eval.ScriptTest.latin1=true"],
+    jvm_flags = ["-Dnet.starlark.java.eval.ScriptTest.utf8ByteStrings=true"],
     main_class = "net.starlark.java.eval.ScriptTest",
     use_testrunner = False,
     runtime_deps = [
