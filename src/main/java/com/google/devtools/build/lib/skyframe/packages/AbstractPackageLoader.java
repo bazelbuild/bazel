@@ -445,7 +445,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
       RepositoryMappingValue mainRepositoryMappingValue = evalResult.get(key);
       // We always set up a repository mapping function
       checkState(evalResult.getError(key) == null && mainRepositoryMappingValue != null);
-      return mainRepositoryMappingValue.getRepositoryMapping();
+      return mainRepositoryMappingValue.repositoryMapping();
     }
 
     private static StarlarkModuleLoadingException starlarkModuleLoadingExceptionFromErrorInfo(

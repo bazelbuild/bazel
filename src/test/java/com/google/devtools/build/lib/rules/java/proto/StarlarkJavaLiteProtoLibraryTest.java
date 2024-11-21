@@ -250,11 +250,11 @@ proto_lang_toolchain(
     JavaCompilationArgsProvider compilationArgsProvider =
         JavaInfo.getProvider(JavaCompilationArgsProvider.class, target);
     assertThat(compilationArgsProvider).isNotNull();
-    assertThat(compilationArgsProvider.getDirectCompileTimeJars()).isNotNull();
+    assertThat(compilationArgsProvider.directCompileTimeJars()).isNotNull();
     JavaSourceJarsProvider sourceJarsProvider =
         JavaInfo.getProvider(JavaSourceJarsProvider.class, target);
     assertThat(sourceJarsProvider).isNotNull();
-    assertThat(sourceJarsProvider.getSourceJars()).isNotNull();
+    assertThat(sourceJarsProvider.sourceJars()).isNotNull();
   }
 
   @Test
@@ -293,7 +293,7 @@ proto_lang_toolchain(
 
     List<String> directJars =
         prettyArtifactNames(
-            JavaInfo.getProvider(JavaCompilationArgsProvider.class, litepb2).getRuntimeJars());
+            JavaInfo.getProvider(JavaCompilationArgsProvider.class, litepb2).runtimeJars());
     assertThat(directJars)
         .containsExactly("cross/libbravo-lite.jar", "protobuf/libjavalite_runtime.jar");
   }
@@ -496,7 +496,7 @@ proto_lang_toolchain(
             JavaCompilationArgsProvider.class, getConfiguredTarget("//x:foo_java_proto_lite"));
 
     Iterable<String> directJars =
-        prettyArtifactNames(compilationArgsProvider.getDirectCompileTimeJars());
+        prettyArtifactNames(compilationArgsProvider.directCompileTimeJars());
 
     assertThat(directJars).containsExactly("x/libbar_proto-lite-hjar.jar");
   }

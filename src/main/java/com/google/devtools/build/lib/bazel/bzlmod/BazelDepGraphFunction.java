@@ -117,12 +117,12 @@ public class BazelDepGraphFunction implements SkyFunction {
               "invalid label for module extension found at %s",
               usage.getProxies().getFirst().getLocation());
         }
-        if (!moduleExtensionId.getBzlFileLabel().getRepository().isVisible()) {
+        if (!moduleExtensionId.bzlFileLabel().getRepository().isVisible()) {
           throw ExternalDepsException.withMessage(
               Code.BAD_MODULE,
               "invalid label for module extension found at %s: no repo visible as '@%s' here",
               usage.getProxies().getFirst().getLocation(),
-              moduleExtensionId.getBzlFileLabel().getRepository().getName());
+              moduleExtensionId.bzlFileLabel().getRepository().getName());
         }
         extensionUsagesTableBuilder.put(moduleExtensionId, module.getKey(), usage);
       }
@@ -183,8 +183,8 @@ public class BazelDepGraphFunction implements SkyFunction {
     String extensionNameDisambiguator = attempt == 1 ? "" : String.valueOf(attempt);
     // An innate extension name is of the form @repo//path/to/defs.bzl%repo_rule_name, which cannot
     // be part of a valid repo name.
-    String extensionName = id.isInnate() ? "_repo_rules" : id.getExtensionName();
-    return id.getIsolationKey()
+    String extensionName = id.isInnate() ? "_repo_rules" : id.extensionName();
+    return id.isolationKey()
         .map(
             isolationKey ->
                 String.format(
@@ -193,14 +193,14 @@ public class BazelDepGraphFunction implements SkyFunction {
                     // Extension names are identified by their Starlark identifier, which in the
                     // case of an exported symbol cannot start with "_".
                     "%s+_%s%s+%s+%s+%s",
-                    id.getBzlFileLabel().getRepository().getName(),
+                    id.bzlFileLabel().getRepository().getName(),
                     extensionName,
                     extensionNameDisambiguator,
-                    isolationKey.getModule().name(),
-                    isolationKey.getModule().version(),
-                    isolationKey.getUsageExportedName()))
+                    isolationKey.module().name(),
+                    isolationKey.module().version(),
+                    isolationKey.usageExportedName()))
         .orElse(
-            id.getBzlFileLabel().getRepository().getName()
+            id.bzlFileLabel().getRepository().getName()
                 + "+"
                 + extensionName
                 + extensionNameDisambiguator);

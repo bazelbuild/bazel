@@ -351,13 +351,13 @@ public class MobileInstallCommand implements BlazeCommand {
       // catch BadExitStatusException.
       command
           .execute(outErr.getOutputStream(), outErr.getErrorStream())
-          .getTerminationStatus()
+          .terminationStatus()
           .getExitCode();
       return null;
     } catch (BadExitStatusException e) {
       String message =
           "Non-zero return code '"
-              + e.getResult().getTerminationStatus().getExitCode()
+              + e.getResult().terminationStatus().getExitCode()
               + "' from command: "
               + e.getMessage();
       env.getReporter().handle(Event.error(message));

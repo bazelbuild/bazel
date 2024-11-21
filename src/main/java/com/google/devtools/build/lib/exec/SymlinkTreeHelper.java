@@ -249,7 +249,7 @@ public final class SymlinkTreeHelper {
     PathFragment root = PathFragment.create(workspaceName);
     var symlinks = ImmutableMap.<PathFragment, PathFragment>builderWithExpectedSize(links.size());
     for (FilesetOutputSymlink symlink : links) {
-      symlinks.put(root.getRelative(symlink.getName()), symlink.reconstituteTargetPath(execRoot));
+      symlinks.put(root.getRelative(symlink.name()), symlink.reconstituteTargetPath(execRoot));
     }
     // Fileset links are already deduplicated by name in SkyframeFilesetManifestAction.
     return symlinks.buildOrThrow();

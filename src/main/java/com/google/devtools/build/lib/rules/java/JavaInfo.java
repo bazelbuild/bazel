@@ -119,7 +119,7 @@ public sealed class JavaInfo extends NativeInfo
   public static CcInfo ccInfo(TransitiveInfoCollection target) throws RuleErrorException {
     JavaInfo javaInfo = JavaInfo.getJavaInfo(target);
     if (javaInfo != null && javaInfo.providerJavaCcInfo != null) {
-      return javaInfo.providerJavaCcInfo.getCcInfo();
+      return javaInfo.providerJavaCcInfo.ccInfo();
     }
     return CcInfo.EMPTY;
   }
@@ -322,7 +322,7 @@ public sealed class JavaInfo extends NativeInfo
     return Depset.of(
         Artifact.class,
         getProviderAsNestedSet(
-            JavaCompilationArgsProvider.class, JavaCompilationArgsProvider::getRuntimeJars));
+            JavaCompilationArgsProvider.class, JavaCompilationArgsProvider::runtimeJars));
   }
 
   @Override
@@ -331,15 +331,14 @@ public sealed class JavaInfo extends NativeInfo
         Artifact.class,
         getProviderAsNestedSet(
             JavaCompilationArgsProvider.class,
-            JavaCompilationArgsProvider::getTransitiveCompileTimeJars));
+            JavaCompilationArgsProvider::transitiveCompileTimeJars));
   }
 
   @Override
   public Depset /*<Artifact>*/ getCompileTimeJars() {
     NestedSet<Artifact> compileTimeJars =
         getProviderAsNestedSet(
-            JavaCompilationArgsProvider.class,
-            JavaCompilationArgsProvider::getDirectCompileTimeJars);
+            JavaCompilationArgsProvider.class, JavaCompilationArgsProvider::directCompileTimeJars);
     return Depset.of(Artifact.class, compileTimeJars);
   }
 
@@ -348,7 +347,7 @@ public sealed class JavaInfo extends NativeInfo
     NestedSet<Artifact> fullCompileTimeJars =
         getProviderAsNestedSet(
             JavaCompilationArgsProvider.class,
-            JavaCompilationArgsProvider::getDirectFullCompileTimeJars);
+            JavaCompilationArgsProvider::directFullCompileTimeJars);
     return Depset.of(Artifact.class, fullCompileTimeJars);
   }
 
@@ -356,9 +355,7 @@ public sealed class JavaInfo extends NativeInfo
   public Sequence<Artifact> getSourceJars() {
     // TODO(#4221) change return type to NestedSet<Artifact>
     ImmutableList<Artifact> sourceJars =
-        providerJavaSourceJars == null
-            ? ImmutableList.of()
-            : providerJavaSourceJars.getSourceJars();
+        providerJavaSourceJars == null ? ImmutableList.of() : providerJavaSourceJars.sourceJars();
     return StarlarkList.immutableCopyOf(sourceJars);
   }
 
@@ -372,7 +369,7 @@ public sealed class JavaInfo extends NativeInfo
   public ImmutableList<JavaOutput> getJavaOutputs() {
     return providerJavaRuleOutputJars == null
         ? ImmutableList.of()
-        : providerJavaRuleOutputJars.getJavaOutputs();
+        : providerJavaRuleOutputJars.javaOutputs();
   }
 
   @Override
@@ -399,14 +396,14 @@ public sealed class JavaInfo extends NativeInfo
     return Depset.of(
         Artifact.class,
         getProviderAsNestedSet(
-            JavaSourceJarsProvider.class, JavaSourceJarsProvider::getTransitiveSourceJars));
+            JavaSourceJarsProvider.class, JavaSourceJarsProvider::transitiveSourceJars));
   }
 
   /** Returns the transitive set of CC native libraries required by the target. */
   public NestedSet<LibraryToLink> getTransitiveNativeLibraries() {
     return getProviderAsNestedSet(
         JavaCcInfoProvider.class,
-        x -> x.getCcInfo().getCcNativeLibraryInfo().getTransitiveCcNativeLibraries());
+        x -> x.ccInfo().getCcNativeLibraryInfo().getTransitiveCcNativeLibraries());
   }
 
   @Override
@@ -416,7 +413,7 @@ public sealed class JavaInfo extends NativeInfo
 
   @Override
   public CcInfoApi<Artifact> getCcLinkParamInfo() {
-    return providerJavaCcInfo != null ? providerJavaCcInfo.getCcInfo() : CcInfo.EMPTY;
+    return providerJavaCcInfo != null ? providerJavaCcInfo.ccInfo() : CcInfo.EMPTY;
   }
 
   @Override
@@ -430,7 +427,7 @@ public sealed class JavaInfo extends NativeInfo
         Artifact.class,
         getProviderAsNestedSet(
             JavaCompilationArgsProvider.class,
-            JavaCompilationArgsProvider::getTransitiveFullCompileTimeJars));
+            JavaCompilationArgsProvider::transitiveFullCompileTimeJars));
   }
 
   @Override
@@ -439,7 +436,7 @@ public sealed class JavaInfo extends NativeInfo
         Artifact.class,
         getProviderAsNestedSet(
             JavaCompilationArgsProvider.class,
-            JavaCompilationArgsProvider::getCompileTimeJavaDependencyArtifacts));
+            JavaCompilationArgsProvider::compileTimeJavaDependencyArtifacts));
   }
 
   @Override

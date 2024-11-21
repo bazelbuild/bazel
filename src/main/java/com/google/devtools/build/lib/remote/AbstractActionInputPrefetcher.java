@@ -23,8 +23,8 @@ import static com.google.devtools.build.lib.remote.util.RxFutures.toCompletable;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toListenableFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.mergeBulkTransfer;
+import static java.util.Objects.requireNonNull;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -183,16 +183,15 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   private final DirectoryTracker directoryTracker = new DirectoryTracker();
 
   /** A symlink in the output tree. */
-  @AutoValue
-  abstract static class Symlink {
-
-    abstract PathFragment getLinkExecPath();
-
-    abstract PathFragment getTargetExecPath();
+  record Symlink(PathFragment linkExecPath, PathFragment targetExecPath) {
+    Symlink {
+      requireNonNull(linkExecPath, "linkExecPath");
+      requireNonNull(targetExecPath, "targetExecPath");
+      checkArgument(!linkExecPath.equals(targetExecPath));
+    }
 
     static Symlink of(PathFragment linkExecPath, PathFragment targetExecPath) {
-      checkArgument(!linkExecPath.equals(targetExecPath));
-      return new AutoValue_AbstractActionInputPrefetcher_Symlink(linkExecPath, targetExecPath);
+      return new Symlink(linkExecPath, targetExecPath);
     }
   }
 
@@ -346,9 +345,9 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       @Nullable Symlink symlink = maybeGetSymlink(action, input, metadata, metadataSupplier);
 
       if (symlink != null) {
-        checkState(execPath.startsWith(symlink.getLinkExecPath()));
+        checkState(execPath.startsWith(symlink.linkExecPath()));
         execPath =
-            symlink.getTargetExecPath().getRelative(execPath.relativeTo(symlink.getLinkExecPath()));
+            symlink.targetExecPath().getRelative(execPath.relativeTo(symlink.linkExecPath()));
       }
 
       @Nullable PathFragment treeRootExecPath = maybeGetTreeRoot(action, input, metadataSupplier);
@@ -618,11 +617,11 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
   private Completable plantSymlink(Symlink symlink) {
     return downloadCache.executeIfNot(
-        execRoot.getRelative(symlink.getLinkExecPath()),
+        execRoot.getRelative(symlink.linkExecPath()),
         Completable.defer(
             () -> {
-              Path link = execRoot.getRelative(symlink.getLinkExecPath());
-              Path target = execRoot.getRelative(symlink.getTargetExecPath());
+              Path link = execRoot.getRelative(symlink.linkExecPath());
+              Path target = execRoot.getRelative(symlink.targetExecPath());
               // Delete the link path if it already exists. This is the case for tree artifacts,
               // whose root directory is created before the action runs.
               link.delete();

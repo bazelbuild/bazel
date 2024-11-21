@@ -40,7 +40,7 @@ public record RootModuleFileFixup(
             key ->
                 String.format(
                     "Updated use_repo calls for isolated usage '%s' of %s",
-                    key.getUsageExportedName(), extensionId))
+                    key.usageExportedName(), extensionId))
         .orElseGet(() -> String.format("Updated use_repo calls for %s", extensionId));
   }
 }

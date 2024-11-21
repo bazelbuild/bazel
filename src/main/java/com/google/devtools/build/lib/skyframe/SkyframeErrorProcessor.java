@@ -15,8 +15,8 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil.configurationIdMessage;
 import static com.google.devtools.build.lib.skyframe.ActionArtifactCycleReporter.ACTION_OR_ARTIFACT_OR_TRANSITIVE_RDEP;
+import static java.util.Objects.requireNonNull;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
@@ -93,18 +93,16 @@ public final class SkyframeErrorProcessor {
    * <p>The various attributes will be used later on to construct the FailureDetail in {@link
    * com.google.devtools.build.lib.analysis.BuildView#createAnalysisFailureDetail}.
    */
-  @AutoValue
-  abstract static class ErrorProcessingResult {
-    abstract boolean hasLoadingError();
-
-    abstract boolean hasAnalysisError();
-
-    abstract ImmutableMap<ActionAnalysisMetadata, ActionConflictException> actionConflicts();
-
-    @Nullable
-    abstract DetailedExitCode executionDetailedExitCode();
-
-    abstract ImmutableList<ActionLookupKey> aspectKeysForConflictReporting();
+  record ErrorProcessingResult(
+      boolean hasLoadingError,
+      boolean hasAnalysisError,
+      ImmutableMap<ActionAnalysisMetadata, ActionConflictException> actionConflicts,
+      @Nullable DetailedExitCode executionDetailedExitCode,
+      ImmutableList<ActionLookupKey> aspectKeysForConflictReporting) {
+    ErrorProcessingResult {
+      requireNonNull(actionConflicts, "actionConflicts");
+      requireNonNull(aspectKeysForConflictReporting, "aspectKeysForConflictReporting");
+    }
 
     static AggregatingBuilder newBuilder() {
       return new AggregatingBuilder();
@@ -134,7 +132,7 @@ public final class SkyframeErrorProcessor {
       }
 
       ErrorProcessingResult build() {
-        return new AutoValue_SkyframeErrorProcessor_ErrorProcessingResult(
+        return new ErrorProcessingResult(
             hasLoadingError,
             hasAnalysisError,
             ImmutableMap.copyOf(actionConflicts),
@@ -148,20 +146,17 @@ public final class SkyframeErrorProcessor {
    * Represents the information around one single error in the build. These are the building blocks
    * for the final {@link ErrorProcessingResult}.
    */
-  @AutoValue
-  abstract static class IndividualErrorProcessingResult {
-
-    abstract ImmutableMap<ActionAnalysisMetadata, ActionConflictException> actionConflicts();
-
-    @Nullable
-    abstract DetailedExitCode executionDetailedExitCode();
-
-    abstract NestedSet<Cause> analysisRootCauses();
-
-    abstract ImmutableSet<Label> loadingRootCauses();
-
-    @Nullable
-    abstract ActionLookupKey aspectKeyForConflictReporting();
+  record IndividualErrorProcessingResult(
+      ImmutableMap<ActionAnalysisMetadata, ActionConflictException> actionConflicts,
+      @Nullable DetailedExitCode executionDetailedExitCode,
+      NestedSet<Cause> analysisRootCauses,
+      ImmutableSet<Label> loadingRootCauses,
+      @Nullable ActionLookupKey aspectKeyForConflictReporting) {
+    IndividualErrorProcessingResult {
+      requireNonNull(actionConflicts, "actionConflicts");
+      requireNonNull(analysisRootCauses, "analysisRootCauses");
+      requireNonNull(loadingRootCauses, "loadingRootCauses");
+    }
 
     boolean isActionConflictError() {
       return !actionConflicts().isEmpty();
@@ -182,7 +177,7 @@ public final class SkyframeErrorProcessor {
         NestedSet<Cause> analysisRootCauses,
         ImmutableSet<Label> loadingRootCauses,
         @Nullable ActionLookupKey aspectKeyForConflictReporting) {
-      return new AutoValue_SkyframeErrorProcessor_IndividualErrorProcessingResult(
+      return new IndividualErrorProcessingResult(
           actionConflicts,
           executionDetailedExitCode,
           analysisRootCauses,

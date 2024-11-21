@@ -27,6 +27,7 @@ java_library(
         "//third_party:auth",
         "//third_party:auto_value",
         "//third_party:caffeine",
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:netty",

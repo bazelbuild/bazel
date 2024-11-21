@@ -234,7 +234,7 @@ public final class VendorCommand implements BlazeCommand {
 
     BazelFetchAllValue fetchAllValue = (BazelFetchAllValue) evaluationResult.get(fetchKey);
     env.getReporter().handle(Event.info("Vendoring all external repositories..."));
-    vendor(env, fetchAllValue.getReposToVendor());
+    vendor(env, fetchAllValue.reposToVendor());
     env.getReporter().handle(Event.info("All external dependencies vendored successfully."));
     return BlazeCommandResult.success();
   }

@@ -93,7 +93,7 @@ public final class AspectContext extends RuleContext {
   /** Returns the labels of default the toolchain types that aspects have propagated. */
   public ImmutableSet<Label> getRequestedToolchainTypesLabels() {
     if (targetUsesAutoExecGroups) {
-      return baseTargetToolchainContexts.getContextMap().entrySet().stream()
+      return baseTargetToolchainContexts.contextMap().entrySet().stream()
           .filter(e -> isAutomaticExecGroup(e.getKey()))
           .flatMap(e -> e.getValue().requestedToolchainTypeLabels().keySet().stream())
           .collect(toImmutableSet());
@@ -115,7 +115,7 @@ public final class AspectContext extends RuleContext {
     var execGroupContext = baseTargetToolchainContexts.getDefaultToolchainContext();
     if (targetUsesAutoExecGroups) {
       execGroupContext =
-          baseTargetToolchainContexts.getContextMap().entrySet().stream()
+          baseTargetToolchainContexts.contextMap().entrySet().stream()
               .filter(
                   e ->
                       isAutomaticExecGroup(e.getKey())

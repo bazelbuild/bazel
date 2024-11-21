@@ -17,8 +17,8 @@ package com.google.devtools.build.lib.analysis.test;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.actions.ActionAnalysisMetadata.mergeMaps;
+import static java.util.Objects.requireNonNull;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
@@ -1223,8 +1223,8 @@ public class TestRunnerAction extends AbstractAction
               .getEventHandler()
               .post(new SpawnExecutedEvent.ChangePhase(this));
 
-          testRunnerSpawn = nextRunnerAndAttempts.getSpawn();
-          maxAttempts = nextRunnerAndAttempts.getMaxAttempts();
+          testRunnerSpawn = nextRunnerAndAttempts.spawn();
+          maxAttempts = nextRunnerAndAttempts.maxAttempts();
           continue;
         }
       }
@@ -1282,15 +1282,14 @@ public class TestRunnerAction extends AbstractAction
   }
 
   /** Value type used to store computed next runner and max attempts. */
-  @AutoValue
   @VisibleForTesting
-  abstract static class TestRunnerSpawnAndMaxAttempts {
-    public abstract TestRunnerSpawn getSpawn();
-
-    public abstract int getMaxAttempts();
+  record TestRunnerSpawnAndMaxAttempts(TestRunnerSpawn spawn, int maxAttempts) {
+    TestRunnerSpawnAndMaxAttempts {
+      requireNonNull(spawn, "spawn");
+    }
 
     public static TestRunnerSpawnAndMaxAttempts create(TestRunnerSpawn spawn, int maxAttempts) {
-      return new AutoValue_TestRunnerAction_TestRunnerSpawnAndMaxAttempts(spawn, maxAttempts);
+      return new TestRunnerSpawnAndMaxAttempts(spawn, maxAttempts);
     }
   }
 

@@ -15,8 +15,8 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
+import static java.util.Objects.requireNonNull;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -275,16 +275,17 @@ public final class JavaToolchainProvider extends StarlarkInfoWrapper {
     return JavaRuntimeInfo.wrap(getUnderlyingValue("java_runtime", Info.class));
   }
 
-  @AutoValue
-  abstract static class JspecifyInfo {
-
-    abstract JavaPluginData jspecifyProcessor();
-
-    abstract NestedSet<Artifact> jspecifyImplicitDeps();
-
-    abstract ImmutableList<String> jspecifyJavacopts();
-
-    abstract ImmutableList<PackageSpecificationProvider> jspecifyPackages();
+  record JspecifyInfo(
+      JavaPluginData jspecifyProcessor,
+      NestedSet<Artifact> jspecifyImplicitDeps,
+      ImmutableList<String> jspecifyJavacopts,
+      ImmutableList<PackageSpecificationProvider> jspecifyPackages) {
+    JspecifyInfo {
+      requireNonNull(jspecifyProcessor, "jspecifyProcessor");
+      requireNonNull(jspecifyImplicitDeps, "jspecifyImplicitDeps");
+      requireNonNull(jspecifyJavacopts, "jspecifyJavacopts");
+      requireNonNull(jspecifyPackages, "jspecifyPackages");
+    }
 
     boolean matches(Label label) {
       for (PackageSpecificationProvider provider : jspecifyPackages()) {
@@ -303,7 +304,7 @@ public final class JavaToolchainProvider extends StarlarkInfoWrapper {
         return null;
       } else if (value instanceof StructImpl struct) {
         try {
-          return new AutoValue_JavaToolchainProvider_JspecifyInfo(
+          return new JspecifyInfo(
               JavaPluginData.wrap(struct.getValue("processor")),
               Depset.noneableCast(
                   struct.getValue("implicit_deps"), Artifact.class, "implicit_deps"),

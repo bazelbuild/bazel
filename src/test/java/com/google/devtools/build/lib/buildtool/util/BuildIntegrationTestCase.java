@@ -689,6 +689,7 @@ public abstract class BuildIntegrationTestCase {
       return null;
     }
   }
+
   /**
    * Returns the path to the executable that label "target" identifies.
    *
@@ -698,8 +699,12 @@ public abstract class BuildIntegrationTestCase {
    * @param target the label of the target whose executable location is requested.
    */
   protected Path getExecutableLocation(String target)
-      throws LabelSyntaxException, NoSuchPackageException, NoSuchTargetException,
-          InterruptedException, TransitionException, InvalidConfigurationException {
+      throws LabelSyntaxException,
+          NoSuchPackageException,
+          NoSuchTargetException,
+          InterruptedException,
+          TransitionException,
+          InvalidConfigurationException {
     return getExecutable(getConfiguredTarget(target)).getPath();
   }
 
@@ -710,8 +715,12 @@ public abstract class BuildIntegrationTestCase {
    * @param target the label of the target whose artifacts are requested.
    */
   protected ImmutableList<Artifact> getArtifacts(String target)
-      throws LabelSyntaxException, NoSuchPackageException, NoSuchTargetException,
-          InterruptedException, TransitionException, InvalidConfigurationException {
+      throws LabelSyntaxException,
+          NoSuchPackageException,
+          NoSuchTargetException,
+          InterruptedException,
+          TransitionException,
+          InvalidConfigurationException {
     return getFilesToBuild(getConfiguredTarget(target)).toList();
   }
 
@@ -722,8 +731,12 @@ public abstract class BuildIntegrationTestCase {
    * @param target the label of the requested target.
    */
   protected ConfiguredTarget getConfiguredTarget(String target)
-      throws LabelSyntaxException, NoSuchPackageException, NoSuchTargetException,
-          InterruptedException, TransitionException, InvalidConfigurationException {
+      throws LabelSyntaxException,
+          NoSuchPackageException,
+          NoSuchTargetException,
+          InterruptedException,
+          TransitionException,
+          InvalidConfigurationException {
     getPackageManager().getTarget(events.reporter(), label(target));
     return getSkyframeExecutor()
         .getConfiguredTargetForTesting(events.reporter(), label(target), getTargetConfiguration());
@@ -822,7 +835,7 @@ public abstract class BuildIntegrationTestCase {
                 getSkyframeExecutor()
                     .getEvaluator()
                     .getExistingValue(RepositoryMappingValue.key(RepositoryName.MAIN)))
-            .getRepositoryMapping();
+            .repositoryMapping();
     return Label.parseWithRepoContext(
         labelString, Label.RepoContext.of(RepositoryName.MAIN, mainRepoMapping));
   }
