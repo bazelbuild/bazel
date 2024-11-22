@@ -573,6 +573,34 @@ public sealed class JavaInfo extends NativeInfo
 
   static final class WorkspaceJavaInfo extends JavaInfo {
 
+    private WorkspaceJavaInfo(
+        JavaCcInfoProvider javaCcInfoProvider,
+        JavaCompilationArgsProvider javaCompilationArgsProvider,
+        JavaCompilationInfoProvider javaCompilationInfoProvider,
+        JavaGenJarsProvider javaGenJarsProvider,
+        JavaModuleFlagsProvider javaModuleFlagsProvider,
+        JavaPluginInfo javaPluginInfo,
+        JavaRuleOutputJarsProvider javaRuleOutputJarsProvider,
+        JavaSourceJarsProvider javaSourceJarsProvider,
+        ImmutableList<Artifact> directRuntimeJars,
+        boolean neverlink,
+        ImmutableList<String> javaConstraints,
+        Location creationLocation) {
+      super(
+          javaCcInfoProvider,
+          javaCompilationArgsProvider,
+          javaCompilationInfoProvider,
+          javaGenJarsProvider,
+          javaModuleFlagsProvider,
+          javaPluginInfo,
+          javaRuleOutputJarsProvider,
+          javaSourceJarsProvider,
+          directRuntimeJars,
+          neverlink,
+          javaConstraints,
+          creationLocation);
+    }
+
     private WorkspaceJavaInfo(StructImpl javaInfo)
         throws EvalException, TypeException, RuleErrorException {
       super(javaInfo);
@@ -752,6 +780,20 @@ public sealed class JavaInfo extends NativeInfo
     public JavaInfo build() {
       if (provider.getKey().equals(LEGACY_BUILTINS_PROVIDER.getKey())) {
         return new BuiltinsJavaInfo(
+            /* javaCcInfoProvider= */ null,
+            providerJavaCompilationArgs,
+            providerJavaCompilationInfo,
+            /* javaGenJarsProvider= */ null,
+            /* javaModuleFlagsProvider= */ null,
+            /* javaPluginInfo= */ null,
+            providerJavaRuleOutputJars,
+            providerJavaSourceJars,
+            runtimeJars,
+            neverlink,
+            javaConstraints,
+            creationLocation);
+      } else if (provider.getKey().equals(WORKSPACE_PROVIDER.getKey())) {
+        return new WorkspaceJavaInfo(
             /* javaCcInfoProvider= */ null,
             providerJavaCompilationArgs,
             providerJavaCompilationInfo,
