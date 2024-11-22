@@ -73,7 +73,7 @@ function test_determinism()  {
 
     # Build Bazel once.
     bazel \
-      --output_base="${TEST_TMPDIR}/out 1" \
+      --output_base="${TEST_TMPDIR}/ouäöüt 1" \
       build \
       --extra_toolchains=@rules_python//python:autodetecting_toolchain \
       --enable_bzlmod \
@@ -81,14 +81,18 @@ function test_determinism()  {
       --lockfile_mode=update \
       --override_repository=$(cat derived/maven/MAVEN_CANONICAL_REPO_NAME)=derived/maven \
       --nostamp \
-      //src:bazel
+      //src:bazel &> $TEST_log || fail "First build failed"
+    expect_not_log WARNING
+    expect_not_log ERROR
+    expect_not_log "Exception:"
+    expect_not_log "Error:"
     hash_outputs >"${TEST_TMPDIR}/sum1"
 
     # Build Bazel twice.
     bazel-bin/src/bazel \
       --bazelrc="${TEST_TMPDIR}/bazelrc" \
       --install_base="${TEST_TMPDIR}/install_base2" \
-      --output_base="${TEST_TMPDIR}/out 2" \
+      --output_base="${TEST_TMPDIR}/ouäöüt 2" \
       build \
       --extra_toolchains=@rules_python//python:autodetecting_toolchain \
       --enable_bzlmod \
@@ -96,7 +100,11 @@ function test_determinism()  {
       --lockfile_mode=update \
       --override_repository=$(cat derived/maven/MAVEN_CANONICAL_REPO_NAME)=derived/maven \
       --nostamp \
-      //src:bazel
+      //src:bazel &> $TEST_log || fail "Second build failed"
+    expect_not_log WARNING
+    expect_not_log ERROR
+    expect_not_log "Exception:"
+    expect_not_log "Error:"
     hash_outputs >"${TEST_TMPDIR}/sum2"
 
     if ! diff -U0 "${TEST_TMPDIR}/sum1" "${TEST_TMPDIR}/sum2" >$TEST_log; then
