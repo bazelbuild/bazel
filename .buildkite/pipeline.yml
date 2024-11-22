@@ -10,3 +10,6 @@ steps:
       automatic:
         - exit_status: "*"
           limit: 4
+  - command: "bazel test //..."
+    key: "bazel_test"
+    depends_on: "bazel_build"
