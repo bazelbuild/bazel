@@ -6,3 +6,6 @@ steps:
   - command: "bazel build //..."
     key: "bazel_build"
     depends_on: "install_bazel"
+    retry:
+      automatic: true
+      limit: 2
