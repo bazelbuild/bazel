@@ -29,12 +29,12 @@ public class JUnit4TestbridgeExercises {
   public void testPass() {}
 
   @Test
-  public void testFailOnce() {
+  public void testFailAssertion() {
     fail();
   }
 
   @Test
-  public void testFailAgain() {
-    fail();
+  public void testFailWithOom() {
+    throw new OutOfMemoryError("testing");
   }
 }
