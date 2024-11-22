@@ -182,8 +182,7 @@ public class LocalSpawnRunner implements SpawnRunner {
 
   protected Path createActionTemp(Path execRoot) throws IOException {
     return execRoot.getRelative(
-        Files.createTempDirectory(
-                java.nio.file.Paths.get(execRoot.getPathString()), "local-spawn-runner.")
+        Files.createTempDirectory(execRoot.getPathFile().toPath(), "local-spawn-runner.")
             .getFileName()
             .toString());
   }
