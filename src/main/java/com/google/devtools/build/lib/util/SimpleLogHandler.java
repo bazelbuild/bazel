@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.util;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
@@ -528,7 +528,7 @@ public final class SimpleLogHandler extends Handler {
         LogManager.getLogManager()
             .getProperty(SimpleLogHandler.class.getName() + "." + configuredName);
     if (configuredValue != null) {
-      return parse.apply(configuredValue);
+      return parse.apply(StringEncoding.unicodeToInternal(configuredValue));
     }
     return fallbackValue;
   }
@@ -661,7 +661,7 @@ public final class SimpleLogHandler extends Handler {
 
     StringBuilder sb = new StringBuilder(100); // Typical name is < 100 bytes
     boolean inVar = false;
-    String username = System.getProperty("user.name");
+    String username = StringEncoding.platformToInternal(System.getProperty("user.name"));
 
     if (Strings.isNullOrEmpty(username)) {
       username = "unknown_user";
@@ -695,7 +695,7 @@ public final class SimpleLogHandler extends Handler {
       }
     }
 
-    return new File(sb.toString()).getAbsoluteFile().toPath();
+    return new File(StringEncoding.internalToPlatform(sb.toString())).getAbsoluteFile().toPath();
   }
 
   /**
@@ -707,14 +707,13 @@ public final class SimpleLogHandler extends Handler {
   private static Path getSymlinkAbsolutePath(Path logDir, String symlink) {
     checkNotNull(symlink);
     checkArgument(!symlink.isEmpty());
-    File symlinkFile = new File(symlink);
-    if (!symlinkFile.isAbsolute()) {
-      symlinkFile = new File(logDir + File.separator + symlink);
+    Path symlinkPath = Path.of(StringEncoding.internalToPlatform(symlink));
+    if (!symlinkPath.isAbsolute()) {
+      symlinkPath = logDir.resolve(symlinkPath);
     }
     checkArgument(
-        symlinkFile.toPath().getParent().equals(logDir),
-        "symlink is not a top-level file in logDir");
-    return symlinkFile.toPath();
+        symlinkPath.getParent().equals(logDir), "symlink is not a top-level file in logDir");
+    return symlinkPath;
   }
 
   private static final class Output {
@@ -737,9 +736,9 @@ public final class SimpleLogHandler extends Handler {
     public void open(String path) throws IOException {
       try {
         close();
-        file = new File(path);
+        file = new File(StringEncoding.internalToPlatform(path));
         stream = new CountingOutputStream(new FileOutputStream(file, true));
-        writer = new OutputStreamWriter(stream, UTF_8);
+        writer = new OutputStreamWriter(stream, ISO_8859_1);
       } catch (IOException e) {
         close();
         throw e;
