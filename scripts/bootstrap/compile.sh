@@ -266,15 +266,8 @@ EOF
 
   # Create @bazel_tools//tools/cpp/runfiles
   mkdir -p ${BAZEL_TOOLS_REPO}/tools/cpp/runfiles
-  link_file "${PWD}/tools/cpp/runfiles/runfiles_src.h" \
+  link_file "${PWD}/tools/cpp/runfiles/runfiles.h" \
       "${BAZEL_TOOLS_REPO}/tools/cpp/runfiles/runfiles.h"
-  # Transform //tools/cpp/runfiles:runfiles_src.cc to
-  # @bazel_tools//tools/cpp/runfiles:runfiles.cc
-  # Keep this transformation logic in sync with the
-  # //tools/cpp/runfiles:srcs_for_embedded_tools genrule.
-  sed 's|^#include.*/runfiles_src.h.*|#include \"tools/cpp/runfiles/runfiles.h\"|' \
-      "${PWD}/tools/cpp/runfiles/runfiles_src.cc" > \
-      "${BAZEL_TOOLS_REPO}/tools/cpp/runfiles/runfiles.cc"
   link_file "${PWD}/tools/cpp/runfiles/BUILD.tools" \
       "${BAZEL_TOOLS_REPO}/tools/cpp/runfiles/BUILD"
 
