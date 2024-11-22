@@ -24,10 +24,11 @@
 #include <objbase.h>
 #include <shlobj.h>
 #include <stdarg.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #include <algorithm>
-#include <cstdio>
-#include <cstdlib>
 #include <memory>
 #include <mutex>  // NOLINT
 #include <optional>
@@ -1086,85 +1087,117 @@ uint64_t WindowsClock::GetMilliseconds() const {
   return GetMillisecondsAsLargeInt(kFrequency).QuadPart;
 }
 
-std::pair<LockHandle, std::optional<DurationMillis>> AcquireLock(
-    const std::string& name, const blaze_util::Path& path, LockMode mode,
-    bool batch_mode, bool block) {
-  DWORD desired_access = GENERIC_READ;
+static bool TryLock(HANDLE handle, LockMode mode, const string& name) {
+  OVERLAPPED overlapped = {};
+  DWORD flags = LOCKFILE_FAIL_IMMEDIATELY;
   if (mode == LockMode::kExclusive) {
-    desired_access |= GENERIC_WRITE;
+    flags |= LOCKFILE_EXCLUSIVE_LOCK;
   }
-
-  // CreateFile defaults to opening the file exclusively. We intentionally open
-  // it in shared mode and instead use LockFileEx to obtain a lock. This mimicks
-  // the FileChannel implementation in the JVM, making locks obtained on the
-  // client side compatible with the server side.
-  HANDLE handle = ::CreateFileW(
-      /* lpFileName */ path.AsNativePath().c_str(),
-      /* dwDesiredAccess */ desired_access,
-      /* dwShareMode */ FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-      /* lpSecurityAttributes */ nullptr,
-      /* dwCreationDisposition */ CREATE_ALWAYS,
-      /* dwFlagsAndAttributes */ FILE_ATTRIBUTE_NORMAL,
-      /* hTemplateFile */ nullptr);
-  if (handle == INVALID_HANDLE_VALUE) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "CreateFile failed for " << name
-        << " lock: " << GetLastErrorString();
-  }
-
-  bool first_lock_attempt = true;
-  uint64_t start_time = GetMillisecondsMonotonic();
-
-  while (true) {
-    OVERLAPPED overlapped = {};
-    DWORD flags = LOCKFILE_FAIL_IMMEDIATELY;
-    if (mode == LockMode::kExclusive) {
-      flags |= LOCKFILE_EXCLUSIVE_LOCK;
-    }
-    BOOL success = LockFileEx(
-        /* hFile */ handle,
-        /* dwFlags */ flags,
-        /* dwReserved */ 0,
-        /* nNumberOfBytesToLockLow */ 1,
-        /* nNumberOfBytesToLockHigh */ 0,
-        /* lpOverlapped */ &overlapped);
-    if (success) {
-      // Successfully acquired the lock.
-      break;
-    }
+  BOOL success = LockFileEx(
+      /* hFile */ handle,
+      /* dwFlags */ flags,
+      /* dwReserved */ 0,
+      /* nNumberOfBytesToLockLow */ 1,
+      /* nNumberOfBytesToLockHigh */ 0,
+      /* lpOverlapped */ &overlapped);
+  if (!success && GetLastError() != ERROR_LOCK_VIOLATION) {
     // The LockFileEx API documentation claims ERROR_IO_PENDING is raised
     // when the lock is already held, but when LOCKFILE_FAIL_IMMEDIATELY is
     // passed, the error is actually ERROR_LOCK_VIOLATION.
     // See https://devblogs.microsoft.com/oldnewthing/20140905-00/?p=63.
-    if (GetLastError() != ERROR_LOCK_VIOLATION) {
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "LockFileEx failed for " << name
+        << " lock: " << GetLastErrorString();
+  }
+  return success;
+}
+
+static bool StillExists(HANDLE handle, const string& name) {
+  FILE_STANDARD_INFO info;
+  BOOL success = GetFileInformationByHandleEx(
+      /* hFile */ handle,
+      /* FileInformationClass */ FileStandardInfo,
+      /* lpFileInformation */ &info,
+      /* dwBufferSize */ sizeof(info));
+  if (!success) {
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "GetFileInformationByHandleEx failed for " << name
+        << " lock: " << GetLastErrorString();
+  }
+  return !info.DeletePending;
+}
+
+std::pair<LockHandle, std::optional<DurationMillis>> AcquireLock(
+    const std::string& name, const blaze_util::Path& path, LockMode mode,
+    bool batch_mode, bool block) {
+  const uint64_t start_time = GetMillisecondsMonotonic();
+  bool multiple_attempts = false;
+
+  while (true) {
+    DWORD desired_access = GENERIC_READ;
+    if (mode == LockMode::kExclusive) {
+      desired_access |= GENERIC_WRITE;
+    }
+
+    // CreateFile defaults to opening the file exclusively. We intentionally
+    // open it in shared mode and instead use LockFileEx to obtain a lock. This
+    // mimicks the FileChannel implementation in the JVM, making locks obtained
+    // on the client side compatible with the server side.
+    HANDLE handle = ::CreateFileW(
+        /* lpFileName */ path.AsNativePath().c_str(),
+        /* dwDesiredAccess */ desired_access,
+        /* dwShareMode */ FILE_SHARE_READ | FILE_SHARE_WRITE |
+            FILE_SHARE_DELETE,
+        /* lpSecurityAttributes */ nullptr,
+        /* dwCreationDisposition */ CREATE_ALWAYS,
+        /* dwFlagsAndAttributes */ FILE_ATTRIBUTE_NORMAL,
+        /* hTemplateFile */ nullptr);
+    if (handle == INVALID_HANDLE_VALUE) {
       BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-          << "LockFileEx failed for " << name
+          << "CreateFile failed for " << name
           << " lock: " << GetLastErrorString();
     }
-    // Someone else has the lock.
-    if (first_lock_attempt) {
-      first_lock_attempt = false;
+
+    // Try to acquire the lock.
+    if (TryLock(handle, mode, name)) {
+      // Check that the lock file was not concurrently deleted.
+      if (StillExists(handle, name)) {
+        // If we succeeded on the first try, report zero wait time to avoid
+        // unnecessary noise in the logs. We are interested in how long it took
+        // for other commands to complete, not how fast acquiring a lock is.
+        const uint64_t end_time = GetMillisecondsMonotonic();
+        const auto wait_time =
+            multiple_attempts
+                ? std::make_optional(DurationMillis(start_time, end_time))
+                : std::nullopt;
+        return std::make_pair(reinterpret_cast<LockHandle>(handle), wait_time);
+      }
+    }
+
+    // Someone else holds the lock. Print an informational message.
+    // On Unix, we take advantage of the advisory nature of locks and identify
+    // the lock owner in the lock file, so that a concurrent process can read
+    // and display it. On Windows locks are mandatory, so we cannot do the same.
+
+    if (!multiple_attempts) {
       BAZEL_LOG(USER) << "Another command holds the " << name << " lock.";
       if (block) {
         BAZEL_LOG(USER) << "Waiting for it to complete...";
       }
       fflush(stderr);
     }
+
     if (!block) {
       BAZEL_DIE(blaze_exit_code::LOCK_HELD_NOBLOCK_FOR_LOCK)
           << "Exiting because the " << name
           << " lock is held and --noblock_for_lock was given.";
     }
+
+    multiple_attempts = true;
+
+    CloseHandle(handle);
     Sleep(/* dwMilliseconds */ 500);
   }
-
-  // On Unix, we take advantage of the advisory nature of locks and write some
-  // information about the process holding the lock into the lock file, so that
-  // a concurrent process can read and display it. On Windows we can't do so
-  // because locks are mandatory, thus we cannot read the file concurrently.
-
-  return std::make_pair(reinterpret_cast<LockHandle>(handle),
-                        DurationMillis(start_time, GetMillisecondsMonotonic()));
 }
 
 void ReleaseLock(LockHandle lock_handle) {
