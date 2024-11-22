@@ -3,3 +3,5 @@ steps:
 #    label: ":pipeline:"
   - command: "install_bazel.sh"
     label: ":install bazelisk:"
+  - command: "bazel build //..."
+    label: ":bazel: Build"

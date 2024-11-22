@@ -5,3 +5,4 @@ chmod +x bazelisk-linux-amd64
 sudo mv bazelisk-linux-amd64 /usr/local/bin/bazel
      # make sure you get the binary available in $PATH> which bazel
 which bazel
+
