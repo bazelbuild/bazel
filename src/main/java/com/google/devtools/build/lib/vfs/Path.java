@@ -22,6 +22,7 @@ import com.google.common.hash.Hasher;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.FileType;
+import com.google.devtools.build.lib.util.StringEncoding;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -772,7 +773,7 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
    * <p>Caveat: the result may be useless if this path's getFileSystem() is not the UNIX filesystem.
    */
   public File getPathFile() {
-    return new File(getPathString());
+    return new File(StringEncoding.internalToPlatform(getPathString()));
   }
 
   /**
