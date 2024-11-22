@@ -213,9 +213,8 @@ function test_install_base_races_dont_leave_temp_files() {
   for pid in "${client_pids[@]}"; do
     wait $pid
   done
-  # Expect "install" and "install.lock" to be the only files left.
-  assert_equals "install
-install.lock" "$(ls "$TEST_TMPDIR/race/")"
+  # Expect "install" to be the only thing in the "race" directory.
+  assert_equals "install" "$(ls "$TEST_TMPDIR/race/")"
 }
 
 function test_no_arguments() {

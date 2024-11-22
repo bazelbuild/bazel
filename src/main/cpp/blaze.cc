@@ -94,22 +94,16 @@ using std::vector;
 // The following is a treatise on how the interaction between the client and the
 // server works.
 //
-// First the client acquires filesystem locks on the install and output bases
-// (using fcntl() on Unix and LockFileEx() on Windows). The install base is
-// locked in shared mode, because two simultaneous commands may run against the
-// same install base. The output base is locked in exclusive mode, because two
-// simultaneous commands may not run against the same output base. If the
-// --block_for_lock flag is set (the default), the client will busy-wait for the
-// locks to be available. Otherwise, it will immediately exit if they cannot be
-// obtained.
+// First, the client acquires a lock on $OUTPUT_BASE/lock (on Unix, we use
+// fcntl(F_OFD_SETLK) if available or fcntl(F_SETLK) otherwise; on Windows, we
+// use LockFileEx), blocking until it's available unless otherwise requested by
+// the startup options. Then it verifies if it has already extracted itself by
+// checking if the directory it extracts itself to (install base + a checksum)
+// is present. If not, then it does the extraction. Care is taken that this
+// process is atomic so that Blazen in multiple output bases do not clash.
 //
-// Then the client verifies whether it has already extracted itself into the
-// install base and that it hasn't been tampered with. Otherwise, it extracts
-// itself. Since the install base is not locked exclusively, an atomic move into
-// place is used to prevent simultaneous extraction attempts from clashing.
-//
-// Then the client tries to connect to the currently executing server and
-// kills it if at least one of the following conditions is true:
+// Then the client tries to connect to the currently executing server and kills
+// it if at least one of the following conditions is true:
 //
 // - The server is of the wrong version (as determined by the
 //   $OUTPUT_BASE/install symlink)
@@ -119,13 +113,13 @@ using std::vector;
 // Then, if needed, the client adjusts the install link to indicate which
 // version of the server it is running.
 //
-// In batch mode, the client then simply executes the server while taking
-// care that the install and output base locks are held until it finishes.
+// In batch mode, the client then simply executes the server while taking care
+// that the output base lock is kept until it finishes.
 //
 // If in server mode, the client starts up a server if needed then sends the
-// command to the client and streams back stdout and stderr. The client-side
-// locks are released after the command has been sent; since the server may
-// outlive the client, it must implement its own locking anyway.
+// command to the client and streams back stdout and stderr. The output base
+// lock is released after the command is sent to the server (the server
+// implements its own locking mechanism).
 
 // Synchronization between the client and the server is a little precarious
 // because the client needs to know the PID of the server and it is not
@@ -202,9 +196,9 @@ class BlazeServer final {
  public:
   explicit BlazeServer(const StartupOptions &startup_options);
 
-  // Acquires locks for the install and output bases this server is running in.
-  // If we had to wait for locks, returns the time we spent waiting.
-  std::optional<DurationMillis> AcquireLocks();
+  // Acquire a lock for the output base this server is running in.
+  // If we had to wait for the lock, returns the time we spent waiting.
+  std::optional<DurationMillis> AcquireLock();
 
   // Whether there is an active connection to a server.
   bool Connected() const { return client_.get(); }
@@ -238,7 +232,6 @@ class BlazeServer final {
   const ServerProcessInfo &ProcessInfo() const { return process_info_; }
 
  private:
-  std::optional<LockHandle> install_base_lock_;
   std::optional<LockHandle> output_base_lock_;
 
   enum CancelThreadAction { NOTHING, JOIN, CANCEL, COMMAND_ID_RECEIVED };
@@ -257,7 +250,7 @@ class BlazeServer final {
   // actions from.
   std::unique_ptr<blaze_util::IPipe> pipe_;
 
-  void ReleaseLocks();
+  void ReleaseLock();
   bool TryConnect(CommandServer::Stub *client);
   void CancelThread();
   void SendAction(CancelThreadAction action);
@@ -269,7 +262,6 @@ class BlazeServer final {
   const bool block_for_lock_;
   const bool quiet_;
   const bool preemptible_;
-  const blaze_util::Path install_base_;
   const blaze_util::Path output_base_;
 };
 
@@ -282,69 +274,29 @@ static BlazeServer *blaze_server;
 // _exit(2) (attributed with ATTRIBUTE_NORETURN) meaning we have to delete the
 // objects before those.
 
-static std::optional<DurationMillis> CombineDurations(
-    std::optional<DurationMillis> a, std::optional<DurationMillis> b) {
-  if (!a.has_value() && !b.has_value()) {
-    return std::nullopt;
-  }
-  if (!b.has_value()) {
-    return a;
-  }
-  if (!a.has_value()) {
-    return b;
-  }
-  return a.value() + b.value();
-}
-
-static blaze_util::Path GetInstallBaseLockPath(
-    const blaze_util::Path &install_base) {
-  // The lock file is a sibling of the install base so that the latter can be
-  // atomically moved into place in its entirety.
-  return install_base.GetParent().GetRelative(install_base.GetBaseName() +
-                                              ".lock");
-}
-
-static blaze_util::Path GetOutputBaseLockPath(
-    const blaze_util::Path &output_base) {
-  return output_base.GetRelative("lock");
-}
-
-std::optional<DurationMillis> BlazeServer::AcquireLocks() {
-  if (install_base_lock_.has_value() || output_base_lock_.has_value()) {
+std::optional<DurationMillis> BlazeServer::AcquireLock() {
+  if (output_base_lock_.has_value()) {
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
-        << "AcquireLocks() called but some locks are already held.";
+        << "AcquireLock() called but the lock is already held.";
   }
-
-  // Take a shared lock on the install base, because two simultaneous commands
-  // may run against the same install base.
-  auto install_base_result =
-      blaze::AcquireLock("install base", GetInstallBaseLockPath(install_base_),
-                         LockMode::kShared, batch_, block_for_lock_);
-
   // Take an exclusive lock on the output base, because two simultaneous
-  // commands may not run against the same output base.
-  auto output_base_result =
-      blaze::AcquireLock("output base", GetOutputBaseLockPath(output_base_),
+  // commands may not run against the same output base. Note that this lock will
+  // be released by ReleaseLock() once the server is running, as it can handle
+  // concurrent clients on its own.
+  auto lock_and_time =
+      blaze::AcquireLock("output base", output_base_.GetRelative("lock"),
                          LockMode::kExclusive, batch_, block_for_lock_);
-
-  install_base_lock_ = install_base_result.first;
-  output_base_lock_ = output_base_result.first;
-
-  return CombineDurations(install_base_result.second,
-                          output_base_result.second);
+  output_base_lock_ = lock_and_time.first;
+  return lock_and_time.second;
 }
 
-void BlazeServer::ReleaseLocks() {
-  if (!install_base_lock_.has_value() || !output_base_lock_.has_value()) {
+void BlazeServer::ReleaseLock() {
+  if (!output_base_lock_.has_value()) {
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
-        << "ReleaseLocks() called but some locks have already been released.";
+        << "ReleaseLock() called without a lock to release.";
   }
-
   blaze::ReleaseLock(*output_base_lock_);
   output_base_lock_ = std::nullopt;
-
-  blaze::ReleaseLock(*install_base_lock_);
-  install_base_lock_ = std::nullopt;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -1184,30 +1136,6 @@ static string GetCanonicalCwd() {
   return result;
 }
 
-// Ensure that a directory exists at the given path and has read/write access,
-// creating it if necessary. Crashes if the path exists but is not a directory.
-static void EnsureDirectory(const blaze_util::Path &path,
-                            const string &display_name) {
-  if (!blaze_util::PathExists(path)) {
-    if (!blaze_util::MakeDirectories(path, 0777)) {
-      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-          << display_name << " '" << path.AsPrintablePath()
-          << "' could not be created: " << GetLastErrorString();
-    }
-  } else {
-    if (!blaze_util::IsDirectory(path)) {
-      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-          << display_name << " '" << path.AsPrintablePath()
-          << "' could not be created. It exists but is not a directory.";
-    }
-  }
-  if (!blaze_util::CanAccessDirectory(path)) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << display_name << " '" << path.AsPrintablePath()
-        << "' must be readable and writable.";
-  }
-}
-
 // Updates the parsed startup options and global config to fill in defaults.
 static void UpdateConfiguration(const string &install_md5,
                                 const string &workspace, const bool server_mode,
@@ -1234,14 +1162,28 @@ static void UpdateConfiguration(const string &install_md5,
         blaze::GetHashedBaseDir(startup_options->output_user_root, workspace);
   }
 
-  // Ensure that the parent of the install base exists.
-  // Don't use output_user_root, as it isn't necessarily the grandparent (see
-  // above).
-  EnsureDirectory(startup_options->install_base.GetParent(),
-                  "Install base parent directory");
-
-  EnsureDirectory(startup_options->output_base, "Output base directory");
-
+  if (!blaze_util::PathExists(startup_options->output_base)) {
+    if (!blaze_util::MakeDirectories(startup_options->output_base, 0777)) {
+      string err = GetLastErrorString();
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+          << "Output base directory '"
+          << startup_options->output_base.AsPrintablePath()
+          << "' could not be created: " << err;
+    }
+  } else {
+    if (!blaze_util::IsDirectory(startup_options->output_base)) {
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+          << "Output base directory '"
+          << startup_options->output_base.AsPrintablePath()
+          << "' could not be created. It exists but is not a directory.";
+    }
+  }
+  if (!blaze_util::CanAccessDirectory(startup_options->output_base)) {
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "Output base directory '"
+        << startup_options->output_base.AsPrintablePath()
+        << "' must be readable and writable.";
+  }
   ExcludePathFromBackup(startup_options->output_base);
 
   startup_options->output_base = startup_options->output_base.Canonicalize();
@@ -1459,7 +1401,7 @@ static void RunLauncher(const string &self_path,
   blaze_server = new BlazeServer(startup_options);
 
   const std::optional<DurationMillis> command_wait_duration =
-      blaze_server->AcquireLocks();
+      blaze_server->AcquireLock();
   const uint64_t wait_ms =
       command_wait_duration.has_value() ? command_wait_duration->millis : 0;
   BAZEL_LOG(INFO) << "Acquired the client lock, waited " << wait_ms
@@ -1649,7 +1591,6 @@ BlazeServer::BlazeServer(const StartupOptions &startup_options)
       block_for_lock_(startup_options.block_for_lock),
       quiet_(startup_options.quiet),
       preemptible_(startup_options.preemptible),
-      install_base_(startup_options.install_base),
       output_base_(startup_options.output_base) {
   pipe_.reset(blaze_util::CreatePipe());
   if (!pipe_) {
@@ -1941,13 +1882,12 @@ unsigned int BlazeServer::Communicate(
   std::unique_ptr<grpc::ClientReader<command_server::RunResponse>> reader(
       client_->Run(context.get(), request));
 
-  // Release the client-side locks, as the server may outlive the client and
-  // must implement its own locking of the install and output bases.
-  // This may result in two "waiting for lock" messages, one emitted by client
-  // during server startup, and another emitted by the server. This is harmless.
-  BAZEL_LOG(INFO)
-      << "Released the client-side locks on the install and output bases";
-  ReleaseLocks();
+  // Release the client lock because the gRPC server handles concurrent clients
+  // just fine. Note that this may result in two "waiting for other client"
+  // messages (one during server startup and one emitted by the server).
+  BAZEL_LOG(INFO) << "Releasing the client lock, as the server can manage "
+                     "concurrent clients on its own.";
+  ReleaseLock();
 
   std::thread cancel_thread(&BlazeServer::CancelThread, this);
   bool command_id_set = false;
