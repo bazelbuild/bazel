@@ -218,7 +218,10 @@ java_library(
 
 java_library(
     name = "single_toolchain_resolution_function",
-    srcs = ["SingleToolchainResolutionFunction.java"],
+    srcs = [
+        "SingleToolchainResolutionDebugPrinter.java",
+        "SingleToolchainResolutionFunction.java",
+    ],
     deps = [
         ":platform_lookup_util",
         ":registered_toolchains_function",
