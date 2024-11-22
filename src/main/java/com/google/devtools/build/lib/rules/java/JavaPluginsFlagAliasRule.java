@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
@@ -49,7 +50,12 @@ public final class JavaPluginsFlagAliasRule implements RuleDefinition {
         .add(
             attr(":java_plugins", LABEL_LIST)
                 .cfg(ExecutionTransitionFactory.createFactory())
-                .mandatoryProviders(JavaPluginInfo.PROVIDER.id())
+                .mandatoryProvidersList(
+                    ImmutableList.of(
+                        ImmutableList.of(JavaPluginInfo.PROVIDER.id()),
+                        ImmutableList.of(JavaPluginInfo.RULES_JAVA_PROVIDER.id()),
+                        ImmutableList.of(JavaPluginInfo.WORKSPACE_PROVIDER.id()),
+                        ImmutableList.of(JavaPluginInfo.LEGACY_BUILTINS_PROVIDER.id())))
                 .silentRuleClassFilter()
                 .value(JavaSemantics.JAVA_PLUGINS))
         .build();
@@ -78,14 +84,42 @@ public final class JavaPluginsFlagAliasRule implements RuleDefinition {
         return null;
       }
 
+      ImmutableList<JavaPluginInfo> plugins =
+          ruleContext
+              .getRulePrerequisitesCollection()
+              .getPrerequisites(":java_plugins", JavaPluginInfo.PROVIDER);
+      if (plugins.isEmpty()) {
+        plugins =
+            ruleContext
+                .getRulePrerequisitesCollection()
+                .getPrerequisites(":java_plugins", JavaPluginInfo.LEGACY_BUILTINS_PROVIDER);
+      }
+      if (plugins.isEmpty()) {
+        plugins =
+            ruleContext
+                .getRulePrerequisitesCollection()
+                .getPrerequisites(":java_plugins", JavaPluginInfo.RULES_JAVA_PROVIDER);
+      }
+      if (plugins.isEmpty()) {
+        plugins =
+            ruleContext
+                .getRulePrerequisitesCollection()
+                .getPrerequisites(":java_plugins", JavaPluginInfo.WORKSPACE_PROVIDER);
+      }
       JavaPluginInfo javaPluginInfo =
-          JavaPluginInfo.mergeWithoutJavaOutputs(
-              ruleContext
-                  .getRulePrerequisitesCollection()
-                  .getPrerequisites(":java_plugins", JavaPluginInfo.PROVIDER));
+          JavaPluginInfo.mergeWithoutJavaOutputs(plugins, JavaPluginInfo.PROVIDER);
+      JavaPluginInfo builtinsProviderInfo =
+          JavaPluginInfo.mergeWithoutJavaOutputs(plugins, JavaPluginInfo.LEGACY_BUILTINS_PROVIDER);
+      JavaPluginInfo rulesJavaProviderInfo =
+          JavaPluginInfo.mergeWithoutJavaOutputs(plugins, JavaPluginInfo.RULES_JAVA_PROVIDER);
+      JavaPluginInfo workspaceProviderInfo =
+          JavaPluginInfo.mergeWithoutJavaOutputs(plugins, JavaPluginInfo.WORKSPACE_PROVIDER);
 
       return new RuleConfiguredTargetBuilder(ruleContext)
           .addStarlarkDeclaredProvider(javaPluginInfo)
+          .addStarlarkDeclaredProvider(builtinsProviderInfo)
+          .addStarlarkDeclaredProvider(rulesJavaProviderInfo)
+          .addStarlarkDeclaredProvider(workspaceProviderInfo)
           .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
           .build();
     }

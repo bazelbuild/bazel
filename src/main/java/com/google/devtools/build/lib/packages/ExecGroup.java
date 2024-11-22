@@ -14,18 +14,35 @@
 
 package com.google.devtools.build.lib.packages;
 
-import com.google.auto.value.AutoValue;
+import static java.util.Objects.requireNonNull;
+
+import com.google.auto.value.AutoBuilder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.ExecGroupApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import javax.annotation.Nullable;
 
-/** Resolves the appropriate toolchains for the given parameters. */
-@AutoValue
-public abstract class ExecGroup implements ExecGroupApi {
+/**
+ * Resolves the appropriate toolchains for the given parameters.
+ *
+ * @param toolchainTypesMap Returns the underlying map from label to ToolchainTypeRequirement.
+ * @param execCompatibleWith Returns the execution constraints for this exec group.
+ * @param copyFrom Returns the name of another exec group in the same rule to copy data from.
+ */
+@AutoCodec
+public record ExecGroup(
+    ImmutableMap<Label, ToolchainTypeRequirement> toolchainTypesMap,
+    ImmutableSet<Label> execCompatibleWith,
+    @Nullable String copyFrom)
+    implements ExecGroupApi {
+  public ExecGroup {
+    requireNonNull(toolchainTypesMap, "toolchainTypesMap");
+    requireNonNull(execCompatibleWith, "execCompatibleWith");
+  }
 
   // This is intentionally a string that would fail {@code Identifier.isValid} so that
   // users can't create a group with the same name.
@@ -33,7 +50,7 @@ public abstract class ExecGroup implements ExecGroupApi {
 
   /** Returns a builder for a new ExecGroup. */
   public static Builder builder() {
-    return new AutoValue_ExecGroup.Builder()
+    return new AutoBuilder_ExecGroup_Builder()
         .toolchainTypes(ImmutableSet.of())
         .execCompatibleWith(ImmutableSet.of());
   }
@@ -53,16 +70,6 @@ public abstract class ExecGroup implements ExecGroupApi {
     return toolchainTypesMap().get(label);
   }
 
-  /** Returns the underlying map from label to ToolchainTypeRequirement. */
-  public abstract ImmutableMap<Label, ToolchainTypeRequirement> toolchainTypesMap();
-
-  /** Returns the execution constraints for this exec group. */
-  public abstract ImmutableSet<Label> execCompatibleWith();
-
-  /** Returns the name of another exec group in the same rule to copy data from. */
-  @Nullable
-  public abstract String copyFrom();
-
   /** Creates a new exec group that inherits from the given group and this group. */
   public ExecGroup inheritFrom(ExecGroup other) {
     Builder builder = builder().copyFrom(null);
@@ -79,7 +86,7 @@ public abstract class ExecGroup implements ExecGroupApi {
   }
 
   /** A builder interface to create ExecGroup instances. */
-  @AutoValue.Builder
+  @AutoBuilder
   public interface Builder {
 
     /** Sets the toolchain type requirements. */

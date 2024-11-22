@@ -14,7 +14,8 @@
 
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.auto.value.AutoValue;
+import static java.util.Objects.requireNonNull;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -152,16 +153,17 @@ class ArtifactConflictFinder {
     allArtifacts.addAll(myArtifacts);
   }
 
-  @AutoValue
-  abstract static class ActionConflictsAndStats {
-    abstract ImmutableMap<ActionAnalysisMetadata, ActionConflictException> getConflicts();
-
-    abstract int getOutputArtifactCount();
+  record ActionConflictsAndStats(
+      ImmutableMap<ActionAnalysisMetadata, ActionConflictException> conflicts,
+      int outputArtifactCount) {
+    ActionConflictsAndStats {
+      requireNonNull(conflicts, "conflicts");
+    }
 
     static ActionConflictsAndStats create(
         ImmutableMap<ActionAnalysisMetadata, ActionConflictException> conflicts,
         int artifactCount) {
-      return new AutoValue_ArtifactConflictFinder_ActionConflictsAndStats(conflicts, artifactCount);
+      return new ActionConflictsAndStats(conflicts, artifactCount);
     }
   }
 }

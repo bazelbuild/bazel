@@ -398,10 +398,10 @@ def _collect_linking_context(ctx):
     cc_infos = _get_providers(ctx)
     return cc_common.merge_cc_infos(direct_cc_infos = cc_infos, cc_infos = cc_infos).linking_context
 
-def _get_link_staticness(ctx, cpp_config, force_linkstatic, is_dbg_build):
+def _get_link_staticness(ctx, cpp_config, force_linkstatic):
     if cpp_config.dynamic_mode() == "FULLY":
         return linker_mode.LINKING_DYNAMIC
-    elif cpp_config.dynamic_mode() == "OFF" or ctx.attr.linkstatic or force_linkstatic or is_dbg_build:
+    elif cpp_config.dynamic_mode() == "OFF" or ctx.attr.linkstatic or force_linkstatic:
         return linker_mode.LINKING_STATIC
     else:
         return linker_mode.LINKING_DYNAMIC
@@ -464,7 +464,6 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
     target_name = ctx.label.name
     has_legacy_link_shared_name = _is_link_shared(ctx) and (_matches([".so", ".dylib", ".dll"], target_name) or cc_helper.is_valid_shared_library_name(target_name))
     binary = None
-    is_dbg_build = (cc_toolchain._cpp_configuration.compilation_mode() == "dbg")
     if has_legacy_link_shared_name:
         binary = ctx.actions.declare_file(target_name)
     else:
@@ -473,12 +472,7 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
             cc_toolchain = cc_toolchain,
             is_dynamic_link_type = is_dynamic_link_type,
         )
-    linking_mode = _get_link_staticness(
-        ctx,
-        cpp_config,
-        force_linkstatic,
-        is_dbg_build,
-    )
+    linking_mode = _get_link_staticness(ctx, cpp_config, force_linkstatic)
     features = ctx.features
     features.append(linking_mode)
     disabled_features = ctx.disabled_features
@@ -833,8 +827,7 @@ be <code>main</code>.
     exec_groups = {
         "cpp_link": exec_group(toolchains = cc_helper.use_cpp_toolchain()),
     },
-    toolchains = cc_helper.use_cpp_toolchain() +
-                 semantics.get_runtimes_toolchain(),
+    toolchains = cc_helper.use_cpp_toolchain(),
     provides = [CcInfo],
     executable = True,
 )

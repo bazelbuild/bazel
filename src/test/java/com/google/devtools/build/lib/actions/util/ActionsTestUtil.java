@@ -59,7 +59,6 @@ import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
-import com.google.devtools.build.lib.actions.MiddlemanType;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.RunfilesTree;
@@ -454,40 +453,25 @@ public final class ActionsTestUtil {
   }
 
   /**
-   * A mocked action containing the inputs and outputs of the action and determines whether or not
-   * the action is a middleman. Used for tests that do not need to execute the action.
+   * A mocked action containing the inputs and outputs of the action. Used for tests that do not
+   * need to execute the action.
    */
   public static class MockAction extends AbstractAction {
-
-    private final boolean middleman;
     private final boolean isShareable;
 
     public MockAction(Iterable<Artifact> inputs, ImmutableSet<Artifact> outputs) {
-      this(inputs, outputs, /*middleman=*/ false, /*isShareable=*/ true);
-    }
-
-    public MockAction(
-        Iterable<Artifact> inputs, ImmutableSet<Artifact> outputs, boolean middleman) {
-      this(inputs, outputs, middleman, /*isShareable*/ true);
+      this(inputs, outputs, /* isShareable= */ true);
     }
 
     public MockAction(
         Iterable<Artifact> inputs,
         ImmutableSet<Artifact> outputs,
-        boolean middleman,
         boolean isShareable) {
       super(
           NULL_ACTION_OWNER,
           NestedSetBuilder.<Artifact>stableOrder().addAll(inputs).build(),
           outputs);
-      this.middleman = middleman;
       this.isShareable = isShareable;
-    }
-
-    @Override
-    public MiddlemanType getActionType() {
-      // RUNFILES_MIDDLEMAN is chosen arbitrarily among the middleman types.
-      return middleman ? MiddlemanType.RUNFILES_MIDDLEMAN : super.getActionType();
     }
 
     @Override
@@ -954,11 +938,6 @@ public final class ActionsTestUtil {
 
     @Override
     public ActionInput getInput(String execPath) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void setDigestForVirtualArtifact(Artifact artifact, byte[] digest) {
       throw new UnsupportedOperationException();
     }
 

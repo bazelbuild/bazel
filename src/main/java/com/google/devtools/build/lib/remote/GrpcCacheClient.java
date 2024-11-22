@@ -109,7 +109,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
             options.remoteInstanceName,
             channel,
             callCredentialsProvider,
-            options.remoteTimeout.getSeconds(),
+            options.remoteTimeout.toSeconds(),
             retrier,
             options.maximumOpenFiles,
             digestUtil.getDigestFunction());
@@ -143,7 +143,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
             TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()),
             new NetworkTimeInterceptor(context::getNetworkTime))
         .withCallCredentials(callCredentialsProvider.getCallCredentials())
-        .withDeadlineAfter(options.remoteTimeout.getSeconds(), TimeUnit.SECONDS);
+        .withDeadlineAfter(options.remoteTimeout.toSeconds(), TimeUnit.SECONDS);
   }
 
   private ByteStreamStub bsAsyncStub(RemoteActionExecutionContext context, Channel channel) {
@@ -152,7 +152,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
             TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()),
             new NetworkTimeInterceptor(context::getNetworkTime))
         .withCallCredentials(callCredentialsProvider.getCallCredentials())
-        .withDeadlineAfter(options.remoteTimeout.getSeconds(), TimeUnit.SECONDS);
+        .withDeadlineAfter(options.remoteTimeout.toSeconds(), TimeUnit.SECONDS);
   }
 
   private ActionCacheFutureStub acFutureStub(
@@ -162,7 +162,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
             TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()),
             new NetworkTimeInterceptor(context::getNetworkTime))
         .withCallCredentials(callCredentialsProvider.getCallCredentials())
-        .withDeadlineAfter(options.remoteTimeout.getSeconds(), TimeUnit.SECONDS);
+        .withDeadlineAfter(options.remoteTimeout.toSeconds(), TimeUnit.SECONDS);
   }
 
   @Override

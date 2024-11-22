@@ -197,8 +197,8 @@ class BlazeServer final {
   explicit BlazeServer(const StartupOptions &startup_options);
 
   // Acquire a lock for the output base this server is running in.
-  // Returns the number of milliseconds spent waiting for the lock.
-  uint64_t AcquireLock();
+  // If we had to wait for the lock, returns the time we spent waiting.
+  std::optional<DurationMillis> AcquireLock();
 
   // Whether there is an active connection to a server.
   bool Connected() const { return client_.get(); }
@@ -215,10 +215,9 @@ class BlazeServer final {
       const std::string &command, const std::vector<std::string> &command_args,
       const std::string &invocation_policy,
       const std::vector<RcStartupFlag> &original_startup_options,
-      const LoggingInfo &logging_info,
-      const DurationMillis client_startup_duration,
-      const DurationMillis extract_data_duration,
-      const DurationMillis command_wait_duration_ms);
+      const LoggingInfo &logging_info, DurationMillis client_startup_duration,
+      std::optional<DurationMillis> extract_data_duration,
+      std::optional<DurationMillis> command_wait_duration);
 
   // Disconnects and kills an existing server. Only call this when this object
   // is in connected state.
@@ -275,7 +274,7 @@ static BlazeServer *blaze_server;
 // _exit(2) (attributed with ATTRIBUTE_NORETURN) meaning we have to delete the
 // objects before those.
 
-uint64_t BlazeServer::AcquireLock() {
+std::optional<DurationMillis> BlazeServer::AcquireLock() {
   if (output_base_lock_.has_value()) {
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
         << "AcquireLock() called but the lock is already held.";
@@ -284,11 +283,11 @@ uint64_t BlazeServer::AcquireLock() {
   // commands may not run against the same output base. Note that this lock will
   // be released by ReleaseLock() once the server is running, as it can handle
   // concurrent clients on its own.
-  uint64_t wait_time;
-  output_base_lock_ = blaze::AcquireLock(
-      "output base", output_base_.GetRelative("lock"), LockMode::kExclusive,
-      batch_, block_for_lock_, &wait_time);
-  return wait_time;
+  auto lock_and_time =
+      blaze::AcquireLock("output base", output_base_.GetRelative("lock"),
+                         LockMode::kExclusive, batch_, block_for_lock_);
+  output_base_lock_ = lock_and_time.first;
+  return lock_and_time.second;
 }
 
 void BlazeServer::ReleaseLock() {
@@ -426,9 +425,9 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
                    blaze_util::ToString(startup_options.connect_timeout_secs));
 
   result.push_back("--output_user_root=" +
-                   blaze_util::ConvertPath(startup_options.output_user_root));
+                   startup_options.output_user_root.AsCommandLineArgument());
   result.push_back("--install_base=" +
-                   blaze_util::ConvertPath(startup_options.install_base));
+                   startup_options.install_base.AsCommandLineArgument());
   result.push_back("--install_md5=" + install_md5);
   result.push_back("--output_base=" +
                    startup_options.output_base.AsCommandLineArgument());
@@ -545,11 +544,12 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
 }
 
 // Add common command options for logging to the given argument array.
-static void AddLoggingArgs(const LoggingInfo &logging_info,
-                           const DurationMillis client_startup_duration,
-                           const DurationMillis extract_data_duration,
-                           const DurationMillis command_wait_duration_ms,
-                           vector<string> *args) {
+static void AddLoggingArgs(
+    const LoggingInfo &logging_info,
+    const DurationMillis client_startup_duration,
+    const std::optional<DurationMillis> extract_data_duration,
+    const std::optional<DurationMillis> command_wait_duration,
+    vector<string> *args) {
   // The time in ms the launcher spends before sending the request to the blaze
   // server.
   args->push_back("--startup_time=" +
@@ -557,17 +557,18 @@ static void AddLoggingArgs(const LoggingInfo &logging_info,
 
   // The time in ms a command had to wait on a busy Blaze server process.
   // This is part of startup_time.
-  if (command_wait_duration_ms.IsUnknown()) {
+  if (command_wait_duration.has_value()) {
     args->push_back("--command_wait_time=" +
-                    blaze_util::ToString(command_wait_duration_ms.millis));
+                    blaze_util::ToString(command_wait_duration->millis));
   }
 
   // The time in ms spent on extracting the new blaze version.
   // This is part of startup_time.
-  if (extract_data_duration.IsUnknown()) {
+  if (extract_data_duration.has_value()) {
     args->push_back("--extract_data_time=" +
-                    blaze_util::ToString(extract_data_duration.millis));
+                    blaze_util::ToString(extract_data_duration->millis));
   }
+
   if (logging_info.restart_reason != NO_RESTART) {
     args->push_back(string("--restart_reason=") +
                     ReasonString(logging_info.restart_reason));
@@ -651,14 +652,15 @@ static void RunBatchMode(
     const WorkspaceLayout &workspace_layout, const string &workspace,
     const OptionProcessor &option_processor,
     const StartupOptions &startup_options, LoggingInfo *logging_info,
-    const DurationMillis extract_data_duration,
-    const DurationMillis command_wait_duration_ms, BlazeServer *server) {
+    const std::optional<DurationMillis> extract_data_duration,
+    const std::optional<DurationMillis> command_wait_duration,
+    BlazeServer *server) {
   if (server->Connected()) {
     server->KillRunningServer();
   }
 
-  const DurationMillis client_startup_duration(GetMillisecondsMonotonic() -
-                                               logging_info->start_time_ms);
+  const DurationMillis client_startup_duration(logging_info->start_time_ms,
+                                               GetMillisecondsMonotonic());
 
   BAZEL_LOG(INFO) << "Starting " << startup_options.product_name
                   << " in batch mode.";
@@ -683,7 +685,7 @@ static void RunBatchMode(
   if (!command.empty()) {
     jvm_args_vector.push_back(command);
     AddLoggingArgs(*logging_info, client_startup_duration,
-                   extract_data_duration, command_wait_duration_ms,
+                   extract_data_duration, command_wait_duration,
                    &jvm_args_vector);
   }
 
@@ -827,7 +829,7 @@ static void StartServerAndConnect(
     const blaze_util::Path &server_dir, const WorkspaceLayout &workspace_layout,
     const string &workspace, const OptionProcessor &option_processor,
     const StartupOptions &startup_options, LoggingInfo *logging_info,
-    BlazeServer *server) {
+    BlazeServer *server, const string &build_label) {
   // Delete the old command_port file if it already exists. Otherwise we might
   // run into the race condition that we read the old command_port file before
   // the new server has written the new file and we try to connect to the old
@@ -855,7 +857,8 @@ static void StartServerAndConnect(
                 startup_options.io_nice_level);
 
   BAZEL_LOG(USER) << "Starting local " << startup_options.product_name
-                  << " server and connecting to it...";
+                  << " server (" << build_label << ")"
+                  << " and connecting to it...";
   BlazeServerStartup *server_startup;
   const int server_pid = ExecuteDaemon(
       server_exe, server_exe_args, PrepareEnvironmentForJvm(),
@@ -1003,13 +1006,13 @@ static void EnsureCorrectRunningVersion(const StartupOptions &startup_options,
   // target dirs don't match, or if the symlink was not present, then kill any
   // running servers. Lastly, symlink to our installation so others know which
   // installation is running.
-  const blaze_util::Path installation_path =
+  const blaze_util::Path install_base_symlink =
       startup_options.output_base.GetRelative("install");
-  string prev_installation;
-  bool ok =
-      blaze_util::ReadDirectorySymlink(installation_path, &prev_installation);
-  if (!ok || !blaze_util::CompareAbsolutePaths(prev_installation,
-                                               startup_options.install_base)) {
+  blaze_util::Path prev_install_base;
+  if (!blaze_util::ReadDirectorySymlink(install_base_symlink,
+                                        &prev_install_base) ||
+      !blaze_util::ArePathsEquivalent(prev_install_base,
+                                      startup_options.install_base)) {
     if (server->Connected()) {
       BAZEL_LOG(INFO)
           << "Killing running server because it is using another version of "
@@ -1018,12 +1021,13 @@ static void EnsureCorrectRunningVersion(const StartupOptions &startup_options,
       logging_info->restart_reason = NEW_VERSION;
     }
 
-    blaze_util::UnlinkPath(installation_path);
-    if (!SymlinkDirectories(startup_options.install_base, installation_path)) {
-      string err = GetLastErrorString();
+    blaze_util::UnlinkPath(install_base_symlink);
+    if (!SymlinkDirectories(startup_options.install_base,
+                            install_base_symlink)) {
       BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
           << "failed to create installation symlink '"
-          << installation_path.AsPrintablePath() << "': " << err;
+          << install_base_symlink.AsPrintablePath()
+          << "': " << GetLastErrorString();
     }
 
     // Update the mtime of the install base so that cleanup tools can
@@ -1031,10 +1035,10 @@ static void EnsureCorrectRunningVersion(const StartupOptions &startup_options,
     // Ignore permissions errors (i.e. if the install base is not writable).
     if (!SetMtimeToNowIfPossible(
             blaze_util::Path(startup_options.install_base))) {
-      string err = GetLastErrorString();
       BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-          << "failed to set timestamp on '" << startup_options.install_base
-          << "': " << err;
+          << "failed to set timestamp on '"
+          << startup_options.install_base.AsPrintablePath()
+          << "': " << GetLastErrorString();
     }
   }
 }
@@ -1050,13 +1054,14 @@ static ATTRIBUTE_NORETURN void RunClientServerMode(
     const blaze_util::Path &server_dir, const WorkspaceLayout &workspace_layout,
     const string &workspace, const OptionProcessor &option_processor,
     const StartupOptions &startup_options, LoggingInfo *logging_info,
-    const DurationMillis extract_data_duration,
-    const DurationMillis command_wait_duration_ms, BlazeServer *server) {
+    const std::optional<DurationMillis> extract_data_duration,
+    const std::optional<DurationMillis> command_wait_duration,
+    BlazeServer *server, const string &build_label) {
   while (true) {
     if (!server->Connected()) {
       StartServerAndConnect(server_exe, server_exe_args, server_dir,
                             workspace_layout, workspace, option_processor,
-                            startup_options, logging_info, server);
+                            startup_options, logging_info, server, build_label);
     }
 
     // Check for the case when the workspace directory deleted and then gets
@@ -1093,8 +1098,8 @@ static ATTRIBUTE_NORETURN void RunClientServerMode(
                   << server->ProcessInfo().server_pid_ << ").";
 
   // Wall clock time since process startup.
-  const DurationMillis client_startup_duration =
-      (GetMillisecondsMonotonic() - logging_info->start_time_ms);
+  const DurationMillis client_startup_duration(logging_info->start_time_ms,
+                                               GetMillisecondsMonotonic());
 
   SignalHandler::Get().Install(startup_options.product_name,
                                startup_options.output_base,
@@ -1103,8 +1108,7 @@ static ATTRIBUTE_NORETURN void RunClientServerMode(
       option_processor.GetCommand(), option_processor.GetCommandArguments(),
       startup_options.invocation_policy,
       startup_options.original_startup_options_, *logging_info,
-      client_startup_duration, extract_data_duration,
-      command_wait_duration_ms));
+      client_startup_duration, extract_data_duration, command_wait_duration));
 }
 
 // Parse the options.
@@ -1139,15 +1143,14 @@ static void UpdateConfiguration(const string &install_md5,
   // The default install_base is <output_user_root>/install/<md5(blaze)>
   // but if an install_base is specified on the command line, we use that as
   // the base instead.
-  if (startup_options->install_base.empty()) {
+  if (startup_options->install_base.IsEmpty()) {
     if (server_mode) {
       BAZEL_DIE(blaze_exit_code::BAD_ARGV)
           << "exec-server requires --install_base";
     }
-    string install_user_root =
-        blaze_util::JoinPath(startup_options->output_user_root, "install");
-    startup_options->install_base =
-        blaze_util::JoinPath(install_user_root, install_md5);
+    blaze_util::Path install_user_root =
+        startup_options->output_user_root.GetRelative("install");
+    startup_options->install_base = install_user_root.GetRelative(install_md5);
   }
 
   if (startup_options->output_base.IsEmpty()) {
@@ -1155,8 +1158,8 @@ static void UpdateConfiguration(const string &install_md5,
       BAZEL_DIE(blaze_exit_code::BAD_ARGV)
           << "exec-server requires --output_base";
     }
-    startup_options->output_base = blaze_util::Path(
-        blaze::GetHashedBaseDir(startup_options->output_user_root, workspace));
+    startup_options->output_base =
+        blaze::GetHashedBaseDir(startup_options->output_user_root, workspace);
   }
 
   if (!blaze_util::PathExists(startup_options->output_base)) {
@@ -1397,13 +1400,16 @@ static void RunLauncher(const string &self_path,
                         const string &workspace, LoggingInfo *logging_info) {
   blaze_server = new BlazeServer(startup_options);
 
-  const DurationMillis command_wait_duration_ms(blaze_server->AcquireLock());
-  BAZEL_LOG(INFO) << "Acquired the client lock, waited "
-                  << command_wait_duration_ms.millis << " milliseconds";
+  const std::optional<DurationMillis> command_wait_duration =
+      blaze_server->AcquireLock();
+  const uint64_t wait_ms =
+      command_wait_duration.has_value() ? command_wait_duration->millis : 0;
+  BAZEL_LOG(INFO) << "Acquired the client lock, waited " << wait_ms
+                  << " milliseconds";
 
   WarnFilesystemType(startup_options.output_base);
 
-  const ExtractionDurationMillis extract_data_duration = ExtractData(
+  const std::optional<DurationMillis> extract_data_duration = ExtractData(
       self_path, archive_contents, install_md5, startup_options, logging_info);
 
   blaze_server->Connect();
@@ -1460,12 +1466,14 @@ static void RunLauncher(const string &self_path,
   } else if (startup_options.batch) {
     RunBatchMode(server_exe, server_exe_args, workspace_layout, workspace,
                  option_processor, startup_options, logging_info,
-                 extract_data_duration, command_wait_duration_ms, blaze_server);
+                 extract_data_duration, command_wait_duration, blaze_server);
   } else {
+    string build_label;
+    ExtractBuildLabel(self_path, &build_label);
     RunClientServerMode(server_exe, server_exe_args, server_dir,
                         workspace_layout, workspace, option_processor,
                         startup_options, logging_info, extract_data_duration,
-                        command_wait_duration_ms, blaze_server);
+                        command_wait_duration, blaze_server, build_label);
   }
 }
 
@@ -1834,8 +1842,8 @@ unsigned int BlazeServer::Communicate(
     const vector<RcStartupFlag> &original_startup_options,
     const LoggingInfo &logging_info,
     const DurationMillis client_startup_duration,
-    const DurationMillis extract_data_duration,
-    const DurationMillis command_wait_duration_ms) {
+    const std::optional<DurationMillis> extract_data_duration,
+    const std::optional<DurationMillis> command_wait_duration) {
   assert(Connected());
   assert(process_info_.server_pid_ > 0);
 
@@ -1843,7 +1851,7 @@ unsigned int BlazeServer::Communicate(
   if (!command.empty()) {
     arg_vector.push_back(command);
     AddLoggingArgs(logging_info, client_startup_duration, extract_data_duration,
-                   command_wait_duration_ms, &arg_vector);
+                   command_wait_duration, &arg_vector);
   }
 
   arg_vector.insert(arg_vector.end(), command_args.begin(), command_args.end());

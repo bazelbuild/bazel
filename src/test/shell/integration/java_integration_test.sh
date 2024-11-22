@@ -31,6 +31,10 @@ set -eu
 declare -r runfiles_relative_javabase="$1"
 add_to_bazelrc "build --package_path=%workspace%"
 
+function set_up() {
+  add_rules_java MODULE.bazel
+}
+
 #### HELPER FUNCTIONS ##################################################
 
 function setup_local_jdk() {
@@ -46,6 +50,7 @@ function write_hello_world_files() {
   local pkg="$1"
   mkdir -p $pkg/java/hello || fail "mkdir"
   cat >$pkg/java/hello/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
 java_binary(name = 'hello',
     srcs = ['Hello.java'],
     main_class = 'hello.Hello')
@@ -65,6 +70,7 @@ function write_hello_world_files_for_singlejar() {
   local -r pkg="$1"
   mkdir -p $pkg/java/hello || fail "mkdir"
   cat >$pkg/java/hello/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
 java_binary(name = 'hello',
     srcs = ['Hello.java'],
     main_class = 'hello.Hello')
@@ -109,6 +115,7 @@ function write_hello_library_files() {
   local -r pkg="$1"
   mkdir -p $pkg/java/main || fail "mkdir"
   cat >$pkg/java/main/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
 java_binary(
     name = 'main',
     deps = ['//$pkg/java/hello_library'],
@@ -130,6 +137,7 @@ EOF
 
   mkdir -p $pkg/java/hello_library || fail "mkdir"
   cat >$pkg/java/hello_library/BUILD <<EOF
+load("@rules_java//java:java_library.bzl", "java_library")
 package(default_visibility=['//visibility:public'])
 java_library(name = 'hello_library',
              srcs = ['HelloLibrary.java']);
@@ -149,6 +157,7 @@ function write_hello_sailor_files() {
   local -r pkg="$1"
   mkdir -p $pkg/java/hellosailor || fail "mkdir"
   cat >$pkg/java/hellosailor/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
 java_binary(name = 'hellosailor',
     srcs = ['HelloSailor.java'],
     create_executable = 0)
@@ -256,6 +265,7 @@ function assert_singlejar_works() {
 
   mkdir -p "$pkg/jvm"
   cat > "$pkg/jvm/BUILD" <<EOF
+load("@rules_java//java/toolchains:java_runtime.bzl", "java_runtime")
 package(default_visibility=["//visibility:public"])
 java_runtime(
     name='runtime',
@@ -424,6 +434,7 @@ function test_building_deploy_jar_dependent_on_deploy_jar() {
  local -r pkg="${FUNCNAME[0]}"
   mkdir -p $pkg/java/deploy || fail "mkdir"
   cat > $pkg/java/deploy/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
 java_binary(name = 'Hello',
             srcs = ['Hello.java'],
             deps = ['Other_deploy.jar'],
@@ -468,6 +479,7 @@ public class Test {
 EOF
 
   cat > $pkg/java/hello/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
 java_binary(name='hello', srcs=['Test.java'], main_class='hello.Test')
 EOF
 
@@ -492,6 +504,7 @@ EOF
   cd ..
 
   cat > $pkg/java/hello/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
 java_binary(name='hello', srcs=['test.srcjar'], main_class='hello.Test')
 EOF
   bazel build //$pkg/java/hello:hello //$pkg/java/hello:hello_deploy.jar \
@@ -526,6 +539,7 @@ public class App { }
 EOF
 
   cat > $pkg/java/hello/BUILD <<EOF
+load("@rules_java//java:java_library.bzl", "java_library")
 java_library(name = 'app',
              srcs = ['App.java'],
              deps = [':a'])
@@ -550,6 +564,8 @@ function test_java_plugin() {
   mkdir -p $pkg/java/test/processor || fail "mkdir"
 
   cat >$pkg/java/test/processor/BUILD <<EOF
+load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_java//java:java_plugin.bzl", "java_plugin")
 package(default_visibility=['//visibility:public'])
 
 java_library(name = 'annotation',
@@ -621,6 +637,7 @@ EOF
 
   mkdir -p $pkg/java/test/client
   cat >$pkg/java/test/client/BUILD <<EOF
+load("@rules_java//java:java_library.bzl", "java_library")
 java_library(name = 'client',
      srcs = [ 'ProcessorClient.java' ],
      deps = [ '//$pkg/java/test/processor:annotation' ],
@@ -648,6 +665,7 @@ function test_jvm_flags_are_passed_verbatim() {
   local -r pkg="${FUNCNAME[0]}"
   mkdir -p $pkg/java/com/google/jvmflags || fail "mkdir"
   cat >$pkg/java/com/google/jvmflags/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
 java_binary(
     name = 'foo',
     srcs = ['Foo.java'],
@@ -696,6 +714,7 @@ function test_classpath_fiddling() {
 
   mkdir -p $pkg/java/classpath
   cat >$pkg/java/classpath/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
 java_binary(name = 'classpath',
     deps = ['//$pkg/java/hello_library'],
     srcs = ['Classpath.java'],
@@ -773,6 +792,7 @@ public class Foo {
 EOF
 
   cat > $pkg/java/foo/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
 java_binary(name = 'foo',
     srcs = ['Foo.java'],
     main_class = 'foo.Foo')
@@ -808,6 +828,7 @@ import missing.NoSuch;
 public class B {}
 EOF
   cat > $pkg/java/test/BUILD <<EOF
+load("@rules_java//java:java_library.bzl", "java_library")
 java_library(
     name='a',
     srcs=['A.java'],
@@ -835,6 +856,8 @@ public class Hello {
 }
 EOF
   cat > $pkg/java/hello/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_java//java:java_import.bzl", "java_import")
 java_import(
     name='empty_java_import',
     jars=[]
@@ -874,6 +897,7 @@ EOF
 
   touch "${package}/x.java"
   cat > "${package}/BUILD" <<EOF
+load("@rules_java//java:java_library.bzl", "java_library")
 java_library(
   name = "x",
   srcs = ["x.java"],

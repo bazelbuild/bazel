@@ -70,8 +70,7 @@ public class IndexRegistryTest extends FoundationTestCase {
     }
   }
 
-  private final String authToken =
-      BasicHttpAuthenticationEncoder.encode("rinne", "rinnepass", UTF_8);
+  private final String authToken = BasicHttpAuthenticationEncoder.encode("rinne", "rinnepass");
   private DownloadManager downloadManager;
   private EventRecorder eventRecorder;
   @Rule public final TestHttpServer server = new TestHttpServer(authToken);
@@ -288,12 +287,7 @@ public class IndexRegistryTest extends FoundationTestCase {
             ImmutableMap.of(),
             Optional.empty());
     assertThat(registry.getRepoSpec(createModuleKey("foo", "1.0"), reporter, downloadManager))
-        .isEqualTo(
-            RepoSpec.builder()
-                .setRuleClassName("local_repository")
-                .setAttributes(
-                    AttributeValues.create(ImmutableMap.of("path", "/hello/bar/project_x")))
-                .build());
+        .isEqualTo(LocalPathRepoSpecs.create("/hello/bar/project_x"));
   }
 
   @Test
@@ -557,12 +551,7 @@ public class IndexRegistryTest extends FoundationTestCase {
         registryFactory.createRegistry(
             server.getUrl(), LockfileMode.UPDATE, knownFiles, ImmutableMap.of(), Optional.empty());
     assertThat(registry.getRepoSpec(createModuleKey("foo", "1.0"), reporter, downloadManager))
-        .isEqualTo(
-            RepoSpec.builder()
-                .setRuleClassName("local_repository")
-                .setAttributes(
-                    AttributeValues.create(ImmutableMap.of("path", "/hello/bar/project_x")))
-                .build());
+        .isEqualTo(LocalPathRepoSpecs.create("/hello/bar/project_x"));
 
     var recordedChecksums = eventRecorder.getRecordedHashes();
     assertThat(
@@ -585,12 +574,7 @@ public class IndexRegistryTest extends FoundationTestCase {
     server.unserve("/bazel_registry.json");
     server.unserve("/modules/foo/1.0/source.json");
     assertThat(registry.getRepoSpec(createModuleKey("foo", "1.0"), reporter, downloadManager))
-        .isEqualTo(
-            RepoSpec.builder()
-                .setRuleClassName("local_repository")
-                .setAttributes(
-                    AttributeValues.create(ImmutableMap.of("path", "/hello/bar/project_x")))
-                .build());
+        .isEqualTo(LocalPathRepoSpecs.create("/hello/bar/project_x"));
   }
 
   @Test

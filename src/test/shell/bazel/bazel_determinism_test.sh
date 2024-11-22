@@ -75,7 +75,7 @@ function test_determinism()  {
     bazel \
       --output_base="${TEST_TMPDIR}/out 1" \
       build \
-      --extra_toolchains=@bazel_tools//tools/python:autodetecting_toolchain \
+      --extra_toolchains=@rules_python//python:autodetecting_toolchain \
       --enable_bzlmod \
       --check_direct_dependencies=error \
       --lockfile_mode=update \
@@ -90,7 +90,7 @@ function test_determinism()  {
       --install_base="${TEST_TMPDIR}/install_base2" \
       --output_base="${TEST_TMPDIR}/out 2" \
       build \
-      --extra_toolchains=@bazel_tools//tools/python:autodetecting_toolchain \
+      --extra_toolchains=@rules_python//python:autodetecting_toolchain \
       --enable_bzlmod \
       --check_direct_dependencies=error \
       --lockfile_mode=update \

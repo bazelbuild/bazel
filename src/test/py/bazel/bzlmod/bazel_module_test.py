@@ -18,10 +18,13 @@ import os
 import pathlib
 import shutil
 import subprocess
+import sys
 import tempfile
 from absl.testing import absltest
 from src.test.py.bazel import test_base
 from src.test.py.bazel.bzlmod.test_utils import BazelRegistry
+from src.test.py.bazel.bzlmod.test_utils import integrity
+from src.test.py.bazel.bzlmod.test_utils import read
 from src.test.py.bazel.bzlmod.test_utils import scratchFile
 
 
@@ -189,6 +192,100 @@ class BazelModuleTest(test_base.TestBase):
     ])
     _, stdout, _ = self.RunBazel(['run', '//:main'])
     self.assertIn('main function => aaa@1.1-1 (remotely patched)', stdout)
+
+  def testArchiveOverrideWithMainRepoLabelPatch(self):
+    self.ScratchFile(
+        'aaa.patch',
+        [
+            '--- a/aaa.cc',
+            '+++ b/aaa.cc',
+            '@@ -1,6 +1,6 @@',
+            ' #include <stdio.h>',
+            ' #include "aaa.h"',
+            ' void hello_aaa(const std::string& caller) {',
+            '-    std::string lib_name = "aaa@lol";',
+            '+    std::string lib_name = "aaa@lol (locally patched)";',
+            '     printf("%s => %s\\n", caller.c_str(), lib_name.c_str());',
+            ' }',
+        ],
+    )
+    self.main_registry.createCcModule('aaa', 'lol')
+    integ = integrity(read(self.main_registry.archives.joinpath('aaa.lol.zip')))
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'module(repo_name="foo")',
+            'bazel_dep(name = "aaa")',
+            'archive_override(',
+            '  module_name="aaa",',
+            '  urls=["%s/archives/aaa.lol.zip"],' % self.main_registry.getURL(),
+            '  integrity="%s",' % integ,
+            '  patches=["@foo//:aaa.patch"],',
+            '  patch_strip=1,',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'BUILD',
+        [
+            'cc_binary(',
+            '  name = "main",',
+            '  srcs = ["main.cc"],',
+            '  deps = ["@aaa//:lib_aaa"],',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'main.cc',
+        [
+            '#include "aaa.h"',
+            'int main() {',
+            '    hello_aaa("main function");',
+            '}',
+        ],
+    )
+    _, stdout, _ = self.RunBazel(['run', '//:main'])
+    self.assertIn('main function => aaa@lol (locally patched)', stdout)
+
+  def testArchiveOverrideWithBadLabelPatch(self):
+    self.main_registry.createCcModule('aaa', '1')
+    self.main_registry.createCcModule('bbb', '1')
+    integ = integrity(read(self.main_registry.archives.joinpath('aaa.1.zip')))
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'module(repo_name="foo")',
+            'bazel_dep(name = "aaa")',
+            'bazel_dep(name = "bbb", version = "1")',
+            'archive_override(',
+            '  module_name="aaa",',
+            '  urls=["%s/archives/aaa.1.zip"],' % self.main_registry.getURL(),
+            '  integrity="%s",' % integ,
+            '  patches=["@bbb//:aaa.patch"])',
+        ],
+    )
+    self.ScratchFile(
+        'BUILD',
+        [
+            'cc_binary(',
+            '  name = "main",',
+            '  srcs = ["main.cc"],',
+            '  deps = ["@aaa//:lib_aaa"],',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'main.cc',
+        [
+            '#include "aaa.h"',
+            'int main() {',
+            '    hello_aaa("main function");',
+            '}',
+        ],
+    )
+    exit_code, _, stderr = self.RunBazel(['run', '//:main'], allow_failure=True)
+    self.AssertNotExitCode(exit_code, 0, stderr)
+    self.assertIn("@@[unknown repo 'bbb' requested from @@]", '\n'.join(stderr))
 
   def testRepoNameForBazelDep(self):
     self.writeMainProjectFiles()
@@ -1108,6 +1205,74 @@ class BazelModuleTest(test_base.TestBase):
     self.ScratchFile('BUILD.bazel', ['print(glob(["testdata/**"]))'])
     self.ScratchFile('testdata/WORKSPACE')
     self.RunBazel(['build', ':all'])
+
+  def testUnicodePaths(self):
+    if sys.getfilesystemencoding() != 'utf-8':
+      self.skipTest('Test requires UTF-8 by default (Python 3.7+)')
+
+    unicode_dir = 'äöüÄÖÜß'
+    self.ScratchFile(unicode_dir + '/MODULE.bazel', ['module(name = "module")'])
+    self.ScratchFile(
+        unicode_dir + '/BUILD',
+        [
+            'filegroup(name = "choose_me")',
+        ],
+    )
+    self.writeMainProjectFiles()
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "module")',
+            'local_path_override(',
+            '  module_name = "module",',
+            '  path = "%s",' % unicode_dir,
+            ')',
+        ],
+    )
+    self.RunBazel(['build', '@module//:choose_me'])
+
+  def testUnicodeTags(self):
+    unicode_str = 'äöüÄÖÜß'
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext = use_extension("extensions.bzl", "ext")',
+            'ext.tag(attr = "%s")' % unicode_str,
+            'use_repo(ext, "ext")',
+        ],
+    )
+    self.ScratchFile('BUILD')
+    self.ScratchFile(
+        'extensions.bzl',
+        [
+            'def repo_rule_impl(ctx):',
+            '  ctx.file("BUILD")',
+            '  print("DATA: " + ctx.attr.tag)',
+            'repo_rule = repository_rule(',
+            '  implementation = repo_rule_impl,',
+            '  attrs = {',
+            '    "tag": attr.string(),',
+            '  },',
+            ')',
+            'def ext_impl(module_ctx):',
+            '  repo_rule(',
+            '    name = "ext",',
+            '    tag = module_ctx.modules[0].tags.tag[0].attr,',
+            '  )',
+            'tag = tag_class(',
+            '  attrs = {',
+            '    "attr": attr.string(),',
+            '  },',
+            ')',
+            'ext = module_extension(  implementation = ext_impl,',
+            '  tag_classes = {',
+            '    "tag": tag,',
+            '  },',
+            ')',
+        ],
+    )
+    _, _, stderr = self.RunBazel(['build', '@ext//:all'])
+    self.assertIn('DATA: ' + unicode_str, '\n'.join(stderr))
 
 
 if __name__ == '__main__':

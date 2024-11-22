@@ -24,7 +24,6 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.clock.BlazeClock;
-import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -992,7 +991,7 @@ public abstract class PackageFunction implements SkyFunction {
     RuleVisibility defaultVisibility = PrecomputedValue.DEFAULT_VISIBILITY.get(env);
     ConfigSettingVisibilityPolicy configSettingVisibilityPolicy =
         PrecomputedValue.CONFIG_SETTING_VISIBILITY_POLICY.get(env);
-    IgnoredSubdirectoriesValue repositoryIgnoredPackagePrefixes =
+    IgnoredSubdirectoriesValue repositoryIgnoredSubdirectories =
         (IgnoredSubdirectoriesValue)
             env.getValue(IgnoredSubdirectoriesValue.key(packageId.getRepository()));
     RepoPackageArgsValue repoPackageArgsValue;
@@ -1016,10 +1015,8 @@ public abstract class PackageFunction implements SkyFunction {
     }
 
     String workspaceName = workspaceNameValue.getName();
-    RepositoryMapping repositoryMapping = repositoryMappingValue.getRepositoryMapping();
-    RepositoryMapping mainRepositoryMapping = mainRepositoryMappingValue.getRepositoryMapping();
-    IgnoredSubdirectories repositoryIgnoredSubdirectories =
-        repositoryIgnoredPackagePrefixes.asIgnoredSubdirectories();
+    RepositoryMapping repositoryMapping = repositoryMappingValue.repositoryMapping();
+    RepositoryMapping mainRepositoryMapping = mainRepositoryMappingValue.repositoryMapping();
     Label preludeLabel = null;
 
     // Load (optional) prelude, which determines environment.
@@ -1148,7 +1145,7 @@ public abstract class PackageFunction implements SkyFunction {
               packageFactory.createNonSkyframeGlobber(
                   buildFileRootedPath.asPath().getParentDirectory(),
                   packageId,
-                  repositoryIgnoredSubdirectories,
+                  repositoryIgnoredSubdirectories.asIgnoredSubdirectories(),
                   packageLocator,
                   threadStateReceiverFactoryForMetrics.apply(keyForMetrics)),
               packageId,
@@ -1162,8 +1159,8 @@ public abstract class PackageFunction implements SkyFunction {
               packageId,
               buildFileRootedPath,
               workspaceName,
-              repositoryMappingValue.getAssociatedModuleName(),
-              repositoryMappingValue.getAssociatedModuleVersion(),
+              repositoryMappingValue.associatedModuleName(),
+              repositoryMappingValue.associatedModuleVersion(),
               starlarkBuiltinsValue.starlarkSemantics,
               repositoryMapping,
               mainRepositoryMapping,

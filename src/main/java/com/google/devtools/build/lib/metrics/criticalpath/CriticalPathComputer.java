@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.metrics.criticalpath;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Comparators;
 import com.google.common.collect.ImmutableList;
@@ -35,6 +36,7 @@ import com.google.devtools.build.lib.actions.DiscoveredInputsEvent;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.analysis.FilesModifiedEvent;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewoundEvent;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.time.Duration;
@@ -42,6 +44,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BinaryOperator;
@@ -78,6 +81,8 @@ public class CriticalPathComputer {
       Maps.newConcurrentMap();
   private final ActionKeyContext actionKeyContext;
   @Nullable private final WalkableGraph graph;
+
+  private final AtomicBoolean queryGraph = new AtomicBoolean(false);
 
   /** Maximum critical path found. */
   private final AtomicReference<CriticalPathComponent> maxCriticalPath = new AtomicReference<>();
@@ -132,6 +137,18 @@ public class CriticalPathComputer {
 
   public Map<Artifact, CriticalPathComponent> getCriticalPathComponentsMap() {
     return outputArtifactToComponent;
+  }
+
+  @VisibleForTesting
+  void setQueryGraph(boolean queryGraph) {
+    this.queryGraph.set(queryGraph);
+  }
+
+  @Subscribe
+  public void onFilesModified(FilesModifiedEvent event) {
+    // Only allow querying the graph if we have modified files from last build: only in this case
+    // change-pruning could happen.
+    queryGraph.set(event.numModifiedFiles() > 0);
   }
 
   /** Changes the phase of the action */
@@ -364,7 +381,7 @@ public class CriticalPathComputer {
       throws InterruptedException {
     CriticalPathComponent depComponent = outputArtifactToComponent.get(input);
 
-    if (depComponent == null && !input.isSourceArtifact() && graph != null) {
+    if (depComponent == null && !input.isSourceArtifact() && graph != null && queryGraph.get()) {
       // The generating action of the input is missing. It happens when the action was change
       // pruned in an incremental build. Query skyframe for the Action data.
       if (Actions.getGeneratingAction(graph, input) instanceof Action action) {

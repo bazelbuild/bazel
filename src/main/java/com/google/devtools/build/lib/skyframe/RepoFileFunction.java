@@ -108,7 +108,7 @@ public class RepoFileFunction implements SkyFunction {
           new IOException("error reading REPO.bazel file at " + path, e), Transience.TRANSIENT);
     }
     StarlarkFile starlarkFile =
-        StarlarkFile.parse(ParserInput.fromUTF8(contents, path.getPathString()));
+        StarlarkFile.parse(ParserInput.fromLatin1(contents, path.getPathString()));
     if (!starlarkFile.ok()) {
       Event.replayEventsOn(env.getListener(), starlarkFile.errors());
       throw new RepoFileFunctionException(

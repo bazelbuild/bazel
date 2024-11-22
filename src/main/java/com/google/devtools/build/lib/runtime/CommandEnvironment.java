@@ -340,7 +340,7 @@ public class CommandEnvironment {
       String name = entry.getKey();
       String value = entry.getValue();
       if (value == null) {
-        value = System.getenv(name);
+        value = clientEnv.get(name);
       }
       if (value != null) {
         repoEnv.put(name, value);

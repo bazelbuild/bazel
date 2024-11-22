@@ -27,9 +27,9 @@ java_library(
     name = "dependencies_provider",
     srcs = ["RemoteAnalysisCachingDependenciesProvider.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
     ],
 )
@@ -52,7 +52,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
-        "@protobuf//:protobuf_java",
+        "@com_google_protobuf//:protobuf_java",
     ],
 )
 
@@ -75,7 +75,7 @@ java_library(
         "//src/main/protobuf:file_invalidation_data_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
-        "@protobuf//:protobuf_java",
+        "@com_google_protobuf//:protobuf_java",
     ],
 )
 
@@ -100,7 +100,7 @@ java_library(
         "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
-        "@protobuf//:protobuf_java",
+        "@com_google_protobuf//:protobuf_java",
     ],
 )
 
@@ -126,4 +126,9 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/common/options",
     ],
+)
+
+java_library(
+    name = "client_id",
+    srcs = ["ClientId.java"],
 )

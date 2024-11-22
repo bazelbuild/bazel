@@ -39,15 +39,19 @@
 #include <cstdlib>
 #include <fstream>
 #include <iterator>
+#include <map>
+#include <optional>
 #include <set>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/startup_options.h"
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
-#include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/md5.h"
 #include "src/main/cpp/util/numbers.h"
@@ -69,13 +73,14 @@ class PosixDumper : public Dumper {
  public:
   static PosixDumper* Create(string* error);
   ~PosixDumper() { Finish(nullptr); }
-  void Dump(const void* data, const size_t size, const string& path) override;
+  void Dump(const void* data, size_t size,
+            const blaze_util::Path& path) override;
   bool Finish(string* error) override;
 
  private:
   PosixDumper() : was_error_(false) {}
 
-  set<string> dir_cache_;
+  set<blaze_util::Path> dir_cache_;
   string error_msg_;
   bool was_error_;
 };
@@ -85,20 +90,21 @@ Dumper* Create(string* error) { return PosixDumper::Create(error); }
 PosixDumper* PosixDumper::Create(string* error) { return new PosixDumper(); }
 
 void PosixDumper::Dump(const void* data, const size_t size,
-                       const string& path) {
+                       const blaze_util::Path& path) {
   if (was_error_) {
     return;
   }
 
-  string dirname = blaze_util::Dirname(path);
+  blaze_util::Path parent = path.GetParent();
   // Performance optimization: memoize the paths we already created a
   // directory for, to spare a stat in attempting to recreate an already
   // existing directory.
-  if (dir_cache_.insert(dirname).second) {
-    if (!blaze_util::MakeDirectories(dirname, 0777)) {
+  if (dir_cache_.insert(parent).second) {
+    if (!blaze_util::MakeDirectories(parent, 0777)) {
       was_error_ = true;
       string msg = GetLastErrorString();
-      error_msg_ = string("couldn't create '") + path + "': " + msg;
+      error_msg_ =
+          string("couldn't create '") + path.AsPrintablePath() + "': " + msg;
     }
   }
 
@@ -109,7 +115,8 @@ void PosixDumper::Dump(const void* data, const size_t size,
   if (!blaze_util::WriteFile(data, size, path, 0755)) {
     was_error_ = true;
     string msg = GetLastErrorString();
-    error_msg_ = string("Failed to write zipped file '") + path + "': " + msg;
+    error_msg_ = string("Failed to write zipped file '") +
+                 path.AsPrintablePath() + "': " + msg;
   }
 }
 
@@ -338,8 +345,10 @@ void ExecuteRunRequest(const blaze_util::Path& exe,
 
 const char kListSeparator = ':';
 
-bool SymlinkDirectories(const string& target, const blaze_util::Path& link) {
-  return symlink(target.c_str(), link.AsNativePath().c_str()) == 0;
+bool SymlinkDirectories(const blaze_util::Path& target,
+                        const blaze_util::Path& link) {
+  return symlink(target.AsNativePath().c_str(), link.AsNativePath().c_str()) ==
+         0;
 }
 
 // Notifies the client about the death of the server process by keeping a socket
@@ -391,16 +400,14 @@ int ConfigureDaemonProcess(posix_spawnattr_t* attrp,
 void WriteSystemSpecificProcessIdentifier(const blaze_util::Path& server_dir,
                                           pid_t server_pid);
 
-int ExecuteDaemon(const blaze_util::Path& exe,
-                  const std::vector<string>& args_vector,
-                  const std::map<string, EnvVarValue>& env,
-                  const blaze_util::Path& daemon_output,
-                  const bool daemon_output_append, const string& binaries_dir,
-                  const blaze_util::Path& server_dir,
-                  const StartupOptions& options,
-                  BlazeServerStartup** server_startup) {
+int ExecuteDaemon(
+    const blaze_util::Path& exe, const std::vector<string>& args_vector,
+    const std::map<string, EnvVarValue>& env,
+    const blaze_util::Path& daemon_output, const bool daemon_output_append,
+    const blaze_util::Path& binaries_dir, const blaze_util::Path& server_dir,
+    const StartupOptions& options, BlazeServerStartup** server_startup) {
   const blaze_util::Path pid_file = server_dir.GetRelative(kServerPidFile);
-  const string daemonize = blaze_util::JoinPath(binaries_dir, "daemonize");
+  const string daemonize = binaries_dir.GetRelative("daemonize").AsNativePath();
 
   std::vector<string> daemonize_args = {"daemonize", "-l",
                                         daemon_output.AsNativePath(), "-p",
@@ -488,12 +495,13 @@ int ExecuteDaemon(const blaze_util::Path& exe,
   return server_pid;
 }
 
-string GetHashedBaseDir(const string& root, const string& hashable) {
+blaze_util::Path GetHashedBaseDir(const blaze_util::Path& root,
+                                  const string& hashable) {
   unsigned char buf[blaze_util::Md5Digest::kDigestLength];
   blaze_util::Md5Digest digest;
   digest.Update(hashable.data(), hashable.size());
   digest.Finish(buf);
-  return blaze_util::JoinPath(root, digest.String());
+  return root.GetRelative(digest.String());
 }
 
 void CreateSecureOutputRoot(const blaze_util::Path& path) {
@@ -632,9 +640,9 @@ static int setlk(int fd, struct flock* lock) {
   return -1;
 }
 
-LockHandle AcquireLock(const std::string& name, const blaze_util::Path& path,
-                       LockMode mode, bool batch_mode, bool block,
-                       uint64_t* wait_time) {
+std::pair<LockHandle, std::optional<DurationMillis>> AcquireLock(
+    const std::string& name, const blaze_util::Path& path, LockMode mode,
+    bool batch_mode, bool block) {
   int flags = O_CREAT;
   switch (mode) {
     case LockMode::kShared:
@@ -712,7 +720,10 @@ LockHandle AcquireLock(const std::string& name, const blaze_util::Path& path,
   // avoid unnecessary noise in the logs.  In this metric, we are only
   // interested in knowing how long it took for other commands to complete, not
   // how fast acquiring a lock is.
-  const uint64_t elapsed_time = !multiple_attempts ? 0 : end_time - start_time;
+  const auto elapsed_time =
+      multiple_attempts
+          ? std::make_optional(DurationMillis(start_time, end_time))
+          : std::nullopt;
 
   // If taking an exclusive lock, identify ourselves in the lockfile.
   // The contents are printed for human consumption when another client
@@ -731,8 +742,7 @@ LockHandle AcquireLock(const std::string& name, const blaze_util::Path& path,
     }
   }
 
-  *wait_time = elapsed_time;
-  return static_cast<LockHandle>(fd);
+  return std::make_pair(static_cast<LockHandle>(fd), elapsed_time);
 }
 
 void ReleaseLock(LockHandle lock_handle) {
@@ -885,4 +895,4 @@ void EnsurePythonPathOption(vector<string>* options) {
   // do nothing.
 }
 
-}   // namespace blaze.
+}  // namespace blaze.

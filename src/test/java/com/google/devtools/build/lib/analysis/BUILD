@@ -39,6 +39,7 @@ java_library(
             "ConfiguredTargetTransitivePackagesTest.java",
             "GeneratorConflictTest.java",
             "JDKJavaLauncherRunfilesSupportTest.java",
+            "LateBoundAttributeTest.java",
             "PackageGroupBuildViewTest.java",
             "RuleConfiguredTargetTest.java",
             "RunfilesRepoMappingManifestTest.java",
@@ -153,6 +154,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
         "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
@@ -435,6 +437,31 @@ java_test(
     ],
 )
 
+java_test(
+    name = "LateBoundAttributeTest",
+    srcs = ["LateBoundAttributeTest.java"],
+    runtime_deps = [
+        "//src/test/java/com/google/devtools/build/lib/analysis/mock",
+        "//src/test/java/com/google/devtools/build/lib/view/util",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:transitive_target_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:transitive_target_value",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:mockito",
+        "//third_party:truth",
+    ],
+)
+
 test_suite(
     name = "AllAnalysisTests",
     tests = [
@@ -446,6 +473,7 @@ test_suite(
         ":ConfiguredTargetTransitivePackagesTest",
         ":GeneratorConflictTest",
         ":JDKJavaLauncherRunfilesSupportTest",
+        ":LateBoundAttributeTest",
         ":PackageGroupBuildViewTest",
         ":RuleConfiguredTargetTest",
         ":SourceManifestActionTest",

@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
+import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.skyframe.SkyKey;
 
 /**
@@ -55,6 +56,8 @@ public interface RemoteAnalysisCachingDependenciesProvider {
   void recordSerializationException(SerializationException e);
 
   void setTopLevelConfigChecksum(String checksum);
+
+  ModifiedFileSet getDiffFromEvaluatingVersion();
 
   /** A stub dependencies provider for when analysis caching is disabled. */
   final class DisabledDependenciesProvider implements RemoteAnalysisCachingDependenciesProvider {
@@ -100,6 +103,11 @@ public interface RemoteAnalysisCachingDependenciesProvider {
 
     @Override
     public void setTopLevelConfigChecksum(String topLevelConfigChecksum) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ModifiedFileSet getDiffFromEvaluatingVersion() {
       throw new UnsupportedOperationException();
     }
   }

@@ -24,7 +24,7 @@ import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.bazel.bzlmod.LocalPathOverride;
+import com.google.devtools.build.lib.bazel.bzlmod.LocalPathRepoSpecs;
 import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
 import com.google.devtools.build.lib.bazel.bzlmod.Version;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -71,14 +71,19 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         }
         return ImmutableMap.of(
             "bazel_tools",
-            LocalPathOverride.create(
-                directories.getWorkingDirectory().getRelative("embedded_tools").getPathString()),
+            new NonRegistryOverride(
+                LocalPathRepoSpecs.create(
+                    directories
+                        .getWorkingDirectory()
+                        .getRelative("embedded_tools")
+                        .getPathString())),
             "platforms",
-            LocalPathOverride.create(
-                directories
-                    .getWorkingDirectory()
-                    .getRelative("platforms_workspace")
-                    .getPathString()));
+            new NonRegistryOverride(
+                LocalPathRepoSpecs.create(
+                    directories
+                        .getWorkingDirectory()
+                        .getRelative("platforms_workspace")
+                        .getPathString())));
       }
     };
   }
@@ -640,10 +645,10 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         RepositoryMappingValue.Key.create(ruleClassProvider.getToolsRepository(), false);
     EvaluationResult<RepositoryMappingValue> builtinsResult = eval(builtinsKey);
     assertThat(builtinsResult.hasError()).isFalse();
-    RepositoryMapping builtinsMapping = builtinsResult.get(builtinsKey).getRepositoryMapping();
+    RepositoryMapping builtinsMapping = builtinsResult.get(builtinsKey).repositoryMapping();
     EvaluationResult<RepositoryMappingValue> toolsResult = eval(toolsKey);
     assertThat(toolsResult.hasError()).isFalse();
-    RepositoryMapping toolsMapping = toolsResult.get(toolsKey).getRepositoryMapping();
+    RepositoryMapping toolsMapping = toolsResult.get(toolsKey).repositoryMapping();
 
     assertThat(builtinsMapping.entries()).containsAtLeastEntriesIn(toolsMapping.entries());
     assertThat(builtinsMapping.get("_builtins")).isEqualTo(RepositoryName.create("_builtins"));

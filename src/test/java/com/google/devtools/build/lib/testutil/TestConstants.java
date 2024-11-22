@@ -23,10 +23,10 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
  */
 public class TestConstants {
 
-  public static final String PROTO_TOOLCHAIN = "@protobuf//bazel/private:proto_toolchain_type";
+  public static final String PROTO_TOOLCHAIN = "@com_google_protobuf//bazel/private:proto_toolchain_type";
 
   public static final String LOAD_PROTO_LANG_TOOLCHAIN =
-      "load('@protobuf//bazel/toolchains:proto_lang_toolchain.bzl', 'proto_lang_toolchain')";
+      "load('@com_google_protobuf//bazel/toolchains:proto_lang_toolchain.bzl', 'proto_lang_toolchain')";
 
   private TestConstants() {
   }
@@ -128,6 +128,10 @@ public class TestConstants {
    * The repo/package rules_python is rooted at. If empty, builtin rules are used.
    */
   public static final String RULES_PYTHON_PACKAGE_ROOT = "@@rules_python+/";
+
+  public static final String PYINFO_BZL = "@@rules_python+//python/private:py_info.bzl";
+
+  public static final String PYRUNTIMEINFO_BZL = "@@rules_python+//python/private:py_runtime_info.bzl";
 
   public static final ImmutableList<String> DOCS_RULES_PATHS = ImmutableList.of(
       "src/main/java/com/google/devtools/build/lib/rules");

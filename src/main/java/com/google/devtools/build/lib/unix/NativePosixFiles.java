@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.unix;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.jni.JniLoader;
 import com.google.devtools.build.lib.util.Blocker;
 import java.io.FileNotFoundException;
@@ -379,4 +380,10 @@ public final class NativePosixFiles {
   public static native int close(int fd, Object ignored) throws IOException;
 
   private static native void initJNIClasses();
+
+  /** Logs a path string that does not have a Latin-1 coder. Called from JNI. */
+  private static void logBadPath(String path) {
+    BugReport.sendNonFatalBugReport(
+        new IllegalStateException("Path string does not have a Latin-1 coder: %s".formatted(path)));
+  }
 }

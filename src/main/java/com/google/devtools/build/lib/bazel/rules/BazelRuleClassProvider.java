@@ -55,10 +55,7 @@ import com.google.devtools.build.lib.rules.repository.NewLocalRepositoryRule;
 import com.google.devtools.build.lib.rules.test.TestingSupportRules;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidBootstrap;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ContextGuardedValue;
-import com.google.devtools.build.lib.starlarkbuildapi.proto.ProtoBootstrap;
 import com.google.devtools.build.lib.starlarkbuildapi.python.PyBootstrap;
-import com.google.devtools.build.lib.starlarkbuildapi.stubs.ProviderStub;
-import com.google.devtools.build.lib.starlarkbuildapi.stubs.StarlarkAspectStub;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -250,11 +247,7 @@ public class BazelRuleClassProvider {
         @Override
         public void init(ConfiguredRuleClassProvider.Builder builder) {
           builder.addConfigurationFragment(ProtoConfiguration.class);
-
-          ProtoBootstrap bootstrap =
-              new ProtoBootstrap(
-                  BazelProtoCommon.INSTANCE, new StarlarkAspectStub(), new ProviderStub());
-          builder.addStarlarkBootstrap(bootstrap);
+          builder.addBzlToplevel("proto_common_do_not_use", BazelProtoCommon.INSTANCE);
         }
 
         @Override
@@ -315,7 +308,6 @@ public class BazelRuleClassProvider {
               ContextGuardedValue.onlyInAllowedRepos(
                   Starlark.NONE, PyBootstrap.allowedRepositories));
           builder.addStarlarkBuiltinsInternal(BazelPyBuiltins.NAME, new BazelPyBuiltins());
-          builder.addStarlarkBootstrap(new PyBootstrap());
 
           try {
             builder.addWorkspaceFileSuffix(

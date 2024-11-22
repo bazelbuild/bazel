@@ -267,8 +267,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     this.sourceFile = sourceFile;
     this.shareable = shareable;
     this.configuration = configuration;
-    // We do not need to include the middleman artifact since it is a generated artifact and will
-    // definitely exist prior to this action execution.
     this.mandatoryInputs = mandatoryInputs;
     this.mandatorySpawnInputs = mandatorySpawnInputs;
     this.additionalPrunableHeaders = additionalPrunableHeaders;
@@ -1094,7 +1092,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   }
 
   /**
-   * Recalculates this action's live input collection, including sources, middlemen.
+   * Recalculates this action's live input collection.
    *
    * <p>Can only be called if {@link #discoversInputs}, and must be called after execution in that
    * case.

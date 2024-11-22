@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.MapBackedChecksumCache;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsChecksumCache;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.rules.java.JavaInfo.BuiltinsJavaInfo;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.Dumper;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationDepsUtils;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
@@ -33,9 +34,21 @@ public class JavaInfoCodecTest extends BuildViewTestCase {
 
   @Test
   public void emptyJavaInfo_canBeSerializedAndDeserialized() throws Exception {
-    new SerializationTester(JavaInfo.EMPTY)
+    new SerializationTester(JavaInfo.EMPTY_JAVA_INFO_FOR_TESTING)
         .makeMemoizingAndAllowFutureBlocking(/* allowFutureBlocking= */ true)
         .setVerificationFunction((in, out) -> assertThat(in).isEqualTo(out))
+        .runTests();
+  }
+
+  @Test
+  public void emptyBuiltinJavaInfo_canBeSerializedAndDeserialized() throws Exception {
+    new SerializationTester(JavaInfo.EMPTY_BUILTINS_JAVA_INFO_FOR_TESTING)
+        .makeMemoizingAndAllowFutureBlocking(/* allowFutureBlocking= */ true)
+        .setVerificationFunction(
+            (in, out) -> {
+              assertThat(in).isEqualTo(out);
+              assertThat(out.getClass()).isEqualTo(BuiltinsJavaInfo.class);
+            })
         .runTests();
   }
 
@@ -66,7 +79,7 @@ public class JavaInfoCodecTest extends BuildViewTestCase {
         )
         """);
 
-    new SerializationTester(getConfiguredTarget("//java/com/google/test:a").get(JavaInfo.PROVIDER))
+    new SerializationTester(JavaInfo.getJavaInfo(getConfiguredTarget("//java/com/google/test:a")))
         .makeMemoizingAndAllowFutureBlocking(/* allowFutureBlocking= */ true)
         .addDependency(FileSystem.class, scratch.getFileSystem())
         .addDependency(OptionsChecksumCache.class, new MapBackedChecksumCache())
@@ -86,10 +99,10 @@ public class JavaInfoCodecTest extends BuildViewTestCase {
                   inInfo.getProvider(JavaCompilationArgsProvider.class);
               JavaCompilationArgsProvider outProvider =
                   outInfo.getProvider(JavaCompilationArgsProvider.class);
-              assertThat(inProvider.getRuntimeJars().toList()).hasSize(4);
-              assertThat(Dumper.dumpStructureWithEquivalenceReduction(inProvider.getRuntimeJars()))
+              assertThat(inProvider.runtimeJars().toList()).hasSize(4);
+              assertThat(Dumper.dumpStructureWithEquivalenceReduction(inProvider.runtimeJars()))
                   .isEqualTo(
-                      Dumper.dumpStructureWithEquivalenceReduction(outProvider.getRuntimeJars()));
+                      Dumper.dumpStructureWithEquivalenceReduction(outProvider.runtimeJars()));
             })
         .runTests();
   }

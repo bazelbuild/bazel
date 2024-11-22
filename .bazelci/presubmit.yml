@@ -177,6 +177,7 @@ tasks:
       # Disable python and shell integration tests on Intel Macs
       - "-//src/test/shell/..."
       - "-//src/test/py/..."
+      - "-//src/main/starlark/tests/builtins_bzl:cc_builtin_tests"
       # https://github.com/bazelbuild/bazel/issues/17410
       - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
       # Disable android tests since we are moving Android rules out of the Bazel repo.
@@ -355,9 +356,6 @@ tasks:
       - test
   kythe_ubuntu2204:
     shell_commands:
-    # Replace @com_google_protobuf with @protobuf because Bazel has renamed @com_google_protobuf to @protobuf. See b/371908235.
-    # TODO(chiwang): Remove this once kythe is updated to use @protobuf.
-    - sed -i -e 's/@com_google_protobuf/@protobuf/' /usr/local/kythe/BUILD
     # Disable custom proto_toolchain_for_cc from kythe because it doesn't work with protobuf 29. See b/371908235.
     # TODO(chiwang): Remove this once kythe resolves the issue.
     - sed -i -e 's/build --proto_toolchain_for_cc=@kythe_release\/\/:cc_native_proto_toolchain//' /usr/local/kythe/extractors.bazelrc

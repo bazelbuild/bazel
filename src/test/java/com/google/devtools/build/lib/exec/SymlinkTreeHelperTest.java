@@ -44,6 +44,11 @@ import org.junit.runner.RunWith;
 @RunWith(TestParameterInjector.class)
 public final class SymlinkTreeHelperTest {
 
+  private enum TreeType {
+    RUNFILES,
+    FILESET
+  }
+
   private final FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
   private final Path execRoot = fs.getPath("/execroot");
   private final ArtifactRoot outputRoot =
@@ -125,7 +130,8 @@ public final class SymlinkTreeHelperTest {
   }
 
   @Test
-  public void createSymlinksDirectly(@TestParameter boolean replace) throws Exception {
+  public void createSymlinksDirectly(
+      @TestParameter TreeType treeType, @TestParameter boolean replace) throws Exception {
     Path treeRoot = execRoot.getRelative("foo.runfiles");
     Path inputManifestPath = execRoot.getRelative("foo.runfiles_manifest");
     SymlinkTreeHelper helper =
@@ -136,11 +142,6 @@ public final class SymlinkTreeHelperTest {
 
     FileSystemUtils.writeContent(file.getPath(), UTF_8, "content");
     FileSystemUtils.ensureSymbolicLink(symlink.getPath(), "/path/to/target");
-
-    HashMap<PathFragment, Artifact> symlinkMap = new HashMap<>();
-    symlinkMap.put(PathFragment.create(WORKSPACE_NAME + "/empty"), null);
-    symlinkMap.put(PathFragment.create(WORKSPACE_NAME + "/file"), file);
-    symlinkMap.put(PathFragment.create(WORKSPACE_NAME + "/symlink"), symlink);
 
     Path treeWorkspace = treeRoot.getRelative(WORKSPACE_NAME);
     Path treeEmpty = treeWorkspace.getRelative("empty");
@@ -153,9 +154,29 @@ public final class SymlinkTreeHelperTest {
       treeFile.createDirectoryAndParents();
       treeSymlink.createDirectoryAndParents();
       treeMissing.createDirectoryAndParents();
+      treeWorkspace.chmod(000);
     }
 
-    helper.createSymlinksDirectly(symlinkMap);
+    switch (treeType) {
+      case RUNFILES -> {
+        HashMap<PathFragment, Artifact> symlinkMap = new HashMap<>();
+        symlinkMap.put(PathFragment.create(WORKSPACE_NAME + "/empty"), null);
+        symlinkMap.put(PathFragment.create(WORKSPACE_NAME + "/file"), file);
+        symlinkMap.put(PathFragment.create(WORKSPACE_NAME + "/symlink"), symlink);
+
+        helper.createRunfilesSymlinksDirectly(symlinkMap);
+      }
+      case FILESET -> {
+        HashMap<PathFragment, PathFragment> symlinkMap = new HashMap<>();
+        symlinkMap.put(PathFragment.create(WORKSPACE_NAME + "/empty"), null);
+        symlinkMap.put(PathFragment.create(WORKSPACE_NAME + "/file"), file.getPath().asFragment());
+        symlinkMap.put(
+            PathFragment.create(WORKSPACE_NAME + "/symlink"),
+            PathFragment.create("/path/to/target"));
+
+        helper.createFilesetSymlinksDirectly(symlinkMap);
+      }
+    }
 
     assertThat(treeRoot.isDirectory()).isTrue();
     assertThat(treeWorkspace.isDirectory()).isTrue();

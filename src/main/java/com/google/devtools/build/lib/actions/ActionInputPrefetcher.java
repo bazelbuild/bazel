@@ -31,21 +31,9 @@ public interface ActionInputPrefetcher {
   }
 
   public static final ActionInputPrefetcher NONE =
-      new ActionInputPrefetcher() {
-        @Override
-        public ListenableFuture<Void> prefetchFiles(
-            ActionExecutionMetadata action,
-            Iterable<? extends ActionInput> inputs,
-            MetadataSupplier metadataSupplier,
-            Priority priority) {
-          // Do nothing.
-          return immediateVoidFuture();
-        }
-
-        @Override
-        public boolean requiresTreeMetadataWhenTreeFileIsInput() {
-          return false;
-        }
+      (action, inputs, metadataSupplier, priority) -> {
+        // Do nothing.
+        return immediateVoidFuture();
       };
 
   /** Priority for the staging task. */
@@ -84,10 +72,4 @@ public interface ActionInputPrefetcher {
       Iterable<? extends ActionInput> inputs,
       MetadataSupplier metadataSupplier,
       Priority priority);
-
-  /**
-   * Whether the prefetcher requires the metadata for a tree artifact to be available whenever one
-   * of the files in the tree artifact is an action input.
-   */
-  boolean requiresTreeMetadataWhenTreeFileIsInput();
 }

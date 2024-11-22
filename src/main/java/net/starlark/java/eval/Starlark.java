@@ -312,6 +312,8 @@ public final class Starlark {
       return ((Sequence) x).size();
     } else if (x instanceof Dict) {
       return ((Dict) x).size();
+    } else if (x instanceof StarlarkSet) {
+      return ((StarlarkSet) x).size();
     } else if (x instanceof StarlarkIterable) {
       // Iterables.size runs in constant time if x implements Collection.
       return Iterables.size((Iterable<?>) x);
@@ -899,8 +901,7 @@ public final class Starlark {
     }
 
     // user-defined field?
-    if (x instanceof Structure) {
-      Structure struct = (Structure) x;
+    if (x instanceof Structure struct) {
       Object field = struct.getValue(semantics, name);
       if (field != null) {
         return Starlark.checkValid(field);

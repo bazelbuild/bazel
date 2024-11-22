@@ -1,3 +1,4 @@
+#include "src/main/cpp/util/path_platform.h"
 // Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,12 +20,13 @@
 
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/server_process_info.h"
-#include "src/main/cpp/util/path.h"
 #include "src/main/cpp/util/port.h"
 
 namespace blaze {
@@ -46,7 +48,7 @@ class Dumper {
   // If writing fails, this method sets a flag in the `Dumper`, and `Finish`
   // will return false. Subsequent `Dump` calls will have no effect.
   virtual void Dump(const void* data, const size_t size,
-                    const std::string& path) = 0;
+                    const blaze_util::Path& path) = 0;
 
   // Finishes dumping data.
   //
@@ -186,16 +188,16 @@ int ExecuteDaemon(
     const blaze_util::Path& exe, const std::vector<std::string>& args_vector,
     const std::map<std::string, EnvVarValue>& env,
     const blaze_util::Path& daemon_output, const bool daemon_output_append,
-    const std::string& binaries_dir, const blaze_util::Path& server_dir,
+    const blaze_util::Path& binaries_dir, const blaze_util::Path& server_dir,
     const StartupOptions& options, BlazeServerStartup** server_startup);
 
 // A character used to separate paths in a list.
 extern const char kListSeparator;
 
 // Create a symlink to directory ``target`` at location ``link``.
-// Returns true on success, false on failure. The target must be absolute.
+// Returns true on success, false on failure.
 // Implemented via junctions on Windows.
-bool SymlinkDirectories(const std::string& target,
+bool SymlinkDirectories(const blaze_util::Path& target,
                         const blaze_util::Path& link);
 
 typedef uintptr_t LockHandle;
@@ -208,12 +210,12 @@ enum class LockMode {
 // Acquires a `mode` lock on `path`, busy-waiting until it becomes available if
 // `block` is true, and releasing it on exec if `batch_mode` is false.
 // Crashes if the lock cannot be acquired. Returns a handle that can be
-// subsequently passed to ReleaseLock. Sets `wait_time` to the number of
-// milliseconds spent waiting for the lock. The `name` argument is used to
-// distinguish it from other locks in human-readable error messages.
-LockHandle AcquireLock(const std::string& name, const blaze_util::Path& path,
-                       LockMode mode, bool batch_mode, bool block,
-                       uint64_t* wait_time);
+// subsequently passed to ReleaseLock as well as the time spent waiting for the
+// lock, if any. The `name` argument is used to distinguish it from other locks
+// in human-readable error messages.
+std::pair<LockHandle, std::optional<DurationMillis>> AcquireLock(
+    const std::string& name, const blaze_util::Path& path, LockMode mode,
+    bool batch_mode, bool block);
 
 // Releases a lock previously obtained from AcquireLock.
 void ReleaseLock(LockHandle lock_handle);
@@ -236,8 +238,8 @@ void ExcludePathFromBackup(const blaze_util::Path& path);
 
 // Returns the canonical form of the base dir given a root and a hashable
 // string. The resulting dir is composed of the root + md5(hashable)
-std::string GetHashedBaseDir(const std::string& root,
-                             const std::string& hashable);
+blaze_util::Path GetHashedBaseDir(const blaze_util::Path& root,
+                                  const std::string& hashable);
 
 // Create a safe installation directory where we keep state, installations etc.
 // This method ensures that the directory is created, is owned by the current

@@ -154,14 +154,14 @@ function test_shutdown() {
   local server_pid2=$(bazel info server_pid 2>$TEST_log)
   assert_not_equals "$server_pid1" "$server_pid2"
   expect_not_log "WARNING.* Running B\\(azel\\|laze\\) server needs to be killed"
-  expect_log "Starting local B\\(azel\\|laze\\) server and connecting to it"
+  expect_log "Starting local B\\(azel\\|laze\\) server (.*) and connecting to it"
 }
 
 function test_shutdown_different_options() {
   bazel --host_jvm_args=-Di.am.a=teapot info >& $TEST_log || fail "Expected success"
   bazel shutdown >& $TEST_log || fail "Expected success"
   expect_log "WARNING.* Running B\\(azel\\|laze\\) server needs to be killed"
-  expect_not_log "Starting local B\\(azel\\|laze\\) server and connecting to it"
+  expect_not_log "Starting local B\\(azel\\|laze\\) server (.*) and connecting to it"
 }
 
 function test_server_restart_due_to_startup_options_with_client_debug_information() {
@@ -246,7 +246,7 @@ function test_local_startup_timeout() {
     sleep 1
   done
 
-  expect_log "Starting local.*server and connecting to it"
+  expect_log "Starting local.*server (.*) and connecting to it"
   expect_log "FATAL: couldn't connect to server"
 }
 
@@ -269,7 +269,7 @@ function test_max_idle_secs() {
   done
 
   bazel "${options[@]}" info >"$TEST_log" 2>&1 || fail "bazel info failed"
-  expect_log "Starting local.*server and connecting to it"
+  expect_log "Starting local.*server (.*) and connecting to it"
   # Ensure the restart was not triggered by different startup options.
   expect_not_log "WARNING: Running B\\(azel\\|laze\\) server needs to be killed"
 }
@@ -391,7 +391,7 @@ function test_proxy_settings() {
         "${TEST_TMPDIR}/server_env"
     done
   else
-    echo "Cannot not test server process environment on this platform"
+    echo "cannot test server process environment on this platform"
   fi
 }
 
@@ -442,7 +442,7 @@ function test_client_is_quiet_by_default() {
   lines=$(cat $TEST_log | wc -l)
   [[ $lines -ge 2 && $lines -le 3 ]] || fail "Log has incorrect number of lines"
   expect_log "^\$TEST_TMPDIR defined: output root default"
-  expect_log "^Starting local $capitalized_product_name server and connecting to it...$"
+  expect_log "^Starting local $capitalized_product_name server (.*) and connecting to it...$"
   cp stdout $TEST_log || fail "cp failed"
 
   strip_lines_from_bazel_cc

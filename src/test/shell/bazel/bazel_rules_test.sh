@@ -474,7 +474,7 @@ EOF
   expect_log "The number is 42"
 }
 
-function test_build_python_zip_with_middleman() {
+function test_build_python_zip_with_python_binary_as_data() {
   mkdir py
   touch py/data.txt
   cat > py/BUILD <<EOF

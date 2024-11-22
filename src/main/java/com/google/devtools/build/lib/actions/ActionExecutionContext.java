@@ -137,22 +137,22 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
    * An {@link InputMetadataProvider} wrapping another while overriding the materialization path of
    * a chosen runfiles tree.
    *
-   * <p>The choice is made by passing in the runfiles middleman which represents the tree whose path
-   * is to be overridden.
+   * <p>The choice is made by passing in the runfiles tree artifact which represents the tree whose
+   * path is is to be overridden.
    */
   private static class OverriddenRunfilesPathInputMetadataProvider
       implements InputMetadataProvider {
     private final InputMetadataProvider wrapped;
-    private final ActionInput wrappedMiddleman;
+    private final ActionInput wrappedRunfilesArtifact;
     private final OverriddenPathRunfilesTree overriddenTree;
 
     private OverriddenRunfilesPathInputMetadataProvider(
-        InputMetadataProvider wrapped, ActionInput wrappedMiddleman, PathFragment execPath) {
+        InputMetadataProvider wrapped, ActionInput wrappedRunfilesArtifact, PathFragment execPath) {
       this.wrapped = wrapped;
-      this.wrappedMiddleman = wrappedMiddleman;
+      this.wrappedRunfilesArtifact = wrappedRunfilesArtifact;
       this.overriddenTree =
           new OverriddenPathRunfilesTree(
-              wrapped.getRunfilesMetadata(wrappedMiddleman).getRunfilesTree(), execPath);
+              wrapped.getRunfilesMetadata(wrappedRunfilesArtifact).getRunfilesTree(), execPath);
     }
 
     @Nullable
@@ -172,7 +172,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     @Override
     public RunfilesArtifactValue getRunfilesMetadata(ActionInput input) {
       RunfilesArtifactValue original = wrapped.getRunfilesMetadata(input);
-      if (wrappedMiddleman.equals(input)) {
+      if (wrappedRunfilesArtifact.equals(input)) {
         return original.withOverriddenRunfilesTree(overriddenTree);
       } else {
         return original;
@@ -600,10 +600,10 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
   }
 
   public ActionExecutionContext withOverriddenRunfilesPath(
-      ActionInput overriddenMiddleman, PathFragment overrideRunfilesPath) {
+      ActionInput overriddenRunfilesArtifact, PathFragment overrideRunfilesPath) {
     return withInputMetadataProvider(
         new OverriddenRunfilesPathInputMetadataProvider(
-            inputMetadataProvider, overriddenMiddleman, overrideRunfilesPath));
+            inputMetadataProvider, overriddenRunfilesArtifact, overrideRunfilesPath));
   }
 
   /**

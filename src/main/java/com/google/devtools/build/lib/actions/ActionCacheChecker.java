@@ -58,10 +58,7 @@ import javax.annotation.Nullable;
  * last stored in the action cache. Must be informed of the new Action data after execution as well.
  *
  * <p>The fingerprint, input files names, and metadata (either mtimes or MD5sums) of each action are
- * cached in the action cache to avoid unnecessary rebuilds. Middleman artifacts are handled
- * specially, avoiding the need to create actual files corresponding to the middleman artifacts.
- * Instead of that, results of MiddlemanAction dependency checks are cached internally and then
- * reused whenever an input middleman artifact is encountered.
+ * cached in the action cache to avoid unnecessary rebuilds.
  *
  * <p>While instances of this class hold references to action and metadata cache instances, they are
  * otherwise lightweight, and should be constructed anew and discarded for each build request.
@@ -516,10 +513,6 @@ public class ActionCacheChecker {
     // are unnecessary. In other words, the only metadata we should check for them is file existence
     // itself.
 
-    if (action.getActionType().isMiddleman()) {
-      checkMiddlemanAction(action, handler, inputMetadataProvider, outputMetadataStore);
-      return null;
-    }
     if (!cacheConfig.enabled()) {
       return new Token(action);
     }
@@ -846,73 +839,6 @@ public class ActionCacheChecker {
   }
 
   /**
-   * Special handling for the MiddlemanAction. Since MiddlemanAction output artifacts are purely
-   * fictional and used only to stay within dependency graph model limitations (action has to depend
-   * on artifacts, not on other actions), we do not need to validate metadata for the outputs - only
-   * for inputs. We also do not need to validate MiddlemanAction key, since action cache entry key
-   * already incorporates that information for the middlemen and we will experience a cache miss
-   * when it is different. Whenever it encounters middleman artifacts as input artifacts for other
-   * actions, it consults with the aggregated middleman digest computed here.
-   */
-  private void checkMiddlemanAction(
-      Action action,
-      EventHandler handler,
-      InputMetadataProvider inputMetadataProvider,
-      OutputMetadataStore outputMetadataStore)
-      throws InterruptedException {
-    if (!cacheConfig.enabled()) {
-      // Action cache is disabled, don't generate digests.
-      return;
-    }
-    Artifact middleman = action.getPrimaryOutput();
-    String cacheKey = middleman.getExecPathString();
-    ActionCache.Entry entry = actionCache.get(cacheKey);
-    boolean changed = false;
-    if (entry != null) {
-      if (entry.isCorrupted()) {
-        reportCorruptedCacheEntry(handler, action);
-        actionCache.accountMiss(MissReason.CORRUPTED_CACHE_ENTRY);
-        changed = true;
-      } else if (validateArtifacts(
-          entry,
-          action,
-          action.getInputs(),
-          inputMetadataProvider,
-          outputMetadataStore,
-          false,
-          /* cachedOutputMetadata= */ null,
-          /* remoteArtifactChecker= */ null)) {
-        reportChanged(handler, action);
-        actionCache.accountMiss(MissReason.DIFFERENT_FILES);
-        changed = true;
-      }
-    } else {
-      reportChangedDeps(handler, action);
-      actionCache.accountMiss(MissReason.DIFFERENT_DEPS);
-      changed = true;
-    }
-    if (changed) {
-      // Compute the aggregated middleman digest.
-      // Since we never validate action key for middlemen, we should not store
-      // it in the cache entry and just use empty string instead.
-      entry = new ActionCache.Entry("", ImmutableMap.of(), false, OutputPermissions.READONLY);
-      for (Artifact input : action.getInputs().toList()) {
-        entry.addInputFile(
-            input.getExecPath(),
-            getInputMetadataMaybe(inputMetadataProvider, input),
-            /* saveExecPath= */ true);
-      }
-    }
-
-    outputMetadataStore.setDigestForVirtualArtifact(middleman, entry.getFileDigest());
-    if (changed) {
-      actionCache.put(cacheKey, entry);
-    } else {
-      actionCache.accountHit();
-    }
-  }
-
-  /**
    * Only call if action requires execution because there was a failure to record action cache hit
    */
   public Token getTokenUnconditionallyAfterFailureToRecordActionCacheHit(
@@ -948,8 +874,8 @@ public class ActionCacheChecker {
    * instead. This is done to avoid cost associated with building the message.
    */
   private static void reportRebuild(@Nullable EventHandler handler, Action action, String message) {
-    // For MiddlemanAction, do not report rebuild.
-    if (handler != null && !action.getActionType().isMiddleman()) {
+    // For RunfilesTreeAction, do not report rebuild.
+    if (handler != null) {
       handler.handle(
           Event.of(
               EventKind.DEPCHECKER,
@@ -964,10 +890,6 @@ public class ActionCacheChecker {
 
   private static void reportChanged(@Nullable EventHandler handler, Action action) {
     reportRebuild(handler, action, "One of the files has changed");
-  }
-
-  private static void reportChangedDeps(@Nullable EventHandler handler, Action action) {
-    reportRebuild(handler, action, "the set of files on which this action depends has changed");
   }
 
   private static void reportNewAction(@Nullable EventHandler handler, Action action) {

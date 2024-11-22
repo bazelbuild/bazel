@@ -46,6 +46,8 @@ function set_up() {
   BINS=$(bazel info $PRODUCT_NAME-bin)/${WORKSPACE_SUBDIR}
   OUTPUT_BASE="$(bazel info output_base)"
 
+  add_rules_java ${WORKSPACE_DIR}/MODULE.bazel
+
   # Tell Bazel to shut down all running workers. Faster than a full shutdown.
   bazel build --worker_quit_after_build &> $TEST_log \
     || fail "'bazel build --worker_quit_after_build' during test set_up failed"
@@ -59,6 +61,8 @@ function tear_down() {
 function write_hello_library_files() {
   mkdir -p java/main
   cat >java/main/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_java//java:java_library.bzl", "java_library")
 java_binary(name = 'main',
     deps = [':hello_library'],
     srcs = ['Main.java'],
@@ -174,6 +178,8 @@ work = rule(
 )
 EOF
   cat >BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_java//java:java_import.bzl", "java_import")
 load(":work.bzl", "work")
 
 java_import(

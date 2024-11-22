@@ -2345,7 +2345,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   // regression test for b/237547165
   @Test
-  public void runfiles_failOnMiddlemanInFiles() throws Exception {
+  public void runfiles_failOnRunfilesTreeInFiles() throws Exception {
     scratch.file(
         "test/rule.bzl",
         """
@@ -2368,7 +2368,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler); // Error expected.
     assertThat(getConfiguredTarget("//test:test")).isNull();
     assertContainsEvent(
-        "Error in runfiles: could not add all 'files': unexpected middleman artifact");
+        "Error in runfiles: could not add all 'files': unexpected runfiles tree artifact");
   }
 
   @Test

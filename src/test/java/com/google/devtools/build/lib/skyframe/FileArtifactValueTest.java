@@ -92,7 +92,7 @@ public final class FileArtifactValueTest {
             RemoteFileArtifactValue.create(toBytes("00112233445566778899AABBCCDDEEFF"), 1, 1, 1),
             RemoteFileArtifactValue.create(toBytes("00112233445566778899AABBCCDDEEFF"), 1, 1, 2))
         .addEqualityGroup(FileArtifactValue.MISSING_FILE_MARKER)
-        .addEqualityGroup(FileArtifactValue.DEFAULT_MIDDLEMAN)
+        .addEqualityGroup(FileArtifactValue.RUNFILES_TREE_MARKER)
         .addEqualityGroup("a string")
         .testEquals();
   }

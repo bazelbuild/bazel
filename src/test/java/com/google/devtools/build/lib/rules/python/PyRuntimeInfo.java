@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
-import com.google.devtools.build.lib.starlarkbuildapi.python.PyRuntimeInfoApi;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
@@ -140,10 +140,7 @@ public final class PyRuntimeInfo {
   private static class RulesPythonProvider extends BaseProvider {
 
     private RulesPythonProvider() {
-      super(
-          keyForBuild(
-              Label.parseCanonicalUnchecked(
-                  "//third_party/bazel_rules/rules_python/python/private/common:providers.bzl")));
+      super(keyForBuild(Label.parseCanonicalUnchecked(TestConstants.PYRUNTIMEINFO_BZL)));
     }
   }
 }

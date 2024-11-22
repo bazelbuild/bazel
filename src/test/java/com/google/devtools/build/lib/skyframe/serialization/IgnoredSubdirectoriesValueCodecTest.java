@@ -23,7 +23,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for IgnoredPackagePrefixesValueCodec. */
+/** Tests for {@code IgnoredSubdirectoriesValueCodec}. */
 @RunWith(JUnit4.class)
 public class IgnoredSubdirectoriesValueCodecTest {
 

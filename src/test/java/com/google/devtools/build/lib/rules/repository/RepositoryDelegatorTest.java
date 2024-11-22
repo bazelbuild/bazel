@@ -265,7 +265,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
             differencer);
     overrideDirectory = scratch.dir("/foo");
     scratch.file("/foo/WORKSPACE");
-    RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
+    RepositoryMappingFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
     RepositoryDelegatorFunction.IS_VENDOR_COMMAND.set(differencer, false);
     RepositoryDelegatorFunction.VENDOR_DIRECTORY.set(differencer, Optional.empty());
     RepositoryDelegatorFunction.FORCE_FETCH.set(
@@ -280,6 +280,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
         differencer, Optional.empty());
     PrecomputedValue.REPO_ENV.set(differencer, ImmutableMap.of());
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
+    ModuleFileFunction.INJECTED_REPOSITORIES.set(differencer, ImmutableMap.of());
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());
     YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
     BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES.set(
@@ -291,7 +292,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
 
   @Test
   public void testOverride() throws Exception {
-    RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(
+    RepositoryMappingFunction.REPOSITORY_OVERRIDES.set(
         differencer,
         ImmutableMap.of(RepositoryName.createUnvalidated("foo"), overrideDirectory.asFragment()));
 

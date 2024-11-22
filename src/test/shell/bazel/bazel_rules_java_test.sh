@@ -72,15 +72,17 @@ EOF
 filegroup(name = 'yolo')
 EOF
   touch override/java/BUILD || fail "couldn't touch override/java/BUILD"
-  cat > override/java/repositories.bzl <<EOF
+  cat > override/java/rules_java_deps.bzl <<EOF
 def rules_java_dependencies():
     pass
+EOF
+  cat > override/java/repositories.bzl <<EOF
 def rules_java_toolchains():
     pass
 EOF
 
   cd rules_java_can_be_overridden || fail "couldn't cd into workspace"
-  bazel build --noenable_bzlmod --enable_workspace @rules_java//:yolo &> $TEST_log || \
+  bazel build --incompatible_autoload_externally= --noenable_bzlmod --enable_workspace @rules_java//:yolo &> $TEST_log || \
     fail "Bazel failed to build @rules_java"
 }
 

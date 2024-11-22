@@ -53,6 +53,7 @@ public class JavaInfoRoundtripTest extends BuildViewTestCase {
     scratch.file(
         "javainfo/javainfo_to_dict.bzl",
         """
+        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
         load("//tools/build_defs/inspect:struct_to_dict.bzl", "struct_to_dict")
         Info = provider()
         def _impl(ctx):

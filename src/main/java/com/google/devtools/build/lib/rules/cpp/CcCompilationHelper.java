@@ -294,7 +294,7 @@ public final class CcCompilationHelper {
   private final CcToolchainProvider ccToolchain;
   private final FdoContext fdoContext;
   private boolean generateModuleMap = true;
-  private String purpose = "cc_compilation_middleman";
+  private String purpose = "";
   private boolean generateNoPicAction;
   private boolean generatePicAction;
   private boolean isCodeCoverageEnabled = true;
@@ -862,8 +862,6 @@ public final class CcCompilationHelper {
         (CcCompilationContext) ccCompilationContextObjectsTuple.get(0);
     ccCompilationContext = publicCompilationContext;
     if (!implementationDeps.isEmpty()) {
-      // We set a different purpose so that the middleman doesn't clash with the one from propagated
-      // ccCompilationContext.
       Preconditions.checkState(
           ccCompilationContextObjectsTuple.get(1) != Starlark.NONE,
           "Compilation context for implementation deps was not created");
@@ -906,9 +904,8 @@ public final class CcCompilationHelper {
   /**
    * Sets the purpose for the {@code CcCompilationContext}.
    *
-   * @see CcCompilationContext.Builder#setPurpose
-   * @param purpose must be a string which is suitable for use as a filename. A single rule may have
-   *     many middlemen with distinct purposes.
+   * @param purpose the purpose. Only used to influence the location of the output of Objective-C
+   *     compilation.
    */
   @CanIgnoreReturnValue
   public CcCompilationHelper setPurpose(String purpose) {

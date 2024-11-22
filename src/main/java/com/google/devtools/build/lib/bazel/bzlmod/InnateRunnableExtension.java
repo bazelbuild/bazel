@@ -105,7 +105,7 @@ final class InnateRunnableExtension implements RunnableExtension {
     Label.RepoContext repoContext = Label.RepoContext.of(repoMapping.ownerRepo(), repoMapping);
 
     // The name of the extension is of the form "<bzl_file_label>%<rule_name>".
-    Iterator<String> parts = Splitter.on('%').split(extensionId.getExtensionName()).iterator();
+    Iterator<String> parts = Splitter.on('%').split(extensionId.extensionName()).iterator();
     Location location = tags.getFirst().getLocation();
     Label bzlLabel;
     try {
@@ -205,7 +205,7 @@ final class InnateRunnableExtension implements RunnableExtension {
       try {
         ruleInstance =
             BzlmodRepoRuleCreator.createRule(
-                extensionId.getBzlFileLabel().getPackageIdentifier(),
+                extensionId.bzlFileLabel().getPackageIdentifier(),
                 usagesValue.getRepoMappings().get(moduleKey),
                 directories,
                 starlarkSemantics,
@@ -226,17 +226,13 @@ final class InnateRunnableExtension implements RunnableExtension {
         throw ExternalDepsException.withCauseAndMessage(
             Code.BAD_MODULE, e, "error creating repo %s requested at %s", name, tag.getLocation());
       }
-      RepoSpec repoSpec =
-          RepoSpec.builder()
-              .setBzlFile(
-                  repoRule
-                      .getRuleClass()
-                      .getRuleDefinitionEnvironmentLabel()
-                      .getUnambiguousCanonicalForm())
-              .setRuleClassName(repoRule.getRuleClass().getName())
-              .setAttributes(attributesValue)
-              .build();
-      generatedRepoSpecs.put(name, repoSpec);
+      generatedRepoSpecs.put(
+          name,
+          new RepoSpec(
+              new RepoRuleId(
+                  repoRule.getRuleClass().getRuleDefinitionEnvironmentLabel(),
+                  repoRule.getRuleClass().getName()),
+              attributesValue));
     }
     return new RunModuleExtensionResult(
         ImmutableMap.of(),

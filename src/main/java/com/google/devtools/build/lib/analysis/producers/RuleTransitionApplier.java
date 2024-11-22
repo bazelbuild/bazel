@@ -54,7 +54,8 @@ public class RuleTransitionApplier
         TransitionApplier.ResultSink,
         ConfigConditionsProducer.ResultSink,
         PlatformProducer.ResultSink {
-  interface ResultSink {
+  /** Interface for accepting values produced by this class. */
+  public interface ResultSink {
     void acceptConfiguration(
         BuildConfigurationKey configurationKey, IdempotencyState idempotencyState);
 

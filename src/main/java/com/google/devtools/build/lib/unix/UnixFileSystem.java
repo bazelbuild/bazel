@@ -35,7 +35,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -533,7 +532,7 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
 
   @Override
   protected java.nio.file.Path getNioPath(PathFragment path) {
-    return Paths.get(StringEncoding.internalToPlatform(path.getPathString()));
+    return java.nio.file.Path.of(StringEncoding.internalToPlatform(path.getPathString()));
   }
 
   @Override

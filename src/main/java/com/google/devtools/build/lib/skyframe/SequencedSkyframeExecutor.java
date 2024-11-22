@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
+import com.google.devtools.build.lib.analysis.FilesModifiedEvent;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
@@ -159,7 +160,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
       WorkspaceInfoFromDiffReceiver workspaceInfoFromDiffReceiver,
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
       SyscallCache syscallCache,
-      SkyFunction ignoredPackagePrefixesFunction,
+      SkyFunction ignoredSubdirectoriesFunction,
       CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
       ImmutableList<BuildFileName> buildFilesByPriority,
       ExternalPackageHelper externalPackageHelper,
@@ -180,7 +181,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
         extraSkyFunctions,
         syscallCache,
         ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
-        ignoredPackagePrefixesFunction,
+        ignoredSubdirectoriesFunction,
         crossRepositoryLabelViolationStrategy,
         buildFilesByPriority,
         externalPackageHelper,
@@ -189,7 +190,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
         shouldUseRepoDotBazel,
         /* shouldUnblockCpuWorkWhenFetchingDeps= */ false,
         new PackageProgressReceiver(),
-        new ConfiguredTargetProgressReceiver(),
+        new AnalysisProgressReceiver(),
         skyKeyStateReceiver,
         bugReporter,
         diffAwarenessFactories,
@@ -496,6 +497,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     Profiler.instance()
         .logSimpleTask(startTime, stopTime, ProfilerTask.INFO, "detectModifiedOutputFiles");
     long duration = stopTime - startTime;
+    getEventBus().post(new FilesModifiedEvent(modifiedFiles.get()));
     outputTreeDiffCheckingDuration = duration > 0 ? Duration.ofNanos(duration) : Duration.ZERO;
   }
 
@@ -803,7 +805,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
         (ignored1, ignored2) -> {};
     @Nullable private SkyframeExecutorRepositoryHelpersHolder repositoryHelpersHolder = null;
     private Consumer<SkyframeExecutor> skyframeExecutorConsumerOnInit = skyframeExecutor -> {};
-    private SkyFunction ignoredPackagePrefixesFunction;
+    private SkyFunction ignoredSubdirectoriesFunction;
     private BugReporter bugReporter = BugReporter.defaultInstance();
     private SkyKeyStateReceiver skyKeyStateReceiver = SkyKeyStateReceiver.NULL_INSTANCE;
     private SyscallCache syscallCache = null;
@@ -822,7 +824,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
       Preconditions.checkNotNull(externalPackageHelper);
       Preconditions.checkNotNull(actionOnIOExceptionReadingBuildFile);
       Preconditions.checkNotNull(actionOnFilesystemErrorCodeLoadingBzlFile);
-      Preconditions.checkNotNull(ignoredPackagePrefixesFunction);
+      Preconditions.checkNotNull(ignoredSubdirectoriesFunction);
 
       SequencedSkyframeExecutor skyframeExecutor =
           new SequencedSkyframeExecutor(
@@ -836,7 +838,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
               workspaceInfoFromDiffReceiver,
               extraSkyFunctions,
               Preconditions.checkNotNull(syscallCache),
-              ignoredPackagePrefixesFunction,
+              ignoredSubdirectoriesFunction,
               crossRepositoryLabelViolationStrategy,
               buildFilesByPriority,
               externalPackageHelper,
@@ -876,8 +878,8 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     }
 
     @CanIgnoreReturnValue
-    public Builder setIgnoredPackagePrefixesFunction(SkyFunction ignoredPackagePrefixesFunction) {
-      this.ignoredPackagePrefixesFunction = ignoredPackagePrefixesFunction;
+    public Builder setIgnoredSubdirectories(SkyFunction ignoredSubdirectoriesFunction) {
+      this.ignoredSubdirectoriesFunction = ignoredSubdirectoriesFunction;
       return this;
     }
 

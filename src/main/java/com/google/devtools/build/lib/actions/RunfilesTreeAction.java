@@ -32,13 +32,13 @@ import javax.annotation.Nullable;
  * the action graph; for example generated header files.
  */
 @Immutable
-public final class MiddlemanAction extends AbstractAction {
-  public static final String MIDDLEMAN_MNEMONIC = "Middleman";
+public final class RunfilesTreeAction extends AbstractAction {
+  public static final String MNEMONIC = "RunfilesTree";
 
-  /** The runfiles tree this middleman stands for. */
+  /** The runfiles tree created by this action. */
   private final RunfilesTree runfilesTree;
 
-  public MiddlemanAction(
+  public RunfilesTreeAction(
       ActionOwner owner,
       RunfilesTree runfilesTree,
       NestedSet<Artifact> inputs,
@@ -46,7 +46,7 @@ public final class MiddlemanAction extends AbstractAction {
     super(owner, inputs, outputs);
 
     this.runfilesTree = runfilesTree;
-    Preconditions.checkArgument(Iterables.getOnlyElement(outputs).isMiddlemanArtifact(), outputs);
+    Preconditions.checkArgument(Iterables.getOnlyElement(outputs).isRunfilesTree(), outputs);
   }
 
   public RunfilesTree getRunfilesTree() {
@@ -65,7 +65,7 @@ public final class MiddlemanAction extends AbstractAction {
       @Nullable BulkDeleter bulkDeleter,
       boolean cleanupArchivedArtifacts) {
     // Runfiles trees are created as a side effect of building the output manifest, not the runfiles
-    // tree artifact. This method is overridden so that depending on the runfiles middleman does not
+    // tree artifact. This method is overridden so that depending on the runfiles tree does not
     // delete the runfiles tree that's on the file system that someone decided it must be there.
   }
 
@@ -74,23 +74,14 @@ public final class MiddlemanAction extends AbstractAction {
       ActionKeyContext actionKeyContext,
       @Nullable ArtifactExpander artifactExpander,
       Fingerprint fp) {
-    // TODO(bazel-team): Need to take middlemanType into account here.
     // Only the set of inputs matters, and the dependency checker is
     // responsible for considering those.
-  }
-
-  /**
-   * Returns the type of the middleman.
-   */
-  @Override
-  public MiddlemanType getActionType() {
-    return MiddlemanType.RUNFILES_MIDDLEMAN;
   }
 
   @Nullable
   @Override
   protected String getRawProgressMessage() {
-    return null; // users don't really want to know about Middlemen.
+    return null; // this action doesn't actually do anything so let's not report it
   }
 
   @Override
@@ -100,7 +91,7 @@ public final class MiddlemanAction extends AbstractAction {
 
   @Override
   public String getMnemonic() {
-    return MIDDLEMAN_MNEMONIC;
+    return MNEMONIC;
   }
 
   @Override
@@ -116,7 +107,8 @@ public final class MiddlemanAction extends AbstractAction {
 
   @Override
   public ImmutableMap<String, String> getExecProperties() {
-    // Middleman actions do not execute actual actions, and therefore have no execution properties.
+    // Runfiles tree actions do not execute actual actions, and therefore have no execution
+    // platform.
     return ImmutableMap.of();
   }
 }

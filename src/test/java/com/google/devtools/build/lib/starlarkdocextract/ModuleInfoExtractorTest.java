@@ -973,6 +973,46 @@ public final class ModuleInfoExtractorTest {
   }
 
   @Test
+  public void macroInheritedAttributes() throws Exception {
+    Module module =
+        exec(
+            """
+def _my_rule_impl(ctx):
+    pass
+
+_my_rule = rule(
+    implementation = _my_rule_impl,
+    attrs = {
+       "srcs": attr.label_list(doc = "My rule sources"),
+    },
+)
+
+def _my_macro_impl(name, visibility, srcs, **kwargs):
+    _my_rule(name = name, visibility = visibility, srcs = srcs, **kwargs)
+
+my_macro = macro(
+    inherit_attrs = _my_rule,
+    implementation = _my_macro_impl,
+)
+""");
+    ModuleInfo moduleInfo = getExtractor().extractFrom(module);
+    assertThat(moduleInfo.getMacroInfoList().get(0).getAttributeList())
+        .containsExactly(
+            IMPLICIT_MACRO_NAME_ATTRIBUTE_INFO, // name comes first
+            // TODO(arostovtsev): for macros, we ought to also document the visibility attr
+            AttributeInfo.newBuilder()
+                .setName("srcs")
+                .setType(AttributeType.LABEL_LIST)
+                .setDocString("My rule sources")
+                .setDefaultValue("None") // Default value of inherited attributes is always None
+                .build()
+            // TODO(arostovtsev): currently, non-Starlark-defined attributes don't get documented.
+            // This is a reasonable behavior for rules, but we probably ought to document them in
+            // macros with inherited attributes.
+            );
+  }
+
+  @Test
   public void unexportedMacro_notDocumented() throws Exception {
     Module module =
         exec(

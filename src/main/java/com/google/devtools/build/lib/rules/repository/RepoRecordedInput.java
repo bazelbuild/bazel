@@ -17,8 +17,8 @@ package com.google.devtools.build.lib.rules.repository;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.util.Objects.requireNonNull;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
@@ -232,23 +232,23 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
    * <p>Of course, when the path is outside the current Bazel workspace, we just store the absolute
    * path.
    */
-  @AutoValue
-  public abstract static class RepoCacheFriendlyPath {
-    public abstract Optional<RepositoryName> repoName();
-
-    public abstract PathFragment path();
+  public record RepoCacheFriendlyPath(Optional<RepositoryName> repoName, PathFragment path) {
+    public RepoCacheFriendlyPath {
+      requireNonNull(repoName, "repoName");
+      requireNonNull(path, "path");
+    }
 
     public static RepoCacheFriendlyPath createInsideWorkspace(
         RepositoryName repoName, PathFragment path) {
       Preconditions.checkArgument(
           !path.isAbsolute(), "the provided path should be relative to the repo root: %s", path);
-      return new AutoValue_RepoRecordedInput_RepoCacheFriendlyPath(Optional.of(repoName), path);
+      return new RepoCacheFriendlyPath(Optional.of(repoName), path);
     }
 
     public static RepoCacheFriendlyPath createOutsideWorkspace(PathFragment path) {
       Preconditions.checkArgument(
           path.isAbsolute(), "the provided path should be absolute in the filesystem: %s", path);
-      return new AutoValue_RepoRecordedInput_RepoCacheFriendlyPath(Optional.empty(), path);
+      return new RepoCacheFriendlyPath(Optional.empty(), path);
     }
 
     @Override
@@ -699,7 +699,7 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
       try {
         return repoMappingValue != RepositoryMappingValue.NOT_FOUND_VALUE
             && RepositoryName.create(oldValue)
-                .equals(repoMappingValue.getRepositoryMapping().get(apparentName));
+                .equals(repoMappingValue.repositoryMapping().get(apparentName));
       } catch (LabelSyntaxException e) {
         // malformed old value causes refetch
         return false;

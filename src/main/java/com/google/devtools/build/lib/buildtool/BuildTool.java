@@ -102,6 +102,7 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingEventListener;
@@ -111,10 +112,12 @@ import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
+import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.EvaluationResult;
+import com.google.devtools.build.skyframe.IntVersion;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.RegexPatternOption;
@@ -124,6 +127,9 @@ import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.Collection;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import javax.annotation.Nullable;
 
 /**
@@ -856,16 +862,17 @@ public class BuildTool {
     }
 
     switch (options.mode) {
-      case FULL -> {
-        uploadFrontier(activeDirectoriesMatcher, options);
-        reportRemoteAnalysisCachingStats();
-      }
-      case UPLOAD -> {
-        uploadFrontier(activeDirectoriesMatcher, options);
-      }
-      case DOWNLOAD -> {
-        reportRemoteAnalysisCachingStats();
-      }
+      case UPLOAD ->
+          uploadFrontier(
+              activeDirectoriesMatcher,
+              options.serializedFrontierProfile,
+              /* dumpUploadManifestOnly= */ false);
+      case DUMP_UPLOAD_MANIFEST_ONLY ->
+          uploadFrontier(
+              activeDirectoriesMatcher,
+              options.serializedFrontierProfile,
+              /* dumpUploadManifestOnly= */ true);
+      case DOWNLOAD -> reportRemoteAnalysisCachingStats();
       case OFF -> {}
     }
   }
@@ -1095,15 +1102,23 @@ public class BuildTool {
   private static final class RemoteAnalysisCachingDependenciesProviderImpl
       implements RemoteAnalysisCachingDependenciesProvider {
     private final Supplier<ObjectCodecs> analysisObjectCodecsSupplier;
-    private final FingerprintValueService fingerprintValueService;
     private final PathFragmentPrefixTrie activeDirectoriesMatcher;
     private final RemoteAnalysisCachingEventListener listener;
     private final HashCode blazeInstallMD5;
+    private final Future<FingerprintValueService> fingerprintValueServiceFuture;
+
+    /** Cache lookup parameter requiring integration with external version control. */
+    private final IntVersion evaluatingVersion;
+
+    /** Cache lookup parameter requiring integration with external version control. */
+    private final Optional<ClientId> snapshot;
 
     // Non-final because the top level BuildConfigurationValue is determined just before analysis
     // begins in BuildView for the download/deserialization pass, which is later than when this
     // object was created in BuildTool.
     private String topLevelConfigChecksum;
+
+    private final ModifiedFileSet diffFromEvaluatingVersion;
 
     public static RemoteAnalysisCachingDependenciesProvider forAnalysis(
         CommandEnvironment env, Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher)
@@ -1130,8 +1145,12 @@ public class BuildTool {
                           .get(),
                       env.getRuntime().getRuleClassProvider(),
                       env.getBlazeWorkspace().getSkyframeExecutor()));
-      this.fingerprintValueService =
-          env.getBlazeWorkspace().getFingerprintValueServiceFactory().create(env.getOptions());
+      this.fingerprintValueServiceFuture =
+          CompletableFuture.supplyAsync(
+              () ->
+                  env.getBlazeWorkspace()
+                      .getFingerprintValueServiceFactory()
+                      .create(env.getOptions()));
       this.activeDirectoriesMatcher = activeDirectoriesMatcher;
       this.listener = env.getRemoteAnalysisCachingEventListener();
       if (env.getSkyframeBuildView().getBuildConfiguration() != null) {
@@ -1141,6 +1160,18 @@ public class BuildTool {
                 env.getSkyframeBuildView().getBuildConfiguration().getOptions(), env.getReporter());
       }
       this.blazeInstallMD5 = requireNonNull(env.getDirectories().getInstallMD5());
+      this.diffFromEvaluatingVersion = env.getSkyframeExecutor().getDiffFromEvaluatingVersion();
+
+      var workspaceInfoFromDiff = env.getWorkspaceInfoFromDiff();
+      if (workspaceInfoFromDiff == null) {
+        // If there is no workspace info, we cannot confidently version the nodes. Use the min
+        // version as a sentinel.
+        this.evaluatingVersion = IntVersion.of(Long.MIN_VALUE);
+        this.snapshot = Optional.empty();
+      } else {
+        this.evaluatingVersion = workspaceInfoFromDiff.getEvaluatingVersion();
+        this.snapshot = workspaceInfoFromDiff.getSnapshot();
+      }
     }
 
     private static ObjectCodecs initAnalysisObjectCodecs(
@@ -1185,7 +1216,11 @@ public class BuildTool {
           if (frontierNodeVersionSingleton == null) {
             frontierNodeVersionSingleton =
                 new FrontierNodeVersion(
-                    topLevelConfigChecksum, activeDirectoriesMatcher.toString(), blazeInstallMD5);
+                    topLevelConfigChecksum,
+                    activeDirectoriesMatcher.toString(),
+                    blazeInstallMD5,
+                    evaluatingVersion,
+                    snapshot);
             logger.atInfo().log(
                 "Remote analysis caching SkyValue version: %s", frontierNodeVersionSingleton);
             listener.recordSkyValueVersion(frontierNodeVersionSingleton);
@@ -1202,7 +1237,11 @@ public class BuildTool {
 
     @Override
     public FingerprintValueService getFingerprintValueService() {
-      return fingerprintValueService;
+      try {
+        return fingerprintValueServiceFuture.get();
+      } catch (InterruptedException | ExecutionException e) {
+        throw new IllegalStateException("Unable to initialize fingerprint value service", e);
+      }
     }
 
     @Override
@@ -1219,11 +1258,17 @@ public class BuildTool {
     public void setTopLevelConfigChecksum(String topLevelConfigChecksum) {
       this.topLevelConfigChecksum = topLevelConfigChecksum;
     }
+
+    @Override
+    public ModifiedFileSet getDiffFromEvaluatingVersion() {
+      return diffFromEvaluatingVersion;
+    }
   }
 
   private void uploadFrontier(
       Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher,
-      RemoteAnalysisCachingOptions options)
+      String serializedFrontierProfile,
+      boolean dumpUploadManifestOnly)
       throws InterruptedException, AbruptExitException {
     try (SilentCloseable closeable = Profiler.instance().profile("serializeAndUploadFrontier")) {
       Optional<FailureDetail> maybeFailureDetail =
@@ -1233,7 +1278,8 @@ public class BuildTool {
               env.getSkyframeExecutor(),
               env.getReporter(),
               env.getEventBus(),
-              options.serializedFrontierProfile);
+              serializedFrontierProfile,
+              dumpUploadManifestOnly);
       if (maybeFailureDetail.isPresent()) {
         throw new AbruptExitException(DetailedExitCode.of(maybeFailureDetail.get()));
       }

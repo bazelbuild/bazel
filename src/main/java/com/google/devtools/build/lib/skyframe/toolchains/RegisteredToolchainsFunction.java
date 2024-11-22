@@ -83,9 +83,7 @@ public class RegisteredToolchainsFunction implements SkyFunction {
 
     TargetPattern.Parser mainRepoParser =
         new TargetPattern.Parser(
-            PathFragment.EMPTY_FRAGMENT,
-            RepositoryName.MAIN,
-            mainRepoMapping.getRepositoryMapping());
+            PathFragment.EMPTY_FRAGMENT, RepositoryName.MAIN, mainRepoMapping.repositoryMapping());
     ImmutableList.Builder<SignedTargetPattern> targetPatternBuilder = new ImmutableList.Builder<>();
 
     // Get the toolchains from the configuration.

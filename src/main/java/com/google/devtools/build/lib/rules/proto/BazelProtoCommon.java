@@ -14,16 +14,16 @@
 
 package com.google.devtools.build.lib.rules.proto;
 
-import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.proto.ProtoCommonApi;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.Location;
 
@@ -44,18 +44,19 @@ public class BazelProtoCommon implements ProtoCommonApi {
         .getBool(BuildLanguageOptions.INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION);
   }
 
-  @StarlarkMethod(name = "ProtoInfo", useStarlarkThread = true, documented = false)
-  public StarlarkProvider getProtoInfo(StarlarkThread thread) throws EvalException {
+  @StarlarkMethod(name = "external_proto_infos", useStarlarkThread = true, documented = false)
+  public StarlarkList<StarlarkProvider> getExternalProtoInfos(StarlarkThread thread)
+      throws EvalException {
     BuiltinRestriction.failIfCalledOutsideAllowlist(thread, ImmutableSet.of());
-    return starlarkProtoInfo;
+    return externalProtoInfos;
   }
 
-  private static final StarlarkProvider starlarkProtoInfo =
-      StarlarkProvider.builder(Location.BUILTIN)
-          .buildExported(
-              new StarlarkProvider.Key(
-                  keyForBuild(
-                      Label.parseCanonicalUnchecked(
-                          "//third_party/protobuf/bazel/private:proto_info.bzl")),
-                  "ProtoInfo"));
+  private static final StarlarkList<StarlarkProvider> externalProtoInfos =
+      StarlarkList.immutableCopyOf(
+          ProtoConstants.EXTERNAL_PROTO_INFO_KEYS.stream()
+              .map(
+                  key ->
+                      StarlarkProvider.builder(Location.BUILTIN)
+                          .buildExported(new StarlarkProvider.Key(key, "ProtoInfo")))
+              .collect(toImmutableList()));
 }

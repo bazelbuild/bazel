@@ -12,8 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// clang-format off
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+// clang-format on
 
 #include <fcntl.h>
 #include <io.h>
@@ -28,10 +30,12 @@
 #include <cstdlib>
 #include <memory>
 #include <mutex>  // NOLINT
+#include <optional>
 #include <set>
 #include <sstream>
 #include <thread>       // NOLINT (to silence Google-internal linter)
 #include <type_traits>  // static_assert
+#include <utility>
 #include <vector>
 
 #include "src/main/cpp/blaze_util.h"
@@ -83,7 +87,8 @@ class WindowsDumper : public Dumper {
  public:
   static WindowsDumper* Create(string* error);
   ~WindowsDumper() { Finish(nullptr); }
-  void Dump(const void* data, const size_t size, const string& path) override;
+  void Dump(const void* data, const size_t size,
+            const blaze_util::Path& path) override;
   bool Finish(string* error) override;
 
  private:
@@ -94,7 +99,7 @@ class WindowsDumper : public Dumper {
   TP_CALLBACK_ENVIRON threadpool_env_;
 
   std::mutex dir_cache_lock_;
-  std::set<string> dir_cache_;
+  std::set<blaze_util::Path> dir_cache_;
 
   std::mutex error_lock_;
   string error_msg_;
@@ -104,9 +109,10 @@ namespace {
 
 class DumpContext {
  public:
-  DumpContext(unique_ptr<uint8_t[]> data, const size_t size, const string path,
-              std::mutex* dir_cache_lock, std::set<string>* dir_cache,
-              std::mutex* error_lock_, string* error_msg);
+  DumpContext(unique_ptr<uint8_t[]> data, const size_t size,
+              const blaze_util::Path& path, std::mutex* dir_cache_lock,
+              std::set<blaze_util::Path>* dir_cache, std::mutex* error_lock_,
+              string* error_msg);
   void Run();
 
  private:
@@ -114,10 +120,10 @@ class DumpContext {
 
   unique_ptr<uint8_t[]> data_;
   const size_t size_;
-  const string path_;
+  const blaze_util::Path path_;
 
   std::mutex* dir_cache_lock_;
-  std::set<string>* dir_cache_;
+  std::set<blaze_util::Path>* dir_cache_;
 
   std::mutex* error_lock_;
   string* error_msg_;
@@ -168,7 +174,7 @@ WindowsDumper* WindowsDumper::Create(string* error) {
 }
 
 void WindowsDumper::Dump(const void* data, const size_t size,
-                         const string& path) {
+                         const blaze_util::Path& path) {
   {
     std::lock_guard<std::mutex> g(error_lock_);
     if (!error_msg_.empty()) {
@@ -214,9 +220,10 @@ bool WindowsDumper::Finish(string* error) {
 namespace {
 
 DumpContext::DumpContext(unique_ptr<uint8_t[]> data, const size_t size,
-                         const string path, std::mutex* dir_cache_lock,
-                         std::set<string>* dir_cache, std::mutex* error_lock_,
-                         string* error_msg)
+                         const blaze_util::Path& path,
+                         std::mutex* dir_cache_lock,
+                         std::set<blaze_util::Path>* dir_cache,
+                         std::mutex* error_lock_, string* error_msg)
     : data_(std::move(data)),
       size_(size),
       path_(path),
@@ -225,7 +232,7 @@ DumpContext::DumpContext(unique_ptr<uint8_t[]> data, const size_t size,
       error_msg_(error_msg) {}
 
 void DumpContext::Run() {
-  string dirname = blaze_util::Dirname(path_);
+  blaze_util::Path parent = path_.GetParent();
 
   bool success = true;
   // Performance optimization: memoize the paths we already created a
@@ -234,18 +241,20 @@ void DumpContext::Run() {
   // extraction time on Windows.
   {
     std::lock_guard<std::mutex> guard(*dir_cache_lock_);
-    if (dir_cache_->insert(dirname).second) {
-      success = blaze_util::MakeDirectories(dirname, 0777);
+    if (dir_cache_->insert(parent).second) {
+      success = blaze_util::MakeDirectories(parent, 0777);
     }
   }
 
   if (!success) {
-    MaybeSignalError(string("Couldn't create directory '") + dirname + "'");
+    MaybeSignalError(string("Couldn't create directory '") +
+                     parent.AsPrintablePath() + "'");
     return;
   }
 
   if (!blaze_util::WriteFile(data_.get(), size_, path_, 0755)) {
-    MaybeSignalError(string("Failed to write zipped file '") + path_ + "'");
+    MaybeSignalError(string("Failed to write zipped file '") +
+                     path_.AsPrintablePath() + "'");
   }
 }
 
@@ -622,14 +631,12 @@ class ProcessHandleBlazeServerStartup : public BlazeServerStartup {
   AutoHandle proc;
 };
 
-int ExecuteDaemon(const blaze_util::Path& exe,
-                  const std::vector<string>& args_vector,
-                  const std::map<string, EnvVarValue>& env,
-                  const blaze_util::Path& daemon_output,
-                  const bool daemon_out_append, const string& binaries_dir,
-                  const blaze_util::Path& server_dir,
-                  const StartupOptions& options,
-                  BlazeServerStartup** server_startup) {
+int ExecuteDaemon(
+    const blaze_util::Path& exe, const std::vector<string>& args_vector,
+    const std::map<string, EnvVarValue>& env,
+    const blaze_util::Path& daemon_output, const bool daemon_out_append,
+    const blaze_util::Path& binaries_dir, const blaze_util::Path& server_dir,
+    const StartupOptions& options, BlazeServerStartup** server_startup) {
   SECURITY_ATTRIBUTES inheritable_handle_sa = {sizeof(SECURITY_ATTRIBUTES),
                                                nullptr, TRUE};
 
@@ -800,23 +807,14 @@ void ExecuteRunRequest(const blaze_util::Path& exe,
 
 const char kListSeparator = ';';
 
-bool SymlinkDirectories(const string& posix_target,
-                        const blaze_util::Path& name) {
-  wstring target;
-  string error;
-  if (!blaze_util::AsAbsoluteWindowsPath(posix_target, &target, &error)) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "SymlinkDirectories(" << posix_target << ", "
-        << name.AsPrintablePath() << "): AsAbsoluteWindowsPath(" << posix_target
-        << ") failed: " << error;
-    return false;
-  }
+bool SymlinkDirectories(const blaze_util::Path& target,
+                        const blaze_util::Path& link) {
   wstring werror;
-  if (CreateJunction(name.AsNativePath(), target, &werror) !=
+  if (CreateJunction(link.AsNativePath(), target.AsNativePath(), &werror) !=
       CreateJunctionResult::kSuccess) {
     string error(blaze_util::WstringToCstring(werror));
-    BAZEL_LOG(ERROR) << "SymlinkDirectories(" << posix_target << ", "
-                     << name.AsPrintablePath()
+    BAZEL_LOG(ERROR) << "SymlinkDirectories(" << target.AsPrintablePath()
+                     << ", " << link.AsPrintablePath()
                      << "): CreateJunction: " << error;
     return false;
   }
@@ -886,7 +884,8 @@ void TrySleep(unsigned int milliseconds) {
 // Not supported.
 void ExcludePathFromBackup(const blaze_util::Path& path) {}
 
-string GetHashedBaseDir(const string& root, const string& hashable) {
+blaze_util::Path GetHashedBaseDir(const blaze_util::Path& root,
+                                  const string& hashable) {
   // Builds a shorter output base dir name for Windows.
 
   // We create a path name representing the 128 bits of MD5 digest. To avoid
@@ -914,7 +913,7 @@ string GetHashedBaseDir(const string& root, const string& hashable) {
     coded_name[i] = alphabet[md5[i] & kLower5BitsMask];
   }
   coded_name[filename_length] = '\0';
-  return blaze_util::JoinPath(root, string(coded_name));
+  return root.GetRelative(string(coded_name));
 }
 
 void CreateSecureOutputRoot(const blaze_util::Path& path) {
@@ -1087,9 +1086,9 @@ uint64_t WindowsClock::GetMilliseconds() const {
   return GetMillisecondsAsLargeInt(kFrequency).QuadPart;
 }
 
-LockHandle AcquireLock(const std::string& name, const blaze_util::Path& path,
-                       LockMode mode, bool batch_mode, bool block,
-                       uint64_t* wait_time) {
+std::pair<LockHandle, std::optional<DurationMillis>> AcquireLock(
+    const std::string& name, const blaze_util::Path& path, LockMode mode,
+    bool batch_mode, bool block) {
   DWORD desired_access = GENERIC_READ;
   if (mode == LockMode::kExclusive) {
     desired_access |= GENERIC_WRITE;
@@ -1164,8 +1163,8 @@ LockHandle AcquireLock(const std::string& name, const blaze_util::Path& path,
   // a concurrent process can read and display it. On Windows we can't do so
   // because locks are mandatory, thus we cannot read the file concurrently.
 
-  *wait_time = GetMillisecondsMonotonic() - start_time;
-  return reinterpret_cast<LockHandle>(handle);
+  return std::make_pair(reinterpret_cast<LockHandle>(handle),
+                        DurationMillis(start_time, GetMillisecondsMonotonic()));
 }
 
 void ReleaseLock(LockHandle lock_handle) {

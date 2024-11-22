@@ -47,10 +47,10 @@ import javax.annotation.Nullable;
 /**
  * A value that represents a file for the purposes of up-to-dateness checks of actions.
  *
- * <p>It always stands for an actual file. In particular, tree artifacts and middlemen do not have a
- * corresponding {@link FileArtifactValue}. However, the file is not necessarily present in the file
- * system; this happens when intermediate build outputs are not downloaded (and maybe when an input
- * artifact of an action is missing?)
+ * <p>It always stands for an actual file. In particular, tree artifacts and runfiles trees do not
+ * have a corresponding {@link FileArtifactValue}. However, the file is not necessarily present in
+ * the file system; this happens when intermediate build outputs are not downloaded (and maybe when
+ * an input artifact of an action is missing?)
  *
  * <p>It makes its main appearance in {@code ActionExecutionValue.artifactData}. It has two main
  * uses:
@@ -189,8 +189,20 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
    */
   interface Singleton {}
 
+  /**
+   * Metadata for runfiles trees.
+   *
+   * <p>This should really be more nuanced so that runfiles trees don't need to be special-cased in
+   * the local action cache, but it works well enough. The only downsides are that we don't detect
+   * when someone changed a runfiles tree like we do for other output artifacts and a number of
+   * extra branches.
+   *
+   * <p>In Skyframe, we check whether a runfiles tree changed based on {@link
+   * RunfilesArtifactValue}, which does contain data about its contents.
+   */
   @SerializationConstant
-  public static final FileArtifactValue DEFAULT_MIDDLEMAN = new SingletonMarkerValue();
+  public static final FileArtifactValue RUNFILES_TREE_MARKER = new SingletonMarkerValue();
+
   /** Data that marks that a file is not present on the filesystem. */
   @SerializationConstant
   public static final FileArtifactValue MISSING_FILE_MARKER = new SingletonMarkerValue();
@@ -970,6 +982,75 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     @Override
     public boolean wasModifiedSinceDigest(Path path) throws IOException {
       return sourceFileMetadata.wasModifiedSinceDigest(path);
+    }
+  }
+
+  /** Metadata for an artifact obtained via a path proxy. */
+  public static final class ProxyFileArtifactValue extends FileArtifactValue {
+    private final FileArtifactValue delegate;
+    private final Path path;
+
+    public ProxyFileArtifactValue(FileArtifactValue delegate, Path path) {
+      this.delegate = checkNotNull(delegate);
+      this.path = checkNotNull(path);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof ProxyFileArtifactValue that)) {
+        return false;
+      }
+      return this.delegate.equals(that.delegate) && this.path.equals(that.path);
+    }
+
+    @Override
+    public int hashCode() {
+      return HashCodes.hashObjects(delegate, path);
+    }
+
+    public Path getTargetPath() {
+      return path;
+    }
+
+    @Override
+    public FileStateType getType() {
+      return delegate.getType();
+    }
+
+    @Override
+    public byte[] getDigest() {
+      return delegate.getDigest();
+    }
+
+    @Override
+    public FileContentsProxy getContentsProxy() {
+      return delegate.getContentsProxy();
+    }
+
+    @Override
+    public long getSize() {
+      return delegate.getSize();
+    }
+
+    @Override
+    public long getModifiedTime() {
+      return delegate.getModifiedTime();
+    }
+
+    @Override
+    public boolean wasModifiedSinceDigest(Path path) throws IOException {
+      return delegate.wasModifiedSinceDigest(path);
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this)
+          .add("delegate", delegate)
+          .add("path", path)
+          .toString();
     }
   }
 

@@ -141,8 +141,8 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
     Spawn spawn =
         new SpawnBuilder(
                 cpuTimeSpenderPath.getPathString(),
-                String.valueOf(minimumUserTimeToSpend.getSeconds()),
-                String.valueOf(minimumSystemTimeToSpend.getSeconds()))
+                String.valueOf(minimumUserTimeToSpend.toSeconds()),
+                String.valueOf(minimumSystemTimeToSpend.toSeconds()))
             .build();
     SpawnExecutionContextForTesting policy = createSpawnExecutionContext(spawn);
 

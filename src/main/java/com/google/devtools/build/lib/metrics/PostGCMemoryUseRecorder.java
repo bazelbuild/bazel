@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.metrics;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
@@ -78,17 +77,10 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /** The memory use and time of a build's peak post-GC heap. */
-  @AutoValue
-  public abstract static class PeakHeap {
-
-    PeakHeap() {}
-
-    public abstract long bytes();
-
-    public abstract long timestampMillis();
+  public record PeakHeap(long bytes, long timestampMillis) {
 
     static PeakHeap create(long bytes, long timestampMillis) {
-      return new AutoValue_PostGCMemoryUseRecorder_PeakHeap(bytes, timestampMillis);
+      return new PeakHeap(bytes, timestampMillis);
     }
   }
 

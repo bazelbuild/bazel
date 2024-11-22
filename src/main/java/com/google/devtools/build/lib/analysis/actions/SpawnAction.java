@@ -467,8 +467,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
               .build());
     }
     for (ActionInput input : spawn.getInputFiles().toList()) {
-      // Explicitly ignore middleman artifacts here.
-      if (!(input instanceof Artifact) || !((Artifact) input).isMiddlemanArtifact()) {
+      // Explicitly ignore runfiles tree artifacts here.
+      if (!(input instanceof Artifact) || !((Artifact) input).isRunfilesTree()) {
         info.addInputFile(input.getExecPathString());
       }
     }

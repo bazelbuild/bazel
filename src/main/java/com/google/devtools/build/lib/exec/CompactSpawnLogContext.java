@@ -385,7 +385,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
           }
 
           for (ActionInput input : set.getLeaves()) {
-            if (input instanceof Artifact artifact && artifact.isMiddlemanArtifact()) {
+            if (input instanceof Artifact artifact && artifact.isRunfilesTree()) {
               RunfilesTree runfilesTree =
                   inputMetadataProvider.getRunfilesMetadata(input).getRunfilesTree();
               builder.addInputIds(

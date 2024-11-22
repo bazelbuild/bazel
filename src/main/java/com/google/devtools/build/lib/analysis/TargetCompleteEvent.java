@@ -267,7 +267,7 @@ public final class TargetCompleteEvent
     }
     return Iterables.filter(
         builder.build().toList(),
-        (artifact) -> !artifact.isSourceArtifact() && !artifact.isMiddlemanArtifact());
+        (artifact) -> !artifact.isSourceArtifact() && !artifact.isRunfilesTree());
   }
 
   @Override
@@ -614,6 +614,6 @@ public final class TargetCompleteEvent
         .getFragment(TestConfiguration.class)
         .getTestTimeout()
         .get(categoricalTimeout)
-        .getSeconds();
+        .toSeconds();
   }
 }

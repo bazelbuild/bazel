@@ -209,7 +209,6 @@
       entries, this expands to the package's root directory in the
       <code>genfiles</code> tree, <i>even if all output files are in the same
       subdirectory</i>!
-      <!-- (as a consequence of the "middleman" implementation) -->
     </p>
     <p>
       <b>Note:</b> Use <code>RULEDIR</code> over <code>@D</code> because

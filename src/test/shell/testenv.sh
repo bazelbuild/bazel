@@ -592,7 +592,10 @@ function add_rules_license() {
 }
 
 function add_protobuf() {
-  add_bazel_dep "protobuf" "$1"
+  version=$(get_version_from_default_lock_file "protobuf")
+  cat >> "$1" <<EOF
+bazel_dep(name = "protobuf", version = "$version", repo_name = "com_google_protobuf")
+EOF
 }
 
 function add_rules_testing() {
@@ -848,9 +851,11 @@ EOF
 JDK_BUILD_TEMPLATE = ''
 EOF
   touch "${rules_java_workspace}/java/BUILD"
-  cat > "${rules_java_workspace}/java/repositories.bzl" <<EOF
+  cat > "${rules_java_workspace}/java/rules_java_deps.bzl" <<EOF
 def rules_java_dependencies():
     pass
+EOF
+  cat > "${rules_java_workspace}/java/repositories.bzl" <<EOF
 def rules_java_toolchains():
     pass
 EOF
@@ -864,6 +869,8 @@ def java_import(**attrs):
 def java_test(**attrs):
     native.java_test(**attrs)
 EOF
+  # Disable autoloads, because the Java mock isn't complete enough to support it
+  add_to_bazelrc "common --incompatible_autoload_externally="
   add_to_bazelrc "common --override_repository=rules_java=${rules_java_workspace}"
   add_to_bazelrc "common --override_repository=rules_java_builtin=${rules_java_workspace}"
 }

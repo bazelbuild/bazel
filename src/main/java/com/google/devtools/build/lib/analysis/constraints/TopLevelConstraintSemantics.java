@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.constraints;
 
 import static java.util.stream.Collectors.joining;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ArrayListMultimap;
@@ -537,27 +536,22 @@ public class TopLevelConstraintSemantics {
   }
 
   /** Tells the compatibility of a ConfiguredTarget with the target environment. */
-  @AutoValue
-  public abstract static class EnvironmentCompatibility {
-    public abstract boolean isCompatible();
-
-    @Nullable
-    public abstract ImmutableSet<MissingEnvironment> severeMissingEnvironments();
+  public record EnvironmentCompatibility(
+      boolean isCompatible, @Nullable ImmutableSet<MissingEnvironment> severeMissingEnvironments) {
 
     public static EnvironmentCompatibility compatible() {
-      return new AutoValue_TopLevelConstraintSemantics_EnvironmentCompatibility(
-          /*isCompatible=*/ true, /*severeMissingEnvironments=*/ null);
+      return new EnvironmentCompatibility(
+          /* isCompatible= */ true, /* severeMissingEnvironments= */ null);
     }
 
     public static EnvironmentCompatibility nonSevereIncompatible() {
-      return new AutoValue_TopLevelConstraintSemantics_EnvironmentCompatibility(
-          /*isCompatible=*/ false, /*severeMissingEnvironments=*/ null);
+      return new EnvironmentCompatibility(
+          /* isCompatible= */ false, /* severeMissingEnvironments= */ null);
     }
 
     public static EnvironmentCompatibility severeIncompatible(
         ImmutableSet<MissingEnvironment> severeMissingEnvironments) {
-      return new AutoValue_TopLevelConstraintSemantics_EnvironmentCompatibility(
-          /*isCompatible=*/ false, severeMissingEnvironments);
+      return new EnvironmentCompatibility(/* isCompatible= */ false, severeMissingEnvironments);
     }
   }
 

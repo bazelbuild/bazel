@@ -344,6 +344,10 @@ def _create_action(
         # TODO(b/338618120): ^ remove cheat, needs depot cleanup, always use a toolchain
         toolchain = semantics.toolchain
 
+    execution_info = semantics.get_cc_link_memlimit(
+        cc_toolchain._cpp_configuration.compilation_mode(),
+        execution_info,
+    )
     actions.run(
         mnemonic = mnemonic,
         executable = tool_path,

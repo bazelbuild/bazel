@@ -120,7 +120,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   private static void checkToolchainParameterIsSet(
       RuleContext ruleContext, Object toolchainUnchecked) throws EvalException {
     if ((ruleContext.getToolchainContexts() == null
-            || ruleContext.getToolchainContexts().getContextMap().size() > 1)
+            || ruleContext.getToolchainContexts().contextMap().size() > 1)
         && toolchainUnchecked == Starlark.UNBOUND) {
       throw Starlark.errorf(
           "Couldn't identify if tools are from implicit dependencies or a toolchain. Please"
@@ -977,13 +977,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     ImmutableMap.Builder<String, Substitution> substitutionsBuilder = ImmutableMap.builder();
     for (Map.Entry<String, String> substitution :
         Dict.cast(substitutionsUnchecked, String.class, String.class, "substitutions").entrySet()) {
-      // Blaze calls ParserInput.fromLatin1 when reading BUILD files, which might
-      // contain UTF-8 encoded symbols as part of template substitution.
-      // As a quick fix, the substitution values are corrected before being passed on.
-      // In the long term, avoiding ParserInput.fromLatin would be a better approach.
       substitutionsBuilder.put(
-          substitution.getKey(),
-          Substitution.of(substitution.getKey(), convertLatin1ToUtf8(substitution.getValue())));
+          substitution.getKey(), Substitution.of(substitution.getKey(), substitution.getValue()));
     }
     if (!Starlark.UNBOUND.equals(computedSubstitutions)) {
       for (Substitution substitution : ((TemplateDict) computedSubstitutions).getAll()) {
@@ -1005,16 +1000,6 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
             substitutionMap.values().asList(),
             executable);
     registerAction(action);
-  }
-
-  /**
-   * Returns the proper UTF-8 representation of a String that was erroneously read using Latin1.
-   *
-   * @param latin1 Input string
-   * @return The input string, UTF8 encoded
-   */
-  private static String convertLatin1ToUtf8(String latin1) {
-    return new String(latin1.getBytes(StandardCharsets.ISO_8859_1), StandardCharsets.UTF_8);
   }
 
   @Override

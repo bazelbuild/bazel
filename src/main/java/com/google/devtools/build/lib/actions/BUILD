@@ -15,7 +15,6 @@ java_library(
     name = "execution_requirements",
     srcs = ["ExecutionRequirements.java"],
     deps = [
-        "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -103,7 +102,6 @@ java_library(
         "LostInputsActionExecutionException.java",
         "LostInputsExecException.java",
         "MapBasedActionGraph.java",
-        "MiddlemanAction.java",
         "MissingDepExecException.java",
         "MissingInputFileException.java",
         "MutableActionGraph.java",
@@ -112,6 +110,7 @@ java_library(
         "ParameterFile.java",
         "RemoteArtifactChecker.java",
         "ResourceEstimator.java",
+        "RunfilesTreeAction.java",
         "RunningActionEvent.java",
         "SandboxedSpawnStrategy.java",
         "ScanningActionEvent.java",
@@ -128,7 +127,6 @@ java_library(
         "StaticInputMetadataProvider.java",
         "StoppedScanningActionEvent.java",
         "TestExecException.java",
-        "TestMiddlemanObserver.java",
         "TopLevelOutputException.java",
         "TotalAndConfiguredTargetOnlyMetric.java",
         "UserExecException.java",
@@ -151,7 +149,6 @@ java_library(
         ":file_metadata",
         ":fileset_output_tree",
         ":localhost_capacity",
-        ":middleman_type",
         ":package_roots",
         ":runfiles_metadata",
         ":runfiles_tree",
@@ -212,7 +209,7 @@ java_library(
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
-        "@protobuf//:protobuf_java",
+        "@com_google_protobuf//:protobuf_java",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )
@@ -344,7 +341,7 @@ java_library(
         "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
-        "@protobuf//:protobuf_java",
+        "@com_google_protobuf//:protobuf_java",
     ],
 )
 
@@ -414,8 +411,10 @@ java_library(
     deps = [
         ":artifacts",
         ":has_digest",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:auto_value",
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -476,7 +475,7 @@ java_library(
 java_library(
     name = "has_digest",
     srcs = ["HasDigest.java"],
-    deps = ["@protobuf//:protobuf_java"],
+    deps = ["@com_google_protobuf//:protobuf_java"],
 )
 
 java_library(
@@ -513,11 +512,6 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
     ],
-)
-
-java_library(
-    name = "middleman_type",
-    srcs = ["MiddlemanType.java"],
 )
 
 java_library(
@@ -602,7 +596,4 @@ java_library(
 java_library(
     name = "total_and_configured_target_only_metric",
     srcs = ["TotalAndConfiguredTargetOnlyMetric.java"],
-    deps = [
-        "//third_party:auto_value",
-    ],
 )

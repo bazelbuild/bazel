@@ -18,6 +18,7 @@ java_library(
         exclude = ["ProcMeminfoParser.java"],
     ),
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/jni",
         "//src/main/java/com/google/devtools/build/lib/profiler",

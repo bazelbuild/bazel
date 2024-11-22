@@ -56,6 +56,14 @@ msys*)
   ;;
 esac
 
+if $is_windows; then
+  export LC_ALL=C.utf8
+elif [[ "$(uname -s)" == "Linux" ]]; then
+  export LC_ALL=C.UTF-8
+else
+  export LC_ALL=en_US.UTF-8
+fi
+
 source "$(rlocation "io_bazel/src/test/shell/bazel/remote_helpers.sh")" \
   || { echo "remote_helpers.sh not found!" >&2; exit 1; }
 
@@ -468,6 +476,84 @@ EOF
     repo2="$(cygpath $repo2)"
   fi
   expect_log "PWD=$repo2 TOTO=titi"
+}
+
+function test_starlark_repository_unicode() {
+  setup_starlark_repository
+
+  if "$is_windows"; then
+    # äöüÄÖÜß in UTF-8
+    local unicode=$(echo -e '\xC3\xA4\xC3\xB6\xC3\xBC\xC3\x84\xC3\x96\xC3\x9C\xC3\x9F')
+  else
+    # äöüÄÖÜß🌱 in UTF-8
+    local unicode=$(echo -e '\xC3\xA4\xC3\xB6\xC3\xBC\xC3\x84\xC3\x96\xC3\x9C\xC3\x9F\xF0\x9F\x8C\xB1')
+  fi
+
+  tmpdir="$(mktemp -d ${TEST_TMPDIR}/test.XXXXXXXX)"
+  input_file="${tmpdir}/input$unicode"
+  echo -n "$unicode" > "${input_file}"
+
+  cat >test.bzl <<EOF
+UNICODE = "$unicode"
+
+def _impl(repository_ctx):
+  repository_ctx.file("BUILD", "filegroup(name='bar', srcs=[])")
+
+  input_file = repository_ctx.getenv("INPUT_" + UNICODE)
+  if not input_file:
+    fail("INPUT_%s not found in environment" % UNICODE)
+  input_content = repository_ctx.read(input_file)
+  if input_content != UNICODE:
+    fail("Incorrect content in input file: %s != %s" % (input_content, UNICODE))
+
+  repository_ctx.template(
+      "template" + UNICODE + ".txt",
+      input_file,
+      substitutions = {
+        UNICODE: UNICODE + "_replaced_" + UNICODE,
+      },
+  )
+
+  repository_ctx.file("direct" + UNICODE + ".txt", UNICODE)
+
+  result = repository_ctx.execute(
+      [str(repository_ctx.which("bash")), "-c", "echo '%s' >indirect%s.txt" % (UNICODE, UNICODE)]
+  )
+  if result.return_code != 0:
+    fail("Incorrect return code from bash: %s != 0\n%s" % (result.return_code, result.stderr))
+
+  result = repository_ctx.execute([str(repository_ctx.which("bash")), "-c", "echo '%s'" % UNICODE])
+  if result.return_code != 0:
+    fail("Incorrect return code from bash: %s != 0\n%s" % (result.return_code, result.stderr))
+  if result.stdout.strip() != UNICODE:
+    fail("Incorrect output from bash: %s != %s\n%s" % (result.stdout.strip(), UNICODE, result.stderr))
+
+  result = repository_ctx.execute([str(repository_ctx.which("bash")), "-c", "echo '%s' && exit 123" % UNICODE])
+  if result.return_code != 123:
+    fail("Incorrect return code from bash: %s != 123\n%s" % (result.return_code, result.stderr))
+  if result.stdout.strip() != UNICODE:
+    fail("Incorrect output from bash: %s != %s\n%s" % (result.stdout.strip(), UNICODE, result.stderr))
+
+  repository_ctx.file("foo.txt", UNICODE)
+  read_content = repository_ctx.read("foo.txt")
+  if read_content != UNICODE:
+    fail("Incorrect content in foo.txt: %s != %s" % (read_content, UNICODE))
+
+  print("UNICODE = %s" % UNICODE)
+repo = repository_rule(implementation=_impl)
+EOF
+
+  bazel build "--repo_env=INPUT_$unicode=${input_file}" @foo//:bar >& $TEST_log || fail "Failed to build"
+  expect_log "UNICODE = $unicode"
+  output_base="$(bazel info output_base)"
+  assert_contains "$unicode" "$output_base/external/+_repo_rules+foo/direct${unicode}.txt"
+  assert_contains "$unicode" "$output_base/external/+_repo_rules+foo/indirect${unicode}.txt"
+  assert_contains "${unicode}_replaced_${unicode}" "$output_base/external/+_repo_rules+foo/template${unicode}.txt"
+
+  # The repo rule should not be re-run on server restart
+  bazel shutdown
+  bazel build "--repo_env=INPUT_${unicode}=${input_file}" @foo//:bar >& $TEST_log || fail "Failed to build"
+  expect_not_log "UNICODE"
 }
 
 function test_starlark_repository_environ() {
@@ -1060,7 +1146,7 @@ function test_starlark_repository_executable_flag() {
   cat >test.bzl <<EOF
 def _impl(repository_ctx):
   repository_ctx.file("test.sh", "exit 0")
-  repository_ctx.file("BUILD", "sh_binary(name='bar',srcs=['test.sh'])", False)
+  repository_ctx.file("BUILD", "genrule(name='bar',cmd='touch \$@',outs=['bar'],executable=True)", False)
   repository_ctx.template("test2", Label("//:bar"), {}, False)
   repository_ctx.template("test2.sh", Label("//:bar"), {}, True)
 repo = repository_rule(implementation=_impl, local=True)
@@ -1947,7 +2033,7 @@ password foopass
 
 machine bar.example.org
 login barusername
-password passbar
+password passbar🌱
 
 # following lines mix tabs and spaces
 machine	  oauthlife.com
@@ -2012,7 +2098,7 @@ expected = {
     "https://bar.example.org/file3.tar" : {
       "type" : "basic",
       "login": "barusername",
-      "password" : "passbar",
+      "password" : "passbar🌱",
     },
     "https://oauthlife.com/fizz/buzz/file5.tar": {
       "type" : "pattern",

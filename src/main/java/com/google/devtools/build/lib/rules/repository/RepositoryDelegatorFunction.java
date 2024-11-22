@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.rules.repository;
 
+import static com.google.devtools.build.lib.skyframe.RepositoryMappingFunction.REPOSITORY_OVERRIDES;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -71,9 +72,6 @@ import net.starlark.java.eval.StarlarkSemantics;
  * this function.
  */
 public final class RepositoryDelegatorFunction implements SkyFunction {
-  public static final Precomputed<Map<RepositoryName, PathFragment>> REPOSITORY_OVERRIDES =
-      new Precomputed<>("repository_overrides");
-
   public static final String FORCE_FETCH_DISABLED = "";
 
   public static final Precomputed<String> FORCE_FETCH =
@@ -187,7 +185,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
           return null;
         }
         boolean excludeRepoByDefault = isRepoExcludedFromVendoringByDefault(handler, rule);
-        if (!excludeRepoByDefault && !vendorFile.getIgnoredRepos().contains(repositoryName)) {
+        if (!excludeRepoByDefault && !vendorFile.ignoredRepos().contains(repositoryName)) {
           RepositoryDirectoryValue repositoryDirectoryValue =
               tryGettingValueUsingVendoredRepo(
                   env, rule, repoRoot, repositoryName, handler, digestWriter, vendorFile);
@@ -200,8 +198,8 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         }
         excludeRepoFromVendoring =
             excludeRepoByDefault
-                || vendorFile.getIgnoredRepos().contains(repositoryName)
-                || vendorFile.getPinnedRepos().contains(repositoryName);
+                || vendorFile.ignoredRepos().contains(repositoryName)
+                || vendorFile.pinnedRepos().contains(repositoryName);
       }
 
       if (shouldUseCachedRepos(env, handler, repoRoot, rule)) {
@@ -288,7 +286,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     Path vendorRepoPath = vendorPath.getRelative(repositoryName.getName());
     if (vendorRepoPath.exists()) {
       Path vendorMarker = vendorPath.getChild(repositoryName.getMarkerFileName());
-      if (vendorFile.getPinnedRepos().contains(repositoryName)) {
+      if (vendorFile.pinnedRepos().contains(repositoryName)) {
         // pinned repos are used as they are without checking their marker file
         try {
           // delete the marker as it may become out-of-date while it's pinned (old version or
@@ -332,7 +330,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
                             + " in the vendor directory, run the bazel vendor command",
                         rule.getName())));
       }
-    } else if (vendorFile.getPinnedRepos().contains(repositoryName)) {
+    } else if (vendorFile.pinnedRepos().contains(repositoryName)) {
       throw new RepositoryFunctionException(
           new IOException(
               "Pinned repository "

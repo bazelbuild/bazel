@@ -127,6 +127,7 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -144,11 +145,6 @@ public final class SkyframeActionExecutor {
       new OutputMetadataStore() {
         @Override
         public FileArtifactValue getOutputMetadata(ActionInput output) {
-          throw new IllegalStateException();
-        }
-
-        @Override
-        public void setDigestForVirtualArtifact(Artifact artifact, byte[] digest) {
           throw new IllegalStateException();
         }
 
@@ -230,7 +226,7 @@ public final class SkyframeActionExecutor {
   private ActionOutputDirectoryHelper outputDirectoryHelper;
 
   private OptionsProvider options;
-  private boolean hadExecutionError;
+  private final AtomicBoolean hadExecutionError = new AtomicBoolean(false);
   private boolean freeDiscoveredInputsAfterExecution;
   private InputMetadataProvider perBuildFileCache;
   private ActionInputPrefetcher actionInputPrefetcher;
@@ -320,7 +316,7 @@ public final class SkyframeActionExecutor {
     // Start with a new map each build so there's no issue with internal resizing.
     this.buildActionMap = Maps.newConcurrentMap();
     this.rewoundActions = Sets.newConcurrentHashSet();
-    this.hadExecutionError = false;
+    this.hadExecutionError.set(false);
     this.actionCacheChecker = checkNotNull(actionCacheChecker);
     // Don't cache possibly stale data from the last build.
     this.options = options;
@@ -504,12 +500,6 @@ public final class SkyframeActionExecutor {
     // Evict the rewinding action from the action cache to ensure that it is executed.
     if (actionCacheChecker.enabled()) {
       actionCacheChecker.removeCacheEntry(dep);
-    }
-  }
-
-  void noteActionEvaluationStarted(ActionLookupData actionLookupData, Action action) {
-    if (completionReceiver != null) {
-      completionReceiver.noteActionEvaluationStarted(actionLookupData, action);
     }
   }
 
@@ -956,7 +946,7 @@ public final class SkyframeActionExecutor {
    * output to prevent spamming the user any further.
    */
   void recordExecutionError() {
-    hadExecutionError = true;
+    hadExecutionError.set(true);
   }
 
   /**
@@ -969,7 +959,7 @@ public final class SkyframeActionExecutor {
    * </ul>
    */
   private boolean isBuilderAborting() {
-    return hadExecutionError && !options.getOptions(KeepGoingOption.class).keepGoing;
+    return hadExecutionError.get() && !options.getOptions(KeepGoingOption.class).keepGoing;
   }
 
   public void configure(
@@ -1063,7 +1053,7 @@ public final class SkyframeActionExecutor {
             statusReporter.updateStatus(event);
           }
           env.getListener().post(event);
-          if (actionFileSystemType().supportsLocalActions()) {
+          if (actionFileSystemType().shouldDoEagerActionPrep()) {
             try (SilentCloseable d = profiler.profile(ProfilerTask.INFO, "action.prepare")) {
               // This call generally deletes any files at locations that are declared outputs of the
               // action, although some actions perform additional work, while others intentionally
@@ -1894,9 +1884,6 @@ public final class SkyframeActionExecutor {
   public interface ActionCompletedReceiver {
     /** Receives a completed action. */
     void actionCompleted(ActionLookupData actionLookupData);
-
-    /** Notes that an action has started, giving the key. */
-    void noteActionEvaluationStarted(ActionLookupData actionLookupData, Action action);
   }
 
   void setActionExecutionProgressReportingObjects(

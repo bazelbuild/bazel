@@ -201,20 +201,7 @@ function test_script_file_generation {
 }
 
 function test_consistent_command_line_encoding {
-  if "$is_windows"; then
-    # The JVM sets sun.jnu.encoding, which is used to encode command-line
-    # arguments to java.exe, based on the return value of GetACP() on Windows.
-    # On Windows with an English locale, GetACP() returns 1252, which is a
-    # variant of ISO 8859-1 that can represent the characters below, but not
-    # the full Unicode range.
-    # TODO: Fix this by patching the fusion manifest of the embedded java.exe to
-    #  force GetACP() to return 65001 (UTF-8).
-    # äöüÄÖÜß in UTF8
-    local arg=$(echo -e '\xC3\xA4\xC3\xB6\xC3\xBC\xC3\x84\xC3\x96\xC3\x9C\xC3\x9F')
-  else
-    # äöüÄÖÜß🌱 in UTF8
-    local arg=$(echo -e '\xC3\xA4\xC3\xB6\xC3\xBC\xC3\x84\xC3\x96\xC3\x9C\xC3\x9F\xF0\x9F\x8C\xB1')
-  fi
+  local -r arg="äöüÄÖÜß🌱"
 
   mkdir -p foo || fail "mkdir foo failed"
   echo 'sh_binary(name = "foo", srcs = ["foo.sh"])' > foo/BUILD
@@ -240,13 +227,7 @@ EOF
 }
 
 function test_consistent_env_var_encoding {
-  if "$is_windows"; then
-    # äöüÄÖÜß in UTF8
-    local env=$(echo -e '\xC3\xA4\xC3\xB6\xC3\xBC\xC3\x84\xC3\x96\xC3\x9C\xC3\x9F')
-  else
-    # äöüÄÖÜß🌱 in UTF8
-    local env=$(echo -e '\xC3\xA4\xC3\xB6\xC3\xBC\xC3\x84\xC3\x96\xC3\x9C\xC3\x9F\xF0\x9F\x8C\xB1')
-  fi
+  local -r env="äöüÄÖÜß🌱"
 
   mkdir -p foo || fail "mkdir foo failed"
   cat > foo/BUILD <<EOF
@@ -287,13 +268,7 @@ EOF
 }
 
 function test_consistent_working_directory_encoding {
-  if "$is_windows"; then
-    # äöüÄÖÜß in UTF8
-    local unicode_string=$(echo -e '\xC3\xA4\xC3\xB6\xC3\xBC\xC3\x84\xC3\x96\xC3\x9C\xC3\x9F')
-  else
-    # äöüÄÖÜß🌱 in UTF8
-    local unicode_string=$(echo -e '\xC3\xA4\xC3\xB6\xC3\xBC\xC3\x84\xC3\x96\xC3\x9C\xC3\x9F\xF0\x9F\x8C\xB1')
-  fi
+  local -r unicode_string="äöüÄÖÜß🌱"
 
   mkdir -p foo || fail "mkdir foo failed"
   cat > foo/BUILD <<EOF
@@ -700,6 +675,54 @@ EOF
   else
     expect_log "hello there friend && unset RUNFILES_MANIFEST_FILE && .*bin/$pkg/farewell buddy"
     expect_not_log "goodbye"
+  fi
+}
+
+function test_build_id_env_var() {
+  local -r pkg="pkg${LINENO}"
+  mkdir -p "${pkg}"
+  cat > "$pkg/BUILD" <<'EOF'
+sh_binary(
+  name = "foo",
+  srcs = ["foo.sh"],
+)
+EOF
+  cat > "$pkg/foo.sh" <<'EOF'
+#!/bin/bash
+echo build_id=\"${BUILD_ID}\"
+EOF
+
+  chmod +x "$pkg/foo.sh"
+  bazel run "//$pkg:foo" --build_event_text_file=bep.txt >& "$TEST_log" || fail "run failed"
+  cat "$TEST_log" | grep "^build_id=" > actual.txt
+  cat bep.txt | grep '^  uuid: "' | sed 's/^  uuid: /build_id=/' > expected.txt
+
+  if ! cmp expected.txt actual.txt; then
+    fail "BUILD_ID env var not set correctly: expected '$(cat expected.txt)', got '$(cat actual.txt)'"
+  fi
+}
+
+function test_execroot_env_var() {
+  local -r pkg="pkg${LINENO}"
+  mkdir -p "${pkg}"
+  cat > "$pkg/BUILD" <<'EOF'
+sh_binary(
+  name = "foo",
+  srcs = ["foo.sh"],
+)
+EOF
+  cat > "$pkg/foo.sh" <<'EOF'
+#!/bin/bash
+echo execroot=\"${BUILD_EXECROOT}\"
+EOF
+
+  chmod +x "$pkg/foo.sh"
+  echo "execroot=\"$(bazel info execution_root)\"" > expected.txt
+  bazel run "//$pkg:foo" >& "$TEST_log" || fail "run failed"
+  cat "$TEST_log" | grep "^execroot=" > actual.txt
+
+  if ! cmp expected.txt actual.txt; then
+    fail "BUILD_EXECROOT env var not set correctly: expected '$(cat expected.txt)', got '$(cat actual.txt)'"
   fi
 }
 

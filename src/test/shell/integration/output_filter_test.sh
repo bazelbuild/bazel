@@ -52,6 +52,10 @@ msys*|mingw*|cygwin*)
   ;;
 esac
 
+function set_up() {
+  add_rules_java MODULE.bazel
+}
+
 function test_output_filter_cc() {
   # "test warning filter for C compilation"
   local -r pkg=$FUNCNAME
@@ -105,6 +109,7 @@ function test_output_filter_java() {
 
   mkdir -p $pkg/java/main
   cat >$pkg/java/main/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
 java_binary(name = 'main',
     deps = ['//$pkg/java/hello_library'],
     srcs = ['Main.java'],
@@ -125,6 +130,7 @@ EOF
 
   mkdir -p $pkg/java/hello_library
   cat >$pkg/java/hello_library/BUILD <<EOF
+load("@rules_java//java:java_library.bzl", "java_library")
 package(default_visibility=['//visibility:public'])
 java_library(name = 'hello_library',
              srcs = ['HelloLibrary.java'],

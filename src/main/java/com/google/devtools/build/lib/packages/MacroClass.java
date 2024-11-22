@@ -230,6 +230,9 @@ public final class MacroClass {
     }
 
     // Special processing of the "visibility" attribute.
+    // TODO(brandjon): When we add introspection of attributes of symbolic macros, we'll want to
+    // distinguish between the different types of visibility a la Target#getRawVisibility /
+    // #getVisibility / #getActualVisibility.
     @Nullable MacroFrame parentMacroFrame = pkgBuilder.getCurrentMacroFrame();
     @Nullable Object rawVisibility = attrValues.get("visibility");
     RuleVisibility parsedVisibility;
@@ -254,8 +257,8 @@ public final class MacroClass {
         parentMacroFrame == null
             ? pkgBuilder.getPackageIdentifier()
             : parentMacroFrame.macroInstance.getDefinitionPackage();
-    parsedVisibility = parsedVisibility.concatWithPackage(instantiatingLoc);
-    attrValues.put("visibility", parsedVisibility.getDeclaredLabels());
+    RuleVisibility actualVisibility = parsedVisibility.concatWithPackage(instantiatingLoc);
+    attrValues.put("visibility", actualVisibility.getDeclaredLabels());
 
     // Populate defaults for the rest, and validate that no mandatory attr was missed.
     for (Attribute attr : attributes.values()) {
@@ -267,13 +270,15 @@ public final class MacroClass {
             "missing value for mandatory attribute '%s' in '%s' macro", attr.getName(), name);
       } else {
         Object defaultValue = attr.getDefaultValueUnchecked();
-        if (defaultValue == null || forceDefaultToNone(attr)) {
+        // For attributes defined directly in this macro's `attrs` param, we've already validated
+        // that the default is not a computed default, late-bound default, etc. But these may still
+        // appear in inherited attributes. Those should be replaced by None as the default.
+        //
+        // We may also see a null default for LabelType, which also should be replaced by None.
+        //
+        // TODO(arostovtsev): All inherited attributes should be forced to have None defaults.
+        if (defaultValue == null || shouldForceDefaultToNone(attr)) {
           // Set the default value as None if:
-          // 1. The native attribute value is null (e.g. LabelType); or
-          // 2. The attribute is an inherited non-Starlark-defined attribute and with a non-direct
-          // default or is a legacy native type.
-          // Note that for Starlark-defined attributes, we already validated at schema creation time
-          // that the default is not a computed default or late-bound default.
           defaultValue = Starlark.NONE;
         }
         attrValues.put(attr.getName(), defaultValue);
@@ -282,14 +287,14 @@ public final class MacroClass {
 
     // Normalize and validate all attr values. (E.g., convert strings to labels, promote
     // configurable attribute values to select()s, fail if bool was passed instead of label, ensure
-    // values are immutable.) This applies to default values, even Nones (default value of
-    // LabelType).
+    // values are immutable.) Note that this applies even to default values, although as a special
+    // case None is never promoted to select().
     for (Map.Entry<String, Object> entry : ImmutableMap.copyOf(attrValues).entrySet()) {
       String attrName = entry.getKey();
       Object value = entry.getValue();
       Attribute attribute = attributes.get(attrName);
-      if (value.equals(Starlark.NONE) && forceDefaultToNone(attribute)) {
-        // Skip normalization, since None may violate the attribute's type checking.
+      if (value.equals(Starlark.NONE)) {
+        // Don't promote None to select({"//conditions:default": None}).
         continue;
       }
       Object normalizedValue =
@@ -318,15 +323,14 @@ public final class MacroClass {
   }
 
   /**
-   * Returns true if the given inherited attribute should be forced to have a default value of
-   * {@code None}, skipping usual normalization.
+   * Returns true if the given attribute's default value should be considered {@code None}.
    *
    * <p>This is the case for non-direct defaults and legacy licenses and distribs attributes,
    * because None may (depending on attribute type) violate type checking - and that is ok, since
    * the macro implementation will pass the None to the rule function, which will then set the
    * default as expected.
    */
-  private static boolean forceDefaultToNone(Attribute attr) {
+  private static boolean shouldForceDefaultToNone(Attribute attr) {
     return attr.hasComputedDefault()
         || attr.isLateBound()
         || attr.isMaterializing()
@@ -404,12 +408,18 @@ public final class MacroClass {
       MacroFrame childMacroFrame = new MacroFrame(macro);
       @Nullable MacroFrame parentMacroFrame = builder.setCurrentMacroFrame(childMacroFrame);
       try {
-        Starlark.call(
-            thread,
-            macro.getMacroClass().getImplementation(),
-            /* args= */ ImmutableList.of(),
-            /* kwargs= */ macro.getAttrValues());
-      } catch (EvalException ex) {
+        Object returnValue =
+            Starlark.call(
+                thread,
+                macro.getMacroClass().getImplementation(),
+                /* args= */ ImmutableList.of(),
+                /* kwargs= */ macro.getAttrValues());
+        if (returnValue != Starlark.NONE) {
+          throw Starlark.errorf(
+              "macro '%s' may not return a non-None value (got %s)",
+              macro.getName(), Starlark.repr(returnValue));
+        }
+      } catch (EvalException ex) { // from either call() or non-None return
         builder
             .getLocalEventHandler()
             .handle(

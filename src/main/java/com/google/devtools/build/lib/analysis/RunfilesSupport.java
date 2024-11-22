@@ -26,14 +26,15 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLine;
-import com.google.devtools.build.lib.actions.MiddlemanAction;
 import com.google.devtools.build.lib.actions.RunfilesTree;
+import com.google.devtools.build.lib.actions.RunfilesTreeAction;
 import com.google.devtools.build.lib.analysis.SourceManifestAction.ManifestType;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
+import com.google.devtools.build.lib.analysis.config.RunUnder.LabelRunUnder;
 import com.google.devtools.build.lib.analysis.test.TestActionBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -75,12 +76,6 @@ import javax.annotation.Nullable;
  *
  * <p>We create an Artifact for the MANIFEST file and a RunfilesAction Action to create it. This
  * action does not depend on any other Artifacts.
- *
- * <p>When building an executable and running it, there are three things which must be built: the
- * executable itself, the runfiles symlink farm (represented in the action graph by the Artifact for
- * its MANIFEST), and the files pointed to by the symlinks in the symlink farm. To avoid redundancy
- * in the dependency analysis, we create a Middleman Artifact which depends on all of these. Actions
- * which will run an executable should depend on this Middleman Artifact.
  */
 @Immutable
 public final class RunfilesSupport {
@@ -153,8 +148,7 @@ public final class RunfilesSupport {
     @Override
     public Map<PathFragment, Artifact> getMapping() {
       if (cachedMapping == null) {
-        return runfiles.getRunfilesInputs(
-            /* eventHandler= */ null, /* location= */ null, repoMappingManifest);
+        return runfiles.getRunfilesInputs(repoMappingManifest);
       }
 
       Map<PathFragment, Artifact> result = cachedMapping.get();
@@ -168,9 +162,7 @@ public final class RunfilesSupport {
           return result;
         }
 
-        result =
-            runfiles.getRunfilesInputs(
-                /* eventHandler= */ null, /* location= */ null, repoMappingManifest);
+        result = runfiles.getRunfilesInputs(repoMappingManifest);
         cachedMapping = new WeakReference<>(result);
         return result;
       }
@@ -243,7 +235,7 @@ public final class RunfilesSupport {
 
   private final Artifact runfilesInputManifest;
   private final Artifact runfilesManifest;
-  private final Artifact runfilesMiddleman;
+  private final Artifact runfilesTreeArtifact;
   private final Artifact owningExecutable;
   private final CommandLine args;
   private final ActionEnvironment actionEnvironment;
@@ -292,9 +284,7 @@ public final class RunfilesSupport {
     // Adding run_under target to the runfiles manifest so it would become part
     // of runfiles tree and would be executable everywhere.
     RunUnder runUnder = ruleContext.getConfiguration().getRunUnder();
-    if (runUnder != null
-        && runUnder.getLabel() != null
-        && TargetUtils.isTestRule(ruleContext.getRule())) {
+    if (runUnder instanceof LabelRunUnder && TargetUtils.isTestRule(ruleContext.getRule())) {
       TransitiveInfoCollection runUnderTarget = ruleContext.getRunUnderPrerequisite();
       runfiles =
           new Runfiles.Builder(
@@ -330,15 +320,15 @@ public final class RunfilesSupport {
             cacheRunfilesMappings(ruleContext),
             runfileSymlinksMode);
 
-    Artifact runfilesMiddleman =
-        createRunfilesMiddleman(
+    Artifact runfilesTreeArtifact =
+        createRunfilesTreeArtifact(
             ruleContext, executable, runfilesTree, runfilesManifest, repoMappingManifest);
 
     return new RunfilesSupport(
         runfilesTree,
         runfilesInputManifest,
         runfilesManifest,
-        runfilesMiddleman,
+        runfilesTreeArtifact,
         executable,
         args,
         actionEnvironment);
@@ -348,14 +338,14 @@ public final class RunfilesSupport {
       RunfilesTreeImpl runfilesTree,
       Artifact runfilesInputManifest,
       Artifact runfilesManifest,
-      Artifact runfilesMiddleman,
+      Artifact runfilesTreeArtifact,
       Artifact owningExecutable,
       CommandLine args,
       ActionEnvironment actionEnvironment) {
     this.runfilesTree = runfilesTree;
     this.runfilesInputManifest = runfilesInputManifest;
     this.runfilesManifest = runfilesManifest;
-    this.runfilesMiddleman = runfilesMiddleman;
+    this.runfilesTreeArtifact = runfilesTreeArtifact;
     this.owningExecutable = owningExecutable;
     this.args = args;
     this.actionEnvironment = actionEnvironment;
@@ -472,15 +462,15 @@ public final class RunfilesSupport {
   }
 
   /**
-   * Returns the middleman artifact that depends on getExecutable(), getRunfilesManifest(), and
+   * Returns the runfiles tree artifact that depends on getExecutable(), getRunfilesManifest(), and
    * getRunfilesSymlinkTargets(). Anything which needs to actually run the executable should depend
    * on this.
    */
-  public Artifact getRunfilesMiddleman() {
-    return runfilesMiddleman;
+  public Artifact getRunfilesTreeArtifact() {
+    return runfilesTreeArtifact;
   }
 
-  private static Artifact createRunfilesMiddleman(
+  private static Artifact createRunfilesTreeArtifact(
       ActionConstructionContext context,
       Artifact owningExecutable,
       RunfilesTree runfilesTree,
@@ -502,14 +492,17 @@ public final class RunfilesSupport {
     PathFragment runfilesRootRelativePath =
         executableRootRelativePath.replaceName(
             executableRootRelativePath.getBaseName() + RUNFILES_DIR_EXT);
-    Artifact middleman =
+    Artifact runfilesTreeArtifact =
         context.getAnalysisEnvironment().getRunfilesArtifact(runfilesRootRelativePath, root);
 
-    MiddlemanAction middlemanAction =
-        new MiddlemanAction(
-            context.getActionOwner(), runfilesTree, contents, ImmutableSet.of(middleman));
-    context.registerAction(middlemanAction);
-    return middleman;
+    RunfilesTreeAction runfilesTreeAction =
+        new RunfilesTreeAction(
+            context.getActionOwner(),
+            runfilesTree,
+            contents,
+            ImmutableSet.of(runfilesTreeArtifact));
+    context.registerAction(runfilesTreeAction);
+    return runfilesTreeArtifact;
   }
 
   /**

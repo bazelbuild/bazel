@@ -154,8 +154,8 @@ public class TextOutputFormatter extends OutputFormatter {
       str.append(
           String.format(
               "<root> (%s@%s)",
-              rootModule.getName(),
-              rootModule.getVersion().equals(Version.EMPTY) ? "_" : rootModule.getVersion()));
+              rootModule.name(),
+              rootModule.version().equals(Version.EMPTY) ? "_" : rootModule.version()));
     } else {
       str.append(key).append(" ");
     }

@@ -59,10 +59,10 @@ import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.MapBasedActionGraph;
-import com.google.devtools.build.lib.actions.MiddlemanAction;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.RunfilesTree;
+import com.google.devtools.build.lib.actions.RunfilesTreeAction;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
@@ -1000,16 +1000,16 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   protected RunfilesTree runfilesTreeFor(TestRunnerAction testRunnerAction) throws Exception {
-    Artifact middleman = testRunnerAction.getRunfilesMiddleman();
-    MiddlemanAction middlemanAction = (MiddlemanAction) getGeneratingAction(middleman);
-    return middlemanAction.getRunfilesTree();
+    Artifact runfilesTreeArtifact = testRunnerAction.getRunfilesTree();
+    RunfilesTreeAction runfilesTreeAction =
+        (RunfilesTreeAction) getGeneratingAction(runfilesTreeArtifact);
+    return runfilesTreeAction.getRunfilesTree();
   }
 
   protected FakeActionInputFileCache inputMetadataFor(TestRunnerAction testRunnerAction)
       throws Exception {
     FakeActionInputFileCache result = new FakeActionInputFileCache();
-    result.putRunfilesTree(
-        testRunnerAction.getRunfilesMiddleman(), runfilesTreeFor(testRunnerAction));
+    result.putRunfilesTree(testRunnerAction.getRunfilesTree(), runfilesTreeFor(testRunnerAction));
     return result;
   }
 

@@ -645,7 +645,7 @@ public class BuildDriverFunction implements SkyFunction {
     if (localRef == null) {
       return ImmutableMap.of();
     }
-    return localRef.findArtifactConflicts(actionLookupKey).getConflicts();
+    return localRef.findArtifactConflicts(actionLookupKey).conflicts();
   }
 
   private void addExtraActionsIfRequested(

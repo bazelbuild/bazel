@@ -2429,8 +2429,7 @@ public class RuleClass implements RuleClassData {
       // be discovered and propagated here.
       Object valueToSet;
       Object defaultValue = attr.getDefaultValue(null);
-      if (defaultValue instanceof StarlarkComputedDefaultTemplate) {
-        StarlarkComputedDefaultTemplate template = (StarlarkComputedDefaultTemplate) defaultValue;
+      if (defaultValue instanceof StarlarkComputedDefaultTemplate template) {
         valueToSet = template.computePossibleValues(attr, rule, pkgBuilder.getLocalEventHandler());
       } else if (defaultValue instanceof ComputedDefault) {
         // Compute all possible values to verify that the ComputedDefault is well-defined. This was

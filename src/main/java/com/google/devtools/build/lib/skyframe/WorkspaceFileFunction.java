@@ -296,7 +296,7 @@ public class WorkspaceFileFunction implements SkyFunction {
       if (rootModuleMapping == null) {
         return null;
       }
-      repoMapping = repoMapping.composeWith(rootModuleMapping.getRepositoryMapping());
+      repoMapping = repoMapping.composeWith(rootModuleMapping.repositoryMapping());
     }
 
     // The default 'workspace name' is "__main__". Note that this is different from the "workspace

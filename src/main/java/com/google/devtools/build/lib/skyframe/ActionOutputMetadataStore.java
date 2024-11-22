@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -191,15 +191,14 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
       return null;
     }
 
-    if (artifact.isMiddlemanArtifact()) {
-      // A middleman artifact's data was either already injected from the action cache checker using
-      // #setDigestForVirtualArtifact, or it has the default middleman value.
+    if (artifact.isRunfilesTree()) {
+      // Runfiles trees get a placeholder value, see the Javadoc of RUNFILES_TREE_MARKER as to why
       value = artifactData.get(artifact);
       if (value != null) {
         return checkExists(value, artifact);
       }
-      putArtifactData(artifact, FileArtifactValue.DEFAULT_MIDDLEMAN);
-      return FileArtifactValue.DEFAULT_MIDDLEMAN;
+      putArtifactData(artifact, FileArtifactValue.RUNFILES_TREE_MARKER);
+      return FileArtifactValue.RUNFILES_TREE_MARKER;
     }
 
     if (artifact.isTreeArtifact()) {
@@ -232,13 +231,6 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
     value = constructFileArtifactValueFromFilesystem(artifact);
     putArtifactData(artifact, value);
     return checkExists(value, artifact);
-  }
-
-  @Override
-  public void setDigestForVirtualArtifact(Artifact artifact, byte[] digest) {
-    checkArgument(artifact.isMiddlemanArtifact(), artifact);
-    checkNotNull(digest, artifact);
-    putArtifactData(artifact, FileArtifactValue.createProxy(digest));
   }
 
   @Override
@@ -486,8 +478,8 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
   }
 
   /**
-   * Constructs a {@link FileArtifactValue} for a regular (non-tree, non-middleman) artifact for the
-   * purpose of determining whether an existing {@link FileArtifactValue} is still valid.
+   * Constructs a {@link FileArtifactValue} for a regular (non-tree, non-runfiles tree) artifact for
+   * the purpose of determining whether an existing {@link FileArtifactValue} is still valid.
    *
    * <p>The returned metadata may be compared with metadata present in an {@link
    * ActionExecutionValue} using {@link FileArtifactValue#couldBeModifiedSince} to check for
@@ -515,7 +507,7 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
       XattrProvider xattrProvider,
       @Nullable TimestampGranularityMonitor tsgm)
       throws IOException {
-    checkState(!artifact.isTreeArtifact() && !artifact.isMiddlemanArtifact(), artifact);
+    checkState(!artifact.isTreeArtifact() && !artifact.isRunfilesTree(), artifact);
 
     Path pathNoFollow = artifactPathResolver.toPath(artifact);
     // If we expect a symlink, we can readlink it directly and handle errors appropriately - there
@@ -568,26 +560,24 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
     return FileArtifactStatAndValue.create(pathNoFollow, realPath, statNoFollow, fileArtifactValue);
   }
 
-  @AutoValue
-  abstract static class FileArtifactStatAndValue {
+  record FileArtifactStatAndValue(
+      Path pathNoFollow,
+      @Nullable Path realPath,
+      @Nullable FileStatusWithDigest statNoFollow,
+      FileArtifactValue fileArtifactValue) {
+    FileArtifactStatAndValue {
+      requireNonNull(pathNoFollow, "pathNoFollow");
+      requireNonNull(fileArtifactValue, "fileArtifactValue");
+    }
+
     public static FileArtifactStatAndValue create(
         Path pathNoFollow,
         @Nullable Path realPath,
         @Nullable FileStatusWithDigest statNoFollow,
         FileArtifactValue fileArtifactValue) {
-      return new AutoValue_ActionOutputMetadataStore_FileArtifactStatAndValue(
-          pathNoFollow, realPath, statNoFollow, fileArtifactValue);
+      return new FileArtifactStatAndValue(pathNoFollow, realPath, statNoFollow, fileArtifactValue);
     }
 
-    public abstract Path pathNoFollow();
-
-    @Nullable
-    public abstract Path realPath();
-
-    @Nullable
-    public abstract FileStatusWithDigest statNoFollow();
-
-    public abstract FileArtifactValue fileArtifactValue();
   }
 
   private static FileArtifactValue fileArtifactValueFromStat(

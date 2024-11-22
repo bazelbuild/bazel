@@ -79,8 +79,8 @@ public final class ProcessWrapperTest {
     ImmutableList<String> expectedCommandLine =
         ImmutableList.<String>builder()
             .add("/path/process-wrapper")
-            .add("--timeout=" + timeout.getSeconds())
-            .add("--kill_delay=" + killDelay.getSeconds())
+            .add("--timeout=" + timeout.toSeconds())
+            .add("--kill_delay=" + killDelay.toSeconds())
             .add("--stdout=" + stdoutPath)
             .add("--stderr=" + stderrPath)
             .add("--stats=" + statisticsPath)
