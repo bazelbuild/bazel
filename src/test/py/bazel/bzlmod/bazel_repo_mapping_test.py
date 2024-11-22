@@ -259,7 +259,7 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
         env_add={'RUNFILES_LIB_DEBUG': '1'},
     )
 
-  def testCppRunfilesLibraryRepoMapping(self):
+  def testLegacyCppRunfilesLibraryRepoMapping(self):
     self.main_registry.setModuleBasePath('projects')
     projects_dir = self.main_registry.projects
 
@@ -291,6 +291,58 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
             '#include <fstream>',
             '#include "tools/cpp/runfiles/runfiles.h"',
             'using bazel::tools::cpp::runfiles::Runfiles;',
+            'int main(int argc, char** argv) {',
+            (
+                '  Runfiles* runfiles = Runfiles::Create(argv[0],'
+                ' BAZEL_CURRENT_REPOSITORY);'
+            ),
+            '  std::ifstream f1(runfiles->Rlocation(argv[1]));',
+            '  if (!f1.good()) std::exit(1);',
+            '  std::ifstream f2(runfiles->Rlocation("data/foo.txt"));',
+            '  if (!f2.good()) std::exit(2);',
+            '}',
+        ],
+    )
+
+    self.ScratchFile('MODULE.bazel', ['bazel_dep(name="test",version="1.0")'])
+
+    # Run sandboxed on Linux and macOS.
+    self.RunBazel(['test', '@test//:test', '--test_output=errors'])
+    # Run unsandboxed on all platforms.
+    self.RunBazel(['run', '@test//:test'])
+
+  def testCppRunfilesLibraryRepoMapping(self):
+    self.main_registry.setModuleBasePath('projects')
+    projects_dir = self.main_registry.projects
+
+    self.main_registry.createLocalPathModule('data', '1.0', 'data')
+    scratchFile(projects_dir.joinpath('data', 'foo.txt'), ['hello'])
+    scratchFile(
+        projects_dir.joinpath('data', 'BUILD'), ['exports_files(["foo.txt"])']
+    )
+
+    self.main_registry.createLocalPathModule(
+        'test', '1.0', 'test', {'data': '1.0', 'rules_cc': '0.0.17'}
+    )
+    scratchFile(
+        projects_dir.joinpath('test', 'BUILD'),
+        [
+            'cc_test(',
+            '    name = "test",',
+            '    srcs = ["test.cpp"],',
+            '    data = ["@data//:foo.txt"],',
+            '    args = ["$(rlocationpath @data//:foo.txt)"],',
+            '    deps = ["@rules_cc//cc/runfiles"],',
+            ')',
+        ],
+    )
+    scratchFile(
+        projects_dir.joinpath('test', 'test.cpp'),
+        [
+            '#include <cstdlib>',
+            '#include <fstream>',
+            '#include "rules_cc/cc/runfiles/runfiles.h"',
+            'using rules_cc::cc::runfiles::Runfiles;',
             'int main(int argc, char** argv) {',
             (
                 '  Runfiles* runfiles = Runfiles::Create(argv[0],'

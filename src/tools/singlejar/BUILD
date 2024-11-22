@@ -463,8 +463,8 @@ cc_library(
     hdrs = ["test_util.h"],
     deps = [
         "//src/main/cpp/util",
-        "@bazel_tools//tools/cpp/runfiles",
         "@com_google_googletest//:gtest_main",
+        "@rules_cc//cc/runfiles",
     ],
 )
 
