@@ -207,12 +207,16 @@ enum class LockMode {
   kExclusive,
 };
 
-// Acquires a `mode` lock on `path`, busy-waiting until it becomes available if
-// `block` is true, and releasing it on exec if `batch_mode` is false.
-// Crashes if the lock cannot be acquired. Returns a handle that can be
-// subsequently passed to ReleaseLock as well as the time spent waiting for the
-// lock, if any. The `name` argument is used to distinguish it from other locks
-// in human-readable error messages.
+// Acquires a `mode` lock on `path`, creating it if doesn't yet exist.
+// If `block` is true, busy-wait until the lock becomes available.
+// If `batch_mode` is false, release the lock on exec.
+// The `path` is guaranteed to exist when this function returns; if it is
+// deleted concurrently with obtaining the lock, we recreate it and try again.
+// This makes it safe to delete the file under an exclusive lock.
+// The `name` argument is used in human-readable error messages.
+// Returns a handle that can be subsequently passed to ReleaseLock as well as
+// the time spent waiting for the lock, if any.
+// Crashes if an error occurs while attempting to obtain the lock.
 std::pair<LockHandle, std::optional<DurationMillis>> AcquireLock(
     const std::string& name, const blaze_util::Path& path, LockMode mode,
     bool batch_mode, bool block);
