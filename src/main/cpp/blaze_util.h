@@ -138,7 +138,13 @@ struct DurationMillis {
   DurationMillis(const uint64_t start, const uint64_t end)
       : millis(ComputeDuration(start, end)) {}
 
+  DurationMillis operator+(const DurationMillis& other) const {
+    return DurationMillis(millis + other.millis);
+  }
+
  private:
+  explicit DurationMillis(const uint64_t millis) : millis(millis) {}
+
   static uint64_t ComputeDuration(const uint64_t start, const uint64_t end) {
     if (end < start) {
       BAZEL_LOG(WARNING) << "Invalid duration: start=" << start
