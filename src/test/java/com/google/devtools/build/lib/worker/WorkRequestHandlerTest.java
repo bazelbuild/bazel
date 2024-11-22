@@ -37,6 +37,7 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -120,14 +121,14 @@ public class WorkRequestHandlerTest {
         new WorkRequestHandler(
             (args, err) -> {
               // Each call to this runs in its own thread.
+              synchronized (workerThreads) {
+                workerThreads.add(Thread.currentThread());
+              }
+              started.release();
               try {
-                synchronized (workerThreads) {
-                  workerThreads.add(Thread.currentThread());
-                }
-                started.release();
-                eternity.acquire(); // This blocks forever.
+                eternity.acquire(); // This blocks until the thread is interrupted at shutdown.
               } catch (InterruptedException e) {
-                throw new AssertionError("Unhandled exception", e);
+                Thread.currentThread().interrupt();
               }
               return 0;
             },
@@ -165,6 +166,7 @@ public class WorkRequestHandlerTest {
   }
 
   @Test
+  @Ignore("b/380340632 - test currently relies on GoogleTestSecurityManager")
   public void testMultiplexWorkRequest_stopsWorkerOnException()
       throws IOException, InterruptedException {
     PipedOutputStream src = new PipedOutputStream();
