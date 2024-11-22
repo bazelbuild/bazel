@@ -17,6 +17,7 @@ starlark_doc_extract(
         "@com_google_protobuf//bazel/toolchains:proto_toolchain_bzl",
         "@rules_cc//cc/common",
         "@rules_cc//cc/toolchains:toolchain_rules",
+        "@rules_java//java/common:proguard_spec_info_bzl",  # TODO: hvd - remove once fixed in protobuf
         "@rules_java//java/private:proto_support",
     ],
 )
