@@ -11,6 +11,7 @@ filegroup(
     testonly = 0,
     srcs = glob(["**"]) + [
         "//src/test/java/com/google/devtools/build/lib/remote/circuitbreaker:srcs",
+        "//src/test/java/com/google/devtools/build/lib/remote/common:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote/disk:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote/downloader:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote/grpc:srcs",
