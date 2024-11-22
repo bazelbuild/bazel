@@ -455,6 +455,15 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
   }
 
   /**
+   * Returns the path of a new temporary directory with the given prefix created under this path.
+   * This method is only supported by file system implementations that are backed by the local file
+   * system.
+   */
+  public Path createTempDirectory(String prefix) throws IOException {
+    return fileSystem.getPath(fileSystem.createTempDirectory(asFragment(), prefix));
+  }
+
+  /**
    * Creates a symbolic link with the name of the current path, following symbolic links. The
    * referent of the created symlink is is the absolute path "target"; it is not possible to create
    * relative symbolic links via this method.

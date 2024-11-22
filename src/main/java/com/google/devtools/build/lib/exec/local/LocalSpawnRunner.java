@@ -64,7 +64,6 @@ import com.google.errorprone.annotations.FormatString;
 import java.io.File;
 import java.io.IOException;
 import java.io.InterruptedIOException;
-import java.nio.file.Files;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -181,10 +180,7 @@ public class LocalSpawnRunner implements SpawnRunner {
   }
 
   protected Path createActionTemp(Path execRoot) throws IOException {
-    return execRoot.getRelative(
-        Files.createTempDirectory(execRoot.getPathFile().toPath(), "local-spawn-runner.")
-            .getFileName()
-            .toString());
+    return execRoot.createTempDirectory("local-spawn-runner.");
   }
 
   private final class SubprocessHandler {
