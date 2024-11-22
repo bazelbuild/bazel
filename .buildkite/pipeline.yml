@@ -1,0 +1,5 @@
+steps:
+#  - command: "buildkite-agent pipeline upload"
+#    label: ":pipeline:"
+  - command: "install_bazel.sh"
+    label: ":install bazelisk:"
