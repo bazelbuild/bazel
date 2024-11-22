@@ -81,6 +81,7 @@ function test_determinism()  {
       --lockfile_mode=update \
       --override_repository=$(cat derived/maven/MAVEN_CANONICAL_REPO_NAME)=derived/maven \
       --nostamp \
+      --verbose_failures \
       //src:bazel &> $TEST_log || fail "First build failed"
     expect_not_log WARNING
     expect_not_log ERROR
@@ -100,6 +101,7 @@ function test_determinism()  {
       --lockfile_mode=update \
       --override_repository=$(cat derived/maven/MAVEN_CANONICAL_REPO_NAME)=derived/maven \
       --nostamp \
+      --verbose_failures \
       //src:bazel &> $TEST_log || fail "Second build failed"
     expect_not_log WARNING
     expect_not_log ERROR
