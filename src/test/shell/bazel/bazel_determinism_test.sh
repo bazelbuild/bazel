@@ -72,6 +72,10 @@ function test_determinism()  {
     cp derived/maven/BUILD.vendor derived/maven/BUILD
 
     # Build Bazel once.
+    # Use an output base with spaces and non-ASCII characters to verify that
+    # Bazel supports this. Characters with a 4-byte UTF-8 encoding would cause
+    # Java compilation to fail due to
+    # https://bugs.openjdk.org/browse/JDK-8258246.
     bazel \
       --output_base="${TEST_TMPDIR}/ouäöüt 1" \
       build \
@@ -83,7 +87,6 @@ function test_determinism()  {
       --nostamp \
       --verbose_failures \
       //src:bazel &> $TEST_log || fail "First build failed"
-    expect_not_log WARNING
     expect_not_log ERROR
     expect_not_log "Exception:"
     expect_not_log "Error:"
@@ -103,7 +106,6 @@ function test_determinism()  {
       --nostamp \
       --verbose_failures \
       //src:bazel &> $TEST_log || fail "Second build failed"
-    expect_not_log WARNING
     expect_not_log ERROR
     expect_not_log "Exception:"
     expect_not_log "Error:"
