@@ -298,7 +298,7 @@ public abstract class PathTransformingDelegateFileSystem extends FileSystem {
   @Override
   protected PathFragment createTempDirectory(PathFragment parent, String prefix)
       throws IOException {
-    return delegateFs.createTempDirectory(parent, prefix);
+    return delegateFs.createTempDirectory(toDelegatePath(parent), prefix);
   }
 
   /** Transform original path to a different one to be used with the {@code delegateFs}. */
