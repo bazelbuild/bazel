@@ -7,4 +7,6 @@ steps:
     key: "bazel_build"
     depends_on: "install_bazel"
     retry:
-      automatic: true
+      automatic:
+        - exit_status: "*"
+          limit: 4
