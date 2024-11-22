@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.time.Duration;
 
 /** Spawn runner that uses BuildXL Sandbox APIs to execute a local subprocess. */
@@ -107,10 +106,7 @@ final class WindowsSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   }
 
   private static Path createActionTemp(Path execRoot) throws IOException {
-    return execRoot.getRelative(
-        Files.createTempDirectory(execRoot.getPathFile().toPath(), "windows-sandbox.")
-            .getFileName()
-            .toString());
+    return execRoot.createTempDirectory("windows-sandbox.");
   }
 
   @Override
