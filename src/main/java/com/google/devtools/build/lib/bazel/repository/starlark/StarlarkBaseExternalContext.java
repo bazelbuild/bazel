@@ -60,6 +60,7 @@ import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionR
 import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.OsUtils;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -79,7 +80,6 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
-import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -1051,9 +1051,11 @@ the same path on case-insensitive filesystems.
     try {
       // Download to temp directory inside the outputDirectory and delete it after extraction
       java.nio.file.Path tempDirectory =
-          Files.createTempDirectory(Paths.get(outputPath.toString()), "temp");
+          Files.createTempDirectory(outputPath.getPath().getPathFile().toPath(), "temp");
       downloadDirectory =
-          workingDirectory.getFileSystem().getPath(tempDirectory.toFile().getAbsolutePath());
+          workingDirectory
+              .getFileSystem()
+              .getPath(StringEncoding.platformToInternal(tempDirectory.toFile().getAbsolutePath()));
 
       Phaser downloadPhaser = new Phaser();
       Future<Path> pendingDownload =
