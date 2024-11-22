@@ -10,8 +10,10 @@ instructions, see [Install Bazel on Windows](/install/windows).
 
 ## Known issues {:#known-issues}
 
-Windows-related Bazel issues are marked with the "team-Windows"
-label on GitHub. [You can see the open issues here.](https://github.com/bazelbuild/bazel/issues?q=is%3Aopen+is%3Aissue+label%3Ateam-Windows){: .external}
+Windows-related Bazel issues are marked with the "area-Windows" label on GitHub.
+[GitHub-Windows].
+
+[GitHub-Windows]: https://github.com/bazelbuild/bazel/issues?q=is%3Aopen+is%3Aissue+label%3Aarea-Windows
 
 ## Best practices {:#best-practices}
 
