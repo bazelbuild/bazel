@@ -22,6 +22,7 @@ import static java.util.concurrent.ForkJoinPool.commonPool;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
+import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -49,6 +50,7 @@ import com.google.protobuf.ByteString;
 import java.io.BufferedOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Optional;
@@ -77,7 +79,8 @@ public final class FrontierSerializer {
       SkyframeExecutor skyframeExecutor,
       Reporter reporter,
       EventBus eventBus,
-      String profilePath)
+      String profilePath,
+      boolean dumpUploadManifestOnly)
       throws InterruptedException {
     // Starts initializing ObjectCodecs in a background thread as it can take some time.
     var futureCodecs = new FutureTask<>(dependenciesProvider::getObjectCodecs);
@@ -92,6 +95,16 @@ public final class FrontierSerializer {
     reporter.handle(
         Event.info(
             String.format("Found %d active or frontier keys in %s", selection.size(), stopwatch)));
+
+    if (dumpUploadManifestOnly) {
+      reporter.handle(
+          Event.warn("Dry run of upload, dumping selection to stdout (warning: can be large!)"));
+      dumpUploadManifest(
+          new PrintStream(
+              new BufferedOutputStream(reporter.getOutErr().getOutputStream(), 1024 * 1024)),
+          selection);
+      return Optional.empty();
+    }
 
     var profileCollector = new ProfileCollector();
     ObjectCodecs codecs;
@@ -189,6 +202,27 @@ public final class FrontierSerializer {
       return Optional.of(createFailureDetail(message, Code.SERIALIZED_FRONTIER_PROFILE_FAILED));
     }
     return Optional.empty();
+  }
+
+  private static void dumpUploadManifest(
+      PrintStream out, ConcurrentHashMap<SkyKey, SelectionMarking> selection) {
+    var frontierCandidates = ImmutableList.builder();
+    var activeSet = ImmutableList.builder();
+    selection
+        .entrySet()
+        .forEach(
+            entry -> {
+              switch (entry.getValue()) {
+                case ACTIVE -> activeSet.add(entry.getKey().getCanonicalName());
+                case FRONTIER_CANDIDATE ->
+                    frontierCandidates.add(entry.getKey().getCanonicalName());
+              }
+            });
+    frontierCandidates.build().stream()
+        .sorted()
+        .forEach(k -> out.println("FRONTIER_CANDIDATE: " + k));
+    activeSet.build().stream().sorted().forEach(k -> out.println("ACTIVE: " + k));
+    out.flush();
   }
 
   @VisibleForTesting

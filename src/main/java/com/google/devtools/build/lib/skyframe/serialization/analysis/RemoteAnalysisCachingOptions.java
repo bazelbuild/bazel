@@ -46,6 +46,12 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
     /** Serializes and uploads Skyframe analysis nodes after the build command finishes. */
     UPLOAD,
 
+    /**
+     * Dumps the manifest of SkyKeys computed in the frontier and the active set. This mode does not
+     * serialize and upload the keys.
+     */
+    DUMP_UPLOAD_MANIFEST_ONLY,
+
     /** Fetches and deserializes the Skyframe analysis nodes during the build. */
     DOWNLOAD,
 

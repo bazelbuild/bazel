@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.skyframe.RemoteConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer.SelectionMarking;
+import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.errorprone.annotations.ForOverride;
@@ -616,6 +617,47 @@ active_directories = { "default": ["mytest"] }
         .isEqualTo(versionFromTest.getTopLevelConfigFingerprint());
     // Then assert that the whole thing is equal.
     assertThat(versionFromBuild).isEqualTo(versionFromTest);
+  }
+
+  @Test
+  public void dumpUploadManifestOnlyMode_writesManifestToStdOut() throws Exception {
+    setupScenarioWithConfiguredTargets();
+    addOptions("--experimental_remote_analysis_cache_mode=dump_upload_manifest_only");
+    write(
+        "foo/PROJECT.scl",
+        """
+active_directories = { "default": ["foo"] }
+""");
+    RecordingOutErr outErr = new RecordingOutErr();
+    this.outErr = outErr;
+
+    buildTarget("//foo:A");
+
+    // BuildConfigurationKey is omitted to avoid too much specificity.
+    var expected =
+        """
+FRONTIER_CANDIDATE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//bar:C,
+FRONTIER_CANDIDATE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//bar:E,
+FRONTIER_CANDIDATE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//bar:H,
+ACTIVE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//bar:F,
+ACTIVE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//foo:A,
+ACTIVE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//foo:A,
+ACTIVE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//foo:B,
+ACTIVE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//foo:D,
+ACTIVE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//foo:G,
+"""
+            .lines()
+            .collect(toImmutableList());
+
+    expected.forEach(line -> assertThat(outErr.outAsLatin1()).contains(line));
+    assertThat(outErr.outAsLatin1().lines()).hasSize(expected.size());
+
+    // Nothing serialized
+    assertThat(
+            getCommandEnvironment()
+                .getRemoteAnalysisCachingEventListener()
+                .getSerializedKeysCount())
+        .isEqualTo(0);
   }
 
   protected void setupScenarioWithConfiguredTargets() throws Exception {

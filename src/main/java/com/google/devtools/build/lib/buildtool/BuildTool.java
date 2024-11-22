@@ -862,12 +862,17 @@ public class BuildTool {
     }
 
     switch (options.mode) {
-      case UPLOAD -> {
-        uploadFrontier(activeDirectoriesMatcher, options);
-      }
-      case DOWNLOAD -> {
-        reportRemoteAnalysisCachingStats();
-      }
+      case UPLOAD ->
+          uploadFrontier(
+              activeDirectoriesMatcher,
+              options.serializedFrontierProfile,
+              /* dumpUploadManifestOnly= */ false);
+      case DUMP_UPLOAD_MANIFEST_ONLY ->
+          uploadFrontier(
+              activeDirectoriesMatcher,
+              options.serializedFrontierProfile,
+              /* dumpUploadManifestOnly= */ true);
+      case DOWNLOAD -> reportRemoteAnalysisCachingStats();
       case OFF -> {}
     }
   }
@@ -1262,7 +1267,8 @@ public class BuildTool {
 
   private void uploadFrontier(
       Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher,
-      RemoteAnalysisCachingOptions options)
+      String serializedFrontierProfile,
+      boolean dumpUploadManifestOnly)
       throws InterruptedException, AbruptExitException {
     try (SilentCloseable closeable = Profiler.instance().profile("serializeAndUploadFrontier")) {
       Optional<FailureDetail> maybeFailureDetail =
@@ -1272,7 +1278,8 @@ public class BuildTool {
               env.getSkyframeExecutor(),
               env.getReporter(),
               env.getEventBus(),
-              options.serializedFrontierProfile);
+              serializedFrontierProfile,
+              dumpUploadManifestOnly);
       if (maybeFailureDetail.isPresent()) {
         throw new AbruptExitException(DetailedExitCode.of(maybeFailureDetail.get()));
       }
