@@ -470,6 +470,54 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
   }
 
   @Test
+  public void enforceCanonicalConfigsExtraTestFlag_passes() throws Exception {
+    scratch.file(
+        "test/build_settings.bzl",
+        """
+string_flag = rule(implementation = lambda ctx: [], build_setting = config.string(flag = True))
+""");
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:build_settings.bzl", "string_flag")
+        string_flag(
+            name = "myflag",
+            build_setting_default = "default",
+        )
+        string_flag(
+            name = "starlark_flags_always_affect_configuration",
+            build_setting_default = "default",
+        )
+        """);
+    scratch.file(
+        "test/PROJECT.scl",
+        """
+        configs = {
+          "test_config": ['--//test:myflag=test_config_value'],
+          "other_config": ['--//test:myflag=other_config_value'],
+        }
+        supported_configs = {
+          "test_config": "User documentation for what this config means",
+        }
+        """);
+    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
+    BuildOptions buildOptions =
+        createBuildOptions("--test_filter=foo", "--cache_test_results=true", "--test_arg=blah");
+
+    FlagSetValue.Key key =
+        FlagSetValue.Key.create(
+            Label.parseCanonical("//test:PROJECT.scl"),
+            "test_config",
+            buildOptions,
+            /* userOptions= */ ImmutableMap.of(
+                "--test_filter=foo", "", "--cache_test_results=true", "", "--test_arg=blah", ""),
+            /* enforceCanonical= */ true);
+
+    var unused = executeFunction(key);
+    assertDoesNotContainEvent("--scl_config must be the only configuration-affecting flag");
+  }
+
+  @Test
   public void noEnforceCanonicalConfigsExtraFlag_passes() throws Exception {
     scratch.file(
         "test/build_settings.bzl",
@@ -822,7 +870,8 @@ This project supports:
   --scl_config=debug: build binaries for local debugging
   --scl_config=release: build binaries for product releases
 
-This policy is defined in test/PROJECT.scl.""");
+This policy is defined in test/PROJECT.scl.\
+""");
   }
 
   private FlagSetValue executeFunction(FlagSetValue.Key key) throws Exception {

@@ -24,6 +24,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.RepoContext;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -213,6 +214,9 @@ public final class FlagSetFunction implements SkyFunction {
         .map(Object::toString)
         .forEach(allOptionsAsStringsBuilder::add);
     for (FragmentOptions fragmentOptions : targetOptions.getNativeOptions()) {
+      if (fragmentOptions.getClass().equals(TestConfiguration.TestOptions.class)) {
+        continue;
+      }
       fragmentOptions.asMap().keySet().forEach(allOptionsAsStringsBuilder::add);
     }
     ImmutableList<String> allOptionsAsStrings = allOptionsAsStringsBuilder.build();
