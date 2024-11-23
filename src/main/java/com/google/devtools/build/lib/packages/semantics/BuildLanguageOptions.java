@@ -836,6 +836,14 @@ public final class BuildLanguageOptions extends OptionsBase {
       help = "If true, enable the set data type and set() constructor in Starlark.")
   public boolean experimentalEnableStarlarkSet;
 
+  @Option(
+      name = "internal_starlark_utf_8_byte_strings",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.HIDDEN})
+  public boolean internalStarlarkUtf8ByteStrings;
+
   /**
    * An interner to reduce the number of StarlarkSemantics instances. A single Blaze instance should
    * never accumulate a large number of these and being able to shortcut on object identity makes a
@@ -953,6 +961,9 @@ public final class BuildLanguageOptions extends OptionsBase {
                 incompatibleSimplifyUnconditionalSelectsInRuleAttrs)
             .setBool(
                 StarlarkSemantics.EXPERIMENTAL_ENABLE_STARLARK_SET, experimentalEnableStarlarkSet)
+            .setBool(
+                StarlarkSemantics.INTERNAL_BAZEL_ONLY_UTF_8_BYTE_STRINGS,
+                internalStarlarkUtf8ByteStrings)
             .build();
     return INTERNER.intern(semantics);
   }
