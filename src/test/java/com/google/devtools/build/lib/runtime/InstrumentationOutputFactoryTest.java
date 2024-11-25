@@ -129,15 +129,18 @@ public final class InstrumentationOutputFactoryTest extends BuildIntegrationTest
   }
 
   @Test
-  public void testInstrumentationOutputFactory_localRelativeToWorkspace() throws Exception {
+  public void testInstrumentationOutputFactory_localRelativePath(
+      @TestParameter({"WORKSPACE_OR_HOME", "WORKING_DIRECTORY_OR_HOME"})
+          DestinationRelativeTo relativeTo)
+      throws Exception {
     InstrumentationOutputFactory outputFactory = createInstrumentationOutputFactory();
 
     CommandEnvironment env = runtimeWrapper.newCommand();
     InstrumentationOutput output =
         outputFactory.createInstrumentationOutput(
-            /* name= */ "output-ws-relative",
-            PathFragment.create("workspace-output"),
-            DestinationRelativeTo.WORKSPACE_OR_HOME,
+            /* name= */ "output-relative",
+            PathFragment.create("relative-output"),
+            relativeTo,
             env,
             mock(EventHandler.class),
             /* append= */ null,
@@ -145,7 +148,11 @@ public final class InstrumentationOutputFactoryTest extends BuildIntegrationTest
 
     assertThat(output).isInstanceOf(LocalInstrumentationOutput.class);
     assertThat(((LocalInstrumentationOutput) output).getPath())
-        .isEqualTo(env.getWorkspace().getRelative("workspace-output"));
+        .isEqualTo(
+            (relativeTo.equals(DestinationRelativeTo.WORKSPACE_OR_HOME)
+                    ? env.getWorkspace()
+                    : env.getWorkingDirectory())
+                .getRelative("relative-output"));
   }
 
   @Test

@@ -69,9 +69,14 @@ public final class InstrumentationOutputFactory {
   }
 
   /** Defines types of directory the {@link InstrumentationOutput} path is relative to. */
+  // TODO: b/379723545 - Eventually, we want to deprecate WORKSPACE_OR_HOME and make path always
+  // relative to user's current working directory.
   public enum DestinationRelativeTo {
     /** Output is relative to the bazel workspace or user's home directory. */
     WORKSPACE_OR_HOME,
+
+    /** Output is relative to user's current working or home directory */
+    WORKING_DIRECTORY_OR_HOME,
 
     /** Output is relative to the {@code output_base} directory. */
     OUTPUT_BASE
@@ -117,14 +122,19 @@ public final class InstrumentationOutputFactory {
     }
 
     // Since PathFragmentConverter for flag value replaces prefixed `~/` with user's home path, the
-    // destination is either an absolute path or a path relative to output_base/workspace.
+    // destination path could be (1) an absolute path, or (2) a path relative to
+    // output_base/workspace/cwd.
+    Path localOutputPath =
+        (switch (destinationRelativeTo) {
+              case OUTPUT_BASE -> env.getOutputBase();
+              case WORKSPACE_OR_HOME -> env.getWorkspace();
+              case WORKING_DIRECTORY_OR_HOME -> env.getWorkingDirectory();
+            })
+            .getRelative(destination);
     return localInstrumentationOutputBuilderSupplier
         .get()
         .setName(name)
-        .setPath(
-            destinationRelativeTo.equals(DestinationRelativeTo.OUTPUT_BASE)
-                ? env.getOutputBase().getRelative(destination)
-                : env.getWorkspace().getRelative(destination))
+        .setPath(localOutputPath)
         .setAppend(append)
         .setInternal(internal)
         .build();
