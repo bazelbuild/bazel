@@ -76,8 +76,9 @@ function test_determinism()  {
     # Bazel supports this. Characters with a 4-byte UTF-8 encoding would cause
     # Java compilation to fail due to
     # https://bugs.openjdk.org/browse/JDK-8258246.
+    output_base_1="${TEST_TMPDIR}/ouäöüt 1"
     bazel \
-      --output_base="${TEST_TMPDIR}/ouäöüt 1" \
+      --output_base="${output_base_1}" \
       build \
       --extra_toolchains=@rules_python//python:autodetecting_toolchain \
       --enable_bzlmod \
@@ -87,16 +88,18 @@ function test_determinism()  {
       --nostamp \
       --verbose_failures \
       //src:bazel &> $TEST_log || fail "First build failed"
+    assert_exists "${output_base_1}/java.log"
     expect_not_log ERROR
     expect_not_log "Exception:"
     expect_not_log "Error:"
     hash_outputs >"${TEST_TMPDIR}/sum1"
 
     # Build Bazel twice.
+    output_base_2="${TEST_TMPDIR}/ouäöüt 2"
     bazel-bin/src/bazel \
       --bazelrc="${TEST_TMPDIR}/bazelrc" \
-      --install_base="${TEST_TMPDIR}/install_base2" \
-      --output_base="${TEST_TMPDIR}/ouäöüt 2" \
+      --install_base="${TEST_TMPDIR}/install_baseäöüt 2" \
+      --output_base="${output_base_2}" \
       build \
       --extra_toolchains=@rules_python//python:autodetecting_toolchain \
       --enable_bzlmod \
@@ -106,6 +109,7 @@ function test_determinism()  {
       --nostamp \
       --verbose_failures \
       //src:bazel &> $TEST_log || fail "Second build failed"
+    assert_exists "${output_base_2}/java.log"
     expect_not_log ERROR
     expect_not_log "Exception:"
     expect_not_log "Error:"
