@@ -13,21 +13,22 @@
 // limitations under the License.
 
 #include "src/main/cpp/option_processor.h"
-#include "src/main/cpp/option_processor-internal.h"
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
+
 #include <algorithm>
 #include <cassert>
 #include <iterator>
+#include <memory>
 #include <set>
 #include <sstream>
 #include <utility>
 
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
-#include "src/main/cpp/util/file.h"
+#include "src/main/cpp/option_processor-internal.h"
+#include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/path.h"
 #include "src/main/cpp/util/path_platform.h"
@@ -51,7 +52,6 @@ using std::set;
 using std::string;
 using std::vector;
 
-constexpr char WorkspaceLayout::WorkspacePrefix[];
 static constexpr const char* kRcBasename = ".bazelrc";
 
 OptionProcessor::OptionProcessor(
