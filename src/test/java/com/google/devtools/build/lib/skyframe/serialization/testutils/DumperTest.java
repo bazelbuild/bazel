@@ -19,14 +19,17 @@ import static com.google.devtools.build.lib.skyframe.serialization.testutils.Dum
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class DumperTest {
   private static final String NAMESPACE = DumperTest.class.getCanonicalName();
 
@@ -195,6 +198,61 @@ public final class DumperTest {
                 + "]");
   }
 
+  enum DeduplicationMode {
+    REFERENCE_DEDUPLICATION {
+      @Override
+      String dumpStructure(@Nullable ObjectCodecRegistry registry, Object obj) {
+        return Dumper.dumpStructure(registry, obj);
+      }
+    },
+    VALUE_DEDUPLICATION {
+      @Override
+      String dumpStructure(@Nullable ObjectCodecRegistry registry, Object obj) {
+        return Dumper.dumpStructureWithEquivalenceReduction(registry, obj);
+      }
+    };
+
+    abstract String dumpStructure(@Nullable ObjectCodecRegistry registry, Object obj);
+  }
+
+  @Test
+  public void dump_handlesReferenceConstants(@TestParameter DeduplicationMode mode) {
+    String subject = "constant";
+    var registry = ObjectCodecRegistry.newBuilder().addReferenceConstant(subject).build();
+    assertThat(mode.dumpStructure(registry, subject))
+        .isEqualTo("java.lang.String[SERIALIZATION_CONSTANT:1]");
+  }
+
+  @Test
+  public void dump_handlesReference_withoutReferenceConstant(
+      @TestParameter DeduplicationMode mode, @TestParameter boolean emptyRegistry) {
+    String subject = "constant";
+    ObjectCodecRegistry registry = emptyRegistry ? ObjectCodecRegistry.newBuilder().build() : null;
+    assertThat(mode.dumpStructure(registry, subject)).isEqualTo("constant");
+  }
+
+  @Test
+  public void dump_handlesMultipleReferenceConstants(@TestParameter DeduplicationMode mode) {
+    String constant1 = "constant1";
+    Integer constant2 = 256;
+    ObjectCodecRegistry registry =
+        ObjectCodecRegistry.newBuilder()
+            .addReferenceConstant(constant1)
+            .addReferenceConstant(constant2)
+            .build();
+    var subject = ImmutableList.of(constant1, "a", constant2, constant1);
+    assertThat(mode.dumpStructure(registry, subject))
+        .isEqualTo(
+            """
+com.google.common.collect.RegularImmutableList(0) [
+  java.lang.String[SERIALIZATION_CONSTANT:1]
+  a
+  java.lang.Integer[SERIALIZATION_CONSTANT:2]
+  java.lang.String[SERIALIZATION_CONSTANT:1]
+]\
+""");
+  }
+
   @SuppressWarnings({"UnusedVariable", "FieldCanBeStatic"})
   private static class ShadowedFields {
     private final int shadowed = 1;
@@ -347,7 +405,8 @@ com.google.common.collect.RegularImmutableList(0) [
     x=4
     y=5
   ]
-]""");
+]\
+""");
 
     // With equivalence reduction, the duplicate position is turned into a backreference.
     assertThat(dumpStructureWithEquivalenceReduction(subject))
@@ -359,7 +418,8 @@ com.google.common.collect.RegularImmutableList(0) [
     y=5
   ]
   com.google.devtools.build.lib.skyframe.serialization.testutils.DumperTest.Position(1)
-]""");
+]\
+""");
   }
 
   @Test
@@ -391,7 +451,8 @@ com.google.common.collect.RegularImmutableList(0) [
                   java.util.ArrayList(3)
                 ]
               ]
-            ]""");
+            ]\
+            """);
     // Equivalence reduction deduplicates the 2nd cycle.
     assertThat(dumpStructureWithEquivalenceReduction(subject))
         .isEqualTo(
@@ -403,7 +464,8 @@ com.google.common.collect.RegularImmutableList(0) [
                 ]
               ]
               java.util.ArrayList(1)
-            ]""");
+            ]\
+            """);
   }
 
   @Test
@@ -445,7 +507,8 @@ com.google.common.collect.RegularImmutableList(0) [
                   java.util.ArrayList(3)
                 ]
               ]
-            ]""");
+            ]\
+            """);
   }
 
   @Test
@@ -473,7 +536,8 @@ com.google.common.collect.RegularImmutableList(0) [
                 ]
               ]
               java.util.ArrayList(2)
-            ]""");
+            ]\
+            """);
   }
 
   /** An arbitrary class used as test data. */

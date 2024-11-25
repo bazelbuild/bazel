@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.skyframe.serialization.testutils.Fin
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.ClosedClassInfo;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.FieldInfo;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.ObjectInfo;
@@ -42,6 +43,9 @@ import javax.annotation.Nullable;
  * structures that would have an exponential path structure, for example, {@code NestedSets}.
  */
 public final class Dumper {
+  @Nullable // optionally used to lookup serialization constants
+  private final ObjectCodecRegistry registry;
+
   /**
    * Fingerprints for references.
    *
@@ -65,12 +69,11 @@ public final class Dumper {
 
   private final StringBuilder out = new StringBuilder();
 
-  private Dumper(IdentityHashMap<Object, String> fingerprints) {
+  private Dumper(
+      @Nullable ObjectCodecRegistry registry,
+      @Nullable IdentityHashMap<Object, String> fingerprints) {
+    this.registry = registry;
     this.fingerprints = fingerprints;
-  }
-
-  private Dumper() {
-    this(/* fingerprints= */ null);
   }
 
   /**
@@ -80,10 +83,14 @@ public final class Dumper {
    *
    * @return a multiline String representation of {@code obj} without a trailing newline
    */
-  public static String dumpStructure(Object obj) {
-    var deep = new Dumper();
+  public static String dumpStructure(@Nullable ObjectCodecRegistry registry, Object obj) {
+    var deep = new Dumper(registry, /* fingerprints= */ null);
     deep.outputObject(obj);
     return deep.out.toString();
+  }
+
+  public static String dumpStructure(Object obj) {
+    return dumpStructure(/* registry= */ null, obj);
   }
 
   /**
@@ -91,10 +98,15 @@ public final class Dumper {
    *
    * <p>Similar to {@link #dumpStructure} but applies fingerprint-based deduplication.
    */
-  public static String dumpStructureWithEquivalenceReduction(Object obj) {
-    var deep = new Dumper(computeFingerprints(obj));
+  public static String dumpStructureWithEquivalenceReduction(
+      @Nullable ObjectCodecRegistry registry, Object obj) {
+    var deep = new Dumper(registry, computeFingerprints(obj));
     deep.outputObject(obj);
     return deep.out.toString();
+  }
+
+  public static String dumpStructureWithEquivalenceReduction(Object obj) {
+    return dumpStructureWithEquivalenceReduction(/* registry= */ null, obj);
   }
 
   /** Formats an arbitrary object into {@link #out}. */
@@ -105,6 +117,17 @@ public final class Dumper {
     }
 
     var type = obj.getClass();
+
+    if (registry != null) {
+      Integer maybeConstantTag = registry.maybeGetTagForConstant(obj);
+      if (maybeConstantTag != null) {
+        out.append(getTypeName(type))
+            .append("[SERIALIZATION_CONSTANT:")
+            .append(maybeConstantTag)
+            .append("]");
+        return;
+      }
+    }
 
     if (WeakReference.class.isAssignableFrom(type)) {
       // A WeakReference is always be deserialized with empty referents. No information other than
