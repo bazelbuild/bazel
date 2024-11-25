@@ -83,7 +83,7 @@ genrule(
         "MODULE.bazel",
         "//third_party/remoteapis:MODULE.bazel",
         "//third_party:BUILD",
-        "//third_party:rules_jvm_external_6.0.patch",
+        "//third_party:rules_jvm_external_6.5.patch",
         "//third_party:rules_graalvm_fix.patch",
     ],
     outs = ["MODULE.bazel.lock.dist"],
