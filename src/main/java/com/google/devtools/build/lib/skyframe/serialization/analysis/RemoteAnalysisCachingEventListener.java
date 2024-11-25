@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.HashMultiset;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multiset;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
@@ -75,6 +76,10 @@ public class RemoteAnalysisCachingEventListener {
   /** Returns the count of serialized nodes of this invocation. */
   public int getSerializedKeysCount() {
     return serializedKeys.size();
+  }
+
+  public Set<SkyKey> getSerializedKeys() {
+    return ImmutableSet.copyOf(serializedKeys);
   }
 
   @ThreadSafe

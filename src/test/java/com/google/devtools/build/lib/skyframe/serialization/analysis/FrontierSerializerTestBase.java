@@ -18,6 +18,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.cmdline.Label.parseCanonicalUnchecked;
+import static java.util.stream.Collectors.joining;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeTrue;
 
@@ -25,10 +26,12 @@ import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.buildtool.BuildTool;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.runtime.commands.CqueryCommand;
@@ -45,6 +48,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.errorprone.annotations.ForOverride;
 import com.google.perftools.profiles.ProfileProto.Profile;
 import com.google.protobuf.ExtensionRegistry;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
@@ -698,6 +702,216 @@ filegroup(name = "E", srcs = [":I"])
 filegroup(name = "F", srcs = ["//foo:G"])
 filegroup(name = "H")
 filegroup(name = "I")
+""");
+  }
+
+  protected static <T> ImmutableSet<T> filterKeys(Set<SkyKey> from, Class<? extends T> klass) {
+    return from.stream().filter(klass::isInstance).map(klass::cast).collect(toImmutableSet());
+  }
+
+  protected static ImmutableSet<Label> getLabels(Set<ActionLookupKey> from) {
+    return from.stream().map(ActionLookupKey::getLabel).collect(toImmutableSet());
+  }
+
+  protected static ImmutableSet<Label> getOwningLabels(Set<ActionLookupData> from) {
+    return from.stream()
+        .map(data -> data.getActionLookupKey().getLabel())
+        .collect(toImmutableSet());
+  }
+
+  @Test
+  public void actionLookupKey_ownedByActiveSetAndUnderFrontier_areNotUploaded() throws Exception {
+    setupGenruleGraph();
+    addOptions("--experimental_remote_analysis_cache_mode=upload");
+    buildTarget("//A");
+    var serializedKeys =
+        getCommandEnvironment().getRemoteAnalysisCachingEventListener().getSerializedKeys();
+    ImmutableSet<Label> labels = getLabels(filterKeys(serializedKeys, ActionLookupKey.class));
+
+    // Active set
+    assertThat(labels).doesNotContain(parseCanonicalUnchecked("//A"));
+
+    // Frontier
+    assertThat(labels)
+        .containsAtLeast(
+            parseCanonicalUnchecked("//C:C.txt"), // output file CT
+            parseCanonicalUnchecked("//E"));
+
+    // Under the frontier
+    assertThat(labels).doesNotContain(parseCanonicalUnchecked("//C"));
+    assertThat(labels).doesNotContain(parseCanonicalUnchecked("//D"));
+
+    // Different top level target
+    assertThat(labels).doesNotContain(parseCanonicalUnchecked("//B"));
+  }
+
+  @Test
+  public void frontierSelectionSucceeds_forTopLevelGenruleConfiguredTargetWithUniqueName()
+      throws Exception {
+    setupGenruleGraph();
+    write(
+        "A/BUILD",
+        """
+        genrule(
+            name = "copy_of_A", # renamed
+            srcs = ["in.txt", "//C:C.txt", "//E"],
+            outs = ["A"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+    addOptions("--experimental_remote_analysis_cache_mode=upload");
+    buildTarget("//A");
+    var serializedKeys =
+        getCommandEnvironment().getRemoteAnalysisCachingEventListener().getSerializedKeys();
+    ImmutableSet<Label> labels = getLabels(filterKeys(serializedKeys, ActionLookupKey.class));
+
+    // Active set
+    assertThat(labels).doesNotContain(parseCanonicalUnchecked("//A"));
+    assertThat(labels).doesNotContain(parseCanonicalUnchecked("//A:copy_of_A"));
+    assertThat(labels).doesNotContain(parseCanonicalUnchecked("//A:in.txt"));
+
+    // Frontier
+    assertThat(labels)
+        .containsAtLeast(parseCanonicalUnchecked("//C:C.txt"), parseCanonicalUnchecked("//E"));
+
+    // Under the frontier
+    assertThat(labels).doesNotContain(parseCanonicalUnchecked("//C"));
+    assertThat(labels).doesNotContain(parseCanonicalUnchecked("//D"));
+
+    // Different top level target
+    assertThat(labels).doesNotContain(parseCanonicalUnchecked("//B"));
+  }
+
+  @Test
+  public void dumpUploadManifestOnlyMode_forTopLevelGenruleConfiguredTarget() throws Exception {
+    setupGenruleGraph();
+    write(
+        "A/BUILD",
+        """
+        genrule(
+            name = "copy_of_A",
+            srcs = ["in.txt", "//C:C.txt", "//E"],
+            outs = ["A"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+
+    addOptions("--experimental_remote_analysis_cache_mode=dump_upload_manifest_only");
+
+    RecordingOutErr outErr = new RecordingOutErr();
+    this.outErr = outErr;
+
+    buildTarget("//A");
+
+    // Note that there are two //A:A - one each for target and exec configuration. The
+    // BuildConfigurationKey is omitted because it's too specific, but we test for the
+    // exact number of entries in the manifest later, so the two //A:A configured targets will be
+    // counted correctly.
+    var expectedActiveSet =
+        """
+ACTIVE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//A:copy_of_A, config=
+ACTIVE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//A:A, config=
+ACTIVE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//A:A, config=
+ACTIVE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//A:in.txt, config=null}
+"""
+            .lines()
+            .collect(toImmutableList());
+
+    var actualActiveSet =
+        outErr.outAsLatin1().lines().filter(l -> l.startsWith("ACTIVE:")).collect(joining("\n"));
+
+    expectedActiveSet.forEach(line -> assertThat(actualActiveSet).contains(line));
+
+    assertThat(actualActiveSet.lines()).hasSize(expectedActiveSet.size());
+  }
+
+  @Test
+  public void actionLookupData_ownedByActiveSet_areNotUploaded() throws Exception {
+    setupGenruleGraph();
+    addOptions("--experimental_remote_analysis_cache_mode=upload");
+    buildTarget("//A");
+    var serializedKeys =
+        getCommandEnvironment().getRemoteAnalysisCachingEventListener().getSerializedKeys();
+    var actionLookupDatas = filterKeys(serializedKeys, ActionLookupData.class);
+    var owningLabels = getOwningLabels(actionLookupDatas);
+
+    // Active set
+    assertThat(owningLabels).doesNotContain(parseCanonicalUnchecked("//A"));
+
+    // Frontier
+    assertThat(owningLabels)
+        .containsAtLeast(parseCanonicalUnchecked("//C"), parseCanonicalUnchecked("//E"));
+
+    // Under the frontier
+    assertThat(owningLabels).contains(parseCanonicalUnchecked("//D"));
+
+    // Different top level target
+    assertThat(owningLabels).doesNotContain(parseCanonicalUnchecked("//B"));
+  }
+
+  protected final void setupGenruleGraph() throws IOException {
+    // /--> E
+    // A -> C -> D
+    // B ---^
+    write("A/in.txt", "A");
+    write(
+        "A/BUILD",
+        """
+        genrule(
+            name = "A",
+            srcs = ["in.txt", "//C:C.txt", "//E"],
+            outs = ["A"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+    write("B/in.txt", "B");
+    write(
+        "B/BUILD",
+        """
+        genrule(
+            name = "B",
+            srcs = ["in.txt", "//C:C.txt"],
+            outs = ["B"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+    write("C/in.txt", "C");
+    write(
+        "C/BUILD",
+        """
+        genrule(
+            name = "C",
+            srcs = ["in.txt", "//D:D.txt"],
+            outs = ["C.txt"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+    write("D/in.txt", "D");
+    write(
+        "D/BUILD",
+        """
+        genrule(
+            name = "D",
+            srcs = ["in.txt"],
+            outs = ["D.txt"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+    write("E/in.txt", "E");
+    write(
+        "E/BUILD",
+        """
+        genrule(
+            name = "E",
+            srcs = ["in.txt"],
+            outs = ["E.txt"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+    write(
+        "A/PROJECT.scl",
+        """
+active_directories = {"default": ["A"]}
 """);
   }
 }

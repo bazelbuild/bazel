@@ -11,6 +11,7 @@ java_library(
     srcs = ["FrontierSerializerTestBase.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -26,6 +27,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
@@ -37,6 +39,7 @@ java_library(
 java_test(
     name = "FrontierSerializerTest",
     srcs = ["FrontierSerializerTest.java"],
+    tags = ["no_windows"],  # b/380393822 - disable until PathFragmentPrefixTrie handles windows correctly.
     deps = [
         ":FrontierSerializerTestBase",
         "//src/main/java/com/google/devtools/build/lib:runtime",

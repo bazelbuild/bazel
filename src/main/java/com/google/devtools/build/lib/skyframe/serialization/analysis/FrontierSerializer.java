@@ -132,9 +132,22 @@ public final class FrontierSerializer {
             return;
           }
 
+          // Filter for ActionExecutionValues owned by active analysis nodes and skip them, because
+          // they should be evaluated locally.
+          if (key instanceof ActionLookupData ald) {
+            switch (selection.get(ald.getActionLookupKey())) {
+              case ACTIVE: // Active set. Always evaluated locally.
+                return;
+              case FRONTIER_CANDIDATE:
+              case null:
+                // null / under the frontier: still necessary as inputs to nested sets / actions,
+                // and the parent ActionLookupKey might not be available..
+                break;
+            }
+          }
+
           // TODO: b/371508153 - only upload nodes that were freshly computed by this invocation and
           // unaffected by local, un-submitted changes.
-
           try {
             SerializationResult<ByteString> keyBytes =
                 codecs.serializeMemoizedAndBlocking(fingerprintValueService, key, profileCollector);
@@ -269,7 +282,7 @@ public final class FrontierSerializer {
               // are never built by Skyframe directly, and the function will return
               // ActionLookupData as the canonical key for those artifacts instead.
               SkyKey aKey = Artifact.key(key);
-              if (Artifact.key(key) instanceof ActionLookupData) {
+              if (aKey instanceof ActionLookupData) {
                 // Already handled in the ActionLookupData switch case above.
                 return;
               }
@@ -314,7 +327,7 @@ public final class FrontierSerializer {
     }
 
     for (SkyKey dep : node.getDirectDeps()) {
-      if (!(dep instanceof ActionLookupKey child)) {
+      if (!(dep instanceof ActionLookupKey actionLookupKey)) {
         continue;
       }
 
@@ -329,8 +342,8 @@ public final class FrontierSerializer {
       //
       // In all cases, frontier candidates will never include nodes in the active directories. This
       // is enforced after selection completes.
-      if (child.getLabel() != null) {
-        selection.putIfAbsent(child, FRONTIER_CANDIDATE);
+      if (actionLookupKey.getLabel() != null) {
+        selection.putIfAbsent(actionLookupKey, FRONTIER_CANDIDATE);
       }
     }
     for (SkyKey rdep : node.getReverseDepsForDoneEntry()) {
