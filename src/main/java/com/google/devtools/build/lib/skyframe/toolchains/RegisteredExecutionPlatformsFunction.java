@@ -79,7 +79,7 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
     StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     BuildConfigurationValue configuration =
         (BuildConfigurationValue)
-            env.getValue(((RegisteredExecutionPlatformsValue.Key) skyKey).getConfigurationKey());
+            env.getValue(((RegisteredExecutionPlatformsValue.Key) skyKey).configurationKey());
     RepositoryMappingValue mainRepoMapping =
         (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
     if (env.valuesMissing()) {

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe.toolchains;
 
 import static java.util.Objects.requireNonNull;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
@@ -69,7 +70,7 @@ public record RegisteredExecutionPlatformsValue(
       return SkyFunctions.REGISTERED_EXECUTION_PLATFORMS;
     }
 
-    BuildConfigurationKey getConfigurationKey() {
+    BuildConfigurationKey configurationKey() {
       return configurationKey;
     }
 
@@ -84,6 +85,13 @@ public record RegisteredExecutionPlatformsValue(
     @Override
     public int hashCode() {
       return configurationKey.hashCode();
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper("RegisteredExecutionPlatformsValue.Key")
+          .add("configurationKey", configurationKey())
+          .toString();
     }
 
     @Override
