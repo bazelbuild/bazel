@@ -93,14 +93,9 @@ public final class Json implements StarlarkValue {
               + "</ul>\n"
               + "An application-defined type may define its own JSON encoding.\n"
               + "Encoding any other value yields an error.\n",
-      parameters = {@Param(name = "x")},
-      useStarlarkThread = true)
-  public String encode(Object x, StarlarkThread starlarkThread) throws EvalException {
-    Encoder enc =
-        new Encoder(
-            starlarkThread
-                .getSemantics()
-                .getBool(StarlarkSemantics.INTERNAL_BAZEL_ONLY_UTF_8_BYTE_STRINGS));
+      parameters = {@Param(name = "x")})
+  public String encode(Object x) throws EvalException {
+    Encoder enc = new Encoder();
     try {
       enc.encode(x);
     } catch (StackOverflowError unused) {
@@ -112,11 +107,6 @@ public final class Json implements StarlarkValue {
   private static final class Encoder {
 
     private final StringBuilder out = new StringBuilder();
-    private final boolean utf8ByteStrings;
-
-    public Encoder(boolean utf8ByteStrings) {
-      this.utf8ByteStrings = utf8ByteStrings;
-    }
 
     private void encode(Object x) throws EvalException {
       if (x == Starlark.NONE) {
@@ -680,7 +670,7 @@ public final class Json implements StarlarkValue {
       useStarlarkThread = true)
   public String encodeIndent(Object x, String prefix, String indent, StarlarkThread starlarkThread)
       throws EvalException {
-    return indent(encode(x, starlarkThread), prefix, indent);
+    return indent(encode(x), prefix, indent);
   }
 
   private static final class Indenter {
