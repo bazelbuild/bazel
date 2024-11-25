@@ -276,30 +276,31 @@ public final class StarlarkFunction implements StarlarkCallable {
     int nparams = numOrdinaryParams + getNumKeywordOnlyParameters();
 
     // Too many positional args?
-    int n = positional.length;
-    if (n > numOrdinaryParams) {
+    int positionalCount = positional.length;
+    if (positionalCount > numOrdinaryParams) {
       if (!rfn.hasVarargs()) {
         if (numOrdinaryParams > 0) {
           throw Starlark.errorf(
               "%s() accepts no more than %d positional argument%s but got %d",
-              getName(), numOrdinaryParams, plural(numOrdinaryParams), n);
+              getName(), numOrdinaryParams, plural(numOrdinaryParams), positionalCount);
         } else {
           throw Starlark.errorf(
-              "%s() does not accept positional arguments, but got %d", getName(), n);
+              "%s() does not accept positional arguments, but got %d", getName(), positionalCount);
         }
       }
-      n = numOrdinaryParams;
+      positionalCount = numOrdinaryParams;
     }
     // Inv: n is number of positional arguments that are not surplus.
 
     // Bind positional arguments to non-kwonly parameters.
-    for (int i = 0; i < n; i++) {
+    for (int i = 0; i < positionalCount; i++) {
       locals[i] = positional[i];
     }
 
     // Bind surplus positional arguments to *args parameter.
     if (rfn.hasVarargs()) {
-      locals[nparams] = Tuple.wrap(Arrays.copyOfRange(positional, n, positional.length));
+      locals[nparams] =
+          Tuple.wrap(Arrays.copyOfRange(positional, positionalCount, positional.length));
     }
 
     List<String> unexpected = null;
@@ -358,7 +359,7 @@ public final class StarlarkFunction implements StarlarkCallable {
     int m = nparams - defaultValues.size(); // first default
     List<String> missingPositional = null;
     List<String> missingKwonly = null;
-    for (int i = n; i < nparams; i++) {
+    for (int i = positionalCount; i < nparams; i++) {
       // provided?
       if (locals[i] != null) {
         continue;
