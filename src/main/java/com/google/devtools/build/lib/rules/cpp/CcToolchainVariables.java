@@ -285,7 +285,9 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
   private static final Object NULL_MARKER = new Object();
 
   // Values in this cache are either VariableValue, String error message, or NULL_MARKER.
-  private Map<String, Object> structuredVariableCache;
+  //
+  // It is initialized lazily.
+  private transient volatile Map<String, Object> structuredVariableCache;
 
   /**
    * Retrieves a {@link StringSequence} variable named {@code variableName} from {@code variables}
@@ -342,7 +344,11 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
 
     if (structuredVariableCache == null) {
-      structuredVariableCache = Maps.newConcurrentMap();
+      synchronized (this) {
+        if (structuredVariableCache == null) {
+          structuredVariableCache = Maps.newConcurrentMap();
+        }
+      }
     }
 
     Object variableOrError = structuredVariableCache.get(name);
