@@ -13,9 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands.info;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-
 import com.google.devtools.build.lib.runtime.InfoItem;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.io.OutErr;
 import java.io.IOException;
 
@@ -30,9 +29,12 @@ class StdoutInfoItemHandler implements InfoItemHandler {
   @Override
   public void addInfoItem(String key, byte[] value, boolean printKey) throws IOException {
     if (printKey) {
-      outErr.getOutputStream().write((key + ": ").getBytes(UTF_8));
+      outErr.getOutputStream().write(StringUnsafe.getInstance().getInternalStringBytes(key));
+      outErr.getOutputStream().write(':');
+      outErr.getOutputStream().write(' ');
     }
     outErr.getOutputStream().write(value);
+    outErr.getOutputStream().write('\n');
   }
 
   @Override

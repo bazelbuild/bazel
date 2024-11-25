@@ -24,7 +24,6 @@ import com.google.common.base.Strings;
 import com.google.common.io.CountingOutputStream;
 import com.google.common.net.InetAddresses;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InterruptedIOException;
@@ -524,11 +523,15 @@ public final class SimpleLogHandler extends Handler {
       return builderValue;
     }
 
+    // .properties files are read as Latin-1 by java.util.Properties, with Unicode escape sequences
+    // interpreted. Since the Bazel client passes path properties as UTF-8 without escaping,
+    // configuredValue already contains a string in Bazel's internal string encoding (see
+    // StringEncoding).
     String configuredValue =
         LogManager.getLogManager()
             .getProperty(SimpleLogHandler.class.getName() + "." + configuredName);
     if (configuredValue != null) {
-      return parse.apply(StringEncoding.unicodeToInternal(configuredValue));
+      return parse.apply(configuredValue);
     }
     return fallbackValue;
   }
@@ -695,7 +698,7 @@ public final class SimpleLogHandler extends Handler {
       }
     }
 
-    return new File(StringEncoding.internalToPlatform(sb.toString())).getAbsoluteFile().toPath();
+    return Path.of(StringEncoding.internalToPlatform(sb.toString())).toAbsolutePath();
   }
 
   /**
@@ -718,7 +721,8 @@ public final class SimpleLogHandler extends Handler {
 
   private static final class Output {
     /** Log file currently in use. */
-    @Nullable private File file;
+    @Nullable private Path file;
+
     /** Output stream for {@link #file} which counts the number of bytes written. */
     @Nullable private CountingOutputStream stream;
     /** Writer for {@link #stream}. */
@@ -733,11 +737,11 @@ public final class SimpleLogHandler extends Handler {
      *
      * @throws IOException if the file could not be opened
      */
-    public void open(String path) throws IOException {
+    public void open(Path file) throws IOException {
       try {
         close();
-        file = new File(StringEncoding.internalToPlatform(path));
-        stream = new CountingOutputStream(new FileOutputStream(file, true));
+        this.file = file;
+        stream = new CountingOutputStream(new FileOutputStream(file.toFile(), true));
         writer = new OutputStreamWriter(stream, ISO_8859_1);
       } catch (IOException e) {
         close();
@@ -751,7 +755,7 @@ public final class SimpleLogHandler extends Handler {
      * @throws NullPointerException if not open
      */
     public Path getPath() {
-      return file.toPath();
+      return file;
     }
 
     /**
@@ -825,7 +829,8 @@ public final class SimpleLogHandler extends Handler {
 
       try {
         output.open(
-            baseFilePath + timestampFormat.format(Date.from(Instant.now(clock))) + extension);
+            Path.of(
+                baseFilePath + timestampFormat.format(Date.from(Instant.now(clock))) + extension));
         output.write(getFormatter().getHead(this));
       } catch (IOException e) {
         try {

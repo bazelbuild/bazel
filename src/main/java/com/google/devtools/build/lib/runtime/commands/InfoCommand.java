@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.runtime.commands;
 
 import static com.google.devtools.build.lib.runtime.Command.BuildPhase.NONE;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
