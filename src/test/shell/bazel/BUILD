@@ -874,7 +874,7 @@ sh_test(
     data = [
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
-        "@local_jdk//:jdk",  # for remote_helpers setup_localjdk_javabase
+        "@local_jdk//:jdk",
     ],
     shard_count = 10,
     tags = [

@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.authandtls;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.auth.Credentials;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -56,7 +58,7 @@ public class NetrcCredentials extends Credentials {
     Credential credential = netrc.getCredential(uri.getHost());
     if (credential != null) {
       String token =
-          BasicHttpAuthenticationEncoder.encode(credential.login(), credential.password());
+          BasicHttpAuthenticationEncoder.encode(credential.login(), credential.password(), UTF_8);
       return ImmutableMap.of("Authorization", ImmutableList.of(token));
     } else {
       return ImmutableMap.of();

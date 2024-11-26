@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.repository.starlark;
 
-import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Maps;
@@ -38,6 +38,7 @@ import java.util.Map;
 import java.util.Set;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkValue;
 
 /**
@@ -181,14 +182,14 @@ final class StarlarkExecutionResult implements StarlarkValue {
 
     private static String toString(ByteArrayOutputStream stream) {
       try {
-        return stream.toString(ISO_8859_1);
+        return new String(stream.toByteArray(), UTF_8);
       } catch (IllegalStateException e) {
         return "";
       }
     }
 
-    /** Execute the command specified by {@link #addArguments}. */
-    StarlarkExecutionResult execute() throws InterruptedException {
+    /** Execute the command specified by {@link #addArguments(Iterable)}. */
+    StarlarkExecutionResult execute() throws EvalException, InterruptedException {
       Preconditions.checkArgument(timeout > 0, "Timeout must be set prior to calling execute().");
       Preconditions.checkArgument(!args.isEmpty(), "No command specified.");
       Preconditions.checkState(!executed, "Command was already executed, cannot re-use builder.");
