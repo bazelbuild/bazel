@@ -352,26 +352,22 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
       Spawn spawn, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
     ExecutionPolicy executionPolicy = getExecutionPolicy.apply(spawn);
-
+    Spawn postProcessingSpawn = getExtraSpawnForLocalExecution.apply(spawn).orElse(null);
     DynamicStrategyRegistry dynamicStrategyRegistry =
         actionExecutionContext.getContext(DynamicStrategyRegistry.class);
-    boolean localCanExec =
-        canExecLocal(spawn, executionPolicy, actionExecutionContext, dynamicStrategyRegistry)
-            &&
-            // We need to make sure that the post-processing spawn is also executable in local.
-            // When the returned Optional object contains no Spawn, we consider it as executable in
-            // local.
-            getExtraSpawnForLocalExecution
-                .apply(spawn)
-                .map(
-                    s ->
-                        canExecLocal(
-                            s,
-                            getExecutionPolicy.apply(s),
-                            actionExecutionContext,
-                            dynamicStrategyRegistry))
-                .orElse(true);
 
+    boolean spawnLocalCanExec =
+        canExecLocal(spawn, executionPolicy, actionExecutionContext, dynamicStrategyRegistry);
+    boolean postProcessingSpawnLocalCanExec =
+        postProcessingSpawn == null
+            || canExecLocal(
+                postProcessingSpawn,
+                getExecutionPolicy.apply(postProcessingSpawn),
+                actionExecutionContext,
+                dynamicStrategyRegistry);
+    // To declare a spawn being executable in local, we need to make sure that the post-processing
+    // spawn is also executable in local.
+    boolean localCanExec = spawnLocalCanExec && postProcessingSpawnLocalCanExec;
     boolean remoteCanExec =
         canExecRemote(spawn, executionPolicy, actionExecutionContext, dynamicStrategyRegistry);
 
