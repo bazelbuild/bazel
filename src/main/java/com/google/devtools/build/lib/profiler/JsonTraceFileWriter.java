@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler;
 
-import static java.nio.charset.StandardCharsets.ISO_8859_1;
-
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.profiler.Profiler.TaskData;
@@ -23,6 +21,7 @@ import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
@@ -224,9 +223,8 @@ class JsonTraceFileWriter implements Runnable {
       try (JsonWriter writer =
           new JsonWriter(
               // The buffer size of 262144 is chosen at random.
-              // Bazel internally stores strings as raw bytes encoded in ISO_8859_1, so we use the
-              // same encoding here to also write out raw bytes.
-              new OutputStreamWriter(new BufferedOutputStream(outStream, 262144), ISO_8859_1))) {
+              new OutputStreamWriter(
+                  new BufferedOutputStream(outStream, 262144), StandardCharsets.UTF_8))) {
         var startDate = Instant.now();
         writer.beginObject();
         writer.name("otherData");

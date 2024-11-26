@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.authandtls;
 
 import static com.google.common.base.Predicates.not;
-import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 import com.google.common.base.Strings;
@@ -77,7 +77,7 @@ public class NetrcParser {
     private final Queue<Token> tokens = new ArrayDeque<>();
 
     TokenStream(InputStream inputStream) throws IOException {
-      bufferedReader = new BufferedReader(new InputStreamReader(inputStream, ISO_8859_1));
+      bufferedReader = new BufferedReader(new InputStreamReader(inputStream, UTF_8));
       processLine();
     }
 
@@ -183,7 +183,8 @@ public class NetrcParser {
     while (!done && tokenStream.hasNext()) {
       // Peek rather than taking next token since we probably won't process it
       Token token = tokenStream.peek();
-      if (token instanceof ItemToken(String item)) {
+      if (token instanceof ItemToken itemToken) {
+        String item = itemToken.item();
         switch (item) {
           case LOGIN -> {
             tokenStream.next();

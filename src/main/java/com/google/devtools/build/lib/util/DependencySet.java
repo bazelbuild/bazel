@@ -14,16 +14,14 @@
 
 package com.google.devtools.build.lib.util;
 
-import static java.nio.charset.StandardCharsets.ISO_8859_1;
-
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -148,7 +146,7 @@ public final class DependencySet {
           // keep scanning.  We do this to cope with "foo.o : \" which is
           // valid Makefile syntax produced by the cuda compiler.
           if (sawTarget && w > 0) {
-            addDependency(new String(content, 0, w, ISO_8859_1));
+            addDependency(new String(content, 0, w, StandardCharsets.UTF_8));
             w = 0;
           }
           continue;
@@ -162,7 +160,7 @@ public final class DependencySet {
           // (Arguably if !sawTarget && w > 0 we should report an error,
           // as that suggests the .d file is malformed.)
           if (sawTarget && w > 0) {
-            addDependency(new String(content, 0, w, ISO_8859_1));
+            addDependency(new String(content, 0, w, StandardCharsets.UTF_8));
           }
           w = 0;
           sawTarget = false; // reset for new line
@@ -176,7 +174,7 @@ public final class DependencySet {
             case '\n':
             case '\r':
               if (w > 0) {
-                outputFileName = new String(content, 0, w, ISO_8859_1);
+                outputFileName = new String(content, 0, w, StandardCharsets.UTF_8);
                 w = 0;
                 sawTarget = true;
               }
@@ -272,7 +270,11 @@ public final class DependencySet {
         return path;
       }
       if (n >= 2 && isAsciiLetter(path.charAt(1)) && (n == 2 || path.charAt(2) == '/')) {
-        return Ascii.toUpperCase(path.charAt(1)) + ":/" + path.substring(2);
+        StringBuilder sb = new StringBuilder(path.length());
+        sb.append(Character.toUpperCase(path.charAt(1)));
+        sb.append(":/");
+        sb.append(path, 2, path.length());
+        return sb.toString();
       } else {
         String unixRoot = getUnixRoot();
         return unixRoot + path;
@@ -308,7 +310,7 @@ public final class DependencySet {
     @Nullable
     private static String determineUnixRoot(String jvmArgName) {
       // Get the path from a JVM flag, if specified.
-      String path = StringEncoding.platformToInternal(System.getProperty(jvmArgName));
+      String path = System.getProperty(jvmArgName);
       if (path == null) {
         return null;
       }

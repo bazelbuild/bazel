@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.bazel.repository.starlark;
 
-import static java.nio.charset.StandardCharsets.ISO_8859_1;
-
 import com.github.difflib.patch.PatchFailedException;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.annot.DocCategory;
@@ -49,6 +47,7 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.InvalidPathException;
 import java.util.HashMap;
 import java.util.Map;
@@ -323,16 +322,14 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
     try {
       checkInOutputDirectory("write", p);
       makeDirectories(p.getPath());
-      // Read and write files as raw bytes by using the Latin-1 encoding, which matches the encoding
-      // used by Bazel for strings.
-      String tpl = FileSystemUtils.readContent(t.getPath(), ISO_8859_1);
+      String tpl = FileSystemUtils.readContent(t.getPath(), StandardCharsets.UTF_8);
       for (Map.Entry<String, String> substitution : substitutionMap.entrySet()) {
         tpl =
             StringUtilities.replaceAllLiteral(tpl, substitution.getKey(), substitution.getValue());
       }
       p.getPath().delete();
       try (OutputStream stream = p.getPath().getOutputStream()) {
-        stream.write(tpl.getBytes(ISO_8859_1));
+        stream.write(tpl.getBytes(StandardCharsets.UTF_8));
       }
       if (executable) {
         p.getPath().setExecutable(true);

@@ -19,7 +19,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
-import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
@@ -69,6 +68,8 @@ import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OsUtils;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -915,20 +916,29 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     assertThat(action.makeExecutable()).isFalse();
   }
 
+  /**
+   * Simulates the fact that the Parser currently uses Latin1 to read BUILD files, while users
+   * usually write those files using UTF-8 encoding. Currently, the string-valued 'substitutions'
+   * parameter of the template_action function contains a hack that assumes its input is a UTF-8
+   * encoded string which has been ingested as Latin 1. The hack converts the string to its
+   * "correct" UTF-8 value. Once Blaze starts calling {@link
+   * net.starlark.java.syntax.ParserInput#fromUTF8} instead of {@code fromLatin1} and the hack for
+   * the substitutions parameter is removed, this test will fail.
+   */
   @Test
-  public void testCreateTemplateActionUnicode() throws Exception {
+  public void testCreateTemplateActionWithWrongEncoding() throws Exception {
     // The following array contains bytes that represent a string of length two when treated as
     // UTF-8 and a string of length four when treated as ISO-8859-1 (a.k.a. Latin 1).
-    String internalString =
-        new String(new byte[] {(byte) 0xC2, (byte) 0xA2, (byte) 0xC2, (byte) 0xA2}, ISO_8859_1);
+    byte[] bytesToDecode = {(byte) 0xC2, (byte) 0xA2, (byte) 0xC2, (byte) 0xA2};
+    Charset latin1 = StandardCharsets.ISO_8859_1;
+    Charset utf8 = StandardCharsets.UTF_8;
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
-    // In production, Bazel parses Starlark as raw bytes encoded as Latin-1.
     ev.exec(
         "ruleContext.actions.expand_template(",
         "  template = ruleContext.files.srcs[0],",
         "  output = ruleContext.files.srcs[1],",
-        "  substitutions = {'a" + internalString + "': '" + internalString + "'},",
+        "  substitutions = {'a': '" + new String(bytesToDecode, latin1) + "'},",
         "  is_executable = False)");
     TemplateExpansionAction action =
         (TemplateExpansionAction)
@@ -936,8 +946,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
     List<Substitution> substitutions = action.getSubstitutions();
     assertThat(substitutions).hasSize(1);
-    assertThat(substitutions.get(0).getKey()).isEqualTo("a" + internalString);
-    assertThat(substitutions.get(0).getValue()).isEqualTo(internalString);
+    assertThat(substitutions.get(0).getValue()).isEqualTo(new String(bytesToDecode, utf8));
   }
 
   @Test
