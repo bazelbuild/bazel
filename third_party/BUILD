@@ -1,7 +1,6 @@
 load("@rules_java//java:defs.bzl", "java_import", "java_library", "java_plugin")
 load("@rules_license//rules:license.bzl", "license")
 load("//tools/distributions:distribution_rules.bzl", "distrib_jar_filegroup", "distrib_java_import")
-load(":compiler_config_setting.bzl", "create_compiler_config_setting")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -656,26 +655,6 @@ filegroup(
     ],
 )
 
-create_compiler_config_setting(
-    name = "windows_mingw",
-    value = "windows_mingw",
-)
-
-create_compiler_config_setting(
-    name = "windows_msys64",
-    value = "windows_msys64",
-)
-
-create_compiler_config_setting(
-    name = "windows_msys64_mingw64",
-    value = "windows_msys64_mingw64",
-)
-
-create_compiler_config_setting(
-    name = "windows_clang",
-    value = "windows_clang",
-)
-
 config_setting(
     name = "k8",
     values = {"host_cpu": "k8"},
@@ -714,12 +693,4 @@ config_setting(
 config_setting(
     name = "ppc",
     values = {"host_cpu": "ppc"},
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        "//third_party/def_parser:windows_tests",
-    ],
-    visibility = ["//src:__pkg__"],
 )
