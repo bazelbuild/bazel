@@ -1,4 +1,4 @@
-// Copyright 2015 The Bazel Authors. All Rights Reserved.
+// Copyright 2024 The Bazel Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,17 +24,17 @@ import org.junit.runners.JUnit4;
  * A JUnit4-style test meant to be invoked by junit4_testbridge_tests.sh.
  */
 @RunWith(JUnit4.class)
-public class JUnit4TestbridgeExercises {
+public class JUnit4TestbridgeOomExercises {
   @Test
   public void testPass() {}
 
   @Test
-  public void testFailOnce() {
+  public void testFailAssertion() {
     fail();
   }
 
   @Test
-  public void testFailAgain() {
-    fail();
+  public void testFailWithOom() {
+    throw new OutOfMemoryError("testing");
   }
 }
