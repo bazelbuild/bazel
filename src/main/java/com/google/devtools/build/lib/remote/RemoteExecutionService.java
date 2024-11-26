@@ -690,7 +690,11 @@ public class RemoteExecutionService {
           writer.write("\n\n");
 
           writer.write("[InputRoot]\n");
-          writer.write(merkleTree.toString());
+          writer.write(merkleTree.rootDigest.toString());
+          writer.write("[Root proto]\n");
+          writer.write(merkleTree.rootProto.toString());
+          writer.write("[Files]\n");
+          writer.write(merkleTree.files.toString());
 
           System.out.println(jsonPath + " written.");
       } catch (IOException e) {

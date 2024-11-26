@@ -92,7 +92,7 @@ public class DigestUtil {
   }
 
   public Digest compute(VirtualActionInput input) throws IOException {
-    // TOGGLE: 9
+    // TOGGLE: 18
     ByteArrayOutputStream buffer = new ByteArrayOutputStream();
     input.writeTo(buffer);
     return compute(buffer.toByteArray());

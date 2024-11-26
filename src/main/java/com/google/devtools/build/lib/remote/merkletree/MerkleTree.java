@@ -96,9 +96,9 @@ public class MerkleTree {
 
   private Map<Digest, Directory> digestDirectoryMap;
   private Map<Digest, PathOrBytes> digestFileMap;
-  @Nullable private final Directory rootProto;
-  private final Digest rootDigest;
-  private final SortedSet<DirectoryTree.FileNode> files;
+  @Nullable public final Directory rootProto;
+  public final Digest rootDigest;
+  public final SortedSet<DirectoryTree.FileNode> files;
   private final SortedSet<DirectoryTree.SymlinkNode> symlinks;
   private final SortedMap<String, MerkleTree> directories;
   private final long inputFiles;
