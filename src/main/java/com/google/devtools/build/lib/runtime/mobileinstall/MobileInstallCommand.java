@@ -155,19 +155,6 @@ public class MobileInstallCommand implements BlazeCommand {
     public List<String> mobileInstallSupportedRules;
 
     @Option(
-        name = "mobile_install_run_deployer",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.EXECUTION
-        },
-        help = "Whether to run the mobile-install deployer after building all artifacts.")
-    // TODO: b/369442227 - Delete --mobile_install_run_deployer or have --run_in_client respect it.
-    public boolean mobileInstallRunDeployer;
-
-    @Option(
         name = "run_in_client",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -314,17 +301,12 @@ public class MobileInstallCommand implements BlazeCommand {
     Path workingDir =
         env.getDirectories().getOutputPath(env.getWorkspaceName()).getParentDirectory();
 
-    // TODO: b/369442227 - Delete --mobile_install_run_deployer or have --run_in_client respect it.
     if (mobileInstallOptions.runInClient) {
       deployerRequestRef.set(createExecRequest(env, workingDir, cmdLine.build()));
       return null;
+    } else {
+      return executeAsChild(env, workingDir, cmdLine.build());
     }
-
-    if (!mobileInstallOptions.mobileInstallRunDeployer) {
-      return null;
-    }
-
-    return executeAsChild(env, workingDir, cmdLine.build());
   }
 
   /** Executes the mobile-install deployer as a child process on this machine. */
