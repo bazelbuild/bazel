@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.runtime.InstrumentationOutputFactory.DestinationRelativeTo;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -74,7 +75,6 @@ import com.google.devtools.common.options.TriState;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.Any;
 import java.io.BufferedOutputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.time.Duration;
@@ -400,9 +400,20 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
     // Enable Starlark CPU profiling (--starlark_cpu_profile=/tmp/foo.pprof.gz)
     boolean success = false;
     if (!commonOptions.starlarkCpuProfile.isEmpty()) {
-      FileOutputStream out;
+      OutputStream out;
       try {
-        out = new FileOutputStream(commonOptions.starlarkCpuProfile);
+        InstrumentationOutput starlarkCpuProfile =
+            runtime
+                .getInstrumentationOutputFactory()
+                .createInstrumentationOutput(
+                    /* name= */ "starlarkCpuProfile",
+                    PathFragment.create(commonOptions.starlarkCpuProfile),
+                    DestinationRelativeTo.WORKING_DIRECTORY_OR_HOME,
+                    env,
+                    storedEventHandler,
+                    /* append= */ null,
+                    /* internal= */ null);
+        out = starlarkCpuProfile.createOutputStream();
       } catch (IOException ex) {
         String message = "Starlark CPU profiler: " + ex.getMessage();
         outErr.printErrLn(message);
