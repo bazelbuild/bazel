@@ -1486,6 +1486,8 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
       new blaze_util::BazelLogHandler());
   blaze_util::SetLogHandler(std::move(default_handler));
 
+  BAZEL_LOG(INFO) << "Running (pid=" << GetProcessIdAsString() << ")";
+
   const string self_path = GetSelfPath(argv[0]);
 
   if (argc == 2 && strcmp(argv[1], "leaf") == 0) {
