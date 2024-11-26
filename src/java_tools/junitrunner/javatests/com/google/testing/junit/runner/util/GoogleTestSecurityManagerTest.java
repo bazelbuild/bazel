@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.assertThrows;
 
+
 import java.security.Permission;
 import org.junit.After;
 import org.junit.Before;
@@ -130,9 +131,8 @@ public class GoogleTestSecurityManagerTest {
     System.setSecurityManager(null);
   }
 
-  /**
-   * Security manager that allows anything.
-   */
+  /** Security manager that allows anything. */
+  // TODO: b/380475520 - remove SecurityManager usage
   private static class PermissiveSecurityManager extends SecurityManager {
     @Override public void checkPermission(Permission p) {
       return;

@@ -14,17 +14,18 @@
 
 package com.google.testing.junit.runner.util;
 
+
 import java.security.Permission;
 
 /**
- * A security manager that prevents things that are dangerous or
- * bad in a testing environment. Currently prevents System.exit() and
- * System.setSecurityManager().
+ * A security manager that prevents things that are dangerous or bad in a testing environment.
+ * Currently prevents System.exit() and System.setSecurityManager().
  *
- * <p>For simplicity this is a Java 1.1 style security manager, ignoring
- * the whole Permissions framework. This should be fine unless you
- * are testing code that itself manipulates SecurityManagers.
+ * <p>For simplicity this is a Java 1.1 style security manager, ignoring the whole Permissions
+ * framework. This should be fine unless you are testing code that itself manipulates
+ * SecurityManagers.
  */
+// TODO: b/380475520 - remove SecurityManager usage
 public final class GoogleTestSecurityManager extends SecurityManager {
   private volatile boolean enabled = true;
 
