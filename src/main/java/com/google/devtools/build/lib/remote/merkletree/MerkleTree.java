@@ -100,7 +100,7 @@ public class MerkleTree {
   public final Digest rootDigest;
   public final SortedSet<DirectoryTree.FileNode> files;
   private final SortedSet<DirectoryTree.SymlinkNode> symlinks;
-  private final SortedMap<String, MerkleTree> directories;
+  public final SortedMap<String, MerkleTree> directories;
   private final long inputFiles;
   private final long inputBytes;
 

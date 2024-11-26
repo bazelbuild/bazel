@@ -137,7 +137,6 @@ import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.schedulers.Schedulers;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.FileWriter;
 import java.io.File;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -671,36 +670,7 @@ public class RemoteExecutionService {
               Spawns.mayBeCachedRemotely(spawn),
               buildSalt(spawn, spawnScrubber));
 
-      System.out.println("[DEBUG] RemoteExecutionService.buildRemoteAction");
       ActionKey actionKey = digestUtil.computeActionKey(action);
-
-      String jsonPath = "/tmp/bazeldebug/" + actionKey.getDigest().getHash() + ".json";
-      File file = new File(jsonPath);
-      try (FileWriter writer = new FileWriter(file)) {
-          writer.write("[Action]\n");
-          writer.write(action.toString());
-          writer.write("\n\n");
-
-          writer.write("[Command]\n");
-          writer.write(command.toString());
-          writer.write("\n\n");
-
-          writer.write("[Platform]\n");
-          writer.write(platform.toString());
-          writer.write("\n\n");
-
-          writer.write("[InputRoot]\n");
-          writer.write(merkleTree.rootDigest.toString());
-          writer.write("[Root proto]\n");
-          writer.write(merkleTree.rootProto.toString());
-          writer.write("[Files]\n");
-          writer.write(merkleTree.files.toString());
-
-          System.out.println(jsonPath + " written.");
-      } catch (IOException e) {
-          e.printStackTrace();
-      }
-
       RequestMetadata metadata =
           TracingMetadataUtils.buildMetadata(
               buildRequestId, commandId, actionKey.getDigest().getHash(), spawn.getResourceOwner());

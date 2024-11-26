@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.SortedMap;
 import javax.annotation.Nullable;
+import java.io.FileWriter;
 
 /**
  * A value class representing an action which can be executed remotely.
@@ -71,6 +72,35 @@ public class RemoteAction {
     this.command = command;
     this.action = action;
     this.actionKey = actionKey;
+  }
+
+  private void writeDirectoryToFile(FileWriter writer, String root, MerkleTree t) throws IOException {
+    writer.write("[Root proto of " + root + "]\n");
+    writer.write(t.rootProto.toString());
+    for (String dirName : t.directories.keySet()) {
+      MerkleTree dir = t.directories.get(dirName);
+      writeDirectoryToFile(writer, root + "/" + dirName, dir);
+    }
+  }
+
+  public void writeToFile() {
+    String jsonPath = "/tmp/bazeldebug/" + actionKey.getDigest().getHash() + ".json";
+    try (FileWriter writer = new FileWriter(jsonPath)) {
+        writer.write("[Action]\n");
+        writer.write(action.toString());
+        writer.write("\n\n");
+
+        writer.write("[Command]\n");
+        writer.write(command.toString());
+        writer.write("\n\n");
+
+        writer.write("[InputRoot]\n");
+        writeDirectoryToFile(writer, ".", merkleTree);
+
+        System.out.println(jsonPath + " written.");
+    } catch (IOException e) {
+        e.printStackTrace();
+    }
   }
 
   public RemoteActionExecutionContext getRemoteActionExecutionContext() {
