@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.analysis.actions;
 
-import static java.nio.charset.StandardCharsets.ISO_8859_1;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
@@ -24,11 +22,15 @@ import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import javax.annotation.Nullable;
 
 /** A template that contains text content, or alternatively throws an {@link IOException}. */
 @Immutable // all subclasses are immutable
 public abstract class Template {
+
+  static final Charset DEFAULT_CHARSET = StandardCharsets.UTF_8;
 
   /** We only allow subclasses in this file. */
   private Template() {}
@@ -103,8 +105,7 @@ public abstract class Template {
     public String getContent(ArtifactPathResolver resolver) throws IOException {
       Path templatePath = resolver.toPath(templateArtifact);
       try {
-        // Bazel's internal encoding for strings is raw bytes as Latin-1
-        return FileSystemUtils.readContent(templatePath, ISO_8859_1);
+        return FileSystemUtils.readContent(templatePath, DEFAULT_CHARSET);
       } catch (IOException e) {
         throw new IOException(
             "failed to load template file '"

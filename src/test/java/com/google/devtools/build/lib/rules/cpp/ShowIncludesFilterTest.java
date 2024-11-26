@@ -17,6 +17,9 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.ByteArrayOutputStream;
 import java.io.FilterOutputStream;
 import java.io.IOException;
@@ -32,12 +35,15 @@ public class ShowIncludesFilterTest {
   private ShowIncludesFilter showIncludesFilter;
   private ByteArrayOutputStream output;
   private FilterOutputStream filterOutputStream;
+  private FileSystem fs;
 
   @Before
   public void setUpOutputStreams() throws IOException {
     showIncludesFilter = new ShowIncludesFilter("foo.cpp");
     output = new ByteArrayOutputStream();
     filterOutputStream = showIncludesFilter.getFilteredOutputStream(output);
+    fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    fs.getPath("/out").createDirectory();
   }
 
   private byte[] getBytes(String str) {

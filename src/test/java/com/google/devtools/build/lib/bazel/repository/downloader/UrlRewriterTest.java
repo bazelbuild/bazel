@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.repository.downloader;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
 
 import com.google.auth.Credentials;
@@ -439,6 +440,6 @@ public class UrlRewriterTest {
       Map<String, List<String>> requestMetadata, String username, String password) {
     assertThat(requestMetadata.keySet()).containsExactly("Authorization");
     assertThat(Iterables.getOnlyElement(requestMetadata.values()))
-        .containsExactly(BasicHttpAuthenticationEncoder.encode(username, password));
+        .containsExactly(BasicHttpAuthenticationEncoder.encode(username, password, UTF_8));
   }
 }

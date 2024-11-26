@@ -53,7 +53,6 @@ import com.google.devtools.build.lib.packages.RuleFactory;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.WorkspaceFactory;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
-import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -132,10 +131,7 @@ public /*final*/ class ConfiguredRuleClassProvider
 
     @Override
     protected synchronized byte[] getDigest(PathFragment path) {
-      return getDigestFunction()
-          .getHashFunction()
-          .hashBytes(StringUnsafe.getInstance().getInternalStringBytes(path.getPathString()))
-          .asBytes();
+      return getDigestFunction().getHashFunction().hashString(path.toString(), UTF_8).asBytes();
     }
   }
 

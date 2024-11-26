@@ -251,7 +251,6 @@ java_library(
     deps = [
         ":os",
         ":shell_escaper",
-        ":string_encoding",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/vfs",
