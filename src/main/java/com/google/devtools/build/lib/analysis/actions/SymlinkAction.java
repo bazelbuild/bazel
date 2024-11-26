@@ -20,6 +20,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
+import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -245,7 +246,9 @@ public final class SymlinkAction extends AbstractAction {
       }
     }
 
-    maybeInjectMetadata(actionExecutionContext);
+    if (targetType != TargetType.FILESET) {
+      maybeInjectMetadata(this, actionExecutionContext);
+    }
     return ActionResult.EMPTY;
   }
 
@@ -331,7 +334,7 @@ public final class SymlinkAction extends AbstractAction {
   }
 
   /**
-   * Propagates metadata from the input artifact if possible.
+   * Propagates metadata from the input artifact (symlink target) if possible.
    *
    * <p>This is an optimization that saves filesystem operations - we know the output is just a
    * symlink to the input, so we may be able to skip constructing its metadata from the filesystem.
@@ -346,14 +349,11 @@ public final class SymlinkAction extends AbstractAction {
    * nothing. The output symlink will be read back from the filesystem after this action finishes
    * executing.
    */
-  private void maybeInjectMetadata(ActionExecutionContext ctx) {
+  public static void maybeInjectMetadata(Action symlinkAction, ActionExecutionContext ctx) {
     if (ctx.getActionFileSystem() != null) {
       return; // Action filesystems are responsible for their own metadata injection.
     }
-    if (targetType == TargetType.FILESET) {
-      return;
-    }
-    Artifact primaryInput = getPrimaryInput();
+    Artifact primaryInput = symlinkAction.getPrimaryInput();
     if (primaryInput == null || primaryInput.isDirectory()) {
       return;
     }
@@ -366,7 +366,7 @@ public final class SymlinkAction extends AbstractAction {
     if (metadata != null) {
       ctx.getOutputMetadataStore()
           .injectFile(
-              getPrimaryOutput(),
+              symlinkAction.getPrimaryOutput(),
               primaryInput instanceof SourceArtifact sourceArtifact
                   ? SymlinkToSourceFileArtifactValue.toSourceArtifact(sourceArtifact, metadata)
                   : metadata);
