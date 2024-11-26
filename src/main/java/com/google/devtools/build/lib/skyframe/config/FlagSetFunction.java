@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe.config;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
-import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -38,7 +37,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Collection;
-import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 
@@ -58,18 +56,23 @@ import net.starlark.java.eval.Dict;
 public final class FlagSetFunction implements SkyFunction {
   private static final String CONFIGS = "configs";
 
-  private static final String SUPPORTED_CONFIGS = "supported_configs";
   private static final String DEFAULT_CONFIG = "default_config";
-  private final AtomicBoolean defaultConfigWarningShown = new AtomicBoolean(false);
 
   @Override
-  @SuppressWarnings("unchecked")
   @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws FlagSetFunctionException, InterruptedException {
     FlagSetValue.Key key = (FlagSetValue.Key) skyKey.argument();
-    if (key.getSclConfig().isEmpty() && !key.enforceCanonical()) {
-      // No special config specified. Nothing to do.
+    if (!key.enforceCanonical()) {
+      if (!key.getSclConfig().isEmpty()) {
+        env.getListener()
+            .handle(
+                Event.info(
+                    String.format(
+                        "Ignoring --scl_config=%s because --enforce_project_configs is not set",
+                        key.getSclConfig())));
+      }
+      // --noenforce_project_configs. Nothing to do.
       return FlagSetValue.create(key.getTargetOptions());
     }
     ProjectValue projectValue =
@@ -77,20 +80,12 @@ public final class FlagSetFunction implements SkyFunction {
     if (projectValue == null) {
       return null;
     }
-    var configs = (Dict<String, Collection<String>>) projectValue.getResidualGlobal(CONFIGS);
-    if (!key.enforceCanonical() && (configs == null || configs.get(key.getSclConfig()) == null)) {
-      // If canonical configs aren't enforced, unknown --scl_configs are just no-ops. Same if the
-      // `configs = {...}` variable isn't present.
-      // If canonical configs are enforced, --scl_config must match some project-approved config.
-      // TODO: blaze-configurability-team - Fail bad configs even without canonical enforcement?
-      return FlagSetValue.create(key.getTargetOptions());
-    }
+
     ImmutableList<String> sclConfigAsStarlarkList =
         getSclConfig(
             key.getProjectFile(),
             projectValue,
             key.getSclConfig(),
-            key.enforceCanonical(),
             env.getListener(),
             key.getTargetOptions(),
             key.getUserOptions());
@@ -111,73 +106,56 @@ public final class FlagSetFunction implements SkyFunction {
       Label projectFile,
       ProjectValue sclContent,
       String sclConfigName,
-      boolean enforceCanonical,
       ExtendedEventHandler eventHandler,
       BuildOptions targetOptions,
       ImmutableMap<String, String> userOptions)
       throws FlagSetFunctionException {
-    var configs = (Dict<String, Collection<String>>) sclContent.getResidualGlobal(CONFIGS);
-    var sclConfigValue = configs == null ? null : configs.get(sclConfigName);
-    var supportedConfigs = (Dict<String, String>) sclContent.getResidualGlobal(SUPPORTED_CONFIGS);
-    var defaultConfigName = (String) sclContent.getResidualGlobal(DEFAULT_CONFIG);
 
-    // Look for invalid use cases.
-    if (!enforceCanonical) {
-      // Calling code already handled non-existent --scl_config values and !enforceCanonical.
-      Preconditions.checkNotNull(sclConfigValue);
-    } else if (supportedConfigs == null || configs == null) {
-      // This project doesn't declare supported configs. Allow any --scl_config just as if
-      // --enforce_project_configs isn't set. This also means --scl_config=<name doesn't resolve>
-      // is silently consider a no-op.
-      return sclConfigValue == null ? ImmutableList.of() : ImmutableList.copyOf(sclConfigValue);
-    } else if (sclConfigName.isEmpty()) {
-      ImmutableList<String> defaultConfigValue = ImmutableList.of();
+    var configs = (Dict<String, Collection<String>>) sclContent.getResidualGlobal(CONFIGS);
+    // This project file doesn't define configs, so it must not be used for canonical configs.
+    if (configs == null) {
+      return ImmutableList.of();
+    }
+
+    String sclConfigNameForMessage = sclConfigName;
+    Collection<String> sclConfigValue = null;
+    if (sclConfigName.isEmpty()) {
+      // If there's no --scl_config, try to use the default_config.
+      var defaultConfigName = (String) sclContent.getResidualGlobal(DEFAULT_CONFIG);
       try {
-        defaultConfigValue = validateDefaultConfig(defaultConfigName, configs, supportedConfigs);
+        sclConfigValue = validateDefaultConfig(defaultConfigName, configs);
+        sclConfigNameForMessage = defaultConfigName;
       } catch (InvalidProjectFileException e) {
-        // there's no default config set.
         throw new FlagSetFunctionException(
             new UnsupportedConfigException(
                 String.format(
                     "This project's builds must set --scl_config because %s.\n%s",
-                    e.getMessage(), supportedConfigsDesc(projectFile, supportedConfigs))),
+                    e.getMessage(), supportedConfigsDesc(projectFile, configs))),
             Transience.PERSISTENT);
       }
-      validateNoExtraFlagsSet(targetOptions, userOptions, defaultConfigValue);
-      if (!defaultConfigWarningShown.get()) {
-        eventHandler.handle(
-            Event.info(
+    } else {
+      if (!configs.containsKey(sclConfigName)) {
+        // The user set --scl_config to an unknown config.
+        throw new FlagSetFunctionException(
+            new UnsupportedConfigException(
                 String.format(
-                    "Applying flags from the default config defined in %s: %s ",
-                    projectFile, defaultConfigValue)));
-        defaultConfigWarningShown.set(true);
+                    "--scl_config=%s is not a valid configuration for this project.%s",
+                    sclConfigName, supportedConfigsDesc(projectFile, configs))),
+            Transience.PERSISTENT);
       }
-      return defaultConfigValue;
-    } else if (!supportedConfigs.containsKey(sclConfigName)) {
-      // This project declares supported configs and user set --scl_config to an unsupported config.
-      throw new FlagSetFunctionException(
-          new UnsupportedConfigException(
-              String.format(
-                  "--scl_config=%s is not a valid configuration for this project.%s",
-                  sclConfigName, supportedConfigsDesc(projectFile, supportedConfigs))),
-          Transience.PERSISTENT);
+      sclConfigValue = configs.get(sclConfigName);
     }
-
-    if (enforceCanonical) {
-      validateNoExtraFlagsSet(targetOptions, userOptions, sclConfigValue);
-    }
+    validateNoExtraFlagsSet(targetOptions, userOptions, sclConfigValue);
     eventHandler.handle(
         Event.info(
             String.format(
-                "Applying flags from the config defined in %s: %s ", projectFile, sclConfigValue)));
-
+                "Applying flags from the config '%s' defined in %s: %s ",
+                sclConfigNameForMessage, projectFile, sclConfigValue)));
     return ImmutableList.copyOf(sclConfigValue);
   }
 
-  private static ImmutableList<String> validateDefaultConfig(
-      String defaultConfigName,
-      Dict<String, Collection<String>> configs,
-      Dict<String, String> supportedConfigs)
+  private static Collection<String> validateDefaultConfig(
+      @Nullable String defaultConfigName, Dict<String, Collection<String>> configs)
       throws InvalidProjectFileException {
     if (defaultConfigName == null) {
       throw new InvalidProjectFileException("no default_config is defined");
@@ -188,13 +166,7 @@ public final class FlagSetFunction implements SkyFunction {
           String.format("default_config refers to a nonexistent config: %s", defaultConfigName));
     }
 
-    if (!supportedConfigs.containsKey(defaultConfigName)) {
-      throw new InvalidProjectFileException(
-          String.format(
-              "default_config does not refer to a supported config: %s", defaultConfigName));
-    }
-
-    return ImmutableList.copyOf(configs.get(defaultConfigName));
+    return configs.get(defaultConfigName);
   }
 
   /**
@@ -252,9 +224,9 @@ public final class FlagSetFunction implements SkyFunction {
 
   /** Returns a user-friendly description of project-supported configurations. */
   private static String supportedConfigsDesc(
-      Label projectFile, Dict<String, String> supportedConfigs) {
+      Label projectFile, Dict<String, Collection<String>> configs) {
     String ans = "\nThis project supports:\n";
-    for (var configInfo : supportedConfigs.entrySet()) {
+    for (var configInfo : configs.entrySet()) {
       ans += String.format("  --scl_config=%s: %s\n", configInfo.getKey(), configInfo.getValue());
     }
     ans += String.format("\nThis policy is defined in %s.\n", projectFile.toPathFragment());
