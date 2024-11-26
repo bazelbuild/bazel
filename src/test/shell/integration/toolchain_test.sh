@@ -685,13 +685,13 @@ test_toolchain(
     name = 'toolchain_impl_invalid',
 )
 config_setting(
-    name = "optimised",
+    name = "optimized",
     values = {"compilation_mode": "opt"}
 )
 toolchain(
     name = 'toolchain_invalid',
     toolchain_type = '//${pkg}/toolchain:test_toolchain',
-    target_settings = [":optimised"],
+    target_settings = [":optimized"],
     toolchain = ':toolchain_impl_invalid')
 
 # Use the toolchain.
@@ -706,7 +706,7 @@ EOF
     --platform_mappings= \
     "//${pkg}/demo:use" &> $TEST_log || fail "Build failed"
   expect_log "Performing resolution of //${pkg}/toolchain:test_toolchain for target platform ${default_host_platform}"
-  expect_log "Rejected toolchain //${pkg}/demo:toolchain_impl_invalid; mismatching config settings: optimised"
+  expect_log "Rejected toolchain //${pkg}/demo:toolchain_impl_invalid; mismatching config settings: optimized"
   expect_log "Toolchain //register/${pkg}:test_toolchain_impl_1 is compatible with target platform, searching for execution platforms:"
   expect_log "Compatible execution platform ${default_host_platform}"
   expect_log "Recap of selected //${pkg}/toolchain:test_toolchain toolchains for target platform ${default_host_platform}:"
@@ -1438,7 +1438,7 @@ test_toolchain(
 
 # Define config setting
 config_setting(
-    name = "optimised",
+    name = "optimized",
     values = {"compilation_mode": "opt"}
 )
 
@@ -1446,7 +1446,7 @@ config_setting(
 toolchain(
     name = 'toolchain_1',
     toolchain_type = '//${pkg}/toolchain:test_toolchain',
-    target_settings = [":optimised"],
+    target_settings = [":optimized"],
     toolchain = ':toolchain_impl_1')
 toolchain(
     name = 'toolchain_2',
@@ -1515,7 +1515,7 @@ test_toolchain(
 
 # Define config setting
 config_setting(
-    name = "optimised",
+    name = "optimized",
     values = {"compilation_mode": "opt"}
 )
 
@@ -1523,7 +1523,7 @@ config_setting(
 toolchain(
     name = 'toolchain_1',
     toolchain_type = '//${pkg}/toolchain:test_toolchain',
-    target_settings = [":optimised"],
+    target_settings = [":optimized"],
     toolchain = ':toolchain_impl_1')
 toolchain(
     name = 'toolchain_2',
