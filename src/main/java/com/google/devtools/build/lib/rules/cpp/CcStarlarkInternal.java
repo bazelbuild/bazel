@@ -72,9 +72,11 @@ import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.syntax.Location;
@@ -692,6 +694,30 @@ public class CcStarlarkInternal implements StarlarkValue {
     return Args.forRegisteredAction(
         new CommandLineAndParamFileInfo(linkCommandLine, linkCommandLine.getParamFileInfo()),
         ImmutableSet.of());
+  }
+
+  @StarlarkMethod(
+      name = "convert_library_to_link_list_to_linker_input_list",
+      documented = false,
+      parameters = {
+        @Param(name = "libraries_to_link"),
+        @Param(name = "static_mode"),
+        @Param(name = "for_dynamic_library"),
+        @Param(name = "supports_dynamic_linker")
+      })
+  public StarlarkList<LibraryInput> convertLibraryToLinkListToLinkerInputList(
+      Depset librariesToLink,
+      boolean staticMode,
+      boolean forDynamicLibrary,
+      boolean supportsDynamicLinker)
+      throws TypeException {
+    return StarlarkList.copyOf(
+        Mutability.IMMUTABLE,
+        CcLinkingHelper.convertLibraryToLinkListToLinkerInputList(
+            librariesToLink.getSet(LibraryToLink.class),
+            staticMode,
+            forDynamicLibrary,
+            supportsDynamicLinker));
   }
 
   @StarlarkMethod(
