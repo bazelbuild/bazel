@@ -30,7 +30,6 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.ActionContext.ActionContextRegistry;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
@@ -247,6 +246,55 @@ public class DynamicSpawnStrategyUnitTest {
   }
 
   @Test
+  public void exec_localOnlySpawnWithNonExecutablePostProcessingSpawn_doesNotExecLocalSpawn()
+      throws Exception {
+    Spawn spawn =
+        new SpawnBuilder("command")
+            .withMnemonic("ThisMnemonic1")
+            .withOwnerPrimaryOutput(output1)
+            .build();
+    Spawn postProcessingSpawn =
+        new SpawnBuilder("extra_command")
+            .withMnemonic("ThatMnemonic2")
+            .withOwnerPrimaryOutput(output2)
+            .build();
+
+    DynamicSpawnStrategy dynamicSpawnStrategy =
+        createDynamicSpawnStrategy(
+            ExecutionPolicy.LOCAL_EXECUTION_ONLY, ignored -> Optional.of(postProcessingSpawn));
+
+    SandboxedSpawnStrategy local = createMockSpawnStrategy();
+
+    ActionExecutionContext actionExecutionContext = mock(ActionExecutionContext.class);
+    when(actionExecutionContext.getFileOutErr()).thenReturn(new TestFileOutErr());
+    when(actionExecutionContext.getContext(DynamicStrategyRegistry.class))
+        .thenReturn(
+            new DynamicStrategyRegistry() {
+              @Override
+              public ImmutableList<SandboxedSpawnStrategy> getDynamicSpawnActionContexts(
+                  Spawn spawn, DynamicMode dynamicMode) {
+                if (spawn.getMnemonic().equals("ThisMnemonic1")) {
+                  return ImmutableList.of(local);
+                }
+                return ImmutableList.of();
+              }
+
+              @Override
+              public void notifyUsedDynamic(ActionContextRegistry actionContextRegistry) {}
+            });
+    when(actionExecutionContext.withFileOutErr(any())).thenReturn(actionExecutionContext);
+
+    UserExecException thrown =
+        assertThrows(
+            UserExecException.class,
+            () -> dynamicSpawnStrategy.exec(spawn, actionExecutionContext));
+
+    assertThat(thrown).hasMessageThat().containsMatch("\\bdynamic_local_strategy\\b");
+    assertThat(thrown).hasMessageThat().doesNotContain("dynamic_remote_strategy");
+    assertThat(thrown).hasMessageThat().containsMatch("\\bThisMnemonic1\\b");
+  }
+
+  @Test
   public void exec_nonZeroExitCodeLocalSpawn_doesNotExecLocalPostProcessingSpawn()
       throws Exception {
     testExecFailedLocalSpawnDoesNotExecLocalPostProcessingSpawn(
@@ -291,7 +339,7 @@ public class DynamicSpawnStrategyUnitTest {
     Semaphore remoteStarted = new Semaphore(0);
     // Only the first spawn should be able to stop the concurrent remote execution (get the output
     // lock).
-    when(local.exec(eq(spawn), any(), /*stopConcurrentSpawns=*/ isNotNull()))
+    when(local.exec(eq(spawn), any(), /* stopConcurrentSpawns= */ isNotNull()))
         .thenAnswer(
             invocation -> {
               remoteStarted.acquire();
@@ -299,7 +347,7 @@ public class DynamicSpawnStrategyUnitTest {
               stopConcurrentSpawns.stop(0, "", null);
               return ImmutableList.of(SUCCESSFUL_SPAWN_RESULT);
             });
-    when(local.exec(eq(postProcessingSpawn), any(), /*stopConcurrentSpawns=*/ isNull()))
+    when(local.exec(eq(postProcessingSpawn), any(), /* stopConcurrentSpawns= */ isNull()))
         .thenReturn(ImmutableList.of(SUCCESSFUL_SPAWN_RESULT));
     SandboxedSpawnStrategy remote = createMockSpawnStrategy();
     when(remote.exec(eq(spawn), any(), any()))
@@ -417,7 +465,7 @@ public class DynamicSpawnStrategyUnitTest {
     Semaphore remoteStarted = new Semaphore(0);
     // Only the first spawn should be able to stop the concurrent remote execution (get the output
     // lock).
-    when(local.exec(eq(spawn), any(), /*stopConcurrentSpawns=*/ isNotNull()))
+    when(local.exec(eq(spawn), any(), /* stopConcurrentSpawns= */ isNotNull()))
         .thenAnswer(
             invocation -> {
               remoteStarted.acquire();
@@ -465,7 +513,7 @@ public class DynamicSpawnStrategyUnitTest {
     Semaphore localDone = new Semaphore(0);
     // Only the first spawn should be able to stop the concurrent remote execution (get the output
     // lock).
-    when(local.exec(eq(spawn), any(), /*stopConcurrentSpawns=*/ isNotNull()))
+    when(local.exec(eq(spawn), any(), /* stopConcurrentSpawns= */ isNotNull()))
         .thenAnswer(
             invocation -> {
               remoteStarted.acquire();

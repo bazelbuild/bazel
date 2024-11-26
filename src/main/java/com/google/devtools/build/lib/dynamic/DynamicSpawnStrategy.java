@@ -356,7 +356,21 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
     DynamicStrategyRegistry dynamicStrategyRegistry =
         actionExecutionContext.getContext(DynamicStrategyRegistry.class);
     boolean localCanExec =
-        canExecLocal(spawn, executionPolicy, actionExecutionContext, dynamicStrategyRegistry);
+        canExecLocal(spawn, executionPolicy, actionExecutionContext, dynamicStrategyRegistry)
+            &&
+            // We need to make sure that the post-processing spawn is also executable in local.
+            // When the returned Optional object contains no Spawn, we consider it as executable in
+            // local.
+            getExtraSpawnForLocalExecution
+                .apply(spawn)
+                .map(
+                    s ->
+                        canExecLocal(
+                            s,
+                            getExecutionPolicy.apply(s),
+                            actionExecutionContext,
+                            dynamicStrategyRegistry))
+                .orElse(true);
 
     boolean remoteCanExec =
         canExecRemote(spawn, executionPolicy, actionExecutionContext, dynamicStrategyRegistry);
