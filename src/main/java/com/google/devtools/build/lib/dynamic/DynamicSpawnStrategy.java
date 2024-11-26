@@ -399,12 +399,24 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
           getSpawnReadableId(spawn));
       throw new UserExecException(failure);
     } else if (!localCanExec && remoteCanExec) {
+      String spawnExplanation =
+          String.format(
+              "Local execution policy of the spawn %s dynamic execution, local strategies of the"
+                  + " spawn are %s",
+              executionPolicy.canRunLocally() ? "allows" : "forbids",
+              dynamicStrategyRegistry.getDynamicSpawnActionContexts(spawn, DynamicMode.LOCAL));
+      String postProcessingSpawnExplanation =
+          postProcessingSpawn == null
+              ? "the post-processing spawn doesn't exist"
+              : String.format(
+                  "local execution policy of the post-processing spawn %s dynamic execution, local"
+                      + " strategies of the post-processing spawn are %s",
+                  postProcessingSpawnExecutionPolicy.canRunLocally() ? "allows" : "forbids",
+                  dynamicStrategyRegistry.getDynamicSpawnActionContexts(
+                      postProcessingSpawn, DynamicMode.LOCAL));
       debugLog(
-          "Dynamic execution of %s can only be done remotely: Local execution policy %s it, "
-              + "local strategies are %s.%n",
-          getSpawnReadableId(spawn),
-          executionPolicy.canRunLocally() ? "allows" : "forbids",
-          dynamicStrategyRegistry.getDynamicSpawnActionContexts(spawn, DynamicMode.LOCAL));
+          "Dynamic execution of %s can only be done remotely: %s. And %s.%n",
+          getSpawnReadableId(spawn), spawnExplanation, postProcessingSpawnExplanation);
       return RemoteBranch.runRemotely(spawn, actionExecutionContext, null, delayLocalExecution);
     } else if (localCanExec && !remoteCanExec) {
       debugLog(
