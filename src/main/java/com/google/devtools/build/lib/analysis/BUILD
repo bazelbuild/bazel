@@ -121,7 +121,6 @@ java_library(
         ":test/analysis_failure",
         ":test/analysis_failure_info",
         ":test/analysis_test_result_info",
-        ":test/baseline_coverage_result",
         ":test/coverage_report_action_factory",
         ":test/execution_info",
         ":test/instrumented_files_info",
@@ -343,7 +342,6 @@ java_library(
         ":test/analysis_failure_info",
         ":test/analysis_failure_propagation_exception",
         ":test/analysis_test_result_info",
-        ":test/baseline_coverage_result",
         ":test/coverage_configuration",
         ":test/execution_info",
         ":test/instrumented_files_info",
@@ -2725,16 +2723,6 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/test",
-    ],
-)
-
-java_library(
-    name = "test/baseline_coverage_result",
-    srcs = ["test/BaselineCoverageResult.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//third_party:guava",
     ],
 )
 
