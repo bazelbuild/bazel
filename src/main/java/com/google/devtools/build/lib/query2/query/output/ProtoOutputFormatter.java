@@ -572,7 +572,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     private final ExtractorContext extractorContext =
         ExtractorContext.builder()
             .labelRenderer(LabelRenderer.DEFAULT)
-            .extractNonStarlarkAttrs(true)
+            .extractNativelyDefinedAttrs(true)
             .build();
 
     /**

@@ -16,10 +16,11 @@ package com.google.devtools.build.lib.rules.starlarkdocextract;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
-import static com.google.devtools.build.lib.starlarkdocextract.AttributeInfoExtractor.IMPLICIT_NAME_ATTRIBUTE_INFO;
+import static com.google.devtools.build.lib.starlarkdocextract.RuleInfoExtractor.IMPLICIT_RULE_ATTRIBUTES;
 import static com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionParamRole.PARAM_ROLE_ORDINARY;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -355,20 +356,27 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
             OriginKey.newBuilder().setName("my_rule").setFile("//:origin.bzl").build());
 
     assertThat(moduleInfo.getRuleInfo(0).getAttributeList())
-        .containsExactly(
-            IMPLICIT_NAME_ATTRIBUTE_INFO,
-            AttributeInfo.newBuilder()
-                .setName("a")
-                .setType(AttributeType.LABEL)
-                .setDefaultValue("None")
-                .addProviderNameGroup(
-                    ProviderNameGroup.newBuilder()
-                        .addProviderName("namespace.RenamedInfo")
-                        .addProviderName("other_namespace.RenamedOtherInfo")
-                        .addOriginKey(
-                            OriginKey.newBuilder().setName("MyInfo").setFile("//:origin.bzl"))
-                        .addOriginKey(
-                            OriginKey.newBuilder().setName("MyOtherInfo").setFile("//:origin.bzl")))
+        .isEqualTo(
+            ImmutableList.builder()
+                .addAll(IMPLICIT_RULE_ATTRIBUTES.values())
+                .add(
+                    AttributeInfo.newBuilder()
+                        .setName("a")
+                        .setType(AttributeType.LABEL)
+                        .setDefaultValue("None")
+                        .addProviderNameGroup(
+                            ProviderNameGroup.newBuilder()
+                                .addProviderName("namespace.RenamedInfo")
+                                .addProviderName("other_namespace.RenamedOtherInfo")
+                                .addOriginKey(
+                                    OriginKey.newBuilder()
+                                        .setName("MyInfo")
+                                        .setFile("//:origin.bzl"))
+                                .addOriginKey(
+                                    OriginKey.newBuilder()
+                                        .setName("MyOtherInfo")
+                                        .setFile("//:origin.bzl")))
+                        .build())
                 .build());
     assertThat(moduleInfo.getRuleInfo(0).getAdvertisedProviders())
         .isEqualTo(
@@ -955,7 +963,7 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
                 .setOriginKey(
                     OriginKey.newBuilder().setName("my_repo_rule").setFile("//:dep.bzl").build())
                 .setDocString("My repository rule\n\nWith details")
-                .addAllAttribute(ModuleInfoExtractor.IMPLICIT_REPOSITORY_RULE_ATTRIBUTES)
+                .addAllAttribute(ModuleInfoExtractor.IMPLICIT_REPOSITORY_RULE_ATTRIBUTES.values())
                 .addAttribute(
                     AttributeInfo.newBuilder()
                         .setName("a")
