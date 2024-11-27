@@ -189,7 +189,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     BuildOptions targetOptions = parseBuildOptions(starlarkOptions, args);
 
     skyframeExecutor.handleDiffsForTesting(reporter);
-    skyframeExecutor.setBaselineConfiguration(targetOptions);
+    skyframeExecutor.setBaselineConfiguration(targetOptions, reporter);
     return skyframeExecutor.createConfiguration(reporter, targetOptions, false);
   }
 

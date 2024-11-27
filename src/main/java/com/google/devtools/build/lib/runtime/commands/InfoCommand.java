@@ -153,7 +153,7 @@ public class InfoCommand implements BlazeCommand {
                 ensureSyncPackageLoading(env, optionsParsingResult);
                 // TODO(bazel-team): What if there are multiple configurations? [multi-config]
                 BuildOptions buildOptions = runtime.createBuildOptions(optionsParsingResult);
-                env.getSkyframeExecutor().setBaselineConfiguration(buildOptions);
+                env.getSkyframeExecutor().setBaselineConfiguration(buildOptions, env.getReporter());
                 return env.getSkyframeExecutor()
                     .getConfiguration(env.getReporter(), buildOptions, /* keepGoing= */ true);
               } catch (InvalidConfigurationException e) {

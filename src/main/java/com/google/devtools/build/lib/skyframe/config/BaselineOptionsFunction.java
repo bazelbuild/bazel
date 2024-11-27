@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionUtil;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.skyframe.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
@@ -71,41 +72,28 @@ public final class BaselineOptionsFunction implements SkyFunction {
     if (mappedBaselineOptions == null) {
       return null;
     }
-
-    Optional<StarlarkAttributeTransitionProvider> starlarkExecTransition;
-    try {
-      starlarkExecTransition =
-          StarlarkExecTransitionLoader.loadStarlarkExecTransition(
-              mappedBaselineOptions,
-              (bzlKey) -> (BzlLoadValue) env.getValueOrThrow(bzlKey, BzlLoadFailedException.class));
-    } catch (StarlarkExecTransitionLoadingException e) {
-      throw new BaselineOptionsFunctionException(e);
-    }
-    if (starlarkExecTransition == null) {
-      return null;
-    }
-
-    // Next, apply elements of BaselineOptionsKey: apply exec transition and/or adjust platform
     BuildOptions adjustedBaselineOptions = mappedBaselineOptions;
+
     if (key.afterExecTransition()) {
-      // A null executionPlatform actually skips transition application so need some value here when
-      // not overriding the platform. It is safe to supply some fake value here (as long as it is
-      // constant) since the baseline should never be used to actually construct an action or do
-      // toolchain resolution.
-      PatchTransition execTransition =
-          ExecutionTransitionFactory.createFactory()
-              .create(
-                  AttributeTransitionData.builder()
-                      .executionPlatform(
-                          key.newPlatform() != null
-                              ? key.newPlatform()
-                              : Label.parseCanonicalUnchecked(
-                                  "//this_is_a_faked_exec_platform_for_blaze_internals"))
-                      .analysisData(starlarkExecTransition.orElse(null))
-                      .build());
+      Optional<StarlarkAttributeTransitionProvider> starlarkExecTransition;
+      try {
+        starlarkExecTransition =
+            StarlarkExecTransitionLoader.loadStarlarkExecTransition(
+                adjustedBaselineOptions,
+                (bzlKey) ->
+                    (BzlLoadValue) env.getValueOrThrow(bzlKey, BzlLoadFailedException.class));
+      } catch (StarlarkExecTransitionLoadingException e) {
+        throw new BaselineOptionsFunctionException(e);
+      }
+      if (starlarkExecTransition == null) {
+        return null;
+      }
       adjustedBaselineOptions =
-          execTransition.patch(
-              TransitionUtil.restrict(execTransition, adjustedBaselineOptions), env.getListener());
+          adjustForExec(
+              mappedBaselineOptions,
+              starlarkExecTransition.orElse(null),
+              key.newPlatform(),
+              env.getListener());
     } else if (key.newPlatform() != null) {
       // Clone for safety as-is the standard for all transitions.
       adjustedBaselineOptions = adjustedBaselineOptions.clone();
@@ -129,6 +117,36 @@ public final class BaselineOptionsFunction implements SkyFunction {
     }
 
     return BaselineOptionsValue.create(remappedAdjustedBaselineOptions);
+  }
+
+  /** Adjusts the baseline options for the exec transition. */
+  public static BuildOptions adjustForExec(
+      BuildOptions baselineOptions,
+      StarlarkAttributeTransitionProvider starlarkExecTransition,
+      Label newPlatform,
+      ExtendedEventHandler eventHandler)
+      throws InterruptedException {
+
+    // A null executionPlatform actually skips transition application so need some value here when
+    // not overriding the platform. It is safe to supply some fake value here (as long as it is
+    // constant) since the baseline should never be used to actually construct an action or do
+    // toolchain resolution.
+    PatchTransition execTransition =
+        ExecutionTransitionFactory.createFactory()
+            .create(
+                AttributeTransitionData.builder()
+                    .executionPlatform(
+                        newPlatform != null
+                            ? newPlatform
+                            : Label.parseCanonicalUnchecked(
+                                "//this_is_a_faked_exec_platform_for_blaze_internals"))
+                    .analysisData(starlarkExecTransition)
+                    .build());
+    baselineOptions =
+        execTransition.patch(
+            TransitionUtil.restrict(execTransition, baselineOptions), eventHandler);
+
+    return baselineOptions;
   }
 
   @Nullable

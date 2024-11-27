@@ -457,7 +457,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
     // This is being done outside of BuildView, potentially even before the BuildView was
     // constructed and thus cannot rely on BuildView having injected this for us.
-    skyframeExecutor.setBaselineConfiguration(buildOptions);
+    skyframeExecutor.setBaselineConfiguration(buildOptions, reporter);
     return skyframeExecutor.createConfiguration(reporter, buildOptions, false);
   }
 

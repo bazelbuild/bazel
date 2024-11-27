@@ -242,7 +242,7 @@ public class BuildView {
     pollInterruptedStatus();
 
     skyframeBuildView.resetProgressReceiver();
-    skyframeExecutor.setBaselineConfiguration(targetOptions);
+    skyframeExecutor.setBaselineConfiguration(targetOptions, eventHandler);
 
     ImmutableMap.Builder<Label, Target> labelToTargetsMapBuilder =
         ImmutableMap.builderWithExpectedSize(loadingResult.getTargetLabels().size());

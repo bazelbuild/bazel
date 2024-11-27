@@ -1399,8 +1399,22 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     AutoloadSymbols.AUTOLOAD_SYMBOLS.set(injectable(), autoloadSymbols);
   }
 
-  public void setBaselineConfiguration(BuildOptions buildOptions) {
+  public void setBaselineConfiguration(BuildOptions buildOptions, ExtendedEventHandler eventHandler)
+      throws InvalidConfigurationException, InterruptedException {
     PrecomputedValue.BASELINE_CONFIGURATION.set(injectable(), buildOptions);
+    PrecomputedValue.BASELINE_EXEC_CONFIGURATION.set(
+        injectable(), adjustForExec(buildOptions, eventHandler));
+  }
+
+  public BuildOptions adjustForExec(BuildOptions buildOptions, ExtendedEventHandler eventHandler)
+      throws InvalidConfigurationException, InterruptedException {
+    StarlarkAttributeTransitionProvider execTransition;
+    try {
+      execTransition = getStarlarkExecTransition(buildOptions, eventHandler);
+    } catch (StarlarkExecTransitionLoadingException e) {
+      throw new InvalidConfigurationException(e);
+    }
+    return BaselineOptionsFunction.adjustForExec(buildOptions, execTransition, null, eventHandler);
   }
 
   public void injectExtraPrecomputedValues(List<PrecomputedValue.Injected> extraPrecomputedValues) {
@@ -2008,20 +2022,25 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * <p>Production code handles this in Bazel's analysis phase skyfunctions.
    */
   @Nullable
-  @VisibleForTesting
-  public StarlarkAttributeTransitionProvider getStarlarkExecTransitionForTesting(
+  public StarlarkAttributeTransitionProvider getStarlarkExecTransition(
       BuildOptions options, ExtendedEventHandler eventHandler)
       throws StarlarkExecTransitionLoadingException, InterruptedException {
     return StarlarkExecTransitionLoader.loadStarlarkExecTransition(
             options,
-            (bzlKey) ->
-                (BzlLoadValue)
-                    evaluate(
-                            ImmutableList.of(bzlKey),
-                            /* keepGoing= */ false,
-                            /* numThreads= */ DEFAULT_THREAD_COUNT,
-                            eventHandler)
-                        .get(bzlKey))
+            (bzlKey) -> {
+              EvaluationResult<SkyValue> result =
+                  evaluate(
+                      ImmutableList.of(bzlKey),
+                      /* keepGoing= */ false,
+                      /* numThreads= */ DEFAULT_THREAD_COUNT,
+                      eventHandler);
+              if (result.hasError()) {
+                if (result.getError(bzlKey).getException() instanceof BzlLoadFailedException e) {
+                  throw e;
+                }
+              }
+              return (BzlLoadValue) result.get(bzlKey);
+            })
         .orElse(null);
   }
 
