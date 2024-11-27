@@ -37,10 +37,6 @@ public class ExecRequestUtils {
         PathToReplace.newBuilder()
             .setType(PathToReplace.Type.BUILD_WORKSPACE_DIRECTORY)
             .setValue(bytes(env.getWorkspace().getPathString()))
-            .build(),
-        PathToReplace.newBuilder()
-            .setType(PathToReplace.Type.BUILD_EXECROOT)
-            .setValue(bytes(env.getExecRoot().getPathString()))
             .build());
   }
 
