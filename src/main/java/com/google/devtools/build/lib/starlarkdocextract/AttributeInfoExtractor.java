@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AttributeInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AttributeType;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
 import net.starlark.java.eval.Starlark.InvalidStarlarkValueException;
@@ -30,28 +31,6 @@ import net.starlark.java.eval.Starlark.InvalidStarlarkValueException;
 /** Starlark API documentation extractor for a rule, macro, or aspect attribute. */
 @VisibleForTesting
 public final class AttributeInfoExtractor {
-
-  @VisibleForTesting
-  public static final AttributeInfo IMPLICIT_NAME_ATTRIBUTE_INFO =
-      AttributeInfo.newBuilder()
-          .setName("name")
-          .setType(AttributeType.NAME)
-          .setMandatory(true)
-          .setDocString("A unique name for this target.")
-          .build();
-
-  @VisibleForTesting
-  public static final AttributeInfo IMPLICIT_MACRO_NAME_ATTRIBUTE_INFO =
-      AttributeInfo.newBuilder()
-          .setName("name")
-          .setType(AttributeType.NAME)
-          .setMandatory(true)
-          .setDocString(
-              "A unique name for this macro instance. Normally, this is also the name for the"
-                  + " macro's main or only target. The names of any other targets that this macro"
-                  + " might create will be this name with a string suffix.")
-          .build();
-
   @VisibleForTesting public static final String UNREPRESENTABLE_VALUE = "<unrepresentable value>";
 
   static AttributeInfo buildAttributeInfo(ExtractorContext context, Attribute attribute) {
@@ -63,6 +42,9 @@ public final class AttributeInfoExtractor {
     Optional.ofNullable(attribute.getDoc()).ifPresent(builder::setDocString);
     if (!attribute.isConfigurable()) {
       builder.setNonconfigurable(true);
+    }
+    if (!attribute.starlarkDefined()) {
+      builder.setNativelyDefined(true);
     }
     for (ImmutableSet<StarlarkProviderIdentifier> providerGroup :
         attribute.getRequiredProviders().getStarlarkProviders()) {
@@ -83,14 +65,24 @@ public final class AttributeInfoExtractor {
     return builder.build();
   }
 
+  /**
+   * Adds {@code implicitAttributeInfos}, followed by documentable attributes from {@code
+   * attributes}.
+   */
   static void addDocumentableAttributes(
-      ExtractorContext context, Iterable<Attribute> attributes, Consumer<AttributeInfo> builder) {
+      ExtractorContext context,
+      Map<String, AttributeInfo> implicitAttributeInfos,
+      Iterable<Attribute> attributes,
+      Consumer<AttributeInfo> builder) {
+    // Inject implicit attributes first.
+    for (AttributeInfo implicitAttributeInfo : implicitAttributeInfos.values()) {
+      builder.accept(implicitAttributeInfo);
+    }
     for (Attribute attribute : attributes) {
-      if (attribute.getName().equals(IMPLICIT_NAME_ATTRIBUTE_INFO.getName())) {
-        // We inject our own IMPLICIT_NAME_ATTRIBUTE_INFO with better documentation.
+      if (implicitAttributeInfos.containsKey(attribute.getName())) {
         continue;
       }
-      if ((attribute.starlarkDefined() || context.extractNonStarlarkAttrs())
+      if ((attribute.starlarkDefined() || context.extractNativelyDefinedAttrs())
           && attribute.isDocumented()
           && ExtractorContext.isPublicName(attribute.getPublicName())) {
         builder.accept(buildAttributeInfo(context, attribute));
