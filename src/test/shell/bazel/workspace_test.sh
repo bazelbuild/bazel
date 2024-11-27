@@ -66,6 +66,10 @@ EOF
   assert_contains "bye" bazel-genfiles/external/x/out
 }
 
+function test_build_non_existing_repo() {
+  bazel build @blah &>$TEST_log && fail "Failure expected" || true
+  expect_log "Repository '@@blah' is not defined"
+}
 
 function test_path_with_spaces() {
   ws="a b"
