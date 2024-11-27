@@ -638,6 +638,12 @@ and scaling of applications.
 
 An ecosystem for building tools that work with code.
 
+### [ls-lint](https://github.com/loeffel-io/ls-lint){: .external}
+
+<img src="https://raw.githubusercontent.com/loeffel-io/ls-lint/master/assets/logo/ls-lint.png" width="75" align="right">
+
+An extremely fast directory and filenamfile system Bring some structure to your project filesystem.
+
 ### [Nomulus](https://github.com/google/nomulus){: .external}
 
 Top-level domain name registry service on Google App Engine.
