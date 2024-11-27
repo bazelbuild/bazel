@@ -75,6 +75,10 @@ public class RepoFileFunction implements SkyFunction {
       if (repoDirValue == null) {
         return null;
       }
+      if (!repoDirValue.repositoryExists()) {
+        throw new RepoFileFunctionException(
+            new IOException(repoDirValue.getErrorMsg()), Transience.PERSISTENT);
+      }
       repoRoot = repoDirValue.getPath();
     }
     RootedPath repoFilePath =
