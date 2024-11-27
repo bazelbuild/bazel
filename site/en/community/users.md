@@ -642,7 +642,8 @@ An ecosystem for building tools that work with code.
 
 <img src="https://raw.githubusercontent.com/loeffel-io/ls-lint/master/assets/logo/ls-lint.png" width="75" align="right">
 
-An extremely fast directory and filenamfile system Bring some structure to your project filesystem.
+An extremely fast directory and filename linter - Bring some structure to your
+project file system.
 
 ### [Nomulus](https://github.com/google/nomulus){: .external}
 
