@@ -301,6 +301,17 @@ public class CommonQueryOptions extends OptionsBase {
   public boolean protoIncludeDefinitionStack;
 
   @Option(
+      name = "proto:include_starlark_rule_env",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "Use the starlark environment in the value of the generated $internal_attr_hash"
+              + " attribute. This ensures that the starlark rule definition (and its transitive"
+              + " imports) are part of this identifier.")
+  public boolean protoIncludeStarlarkRuleEnv;
+
+  @Option(
       name = "proto:include_attribute_source_aspects",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.QUERY,

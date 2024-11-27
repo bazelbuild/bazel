@@ -116,6 +116,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
   private boolean includeSyntheticAttributeHash = false;
   private boolean includeInstantiationStack = false;
   private boolean includeDefinitionStack = false;
+  private boolean includeStarlarkRuleEnv = true;
   protected boolean includeAttributeSourceAspects = false;
   private HashFunction hashFunction = null;
 
@@ -148,6 +149,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     this.includeInstantiationStack = options.protoIncludeInstantiationStack;
     this.includeDefinitionStack = options.protoIncludeDefinitionStack;
     this.includeAttributeSourceAspects = options.protoIncludeAttributeSourceAspects;
+    this.includeStarlarkRuleEnv = options.protoIncludeStarlarkRuleEnv;
     this.hashFunction = hashFunction;
     this.ruleClassInfoFormatter = options.protoRuleClasses ? new RuleClassInfoFormatter() : null;
   }
@@ -432,7 +434,8 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
                       serializedAttributes,
                       extraDataForAttrHash,
                       hashFunction,
-                      includeAttributeSourceAspects))
+                      includeAttributeSourceAspects,
+                      includeStarlarkRuleEnv))
               .setType(Discriminator.STRING));
     }
   }
