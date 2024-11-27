@@ -33,9 +33,15 @@ public class ProjectFunction implements SkyFunction {
 
   /** The top level reserved globals in the PROJECT.scl file. */
   private enum ReservedGlobals {
-    OWNED_CODE_PATHS("owned_code_paths"),
+    /** Deprecated PROJECT.scl structure. See {@link #PROJECT}. */
+    ACTIVE_DIRECTORIES("active_directories"),
 
-    ACTIVE_DIRECTORIES("active_directories");
+    /**
+     * Forward-facing PROJECT.scl structure: a single top-level "project" variable that contains all
+     * project data in nested data structures.
+     */
+    // TODO: b/345100818 - delete deprecated form when no depot instances use it.
+    PROJECT("project");
 
     private final String key;
 
@@ -67,8 +73,39 @@ public class ProjectFunction implements SkyFunction {
       return null;
     }
 
+    Object projectRaw = bzlLoadValue.getModule().getGlobal(ReservedGlobals.PROJECT.getKey());
+    ImmutableMap<String, Object> project =
+        switch (projectRaw) {
+          case null -> ImmutableMap.of();
+          case Dict<?, ?> dict -> {
+            ImmutableMap.Builder<String, Object> projectBuilder = ImmutableMap.builder();
+            for (Object k : dict.keySet()) {
+              if (!(k instanceof String stringKey)) {
+                throw new ProjectFunctionException(
+                    new TypecheckFailureException(
+                        String.format(
+                            "%s variable: expected string key, got element of %s",
+                            ReservedGlobals.PROJECT.getKey(), k.getClass())));
+              }
+              projectBuilder.put(stringKey, dict.get(stringKey));
+            }
+            yield projectBuilder.buildOrThrow();
+          }
+          default ->
+              throw new ProjectFunctionException(
+                  new TypecheckFailureException(
+                      String.format(
+                          "%s variable: expected a map of string to objects, got %s",
+                          ReservedGlobals.PROJECT.getKey(), projectRaw.getClass())));
+        };
+
     Object activeDirectoriesRaw =
         bzlLoadValue.getModule().getGlobal(ReservedGlobals.ACTIVE_DIRECTORIES.getKey());
+    if (activeDirectoriesRaw == null && project != null) {
+      // TODO: b/345100818 - make this the only way to retrieve "active_directoreis" when all
+      // instances of the old form are gone.
+      activeDirectoriesRaw = project.get(ReservedGlobals.ACTIVE_DIRECTORIES.getKey());
+    }
 
     // Crude typechecking to prevent server crashes.
     // TODO: all of these typechecking should probably be handled by a proto spec.
@@ -115,6 +152,7 @@ public class ProjectFunction implements SkyFunction {
                           + activeDirectoriesRaw.getClass()));
         };
 
+    // TODO: b/345100818 - remove residual global support when everything is under "project".
     ImmutableMap<String, Object> residualGlobals =
         bzlLoadValue.getModule().getGlobals().entrySet().stream()
             .filter(
@@ -129,7 +167,7 @@ public class ProjectFunction implements SkyFunction {
               "non-empty active_directories must contain the 'default' key"));
     }
 
-    return new ProjectValue(activeDirectories, residualGlobals);
+    return new ProjectValue(project, activeDirectories, residualGlobals);
   }
 
   private static final class TypecheckFailureException extends Exception {

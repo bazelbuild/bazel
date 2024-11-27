@@ -26,14 +26,17 @@ import javax.annotation.Nullable;
 
 /** A SkyValue representing the parsed definitions from a PROJECT.scl file. */
 public final class ProjectValue implements SkyValue {
+  private final ImmutableMap<String, Object> project;
 
   private final ImmutableMap<String, Collection<String>> activeDirectories;
 
   private final ImmutableMap<String, Object> residualGlobals;
 
   public ProjectValue(
+      ImmutableMap<String, Object> project,
       ImmutableMap<String, Collection<String>> activeDirectories,
       ImmutableMap<String, Object> residualGlobals) {
+    this.project = project;
     this.activeDirectories = activeDirectories;
     this.residualGlobals = residualGlobals;
   }
@@ -66,6 +69,16 @@ public final class ProjectValue implements SkyValue {
         activeDirectories.containsKey("default"),
         "active_directories must contain the 'default' key");
     return ImmutableSet.copyOf(activeDirectories.get("default"));
+  }
+
+  /**
+   * Returns the top-level project definition. Entries are currently self-typed: it's up to the
+   * entry's consumer to validate and correctly read it.
+   *
+   * <p>If {@code "project"} is not defined in the file, returns an empty map.
+   */
+  public ImmutableMap<String, Object> getProject() {
+    return project;
   }
 
   /**

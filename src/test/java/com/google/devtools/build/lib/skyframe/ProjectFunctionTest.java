@@ -92,6 +92,30 @@ public class ProjectFunctionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void projectFunction_returnsDefaultActiveDirectories_topLevelProjectSchema()
+      throws Exception {
+    scratch.file(
+        "test/PROJECT.scl",
+        """
+        project = {
+          "active_directories": { "default": ["a", "b/c"] }
+        }
+        """);
+    scratch.file("test/BUILD");
+    ProjectValue.Key key = new ProjectValue.Key(Label.parseCanonical("//test:PROJECT.scl"));
+
+    EvaluationResult<ProjectValue> result =
+        SkyframeExecutorTestUtils.evaluate(skyframeExecutor, key, false, reporter);
+    assertThat(result.hasError()).isFalse();
+
+    ProjectValue value = result.get(key);
+    PathFragmentPrefixTrie trie = PathFragmentPrefixTrie.of(value.getDefaultActiveDirectory());
+    assertThat(trie.includes(PathFragment.create("a"))).isTrue();
+    assertThat(trie.includes(PathFragment.create("b/c"))).isTrue();
+    assertThat(trie.includes(PathFragment.create("d"))).isFalse();
+  }
+
+  @Test
   public void projectFunction_nonEmptyActiveDirectoriesMustHaveADefault() throws Exception {
     scratch.file("test/PROJECT.scl", "active_directories = { 'foo': ['a', 'b/c'] }");
     scratch.file("test/BUILD");
@@ -131,6 +155,44 @@ public class ProjectFunctionTest extends BuildViewTestCase {
     assertThat(result.getError().getException())
         .hasMessageThat()
         .matches("expected a list of strings, got element of .+Int32");
+  }
+
+  @Test
+  public void projectFunction_incorrectProjectType() throws Exception {
+    scratch.file(
+        "test/PROJECT.scl",
+        """
+        project = 1
+        """);
+
+    scratch.file("test/BUILD");
+    ProjectValue.Key key = new ProjectValue.Key(Label.parseCanonical("//test:PROJECT.scl"));
+
+    EvaluationResult<ProjectValue> result =
+        SkyframeExecutorTestUtils.evaluate(skyframeExecutor, key, false, reporter);
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError().getException())
+        .hasMessageThat()
+        .matches("project variable: expected a map of string to objects, got .+Int32");
+  }
+
+  @Test
+  public void projectFunction_incorrectProjectKeyType() throws Exception {
+    scratch.file(
+        "test/PROJECT.scl",
+        """
+        project = {1: [] }
+        """);
+
+    scratch.file("test/BUILD");
+    ProjectValue.Key key = new ProjectValue.Key(Label.parseCanonical("//test:PROJECT.scl"));
+
+    EvaluationResult<ProjectValue> result =
+        SkyframeExecutorTestUtils.evaluate(skyframeExecutor, key, false, reporter);
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError().getException())
+        .hasMessageThat()
+        .matches("project variable: expected string key, got element of .+Int32");
   }
 
   @Test

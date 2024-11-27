@@ -298,6 +298,85 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
   }
 
   @Test
+  public void enforceCanonicalConfigs_wrongConfigsType() throws Exception {
+    scratch.file("test/BUILD");
+    scratch.file(
+        "test/PROJECT.scl",
+        """
+        configs = 1
+        """);
+    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
+    BuildOptions buildOptions = createBuildOptions("--define=foo=bar");
+
+    FlagSetValue.Key key =
+        FlagSetValue.Key.create(
+            Label.parseCanonical("//test:PROJECT.scl"),
+            "test_config",
+            buildOptions,
+            /* userOptions= */ ImmutableMap.of(),
+            /* enforceCanonical= */ true);
+
+    var thrown = assertThrows(Exception.class, () -> executeFunction(key));
+    assertThat(thrown)
+        .hasMessageThat()
+        .contains("configs variable must be a map of strings to lists of strings");
+  }
+
+  @Test
+  public void enforceCanonicalConfigs_wrongConfigsKeyType() throws Exception {
+    scratch.file("test/BUILD");
+    scratch.file(
+        "test/PROJECT.scl",
+        """
+        configs = {
+          123: ["--compilation_mode=opt"],
+        }
+        """);
+    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
+    BuildOptions buildOptions = createBuildOptions("--define=foo=bar");
+
+    FlagSetValue.Key key =
+        FlagSetValue.Key.create(
+            Label.parseCanonical("//test:PROJECT.scl"),
+            "test_config",
+            buildOptions,
+            /* userOptions= */ ImmutableMap.of(),
+            /* enforceCanonical= */ true);
+
+    var thrown = assertThrows(Exception.class, () -> executeFunction(key));
+    assertThat(thrown)
+        .hasMessageThat()
+        .contains("configs variable must be a map of strings to lists of strings");
+  }
+
+  @Test
+  public void enforceCanonicalConfigs_wrongConfigsValueType() throws Exception {
+    scratch.file("test/BUILD");
+    scratch.file(
+        "test/PROJECT.scl",
+        """
+        configs = {
+          "test_config": 123,
+        }
+        """);
+    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
+    BuildOptions buildOptions = createBuildOptions("--define=foo=bar");
+
+    FlagSetValue.Key key =
+        FlagSetValue.Key.create(
+            Label.parseCanonical("//test:PROJECT.scl"),
+            "test_config",
+            buildOptions,
+            /* userOptions= */ ImmutableMap.of(),
+            /* enforceCanonical= */ true);
+
+    var thrown = assertThrows(Exception.class, () -> executeFunction(key));
+    assertThat(thrown)
+        .hasMessageThat()
+        .contains("configs variable must be a map of strings to lists of strings");
+  }
+
+  @Test
   public void enforceCanonicalConfigsExtraFakeExpandedFlag_withSclConfig_fails() throws Exception {
     scratch.file(
         "test/build_settings.bzl",
@@ -640,6 +719,37 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
   }
 
   @Test
+  public void enforceCanonicalConfigs_wrongDefaultConfigType() throws Exception {
+    createStringFlag("//test:myflag", /* defaultValue= */ "default");
+    scratch.file(
+        "test/PROJECT.scl",
+        """
+        configs = {
+          "test_config": ['--//test:myflag=test_config_value'],
+          "other_config": ['--//test:myflag=other_config_value'],
+        }
+        default_config = ["test_config"]
+        """);
+    BuildOptions buildOptions =
+        BuildOptions.getDefaultBuildOptionsForFragments(
+            ruleClassProvider.getFragmentRegistry().getOptionsClasses());
+    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
+
+    FlagSetValue.Key key =
+        FlagSetValue.Key.create(
+            Label.parseCanonical("//test:PROJECT.scl"),
+            /* sclConfig= */ "",
+            buildOptions,
+            /* userOptions= */ ImmutableMap.of(),
+            /* enforceCanonical= */ true);
+
+    var thrown = assertThrows(Exception.class, () -> executeFunction(key));
+    assertThat(thrown)
+        .hasMessageThat()
+        .contains("default_config must be a string matching a configs variable definition");
+  }
+
+  @Test
   public void enforceCanonicalConfigsNoSclConfigFlagValidDefaultConfig() throws Exception {
     createStringFlag("//test:myflag", /* defaultValue= */ "default");
     scratch.file(
@@ -674,6 +784,42 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     assertContainsEvent("Applying flags from the config 'test_config'");
     // TODO: b/380581463 - Reenable the frequency check once the initial event is deduplicated.
     // assertContainsEventWithFrequency("Applying flags from the config 'test_config'", 1);
+  }
+
+  @Test
+  public void basicFlagsetFunctionalityWithTopLevelProjectSchema() throws Exception {
+    createStringFlag("//test:myflag", /* defaultValue= */ "default");
+    scratch.file(
+        "test/PROJECT.scl",
+        """
+        project = {
+          "configs": {
+            "test_config": ['--//test:myflag=test_config_value'],
+          },
+          "default_config": "test_config",
+        }
+        """);
+    BuildOptions buildOptions =
+        BuildOptions.getDefaultBuildOptionsForFragments(
+            ruleClassProvider.getFragmentRegistry().getOptionsClasses());
+    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
+
+    FlagSetValue.Key key =
+        FlagSetValue.Key.create(
+            Label.parseCanonical("//test:PROJECT.scl"),
+            /* sclConfig= */ "",
+            buildOptions,
+            /* userOptions= */ ImmutableMap.of(),
+            /* enforceCanonical= */ true);
+    FlagSetValue flagSetsValue = executeFunction(key);
+
+    assertThat(
+            flagSetsValue
+                .getTopLevelBuildOptions()
+                .getStarlarkOptions()
+                .get(Label.parseCanonical("//test:myflag")))
+        .isEqualTo("test_config_value");
+    assertContainsEvent("Applying flags from the config 'test_config'");
   }
 
   @Test

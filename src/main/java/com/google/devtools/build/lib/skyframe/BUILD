@@ -1214,9 +1214,9 @@ java_library(
     name = "project_function",
     srcs = ["ProjectFunction.java"],
     deps = [
+        ":bzl_load_failed_exception",
+        ":bzl_load_value",
         ":project_value",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_failed_exception",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",

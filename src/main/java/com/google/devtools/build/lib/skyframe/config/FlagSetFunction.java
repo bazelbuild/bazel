@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -111,18 +110,58 @@ public final class FlagSetFunction implements SkyFunction {
       ImmutableMap<String, String> userOptions)
       throws FlagSetFunctionException {
 
-    var configs = (Dict<String, Collection<String>>) sclContent.getResidualGlobal(CONFIGS);
+    var unTypeCheckedConfigs =
+        sclContent.getProject().isEmpty()
+            ? sclContent.getResidualGlobal(CONFIGS)
+            : sclContent.getProject().get(CONFIGS);
     // This project file doesn't define configs, so it must not be used for canonical configs.
-    if (configs == null) {
+    if (unTypeCheckedConfigs == null) {
       return ImmutableList.of();
     }
+    boolean expectedConfigsType = false;
+    if (unTypeCheckedConfigs instanceof Dict<?, ?> configsAsDict) {
+      expectedConfigsType = true;
+      for (var entry : configsAsDict.entrySet()) {
+        if (!(entry.getKey() instanceof String
+            && entry.getValue() instanceof Collection<?> values)) {
+          expectedConfigsType = false;
+          break;
+        }
+        for (var value : values) {
+          if (!(value instanceof String)) {
+            expectedConfigsType = false;
+            break;
+          }
+        }
+      }
+    }
+    if (!expectedConfigsType) {
+      throw new FlagSetFunctionException(
+          new InvalidProjectFileException(
+              String.format("%s variable must be a map of strings to lists of strings", CONFIGS)),
+          Transience.PERSISTENT);
+    }
+    var configs = (Dict<String, Collection<String>>) unTypeCheckedConfigs;
 
     String sclConfigNameForMessage = sclConfigName;
     Collection<String> sclConfigValue = null;
     if (sclConfigName.isEmpty()) {
       // If there's no --scl_config, try to use the default_config.
-      var defaultConfigName = (String) sclContent.getResidualGlobal(DEFAULT_CONFIG);
+      var defaultConfigNameRaw =
+          sclContent.getProject().isEmpty()
+              ? sclContent.getResidualGlobal(DEFAULT_CONFIG)
+              : sclContent.getProject().get(DEFAULT_CONFIG);
       try {
+        if (defaultConfigNameRaw != null && !(defaultConfigNameRaw instanceof String)) {
+          throw new FlagSetFunctionException(
+              new InvalidProjectFileException(
+                  String.format(
+                      "%s must be a string matching a %s variable definition",
+                      DEFAULT_CONFIG, CONFIGS)),
+              Transience.PERSISTENT);
+        }
+
+        String defaultConfigName = (String) defaultConfigNameRaw;
         sclConfigValue = validateDefaultConfig(defaultConfigName, configs);
         sclConfigNameForMessage = defaultConfigName;
       } catch (InvalidProjectFileException e) {
