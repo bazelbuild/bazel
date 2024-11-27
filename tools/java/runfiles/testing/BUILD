@@ -1,5 +1,8 @@
 load("@rules_java//java:defs.bzl", "java_library", "java_test")
 
+# Description:
+#   Test's for the Java runfiles library.
+
 package(default_visibility = ["//visibility:private"])
 
 filegroup(
@@ -16,6 +19,7 @@ filegroup(
 
 java_test(
     name = "RunfilesTest",
+    size = "small",
     srcs = ["RunfilesTest.java"],
     test_class = "com.google.devtools.build.runfiles.RunfilesTest",
     deps = [
@@ -38,6 +42,7 @@ java_library(
     exports = [
         "//third_party:guava",
         "//third_party:guava-testlib",
+        "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:truth",
         "//tools/java/runfiles",

@@ -1,5 +1,8 @@
 load("@rules_java//java:defs.bzl", "java_library")
 
+# Description:
+#   Bazel's Java-specific runfiles library.
+
 package(default_visibility = ["//visibility:private"])
 
 filegroup(
@@ -40,6 +43,7 @@ java_library(
         "Util.java",
     ],
     visibility = [
+        "//src/test/java/com/google/devtools/build/lib/analysis/util:__pkg__",
         "//src/test/java/com/google/devtools/build/lib/bazel/rules/sh:__pkg__",
         "//src/tools/remote/src/main/java/com/google/devtools/build/remote/worker:__pkg__",
         "//tools/java/runfiles/testing:__pkg__",
