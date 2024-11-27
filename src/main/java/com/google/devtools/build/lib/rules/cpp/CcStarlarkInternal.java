@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.LibraryToLinkValue;
@@ -59,6 +60,9 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.SequenceBuil
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValue;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder.LinkActionConstruction;
 import com.google.devtools.build.lib.rules.cpp.LegacyLinkerInputs.LibraryInput;
+import com.google.devtools.build.lib.rules.cpp.LibrariesToLinkCollector.CollectedLibrariesToLink;
+import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
+import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
@@ -718,6 +722,76 @@ public class CcStarlarkInternal implements StarlarkValue {
             staticMode,
             forDynamicLibrary,
             supportsDynamicLinker));
+  }
+
+  @StarlarkMethod(
+      name = "collect_libraries_to_link",
+      documented = false,
+      useStarlarkThread = true,
+      parameters = {
+        @Param(name = "linker_inputs"),
+        @Param(name = "cc_toolchain"),
+        @Param(name = "feature_configuration"),
+        @Param(name = "output"),
+        @Param(name = "dynamic_library_solib_symlink_output"),
+        @Param(name = "link_type"),
+        @Param(name = "linking_mode"),
+        @Param(name = "is_native_deps"),
+        @Param(name = "need_whole_archive"),
+        @Param(name = "solib_dir"),
+        @Param(name = "toolchain_libraries_solib_dir"),
+        @Param(name = "allow_lto_indexing"),
+        @Param(name = "lto_mapping"),
+        @Param(name = "workspace_name"),
+      })
+  public StructImpl collectLibrariesToLink(
+      Sequence<?> linkerInputs,
+      StarlarkInfo ccToolchain,
+      FeatureConfigurationForStarlark featureConfiguration,
+      Artifact output,
+      Object dynamicLibrarySolibSymlinkOutput,
+      StructImpl linkType,
+      String linkingMode,
+      boolean isNativeDeps,
+      boolean needWholeArchive,
+      String solibDir,
+      String toolchainLibrariesSolibDir,
+      boolean allowLtoIndexing,
+      Dict<?, ?> ltoMapping,
+      String workspaceName,
+      StarlarkThread thread)
+      throws EvalException {
+    LibrariesToLinkCollector librariesToLinkCollector =
+        new LibrariesToLinkCollector(
+            isNativeDeps,
+            CcToolchainProvider.create(ccToolchain),
+            PathFragment.create(toolchainLibrariesSolibDir),
+            LinkTargetType.valueOf(linkType.getValue("_name", String.class)),
+            LinkingMode.valueOf(Ascii.toUpperCase(linkingMode)),
+            output,
+            PathFragment.create(solibDir),
+            Dict.cast(ltoMapping, Artifact.class, Artifact.class, "lto_mapping"),
+            featureConfiguration.getFeatureConfiguration(),
+            allowLtoIndexing,
+            Sequence.cast(linkerInputs, LegacyLinkerInput.class, "linker_inputs"),
+            needWholeArchive,
+            workspaceName,
+            dynamicLibrarySolibSymlinkOutput == Starlark.NONE
+                ? null
+                : (Artifact) dynamicLibrarySolibSymlinkOutput);
+    CollectedLibrariesToLink libs = librariesToLinkCollector.collectLibrariesToLink();
+    return StructProvider.STRUCT.createStruct(
+        Dict.immutableCopyOf(
+            ImmutableMap.of(
+                "libraries_to_link",
+                    StarlarkList.immutableCopyOf(libs.getLibrariesToLink().getValues()),
+                "expanded_linker_inputs",
+                    StarlarkList.immutableCopyOf(libs.getExpandedLinkerInputs().toList()),
+                "library_search_directories",
+                    Depset.of(String.class, libs.getLibrarySearchDirectories()),
+                "all_runtime_library_search_directories",
+                    Depset.of(String.class, libs.getRuntimeLibrarySearchDirectories()))),
+        thread);
   }
 
   @StarlarkMethod(

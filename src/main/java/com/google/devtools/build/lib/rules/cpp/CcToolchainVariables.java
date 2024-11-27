@@ -618,6 +618,14 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     public Sequence build() {
       return new Sequence(values.build());
     }
+
+    /**
+     * @deprecated Only exposed to get the list into Starlark collect_libraries_to_link
+     */
+    @Deprecated
+    public ImmutableList<VariableValue> getValues() {
+      return values.build();
+    }
   }
 
   /** Builder for StructureValue. */
