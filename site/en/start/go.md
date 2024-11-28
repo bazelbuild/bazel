@@ -296,7 +296,7 @@ in the `fortune` directory named `fortune`.
 
 Bazel requires that all targets declare their dependencies explicitly with
 attributes like `deps`. This may seem cumbersome since dependencies are *also*
-specified in source files, but Bazel's explictness gives it an advantage. Bazel
+specified in source files, but Bazel's explicitness gives it an advantage. Bazel
 builds an [action graph](https://bazel.build/reference/glossary#action-graph)
 containing all commands, inputs, and outputs before running any commands,
 without reading any source files. Bazel can then cache action results or send
