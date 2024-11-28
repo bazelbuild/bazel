@@ -586,9 +586,11 @@ public final class SkyframeActionExecutor {
     return result;
   }
 
-  void maybeAcquireActionExecutionSemaphore() throws InterruptedException {
+  void maybeAcquireActionExecutionSemaphore() {
     if (actionExecutionSemaphore != null) {
-      actionExecutionSemaphore.acquire();
+      // Acquire uninterruptibly because ActionExecutionFunction is not expected to check for
+      // interrupts. See test SequencedSkyframeExecutorTest#testThreeSharedActionsRacing.
+      actionExecutionSemaphore.acquireUninterruptibly();
     }
   }
 
