@@ -678,7 +678,6 @@ EOF
   fi
 }
 
-
 function test_build_id_env_var() {
   local -r pkg="pkg${LINENO}"
   mkdir -p "${pkg}"

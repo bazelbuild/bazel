@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionResult;
 import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -1363,23 +1364,17 @@ the same path on case-insensitive filesystems.
         @Param(
             name = "legacy_utf8",
             named = true,
-            defaultValue = "True",
+            defaultValue = "False",
             doc =
                 """
-                Encode file content to UTF-8, true by default. Future versions will change \
-                the default and remove this parameter.
+                No-op. This parameter is deprecated and will be removed in a future version of \
+                Bazel.
                 """),
       })
   public void createFile(
       Object path, String content, Boolean executable, Boolean legacyUtf8, StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
     StarlarkPath p = getPath(path);
-    byte[] contentBytes;
-    if (legacyUtf8) {
-      contentBytes = content.getBytes(UTF_8);
-    } else {
-      contentBytes = content.getBytes(ISO_8859_1);
-    }
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newFileEvent(
             p.toString(),
@@ -1393,7 +1388,7 @@ the same path on case-insensitive filesystems.
       makeDirectories(p.getPath());
       p.getPath().delete();
       try (OutputStream stream = p.getPath().getOutputStream()) {
-        stream.write(contentBytes);
+        stream.write(StringUnsafe.getInstance().getInternalStringBytes(content));
       }
       if (executable) {
         p.getPath().setExecutable(true);
