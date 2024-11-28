@@ -64,7 +64,7 @@ filegroup(
         "//third_party/ijar",
         "//tools:srcs",
         "@bazel_skylib//:test_deps",
-        "@bazel_tools//tools/jdk:current_java_runtime",
+        "@rules_java//toolchains:current_java_runtime",
     ],
     visibility = [
         "//src/test/shell:__subpackages__",
@@ -108,7 +108,7 @@ sh_test(
     tags = [
         "no_windows",
     ],
-    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
+    toolchains = ["@rules_java//toolchains:current_java_runtime"],
 )
 
 sh_test(
@@ -1152,7 +1152,7 @@ sh_test(
     tags = [
         "no_windows",
     ],
-    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
+    toolchains = ["@rules_java//toolchains:current_java_runtime"],
 )
 
 sh_test(
@@ -1249,7 +1249,7 @@ sh_test(
     tags = [
         "no_windows",
     ],
-    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
+    toolchains = ["@rules_java//toolchains:current_java_runtime"],
 )
 
 genquery(

@@ -57,9 +57,9 @@ md5_cmd = "set -e -o pipefail && %s $(SRCS) | %s | %s > $@"
 # so we cannot get it from the command-line options.
 genquery(
     name = "java_toolchain_content",
-    expression = "kind(java_toolchain, deps(@bazel_tools//tools/jdk:current_java_toolchain))",
+    expression = "kind(java_toolchain, deps(@rules_java//toolchains:current_java_toolchain))",
     opts = ["--output=xml"],
-    scope = ["@bazel_tools//tools/jdk:current_java_toolchain"],
+    scope = ["@rules_java//toolchains:current_java_toolchain"],
 )
 
 py_library(
@@ -449,7 +449,7 @@ genrule(
     ],
     outs = ["derived_java_srcs.zip"],
     cmd = "$(location :combine_derived_java_srcs.sh) $(JAVABASE) $@ $(SRCS)",
-    toolchains = ["@bazel_tools//tools/jdk:current_host_java_runtime"],
+    toolchains = ["@rules_java//toolchains:current_host_java_runtime"],
     tools = ["combine_derived_java_srcs.sh"],
     visibility = ["//:__pkg__"],
 )

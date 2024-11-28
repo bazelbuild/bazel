@@ -197,10 +197,10 @@ cc_test(
         "//src/conditions:windows": ["-DJAR_TOOL_PATH=\\\"io_bazel/$(JAVABASE)/bin/jar.exe\\\""],
         "//conditions:default": ["-DJAR_TOOL_PATH=\\\"io_bazel/$(JAVABASE)/bin/jar\\\""],
     }),
-    data = ["@bazel_tools//tools/jdk:current_java_runtime"],
+    data = ["@rules_java//toolchains:current_java_runtime"],
     # Timing out, see https://github.com/bazelbuild/bazel/issues/1555
     tags = ["manual"],
-    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
+    toolchains = ["@rules_java//toolchains:current_java_runtime"],
     deps = [
         ":input_jar",
         ":test_util",
@@ -276,9 +276,9 @@ cc_test(
         ":stored_jar",
         ":test1",
         ":test2",
-        "@bazel_tools//tools/jdk:current_java_runtime",
+        "@rules_java//toolchains:current_java_runtime",
     ],
-    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
+    toolchains = ["@rules_java//toolchains:current_java_runtime"],
     deps = [
         ":input_jar",
         ":options",
@@ -352,9 +352,9 @@ sh_test(
         ":singlejar",
         "//src/test/shell:bashunit",
         "@bazel_tools//tools/bash/runfiles",
-        "@bazel_tools//tools/jdk:current_java_runtime",
+        "@rules_java//toolchains:current_java_runtime",
     ],
-    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
+    toolchains = ["@rules_java//toolchains:current_java_runtime"],
     deps = ["//src/test/shell:bashunit"],
 )
 
@@ -541,6 +541,6 @@ genrule(
     ],
     outs = ["stored.jar"],
     cmd = "$(JAVABASE)/bin/jar -0cf \"$@\" $(location :output_jar.cc)",
-    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
-    tools = ["@bazel_tools//tools/jdk:current_java_runtime"],
+    toolchains = ["@rules_java//toolchains:current_java_runtime"],
+    tools = ["@rules_java//toolchains:current_java_runtime"],
 )

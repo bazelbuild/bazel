@@ -1026,12 +1026,13 @@ EOF
 }
 
 function test_sibling_repository_layout_include_external_repo_output() {
+  add_rules_java MODULE.bazel
   mkdir test
   cat > test/BUILD <<'EOF'
 cc_library(
   name = "foo",
   srcs = ["foo.cc"],
-  deps = ["@bazel_tools//tools/jdk:jni"],
+  deps = ["@rules_java//toolchains:jni"],
 )
 EOF
   cat > test/foo.cc <<'EOF'
