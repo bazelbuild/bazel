@@ -653,6 +653,7 @@ sh_test(
     size = "large",
     srcs = ["client_test.sh"],
     data = [":test-deps"],
+    shard_count = 8,
     tags = ["no_windows"],
 )
 
