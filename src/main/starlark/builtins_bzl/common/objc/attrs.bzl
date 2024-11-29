@@ -46,7 +46,7 @@ build to avoid missing symbol linker errors.""",
         flags = ["DIRECT_COMPILE_TIME_INPUT"],
         doc = """
 The list of Objective-C files that are processed to create the
-library target that DO NOT use ARC.
+library target that DO NOT use Automatic Reference Counting (ARC).
 The files in this attribute are treated very similar to those in the
 srcs attribute, but are compiled without ARC enabled.""",
     ),
