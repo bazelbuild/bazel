@@ -917,7 +917,7 @@ blaze_util::Path GetHashedBaseDir(const blaze_util::Path& root,
   return root.GetRelative(string(coded_name));
 }
 
-void CreateSecureOutputRoot(const blaze_util::Path& path) {
+void CreateSecureDirectory(const blaze_util::Path& path) {
   // TODO(bazel-team): implement this properly, by mimicing whatever the POSIX
   // implementation does.
   if (!blaze_util::MakeDirectories(path, 0755)) {
