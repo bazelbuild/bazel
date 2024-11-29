@@ -133,7 +133,9 @@ class WithEnvVars {
 
 struct DurationMillis {
  public:
-  const uint64_t millis;
+  uint64_t millis;
+
+  DurationMillis() : millis(0) {}
 
   DurationMillis(const uint64_t start, const uint64_t end)
       : millis(ComputeDuration(start, end)) {}

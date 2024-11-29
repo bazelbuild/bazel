@@ -31,7 +31,6 @@
 #include <algorithm>
 #include <memory>
 #include <mutex>  // NOLINT
-#include <optional>
 #include <set>
 #include <sstream>
 #include <thread>       // NOLINT (to silence Google-internal linter)
@@ -1127,9 +1126,10 @@ static bool StillExists(HANDLE handle, const string& name) {
   return !info.DeletePending;
 }
 
-std::pair<LockHandle, std::optional<DurationMillis>> AcquireLock(
-    const std::string& name, const blaze_util::Path& path, LockMode mode,
-    bool batch_mode, bool block) {
+std::pair<LockHandle, DurationMillis> AcquireLock(const std::string& name,
+                                                  const blaze_util::Path& path,
+                                                  LockMode mode,
+                                                  bool batch_mode, bool block) {
   const uint64_t start_time = GetMillisecondsMonotonic();
   bool multiple_attempts = false;
 
@@ -1166,10 +1166,9 @@ std::pair<LockHandle, std::optional<DurationMillis>> AcquireLock(
         // unnecessary noise in the logs. We are interested in how long it took
         // for other commands to complete, not how fast acquiring a lock is.
         const uint64_t end_time = GetMillisecondsMonotonic();
-        const auto wait_time =
-            multiple_attempts
-                ? std::make_optional(DurationMillis(start_time, end_time))
-                : std::nullopt;
+        const auto wait_time = multiple_attempts
+                                   ? DurationMillis(start_time, end_time)
+                                   : DurationMillis();
         return std::make_pair(reinterpret_cast<LockHandle>(handle), wait_time);
       }
     }
