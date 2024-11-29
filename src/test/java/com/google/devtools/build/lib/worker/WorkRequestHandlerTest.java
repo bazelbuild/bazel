@@ -37,7 +37,6 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -166,7 +165,6 @@ public class WorkRequestHandlerTest {
   }
 
   @Test
-  @Ignore("b/380340632 - test currently relies on GoogleTestSecurityManager")
   public void testMultiplexWorkRequest_stopsWorkerOnException()
       throws IOException, InterruptedException {
     PipedOutputStream src = new PipedOutputStream();
@@ -195,10 +193,15 @@ public class WorkRequestHandlerTest {
                 if (workerThreads.size() < 2) {
                   eternity.acquire(); // This blocks forever.
                 } else {
-                  throw new Error("Intentional death!");
+                  // This is triggered by the second WorkRequest. This causes the PipedInputStream
+                  // under the hood to throw an InterruptedIOException. This process helps us
+                  // simulate the situation when the infinite loop in the WorkRequestHandler catches
+                  // an IOException while calling messageProcess.readWorkRequest(). This exception
+                  // will then trigger the path we're testing to stop the worker.
+                  messageProcessor.interruptReader();
                 }
               } catch (InterruptedException e) {
-                throw new AssertionError("Unhandled exception", e);
+                Thread.currentThread().interrupt();
               }
               return 0;
             },
@@ -672,6 +675,10 @@ public class WorkRequestHandlerTest {
       if (readerThread != null) {
         readerThread.interrupt();
       }
+    }
+
+    public void interruptReader() {
+      readerThread.interrupt();
     }
   }
 }
