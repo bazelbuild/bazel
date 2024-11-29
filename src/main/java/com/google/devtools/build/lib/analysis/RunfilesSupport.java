@@ -589,7 +589,7 @@ public final class RunfilesSupport {
             ruleContext.getConfiguration().getRunfileSymlinksMode());
     PathFragment rootRelativePath = runfilesTreeArtifact.getRootRelativePath();
     PathFragment manifestPath =
-        rootRelativePath.replaceName(rootRelativePath.getBaseName() + "_manifest");
+        rootRelativePath.replaceName(rootRelativePath.getBaseName() + ".symlink_tree_manifest");
     Artifact inputManifest =
         ruleContext.getDerivedArtifact(manifestPath, ruleContext.getBinDirectory());
     Artifact runfilesManifest =
