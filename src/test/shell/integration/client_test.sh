@@ -23,10 +23,6 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-# Run spawns locally even if Bazel is configured to run them remotely, as some
-# test cases rely on interprocess communication through fifos.
-add_to_bazelrc "build --spawn_strategy=local"
-
 function strip_lines_from_bazel_cc() {
   # sed can't redirect back to its input file (it'll only generate an empty
   # file). In newer versions of gnu sed there is a -i option to edit in place.
