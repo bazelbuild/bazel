@@ -36,7 +36,6 @@ load(":common/cc/fdo/fdo_prefetch_hints.bzl", "fdo_prefetch_hints")
 load(":common/cc/fdo/fdo_profile.bzl", "fdo_profile")
 load(":common/cc/fdo/memprof_profile.bzl", "memprof_profile")
 load(":common/cc/fdo/propeller_optimize.bzl", "propeller_optimize")
-load(":common/java/java_common.bzl", "java_common")
 load(":common/objc/apple_common.bzl", "apple_common")
 load(":common/objc/objc_common.bzl", "objc_common")
 
@@ -48,7 +47,6 @@ exported_toplevels = {
     "CcSharedLibraryInfo": CcSharedLibraryInfo,
     "CcSharedLibraryHintInfo": CcSharedLibraryHintInfo,
     "cc_common": cc_common,
-    "java_common": struct(internal_DO_NOT_USE = java_common.internal_DO_NOT_USE),
     "apple_common": apple_common,
 }
 
