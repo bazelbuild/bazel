@@ -35,7 +35,6 @@ public final class InstrumentedFilesInfo extends NativeInfo implements Instrumen
       new InstrumentedFilesInfo(
           NestedSetBuilder.emptySet(Order.STABLE_ORDER),
           NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          NestedSetBuilder.emptySet(Order.STABLE_ORDER),
           null,
           NestedSetBuilder.emptySet(Order.STABLE_ORDER),
           ImmutableMap.of(),
@@ -43,7 +42,6 @@ public final class InstrumentedFilesInfo extends NativeInfo implements Instrumen
 
   private final NestedSet<Artifact> instrumentedFiles;
   private final NestedSet<Artifact> instrumentationMetadataFiles;
-  private final NestedSet<Artifact> baselineCoverageFiles;
   @Nullable private final Artifact baselineCoverageArtifact;
   private final NestedSet<Artifact> coverageSupportFiles;
   private final ImmutableMap<String, String> coverageEnvironment;
@@ -52,14 +50,12 @@ public final class InstrumentedFilesInfo extends NativeInfo implements Instrumen
   InstrumentedFilesInfo(
       NestedSet<Artifact> instrumentedFiles,
       NestedSet<Artifact> instrumentationMetadataFiles,
-      NestedSet<Artifact> baselineCoverageFiles,
       @Nullable Artifact baselineCoverageArtifact,
       NestedSet<Artifact> coverageSupportFiles,
       ImmutableMap<String, String> coverageEnvironment,
       NestedSet<Tuple> reportedToActualSources) {
     this.instrumentedFiles = instrumentedFiles;
     this.instrumentationMetadataFiles = instrumentationMetadataFiles;
-    this.baselineCoverageFiles = baselineCoverageFiles;
     this.baselineCoverageArtifact = baselineCoverageArtifact;
     this.coverageSupportFiles = coverageSupportFiles;
     this.coverageEnvironment = coverageEnvironment;
@@ -89,19 +85,6 @@ public final class InstrumentedFilesInfo extends NativeInfo implements Instrumen
   @Override
   public Depset getInstrumentationMetadataFilesForStarlark() {
     return Depset.of(Artifact.class, instrumentationMetadataFiles);
-  }
-
-  /**
-   * The transitive closure of instrumented source files for which baseline coverage should be
-   * generated. In general, this is a subset of the instrumented source files: it only contains
-   * instrumented source files from rules that support baseline coverage.
-   */
-  // TODO(ulfjack): Change this to a single Artifact. Also change how it's generated. It's better to
-  // generate actions such that each action only covers the source files of a single rule, in
-  // particular because baseline coverage is language-specific (it requires a parser for the
-  // specific language), and we don't want to depend on all language parsers from any single rule.
-  public NestedSet<Artifact> getBaselineCoverageInstrumentedFiles() {
-    return baselineCoverageFiles;
   }
 
   /**
