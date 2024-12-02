@@ -276,7 +276,7 @@ public class BuildView {
             skyfocusState.buildConfiguration() != null
                 && !skyfocusState.buildConfiguration().equals(topLevelConfig);
         if (buildConfigChanged) {
-          switch (skyfocusState.options().handlingStrategy) {
+          switch (skyfocusState.options().frontierViolationCheck) {
             case WARN -> {
               eventHandler.handle(
                   Event.warn(
@@ -291,7 +291,7 @@ public class BuildView {
                                 "Skyfocus: detected changes to the build configuration. This is not"
                                     + " allowed in a focused build. Either clean to reset the"
                                     + " build, or set"
-                                    + " --experimental_skyfocus_handling_strategy=warn to perform a"
+                                    + " --experimental_frontier_violation_check=warn to perform a"
                                     + " full reanalysis instead of failing the build.")
                             .setSkyfocus(
                                 Skyfocus.newBuilder()

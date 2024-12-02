@@ -751,7 +751,7 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
     buildTarget("//hello/...");
     assertContents("x\ny", "//hello:target");
 
-    addOptions("--compilation_mode=opt", "--experimental_skyfocus_handling_strategy=warn");
+    addOptions("--compilation_mode=opt", "--experimental_frontier_violation_check=warn");
     buildTarget("//hello/...");
     assertContainsEvent("detected changes to the build configuration");
     assertContainsEvent("will be discarding the analysis cache");
@@ -779,7 +779,7 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
     buildTarget("//hello/...");
     assertContents("x\ny", "//hello:target");
 
-    addOptions("--compilation_mode=opt", "--experimental_skyfocus_handling_strategy=warn");
+    addOptions("--compilation_mode=opt", "--experimental_frontier_violation_check=warn");
     buildTarget("//hello/...");
     assertContainsEvent("detected changes to the build configuration");
     assertContainsEvent("will be discarding the analysis cache");

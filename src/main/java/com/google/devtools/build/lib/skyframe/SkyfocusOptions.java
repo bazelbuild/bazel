@@ -88,19 +88,22 @@ public final class SkyfocusOptions extends OptionsBase {
   }
 
   @Option(
-      name = "experimental_skyfocus_handling_strategy",
+      name = "experimental_frontier_violation_check",
       defaultValue = "strict",
       effectTags = OptionEffectTag.EAGERNESS_TO_EXIT,
       documentationCategory = OptionDocumentationCategory.LOGGING,
-      converter = SkyfocusHandlingStrategyConverter.class,
-      help = "Strategies for Skyfocus to handle changes outside of the working set.")
-  public SkyfocusHandlingStrategy handlingStrategy;
+      converter = FrontierViolationCheckConverter.class,
+      help =
+          "Strategies to handle potential incorrectness from changes beyond the frontier (i.e."
+              + " outside the working set)")
+  public FrontierViolationCheck frontierViolationCheck;
 
   /**
-   * Strategies for handing the "sad path" in Skyfocus, where it needs to handle changes outside of
-   * the working set. This usually requires some reanalysis to rebuild the dropped Skyframe nodes.
+   * Strategies for handing the "sad path" in Skyfocus and analysis caching, where it needs to
+   * handle changes outside of the working set. This usually requires some reanalysis to rebuild the
+   * dropped Skyframe nodes.
    */
-  public enum SkyfocusHandlingStrategy {
+  public enum FrontierViolationCheck {
     /**
      * Strict mode. Makes the "sad path" explicit to the user, and how to avoid it. Errors out when
      * Skyfocus detects a change outside of an active working set. Avoids automatic/graceful
@@ -115,11 +118,11 @@ public final class SkyfocusOptions extends OptionsBase {
     WARN,
   }
 
-  /** Enum converter for SkyfocusHandlingStrategy */
-  private static class SkyfocusHandlingStrategyConverter
-      extends EnumConverter<SkyfocusHandlingStrategy> {
-    public SkyfocusHandlingStrategyConverter() {
-      super(SkyfocusHandlingStrategy.class, "Skyfocus handling strategy option");
+  /** Enum converter for FrontierViolationCheck */
+  private static class FrontierViolationCheckConverter
+      extends EnumConverter<FrontierViolationCheck> {
+    public FrontierViolationCheckConverter() {
+      super(FrontierViolationCheck.class, "Skyfocus handling strategy option");
     }
   }
 }
