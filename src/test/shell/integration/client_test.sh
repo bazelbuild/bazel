@@ -786,7 +786,7 @@ function test_client_is_quiet_by_default() {
   strip_lines_from_bazel_cc
 
   assert_equals 2 $(cat $TEST_log | wc -l)
-  expect_log "^\$TEST_TMPDIR defined: output root default"
+  expect_log "^\$TEST_TMPDIR defined, some defaults will be overridden"
   expect_log "^Starting local $capitalized_product_name server (.*) and connecting to it...$"
   cp stdout $TEST_log || fail "cp failed"
 
@@ -802,7 +802,7 @@ function test_client_is_quiet_by_default() {
   strip_lines_from_bazel_cc
 
   assert_equals 1 $(cat $TEST_log | wc -l)
-  expect_log "^\$TEST_TMPDIR defined: output root default"
+  expect_log "^\$TEST_TMPDIR defined, some defaults will be overridden"
   cp stdout $TEST_log || fail "cp failed"
 
   strip_lines_from_bazel_cc
