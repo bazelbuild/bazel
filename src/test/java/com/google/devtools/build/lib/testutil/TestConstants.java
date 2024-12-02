@@ -172,7 +172,6 @@ public class TestConstants {
   public static final String CONSTRAINTS_PATH = "platforms_workspace";
 
   public static final String PLATFORM_LABEL = "@platforms//host";
-  public static final String PLATFORM_LABEL_ALIAS = "@bazel_tools//tools:host_platform";
   public static final String PIII_PLATFORM_LABEL = "@platforms//host:piii";
 
   public static final Label ANDROID_DEFAULT_SDK =
