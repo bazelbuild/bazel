@@ -216,7 +216,8 @@ Symbolic macros
 *   may not call `native.environment_group()`
 *   must create targets whose names adhere to the [naming schema](#naming)
 *   can't refer to input files that weren't declared or passed in as an argument
-    (see [visibility and macros](#visibility) for more details).
+*   can't refer to private targets of their callers (see
+    [visibility and macros](#visibility) for more details).
 
 ### Visibility and macros {:#visibility}
 
@@ -331,7 +332,7 @@ All visibility checking is done with respect to the innermost currently running
 symbolic macro. However, there is a visibility delegation mechanism: If a macro
 passes a label as an attribute value to an inner macro, any usages of the label
 in the inner macro are checked with respect to the outer macro. See the
-visibility page for more details.
+[visibility page](/concepts/visibility#symbolic-macros) for more details.
 
 Remember that legacy macros are entirely transparent to the visibility system,
 and behave as though their location is whatever BUILD file or symbolic macro
