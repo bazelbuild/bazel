@@ -19,6 +19,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
@@ -103,16 +104,18 @@ public class WorkerModule extends BlazeModule {
     SandboxOptions sandboxOptions = event.request().getOptions(SandboxOptions.class);
     if (options.sandboxHardening) {
       workerSandboxOptions =
-          WorkerSandboxOptions.create(
+          new WorkerSandboxOptions(
               LinuxSandboxUtil.getLinuxSandbox(workspace),
               sandboxOptions.sandboxFakeHostname,
               sandboxOptions.sandboxFakeUsername,
               sandboxOptions.sandboxDebug,
-              ImmutableList.copyOf(sandboxOptions.sandboxTmpfsPath),
-              ImmutableList.copyOf(sandboxOptions.sandboxWritablePath),
+              ImmutableSet.copyOf(sandboxOptions.sandboxTmpfsPath),
+              ImmutableSet.copyOf(sandboxOptions.sandboxWritablePath),
               sandboxOptions.memoryLimitMb,
               sandboxOptions.getInaccessiblePaths(env.getRuntime().getFileSystem()),
-              ImmutableList.copyOf(sandboxOptions.sandboxAdditionalMounts));
+              ImmutableMap.<String, String>builder()
+                  .putAll(sandboxOptions.sandboxAdditionalMounts)
+                  .buildKeepingLast());
     } else {
       workerSandboxOptions = null;
     }

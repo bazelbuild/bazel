@@ -408,7 +408,11 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       throws UserExecException, IOException {
     final SortedMap<Path, Path> userBindMounts = new TreeMap<>();
     SandboxHelpers.mountAdditionalPaths(
-        getSandboxOptions().sandboxAdditionalMounts, sandboxExecRoot, userBindMounts);
+        ImmutableMap.<String, String>builder()
+            .putAll(getSandboxOptions().sandboxAdditionalMounts)
+            .buildKeepingLast(),
+        sandboxExecRoot,
+        userBindMounts);
 
     for (Path inaccessiblePath : getInaccessiblePaths()) {
       if (!inaccessiblePath.exists()) {
