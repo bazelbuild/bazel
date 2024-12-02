@@ -149,8 +149,8 @@ public class TestConstants {
    */
   public static final ImmutableList<String> PRODUCT_SPECIFIC_FLAGS =
       ImmutableList.of(
-          "--platforms=@bazel_tools//tools:host_platform",
-          "--host_platform=@bazel_tools//tools:host_platform",
+          "--platforms=@platforms//host",
+          "--host_platform=@platforms//host",
           // TODO(#7849): Remove after flag flip.
           "--incompatible_use_toolchain_resolution_for_java_rules");
 
