@@ -399,7 +399,7 @@ string GetSelfPath(const char* argv0) {
   return blaze_util::WstringToCstring(buffer);
 }
 
-string GetOutputRoot() {
+string GetCacheDir() {
   string home = GetHomeDir();
   if (home.empty()) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)

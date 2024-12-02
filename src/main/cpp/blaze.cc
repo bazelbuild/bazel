@@ -1135,39 +1135,16 @@ static string GetCanonicalCwd() {
   return result;
 }
 
-// Updates the parsed startup options and global config to fill in defaults.
-static void UpdateConfiguration(const string &install_md5,
-                                const string &workspace, const bool server_mode,
-                                StartupOptions *startup_options) {
-  // The default install_base is <output_user_root>/install/<md5(blaze)>
-  // but if an install_base is specified on the command line, we use that as
-  // the base instead.
-  if (startup_options->install_base.IsEmpty()) {
-    if (server_mode) {
-      BAZEL_DIE(blaze_exit_code::BAD_ARGV)
-          << "exec-server requires --install_base";
-    }
-    blaze_util::Path install_user_root =
-        startup_options->output_user_root.GetRelative("install");
-    startup_options->install_base = install_user_root.GetRelative(install_md5);
-  }
-
-  if (startup_options->output_base.IsEmpty()) {
-    if (server_mode) {
-      BAZEL_DIE(blaze_exit_code::BAD_ARGV)
-          << "exec-server requires --output_base";
-    }
-    startup_options->output_base =
-        blaze::GetHashedBaseDir(startup_options->output_user_root, workspace);
-  }
+static void PrepareDirectories(StartupOptions *startup_options) {
+  blaze::CreateSecureDirectory(
+      blaze_util::Path(startup_options->output_user_root));
 
   if (!blaze_util::PathExists(startup_options->output_base)) {
     if (!blaze_util::MakeDirectories(startup_options->output_base, 0777)) {
-      string err = GetLastErrorString();
       BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
           << "Output base directory '"
           << startup_options->output_base.AsPrintablePath()
-          << "' could not be created: " << err;
+          << "' could not be created: " << GetLastErrorString();
     }
   } else {
     if (!blaze_util::IsDirectory(startup_options->output_base)) {
@@ -1183,20 +1160,14 @@ static void UpdateConfiguration(const string &install_md5,
         << startup_options->output_base.AsPrintablePath()
         << "' must be readable and writable.";
   }
+
   ExcludePathFromBackup(startup_options->output_base);
 
   startup_options->output_base = startup_options->output_base.Canonicalize();
   if (startup_options->output_base.IsEmpty()) {
-    string err = GetLastErrorString();
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "blaze_util::MakeCanonical('"
-        << startup_options->output_base.AsPrintablePath()
-        << "') failed: " << err;
-  }
-
-  if (startup_options->failure_detail_out.IsEmpty()) {
-    startup_options->failure_detail_out =
-        startup_options->output_base.GetRelative("failure_detail.rawproto");
+        << "Output base directory could not be canonicalized: "
+        << GetLastErrorString();
   }
 }
 
@@ -1521,6 +1492,10 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
   (void)DetectBashAndExportBazelSh();
 #endif  // if defined(_WIN32) || defined(__CYGWIN__)
 
+  if (blaze::IsRunningWithinTest()) {
+    BAZEL_LOG(USER) << "$TEST_TMPDIR defined, some defaults will be overridden";
+  }
+
   const string workspace = workspace_layout->GetWorkspace(cwd);
   ParseOptionsOrDie(cwd, workspace, *option_processor, argc, argv);
   StartupOptions *startup_options = option_processor->GetParsedStartupOptions();
@@ -1542,9 +1517,6 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
     UnlimitCoredumps();
   }
 
-  blaze::CreateSecureDirectory(
-      blaze_util::Path(startup_options->output_user_root));
-
   // Only start a server when in a workspace because otherwise we won't do more
   // than emit a help message.
   if (!workspace_layout->InWorkspace(workspace)) {
@@ -1559,9 +1531,10 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
   string install_md5;
   DetermineArchiveContents(self_path, &archive_contents, &install_md5);
 
-  UpdateConfiguration(install_md5, workspace,
-                      IsServerMode(option_processor->GetCommand()),
-                      startup_options);
+  startup_options->UpdateConfiguration(
+      install_md5, workspace, IsServerMode(option_processor->GetCommand()));
+
+  PrepareDirectories(startup_options);
 
   RunLauncher(self_path, archive_contents, install_md5, *startup_options,
               *option_processor, *workspace_layout, workspace, &logging_info);

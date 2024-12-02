@@ -116,9 +116,7 @@ void Tokenize(const std::string &str, const char &comment,
 void StringPrintf(std::string *str, const char *format, ...);
 
 // Convert str to lower case. No locale handling, this is just for ASCII.
-void ToLower(std::string *str);
-
-std::string AsLower(const std::string &str);
+std::string ToLower(const std::string &str);
 
 #if defined(_WIN32) || defined(__CYGWIN__)
 // Convert UTF-16 string to ASCII (using the Active Code Page).

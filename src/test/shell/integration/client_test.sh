@@ -782,7 +782,7 @@ function test_client_is_quiet_by_default() {
 
   lines=$(cat $TEST_log | wc -l)
   [[ $lines -ge 2 && $lines -le 3 ]] || fail "Log has incorrect number of lines"
-  expect_log "^\$TEST_TMPDIR defined: output root default"
+  expect_log "^\$TEST_TMPDIR defined, some defaults will be overridden"
   expect_log "^Starting local $capitalized_product_name server (.*) and connecting to it...$"
   cp stdout $TEST_log || fail "cp failed"
 
@@ -799,7 +799,7 @@ function test_client_is_quiet_by_default() {
 
   lines=$(cat $TEST_log | wc -l)
   [[ $lines -ge 1 && $lines -le 2 ]] || fail "Log has incorrect number of lines"
-  expect_log "^\$TEST_TMPDIR defined: output root default"
+  expect_log "^\$TEST_TMPDIR defined, some defaults will be overridden"
   cp stdout $TEST_log || fail "cp failed"
 
   strip_lines_from_bazel_cc

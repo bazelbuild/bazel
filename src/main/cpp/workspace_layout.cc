@@ -31,8 +31,6 @@ namespace blaze {
 using std::string;
 using std::vector;
 
-string WorkspaceLayout::GetOutputRoot() const { return blaze::GetOutputRoot(); }
-
 bool WorkspaceLayout::InWorkspace(const string &workspace) const {
   for (auto boundaryFileName :
        {"MODULE.bazel", "REPO.bazel", "WORKSPACE.bazel", "WORKSPACE"}) {

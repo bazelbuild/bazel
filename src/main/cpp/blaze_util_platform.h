@@ -118,8 +118,8 @@ std::string Which(const std::string& executable);
 // readable.
 std::string GetSelfPath(const char* argv0);
 
-// Returns the directory Bazel can use to store output.
-std::string GetOutputRoot();
+// Returns a directory suitable for storing cached files.
+std::string GetCacheDir();
 
 // Returns the current user's home directory, or the empty string if unknown.
 // On Linux/macOS, this is $HOME. On Windows this is %USERPROFILE%.
