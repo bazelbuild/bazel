@@ -92,7 +92,6 @@ public final class InstrumentedFilesCollector {
         ImmutableList.of(),
         NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
         ImmutableMap.of(),
-        false,
         reportedToActualSources);
   }
 
@@ -122,16 +121,13 @@ public final class InstrumentedFilesCollector {
         rootFiles,
         NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
         ImmutableMap.of(),
-        false,
         reportedToActualSources);
   }
 
   /**
    * Collects transitive instrumentation data from dependencies, collects local source files from
    * dependencies, collects local metadata files by traversing the action graph of the current
-   * configured target, collect rule-specific instrumentation support files and creates baseline
-   * coverage actions for the transitive closure of source files (if <code>withBaselineCoverage
-   * </code> is true).
+   * configured target and collects rule-specific instrumentation support files.
    */
   public static InstrumentedFilesInfo collect(
       RuleContext ruleContext,
@@ -139,8 +135,7 @@ public final class InstrumentedFilesCollector {
       LocalMetadataCollector localMetadataCollector,
       Iterable<Artifact> rootFiles,
       NestedSet<Artifact> coverageSupportFiles,
-      ImmutableMap<String, String> coverageEnvironment,
-      boolean withBaselineCoverage) {
+      ImmutableMap<String, String> coverageEnvironment) {
     return collect(
         ruleContext,
         spec,
@@ -148,7 +143,6 @@ public final class InstrumentedFilesCollector {
         rootFiles,
         coverageSupportFiles,
         coverageEnvironment,
-        withBaselineCoverage,
         /* reportedToActualSources= */ NestedSetBuilder.<Tuple>emptySet(Order.STABLE_ORDER));
   }
 
@@ -159,7 +153,6 @@ public final class InstrumentedFilesCollector {
       @Nullable Iterable<Artifact> rootFiles,
       NestedSet<Artifact> coverageSupportFiles,
       ImmutableMap<String, String> coverageEnvironment,
-      boolean withBaselineCoverage,
       NestedSet<Tuple> reportedToActualSources) {
     return collect(
         ruleContext,
@@ -168,7 +161,6 @@ public final class InstrumentedFilesCollector {
         rootFiles,
         coverageSupportFiles,
         coverageEnvironment,
-        withBaselineCoverage,
         reportedToActualSources,
         /* additionalMetadata= */ null);
   }
@@ -180,7 +172,6 @@ public final class InstrumentedFilesCollector {
       @Nullable Iterable<Artifact> rootFiles,
       NestedSet<Artifact> coverageSupportFiles,
       ImmutableMap<String, String> coverageEnvironment,
-      boolean withBaselineCoverage,
       NestedSet<Tuple> reportedToActualSources,
       @Nullable Iterable<Artifact> additionalMetadata) {
     Preconditions.checkNotNull(ruleContext);
@@ -220,12 +211,6 @@ public final class InstrumentedFilesCollector {
       localSources = localSourcesBuilder.build();
     }
     instrumentedFilesInfoBuilder.addLocalSources(localSources);
-    if (withBaselineCoverage) {
-      // Also add the local sources to the baseline coverage instrumented sources, if the current
-      // rule supports baseline coverage.
-      // TODO(ulfjack): Generate a local baseline coverage action, and then merge at the leaves.
-      instrumentedFilesInfoBuilder.addBaselineCoverageSources(localSources);
-    }
 
     // Local metadata files.
     if (localMetadataCollector != null) {
@@ -370,7 +355,6 @@ public final class InstrumentedFilesCollector {
     RuleContext ruleContext;
     NestedSetBuilder<Artifact> instrumentedFilesBuilder;
     NestedSetBuilder<Artifact> metadataFilesBuilder;
-    NestedSetBuilder<Artifact> baselineCoverageInstrumentedFilesBuilder;
     NestedSetBuilder<Artifact> coverageSupportFilesBuilder;
     final ImmutableMap.Builder<String, String> coverageEnvironmentBuilder;
     final NestedSet<Tuple> reportedToActualSources;
@@ -382,7 +366,6 @@ public final class InstrumentedFilesCollector {
       this.ruleContext = ruleContext;
       instrumentedFilesBuilder = NestedSetBuilder.stableOrder();
       metadataFilesBuilder = NestedSetBuilder.stableOrder();
-      baselineCoverageInstrumentedFilesBuilder = NestedSetBuilder.stableOrder();
       coverageSupportFilesBuilder =
           NestedSetBuilder.<Artifact>stableOrder().addTransitive(coverageSupportFiles);
       coverageEnvironmentBuilder = ImmutableMap.builder();
@@ -401,8 +384,6 @@ public final class InstrumentedFilesCollector {
       if (provider != null) {
         instrumentedFilesBuilder.addTransitive(provider.getInstrumentedFiles());
         metadataFilesBuilder.addTransitive(provider.getInstrumentationMetadataFiles());
-        baselineCoverageInstrumentedFilesBuilder.addTransitive(
-            provider.getBaselineCoverageInstrumentedFiles());
         coverageSupportFilesBuilder.addTransitive(provider.getCoverageSupportFiles());
         coverageEnvironmentBuilder.putAll(provider.getCoverageEnvironment());
       }
@@ -410,10 +391,6 @@ public final class InstrumentedFilesCollector {
 
     void addLocalSources(NestedSet<Artifact> localSources) {
       instrumentedFilesBuilder.addTransitive(localSources);
-    }
-
-    void addBaselineCoverageSources(NestedSet<Artifact> localSources) {
-      baselineCoverageInstrumentedFilesBuilder.addTransitive(localSources);
     }
 
     void collectLocalMetadata(
@@ -427,8 +404,6 @@ public final class InstrumentedFilesCollector {
     }
 
     InstrumentedFilesInfo build() {
-      NestedSet<Artifact> baselineCoverageFiles = baselineCoverageInstrumentedFilesBuilder.build();
-
       // Create one baseline coverage action per target, for the transitive closure of files.
       var baselineCoverageAction =
           BaselineCoverageAction.create(ruleContext, baselineCoverageFiles);
@@ -438,7 +413,6 @@ public final class InstrumentedFilesCollector {
       return new InstrumentedFilesInfo(
           instrumentedFilesBuilder.build(),
           metadataFilesBuilder.build(),
-          baselineCoverageFiles,
           baselineCoverageArtifact,
           coverageSupportFilesBuilder.build(),
           coverageEnvironmentBuilder.buildKeepingLast(),
