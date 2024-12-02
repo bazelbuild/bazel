@@ -2047,7 +2047,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
                 .getOptions()
                 .get(PlatformOptions.class)
                 .platforms)
-        .containsExactly(Label.parseCanonicalUnchecked(TestConstants.PLATFORM_LABEL_ALIAS));
+        .containsExactly(Label.parseCanonicalUnchecked(TestConstants.PLATFORM_LABEL));
   }
 
   @Test

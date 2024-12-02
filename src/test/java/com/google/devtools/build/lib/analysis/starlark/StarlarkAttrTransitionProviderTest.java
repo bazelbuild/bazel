@@ -3156,7 +3156,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     // When --platforms is empty and no platform mapping triggers, PlatformMappingValue sets
     // --platforms to PlatformOptions.computeTargetPlatform(), which defaults to the host.
     assertThat(getConfiguration(dep).getOptions().get(PlatformOptions.class).platforms)
-        .containsExactly(Label.parseCanonicalUnchecked(TestConstants.PLATFORM_LABEL_ALIAS));
+        .containsExactly(Label.parseCanonicalUnchecked(TestConstants.PLATFORM_LABEL));
   }
 
   @Test
