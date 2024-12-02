@@ -127,7 +127,7 @@ public final class DumperTest {
   }
 
   @Test
-  public void testIterable() {
+  public void testCollection() {
     var input = new ArrayList<Object>();
     input.add("abc");
     input.add(10);
@@ -425,6 +425,9 @@ com.google.common.collect.RegularImmutableList(0) [
   @Test
   public void equivalentCycles() {
     // `cycle1` and `cycle2` are equivalent, but different references.
+
+    // Note that both `cycle1` and `cycle2` have strong self-symmetry and exercise a special
+    // fallback codepath in `Fingerprinter.handleStronglyConnectedComponent`.
     var cycle1 = new ArrayList<Object>();
     var one = new ArrayList<Object>();
     cycle1.add(one);
@@ -469,10 +472,29 @@ com.google.common.collect.RegularImmutableList(0) [
   }
 
   @Test
-  public void rotationsNotDeduplicated() {
-    // This test case demonstrates the limitations of the fingerprinting approach. It might be
-    // better to be able to deduplicate this, but the output is reasonable.
+  public void emptyArray_dumps() {
+    var subject = new Integer[0];
+    assertThat(dumpStructureWithEquivalenceReduction(subject))
+        .isEqualTo("java.lang.Integer[](0) []");
+  }
 
+  @Test
+  public void nullContainingArray_dumps() {
+    var subject = new Object[] {null, true, null, false};
+    assertThat(dumpStructureWithEquivalenceReduction(subject))
+        .isEqualTo(
+            """
+java.lang.Object[](0) [
+  null
+  true
+  null
+  false
+]\
+""");
+  }
+
+  @Test
+  public void rotations_areDeduplicated() {
     // `cycle1` and `cycle2` are isomorphic, but rotated.
     var cycle1 = new ArrayList<>();
     var one = new ArrayList<>();
@@ -492,23 +514,17 @@ com.google.common.collect.RegularImmutableList(0) [
     assertThat(dumpStructureWithEquivalenceReduction(subject))
         .isEqualTo(
             """
-            com.google.common.collect.RegularImmutableList(0) [
-              java.util.ArrayList(1) [
-                1
-                java.util.ArrayList(2) [
-                  2
-                  java.util.ArrayList(1)
-                ]
-              ]
-              java.util.ArrayList(3) [
-                2
-                java.util.ArrayList(4) [
-                  1
-                  java.util.ArrayList(3)
-                ]
-              ]
-            ]\
-            """);
+com.google.common.collect.RegularImmutableList(0) [
+  java.util.ArrayList(1) [
+    1
+    java.util.ArrayList(2) [
+      2
+      java.util.ArrayList(1)
+    ]
+  ]
+  java.util.ArrayList(2)
+]\
+""");
   }
 
   @Test

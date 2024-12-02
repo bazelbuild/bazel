@@ -14,10 +14,12 @@
 package com.google.devtools.build.lib.skyframe.serialization.testutils;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.skyframe.serialization.testutils.Dumper.computeVisitOrder;
 import static com.google.devtools.build.lib.skyframe.serialization.testutils.Fingerprinter.computeFingerprints;
 import static com.google.devtools.build.lib.skyframe.serialization.testutils.Fingerprinter.fingerprintString;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
@@ -50,7 +52,7 @@ public final class FingerprinterTest {
             'c',
             "text",
             new WeakReference<Object>(contents),
-            ImmutableList.of());
+            ImmutableList.of("x"));
     IdentityHashMap<Object, String> fingerprints = computeFingerprints(subject);
     // There's one entry for `subject`, and one for the `nonInlinedValue` field. None of the inlined
     // fields have fingerprint entries.
@@ -64,11 +66,12 @@ public final class FingerprinterTest {
                     + " charValue=java.lang.Character:c, doubleValue=java.lang.Double:12.123456789,"
                     + " floatValue=java.lang.Float:0.01, intValue=java.lang.Integer:65536,"
                     + " longValue=java.lang.Long:4294967296,"
-                    + " nonInlinedValue=7cf245bfdbbfb29e4da6143f7b67ac98,"
+                    + " nonInlinedValue=82ed5f9ce61ef24fba1beda7a918eb90,"
                     + " shortValue=java.lang.Short:12345, stringValue=java.lang.String:text,"
                     + " weakReferenceValue=java.lang.ref.WeakReference]"),
             subject.nonInlinedValue,
-            fingerprintString("com.google.common.collect.RegularImmutableList: []"));
+            fingerprintString(
+                "com.google.common.collect.SingletonImmutableList: [java.lang.String:x]"));
   }
 
   @SuppressWarnings({"UnusedVariable", "FieldCanBeLocal"})
@@ -148,6 +151,178 @@ public final class FingerprinterTest {
   }
 
   @Test
+  public void selfReferenceArray_fingerprintSucceeds() {
+    Object[] subject = new Object[1];
+    subject[0] = subject;
+
+    IdentityHashMap<Object, String> fingerprints = computeFingerprints(subject);
+    var dumpOut = new StringBuilder();
+    var unused =
+        computeVisitOrder(/* registry= */ null, /* fingerprints= */ null, subject, dumpOut);
+    String fingerprint = fingerprintString(dumpOut.toString());
+    assertThat(fingerprints).containsExactly(subject, fingerprint + "[0]");
+  }
+
+  @Test
+  public void symmetricalArrays_emitsRelativeFingerprintOnly() {
+    Object[] subject = new Object[1];
+    Object[] reflection = new Object[] {subject};
+    subject[0] = reflection;
+
+    IdentityHashMap<Object, String> fingerprints = computeFingerprints(subject);
+    var dumpOut = new StringBuilder();
+    var unused =
+        computeVisitOrder(/* registry= */ null, /* fingerprints= */ null, subject, dumpOut);
+    String fingerprint = fingerprintString(dumpOut.toString());
+    // Contains only the "relative" fingerprint for subject and no fingerprint for reflection.
+    assertThat(fingerprints).containsExactly(subject, fingerprint);
+  }
+
+  @Test
+  public void distinctLocalFingerprintArrayCycle_fullyFingerprints() {
+    var pointA = new Position(0, 1);
+    var pointB = new Position(1, 2);
+
+    // Constructs a cycle, a1 - > a2 -> b -> a1.
+    // (a1, a2) will have the same local fingerprint, but b1's local fingerprint is unique.
+    Object[] a1 = new Object[2];
+    Object[] a2 = new Object[2];
+    Object[] b = new Object[2];
+
+    a1[0] = pointA;
+    a1[1] = a2;
+    a2[0] = pointA;
+    a2[1] = b;
+
+    b[0] = pointB;
+    b[1] = a1;
+
+    IdentityHashMap<Object, String> fingerprints = computeFingerprints(a1);
+
+    var leafFingerprints = new IdentityHashMap<Object, String>();
+    leafFingerprints.put(pointA, fingerprints.get(pointA));
+    leafFingerprints.put(pointB, fingerprints.get(pointB));
+    var dumpOut = new StringBuilder();
+    IdentityHashMap<Object, Integer> visitOrder =
+        computeVisitOrder(/* registry= */ null, leafFingerprints, b, dumpOut);
+    String fingerprint = fingerprintString(dumpOut.toString());
+
+    var expected = new IdentityHashMap<Object, String>();
+    visitOrder.forEach((obj, index) -> expected.put(obj, fingerprint + '[' + index + ']'));
+    leafFingerprints.forEach(expected::put);
+    assertThat(fingerprints).isEqualTo(expected);
+
+    // Verifies that fingerprints are independent of starting node.
+    for (Object[] root : ImmutableList.of(a2, b)) {
+      assertThat(computeFingerprints(root)).isEqualTo(fingerprints);
+    }
+  }
+
+  @Test
+  public void localFingerprintIndistinguishableArrayCycle_fulllyFingerprints() {
+    var pointA = new Position(0, 1);
+    var pointB = new Position(1, 2);
+
+    // Constructs a cycle, a1 - > a2 -> a3 -> b1 -> b2 -> a1.
+    // (a1, a2, a3) and (b1, b2) have the same local fingerprints so local fingerprinting is not
+    // enough to resolve this cycle. However, the cycle is slightly asymmetrical so full
+    // fingerprints are distinct.
+    Object[] a1 = new Object[2];
+    Object[] a2 = new Object[2];
+    Object[] a3 = new Object[2];
+    Object[] b1 = new Object[2];
+    Object[] b2 = new Object[2];
+
+    a1[0] = pointA;
+    a2[0] = pointA;
+    a3[0] = pointA;
+    b1[0] = pointB;
+    b2[0] = pointB;
+
+    a1[1] = a2;
+    a2[1] = a3;
+    a3[1] = b1;
+    b1[1] = b2;
+    b2[1] = a1;
+
+    IdentityHashMap<Object, String> fingerprints = computeFingerprints(a1);
+    var leafFingerprints = new IdentityHashMap<Object, String>();
+    leafFingerprints.put(pointA, fingerprints.get(pointA));
+    leafFingerprints.put(pointB, fingerprints.get(pointB));
+
+    var dumpOut = new StringBuilder();
+    IdentityHashMap<Object, Integer> b1VisitOrder =
+        computeVisitOrder(/* registry= */ null, leafFingerprints, b1, dumpOut);
+    String b1Fingerprint = fingerprintString(dumpOut.toString());
+
+    dumpOut = new StringBuilder();
+    IdentityHashMap<Object, Integer> b2VisitOrder =
+        computeVisitOrder(/* registry= */ null, leafFingerprints, b2, dumpOut);
+    String b2Fingerprint = fingerprintString(dumpOut.toString());
+
+    assertThat(b1Fingerprint).isNotEqualTo(b2Fingerprint);
+
+    IdentityHashMap<Object, Integer> visitOrder;
+    String fingerprint;
+    if (b1Fingerprint.compareTo(b2Fingerprint) < 0) {
+      visitOrder = b1VisitOrder;
+      fingerprint = b1Fingerprint;
+    } else {
+      visitOrder = b2VisitOrder;
+      fingerprint = b2Fingerprint;
+    }
+
+    var expected = new IdentityHashMap<Object, String>();
+    visitOrder.forEach((obj, index) -> expected.put(obj, fingerprint + '[' + index + ']'));
+    leafFingerprints.forEach(expected::put);
+    assertThat(fingerprints).isEqualTo(expected);
+
+    // Verifies that fingerprints are independent of starting node.
+    for (Object[] root : ImmutableList.of(a2, a3, b1, b2)) {
+      assertThat(computeFingerprints(root)).isEqualTo(fingerprints);
+    }
+  }
+
+  @Test
+  public void overlySymmetricalArrayCycle_emitsRelativeFingerprintOnly() {
+    var pointA = new Position(0, 1);
+    var pointB = new Position(1, 2);
+
+    // Constructs the cycle a1 -> b1 -> a2 -> b2 -> a1.
+    // This cycle is perfectly symmetrical so can't even be resolved by full fingerprinting.
+    Object[] a1 = new Object[2];
+    Object[] a2 = new Object[2];
+    Object[] b1 = new Object[2];
+    Object[] b2 = new Object[2];
+
+    a1[0] = pointA;
+    a2[0] = pointA;
+    b1[0] = pointB;
+    b2[0] = pointB;
+
+    a1[1] = b1;
+    b1[1] = a2;
+    a2[1] = b2;
+    b2[1] = a1;
+
+    IdentityHashMap<Object, String> fingerprints = computeFingerprints(a1);
+
+    var leafFingerprints = new IdentityHashMap<Object, String>();
+    leafFingerprints.put(pointA, fingerprints.get(pointA));
+    leafFingerprints.put(pointB, fingerprints.get(pointB));
+
+    var dumpOut = new StringBuilder();
+    var unused = computeVisitOrder(/* registry= */ null, leafFingerprints, a1, dumpOut);
+    String fingerprint = fingerprintString(dumpOut.toString());
+
+    var expected = new IdentityHashMap<Object, String>();
+    // Only pointA, pointB and a1 have fingerprints.
+    expected.put(a1, fingerprint);
+    leafFingerprints.forEach(expected::put);
+    assertThat(fingerprints).isEqualTo(expected);
+  }
+
+  @Test
   public void map() {
     var subject = new LinkedHashMap<Object, Object>();
     subject.put("abc", "def");
@@ -171,7 +346,33 @@ public final class FingerprinterTest {
   }
 
   @Test
-  public void iterable() {
+  public void symmetricalMapCycle_emitsRelativeFingerprintOnly() {
+    // Constructs the cycle a1 -> b1 -> a2 -> b2 -> a1.
+    // This cycle is perfectly symmetrical so can't even be resolved by full fingerprinting.
+    var a1 = new LinkedHashMap<String, Object>();
+    var b1 = new LinkedHashMap<String, Object>();
+    var a2 = new LinkedHashMap<String, Object>();
+    var b2 = new LinkedHashMap<String, Object>();
+
+    a1.put("A", b1);
+    b1.put("B", a2);
+    a2.put("A", b2);
+    b2.put("B", a1);
+
+    IdentityHashMap<Object, String> fingerprints = computeFingerprints(a1);
+
+    var dumpOut = new StringBuilder();
+    var unused = computeVisitOrder(/* registry= */ null, /* fingerprints= */ null, a1, dumpOut);
+    String fingerprint = fingerprintString(dumpOut.toString());
+
+    var expected = new IdentityHashMap<>();
+    expected.put(a1, fingerprint);
+    assertThat(fingerprints).isEqualTo(expected);
+  }
+
+  @Test
+  @SuppressWarnings("ContainsEntryAfterGetString") // Causes test failure: b/381569717
+  public void collection_fingerprints() {
     var subject = new ArrayList<Object>();
     subject.add("abc");
     subject.add(10);
@@ -184,14 +385,24 @@ public final class FingerprinterTest {
     assertThat(fingerprints).hasSize(2);
     // These checks are element-wise because containsExactly somehow tries to compute the hashCode
     // of `subject`, leading to a StackOverflowError.
-    assertThat(fingerprints.get(subject))
-        .isEqualTo(
-            // The cyclic self-reference at the position 3 is 0, as expected.
-            fingerprintString(
-                "java.util.ArrayList: [java.lang.String:abc, java.lang.Integer:10,"
-                    + " 3a563d247e43e61db06a1e2931834994, 0, null]"));
-    assertThat(fingerprints.get(position))
-        .isEqualTo(fingerprintString(NAMESPACE + "Position: [x=12, y=24]"));
+    String positionFingerprint = fingerprintString(NAMESPACE + "Position: [x=12, y=24]");
+    assertThat(fingerprints.get(position)).isEqualTo(positionFingerprint);
+
+    String subjectFingerprint =
+        fingerprintString(
+                String.format(
+                    """
+java.util.ArrayList(0) [
+  abc
+  10
+  %s[%s]
+  java.util.ArrayList(0)
+  null
+]\
+""",
+                    NAMESPACE + "Position", positionFingerprint))
+            + "[0]";
+    assertThat(fingerprints.get(subject)).isEqualTo(subjectFingerprint);
   }
 
   @Test
@@ -231,21 +442,21 @@ public final class FingerprinterTest {
     String subject = "constant";
     ObjectCodecRegistry registry =
         ObjectCodecRegistry.newBuilder().addReferenceConstant(subject).build();
-    assertThat(Fingerprinter.computeFingerprint(subject, registry))
+    assertThat(Fingerprinter.computeFingerprint(registry, subject))
         .isEqualTo("java.lang.String[SERIALIZATION_CONSTANT:1]");
   }
 
   @Test
   public void singleReferenceConstant_defaultRegistry() {
     String subject = "constant";
-    assertThat(Fingerprinter.computeFingerprint(subject, ObjectCodecRegistry.newBuilder().build()))
+    assertThat(Fingerprinter.computeFingerprint(ObjectCodecRegistry.newBuilder().build(), subject))
         .isEqualTo("java.lang.String:constant");
   }
 
   @Test
   public void singleReferenceConstant_nullRegistry() {
     String subject = "constant";
-    assertThat(Fingerprinter.computeFingerprint(subject, /* registry= */ null))
+    assertThat(Fingerprinter.computeFingerprint(/* registry= */ null, subject))
         .isEqualTo("java.lang.String:constant");
   }
 
@@ -259,7 +470,7 @@ public final class FingerprinterTest {
             .addReferenceConstant(constant2)
             .build();
     var subject = ImmutableList.of(constant1, "a", constant2, constant1);
-    IdentityHashMap<Object, String> fingerprints = computeFingerprints(subject, registry);
+    IdentityHashMap<Object, String> fingerprints = computeFingerprints(registry, subject);
     assertThat(fingerprints)
         .containsExactly(
             subject,
@@ -290,16 +501,19 @@ public final class FingerprinterTest {
 
     IdentityHashMap<Object, String> fingerprints = computeFingerprints(zero);
 
-    // The fingerprints below are all transitively linked to fingerprint0 so an assertion on
-    // fingerprint0 actually covers the rest of them as well.
-    String fingerprint4 = fingerprintNode(4, "-3");
-    String fingerprint3 = fingerprintNode(3, fingerprint4);
-    String fingerprint2 = fingerprintNode(2, "-2");
-    String fingerprint1 = fingerprintNode(1, fingerprint2, fingerprint3);
-    String fingerprint0 = fingerprintNode(0, fingerprint1);
+    // `one` ends up being identified as the root (by lexicographical partial fingerprint).
+    var dumpOut = new StringBuilder();
+    IdentityHashMap<Object, Integer> visitOrder =
+        computeVisitOrder(/* registry= */ null, /* fingerprints= */ null, one, dumpOut);
+    String rootFingerprint = fingerprintString(dumpOut.toString());
 
-    // All the nodes are part of a common cyclic complex so there is only one fingerprint.
-    assertThat(fingerprints).containsExactly(zero, fingerprint0);
+    assertThat(fingerprints)
+        .isEqualTo(Maps.transformValues(visitOrder, index -> rootFingerprint + '[' + index + ']'));
+
+    // Verfiies that all rotations of the cyclic complex result in the same fingerprints.
+    for (Node rotated : new Node[] {one, two, three, four}) {
+      assertThat(computeFingerprints(rotated)).isEqualTo(fingerprints);
+    }
   }
 
   @Test
@@ -324,18 +538,24 @@ public final class FingerprinterTest {
 
     IdentityHashMap<Object, String> fingerprints = computeFingerprints(zero);
 
-    String fingerprint5 = fingerprintNode(5, "-2");
-    String fingerprint4 = fingerprintNode(4, fingerprint5);
-    String fingerprint3 = fingerprintNode(3, fingerprint4);
-    String fingerprint2 = fingerprintNode(2, "-2");
-    String fingerprint1 = fingerprintNode(1, fingerprint2, fingerprint3);
-    String fingerprint0 = fingerprintNode(0, fingerprint1);
+    // `four` ends up being identified as root of the child loop.
+    var dumpOut = new StringBuilder();
+    IdentityHashMap<Object, Integer> childVisitOrder =
+        computeVisitOrder(/* registry= */ null, /* fingerprints= */ null, four, dumpOut);
+    String childRootFingerprint = fingerprintString(dumpOut.toString());
+    var expectedFingerprints = new IdentityHashMap<Object, String>();
+    childVisitOrder.forEach(
+        (obj, index) -> expectedFingerprints.put(obj, childRootFingerprint + '[' + index + ']'));
 
-    // There are two independent cycles, so there are two fingerprints.
-    assertThat(fingerprints)
-        .containsExactly(
-            zero, fingerprint0,
-            three, fingerprint3);
+    // `one` ends up being identified as the root of the parent loop.
+    dumpOut = new StringBuilder();
+    IdentityHashMap<Object, Integer> parentVisitOrder =
+        computeVisitOrder(/* registry= */ null, expectedFingerprints, one, dumpOut);
+    String parentRootFingerprint = fingerprintString(dumpOut.toString());
+    parentVisitOrder.forEach(
+        (obj, index) -> expectedFingerprints.put(obj, parentRootFingerprint + '[' + index + ']'));
+
+    assertThat(fingerprints).isEqualTo(expectedFingerprints);
   }
 
   @Test
@@ -350,11 +570,11 @@ public final class FingerprinterTest {
     // The example consists of two cycles hanging off a common root, 0. The left cycle has a higher
     // absolute backreference level than the right cycle. They should not interfere with one
     // another.
-    // 0 -> 1 -> 2 -> 1
+    // (left) 0 -> 1 -> 2 -> 1
     zero.left = one;
     one.left = two;
     two.left = one;
-    // 0 -> 3 -> 4 -> 5 -> 4
+    // (right) 0 -> 3 -> 4 -> 5 -> 4
     zero.right = three;
     three.left = four;
     four.left = five;
@@ -362,21 +582,83 @@ public final class FingerprinterTest {
 
     IdentityHashMap<Object, String> fingerprints = computeFingerprints(zero);
 
-    String fingerprint5 = fingerprintNode(5, "-1");
-    String fingerprint4 = fingerprintNode(4, fingerprint5);
-    String fingerprint3 = fingerprintNode(3, fingerprint4);
-    String fingerprint2 = fingerprintNode(2, "-1");
-    String fingerprint1 = fingerprintNode(1, fingerprint2);
-    String fingerprint0 = fingerprintNode(0, fingerprint1, fingerprint3);
+    var expectedFingerprints = new IdentityHashMap<Object, String>();
 
-    // The fingerprints for 2 and 5 are suppressed because they are part of the cycles owned by
-    // 1 and 4, respectively.
+    // `two` ends up being identified as root of the left loop.
+    var dumpOut = new StringBuilder();
+    IdentityHashMap<Object, Integer> leftVisitOrder =
+        computeVisitOrder(/* registry= */ null, /* fingerprints= */ null, two, dumpOut);
+    String leftRootFingerprint = fingerprintString(dumpOut.toString());
+    leftVisitOrder.forEach(
+        (obj, index) -> expectedFingerprints.put(obj, leftRootFingerprint + '[' + index + ']'));
+
+    // `four` ends up being identified as the root of the right loop.
+    dumpOut = new StringBuilder();
+    IdentityHashMap<Object, Integer> rightVisitOrder =
+        computeVisitOrder(/* registry= */ null, /* fingerprints= */ null, four, dumpOut);
+    String rightRootFingerprint = fingerprintString(dumpOut.toString());
+    rightVisitOrder.forEach(
+        (obj, index) -> expectedFingerprints.put(obj, rightRootFingerprint + '[' + index + ']'));
+
+    String fingerprint3 = fingerprintNode(3, expectedFingerprints.get(four));
+    String fingerprint0 = fingerprintNode(0, expectedFingerprints.get(one), fingerprint3);
+
+    expectedFingerprints.put(zero, fingerprint0);
+    expectedFingerprints.put(three, fingerprint3);
+
+    assertThat(fingerprints).isEqualTo(expectedFingerprints);
+  }
+
+  @Test
+  public void unlabeledCyclicComplex_fingerprints() {
+    // The nodes all have the same label to prevent prevent local fingerprinting. This exercises
+    // the full, relative fingerprinting fallback.
+    Node zero = new Node(0);
+    Node one = new Node(0);
+    Node two = new Node(0);
+    Node three = new Node(0);
+    Node four = new Node(0);
+
+    // The example consists of a somewhat complex graph.
+    //    0
+    //  ↗ ↓ ↖
+    //  | 1  \
+    //  |↙ ↘  \
+    //  2   3  |
+    //   ↖  ↓ /
+    //      4
+    // Note that (1, 4) and (0, 2, 3) are indistinguishable by local fingerprint.
+    zero.left = one;
+    one.left = two;
+    two.left = zero;
+    one.right = three;
+    three.left = four;
+    four.left = two;
+    four.right = zero;
+
+    IdentityHashMap<Object, String> fingerprints = computeFingerprints(zero);
+
+    // The group (1, 4) has lower cardinality, so it's examined first. 1 has a lexicographically
+    // earlier fingerprint than 4 so it becomes the canonical root.
+    var dumpOut = new StringBuilder();
+    IdentityHashMap<Object, Integer> visitOrder =
+        computeVisitOrder(/* registry= */ null, /* fingerprints= */ null, one, dumpOut);
+    String oneFingerprint = fingerprintString(dumpOut.toString());
+
+    dumpOut = new StringBuilder();
+    var unused = computeVisitOrder(/* registry= */ null, /* fingerprints= */ null, four, dumpOut);
+    String fourFingerprint = fingerprintString(dumpOut.toString());
+
+    assertThat(oneFingerprint).isLessThan(fourFingerprint);
+
+    // Verifies that the fingerprints are generated by 1's fingerprint and visitation order.
     assertThat(fingerprints)
-        .containsExactly(
-            zero, fingerprint0,
-            one, fingerprint1,
-            three, fingerprint3,
-            four, fingerprint4);
+        .isEqualTo(Maps.transformValues(visitOrder, index -> oneFingerprint + '[' + index + ']'));
+
+    // Verfies all starting points produce the identical fingerprint maps.
+    for (Node rotated : new Node[] {one, two, three, four}) {
+      assertThat(computeFingerprints(rotated)).isEqualTo(fingerprints);
+    }
   }
 
   private static String fingerprintNode(int id, String left, String right) {
@@ -406,14 +688,5 @@ public final class FingerprinterTest {
   }
 
   /** An arbitrary class used as test data. */
-  @SuppressWarnings({"UnusedVariable", "FieldCanBeLocal"})
-  private static class Position {
-    private final int x;
-    private final int y;
-
-    private Position(int x, int y) {
-      this.x = x;
-      this.y = y;
-    }
-  }
+  private record Position(int x, int y) {}
 }

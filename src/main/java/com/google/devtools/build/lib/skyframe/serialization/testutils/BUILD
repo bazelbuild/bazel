@@ -15,6 +15,8 @@ DUMPER_SOURCES = [
     "Dumper.java",
     "FieldInfoCache.java",
     "Fingerprinter.java",
+    "GraphDataCollector.java",
+    "GraphTraverser.java",
 ]
 
 java_library(

@@ -13,21 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.testutils;
 
-import static com.google.common.collect.Iterables.isEmpty;
+import static com.google.devtools.build.lib.skyframe.serialization.testutils.Dumper.getTypeName;
 import static com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.getClassInfo;
-import static com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.getFieldInfo;
 import static com.google.devtools.build.lib.skyframe.serialization.testutils.Fingerprinter.computeFingerprints;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.ClosedClassInfo;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.FieldInfo;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.ObjectInfo;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.PrimitiveInfo;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Array;
 import java.util.Collection;
+import java.util.HexFormat;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -41,17 +38,20 @@ import javax.annotation.Nullable;
  * <p>This class exists mainly to help test and debug serialization. Consequently, it skips {@code
  * transient} fields. It also performs reference-based memoization to handle cyclic structures or
  * structures that would have an exponential path structure, for example, {@code NestedSets}.
+ *
+ * <p>This class also supports value-based deduplication when calling {@link
+ * #dumpStructureWithEquivalenceReduction}. Instead of using (only) using references for
+ * deduplication, uses object fingerprints computed by {@link Fingerprinter} for deduplication.
  */
-public final class Dumper {
-  @Nullable // optionally used to lookup serialization constants
-  private final ObjectCodecRegistry registry;
+public final class Dumper implements GraphDataCollector<Dumper.TextSink> {
+  private static final HexFormat HEX_FORMAT = HexFormat.of().withUpperCase();
 
   /**
    * Fingerprints for references.
    *
    * <p>Even if this is present, not all references will have fingerprints. In particular, anything
-   * where {@link #shouldInline} is true or inner elements of object cycles will not have
-   * fingerprints.
+   * where {@link Dumper#shouldInline} is true or inner elements of unresolvable object cycles will
+   * not have fingerprints.
    */
   @Nullable // optional behavior
   private final IdentityHashMap<Object, String> fingerprints;
@@ -64,17 +64,14 @@ public final class Dumper {
    */
   private final IdentityHashMap<Object, Integer> referenceIds = new IdentityHashMap<>();
 
-  /** The current indentation level. */
-  private int indent = 0;
-
-  private final StringBuilder out = new StringBuilder();
-
-  private Dumper(
-      @Nullable ObjectCodecRegistry registry,
-      @Nullable IdentityHashMap<Object, String> fingerprints) {
-    this.registry = registry;
-    this.fingerprints = fingerprints;
-  }
+  /**
+   * When true, emits a fingerprint directly for objects found in {@link #fingerprints}.
+   *
+   * <p>When false, the fingerprint is used only as a reference for deduplication. The object having
+   * the fingerprint is still output as text. If another object with the same fingerprint is
+   * encountered, a normal backreference is emitted.
+   */
+  private final boolean emitFingerprints;
 
   /**
    * Formats an arbitrary object into a string.
@@ -84,13 +81,22 @@ public final class Dumper {
    * @return a multiline String representation of {@code obj} without a trailing newline
    */
   public static String dumpStructure(@Nullable ObjectCodecRegistry registry, Object obj) {
-    var deep = new Dumper(registry, /* fingerprints= */ null);
-    deep.outputObject(obj);
-    return deep.out.toString();
+    return dumpStructure(registry, /* fingerprints= */ null, obj);
   }
 
   public static String dumpStructure(Object obj) {
     return dumpStructure(/* registry= */ null, obj);
+  }
+
+  private static String dumpStructure(
+      @Nullable ObjectCodecRegistry registry,
+      @Nullable IdentityHashMap<Object, String> fingerprints,
+      Object obj) {
+    var out = new StringBuilder();
+    var sink = new TextSink(out);
+    new GraphTraverser<>(registry, new Dumper(fingerprints, /* emitFingerprints= */ false))
+        .traverseObject(/* label= */ null, obj, sink);
+    return out.toString();
   }
 
   /**
@@ -100,140 +106,171 @@ public final class Dumper {
    */
   public static String dumpStructureWithEquivalenceReduction(
       @Nullable ObjectCodecRegistry registry, Object obj) {
-    var deep = new Dumper(registry, computeFingerprints(obj));
-    deep.outputObject(obj);
-    return deep.out.toString();
+    return dumpStructure(registry, computeFingerprints(registry, obj), obj);
   }
 
   public static String dumpStructureWithEquivalenceReduction(Object obj) {
     return dumpStructureWithEquivalenceReduction(/* registry= */ null, obj);
   }
 
-  /** Formats an arbitrary object into {@link #out}. */
-  private void outputObject(Object obj) {
-    if (obj == null) {
-      out.append("null");
-      return;
+  /**
+   * Traverses the object graph starting from {@code obj} and returns the traversal order.
+   *
+   * @param fingerprints (if provided) objects contained are emitted as their fingerprints without
+   *     traversing them.
+   * @param out accepts the text dump of the traversal (with fingerprint values for objects
+   *     contained in {@code fingerprints}).
+   * @return a map from object to its traversal order, excluding elements in {@code fingerprints}
+   */
+  static IdentityHashMap<Object, Integer> computeVisitOrder(
+      @Nullable ObjectCodecRegistry registry,
+      @Nullable IdentityHashMap<Object, String> fingerprints,
+      Object obj,
+      StringBuilder out) {
+    var collector = new Dumper(fingerprints, /* emitFingerprints= */ true);
+    var sink = new TextSink(out);
+    new GraphTraverser<>(registry, collector).traverseObject(/* label= */ null, obj, sink);
+    return collector.referenceIds;
+  }
+
+  static final class TextSink implements GraphDataCollector.Sink {
+    private static final int SPACES_PER_INDENT = 2;
+
+    private final StringBuilder out;
+    private int indent;
+    boolean isFirst = true;
+
+    TextSink(StringBuilder out) {
+      this.out = out;
     }
 
-    var type = obj.getClass();
+    @Override
+    public void completeAggregate() {
+      deindent();
+      emitNewlineAndIndent();
+      out.append("]");
+    }
 
-    if (registry != null) {
-      Integer maybeConstantTag = registry.maybeGetTagForConstant(obj);
-      if (maybeConstantTag != null) {
-        out.append(getTypeName(type))
-            .append("[SERIALIZATION_CONSTANT:")
-            .append(maybeConstantTag)
-            .append("]");
+    private void output(@Nullable String label, String text) {
+      emitNewlineAndIndent();
+      if (label != null) {
+        out.append(label);
+      }
+      out.append(text);
+    }
+
+    private void indent() {
+      indent += SPACES_PER_INDENT;
+    }
+
+    private void deindent() {
+      indent -= SPACES_PER_INDENT;
+    }
+
+    private void emitNewlineAndIndent() {
+      if (isFirst) {
+        isFirst = false; // suppresses the first newline
         return;
       }
+      out.append("\n").append(" ".repeat(indent));
     }
+  }
 
-    if (WeakReference.class.isAssignableFrom(type)) {
-      // A WeakReference is always be deserialized with empty referents. No information other than
-      // the presence of the WeakReference can be expected to match upon deserialization.
-      out.append(WeakReference.class.getCanonicalName());
-      return;
-    }
+  private Dumper(@Nullable IdentityHashMap<Object, String> fingerprints, boolean emitFingerprints) {
+    this.fingerprints = fingerprints;
+    this.emitFingerprints = emitFingerprints;
+  }
 
-    if (shouldInline(type)) {
-      out.append(obj);
-      return;
-    }
+  @Override
+  public void outputNull(@Nullable String label, TextSink sink) {
+    sink.output(label, "null");
+  }
 
-    int id;
+  @Override
+  public void outputSerializationConstant(
+      @Nullable String label, Class<?> type, int tag, TextSink sink) {
+    sink.output(label, getTypeName(type) + "[SERIALIZATION_CONSTANT:" + tag + ']');
+  }
+
+  @Override
+  public void outputWeakReference(@Nullable String label, TextSink sink) {
+    sink.output(label, WeakReference.class.getCanonicalName());
+  }
+
+  @Override
+  public void outputInlineObject(@Nullable String label, Class<?> type, Object obj, TextSink sink) {
+    sink.output(label, obj.toString());
+  }
+
+  @Override
+  public void outputPrimitive(PrimitiveInfo info, Object parent, TextSink sink) {
+    sink.output(info.name() + '=', info.getText(parent));
+  }
+
+  @Override
+  @Nullable
+  public String checkCache(@Nullable String label, Class<?> type, Object obj, TextSink sink) {
+    int nextId = referenceIds.size();
     String fingerprint;
     if (fingerprints != null && ((fingerprint = fingerprints.get(obj)) != null)) {
+      if (emitFingerprints) {
+        sink.output(label, getTypeName(type) + '[' + fingerprint + ']');
+        return null;
+      }
       // There's a fingerprint for `obj`. Uses it to lookup a reference ID.
-      Integer previousId = referenceIds.get(fingerprint);
+      Integer previousId = referenceIds.putIfAbsent(fingerprint, nextId);
       if (previousId != null) {
         // An object having this fingerprint has been observed previously. Outputs only a
         // backreference.
-        outputIdentifier(type, previousId);
-        return;
+        sink.output(label, getDescriptor(type, previousId));
+        return null;
       }
-      // In the case of a backreference to the inner member of an object cycle, the object could
-      // have a fingerprint, but no backreference based on that fingerprint. It might instead be
-      // possible to find that backreference directly through its reference here.
-      previousId = referenceIds.get(obj);
-      if (previousId != null) {
-        outputIdentifier(type, previousId);
-        return;
-      }
-      // No backreferences were found. Inserts a new reference entry.
-      id = referenceIds.size();
-      referenceIds.put(fingerprint, id);
     } else {
       // No fingerprint is available. Deduplicates by object reference.
-      Integer previousId = referenceIds.get(obj);
+      Integer previousId = referenceIds.putIfAbsent(obj, nextId);
       if (previousId != null) {
         // This instance has been observed previously. Outputs only a backreference.
-        outputIdentifier(type, previousId);
-        return;
+        sink.output(label, getDescriptor(type, previousId));
+        return null;
       }
-      id = referenceIds.size();
-      referenceIds.put(obj, id);
     }
-
-    // All non-inlined, non-backreference objects are represented like
-    // "<type name>(<id>) [<contents>]".
-    //
-    // <contents> depends on the type, but is generally a sequence of recursively formatted objects.
-    // For arrays and iterables, this is the sequence of elements, for maps, it is an alternating
-    // sequence of keys and values and for any other type of object, it is a sequence of its fields,
-    // like "<field name>=<object>".
-    outputIdentifier(type, id);
-    out.append(" [");
-    indent++;
-
-    boolean addedLine; // True if the <content> includes a newline.
-    if (type.isArray()) {
-      addedLine = outputArrayElements(obj);
-    } else if (obj instanceof Map) {
-      addedLine = outputMapEntries((Map<?, ?>) obj);
-    } else if (obj instanceof Collection) {
-      addedLine = outputCollectionElements((Collection<?>) obj);
-    } else {
-      addedLine = outputObjectFields(obj);
-    }
-    indent--;
-
-    if (addedLine) {
-      // The <content> sequence typically emits a newline per-sequence element, like
-      // \n<indent><e1>\n<indent><e2>\n<indent><e3>, which would look like the following.
-      //
-      //   <type name>(id) [
-      //     <e1>
-      //     <e2>
-      //     <e3>▊
-      //
-      // The code below emits a newline and indents to the parent's indentation level before
-      // emitting the closing bracket.
-      //
-      //   <type name>(id) [
-      //     <e1>
-      //     <e2>
-      //     <e3>
-      //   ]▊
-      //
-      // When the <content> sequence is empty, or one of the special cased arrays that do not
-      // emit newlines, no trailing newline is needed before the closing bracket, as in the
-      // following examples.
-      //
-      //   <type name>(id) []▊
-      // or
-      //   byte[](1234) [DEADBEEF]▊
-      //
-      // Note that the output always leaves the cursor at the end of the last written line. The
-      // caller should add a trailing newline if needed.
-      addNewlineAndIndent();
-    }
-    out.append(']');
+    return getDescriptor(type, nextId);
   }
 
-  /** Emits an object identifier like {@code "<type name>(<id>)"}. */
-  private void outputIdentifier(Class<?> type, int id) {
-    out.append(getTypeName(type)).append('(').append(id).append(')');
+  @Override
+  public void outputByteArray(
+      @Nullable String label, String descriptor, byte[] bytes, TextSink sink) {
+    sink.output(label, descriptor + " [" + HEX_FORMAT.formatHex(bytes) + ']');
+  }
+
+  @Override
+  public void outputInlineArray(
+      @Nullable String label, String descriptor, Object arr, TextSink sink) {
+    var builder = new StringBuilder(descriptor).append(" [");
+    int length = Array.getLength(arr);
+    for (int i = 0; i < length; i++) {
+      if (i > 0) {
+        builder.append(", ");
+      }
+      builder.append(Array.get(arr, i));
+    }
+    builder.append(']');
+    sink.output(label, builder.toString());
+  }
+
+  @Override
+  public void outputEmptyAggregate(
+      @Nullable String label, String descriptor, Object unused, TextSink sink) {
+    sink.output(label, descriptor + " []");
+  }
+
+  @Override
+  @SuppressWarnings("CanIgnoreReturnValueSuggester")
+  public TextSink initAggregate(
+      @Nullable String label, String descriptor, Object unused, TextSink sink) {
+    sink.output(label, descriptor + " [");
+    sink.indent();
+    return sink;
   }
 
   static String getTypeName(Class<?> type) {
@@ -245,88 +282,6 @@ public final class Dumper {
       name = type.getName();
     }
     return name;
-  }
-
-  private boolean outputArrayElements(Object arr) {
-    var componentType = arr.getClass().getComponentType();
-    if (componentType.equals(byte.class)) {
-      // It's a byte array. Outputs as hex.
-      for (byte b : (byte[]) arr) {
-        out.append(String.format("%02X", b));
-      }
-      return false;
-    }
-
-    // In theory, there could be special casing WeakReferences here, to match the handling in
-    // `outputObject`. However, since Java does not support generic arrays we don't expect to
-    // encounter an array of WeakReferences.
-
-    if (shouldInline(componentType)) {
-      // It's a type that should be inlined. Outputs elements delimited by commas.
-      boolean isFirst = true;
-      for (int i = 0; i < Array.getLength(arr); i++) {
-        if (isFirst) {
-          isFirst = false;
-        } else {
-          out.append(", ");
-        }
-        out.append(Array.get(arr, i));
-      }
-      return false;
-    }
-
-    for (int i = 0; i < Array.getLength(arr); i++) {
-      addNewlineAndIndent();
-      outputObject(Array.get(arr, i));
-    }
-    return Array.getLength(arr) > 0;
-  }
-
-  private boolean outputMapEntries(Map<?, ?> map) {
-    for (Map.Entry<?, ?> entry : map.entrySet()) {
-      addNewlineAndIndent();
-      out.append("key=");
-      outputObject(entry.getKey());
-
-      addNewlineAndIndent();
-      out.append("value=");
-      outputObject(entry.getValue());
-    }
-    return !map.isEmpty();
-  }
-
-  private boolean outputCollectionElements(Collection<?> collection) {
-    for (var next : collection) {
-      addNewlineAndIndent();
-      outputObject(next);
-    }
-    return !isEmpty(collection);
-  }
-
-  private boolean outputObjectFields(Object obj) {
-    ImmutableList<FieldInfo> fieldInfo = getFieldInfo(obj.getClass());
-    for (FieldInfo info : fieldInfo) {
-      addNewlineAndIndent();
-      outputField(obj, info);
-    }
-    return !fieldInfo.isEmpty();
-  }
-
-  private void outputField(Object parent, FieldInfo info) {
-    switch (info) {
-      case PrimitiveInfo primitiveInfo -> primitiveInfo.output(parent, out);
-      case ObjectInfo objectInfo -> {
-        out.append(objectInfo.name()).append('=');
-        outputObject(objectInfo.getFieldValue(parent));
-      }
-    }
-  }
-
-  private void addNewlineAndIndent() {
-    out.append('\n');
-    for (int i = 0; i < indent; i++) {
-      out.append("  "); // Indentation is 2 spaces.
-    }
   }
 
   static boolean shouldInline(Class<?> type) {
@@ -368,4 +323,9 @@ public final class Dumper {
           // The string representation of a Class is sufficient to identify it.
           .add(Class.class)
           .build();
+
+  /** Returns an object descriptor like {@code <type name>(<id>)}. */
+  private static String getDescriptor(Class<?> type, int id) {
+    return getTypeName(type) + '(' + id + ')';
+  }
 }
