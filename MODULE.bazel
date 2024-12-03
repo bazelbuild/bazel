@@ -266,6 +266,7 @@ python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.toolchain(
     is_default = True,
     python_version = "3.11",
+    ignore_root_user_error = True,
 )
 
 pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
