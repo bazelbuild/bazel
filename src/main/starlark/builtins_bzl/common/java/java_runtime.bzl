@@ -185,10 +185,8 @@ java_runtime(
             cfg = "target",
             doc = """
 Default CDS archive for hermetic <code>java_runtime</code>. When hermetic
-is enabled for a <code>java_binary</code> target and if the target does not
-provide its own CDS archive by specifying the
-<a href="${link java_binary.classlist}"><code>classlist</code></a> attribute,
-the <code>java_runtime</code> default CDS is packaged in the hermetic deploy JAR.
+is enabled for a <code>java_binary</code> target the <code>java_runtime</code>
+default CDS is packaged in the hermetic deploy JAR.
             """,
         ),
         "hermetic_srcs": attr.label_list(
