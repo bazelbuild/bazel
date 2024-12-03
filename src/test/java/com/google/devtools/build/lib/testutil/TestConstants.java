@@ -149,8 +149,8 @@ public class TestConstants {
    */
   public static final ImmutableList<String> PRODUCT_SPECIFIC_FLAGS =
       ImmutableList.of(
-          "--platforms=@bazel_tools//tools:host_platform",
-          "--host_platform=@bazel_tools//tools:host_platform",
+          "--platforms=@platforms//host",
+          "--host_platform=@platforms//host",
           // TODO(#7849): Remove after flag flip.
           "--incompatible_use_toolchain_resolution_for_java_rules");
 
@@ -172,7 +172,6 @@ public class TestConstants {
   public static final String CONSTRAINTS_PATH = "platforms_workspace";
 
   public static final String PLATFORM_LABEL = "@platforms//host";
-  public static final String PLATFORM_LABEL_ALIAS = "@bazel_tools//tools:host_platform";
   public static final String PIII_PLATFORM_LABEL = "@platforms//host:piii";
 
   public static final Label ANDROID_DEFAULT_SDK =
