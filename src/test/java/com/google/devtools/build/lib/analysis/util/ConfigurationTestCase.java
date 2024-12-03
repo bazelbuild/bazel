@@ -135,6 +135,11 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
             .add(
                 PrecomputedValue.injected(
                     PrecomputedValue.BASELINE_CONFIGURATION, defaultBuildOptions))
+            .add(
+                PrecomputedValue.injected(
+                    // Reuse the build options as the baseline exec. This is technically wrong but
+                    // will only impact the exec configuration output path.
+                    PrecomputedValue.BASELINE_EXEC_CONFIGURATION, defaultBuildOptions))
             .addAll(analysisMock.getPrecomputedValues())
             .build());
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);

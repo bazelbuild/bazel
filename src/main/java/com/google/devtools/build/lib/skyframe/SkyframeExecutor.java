@@ -107,9 +107,12 @@ import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader;
 import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader.StarlarkExecTransitionLoadingException;
+import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionUtil;
 import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
 import com.google.devtools.build.lib.analysis.platform.PlatformFunction;
 import com.google.devtools.build.lib.analysis.producers.ConfiguredTargetAndDataProducer;
@@ -143,6 +146,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.io.FileSymlinkCycleUniquenessFunction;
 import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionUniquenessFunction;
+import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.AutoloadSymbols;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildFileName;
@@ -1164,6 +1168,20 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return GlobbingStrategy.NON_SKYFRAME;
   }
 
+  /**
+   * If not null, this is the only source root in the build, corresponding to the single element in
+   * a single-element package path. Such a single-source-root build need not plant the execroot
+   * symlink forest, and can trivially resolve source artifacts from exec paths. As a consequence,
+   * builds where this is not null do not need to track a package -> source root map. In addition,
+   * such builds can only occur in a monorepo, and thus do not need to produce repo mapping
+   * manifests for runfiles.
+   */
+  // TODO(wyv): To be safe, fail early if we're in a multi-repo setup but this is not being tracked.
+  @Nullable
+  public Root getForcedSingleSourceRootIfNoExecrootSymlinkCreation() {
+    return null;
+  }
+
   private boolean shouldStoreTransitivePackagesInLoadingAndAnalysis() {
     // Transitive packages may be needed for either RepoMappingManifestAction or Skymeld with
     // external repository support. They are never needed if external repositories are disabled. To
@@ -1406,7 +1424,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         injectable(), adjustForExec(buildOptions, eventHandler));
   }
 
-  public BuildOptions adjustForExec(BuildOptions buildOptions, ExtendedEventHandler eventHandler)
+  private BuildOptions adjustForExec(BuildOptions buildOptions, ExtendedEventHandler eventHandler)
       throws InvalidConfigurationException, InterruptedException {
     StarlarkAttributeTransitionProvider execTransition;
     try {
@@ -1414,7 +1432,41 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     } catch (StarlarkExecTransitionLoadingException e) {
       throw new InvalidConfigurationException(e);
     }
-    return BaselineOptionsFunction.adjustForExec(buildOptions, execTransition, null, eventHandler);
+    // Get the current target platform and use it as the exec platform.
+    // This value isn't actually important as long as it exists and is stable.
+    // TODO(345289271): Make this a value that's stable even when the target platform changes.
+    Label hostPlatform = buildOptions.get(PlatformOptions.class).hostPlatform;
+    return adjustForExec(buildOptions, execTransition, hostPlatform, eventHandler);
+  }
+
+  /** Adjusts the baseline options for the exec transition. */
+  private static BuildOptions adjustForExec(
+      BuildOptions baselineOptions,
+      StarlarkAttributeTransitionProvider starlarkExecTransition,
+      Label newPlatform,
+      ExtendedEventHandler eventHandler)
+      throws InterruptedException {
+
+    // A null executionPlatform actually skips transition application so need some value here when
+    // not overriding the platform. It is safe to supply some fake value here (as long as it is
+    // constant) since the baseline should never be used to actually construct an action or do
+    // toolchain resolution.
+    PatchTransition execTransition =
+        ExecutionTransitionFactory.createFactory()
+            .create(
+                AttributeTransitionData.builder()
+                    .executionPlatform(
+                        newPlatform != null
+                            ? newPlatform
+                            : Label.parseCanonicalUnchecked(
+                                "//this_is_a_faked_exec_platform_for_blaze_internals"))
+                    .analysisData(starlarkExecTransition)
+                    .build());
+    baselineOptions =
+        execTransition.patch(
+            TransitionUtil.restrict(execTransition, baselineOptions), eventHandler);
+
+    return baselineOptions;
   }
 
   public void injectExtraPrecomputedValues(List<PrecomputedValue.Injected> extraPrecomputedValues) {
