@@ -217,8 +217,10 @@ function test_install_base_races_dont_leave_temp_files() {
   for pid in "${client_pids[@]}"; do
     wait $pid
   done
-  # Expect "install" to be the only thing in the "race" directory.
-  assert_equals "install" "$(ls "$TEST_TMPDIR/race/")"
+  # Expect the "race" directory to contain only "install" and "install.lock".
+  for filename in $(ls "$TEST_TMPDIR/race/"); do
+    assert_one_of install install.lock "$filename"
+  done
 }
 
 # Regression test for b/1295038.

@@ -154,6 +154,10 @@ class StartupOptions {
   // See UpdateConfiguration().
   blaze_util::Path install_base;
 
+  // Whether the install base should be locked before use.
+  // This is always true for Bazel, but overridden for Blaze at Google.
+  bool lock_install_base;
+
   // Override more finegrained rc file flags and ignore them all.
   bool ignore_all_rc_files;
 
@@ -291,7 +295,7 @@ class StartupOptions {
   // Constructor for subclasses only so that site-specific extensions of this
   // class can override the product name. The product_name must be capitalized,
   // as in "Bazel".
-  StartupOptions(const std::string &product_name);
+  StartupOptions(const std::string &product_name, bool lock_install_base);
 
   // Returns the default output root location.
   virtual blaze_util::Path GetDefaultOutputRoot() const = 0;
