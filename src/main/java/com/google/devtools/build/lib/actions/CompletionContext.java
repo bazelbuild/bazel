@@ -40,7 +40,6 @@ public final class CompletionContext {
       new CompletionContext(
           ImmutableMap.of(),
           ImmutableMap.of(),
-          null,
           ArtifactPathResolver.IDENTITY,
           new ActionInputMap(0),
           false);
@@ -48,7 +47,6 @@ public final class CompletionContext {
   private final ArtifactPathResolver pathResolver;
   private final Map<Artifact, TreeArtifactValue> treeArtifacts;
   private final Map<Artifact, FilesetOutputTree> filesets;
-  @Nullable private final FileArtifactValue baselineCoverageValue;
   // Only contains the metadata for 'important' artifacts of the Target/Aspect that completed. Any
   // 'unimportant' artifacts produced by internal output groups (most importantly, _validation) will
   // not be included to avoid retaining many GB on the heap. This ActionInputMap must only be
@@ -60,13 +58,11 @@ public final class CompletionContext {
   public CompletionContext(
       Map<Artifact, TreeArtifactValue> treeArtifacts,
       Map<Artifact, FilesetOutputTree> filesets,
-      @Nullable FileArtifactValue baselineCoverageValue,
       ArtifactPathResolver pathResolver,
       ActionInputMap importantInputMap,
       boolean expandFilesets) {
     this.treeArtifacts = treeArtifacts;
     this.filesets = filesets;
-    this.baselineCoverageValue = baselineCoverageValue;
     this.pathResolver = pathResolver;
     this.importantInputMap = importantInputMap;
     this.expandFilesets = expandFilesets;
@@ -75,7 +71,6 @@ public final class CompletionContext {
   public static CompletionContext create(
       Map<Artifact, TreeArtifactValue> treeArtifacts,
       Map<Artifact, FilesetOutputTree> filesets,
-      @Nullable FileArtifactValue baselineCoverageValue,
       boolean expandFilesets,
       ActionInputMap inputMap,
       ActionInputMap importantInputMap,
@@ -92,7 +87,6 @@ public final class CompletionContext {
     return new CompletionContext(
         treeArtifacts,
         filesets,
-        baselineCoverageValue,
         pathResolver,
         importantInputMap,
         expandFilesets);
@@ -109,11 +103,6 @@ public final class CompletionContext {
   @Nullable
   public FileArtifactValue getFileArtifactValue(Artifact artifact) {
     return importantInputMap.getInputMetadata(artifact);
-  }
-
-  @Nullable
-  public FileArtifactValue getBaselineCoverageValue() {
-    return baselineCoverageValue;
   }
 
   /** Visits the expansion of the given artifacts. */
