@@ -282,7 +282,7 @@ public final class AnalysisPhaseRunner {
       BuildConfigurationValue config =
           env.getSkyframeExecutor()
               .getConfiguration(env.getReporter(), target.getConfigurationKey());
-      Label label = target.getLabel();
+      Label label = target.getOriginalLabel();
       env.getEventBus()
           .post(
               new AbortedEvent(
