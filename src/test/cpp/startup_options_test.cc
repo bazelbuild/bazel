@@ -31,7 +31,8 @@ namespace blaze {
 // Minimal StartupOptions class for testing.
 class FakeStartupOptions : public StartupOptions {
  public:
-  FakeStartupOptions() : StartupOptions("Bazel") {}
+  FakeStartupOptions()
+      : StartupOptions("Bazel", /* lock_install_base= */ true) {}
   blaze_exit_code::ExitCode ProcessArgExtra(
       const char *arg, const char *next_arg, const std::string &rcfile,
       const char **value, bool *is_processed, std::string *error) override {

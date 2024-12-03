@@ -19,15 +19,15 @@
 #ifndef BAZEL_SRC_MAIN_CPP_BLAZE_UTIL_H_
 #define BAZEL_SRC_MAIN_CPP_BLAZE_UTIL_H_
 
+#include <stdint.h>
 #include <sys/types.h>
 
 #include <map>
-#include <sstream>
 #include <string>
 #include <vector>
 
 #include "src/main/cpp/util/logging.h"
-#include "src/main/cpp/util/path.h"
+#include "src/main/cpp/util/path_platform.h"
 
 namespace blaze {
 
@@ -139,6 +139,11 @@ struct DurationMillis {
 
   DurationMillis(const uint64_t start, const uint64_t end)
       : millis(ComputeDuration(start, end)) {}
+
+  DurationMillis& operator+=(DurationMillis& other) {
+    millis += other.millis;
+    return *this;
+  }
 
  private:
   static uint64_t ComputeDuration(const uint64_t start, const uint64_t end) {
