@@ -22,7 +22,6 @@ load(
     _artifact_category = "artifact_category",
 )
 load(":common/cc/cc_info.bzl", "CcInfo")
-load(":common/cc/semantics.bzl", "semantics")
 load(":common/objc/objc_common.bzl", "objc_common")
 load(":common/objc/semantics.bzl", objc_semantics = "semantics")
 load(":common/paths.bzl", "paths")
@@ -169,7 +168,7 @@ def _find_cpp_toolchain(ctx, *, mandatory = True):
 
 def _use_cpp_toolchain(mandatory = False):
     """
-    Helper to depend on the c++ toolchain and c++ runtimes toolchain.
+    Helper to depend on the c++ toolchain.
 
     Usage:
     ```
@@ -184,8 +183,7 @@ def _use_cpp_toolchain(mandatory = False):
     Returns:
       A list that can be used as the value for `rule.toolchains`.
     """
-    return ([config_common.toolchain_type(_CPP_TOOLCHAIN_TYPE, mandatory = mandatory)] +
-            semantics.get_runtimes_toolchain())
+    return [config_common.toolchain_type(_CPP_TOOLCHAIN_TYPE, mandatory = mandatory)]
 
 def _collect_compilation_prerequisites(ctx, compilation_context):
     direct = []

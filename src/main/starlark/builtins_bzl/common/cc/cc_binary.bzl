@@ -827,7 +827,8 @@ be <code>main</code>.
     exec_groups = {
         "cpp_link": exec_group(toolchains = cc_helper.use_cpp_toolchain()),
     },
-    toolchains = cc_helper.use_cpp_toolchain(),
+    toolchains = cc_helper.use_cpp_toolchain() +
+                 semantics.get_runtimes_toolchain(),
     provides = [CcInfo],
     executable = True,
 )
