@@ -285,6 +285,14 @@ public final class BazelRulesModule extends BlazeModule {
         help = "No-op",
         oldName = "incompatible_build_transitive_python_runfiles")
     public boolean buildTransitiveRunfilesTrees;
+
+    @Option(
+        name = "experimental_use_new_worker_pool",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public boolean useNewWorkerPool;
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */

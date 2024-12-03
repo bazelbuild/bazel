@@ -75,16 +75,6 @@ public class WorkerOptions extends OptionsBase {
   }
 
   @Option(
-      name = "experimental_use_new_worker_pool",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.EXECUTION},
-      help =
-          "Uses a new worker pool implementation (no change in behavior, reimplementation of "
-              + " the worker pool in order to deprecate the use of a third party tool).")
-  public boolean useNewWorkerPool;
-
-  @Option(
       name = "worker_max_instances",
       converter = MultiResourceConverter.class,
       defaultValue = "null",

@@ -228,10 +228,6 @@ java_library(
     srcs = [
         "WorkerPoolConfig.java",
     ],
-    deps = [
-        ":worker_factory",
-        "//third_party:guava",
-    ],
 )
 
 java_library(
@@ -310,7 +306,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:worker_protocol_java_proto",
-        "//third_party:auto_value",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -366,7 +361,6 @@ java_library(
     srcs = ["ErrorMessage.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//third_party:auto_value",
         "//third_party:flogger",
         "//third_party:guava",
     ],

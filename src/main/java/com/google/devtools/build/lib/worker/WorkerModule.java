@@ -174,10 +174,7 @@ public class WorkerModule extends BlazeModule {
     }
 
     WorkerPoolConfig newConfig =
-        new WorkerPoolConfig(
-            options.useNewWorkerPool,
-            options.workerMaxInstances,
-            options.workerMaxMultiplexInstances);
+        new WorkerPoolConfig(options.workerMaxInstances, options.workerMaxMultiplexInstances);
 
     // If the config changed compared to the last run, we have to create a new pool.
     if (!newConfig.equals(config)) {
@@ -188,11 +185,7 @@ public class WorkerModule extends BlazeModule {
     }
 
     if (workerPool == null) {
-      if (options.useNewWorkerPool) {
-        workerPool = new WorkerPoolImpl(workerFactory, newConfig);
-      } else {
-        workerPool = new WorkerPoolImplLegacy(workerFactory, newConfig);
-      }
+      workerPool = new WorkerPoolImpl(workerFactory, newConfig);
       config = newConfig;
       // If workerPool is restarted then we should recreate metrics.
       WorkerProcessMetricsCollector.instance().clear();
