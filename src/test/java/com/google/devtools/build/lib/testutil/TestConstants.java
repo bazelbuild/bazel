@@ -22,14 +22,10 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
  * Various constants required by the tests.
  */
 public class TestConstants {
-
-  public static final String PROTO_TOOLCHAIN = "@com_google_protobuf//bazel/private:proto_toolchain_type";
+  private TestConstants() {}
 
   public static final String LOAD_PROTO_LANG_TOOLCHAIN =
       "load('@com_google_protobuf//bazel/toolchains:proto_lang_toolchain.bzl', 'proto_lang_toolchain')";
-
-  private TestConstants() {
-  }
 
   public static final String PRODUCT_NAME = "bazel";
 
@@ -52,11 +48,6 @@ public class TestConstants {
    * Default workspace name.
    */
   public static final String WORKSPACE_NAME = "_main";
-
-  /**
-   * Legacy default workspace name.
-   */
-  public static final String LEGACY_WORKSPACE_NAME = "__main__";
 
   /**
    * Name of a class with an INSTANCE field of type AnalysisMock to be used for analysis tests.
@@ -116,9 +107,6 @@ public class TestConstants {
   /** The file path in which to create files so that they end up under {@link #TOOLS_REPOSITORY}. */
   public static final String TOOLS_REPOSITORY_SCRATCH = "embedded_tools/";
 
-  /** The output file path prefix for tool file dependencies. */
-  public static final String TOOLS_REPOSITORY_PATH_PREFIX = "external/bazel_tools/";
-
   /** The directory in which rules_cc repo resides in execroot. */
   public static final String RULES_CC_REPOSITORY_EXECROOT = "external/" + RulesCcRepoName.CANONICAL_REPO_NAME + "/";
   /* Prefix for loads from rules_cc */
@@ -132,9 +120,6 @@ public class TestConstants {
   public static final String PYINFO_BZL = "@@rules_python+//python/private:py_info.bzl";
 
   public static final String PYRUNTIMEINFO_BZL = "@@rules_python+//python/private:py_runtime_info.bzl";
-
-  public static final ImmutableList<String> DOCS_RULES_PATHS = ImmutableList.of(
-      "src/main/java/com/google/devtools/build/lib/rules");
 
   // Constants used to determine how genrule pulls in the setup script.
   public static final String GENRULE_SETUP = "@bazel_tools//tools/genrule:genrule-setup.sh";
@@ -173,20 +158,6 @@ public class TestConstants {
 
   public static final String PLATFORM_LABEL = "@platforms//host";
   public static final String PIII_PLATFORM_LABEL = "@platforms//host:piii";
-
-  public static final Label ANDROID_DEFAULT_SDK =
-     Label.parseCanonicalUnchecked("@bazel_tools//tools/android:sdk");
-
-  /** What toolchain type do Android rules use for platform-based toolchain resolution? */
-  public static final String ANDROID_TOOLCHAIN_TYPE_LABEL =
-      TOOLS_REPOSITORY + "//tools/android:sdk_toolchain_type";
-
-  /** The launcher used by Bazel. */
-  public static final String LAUNCHER_PATH = "@bazel_tools//tools/launcher:launcher";
-
-  /** The target name for ProGuard's allowlister. */
-  public static final String PROGUARD_ALLOWLISTER_TARGET =
-      "@bazel_tools//tools/jdk:proguard_whitelister";
 
   /** The java toolchain type. */
   public static final String JAVA_TOOLCHAIN_TYPE = "@@bazel_tools//tools/jdk:toolchain_type";
