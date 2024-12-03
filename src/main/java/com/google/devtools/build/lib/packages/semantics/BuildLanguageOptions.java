@@ -643,17 +643,6 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean incompatibleDepsetForLibrariesToLinkGetter;
 
   @Option(
-      name = "incompatible_java_common_parameters",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If set to true, the output_jar, and host_javabase parameters in pack_sources and "
-              + "host_javabase in compile will all be removed.")
-  public boolean incompatibleJavaCommonParameters;
-
-  @Option(
       name = "incompatible_java_info_merge_runtime_module_flags",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -885,7 +874,6 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(
                 INCOMPATIBLE_FIX_PACKAGE_GROUP_REPOROOT_SYNTAX,
                 incompatibleFixPackageGroupReporootSyntax)
-            .setBool(INCOMPATIBLE_JAVA_COMMON_PARAMETERS, incompatibleJavaCommonParameters)
             .setBool(
                 INCOMPATIBLE_JAVA_INFO_MERGE_RUNTIME_MODULE_FLAGS,
                 incompatibleJavaInfoMergeRuntimeModuleFlags)
@@ -1001,8 +989,6 @@ public final class BuildLanguageOptions extends OptionsBase {
       FlagConstants.INCOMPATIBLE_FIX_PACKAGE_GROUP_REPOROOT_SYNTAX;
   public static final String INCOMPATIBLE_DO_NOT_SPLIT_LINKING_CMDLINE =
       "+incompatible_do_not_split_linking_cmdline";
-  public static final String INCOMPATIBLE_JAVA_COMMON_PARAMETERS =
-      "+incompatible_java_common_parameters";
   public static final String INCOMPATIBLE_JAVA_INFO_MERGE_RUNTIME_MODULE_FLAGS =
       "-incompatible_java_info_merge_runtime_module_flags";
   public static final String INCOMPATIBLE_NO_ATTR_LICENSE = "+incompatible_no_attr_license";
