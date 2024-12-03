@@ -37,8 +37,6 @@ import com.google.devtools.build.lib.util.VarInt;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.SyscallCache;
-import com.google.devtools.build.lib.vfs.UnixGlob;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -205,7 +203,7 @@ public class CompactPersistentActionCache implements ActionCache {
     PersistentMap<Integer, byte[]> map;
     Path cacheFile = cacheFile(cacheRoot);
     Path journalFile = journalFile(cacheRoot);
-    Path indexFile = cacheRoot.getChild("filename_index_v" + VERSION + ".blaze");
+    Path indexFile = indexFile(cacheRoot);
     ConcurrentMap<Integer, byte[]> backingMap = new ConcurrentHashMap<>();
 
     PersistentStringIndexer indexer;
@@ -269,7 +267,7 @@ public class CompactPersistentActionCache implements ActionCache {
       e = new IOException(message, e);
     }
     logger.atWarning().withCause(e).log(
-        "Failed to load action cache, corrupted files to %s/*.bad", cacheRoot);
+        "Failed to load action cache, preexisting files kept as %s/*.bad", cacheRoot);
     reporterForInitializationErrors.handle(
         Event.error(
             "Error during action cache initialization: "
@@ -289,19 +287,11 @@ public class CompactPersistentActionCache implements ActionCache {
   private static void renameCorruptedFiles(Path cacheRoot) {
     try {
       for (Path path :
-          new UnixGlob.Builder(cacheRoot, SyscallCache.NO_CACHE)
-              .addPattern("action_*_v" + VERSION + ".*")
-              .glob()) {
-        path.renameTo(path.getParentDirectory().getChild(path.getBaseName() + ".bad"));
+          ImmutableList.of(cacheFile(cacheRoot), journalFile(cacheRoot), indexFile(cacheRoot))) {
+        if (path.exists()) {
+          path.renameTo(path.getParentDirectory().getChild(path.getBaseName() + ".bad"));
+        }
       }
-      for (Path path :
-          new UnixGlob.Builder(cacheRoot, SyscallCache.NO_CACHE)
-              .addPattern("filename_*_v" + VERSION + ".*")
-              .glob()) {
-        path.renameTo(path.getParentDirectory().getChild(path.getBaseName() + ".bad"));
-      }
-    } catch (UnixGlob.BadPattern ex) {
-      throw new IllegalStateException(ex); // can't happen
     } catch (IOException e) {
       logger.atWarning().withCause(e).log("Unable to rename corrupted action cache files");
     }
@@ -335,11 +325,15 @@ public class CompactPersistentActionCache implements ActionCache {
   }
 
   public static Path cacheFile(Path cacheRoot) {
-    return cacheRoot.getChild("action_cache_v" + VERSION + ".blaze");
+    return cacheRoot.getChild("action_cache.blaze");
   }
 
   public static Path journalFile(Path cacheRoot) {
-    return cacheRoot.getChild("action_journal_v" + VERSION + ".blaze");
+    return cacheRoot.getChild("action_journal.blaze");
+  }
+
+  public static Path indexFile(Path cacheRoot) {
+    return cacheRoot.getChild("filename_index.blaze");
   }
 
   @Override
