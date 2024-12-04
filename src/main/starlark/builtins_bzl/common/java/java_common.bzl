@@ -346,3 +346,21 @@ def _make_java_common():
     return struct(**methods)
 
 java_common = _make_java_common()
+
+_FakeJavaInfo = provider()  # buildifier: disable=provider-params
+_FakeJavaPluginInfo = provider()  # buildifier: disable=provider-params
+_FakeJavaToolchainInfo = provider()  # buildifier: disable=provider-params
+_FakeJavaRuntimeInfo = provider()  # buildifier: disable=provider-params
+_FakeBootClassPathInfo = provider()  # buildifier: disable=provider-params
+_FakeJavaRuntimeClasspathInfo = provider()  # buildifier: disable=provider-params
+
+java_common_export_for_bazel = struct(
+    internal_DO_NOT_USE = _internal_exports,
+    # fake exports for WORKSPACE loading
+    provider = _FakeJavaInfo,
+    JavaPluginInfo = _FakeJavaPluginInfo,
+    JavaToolchainInfo = _FakeJavaToolchainInfo,
+    JavaRuntimeInfo = _FakeJavaRuntimeInfo,
+    BootClassPathInfo = _FakeBootClassPathInfo,
+    JavaRuntimeClasspathInfo = _FakeJavaRuntimeClasspathInfo,
+)
