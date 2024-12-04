@@ -1277,6 +1277,33 @@ class BazelWindowsCppTest(test_base.TestBase):
     ])
     self.AssertExitCode(exit_code, 0, stderr)
 
+  def testNoUnknownOptionsLeakedToMSVC(self):
+    # Regression test for https://github.com/bazelbuild/bazel/issues/24545.
+    self.createModuleDotBazel()
+    self.ScratchFile(
+        'BUILD',
+        [
+            'cc_binary(',
+            '    name = "main",',
+            '    srcs = ["main.cc"],',
+            ')',
+            'genrule(',
+            '    name = "gen",',
+            '    cmd = "echo $(location :main) > $@",',
+            '    outs = ["output.txt"],',
+            '    tools = [":main"],',
+            ')',
+        ],
+    )
+    self.ScratchFile('main.cc', ['int main() { return 0; }'])
+
+    exit_code, _, stderr = self.RunBazel([
+        'build',
+        '//...',
+        '--copt=/options:strict',
+        '--host_copt=/options:strict',
+    ])
+    self.AssertExitCode(exit_code, 0, stderr)
 
 if __name__ == '__main__':
   absltest.main()
