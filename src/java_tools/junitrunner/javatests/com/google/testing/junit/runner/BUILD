@@ -39,7 +39,6 @@ java_library(
 java_binary(
     name = "TestbedBinary",
     testonly = 1,
-    jvm_flags = ["-Djava.security.manager=allow"],  # Requires JDK 17 or later on host machine
     main_class = "com.google.testing.junit.runner.BazelTestRunner",
     runtime_deps = [
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:test_runner",
