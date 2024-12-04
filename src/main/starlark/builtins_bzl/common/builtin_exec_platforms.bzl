@@ -16,6 +16,9 @@
 See https://github.com/bazelbuild/bazel/discussions/19213.
 """
 
+# TODO: Remove when get_current_os_name is no longer needed
+load("@_builtins//:common/python/py_internal.bzl", "py_internal")
+
 # The fragments that make up Bazel's exec transition. The fragment() calls in
 # this file fill out this map.
 bazel_fragments = {}
@@ -340,8 +343,9 @@ bazel_fragments["CppOptions"] = fragment(
         "//command_line_option:crosstool_top": settings["//command_line_option:host_crosstool_top"],
         "//command_line_option:compiler": settings["//command_line_option:host_compiler"],
         "//command_line_option:grte_top": settings["//command_line_option:host_grte_top"],
-        "//command_line_option:copt": settings["//command_line_option:host_copt"] + ["-g0"],  # Don't add for Windows
-        "//command_line_option:cxxopt": settings["//command_line_option:host_cxxopt"] + ["-g0"],  # Don't add for Windows
+        # TODO: Properly fix https://github.com/bazelbuild/bazel/issues/24545 with features.
+        "//command_line_option:copt": settings["//command_line_option:host_copt"] + ([] if py_internal.get_current_os_name() == "windows" else ["-g0"]),
+        "//command_line_option:cxxopt": settings["//command_line_option:host_cxxopt"] + ([] if py_internal.get_current_os_name() == "windows" else ["-g0"]),
         "//command_line_option:conlyopt": settings["//command_line_option:host_conlyopt"],
         "//command_line_option:per_file_copt": settings["//command_line_option:host_per_file_copt"],
         "//command_line_option:linkopt": settings["//command_line_option:host_linkopt"],
