@@ -1,3 +1,62 @@
+## Release 9.0.0-pre.20241125.3 (2024-12-04)
+
+```
+Baseline: 7b20da28ec69e3921a043199e6d0afb0246e71f0
+
+Cherry picks:
+
+   + e27ab916aaa6b12f2be4e463a54ef49965cc04a7:
+     Automated rollback of commit
+     3fdec931bfc401a379e2446731cf19daffe24a10.
+```
+
+Important changes:
+
+  - `archive_override` now accepts all attributes usable with
+    `http_archive`; similar for `git_override` and `git_repository`.
+  - Fixed an issue where `genquery` in external repos would evaluate
+    labels as if they were in the main repo.
+  - Re-enable symbolic macro attribute inheritance.
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Jordan Mele, Simon Thornington, Ulrik Falklof, Xdng Yng, Xudong Yang.
+
+## Release 9.0.0-pre.20241119.2 (2024-11-27)
+
+```
+Baseline: ebeab8ce6607f0ea8448178219c61a935535be6a
+
+Cherry picks:
+
+   + 650142fbe290d97e39b702d1dbcdbe126614b927:
+     Automated rollback of commit
+     4515bb6c932ce62c7889cf322319a3b49158acad.
+   + 4754de207c4dd05c531b57847e3a47bea229954a:
+     [Rolling release] Do not forward legacy `cmd.exe` variables to
+     the server (#24500)
+   + 94fb35b0af7d30b5479bfdb40cae51960a50f24c:
+     Fix rolling release (#24513)
+```
+
+Incompatible changes:
+
+  - Changing --test_env no longer invalidates the analysis cache.
+    `ctx.configuration.test_env` may be empty for non-test rules and
+    should not be used by such rules.
+
+Important changes:
+
+  - Add a set data type to Starlark, guarded by the
+    --experimental_enable_starlark_set flag.
+  - symbolic macro attribute inheritance is now marked experimental;
+    set --experimental_enable_macro_inherit_attrs flag to enable it.
+  - Changing any part of `--run_under` that isn't the label (such as
+    the shell command) no longer invalidates the analysis cache.
+  - The progress of completed configured aspects is now shown in the
+    UI, next to the number of completed targets. Example: "(100
+    packages loaded, 10000 targets and 500 aspects configured)".
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, kalvdans, Xùdōng Yáng.
+
 ## Release 9.0.0-pre.20241113.4 (2024-11-20)
 
 ```
