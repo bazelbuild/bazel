@@ -24,6 +24,7 @@ java_library(
     name = "serialization_registry_setup_helpers",
     srcs = ["SerializationRegistrySetupHelpers.java"],
     deps = [
+        ":module_codec",
         ":serialization",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -65,6 +66,7 @@ java_library(
         ["**/*.java"],
         exclude = [
             "AbstractExportedStarlarkSymbolCodec.java",
+            "ModuleCodec.java",
             "CodecScanningConstants.java",
             "SerializationRegistrySetupHelpers.java",
             "SerializationConstants.java",
@@ -118,6 +120,19 @@ java_library(
     srcs = ["AbstractExportedStarlarkSymbolCodec.java"],
     deps = [
         ":serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party:guava",
+        "@com_google_protobuf//:protobuf_java",
+    ],
+)
+
+java_library(
+    name = "module_codec",
+    srcs = ["ModuleCodec.java"],
+    deps = [
+        ":serialization",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",

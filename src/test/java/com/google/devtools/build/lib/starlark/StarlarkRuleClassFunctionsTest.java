@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
+import com.google.devtools.build.lib.cmdline.BazelModuleKey;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -3912,7 +3913,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     ev.assertContainsError(
         """
         expected value of type 'list(label)' for attribute 'srcs' of 'my_rule', but got \
-        "default_files" (string)""");
+        "default_files" (string)\
+        """);
   }
 
   @Test
@@ -6517,7 +6519,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
             PackageIdentifier.create(currentRepo, PathFragment.create("lib")), "label.bzl");
     Object clientData =
         BazelModuleContext.create(
-            bzlLabel,
+            BazelModuleKey.createFakeModuleKeyForTesting(bzlLabel),
             RepositoryMapping.create(
                 ImmutableMap.of("my_module", currentRepo, "dep", otherRepo), currentRepo),
             "lib/label.bzl",

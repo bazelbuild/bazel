@@ -127,6 +127,7 @@ public final class SerializationRegistrySetupHelpers {
           .add(ArrayCodec.forComponentType(Artifact.class))
           .add(new DeferredNestedSetCodec())
           .add(Label.valueSharingCodec())
+          .add(ModuleCodec.moduleCodec())
           .add(PackageIdentifier.valueSharingCodec())
           .add(ConfiguredTargetKey.valueSharingCodec())
           .add(TransitiveInfoProviderMapImpl.valueSharingCodec())
