@@ -1945,7 +1945,7 @@ function test_header_compiler_direct_supports_unicode() {
     #  with, which in the case of Bazel CI is 1252 (not UTF-8). This results in support only for
     #  certain non-ASCII characters.
     local -r unicode="äöüÄÖÜß"
-  elif [[ $is_linux ]]; then
+  elif [[ "$(uname -s)" == "Linux" ]]; then
     export LC_ALL=C.UTF-8
     if [[ $(locale charmap) != "UTF-8" ]]; then
       echo "Skipping test due to missing UTF-8 locale"
