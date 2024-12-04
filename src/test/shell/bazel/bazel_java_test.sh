@@ -50,6 +50,14 @@ msys*|mingw*|cygwin*)
   ;;
 esac
 
+if $is_windows; then
+  export LC_ALL=C.utf8
+elif [[ "$(uname -s)" == "Linux" ]]; then
+  export LC_ALL=C.UTF-8
+else
+  export LC_ALL=en_US.UTF-8
+fi
+
 JAVA_TOOLCHAIN="@bazel_tools//tools/jdk:toolchain"
 
 JAVA_TOOLCHAIN_TYPE="@bazel_tools//tools/jdk:toolchain_type"
@@ -1929,6 +1937,22 @@ public class A extends B {}
 EOF
   cat << 'EOF' > pkg/B.java
 public class B {}
+EOF
+
+  bazel build //pkg:a >& $TEST_log || fail "build failed"
+}
+
+function test_header_compiler_direct_supports_unicode() {
+  mkdir -p pkg
+  cat << 'EOF' > pkg/BUILD
+java_library(name = "a", srcs = ["A.java"], deps = [":b"])
+java_library(name = "b", srcs = ["äöüÄÖÜß🌱.java"])
+EOF
+  cat << 'EOF' > pkg/A.java
+public class A extends B {}
+EOF
+  cat << 'EOF' > "pkg/äöüÄÖÜß🌱.java"
+class B {}
 EOF
 
   bazel build //pkg:a >& $TEST_log || fail "build failed"
