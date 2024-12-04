@@ -46,24 +46,37 @@ interface GraphDataCollector<SinkT extends GraphDataCollector.Sink> {
   void outputPrimitive(PrimitiveInfo info, Object parent, SinkT sink);
 
   /**
+   * Metadata about an object.
+   *
+   * @param description describes the type of the object
+   * @param traversalIndex the index at which this object was first encountered during traversal
+   */
+  record Descriptor(String description, int traversalIndex) {
+    @Override
+    public final String toString() {
+      return description + "(" + traversalIndex + ")";
+    }
+  }
+
+  /**
    * Checks whether {@code obj} already exists in the cache.
    *
    * <p>If it exists in the cache, populates {@code sink} appropriately and returns null. Otherwise,
    * returns a descriptor to be used (that does not include {@code label}).
    */
   @Nullable
-  String checkCache(@Nullable String label, Class<?> type, Object obj, SinkT sink);
+  Descriptor checkCache(@Nullable String label, Class<?> type, Object obj, SinkT sink);
 
-  void outputByteArray(@Nullable String label, String descriptor, byte[] bytes, SinkT sink);
+  void outputByteArray(@Nullable String label, Descriptor descriptor, byte[] bytes, SinkT sink);
 
   /**
    * Outputs an array of elements of inlined type.
    *
    * <p>{@code arr} could be an array of primitives, which cannot be cast to {@code Object[]}.
    */
-  void outputInlineArray(@Nullable String label, String descriptor, Object arr, SinkT sink);
+  void outputInlineArray(@Nullable String label, Descriptor descriptor, Object arr, SinkT sink);
 
-  void outputEmptyAggregate(@Nullable String label, String descriptor, Object obj, SinkT sink);
+  void outputEmptyAggregate(@Nullable String label, Descriptor descriptor, Object obj, SinkT sink);
 
   /**
    * Non-empty maps, collections, arrays and ordinary objects are handled using this method.
@@ -75,5 +88,5 @@ interface GraphDataCollector<SinkT extends GraphDataCollector.Sink> {
    * @param descriptor a description of {@code obj}, for example, a text description of its type
    * @param sink where to write the aggregate
    */
-  SinkT initAggregate(@Nullable String label, String descriptor, Object obj, SinkT sink);
+  SinkT initAggregate(@Nullable String label, Descriptor descriptor, Object obj, SinkT sink);
 }

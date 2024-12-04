@@ -32,6 +32,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.IdentityHashMap;
+import java.util.Iterator;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -87,6 +88,8 @@ public final class Fingerprinter implements GraphDataCollector<Fingerprinter.Rep
    */
   private final IdentityHashMap<Object, String> canonicalIds = new IdentityHashMap<>();
 
+  private int nextTraversalIndex = 0;
+
   /**
    * Stack for detecting cyclic backreferences in depth-first traversal.
    *
@@ -100,11 +103,7 @@ public final class Fingerprinter implements GraphDataCollector<Fingerprinter.Rep
 
   private final RepresentationSink rootSink =
       new RepresentationSink(
-          /* parent= */ null,
-          /* parentLabel= */ null,
-          /* descriptor= */ null,
-          /* obj= */ null,
-          /* depth= */ -1);
+          /* parent= */ null, /* parentLabel= */ null, /* descriptor= */ null, /* obj= */ null);
 
   /**
    * Computes a fingerprint for {@code obj} using {code registry} for reference constants if
@@ -139,25 +138,22 @@ public final class Fingerprinter implements GraphDataCollector<Fingerprinter.Rep
     /** Label parent uses for the child associated with this sink. */
     @Nullable private final String parentLabel;
 
-    private final String descriptor;
+    private final Descriptor descriptor;
     private final Object obj;
 
-    private final int depth;
     private final ArrayList<String> childRepresentations = new ArrayList<>();
 
-    private int minUpReference = Integer.MAX_VALUE;
+    private int lowLink = Integer.MAX_VALUE;
 
     private RepresentationSink(
         @Nullable RepresentationSink parent,
         @Nullable String parentLabel,
-        String descriptor,
-        Object obj,
-        int depth) {
+        Descriptor descriptor,
+        Object obj) {
       this.parent = parent;
       this.parentLabel = parentLabel;
       this.descriptor = descriptor;
       this.obj = obj;
-      this.depth = depth;
     }
 
     private void addChildRepresentation(@Nullable String label, String representation) {
@@ -175,14 +171,14 @@ public final class Fingerprinter implements GraphDataCollector<Fingerprinter.Rep
      */
     private void signalUpReference(String childHeader, int upReference) {
       childRepresentations.add(childHeader);
-      minUpReference = min(minUpReference, upReference);
+      lowLink = min(lowLink, upReference);
     }
 
     @Override
     public void completeAggregate() {
       stack.remove(obj);
 
-      if (minUpReference == depth) {
+      if (lowLink == descriptor.traversalIndex()) {
         // This is the top of a strongly connected component.
         handleStronglyConnectedComponent();
         return;
@@ -190,7 +186,7 @@ public final class Fingerprinter implements GraphDataCollector<Fingerprinter.Rep
 
       String fingerprint = computeFingerprint();
 
-      if (minUpReference > depth) {
+      if (lowLink > descriptor.traversalIndex()) {
         // This object is complete. Publishes its fingerprint and reports it to the parent.
         publishCompleteFingerprint(fingerprint);
         return;
@@ -198,9 +194,9 @@ public final class Fingerprinter implements GraphDataCollector<Fingerprinter.Rep
 
       // A child contained up references above this object. Marks this object as part of a strongly
       // connected component along with its local, partial fingerprint.
-      stronglyConnectedComponent.put(obj, new ElementInfo(fingerprint, minUpReference));
+      stronglyConnectedComponent.put(obj, new ElementInfo(fingerprint, lowLink));
       if (parent != null) {
-        parent.signalUpReference(prependLabel(parentLabel, descriptor), minUpReference);
+        parent.signalUpReference(prependLabel(parentLabel, descriptor.description()), lowLink);
       }
     }
 
@@ -210,10 +206,18 @@ public final class Fingerprinter implements GraphDataCollector<Fingerprinter.Rep
               stronglyConnectedComponent.size() + 1, /* expectedValuesPerKey= */ 3);
       String fingerprint = computeFingerprint();
       elements.put(fingerprint, obj);
-      for (Map.Entry<Object, ElementInfo> entry : stronglyConnectedComponent.entrySet()) {
-        elements.put(entry.getValue().partialFingerprint(), entry.getKey());
+      Iterator<Map.Entry<Object, ElementInfo>> entryIterator =
+          stronglyConnectedComponent.entrySet().iterator();
+      // Transfers objects from the `stronglyConnectedComponents` that are underneath `obj` into
+      // `elements`. There can be objects in `stronglyConnectedComponents` that siblings or cousins
+      // when an ancestor of `obj` belongs to a different strongly connected component.
+      while (entryIterator.hasNext()) {
+        Map.Entry<Object, ElementInfo> entry = entryIterator.next();
+        if (entry.getValue().lowLink() >= descriptor.traversalIndex()) {
+          elements.put(entry.getValue().partialFingerprint(), entry.getKey());
+          entryIterator.remove();
+        }
       }
-      stronglyConnectedComponent.clear();
 
       Object root = tryDetermineRoot(asSortedGroups(elements));
 
@@ -252,7 +256,8 @@ public final class Fingerprinter implements GraphDataCollector<Fingerprinter.Rep
      * <p>This is partial if {@link #obj} is part of a strongly connected component.
      */
     private String computeFingerprint() {
-      String representation = descriptor + ": [" + String.join(", ", childRepresentations) + ']';
+      String representation =
+          descriptor.description() + ": [" + String.join(", ", childRepresentations) + ']';
       return fingerprintString(representation);
     }
 
@@ -296,7 +301,7 @@ public final class Fingerprinter implements GraphDataCollector<Fingerprinter.Rep
 
   @Override
   @Nullable
-  public String checkCache(
+  public Descriptor checkCache(
       @Nullable String label, Class<?> type, Object obj, RepresentationSink sink) {
     String representation = canonicalIds.get(obj);
     if (representation != null) {
@@ -304,29 +309,28 @@ public final class Fingerprinter implements GraphDataCollector<Fingerprinter.Rep
       return null;
     }
 
-    String descriptor = getTypeName(type);
+    String description = getTypeName(type);
 
     ElementInfo info = stronglyConnectedComponent.get(obj);
     if (info != null) {
-      sink.signalUpReference(prependLabel(label, descriptor), info.minUpReference);
+      sink.signalUpReference(prependLabel(label, description), info.lowLink);
       return null;
     }
 
-    int depth = stack.size();
-    Integer previousDepth = stack.putIfAbsent(obj, depth);
+    Integer previousDepth = stack.putIfAbsent(obj, nextTraversalIndex);
     if (previousDepth != null) {
-      sink.signalUpReference(prependLabel(label, descriptor), previousDepth);
+      sink.signalUpReference(prependLabel(label, description), previousDepth);
       return null;
     }
 
-    // There's nothing cached. Returns the descriptor.
-    return descriptor;
+    // There's nothing cached. Returns a descriptor.
+    return new Descriptor(description, nextTraversalIndex++);
   }
 
   @Override
   public void outputByteArray(
-      @Nullable String label, String descriptor, byte[] bytes, RepresentationSink sink) {
-    String representation = descriptor + ": [" + HEX_FORMAT.formatHex(bytes) + ']';
+      @Nullable String label, Descriptor descriptor, byte[] bytes, RepresentationSink sink) {
+    String representation = descriptor.description() + ": [" + HEX_FORMAT.formatHex(bytes) + ']';
     String fingerprint = fingerprintString(representation);
     canonicalIds.put(bytes, fingerprint);
     sink.addChildRepresentation(label, fingerprint);
@@ -334,8 +338,8 @@ public final class Fingerprinter implements GraphDataCollector<Fingerprinter.Rep
 
   @Override
   public void outputInlineArray(
-      @Nullable String label, String descriptor, Object arr, RepresentationSink sink) {
-    StringBuilder representation = new StringBuilder(descriptor).append(": [");
+      @Nullable String label, Descriptor descriptor, Object arr, RepresentationSink sink) {
+    StringBuilder representation = new StringBuilder(descriptor.description()).append(": [");
     int length = Array.getLength(arr);
     for (int i = 0; i < length; i++) {
       if (i > 0) {
@@ -355,8 +359,8 @@ public final class Fingerprinter implements GraphDataCollector<Fingerprinter.Rep
 
   @Override
   public void outputEmptyAggregate(
-      @Nullable String label, String descriptor, Object obj, RepresentationSink sink) {
-    String representation = descriptor + " []";
+      @Nullable String label, Descriptor descriptor, Object obj, RepresentationSink sink) {
+    String representation = descriptor.description() + " []";
     String fingerprint = fingerprintString(representation.toString());
     canonicalIds.put(obj, fingerprint);
     sink.addChildRepresentation(label, fingerprint);
@@ -364,8 +368,8 @@ public final class Fingerprinter implements GraphDataCollector<Fingerprinter.Rep
 
   @Override
   public RepresentationSink initAggregate(
-      @Nullable String label, String descriptor, Object obj, RepresentationSink parent) {
-    return new RepresentationSink(parent, label, descriptor, obj, parent.depth + 1);
+      @Nullable String label, Descriptor descriptor, Object obj, RepresentationSink parent) {
+    return new RepresentationSink(parent, label, descriptor, obj);
   }
 
   /**
@@ -373,11 +377,11 @@ public final class Fingerprinter implements GraphDataCollector<Fingerprinter.Rep
    *
    * @param partialFingerprint a partial description of a strongly connected component element,
    *     omitting information about any nodes that are strongly connected.
-   * @param minUpReference strongly connected components are detected by seeing references up the
-   *     stack during depth first search. This value is the minimum stack depth referenced by this
-   *     node or any of its descendants.
+   * @param lowLink strongly connected components are detected by seeing references up the stack
+   *     during depth first search. This value is the minimum stack depth referenced by this node or
+   *     any of its descendants.
    */
-  record ElementInfo(String partialFingerprint, int minUpReference) {}
+  record ElementInfo(String partialFingerprint, int lowLink) {}
 
   @Nullable
   private Object tryDetermineRoot(ImmutableList<Map.Entry<String, Collection<Object>>> groups) {
@@ -429,8 +433,8 @@ public final class Fingerprinter implements GraphDataCollector<Fingerprinter.Rep
         .collect(toImmutableList());
   }
 
-  private static String prependLabel(@Nullable String label, String descriptor) {
-    return label == null ? descriptor : label + descriptor;
+  private static String prependLabel(@Nullable String label, String description) {
+    return label == null ? description : label + description;
   }
 
   @VisibleForTesting

@@ -209,7 +209,7 @@ public final class Dumper implements GraphDataCollector<Dumper.TextSink> {
 
   @Override
   @Nullable
-  public String checkCache(@Nullable String label, Class<?> type, Object obj, TextSink sink) {
+  public Descriptor checkCache(@Nullable String label, Class<?> type, Object obj, TextSink sink) {
     int nextId = referenceIds.size();
     String fingerprint;
     if (fingerprints != null && ((fingerprint = fingerprints.get(obj)) != null)) {
@@ -222,7 +222,7 @@ public final class Dumper implements GraphDataCollector<Dumper.TextSink> {
       if (previousId != null) {
         // An object having this fingerprint has been observed previously. Outputs only a
         // backreference.
-        sink.output(label, getDescriptor(type, previousId));
+        sink.output(label, getDescriptor(type, previousId).toString());
         return null;
       }
     } else {
@@ -230,7 +230,7 @@ public final class Dumper implements GraphDataCollector<Dumper.TextSink> {
       Integer previousId = referenceIds.putIfAbsent(obj, nextId);
       if (previousId != null) {
         // This instance has been observed previously. Outputs only a backreference.
-        sink.output(label, getDescriptor(type, previousId));
+        sink.output(label, getDescriptor(type, previousId).toString());
         return null;
       }
     }
@@ -239,14 +239,14 @@ public final class Dumper implements GraphDataCollector<Dumper.TextSink> {
 
   @Override
   public void outputByteArray(
-      @Nullable String label, String descriptor, byte[] bytes, TextSink sink) {
+      @Nullable String label, Descriptor descriptor, byte[] bytes, TextSink sink) {
     sink.output(label, descriptor + " [" + HEX_FORMAT.formatHex(bytes) + ']');
   }
 
   @Override
   public void outputInlineArray(
-      @Nullable String label, String descriptor, Object arr, TextSink sink) {
-    var builder = new StringBuilder(descriptor).append(" [");
+      @Nullable String label, Descriptor descriptor, Object arr, TextSink sink) {
+    var builder = new StringBuilder(descriptor.toString()).append(" [");
     int length = Array.getLength(arr);
     for (int i = 0; i < length; i++) {
       if (i > 0) {
@@ -260,14 +260,14 @@ public final class Dumper implements GraphDataCollector<Dumper.TextSink> {
 
   @Override
   public void outputEmptyAggregate(
-      @Nullable String label, String descriptor, Object unused, TextSink sink) {
+      @Nullable String label, Descriptor descriptor, Object unused, TextSink sink) {
     sink.output(label, descriptor + " []");
   }
 
   @Override
   @SuppressWarnings("CanIgnoreReturnValueSuggester")
   public TextSink initAggregate(
-      @Nullable String label, String descriptor, Object unused, TextSink sink) {
+      @Nullable String label, Descriptor descriptor, Object unused, TextSink sink) {
     sink.output(label, descriptor + " [");
     sink.indent();
     return sink;
@@ -324,8 +324,7 @@ public final class Dumper implements GraphDataCollector<Dumper.TextSink> {
           .add(Class.class)
           .build();
 
-  /** Returns an object descriptor like {@code <type name>(<id>)}. */
-  private static String getDescriptor(Class<?> type, int id) {
-    return getTypeName(type) + '(' + id + ')';
+  private static Descriptor getDescriptor(Class<?> type, int id) {
+    return new Descriptor(getTypeName(type), id);
   }
 }

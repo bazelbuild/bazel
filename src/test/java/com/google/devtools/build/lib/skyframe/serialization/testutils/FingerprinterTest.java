@@ -547,10 +547,10 @@ java.util.ArrayList(0) [
     childVisitOrder.forEach(
         (obj, index) -> expectedFingerprints.put(obj, childRootFingerprint + '[' + index + ']'));
 
-    // `one` ends up being identified as the root of the parent loop.
+    // `two` ends up being identified as the root of the parent loop.
     dumpOut = new StringBuilder();
     IdentityHashMap<Object, Integer> parentVisitOrder =
-        computeVisitOrder(/* registry= */ null, expectedFingerprints, one, dumpOut);
+        computeVisitOrder(/* registry= */ null, expectedFingerprints, two, dumpOut);
     String parentRootFingerprint = fingerprintString(dumpOut.toString());
     parentVisitOrder.forEach(
         (obj, index) -> expectedFingerprints.put(obj, parentRootFingerprint + '[' + index + ']'));
@@ -659,6 +659,47 @@ java.util.ArrayList(0) [
     for (Node rotated : new Node[] {one, two, three, four}) {
       assertThat(computeFingerprints(rotated)).isEqualTo(fingerprints);
     }
+  }
+
+  @Test
+  public void depthOverlappingRecursion_fingerprintsCorrectly() {
+    // Sets up a graph consisting of a cycle with another cycle hanging off of it.
+    //   A -> B -> C -> A            (first cycle)
+    //        B -> D -> E -> F -> D  (second cycle)
+    //
+    // This graph has interesting backtracking behavior at B. Since C loops back to A, C stays on
+    // the stack when it backtracks. But B doesn't backtrack until after exploring the DEF cycle.
+    // So C stays on the stack when D backtracks and completes a strongly connected component.
+    //
+    // This graph structure checks the behavior of D's backtracking when there's data on the stack
+    // that does not belong to the same SCC.
+    var a = new Object[2];
+    var b = new Object[3];
+    var c = new Object[2];
+    var d = new Object[2];
+    var e = new Object[2];
+    var f = new Object[2];
+
+    a[0] = "A";
+    b[0] = "B";
+    c[0] = "C";
+    d[0] = "D"; // D, E, and F are locally ambiguous. So if C ends up included in the SCC defined
+    e[0] = "D"; // by DEF, it will be unique and become the root. This then breaks the assertion
+    f[0] = "D"; // below.
+
+    a[1] = b;
+    b[1] = c;
+    b[2] = d;
+    c[1] = a;
+    d[1] = e;
+    e[1] = f;
+    f[1] = d;
+
+    IdentityHashMap<Object, String> fingerprints = computeFingerprints(a);
+
+    IdentityHashMap<Object, String> fingerprintsDef = computeFingerprints(d);
+
+    assertThat(fingerprints).containsAtLeastEntriesIn(fingerprintsDef);
   }
 
   private static String fingerprintNode(int id, String left, String right) {

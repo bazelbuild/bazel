@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.FieldInfo;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.ObjectInfo;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.PrimitiveInfo;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.GraphDataCollector.Descriptor;
 import java.lang.ref.WeakReference;
 import java.util.Collection;
 import java.util.Map;
@@ -62,7 +63,7 @@ final class GraphTraverser<SinkT extends GraphDataCollector.Sink> {
       return;
     }
 
-    String descriptor = collector.checkCache(label, type, obj, sink);
+    Descriptor descriptor = collector.checkCache(label, type, obj, sink);
     if (descriptor == null) {
       return; // cache hit
     }
@@ -86,7 +87,7 @@ final class GraphTraverser<SinkT extends GraphDataCollector.Sink> {
   }
 
   private void traverseArray(
-      @Nullable String label, String descriptor, Class<?> type, Object obj, SinkT sink) {
+      @Nullable String label, Descriptor descriptor, Class<?> type, Object obj, SinkT sink) {
     var componentType = type.getComponentType();
     if (componentType.equals(byte.class)) {
       collector.outputByteArray(label, descriptor, (byte[]) obj, sink);
@@ -116,7 +117,7 @@ final class GraphTraverser<SinkT extends GraphDataCollector.Sink> {
   }
 
   private void traverseMapEntries(
-      @Nullable String label, String descriptor, Map<?, ?> map, SinkT sink) {
+      @Nullable String label, Descriptor descriptor, Map<?, ?> map, SinkT sink) {
     if (map.isEmpty()) {
       collector.outputEmptyAggregate(label, descriptor, map, sink);
       return;
@@ -131,7 +132,7 @@ final class GraphTraverser<SinkT extends GraphDataCollector.Sink> {
   }
 
   private void traverseCollectionElements(
-      @Nullable String label, String descriptor, Collection<?> collection, SinkT sink) {
+      @Nullable String label, Descriptor descriptor, Collection<?> collection, SinkT sink) {
     if (collection.isEmpty()) {
       collector.outputEmptyAggregate(label, descriptor, collection, sink);
       return;
@@ -145,7 +146,7 @@ final class GraphTraverser<SinkT extends GraphDataCollector.Sink> {
   }
 
   private void traverseObjectFields(
-      @Nullable String label, String descriptor, Class<?> type, Object obj, SinkT sink) {
+      @Nullable String label, Descriptor descriptor, Class<?> type, Object obj, SinkT sink) {
     ImmutableList<FieldInfo> fieldInfo = getFieldInfo(type);
     if (fieldInfo.isEmpty()) {
       collector.outputEmptyAggregate(label, descriptor, obj, sink);
