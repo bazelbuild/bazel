@@ -1955,7 +1955,7 @@ EOF
 class B {}
 EOF
 
-  bazel build //pkg:a >& $TEST_log || fail "build failed"
+  bazel build //pkg:a //pkg:b >& $TEST_log || fail "build failed"
 }
 
 function test_sandboxed_multiplexing() {
