@@ -64,7 +64,10 @@ single_version_override(
 single_version_override(
     module_name = "rules_graalvm",
     patch_strip = 1,
-    patches = ["//third_party:rules_graalvm_fix.patch"],
+    patches = [
+        "//third_party:rules_graalvm_fix.patch",
+        "//third_party:rules_graalvm_unicode.patch",
+    ],
 )
 
 local_path_override(
@@ -264,9 +267,9 @@ use_repo(
 
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.toolchain(
+    ignore_root_user_error = True,
     is_default = True,
     python_version = "3.11",
-    ignore_root_user_error = True,
 )
 
 pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")

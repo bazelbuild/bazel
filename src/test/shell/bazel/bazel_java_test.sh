@@ -50,14 +50,6 @@ msys*|mingw*|cygwin*)
   ;;
 esac
 
-if $is_windows; then
-  export LC_ALL=C.utf8
-elif [[ "$(uname -s)" == "Linux" ]]; then
-  export LC_ALL=C.UTF-8
-else
-  export LC_ALL=en_US.UTF-8
-fi
-
 JAVA_TOOLCHAIN="@bazel_tools//tools/jdk:toolchain"
 
 JAVA_TOOLCHAIN_TYPE="@bazel_tools//tools/jdk:toolchain_type"
@@ -1943,15 +1935,36 @@ EOF
 }
 
 function test_header_compiler_direct_supports_unicode() {
+  if [[ "${JAVA_TOOLS_ZIP}" == released ]]; then
+      # TODO: Enable test after the next java_tools release.
+      return 0
+  fi
+
+  if [[ $is_windows ]]; then
+    # TODO: GraalVM native images on Windows use the same active code page they have been built
+    #  with, which in the case of Bazel CI is 1252 (not UTF-8). This results in support only for
+    #  certain non-ASCII characters.
+    local -r unicode="äöüÄÖÜß"
+  elif [[ $is_linux ]]; then
+    export LC_ALL=C.UTF-8
+    if [[ $(locale charmap) != "UTF-8" ]]; then
+      echo "Skipping test due to missing UTF-8 locale"
+      return 0
+    fi
+    local -r unicode="äöüÄÖÜß🌱"
+  else
+    # JVMs on macOS always support UTF-8 since JEP 400.
+    local -r unicode="äöüÄÖÜß🌱"
+  fi
   mkdir -p pkg
-  cat << 'EOF' > pkg/BUILD
+  cat << EOF > pkg/BUILD
 java_library(name = "a", srcs = ["A.java"], deps = [":b"])
-java_library(name = "b", srcs = ["äöüÄÖÜß🌱.java"])
+java_library(name = "b", srcs = ["${unicode}.java"])
 EOF
   cat << 'EOF' > pkg/A.java
 public class A extends B {}
 EOF
-  cat << 'EOF' > "pkg/äöüÄÖÜß🌱.java"
+  cat << 'EOF' > "pkg/${unicode}.java"
 class B {}
 EOF
 
@@ -1986,11 +1999,6 @@ EOF
 }
 
 function test_sandboxed_multiplexing_hermetic_paths_in_diagnostics() {
-  if [[ "${JAVA_TOOLS_ZIP}" == released ]]; then
-    # TODO: Enable test after the next java_tools release.
-    return 0
-  fi
-
   mkdir -p pkg
   cat << 'EOF' > pkg/BUILD
 load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
@@ -2202,11 +2210,6 @@ EOF
 }
 
 function test_one_version_allowlist() {
-  if [[ "${JAVA_TOOLS_ZIP}" == released ]]; then
-      # TODO: Enable test after the next java_tools release.
-      return 0
-  fi
-
   mkdir -p pkg
   cat << 'EOF' > pkg/BUILD
 load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
