@@ -1940,7 +1940,7 @@ function test_header_compiler_direct_supports_unicode() {
       return 0
   fi
 
-  if [[ $is_windows ]]; then
+  if "$is_windows"; then
     # TODO: GraalVM native images on Windows use the same active code page they have been built
     #  with, which in the case of Bazel CI is 1252 (not UTF-8). This results in support only for
     #  certain non-ASCII characters.
