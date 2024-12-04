@@ -34,6 +34,8 @@ import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.Project;
+import com.google.devtools.build.lib.analysis.Project.ProjectResolutionException;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -73,6 +75,7 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnaly
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collection;
@@ -230,11 +233,18 @@ public final class AnalysisPhaseRunner {
       return new ProjectEvaluationResult(buildOptions, Optional.empty());
     }
 
-    Label projectFile =
-        BuildTool.getProjectFile(
-            targetPatternPhaseValue.getTargetLabels(),
-            env.getSkyframeExecutor(),
-            env.getReporter());
+    Label projectFile = null;
+    try {
+      projectFile =
+          Project.getProjectFile(
+              targetPatternPhaseValue.getTargetLabels(),
+              env.getSkyframeExecutor(),
+              env.getReporter());
+    } catch (ProjectResolutionException e) {
+      throw new LoadingFailedException(
+          e.getMessage(),
+          DetailedExitCode.of(ExitCode.PARSING_FAILURE, FailureDetail.getDefaultInstance()));
+    }
 
     if (featureFlags.contains(ANALYSIS_CACHING) && projectFile == null) {
       // TODO: b/353233779 - consider falling back on full serialization when there is no

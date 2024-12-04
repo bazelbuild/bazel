@@ -26,6 +26,8 @@ import javax.annotation.Nullable;
 
 /** A SkyValue representing the parsed definitions from a PROJECT.scl file. */
 public final class ProjectValue implements SkyValue {
+  private final Label actualProjectFile;
+
   private final ImmutableMap<String, Object> project;
 
   private final ImmutableMap<String, Collection<String>> activeDirectories;
@@ -33,9 +35,11 @@ public final class ProjectValue implements SkyValue {
   private final ImmutableMap<String, Object> residualGlobals;
 
   public ProjectValue(
+      Label actualProjectFile,
       ImmutableMap<String, Object> project,
       ImmutableMap<String, Collection<String>> activeDirectories,
       ImmutableMap<String, Object> residualGlobals) {
+    this.actualProjectFile = actualProjectFile;
     this.project = project;
     this.activeDirectories = activeDirectories;
     this.residualGlobals = residualGlobals;
@@ -69,6 +73,26 @@ public final class ProjectValue implements SkyValue {
         activeDirectories.containsKey("default"),
         "active_directories must contain the 'default' key");
     return ImmutableSet.copyOf(activeDirectories.get("default"));
+  }
+
+  /**
+   * If a project file has the content
+   *
+   * {@snippet :
+   *   project = {
+   *     "actual": "//other:PROJECT.scl"
+   *   }
+   * }
+   *
+   * <p>then this is the same project defined canonically in {@code //other:PROJECT.scl} and this
+   * method returns {@code //other:PROJECT.scl}. Else returns the {@link ProjectValue.Key} label
+   * that produces this value.
+   *
+   * <p>Files that define "actual" cannot define any other content. That's considered a parsing
+   * error.
+   */
+  public Label getActualProjectFile() {
+    return actualProjectFile;
   }
 
   /**
