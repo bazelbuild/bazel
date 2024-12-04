@@ -14,6 +14,8 @@ Cherry picks:
      Release 9.0.0-pre.20241125.3 (2024-12-04)
    + 08b47315d87033a38feb56e68a4fac99c9788af2:
      Release 9.0.0-pre.20241125.3 (2024-12-04)
+   + 6c25f89955ad56c351e2b69a5dedb612f7dd45c2:
+     Release 9.0.0-pre.20241125.3 (2024-12-04)
 ```
 
 This release contains contributions from many people at Google, as well as .
