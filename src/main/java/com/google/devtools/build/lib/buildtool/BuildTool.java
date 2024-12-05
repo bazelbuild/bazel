@@ -81,6 +81,7 @@ import com.google.devtools.build.lib.skyframe.PrerequisitePackageFunction;
 import com.google.devtools.build.lib.skyframe.ProjectValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.SkyfocusOptions;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView.BuildDriverKeyTestContext;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
@@ -97,6 +98,7 @@ import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Fr
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierViolationChecker;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingEventListener;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions;
@@ -1050,7 +1052,7 @@ public class BuildTool {
 
     public static RemoteAnalysisCachingDependenciesProvider forAnalysis(
         CommandEnvironment env, Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher)
-        throws InterruptedException {
+        throws InterruptedException, AbruptExitException {
       var options = env.getOptions().getOptions(RemoteAnalysisCachingOptions.class);
       if (options == null
           || !env.getCommand().buildPhase().executes()
@@ -1058,7 +1060,13 @@ public class BuildTool {
           || activeDirectoriesMatcher.isEmpty()) {
         return DisabledDependenciesProvider.INSTANCE;
       }
-      return new RemoteAnalysisCachingDependenciesProviderImpl(env, activeDirectoriesMatcher.get());
+
+      return FrontierViolationChecker.check(
+          new RemoteAnalysisCachingDependenciesProviderImpl(env, activeDirectoriesMatcher.get()),
+          env.getOptions().getOptions(SkyfocusOptions.class).frontierViolationCheck,
+          env.getReporter(),
+          env.getSkyframeExecutor().getEvaluator(),
+          env.getRuntime().getProductName());
     }
 
     private RemoteAnalysisCachingDependenciesProviderImpl(
@@ -1228,5 +1236,7 @@ public class BuildTool {
                     listener.getAnalysisNodeCacheMisses() + listener.getExecutionNodeCacheMisses(),
                     listener.getAnalysisNodeCacheMisses(),
                     listener.getExecutionNodeCacheMisses())));
+
+    FrontierViolationChecker.accumulateCacheHitsAcrossInvocations(listener);
   }
 }

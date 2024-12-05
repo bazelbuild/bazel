@@ -116,6 +116,15 @@ public final class SkyfocusOptions extends OptionsBase {
      * makes a change outside of the working set.
      */
     WARN,
+
+    /**
+     * Disabled. Only used for testing.
+     *
+     * <p>TODO: b/367284400 - replace this with a barebones diffawareness check that works in Bazel
+     * integration tests (e.g. making LocalDiffAwareness supported and not return
+     * EVERYTHING_MODIFIED) for baseline diffs.
+     */
+    DISABLED_FOR_TESTING,
   }
 
   /** Enum converter for FrontierViolationCheck */

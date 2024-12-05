@@ -298,6 +298,8 @@ public class BuildView {
                                     .setCode(Skyfocus.Code.CONFIGURATION_CHANGE)
                                     .build())
                             .build()));
+            case DISABLED_FOR_TESTING ->
+                throw new IllegalStateException("disallowed; not in test.");
           }
         }
 

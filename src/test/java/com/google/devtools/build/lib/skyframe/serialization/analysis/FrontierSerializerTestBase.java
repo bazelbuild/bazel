@@ -70,6 +70,11 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
     // don't share state. This instance will then last the lifetime of the test case, regardless
     // of the number of command invocations.
     service = createFingerprintValueService();
+
+    // TODO: b/367284400 - replace this with a barebones diffawareness check that works in Bazel
+    // integration tests (e.g. making LocalDiffAwareness supported and not return
+    // EVERYTHING_MODIFIED) for baseline diffs.
+    addOptions("--experimental_frontier_violation_check=disabled_for_testing");
   }
 
   @ForOverride
