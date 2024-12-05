@@ -31,6 +31,7 @@ public class AppleBootstrap implements Bootstrap {
           PackageIdentifier.createUnchecked("apple_support", ""),
           PackageIdentifier.createUnchecked("bazel_tools", ""),
           PackageIdentifier.createUnchecked("build_bazel_rules_swift", ""), // alias for rules_swift
+          PackageIdentifier.createUnchecked("build_bazel_rules_apple", ""), // alias for rules_apple
           PackageIdentifier.createUnchecked("io_bazel_rules_go", ""), // alias for rules_go
           PackageIdentifier.createUnchecked("local_config_cc", ""),
           PackageIdentifier.createUnchecked("rules_apple", ""),
