@@ -547,6 +547,43 @@ filegroup(name = "G")                                # unchanged.
   }
 
   @Test
+  public void downloadedConfiguredTarget_doesNotDownloadTargetPackage() throws Exception {
+    setupScenarioWithConfiguredTargets();
+    write(
+        "foo/PROJECT.scl",
+        """
+active_directories = { "default": ["foo"] }
+""");
+    // Cache-writing build.
+    addOptions("--experimental_remote_analysis_cache_mode=upload");
+    buildTarget("//foo:D");
+
+    var graph = getSkyframeExecutor().getEvaluator().getInMemoryGraph();
+    var fooKey = PackageIdentifier.createUnchecked(/* repository= */ "", "foo");
+    var barKey = PackageIdentifier.createUnchecked(/* repository= */ "", "bar");
+    // Building for the first time necessarily loads both package foo and bar.
+    assertThat(graph.getIfPresent(fooKey)).isNotNull();
+    assertThat(graph.getIfPresent(barKey)).isNotNull();
+
+    // TODO: b/367287783 - RemoteConfiguredTargetValue cannot be deserialized successfully with
+    // Bazel yet. Return early.
+    assumeTrue(
+        Ascii.equalsIgnoreCase(getCommandEnvironment().getRuntime().getProductName(), "blaze"));
+
+    // Reset the graph.
+    getCommandEnvironment().getSkyframeExecutor().resetEvaluator();
+
+    // Cache reading build.
+    addOptions("--experimental_remote_analysis_cache_mode=download");
+    buildTarget("//foo:D");
+
+    graph = getSkyframeExecutor().getEvaluator().getInMemoryGraph();
+    assertThat(graph.getIfPresent(fooKey)).isNotNull();
+    // Package bar is not required if //bar:H is downloaded.
+    assertThat(graph.getIfPresent(barKey)).isNull();
+  }
+
+  @Test
   public void cquery_succeedsAndDoesNotTriggerUpload() throws Exception {
     setupScenarioWithConfiguredTargets();
     addOptions("--experimental_remote_analysis_cache_mode=upload");
