@@ -631,7 +631,7 @@ public class BaseRuleClasses {
     @Nullable
     public ConfiguredTarget create(RuleContext ruleContext) {
       String ruleName = ruleContext.getRule().getRuleClass();
-      String bzlLoadLabel = ruleContext.attributes().get("$bzl_load_label", STRING);
+      String bzlLoadLabel = ruleContext.attributes().getOrDefault("$bzl_load_label", STRING, null);
       if (bzlLoadLabel != null) {
         ruleContext.ruleError(
             """
