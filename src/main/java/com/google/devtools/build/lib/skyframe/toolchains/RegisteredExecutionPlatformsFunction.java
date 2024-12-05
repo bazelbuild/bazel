@@ -18,6 +18,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
@@ -77,9 +78,9 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws RegisteredExecutionPlatformsFunctionException, InterruptedException {
     StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
+    RegisteredExecutionPlatformsValue.Key key = (RegisteredExecutionPlatformsValue.Key) skyKey;
     BuildConfigurationValue configuration =
-        (BuildConfigurationValue)
-            env.getValue(((RegisteredExecutionPlatformsValue.Key) skyKey).configurationKey());
+        (BuildConfigurationValue) env.getValue(key.configurationKey());
     RepositoryMappingValue mainRepoMapping =
         (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
     if (env.valuesMissing()) {
@@ -152,7 +153,12 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
       return null;
     }
 
-    return RegisteredExecutionPlatformsValue.create(registeredExecutionPlatformKeys);
+    ImmutableMap.Builder<Label, String> rejectedPlatforms =
+        key.debug() ? new ImmutableMap.Builder<>() : null;
+    // TODO: b/343180464 - Populate rejectedPlatforms based on required_settings.
+    return RegisteredExecutionPlatformsValue.create(
+        registeredExecutionPlatformKeys,
+        rejectedPlatforms != null ? rejectedPlatforms.buildKeepingLast() : null);
   }
 
   /**

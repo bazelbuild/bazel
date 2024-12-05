@@ -84,7 +84,8 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
   @Test
   public void testRegisteredExecutionPlatforms() throws Exception {
     // Request the executionPlatforms.
-    SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
+    SkyKey executionPlatformsKey =
+        RegisteredExecutionPlatformsValue.key(targetConfigKey, /* debug= */ false);
     EvaluationResult<RegisteredExecutionPlatformsValue> result =
         requestExecutionPlatformsFromSkyframe(executionPlatformsKey);
     assertThatEvaluationResult(result).hasNoError();
@@ -92,6 +93,7 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
 
     RegisteredExecutionPlatformsValue value = result.get(executionPlatformsKey);
     assertThat(value.registeredExecutionPlatformKeys()).isEmpty();
+    assertThat(value.rejectedPlatforms()).isNull();
   }
 
   @Test
@@ -112,7 +114,8 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
         """);
     useConfiguration("--extra_execution_platforms=//extra:execution_platform_1");
 
-    SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
+    SkyKey executionPlatformsKey =
+        RegisteredExecutionPlatformsValue.key(targetConfigKey, /* debug= */ false);
     EvaluationResult<RegisteredExecutionPlatformsValue> result =
         requestExecutionPlatformsFromSkyframe(executionPlatformsKey);
     assertThatEvaluationResult(result).hasNoError();
@@ -141,7 +144,8 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
     useConfiguration(
         "--extra_execution_platforms=//extra:execution_platform_1,//extra:execution_platform_2");
 
-    SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
+    SkyKey executionPlatformsKey =
+        RegisteredExecutionPlatformsValue.key(targetConfigKey, /* debug= */ false);
     EvaluationResult<RegisteredExecutionPlatformsValue> result =
         requestExecutionPlatformsFromSkyframe(executionPlatformsKey);
     assertThatEvaluationResult(result).hasNoError();
@@ -172,7 +176,8 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
         register_execution_platforms("//extra/...")
         """);
 
-    SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
+    SkyKey executionPlatformsKey =
+        RegisteredExecutionPlatformsValue.key(targetConfigKey, /* debug= */ false);
     EvaluationResult<RegisteredExecutionPlatformsValue> result =
         requestExecutionPlatformsFromSkyframe(executionPlatformsKey);
     assertThatEvaluationResult(result).hasNoError();
@@ -209,7 +214,8 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
         register_execution_platforms("//alias/...")
         """);
 
-    SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
+    SkyKey executionPlatformsKey =
+        RegisteredExecutionPlatformsValue.key(targetConfigKey, /* debug= */ false);
     EvaluationResult<RegisteredExecutionPlatformsValue> result =
         requestExecutionPlatformsFromSkyframe(executionPlatformsKey);
     assertThatEvaluationResult(result).hasNoError();
@@ -254,7 +260,8 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
         reg()
         """);
 
-    SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
+    SkyKey executionPlatformsKey =
+        RegisteredExecutionPlatformsValue.key(targetConfigKey, /* debug= */ false);
     EvaluationResult<RegisteredExecutionPlatformsValue> result =
         requestExecutionPlatformsFromSkyframe(executionPlatformsKey);
     assertThatEvaluationResult(result).hasNoError();
@@ -285,7 +292,8 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
         register_execution_platforms("//extra:all")
         """);
 
-    SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
+    SkyKey executionPlatformsKey =
+        RegisteredExecutionPlatformsValue.key(targetConfigKey, /* debug= */ false);
     EvaluationResult<RegisteredExecutionPlatformsValue> result =
         requestExecutionPlatformsFromSkyframe(executionPlatformsKey);
     assertThatEvaluationResult(result).hasNoError();
@@ -315,7 +323,8 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
 
     useConfiguration("--extra_execution_platforms=//extra/...");
 
-    SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
+    SkyKey executionPlatformsKey =
+        RegisteredExecutionPlatformsValue.key(targetConfigKey, /* debug= */ false);
     EvaluationResult<RegisteredExecutionPlatformsValue> result =
         requestExecutionPlatformsFromSkyframe(executionPlatformsKey);
     assertThatEvaluationResult(result).hasNoError();
@@ -343,7 +352,8 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
         """);
 
     // Request the executionPlatforms.
-    SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
+    SkyKey executionPlatformsKey =
+        RegisteredExecutionPlatformsValue.key(targetConfigKey, /* debug= */ false);
     EvaluationResult<RegisteredExecutionPlatformsValue> result =
         requestExecutionPlatformsFromSkyframe(executionPlatformsKey);
     assertThatEvaluationResult(result).hasError();
@@ -373,7 +383,8 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
         register_execution_platforms("//platform:execution_platform_1")
         """);
 
-    SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
+    SkyKey executionPlatformsKey =
+        RegisteredExecutionPlatformsValue.key(targetConfigKey, /* debug= */ false);
     EvaluationResult<RegisteredExecutionPlatformsValue> result =
         requestExecutionPlatformsFromSkyframe(executionPlatformsKey);
     assertThatEvaluationResult(result).hasNoError();
@@ -385,7 +396,8 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
         register_execution_platforms("//platform:execution_platform_2")
         """);
 
-    executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
+    executionPlatformsKey =
+        RegisteredExecutionPlatformsValue.key(targetConfigKey, /* debug= */ false);
     result = requestExecutionPlatformsFromSkyframe(executionPlatformsKey);
     assertThatEvaluationResult(result).hasNoError();
     assertExecutionPlatformLabels(result.get(executionPlatformsKey))
@@ -461,7 +473,8 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
         register_execution_platforms("//:wsplat2")
         """);
 
-    SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
+    SkyKey executionPlatformsKey =
+        RegisteredExecutionPlatformsValue.key(targetConfigKey, /* debug= */ false);
     EvaluationResult<RegisteredExecutionPlatformsValue> result =
         requestExecutionPlatformsFromSkyframe(executionPlatformsKey);
     if (result.hasError()) {
@@ -505,19 +518,24 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
         .addEqualityGroup(
             // Two platforms registered.
             RegisteredExecutionPlatformsValue.create(
-                ImmutableList.of(executionPlatformKey1, executionPlatformKey2)),
+                ImmutableList.of(executionPlatformKey1, executionPlatformKey2),
+                /* rejectedPlatforms= */ null),
             RegisteredExecutionPlatformsValue.create(
-                ImmutableList.of(executionPlatformKey1, executionPlatformKey2)))
+                ImmutableList.of(executionPlatformKey1, executionPlatformKey2),
+                /* rejectedPlatforms= */ null))
         .addEqualityGroup(
             // A single platform registered.
-            RegisteredExecutionPlatformsValue.create(ImmutableList.of(executionPlatformKey1)))
+            RegisteredExecutionPlatformsValue.create(
+                ImmutableList.of(executionPlatformKey1), /* rejectedPlatforms= */ null))
         .addEqualityGroup(
             // A single, different, platform registered.
-            RegisteredExecutionPlatformsValue.create(ImmutableList.of(executionPlatformKey2)))
+            RegisteredExecutionPlatformsValue.create(
+                ImmutableList.of(executionPlatformKey2), /* rejectedPlatforms= */ null))
         .addEqualityGroup(
             // The same as the first group, but the order is different.
             RegisteredExecutionPlatformsValue.create(
-                ImmutableList.of(executionPlatformKey2, executionPlatformKey1)))
+                ImmutableList.of(executionPlatformKey2, executionPlatformKey1),
+                /* rejectedPlatforms= */ null))
         .testEquals();
   }
 
