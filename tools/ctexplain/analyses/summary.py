@@ -14,7 +14,6 @@
 """Analysis that summarizes basic graph info."""
 from typing import Tuple
 
-# Do not edit this line. Copybara replaces it with PY2 migration helper.
 from dataclasses import dataclass
 
 from tools.ctexplain.types import ConfiguredTarget

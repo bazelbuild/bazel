@@ -37,7 +37,6 @@ TODO(gregce): link to proper documentation for full details.
 from typing import Callable
 from typing import Tuple
 
-# Do not edit this line. Copybara replaces it with PY2 migration helper.
 from absl import app
 from absl import flags
 from dataclasses import dataclass
