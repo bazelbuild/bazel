@@ -165,7 +165,8 @@ public final class BinTools {
   public static final class PathActionInput extends VirtualActionInput {
     private final Path path;
     private final PathFragment execPath;
-    private FileArtifactValue metadata;
+    private volatile FileArtifactValue metadata;
+
     /** Contains the digest of the input once it has been written. */
     private volatile byte[] digest;
 
@@ -208,10 +209,14 @@ public final class BinTools {
     }
 
     @Override
-    public synchronized FileArtifactValue getMetadata() throws IOException {
+    public FileArtifactValue getMetadata() throws IOException {
       // We intentionally delay hashing until it is necessary.
       if (metadata == null) {
-        metadata = hash(path);
+        synchronized (this) {
+          if (metadata == null) {
+            metadata = hash(path);
+          }
+        }
       }
       return metadata;
     }
