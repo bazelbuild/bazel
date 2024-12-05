@@ -126,7 +126,7 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
       // merely need the side-effects of the 'fetch' work.
       PackageIdentifier pkgId = PackageIdentifier.create(externalRepo, PathFragment.create(""));
       try {
-        pkgLoaderForFetch.loadPackage(pkgId);
+        var unused = pkgLoaderForFetch.loadPackage(pkgId);
       } catch (NoSuchPackageException | InterruptedException e) {
         // Doesn't matter; see above comment.
       }
