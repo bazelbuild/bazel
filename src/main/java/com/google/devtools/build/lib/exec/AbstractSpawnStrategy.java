@@ -289,7 +289,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
                     spawn.getResourceOwner(),
                     getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true)
                         .values(),
-                    getInputMetadataProvider()::getInputMetadata,
+                    getInputMetadataProvider(),
                     Priority.MEDIUM),
             BulkTransferException.class,
             (BulkTransferException e) -> {

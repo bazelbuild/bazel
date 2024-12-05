@@ -735,8 +735,7 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat
   @Nullable
   @VisibleForTesting
   FileArtifactValue getInputMetadata(ActionInput input) {
-    PathFragment execPath = input.getExecPath();
-    return inputArtifactData.getMetadata(execPath);
+    return inputArtifactData.getInputMetadata(input);
   }
 
   private void downloadFileIfRemote(PathFragment path) throws IOException {
@@ -753,7 +752,7 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat
       }
       getFromFuture(
           inputFetcher.prefetchFiles(
-              action, ImmutableList.of(input), this::getInputMetadata, Priority.CRITICAL));
+              action, ImmutableList.of(input), inputArtifactData, Priority.CRITICAL));
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       throw new IOException(String.format("Received interrupt while fetching file '%s'", path), e);

@@ -468,8 +468,7 @@ public final class CompletionFunction<
         var action =
             ActionUtils.getActionForLookupData(env, derivedArtifact.getGeneratingActionKey());
         var future =
-            actionInputPrefetcher.prefetchFiles(
-                action, filesToDownload, inputMap::getInputMetadata, Priority.LOW);
+            actionInputPrefetcher.prefetchFiles(action, filesToDownload, inputMap, Priority.LOW);
         futures.add(future);
       }
     } else {
@@ -485,7 +484,7 @@ public final class CompletionFunction<
             ActionUtils.getActionForLookupData(env, derivedArtifact.getGeneratingActionKey());
         var future =
             actionInputPrefetcher.prefetchFiles(
-                action, ImmutableList.of(artifact), inputMap::getInputMetadata, Priority.LOW);
+                action, ImmutableList.of(artifact), inputMap, Priority.LOW);
         futures.add(future);
       }
     }

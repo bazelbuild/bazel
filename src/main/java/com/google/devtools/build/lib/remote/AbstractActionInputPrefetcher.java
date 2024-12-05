@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.events.Reporter;
@@ -87,6 +88,17 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     PERMANENTLY_WRITABLE,
     TEMPORARILY_WRITABLE,
     OUTPUT_PERMISSIONS
+  }
+
+  /**
+   * Returns the metadata for an {@link ActionInput}.
+   *
+   * <p>This will generally call through to a {@link InputMetadataProvider} and ask for the metadata
+   * of either an input or an output artifact.
+   */
+  @VisibleForTesting
+  public interface MetadataSupplier {
+    FileArtifactValue getMetadata(ActionInput actionInput) throws IOException, InterruptedException;
   }
 
   /**
@@ -260,6 +272,30 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    */
   @Override
   public ListenableFuture<Void> prefetchFiles(
+      ActionExecutionMetadata action,
+      Iterable<? extends ActionInput> inputs,
+      InputMetadataProvider metadataProvider,
+      Priority priority) {
+    return prefetchFilesInterruptibly(action, inputs, metadataProvider::getInputMetadata, priority);
+  }
+
+  /**
+   * Fetches remotely stored action outputs, that are inputs to this spawn, and stores them under
+   * their path in the output base.
+   *
+   * <p>The {@code inputs} may not contain any unexpanded directories.
+   *
+   * <p>This method is safe to be called concurrently from spawn runners before running any local
+   * spawn.
+   *
+   * <p>This method is similar to #prefetchFiles() above, but note that {@code metadataSupplier} may
+   * throw {@link InterruptedException}. If it does, this method will propagate this exception in
+   * the returned future.
+   *
+   * @return a future that is completed once all downloads have finished.
+   */
+  @VisibleForTesting
+  public ListenableFuture<Void> prefetchFilesInterruptibly(
       ActionExecutionMetadata action,
       Iterable<? extends ActionInput> inputs,
       MetadataSupplier metadataSupplier,
@@ -686,7 +722,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     if (!outputsToDownload.isEmpty()) {
       try (var s = Profiler.instance().profile(ProfilerTask.REMOTE_DOWNLOAD, "Download outputs")) {
         getFromFuture(
-            prefetchFiles(
+            prefetchFilesInterruptibly(
                 action, outputsToDownload, outputMetadataStore::getOutputMetadata, Priority.HIGH));
       }
     }

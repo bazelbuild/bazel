@@ -102,7 +102,7 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
 
     // act
     wait(
-        actionInputFetcher.prefetchFiles(
+        actionInputFetcher.prefetchFilesInterruptibly(
             action, ImmutableList.of(a), (ActionInput unused) -> null, Priority.MEDIUM));
 
     // assert
@@ -131,7 +131,7 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
 
     // act
     wait(
-        actionInputFetcher.prefetchFiles(
+        actionInputFetcher.prefetchFilesInterruptibly(
             action,
             ImmutableList.of(VirtualActionInput.EMPTY_MARKER),
             (ActionInput unused) -> null,
@@ -153,7 +153,7 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
             BulkTransferException.class,
             () ->
                 wait(
-                    prefetcher.prefetchFiles(
+                    prefetcher.prefetchFilesInterruptibly(
                         action, ImmutableList.of(a), metadata::get, Priority.MEDIUM)));
 
     assertThat(prefetcher.downloadedFiles()).isEmpty();

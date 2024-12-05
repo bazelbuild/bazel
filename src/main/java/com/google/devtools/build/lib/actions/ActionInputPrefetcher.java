@@ -20,21 +20,10 @@ import java.io.IOException;
 
 /** Prefetches files to local disk. */
 public interface ActionInputPrefetcher {
-  /**
-   * Returns the metadata for an {@link ActionInput}.
-   *
-   * <p>This will generally call through to a {@link InputMetadataProvider} and ask for the metadata
-   * of either an input or an output artifact.
-   */
-  public interface MetadataSupplier {
-    FileArtifactValue getMetadata(ActionInput actionInput) throws IOException, InterruptedException;
-  }
-
   public static final ActionInputPrefetcher NONE =
-      (action, inputs, metadataSupplier, priority) -> {
-        // Do nothing.
-        return immediateVoidFuture();
-      };
+      (action, inputs, metadataProvider, priority) ->
+          // Do nothing.
+          immediateVoidFuture();
 
   /** Priority for the staging task. */
   public enum Priority {
@@ -70,6 +59,6 @@ public interface ActionInputPrefetcher {
   ListenableFuture<Void> prefetchFiles(
       ActionExecutionMetadata action,
       Iterable<? extends ActionInput> inputs,
-      MetadataSupplier metadataSupplier,
+      InputMetadataProvider metadataProvider,
       Priority priority);
 }
