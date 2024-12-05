@@ -861,11 +861,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
                 mu, semantics, "resource_set callback", SymbolGenerator.createTransient());
         StarlarkInt inputInt = StarlarkInt.of(inputsSize);
         Object response =
-            Starlark.call(
-                thread,
-                this.fn,
-                ImmutableList.of(os.getCanonicalName(), inputInt),
-                ImmutableMap.of());
+            Starlark.positionalOnlyCall(thread, this.fn, os.getCanonicalName(), inputInt);
         Map<String, Object> resourceSetMapRaw =
             Dict.cast(response, String.class, Object.class, "resource_set");
 

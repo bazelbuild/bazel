@@ -791,18 +791,7 @@ public final class Starlark {
   public static Object fastcall(
       StarlarkThread thread, Object fn, Object[] positional, Object[] named)
       throws EvalException, InterruptedException {
-    StarlarkCallable callable;
-    if (fn instanceof StarlarkCallable) {
-      callable = (StarlarkCallable) fn;
-    } else {
-      // @StarlarkMethod(selfCall)?
-      MethodDescriptor desc =
-          CallUtils.getSelfCallMethodDescriptor(thread.getSemantics(), fn.getClass());
-      if (desc == null) {
-        throw errorf("'%s' object is not callable", type(fn));
-      }
-      callable = new BuiltinFunction(fn, desc.getName(), desc);
-    }
+    StarlarkCallable callable = getStarlarkCallable(thread, fn);
 
     thread.push(callable);
     try {
@@ -819,6 +808,43 @@ public final class Starlark {
     } finally {
       thread.pop();
     }
+  }
+
+  /**
+   * Calls the function-like value {@code fn} in the specified thread, passing it only positional
+   * arguments in the "fastcall" array representation.
+   *
+   * <p>The caller must not subsequently modify or even inspect the array.
+   *
+   * <p>If the call throws an unchecked throwable, regardless of whether it originates in a
+   * user-defined built-in function or a bug in the interpreter itself, the throwable is wrapped by
+   * {@link UncheckedEvalException} (for {@link RuntimeException}) or {@link UncheckedEvalError}
+   * (for {@link Error}). The {@linkplain Throwable#getStackTrace stack trace} will reflect the
+   * Starlark call stack rather than the Java call stack. The original throwable (and the Java call
+   * stack) may be retrieved using {@link Throwable#getCause}.
+   */
+  public static Object positionalOnlyCall(StarlarkThread thread, Object fn, Object... positional)
+      throws EvalException, InterruptedException {
+    return fastcall(thread, fn, positional, EMPTY);
+  }
+
+  private static final Object[] EMPTY = {};
+
+  private static StarlarkCallable getStarlarkCallable(StarlarkThread thread, Object fn)
+      throws EvalException {
+    StarlarkCallable callable;
+    if (fn instanceof StarlarkCallable starlarkCallable) {
+      callable = starlarkCallable;
+    } else {
+      // @StarlarkMethod(selfCall)?
+      MethodDescriptor desc =
+          CallUtils.getSelfCallMethodDescriptor(thread.getSemantics(), fn.getClass());
+      if (desc == null) {
+        throw errorf("'%s' object is not callable", type(fn));
+      }
+      callable = new BuiltinFunction(fn, desc.getName(), desc);
+    }
+    return callable;
   }
 
   /**
@@ -1099,10 +1125,8 @@ public final class Starlark {
             /* defaultValues= */ Tuple.empty(),
             /* freevars= */ Tuple.empty(),
             thread.getNextIdentityToken());
-    return Starlark.fastcall(thread, toplevel, EMPTY, EMPTY);
+    return Starlark.positionalOnlyCall(thread, toplevel);
   }
-
-  private static final Object[] EMPTY = {};
 
   /**
    * Parses the input as an expression, resolves it in the specified module environment, compiles
@@ -1116,7 +1140,7 @@ public final class Starlark {
       ParserInput input, FileOptions options, Module module, StarlarkThread thread)
       throws SyntaxError.Exception, EvalException, InterruptedException {
     StarlarkFunction fn = newExprFunction(input, options, module, thread.getNextIdentityToken());
-    return Starlark.fastcall(thread, fn, EMPTY, EMPTY);
+    return Starlark.positionalOnlyCall(thread, fn);
   }
 
   /** Variant of {@link #eval} that creates a module for the given predeclared environment. */
