@@ -71,6 +71,8 @@ public final class ModuleInfoExtractor {
               .setName("visibility")
               .setType(AttributeType.LABEL_LIST)
               .setMandatory(false)
+              .setNonconfigurable(true)
+              .setNativelyDefined(true)
               .setDocString(
                   "The visibility to be passed to this macro's exported targets. It always"
                       + " implicitly includes the location where this macro is instantiated, so"

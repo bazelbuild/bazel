@@ -16,7 +16,7 @@ import unittest
 
 from frozendict import frozendict
 
-# Do not edit this line. Copybara replaces it with PY2 migration helper..third_party.bazel.tools.ctexplain.analyses.summary as summary
+import tools.ctexplain.analyses.summary as summary
 from tools.ctexplain.types import Configuration
 from tools.ctexplain.types import ConfiguredTarget
 from tools.ctexplain.types import NullConfiguration
