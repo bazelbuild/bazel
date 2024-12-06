@@ -308,7 +308,7 @@ public final class Benchmarks {
       this.n = n;
       try {
         start(thread);
-        Starlark.fastcall(thread, f, new Object[] {this}, new Object[0]);
+        Starlark.positionalOnlyCall(thread, f, this);
         stop(thread);
         this.count += n;
 

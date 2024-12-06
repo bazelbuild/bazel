@@ -283,8 +283,7 @@ final class RegularRunnableExtension implements RunnableExtension {
           Profiler.instance()
               .profile(ProfilerTask.BZLMOD, () -> "evaluate module extension: " + extensionId)) {
         Object returnValue =
-            Starlark.fastcall(
-                thread, extension.implementation(), new Object[] {moduleContext}, new Object[0]);
+            Starlark.positionalOnlyCall(thread, extension.implementation(), moduleContext);
         if (returnValue != Starlark.NONE && !(returnValue instanceof ModuleExtensionMetadata)) {
           throw ExternalDepsException.withMessage(
               ExternalDeps.Code.BAD_MODULE,

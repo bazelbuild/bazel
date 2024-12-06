@@ -290,7 +290,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
         thread.setPrintHandler(Event.makeDebugPrintHandler(eventHandler));
 
         new MaterializationContext().storeInThread(thread);
-        return Starlark.fastcall(thread, implementation, new Object[] {ctx}, new Object[0]);
+        return Starlark.positionalOnlyCall(thread, implementation, ctx);
       }
     }
   }

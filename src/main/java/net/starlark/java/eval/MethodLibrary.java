@@ -151,15 +151,12 @@ class MethodLibrary {
 
     /**
      * @throws KeyCallException wrapping the exception thrown by the underlying {@link
-     *     Starlark#fastcall} call if it threw.
+     *     Starlark#positionalOnlyCall} call if it threw.
      */
     static ValueWithComparisonKey make(
         Object value, StarlarkCallable keyFn, StarlarkThread thread) {
-      Object[] positional = {value};
-      Object[] named = {};
       try {
-        return new ValueWithComparisonKey(
-            value, Starlark.fastcall(thread, keyFn, positional, named));
+        return new ValueWithComparisonKey(value, Starlark.positionalOnlyCall(thread, keyFn, value));
       } catch (EvalException | InterruptedException ex) {
         throw new KeyCallException(ex);
       }
@@ -173,7 +170,9 @@ class MethodLibrary {
       return comparisonKey;
     }
 
-    /** An unchecked exception wrapping an exception thrown by {@link Starlark#fastcall}. */
+    /**
+     * An unchecked exception wrapping an exception thrown by {@link Starlark#positionalOnlyCall}.
+     */
     private static final class KeyCallException extends RuntimeException {
       KeyCallException(Exception cause) {
         super(cause);
@@ -297,10 +296,9 @@ class MethodLibrary {
     StarlarkCallable keyfn = (StarlarkCallable) key;
 
     // decorate
-    Object[] empty = {};
     for (int i = 0; i < array.length; i++) {
       Object v = array[i];
-      Object k = Starlark.fastcall(thread, keyfn, new Object[] {v}, empty);
+      Object k = Starlark.positionalOnlyCall(thread, keyfn, v);
       array[i] = new Object[] {k, v};
     }
 
