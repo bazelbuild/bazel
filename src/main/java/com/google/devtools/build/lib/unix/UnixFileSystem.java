@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.unix.NativePosixFiles.Dirents;
 import com.google.devtools.build.lib.unix.NativePosixFiles.ReadTypes;
+import com.google.devtools.build.lib.unix.NativePosixFiles.StatErrorHandling;
 import com.google.devtools.build.lib.util.Blocker;
 import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.AbstractFileSystemWithCustomStat;
@@ -193,18 +194,14 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
 
   @Override
   protected FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
-    return statInternal(path, followSymlinks);
-  }
-
-  @VisibleForTesting
-  protected UnixFileStatus statInternal(PathFragment path, boolean followSymlinks)
-      throws IOException {
     String name = path.getPathString();
     long startTime = Profiler.nanoTimeMaybe();
     var comp = Blocker.begin();
     try {
       return new UnixFileStatus(
-          followSymlinks ? NativePosixFiles.stat(name) : NativePosixFiles.lstat(name));
+          followSymlinks
+              ? NativePosixFiles.stat(name, StatErrorHandling.ALWAYS_THROW)
+              : NativePosixFiles.lstat(name, StatErrorHandling.ALWAYS_THROW));
     } finally {
       Blocker.end(comp);
       profiler.logSimpleTask(startTime, ProfilerTask.VFS_STAT, name);
@@ -221,9 +218,13 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
     long startTime = Profiler.nanoTimeMaybe();
     var comp = Blocker.begin();
     try {
-      ErrnoFileStatus stat =
-          followSymlinks ? NativePosixFiles.errnoStat(name) : NativePosixFiles.errnoLstat(name);
-      return stat.hasError() ? null : new UnixFileStatus(stat);
+      com.google.devtools.build.lib.unix.FileStatus status =
+          followSymlinks
+              ? NativePosixFiles.stat(name, StatErrorHandling.NEVER_THROW)
+              : NativePosixFiles.lstat(name, StatErrorHandling.NEVER_THROW);
+      return status != null ? new UnixFileStatus(status) : null;
+    } catch (IOException e) {
+      throw new IllegalStateException("unexpected exception", e);
     } finally {
       Blocker.end(comp);
       profiler.logSimpleTask(startTime, ProfilerTask.VFS_STAT, name);
@@ -246,21 +247,11 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
     long startTime = Profiler.nanoTimeMaybe();
     var comp = Blocker.begin();
     try {
-      ErrnoFileStatus stat =
-          followSymlinks ? NativePosixFiles.errnoStat(name) : NativePosixFiles.errnoLstat(name);
-      if (!stat.hasError()) {
-        return new UnixFileStatus(stat);
-      }
-      int errno = stat.getErrno();
-      if (errno == ErrnoFileStatus.ENOENT || errno == ErrnoFileStatus.ENOTDIR) {
-        return null;
-      }
-      // This should not return -- we are calling stat here just to throw the proper exception.
-      // However, since there may be transient IO errors, we cannot guarantee that an exception will
-      // be thrown.
-      // TODO(bazel-team): Extract the exception-construction code and make it visible separately in
-      // FilesystemUtils to avoid having to do a duplicate stat call.
-      return stat(path, followSymlinks);
+      com.google.devtools.build.lib.unix.FileStatus stat =
+          followSymlinks
+              ? NativePosixFiles.stat(name, StatErrorHandling.THROW_UNLESS_NOT_FOUND)
+              : NativePosixFiles.lstat(name, StatErrorHandling.THROW_UNLESS_NOT_FOUND);
+      return stat != null ? new UnixFileStatus(stat) : null;
     } finally {
       Blocker.end(comp);
       profiler.logSimpleTask(startTime, ProfilerTask.VFS_STAT, name);
@@ -269,17 +260,17 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
 
   @Override
   protected boolean isReadable(PathFragment path) throws IOException {
-    return (statInternal(path, true).getPermissions() & 0400) != 0;
+    return (stat(path, true).getPermissions() & 0400) != 0;
   }
 
   @Override
   protected boolean isWritable(PathFragment path) throws IOException {
-    return (statInternal(path, true).getPermissions() & 0200) != 0;
+    return (stat(path, true).getPermissions() & 0200) != 0;
   }
 
   @Override
   protected boolean isExecutable(PathFragment path) throws IOException {
-    return (statInternal(path, true).getPermissions() & 0100) != 0;
+    return (stat(path, true).getPermissions() & 0100) != 0;
   }
 
   /**
@@ -291,7 +282,7 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
    */
   private void modifyPermissionBits(PathFragment path, int permissionBits, boolean add)
       throws IOException {
-    int oldMode = statInternal(path, true).getPermissions();
+    int oldMode = stat(path, true).getPermissions();
     int newMode = add ? (oldMode | permissionBits) : (oldMode & ~permissionBits);
     var comp = Blocker.begin();
     try {

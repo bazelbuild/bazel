@@ -72,43 +72,53 @@ public final class NativePosixFiles {
    */
   public static native void link(String oldpath, String newpath) throws IOException;
 
+  /** How stat() and lstat() should handle errors. */
+  enum StatErrorHandling {
+    /** Always throw an exception. */
+    ALWAYS_THROW('a'),
+    /** Throw an exception unless the error is ENOENT/ENOTDIR, in which case return null. */
+    THROW_UNLESS_NOT_FOUND('f'),
+    /* Never throw an exception. Return null instead. */
+    NEVER_THROW('n');
+
+    private final char code;
+
+    private StatErrorHandling(char code) {
+      this.code = code;
+    }
+
+    private char getCode() {
+      return code;
+    }
+  }
+
+  public static FileStatus stat(String path, StatErrorHandling errorHandling) throws IOException {
+    return stat(path, errorHandling.getCode());
+  }
+
   /**
    * Native wrapper around POSIX stat(2) syscall.
    *
    * @param path the file to stat.
+   * @param errorHandling how to handle errors.
    * @return a FileStatus instance containing the metadata.
    * @throws IOException if the stat() syscall failed.
    */
-  public static native FileStatus stat(String path) throws IOException;
+  public static native FileStatus stat(String path, char errorHandling) throws IOException;
+
+  public static FileStatus lstat(String path, StatErrorHandling errorHandling) throws IOException {
+    return lstat(path, errorHandling.getCode());
+  }
 
   /**
    * Native wrapper around POSIX lstat(2) syscall.
    *
    * @param path the file to lstat.
+   * @param errorHandling how to handle errors.
    * @return a FileStatus instance containing the metadata.
    * @throws IOException if the lstat() syscall failed.
    */
-  public static native FileStatus lstat(String path) throws IOException;
-
-  /**
-   * Native wrapper around POSIX stat(2) syscall.
-   *
-   * @param path the file to stat.
-   * @return an ErrnoFileStatus instance containing the metadata.
-   *   If there was an error, the return value's hasError() method
-   *   will return true, and all stat information is undefined.
-   */
-  public static native ErrnoFileStatus errnoStat(String path);
-
-  /**
-   * Native wrapper around POSIX lstat(2) syscall.
-   *
-   * @param path the file to lstat.
-   * @return an ErrnoFileStatus instance containing the metadata.
-   *   If there was an error, the return value's hasError() method
-   *   will return true, and all stat information is undefined.
-   */
-  public static native ErrnoFileStatus errnoLstat(String path);
+  public static native FileStatus lstat(String path, char errorHandling) throws IOException;
 
   /**
    * Native wrapper around POSIX utimensat(2) syscall.
@@ -194,10 +204,10 @@ public final class NativePosixFiles {
   private static native Dirents readdir(String path, char typeCode) throws IOException;
 
   /**
-   * An enum for specifying now the types of the individual entries returned by
-   * {@link #readdir(String, ReadTypes)} is to be returned.
+   * An enum for specifying now the types of the individual entries returned by {@link
+   * #readdir(String, ReadTypes)} is to be returned.
    */
-  public enum ReadTypes {
+  enum ReadTypes {
     NONE('n'),      // Do not read types
     NOFOLLOW('d'),  // Do not follow symlinks
     FOLLOW('f');    // Follow symlinks; never returns "SYMLINK" and returns "UNKNOWN" when dangling
