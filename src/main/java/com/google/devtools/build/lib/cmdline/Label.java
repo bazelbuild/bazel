@@ -785,6 +785,10 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
     return Codec.INSTANCE;
   }
 
+  public static DeferredObjectCodec<Label> deferredCodec() {
+    return LabelDeferredCodec.INSTANCE;
+  }
+
   public static DeferredObjectCodec<Label> valueSharingCodec() {
     return LabelValueSharingCodec.INSTANCE;
   }
