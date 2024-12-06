@@ -182,7 +182,7 @@ public class StandaloneTestStrategy extends TestStrategy {
 
         // e.g. /attemptsDir/attempt_1.dir/file
         destinationPath = attemptsDir.getRelative(destinationPathFragment);
-        destinationPath.getParentDirectory().createDirectory();
+        destinationPath.getParentDirectory().createDirectoryAndParents();
       }
 
       // Move to the destination.
