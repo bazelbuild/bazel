@@ -1720,6 +1720,8 @@ java_library(
         ":config/run_under",
         ":config/starlark_defined_config_transition",
         ":platform_options",
+        ":test/test_configuration",
+        ":test/test_trimming_logic",
         "//src/main/java/com/google/devtools/build/lib/actions:action_environment",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:build_configuration_event",
@@ -2063,6 +2065,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -2817,9 +2820,11 @@ java_library(
     deps = [
         ":config/build_options",
         ":config/core_option_converters",
+        ":config/core_options",
         ":config/fragment",
         ":config/fragment_options",
         ":config/per_label_options",
+        ":config/run_under",
         ":options_diff_predicate",
         ":test/coverage_configuration",
         ":test/test_sharding_strategy",
@@ -2851,17 +2856,30 @@ java_library(
     deps = [
         ":analysis_cluster",
         ":config/build_options",
-        ":config/build_options_cache",
-        ":config/core_options",
         ":config/fragment_options",
         ":config/transitions/no_transition",
         ":config/transitions/patch_transition",
         ":config/transitions/transition_factory",
         ":test/test_configuration",
+        ":test/test_trimming_logic",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/common/options",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "test/test_trimming_logic",
+    srcs = ["test/TestTrimmingLogic.java"],
+    deps = [
+        ":config/build_options",
+        ":config/build_options_cache",
+        ":config/core_options",
+        ":config/fragment_options",
+        ":config/run_under",
+        ":test/test_configuration",
         "//third_party:guava",
     ],
 )
