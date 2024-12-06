@@ -234,8 +234,6 @@ public class CommandLinesTest {
                 ? PathFragment.create("mapped").getRelative(execPath)
                 : execPath;
 
-    ExpandedCommandLines expanded =
-        commandLines.expand(artifactExpander, execPath, NO_LIMIT, pathMapper, 0);
     String expectedExecutableArg =
         normalizedExecutablePath ? "mapped/bazel-out/k8-fastbuild/bin/my_binary" : executableArg;
     Iterable<String> expectedArgs =
