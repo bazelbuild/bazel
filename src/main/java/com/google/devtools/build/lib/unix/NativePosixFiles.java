@@ -32,7 +32,6 @@ public final class NativePosixFiles {
 
   static {
     JniLoader.loadJni();
-    initJNIClasses();
   }
 
   /**
@@ -389,8 +388,6 @@ public final class NativePosixFiles {
    * reference alive.
    */
   public static native int close(int fd, Object ignored) throws IOException;
-
-  private static native void initJNIClasses();
 
   /** Logs a path string that does not have a Latin-1 coder. Called from JNI. */
   private static void logBadPath(String path) {

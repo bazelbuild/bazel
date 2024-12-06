@@ -297,10 +297,6 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_symlink(JNIEnv *env,
 }
 
 namespace {
-static jclass file_status_class = nullptr;
-static jmethodID file_status_class_ctor = nullptr;
-static jclass dirents_class = nullptr;
-static jmethodID dirents_ctor = nullptr;
 
 static jclass makeStaticClass(JNIEnv *env, const char *name) {
   jclass lookup_result = env->FindClass(name);
@@ -317,6 +313,10 @@ static jmethodID getConstructorID(JNIEnv *env, jclass clazz,
 
 static jobject NewUnixFileStatus(JNIEnv *env,
                                  const portable_stat_struct &stat_ref) {
+  static const jclass file_status_class =
+      makeStaticClass(env, "com/google/devtools/build/lib/unix/UnixFileStatus");
+  static const jmethodID file_status_class_ctor =
+      getConstructorID(env, file_status_class, "(IJJJJ)V");
   return env->NewObject(
       file_status_class, file_status_class_ctor,
       static_cast<jint>(stat_ref.st_mode),
@@ -324,16 +324,6 @@ static jobject NewUnixFileStatus(JNIEnv *env,
       static_cast<jlong>(StatEpochMilliseconds(stat_ref, STAT_CTIME)),
       static_cast<jlong>(stat_ref.st_size),
       static_cast<jlong>(stat_ref.st_ino));
-}
-
-static void SetIntField(JNIEnv *env,
-                        const jclass &clazz,
-                        const jobject &object,
-                        const char *name,
-                        int val) {
-  jfieldID fid = env->GetFieldID(clazz, name, "I");
-  BAZEL_CHECK_NE(fid, nullptr);
-  env->SetIntField(object, fid, val);
 }
 
 // RAII class for jstring.
@@ -352,18 +342,6 @@ class JStringLatin1Holder {
 };
 
 }  // namespace
-
-extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_unix_NativePosixFiles_initJNIClasses(
-    JNIEnv *env, jclass clazz) {
-  file_status_class =
-      makeStaticClass(env, "com/google/devtools/build/lib/unix/UnixFileStatus");
-  file_status_class_ctor = getConstructorID(env, file_status_class, "(IJJJJ)V");
-  dirents_class = makeStaticClass(
-      env, "com/google/devtools/build/lib/unix/NativePosixFiles$Dirents");
-  dirents_ctor =
-      getConstructorID(env, dirents_class, "([Ljava/lang/String;[B)V");
-}
 
 namespace {
 static jobject StatCommon(JNIEnv *env, jstring path,
@@ -619,6 +597,10 @@ namespace {
 static jobject NewDirents(JNIEnv *env,
                           jobjectArray names,
                           jbyteArray types) {
+  static const jclass dirents_class = makeStaticClass(
+      env, "com/google/devtools/build/lib/unix/NativePosixFiles$Dirents");
+  static const jmethodID dirents_ctor =
+      getConstructorID(env, dirents_class, "([Ljava/lang/String;[B)V");
   return env->NewObject(dirents_class, dirents_ctor, names, types);
 }
 
