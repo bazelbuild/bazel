@@ -858,7 +858,8 @@ public class ModuleFileGlobals {
             doc =
                 "The label pointing to the file to include. The label must point to a file in the"
                     + " main repo; in other words, it <strong>must<strong> start with double"
-                    + " slashes (<code>//</code>)."),
+                    + " slashes (<code>//</code>). The name of the file must end with"
+                    + " <code>.MODULE.bazel</code> and must not start with <code>.</code>."),
       },
       useStarlarkThread = true)
   public void include(String label, StarlarkThread thread)
