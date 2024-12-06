@@ -18,6 +18,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.jni.JniLoader;
 import com.google.devtools.build.lib.util.Blocker;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 

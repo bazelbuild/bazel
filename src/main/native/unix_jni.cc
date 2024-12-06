@@ -315,15 +315,14 @@ static jmethodID getConstructorID(JNIEnv *env, jclass clazz,
   return method;
 }
 
-static jobject NewFileStatus(JNIEnv *env,
-                             const portable_stat_struct &stat_ref) {
+static jobject NewUnixFileStatus(JNIEnv *env,
+                                 const portable_stat_struct &stat_ref) {
   return env->NewObject(
       file_status_class, file_status_class_ctor,
       static_cast<jint>(stat_ref.st_mode),
-      static_cast<jlong>(StatEpochMilliseconds(stat_ref, STAT_ATIME)),
       static_cast<jlong>(StatEpochMilliseconds(stat_ref, STAT_MTIME)),
       static_cast<jlong>(StatEpochMilliseconds(stat_ref, STAT_CTIME)),
-      static_cast<jlong>(stat_ref.st_size), static_cast<jint>(stat_ref.st_dev),
+      static_cast<jlong>(stat_ref.st_size),
       static_cast<jlong>(stat_ref.st_ino));
 }
 
@@ -358,9 +357,8 @@ extern "C" JNIEXPORT void JNICALL
 Java_com_google_devtools_build_lib_unix_NativePosixFiles_initJNIClasses(
     JNIEnv *env, jclass clazz) {
   file_status_class =
-      makeStaticClass(env, "com/google/devtools/build/lib/unix/FileStatus");
-  file_status_class_ctor =
-      getConstructorID(env, file_status_class, "(IJJJJIJ)V");
+      makeStaticClass(env, "com/google/devtools/build/lib/unix/UnixFileStatus");
+  file_status_class_ctor = getConstructorID(env, file_status_class, "(IJJJJ)V");
   dirents_class = makeStaticClass(
       env, "com/google/devtools/build/lib/unix/NativePosixFiles$Dirents");
   dirents_ctor =
@@ -397,7 +395,7 @@ static jobject StatCommon(JNIEnv *env, jstring path,
     return nullptr;
   }
 
-  return NewFileStatus(env, statbuf);
+  return NewUnixFileStatus(env, statbuf);
 }
 }  // namespace
 

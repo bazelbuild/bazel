@@ -53,7 +53,7 @@ public class NativePosixFilesTest {
     try {
       int perms =
           NativePosixFiles.lstat(foo.getPath(), StatErrorHandling.ALWAYS_THROW).getPermissions();
-      NativePosixFiles.chmod(foo.getPath(), perms | FileStatus.S_IWUSR);
+      NativePosixFiles.chmod(foo.getPath(), perms | UnixFileStatus.S_IWUSR);
       fail("Expected FilePermissionException or IOException, but wasn't thrown.");
     } catch (FilePermissionException e) {
       assertThat(e).hasMessageThat().isEqualTo(foo + " (Operation not permitted)");
