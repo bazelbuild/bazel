@@ -1158,7 +1158,8 @@ public class BuildTool {
                     evaluatingVersion,
                     snapshot);
             logger.atInfo().log(
-                "Remote analysis caching SkyValue version: %s", frontierNodeVersionSingleton);
+                "Remote analysis caching SkyValue version: %s (actual evaluating version: %s)",
+                frontierNodeVersionSingleton, evaluatingVersion);
             listener.recordSkyValueVersion(frontierNodeVersionSingleton);
           }
         }
