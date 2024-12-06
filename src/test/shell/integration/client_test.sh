@@ -567,7 +567,7 @@ function test_no_arguments() {
 
 function test_empty_command() {
   bazel '' >&$TEST_log && fail "Expected non-zero exit"
-  expect_log "Command cannot be the empty string (try 'help')"
+  expect_log "Command cannot be the empty string."
 }
 
 function test_local_startup_timeout() {

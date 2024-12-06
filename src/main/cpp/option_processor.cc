@@ -153,7 +153,11 @@ std::unique_ptr<CommandLine> OptionProcessor::SplitCommandLine(
   string& command = args[i];
   // Distinguish an empty command from the case of no command above.
   if (command.empty()) {
-    blaze_util::StringPrintf(error, "Command cannot be the empty string (try 'help')");
+    blaze_util::StringPrintf(
+        error,
+        "Command cannot be the empty string.\n"
+        "  For more info, run '%s help'.",
+        lowercase_product_name.c_str());
     return nullptr;
   }
 
