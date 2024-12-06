@@ -1934,6 +1934,48 @@ EOF
   bazel build //pkg:a >& $TEST_log || fail "build failed"
 }
 
+function test_header_compiler_direct_supports_unicode() {
+  if [[ "${JAVA_TOOLS_ZIP}" == released ]]; then
+      # TODO: Enable test after the next java_tools release.
+      return 0
+  fi
+
+  if "$is_windows"; then
+    # GraalVM native images on Windows use the same active code page they have been built
+    # with, which in the case of Bazel CI is 1252 (not UTF-8). Even with -H:+AddAllCharsets
+    # InvalidPathExceptions are still thrown when accessing a Unicode file path, indicating a
+    # problem within GraalVM's path encoding handling.
+    # https://github.com/oracle/graal/issues/10237
+    # TODO: Fix this by building java_tools binaries on a machine with system code page set to
+    #  UTF-8.
+    echo "Skipping test on Windows"
+    return 0
+  elif [[ "$(uname -s)" == "Linux" ]]; then
+    export LC_ALL=C.UTF-8
+    if [[ $(locale charmap) != "UTF-8" ]]; then
+      echo "Skipping test due to missing UTF-8 locale"
+      return 0
+    fi
+    local -r unicode="äöüÄÖÜß🌱"
+  else
+    # JVMs on macOS always support UTF-8 since JEP 400.
+    local -r unicode="äöüÄÖÜß🌱"
+  fi
+  mkdir -p pkg
+  cat << EOF > pkg/BUILD
+java_library(name = "a", srcs = ["A.java"], deps = [":b"])
+java_library(name = "b", srcs = ["${unicode}.java"])
+EOF
+  cat << 'EOF' > pkg/A.java
+public class A extends B {}
+EOF
+  cat << 'EOF' > "pkg/${unicode}.java"
+class B {}
+EOF
+
+  bazel build //pkg:a //pkg:b >& $TEST_log || fail "build failed"
+}
+
 function test_sandboxed_multiplexing() {
   mkdir -p pkg
   cat << 'EOF' > pkg/BUILD
@@ -1962,11 +2004,6 @@ EOF
 }
 
 function test_sandboxed_multiplexing_hermetic_paths_in_diagnostics() {
-  if [[ "${JAVA_TOOLS_ZIP}" == released ]]; then
-    # TODO: Enable test after the next java_tools release.
-    return 0
-  fi
-
   mkdir -p pkg
   cat << 'EOF' > pkg/BUILD
 load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
@@ -2178,11 +2215,6 @@ EOF
 }
 
 function test_one_version_allowlist() {
-  if [[ "${JAVA_TOOLS_ZIP}" == released ]]; then
-      # TODO: Enable test after the next java_tools release.
-      return 0
-  fi
-
   mkdir -p pkg
   cat << 'EOF' > pkg/BUILD
 load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
