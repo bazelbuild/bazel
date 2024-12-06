@@ -14,6 +14,7 @@
 
 package net.starlark.java.syntax;
 
+import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -68,7 +69,7 @@ public final class Resolver extends NodeVisitor {
 
     @Override
     public String toString() {
-      return super.toString().toLowerCase();
+      return Ascii.toLowerCase(super.toString());
     }
   }
 
