@@ -83,9 +83,9 @@ my_macro = macro(
     inherit_attrs = native.cc_library,
     attrs = {
         # override native.cc_library's `local_defines` attribute
-        local_defines = attr.string_list(default = ["FOO"]),
+        "local_defines": attr.string_list(default = ["FOO"]),
         # do not inherit native.cc_library's `defines` attribute
-        defines = None,
+        "defines": None,
     },
     ...
 )
