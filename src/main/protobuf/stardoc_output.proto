@@ -126,6 +126,9 @@ message MacroInfo {
   // The module where and the name under which the macro was originally
   // declared.
   OriginKey origin_key = 4;
+
+  // True if this macro is a rule finalizer.
+  bool finalizer = 5;
 }
 
 // Representation of a Starlark rule, repository rule, or module extension tag
@@ -161,6 +164,9 @@ message AttributeInfo {
 
   // If true, the attribute is non-configurable.
   bool nonconfigurable = 7;
+
+  // If true, the attribute is defined in Bazel's native code, not in Starlark.
+  bool natively_defined = 8;
 }
 
 // Representation of a set of providers.

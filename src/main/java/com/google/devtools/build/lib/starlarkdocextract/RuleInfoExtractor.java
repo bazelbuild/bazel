@@ -14,17 +14,32 @@
 
 package com.google.devtools.build.lib.starlarkdocextract;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AttributeInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AttributeType;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.OriginKey;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.RuleInfo;
 
 /** API documentation extractor for a rule. */
 public final class RuleInfoExtractor {
+
+  @VisibleForTesting
+  public static final ImmutableMap<String, AttributeInfo> IMPLICIT_RULE_ATTRIBUTES =
+      ImmutableMap.of(
+          "name",
+          AttributeInfo.newBuilder()
+              .setName("name")
+              .setType(AttributeType.NAME)
+              .setMandatory(true)
+              .setDocString("A unique name for this target.")
+              .build());
 
   /**
    * Extracts API documentation for a rule in the form of a {@link RuleInfo} proto.
@@ -72,10 +87,11 @@ public final class RuleInfoExtractor {
       ruleInfoBuilder.setExecutable(true);
     }
 
-    ruleInfoBuilder.addAttribute(
-        AttributeInfoExtractor.IMPLICIT_NAME_ATTRIBUTE_INFO); // name comes first
     AttributeInfoExtractor.addDocumentableAttributes(
-        context, ruleClass.getAttributes(), ruleInfoBuilder::addAttribute);
+        context,
+        IMPLICIT_RULE_ATTRIBUTES,
+        ruleClass.getAttributes(),
+        ruleInfoBuilder::addAttribute);
     ImmutableSet<StarlarkProviderIdentifier> advertisedProviders =
         ruleClass.getAdvertisedProviders().getStarlarkProviders();
     if (!advertisedProviders.isEmpty()) {

@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.starlarkdocextract;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions.MacroFunction;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions.StarlarkRuleFunction;
@@ -55,14 +54,43 @@ public final class ModuleInfoExtractor {
   private final LabelRenderer labelRenderer;
 
   @VisibleForTesting
-  public static final ImmutableList<AttributeInfo> IMPLICIT_REPOSITORY_RULE_ATTRIBUTES =
-      ImmutableList.of(
+  public static final ImmutableMap<String, AttributeInfo> IMPLICIT_MACRO_ATTRIBUTES =
+      ImmutableMap.of(
+          "name",
+          AttributeInfo.newBuilder()
+              .setName("name")
+              .setType(AttributeType.NAME)
+              .setMandatory(true)
+              .setDocString(
+                  "A unique name for this macro instance. Normally, this is also the name for the"
+                      + " macro's main or only target. The names of any other targets that this"
+                      + " macro might create will be this name with a string suffix.")
+              .build(),
+          "visibility",
+          AttributeInfo.newBuilder()
+              .setName("visibility")
+              .setType(AttributeType.LABEL_LIST)
+              .setMandatory(false)
+              .setNonconfigurable(true)
+              .setNativelyDefined(true)
+              .setDocString(
+                  "The visibility to be passed to this macro's exported targets. It always"
+                      + " implicitly includes the location where this macro is instantiated, so"
+                      + " this attribute only needs to be explicitly set if you want the macro's"
+                      + " targets to be additionally visible somewhere else.")
+              .build());
+
+  @VisibleForTesting
+  public static final ImmutableMap<String, AttributeInfo> IMPLICIT_REPOSITORY_RULE_ATTRIBUTES =
+      ImmutableMap.of(
+          "name",
           AttributeInfo.newBuilder()
               .setName("name")
               .setType(AttributeType.NAME)
               .setMandatory(true)
               .setDocString("A unique name for this repository.")
               .build(),
+          "repo_mapping",
           AttributeInfo.newBuilder()
               .setName("repo_mapping")
               .setType(AttributeType.STRING_DICT)
@@ -346,10 +374,19 @@ public final class ModuleInfoExtractor {
       macroFunction.getDocumentation().ifPresent(macroInfoBuilder::setDocString);
 
       MacroClass macroClass = macroFunction.getMacroClass();
-      // inject the name attribute; addDocumentableAttributes skips non-Starlark-defined attributes.
-      macroInfoBuilder.addAttribute(AttributeInfoExtractor.IMPLICIT_MACRO_NAME_ATTRIBUTE_INFO);
+      if (macroClass.isFinalizer()) {
+        macroInfoBuilder.setFinalizer(true);
+      }
+      // For symbolic macros, always extract non-Starlark attributes (to support inherit_attrs).
+      ExtractorContext contextForImplicitMacroAttributes =
+          context.extractNativelyDefinedAttrs()
+              ? context
+              : context.toBuilder().extractNativelyDefinedAttrs(true).build();
       AttributeInfoExtractor.addDocumentableAttributes(
-          context, macroClass.getAttributes().values(), macroInfoBuilder::addAttribute);
+          contextForImplicitMacroAttributes,
+          IMPLICIT_MACRO_ATTRIBUTES,
+          macroClass.getAttributes().values(),
+          macroInfoBuilder::addAttribute);
 
       moduleInfoBuilder.addMacroInfo(macroInfoBuilder);
     }
@@ -419,10 +456,8 @@ public final class ModuleInfoExtractor {
           aspectInfoBuilder.addAspectAttribute(aspectAttribute);
         }
       }
-      aspectInfoBuilder.addAttribute(
-          AttributeInfoExtractor.IMPLICIT_NAME_ATTRIBUTE_INFO); // name comes first
       AttributeInfoExtractor.addDocumentableAttributes(
-          context, aspect.getAttributes(), aspectInfoBuilder::addAttribute);
+          context, ImmutableMap.of(), aspect.getAttributes(), aspectInfoBuilder::addAttribute);
       moduleInfoBuilder.addAspectInfo(aspectInfoBuilder);
     }
 
@@ -446,7 +481,10 @@ public final class ModuleInfoExtractor {
         tagClassInfoBuilder.setTagName(entry.getKey());
         entry.getValue().doc().ifPresent(tagClassInfoBuilder::setDocString);
         AttributeInfoExtractor.addDocumentableAttributes(
-            context, entry.getValue().attributes(), tagClassInfoBuilder::addAttribute);
+            context,
+            ImmutableMap.of(),
+            entry.getValue().attributes(),
+            tagClassInfoBuilder::addAttribute);
         moduleExtensionInfoBuilder.addTagClass(tagClassInfoBuilder);
       }
       moduleInfoBuilder.addModuleExtensionInfo(moduleExtensionInfoBuilder);
@@ -460,15 +498,15 @@ public final class ModuleInfoExtractor {
       repositoryRuleInfoBuilder.setRuleName(qualifiedName);
       repositoryRuleFunction.getDocumentation().ifPresent(repositoryRuleInfoBuilder::setDocString);
       RuleClass ruleClass = repositoryRuleFunction.getRuleClass();
-      repositoryRuleInfoBuilder
-          .setOriginKey(
-              OriginKey.newBuilder()
-                  .setName(ruleClass.getName())
-                  .setFile(
-                      context.labelRenderer().render(repositoryRuleFunction.getExtensionLabel())))
-          .addAllAttribute(IMPLICIT_REPOSITORY_RULE_ATTRIBUTES);
+      repositoryRuleInfoBuilder.setOriginKey(
+          OriginKey.newBuilder()
+              .setName(ruleClass.getName())
+              .setFile(context.labelRenderer().render(repositoryRuleFunction.getExtensionLabel())));
       AttributeInfoExtractor.addDocumentableAttributes(
-          context, ruleClass.getAttributes(), repositoryRuleInfoBuilder::addAttribute);
+          context,
+          IMPLICIT_REPOSITORY_RULE_ATTRIBUTES,
+          ruleClass.getAttributes(),
+          repositoryRuleInfoBuilder::addAttribute);
       if (ruleClass.hasAttr("$environ", Types.STRING_LIST)) {
         repositoryRuleInfoBuilder.addAllEnviron(
             Types.STRING_LIST.cast(ruleClass.getAttributeByName("$environ").getDefaultValue(null)));
