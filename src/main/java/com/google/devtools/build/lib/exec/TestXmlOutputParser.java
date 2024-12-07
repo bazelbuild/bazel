@@ -161,14 +161,15 @@ public final class TestXmlOutputParser {
    * Parses a time in test.xml format.
    *
    * @throws NumberFormatException if the time is malformed (i.e. is neither an integer nor a
-   *     decimal fraction with '.' as the fraction separator)
+   *     decimal fraction with '.' as the fraction separator or a decimal with 'e' scientific
+   *     notation)
    */
   private long parseTime(String string) {
 
     // This is ugly. For Historical Reasons, we have to check whether the number
     // contains a decimal point or not. If it does, the number is expressed in
-    // milliseconds, otherwise, in seconds.
-    if (string.contains(".")) {
+    // in seconds, otherwise milliseconds.
+    if (string.contains(".") || string.contains("e")) {
       return Math.round(Float.parseFloat(string) * 1000);
     } else {
       return Long.parseLong(string);
