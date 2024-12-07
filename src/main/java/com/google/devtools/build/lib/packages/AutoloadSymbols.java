@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.cmdline.Label.RepoContext;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
@@ -501,16 +500,6 @@ public class AutoloadSymbols {
         missingRepositories.add(label.getRepository().getName());
       }
     }
-    for (String missingRepository : missingRepositories.build()) {
-      env.getListener()
-          .handle(
-              Event.warn(
-                  String.format(
-                      "Couldn't auto load rules or symbols, because no dependency on"
-                          + " module/repository '%s' found. This will result in a failure if"
-                          + " there's a reference to those rules or symbols.",
-                      missingRepository)));
-    }
     return loadKeysBuilder.buildOrThrow();
   }
 
@@ -569,9 +558,16 @@ public class AutoloadSymbols {
               @Override
               public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
                   throws EvalException {
+                String what =
+                    bzlmodEnabled
+                        ? "a 'bazel_dep(name = \"%s\", ...)' in your MODULE.bazel file"
+                            .formatted(AUTOLOAD_CONFIG.get(symbol).getModuleName())
+                        : "an 'http_archive(name = \"%s\", ...)' in your WORKSPACE file"
+                            .formatted(AUTOLOAD_CONFIG.get(symbol).getModuleName());
                 throw Starlark.errorf(
-                    "Couldn't auto load '%s' from '%s'.",
-                    getName(), AUTOLOAD_CONFIG.get(getName()).loadLabel());
+                    "Couldn't auto load '%s' from '%s'. Ensure that you have %s or add an explicit"
+                        + " load statement to your BUILD file.",
+                    getName(), AUTOLOAD_CONFIG.get(getName()).loadLabel(), what);
               }
             });
       }
@@ -616,7 +612,7 @@ public class AutoloadSymbols {
       requireNonNull(rdeps, "rdeps");
     }
 
-    String getModuleName() throws InterruptedException {
+    String getModuleName() {
       return Label.parseCanonicalUnchecked(loadLabel()).getRepository().getName();
     }
 
