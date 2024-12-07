@@ -13,6 +13,8 @@ Cherry picks:
      8f74d8f4de7ba474adad59769241bb38ee83d3ab.
    + bae909caf645559ba958a279a834e6a11ac5eae6:
      Release 9.0.0-pre.20241125.4 (2024-12-07)
+   + 291dad6d529082d967753e23c667093ec87322c0:
+     Release 9.0.0-pre.20241125.4 (2024-12-07)
 ```
 
 This release contains contributions from many people at Google, as well as .
