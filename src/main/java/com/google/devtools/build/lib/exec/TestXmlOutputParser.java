@@ -158,21 +158,12 @@ public final class TestXmlOutputParser {
   }
 
   /**
-   * Parses a time in test.xml format.
+   * Parses a time (in seconds) in test.xml format and returns the number of milliseconds the test took.
    *
-   * @throws NumberFormatException if the time is malformed (i.e. is neither an integer nor a
-   *     decimal fraction with '.' as the fraction separator)
+   * @throws NumberFormatException if the time is malformed (i.e. is not a valid floating point number).
    */
   private long parseTime(String string) {
-
-    // This is ugly. For Historical Reasons, we have to check whether the number
-    // contains a decimal point or not. If it does, the number is expressed in
-    // milliseconds, otherwise, in seconds.
-    if (string.contains(".")) {
-      return Math.round(Float.parseFloat(string) * 1000);
-    } else {
-      return Long.parseLong(string);
-    }
+    return Math.round(Float.parseFloat(string) * 1000);
   }
 
   /**
