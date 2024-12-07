@@ -11,6 +11,25 @@ Cherry picks:
    + 17f3cbc33a1dc0b68479f1f1a25ab832f6322842:
      Automated rollback of commit
      8f74d8f4de7ba474adad59769241bb38ee83d3ab.
+   + bae909caf645559ba958a279a834e6a11ac5eae6:
+     Release 9.0.0-pre.20241125.4 (2024-12-07)
+```
+
+This release contains contributions from many people at Google, as well as .
+
+## Release 9.0.0-pre.20241125.4 (2024-12-07)
+
+```
+Baseline: 7b20da28ec69e3921a043199e6d0afb0246e71f0
+
+Cherry picks:
+
+   + e27ab916aaa6b12f2be4e463a54ef49965cc04a7:
+     Automated rollback of commit
+     3fdec931bfc401a379e2446731cf19daffe24a10.
+   + 17f3cbc33a1dc0b68479f1f1a25ab832f6322842:
+     Automated rollback of commit
+     8f74d8f4de7ba474adad59769241bb38ee83d3ab.
 ```
 
 This release contains contributions from many people at Google, as well as .
