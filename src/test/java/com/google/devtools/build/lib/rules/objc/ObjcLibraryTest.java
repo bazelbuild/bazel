@@ -699,6 +699,77 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
+  public void testMultipleLanguagesCopts() throws Exception {
+    useConfiguration("--apple_platform_type=ios", "--platforms=" + MockObjcSupport.IOS_ARM64);
+
+    scratch.file(
+        "objc/defs.bzl",
+        """
+        def _var_providing_rule_impl(ctx):
+            return [
+                platform_common.TemplateVariableInfo({
+                    "FOO": "$(BAR)",
+                    "BAR": ctx.attr.var_value,
+                    "BAZ": "$(FOO)",
+                }),
+            ]
+
+        var_providing_rule = rule(
+            implementation = _var_providing_rule_impl,
+            attrs = {"var_value": attr.string()},
+        )
+        """);
+
+    scratch.file(
+        "objc/BUILD",
+        """
+        load("//objc:defs.bzl", "var_providing_rule")
+
+        var_providing_rule(
+            name = "set_foo_to_bar",
+            var_value = "bar",
+        )
+
+        objc_library(
+            name = "lib",
+            srcs = [
+                "c.c",
+                "cpp.cpp",
+                "objc.m",
+                "objcpp.mm",
+            ],
+            copts = ["-DFROM_SHARED=$(FOO),$(BAR),$(BAZ)"],
+            conlyopts = ["-DFROM_CONLYOPTS=$(FOO),$(BAR),$(BAZ)"],
+            cxxopts = ["-DFROM_CXXOPTS=$(FOO),$(BAR),$(BAZ)"],
+            toolchains = [":set_foo_to_bar"],
+        )
+        """);
+
+    CommandAction cCompileAction = compileAction("//objc:lib", "c.o");
+    assertThat(cCompileAction.getArguments())
+        .containsAtLeast("-DFROM_SHARED=bar,bar,bar", "-DFROM_CONLYOPTS=bar,bar,bar")
+        .inOrder();
+    assertThat(cCompileAction.getArguments()).doesNotContain("-DFROM_CXXOPTS=bar,bar,bar");
+
+    CommandAction objcCompileAction = compileAction("//objc:lib", "objc.o");
+    assertThat(objcCompileAction.getArguments()).contains("-DFROM_SHARED=bar,bar,bar");
+    assertThat(objcCompileAction.getArguments()).doesNotContain("-DFROM_CONLYOPTS=bar,bar,bar");
+    assertThat(objcCompileAction.getArguments()).doesNotContain("-DFROM_CXXOPTS=bar,bar,bar");
+
+    CommandAction objcppCompileAction = compileAction("//objc:lib", "objcpp.o");
+    assertThat(objcppCompileAction.getArguments())
+        .containsAtLeast("-DFROM_SHARED=bar,bar,bar", "-DFROM_CXXOPTS=bar,bar,bar")
+        .inOrder();
+    assertThat(objcppCompileAction.getArguments()).doesNotContain("-DFROM_CONLYOPTS=bar,bar,bar");
+
+    CommandAction cppCompileAction = compileAction("//objc:lib", "cpp.o");
+    assertThat(cppCompileAction.getArguments())
+        .containsAtLeast("-DFROM_SHARED=bar,bar,bar", "-DFROM_CXXOPTS=bar,bar,bar")
+        .inOrder();
+    assertThat(cppCompileAction.getArguments()).doesNotContain("-DFROM_CONLYOPTS=bar,bar,bar");
+  }
+
+  @Test
   public void testBothModuleNameAndModuleMapGivesError() throws Exception {
     checkError(
         "x",

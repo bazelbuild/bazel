@@ -175,6 +175,26 @@ it depends, or those which depend on it.
 Note that for the generated Xcode project, directory paths specified using "-I" flags in
 copts are parsed out, prepended with "$(WORKSPACE_ROOT)/" if they are relative paths, and
 added to the header search paths for the associated Xcode target."""),
+    "conlyopts": attr.string_list(doc = """
+Extra flags to pass to the compiler for C files.
+Subject to <a href="${link make-variables}">"Make variable"</a> substitution and
+<a href="${link common-definitions#sh-tokenization}">Bourne shell tokenization</a>.
+These flags will only apply to this target, and not those upon which
+it depends, or those which depend on it.
+<p>
+Note that for the generated Xcode project, directory paths specified using "-I" flags in
+copts are parsed out, prepended with "$(WORKSPACE_ROOT)/" if they are relative paths, and
+added to the header search paths for the associated Xcode target."""),
+    "cxxopts": attr.string_list(doc = """
+Extra flags to pass to the compiler for Objective-C++ and C++ files.
+Subject to <a href="${link make-variables}">"Make variable"</a> substitution and
+<a href="${link common-definitions#sh-tokenization}">Bourne shell tokenization</a>.
+These flags will only apply to this target, and not those upon which
+it depends, or those which depend on it.
+<p>
+Note that for the generated Xcode project, directory paths specified using "-I" flags in
+copts are parsed out, prepended with "$(WORKSPACE_ROOT)/" if they are relative paths, and
+added to the header search paths for the associated Xcode target."""),
 }
 
 _ALWAYSLINK_RULE = {
