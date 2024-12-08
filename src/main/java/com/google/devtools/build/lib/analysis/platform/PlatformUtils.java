@@ -76,6 +76,19 @@ public final class PlatformUtils {
             ? remoteOptions.getRemoteDefaultExecProperties()
             : ImmutableSortedMap.of();
 
+    if (spawn.getMnemonic().equals("ObjcLink")) {
+      SortedMap<String, String> defaultObjcLinkProperties =
+              remoteOptions != null
+                      ? remoteOptions.getRemoteDefaultObjcLinkPlatformProperties()
+                      : ImmutableSortedMap.of();
+      if (!defaultObjcLinkProperties.isEmpty()) {
+        ImmutableSortedMap.Builder<String, String> builder = ImmutableSortedMap.naturalOrder();
+        builder.putAll(defaultExecProperties);
+        builder.putAll(defaultObjcLinkProperties);
+        defaultExecProperties = builder.build();
+      }
+    }
+
     if (spawn.getExecutionPlatform() == null
         && spawn.getCombinedExecProperties().isEmpty()
         && defaultExecProperties.isEmpty()
