@@ -155,6 +155,7 @@ java_binary(
         "-Xlog:all=warning:stderr",
     ],
     main_class = "com.google.devtools.build.lib.testutil.ExternalFileSystemLockHelper",
+    deps = ["//third_party:guava"],
 )
 
 java_library(

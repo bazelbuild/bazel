@@ -21,6 +21,8 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+LOCK_HELPER="$(rlocation io_bazel/src/test/java/com/google/devtools/build/lib/testutil/external_file_system_lock_helper)"
+
 function test_product_name_with_bazel_info() {
   cat > WORKSPACE <<EOF
 workspace(name = 'blerp')
@@ -43,4 +45,18 @@ function test_server_process_name_has_workspace_name() {
   ps -o cmd= "$(bazel info server_pid)" &>"$TEST_log"
   expect_log "^bazel(foobarspace)"
   bazel shutdown
+}
+
+function test_install_base_lock() {
+  # Start the server and get the location of the install base.
+  local -r install_base="$(bazel info install_base)"
+
+  # Try to get an exclusive lock on the install base, which should fail.
+  "$LOCK_HELPER" "${install_base}.lock" exclusive exit && fail "Expected failure"
+
+  # Shut down the server.
+  bazel shutdown
+
+  # Try to get an exclusive lock on the install base, which should succeed.
+  "$LOCK_HELPER" "${install_base}.lock" exclusive exit || fail "Expected success"
 }

@@ -541,6 +541,7 @@ message Filesystem {
     DEFAULT_DIGEST_HASH_FUNCTION_INVALID_VALUE = 6
         [(metadata) = { exit_code: 2 }];
     FILESYSTEM_JNI_NOT_AVAILABLE = 8 [(metadata) = { exit_code: 36 }];
+    FAILED_TO_LOCK_INSTALL_BASE = 12 [(metadata) = { exit_code: 36 }];
 
     reserved 7, 9, 10; // For internal use
   }

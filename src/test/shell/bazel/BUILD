@@ -1122,7 +1122,10 @@ sh_test(
     name = "client_test",
     size = "medium",
     srcs = ["client_test.sh"],
-    data = [":test-deps"],
+    data = [
+        ":test-deps",
+        "//src/test/java/com/google/devtools/build/lib/testutil:external_file_system_lock_helper",
+    ],
     tags = ["no_windows"],
 )
 

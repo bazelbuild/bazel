@@ -105,6 +105,17 @@ public class BlazeServerStartupOptions extends OptionsBase {
       help = "This launcher option is intended for use only by tests.")
   public String installMD5;
 
+  @Option(
+      name = "lock_install_base",
+      defaultValue = "true", // NOTE: only for documentation, value is always passed by the client.
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      metadataTags = {OptionMetadataTag.HIDDEN},
+      help =
+          "Whether the server should hold a lock on the install base while running, to prevent"
+              + " another server from attempting to garbage collect it.")
+  public boolean lockInstallBase;
+
   /* Note: The help string in this option applies to the client code; not
    * the server code. The server code will only accept a non-empty path; it's
    * the responsibility of the client to compute a proper default if
