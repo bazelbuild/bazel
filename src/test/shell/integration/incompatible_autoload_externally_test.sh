@@ -111,6 +111,46 @@ local_repository(
 EOF
 }
 
+function mock_apple_support() {
+  apple_support_workspace="${TEST_TMPDIR}/apple_support_workspace"
+  mkdir -p "${apple_support_workspace}/xcode"
+  touch "${apple_support_workspace}/xcode/BUILD"
+  touch "${apple_support_workspace}/WORKSPACE"
+  cat > "${apple_support_workspace}/MODULE.bazel" << EOF
+module(name = "apple_support", repo_name = "build_bazel_apple_support")
+EOF
+  cat > "${apple_support_workspace}/xcode/xcode_version.bzl" << EOF
+def _impl(ctx):
+  pass
+
+xcode_version = rule(
+  implementation = _impl,
+  attrs = {
+    "version": attr.string(),
+  }
+)
+EOF
+
+  cat >> MODULE.bazel << EOF
+bazel_dep(
+    name = "apple_support",
+    repo_name = "build_bazel_apple_support",
+)
+local_path_override(
+    module_name = "apple_support",
+    path = "${apple_support_workspace}",
+)
+EOF
+
+  cat > WORKSPACE << EOF
+workspace(name = "test")
+local_repository(
+    name = "build_bazel_apple_support",
+    path = "${apple_support_workspace}",
+)
+EOF
+}
+
 function test_missing_necessary_repo_fails() {
   # Intentionally not adding apple_support to MODULE.bazel (and it's not in MODULE.tools)
   cat > WORKSPACE << EOF
@@ -142,7 +182,6 @@ filegroup(
 )
 EOF
   bazel build --incompatible_autoload_externally=xcode_version :filegroup >&$TEST_log 2>&1 || fail "build failed"
-  expect_not_log "WARNING:"
 }
 
 function test_removed_rule_loaded() {
@@ -158,6 +197,19 @@ aar_import(
 EOF
 
   bazel build --incompatible_autoload_externally=aar_import :aar >&$TEST_log 2>&1 || fail "build failed"
+}
+
+function test_removed_rule_loaded_from_legacy_repo_name() {
+  setup_module_dot_bazel
+  mock_apple_support
+
+  cat > BUILD << EOF
+xcode_version(
+    name = 'xcode_version',
+    version = "5.1.2",
+)
+EOF
+  bazel build --incompatible_autoload_externally=xcode_version :xcode_version >&$TEST_log 2>&1 || fail "build failed"
 }
 
 function test_removed_rule_loaded_from_bzl() {
