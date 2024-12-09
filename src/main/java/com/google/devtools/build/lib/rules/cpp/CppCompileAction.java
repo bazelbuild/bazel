@@ -1629,7 +1629,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
             .addAll(stdoutDeps)
             .addAll(stderrDeps)
             .build(),
-        getPermittedSystemIncludePrefixes(execRoot),
+        getBuiltInIncludeDirectories(),
         getAllowedDerivedInputs(),
         execRoot,
         artifactResolver,
@@ -1652,7 +1652,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         getSourceFile(),
         needsIncludeValidation,
         processDepset(actionExecutionContext, execRoot, dotDContents).getDependencies(),
-        getPermittedSystemIncludePrefixes(execRoot),
+        getBuiltInIncludeDirectories(),
         getAllowedDerivedInputs(),
         execRoot,
         artifactResolver,
@@ -1675,16 +1675,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       throw new ActionExecutionException(
           message, e, this, false, createDetailedExitCode(message, Code.D_FILE_PARSE_FAILURE));
     }
-  }
-
-  private List<Path> getPermittedSystemIncludePrefixes(Path execRoot) {
-    List<Path> systemIncludePrefixes = new ArrayList<>();
-    for (PathFragment includePath : getBuiltInIncludeDirectories()) {
-      if (includePath.isAbsolute()) {
-        systemIncludePrefixes.add(execRoot.getFileSystem().getPath(includePath));
-      }
-    }
-    return systemIncludePrefixes;
   }
 
   /**
