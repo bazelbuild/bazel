@@ -616,6 +616,15 @@ public class AutoloadSymbols {
       return Label.parseCanonicalUnchecked(loadLabel()).getRepository().getName();
     }
 
+    String getWorkspaceRepoName() {
+      String moduleName = getModuleName();
+      return switch (moduleName) {
+        case "apple_support" -> "bazel_build_apple_support";
+        case "protobuf" -> "com_google_protobuf";
+        default -> moduleName;
+      };
+    }
+
     Label getLabel(RepoContext repoContext) throws InterruptedException {
       try {
         return Label.parseWithRepoContext(loadLabel(), repoContext);
