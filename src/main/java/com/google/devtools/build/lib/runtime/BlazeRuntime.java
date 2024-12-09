@@ -514,6 +514,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       }
     } catch (IOException e) {
       eventHandler.handle(Event.error("Error while creating profile file: " + e.getMessage()));
+      profile = null;
     }
     return new ProfilerStartedEvent(profile);
   }
