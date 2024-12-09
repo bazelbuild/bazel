@@ -363,58 +363,13 @@ http_file(
     urls = ["https://github.com/jqlang/jq/releases/download/jq-1.5/jq-win64.exe"],
 )
 
-http_file(
-    name = "async_profiler",
-    downloaded_file_path = "async-profiler.jar",
-    # At commit f0ceda6356f05b7ad0a6593670c8c113113bf0b3 (2024-12-09).
-    integrity = "sha256-2pWlKS+yA5Zhluy2ijmowmrXJ2ru9kLsHehyUTvh2LM=",
-    urls = ["https://github.com/async-profiler/async-profiler/releases/download/nightly/async-profiler.jar"],
-)
-
-http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-_ASYNC_PROFILER_BUILD_TEMPLATE = """
-load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
-
-copy_file(
-    name = "libasyncProfiler",
-    src = "libasyncProfiler.{ext}",
-    out = "{tag}/libasyncProfiler.so",
-    visibility = ["//visibility:public"],
-)
-"""
-
-http_archive(
-    name = "async_profiler_linux_arm64",
-    build_file_content = _ASYNC_PROFILER_BUILD_TEMPLATE.format(
-        ext = "so",
-        tag = "linux-arm64",
-    ),
-    integrity = "sha256-fGJDu5EnKieXrLjMRKzz5AbgtlipTZDZORyjdfyWGFc=",
-    strip_prefix = "async-profiler-3.0-f0ceda6-linux-arm64/lib",
-    urls = ["https://github.com/async-profiler/async-profiler/releases/download/nightly/async-profiler-3.0-f0ceda6-linux-arm64.tar.gz"],
-)
-
-http_archive(
-    name = "async_profiler_linux_x64",
-    build_file_content = _ASYNC_PROFILER_BUILD_TEMPLATE.format(
-        ext = "so",
-        tag = "linux-x64",
-    ),
-    integrity = "sha256-RIo9xoE3WGDroiZNbK56hIvT8H+B9Uepzli3QqFUHSU=",
-    strip_prefix = "async-profiler-3.0-f0ceda6-linux-x64/lib",
-    urls = ["https://github.com/async-profiler/async-profiler/releases/download/nightly/async-profiler-3.0-f0ceda6-linux-x64.tar.gz"],
-)
-
-http_archive(
-    name = "async_profiler_macos",
-    build_file_content = _ASYNC_PROFILER_BUILD_TEMPLATE.format(
-        ext = "dylib",
-        tag = "macos",
-    ),
-    integrity = "sha256-BlEATHjQgPZ3Y83d5uH1jNDQxMsLVwNL7vgLRQ/1rfI=",
-    strip_prefix = "async-profiler-3.0-f0ceda6-macos/lib",
-    urls = ["https://github.com/async-profiler/async-profiler/releases/download/nightly/async-profiler-3.0-f0ceda6-macos.zip"],
+async_profiler_repos = use_extension("//:repositories.bzl", "async_profiler_repos")
+use_repo(
+    async_profiler_repos,
+    "async_profiler",
+    "async_profiler_linux_arm64",
+    "async_profiler_linux_x64",
+    "async_profiler_macos",
 )
 
 # =========================================
