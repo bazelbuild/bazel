@@ -473,6 +473,10 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
                    startup_options.install_base.AsCommandLineArgument());
   result.push_back("--install_md5=" + install_md5);
   if (startup_options.lock_install_base) {
+    // This flag is not user-settable. Its sole purpose is to alter the behavior
+    // for Blaze and Bazel. Do *not* explicitly set it to disabled, because at
+    // Google we rely on the ability to run the client code against a server
+    // built before the flag was added.
     result.push_back("--lock_install_base");
   }
   result.push_back("--output_base=" +
