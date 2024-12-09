@@ -14,6 +14,7 @@
 
 package net.starlark.java.eval;
 
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Splitter;
@@ -223,19 +224,28 @@ public final class ScriptTest {
         }
 
         // parse & execute
-        ParserInput input = ParserInput.fromString(buf.toString(), file.toString());
+        boolean utf8ByteStrings = Boolean.getBoolean("net.starlark.java.eval.ScriptTest.utf8ByteStrings");
+        ParserInput input;
+        if (utf8ByteStrings) {
+          input = ParserInput.fromLatin1(buf.toString().getBytes(UTF_8), file.toString());
+        } else {
+          input = ParserInput.fromString(buf.toString(), file.toString());
+        }
         ImmutableMap.Builder<String, Object> predeclared = ImmutableMap.builder();
         Starlark.addMethods(predeclared, new ScriptTest()); // e.g. assert_eq
         predeclared.put("json", Json.INSTANCE);
+        predeclared.put("_utf8_byte_strings", utf8ByteStrings);
 
         // TODO(b/376078033): remove special set.star handling once Starlark sets are enabled by
         // default.
-        StarlarkSemantics semantics =
-            name.equals("set.star")
-                ? StarlarkSemantics.builder()
-                    .setBool(StarlarkSemantics.EXPERIMENTAL_ENABLE_STARLARK_SET, true)
-                    .build()
-                : StarlarkSemantics.DEFAULT;
+        StarlarkSemantics.Builder semanticsBuilder = StarlarkSemantics.builder();
+        if (name.equals("set.star")) {
+          semanticsBuilder.setBool(StarlarkSemantics.EXPERIMENTAL_ENABLE_STARLARK_SET, true);
+        }
+        if (utf8ByteStrings) {
+          semanticsBuilder.setBool(StarlarkSemantics.INTERNAL_BAZEL_ONLY_UTF_8_BYTE_STRINGS, true);
+        }
+        StarlarkSemantics semantics = semanticsBuilder.build();
         Module module = Module.withPredeclared(semantics, predeclared.buildOrThrow());
         try (Mutability mu = Mutability.createAllowingShallowFreeze("test")) {
           StarlarkThread thread = StarlarkThread.createTransient(mu, semantics);
@@ -301,6 +311,10 @@ public final class ScriptTest {
     stack = stack.subList(0, stack.size() - 1); // pop the built-in function
     for (StarlarkThread.CallStackEntry fr : stack) {
       System.err.printf("%s: called from %s\n", fr.location, fr.name);
+    }
+    if (thread.getSemantics().getBool(StarlarkSemantics.INTERNAL_BAZEL_ONLY_UTF_8_BYTE_STRINGS)) {
+      // Reencode the message for display.
+      message = new String(message.getBytes(ISO_8859_1), UTF_8);
     }
     System.err.println("Error: " + message);
     ok = false;
