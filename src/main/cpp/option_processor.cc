@@ -151,6 +151,14 @@ std::unique_ptr<CommandLine> OptionProcessor::SplitCommandLine(
         std::move(path_to_binary), std::move(startup_args), "", {}));
   }
   string& command = args[i];
+  // Distinguish an empty command from the case of no command above.
+  if (command.empty()) {
+    blaze_util::StringPrintf(error,
+                             "Command cannot be the empty string.\n"
+                             "  For more info, run '%s help'.",
+                             lowercase_product_name.c_str());
+    return nullptr;
+  }
 
   // The rest are the command arguments.
   vector<string> command_args(std::make_move_iterator(args.begin() + i + 1),

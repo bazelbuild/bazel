@@ -565,6 +565,11 @@ function test_no_arguments() {
   expect_log "Usage: b\\(laze\\|azel\\)"
 }
 
+function test_empty_command() {
+  bazel '' >&$TEST_log && fail "Expected non-zero exit"
+  expect_log "Command cannot be the empty string."
+}
+
 function test_local_startup_timeout() {
   local output_base=$(bazel info output_base 2>"$TEST_log") ||
     fail "bazel info failed"
