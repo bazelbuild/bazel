@@ -17,6 +17,8 @@ SOURCES = [
     "diag.h",
     "input_jar.cc",
     "input_jar.h",
+    "log4j2_plugin_dat_combiner.cc",
+    "log4j2_plugin_dat_combiner.h",
     "mapped_file.cc",
     "mapped_file.h",
     "mapped_file_posix.inc",
@@ -88,8 +90,9 @@ cc_binary(
     linkstatic = 1,
     visibility = ["//visibility:public"],
     deps = [
-        "options",
-        "output_jar",
+        ":combiners",
+        ":options",
+        ":output_jar",
         "//third_party/zlib",
     ],
 )
@@ -107,10 +110,10 @@ cc_binary(
     linkstatic = 1,
     visibility = ["//visibility:public"],
     deps = [
-        "combiners",
-        "desugar_checking",
-        "options",
-        "output_jar",
+        ":combiners",
+        ":desugar_checking",
+        ":options",
+        ":output_jar",
         "//third_party/zlib",
     ],
 )
@@ -134,6 +137,23 @@ cc_test(
         ":test_util",
         "//third_party/zlib",
         "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "log4j2_plugin_dat_combiner_test",
+    srcs = ["log4j2_plugin_dat_combiner_test.cc"],
+    data = [
+        "data/log4j2_plugins_set_1.jar",
+        "data/log4j2_plugins_set_2.jar",
+        "data/log4j2_plugins_set_result.dat",
+    ],
+    deps = [
+        ":combiners",
+        ":input_jar",
+        ":test_util",
+        "@com_google_googletest//:gtest_main",
+        "@rules_cc//cc/runfiles",
     ],
 )
 
@@ -362,10 +382,14 @@ cc_library(
     name = "combiners",
     srcs = [
         "combiners.cc",
+        "log4j2_plugin_dat_combiner.cc",
         ":transient_bytes",
         ":zip_headers",
     ],
-    hdrs = ["combiners.h"],
+    hdrs = [
+        "combiners.h",
+        "log4j2_plugin_dat_combiner.h",
+    ],
     deps = [
         "//third_party/zlib",
     ],
