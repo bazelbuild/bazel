@@ -155,7 +155,8 @@ class StartupOptions {
   blaze_util::Path install_base;
 
   // Whether the install base should be locked before use.
-  // This is always true for Bazel, but overridden for Blaze at Google.
+  // Not user-settable, only used for client/server communication.
+  // Hardcoded to true for Bazel, false for Blaze.
   bool lock_install_base;
 
   // Override more finegrained rc file flags and ignore them all.
