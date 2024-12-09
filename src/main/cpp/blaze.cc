@@ -478,6 +478,9 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
   result.push_back("--install_base=" +
                    startup_options.install_base.AsCommandLineArgument());
   result.push_back("--install_md5=" + install_md5);
+  if (startup_options.lock_install_base) {
+    result.push_back("--lock_install_base");
+  }
   result.push_back("--output_base=" +
                    startup_options.output_base.AsCommandLineArgument());
   result.push_back("--workspace_directory=" +

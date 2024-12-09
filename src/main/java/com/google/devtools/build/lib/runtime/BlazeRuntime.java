@@ -92,6 +92,7 @@ import com.google.devtools.build.lib.util.CustomFailureDetailPublisher;
 import com.google.devtools.build.lib.util.DebugLoggerConfigurator;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.util.FileSystemLock;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
@@ -200,6 +201,10 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
   private final InstrumentationOutputFactory instrumentationOutputFactory;
 
+  @SuppressWarnings("unused")
+  @Nullable
+  private final FileSystemLock installBaseLock;
+
   private BlazeRuntime(
       FileSystem fileSystem,
       QueryEnvironmentFactory queryEnvironmentFactory,
@@ -223,7 +228,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       BuildEventArtifactUploaderFactoryMap buildEventArtifactUploaderFactoryMap,
       ImmutableMap<String, AuthHeadersProvider> authHeadersProviderMap,
       RepositoryRemoteExecutorFactory repositoryRemoteExecutorFactory,
-      InstrumentationOutputFactory instrumentationOutputFactory) {
+      InstrumentationOutputFactory instrumentationOutputFactory,
+      FileSystemLock installBaseLock) {
     // Server state
     this.fileSystem = fileSystem;
     this.blazeModules = blazeModules;
@@ -254,6 +260,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
         Preconditions.checkNotNull(authHeadersProviderMap, "authHeadersProviderMap");
     this.repositoryRemoteExecutorFactory = repositoryRemoteExecutorFactory;
     this.instrumentationOutputFactory = instrumentationOutputFactory;
+    this.installBaseLock = installBaseLock;
   }
 
   public BlazeWorkspace initWorkspace(BlazeDirectories directories, BinTools binTools)
@@ -1301,6 +1308,26 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
     FileSystem fs = MoreObjects.firstNonNull(maybeFsForBuildArtifacts, nativeFs);
 
+    FileSystemLock installBaseLock = null;
+    if (startupOptions.lockInstallBase) {
+      // Acquire a shared lock on the install base to prevent it from being garbage collected by
+      // another server while this server is running. Note that the client must already hold a
+      // shared lock on the install base at this time (which it will release once it successfully
+      // connects to the server), so failure to obtain the lock is not expected.
+      // The lock is never released explicitly, so as not to risk releasing it while the install
+      // base is still in use. It goes away when the server process dies.
+      try {
+        installBaseLock =
+            FileSystemLock.getShared(
+                nativeFs.getPath(installBase.replaceName(installBase.getBaseName() + ".lock")));
+      } catch (IOException e) {
+        throw createFilesystemExitException(
+            "Failed to acquire shared lock on install base: " + e.getMessage(),
+            Filesystem.Code.FAILED_TO_LOCK_INSTALL_BASE,
+            e);
+      }
+    }
+
     SubscriberExceptionHandler currentHandlerValue = null;
     for (BlazeModule module : blazeModules) {
       SubscriberExceptionHandler newHandler = module.getEventBusAndAsyncExceptionHandler();
@@ -1375,7 +1402,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             .setStartupOptionsProvider(options)
             .setClock(clock)
             .setAbruptShutdownHandler(abruptShutdownHandler)
-            .setEventBusExceptionHandler(subscriberExceptionHandler);
+            .setEventBusExceptionHandler(subscriberExceptionHandler)
+            .setInstallBaseLock(installBaseLock);
 
     if (TestType.isInTest() && System.getenv("NO_CRASH_ON_LOGGING_IN_TEST") == null) {
       LoggingUtil.installRemoteLogger(getTestCrashLogger());
@@ -1550,6 +1578,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     private String productName;
     private ActionKeyContext actionKeyContext;
     private BugReporter bugReporter = BugReporter.defaultInstance();
+    @Nullable private FileSystemLock installBaseLock;
 
     @VisibleForTesting
     public BlazeRuntime build() throws AbruptExitException {
@@ -1663,7 +1692,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               serverBuilder.getBuildEventArtifactUploaderMap(),
               serverBuilder.getAuthHeadersProvidersMap(),
               serverBuilder.getRepositoryRemoteExecutorFactory(),
-              serverBuilder.createInstrumentationOutputFactory());
+              serverBuilder.createInstrumentationOutputFactory(),
+              installBaseLock);
       AutoProfiler.setClock(runtime.getClock());
       BugReport.setRuntime(runtime);
       return runtime;
@@ -1722,6 +1752,12 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     public Builder setEventBusExceptionHandler(
         SubscriberExceptionHandler eventBusExceptionHandler) {
       this.eventBusExceptionHandler = eventBusExceptionHandler;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setInstallBaseLock(FileSystemLock installBaseLock) {
+      this.installBaseLock = installBaseLock;
       return this;
     }
 
