@@ -19,6 +19,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 
+import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -416,7 +417,7 @@ public class AutoloadSymbols {
       throws InterruptedException {
 
     final RepoContext repoContext;
-    ImmutableMap<String, ModuleKey> highestVersions = ImmutableMap.of();
+    ImmutableMap<String, ModuleKey> highestVersionRepo = ImmutableMap.of();
     if (bzlmodEnabled) {
       BazelDepGraphValue bazelDepGraphValue =
           (BazelDepGraphValue) env.getValue(BazelDepGraphValue.KEY);
@@ -424,19 +425,16 @@ public class AutoloadSymbols {
         return null;
       }
 
-      highestVersions =
+      highestVersionRepo =
           bazelDepGraphValue.getCanonicalRepoNameLookup().values().stream()
               .collect(
                   toImmutableMap(
-                      moduleKey ->
-                          moduleKey.name().equals("protobuf")
-                              ? "com_google_protobuf"
-                              : moduleKey.name(),
+                      SymbolRedirect::toRepoName,
                       moduleKey -> moduleKey,
                       (m1, m2) -> m1.version().compareTo(m2.version()) >= 0 ? m1 : m2));
       RepositoryMapping repositoryMapping =
           RepositoryMapping.create(
-              highestVersions.entrySet().stream()
+              highestVersionRepo.entrySet().stream()
                   .collect(
                       toImmutableMap(
                           Map.Entry::getKey,
@@ -463,18 +461,16 @@ public class AutoloadSymbols {
     // Inject loads for rules and symbols removed from Bazel
     ImmutableMap.Builder<String, BzlLoadValue.Key> loadKeysBuilder =
         ImmutableMap.builderWithExpectedSize(autoloadedSymbols.size());
-    ImmutableSet.Builder<String> missingRepositories = ImmutableSet.builder();
     for (String symbol : autoloadedSymbols) {
-      String requiredModule = AUTOLOAD_CONFIG.get(symbol).getModuleName();
+      var redirect = AUTOLOAD_CONFIG.get(symbol);
       // Skip if version doesn't have the rules
-      if (highestVersions.containsKey(requiredModule)
-          && requiredVersions.containsKey(requiredModule)) {
-        if (highestVersions
-                .get(requiredModule)
+      if (highestVersionRepo.containsKey(redirect.getRepoName())
+          && requiredVersionForModules.containsKey(redirect.getModuleName())) {
+        if (highestVersionRepo
+                .get(redirect.getRepoName())
                 .version()
-                .compareTo(requiredVersions.get(requiredModule))
+                .compareTo(requiredVersionForModules.get(redirect.getModuleName()))
             <= 0) {
-          missingRepositories.add(requiredModule);
           continue;
         }
       }
@@ -496,8 +492,6 @@ public class AutoloadSymbols {
       // Only load if the dependency is present
       if (repositoryExists) {
         loadKeysBuilder.put(symbol, BzlLoadValue.keyForBuild(label));
-      } else {
-        missingRepositories.add(label.getRepository().getName());
       }
     }
     return loadKeysBuilder.buildOrThrow();
@@ -563,7 +557,7 @@ public class AutoloadSymbols {
                         ? "a 'bazel_dep(name = \"%s\", ...)' in your MODULE.bazel file"
                             .formatted(AUTOLOAD_CONFIG.get(symbol).getModuleName())
                         : "an 'http_archive(name = \"%s\", ...)' in your WORKSPACE file"
-                            .formatted(AUTOLOAD_CONFIG.get(symbol).getModuleName());
+                            .formatted(AUTOLOAD_CONFIG.get(symbol).getRepoName());
                 throw Starlark.errorf(
                     "Couldn't auto load '%s' from '%s'. Ensure that you have %s or add an explicit"
                         + " load statement to your BUILD file.",
@@ -612,17 +606,17 @@ public class AutoloadSymbols {
       requireNonNull(rdeps, "rdeps");
     }
 
+    private static final ImmutableBiMap<String, String> moduleToRepoName =
+        ImmutableBiMap.of(
+            "apple_support", "build_bazel_apple_support", "protobuf", "com_google_protobuf");
+
     String getModuleName() {
-      return Label.parseCanonicalUnchecked(loadLabel()).getRepository().getName();
+      String repoName = getRepoName();
+      return moduleToRepoName.inverse().getOrDefault(repoName, repoName);
     }
 
-    String getWorkspaceRepoName() {
-      String moduleName = getModuleName();
-      return switch (moduleName) {
-        case "apple_support" -> "bazel_build_apple_support";
-        case "protobuf" -> "com_google_protobuf";
-        default -> moduleName;
-      };
+    String getRepoName() {
+      return Label.parseCanonicalUnchecked(loadLabel()).getRepository().getName();
     }
 
     Label getLabel(RepoContext repoContext) throws InterruptedException {
@@ -631,6 +625,10 @@ public class AutoloadSymbols {
       } catch (LabelSyntaxException e) {
         throw new IllegalStateException(e);
       }
+    }
+
+    static String toRepoName(ModuleKey moduleKey) {
+      return moduleToRepoName.getOrDefault(moduleKey.name(), moduleKey.name());
     }
   }
 
@@ -669,15 +667,16 @@ public class AutoloadSymbols {
           "rules_python_internal",
           "rules_shell",
           "apple_support",
+          "build_bazel_apple_support",
           "bazel_skylib",
           "bazel_tools",
           "bazel_features");
 
-  private static final ImmutableMap<String, Version> requiredVersions;
+  private static final ImmutableMap<String, Version> requiredVersionForModules;
 
   static {
     try {
-      requiredVersions =
+      requiredVersionForModules =
           ImmutableMap.of(
               "protobuf", Version.parse("29.0-rc1"), //
               "rules_android", Version.parse("0.6.0-rc1"));
@@ -854,14 +853,21 @@ public class AutoloadSymbols {
           .put("sh_binary", ruleRedirect("@rules_shell//shell:sh_binary.bzl"))
           .put("sh_library", ruleRedirect("@rules_shell//shell:sh_library.bzl"))
           .put("sh_test", ruleRedirect("@rules_shell//shell:sh_test.bzl"))
-          .put("available_xcodes", ruleRedirect("@apple_support//xcode:available_xcodes.bzl"))
-          .put("xcode_config", ruleRedirect("@apple_support//xcode:xcode_config.bzl"))
-          .put("xcode_config_alias", ruleRedirect("@apple_support//xcode:xcode_config_alias.bzl"))
-          .put("xcode_version", ruleRedirect("@apple_support//xcode:xcode_version.bzl"))
+          .put(
+              "available_xcodes",
+              ruleRedirect("@build_bazel_apple_support//xcode:available_xcodes.bzl"))
+          .put("xcode_config", ruleRedirect("@build_bazel_apple_support//xcode:xcode_config.bzl"))
+          .put(
+              "xcode_config_alias",
+              ruleRedirect("@build_bazel_apple_support//xcode:xcode_config_alias.bzl"))
+          .put("xcode_version", ruleRedirect("@build_bazel_apple_support//xcode:xcode_version.bzl"))
           // this redirect doesn't exists and probably never will, we still need a configuration for
           // it, so that it can be removed from Bazels <= 7 if needed
           .put(
               "apple_common",
-              symbolRedirect("@apple_support//lib:apple_common.bzl", "objc_import", "objc_library"))
+              symbolRedirect(
+                  "@build_bazel_apple_support//lib:apple_common.bzl",
+                  "objc_import",
+                  "objc_library"))
           .buildOrThrow();
 }

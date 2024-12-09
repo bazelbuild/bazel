@@ -31,7 +31,7 @@ if [[ "${1:-}" == "--enable_bzlmod" ]]; then
 else
   is_bzlmod_enabled=false
 fi
-add_to_bazelrc "build $@"
+add_to_bazelrc "common $@"
 
 #### TESTS #############################################################
 
@@ -155,6 +155,8 @@ function test_missing_necessary_repo_fails() {
   # Intentionally not adding apple_support to MODULE.bazel (and it's not in MODULE.tools)
   cat > WORKSPACE << EOF
 workspace(name = "test")
+# TODO: protobuf's WORKSPACE macro has an unnecessary dependency on build_bazel_apple_support.
+# __SKIP_WORKSPACE_SUFFIX__
 EOF
   cat > BUILD << EOF
 xcode_version(
@@ -164,9 +166,9 @@ xcode_version(
 EOF
   bazel build --incompatible_autoload_externally=xcode_version :xcode_version >&$TEST_log 2>&1 && fail "build unexpectedly succeeded"
   if "$is_bzlmod_enabled"; then
-    expect_log "Couldn't auto load 'xcode_version' from '@apple_support//xcode:xcode_version.bzl'. Ensure that you have a 'bazel_dep(name = \"apple_support\", ...)' in your MODULE.bazel file or add an explicit load statement to your BUILD file."
+    expect_log "Couldn't auto load 'xcode_version' from '@build_bazel_apple_support//xcode:xcode_version.bzl'. Ensure that you have a 'bazel_dep(name = \"apple_support\", ...)' in your MODULE.bazel file or add an explicit load statement to your BUILD file."
   else
-    expect_log "Couldn't auto load 'xcode_version' from '@apple_support//xcode:xcode_version.bzl'. Ensure that you have an 'http_archive(name = \"apple_support\", ...)' in your WORKSPACE file or add an explicit load statement to your BUILD file."
+    expect_log "Couldn't auto load 'xcode_version' from '@build_bazel_apple_support//xcode:xcode_version.bzl'. Ensure that you have an 'http_archive(name = \"build_bazel_apple_support\", ...)' in your WORKSPACE file or add an explicit load statement to your BUILD file."
   fi
 }
 
@@ -271,7 +273,7 @@ sh_library(
 )
 EOF
   bazel query --incompatible_autoload_externally=+sh_library ':sh_library' --output=build >&$TEST_log 2>&1 || fail "build failed"
-  expect_log "rules_shell./shell/private/sh_library.bzl"
+  expect_log "rules_shell.\\?/shell/private/sh_library.bzl"
 }
 
 function test_existing_rule_is_redirected_in_bzl() {
@@ -288,7 +290,7 @@ macro()
 EOF
 
   bazel query --incompatible_autoload_externally=+sh_library ':sh_library' --output=build >&$TEST_log 2>&1 || fail "build failed"
-  expect_log "rules_shell./shell/private/sh_library.bzl"
+  expect_log "rules_shell.\\?/shell/private/sh_library.bzl"
 }
 
 function test_removed_rule_not_loaded() {
