@@ -173,7 +173,7 @@ EOF
 }
 
 function test_missing_unnecessary_repo_doesnt_fail() {
-  # Intentionally not adding apple_support to MODULE.bazel (and it's not in MODULE.tools)
+  # Intentionally not adding rules_android to MODULE.bazel (and it's not in MODULE.tools)
   cat > WORKSPACE << EOF
 workspace(name = "test")
 EOF
@@ -183,7 +183,7 @@ filegroup(
     srcs = [],
 )
 EOF
-  bazel build --incompatible_autoload_externally=xcode_version :filegroup >&$TEST_log 2>&1 || fail "build failed"
+  bazel build --incompatible_autoload_externally=+@rules_android :filegroup >&$TEST_log 2>&1 || fail "build failed"
 }
 
 function test_removed_rule_loaded() {
