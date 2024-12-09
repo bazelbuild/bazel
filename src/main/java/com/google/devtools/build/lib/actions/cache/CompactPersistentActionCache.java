@@ -204,11 +204,12 @@ public class CompactPersistentActionCache implements ActionCache {
     Path cacheFile = cacheFile(cacheRoot);
     Path journalFile = journalFile(cacheRoot);
     Path indexFile = indexFile(cacheRoot);
+    Path indexJournalFile = indexJournalFile(cacheRoot);
     ConcurrentMap<Integer, byte[]> backingMap = new ConcurrentHashMap<>();
 
     PersistentStringIndexer indexer;
     try {
-      indexer = PersistentStringIndexer.create(indexFile, clock);
+      indexer = PersistentStringIndexer.create(indexFile, indexJournalFile, clock);
     } catch (IOException e) {
       return logAndThrowOrRecurse(
           cacheRoot,
@@ -287,7 +288,11 @@ public class CompactPersistentActionCache implements ActionCache {
   private static void renameCorruptedFiles(Path cacheRoot) {
     try {
       for (Path path :
-          ImmutableList.of(cacheFile(cacheRoot), journalFile(cacheRoot), indexFile(cacheRoot))) {
+          ImmutableList.of(
+              cacheFile(cacheRoot),
+              journalFile(cacheRoot),
+              indexFile(cacheRoot),
+              indexJournalFile(cacheRoot))) {
         if (path.exists()) {
           path.renameTo(path.getParentDirectory().getChild(path.getBaseName() + ".bad"));
         }
@@ -334,6 +339,10 @@ public class CompactPersistentActionCache implements ActionCache {
 
   public static Path indexFile(Path cacheRoot) {
     return cacheRoot.getChild("filename_index.blaze");
+  }
+
+  public static Path indexJournalFile(Path cacheRoot) {
+    return cacheRoot.getChild("filename_index_journal.blaze");
   }
 
   @Override
