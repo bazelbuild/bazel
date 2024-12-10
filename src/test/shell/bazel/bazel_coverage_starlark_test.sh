@@ -380,10 +380,7 @@ DA:1,1
 DA:2,0
 LH:1
 LF:2
-end_of_record"
-    # TODO: Remove this check after the next release of the coverage generator.
-    if [[ "${COVERAGE_GENERATOR_WORKSPACE_FILE}" != "released" ]]; then
-      expected_coverage="$expected_coverage
+end_of_record
 SF:test/untested_1.txt
 FNF:0
 FNH:0
@@ -396,7 +393,7 @@ FNH:0
 LH:0
 LF:0
 end_of_record"
-    fi
+
     assert_coverage_result "$expected_coverage" bazel-out/_coverage/_coverage_report.dat
 }
 
