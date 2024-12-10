@@ -24,6 +24,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -33,6 +34,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassNamePredicate;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
@@ -1271,6 +1273,9 @@ public final class Attribute implements Comparable<Attribute> {
    * <p>Implementations of this interface must be immutable.
    */
   public abstract static class ComputedDefault implements StarlarkValue {
+    private static final Interner<ImmutableList<String>> dependenciesInterner =
+        BlazeInterners.newWeakInterner();
+
     private final ImmutableList<String> dependencies;
 
     /**
@@ -1308,7 +1313,8 @@ public final class Attribute implements Comparable<Attribute> {
      */
     ComputedDefault(ImmutableList<String> dependencies) {
       // Order is important for #createDependencyAssignmentTuple.
-      this.dependencies = Ordering.natural().immutableSortedCopy(dependencies);
+      this.dependencies =
+          dependenciesInterner.intern(Ordering.natural().immutableSortedCopy(dependencies));
     }
 
     <T> List<T> getPossibleValues(Type<T> type, Rule rule) {
@@ -1516,6 +1522,9 @@ public final class Attribute implements Comparable<Attribute> {
    */
   static final class StarlarkComputedDefault extends ComputedDefault {
 
+    private static final Interner<ImmutableList<Type<?>>> dependencyTypesInterner =
+        BlazeInterners.newWeakInterner();
+
     private final ImmutableList<Type<?>> dependencyTypes;
     private final Map<List<Object>, Object> lookupTable;
 
@@ -1533,7 +1542,8 @@ public final class Attribute implements Comparable<Attribute> {
         ImmutableList<Type<?>> dependencyTypes,
         Map<List<Object>, Object> lookupTable) {
       super(Preconditions.checkNotNull(dependencies));
-      this.dependencyTypes = Preconditions.checkNotNull(dependencyTypes);
+      this.dependencyTypes =
+          Preconditions.checkNotNull(dependencyTypesInterner.intern(dependencyTypes));
       this.lookupTable = Preconditions.checkNotNull(lookupTable);
     }
 
