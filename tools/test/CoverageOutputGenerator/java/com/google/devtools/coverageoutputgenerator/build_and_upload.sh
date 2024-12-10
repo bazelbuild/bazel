@@ -24,18 +24,10 @@ commit_hash=$(git rev-parse HEAD)
 timestamp=$(date +%s)
 bazel_version=$(bazel info release | cut -d' ' -f2)
 
-readme_file="README.md"
-cat >${readme_file} <<EOF
-This coverage_output_generator version was built from the Bazel repository
-at commit hash ${commit_hash} using Bazel version ${bazel_version}.
-To build the same zip from source, run the commands:
-
-$ git clone https://github.com/bazelbuild/bazel.git
-$ git checkout ${commit_hash}
-$ bazel build //tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator.zip
-EOF
-
-bazel build //tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator.zip
+bazel build \
+    --java_language_version=8 \
+    --tool_java_language_version=8 \
+    //tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator.zip
 
 cov_gen_zip="bazel-bin/tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator/coverage_output_generator.zip"
 
@@ -46,7 +38,18 @@ tmp_zip="${tmp_dir}/coverage_output_generator.zip"
 cp "${cov_gen_zip}" "${tmp_zip}"
 chmod +w "${tmp_zip}"
 
-zip -rv "${tmp_zip}" "${readme_file}"
+readme_file="${tmp_dir}/README.md"
+cat >${readme_file} <<EOF
+This coverage_output_generator version was built from the Bazel repository
+at commit hash ${commit_hash} using Bazel version ${bazel_version}.
+To build the same zip from source, run the commands:
+
+$ git clone https://github.com/bazelbuild/bazel.git
+$ git checkout ${commit_hash}
+$ bazel build --java_language_version=8 --tool_java_language_version=8 //tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator.zip
+EOF
+
+zip -rjv "${tmp_zip}" "${readme_file}"
 
 DEST="bazel_coverage_output_generator/coverage_output_generator-${commit_hash}-${timestamp}.zip"
 gsutil cp ${tmp_zip} "gs://bazel-mirror/${DEST}"
