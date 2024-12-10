@@ -154,9 +154,7 @@ public class CommandEnvironment {
       new AtomicReference<>();
 
   private final Object fileCacheLock = new Object();
-
-  @GuardedBy("fileCacheLock")
-  private InputMetadataProvider fileCache;
+  private volatile InputMetadataProvider fileCache;
 
   private final Object outputDirectoryHelperLock = new Object();
 
@@ -919,14 +917,16 @@ public class CommandEnvironment {
 
   /** Returns the file cache to use during this build. */
   public InputMetadataProvider getFileCache() {
-    synchronized (fileCacheLock) {
-      if (fileCache == null) {
-        fileCache =
-            new SingleBuildFileCache(
-                getExecRoot().getPathString(), runtime.getFileSystem(), syscallCache);
+    if (fileCache == null) {
+      synchronized (fileCacheLock) {
+        if (fileCache == null) {
+          fileCache =
+              new SingleBuildFileCache(
+                  getExecRoot().getPathString(), runtime.getFileSystem(), syscallCache);
+        }
       }
-      return fileCache;
     }
+    return fileCache;
   }
 
   public ActionOutputDirectoryHelper getOutputDirectoryHelper() {
