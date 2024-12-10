@@ -81,10 +81,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
+        "//third_party:async_profiler",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
-        "@maven//:tools_profiler_async_profiler",
     ],
 )
 
