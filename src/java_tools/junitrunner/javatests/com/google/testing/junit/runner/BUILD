@@ -132,6 +132,9 @@ sh_test(
         "@bazel_tools//tools/jdk:current_java_runtime",
     ],
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
+    deps = [
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
 
 java_binary(
@@ -159,6 +162,9 @@ sh_test(
         "@bazel_tools//tools/jdk:current_java_runtime",
     ],
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
+    deps = [
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
 
 exports_files([

@@ -23,19 +23,38 @@
 source "$1" || \
   { echo "Failed to load unit-testing framework $1" >&2; exit 1; }
 
+# --- begin runfiles.bash initialization v3 ---
+# Copy-pasted from the Bazel Bash runfiles library v3.
+set -uo pipefail; set +e; f=bazel_tools/tools/bash/runfiles/runfiles.bash
+source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
+# shellcheck disable=SC1090
+  source "$(grep -sm1 "^$f " "${RUNFILES_MANIFEST_FILE:-/dev/null}" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$0.runfiles/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.exe.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
+# --- end runfiles.bash initialization v3 ---
+
 set +o errexit
 
 PROGRAM_THAT_CALLS_SYSTEM_EXIT_JAR="$2"
 readonly PROGRAM_THAT_CALLS_SYSTEM_EXIT_JAR
-JAVA_HOME="$3"
-readonly JAVA_HOME
+JAVABASE="$3"
+if [[ "$TEST_WORKSPACE" == "_main" ]]; then
+  # For Bazel
+  RUNFILES_JAVABASE=${JAVABASE#external/}
+else
+  # For Blaze
+  RUNFILES_JAVABASE=${TEST_WORKSPACE}/${JAVABASE}
+fi
 EXPECTED_STACK_FILE="$4"
 readonly EXPECTED_STACK_FILE
 
 function test_prints_stack_trace_on_system_exit() {
   local output_file="${TEST_TMPDIR}/output.txt"
 
-  "${JAVA_HOME}/bin/java" -jar "${PROGRAM_THAT_CALLS_SYSTEM_EXIT_JAR}" \
+  JAVA=$(rlocation "${RUNFILES_JAVABASE}/bin/java")
+  "${JAVA}" -jar "${PROGRAM_THAT_CALLS_SYSTEM_EXIT_JAR}" \
       2> "${output_file}"
   assert_equals 121 $?
 
