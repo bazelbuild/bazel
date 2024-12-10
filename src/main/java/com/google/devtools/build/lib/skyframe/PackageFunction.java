@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Filesystem;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
+import com.google.devtools.build.lib.skyframe.IgnoredSubdirectoriesValue.InvalidIgnorePathException;
 import com.google.devtools.build.lib.skyframe.PackageFunctionWithMultipleGlobDeps.SkyframeGlobbingIOException;
 import com.google.devtools.build.lib.skyframe.RepoFileFunction.BadRepoFileException;
 import com.google.devtools.build.lib.skyframe.RepoPackageArgsFunction.RepoPackageArgsValue;
@@ -430,8 +431,18 @@ public abstract class PackageFunction implements SkyFunction {
               env.getValueOrThrow(
                   packageLookupKey,
                   BadRepoFileException.class,
+                  InvalidIgnorePathException.class,
                   BuildFileNotFoundException.class,
                   InconsistentFilesystemException.class);
+    } catch (InvalidIgnorePathException e) {
+      throw PackageFunctionException.builder()
+          .setType(PackageFunctionException.Type.NO_SUCH_PACKAGE)
+          .setTransience(Transience.PERSISTENT)
+          .setPackageIdentifier(packageId)
+          .setMessage(e.getMessage())
+          .setException(e)
+          .setPackageLoadingCode(PackageLoading.Code.BAD_IGNORED_DIRECTORIES)
+          .build();
     } catch (BadRepoFileException e) {
       throw badRepoFileException(e, packageId);
     } catch (BuildFileNotFoundException e) {
