@@ -404,6 +404,7 @@ def _maybe_link_transitively(feature_configuration, dynamic_link_type, linking_m
         is_dynamic_library(dynamic_link_type),
         feature_configuration.is_enabled("supports_dynamic_linker"),
     )
+    libraries = depset(libraries, order = "topological").to_list()  # filter duplicates
     if dynamic_link_type != LINK_TARGET_TYPE.NODEPS_DYNAMIC_LIBRARY:
         linkstamps = [stamp for linker_input in linker_inputs for stamp in linker_input.linkstamps]
     else:
