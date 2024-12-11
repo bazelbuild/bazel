@@ -491,4 +491,90 @@ end_of_record'
   assert_llvm_cc_coverage_result "$expected_result" "bazel-out/_coverage/_coverage_report.dat"
 }
 
+function test_coverage_for_header() {
+  setup_llvm_coverage_tools_for_lcov || return 0
+
+  cat << EOF > BUILD
+cc_library(
+  name = "foo",
+  srcs = ["foo.cc"],
+  hdrs = ["foo.h"],
+)
+
+cc_test(
+  name = "foo_test",
+  srcs = ["foo_test.cc"],
+  deps = [":foo"],
+)
+EOF
+
+cat << EOF > foo.h
+template<typename T>
+T fooify(T x) {
+  if (x < 0) {
+    return -1 * x;
+  }
+  return x + x*x;
+}
+
+int calc_foo(int x);
+EOF
+
+cat << EOF > foo.cc
+#include "foo.h"
+
+int calc_foo(int x) {
+  return fooify<int>(x);
+}
+EOF
+
+cat << EOF > foo_test.cc
+
+#include "foo.h"
+
+int main() {
+  int f = calc_foo(4);
+  return f == 20 ? 0 : 1;
+}
+EOF
+
+  local expected_foo_h="SF:foo.h
+FN:2,_Z6fooifyIiET_S0_
+FNDA:1,_Z6fooifyIiET_S0_
+FNF:1
+FNH:1
+BRDA:3,0,0,0
+BRDA:3,0,1,1
+BRF:2
+BRH:1
+DA:2,1
+DA:3,1
+DA:4,0
+DA:5,0
+DA:6,1
+DA:7,1
+LH:4
+LF:6
+end_of_record"
+
+local expected_foo_cc="SF:foo.cc
+FN:3,_Z8calc_fooi
+FNDA:1,_Z8calc_fooi
+FNF:1
+FNH:1
+DA:3,1
+DA:4,1
+DA:5,1
+LH:3
+LF:3
+end_of_record"
+
+  bazel coverage --nobuild_runfile_links --test_output=all //:foo_test \
+    &>$TEST_log || fail "Coverage for //:foo_test failed"
+
+  cov_file="$(get_coverage_file_path_from_test_log)"
+  assert_llvm_cc_coverage_result "$expected_foo_h" "$cov_file"
+  assert_llvm_cc_coverage_result "$expected_foo_cc" "$cov_file"
+}
+
 run_suite "test tests"
