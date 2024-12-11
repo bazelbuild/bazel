@@ -1,8 +1,9 @@
-#!/bin/sh
+#!/bin/bash
 
 # Don't set -e because we don't have robust trapping and printing of errors.
 set -u
 
+# TODO(pcloudy): revert back to /bin/sh after Bazel 8.0.1
 # We use /bin/sh rather than /bin/bash for portability. See discussion here:
 # https://groups.google.com/forum/?nomobile=true#!topic/bazel-dev/4Ql_7eDcLC0
 # We do lose the ability to set -o pipefail.
