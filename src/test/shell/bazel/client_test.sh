@@ -48,14 +48,18 @@ function test_server_process_name_has_workspace_name() {
 }
 
 function test_install_base_lock() {
-  # Start the server and get the location of the install base.
-  local -r install_base="$(bazel info install_base)"
+  # Use a custom install base location to ensure that it's not shared with other
+  # server instances (e.g. when running multiple tests in parallel on BazelCI).
+  local -r install_base="$TEST_TMPDIR/test_install_base_lock"
+
+  # Start the server.
+  bazel --install_base="${install_base}" info || fail "Expected success"
 
   # Try to get an exclusive lock on the install base, which should fail.
   "$LOCK_HELPER" "${install_base}.lock" exclusive exit && fail "Expected failure"
 
   # Shut down the server.
-  bazel shutdown
+  bazel --install_base="${install_base}" shutdown || fail "Expected success"
 
   # Try to get an exclusive lock on the install base, which should succeed.
   "$LOCK_HELPER" "${install_base}.lock" exclusive exit || fail "Expected success"
