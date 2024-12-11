@@ -57,6 +57,10 @@ enum ApiContext {
   ALL = 0;
   BZL = 1;
   BUILD = 2;
+  MODULE = 3;
+  REPO = 4;
+  VENDOR = 5;
+  WORKSPACE = 6;
 }
 
 // Generic representation for a Starlark object. If the object is callable
