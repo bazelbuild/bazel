@@ -56,6 +56,28 @@ public final class FlagSetFunction implements SkyFunction {
   private static final String CONFIGS = "configs";
 
   private static final String DEFAULT_CONFIG = "default_config";
+  private static final String ENFORCEMENT_POLICY = "enforcement_policy";
+
+  private enum EnforcementPolicy {
+    WARN("warn"), // Default, enforced in getSclConfig().
+    COMPATIBLE("compatible"),
+    STRICT("strict");
+
+    EnforcementPolicy(String value) {
+      this.value = value;
+    }
+
+    private final String value;
+
+    public static EnforcementPolicy fromString(String value) {
+      for (EnforcementPolicy policy : EnforcementPolicy.values()) {
+        if (policy.value.equals(value)) {
+          return policy;
+        }
+      }
+      throw new IllegalArgumentException(String.format("invalid enforcement_policy '%s'", value));
+    }
+  }
 
   @Override
   @Nullable
@@ -109,7 +131,21 @@ public final class FlagSetFunction implements SkyFunction {
       BuildOptions targetOptions,
       ImmutableMap<String, String> userOptions)
       throws FlagSetFunctionException {
+    EnforcementPolicy enforcementPolicy = EnforcementPolicy.WARN;
+    Object enforcementPolicyRaw =
+        sclContent.getProject().isEmpty()
+            ? sclContent.getResidualGlobal(ENFORCEMENT_POLICY)
+            : sclContent.getProject().get(ENFORCEMENT_POLICY);
 
+    if (enforcementPolicyRaw != null) {
+      try {
+        enforcementPolicy = EnforcementPolicy.fromString(enforcementPolicyRaw.toString());
+      } catch (IllegalArgumentException e) {
+        throw new FlagSetFunctionException(
+            new InvalidProjectFileException(e.getMessage() + " in " + projectFile),
+            Transience.PERSISTENT);
+      }
+    }
     var unTypeCheckedConfigs =
         sclContent.getProject().isEmpty()
             ? sclContent.getResidualGlobal(CONFIGS)
@@ -184,7 +220,8 @@ public final class FlagSetFunction implements SkyFunction {
       }
       sclConfigValue = configs.get(sclConfigName);
     }
-    validateNoExtraFlagsSet(targetOptions, userOptions, sclConfigValue);
+    validateNoExtraFlagsSet(
+        enforcementPolicy, targetOptions, userOptions, sclConfigValue, eventHandler, projectFile);
     eventHandler.handle(
         Event.info(
             String.format(
@@ -209,15 +246,27 @@ public final class FlagSetFunction implements SkyFunction {
   }
 
   /**
-   * Enforces that the user did not set any output-affecting options that are not present in the
-   * selected config in a blazerc or on the command line. Conflicting output-affecting options may
-   * be set in global RC files (including the {@code InvocationPolicy}). Flags that do not affect
-   * outputs are always allowed.
+   * Enforces one of the following `enforcement_policies`:
+   *
+   * <p>WARN - warn if the user set any output-affecting options that are not present in the
+   * selected config in a bazelrc or on the command line.
+   *
+   * <p>COMPATIBLE - fail if the user set any options that are present in the selected config to a
+   * different value than the one in the config. Also warn for other output-affecting options
+   *
+   * <p>STRICT - fail if the user set any output-affecting options that are not present in the
+   * selected config.
+   *
+   * <p>Conflicting output-affecting options may be set in global RC files (including the {@code
+   * InvocationPolicy}). Flags that do not affect outputs are always allowed.
    */
   private void validateNoExtraFlagsSet(
+      EnforcementPolicy enforcementPolicy,
       BuildOptions targetOptions,
       ImmutableMap<String, String> userOptions,
-      Collection<String> flagsFromSelectedConfig)
+      Collection<String> flagsFromSelectedConfig,
+      ExtendedEventHandler eventHandler,
+      Label projectFile)
       throws FlagSetFunctionException {
     ImmutableList.Builder<String> allOptionsAsStringsBuilder = new ImmutableList.Builder<>();
     // All potentially conflicting user options also appear in targetOptions
@@ -239,7 +288,7 @@ public final class FlagSetFunction implements SkyFunction {
                     allOptionsAsStrings.contains(
                         Iterables.get(Splitter.on("=").split(option), 0)
                             .replaceFirst("--", "")
-                            .replaceAll("'", "")))
+                            .replace("'", "")))
             .filter(option -> !option.startsWith("--scl_config"))
             .filter(option -> !flagsFromSelectedConfig.contains(option))
             .map(
@@ -248,17 +297,56 @@ public final class FlagSetFunction implements SkyFunction {
                         ? "'" + option + "'"
                         : "'" + option + "' (expanded from '" + userOptions.get(option) + "')")
             .collect(toImmutableSet());
-    // TODO(b/341930725): Allow user options if they are also part of the --scl_config.
-    if (!overlap.isEmpty()) {
-      throw new FlagSetFunctionException(
-          new UnsupportedConfigException(
-              String.format(
-                  "When --enforce_project_configs is set, --scl_config must be the only"
-                      + " configuration-affecting flag in the build. Found %s in the command line"
-                      + " or user blazerc",
-                  overlap)),
-          Transience.PERSISTENT);
+    if (overlap.isEmpty()) {
+      return;
     }
+    switch (enforcementPolicy) {
+      case WARN:
+        break;
+      case COMPATIBLE:
+        ImmutableSet<String> optionNamesFromSelectedConfig =
+            flagsFromSelectedConfig.stream()
+                .map(flag -> Iterables.get(Splitter.on("=").split(flag), 0).replace("'", ""))
+                .collect(toImmutableSet());
+        ImmutableSet<String> conflictingOptions =
+            overlap.stream()
+                .filter(
+                    option ->
+                        optionNamesFromSelectedConfig.contains(
+                            Iterables.get(Splitter.on("=").split(option), 0).replace("'", "")))
+                .collect(toImmutableSet());
+        if (!conflictingOptions.isEmpty()) {
+          throw new FlagSetFunctionException(
+              new UnsupportedConfigException(
+                  String.format(
+                      "This build uses a project file (%s) that does not allow conflicting flags"
+                          + " in the command line or user bazelrc. Found %s. Please remove these"
+                          + " flags or disable project file resolution via"
+                          + " --noenforce_project_configs.",
+                      projectFile, conflictingOptions)),
+              Transience.PERSISTENT);
+        }
+        break;
+      case STRICT:
+        throw new FlagSetFunctionException(
+            new UnsupportedConfigException(
+                String.format(
+                    "This build uses a project file (%s) that does not allow output-affecting"
+                        + " flags in the command line or user bazelrc. Found %s. Please remove"
+                        + " these flags or disable project file resolution via"
+                        + " --noenforce_project_configs.",
+                    projectFile, overlap)),
+            Transience.PERSISTENT);
+    }
+    // This appears in the WARN case, or for a COMPATIBLE project file that doesn't have
+    // conflicting flags. We never hit this in the STRICT case, since we've already thrown.
+    eventHandler.handle(
+        Event.warn(
+            String.format(
+                "This build uses a project file (%s), but also sets output-affecting"
+                    + " flags in the command line or user bazelrc: %s. Please consider"
+                    + " removing these flags.",
+                projectFile, overlap)));
   }
 
   /** Returns a user-friendly description of project-supported configurations. */
