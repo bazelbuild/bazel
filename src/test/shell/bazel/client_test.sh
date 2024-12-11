@@ -24,16 +24,15 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 LOCK_HELPER="$(rlocation io_bazel/src/test/java/com/google/devtools/build/lib/testutil/external_file_system_lock_helper)"
 
 function test_product_name_with_bazel_info() {
-  cat > WORKSPACE <<EOF
-workspace(name = 'blerp')
-EOF
+  touch MODULE.bazel
+
   bazel info >& "$TEST_log" || fail "Expected zero exit"
 
-  expect_log "^bazel-bin:.*_bazel.*bazel-out.*bin\$"
-  expect_log "^bazel-genfiles:.*_bazel.*bazel-out.*genfiles\$"
-  expect_log "^bazel-testlogs:.*_bazel.*bazel-out.*testlogs\$"
-  expect_log "^output_path:.*/execroot/blerp/bazel-out\$"
-  expect_log "^execution_root:.*/execroot/blerp\$"
+  expect_log "^bazel-bin:.*/execroot/_main/bazel-out/.*/bin\$"
+  expect_log "^bazel-genfiles:.*/execroot/_main/bazel-out/.*/bin\$"
+  expect_log "^bazel-testlogs:.*/execroot/_main/bazel-out/.*/testlogs\$"
+  expect_log "^output_path:.*/execroot/_main/bazel-out\$"
+  expect_log "^execution_root:.*/execroot/_main\$"
   expect_log "^server_log:.*/java\.log.*\$"
 }
 
@@ -42,7 +41,8 @@ EOF
 function test_server_process_name_has_workspace_name() {
   mkdir foobarspace
   cd foobarspace
-  ps -o cmd= "$(bazel info server_pid)" &>"$TEST_log"
+  touch MODULE.bazel
+  ps -o args "$(bazel info server_pid)" &>"$TEST_log"
   expect_log "^bazel(foobarspace)"
   bazel shutdown
 }
@@ -60,3 +60,5 @@ function test_install_base_lock() {
   # Try to get an exclusive lock on the install base, which should succeed.
   "$LOCK_HELPER" "${install_base}.lock" exclusive exit || fail "Expected success"
 }
+
+run_suite "client_test"
