@@ -13,11 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.testutils;
 
+import static com.google.devtools.build.lib.skyframe.serialization.testutils.Canonizer.computeIdentifiers;
 import static com.google.devtools.build.lib.skyframe.serialization.testutils.Dumper.getTypeName;
 import static com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.getClassInfo;
-import static com.google.devtools.build.lib.skyframe.serialization.testutils.Fingerprinter.computeFingerprints;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.ClosedClassInfo;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.PrimitiveInfo;
@@ -41,37 +43,27 @@ import javax.annotation.Nullable;
  *
  * <p>This class also supports value-based deduplication when calling {@link
  * #dumpStructureWithEquivalenceReduction}. Instead of using (only) using references for
- * deduplication, uses object fingerprints computed by {@link Fingerprinter} for deduplication.
+ * deduplication, uses object identifiers computed by {@link Canonizer} for deduplication.
  */
 public final class Dumper implements GraphDataCollector<Dumper.TextSink> {
   private static final HexFormat HEX_FORMAT = HexFormat.of().withUpperCase();
 
   /**
-   * Fingerprints for references.
+   * Canonical identifiers for references.
    *
-   * <p>Even if this is present, not all references will have fingerprints. In particular, anything
-   * where {@link Dumper#shouldInline} is true or inner elements of unresolvable object cycles will
-   * not have fingerprints.
+   * <p>Even if this is present, not all references will have canonical identifiers. In particular,
+   * anything where {@link Dumper#shouldInline} is true will not have identifiers.
    */
   @Nullable // optional behavior
-  private final IdentityHashMap<Object, String> fingerprints;
+  private final IdentityHashMap<Object, ?> canonicalIdentifiers;
 
   /**
-   * Stores an identifier for every object traversed.
+   * Stores the index at which each object is traversed.
    *
-   * <p>When an object is encountered again, it is represented with just its type and previous
-   * identifier instead of being fully expanded.
+   * <p>When an object is encountered again, it is represented with just its type and previous index
+   * instead of being fully expanded.
    */
-  private final IdentityHashMap<Object, Integer> referenceIds = new IdentityHashMap<>();
-
-  /**
-   * When true, emits a fingerprint directly for objects found in {@link #fingerprints}.
-   *
-   * <p>When false, the fingerprint is used only as a reference for deduplication. The object having
-   * the fingerprint is still output as text. If another object with the same fingerprint is
-   * encountered, a normal backreference is emitted.
-   */
-  private final boolean emitFingerprints;
+  private final IdentityHashMap<Object, Integer> traversalIndex = new IdentityHashMap<>();
 
   /**
    * Formats an arbitrary object into a string.
@@ -81,7 +73,7 @@ public final class Dumper implements GraphDataCollector<Dumper.TextSink> {
    * @return a multiline String representation of {@code obj} without a trailing newline
    */
   public static String dumpStructure(@Nullable ObjectCodecRegistry registry, Object obj) {
-    return dumpStructure(registry, /* fingerprints= */ null, obj);
+    return dumpStructure(registry, /* canonicalIdentifiers= */ null, obj);
   }
 
   public static String dumpStructure(Object obj) {
@@ -90,11 +82,11 @@ public final class Dumper implements GraphDataCollector<Dumper.TextSink> {
 
   private static String dumpStructure(
       @Nullable ObjectCodecRegistry registry,
-      @Nullable IdentityHashMap<Object, String> fingerprints,
+      @Nullable IdentityHashMap<Object, ?> canonicalIdentifiers,
       Object obj) {
     var out = new StringBuilder();
     var sink = new TextSink(out);
-    new GraphTraverser<>(registry, new Dumper(fingerprints, /* emitFingerprints= */ false))
+    new GraphTraverser<>(registry, new Dumper(canonicalIdentifiers))
         .traverseObject(/* label= */ null, obj, sink);
     return out.toString();
   }
@@ -102,35 +94,15 @@ public final class Dumper implements GraphDataCollector<Dumper.TextSink> {
   /**
    * Formats an arbitrary object into a string.
    *
-   * <p>Similar to {@link #dumpStructure} but applies fingerprint-based deduplication.
+   * <p>Similar to {@link #dumpStructure} but applies identifier-based deduplication.
    */
   public static String dumpStructureWithEquivalenceReduction(
       @Nullable ObjectCodecRegistry registry, Object obj) {
-    return dumpStructure(registry, computeFingerprints(registry, obj), obj);
+    return dumpStructure(registry, computeIdentifiers(registry, obj), obj);
   }
 
   public static String dumpStructureWithEquivalenceReduction(Object obj) {
     return dumpStructureWithEquivalenceReduction(/* registry= */ null, obj);
-  }
-
-  /**
-   * Traverses the object graph starting from {@code obj} and returns the traversal order.
-   *
-   * @param fingerprints (if provided) objects contained are emitted as their fingerprints without
-   *     traversing them.
-   * @param out accepts the text dump of the traversal (with fingerprint values for objects
-   *     contained in {@code fingerprints}).
-   * @return a map from object to its traversal order, excluding elements in {@code fingerprints}
-   */
-  static IdentityHashMap<Object, Integer> computeVisitOrder(
-      @Nullable ObjectCodecRegistry registry,
-      @Nullable IdentityHashMap<Object, String> fingerprints,
-      Object obj,
-      StringBuilder out) {
-    var collector = new Dumper(fingerprints, /* emitFingerprints= */ true);
-    var sink = new TextSink(out);
-    new GraphTraverser<>(registry, collector).traverseObject(/* label= */ null, obj, sink);
-    return collector.referenceIds;
   }
 
   static final class TextSink implements GraphDataCollector.Sink {
@@ -176,9 +148,8 @@ public final class Dumper implements GraphDataCollector<Dumper.TextSink> {
     }
   }
 
-  private Dumper(@Nullable IdentityHashMap<Object, String> fingerprints, boolean emitFingerprints) {
-    this.fingerprints = fingerprints;
-    this.emitFingerprints = emitFingerprints;
+  private Dumper(@Nullable IdentityHashMap<Object, ?> canonicalIdentifiers) {
+    this.canonicalIdentifiers = canonicalIdentifiers;
   }
 
   @Override
@@ -210,27 +181,23 @@ public final class Dumper implements GraphDataCollector<Dumper.TextSink> {
   @Override
   @Nullable
   public Descriptor checkCache(@Nullable String label, Class<?> type, Object obj, TextSink sink) {
-    int nextId = referenceIds.size();
-    String fingerprint;
-    if (fingerprints != null && ((fingerprint = fingerprints.get(obj)) != null)) {
-      if (emitFingerprints) {
-        sink.output(label, getTypeName(type) + '[' + fingerprint + ']');
-        return null;
-      }
-      // There's a fingerprint for `obj`. Uses it to lookup a reference ID.
-      Integer previousId = referenceIds.putIfAbsent(fingerprint, nextId);
-      if (previousId != null) {
-        // An object having this fingerprint has been observed previously. Outputs only a
+    int nextId = traversalIndex.size();
+    Object identifier;
+    if (canonicalIdentifiers != null && ((identifier = canonicalIdentifiers.get(obj)) != null)) {
+      // There's a identifier for `obj`. Uses it to lookup a reference ID.
+      Integer previousIndex = traversalIndex.putIfAbsent(identifier, nextId);
+      if (previousIndex != null) {
+        // An object having this identifier has been observed previously. Outputs only a
         // backreference.
-        sink.output(label, getDescriptor(type, previousId).toString());
+        sink.output(label, getDescriptor(type, previousIndex).toString());
         return null;
       }
     } else {
-      // No fingerprint is available. Deduplicates by object reference.
-      Integer previousId = referenceIds.putIfAbsent(obj, nextId);
-      if (previousId != null) {
+      // No identifier is available. Deduplicates by object reference.
+      Integer previousIndex = traversalIndex.putIfAbsent(obj, nextId);
+      if (previousIndex != null) {
         // This instance has been observed previously. Outputs only a backreference.
-        sink.output(label, getDescriptor(type, previousId).toString());
+        sink.output(label, getDescriptor(type, previousIndex).toString());
         return null;
       }
     }
@@ -274,6 +241,15 @@ public final class Dumper implements GraphDataCollector<Dumper.TextSink> {
   }
 
   static String getTypeName(Class<?> type) {
+    if (ImmutableList.class.isAssignableFrom(type)) {
+      return ImmutableList.class.getCanonicalName();
+    }
+    if (ImmutableSortedSet.class.isAssignableFrom(type)) {
+      return ImmutableSortedSet.class.getCanonicalName();
+    }
+    if (ImmutableSet.class.isAssignableFrom(type)) {
+      return ImmutableSet.class.getCanonicalName();
+    }
     String name = type.getCanonicalName();
     if (name == null) {
       // According to the documentation for `Class.getCanonicalName`, not all classes have one.
@@ -295,6 +271,9 @@ public final class Dumper implements GraphDataCollector<Dumper.TextSink> {
     return type.isPrimitive()
         || DIRECT_INLINE_TYPES.contains(type)
         || type.isSynthetic()
+        // Enums have a lazily initialized hashCode that can cause nondeterminism. Their inline
+        // representations are sufficient.
+        || type.isEnum()
         // Reflectively inaccessible classes will be represented directly using their string
         // representations as there's nothing else we can do with them.
         //

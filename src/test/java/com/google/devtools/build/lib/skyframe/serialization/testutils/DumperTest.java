@@ -244,7 +244,7 @@ public final class DumperTest {
     assertThat(mode.dumpStructure(registry, subject))
         .isEqualTo(
             """
-com.google.common.collect.RegularImmutableList(0) [
+com.google.common.collect.ImmutableList(0) [
   java.lang.String[SERIALIZATION_CONSTANT:1]
   a
   java.lang.Integer[SERIALIZATION_CONSTANT:2]
@@ -311,7 +311,7 @@ com.google.common.collect.RegularImmutableList(0) [
                 + "      key=12\n"
                 + "      value=0\n"
                 + "    ]\n"
-                + "    com.google.common.collect.RegularImmutableList(4) [\n"
+                + "    com.google.common.collect.ImmutableList(4) [\n"
                 + "      false\n"
                 + "      0\n"
                 + "      -1\n"
@@ -331,7 +331,7 @@ com.google.common.collect.RegularImmutableList(0) [
                 + "      key=2\n"
                 + "      value=false\n"
                 + "    ]\n"
-                + "    key=com.google.common.collect.RegularImmutableList(9) [\n"
+                + "    key=com.google.common.collect.ImmutableList(9) [\n"
                 + "      xyz\n"
                 + "      0.1\n"
                 + "    ]\n"
@@ -350,7 +350,7 @@ com.google.common.collect.RegularImmutableList(0) [
                 + "      key=c\n"
                 + "      value=C\n"
                 + "    ]\n"
-                + "    com.google.common.collect.RegularImmutableList(14) [\n"
+                + "    com.google.common.collect.ImmutableList(14) [\n"
                 + "      a\n"
                 + "      1\n"
                 + "      0.1\n"
@@ -362,7 +362,7 @@ com.google.common.collect.RegularImmutableList(0) [
                 + "  ]\n"
                 + ("  " + NAMESPACE + ".CompositeObject(16) [\n")
                 + "    doubles=double[](17) [0.1, 0.2, 0.3]\n"
-                + "    iterable=com.google.common.collect.RegularImmutableList(18) [\n"
+                + "    iterable=com.google.common.collect.ImmutableList(18) [\n"
                 + "      interface java.lang.Runnable\n"
                 + "      class java.lang.Thread\n"
                 + "    ]\n"
@@ -396,7 +396,7 @@ com.google.common.collect.RegularImmutableList(0) [
     assertThat(dumpStructure(subject))
         .isEqualTo(
             """
-com.google.common.collect.RegularImmutableList(0) [
+com.google.common.collect.ImmutableList(0) [
   com.google.devtools.build.lib.skyframe.serialization.testutils.DumperTest.Position(1) [
     x=4
     y=5
@@ -412,7 +412,7 @@ com.google.common.collect.RegularImmutableList(0) [
     assertThat(dumpStructureWithEquivalenceReduction(subject))
         .isEqualTo(
             """
-com.google.common.collect.RegularImmutableList(0) [
+com.google.common.collect.ImmutableList(0) [
   com.google.devtools.build.lib.skyframe.serialization.testutils.DumperTest.Position(1) [
     x=4
     y=5
@@ -443,7 +443,7 @@ com.google.common.collect.RegularImmutableList(0) [
     assertThat(dumpStructure(subject))
         .isEqualTo(
             """
-            com.google.common.collect.RegularImmutableList(0) [
+            com.google.common.collect.ImmutableList(0) [
               java.util.ArrayList(1) [
                 java.util.ArrayList(2) [
                   java.util.ArrayList(1)
@@ -460,11 +460,9 @@ com.google.common.collect.RegularImmutableList(0) [
     assertThat(dumpStructureWithEquivalenceReduction(subject))
         .isEqualTo(
             """
-            com.google.common.collect.RegularImmutableList(0) [
+            com.google.common.collect.ImmutableList(0) [
               java.util.ArrayList(1) [
-                java.util.ArrayList(2) [
-                  java.util.ArrayList(1)
-                ]
+                java.util.ArrayList(1)
               ]
               java.util.ArrayList(1)
             ]\
@@ -514,7 +512,7 @@ java.lang.Object[](0) [
     assertThat(dumpStructureWithEquivalenceReduction(subject))
         .isEqualTo(
             """
-com.google.common.collect.RegularImmutableList(0) [
+com.google.common.collect.ImmutableList(0) [
   java.util.ArrayList(1) [
     1
     java.util.ArrayList(2) [
@@ -543,7 +541,7 @@ com.google.common.collect.RegularImmutableList(0) [
     assertThat(dumpStructureWithEquivalenceReduction(subject))
         .isEqualTo(
             """
-            com.google.common.collect.RegularImmutableList(0) [
+            com.google.common.collect.ImmutableList(0) [
               java.util.ArrayList(1) [
                 A
                 java.util.ArrayList(2) [
@@ -557,14 +555,5 @@ com.google.common.collect.RegularImmutableList(0) [
   }
 
   /** An arbitrary class used as test data. */
-  @SuppressWarnings({"UnusedVariable", "FieldCanBeLocal"})
-  private static class Position {
-    private final int x;
-    private final int y;
-
-    private Position(int x, int y) {
-      this.x = x;
-      this.y = y;
-    }
-  }
+  private record Position(int x, int y) {}
 }

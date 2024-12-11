@@ -12,9 +12,10 @@ filegroup(
 )
 
 DUMPER_SOURCES = [
+    "Canonizer.java",
     "Dumper.java",
     "FieldInfoCache.java",
-    "Fingerprinter.java",
+    "IsomorphismKey.java",
     "GraphDataCollector.java",
     "GraphTraverser.java",
 ]
