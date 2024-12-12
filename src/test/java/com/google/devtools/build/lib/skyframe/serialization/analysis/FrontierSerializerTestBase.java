@@ -108,7 +108,7 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
         active_directories = {"default": ["foo"] }
         """);
     addOptions("--experimental_remote_analysis_cache_mode=upload");
-    assertThat(buildTarget("//foo:empty").getSuccess()).isTrue();
+    buildTarget("//foo:empty");
   }
 
   @Test
@@ -165,12 +165,12 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
         """);
 
     addOptions("--experimental_remote_analysis_cache_mode=upload");
-    assertThat(buildTarget("//foo:empty", "//foo/bar:empty").getSuccess()).isTrue();
+    buildTarget("//foo:empty", "//foo/bar:empty");
   }
 
   @Test
   public void activeAspect_activatesBaseConfiguredTarget() throws Exception {
-    setupScenarioWithAspects("--experimental_remote_analysis_cache_mode=upload");
+    setupScenarioWithAspects();
     InMemoryGraph graph = getSkyframeExecutor().getEvaluator().getInMemoryGraph();
 
     ConfiguredTargetKey generateYKey =
@@ -275,9 +275,8 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
     @SuppressWarnings("UnnecessarilyFullyQualified") // to avoid confusion with vfs Paths
     Path profilePath = Files.createTempFile(null, "profile");
 
-    setupScenarioWithAspects(
-        "--experimental_remote_analysis_cache_mode=upload",
-        "--serialized_frontier_profile=" + profilePath);
+    addOptions("--serialized_frontier_profile=" + profilePath);
+    setupScenarioWithAspects();
 
     // The proto parses successfully from the file.
     var proto =
@@ -331,7 +330,7 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
         .doesNotContain("com.google.devtools.build.lib.skyframe.NonRuleConfiguredTargetValue");
   }
 
-  protected final void setupScenarioWithAspects(String... options) throws Exception {
+  protected final void setupScenarioWithAspects() throws Exception {
     write(
         "foo/provider.bzl",
         """
@@ -415,8 +414,7 @@ genrule(
 """);
 
     addOptions("--nobuild", "--aspects=//foo:file_count.bzl%file_count_aspect");
-    addOptions(options);
-    assertThat(buildTarget("//bar:one").getSuccess()).isTrue();
+    upload("//bar:one");
   }
 
   @Test
@@ -428,8 +426,7 @@ genrule(
 active_directories = { "default": ["foo"] }
 """);
     // Cache-writing build.
-    addOptions("--experimental_remote_analysis_cache_mode=upload");
-    buildTarget("//foo:A");
+    upload("//foo:A");
 
     // TODO: b/367287783 - RemoteConfiguredTargetValue cannot be deserialized successfully with
     // Bazel yet. Return early.
@@ -440,8 +437,7 @@ active_directories = { "default": ["foo"] }
     getCommandEnvironment().getSkyframeExecutor().resetEvaluator();
 
     // Cache reading build.
-    addOptions("--experimental_remote_analysis_cache_mode=download");
-    buildTarget("//foo:A");
+    download("//foo:A");
 
     var listener = getCommandEnvironment().getRemoteAnalysisCachingEventListener();
     // //bar:C, //bar:H, //bar:E
@@ -461,8 +457,7 @@ active_directories = { "default": ["foo"] }
 """);
 
     // Cache-writing build.
-    addOptions("--experimental_remote_analysis_cache_mode=upload");
-    buildTarget("//foo:A");
+    upload("//foo:A");
 
     // TODO: b/367287783 - RemoteConfiguredTargetValue cannot be deserialized successfully with
     // Bazel yet. Return early.
@@ -473,8 +468,7 @@ active_directories = { "default": ["foo"] }
     getCommandEnvironment().getSkyframeExecutor().resetEvaluator();
 
     // Cache reading build.
-    addOptions("--experimental_remote_analysis_cache_mode=download");
-    buildTarget("//foo:A");
+    download("//foo:A");
 
     var graph = getSkyframeExecutor().getEvaluator().getInMemoryGraph();
     Function<String, ConfiguredTargetKey> ctKeyOfLabel =
@@ -514,8 +508,7 @@ active_directories = { "default": ["foo"] }
 active_directories = { "default": ["foo"] }
 """);
 
-    addOptions("--experimental_remote_analysis_cache_mode=upload");
-    buildTarget("//foo:A");
+    upload("//foo:A");
 
     var serializedConfiguredTargetCount =
         getCommandEnvironment()
@@ -555,8 +548,7 @@ filegroup(name = "G")                                # unchanged.
 active_directories = { "default": ["foo"] }
 """);
     // Cache-writing build.
-    addOptions("--experimental_remote_analysis_cache_mode=upload");
-    buildTarget("//foo:D");
+    upload("//foo:D");
 
     var graph = getSkyframeExecutor().getEvaluator().getInMemoryGraph();
     var fooKey = PackageIdentifier.createUnchecked(/* repository= */ "", "foo");
@@ -574,8 +566,7 @@ active_directories = { "default": ["foo"] }
     getCommandEnvironment().getSkyframeExecutor().resetEvaluator();
 
     // Cache reading build.
-    addOptions("--experimental_remote_analysis_cache_mode=download");
-    buildTarget("//foo:D");
+    download("//foo:D");
 
     graph = getSkyframeExecutor().getEvaluator().getInMemoryGraph();
     assertThat(graph.getIfPresent(fooKey)).isNotNull();
@@ -588,7 +579,7 @@ active_directories = { "default": ["foo"] }
     setupScenarioWithConfiguredTargets();
     addOptions("--experimental_remote_analysis_cache_mode=upload");
     runtimeWrapper.newCommand(CqueryCommand.class);
-    buildTarget("//foo:A"); // passes, even though there's no PROJECT.scl
+    buildTarget("//foo:A"); // succeeds, even though there's no PROJECT.scl
     assertThat(
             getCommandEnvironment()
                 .getRemoteAnalysisCachingEventListener()
@@ -764,8 +755,7 @@ filegroup(name = "I")
   @Test
   public void actionLookupKey_ownedByActiveSetAndUnderFrontier_areNotUploaded() throws Exception {
     setupGenruleGraph();
-    addOptions("--experimental_remote_analysis_cache_mode=upload");
-    buildTarget("//A");
+    upload("//A");
     var serializedKeys =
         getCommandEnvironment().getRemoteAnalysisCachingEventListener().getSerializedKeys();
     ImmutableSet<Label> labels = getLabels(filterKeys(serializedKeys, ActionLookupKey.class));
@@ -801,8 +791,7 @@ filegroup(name = "I")
             cmd = "cat $(SRCS) > $@",
         )
         """);
-    addOptions("--experimental_remote_analysis_cache_mode=upload");
-    buildTarget("//A");
+    upload("//A");
     var serializedKeys =
         getCommandEnvironment().getRemoteAnalysisCachingEventListener().getSerializedKeys();
     ImmutableSet<Label> labels = getLabels(filterKeys(serializedKeys, ActionLookupKey.class));
@@ -870,8 +859,7 @@ ACTIVE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//A:in.txt, config=null}
   @Test
   public void actionLookupData_ownedByActiveSet_areNotUploaded() throws Exception {
     setupGenruleGraph();
-    addOptions("--experimental_remote_analysis_cache_mode=upload");
-    buildTarget("//A");
+    upload("//A");
     var serializedKeys =
         getCommandEnvironment().getRemoteAnalysisCachingEventListener().getSerializedKeys();
     var actionLookupDatas = filterKeys(serializedKeys, ActionLookupData.class);

@@ -41,7 +41,7 @@ public final class FrontierSerializerTest extends FrontierSerializerTestBase {
 
   @Test
   public void buildCommand_uploadsFrontierBytesWithUploadMode() throws Exception {
-    setupScenarioWithAspects("--experimental_remote_analysis_cache_mode=upload");
+    setupScenarioWithAspects();
 
     var listener = getCommandEnvironment().getRemoteAnalysisCachingEventListener();
     assertThat(listener.getSerializedKeysCount()).isAtLeast(9); // for Bazel
