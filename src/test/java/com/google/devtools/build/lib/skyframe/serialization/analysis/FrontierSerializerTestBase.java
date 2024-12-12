@@ -891,6 +891,17 @@ ACTIVE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//A:in.txt, config=null}
     assertThat(owningLabels).doesNotContain(parseCanonicalUnchecked("//B"));
   }
 
+  @Test
+  public void disjointDirectoriesWithCanonicalProject_uploadsSuccessfully() throws Exception {
+    setupGenruleGraph();
+    write(
+        "B/PROJECT.scl",
+        """
+project = { "actual": "//A:PROJECT.scl" }
+""");
+    upload("//A", "//B");
+  }
+
   protected final void setupGenruleGraph() throws IOException {
     // /--> E
     // A -> C -> D
@@ -953,7 +964,30 @@ ACTIVE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//A:in.txt, config=null}
     write(
         "A/PROJECT.scl",
         """
-active_directories = {"default": ["A"]}
+project = { "active_directories": {"default": ["A"]} }
 """);
+  }
+
+  protected final void roundtrip(String... targets) throws Exception {
+    getSkyframeExecutor().resetEvaluator();
+    upload(targets);
+    getSkyframeExecutor().resetEvaluator();
+    download(targets);
+  }
+
+  protected final void upload(String... targets) throws Exception {
+    addOptions("--experimental_remote_analysis_cache_mode=upload");
+    buildTarget(targets);
+    assertWithMessage("expected to serialize at least one Skyframe node")
+        .that(getCommandEnvironment().getRemoteAnalysisCachingEventListener().getSerializedKeys())
+        .isNotEmpty();
+  }
+
+  protected final void download(String... targets) throws Exception {
+    addOptions("--experimental_remote_analysis_cache_mode=download");
+    buildTarget(targets);
+    assertWithMessage("expected to deserialize at least one Skyframe node")
+        .that(getCommandEnvironment().getRemoteAnalysisCachingEventListener().getCacheHits())
+        .isNotEmpty();
   }
 }
