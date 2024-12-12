@@ -815,6 +815,18 @@ public final class BuildLanguageOptions extends OptionsBase {
       help = "If true, enable the set data type and set() constructor in Starlark.")
   public boolean experimentalEnableStarlarkSet;
 
+  @Option(
+      name = "incompatible_locations_prefers_executable",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "Whether a target that provides an executable expands to the executable rather than the"
+              + " files in <code>DefaultInfo.files</code> under $(locations ...) expansion if the"
+              + " number of files is not 1.")
+  public boolean incompatibleLocationsPrefersExecutable;
+
   /**
    * An interner to reduce the number of StarlarkSemantics instances. A single Blaze instance should
    * never accumulate a large number of these and being able to shortcut on object identity makes a
@@ -928,6 +940,8 @@ public final class BuildLanguageOptions extends OptionsBase {
                 INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS,
                 incompatibleSimplifyUnconditionalSelectsInRuleAttrs)
             .setBool(
+                INCOMPATIBLE_LOCATIONS_PREFERS_EXECUTABLE, incompatibleLocationsPrefersExecutable)
+            .setBool(
                 StarlarkSemantics.EXPERIMENTAL_ENABLE_STARLARK_SET, experimentalEnableStarlarkSet)
             .build();
     return INTERNER.intern(semantics);
@@ -1034,6 +1048,8 @@ public final class BuildLanguageOptions extends OptionsBase {
       "+incompatible_disallow_ctx_resolve_tools";
   public static final String INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS =
       "+incompatible_simplify_unconditional_selects_in_rule_attrs";
+  public static final String INCOMPATIBLE_LOCATIONS_PREFERS_EXECUTABLE =
+      "+incompatible_locations_prefers_executable";
   // non-booleans
   public static final StarlarkSemantics.Key<String> EXPERIMENTAL_BUILTINS_BZL_PATH =
       new StarlarkSemantics.Key<>("experimental_builtins_bzl_path", "%bundled%");
