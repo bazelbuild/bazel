@@ -655,25 +655,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     try {
       spawnResults = resolver.exec(spawn, actionExecutionContext.withFileOutErr(fileOutErr));
       testResultDataBuilder = TestResultData.newBuilder();
-      if (actionExecutionContext
-          .getPathResolver()
-          .convertPath(resolvedPaths.getExitSafeFile())
-          .exists()) {
-        testResultDataBuilder
-            .setCachable(false)
-            .setTestPassed(false)
-            .setStatus(BlazeTestStatus.FAILED);
-        fileOutErr
-            .getErrorStream()
-            .write(
-                "-- Test exited prematurely (TEST_PREMATURE_EXIT_FILE exists) --\n"
-                    .getBytes(StandardCharsets.UTF_8));
-      } else {
-        testResultDataBuilder
-            .setCachable(true)
-            .setTestPassed(true)
-            .setStatus(BlazeTestStatus.PASSED);
-      }
+      testResultDataBuilder.setCachable(true).setTestPassed(true).setStatus(BlazeTestStatus.PASSED);
     } catch (SpawnExecException e) {
       if (e.isCatastrophic()) {
         closeSuppressed(e, streamed);
@@ -698,6 +680,22 @@ public class StandaloneTestStrategy extends TestStrategy {
       throw e;
     }
     long endTimeMillis = actionExecutionContext.getClock().currentTimeMillis();
+
+    // Check TEST_PREMATURE_EXIT_FILE file (and always delete it)
+    if (actionExecutionContext
+        .getPathResolver()
+        .convertPath(resolvedPaths.getExitSafeFile())
+        .delete() && testResultDataBuilder.getTestPassed()) {
+      testResultDataBuilder
+          .setCachable(false)
+          .setTestPassed(false)
+          .setStatus(BlazeTestStatus.FAILED);
+      fileOutErr
+          .getErrorStream()
+          .write(
+              "-- Test exited prematurely (TEST_PREMATURE_EXIT_FILE exists) --\n"
+                  .getBytes(StandardCharsets.UTF_8));
+    }
 
     // Do not override a more informative test failure with a generic failure due to the missing
     // shard file, which may have been caused by the test failing before the runner had a chance to
