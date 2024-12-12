@@ -1101,7 +1101,7 @@ def _get_coverage_environment(ctx, cc_config, cc_toolchain):
     }
     for k in list(env.keys()):
         if env[k] == None:
-            env[k] = ""
+            env.pop(k)
     if cc_config.fdo_instrument():
         env["FDO_DIR"] = cc_config.fdo_instrument()
     return env
