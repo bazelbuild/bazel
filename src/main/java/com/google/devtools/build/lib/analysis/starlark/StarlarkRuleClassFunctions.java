@@ -792,6 +792,13 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       Attribute attr = descriptor.build(name);
       boolean isDependency = attr.getType().getLabelClass() == LabelClass.DEPENDENCY;
 
+      if (dependencyResolutionRule && attr.isMaterializing()) {
+        throw Starlark.errorf(
+            "attribute '%s' has a materializer which is not allowed on rules for dependency"
+                + " resolution",
+            name);
+      }
+
       if (dependencyResolutionRule && isDependency) {
         if (!attr.isForDependencyResolution() && attr.forDependencyResolutionExplicitlySet()) {
           throw Starlark.errorf(

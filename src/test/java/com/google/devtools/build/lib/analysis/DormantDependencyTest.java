@@ -52,13 +52,15 @@ public class DormantDependencyTest extends AnalysisTestCase {
           implementation = _r_impl,
           attrs = {
             "dormant": attr.dormant_label(),
-          })""");
+          })
+        """);
 
     scratch.file(
         "dormant/BUILD",
         """
         load(":dormant.bzl", "r")
-        r(name="r")""");
+        r(name="r")
+        """);
 
     reporter.removeHandler(failFastHandler);
     assertThrows(TargetParsingException.class, () -> update("//dormant:r"));
@@ -81,7 +83,8 @@ public class DormantDependencyTest extends AnalysisTestCase {
           attrs = {
             "dormant": attr.dormant_label(),
             "dormant_list": attr.dormant_label_list(),
-          })""");
+          })
+        """);
 
     scratch.file(
         "dormant/BUILD",
@@ -90,7 +93,8 @@ public class DormantDependencyTest extends AnalysisTestCase {
 
         filegroup(name="a")
         filegroup(name="b")
-        r(name="r", dormant=":a", dormant_list=[":b"])""");
+        r(name="r", dormant=":a", dormant_list=[":b"])
+        """);
 
     update("//dormant:r");
     assertContainsEvent("dormant label is @@//dormant:a");
@@ -113,13 +117,15 @@ public class DormantDependencyTest extends AnalysisTestCase {
           dependency_resolution_rule = True,
           attrs = {
             "dormant": attr.dormant_label(default=computed_default),
-          })""");
+          })
+        """);
 
     scratch.file(
         "dormant/BUILD",
         """
         load(":dormant.bzl", "r")
-        r(name="r")""");
+        r(name="r")
+        """);
 
     reporter.removeHandler(failFastHandler);
     assertThrows(TargetParsingException.class, () -> update("//dormant:r"));
@@ -142,7 +148,8 @@ public class DormantDependencyTest extends AnalysisTestCase {
           attrs = {
             "dormant": attr.dormant_label(default="//dormant:a"),
             "dormant_list": attr.dormant_label_list(default=["//dormant:b"]),
-          })""");
+          })
+        """);
 
     scratch.file(
         "dormant/BUILD",
@@ -151,7 +158,8 @@ public class DormantDependencyTest extends AnalysisTestCase {
 
         filegroup(name="a")
         filegroup(name="b")
-        r(name="r")""");
+        r(name="r")
+        """);
 
     update("//dormant:r");
     assertContainsEvent("dormant label is @@//dormant:a");
@@ -177,13 +185,15 @@ public class DormantDependencyTest extends AnalysisTestCase {
           attrs = {
             "_materialized": attr.label(materializer=_label_materializer),
             "_materialized_list": attr.label_list(materializer=_list_materializer),
-          })""");
+          })
+        """);
 
     scratch.file(
         "dormant/BUILD",
         """
         load(":dormant.bzl", "r")
-        r(name="r")""");
+        r(name="r")
+        """);
 
     update("//dormant:r");
   }
@@ -203,13 +213,15 @@ public class DormantDependencyTest extends AnalysisTestCase {
           implementation = _r_impl,
           attrs = {
             "materialized": attr.label(materializer=_label_materializer),
-          })""");
+          })
+        """);
 
     scratch.file(
         "dormant/BUILD",
         """
         load(":dormant.bzl", "r")
-        r(name="r")""");
+        r(name="r")
+        """);
 
     reporter.removeHandler(failFastHandler);
     assertThrows(TargetParsingException.class, () -> update("//dormant:r"));
@@ -236,13 +248,15 @@ public class DormantDependencyTest extends AnalysisTestCase {
             "_materialized": attr.label(
                 materializer=_label_materializer,
                 default=Label("//dormant:default")),
-          })""");
+          })
+        """);
 
     scratch.file(
         "dormant/BUILD",
         """
         load(":dormant.bzl", "r")
-        r(name="r")""");
+        r(name="r")
+        """);
 
     reporter.removeHandler(failFastHandler);
     assertThrows(TargetParsingException.class, () -> update("//dormant:r"));
@@ -267,13 +281,15 @@ public class DormantDependencyTest extends AnalysisTestCase {
           implementation = _r_impl,
           attrs = {
             "_materialized": attr.label(materializer=_label_materializer, mandatory=True),
-          })""");
+          })
+        """);
 
     scratch.file(
         "dormant/BUILD",
         """
         load(":dormant.bzl", "r")
-        r(name="r")""");
+        r(name="r")
+        """);
 
     reporter.removeHandler(failFastHandler);
     assertThrows(TargetParsingException.class, () -> update("//dormant:r"));
@@ -298,13 +314,15 @@ public class DormantDependencyTest extends AnalysisTestCase {
           implementation = _r_impl,
           attrs = {
             "_materialized": attr.label(materializer=_label_materializer, configurable=True),
-          })""");
+          })
+        """);
 
     scratch.file(
         "dormant/BUILD",
         """
         load(":dormant.bzl", "r")
-        r(name="r")""");
+        r(name="r")
+        """);
 
     reporter.removeHandler(failFastHandler);
     assertThrows(TargetParsingException.class, () -> update("//dormant:r"));
@@ -366,7 +384,8 @@ public class DormantDependencyTest extends AnalysisTestCase {
         "a/BUILD",
         """
         load("//a:a.bzl", "a")
-        a(name="x")""");
+        a(name="x")
+        """);
 
     reporter.removeHandler(failFastHandler);
     assertThrows(TargetParsingException.class, () -> update("//a:x"));
@@ -392,7 +411,8 @@ public class DormantDependencyTest extends AnalysisTestCase {
         "x/BUILD",
         """
         load("//a:a.bzl", "a")
-        a(name="x")""");
+        a(name="x")
+        """);
 
     scratch.file(
         "y/BUILD",
@@ -539,7 +559,8 @@ public class DormantDependencyTest extends AnalysisTestCase {
           dependency_resolution_rule = True,
           attrs = {
               "impl": attr.label(),
-          })""");
+          })
+        """);
 
     scratch.file(
         "a/BUILD",
@@ -594,7 +615,8 @@ public class DormantDependencyTest extends AnalysisTestCase {
           dependency_resolution_rule = True,
           attrs = {
               "dormant": attr.dormant_label(),
-          })""");
+          })
+        """);
 
     scratch.file("parent/BUILD");
 
@@ -609,7 +631,8 @@ public class DormantDependencyTest extends AnalysisTestCase {
         unmarked = rule(
           implementation = _impl,
           parent = p,
-          attrs = {})""");
+          attrs = {})
+        """);
 
     scratch.file(
         "unmarked/BUILD",
@@ -629,7 +652,8 @@ public class DormantDependencyTest extends AnalysisTestCase {
         marked = rule(
           implementation = _impl,
           parent = p,
-          attrs = {})""");
+          attrs = {})
+        """);
 
     scratch.file(
         "marked/BUILD",
@@ -663,7 +687,8 @@ public class DormantDependencyTest extends AnalysisTestCase {
           implementation = _impl,
           dependency_resolution_rule = True,
           parent = p,
-          attrs = {})""");
+          attrs = {})
+        """);
 
     scratch.file(
         "a/BUILD",
@@ -690,7 +715,8 @@ public class DormantDependencyTest extends AnalysisTestCase {
         r = rule(
           implementation = _r_impl,
           dependency_resolution_rule = True,
-          attrs = {})""");
+          attrs = {})
+        """);
 
     scratch.file(
         "a/BUILD",
@@ -787,7 +813,8 @@ binary = rule(
   attrs = {
       "components": attr.label_list(providers = [ComponentInfo], for_dependency_resolution = True),
       "_impls": attr.label_list(materializer = _materializer),
-  })""");
+  })
+""");
 
     scratch.file("dormant/BUILD");
   }
@@ -833,7 +860,8 @@ binary = rule(
           attrs = {
               "dep": attr.label(),
               "_impls": attr.label_list(materializer = _materializer),
-          })""");
+          })
+        """);
 
     scratch.file(
         "a/BUILD",
@@ -846,5 +874,37 @@ binary = rule(
     reporter.removeHandler(failFastHandler);
     assertThrows(ViewCreationFailedException.class, () -> update("//a:bin"));
     assertContainsEvent("not available in materializer");
+  }
+
+  @Test
+  public void testMaterializersOnDependencyResolutionRulesDisallowed() throws Exception {
+    scratch.file(
+        "a/dormant.bzl",
+        """
+        def _impl(ctx):
+            return [DefaultInfo()]
+
+        def _materializer(ctx):
+            return []
+
+        rr = rule(
+            dependency_resolution_rule = True,
+            implementation = _impl,
+            attrs = {
+                "_mat": attr.label_list(materializer = _materializer),
+            },
+        )
+        """);
+
+    scratch.file(
+        "a/BUILD",
+        """
+        load(":dormant.bzl", "rr")
+        rr(name="rr")
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    assertThrows(TargetParsingException.class, () -> update("//a:rr"));
+    assertContainsEvent("has a materializer which is not allowed");
   }
 }
