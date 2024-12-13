@@ -1579,24 +1579,23 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
           }
         )
         """);
-
     scratch.file(
         "BUILD",
-        "load('//:my_rule.bzl', 'my_rule')",
-        "config_setting(",
-        "   name = 'arm_cpu',",
-        "   values = {'cpu': 'arm'},",
-        ")",
-        "my_rule(name='r',",
-        "        label_list=select({",
-        "    ':arm_cpu': [],",
-        "    '//conditions:default': ['a.txt'],",
-        "}) + select({",
-        "    ':arm_cpu': ['a.txt'],",
-        "    '//conditions:default': [],",
-        "}),",
-        ")");
-
+        """
+        load('//:my_rule.bzl', 'my_rule')
+        constraint_setting(name = "cpu")
+        constraint_value(name = "arm_cpu", constraint_setting = "cpu")
+        my_rule(
+          name="r",
+          label_list = select({
+            ":arm_cpu": [],
+            "//conditions:default": ["a.txt"],
+          }) + select({
+              ":arm_cpu": ["a.txt"],
+              "//conditions:default": [],
+          }),
+        )
+        """);
     invalidatePackages();
     getConfiguredTarget("//:r");
     assertNoEvents();
@@ -1618,23 +1617,23 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
           }
         )
         """);
-
     scratch.file(
         "BUILD",
-        "load('//:my_rule.bzl', 'my_rule')",
-        "config_setting(",
-        "   name = 'arm_cpu',",
-        "   values = {'cpu': 'arm'},",
-        ")",
-        "my_rule(name='r',",
-        "        label_list=select({",
-        "    ':arm_cpu': [],",
-        "    '//conditions:default': ['a.txt'],",
-        "}) + select({",
-        "    ':arm_cpu': ['a.txt'],",
-        "    '//conditions:default': ['a.txt'],",
-        "}),",
-        ")");
+        """
+        load('//:my_rule.bzl', 'my_rule')
+        constraint_setting(name = "cpu")
+        constraint_value(name = "arm_cpu", constraint_setting = "cpu")
+        my_rule(
+          name="r",
+          label_list = select({
+            ":arm_cpu": [],
+            "//conditions:default": ["a.txt"],
+          }) + select({
+              ":arm_cpu": ["a.txt"],
+              "//conditions:default": ["a.txt"],
+          }),
+        )
+        """);
 
     invalidatePackages();
     getConfiguredTarget("//:r");
@@ -3088,7 +3087,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   // A list of attributes and methods ctx objects have
-  private final List<String> ctxAttributes =
+  private static final ImmutableList<String> CTX_ATTRIBUTES =
       ImmutableList.of(
           "attr",
           "split_attr",
@@ -3134,7 +3133,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         """);
     scratch.file("test/rules.bzl");
 
-    for (String attribute : ctxAttributes) {
+    for (String attribute : CTX_ATTRIBUTES) {
       scratch.overwriteFile(
           "test/rules.bzl",
           "load('//myinfo:myinfo.bzl', 'MyInfo')",
@@ -3171,7 +3170,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   @Test
   public void testFrozenRuleContextForAspectsHasInaccessibleAttributes() throws Exception {
     List<String> attributes = new ArrayList<>();
-    attributes.addAll(ctxAttributes);
+    attributes.addAll(CTX_ATTRIBUTES);
     attributes.addAll(
         ImmutableList.of("rule.attr", "rule.executable", "rule.file", "rule.files", "rule.kind"));
     scratch.file(

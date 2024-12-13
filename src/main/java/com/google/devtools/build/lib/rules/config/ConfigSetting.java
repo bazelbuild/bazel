@@ -78,6 +78,10 @@ import javax.annotation.Nullable;
  */
 public final class ConfigSetting implements RuleConfiguredTargetFactory {
 
+  /** Flags we'd like to remove once there are no more repo references. */
+  private static final ImmutableSet<String> DEPRECATED_FLAGS =
+      ImmutableSet.of("cpu", "host_cpu", "crosstool_top");
+
   @Override
   @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
@@ -130,7 +134,7 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
 
     BuildOptionDetails optionDetails = ruleContext.getConfiguration().getBuildOptionDetails();
     boolean nativeFlagsMatch =
-        matchesConfig(nativeFlagSettings.entries(), optionDetails, ruleContext);
+        nativeFlagsMatch(nativeFlagSettings.entries(), optionDetails, ruleContext);
 
     UserDefinedFlagMatch userDefinedFlags =
         UserDefinedFlagMatch.fromAttributeValueAndPrerequisites(
@@ -294,7 +298,7 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
    * Given a list of [flagName, flagValue] pairs for native Blaze flags, returns true if flagName ==
    * flagValue for every item in the list under this configuration, false otherwise.
    */
-  private static boolean matchesConfig(
+  private static boolean nativeFlagsMatch(
       Collection<Map.Entry<String, String>> expectedSettings,
       BuildOptionDetails options,
       RuleContext ruleContext) {
@@ -305,7 +309,13 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
     for (Map.Entry<String, String> setting : expectedSettings) {
       String optionName = setting.getKey();
       String expectedRawValue = setting.getValue();
-
+      if (DEPRECATED_FLAGS.contains(optionName)) {
+        ruleContext.ruleWarning(
+            String.format(
+                "select() on %s is deprecated. Use platform constraints instead:"
+                    + " https://bazel.build/docs/configurable-attributes#platforms.",
+                optionName));
+      }
       Class<? extends FragmentOptions> optionClass = options.getOptionClass(optionName);
       if (optionClass == null) {
         ruleContext.attributeError(

@@ -2935,4 +2935,23 @@ public class ConfigSettingTest extends BuildViewTestCase {
             + " not a valid setting name, but appears to be a label. Did you mean to place it in"
             + " flag_values instead?");
   }
+
+  @Test
+  @TestParameters({"{flag: cpu}", "{flag: host_cpu}", "{flag: crosstool_top}"})
+  public void selectOnDeprecatedFlagEmitsWarning(String flag) throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+        config_setting(
+            name = "match",
+            values = {
+              "%s": "//foo",
+            },
+        )
+        """
+            .formatted(flag));
+    assertThat(getConfiguredTarget("//test:match")).isNotNull();
+    assertContainsEvent(
+        "select() on %s is deprecated. Use platform constraints instead".formatted(flag));
+  }
 }
