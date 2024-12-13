@@ -41,6 +41,7 @@ Build and test software of any size, quickly and reliably.
   * [Write tests](https://bazel.build/reference/test-encyclopedia)
   * [Roadmap](https://bazel.build/community/roadmaps)
   * [Who is using Bazel?](https://bazel.build/community/users)
+  * [Ask Bazel AI](https://gurubase.io/g/bazel)
 
 ## Reporting a Vulnerability
 
@@ -55,4 +56,4 @@ disclosure timeline.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md)
 
-[![Build status](https://badge.buildkite.com/1fd282f8ad98c3fb10758a821e5313576356709dd7d11e9618.svg?status=master)](https://buildkite.com/bazel/bazel-bazel) [![Gurubase](https://img.shields.io/badge/Gurubase-Ask%20Bazel%20Guru-006BFF)](https://gurubase.io/g/bazel)
+[![Build status](https://badge.buildkite.com/1fd282f8ad98c3fb10758a821e5313576356709dd7d11e9618.svg?status=master)](https://buildkite.com/bazel/bazel-bazel)
