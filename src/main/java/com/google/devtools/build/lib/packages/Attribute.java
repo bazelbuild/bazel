@@ -329,11 +329,15 @@ public final class Attribute implements Comparable<Attribute> {
 
     public Attribute build(String name) {
       Preconditions.checkState(!name.isEmpty(), "name has not been set");
-      if (valueSource == AttributeValueSource.LATE_BOUND
-          || valueSource == AttributeValueSource.MATERIALIZER) {
+      if (valueSource == AttributeValueSource.LATE_BOUND) {
         Preconditions.checkState(isAnalysisDependent(name));
         Preconditions.checkState(!transitionFactory.isSplit());
       }
+
+      if (valueSource == AttributeValueSource.MATERIALIZER) {
+        Preconditions.checkState(isAnalysisDependent(name));
+      }
+
       // TODO(bazel-team): Set the default to be no file type, then remove this check, and also
       // remove all allowedFileTypes() calls without parameters.
 

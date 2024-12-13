@@ -907,4 +907,65 @@ binary = rule(
     assertThrows(TargetParsingException.class, () -> update("//a:rr"));
     assertContainsEvent("has a materializer which is not allowed");
   }
+
+  @Test
+  public void testSplitConfigurationOnMaterializingAttribute() throws Exception {
+    scratch.file(
+        "dormant/dormant.bzl",
+        """
+        ComponentInfo = provider(fields = ["impls"])
+
+        def _component_impl(ctx):
+          return [ComponentInfo(impls = ctx.attr.impls)]
+
+        component = rule(
+          implementation = _component_impl,
+          attrs = { "impls": attr.dormant_label_list() },
+          provides = [ComponentInfo],
+          dependency_resolution_rule = True,
+        )
+
+        def _binary_impl(ctx):
+          return [DefaultInfo(files=depset(ctx.files._impls))]
+
+        def _materializer(ctx):
+          return ctx.attr.component[ComponentInfo].impls
+
+        def _transition_impl(settings, attr):
+          return [
+            {"//command_line_option:compilation_mode": "dbg"},
+            {"//command_line_option:compilation_mode": "opt"},
+          ]
+
+        _transition = transition(
+          implementation = _transition_impl,
+          inputs = [],
+          outputs = ["//command_line_option:compilation_mode"])
+
+        binary = rule(
+          implementation = _binary_impl,
+          attrs = {
+              "component": attr.label(
+                  providers = [ComponentInfo], for_dependency_resolution = True),
+              "_impls": attr.label_list(materializer = _materializer, cfg = _transition),
+          })\
+        """);
+
+    scratch.file(
+        "dormant/BUILD",
+        """
+        load(":dormant.bzl", "component", "binary")
+        genrule(name="g1", srcs=[], outs=["g1o"], cmd="echo GO >$@")
+        genrule(name="g2", srcs=[], outs=["g2o"], cmd="echo GO >$@")
+        component(name="c", impls=[":g1", ":g2"])
+        binary(name="b", component=":c")
+        """);
+
+    update("//dormant:b");
+    ConfiguredTarget target = getConfiguredTarget("//dormant:b");
+    NestedSet<Artifact> filesToBuild = target.getProvider(FileProvider.class).getFilesToBuild();
+
+    // Two deps in two configurations must be four artifacts altogether
+    assertThat(filesToBuild.toList()).hasSize(4);
+  }
 }
