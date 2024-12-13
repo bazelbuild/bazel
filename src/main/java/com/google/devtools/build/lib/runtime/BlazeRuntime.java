@@ -83,6 +83,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Filesystem;
 import com.google.devtools.build.lib.server.GrpcServerImpl;
 import com.google.devtools.build.lib.server.IdleTask;
+import com.google.devtools.build.lib.server.InstallBaseGarbageCollectorIdleTask;
 import com.google.devtools.build.lib.server.PidFileWatcher;
 import com.google.devtools.build.lib.server.RPCServer;
 import com.google.devtools.build.lib.server.ShutdownHooks;
@@ -623,6 +624,11 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
         env.getReporter()
             .handle(Event.error("Error while creating memory profile file: " + e.getMessage()));
       }
+    }
+    if (!options.installBaseGcMaxAge.isZero()) {
+      env.addIdleTask(
+          InstallBaseGarbageCollectorIdleTask.create(
+              workspace.getDirectories().getInstallBase(), options.installBaseGcMaxAge));
     }
   }
 

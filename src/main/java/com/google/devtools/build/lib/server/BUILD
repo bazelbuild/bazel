@@ -104,10 +104,15 @@ java_library(
 
 java_library(
     name = "install_base_garbage_collector",
-    srcs = ["InstallBaseGarbageCollector.java"],
+    srcs = [
+        "InstallBaseGarbageCollector.java",
+        "InstallBaseGarbageCollectorIdleTask.java",
+    ],
     deps = [
+        ":idle_task",
         "//src/main/java/com/google/devtools/build/lib/util:file_system_lock",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:flogger",
         "//third_party:guava",
     ],
 )

@@ -65,4 +65,32 @@ function test_install_base_lock() {
   "$LOCK_HELPER" "${install_base}.lock" exclusive exit || fail "Expected success"
 }
 
+function test_install_base_garbage_collection() {
+  local -r install_user_root="$TEST_TMPDIR/test_install_base_garbage_collection"
+  local -r install_base="${install_user_root}/abcdefabcdefabcdefabcdefabcdefab"
+
+  local -r stale="${install_user_root}/12345678901234567890123456789012"
+  mkdir -p "${stale}"
+  touch "${stale}/A-server.jar"
+  touch -t 200102030405 "${stale}"
+
+  local -r fresh="${install_user_root}/98765432109876543210987654321098"
+  mkdir -p "${fresh}"
+  touch "${fresh}/A-server.jar"
+
+  bazel --install_base="${install_base}" info \
+      --experimental_install_base_gc_max_age=1d \
+      &> "$TEST_log" || fail "Expected success"
+
+  sleep 1
+
+  if ! [[ -d "${fresh}" ]]; then
+    fail "Expected ${fresh} to still exist"
+  fi
+
+  if [[ -d "${stale}" ]]; then
+    fail "Expected ${stale} to no longer exist"
+  fi
+}
+
 run_suite "client_test"

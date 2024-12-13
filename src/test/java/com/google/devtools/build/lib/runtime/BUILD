@@ -74,6 +74,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote:store",
         "//src/main/java/com/google/devtools/build/lib/runtime/commands",
         "//src/main/java/com/google/devtools/build/lib/server:idle_task",
+        "//src/main/java/com/google/devtools/build/lib/server:install_base_garbage_collector",
         "//src/main/java/com/google/devtools/build/lib/skyframe:analysis_progress_receiver",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configuration_phase_started_event",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
