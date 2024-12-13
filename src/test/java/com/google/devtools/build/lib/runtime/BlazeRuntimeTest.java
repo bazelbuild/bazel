@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Crash;
 import com.google.devtools.build.lib.server.FailureDetails.Crash.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.IdleTask;
+import com.google.devtools.build.lib.server.InstallBaseGarbageCollectorIdleTask;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -43,6 +44,7 @@ import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.BytesValue;
 import com.google.protobuf.StringValue;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
@@ -170,7 +172,35 @@ public class BlazeRuntimeTest {
   }
 
   @Test
-  public void addsIdleTasks() throws Exception {
+  public void doesNotAddInstallBaseGcIdleTaskWhenDisabled() throws Exception {
+    BlazeRuntime runtime = createRuntime();
+    CommandEnvironment env = createCommandEnvironment(runtime);
+    CommonCommandOptions options = new CommonCommandOptions();
+    options.installBaseGcMaxAge = Duration.ZERO;
+    runtime.beforeCommand(env, options);
+    assertThat(env.getIdleTasks()).isEmpty();
+  }
+
+  @Test
+  public void addsInstallBaseGcIdleTaskWhenEnabled() throws Exception {
+    BlazeRuntime runtime = createRuntime();
+    CommandEnvironment env = createCommandEnvironment(runtime);
+    CommonCommandOptions options = new CommonCommandOptions();
+    options.installBaseGcMaxAge = Duration.ofDays(365);
+    runtime.beforeCommand(env, options);
+    assertThat(env.getIdleTasks()).hasSize(1);
+    assertThat(env.getIdleTasks().get(0)).isInstanceOf(InstallBaseGarbageCollectorIdleTask.class);
+    var idleTask = (InstallBaseGarbageCollectorIdleTask) env.getIdleTasks().get(0);
+    assertThat(idleTask.delay()).isEqualTo(Duration.ZERO);
+    assertThat(idleTask.getGarbageCollector().getRoot())
+        .isEqualTo(blazeDirectories.getInstallBase().getParentDirectory());
+    assertThat(idleTask.getGarbageCollector().getOwnInstallBase())
+        .isEqualTo(blazeDirectories.getInstallBase());
+    assertThat(idleTask.getGarbageCollector().getMaxAge()).isEqualTo(Duration.ofDays(365));
+  }
+
+  @Test
+  public void addsIdleTasksFromModules() throws Exception {
     BlazeRuntime runtime = createRuntime();
     CommandEnvironment env = createCommandEnvironment(runtime);
     IdleTask fooTask = () -> {};

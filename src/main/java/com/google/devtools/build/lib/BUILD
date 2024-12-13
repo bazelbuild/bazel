@@ -410,6 +410,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/runtime/events",
         "//src/main/java/com/google/devtools/build/lib/server",
         "//src/main/java/com/google/devtools/build/lib/server:idle_task",
+        "//src/main/java/com/google/devtools/build/lib/server:install_base_garbage_collector",
         "//src/main/java/com/google/devtools/build/lib/server:pid_file_watcher",
         "//src/main/java/com/google/devtools/build/lib/server:rpc_server",
         "//src/main/java/com/google/devtools/build/lib/server:shutdown_hooks",
