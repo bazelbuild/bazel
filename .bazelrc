@@ -1,4 +1,9 @@
 common --enable_platform_specific_config
+common --incompatible_use_plus_in_repo_names
+common --experimental_google_legacy_api # needed by protobuf
+
+# For @rules_java doc generation only, can be dropped after Bazel 8
+common --experimental_rule_extension_api
 
 # Shared configuration flags to build and test Bazel on RBE.
 build:remote_shared --remote_instance_name=projects/bazel-untrusted/instances/default_instance
@@ -34,6 +39,8 @@ common --check_direct_dependencies=error
 # Add mirrors for certain download URLs
 common --experimental_downloader_config=bazel_downloader.cfg
 
+common --noenable_workspace
+
 # Enable modern C++ features
 build:linux --cxxopt=-std=c++17
 build:linux --host_cxxopt=-std=c++17
@@ -55,6 +62,9 @@ build --java_runtime_version=21
 build --java_language_version=21
 build --tool_java_language_version=21
 build --tool_java_runtime_version=21
+
+# Fail if a glob doesn't match anything (https://github.com/bazelbuild/bazel/issues/8195)
+common --incompatible_disallow_empty_glob
 
 # User-specific .bazelrc
 try-import %workspace%/user.bazelrc
