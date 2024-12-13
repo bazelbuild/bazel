@@ -133,7 +133,7 @@ def _async_profiler_repos(ctx):
         downloaded_file_path = "async-profiler.jar",
         # At commit f0ceda6356f05b7ad0a6593670c8c113113bf0b3 (2024-12-09).
         sha256 = "da95a5292fb203966196ecb68a39a8c26ad7276aeef642ec1de872513be1d8b3",
-        urls = ["https://github.com/async-profiler/async-profiler/releases/download/nightly/async-profiler.jar"],
+        urls = ["https://mirror.bazel.build/github.com/async-profiler/async-profiler/releases/download/nightly/async-profiler.jar"],
     )
 
     _ASYNC_PROFILER_BUILD_TEMPLATE = """
@@ -155,7 +155,7 @@ copy_file(
         ),
         sha256 = "7c6243bb91272a2797acb8cc44acf3e406e0b658a94d90d9391ca375fc961857",
         strip_prefix = "async-profiler-3.0-f0ceda6-linux-arm64/lib",
-        urls = ["https://github.com/async-profiler/async-profiler/releases/download/nightly/async-profiler-3.0-f0ceda6-linux-arm64.tar.gz"],
+        urls = ["https://mirror.bazel.build/github.com/async-profiler/async-profiler/releases/download/nightly/async-profiler-3.0-f0ceda6-linux-arm64.tar.gz"],
     )
 
     http_archive(
@@ -166,7 +166,7 @@ copy_file(
         ),
         sha256 = "448a3dc681375860eba2264d6cae7a848bd3f07f81f547a9ce58b742a1541d25",
         strip_prefix = "async-profiler-3.0-f0ceda6-linux-x64/lib",
-        urls = ["https://github.com/async-profiler/async-profiler/releases/download/nightly/async-profiler-3.0-f0ceda6-linux-x64.tar.gz"],
+        urls = ["https://mirror.bazel.build/github.com/async-profiler/async-profiler/releases/download/nightly/async-profiler-3.0-f0ceda6-linux-x64.tar.gz"],
     )
 
     http_archive(
@@ -177,7 +177,7 @@ copy_file(
         ),
         sha256 = "0651004c78d080f67763cddde6e1f58cd0d0c4cb0b57034beef80b450ff5adf2",
         strip_prefix = "async-profiler-3.0-f0ceda6-macos/lib",
-        urls = ["https://github.com/async-profiler/async-profiler/releases/download/nightly/async-profiler-3.0-f0ceda6-macos.zip"],
+        urls = ["https://mirror.bazel.build/github.com/async-profiler/async-profiler/releases/download/nightly/async-profiler-3.0-f0ceda6-macos.zip"],
     )
 
 # This is an extension (instead of use_repo_rule usages) only to create a
