@@ -110,13 +110,13 @@ public class FilesToRunProvider implements TransitiveInfoProvider, FilesToRunPro
 
   @Override
   public void debugPrint(Printer printer, StarlarkThread thread) {
-    printer.append("<FilesToRunProvider executable=");
-    printer.repr(getExecutable());
-    printer.append(", runfiles_manifest=");
-    printer.repr(getRunfilesManifest());
-    printer.append(", repo_mapping_manifest=");
-    printer.repr(getRepoMappingManifest());
-    printer.append(">");
+    printer.append("FilesToRunProvider(executable = ");
+    printer.debugPrint(getExecutable(), thread);
+    printer.append(", repo_mapping_manifest = ");
+    printer.debugPrint(getRepoMappingManifest(), thread);
+    printer.append(", runfiles_manifest = ");
+    printer.debugPrint(getRunfilesManifest(), thread);
+    printer.append(")");
   }
 
   /** A single executable. */
