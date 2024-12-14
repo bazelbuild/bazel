@@ -1154,14 +1154,14 @@ public final class Runfiles implements RunfilesApi {
 
   @Override
   public void debugPrint(Printer printer, StarlarkThread thread) {
-    printer.append("<runfiles files=");
-    printer.repr(getArtifactsForStarlark());
-    printer.append(", symlinks=");
-    printer.repr(getSymlinksForStarlark());
-    printer.append(", root_symlinks=");
-    printer.repr(getRootSymlinksForStarlark());
-    printer.append(", empty_files=");
-    printer.repr(getEmptyFilenamesForStarlark());
-    printer.append(">");
+    printer.append("runfiles(empty_files = ");
+    printer.debugPrint(getEmptyFilenamesForStarlark(), thread);
+    printer.append(", files = ");
+    printer.debugPrint(getArtifactsForStarlark(), thread);
+    printer.append(", root_symlinks = ");
+    printer.debugPrint(getRootSymlinksForStarlark(), thread);
+    printer.append(", symlinks = ");
+    printer.debugPrint(getSymlinksForStarlark(), thread);
+    printer.append(")");
   }
 }
