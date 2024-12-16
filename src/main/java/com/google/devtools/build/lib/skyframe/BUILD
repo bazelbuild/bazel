@@ -354,6 +354,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:platform_lookup_util",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:registered_execution_platforms_cycle_reporter",
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:registered_execution_platforms_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:registered_toolchains_cycle_reporter",
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:registered_toolchains_function",

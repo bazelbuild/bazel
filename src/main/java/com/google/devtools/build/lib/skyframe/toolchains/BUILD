@@ -89,6 +89,24 @@ java_library(
 )
 
 java_library(
+    name = "registered_execution_platforms_cycle_reporter",
+    srcs = ["RegisteredExecutionPlatformsCycleReporter.java"],
+    deps = [
+        ":registered_execution_platforms_value",
+        ":toolchain_context_key",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/toolchain_type_requirement",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:abstract_label_cycle_reporter",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "registered_execution_platforms_function",
     srcs = ["RegisteredExecutionPlatformsFunction.java"],
     deps = [
