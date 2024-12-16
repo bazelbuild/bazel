@@ -27,42 +27,23 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.lib.worker.WorkerProcessStatus.Status;
-import java.io.IOException;
 import java.time.Instant;
-import java.util.Arrays;
-import java.util.List;
 import java.util.Map.Entry;
-import java.util.function.Supplier;
 import org.apache.commons.pool2.PooledObject;
 import org.apache.commons.pool2.impl.DefaultPooledObject;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameter;
-import org.junit.runners.Parameterized.Parameters;
+import org.junit.runners.JUnit4;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
-@RunWith(Parameterized.class)
+@RunWith(JUnit4.class)
 public final class WorkerLifecycleManagerTest {
 
   @Rule public final MockitoRule mockito = MockitoJUnit.rule();
-
-  private interface WorkerPoolSupplier {
-    WorkerPool get(
-        WorkerFactory factory,
-        List<Entry<String, Integer>> singlexplexMaxInstances,
-        List<Entry<String, Integer>> multiplexMaxInstance);
-  }
-
-  @Parameter(0)
-  public WorkerPoolSupplier workerPoolSupplier;
-
-  @Parameter(1)
-  public Supplier<WorkerFactory> workerFactorySupplier;
 
   @Mock WorkerFactory factoryMock;
 
@@ -78,35 +59,9 @@ public final class WorkerLifecycleManagerTest {
 
   private int workerIds = 1;
 
-  @Parameters
-  public static List<Object[]> data() throws IOException {
-    Supplier<WorkerFactory> workerFactorySupplier =
-        () -> spy(new WorkerFactory(fileSystem.getPath("/outputbase/bazel-workers"), options));
-
-    return Arrays.asList(
-        new Object[][] {
-          {
-            (WorkerPoolSupplier)
-                (factory, singleplexMaxInstances, multiplexMaxInstances) ->
-                    new WorkerPoolImplLegacy(
-                        factory,
-                        new WorkerPoolConfig(singleplexMaxInstances, multiplexMaxInstances)),
-            workerFactorySupplier,
-          },
-          {
-            (WorkerPoolSupplier)
-                (factory, singleplexMaxInstances, multiplexMaxInstances) ->
-                    new WorkerPoolImpl(
-                        factory,
-                        new WorkerPoolConfig(singleplexMaxInstances, multiplexMaxInstances)),
-            workerFactorySupplier,
-          }
-        });
-  }
-
   @Before
   public void setUp() throws Exception {
-    factoryMock = workerFactorySupplier.get();
+    factoryMock = spy(new WorkerFactory(fileSystem.getPath("/outputbase/bazel-workers"), options));
     WorkerOptions options = new WorkerOptions();
     doAnswer(
             args -> {
@@ -153,8 +108,9 @@ public final class WorkerLifecycleManagerTest {
 
   @Test
   public void testEvictWorkers_doNothing_lowMemoryUsage() throws Exception {
-    WorkerPool workerPool =
-        workerPoolSupplier.get(factoryMock, entryList(DUMMY_MNEMONIC, 1), emptyEntryList());
+    WorkerPoolImpl workerPool =
+        new WorkerPoolImpl(
+            factoryMock, new WorkerPoolConfig(entryList(DUMMY_MNEMONIC, 1), emptyEntryList()));
     WorkerKey key = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
     Worker w1 = workerPool.borrowObject(key);
     workerPool.returnObject(key, w1);
@@ -178,8 +134,9 @@ public final class WorkerLifecycleManagerTest {
 
   @Test
   public void testEvictWorkers_doNothing_zeroThreshold() throws Exception {
-    WorkerPool workerPool =
-        workerPoolSupplier.get(factoryMock, entryList(DUMMY_MNEMONIC, 1), emptyEntryList());
+    WorkerPoolImpl workerPool =
+        new WorkerPoolImpl(
+            factoryMock, new WorkerPoolConfig(entryList(DUMMY_MNEMONIC, 1), emptyEntryList()));
     WorkerKey key = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
     Worker w1 = workerPool.borrowObject(key);
     workerPool.returnObject(key, w1);
@@ -204,8 +161,9 @@ public final class WorkerLifecycleManagerTest {
 
   @Test
   public void testEvictWorkers_doNothing_emptyMetrics() throws Exception {
-    WorkerPool workerPool =
-        workerPoolSupplier.get(factoryMock, entryList(DUMMY_MNEMONIC, 1), emptyEntryList());
+    WorkerPoolImpl workerPool =
+        new WorkerPoolImpl(
+            factoryMock, new WorkerPoolConfig(entryList(DUMMY_MNEMONIC, 1), emptyEntryList()));
     WorkerKey key = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
     Worker w1 = workerPool.borrowObject(key);
     workerPool.returnObject(key, w1);
@@ -229,8 +187,9 @@ public final class WorkerLifecycleManagerTest {
 
   @Test
   public void testGetEvictionCandidates_selectOnlyWorker() throws Exception {
-    WorkerPool workerPool =
-        workerPoolSupplier.get(factoryMock, entryList(DUMMY_MNEMONIC, 1), emptyEntryList());
+    WorkerPoolImpl workerPool =
+        new WorkerPoolImpl(
+            factoryMock, new WorkerPoolConfig(entryList(DUMMY_MNEMONIC, 1), emptyEntryList()));
     WorkerKey key = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
     Worker w1 = workerPool.borrowObject(key);
     workerPool.returnObject(key, w1);
@@ -255,8 +214,9 @@ public final class WorkerLifecycleManagerTest {
 
   @Test
   public void testGetEvictionCandidates_evictLargestWorkers() throws Exception {
-    WorkerPool workerPool =
-        workerPoolSupplier.get(factoryMock, entryList(DUMMY_MNEMONIC, 3), emptyEntryList());
+    WorkerPoolImpl workerPool =
+        new WorkerPoolImpl(
+            factoryMock, new WorkerPoolConfig(entryList(DUMMY_MNEMONIC, 3), emptyEntryList()));
     WorkerKey key = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
     Worker w1 = workerPool.borrowObject(key);
     Worker w2 = workerPool.borrowObject(key);
@@ -294,8 +254,9 @@ public final class WorkerLifecycleManagerTest {
   @Test
   public void testGetEvictionCandidates_numberOfWorkersIsMoreThanDefaultNumTests()
       throws Exception {
-    WorkerPool workerPool =
-        workerPoolSupplier.get(factoryMock, entryList(DUMMY_MNEMONIC, 4), emptyEntryList());
+    WorkerPoolImpl workerPool =
+        new WorkerPoolImpl(
+            factoryMock, new WorkerPoolConfig(entryList(DUMMY_MNEMONIC, 4), emptyEntryList()));
     WorkerKey key = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
     Worker w1 = workerPool.borrowObject(key);
     Worker w2 = workerPool.borrowObject(key);
@@ -333,8 +294,9 @@ public final class WorkerLifecycleManagerTest {
   @Test
   public void testGetEvictionCandidates_evictWorkerWithSameMenmonicButDifferentKeys()
       throws Exception {
-    WorkerPool workerPool =
-        workerPoolSupplier.get(factoryMock, entryList(DUMMY_MNEMONIC, 3), emptyEntryList());
+    WorkerPoolImpl workerPool =
+        new WorkerPoolImpl(
+            factoryMock, new WorkerPoolConfig(entryList(DUMMY_MNEMONIC, 3), emptyEntryList()));
     WorkerKey key1 = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
     WorkerKey key2 = createWorkerKey(DUMMY_MNEMONIC, fileSystem, true);
 
@@ -375,9 +337,9 @@ public final class WorkerLifecycleManagerTest {
 
   @Test
   public void testGetEvictionCandidates_evictOnlyIdleWorkers() throws Exception {
-
-    WorkerPool workerPool =
-        workerPoolSupplier.get(factoryMock, entryList(DUMMY_MNEMONIC, 3), emptyEntryList());
+    WorkerPoolImpl workerPool =
+        new WorkerPoolImpl(
+            factoryMock, new WorkerPoolConfig(entryList(DUMMY_MNEMONIC, 3), emptyEntryList()));
     WorkerKey key = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
     Worker w1 = workerPool.borrowObject(key);
     Worker w2 = workerPool.borrowObject(key);
@@ -414,9 +376,10 @@ public final class WorkerLifecycleManagerTest {
 
   @Test
   public void testGetEvictionCandidates_evictDifferentWorkerKeys() throws Exception {
-    WorkerPool workerPool =
-        workerPoolSupplier.get(
-            factoryMock, entryList(DUMMY_MNEMONIC, 2, "smart", 2), emptyEntryList());
+    WorkerPoolImpl workerPool =
+        new WorkerPoolImpl(
+            factoryMock,
+            new WorkerPoolConfig(entryList(DUMMY_MNEMONIC, 2, "smart", 2), emptyEntryList()));
     WorkerKey key1 = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
     WorkerKey key2 = createWorkerKey("smart", fileSystem);
     Worker w1 = workerPool.borrowObject(key1);
@@ -464,8 +427,9 @@ public final class WorkerLifecycleManagerTest {
 
   @Test
   public void testGetEvictionCandidates_testDoomedWorkers() throws Exception {
-    WorkerPool workerPool =
-        workerPoolSupplier.get(factoryMock, entryList(DUMMY_MNEMONIC, 2), emptyEntryList());
+    WorkerPoolImpl workerPool =
+        new WorkerPoolImpl(
+            factoryMock, new WorkerPoolConfig(entryList(DUMMY_MNEMONIC, 2), emptyEntryList()));
     WorkerKey key = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
     Worker w1 = workerPool.borrowObject(key);
     Worker w2 = workerPool.borrowObject(key);
@@ -509,8 +473,9 @@ public final class WorkerLifecycleManagerTest {
 
   @Test
   public void testGetEvictionCandidates_testDoomedAndIdleWorkers() throws Exception {
-    WorkerPool workerPool =
-        workerPoolSupplier.get(factoryMock, entryList(DUMMY_MNEMONIC, 5), emptyEntryList());
+    WorkerPoolImpl workerPool =
+        new WorkerPoolImpl(
+            factoryMock, new WorkerPoolConfig(entryList(DUMMY_MNEMONIC, 5), emptyEntryList()));
     WorkerKey key = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
     Worker w1 = workerPool.borrowObject(key);
     Worker w2 = workerPool.borrowObject(key);
@@ -557,8 +522,9 @@ public final class WorkerLifecycleManagerTest {
 
   @Test
   public void evictWorkers_testMultiplexWorkers() throws Exception {
-    WorkerPool workerPool =
-        workerPoolSupplier.get(factoryMock, emptyEntryList(), entryList(DUMMY_MNEMONIC, 2));
+    WorkerPoolImpl workerPool =
+        new WorkerPoolImpl(
+            factoryMock, new WorkerPoolConfig(emptyEntryList(), entryList(DUMMY_MNEMONIC, 2)));
     WorkerKey key =
         createWorkerKey(DUMMY_MNEMONIC, fileSystem, /* multiplex= */ true, /* sandboxed= */ false);
     Worker w1 = workerPool.borrowObject(key);
@@ -587,8 +553,9 @@ public final class WorkerLifecycleManagerTest {
 
   @Test
   public void evictWorkers_doomMultiplexWorker() throws Exception {
-    WorkerPool workerPool =
-        workerPoolSupplier.get(factoryMock, emptyEntryList(), entryList(DUMMY_MNEMONIC, 2));
+    WorkerPoolImpl workerPool =
+        new WorkerPoolImpl(
+            factoryMock, new WorkerPoolConfig(emptyEntryList(), entryList(DUMMY_MNEMONIC, 2)));
     WorkerKey key =
         createWorkerKey(DUMMY_MNEMONIC, fileSystem, /* multiplex= */ true, /* sandboxed= */ false);
     Worker w1 = workerPool.borrowObject(key);

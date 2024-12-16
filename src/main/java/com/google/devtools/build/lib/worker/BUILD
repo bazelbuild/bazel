@@ -235,7 +235,6 @@ java_library(
     srcs = [
         "SimpleWorkerPool.java",
         "WorkerPoolImpl.java",
-        "WorkerPoolImplLegacy.java",
     ],
     deps = [
         ":worker",

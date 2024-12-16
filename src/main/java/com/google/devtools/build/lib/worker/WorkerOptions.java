@@ -40,7 +40,7 @@ public class WorkerOptions extends OptionsBase {
    * Defines a resource converter for named values in the form [name=]value, where the value is
    * {@link ResourceConverter.FLAG_SYNTAX}. If no name is provided (used when setting a default),
    * the empty string is used as the key. The default value for unspecified mnemonics is defined in
-   * {@link WorkerPoolImplLegacy.createWorkerPools}. "auto" currently returns the default.
+   * {@link WorkerPoolImpl.createPool}. "auto" currently returns the default.
    */
   public static class MultiResourceConverter extends Converter.Contextless<Entry<String, Integer>> {
 

@@ -33,31 +33,19 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.lib.worker.WorkerProcessStatus.Status;
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.List;
-import java.util.function.Supplier;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameter;
-import org.junit.runners.Parameterized.Parameters;
+import org.junit.runners.JUnit4;
 
 /** Tests WorkerPool. */
-@RunWith(Parameterized.class)
+@RunWith(JUnit4.class)
 public class WorkerPoolTest {
 
   public static final FileSystem fileSystem =
       new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.SHA256);
 
   private int workerIds = 1;
-
-  @Parameter(0)
-  public WorkerPoolSupplier workerPoolSupplier;
-
-  @Parameter(1)
-  public Supplier<WorkerFactory> workerFactorySupplier;
 
   private WorkerPool workerPool;
   private WorkerFactory factoryMock;
@@ -71,48 +59,16 @@ public class WorkerPoolTest {
     }
   }
 
-  private interface WorkerPoolSupplier {
-    WorkerPool get(WorkerFactory factory);
-  }
-
-  @Parameters
-  public static List<Object[]> data() throws IOException {
-    Supplier<WorkerFactory> workerFactorySupplier =
-        () -> spy(new WorkerFactory(fileSystem.getPath("/outputbase/bazel-workers"), options));
-
-    return Arrays.asList(
-        new Object[][] {
-          {
-            (WorkerPoolSupplier)
-                (factory) ->
-                    new WorkerPoolImplLegacy(
-                        factory,
-                        new WorkerPoolConfig(
-                            /* workerMaxInstances= */ ImmutableList.of(
-                                Maps.immutableEntry("mnem", 2), Maps.immutableEntry("", 1)),
-                            /* workerMaxMultiplexInstances= */ ImmutableList.of(
-                                Maps.immutableEntry("mnem", 2), Maps.immutableEntry("", 1)))),
-            workerFactorySupplier,
-          },
-          {
-            (WorkerPoolSupplier)
-                (factory) ->
-                    new WorkerPoolImpl(
-                        factory,
-                        new WorkerPoolConfig(
-                            /* workerMaxInstances= */ ImmutableList.of(
-                                Maps.immutableEntry("mnem", 2)),
-                            /* workerMaxMultiplexInstances= */ ImmutableList.of(
-                                Maps.immutableEntry("mnem", 2)))),
-            workerFactorySupplier,
-          }
-        });
-  }
-
   @Before
   public void setUp() throws Exception {
-    factoryMock = workerFactorySupplier.get();
-    workerPool = workerPoolSupplier.get(factoryMock);
+    factoryMock = spy(new WorkerFactory(fileSystem.getPath("/outputbase/bazel-workers"), options));
+    workerPool =
+        new WorkerPoolImpl(
+            factoryMock,
+            new WorkerPoolConfig(
+                /* workerMaxInstances= */ ImmutableList.of(Maps.immutableEntry("mnem", 2)),
+                /* workerMaxMultiplexInstances= */ ImmutableList.of(
+                    Maps.immutableEntry("mnem", 2))));
     doAnswer(
             arg ->
                 new TestWorker(
@@ -289,8 +245,6 @@ public class WorkerPoolTest {
 
   @Test
   public void testBorrow_blockedThread_remainsBlockedWhenInvalidatedAndShrunk() throws Exception {
-    // This is meant solely for WorkerPoolImpl; WorkerPoolImplLegacy will block only after some
-    // time because GenericKeyedObjectPool only implements some
     assumeTrue(workerPool instanceof WorkerPoolImpl);
     WorkerKey workerKey = createWorkerKey(fileSystem, "mnem", false);
     Worker worker1 = workerPool.borrowObject(workerKey);
