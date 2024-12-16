@@ -143,6 +143,7 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
     }
 
     PlatformInfo targetPlatform = platforms.get(targetPlatformKey);
+    debugPrinter.startToolchainResolution(toolchainType.toolchainType(), targetPlatform.label());
 
     // Platforms may exist multiple times in availableExecutionPlatformKeys. The Set lets this code
     // check whether a platform has already been seen during processing.
@@ -157,8 +158,6 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
                 toolchain ->
                     toolchain.toolchainType().typeLabel().equals(toolchainType.toolchainType()))
             .collect(toImmutableList());
-
-    debugPrinter.startToolchainResolution(toolchainType.toolchainType(), targetPlatform.label());
 
     for (DeclaredToolchainInfo toolchain : filteredToolchains) {
       // Make sure the target platform matches.
