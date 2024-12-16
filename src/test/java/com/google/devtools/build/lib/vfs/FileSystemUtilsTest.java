@@ -407,7 +407,7 @@ public class FileSystemUtilsTest {
   }
 
   @Test
-  public void testReadContentWithLimit() throws IOException {
+  public void testReadContentWithKnownSize() throws IOException {
     createTestDirectoryTree();
     String str = "this is a test of readContentWithLimit method";
     FileSystemUtils.writeContent(file1, StandardCharsets.ISO_8859_1, str);
@@ -419,6 +419,21 @@ public class FileSystemUtilsTest {
   private String readStringFromFile(Path file, int limit) throws IOException {
     byte[] bytes = FileSystemUtils.readContentWithLimit(file, limit);
     return new String(bytes, StandardCharsets.ISO_8859_1);
+  }
+
+  @Test
+  public void testReadWithKnownFileSize() throws IOException {
+    createTestDirectoryTree();
+    String str = "this is a test of readContentWithLimit method";
+    FileSystemUtils.writeContent(file1, StandardCharsets.ISO_8859_1, str);
+
+    assertThat(FileSystemUtils.readWithKnownFileSize(file1, str.length())).hasLength(str.length());
+    assertThrows(
+        FileSystemUtils.LongReadIOException.class,
+        () -> FileSystemUtils.readWithKnownFileSize(file1, str.length() - 1));
+    assertThrows(
+        FileSystemUtils.ShortReadIOException.class,
+        () -> FileSystemUtils.readWithKnownFileSize(file1, str.length() + 1));
   }
 
   @Test

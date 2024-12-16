@@ -844,16 +844,37 @@ public class FileSystemUtils {
   }
 
   /**
-   * Reads at most {@code limit} bytes from {@code inputFile} and returns it as a byte array.
+   * Reads at most {@code limit} bytes from {@code inputFile} and returns them as a byte array.
    *
    * @throws IOException if there was an error.
    */
   public static byte[] readContentWithLimit(Path inputFile, int limit) throws IOException {
+    return readContentWithLimit(inputFile, limit, /* expectEOF= */ false);
+  }
+
+  /**
+   * Reads at most {@code limit} bytes from {@code inputFile} and returns them as a byte array.
+   *
+   * @throws IOException if there was an error or if the file is longer than {@code limit} bytes.
+   */
+  private static byte[] readContentWithLimitExpectingEOF(Path inputFile, int limit)
+      throws IOException {
+    return readContentWithLimit(inputFile, limit, /* expectEOF= */ true);
+  }
+
+  private static byte[] readContentWithLimit(Path inputFile, int limit, boolean expectEOF)
+      throws IOException {
     Preconditions.checkArgument(limit >= 0, "limit needs to be >=0, but it is %s", limit);
     ByteSource byteSource = asByteSource(inputFile);
     byte[] buffer = new byte[limit];
     try (InputStream inputStream = byteSource.openBufferedStream()) {
       int read = ByteStreams.read(inputStream, buffer, 0, limit);
+      if (expectEOF) {
+        int eof = inputStream.read();
+        if (eof != -1) {
+          throw new LongReadIOException(inputFile, limit);
+        }
+      }
       return read == limit ? buffer : Arrays.copyOf(buffer, read);
     }
   }
@@ -877,11 +898,27 @@ public class FileSystemUtils {
   }
 
   /**
+   * The type of {@link IOException} thrown by {@link #readContentWithLimitExpectingEOF} when more
+   * bytes than expected could be read.
+   */
+  public static class LongReadIOException extends IOException {
+    public final Path path;
+    public final int fileSize;
+
+    private LongReadIOException(Path path, int fileSize) {
+      super("File '" + path + "' is unexpectedly longer than " + fileSize + " bytes)");
+      this.path = path;
+      this.fileSize = fileSize;
+    }
+  }
+
+  /**
    * Reads the given file {@code path}, assumed to have size {@code fileSize}, and does a check on
    * the number of bytes read.
    *
    * <p>Use this method when you already know the size of the file. The check is intended to catch
-   * issues where filesystems incorrectly truncate files.
+   * issues where filesystems or external interference results in truncated or concurrently modified
+   * files.
    *
    * @throws IOException if there was an error, or if fewer than {@code fileSize} bytes were read.
    */
@@ -890,7 +927,7 @@ public class FileSystemUtils {
       throw new IOException("Cannot read file with size larger than 2GB");
     }
     int fileSizeInt = (int) fileSize;
-    byte[] bytes = readContentWithLimit(path, fileSizeInt);
+    byte[] bytes = readContentWithLimitExpectingEOF(path, fileSizeInt);
     if (fileSizeInt > bytes.length) {
       throw new ShortReadIOException(path, fileSizeInt, bytes.length);
     }
