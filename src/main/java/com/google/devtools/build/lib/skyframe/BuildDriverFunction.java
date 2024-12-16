@@ -110,10 +110,8 @@ public class BuildDriverFunction implements SkyFunction {
   // de-duplicate at the source to avoid repeated work by each subscriber.
   //
   // Each top level key has at most 1 effective status event, e.g. a top level target can't be
-  // analyzed twice in a build, except
-  // TopLevelStatusEvents.Type.TOP_LEVEL_TARGET_READY_FOR_SYMLINK_PLANTING, which is sent once per
-  // aspect. Therefore, to keep track of the posted events for which we want to avoid duplicated, we
-  // only need to keep the sent event types instead of the events themselves.
+  // analyzed twice in a build. Therefore, to keep track of the posted events, we only need to keep
+  // the sent event types instead of the events themselves.
   //
   // We didn't use SkyKeyComputeState since it should only be used as a performance optimization,
   // whereas in this situation the state determines the behavior of the SkyFunction.
@@ -326,6 +324,7 @@ public class BuildDriverFunction implements SkyFunction {
       ImmutableSet.Builder<Artifact> artifactsToBuild = ImmutableSet.builder();
       List<SkyKey> aspectCompletionKeys = new ArrayList<>();
 
+      // Do not trigger Skyframe restarts in this loop (see comments below).
       for (Map.Entry<AspectKey, AspectValue> entry :
           ((TopLevelAspectsValue) topLevelSkyValue).getTopLevelAspectsMap().entrySet()) {
         AspectKey aspectKey = entry.getKey();
@@ -341,15 +340,20 @@ public class BuildDriverFunction implements SkyFunction {
         NestedSet<Package> transitivePackagesForSymlinkPlanting =
             aspectValue.getTransitivePackages();
         if (transitivePackagesForSymlinkPlanting != null) {
-          // Don't deduplicate this event per BuildDriverKey as the transitive packages can differ
-          // per aspect. Deduplication is best-effort as symlink planting is idempotent.
-          env.getListener()
-              .post(
-                  TopLevelTargetReadyForSymlinkPlanting.create(
-                      transitivePackagesForSymlinkPlanting));
+          // This event should be sent out exactly once per aspect in this BuildDriverKey, even with
+          // resets. We achieve this by marking the event type as sent only after sending the event
+          // for all aspects, but must avoid triggering Skyframe restarts while doing so.
+          if (!postedEventsTypes.contains(
+              TopLevelStatusEvents.Type.TOP_LEVEL_TARGET_READY_FOR_SYMLINK_PLANTING)) {
+            env.getListener()
+                .post(
+                    TopLevelTargetReadyForSymlinkPlanting.create(
+                        transitivePackagesForSymlinkPlanting));
+          }
         }
         aspectCompletionKeys.add(AspectCompletionKey.create(aspectKey, topLevelArtifactContext));
       }
+      postedEventsTypes.add(TopLevelStatusEvents.Type.TOP_LEVEL_TARGET_READY_FOR_SYMLINK_PLANTING);
 
       if (!additionalPostAnalysisDepsRequestedAndAvailable.request(env, actionLookupKey)) {
         return null;
