@@ -28,8 +28,9 @@ class PyTest(test_base.TestBase):
         'a/BUILD',
         [
             'py_binary(name="a", srcs=["a.py"], deps=[":b"])',
-            'py_library(name="b", srcs=["b.py"])',
-        ])
+            'py_library(name="b", srcs=["b.py"], imports=["."])',
+        ],
+    )
 
     self.ScratchFile(
         'a/a.py',
