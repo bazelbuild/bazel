@@ -400,7 +400,7 @@ class BazelOverridesTest(test_base.TestBase):
             'bazel_dep(name = "ss", version = "1.0")',
             'local_path_override(',
             '  module_name = "ss",',
-            '  path = "%s",' % self.Path('aa'),
+            '  path = "%s",' % self.Path('aa').replace('\\', '/'),
             ')',
         ],
     )
