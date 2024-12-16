@@ -52,7 +52,7 @@ public class CpuTest {
 
   @Test
   public void setCpuLimit_v2() throws IOException {
-    File limit = scratch.file("cgroup/cpu/cpu.max", "-1 100000").getPathFile();
+    File limit = scratch.file("cgroup/cpu/cpu.max", "-1 100000\n").getPathFile();
     Cpu cpu = new UnifiedCpu(scratch.path("cgroup/cpu").getPathFile().toPath());
     cpu.setCpus(5);
     assertThat(Files.asCharSource(limit, UTF_8).read()).isEqualTo("500000 100000");
@@ -60,8 +60,10 @@ public class CpuTest {
 
   @Test
   public void getCpuLimit_v2() throws IOException {
-    scratch.file("cgroup/cpu/cpu.max", "6000 1000");
+    scratch.file("cgroup/cpu/cpu.max", "6000 1000\n");
     Cpu memory = new UnifiedCpu(scratch.path("cgroup/cpu").getPathFile().toPath());
     assertThat(memory.getCpus()).isEqualTo(6);
+    scratch.file("cgroup/cpu/cpu.max", "max 1000\n");
+    assertThat(memory.getCpus()).isEqualTo(Runtime.getRuntime().availableProcessors());
   }
 }
