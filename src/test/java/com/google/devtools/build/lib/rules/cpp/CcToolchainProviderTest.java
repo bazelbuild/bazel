@@ -338,7 +338,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         break;
       }
     }
-    assertThat(gcovPath).isEmpty();
+    assertThat(gcovPath).isNull();
   }
 
   @Test
@@ -471,10 +471,8 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
       }
     }
 
-    assertThat(llvmCov).isNotNull();
-    assertThat(llvmCov).isEmpty();
-    assertThat(llvmProfdata).isNotNull();
-    assertThat(llvmProfdata).isEmpty();
+    assertThat(llvmCov).isNull();
+    assertThat(llvmProfdata).isNull();
   }
 
   @Test
