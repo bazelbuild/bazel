@@ -142,7 +142,9 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
     write(
         "hello/PROJECT.scl",
         """
-        active_directories = { "default": [ "hello", "somewhere/else", "not/used" ] }
+        project = {
+          "active_directories": { "default": [ "hello", "somewhere/else", "not/used" ] },
+        }
         """);
 
     write("somewhere/else/file.txt", "some content");
@@ -186,13 +188,13 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
             cmd = "cat $(SRCS) > $@",
         )
         """);
-
     write(
         "hello/PROJECT.scl",
         """
-        active_directories = {"default": ["somewhere/else"] }
+        project = {
+          "active_directories": { "default": ["somewhere/else"] },
+        }
         """);
-
     write("somewhere/else/file.txt", "some content");
     write(
         "somewhere/else/BUILD",
@@ -227,13 +229,15 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
     write(
         "hello/PROJECT.scl",
         """
-        active_directories = {
-          "default": [
-            "hello", # included
-            "-hello/world", # excluded
-            "hello/world/again", # included
-            "-somewhere/else", # excluded
-          ],
+        project = {
+          "active_directories": {
+            "default": [
+              "hello", # included
+              "-hello/world", # excluded
+              "hello/world/again", # included
+              "-somewhere/else", # excluded
+            ],
+          },
         }
         """);
 

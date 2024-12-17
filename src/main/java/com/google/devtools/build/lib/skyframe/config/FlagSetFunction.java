@@ -132,11 +132,7 @@ public final class FlagSetFunction implements SkyFunction {
       ImmutableMap<String, String> userOptions)
       throws FlagSetFunctionException {
     EnforcementPolicy enforcementPolicy = EnforcementPolicy.WARN;
-    Object enforcementPolicyRaw =
-        sclContent.getProject().isEmpty()
-            ? sclContent.getResidualGlobal(ENFORCEMENT_POLICY)
-            : sclContent.getProject().get(ENFORCEMENT_POLICY);
-
+    Object enforcementPolicyRaw = sclContent.getProject().get(ENFORCEMENT_POLICY);
     if (enforcementPolicyRaw != null) {
       try {
         enforcementPolicy = EnforcementPolicy.fromString(enforcementPolicyRaw.toString());
@@ -146,10 +142,7 @@ public final class FlagSetFunction implements SkyFunction {
             Transience.PERSISTENT);
       }
     }
-    var unTypeCheckedConfigs =
-        sclContent.getProject().isEmpty()
-            ? sclContent.getResidualGlobal(CONFIGS)
-            : sclContent.getProject().get(CONFIGS);
+    var unTypeCheckedConfigs = sclContent.getProject().get(CONFIGS);
     // This project file doesn't define configs, so it must not be used for canonical configs.
     if (unTypeCheckedConfigs == null) {
       return ImmutableList.of();
@@ -183,10 +176,7 @@ public final class FlagSetFunction implements SkyFunction {
     Collection<String> sclConfigValue = null;
     if (sclConfigName.isEmpty()) {
       // If there's no --scl_config, try to use the default_config.
-      var defaultConfigNameRaw =
-          sclContent.getProject().isEmpty()
-              ? sclContent.getResidualGlobal(DEFAULT_CONFIG)
-              : sclContent.getProject().get(DEFAULT_CONFIG);
+      var defaultConfigNameRaw = sclContent.getProject().get(DEFAULT_CONFIG);
       try {
         if (defaultConfigNameRaw != null && !(defaultConfigNameRaw instanceof String)) {
           throw new FlagSetFunctionException(

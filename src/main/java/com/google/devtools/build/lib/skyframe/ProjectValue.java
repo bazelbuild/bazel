@@ -22,7 +22,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Collection;
 import java.util.Objects;
-import javax.annotation.Nullable;
 
 /** A SkyValue representing the parsed definitions from a PROJECT.scl file. */
 public final class ProjectValue implements SkyValue {
@@ -32,33 +31,13 @@ public final class ProjectValue implements SkyValue {
 
   private final ImmutableMap<String, Collection<String>> activeDirectories;
 
-  private final ImmutableMap<String, Object> residualGlobals;
-
   public ProjectValue(
       Label actualProjectFile,
       ImmutableMap<String, Object> project,
-      ImmutableMap<String, Collection<String>> activeDirectories,
-      ImmutableMap<String, Object> residualGlobals) {
+      ImmutableMap<String, Collection<String>> activeDirectories) {
     this.actualProjectFile = actualProjectFile;
     this.project = project;
     this.activeDirectories = activeDirectories;
-    this.residualGlobals = residualGlobals;
-  }
-
-  /**
-   * Returns the residual global referenced by the {@code key} found in the PROJECT file.
-   *
-   * <p>This returns null for non-existent keys and reserved globals. Use the dedicated getters to
-   * access the reserved globals. See {@code ProjectFunction.ReservedGlobals} for the list.
-   */
-  @Nullable
-  public Object getResidualGlobal(String key) {
-    return residualGlobals.get(key);
-  }
-
-  @Nullable
-  public Object getResidualGlobals() {
-    return residualGlobals;
   }
 
   /**

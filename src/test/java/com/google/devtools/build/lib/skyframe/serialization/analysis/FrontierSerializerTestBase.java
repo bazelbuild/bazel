@@ -105,8 +105,10 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
     write(
         "foo/PROJECT.scl",
         """
-        active_directories = {"default": ["foo"] }
-        """);
+project = {
+  "active_directories": { "default": ["foo"] },
+}
+""");
     addOptions("--experimental_remote_analysis_cache_mode=upload");
     buildTarget("//foo:empty");
   }
@@ -121,8 +123,10 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
     write(
         "foo/PROJECT.scl",
         """
-        active_directories = {"default": ["foo"] }
-        """);
+project = {
+  "active_directories": { "default": ["foo"] },
+}
+""");
 
     write(
         "bar/BUILD",
@@ -132,8 +136,10 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
     write(
         "bar/PROJECT.scl",
         """
-        active_directories = {"default": ["bar"] }
-        """);
+project = {
+  "active_directories": { "default": ["bar"] },
+}
+""");
 
     addOptions("--experimental_remote_analysis_cache_mode=upload");
     LoadingFailedException exception =
@@ -161,8 +167,10 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
     write(
         "foo/PROJECT.scl",
         """
-        active_directories = {"default": ["foo"] }
-        """);
+project = {
+  "active_directories": { "default": ["foo"] },
+}
+""");
 
     addOptions("--experimental_remote_analysis_cache_mode=upload");
     buildTarget("//foo:empty", "//foo/bar:empty");
@@ -240,8 +248,10 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
     write(
         "foo/PROJECT.scl",
         """
-        active_directories = {"default": ["foo"] }
-        """);
+project = {
+  "active_directories": { "default": ["foo"] },
+}
+""");
     write(
         "foo/BUILD",
         """
@@ -370,7 +380,9 @@ file_count_aspect = aspect(
     write(
         "bar/PROJECT.scl",
         """
-active_directories = {"default": ["foo"] }
+project = {
+  "active_directories": { "default": ["foo"] },
+}
 """);
 
     write(
@@ -423,7 +435,9 @@ genrule(
     write(
         "foo/PROJECT.scl",
         """
-active_directories = { "default": ["foo"] }
+project = {
+  "active_directories": { "default": ["foo"] },
+}
 """);
     // Cache-writing build.
     upload("//foo:A");
@@ -453,7 +467,9 @@ active_directories = { "default": ["foo"] }
     write(
         "foo/PROJECT.scl",
         """
-active_directories = { "default": ["foo"] }
+project = {
+  "active_directories": { "default": ["foo"] },
+}
 """);
 
     // Cache-writing build.
@@ -505,7 +521,9 @@ active_directories = { "default": ["foo"] }
     write(
         "foo/PROJECT.scl",
         """
-active_directories = { "default": ["foo"] }
+project = {
+  "active_directories": { "default": ["foo"] },
+}
 """);
 
     upload("//foo:A");
@@ -545,7 +563,9 @@ filegroup(name = "G")                                # unchanged.
     write(
         "foo/PROJECT.scl",
         """
-active_directories = { "default": ["foo"] }
+project = {
+  "active_directories": { "default": ["foo"] },
+}
 """);
     // Cache-writing build.
     upload("//foo:D");
@@ -593,7 +613,9 @@ active_directories = { "default": ["foo"] }
     write(
         "foo/PROJECT.scl",
         """
-active_directories = { "default": ["foo"] }
+project = {
+  "active_directories": { "default": ["foo"] },
+}
 """);
     addOptions("--experimental_remote_analysis_cache_mode=upload");
     runtimeWrapper.newCommand(CqueryCommand.class);
@@ -611,7 +633,9 @@ active_directories = { "default": ["foo"] }
     write(
         "mytest/PROJECT.scl",
         """
-active_directories = { "default": ["mytest"] }
+project = {
+  "active_directories": { "default": ["mytest"] },
+}
 """);
     write("mytest/mytest.sh", "exit 0").setExecutable(true);
     write(
@@ -663,7 +687,9 @@ active_directories = { "default": ["mytest"] }
     write(
         "foo/PROJECT.scl",
         """
-active_directories = { "default": ["foo"] }
+project = {
+  "active_directories": { "default": ["foo"] },
+}
 """);
     RecordingOutErr outErr = new RecordingOutErr();
     this.outErr = outErr;

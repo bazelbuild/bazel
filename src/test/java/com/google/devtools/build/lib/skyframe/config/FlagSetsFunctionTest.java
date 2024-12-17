@@ -80,8 +80,10 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     scratch.file(
         "test/PROJECT.scl",
         """
-        configs = {
-          "test_config": ['--platforms=//buildenv/platforms/android:x86'],
+        project = {
+          "configs": {
+            "test_config": ['--platforms=//buildenv/platforms/android:x86'],
+          }
         }
         """);
     scratch.file("test/BUILD");
@@ -113,8 +115,10 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     scratch.file(
         "test/PROJECT.scl",
         """
-        configs = {
-          "test_config": ['--platforms=//buildenv/platforms/android:x86'],
+        project = {
+          "configs": {
+            "test_config": ['--platforms=//buildenv/platforms/android:x86'],
+          },
         }
         """);
     scratch.file("test/BUILD");
@@ -164,10 +168,12 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     scratch.file(
         "test/PROJECT.scl",
         """
-        configs = {
-          "test_config": ['--platforms=//buildenv/platforms/android:x86'],
+        project = {
+          "configs": {
+            "test_config": ['--platforms=//buildenv/platforms/android:x86'],
+          },
+          "enforcement_policy": "INVALID",
         }
-        enforcement_policy = "INVALID"
         """);
     scratch.file("test/BUILD");
     setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
@@ -212,7 +218,15 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
 
   @Test
   public void noEnforceCanonicalConfigs_sclConfigWarns() throws Exception {
-    scratch.file("test/PROJECT.scl", "configs = {'test_config': ['--define=bar=bar']}");
+    scratch.file(
+        "test/PROJECT.scl",
+        """
+        project = {
+          "configs": {
+            "test_config": ["--define=bar=bar"],
+          }
+        }
+        """);
     scratch.file("test/BUILD");
     BuildOptions buildOptions =
         BuildOptions.getDefaultBuildOptionsForFragments(
@@ -259,11 +273,13 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     scratch.file(
         "test/PROJECT.scl",
         """
-        configs = {
-          "test_config": ['--//test:myflag=test_config_value'],
-          "other_config": ['--//test:myflag=other_config_value'],
+        project = {
+          "configs": {
+            "test_config": ['--//test:myflag=test_config_value'],
+            "other_config": ['--//test:myflag=other_config_value'],
+          },
+          "default_config": "test_config",
         }
-        default_config = "test_config"
         """);
     BuildOptions buildOptions =
         BuildOptions.getDefaultBuildOptionsForFragments(
@@ -310,11 +326,13 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     scratch.file(
         "test/PROJECT.scl",
         """
-        configs = {
-          "test_config": ['--//test:myflag=test_config_value'],
-          "other_config": ['--//test:myflag=other_config_value'],
+        project = {
+          "configs": {
+            "test_config": ['--//test:myflag=test_config_value'],
+            "other_config": ['--//test:myflag=other_config_value'],
+          },
+          "enforcement_policy": "strict",
         }
-        enforcement_policy = "strict"
         """);
     setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
     BuildOptions buildOptions = createBuildOptions("--define=foo=bar");
@@ -350,11 +368,13 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     scratch.file(
         "test/PROJECT.scl",
         """
-        configs = {
-          "test_config": ['--//test:myflag=test_config_value'],
-          "other_config": ['--//test:myflag=other_config_value'],
+        project = {
+          "configs": {
+            "test_config": ['--//test:myflag=test_config_value'],
+            "other_config": ['--//test:myflag=other_config_value'],
+          },
+          "enforcement_policy": "warn",
         }
-        enforcement_policy = "warn"
         """);
     setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
     BuildOptions buildOptions = createBuildOptions("--define=foo=bar");
@@ -392,11 +412,13 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     scratch.file(
         "test/PROJECT.scl",
         """
-        configs = {
-          "test_config": ['--//test:myflag=test_config_value'],
-          "other_config": ['--//test:myflag=other_config_value'],
+        project = {
+          "configs": {
+            "test_config": ['--//test:myflag=test_config_value'],
+            "other_config": ['--//test:myflag=other_config_value'],
+          },
+          "enforcement_policy": "compatible",
         }
-        enforcement_policy = "compatible"
         """);
     setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
     BuildOptions buildOptions = createBuildOptions("--define=foo=bar");
@@ -438,10 +460,12 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     scratch.file(
         "test/PROJECT.scl",
         """
-configs = {
-  "test_config": ['--//test:myflag=test_config_value', '--//test:other_flag=test_config_value'],
+project = {
+  "configs": {
+    "test_config": ['--//test:myflag=test_config_value', '--//test:other_flag=test_config_value'],
+  },
+  "enforcement_policy": "compatible",
 }
-enforcement_policy = "compatible"
 """);
     setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
     BuildOptions buildOptions =
@@ -467,7 +491,9 @@ enforcement_policy = "compatible"
     scratch.file(
         "test/PROJECT.scl",
         """
-        configs = 1
+        project = {
+          "configs": 1,
+        }
         """);
     setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
     BuildOptions buildOptions = createBuildOptions("--define=foo=bar");
@@ -492,8 +518,10 @@ enforcement_policy = "compatible"
     scratch.file(
         "test/PROJECT.scl",
         """
-        configs = {
-          123: ["--compilation_mode=opt"],
+        project = {
+          "configs": {
+            123: ["--compilation_mode=opt"],
+          },
         }
         """);
     setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
@@ -519,8 +547,10 @@ enforcement_policy = "compatible"
     scratch.file(
         "test/PROJECT.scl",
         """
-        configs = {
-          "test_config": 123,
+        project = {
+          "configs": {
+            "test_config": 123,
+          },
         }
         """);
     setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
@@ -559,11 +589,13 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     scratch.file(
         "test/PROJECT.scl",
         """
-        configs = {
-          "test_config": ['--//test:myflag=test_config_value'],
-          "other_config": ['--//test:myflag=other_config_value'],
+        project = {
+          "configs": {
+            "test_config": ['--//test:myflag=test_config_value'],
+            "other_config": ['--//test:myflag=other_config_value'],
+          },
+          "enforcement_policy": "strict",
         }
-        enforcement_policy = "strict"
         """);
     setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
 
@@ -599,10 +631,12 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     scratch.file(
         "test/PROJECT.scl",
         """
-        configs = {
-          "test_config": ['--//test:myflag=test_config_value'],
+        project = {
+          "configs": {
+            "test_config": ['--//test:myflag=test_config_value'],
+          },
+          "enforcement_policy": "strict",
         }
-        enforcement_policy = "strict"
         """);
     setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
     BuildOptions buildOptions = createBuildOptions("--//test:myflag=other_value");
@@ -638,8 +672,10 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     scratch.file(
         "test/PROJECT.scl",
         """
-        configs = {
-          "test_config": ['--//test:myflag=test_config_value'],
+        project = {
+          "configs": {
+            "test_config": ['--//test:myflag=test_config_value'],
+          },
         }
         """);
     setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
@@ -680,11 +716,13 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     scratch.file(
         "test/PROJECT.scl",
         """
-        configs = {
-          "test_config": ['--//test:myflag=test_config_value'],
-          "other_config": ['--//test:myflag=other_config_value'],
+        project = {
+          "configs": {
+            "test_config": ['--//test:myflag=test_config_value'],
+            "other_config": ['--//test:myflag=other_config_value'],
+          },
+          "enforcement_policy": "strict",
         }
-        enforcement_policy = "strict"
         """);
     setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
     BuildOptions buildOptions =
@@ -728,12 +766,14 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     scratch.file(
         "test/PROJECT.scl",
         """
-        configs = {
-          "test_config": ['--//test:myflag=test_config_value'],
-          "other_config": ['--//test:myflag=other_config_value'],
-        }
-        supported_configs = {
-          "test_config": "User documentation for what this config means",
+        project = {
+          "configs": {
+            "test_config": ['--//test:myflag=test_config_value'],
+            "other_config": ['--//test:myflag=other_config_value'],
+          },
+          "supported_configs": {
+            "test_config": "User documentation for what this config means",
+          },
         }
         """);
     setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
@@ -772,9 +812,11 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     scratch.file(
         "test/PROJECT.scl",
         """
-        configs = {
-          "test_config": ['--//test:myflag=test_config_value'],
-          "other_config": ['--//test:myflag=other_config_value'],
+        project = {
+          "configs": {
+            "test_config": ['--//test:myflag=test_config_value'],
+            "other_config": ['--//test:myflag=other_config_value'],
+          },
         }
         """);
     setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
@@ -798,8 +840,10 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     scratch.file(
         "test/PROJECT.scl",
         """
-        configs = {
-          "test_config": ['--//test:myflag=test_config_value'],
+        project = {
+          "configs": {
+            "test_config": ['--//test:myflag=test_config_value'],
+          },
         }
         """);
     BuildOptions buildOptions =
@@ -827,9 +871,11 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     scratch.file(
         "test/PROJECT.scl",
         """
-        configs = {
-          "test_config": ['--//test:myflag=test_config_value'],
-          "other_config": ['--//test:myflag=other_config_value'],
+        project = {
+          "configs": {
+            "test_config": ['--//test:myflag=test_config_value'],
+            "other_config": ['--//test:myflag=other_config_value'],
+          },
         }
         """);
     BuildOptions buildOptions =
@@ -858,11 +904,13 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     scratch.file(
         "test/PROJECT.scl",
         """
-        configs = {
-          "test_config": ['--//test:myflag=test_config_value'],
-          "other_config": ['--//test:myflag=other_config_value'],
+        project = {
+          "configs": {
+            "test_config": ['--//test:myflag=test_config_value'],
+            "other_config": ['--//test:myflag=other_config_value'],
+          },
+            "default_config": "nonexistent_config",
         }
-        default_config = "nonexistent_config"
         """);
     BuildOptions buildOptions =
         BuildOptions.getDefaultBuildOptionsForFragments(
@@ -891,11 +939,13 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     scratch.file(
         "test/PROJECT.scl",
         """
-        configs = {
-          "test_config": ['--//test:myflag=test_config_value'],
-          "other_config": ['--//test:myflag=other_config_value'],
+        project = {
+          "configs": {
+            "test_config": ['--//test:myflag=test_config_value'],
+            "other_config": ['--//test:myflag=other_config_value'],
+          },
+          "default_config": ["test_config"],
         }
-        default_config = ["test_config"]
         """);
     BuildOptions buildOptions =
         BuildOptions.getDefaultBuildOptionsForFragments(
@@ -922,10 +972,12 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     scratch.file(
         "test/PROJECT.scl",
         """
-        configs = {
-          "test_config": ['--//test:myflag=test_config_value'],
+        project = {
+          "configs": {
+            "test_config": ['--//test:myflag=test_config_value'],
+          },
+          "default_config": "test_config",
         }
-        default_config = "test_config"
         """);
     BuildOptions buildOptions =
         BuildOptions.getDefaultBuildOptionsForFragments(
@@ -995,9 +1047,11 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     scratch.file(
         "test/PROJECT.scl",
         """
-        configs = {
-          "debug": ['--//test:myflag=debug_value'],
-          "release": ['--//test:myflag=debug_value'],
+        project = {
+          "configs": {
+            "debug": ['--//test:myflag=debug_value'],
+            "release": ['--//test:myflag=debug_value'],
+          },
         }
         """);
     BuildOptions buildOptions =

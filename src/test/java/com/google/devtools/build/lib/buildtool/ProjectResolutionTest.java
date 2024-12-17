@@ -48,7 +48,7 @@ public class ProjectResolutionTest extends BuildViewTestCase {
   @Test
   public void buildWithOneProjectFile() throws Exception {
     scratch.file("pkg/BUILD", "genrule(name='f', cmd = '', srcs=[], outs=['a.out'])");
-    scratch.file("pkg/" + PROJECT_FILE_NAME);
+    scratch.file("pkg/" + PROJECT_FILE_NAME, "project = {}");
 
     assertThat(
             Project.getProjectFile(
@@ -60,8 +60,8 @@ public class ProjectResolutionTest extends BuildViewTestCase {
   public void buildWithTwoProjectFiles() throws Exception {
     scratch.file("foo/bar/BUILD", "genrule(name='f', cmd = '', srcs=[], outs=['a.out'])");
     scratch.file("foo/BUILD");
-    scratch.file("foo/" + PROJECT_FILE_NAME);
-    scratch.file("foo/bar/" + PROJECT_FILE_NAME);
+    scratch.file("foo/" + PROJECT_FILE_NAME, "project = {}");
+    scratch.file("foo/bar/" + PROJECT_FILE_NAME, "project = {}");
 
     assertThat(
             Project.getProjectFile(
@@ -75,7 +75,7 @@ public class ProjectResolutionTest extends BuildViewTestCase {
   public void twoTargetsSameProjectFile() throws Exception {
     scratch.file("foo/bar/BUILD", "genrule(name='child', cmd = '', srcs=[], outs=['c.out'])");
     scratch.file("foo/BUILD", "genrule(name='parent', cmd = '', srcs=[], outs=['p.out'])");
-    scratch.file("foo/" + PROJECT_FILE_NAME);
+    scratch.file("foo/" + PROJECT_FILE_NAME, "project = {}");
 
     assertThat(
             Project.getProjectFile(
@@ -90,8 +90,8 @@ public class ProjectResolutionTest extends BuildViewTestCase {
   public void twoTargetsDifferentProjectFiles() throws Exception {
     scratch.file("foo/BUILD", "genrule(name='f', cmd = '', srcs=[], outs=['f.out'])");
     scratch.file("bar/BUILD", "genrule(name='g', cmd = '', srcs=[], outs=['g.out'])");
-    scratch.file("foo/" + PROJECT_FILE_NAME);
-    scratch.file("bar/" + PROJECT_FILE_NAME);
+    scratch.file("foo/" + PROJECT_FILE_NAME, "project = {}");
+    scratch.file("bar/" + PROJECT_FILE_NAME, "project = {}");
 
     var thrown =
         assertThrows(
@@ -117,10 +117,10 @@ public class ProjectResolutionTest extends BuildViewTestCase {
   @Test
   public void innermostPackageIsAParentDirectory() throws Exception {
     scratch.file("pkg/BUILD", "genrule(name='f', cmd = '', srcs=[], outs=['a.out'])");
-    scratch.file("pkg/" + PROJECT_FILE_NAME);
+    scratch.file("pkg/" + PROJECT_FILE_NAME, "project = {}");
     scratch.file("pkg/subdir/not_a_build_file");
     // Doesn't count because it's not colocated with a BUILD file:
-    scratch.file("pkg/subdir" + PROJECT_FILE_NAME);
+    scratch.file("pkg/subdir" + PROJECT_FILE_NAME, "project = {}");
 
     assertThat(
             Project.getProjectFile(

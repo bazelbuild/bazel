@@ -54,13 +54,15 @@ string_flag(
 )
 EOF
   cat > test/PROJECT.scl <<EOF
-configs = {
-  "test_config": ["--define=foo=bar"],
+project = {
+  "configs": {
+    "test_config": ["--define=foo=bar"],
+  },
+  "supported_configs": {
+    "test_config": "User documentation for what this config means",
+  },
+  "enforcement_policy": "strict",
 }
-supported_configs = {
-  "test_config": "User documentation for what this config means",
-}
-enforcement_policy = "strict"
 EOF
 
   touch test/test.bzl
