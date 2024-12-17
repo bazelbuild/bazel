@@ -2403,6 +2403,8 @@ Bazel server process to persist indefinitely.
 Note: this flag is only read if Bazel needs
 to start a new server. Changing this option will not cause the server to restart.
 
+Note: system sleep time where a build is not running is counted as idle time.
+
 This option may be used by scripts that invoke Bazel to ensure that
 they do not leave Bazel server processes on a user's machine when they
 would not be running otherwise.
