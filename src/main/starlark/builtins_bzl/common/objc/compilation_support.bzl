@@ -24,6 +24,7 @@ load(":common/objc/compilation_artifacts_info.bzl", "CompilationArtifactsInfo")
 load(":common/objc/intermediate_artifacts.bzl", "create_intermediate_artifacts")
 load(":common/objc/objc_common.bzl", "objc_common")
 load(":common/objc/providers.bzl", "J2ObjcEntryClassInfo", "J2ObjcMappingFileInfo")
+load(":common/paths.bzl", "paths")
 load(":common/xcode/providers.bzl", "XcodeVersionInfo")
 
 objc_internal = _builtins.internal.objc_internal
@@ -642,9 +643,13 @@ def _register_j2objc_dead_code_removal_actions(common_variables, deps, build_con
     replace_libs = {}
     for j2objc_archive in common_variables.objc_provider.j2objc_library.to_list():
         pruned_j2objc_archive = ctx.actions.declare_shareable_artifact(
-            ctx.label.package + "/_j2objc_pruned/" + ctx.label.name + "/" +
-            j2objc_archive.short_path[:-len(j2objc_archive.extension)].strip(".") +
-            "_pruned." + j2objc_archive.extension,
+            paths.join(
+                ctx.label.package,
+                "_j2objc_pruned",
+                ctx.label.name,
+                j2objc_archive.short_path[:-len(j2objc_archive.extension)].strip(".") +
+                "_pruned." + j2objc_archive.extension,
+            ),
             build_config.bin_dir,
         )
         replace_libs[j2objc_archive] = pruned_j2objc_archive
@@ -699,7 +704,7 @@ def _register_obj_filelist_action(ctx, build_config, obj_files):
     This File is suitable to signal symbols to archive in a libtool archiving invocation.
     """
     obj_list = ctx.actions.declare_shareable_artifact(
-        ctx.label.package + "/" + ctx.label.name + "-linker.objlist",
+        paths.join(ctx.label.package, ctx.label.name + "-linker.objlist"),
         build_config.bin_dir,
     )
 
@@ -737,7 +742,7 @@ def _register_binary_strip_action(
         strip_safe = True
 
     stripped_binary = ctx.actions.declare_shareable_artifact(
-        ctx.label.package + "/" + name,
+        paths.join(ctx.label.package, name),
         build_config.bin_dir,
     )
     args = ctx.actions.args()
@@ -778,12 +783,12 @@ def _linkstamp_map(ctx, linkstamps, output, build_config):
     # create linkstamps_map - mapping from linkstamps to object files
     linkstamps_map = {}
 
-    stamp_output_dir = ctx.label.package + "/_objs/" + output.basename + "/"
+    stamp_output_dir = paths.join(ctx.label.package, "_objs", output.basename)
     for linkstamp in linkstamps.to_list():
         linkstamp_file = linkstamp.file()
-        stamp_output_path = (
-            stamp_output_dir +
-            linkstamp_file.short_path[:-len(linkstamp_file.extension)].rstrip(".") + ".o"
+        stamp_output_path = paths.join(
+            stamp_output_dir,
+            linkstamp_file.short_path[:-len(linkstamp_file.extension)].rstrip(".") + ".o",
         )
         stamp_output_file = ctx.actions.declare_shareable_artifact(
             stamp_output_path,
@@ -840,12 +845,12 @@ def _register_configuration_specific_link_actions(
     if (ctx.fragments.cpp.objc_enable_binary_stripping() and
         ctx.fragments.cpp.compilation_mode() == "opt"):
         binary = ctx.actions.declare_shareable_artifact(
-            ctx.label.package + "/" + name + "_unstripped",
+            paths.join(ctx.label.package, name + "_unstripped"),
             build_config.bin_dir,
         )
     else:
         binary = ctx.actions.declare_shareable_artifact(
-            ctx.label.package + "/" + name,
+            paths.join(ctx.label.package, name),
             build_config.bin_dir,
         )
 
