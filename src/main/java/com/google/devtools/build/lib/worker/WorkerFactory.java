@@ -190,7 +190,7 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
   /**
    * Returns true if this worker is still valid. The worker is considered to be valid as long as its
    * process has not exited and its files have not changed on disk. Validity is checked when the
-   * worker is created, borrowed and returned (see {@code SimpleWorkerPool.SimpleWorkerPoolConfig}).
+   * worker is created, borrowed and returned.
    */
   @Override
   public boolean validateObject(WorkerKey key, PooledObject<Worker> p) {

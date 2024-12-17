@@ -233,7 +233,6 @@ java_library(
 java_library(
     name = "worker_pool_impl",
     srcs = [
-        "SimpleWorkerPool.java",
         "WorkerPoolImpl.java",
     ],
     deps = [
@@ -243,7 +242,6 @@ java_library(
         ":worker_pool",
         ":worker_pool_config",
         ":worker_process_status",
-        "//third_party:apache_commons_pool2",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
