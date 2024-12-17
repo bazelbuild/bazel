@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils.MoveResult;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collection;
 import org.junit.Before;
@@ -407,27 +406,13 @@ public class FileSystemUtilsTest {
   }
 
   @Test
-  public void testReadContentWithKnownSize() throws IOException {
-    createTestDirectoryTree();
-    String str = "this is a test of readContentWithLimit method";
-    FileSystemUtils.writeContent(file1, StandardCharsets.ISO_8859_1, str);
-    assertThat(readStringFromFile(file1, 0)).isEmpty();
-    assertThat(str.substring(0, 10)).isEqualTo(readStringFromFile(file1, 10));
-    assertThat(str).isEqualTo(readStringFromFile(file1, 1000000));
-  }
-
-  private String readStringFromFile(Path file, int limit) throws IOException {
-    byte[] bytes = FileSystemUtils.readContentWithLimit(file, limit);
-    return new String(bytes, StandardCharsets.ISO_8859_1);
-  }
-
-  @Test
   public void testReadWithKnownFileSize() throws IOException {
     createTestDirectoryTree();
     String str = "this is a test of readContentWithLimit method";
-    FileSystemUtils.writeContent(file1, StandardCharsets.ISO_8859_1, str);
+    FileSystemUtils.writeContent(file1, ISO_8859_1, str);
 
-    assertThat(FileSystemUtils.readWithKnownFileSize(file1, str.length())).hasLength(str.length());
+    assertThat(FileSystemUtils.readWithKnownFileSize(file1, str.length()))
+        .isEqualTo(str.getBytes(ISO_8859_1));
     assertThrows(
         FileSystemUtils.LongReadIOException.class,
         () -> FileSystemUtils.readWithKnownFileSize(file1, str.length() - 1));
