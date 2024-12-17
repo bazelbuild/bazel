@@ -48,6 +48,10 @@ public class SingleExtensionFunction implements SkyFunction {
       return null;
     }
 
+    // SingleExtensionEvalFunction doesn't handle the fixup warning so that bazel mod tidy doesn't
+    // show it.
+    evalOnlyValue.fixup().ifPresent(fixup -> env.getListener().handle(fixup.warning()));
+
     // Check that all imported repos have actually been generated.
     for (ModuleExtensionUsage usage : usagesValue.getExtensionUsages().values()) {
       for (ModuleExtensionUsage.Proxy proxy : usage.getProxies()) {

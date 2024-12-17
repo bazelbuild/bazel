@@ -458,6 +458,7 @@ java_library(
     ],
     deps = [
         ":module_extension",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
     ],
