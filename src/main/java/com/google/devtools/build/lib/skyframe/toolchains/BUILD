@@ -110,11 +110,13 @@ java_library(
     name = "registered_execution_platforms_function",
     srcs = ["RegisteredExecutionPlatformsFunction.java"],
     deps = [
+        ":config_matching_util",
         ":platform_lookup_util",
         ":registered_execution_platforms_value",
         ":toolchain_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/common_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/invalid_configuration_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_configuration",

@@ -2929,4 +2929,123 @@ EOF
   expect_log "Invalid --cpu value \"quux\": allowed values are bar, foo."
 }
 
+function write_exec_platform_required_setting {
+  local pkg="$1"
+
+  # Add test platforms.
+  mkdir -p "${pkg}/platforms"
+  cat > "${pkg}/platforms/BUILD" <<EOF
+package(default_visibility = ['//visibility:public'])
+
+config_setting(
+    name = "optimized",
+    values = {"compilation_mode": "opt"}
+)
+
+# Define a platform that requires a specific configuration to be eligible as an
+# execution platform.
+platform(
+    name = 'platform_opt',
+    required_settings = [
+        ":optimized",
+    ],
+)
+platform(
+    name = 'platform_basic',
+)
+EOF
+
+  # Define a build target.
+  mkdir -p "${pkg}/demo"
+  cat > "${pkg}/demo/hello.sh" <<EOF
+echo hello
+EOF
+  chmod +x "${pkg}/demo/hello.sh"
+  cat > "${pkg}/demo/BUILD" <<EOF
+sh_binary(
+  name = 'sample',
+  srcs = ["hello.sh"],
+)
+EOF
+}
+
+function test_exec_platform_required_setting {
+  local -r pkg="${FUNCNAME[0]}"
+  write_exec_platform_required_setting "${pkg}"
+
+  # Use the new exec platforms, with the reqired_settings version first.
+  # Do not enable the config_setting.
+  bazel build \
+    --extra_execution_platforms="//${pkg}/platforms:platform_opt,//${pkg}/platforms:platform_basic" \
+    --toolchain_resolution_debug="//${pkg}/demo:sample" \
+    --compilation_mode=fastbuild \
+    "//${pkg}/demo:sample" &> $TEST_log || fail "Build failed"
+  expect_log "Selected execution platform //${pkg}/platforms:platform_basic"
+
+  # Verify the debug log.
+  expect_log "Rejected execution platform //${pkg}/platforms:platform_opt; mismatching config settings: optimized"
+
+  # Use the new exec platforms, with the reqired_settings version first.
+  # Enable the config_setting.
+  bazel build \
+    --extra_execution_platforms="//${pkg}/platforms:platform_opt,//${pkg}/platforms:platform_basic" \
+    --toolchain_resolution_debug="//${pkg}/demo:sample" \
+    --compilation_mode=opt\
+    "//${pkg}/demo:sample" &> $TEST_log || fail "Build failed"
+  expect_log "Selected execution platform //${pkg}/platforms:platform_opt"
+
+  # Verify the debug log.
+  expect_not_log "Rejected execution platform"
+}
+
+function test_exec_platform_required_setting_cycle {
+  local -r pkg="${FUNCNAME[0]}"
+
+  # Add test platforms.
+  mkdir -p "${pkg}/platforms"
+  cat > "${pkg}/platforms/BUILD" <<EOF
+package(default_visibility = ['//visibility:public'])
+
+# Create a cycle by using a constraint_value instead of a flag.
+constraint_setting(name = "cycle_setting")
+constraint_value(name = "cycle_value", constraint_setting = ":cycle_setting")
+config_setting(
+    name = "cycle",
+    constraint_values = [":cycle_value"],
+)
+
+platform(
+    name = 'platform_cycle',
+    required_settings = [
+        ":cycle",
+    ],
+)
+platform(
+    name = 'platform_basic',
+)
+EOF
+
+  # Define a build target.
+  mkdir -p "${pkg}/demo"
+  cat > "${pkg}/demo/hello.sh" <<EOF
+echo hello
+EOF
+  chmod +x "${pkg}/demo/hello.sh"
+  cat > "${pkg}/demo/BUILD" <<EOF
+sh_binary(
+  name = 'sample',
+  srcs = ["hello.sh"],
+)
+EOF
+  # Use the new exec platforms, with the reqired_settings version first.
+  bazel build \
+    --extra_execution_platforms="//${pkg}/platforms:platform_cycle,//${pkg}/platforms:platform_basic" \
+    --toolchain_resolution_debug="//${pkg}/demo:sample" \
+    --compilation_mode=fastbuild \
+    "//${pkg}/demo:sample" &> $TEST_log && fail "Unexpected success"
+  expect_not_log "Cycle detected but could not be properly displayed due to an internal problem"
+  expect_log "Misconfigured execution platforms: //${pkg}/platforms:platform_cycle is declared as a platform but has inappropriate dependencies"
+}
+
+
 run_suite "toolchain tests"

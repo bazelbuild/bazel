@@ -571,4 +571,232 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
                 /*doAnalysis=*/ true,
                 eventBus));
   }
+
+  @Test
+  public void testRegisteredExecutionPlatforms_requiredSettings_enabled() throws Exception {
+    // Add an extra platform with a required_setting
+    scratch.file(
+        "extra/BUILD",
+        """
+        config_setting(
+            name = "optimized",
+            values = {
+               "compilation_mode": "opt",
+            },
+        )
+
+        platform(
+            name = "required_platform",
+            required_settings = [
+                ":optimized",
+            ],
+        )
+
+        platform(name = "always_platform")
+        """);
+
+    rewriteModuleDotBazel(
+        """
+        register_execution_platforms("//extra:required_platform", "//extra:always_platform")
+        """);
+
+    useConfiguration("--compilation_mode=opt");
+    SkyKey executionPlatformsKey =
+        RegisteredExecutionPlatformsValue.key(targetConfigKey, /* debug= */ false);
+    EvaluationResult<RegisteredExecutionPlatformsValue> result =
+        requestExecutionPlatformsFromSkyframe(executionPlatformsKey);
+    assertThatEvaluationResult(result).hasNoError();
+    assertThatEvaluationResult(result).hasEntryThat(executionPlatformsKey).isNotNull();
+
+    RegisteredExecutionPlatformsValue value = result.get(executionPlatformsKey);
+
+    // Both platforms should be present because the required settings match.
+    assertExecutionPlatformLabels(value)
+        .containsAtLeast(
+            Label.parseCanonicalUnchecked("//extra:required_platform"),
+            Label.parseCanonicalUnchecked("//extra:always_platform"));
+  }
+
+  @Test
+  public void testRegisteredExecutionPlatforms_requiredSettings_disabled() throws Exception {
+    // Add an extra platform with a required_setting
+    scratch.file(
+        "extra/BUILD",
+        """
+        config_setting(
+            name = "optimized",
+            values = {
+               "compilation_mode": "opt",
+            },
+        )
+
+        platform(
+            name = "required_platform",
+            required_settings = [
+                ":optimized",
+            ],
+        )
+
+        platform(name = "always_platform")
+        """);
+
+    rewriteModuleDotBazel(
+        """
+        register_execution_platforms("//extra:required_platform", "//extra:always_platform")
+        """);
+
+    useConfiguration("--compilation_mode=dbg");
+    SkyKey executionPlatformsKey =
+        RegisteredExecutionPlatformsValue.key(targetConfigKey, /* debug= */ false);
+    EvaluationResult<RegisteredExecutionPlatformsValue> result =
+        requestExecutionPlatformsFromSkyframe(executionPlatformsKey);
+    assertThatEvaluationResult(result).hasNoError();
+    assertThatEvaluationResult(result).hasEntryThat(executionPlatformsKey).isNotNull();
+
+    RegisteredExecutionPlatformsValue value = result.get(executionPlatformsKey);
+
+    // The platform with required settings should not be present.
+    assertExecutionPlatformLabels(value)
+        .contains(Label.parseCanonicalUnchecked("//extra:always_platform"));
+    assertExecutionPlatformLabels(value)
+        .doesNotContain(Label.parseCanonicalUnchecked("//extra:required_platform"));
+  }
+
+  @Test
+  public void testRegisteredExecutionPlatforms_requiredSettings_debug() throws Exception {
+    // Add an extra platform with a required_setting
+    scratch.file(
+        "extra/BUILD",
+        """
+        config_setting(
+            name = "optimized",
+            values = {
+               "compilation_mode": "opt",
+            },
+        )
+
+        platform(
+            name = "required_platform",
+            required_settings = [
+                ":optimized",
+            ],
+        )
+
+        platform(name = "always_platform")
+        """);
+
+    rewriteModuleDotBazel(
+        """
+        register_execution_platforms("//extra:required_platform", "//extra:always_platform")
+        """);
+
+    useConfiguration("--compilation_mode=dbg");
+    SkyKey executionPlatformsKey =
+        RegisteredExecutionPlatformsValue.key(targetConfigKey, /* debug= */ true);
+    EvaluationResult<RegisteredExecutionPlatformsValue> result =
+        requestExecutionPlatformsFromSkyframe(executionPlatformsKey);
+    assertThatEvaluationResult(result).hasNoError();
+    assertThatEvaluationResult(result).hasEntryThat(executionPlatformsKey).isNotNull();
+
+    RegisteredExecutionPlatformsValue value = result.get(executionPlatformsKey);
+
+    // Verify that the message about the unmatched config_setting is present.
+    assertThat(value.rejectedPlatforms()).isNotNull();
+    assertThat(value.rejectedPlatforms())
+        .containsEntry(
+            Label.parseCanonicalUnchecked("//extra:required_platform"),
+            "mismatching config settings: optimized");
+  }
+
+  @Test
+  public void testRegisteredExecutionPlatforms_requiredSettings_config_error() throws Exception {
+    // Add an extra platform with a required_setting
+    scratch.file(
+        "extra/BUILD",
+        """
+        config_setting(
+            name = "flagged",
+            flag_values = {":flag": "default"},
+            transitive_configs = [":flag"],
+        )
+
+        config_feature_flag(
+            name = "flag",
+            allowed_values = [
+                "default",
+                "left",
+                "right",
+            ],
+            default_value = "default",
+        )
+
+        platform(
+            name = "required_platform",
+            required_settings = [
+                ":flagged",
+            ],
+        )
+        """);
+
+    rewriteModuleDotBazel(
+        """
+        register_execution_platforms("//extra:required_platform")
+        """);
+
+    // Need this so the feature flag is actually gone from the configuration.
+    useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
+    SkyKey executionPlatformsKey =
+        RegisteredExecutionPlatformsValue.key(targetConfigKey, /* debug= */ false);
+    EvaluationResult<RegisteredExecutionPlatformsValue> result =
+        requestExecutionPlatformsFromSkyframe(executionPlatformsKey);
+
+    assertThatEvaluationResult(result).hasError();
+    assertThatEvaluationResult(result).hasErrorEntryForKeyThat(executionPlatformsKey).isNotNull();
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(executionPlatformsKey)
+        .hasExceptionThat()
+        .hasMessageThat()
+        .contains(
+            "Unrecoverable errors resolving config_setting associated with"
+                + " //extra:required_platform: For config_setting flagged, Feature flag"
+                + " //extra:flag was accessed in a configuration it is not present in.");
+  }
+
+  @Test
+  public void testRegisteredExecutionPlatforms_requiredSettings_cantDependOnConstraintValues_error()
+      throws Exception {
+    // Add an extra platform with a required_setting
+    scratch.file(
+        "extra/BUILD",
+        """
+        constraint_setting(name = "cs1")
+        constraint_value(name = "cv1", constraint_setting = ":cs1")
+        constraint_value(name = "cv2", constraint_setting = ":cs1")
+        config_setting(
+            name = "setting",
+            constraint_values = [":cv1"],
+        )
+
+        platform(
+            name = "required_platform",
+            required_settings = [
+                ":setting",
+                ":cv2",
+            ],
+        )
+        """);
+
+    rewriteModuleDotBazel(
+        """
+        register_execution_platforms("//extra:required_platform")
+        """);
+
+    SkyKey executionPlatformsKey =
+        RegisteredExecutionPlatformsValue.key(targetConfigKey, /* debug= */ false);
+    EvaluationResult<RegisteredExecutionPlatformsValue> result =
+        requestExecutionPlatformsFromSkyframe(executionPlatformsKey);
+
+    assertThatEvaluationResult(result).hasError();
+    assertThatEvaluationResult(result).hasErrorEntryForKeyThat(executionPlatformsKey).isNotNull();
+  }
 }
