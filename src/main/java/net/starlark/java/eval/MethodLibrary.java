@@ -641,13 +641,24 @@ class MethodLibrary {
   @StarlarkMethod(
       name = "set",
       doc =
-          "<b>Experimental</b>. This API is experimental and may change at any time. Please do not"
-              + " depend on it. It may be enabled on an experimental basis by setting"
-              + " <code>--experimental_enable_starlark_set</code>.\n" //
-              + "<p>Creates a new <a href=\"../core/set.html\">set</a>, optionally initialized to"
-              + " contain the elements from a given iterable.",
+          """
+Creates a new <a href=\"../core/set.html\">set</a> containing the unique elements of a given
+iterable, preserving iteration order.
+
+<p>If called with no argument, <code>set()</code> returns a new empty set.
+
+<p>For example,
+<pre class=language-python>
+set()                          # an empty set
+set([3, 1, 1, 2])              # set([3, 1, 2]), a set of three elements
+set({"k1": "v1", "k2": "v2"})  # set(["k1", "k2"]), a set of two elements
+</pre>
+""",
       parameters = {
-        @Param(name = "elements", defaultValue = "[]", doc = "A set, sequence, or dict."),
+        @Param(
+            name = "elements",
+            defaultValue = "[]",
+            doc = "A set, a sequence of hashable values, or a dict."),
       },
       useStarlarkThread = true)
   public StarlarkSet<Object> set(Object elements, StarlarkThread thread) throws EvalException {

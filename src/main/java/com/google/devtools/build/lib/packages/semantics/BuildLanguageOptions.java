@@ -808,7 +808,7 @@ public final class BuildLanguageOptions extends OptionsBase {
 
   @Option(
       name = "experimental_enable_starlark_set",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
