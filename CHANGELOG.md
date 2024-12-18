@@ -1,3 +1,18 @@
+## Release 9.0.0-pre.20241208.2 (2024-12-18)
+
+```
+Baseline: b00576de25ad5eed2af6607f51ad004874079519
+
+Cherry picks:
+
+   + a8e2c58656383f12dcee7125b8bd123bcec3428d:
+     Throw toolchain resolution error (as EvalError) instead of
+     IllegalStateException if create_compile_action() is called for
+     an action that isn't configured for the toolchain.
+```
+
+This release contains contributions from many people at Google, as well as .
+
 ## Release 9.0.0-pre.20241208.1 (2024-12-16)
 
 ```
