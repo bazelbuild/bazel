@@ -6,6 +6,7 @@ tasks:
     shell_commands:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
+      - sh setup_local_registry.sh
     build_flags:
       - "--config=ci-linux"
     build_targets:
@@ -50,6 +51,7 @@ tasks:
     shell_commands:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
+      - sh setup_local_registry.sh
     build_flags:
       - "--config=ci-linux"
     build_targets:
@@ -64,6 +66,7 @@ tasks:
     shell_commands:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
+      - sh setup_local_registry.sh
     build_flags:
       - "--config=ci-linux"
     build_targets:
@@ -100,6 +103,7 @@ tasks:
     shell_commands:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
+      - sh setup_local_registry.sh
     build_flags:
       - "--config=ci-linux"
     build_targets:
@@ -119,6 +123,7 @@ tasks:
     shell_commands:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
+      - sh setup_local_registry.sh
     build_flags:
       - "--config=ci-linux"
     build_targets:
@@ -152,6 +157,7 @@ tasks:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
       - ln -sf $OUTPUT_BASE/external $HOME/bazeltest/external
+      - sh setup_local_registry.sh
     build_flags:
       - "--config=ci-macos"
     build_targets:
@@ -194,6 +200,7 @@ tasks:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
       - ln -sf $OUTPUT_BASE/external $HOME/bazeltest/external
+      - sh setup_local_registry.sh
     build_flags:
       - "--config=ci-macos"
     build_targets:
@@ -356,6 +363,8 @@ tasks:
   docs_ubuntu2004:
     platform: ubuntu2004
     name: "Docs"
+    shell_commands:
+    - sh setup_local_registry.sh
     build_flags:
       - "--config=docs"
     build_targets:
