@@ -881,9 +881,8 @@ public class FileSystemUtils {
    * the number of bytes read.
    *
    * <p>Use this method when you already know the size of the file. The check is intended to catch
-   * issues where filesystems or external interference results in truncated or concurrent
-   * modifications.
-   *
+   * issues where the filesystem incorrectly returns truncated file contents, or where an external
+   * modification has concurrently truncated or appended to the file.
    * @throws IOException if there was an error, or if fewer than {@code fileSize} bytes were read.
    */
   public static byte[] readWithKnownFileSize(Path path, long fileSize) throws IOException {
