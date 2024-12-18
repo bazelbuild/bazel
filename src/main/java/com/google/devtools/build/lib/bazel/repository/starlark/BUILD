@@ -61,6 +61,7 @@ java_library(
         "//src/main/java/net/starlark/java/syntax",
         "//third_party:auto_value",
         "//third_party:error_prone_annotations",
+        "//third_party:flogger",
         "//third_party:guava",
         "//third_party:java-diff-utils",
         "//third_party:jsr305",
