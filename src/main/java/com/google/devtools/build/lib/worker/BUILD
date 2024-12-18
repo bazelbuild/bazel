@@ -1,5 +1,4 @@
 load("@rules_java//java:defs.bzl", "java_library")
-load("//src:build_defs.bzl", "java_11_library")
 
 package(
     default_applicable_licenses = ["//:license"],
@@ -125,7 +124,7 @@ java_library(
     ],
 )
 
-java_11_library(
+java_library(
     name = "work_request_handlers",
     srcs = [
         "JsonWorkerMessageProcessor.java",
