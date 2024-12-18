@@ -271,6 +271,18 @@ platform(
     ],
 )
 
+platform(
+    name = "darwin_arm64",
+    constraint_values = [
+        "@platforms//os:macos",
+        "@platforms//cpu:arm64",
+    ],
+    exec_properties = {
+        "OSFamily": "Darwin",
+        "Arch": "arm64",
+    },
+)
+
 REMOTE_PLATFORMS = ("rbe_ubuntu2004",)
 
 [

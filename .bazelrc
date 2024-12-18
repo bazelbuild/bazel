@@ -104,3 +104,10 @@ test:ci-windows --test_env=JAVA_HOME
 test:ci-windows --test_env=TEST_INSTALL_BASE=C:/b/bazeltest_install_base
 test:ci-windows --test_env=REPOSITORY_CACHE=C:/b/bazeltest_repo_cache
 test:ci-windows --test_tag_filters=-no_windows,-slow
+
+build:remote_bitrise --jobs=100
+build:remote_bitrise --remote_download_minimal
+build:remote_bitrise --noremote_upload_local_results
+build:remote_bitrise --extra_execution_platforms=//:darwin_arm64
+build:remote_bitrise --xcode_version=16.2.0
+build:remote_bitrise --repo_env=XCODE_VERSION=16.2.0
