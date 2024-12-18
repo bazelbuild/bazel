@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.sandbox;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.NetworkNamespace.NETNS;
 import static com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.NetworkNamespace.NETNS_WITH_LOOPBACK;
 import static com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.NetworkNamespace.NO_NETNS;
 
@@ -317,7 +318,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
                 prepareAndGetBindMounts(sandboxExecRoot, sandboxTmp, pathsUnderTmpToMount))
             .setUseFakeHostname(getSandboxOptions().sandboxFakeHostname)
             .setEnablePseudoterminal(getSandboxOptions().sandboxExplicitPseudoterminal)
-            .setCreateNetworkNamespace(createNetworkNamespace ? NETNS_WITH_LOOPBACK : NO_NETNS)
+            .setCreateNetworkNamespace(createNetworkNamespace ? getNetworkNamespace() : NO_NETNS)
             .setKillDelay(timeoutKillDelay);
 
     Path sandboxDebugPath = null;
@@ -566,5 +567,12 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       return null;
     }
     return commandLineBuilder.buildForCommand(ImmutableList.of("/bin/sh", "-i"));
+  }
+
+  private final LinuxSandboxCommandLineBuilder.NetworkNamespace getNetworkNamespace() {
+    if (getSandboxOptions().sandboxEnableLoopbackDevice) {
+      return NETNS_WITH_LOOPBACK;
+    }
+    return NETNS;
   }
 }
