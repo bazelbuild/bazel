@@ -459,8 +459,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                 .get()
                 .generateFixup(
                     usagesValue.getExtensionUsages().get(ModuleKey.ROOT),
-                    generatedRepoSpecs.keySet(),
-                    env.getListener());
+                    generatedRepoSpecs.keySet());
       } catch (EvalException e) {
         env.getListener().handle(Event.error(e.getInnermostLocation(), e.getMessageWithStack()));
         throw new SingleExtensionEvalFunctionException(
