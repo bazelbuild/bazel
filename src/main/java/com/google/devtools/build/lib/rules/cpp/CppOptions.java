@@ -606,17 +606,6 @@ public class CppOptions extends FragmentOptions {
               + "except bar.o.")
   public List<PerLabelOptions> perFileLtoBackendOpts;
 
-  /**
-   * The value of "--crosstool_top" to use for building tools.
-   *
-   * <p>We want to make sure this stays bound to the top-level configuration when not explicitly set
-   * (as opposed to a configuration that comes out of a transition). Otherwise we risk using the
-   * wrong crosstool (i.e., trying to build tools with an Android-specific crosstool).
-   *
-   * <p>To accomplish this, we initialize this to null and, if it isn't explicitly set, use {@link
-   * #getNormalized} to rewrite it to {@link #crosstoolTop}. Blaze always evaluates top-level
-   * configurations first, so they'll trigger this. But no followup transitions can.
-   */
   @Option(
       name = "host_crosstool_top",
       defaultValue = "null",
