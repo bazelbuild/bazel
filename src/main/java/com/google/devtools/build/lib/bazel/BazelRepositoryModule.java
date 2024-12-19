@@ -394,9 +394,8 @@ public class BazelRepositoryModule extends BlazeModule {
                 Event.warn(String.format("Error parsing the .netrc file: %s.", e.getMessage())));
       }
       try {
-        UrlRewriter rewriter =
-            UrlRewriter.getDownloaderUrlRewriter(
-                env.getWorkspace(), repoOptions.downloaderConfig, env.getReporter());
+        UrlRewriter rewriter = UrlRewriter.getDownloaderUrlRewriter(
+            env.getWorkspace(), repoOptions.downloaderConfig, env.getReporter());
         downloadManager.setUrlRewriter(rewriter);
       } catch (UrlRewriterParseException e) {
         // It's important that the build stops ASAP, because this config file may be required for
