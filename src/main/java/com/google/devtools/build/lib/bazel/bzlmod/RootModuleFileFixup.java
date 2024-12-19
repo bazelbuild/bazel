@@ -16,6 +16,7 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
@@ -29,7 +30,8 @@ import com.google.devtools.build.lib.vfs.PathFragment;
  */
 public record RootModuleFileFixup(
     ImmutableListMultimap<PathFragment, String> moduleFilePathToBuildozerCommands,
-    ModuleExtensionUsage usage) {
+    ModuleExtensionUsage usage,
+    Event warning) {
 
   /** A human-readable message describing the fixup after it has been applied. */
   public String getSuccessMessage() {
