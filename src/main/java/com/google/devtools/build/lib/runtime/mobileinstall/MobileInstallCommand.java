@@ -207,7 +207,8 @@ public class MobileInstallCommand implements BlazeCommand {
                 /* validator= */ null,
                 successfulTargets ->
                     doMobileInstall(
-                        env, options, runTargetArgs, successfulTargets, deployerRequestRef));
+                        env, options, runTargetArgs, successfulTargets, deployerRequestRef),
+                options);
     if (!result.getSuccess()) {
       env.getReporter().handle(Event.error("Build failed. Not running mobile-install on target."));
       return BlazeCommandResult.detailedExitCode(result.getDetailedExitCode());

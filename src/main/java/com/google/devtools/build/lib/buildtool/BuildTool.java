@@ -115,6 +115,10 @@ import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.IntVersion;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.common.options.OptionPriority.PriorityCategory;
+import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.OptionsParsingException;
+import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.RegexPatternOption;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
@@ -196,7 +200,11 @@ public class BuildTool {
    * @param result the build result that is the mutable result of this build
    * @param validator target validator
    */
-  public void buildTargets(BuildRequest request, BuildResult result, TargetValidator validator)
+  public void buildTargets(
+      BuildRequest request,
+      BuildResult result,
+      TargetValidator validator,
+      OptionsParser optionsParser)
       throws BuildFailedException,
           InterruptedException,
           ViewCreationFailedException,
@@ -207,7 +215,8 @@ public class BuildTool {
           TestExecException,
           ExitException,
           PostExecutionDumpException,
-          RepositoryMappingResolutionException {
+          RepositoryMappingResolutionException,
+          OptionsParsingException {
     try (SilentCloseable c = Profiler.instance().profile("validateOptions")) {
       validateOptions(request);
     }
@@ -239,6 +248,13 @@ public class BuildTool {
           evaluateProjectFile(
               request, buildOptions, request.getUserOptions(), targetPatternPhaseValue, env);
 
+      if (!projectEvaluationResult.buildOptions().isEmpty()) {
+        optionsParser.parse(
+            PriorityCategory.COMMAND_LINE,
+            projectEvaluationResult.projectFile().get().toString(),
+            projectEvaluationResult.buildOptions().asList());
+      }
+      buildOptions = runtime.createBuildOptions(optionsParser);
       var analysisCachingDeps =
           RemoteAnalysisCachingDependenciesProviderImpl.forAnalysis(
               env, projectEvaluationResult.activeDirectoriesMatcher());
@@ -246,18 +262,10 @@ public class BuildTool {
       if (env.withMergedAnalysisAndExecutionSourceOfTruth()) {
         // a.k.a. Skymeld.
         buildTargetsWithMergedAnalysisExecution(
-            request,
-            result,
-            targetPatternPhaseValue,
-            projectEvaluationResult.buildOptions(),
-            analysisCachingDeps);
+            request, result, targetPatternPhaseValue, buildOptions, analysisCachingDeps);
       } else {
         buildTargetsWithoutMergedAnalysisExecution(
-            request,
-            result,
-            targetPatternPhaseValue,
-            projectEvaluationResult.buildOptions(),
-            analysisCachingDeps);
+            request, result, targetPatternPhaseValue, buildOptions, analysisCachingDeps);
       }
 
       logAnalysisCachingStatsAndMaybeUploadFrontier(
@@ -687,8 +695,9 @@ public class BuildTool {
     }
   }
 
-  public BuildResult processRequest(BuildRequest request, TargetValidator validator) {
-    return processRequest(request, validator, /* postBuildCallback= */ null);
+  public BuildResult processRequest(
+      BuildRequest request, TargetValidator validator, OptionsParsingResult options) {
+    return processRequest(request, validator, /* postBuildCallback= */ null, options);
   }
 
   /**
@@ -709,18 +718,27 @@ public class BuildTool {
    *     the request object are populated
    * @param validator an optional target validator
    * @param postBuildCallback an optional callback called after the build has been completed
-   *     successfully
+   *     successfully.
+   * @param options the options parsing result containing the options parsed so far, excluding those
+   *     from flagsets. This will be cast to an {@link OptionsParser} in order to add any options
+   *     from flagsets.
    * @return the result as a {@link BuildResult} object
    */
   public BuildResult processRequest(
-      BuildRequest request, TargetValidator validator, PostBuildCallback postBuildCallback) {
+      BuildRequest request,
+      TargetValidator validator,
+      PostBuildCallback postBuildCallback,
+      OptionsParsingResult options) {
     BuildResult result = new BuildResult(request.getStartTime());
     maybeSetStopOnFirstFailure(request, result);
     Throwable crash = null;
     DetailedExitCode detailedExitCode = null;
     try {
       try (SilentCloseable c = Profiler.instance().profile("buildTargets")) {
-        buildTargets(request, result, validator);
+        // This OptionsParsingResult is essentially a wrapper around the OptionsParser in
+        // https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/runtime/BlazeCommandDispatcher.java#L341. Casting it back to
+        // an OptionsParser is safe, and necessary in order to add any options from flagsets.
+        buildTargets(request, result, validator, (OptionsParser) options);
       }
       detailedExitCode = DetailedExitCode.success();
       if (postBuildCallback != null) {
@@ -986,8 +1004,8 @@ public class BuildTool {
     return PathFragmentPrefixTrie.of(((ProjectValue) result.get(key)).getDefaultActiveDirectory());
   }
 
-  /** Creates a BuildOptions class for the given options taken from an {@link OptionsProvider}. */
-  public static BuildOptions applySclConfigs(
+  /** Returns the set of options from the selected {@code projectFile} in command line format. */
+  public static ImmutableSet<String> applySclConfigs(
       BuildOptions buildOptionsBeforeFlagSets,
       ImmutableMap<String, String> userOptions,
       Label projectFile,
@@ -1005,8 +1023,8 @@ public class BuildTool {
             eventHandler,
             skyframeExecutor);
 
-    // BuildOptions after Flagsets
-    return flagSetValue.getTopLevelBuildOptions();
+    // Options from the selected project config.
+    return flagSetValue.getOptionsFromFlagset();
   }
 
   private Reporter getReporter() {

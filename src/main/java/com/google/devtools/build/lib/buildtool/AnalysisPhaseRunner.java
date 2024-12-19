@@ -180,11 +180,14 @@ public final class AnalysisPhaseRunner {
 
   /** A simple container for storing processed evaluation results of the PROJECT.scl file. */
   record ProjectEvaluationResult(
-      BuildOptions buildOptions, Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher) {
+      ImmutableSet<String> buildOptions,
+      Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher,
+      Optional<Label> projectFile) {
 
     public ProjectEvaluationResult {
       checkArgument(buildOptions != null, "buildOptions cannot be null.");
       checkArgument(activeDirectoriesMatcher != null, "activeDirectoriesMatcher cannot be null.");
+      checkArgument(projectFile != null, "projectFile cannot be null.");
     }
   }
 
@@ -230,7 +233,7 @@ public final class AnalysisPhaseRunner {
 
     if (featureFlags.isEmpty()) {
       // All feature flags disabled.
-      return new ProjectEvaluationResult(buildOptions, Optional.empty());
+      return new ProjectEvaluationResult(ImmutableSet.of(), Optional.empty(), Optional.empty());
     }
 
     Label projectFile = null;
@@ -273,7 +276,7 @@ public final class AnalysisPhaseRunner {
 
     if (featureFlags.contains(SCL_CONFIG) && projectFile != null) {
       // Do not apply canonical configurations if the project file doesn't exist.
-      buildOptions =
+      ImmutableSet<String> options =
           BuildTool.applySclConfigs(
               buildOptions,
               userOptions,
@@ -281,9 +284,12 @@ public final class AnalysisPhaseRunner {
               request.getBuildOptions().enforceProjectConfigs,
               env.getSkyframeExecutor(),
               env.getReporter());
+      return new ProjectEvaluationResult(
+          options, Optional.ofNullable(projectMatcher), Optional.ofNullable(projectFile));
     }
 
-    return new ProjectEvaluationResult(buildOptions, Optional.ofNullable(projectMatcher));
+    return new ProjectEvaluationResult(
+        ImmutableSet.of(), Optional.ofNullable(projectMatcher), Optional.ofNullable(projectFile));
   }
 
   static void postAbortedEventsForSkippedTargets(
@@ -427,7 +433,7 @@ public final class AnalysisPhaseRunner {
                 TestAnalyzedEvent.create(
                     configuredTarget,
                     configurationMap.get(configuredTarget.getConfigurationKey()),
-                    /*isSkipped=*/ analysisResult.getTargetsToSkip().contains(configuredTarget)));
+                    /* isSkipped= */ analysisResult.getTargetsToSkip().contains(configuredTarget)));
       }
     }
 
@@ -486,7 +492,8 @@ public final class AnalysisPhaseRunner {
       List<String> requestedTargetPatterns,
       boolean keepGoing,
       int loadingPhaseThreads)
-      throws ViewCreationFailedException, RepositoryMappingResolutionException,
+      throws ViewCreationFailedException,
+          RepositoryMappingResolutionException,
           InterruptedException {
     ImmutableSet.Builder<Label> explicitTargetPatterns = ImmutableSet.builder();
 

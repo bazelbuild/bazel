@@ -378,7 +378,7 @@ public class BlazeRuntimeWrapper {
           try (SilentCloseable c = Profiler.instance().profile("syncPackageLoading")) {
             env.syncPackageLoading(lastRequest);
           }
-          buildTool.buildTargets(lastRequest, lastResult, null);
+          buildTool.buildTargets(lastRequest, lastResult, null, optionsParser);
           detailedExitCode = DetailedExitCode.success();
         } catch (RuntimeException | Error e) {
           crash = Crash.from(e);

@@ -17,6 +17,7 @@ import static com.google.common.base.Strings.nullToEmpty;
 
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
@@ -31,7 +32,7 @@ import javax.annotation.Nullable;
 /** A return value of {@link FlagSetFunction} */
 public class FlagSetValue implements SkyValue {
 
-  private final BuildOptions topLevelBuildOptions;
+  private final ImmutableSet<String> flags;
 
   /** Key for {@link FlagSetValue} based on the raw flags. */
   @ThreadSafety.Immutable
@@ -124,15 +125,16 @@ public class FlagSetValue implements SkyValue {
     }
   }
 
-  public static FlagSetValue create(BuildOptions buildOptions) {
-    return new FlagSetValue(buildOptions);
+  public static FlagSetValue create(ImmutableSet<String> flags) {
+    return new FlagSetValue(flags);
   }
 
-  public FlagSetValue(BuildOptions buildOptions) {
-    this.topLevelBuildOptions = buildOptions;
+  public FlagSetValue(ImmutableSet<String> flags) {
+    this.flags = flags;
   }
 
-  public BuildOptions getTopLevelBuildOptions() {
-    return topLevelBuildOptions;
+  /** Returns the set of flags to be applied to the build from the flagset, in flag=value form. */
+  public ImmutableSet<String> getOptionsFromFlagset() {
+    return flags;
   }
 }

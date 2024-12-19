@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe.config;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.devtools.common.options.OptionsParser.STARLARK_SKIPPED_PREFIXES;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -24,12 +25,9 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.Label.RepoContext;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.skyframe.ProjectValue;
-import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -46,11 +44,11 @@ import net.starlark.java.eval.Dict;
  *   <li>calls {@link com.google.devtools.build.lib.skyframe.ProjectFunction} to load the content of
  *       scl files given the provided scl config name
  *   <li>calls {@link ParsedFlagsFunction} to parse the list of options
- *   <li>defines a patch transition and applies the transition to the input {@link BuildOptions}
+ *   <li>returns the list of flags in command line format to be applied to the build
  * </ol>
  *
- * <p>If given an unknown {@link CoreOptions#sclConfig}, {@link FlagSetFunction} returns the
- * original {@link BuildOptions} and doesn't error out.
+ * <p>If --enforce_project_configs is set, invalid --scl_config values or invalid project files will
+ * cause the build to fail.
  */
 public final class FlagSetFunction implements SkyFunction {
   private static final String CONFIGS = "configs";
@@ -94,7 +92,7 @@ public final class FlagSetFunction implements SkyFunction {
                         key.getSclConfig())));
       }
       // --noenforce_project_configs. Nothing to do.
-      return FlagSetValue.create(key.getTargetOptions());
+      return FlagSetValue.create(ImmutableSet.of());
     }
     ProjectValue projectValue =
         (ProjectValue) env.getValue(new ProjectValue.Key(key.getProjectFile()));
@@ -102,7 +100,7 @@ public final class FlagSetFunction implements SkyFunction {
       return null;
     }
 
-    ImmutableList<String> sclConfigAsStarlarkList =
+    ImmutableSet<String> sclConfigAsStarlarkList =
         getSclConfig(
             key.getProjectFile(),
             projectValue,
@@ -110,12 +108,7 @@ public final class FlagSetFunction implements SkyFunction {
             env.getListener(),
             key.getTargetOptions(),
             key.getUserOptions());
-    ParsedFlagsValue parsedFlags = parseFlags(sclConfigAsStarlarkList, env);
-    if (parsedFlags == null) {
-      return null;
-    }
-    BuildOptions mergedOptions = parsedFlags.mergeWith(key.getTargetOptions()).getOptions();
-    return FlagSetValue.create(mergedOptions);
+    return FlagSetValue.create(sclConfigAsStarlarkList);
   }
 
   /**
@@ -123,7 +116,7 @@ public final class FlagSetFunction implements SkyFunction {
    * --scl_config}. Flags are a list of strings (not parsed through the options parser).
    */
   @SuppressWarnings("unchecked")
-  private ImmutableList<String> getSclConfig(
+  private ImmutableSet<String> getSclConfig(
       Label projectFile,
       ProjectValue sclContent,
       String sclConfigName,
@@ -145,7 +138,7 @@ public final class FlagSetFunction implements SkyFunction {
     var unTypeCheckedConfigs = sclContent.getProject().get(CONFIGS);
     // This project file doesn't define configs, so it must not be used for canonical configs.
     if (unTypeCheckedConfigs == null) {
-      return ImmutableList.of();
+      return ImmutableSet.of();
     }
     boolean expectedConfigsType = false;
     if (unTypeCheckedConfigs instanceof Dict<?, ?> configsAsDict) {
@@ -210,14 +203,26 @@ public final class FlagSetFunction implements SkyFunction {
       }
       sclConfigValue = configs.get(sclConfigName);
     }
+    ImmutableList<String> buildOptionsAsStrings = getBuildOptionsAsStrings(targetOptions);
+    ImmutableSet<String> optionsToApply = filterOptions(sclConfigValue, buildOptionsAsStrings);
+
+    if (optionsToApply.isEmpty()) {
+      return ImmutableSet.of();
+    }
+
     validateNoExtraFlagsSet(
-        enforcementPolicy, targetOptions, userOptions, sclConfigValue, eventHandler, projectFile);
+        enforcementPolicy,
+        buildOptionsAsStrings,
+        userOptions,
+        optionsToApply,
+        eventHandler,
+        projectFile);
     eventHandler.handle(
         Event.info(
             String.format(
                 "Applying flags from the config '%s' defined in %s: %s ",
-                sclConfigNameForMessage, projectFile, sclConfigValue)));
-    return ImmutableList.copyOf(sclConfigValue);
+                sclConfigNameForMessage, projectFile, optionsToApply)));
+    return optionsToApply;
   }
 
   private static Collection<String> validateDefaultConfig(
@@ -233,6 +238,48 @@ public final class FlagSetFunction implements SkyFunction {
     }
 
     return configs.get(defaultConfigName);
+  }
+
+  private ImmutableList<String> getBuildOptionsAsStrings(BuildOptions targetOptions) {
+    ImmutableList.Builder<String> allOptionsAsStringsBuilder = new ImmutableList.Builder<>();
+
+    // Collect a list of BuildOptions, excluding TestOptions.
+    targetOptions.getStarlarkOptions().keySet().stream()
+        .map(Object::toString)
+        .forEach(allOptionsAsStringsBuilder::add);
+    for (FragmentOptions fragmentOptions : targetOptions.getNativeOptions()) {
+      if (fragmentOptions.getClass().equals(TestConfiguration.TestOptions.class)) {
+        continue;
+      }
+      fragmentOptions.asMap().keySet().forEach(allOptionsAsStringsBuilder::add);
+    }
+    return allOptionsAsStringsBuilder.build();
+  }
+
+  /**
+   * Filters the options from the selected config to only those that are part of {@link
+   * BuildOptions}, excluding {@link TestConfiguration.TestOptions}.
+   *
+   * <p>Only the options that are part of {@link BuildOptions} are allowed to be set in the project
+   * file.
+   */
+  private ImmutableSet<String> filterOptions(
+      Collection<String> flagsFromSelectedConfig, ImmutableList<String> buildOptionsAsStrings) {
+    ImmutableSet.Builder<String> filteredFlags = ImmutableSet.builder();
+    for (String flagSetting : flagsFromSelectedConfig) {
+      // Remove options that aren't part of BuildOptions from the selected config.
+      if (buildOptionsAsStrings.contains(
+          Iterables.get(Splitter.on("=").split(flagSetting), 0)
+              .replaceFirst("--", "")
+              .replace("'", ""))) {
+        filteredFlags.add(flagSetting);
+      } else if (STARLARK_SKIPPED_PREFIXES.stream().anyMatch(flagSetting::startsWith)) {
+        // Because the BuildOptions might not already include Starlark flags that are set in the
+        // flagset, explicitly add them to the set of options to return.
+        filteredFlags.add(flagSetting);
+      }
+    }
+    return filteredFlags.build();
   }
 
   /**
@@ -252,30 +299,19 @@ public final class FlagSetFunction implements SkyFunction {
    */
   private void validateNoExtraFlagsSet(
       EnforcementPolicy enforcementPolicy,
-      BuildOptions targetOptions,
+      ImmutableList<String> buildOptionsAsStrings,
       ImmutableMap<String, String> userOptions,
-      Collection<String> flagsFromSelectedConfig,
+      ImmutableSet<String> flagsFromSelectedConfig,
       ExtendedEventHandler eventHandler,
       Label projectFile)
       throws FlagSetFunctionException {
-    ImmutableList.Builder<String> allOptionsAsStringsBuilder = new ImmutableList.Builder<>();
-    // All potentially conflicting user options also appear in targetOptions
-    targetOptions.getStarlarkOptions().keySet().stream()
-        .map(Object::toString)
-        .forEach(allOptionsAsStringsBuilder::add);
-    for (FragmentOptions fragmentOptions : targetOptions.getNativeOptions()) {
-      if (fragmentOptions.getClass().equals(TestConfiguration.TestOptions.class)) {
-        continue;
-      }
-      fragmentOptions.asMap().keySet().forEach(allOptionsAsStringsBuilder::add);
-    }
-    ImmutableList<String> allOptionsAsStrings = allOptionsAsStringsBuilder.build();
     ImmutableSet<String> overlap =
         userOptions.keySet().stream()
-            // Remove options that aren't part of BuildOptions
+            // Remove options that aren't part of BuildOptions. This section can be removed once
+            // we only include BuildOptions in the passed userOptions.
             .filter(
                 option ->
-                    allOptionsAsStrings.contains(
+                    buildOptionsAsStrings.contains(
                         Iterables.get(Splitter.on("=").split(option), 0)
                             .replaceFirst("--", "")
                             .replace("'", "")))
@@ -350,24 +386,6 @@ public final class FlagSetFunction implements SkyFunction {
     return ans;
   }
 
-  /**
-   * Converts a list of flags in string form to a set of actual flags parsed by the options parser.
-   */
-  @Nullable
-  private static ParsedFlagsValue parseFlags(
-      Collection<String> flagsAsStarlarkList, Environment env) throws InterruptedException {
-    RepositoryMappingValue mainRepositoryMappingValue =
-        (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
-    if (mainRepositoryMappingValue == null) {
-      return null;
-    }
-    RepoContext mainRepoContext =
-        RepoContext.of(RepositoryName.MAIN, mainRepositoryMappingValue.repositoryMapping());
-    return (ParsedFlagsValue)
-        env.getValue(
-            ParsedFlagsValue.Key.create(
-                ImmutableList.copyOf(flagsAsStarlarkList), mainRepoContext.rootPackage()));
-  }
 
   private static final class FlagSetFunctionException extends SkyFunctionException {
     FlagSetFunctionException(Exception cause, Transience transience) {
