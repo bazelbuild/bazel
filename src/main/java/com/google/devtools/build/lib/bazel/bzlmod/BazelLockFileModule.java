@@ -50,6 +50,7 @@ public class BazelLockFileModule extends BlazeModule {
 
   private SkyframeExecutor executor;
   private Path workspaceRoot;
+  private Path outputBase;
   private LockfileMode optionsLockfileMode;
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
@@ -61,6 +62,7 @@ public class BazelLockFileModule extends BlazeModule {
   public void beforeCommand(CommandEnvironment env) {
     executor = env.getSkyframeExecutor();
     workspaceRoot = env.getWorkspace();
+    outputBase = env.getOutputBase();
     optionsLockfileMode = env.getOptions().getOptions(RepositoryOptions.class).lockfileMode;
   }
 
@@ -70,6 +72,7 @@ public class BazelLockFileModule extends BlazeModule {
     BazelModuleResolutionValue moduleResolutionValue;
     BazelDepGraphValue depGraphValue;
     BazelLockFileValue oldLockfile;
+    BazelLockFileValue oldHiddenLockfile;
     try {
       PrecomputedValue lockfileModeValue =
           (PrecomputedValue) evaluator.getExistingValue(LOCKFILE_MODE.getKey());
@@ -89,11 +92,16 @@ public class BazelLockFileModule extends BlazeModule {
           (BazelModuleResolutionValue) evaluator.getExistingValue(BazelModuleResolutionValue.KEY);
       depGraphValue = (BazelDepGraphValue) evaluator.getExistingValue(BazelDepGraphValue.KEY);
       oldLockfile = (BazelLockFileValue) evaluator.getExistingValue(BazelLockFileValue.KEY);
+      oldHiddenLockfile =
+          (BazelLockFileValue) evaluator.getExistingValue(BazelLockFileValue.HIDDEN_KEY);
     } catch (InterruptedException e) {
       // Not thrown in Bazel.
       throw new IllegalStateException(e);
     }
-    if (moduleResolutionValue == null || depGraphValue == null || oldLockfile == null) {
+    if (moduleResolutionValue == null
+        || depGraphValue == null
+        || oldLockfile == null
+        || oldHiddenLockfile == null) {
       // An error during the actual build prevented the evaluation of these values and has already
       // been reported at this point.
       return;
@@ -120,34 +128,73 @@ public class BazelLockFileModule extends BlazeModule {
                 newExtensionInfos.put(key.argument(), value.lockFileInfo().get());
               }
             });
-    var combinedExtensionInfos =
-        combineModuleExtensions(
-            oldLockfile.getModuleExtensions(),
-            newExtensionInfos,
-            /* hasUsages= */ depGraphValue.getExtensionUsagesTable()::containsRow);
 
-    // Create an updated version of the lockfile, keeping only the extension results from the old
-    // lockfile that are still up-to-date and adding the newly resolved extension results.
-    BazelLockFileValue newLockfile =
-        BazelLockFileValue.builder()
-            .setRegistryFileHashes(
-                ImmutableSortedMap.copyOf(moduleResolutionValue.getRegistryFileHashes()))
-            .setSelectedYankedVersions(moduleResolutionValue.getSelectedYankedVersions())
-            .setModuleExtensions(combinedExtensionInfos)
-            .build();
+    Thread updateLockfile =
+        Thread.startVirtualThread(
+            () -> {
+              var notReproducibleExtensionInfos =
+                  combineModuleExtensions(
+                      oldLockfile.getModuleExtensions(),
+                      newExtensionInfos,
+                      /* hasUsages= */ depGraphValue.getExtensionUsagesTable()::containsRow,
+                      /* reproducible= */ false);
 
-    // Write the new value to the file, but only if needed. This is not just a performance
-    // optimization: whenever the lockfile is updated, most Skyframe nodes will be marked as dirty
-    // on the next build, which breaks commands such as `bazel config` that rely on
-    // com.google.devtools.build.skyframe.MemoizingEvaluator#getDoneValues.
-    if (!newLockfile.equals(oldLockfile)) {
-      updateLockfile(workspaceRoot, newLockfile);
+              // Create an updated version of the lockfile, keeping only the extension results from
+              // the old lockfile that are still up-to-date and adding the newly resolved
+              // extension results, as long as any of them are not known to be reproducible.
+              BazelLockFileValue newLockfile =
+                  BazelLockFileValue.builder()
+                      .setRegistryFileHashes(
+                          ImmutableSortedMap.copyOf(moduleResolutionValue.getRegistryFileHashes()))
+                      .setSelectedYankedVersions(moduleResolutionValue.getSelectedYankedVersions())
+                      .setModuleExtensions(notReproducibleExtensionInfos)
+                      .build();
+
+              // Write the new values to the files, but only if needed. This is not just a
+              // performance optimization: whenever the lockfile is updated, most Skyframe nodes
+              // will be marked as dirty on the next build, which breaks commands such as `bazel
+              // config` that rely on
+              // com.google.devtools.build.skyframe.MemoizingEvaluator#getDoneValues.
+              if (!newLockfile.equals(oldLockfile)) {
+                updateLockfile(workspaceRoot, newLockfile);
+              }
+            });
+
+    Thread updateHiddenLockfile =
+        Thread.startVirtualThread(
+            () -> {
+              // Results of reproducible extensions do not need to be stored for reproducibility,
+              // but avoiding reevaluations on server startups helps cold build performance.
+              var reproducibleExtensionInfos =
+                  combineModuleExtensions(
+                      oldLockfile.getModuleExtensions(),
+                      newExtensionInfos,
+                      /* hasUsages= */ depGraphValue.getExtensionUsagesTable()::containsRow,
+                      /* reproducible= */ true);
+              BazelLockFileValue newHiddenLockfile =
+                  BazelLockFileValue.builder()
+                      .setSelectedYankedVersions(ImmutableMap.of())
+                      .setModuleExtensions(reproducibleExtensionInfos)
+                      .build();
+
+              if (!newHiddenLockfile.equals(oldHiddenLockfile)) {
+                updateLockfile(outputBase, newHiddenLockfile);
+              }
+            });
+
+    try {
+      updateLockfile.join();
+      updateHiddenLockfile.join();
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      logger.atSevere().withCause(e).log(
+          "Interrupted while updating MODULE.bazel.lock file: %s", e.getMessage());
     }
   }
 
   /**
-   * Combines the old extensions stored in the lockfile -if they are still valid- with the new
-   * extensions from the events (if any)
+   * Combines the old extensions stored in the lockfile -if they are still used and have the same
+   * dependence on os/arch - with the new extensions from the events (if any)
    */
   @VisibleForTesting
   static ImmutableMap<
@@ -156,12 +203,13 @@ public class BazelLockFileModule extends BlazeModule {
           Map<ModuleExtensionId, ImmutableMap<ModuleExtensionEvalFactors, LockFileModuleExtension>>
               oldExtensionInfos,
           Map<ModuleExtensionId, LockFileModuleExtension.WithFactors> newExtensionInfos,
-          Predicate<ModuleExtensionId> hasUsages) {
+          Predicate<ModuleExtensionId> hasUsages,
+          boolean reproducible) {
     Map<ModuleExtensionId, ImmutableMap<ModuleExtensionEvalFactors, LockFileModuleExtension>>
         updatedExtensionMap = new HashMap<>();
 
     // Keep those per factor extension results that are still used according to the static
-    // information given in the extension declaration (dependence on os and arch, reproducibility).
+    // information given in the extension declaration (dependence on os and arch).
     // Other information such as transitive .bzl hash and usages hash are *not* checked here.
     for (var entry : oldExtensionInfos.entrySet()) {
       var moduleExtensionId = entry.getKey();
@@ -176,26 +224,24 @@ public class BazelLockFileModule extends BlazeModule {
         continue;
       }
       var newFactors = newExtensionInfo.extensionFactors();
-      // Factor results can be individually marked as reproducible and should be dropped if so.
-      ImmutableSortedMap<ModuleExtensionEvalFactors, LockFileModuleExtension>
-          perFactorResultsToKeep =
-              ImmutableSortedMap.copyOf(
-                  Maps.filterKeys(
-                      entry.getValue(),
-                      existingFactors ->
-                          newFactors.hasSameDependenciesAs(existingFactors)
-                              && !(newFactors.equals(existingFactors)
-                                  && newExtensionInfo.moduleExtension().isReproducible())));
-      if (perFactorResultsToKeep.isEmpty()) {
+      // Prefer the new result for its particular set of factors.
+      var perFactorsResultsToKeep =
+          ImmutableSortedMap.copyOf(
+              Maps.filterKeys(
+                  entry.getValue(),
+                  oldFactors ->
+                      oldFactors.hasSameDependenciesAs(newFactors)
+                          && !oldFactors.equals(newFactors)));
+      if (perFactorsResultsToKeep.isEmpty()) {
         continue;
       }
-      updatedExtensionMap.put(moduleExtensionId, perFactorResultsToKeep);
+      updatedExtensionMap.put(moduleExtensionId, perFactorsResultsToKeep);
     }
 
     // Add the new resolved extensions
     for (var extensionIdAndInfo : newExtensionInfos.entrySet()) {
       LockFileModuleExtension extension = extensionIdAndInfo.getValue().moduleExtension();
-      if (extension.isReproducible()) {
+      if (extension.isReproducible() != reproducible) {
         continue;
       }
 
@@ -206,7 +252,7 @@ public class BazelLockFileModule extends BlazeModule {
         // extension exists, add the new entry to the existing map
         extensionEntries =
             ImmutableSortedMap.copyOf(
-                new ImmutableMap.Builder<ModuleExtensionEvalFactors, LockFileModuleExtension>()
+                ImmutableMap.<ModuleExtensionEvalFactors, LockFileModuleExtension>builder()
                     .putAll(oldExtensionEntries)
                     .put(factors, extension)
                     .buildKeepingLast());
@@ -227,12 +273,12 @@ public class BazelLockFileModule extends BlazeModule {
   /**
    * Updates the data stored in the lockfile (MODULE.bazel.lock)
    *
-   * @param workspaceRoot Root of the workspace where the lockfile is located
+   * @param lockfileRoot Root under which the lockfile is located
    * @param updatedLockfile The updated lockfile data to save
    */
-  private static void updateLockfile(Path workspaceRoot, BazelLockFileValue updatedLockfile) {
+  private static void updateLockfile(Path lockfileRoot, BazelLockFileValue updatedLockfile) {
     RootedPath lockfilePath =
-        RootedPath.toRootedPath(Root.fromPath(workspaceRoot), LabelConstants.MODULE_LOCKFILE_NAME);
+        RootedPath.toRootedPath(Root.fromPath(lockfileRoot), LabelConstants.MODULE_LOCKFILE_NAME);
     try {
       FileSystemUtils.writeContent(
           lockfilePath.asPath(),
