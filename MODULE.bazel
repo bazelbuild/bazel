@@ -187,7 +187,6 @@ maven.install(
         "org.threeten:threeten-extra:1.5.0",
         "org.tukaani:xz:1.9",
         "org.yaml:snakeyaml:1.28",
-        "tools.profiler:async-profiler:3.0",
         # The following jars are for testing.
         # junit is not test only due to //src/java_tools/junitrunner/java/com/google/testing/junit/junit4:runner,
         # and hamcrest is a dependency of junit.
@@ -362,6 +361,15 @@ http_file(
     executable = True,
     integrity = "sha256-6+zYQLpH779mgihoF4zHIaFRBgk396xAbj0xvQFb3pQ=",
     urls = ["https://github.com/jqlang/jq/releases/download/jq-1.5/jq-win64.exe"],
+)
+
+async_profiler_repos = use_extension("//:repositories.bzl", "async_profiler_repos")
+use_repo(
+    async_profiler_repos,
+    "async_profiler",
+    "async_profiler_linux_arm64",
+    "async_profiler_linux_x64",
+    "async_profiler_macos",
 )
 
 # =========================================

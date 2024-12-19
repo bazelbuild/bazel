@@ -1,5 +1,6 @@
 load("@rules_java//java:defs.bzl", "java_import", "java_library", "java_plugin")
 load("@rules_license//rules:license.bzl", "license")
+load("//src/tools/bzlmod:utils.bzl", "get_repo_root")
 load("//tools/distributions:distribution_rules.bzl", "distrib_jar_filegroup", "distrib_java_import")
 
 package(default_visibility = ["//visibility:public"])
@@ -273,6 +274,28 @@ distrib_jar_filegroup(
         "@maven//:com_google_auto_value_auto_value_file",
     ],
     enable_distributions = ["debian"],
+)
+
+java_import(
+    name = "async_profiler",
+    jars = ["@async_profiler//file"],
+    runtime_deps = [":async_profiler_native"],
+)
+
+java_library(
+    name = "async_profiler_native",
+    resource_strip_prefix = select({
+        "//src/conditions:darwin": get_repo_root("async_profiler_macos"),
+        "//src/conditions:linux_arm": get_repo_root("async_profiler_linux_arm64"),
+        "//src/conditions:linux_x86_64": get_repo_root("async_profiler_linux_x64"),
+        "//conditions:default": None,
+    }),
+    resources = select({
+        "//src/conditions:darwin": ["@async_profiler_macos//:libasyncProfiler"],
+        "//src/conditions:linux_arm": ["@async_profiler_linux_arm64//:libasyncProfiler"],
+        "//src/conditions:linux_x86_64": ["@async_profiler_linux_x64//:libasyncProfiler"],
+        "//conditions:default": [],
+    }),
 )
 
 alias(

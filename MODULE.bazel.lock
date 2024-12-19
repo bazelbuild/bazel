@@ -233,6 +233,211 @@
   },
   "selectedYankedVersions": {},
   "moduleExtensions": {
+    "//:repositories.bzl%async_profiler_repos": {
+      "general": {
+        "bzlTransitiveDigest": "JeHW4jAtkA9bf6sLhCHFDp7GGtqyJhsYXZQyawGd8tQ=",
+        "usagesDigest": "fv/Ru+up/1CLlox7G1yNn9y4JOVK1qeU6uQCAkCcMaM=",
+        "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "async_profiler": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "downloaded_file_path": "async-profiler.jar",
+              "sha256": "da95a5292fb203966196ecb68a39a8c26ad7276aeef642ec1de872513be1d8b3",
+              "urls": [
+                "https://mirror.bazel.build/github.com/async-profiler/async-profiler/releases/download/nightly/async-profiler.jar"
+              ]
+            }
+          },
+          "async_profiler_linux_arm64": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "build_file_content": "\nload(\"@bazel_skylib//rules:copy_file.bzl\", \"copy_file\")\n\ncopy_file(\n    name = \"libasyncProfiler\",\n    src = \"libasyncProfiler.so\",\n    out = \"linux-arm64/libasyncProfiler.so\",\n    visibility = [\"//visibility:public\"],\n)\n",
+              "sha256": "7c6243bb91272a2797acb8cc44acf3e406e0b658a94d90d9391ca375fc961857",
+              "strip_prefix": "async-profiler-3.0-f0ceda6-linux-arm64/lib",
+              "urls": [
+                "https://mirror.bazel.build/github.com/async-profiler/async-profiler/releases/download/nightly/async-profiler-3.0-f0ceda6-linux-arm64.tar.gz"
+              ]
+            }
+          },
+          "async_profiler_linux_x64": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "build_file_content": "\nload(\"@bazel_skylib//rules:copy_file.bzl\", \"copy_file\")\n\ncopy_file(\n    name = \"libasyncProfiler\",\n    src = \"libasyncProfiler.so\",\n    out = \"linux-x64/libasyncProfiler.so\",\n    visibility = [\"//visibility:public\"],\n)\n",
+              "sha256": "448a3dc681375860eba2264d6cae7a848bd3f07f81f547a9ce58b742a1541d25",
+              "strip_prefix": "async-profiler-3.0-f0ceda6-linux-x64/lib",
+              "urls": [
+                "https://mirror.bazel.build/github.com/async-profiler/async-profiler/releases/download/nightly/async-profiler-3.0-f0ceda6-linux-x64.tar.gz"
+              ]
+            }
+          },
+          "async_profiler_macos": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "build_file_content": "\nload(\"@bazel_skylib//rules:copy_file.bzl\", \"copy_file\")\n\ncopy_file(\n    name = \"libasyncProfiler\",\n    src = \"libasyncProfiler.dylib\",\n    out = \"macos/libasyncProfiler.so\",\n    visibility = [\"//visibility:public\"],\n)\n",
+              "sha256": "0651004c78d080f67763cddde6e1f58cd0d0c4cb0b57034beef80b450ff5adf2",
+              "strip_prefix": "async-profiler-3.0-f0ceda6-macos/lib",
+              "urls": [
+                "https://mirror.bazel.build/github.com/async-profiler/async-profiler/releases/download/nightly/async-profiler-3.0-f0ceda6-macos.zip"
+              ]
+            }
+          }
+        },
+        "recordedRepoMappingEntries": [
+          [
+            "",
+            "abseil-cpp",
+            "abseil-cpp+"
+          ],
+          [
+            "",
+            "apple_support",
+            "apple_support+"
+          ],
+          [
+            "",
+            "async_profiler",
+            "+async_profiler_repos+async_profiler"
+          ],
+          [
+            "",
+            "async_profiler_linux_arm64",
+            "+async_profiler_repos+async_profiler_linux_arm64"
+          ],
+          [
+            "",
+            "async_profiler_linux_x64",
+            "+async_profiler_repos+async_profiler_linux_x64"
+          ],
+          [
+            "",
+            "async_profiler_macos",
+            "+async_profiler_repos+async_profiler_macos"
+          ],
+          [
+            "",
+            "bazel_skylib",
+            "bazel_skylib+"
+          ],
+          [
+            "",
+            "bazel_tools",
+            "bazel_tools"
+          ],
+          [
+            "",
+            "blake3",
+            "blake3+"
+          ],
+          [
+            "",
+            "c-ares",
+            "c-ares+"
+          ],
+          [
+            "",
+            "com_github_grpc_grpc",
+            "grpc+"
+          ],
+          [
+            "",
+            "com_google_protobuf",
+            "protobuf+"
+          ],
+          [
+            "",
+            "googleapis",
+            "googleapis+"
+          ],
+          [
+            "",
+            "grpc-java",
+            "grpc-java+"
+          ],
+          [
+            "",
+            "io_bazel_skydoc",
+            "stardoc+"
+          ],
+          [
+            "",
+            "platforms",
+            "platforms"
+          ],
+          [
+            "",
+            "rules_cc",
+            "rules_cc+"
+          ],
+          [
+            "",
+            "rules_go",
+            "rules_go+"
+          ],
+          [
+            "",
+            "rules_graalvm",
+            "rules_graalvm+"
+          ],
+          [
+            "",
+            "rules_java",
+            "rules_java+"
+          ],
+          [
+            "",
+            "rules_jvm_external",
+            "rules_jvm_external+"
+          ],
+          [
+            "",
+            "rules_kotlin",
+            "rules_kotlin+"
+          ],
+          [
+            "",
+            "rules_license",
+            "rules_license+"
+          ],
+          [
+            "",
+            "rules_pkg",
+            "rules_pkg+"
+          ],
+          [
+            "",
+            "rules_proto",
+            "rules_proto+"
+          ],
+          [
+            "",
+            "rules_python",
+            "rules_python+"
+          ],
+          [
+            "",
+            "rules_shell",
+            "rules_shell+"
+          ],
+          [
+            "",
+            "zlib",
+            "zlib+"
+          ],
+          [
+            "",
+            "zstd-jni",
+            "zstd-jni+"
+          ]
+        ]
+      }
+    },
     "@@apple_support+//crosstool:setup.bzl%apple_cc_configure_extension": {
       "general": {
         "bzlTransitiveDigest": "ltCGFbl/LQQZXn/LEMXfKX7pGwyqNiOCHcmiQW0tmjM=",
