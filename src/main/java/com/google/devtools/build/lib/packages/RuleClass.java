@@ -1624,7 +1624,7 @@ public class RuleClass implements RuleClassData {
 
     /** Adds an exec group that copies its toolchains and constraints from the rule. */
     public Builder addExecGroup(String name) {
-      return addExecGroups(ImmutableMap.of(name, ExecGroup.copyFromDefault()));
+      return addExecGroups(ImmutableMap.of(name, ExecGroup.COPY_FROM_DEFAULT));
     }
 
     /** An error to help report {@link ExecGroup}s with the same name */
