@@ -28,10 +28,6 @@ use_repo(
     "remote_java_tools_darwin_arm64",
 )
 
-sh_configure_extension = use_extension("//tools/sh:sh_configure.bzl", "sh_configure_extension")
-use_repo(sh_configure_extension, "local_config_sh")
-register_toolchains("@local_config_sh//:local_sh_toolchain")
-
 remote_coverage_tools_extension = use_extension("//tools/test:extensions.bzl", "remote_coverage_tools_extension")
 use_repo(remote_coverage_tools_extension, "remote_coverage_tools")
 
