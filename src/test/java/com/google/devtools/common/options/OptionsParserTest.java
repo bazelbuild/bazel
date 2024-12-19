@@ -2642,6 +2642,15 @@ public final class OptionsParserTest {
   }
 
   @Test
+  public void testOptionsParser_explicitOptions_excludesFlagsetOptions() throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(ExampleFoo.class).build();
+    parser.parse(
+        PriorityCategory.RC_FILE, "//test:PROJECT.scl", ImmutableList.of("--foo=set_by_flagset"));
+    assertThat(parser.asListOfExplicitOptions()).isEmpty();
+    assertThat(parser.canonicalize()).contains("--foo=set_by_flagset");
+  }
+
+  @Test
   public void testOptionsParser_getUserOptions_excludesInvocationPolicy() throws Exception {
     OptionsParser parser =
         OptionsParser.builder()

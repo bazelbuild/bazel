@@ -677,6 +677,9 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       CommandLineEvent originalCommandLineEvent =
           new CommandLineEvent.OriginalCommandLineEvent(
               runtime, commandName, options, startupOptionsTaggedWithBazelRc);
+      // If flagsets are applied, a CanonicalCommandLineEvent is also emitted by
+      // BuildTool.buildTargets(). This is a duplicate event, and consumers are expected to
+      // handle it correctly, by accepting the last event.
       CommandLineEvent canonicalCommandLineEvent =
           new CommandLineEvent.CanonicalCommandLineEvent(runtime, commandName, options);
       BuildEventProtocolOptions bepOptions =
