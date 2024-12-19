@@ -468,7 +468,6 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
   }
 
   @Test
-  @Ignore("TODO(b/359622692): turns this back on in a follow up CL")
   public void createKey_withScopedBuildOptions_outOfScopeFlag_flagNotSetInTheBaseline()
       throws Exception {
     createStarlarkFlagRule();
@@ -559,7 +558,6 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
   }
 
   @Test
-  @Ignore("TODO(b/359622692): turns this back on in a follow up CL")
   public void createKey_withScopedBuildOptions_outOfScopeFlag_flagSetInTheBaseline()
       throws Exception {
     AnalysisMock analysisMock = AnalysisMock.get();
@@ -675,7 +673,6 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
   }
 
   @Test
-  @Ignore("TODO(b/359622692): turns this back on in a follow up CL")
   public void checkFinalizeBuildOptions_haveCorrectScopeTypeMap_noScopingApplied()
       throws Exception {
     createStarlarkFlagRule();

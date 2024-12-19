@@ -188,10 +188,10 @@ EOF
 
   cat $TEST_log
 
-  #expect_log "//in_scope_flags:project_flag: changed_value_project_flag1"
-  #expect_log "//universal_flags:universal_flag: changed_value_universal_flag"
-  #expect_log "//out_of_scope_flags:project_flag_baseline: baseline"
-  #expect_not_log "//out_of_scope_flags:project_flag: changed_value_project_flag2"
+  expect_log "//in_scope_flags:project_flag: changed_value_project_flag1"
+  expect_log "//universal_flags:universal_flag: changed_value_universal_flag"
+  expect_log "//out_of_scope_flags:project_flag_baseline: baseline"
+  expect_not_log "//out_of_scope_flags:project_flag: changed_value_project_flag2"
 }
 
 run_suite "Integration tests for flags scoping"

@@ -241,19 +241,15 @@ public class StarlarkOptionsParser {
         }
       }
 
-      // A workaround to turn on and off scoping feature without a flag.
-      boolean considerScoping = false;
-      if (considerScoping) {
-        // TODO: b/384058698 - use NonConfigurableAttributeMapper to get the scope type.
-        String scopeType =
-            buildSettingTarget.getAssociatedRule().getAttr("scope") == null
-                ? "universal"
-                : buildSettingTarget.getAssociatedRule().getAttr("scope", Type.STRING).toString();
-        if (scopeType != null) {
-          scopeTypeMap.put(buildSetting, scopeType);
-        } else {
-          scopeTypeMap.put(buildSetting, "universal");
-        }
+      // TODO: b/384058698 - use NonConfigurableAttributeMapper to get the scope type.
+      String scopeType =
+          buildSettingTarget.getAssociatedRule().getAttr("scope") == null
+              ? "universal"
+              : buildSettingTarget.getAssociatedRule().getAttr("scope", Type.STRING).toString();
+      if (scopeType != null) {
+        scopeTypeMap.put(buildSetting, scopeType);
+      } else {
+        scopeTypeMap.put(buildSetting, "universal");
       }
       nativeOptionsParser.setScopesAttributes(ImmutableMap.copyOf(scopeTypeMap));
     }

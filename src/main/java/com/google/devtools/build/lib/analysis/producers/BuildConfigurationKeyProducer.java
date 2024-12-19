@@ -161,12 +161,6 @@ public final class BuildConfigurationKeyProducer<C>
    * {@link ScopeType.PROJECT} or its {@link ScopeType} is not yet resolved.
    */
   private StateMachine findBuildOptionsScopes(Tasks tasks) {
-    // a quick way to turn on and off scoping feature without a flag for safe rollout.
-    boolean considerScoping = false;
-    if (!considerScoping) {
-      return this::finishConfigurationKeyProcessing;
-    }
-
     Preconditions.checkNotNull(this.postPlatformProcessedOptions);
     // including platform-based flags in skykey for scopes lookUp
     if (postPlatformProcessedOptions.getStarlarkOptions().isEmpty()) {
@@ -265,14 +259,6 @@ public final class BuildConfigurationKeyProducer<C>
   }
 
   private StateMachine finishConfigurationKeyProcessing(Tasks tasks) {
-    // a quick way to turn on and off scoping feature without a flag for safe rollout.
-    boolean considerScoping = false;
-    if (!considerScoping) {
-      sink.acceptTransitionedConfiguration(
-          this.context, BuildConfigurationKey.create(this.postPlatformProcessedOptions));
-      return this.runAfter;
-    }
-
     if (this.postPlatformProcessedOptions.getStarlarkOptions().isEmpty()) {
       sink.acceptTransitionedConfiguration(
           this.context, BuildConfigurationKey.create(this.postPlatformProcessedOptions));
