@@ -241,6 +241,7 @@ tasks:
     setup:
       - mkdir C:\b
       - mklink /J C:\b\bazeltest_external %OUTPUT_BASE:/=\%\external
+      - START "" C:\python3\python.exe third_party/local-bazel-registry/server.py
     build_flags:
       - "--config=ci-windows"
     build_targets:
@@ -292,6 +293,7 @@ tasks:
     setup:
       - mkdir C:\b
       - mklink /J C:\b\bazeltest_external %OUTPUT_BASE:/=\%\external
+      - START "" C:\python3\python.exe third_party/local-bazel-registry/server.py
     build_flags:
       - "--config=ci-windows"
       - "--config=windows_arm64"
