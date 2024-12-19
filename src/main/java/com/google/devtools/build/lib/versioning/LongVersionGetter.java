@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.versioning;
 
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
-import javax.annotation.Nullable;
 
 /** Strategy for retrieving the version number for paths. */
 public interface LongVersionGetter {
@@ -27,6 +26,13 @@ public interface LongVersionGetter {
   // TODO(b/151473808): Do not request xattrs for paths without it outside of client snapshots in
   //  tests. Rename the constant accordingly once we do so.
   long CURRENT_VERSION = Long.MAX_VALUE;
+
+  /**
+   * Version for a file that has never changed.
+   *
+   * <p>We use -1 because valid versions are positive longs.
+   */
+  long MINIMAL = -1;
 
   /**
    * Returns version number when the provided file/symlink was last modified (or added).
@@ -54,10 +60,9 @@ public interface LongVersionGetter {
    * <ul>
    *   <li><b>Deleted in Current Snapshot</b>: returns {@link #CURRENT_VERSION}
    *   <li><b>External, unversioned, paths</b>: returns {@link #CURRENT_VERSION}
-   *   <li><b>Never existed in the first place</b>: returns null
-   *   <li><b>Parent directory doesn't exist</b>: returns null
+   *   <li><b>Never existed in the first place</b>: returns {@link #MINIMAL}
+   *   <li><b>Parent directory doesn't exist</b>: returns {@link #MINIMAL}
    * </ul>
    */
-  @Nullable
-  Long getNonexistentPathVersion(Path path) throws IOException;
+  long getNonexistentPathVersion(Path path) throws IOException;
 }

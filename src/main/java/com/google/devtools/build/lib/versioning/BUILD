@@ -30,6 +30,5 @@ java_library(
     srcs = ["LongVersionGetter.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//third_party:jsr305",
     ],
 )
