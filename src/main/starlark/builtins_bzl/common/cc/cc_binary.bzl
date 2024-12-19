@@ -401,7 +401,7 @@ def _collect_linking_context(ctx):
 def _get_link_staticness(ctx, cpp_config, force_linkstatic, is_dbg_build):
     if cpp_config.dynamic_mode() == "FULLY":
         return linker_mode.LINKING_DYNAMIC
-    elif cpp_config.dynamic_mode() == "OFF" or ctx.attr.linkstatic or force_linkstatic or is_dbg_build:
+    elif cpp_config.dynamic_mode() == "OFF" or ctx.attr.linkstatic or force_linkstatic:
         return linker_mode.LINKING_STATIC
     else:
         return linker_mode.LINKING_DYNAMIC
