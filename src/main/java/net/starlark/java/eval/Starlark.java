@@ -793,6 +793,7 @@ public final class Starlark {
       throws EvalException, InterruptedException {
     StarlarkCallable callable = getStarlarkCallable(thread, fn);
 
+    // LINT.IfChange(fastcall)
     thread.push(callable);
     try {
       return callable.fastcall(thread, positional, named);
@@ -808,6 +809,7 @@ public final class Starlark {
     } finally {
       thread.pop();
     }
+    // LINT.ThenChange(:positionalOnlyCall)
   }
 
   /**
@@ -825,7 +827,25 @@ public final class Starlark {
    */
   public static Object positionalOnlyCall(StarlarkThread thread, Object fn, Object... positional)
       throws EvalException, InterruptedException {
-    return fastcall(thread, fn, positional, EMPTY);
+    StarlarkCallable callable = getStarlarkCallable(thread, fn);
+
+    // LINT.IfChange(positionalOnlyCall)
+    thread.push(callable);
+    try {
+      return callable.positionalOnlyCall(thread, positional);
+    } catch (UncheckedEvalException | UncheckedEvalError ex) {
+      throw ex; // already wrapped
+    } catch (RuntimeException ex) {
+      throw new UncheckedEvalException(ex, thread);
+    } catch (Error ex) {
+      throw new UncheckedEvalError(ex, thread);
+    } catch (EvalException ex) {
+      // If this exception was newly thrown, set its stack.
+      throw ex.ensureStack(thread);
+    } finally {
+      thread.pop();
+    }
+    // LINT.ThenChange(:fastcall)
   }
 
   private static final Object[] EMPTY = {};

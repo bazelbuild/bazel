@@ -79,6 +79,17 @@ public final class BuiltinFunction implements StarlarkCallable {
         obj instanceof String ? StringModule.INSTANCE : obj, vector, thread.mutability());
   }
 
+  @Override
+  public Object positionalOnlyCall(StarlarkThread thread, Object... positional)
+      throws EvalException, InterruptedException {
+    MethodDescriptor desc = getMethodDescriptor(thread.getSemantics());
+    Object[] vector = getArgumentVector(thread, desc, positional, EMPTY);
+    return desc.call(
+        obj instanceof String ? StringModule.INSTANCE : obj, vector, thread.mutability());
+  }
+
+  private static final Object[] EMPTY = {};
+
   private MethodDescriptor getMethodDescriptor(StarlarkSemantics semantics) {
     MethodDescriptor desc = this.desc;
     if (desc == null) {

@@ -86,6 +86,27 @@ public interface StarlarkCallable extends StarlarkValue {
     return call(thread, Tuple.of(positional), Dict.wrap(thread.mutability(), kwargs));
   }
 
+  /**
+   * Defines the "fast" implementation variant of function calling with only positional arguments.
+   *
+   * <p>Do not call this function directly. Use the {@link Starlark#easycall} function to make a
+   * call, as it handles necessary book-keeping such as maintenance of the call stack, exception
+   * handling, and so on.
+   *
+   * <p>The fastcall implementation takes ownership of the {@code positional} array, and may retain
+   * it indefinitely or modify it. The caller must not modify or even access the array after making
+   * the call.
+   *
+   * <p>The default implementation forwards the call to {@code call}.
+   *
+   * @param thread the StarlarkThread in which the function is called
+   * @param positional a list of positional arguments
+   */
+  default Object positionalOnlyCall(StarlarkThread thread, Object... positional)
+      throws EvalException, InterruptedException {
+    return fastcall(thread, positional, new Object[] {});
+  }
+
   /** Returns the form this callable value should take in a stack trace. */
   String getName();
 

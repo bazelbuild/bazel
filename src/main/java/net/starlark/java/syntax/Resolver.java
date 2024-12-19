@@ -278,6 +278,16 @@ public final class Resolver extends NodeVisitor {
       return numKeywordOnlyParams;
     }
 
+    /** Returns the number of non-residual parameters. */
+    public int getNumNonResidualParameters() {
+      return params.size() - (hasKwargs ? 1 : 0) - (hasVarargs ? 1 : 0);
+    }
+
+    /** Returns the number of ordinary (non-residual, non-keyword-only) parameters. */
+    public int getNumOrdinaryParameters() {
+      return params.size() - (hasKwargs ? 1 : 0) - (hasVarargs ? 1 : 0) - numKeywordOnlyParams;
+    }
+
     /** Returns the names of the parameters. Order is as for {@link #getParameters}. */
     public ImmutableList<String> getParameterNames() {
       return parameterNames;
