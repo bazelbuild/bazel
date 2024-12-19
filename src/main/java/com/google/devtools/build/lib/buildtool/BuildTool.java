@@ -612,7 +612,9 @@ public class BuildTool {
       @Nullable BuildEventProtocolOptions besOptions,
       String format,
       @Nullable PathFragment outputFilePathFragment)
-      throws CommandLineExpansionException, IOException, InvalidAqueryOutputFormatException,
+      throws CommandLineExpansionException,
+          IOException,
+          InvalidAqueryOutputFormatException,
           TemplateExpansionException {
     Preconditions.checkState(env.getSkyframeExecutor() instanceof SequencedSkyframeExecutor);
 
@@ -888,6 +890,7 @@ public class BuildTool {
       case OFF -> {}
     }
   }
+
   private static void maybeSetStopOnFirstFailure(BuildRequest request, BuildResult result) {
     if (shouldStopOnFailure(request)) {
       result.setStopOnFirstFailure(true);

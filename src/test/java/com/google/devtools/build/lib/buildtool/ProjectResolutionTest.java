@@ -19,7 +19,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.Project;
-import com.google.devtools.build.lib.analysis.Project.ProjectResolutionException;
+import com.google.devtools.build.lib.analysis.ProjectResolutionException;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import org.junit.Test;

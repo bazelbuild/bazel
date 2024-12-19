@@ -212,7 +212,8 @@ public class ProjectFunction implements SkyFunction {
     }
   }
 
-  private static final class ProjectFunctionException extends SkyFunctionException {
+  /** Exception thrown by {@link ProjectFunction}. */
+  public static final class ProjectFunctionException extends SkyFunctionException {
     ProjectFunctionException(TypecheckFailureException cause) {
       super(cause, PERSISTENT);
     }

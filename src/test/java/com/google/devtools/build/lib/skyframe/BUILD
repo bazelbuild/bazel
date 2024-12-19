@@ -2227,3 +2227,25 @@ java_test(
         "//third_party:truth",
     ],
 )
+
+java_test(
+    name = "BuildOptionsScopeFunctionTest",
+    srcs = ["BuildOptionsScopeFunctionTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/scope",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_function",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:build_options_scope_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/skyframe/util:SkyframeExecutorTestUtils",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)

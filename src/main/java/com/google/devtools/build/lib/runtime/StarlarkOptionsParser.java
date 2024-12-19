@@ -106,6 +106,9 @@ public class StarlarkOptionsParser {
   // Result of #parse, store the parsed options and their values.
   private final Map<String, Object> starlarkOptions = new TreeMap<>();
 
+  // Map of starlark options to their {@link Scope.ScopeType}.
+  private final Map<String, String> scopes = new TreeMap<>();
+
   // Map of parsed starlark options to their loaded BuildSetting objects (used for canonicalization)
   private final Map<String, BuildSetting> parsedBuildSettings = new HashMap<>();
 
@@ -210,6 +213,7 @@ public class StarlarkOptionsParser {
     }
 
     Map<String, Object> parsedOptions = new HashMap<>();
+    Map<String, String> scopeTypeMap = new HashMap<>();
     for (String buildSetting : buildSettingWithTargetAndValue.keySet()) {
       Pair<Target, Object> buildSettingAndFinalValue =
           buildSettingWithTargetAndValue.get(buildSetting);
@@ -236,9 +240,27 @@ public class StarlarkOptionsParser {
           parsedOptions.put(buildSetting, buildSettingAndFinalValue.getSecond());
         }
       }
+
+      // A workaround to turn on and off scoping feature without a flag.
+      boolean considerScoping = false;
+      if (considerScoping) {
+        // TODO: b/384058698 - use NonConfigurableAttributeMapper to get the scope type.
+        String scopeType =
+            buildSettingTarget.getAssociatedRule().getAttr("scope") == null
+                ? "universal"
+                : buildSettingTarget.getAssociatedRule().getAttr("scope", Type.STRING).toString();
+        if (scopeType != null) {
+          scopeTypeMap.put(buildSetting, scopeType);
+        } else {
+          scopeTypeMap.put(buildSetting, "universal");
+        }
+      }
+      nativeOptionsParser.setScopesAttributes(ImmutableMap.copyOf(scopeTypeMap));
     }
+
     nativeOptionsParser.setStarlarkOptions(ImmutableMap.copyOf(parsedOptions));
     this.starlarkOptions.putAll(parsedOptions);
+    this.scopes.putAll(scopeTypeMap);
     return true;
   }
 
@@ -382,6 +404,10 @@ public class StarlarkOptionsParser {
 
   public ImmutableMap<String, Object> getStarlarkOptions() {
     return ImmutableMap.copyOf(this.starlarkOptions);
+  }
+
+  public ImmutableMap<String, String> getScopesAttributes() {
+    return ImmutableMap.copyOf(this.scopes);
   }
 
   public ImmutableMap<String, Object> getDefaultValues() {

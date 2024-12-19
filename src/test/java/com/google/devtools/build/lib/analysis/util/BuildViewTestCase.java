@@ -658,7 +658,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * Creates BuildView using current execConfig/targetConfig values. Ensures that execConfig is
    * either identical to the targetConfig or {@code isExecConfiguration()} is true.
    */
-  protected final void createBuildView() {
+  protected final void createBuildView()
+      throws InvalidConfigurationException, InterruptedException {
     Preconditions.checkNotNull(targetConfig);
     Preconditions.checkState(
         getExecConfiguration().equals(getTargetConfiguration())
@@ -669,6 +670,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         getTargetConfiguration());
 
     skyframeExecutor.handleAnalysisInvalidatingChange();
+    skyframeExecutor.setBaselineConfiguration(targetConfig.getOptions(), reporter);
 
     view = new BuildViewForTesting(directories, ruleClassProvider, skyframeExecutor, null);
     view.setConfigurationForTesting(targetConfig);

@@ -1289,7 +1289,6 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
 
         my_rule(
             name = "me",
-            transitive_configs = [":flag"],
         )
         """);
     // Need this so the feature flag actually gone from the configuration.

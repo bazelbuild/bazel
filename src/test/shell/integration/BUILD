@@ -1030,6 +1030,15 @@ sh_test(
     ],
 )
 
+sh_test(
+    name = "flags_scoping_integration_tests",
+    srcs = ["flags_scoping_integration_tests.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
 ########################################################################
 # Test suites.
 

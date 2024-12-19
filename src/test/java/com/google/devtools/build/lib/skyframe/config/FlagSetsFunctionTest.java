@@ -56,8 +56,14 @@ public final class FlagSetsFunctionTest extends BuildViewTestCase {
     scratch.file(
         flagDir + "/build_settings.bzl",
         """
-string_flag = rule(implementation = lambda ctx: [], build_setting = config.string(flag = True))
-""");
+        string_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True),
+            attrs = {
+                "scope": attr.string(default = "universal"),
+            },
+        )
+        """);
     scratch.file(
         flagDir + "/BUILD",
         """
@@ -570,8 +576,14 @@ project = {
     scratch.file(
         "test/build_settings.bzl",
         """
-string_flag = rule(implementation = lambda ctx: [], build_setting = config.string(flag = True))
-""");
+        string_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True),
+            attrs = {
+                "scope": attr.string(default = "universal"),
+            },
+        )
+        """);
     scratch.file(
         "test/BUILD",
         """
@@ -612,8 +624,14 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     scratch.file(
         "test/build_settings.bzl",
         """
-string_flag = rule(implementation = lambda ctx: [], build_setting = config.string(flag = True))
-""");
+        string_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True),
+            attrs = {
+                "scope": attr.string(default = "universal"),
+            },
+        )
+        """);
     scratch.file(
         "test/BUILD",
         """
@@ -653,8 +671,14 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     scratch.file(
         "test/build_settings.bzl",
         """
-string_flag = rule(implementation = lambda ctx: [], build_setting = config.string(flag = True))
-""");
+        string_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True),
+            attrs = {
+                "scope": attr.string(default = "universal"),
+            },
+        )
+        """);
     scratch.file(
         "test/BUILD",
         """
@@ -693,8 +717,14 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     scratch.file(
         "test/build_settings.bzl",
         """
-string_flag = rule(implementation = lambda ctx: [], build_setting = config.string(flag = True))
-""");
+        string_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True),
+            attrs = {
+                "scope": attr.string(default = "universal"),
+            },
+        )
+        """);
     scratch.file(
         "test/BUILD",
         """
@@ -743,8 +773,14 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     scratch.file(
         "test/build_settings.bzl",
         """
-string_flag = rule(implementation = lambda ctx: [], build_setting = config.string(flag = True))
-""");
+        string_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True),
+            attrs = {
+                "scope": attr.string(default = "universal"),
+            },
+        )
+        """);
     scratch.file(
         "test/BUILD",
         """

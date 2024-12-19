@@ -99,6 +99,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:label_expander",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:project_resolution_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:projects",
         "//src/main/java/com/google/devtools/build/lib/analysis:required_config_fragments_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:resolved_toolchain_context",

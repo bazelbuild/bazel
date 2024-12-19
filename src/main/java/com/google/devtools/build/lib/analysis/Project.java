@@ -70,13 +70,6 @@ import javax.annotation.Nullable;
 public final class Project {
   private Project() {}
 
-  /** Thrown when project files can't be found. */
-  public static class ProjectResolutionException extends Exception {
-    ProjectResolutionException(String msg, Throwable cause) {
-      super(msg, cause);
-    }
-  }
-
   /**
    * Returns the canonical project file for a set of targets, or null if the targets have no
    * canonical project file.

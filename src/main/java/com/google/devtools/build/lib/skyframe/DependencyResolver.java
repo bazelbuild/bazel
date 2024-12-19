@@ -76,6 +76,7 @@ import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.skyframe.BuildOptionsScopeFunction.BuildOptionsScopeFunctionException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.ReportedException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.UnreportedException;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
@@ -712,6 +713,11 @@ public final class DependencyResolver {
             TransitionCreationException transitionCreationException = error.transitionCreation();
             throw new ConfiguredValueCreationException(
                 ctgValue.getTarget(), transitionCreationException.getMessage());
+          case BUILD_OPTIONS_SCOPE:
+            BuildOptionsScopeFunctionException buildOptionsScopeFunctionException =
+                error.buildOptionsScope();
+            throw new ConfiguredValueCreationException(
+                ctgValue.getTarget(), buildOptionsScopeFunctionException.getMessage());
         }
       }
       if (!state.transitiveState.hasRootCause() && state.dependencyMap == null) {

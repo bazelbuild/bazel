@@ -100,6 +100,7 @@ java_library(
         ":build_driver_function",
         ":build_driver_key",
         ":build_driver_value",
+        ":build_options_scope_function",
         ":build_result_listener",
         ":bzl_compile",
         ":bzl_compile_value",
@@ -1209,6 +1210,42 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "build_options_scope_function",
+    srcs = ["BuildOptionsScopeFunction.java"],
+    deps = [
+        ":build_options_scope_value",
+        ":package_value",
+        ":precomputed_value",
+        ":project_files_lookup_value",
+        ":project_value",
+        "//src/main/java/com/google/devtools/build/lib:starlark_options_parser",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/scope",
+        "//src/main/java/com/google/devtools/build/lib/analysis:project_resolution_exception",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "build_options_scope_value",
+    srcs = ["BuildOptionsScopeValue.java"],
+    deps = [
+        ":sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/scope",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
     ],
 )
 

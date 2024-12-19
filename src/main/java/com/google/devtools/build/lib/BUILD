@@ -352,6 +352,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:files_modified_event",
         "//src/main/java/com/google/devtools/build/lib/analysis:no_build_event",
         "//src/main/java/com/google/devtools/build/lib/analysis:no_build_request_finished_event",
+        "//src/main/java/com/google/devtools/build/lib/analysis:project_resolution_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:projects",
         "//src/main/java/com/google/devtools/build/lib/analysis:provider_collection",
         "//src/main/java/com/google/devtools/build/lib/analysis:server_directories",
