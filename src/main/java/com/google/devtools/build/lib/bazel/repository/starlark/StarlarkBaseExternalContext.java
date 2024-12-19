@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpUtils;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
@@ -1554,11 +1555,16 @@ the same path on case-insensitive filesystems.
       PathFragment relPath = path.relativeTo(outputBaseExternal);
       if (!relPath.isEmpty()) {
         // The file is under a repo root.
-        String repoName = relPath.getSegment(0);
+        RepositoryName repoName;
+        try {
+          repoName = RepositoryName.create(relPath.getSegment(0));
+        } catch (LabelSyntaxException e) {
+          throw Starlark.errorf(
+              "attempted to watch path under external repository directory: %s", e.getMessage());
+        }
         PathFragment repoRelPath =
-            relPath.relativeTo(PathFragment.createAlreadyNormalized(repoName));
-        return RepoCacheFriendlyPath.createInsideWorkspace(
-            RepositoryName.createUnvalidated(repoName), repoRelPath);
+            relPath.relativeTo(PathFragment.createAlreadyNormalized(repoName.getName()));
+        return RepoCacheFriendlyPath.createInsideWorkspace(repoName, repoRelPath);
       }
     }
     // The file is just under a random absolute path.

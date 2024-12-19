@@ -3573,4 +3573,22 @@ EOF
     @repo//... &> $TEST_log || fail "expected Bazel to succeed"
 }
 
+function test_dependency_on_repo_with_invalid_name() {
+  cat >> $(setup_module_dot_bazel) <<'EOF'
+my_repo = use_repo_rule("//:repo.bzl", "my_repo")
+my_repo(name="repo")
+EOF
+  touch BUILD
+  cat > repo.bzl <<'EOF'
+def _impl(ctx):
+  ctx.read("../@invalid_name@/file")
+
+my_repo = repository_rule(_impl)
+EOF
+
+  bazel build @repo//... &> $TEST_log && fail "expected Bazel to fail"
+  expect_not_log "Unrecoverable error"
+  expect_log "attempted to watch path under external repository directory: invalid repository name '@invalid_name@'"
+}
+
 run_suite "local repository tests"
