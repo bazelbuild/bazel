@@ -482,7 +482,12 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   }
 
   private void validateActionCreation() throws EvalException {
-    if (getRuleContext().getRule().getRuleClassObject().isDependencyResolutionRule()) {
+    // We check if the rule is a dependency resolution rule but allow aspects attached to them.
+    // The idea is that dependency resolution rules should not depend on anything other than
+    // dependency resolution rules but since there is no such thing as "dependency resolution
+    // aspect", there is no risk of that with aspects.
+    if (getRuleContext().getAspectDescriptors().isEmpty()
+        && getRuleContext().getRule().getRuleClassObject().isDependencyResolutionRule()) {
       throw Starlark.errorf("rules that can be required for materializers shouldn't have actions");
     }
 
