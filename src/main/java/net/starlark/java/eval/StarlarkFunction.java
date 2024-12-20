@@ -192,39 +192,37 @@ public final class StarlarkFunction implements StarlarkCallable {
   @Override
   public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named)
       throws EvalException, InterruptedException {
-    if (!thread.isRecursionAllowed() && thread.isRecursiveCall(this)) {
-      throw Starlark.errorf("function '%s' called recursively", getName());
-    }
+    checkRecursive(thread);
+    ArgumentProcessor argumentProcessor = new ArgumentProcessor(this);
+    // Feed positional and named arguments into the argument processor.
+    argumentProcessor.processPositionalAndNamed(positional, named, thread.mutability());
+    return callWithArguments(thread, argumentProcessor);
+  }
 
-    // Compute the effective parameter values
-    // and update the corresponding variables.
-    StarlarkThread.Frame fr = thread.frame(0);
+  @Override
+  public Object positionalOnlyCall(StarlarkThread thread, Object... positional)
+      throws EvalException, InterruptedException {
+    checkRecursive(thread);
+    ArgumentProcessor argumentProcessor = new ArgumentProcessor(this);
+    // Feed only positional arguments into the argument processor.
+    argumentProcessor.processPositionalOnly(positional);
+    return callWithArguments(thread, argumentProcessor);
+  }
 
-    fr.locals =
-        new ArgumentProcessor(this)
-            .invokeWithPositionalAndNamed(positional, named, thread.mutability());
+  private Object callWithArguments(StarlarkThread thread, ArgumentProcessor argumentProcessor)
+      throws EvalException, InterruptedException {
+    Frame fr = thread.frame(0);
+    fr.locals = argumentProcessor.retrieveFinishedLocals();
 
     spillIndicatedLocalsToCells(fr);
 
     return Eval.execFunctionBody(fr, rfn.getBody());
   }
 
-  @Override
-  public Object positionalOnlyCall(StarlarkThread thread, Object... positional)
-      throws EvalException, InterruptedException {
+  private void checkRecursive(StarlarkThread thread) throws EvalException {
     if (!thread.isRecursionAllowed() && thread.isRecursiveCall(this)) {
       throw Starlark.errorf("function '%s' called recursively", getName());
     }
-
-    // Compute the effective parameter values
-    // and update the corresponding variables.
-    StarlarkThread.Frame fr = thread.frame(0);
-
-    fr.locals = new ArgumentProcessor(this).invokeWithPositionalOnly(positional);
-
-    spillIndicatedLocalsToCells(fr);
-
-    return Eval.execFunctionBody(fr, rfn.getBody());
   }
 
   private void spillIndicatedLocalsToCells(Frame fr) {
@@ -353,40 +351,62 @@ public final class StarlarkFunction implements StarlarkCallable {
     //   It is an error if the defaults tuple entry for an unset parameter is MANDATORY.
 
     private final StarlarkFunction owner;
+    // Number of positional args that were set by the caller and bound to ordinary params (in other
+    // words, not counting surplus positional args that were spilled to *args, and not counting
+    // positional params that weren't set via args but were instead filled with defaults).
+    private int numNonSurplusPositionalArgs;
+    // Local variable array for the function's call frame. It has the following layout:
+    //
+    // * The first owner.getNumOrdinaryParameters() entries are values of ordinary parameters
+    //   * The first numNonSurplusPositionalArgs entries contain positional args, set by
+    //     bindPositionalArgsToLocals()
+    //   * The remaining entries contain keyword args (set by bindNamedArgsToLocals()) or default
+    //     values (set by applyDefaultsReportMissingArgs())
+    // * The next owner.getNumKeywordOnlyParameters() entries are values of keyword-only parameters,
+    //   which may be either keyword args (set by bindNamedArgsToLocals()) or default values (set by
+    //   applyDefaultsReportMissingArgs())
+    // * An optional entry for *args - present if and only if the function takes varargs (set by
+    //   bindSurplusPositionalArgsToVarArgs())
+    // * An optional entry for **kwargs - present if and only if the function takes kwargs (set by
+    //   bindNamedArgsToLocals())
+    // * The remaining entries hold values of the function body's variables - these are left
+    //   uninitialized by ArgumentProcessor, and will be set in the process of evaluating the
+    //   function body.
     private final Object[] locals;
 
-    private ArgumentProcessor(StarlarkFunction owner) {
+    public ArgumentProcessor(StarlarkFunction owner) {
       this.owner = owner;
       this.locals = new Object[owner.rfn.getLocals().size()];
     }
 
-    private Object[] invokeWithPositionalAndNamed(
-        Object[] positional, Object[] named, Mutability mu) throws EvalException {
-      int positionalCount = getNonSurplusPositionalCount(positional);
-      bindPositionalArgsToLocals(positional, positionalCount);
-      bindSurplusPositionalArgsToVarArgs(positional, positionalCount);
-      bindNamedArgsToLocals(named, mu);
-      applyDefaultsReportMissingArgs(positionalCount);
+    private Object[] retrieveFinishedLocals() throws EvalException {
+      applyDefaultsReportMissingArgs();
       return locals;
     }
 
-    private Object[] invokeWithPositionalOnly(Object[] positional) throws EvalException {
-      int positionalCount = getNonSurplusPositionalCount(positional);
-      bindPositionalArgsToLocals(positional, positionalCount);
-      bindSurplusPositionalArgsToVarArgs(positional, positionalCount);
-      applyDefaultsReportMissingArgs(positionalCount);
-      return locals;
+    void processPositionalAndNamed(Object[] positional, Object[] named, Mutability mu)
+        throws EvalException {
+      numNonSurplusPositionalArgs = getNumNonSurplusPositionalArgs(positional);
+      bindPositionalArgsToLocals(positional);
+      bindSurplusPositionalArgsToVarArgs(positional);
+      bindNamedArgsToLocals(named, mu);
+    }
+
+    void processPositionalOnly(Object[] positional) throws EvalException {
+      numNonSurplusPositionalArgs = getNumNonSurplusPositionalArgs(positional);
+      bindPositionalArgsToLocals(positional);
+      bindSurplusPositionalArgsToVarArgs(positional);
     }
 
     /**
      * Returns the number of positional arguments that should be bound to the function's positional
-     * parameters (in other words, excluding the surplus positionals that get bound to *args). If
-     * the function doesn't take *args, verifies that the number of positional arguments doesn't
-     * exceed the number of ordinary parameters.
+     * parameters (in other words, excluding surplus positionals that get bound to {@code *args}).
+     * If the function doesn't take {@code *args}, verifies that the number of positional arguments
+     * doesn't exceed the number of ordinary parameters.
      *
      * @param positional positional arguments passed by the caller
      */
-    private int getNonSurplusPositionalCount(Object[] positional) throws EvalException {
+    private int getNumNonSurplusPositionalArgs(Object[] positional) throws EvalException {
       int positionalCount = positional.length;
       int numOrdinaryParams = owner.getNumOrdinaryParameters();
       if (positionalCount > numOrdinaryParams) {
@@ -406,18 +426,19 @@ public final class StarlarkFunction implements StarlarkCallable {
       return positionalCount;
     }
 
-    private void bindPositionalArgsToLocals(Object[] positional, int positionalCount) {
-      // Inv: positionalCount == getNonSurplusPositionalCount(positional)
-      for (int i = 0; i < positionalCount; i++) {
+    private void bindPositionalArgsToLocals(Object[] positional) {
+      // Inv: numNonSurplusPositionalArgs == getNumNonSurplusPositionalArgs(positional)
+      for (int i = 0; i < numNonSurplusPositionalArgs; i++) {
         locals[i] = positional[i];
       }
     }
 
-    private void bindSurplusPositionalArgsToVarArgs(Object[] positional, int positionalCount) {
-      // Inv: positionalCount == getNonSurplusPositionalCount(positional)
+    private void bindSurplusPositionalArgsToVarArgs(Object[] positional) {
+      // Inv: numNonSurplusPositionalArgs == getNumNonSurplusPositionalArgs(positional)
       if (owner.rfn.hasVarargs()) {
         locals[owner.getNumNonResidualParameters()] =
-            Tuple.wrap(Arrays.copyOfRange(positional, positionalCount, positional.length));
+            Tuple.wrap(
+                Arrays.copyOfRange(positional, numNonSurplusPositionalArgs, positional.length));
       }
     }
 
@@ -480,14 +501,14 @@ public final class StarlarkFunction implements StarlarkCallable {
       }
     }
 
-    private void applyDefaultsReportMissingArgs(int positionalCount) throws EvalException {
+    private void applyDefaultsReportMissingArgs() throws EvalException {
       // Apply defaults and report errors for missing required arguments.
       // Inv: all params below positionalCount were bound (by bindPositionalArgsToLocals()).
       int nparams = owner.getNumNonResidualParameters();
       int firstDefault = nparams - owner.defaultValues.size(); // first default
       List<String> missingPositional = null;
       List<String> missingKwonly = null;
-      for (int i = positionalCount; i < nparams; i++) {
+      for (int i = numNonSurplusPositionalArgs; i < nparams; i++) {
         // provided?
         if (locals[i] != null) {
           continue;
