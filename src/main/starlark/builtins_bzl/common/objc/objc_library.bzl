@@ -130,8 +130,6 @@ depend on it. Libraries specified with <code>implementation_deps</code> are stil
 in binary targets that depend on this library."""),
         },
         common_attrs.ALWAYSLINK_RULE,
-        # TODO(b/288421584): necessary because IDE aspect can't see toolchains
-        common_attrs.CC_TOOLCHAIN_RULE,
         common_attrs.COMPILING_RULE,
         common_attrs.COMPILE_DEPENDENCY_RULE,
         common_attrs.COPTS_RULE,
