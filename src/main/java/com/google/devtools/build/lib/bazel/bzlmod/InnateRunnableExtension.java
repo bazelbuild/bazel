@@ -104,8 +104,8 @@ final class InnateRunnableExtension implements RunnableExtension {
     RepositoryMapping repoMapping = usagesValue.getRepoMappings().get(moduleKey);
     Label.RepoContext repoContext = Label.RepoContext.of(repoMapping.ownerRepo(), repoMapping);
 
-    // The name of the extension is of the form "<bzl_file_label>%<rule_name>".
-    Iterator<String> parts = Splitter.on('%').split(extensionId.extensionName()).iterator();
+    // The name of the extension is of the form "<bzl_file_label>+<rule_name>".
+    Iterator<String> parts = Splitter.on('+').split(extensionId.extensionName()).iterator();
     Location location = tags.getFirst().getLocation();
     Label bzlLabel;
     try {
