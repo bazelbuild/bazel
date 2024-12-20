@@ -105,10 +105,11 @@ public class ProjectResolutionTest extends BuildViewTestCase {
     assertThat(thrown)
         .hasMessageThat()
         .contains(
-            String.format(
-                "Targets have different project settings. "
-                    + "For example:  //foo:%s: //foo:f //bar:%s: //bar:g",
-                PROJECT_FILE_NAME, PROJECT_FILE_NAME));
+            """
+This build doesn't support automatic project resolution. Targets have different project settings:
+  - //foo:f -> //foo:PROJECT.scl
+  - //bar:g -> //bar:PROJECT.scl\
+""");
   }
 
   @Test
@@ -346,8 +347,11 @@ public class ProjectResolutionTest extends BuildViewTestCase {
     assertThat(thrown)
         .hasMessageThat()
         .contains(
-            "Targets have different project settings. For example:  //canonical1:PROJECT.scl:"
-                + " //pkg1:f //canonical2:PROJECT.scl: //pkg2:g");
+            """
+This build doesn't support automatic project resolution. Targets have different project settings:
+  - //pkg1:f -> //canonical1:PROJECT.scl
+  - //pkg2:g -> //canonical2:PROJECT.scl\
+""");
   }
 
   // TODO: b/382265245 - handle aliases that self-reference or produce cycles.

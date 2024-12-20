@@ -148,7 +148,7 @@ project = {
         .hasMessageThat()
         .contains(
             "This build doesn't support automatic project resolution. Targets have different"
-                + " project settings.");
+                + " project settings:");
   }
 
   @Test

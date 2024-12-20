@@ -21,7 +21,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Iterators;
 import com.google.common.collect.LinkedListMultimap;
+import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -39,6 +41,7 @@ import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
@@ -117,56 +120,101 @@ public final class Project {
         Sets.difference(ImmutableSet.copyOf(targets), targetsToProjectFiles.keySet());
 
     // Since project files can be aliases to other files, we need to parse them to potentially remap
-    // to their references. Also remember one of the targets that resolved to that project file
-    // for clean error reporting.
-    ImmutableMap<ProjectValue.Key, Label> projectFileKeysToSampleTargets =
-        Multimaps.invertFrom(Multimaps.forMap(targetsToProjectFiles), LinkedListMultimap.create())
-            .asMap()
-            .entrySet()
-            .stream()
-            .collect(
-                toImmutableMap(
-                    entry -> new ProjectValue.Key(entry.getKey()),
-                    entry -> entry.getValue().iterator().next()));
+    // to their references. Also remember the targets that resolved to that project file for clean
+    // error reporting.
+    LinkedListMultimap<ProjectValue.Key, Label> projectFileKeysToTargets =
+        Multimaps.invertFrom(
+            Multimaps.forMap(
+                targetsToProjectFiles.entrySet().stream()
+                    .collect(
+                        toImmutableMap(
+                            Map.Entry::getKey, entry -> new ProjectValue.Key(entry.getValue())))),
+            LinkedListMultimap.create());
 
     // Load project file content from Skyframe.
     EvaluationResult<SkyValue> evalResult =
         skyframeExecutor.evaluateSkyKeys(
-            eventHandler, projectFileKeysToSampleTargets.keySet(), /* keepGoing= */ false);
+            eventHandler, projectFileKeysToTargets.keySet(), /* keepGoing= */ false);
     if (evalResult.hasError()) {
       throw new ProjectResolutionException(
           "error loading project files: " + evalResult.getError().getException().getMessage(),
           evalResult.getError().getException());
     }
 
-    // Convert Skyframe results to a map of alias-resolved files to sample targets.
-    //
-    // projectFileKeysToSampleTargets doesn't have duplicate keys but
-    // canonicalProjectsToSampleTargets might: different aliases could resolve to the same file.
-    Map<Label, Label> canonicalProjectsToSampleTargets = new LinkedHashMap<>();
-    for (var entry : projectFileKeysToSampleTargets.entrySet()) {
-      canonicalProjectsToSampleTargets.put(
-          ((ProjectValue) evalResult.get(entry.getKey())).getActualProjectFile(), entry.getValue());
+    // De-duplicate the projectFileKeysToTargets keys by resolving project aliases, and store the
+    // resulting canonicalized project-to-targets mapping in canonicalProjectToTargets.
+    LinkedHashMap<Label, Collection<Label>> canonicalProjectsToTargets = new LinkedHashMap<>();
+    for (var keyToTargets : projectFileKeysToTargets.asMap().entrySet()) {
+      canonicalProjectsToTargets.put(
+          ((ProjectValue) evalResult.get(keyToTargets.getKey())).getActualProjectFile(),
+          keyToTargets.getValue());
     }
 
-    if (canonicalProjectsToSampleTargets.size() == 1 && targetsWithNoProjectFiles.isEmpty()) {
+    if (canonicalProjectsToTargets.size() == 1 && targetsWithNoProjectFiles.isEmpty()) {
       // All targets resolve to the same canonical project file.
-      Label projectFile = Iterables.getOnlyElement(canonicalProjectsToSampleTargets.keySet());
+      Label projectFile = Iterables.getOnlyElement(canonicalProjectsToTargets.keySet());
       eventHandler.handle(
           Event.info(String.format("Reading project settings from %s.", projectFile)));
       return projectFile;
     }
     // Either some targets resolve to different files or a distinct subset resolve to no files.
+    throw new ProjectResolutionException(
+        differentProjectFilesError(canonicalProjectsToTargets, targetsWithNoProjectFiles), null);
+  }
+
+  /**
+   * User-friendly error message for when targets resolve to different project files or only some
+   * targets have project files.
+   */
+  private static String differentProjectFilesError(
+      Map<Label, Collection<Label>> canonicalProjectsToTargets,
+      Set<Label> targetsWithNoProjectFiles) {
     StringBuilder msgBuilder =
         new StringBuilder("This build doesn't support automatic project resolution. ")
-            .append("Targets have different project settings. For example: ");
-    canonicalProjectsToSampleTargets.forEach(
-        (projectFile, sampleTarget) ->
-            msgBuilder.append(String.format(" %s: %s", projectFile, sampleTarget)));
-    if (!targetsWithNoProjectFiles.isEmpty()) {
-      msgBuilder.append("no project file: ").append(targetsWithNoProjectFiles.iterator().next());
+            .append("Targets have different project settings:");
+    // Maximum number of "//foo:target -> //foo:PROJECT.scl" entries to show.
+    final int maxToShow = 5;
+
+    // Iterate through each project file group (and also the "no project file" group), adding one
+    // entry from each group until we reach the max. This samples each group as evenly as possible.
+    ListMultimap<Label, Label> groupedResults = LinkedListMultimap.create();
+    LinkedHashMap<Label, Iterator<Label>> projectFileToNextTarget = new LinkedHashMap<>();
+    for (var entry : canonicalProjectsToTargets.entrySet()) {
+      projectFileToNextTarget.put(entry.getKey(), entry.getValue().iterator());
     }
-    throw new ProjectResolutionException(msgBuilder.toString(), null);
+    if (!targetsWithNoProjectFiles.isEmpty()) {
+      projectFileToNextTarget.put(null, targetsWithNoProjectFiles.iterator());
+    }
+    int totalResults = 0;
+    LinkedHashMap<Label, Iterator<Label>> nextGroupIteration = projectFileToNextTarget;
+    while (totalResults < maxToShow && !nextGroupIteration.isEmpty()) {
+      projectFileToNextTarget = nextGroupIteration;
+      nextGroupIteration = new LinkedHashMap<>();
+      for (var entry : projectFileToNextTarget.entrySet()) {
+        Iterator<Label> nextTarget = entry.getValue();
+        groupedResults.put(entry.getKey(), nextTarget.next());
+        if (nextTarget.hasNext()) {
+          nextGroupIteration.put(entry.getKey(), nextTarget);
+        }
+        totalResults++;
+        if (totalResults == maxToShow) {
+          break;
+        }
+      }
+    }
+
+    // Report results grouped by PROJECT file.
+    for (var group : groupedResults.asMap().entrySet()) {
+      String projectFile = group.getKey() == null ? "no project file" : group.getKey().toString();
+      for (var target : group.getValue()) {
+        msgBuilder.append(String.format("\n  - %s -> %s", target, projectFile));
+      }
+    }
+    int resultsLeft = projectFileToNextTarget.values().stream().mapToInt(Iterators::size).sum();
+    if (resultsLeft > 0) {
+      msgBuilder.append(String.format("\n  (...and %d more)", resultsLeft));
+    }
+    return msgBuilder.toString();
   }
 
   /**
