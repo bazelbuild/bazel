@@ -57,7 +57,9 @@ public class AllocationTrackerModule extends BlazeModule {
   private static final int VARIANCE = 100;
 
   private boolean enabled;
-  private AllocationTracker tracker = null;
+  // Always AllocationTracker, but we don't refer to the type as it is supplied manually via a Java
+  // agent.
+  private Object tracker = null;
 
   @Override
   public void blazeStartup(
@@ -76,9 +78,9 @@ public class AllocationTrackerModule extends BlazeModule {
         return;
       }
       tracker = new AllocationTracker(SAMPLE_SIZE, VARIANCE);
-      Debug.setThreadHook(tracker);
+      Debug.setThreadHook((AllocationTracker) tracker);
       CurrentRuleTracker.setEnabled(true);
-      AllocationTrackerInstaller.installAllocationTracker(tracker);
+      AllocationTrackerInstaller.installAllocationTracker((AllocationTracker) tracker);
     }
   }
 
@@ -86,7 +88,7 @@ public class AllocationTrackerModule extends BlazeModule {
   public void workspaceInit(
       BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
     if (enabled) {
-      builder.setAllocationTracker(tracker);
+      builder.setAllocationTracker((AllocationTracker) tracker);
     }
   }
 
