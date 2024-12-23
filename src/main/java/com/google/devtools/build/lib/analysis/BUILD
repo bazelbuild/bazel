@@ -615,6 +615,7 @@ java_library(
         ":config/core_options",
         ":config/invalid_configuration_exception",
         ":project_resolution_exception",
+        "//src/main/java/com/google/devtools/build/lib:runtime/config_flag_definitions",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/skyframe:project_files_lookup_value",

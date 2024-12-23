@@ -100,6 +100,7 @@ public class CommandEnvironment {
   private final BlazeRuntime runtime;
   private final BlazeWorkspace workspace;
   private final BlazeDirectories directories;
+  private final ConfigFlagDefinitions configFlagDefinitions;
 
   private final UUID commandId; // Unique identifier for the command being run
   private final String buildRequestId; // Unique identifier for the build being run
@@ -223,7 +224,8 @@ public class CommandEnvironment {
       List<Any> commandExtensions,
       Consumer<String> shutdownReasonConsumer,
       CommandExtensionReporter commandExtensionReporter,
-      int attemptNumber) {
+      int attemptNumber,
+      ConfigFlagDefinitions configFlagDefinitions) {
     checkArgument(attemptNumber >= 1);
 
     this.runtime = runtime;
@@ -243,6 +245,8 @@ public class CommandEnvironment {
     this.blazeModuleEnvironment = new BlazeModuleEnvironment();
     this.timestampGranularityMonitor = new TimestampGranularityMonitor(runtime.getClock());
     this.attemptNumber = attemptNumber;
+    this.configFlagDefinitions = configFlagDefinitions;
+
     // Record the command's starting time again, for use by
     // TimestampGranularityMonitor.waitForTimestampGranularity().
     // This should be done as close as possible to the start of
@@ -460,6 +464,11 @@ public class CommandEnvironment {
 
   public OptionsParsingResult getOptions() {
     return options;
+  }
+
+  /** {@code --config} definitions for this invocation. */
+  public ConfigFlagDefinitions getConfigFlagDefinitions() {
+    return configFlagDefinitions;
   }
 
   public InvocationPolicy getInvocationPolicy() {

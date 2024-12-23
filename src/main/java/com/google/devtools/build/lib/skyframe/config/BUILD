@@ -25,6 +25,7 @@ java_library(
         ":config",
         ":exceptions",
         ":platform_mapping_key",
+        "//src/main/java/com/google/devtools/build/lib:runtime/config_flag_definitions",
         "//src/main/java/com/google/devtools/build/lib:starlark_options_parser",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
@@ -91,6 +92,7 @@ java_library(
         "PlatformMappingValue.java",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime/config_flag_definitions",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_options",

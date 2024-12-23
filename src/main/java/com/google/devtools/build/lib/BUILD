@@ -282,6 +282,18 @@ java_library(
 )
 
 java_library(
+    name = "runtime/config_flag_definitions",
+    srcs = [
+        "runtime/ConfigFlagDefinitions.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "runtime",
     srcs = glob(
         [
@@ -295,6 +307,7 @@ java_library(
             "runtime/BlazeCommandResult.java",
             "runtime/CommandDispatcher.java",
             "runtime/CommandLinePathFactory.java",
+            "runtime/ConfigFlagDefinitions.java",
             "runtime/GcThrashingDetector.java",
             "runtime/KeepGoingOption.java",
             "runtime/LoadingPhaseThreadsOption.java",
@@ -313,6 +326,7 @@ java_library(
         ":runtime/blaze_command_result",
         ":runtime/command_dispatcher",
         ":runtime/command_line_path_factory",
+        ":runtime/config_flag_definitions",
         ":runtime/memory_pressure",
         ":runtime/test_summary_options",
         ":starlark_options_parser",

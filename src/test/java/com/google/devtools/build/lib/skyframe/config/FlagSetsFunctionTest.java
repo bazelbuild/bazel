@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.DummyTestFragment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.runtime.ConfigFlagDefinitions;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
@@ -103,6 +104,7 @@ public final class FlagSetsFunctionTest extends BuildViewTestCase {
             "test_config",
             buildOptions,
             /* userOptions= */ ImmutableMap.of(),
+            /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
     FlagSetValue flagSetsValue = executeFunction(key);
     // expects the modified BuildOptions
@@ -138,6 +140,7 @@ public final class FlagSetsFunctionTest extends BuildViewTestCase {
             "unknown_config",
             buildOptions,
             /* userOptions= */ ImmutableMap.of(),
+            /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ false);
     FlagSetValue flagSetsValue = executeFunction(key);
 
@@ -157,6 +160,7 @@ public final class FlagSetsFunctionTest extends BuildViewTestCase {
             "",
             buildOptions,
             /* userOptions= */ ImmutableMap.of(),
+            /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ false);
     FlagSetValue flagSetsValue = executeFunction(key);
 
@@ -192,6 +196,7 @@ public final class FlagSetsFunctionTest extends BuildViewTestCase {
             "test_config",
             buildOptions,
             /* userOptions= */ ImmutableMap.of(),
+            /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
     var thrown = assertThrows(Exception.class, () -> executeFunction(key));
     assertThat(thrown)
@@ -213,6 +218,7 @@ public final class FlagSetsFunctionTest extends BuildViewTestCase {
             "random_config_name",
             buildOptions,
             /* userOptions= */ ImmutableMap.of(),
+            /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ false);
     FlagSetValue flagSetsValue = executeFunction(key);
 
@@ -243,6 +249,7 @@ public final class FlagSetsFunctionTest extends BuildViewTestCase {
             "test_config",
             buildOptions,
             /* userOptions= */ ImmutableMap.of(),
+            /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ false);
 
     FlagSetValue flagSetsValue = executeFunction(key);
@@ -266,6 +273,7 @@ public final class FlagSetsFunctionTest extends BuildViewTestCase {
             "fake_config",
             buildOptions,
             /* userOptions= */ ImmutableMap.of(),
+            /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ false);
     FlagSetValue flagSetsValue = executeFunction(key);
 
@@ -297,6 +305,7 @@ public final class FlagSetsFunctionTest extends BuildViewTestCase {
             "other_config",
             buildOptions,
             /* userOptions= */ ImmutableMap.of(),
+            /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
     FlagSetValue flagSetsValue = executeFunction(key);
 
@@ -344,6 +353,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             "test_config",
             buildOptions,
             /* userOptions= */ ImmutableMap.of("--define=foo=bar", ""),
+            /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
 
     var thrown = assertThrows(Exception.class, () -> executeFunction(key));
@@ -386,6 +396,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             "test_config",
             buildOptions,
             /* userOptions= */ ImmutableMap.of("--define=foo=bar", ""),
+            /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
 
     var unused = executeFunction(key);
@@ -430,6 +441,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             "test_config",
             buildOptions,
             /* userOptions= */ ImmutableMap.of("--define=foo=bar", ""),
+            /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
 
     var unused = executeFunction(key);
@@ -479,6 +491,7 @@ project = {
             buildOptions,
             /* userOptions= */ ImmutableMap.of(
                 "--//test:myflag=other_value", "", "--//test:other_flag=test_config_value", ""),
+            /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
 
     var thrown = assertThrows(Exception.class, () -> executeFunction(key));
@@ -505,6 +518,7 @@ project = {
             "test_config",
             buildOptions,
             /* userOptions= */ ImmutableMap.of(),
+            /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
 
     var thrown = assertThrows(Exception.class, () -> executeFunction(key));
@@ -534,6 +548,7 @@ project = {
             "test_config",
             buildOptions,
             /* userOptions= */ ImmutableMap.of(),
+            /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
 
     var thrown = assertThrows(Exception.class, () -> executeFunction(key));
@@ -563,6 +578,7 @@ project = {
             "test_config",
             buildOptions,
             /* userOptions= */ ImmutableMap.of(),
+            /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
 
     var thrown = assertThrows(Exception.class, () -> executeFunction(key));
@@ -612,6 +628,7 @@ project = {
             "test_config",
             createBuildOptions(), // this is a fake flag so don't add it here.
             /* userOptions= */ ImmutableMap.of("--bar", "--config=foo"),
+            /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
 
     var thrown = assertThrows(Exception.class, () -> executeFunction(key));
@@ -660,6 +677,7 @@ project = {
             "test_config",
             buildOptions,
             /* userOptions= */ ImmutableMap.of("--//test:myflag=other_value", ""),
+            /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
 
     var thrown = assertThrows(Exception.class, () -> executeFunction(key));
@@ -706,6 +724,7 @@ project = {
             "test_config",
             buildOptions,
             /* userOptions= */ ImmutableMap.of("--//test:myflag=test_config_value", ""),
+            /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
 
     var unused = executeFunction(key);
@@ -760,6 +779,7 @@ project = {
             buildOptions,
             /* userOptions= */ ImmutableMap.of(
                 "--//test:starlark_flags_always_affect_configuration=yes_they_do", ""),
+            /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
 
     var thrown = assertThrows(Exception.class, () -> executeFunction(key));
@@ -818,6 +838,7 @@ project = {
             buildOptions,
             /* userOptions= */ ImmutableMap.of(
                 "--test_filter=foo", "", "--cache_test_results=true", "", "--test_arg=blah", ""),
+            /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
 
     var unused = executeFunction(key);
@@ -859,6 +880,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             "test_config",
             buildOptions,
             /* userOptions= */ ImmutableMap.of("--define=foo=bar", ""),
+            /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ false);
 
     var unused = executeFunction(key);
@@ -888,6 +910,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             "non_existent_config",
             buildOptions,
             /* userOptions= */ ImmutableMap.of(),
+            /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
 
     var thrown = assertThrows(Exception.class, () -> executeFunction(key));
@@ -920,6 +943,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             /* sclConfig= */ "",
             buildOptions,
             /* userOptions= */ ImmutableMap.of(),
+            /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
 
     var thrown = assertThrows(Exception.class, () -> executeFunction(key));
@@ -954,6 +978,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             /* sclConfig= */ "",
             buildOptions,
             /* userOptions= */ ImmutableMap.of(),
+            /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
 
     var thrown = assertThrows(Exception.class, () -> executeFunction(key));
@@ -989,6 +1014,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             /* sclConfig= */ "",
             buildOptions,
             /* userOptions= */ ImmutableMap.of(),
+            /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
 
     var thrown = assertThrows(Exception.class, () -> executeFunction(key));
@@ -1021,6 +1047,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             /* sclConfig= */ "",
             buildOptions,
             /* userOptions= */ ImmutableMap.of(),
+            /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
     FlagSetValue flagSetsValue = executeFunction(key);
 
@@ -1056,6 +1083,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             /* sclConfig= */ "",
             buildOptions,
             /* userOptions= */ ImmutableMap.of(),
+            /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
     FlagSetValue flagSetsValue = executeFunction(key);
 
@@ -1087,6 +1115,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             /* sclConfig= */ "",
             buildOptions,
             /* userOptions= */ ImmutableMap.of(),
+            /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
     FlagSetValue flagSetsValue = executeFunction(key);
 
@@ -1119,6 +1148,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             /* sclConfig= */ null,
             buildOptions,
             /* userOptions= */ ImmutableMap.of(),
+            /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
 
     var thrown = assertThrows(Exception.class, () -> executeFunction(key));

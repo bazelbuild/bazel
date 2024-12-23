@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.runtime.BlazeOptionHandler.DetailedParseResults;
 import com.google.devtools.build.lib.runtime.InstrumentationOutputFactory.DestinationRelativeTo;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.FailureDetails;
@@ -339,11 +340,12 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
     BlazeOptionHandler optionHandler =
         new BlazeOptionHandler(
             runtime, workspace, command, commandAnnotation, optionsParser, invocationPolicy);
-    DetailedExitCode earlyExitCode =
-        optionHandler.parseOptions(
+    DetailedParseResults parseResults =
+        optionHandler.parseOptionsAndGetConfigDefinitions(
             args,
             storedEventHandler,
             /* invocationPolicyFlagListBuilder= */ ImmutableList.builder());
+    DetailedExitCode earlyExitCode = parseResults.detailedExitCode();
     OptionsParsingResult options = optionHandler.getOptionsResult();
 
     // The initCommand call also records the start time for the timestamp granularity monitor.
@@ -359,7 +361,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
             commandExtensions,
             this::setShutdownReason,
             commandExtensionReporter,
-            attemptNumber);
+            attemptNumber,
+            parseResults.configFlagDefinitions());
 
     if (!attemptedCommandIds.isEmpty()) {
       if (attemptedCommandIds.contains(env.getCommandId())) {

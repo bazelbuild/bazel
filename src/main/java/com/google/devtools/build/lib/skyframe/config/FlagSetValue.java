@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
+import com.google.devtools.build.lib.runtime.ConfigFlagDefinitions;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -43,7 +44,7 @@ public class FlagSetValue implements SkyValue {
     private final String sclConfig;
     private final BuildOptions targetOptions;
     private final ImmutableMap<String, String> userOptions;
-
+    private final ConfigFlagDefinitions configFlagDefinitions;
     private final boolean enforceCanonical;
 
     public Key(
@@ -51,11 +52,13 @@ public class FlagSetValue implements SkyValue {
         @Nullable String sclConfig,
         BuildOptions targetOptions,
         ImmutableMap<String, String> userOptions,
+        ConfigFlagDefinitions configFlagDefinitions,
         boolean enforceCanonical) {
       this.projectFile = Verify.verifyNotNull(projectFile);
       this.sclConfig = nullToEmpty(sclConfig);
       this.targetOptions = Verify.verifyNotNull(targetOptions);
       this.userOptions = Verify.verifyNotNull(userOptions);
+      this.configFlagDefinitions = configFlagDefinitions;
       this.enforceCanonical = enforceCanonical;
     }
 
@@ -64,9 +67,16 @@ public class FlagSetValue implements SkyValue {
         String sclConfig,
         BuildOptions targetOptions,
         ImmutableMap<String, String> userOptions,
+        ConfigFlagDefinitions configFlagDefinitions,
         boolean enforceCanonical) {
       return interner.intern(
-          new Key(projectFile, sclConfig, targetOptions, userOptions, enforceCanonical));
+          new Key(
+              projectFile,
+              sclConfig,
+              targetOptions,
+              userOptions,
+              configFlagDefinitions,
+              enforceCanonical));
     }
 
     public Label getProjectFile() {
@@ -83,6 +93,10 @@ public class FlagSetValue implements SkyValue {
 
     public ImmutableMap<String, String> getUserOptions() {
       return userOptions;
+    }
+
+    public ConfigFlagDefinitions getConfigFlagDefinitions() {
+      return configFlagDefinitions;
     }
 
     /**
@@ -116,12 +130,19 @@ public class FlagSetValue implements SkyValue {
           && Objects.equals(sclConfig, key.sclConfig)
           && Objects.equals(targetOptions, key.targetOptions)
           && Objects.equals(userOptions, key.userOptions)
+          && Objects.equals(configFlagDefinitions, key.configFlagDefinitions)
           && (enforceCanonical == key.enforceCanonical);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(projectFile, sclConfig, targetOptions, userOptions, enforceCanonical);
+      return Objects.hash(
+          projectFile,
+          sclConfig,
+          targetOptions,
+          userOptions,
+          configFlagDefinitions,
+          enforceCanonical);
     }
   }
 

@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.runtime.ConfigFlagDefinitions;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.skyframe.ProjectFilesLookupValue;
 import com.google.devtools.build.lib.skyframe.ProjectValue;
@@ -277,6 +278,7 @@ public final class Project {
       Label projectFile,
       BuildOptions targetOptions,
       ImmutableMap<String, String> userOptions,
+      ConfigFlagDefinitions configFlagDefinitions,
       boolean enforceCanonicalConfigs,
       ExtendedEventHandler eventHandler,
       SkyframeExecutor skyframeExecutor)
@@ -288,6 +290,7 @@ public final class Project {
             targetOptions.get(CoreOptions.class).sclConfig,
             targetOptions,
             userOptions,
+            configFlagDefinitions,
             enforceCanonicalConfigs);
 
     EvaluationResult<SkyValue> result =

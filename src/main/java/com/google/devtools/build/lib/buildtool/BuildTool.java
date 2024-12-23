@@ -75,6 +75,7 @@ import com.google.devtools.build.lib.query2.aquery.ActionGraphProtoOutputFormatt
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.CommandLineEvent.CanonicalCommandLineEvent;
+import com.google.devtools.build.lib.runtime.ConfigFlagDefinitions;
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -1016,6 +1017,7 @@ public class BuildTool {
   public static ImmutableSet<String> applySclConfigs(
       BuildOptions buildOptionsBeforeFlagSets,
       ImmutableMap<String, String> userOptions,
+      ConfigFlagDefinitions configFlagDefinitions,
       Label projectFile,
       boolean enforceCanonicalConfigs,
       SkyframeExecutor skyframeExecutor,
@@ -1027,6 +1029,7 @@ public class BuildTool {
             projectFile,
             buildOptionsBeforeFlagSets,
             userOptions,
+            configFlagDefinitions,
             enforceCanonicalConfigs,
             eventHandler,
             skyframeExecutor);

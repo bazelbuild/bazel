@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.function.Predicate;
 
 /** Utility functions for global RC files. */
-final class GlobalRcUtils {
+public final class GlobalRcUtils {
 
   private GlobalRcUtils() {}
 
@@ -53,4 +53,14 @@ final class GlobalRcUtils {
       };
   // LINT.ThenChange(//src/main/cpp/option_processor.cc,
   // src/main/java/com/google/devtools/common/options/InvocationPolicyEnforcer.java
+
+  /** Is an rc file path a global rc? */
+  public static boolean isGlobalRcFile(String rcFilePath) {
+    for (String globalRc : GLOBAL_RC_FILES) {
+      if (rcFilePath.endsWith(globalRc)) {
+        return true;
+      }
+    }
+    return false;
+  }
 }

@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.CommandLinePathFactory;
 import com.google.devtools.build.lib.runtime.CommonCommandOptions;
+import com.google.devtools.build.lib.runtime.ConfigFlagDefinitions;
 import com.google.devtools.build.lib.runtime.commands.BuildCommand;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -187,7 +188,8 @@ public final class RemoteModuleTest {
         /* commandExtensions= */ ImmutableList.of(),
         /* shutdownReasonConsumer= */ s -> {},
         NO_OP_COMMAND_EXTENSION_REPORTER,
-        /* attemptNumber= */ 1);
+        /* attemptNumber= */ 1,
+        ConfigFlagDefinitions.NONE);
   }
 
   static class CapabilitiesImpl extends CapabilitiesImplBase {

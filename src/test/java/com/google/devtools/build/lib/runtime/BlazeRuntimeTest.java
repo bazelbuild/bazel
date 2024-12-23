@@ -257,7 +257,8 @@ public class BlazeRuntimeTest {
         /* commandExtensions= */ ImmutableList.of(),
         /* shutdownReasonConsumer= */ shutdownReason::set,
         NO_OP_COMMAND_EXTENSION_REPORTER,
-        /* attemptNumber= */ 1);
+        /* attemptNumber= */ 1,
+        ConfigFlagDefinitions.NONE);
   }
 
   private static class FooCommandModule extends BlazeModule {

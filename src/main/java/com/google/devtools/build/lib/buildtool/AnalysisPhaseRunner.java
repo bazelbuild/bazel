@@ -280,6 +280,7 @@ public final class AnalysisPhaseRunner {
           BuildTool.applySclConfigs(
               buildOptions,
               userOptions,
+              env.getConfigFlagDefinitions(),
               projectFile,
               request.getBuildOptions().enforceProjectConfigs,
               env.getSkyframeExecutor(),
