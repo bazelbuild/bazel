@@ -396,6 +396,10 @@ public final class StarlarkFunction implements StarlarkCallable {
       numNonSurplusPositionalArgs = getNumNonSurplusPositionalArgs(positional);
       bindPositionalArgsToLocals(positional);
       bindSurplusPositionalArgsToVarArgs(positional);
+      // Bind an empty dict to **kwargs if present.
+      if (owner.rfn.hasKwargs()) {
+        locals[owner.rfn.getParameters().size() - 1] = Dict.empty();
+      }
     }
 
     /**
