@@ -9,5 +9,12 @@ filegroup(
 
 java_library(
     name = "allocation_instrumenter",
+    neverlink = True,
+    exports = ["@maven//:com_google_code_java_allocation_instrumenter_java_allocation_instrumenter"],
+)
+
+java_library(
+    name = "allocation_instrumenter_runtime",
+    testonly = True,
     exports = ["@maven//:com_google_code_java_allocation_instrumenter_java_allocation_instrumenter"],
 )
