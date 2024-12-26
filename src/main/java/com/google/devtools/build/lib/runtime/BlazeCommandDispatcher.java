@@ -745,6 +745,9 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       return result;
     } finally {
       try {
+        // Profiler might still be running when an exception is thrown before BuildCompleteEvent is
+        // emitted or BlazeModule#completeCommand() is called. So we still need to try to stop the
+        // profiler here.
         Profiler.instance().stop();
         if (profilerStartedEvent.getProfile() instanceof LocalInstrumentationOutput profile) {
           profile.makeConvenienceLink();
