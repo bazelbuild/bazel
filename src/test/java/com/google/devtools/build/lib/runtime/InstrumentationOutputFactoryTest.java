@@ -104,8 +104,8 @@ public final class InstrumentationOutputFactoryTest extends BuildIntegrationTest
             /* internal= */ null);
 
     assertThat(output).isInstanceOf(LocalInstrumentationOutput.class);
-    assertThat(((LocalInstrumentationOutput) output).getPath())
-        .isEqualTo(env.getOutputBase().getRelative("output-baseoutput"));
+    assertThat(output.getPathString())
+        .isEqualTo(env.getOutputBase().getRelative("output-baseoutput").getPathString());
   }
 
   @Test
@@ -124,8 +124,9 @@ public final class InstrumentationOutputFactoryTest extends BuildIntegrationTest
             /* internal= */ null);
 
     assertThat(output).isInstanceOf(LocalInstrumentationOutput.class);
-    assertThat(((LocalInstrumentationOutput) output).getPath())
-        .isEqualTo(env.getRuntime().getFileSystem().getPath("/tmp/absolute-path-output"));
+    assertThat(output.getPathString())
+        .isEqualTo(
+            env.getRuntime().getFileSystem().getPath("/tmp/absolute-path-output").getPathString());
   }
 
   @Test
@@ -147,12 +148,13 @@ public final class InstrumentationOutputFactoryTest extends BuildIntegrationTest
             /* internal= */ null);
 
     assertThat(output).isInstanceOf(LocalInstrumentationOutput.class);
-    assertThat(((LocalInstrumentationOutput) output).getPath())
+    assertThat(output.getPathString())
         .isEqualTo(
             (relativeTo.equals(DestinationRelativeTo.WORKSPACE_OR_HOME)
                     ? env.getWorkspace()
                     : env.getWorkingDirectory())
-                .getRelative("relative-output"));
+                .getRelative("relative-output")
+                .getPathString());
   }
 
   @Test
