@@ -128,6 +128,7 @@ message PathToReplace {
     BUILD_WORKSPACE_DIRECTORY = 3;
     TEST_LOG_SUBDIR = 4;
     HOME = 5;
+    TEMP_LOGGING_DIRECTORY = 7;
   }
   Type type = 1;
   bytes value = 2;
