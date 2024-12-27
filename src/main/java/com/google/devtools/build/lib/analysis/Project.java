@@ -301,6 +301,8 @@ public final class Project {
           "Cannot parse options: " + result.getError().getException().getMessage(),
           Code.INVALID_BUILD_OPTIONS);
     }
-    return (FlagSetValue) result.get(flagSetKey);
+    FlagSetValue value = (FlagSetValue) result.get(flagSetKey);
+    value.getPersistentMessages().forEach(eventHandler::handle);
+    return value;
   }
 }

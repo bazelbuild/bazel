@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.runtime.ConfigFlagDefinitions;
 import com.google.devtools.build.lib.skyframe.ProjectValue;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -96,7 +95,7 @@ public final class FlagSetFunction implements SkyFunction {
                         key.getSclConfig())));
       }
       // --noenforce_project_configs. Nothing to do.
-      return FlagSetValue.create(ImmutableSet.of());
+      return FlagSetValue.create(ImmutableSet.of(), ImmutableSet.of());
     }
     ProjectValue projectValue =
         (ProjectValue) env.getValue(new ProjectValue.Key(key.getProjectFile()));
@@ -104,9 +103,13 @@ public final class FlagSetFunction implements SkyFunction {
       return null;
     }
 
+    // Skyframe doesn't replay warnings or info messages on cache hits: see Event.storeForReplay and
+    // Reportable.storeForReplay. We want some flag set messages to be more persistent, so we
+    // return them in the Skyvalue for the caller to emit.
+    ImmutableSet.Builder<Event> persistentMessages = ImmutableSet.builder();
     ImmutableSet<String> sclConfigAsStarlarkList =
-        getSclConfig(key, projectValue, env.getListener());
-    return FlagSetValue.create(sclConfigAsStarlarkList);
+        getSclConfig(key, projectValue, persistentMessages);
+    return FlagSetValue.create(sclConfigAsStarlarkList, persistentMessages.build());
   }
 
   /**
@@ -115,7 +118,7 @@ public final class FlagSetFunction implements SkyFunction {
    */
   @SuppressWarnings("unchecked")
   private static ImmutableSet<String> getSclConfig(
-      FlagSetValue.Key key, ProjectValue sclContent, ExtendedEventHandler eventHandler)
+      FlagSetValue.Key key, ProjectValue sclContent, ImmutableSet.Builder<Event> persistentMessages)
       throws FlagSetFunctionException {
     Label projectFile = key.getProjectFile();
     String sclConfigName = key.getSclConfig();
@@ -215,9 +218,9 @@ public final class FlagSetFunction implements SkyFunction {
         buildOptionsAsStrings,
         key.getUserOptions(),
         optionsToApply,
-        eventHandler,
+        persistentMessages,
         projectFile);
-    eventHandler.handle(
+    persistentMessages.add(
         Event.info(
             String.format(
                 "Applying flags from the config '%s' defined in %s: %s ",
@@ -365,7 +368,7 @@ public final class FlagSetFunction implements SkyFunction {
       ImmutableList<String> buildOptionsAsStrings,
       ImmutableMap<String, String> userOptions,
       ImmutableSet<String> flagsFromSelectedConfig,
-      ExtendedEventHandler eventHandler,
+      ImmutableSet.Builder<Event> persistentMessages,
       Label projectFile)
       throws FlagSetFunctionException {
     ImmutableSet<String> overlap =
@@ -429,7 +432,7 @@ public final class FlagSetFunction implements SkyFunction {
     }
     // This appears in the WARN case, or for a COMPATIBLE project file that doesn't have
     // conflicting flags. We never hit this in the STRICT case, since we've already thrown.
-    eventHandler.handle(
+    persistentMessages.add(
         Event.warn(
             String.format(
                 "This build uses a project file (%s), but also sets output-affecting"

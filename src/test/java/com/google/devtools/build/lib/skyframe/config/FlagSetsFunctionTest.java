@@ -23,6 +23,8 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.DummyTestFragment;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.runtime.ConfigFlagDefinitions;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -45,6 +47,26 @@ public final class FlagSetsFunctionTest extends BuildViewTestCase {
     TestRuleClassProvider.addStandardRules(builder);
     builder.addConfigurationFragment(DummyTestFragment.class);
     return builder.build();
+  }
+
+  /**
+   * Asserts a {@link FlagSetValue} contains a given kind of event with a given message that
+   * occurred a given number of times.
+   *
+   * <p>Only applies to messages that are expected to persistently display, even on Skyframe cache
+   * hits: see {@link FlagSetValue#getPersistentMessages}.
+   */
+  private void assertContainsPersistentMessage(
+      FlagSetValue value, EventKind kind, int frequency, String message) {
+    int count = 0;
+    for (Event event : value.getPersistentMessages()) {
+      if (event.getKind() != kind) {
+        continue;
+      }
+      count++;
+      assertThat(event.getMessage()).contains(message);
+    }
+    assertThat(count).isEqualTo(frequency);
   }
 
   /**
@@ -311,10 +333,11 @@ public final class FlagSetsFunctionTest extends BuildViewTestCase {
 
     assertThat(flagSetsValue.getOptionsFromFlagset())
         .contains("--//test:myflag=other_config_value");
-
-    assertContainsEvent("Applying flags from the config 'other_config'");
-    // TODO: b/380581463 - Reenable the frequency check once the initial event is deduplicated.
-    // assertContainsEventWithFrequency("Applying flags from the config 'other_config'", 1);
+    assertContainsPersistentMessage(
+        flagSetsValue,
+        EventKind.INFO,
+        /* frequency= */ 1,
+        "Applying flags from the config 'other_config'");
   }
 
   @Test
@@ -399,8 +422,10 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
 
-    var unused = executeFunction(key);
-    assertContainsEvent(
+    assertContainsPersistentMessage(
+        executeFunction(key),
+        EventKind.WARNING,
+        /* frequency= */ 1,
         "also sets output-affecting flags in the command line or user bazelrc:"
             + " ['--define=foo=bar']");
   }
@@ -444,8 +469,10 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
             /* enforceCanonical= */ true);
 
-    var unused = executeFunction(key);
-    assertContainsEvent(
+    assertContainsPersistentMessage(
+        executeFunction(key),
+        EventKind.WARNING,
+        /* frequency= */ 1,
         "also sets output-affecting flags in the command line or user bazelrc:"
             + " ['--define=foo=bar']");
   }
@@ -1053,10 +1080,11 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
 
     assertThat(flagSetsValue.getOptionsFromFlagset())
         .containsExactly("--//test:myflag=test_config_value");
-
-    assertContainsEvent("Applying flags from the config 'test_config'");
-    // TODO: b/380581463 - Reenable the frequency check once the initial event is deduplicated.
-    // assertContainsEventWithFrequency("Applying flags from the config 'test_config'", 1);
+    assertContainsPersistentMessage(
+        flagSetsValue,
+        EventKind.INFO,
+        /* frequency= */ 1,
+        "Applying flags from the config 'test_config'");
   }
 
   @Test
@@ -1121,7 +1149,11 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
 
     assertThat(flagSetsValue.getOptionsFromFlagset())
         .containsExactly("--//test:myflag=test_config_value");
-    assertContainsEvent("Applying flags from the config 'test_config'");
+    assertContainsPersistentMessage(
+        flagSetsValue,
+        EventKind.INFO,
+        /* frequency= */ 1,
+        "Applying flags from the config 'test_config'");
   }
 
   @Test

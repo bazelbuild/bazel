@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.runtime.ConfigFlagDefinitions;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -34,6 +35,12 @@ import javax.annotation.Nullable;
 public class FlagSetValue implements SkyValue {
 
   private final ImmutableSet<String> flags;
+
+  /**
+   * Warnings and info messages for the caller to emit. This lets the caller persistently emit
+   * messages that Skyframe ignores on cache hits. See {@link Reportable#storeForReplay}).
+   */
+  private final ImmutableSet<Event> persistentMessages;
 
   /** Key for {@link FlagSetValue} based on the raw flags. */
   @ThreadSafety.Immutable
@@ -146,16 +153,22 @@ public class FlagSetValue implements SkyValue {
     }
   }
 
-  public static FlagSetValue create(ImmutableSet<String> flags) {
-    return new FlagSetValue(flags);
+  public static FlagSetValue create(
+      ImmutableSet<String> flags, ImmutableSet<Event> persistentMessages) {
+    return new FlagSetValue(flags, persistentMessages);
   }
 
-  public FlagSetValue(ImmutableSet<String> flags) {
+  public FlagSetValue(ImmutableSet<String> flags, ImmutableSet<Event> persistentMessages) {
     this.flags = flags;
+    this.persistentMessages = persistentMessages;
   }
 
   /** Returns the set of flags to be applied to the build from the flagset, in flag=value form. */
   public ImmutableSet<String> getOptionsFromFlagset() {
     return flags;
+  }
+
+  public ImmutableSet<Event> getPersistentMessages() {
+    return persistentMessages;
   }
 }
