@@ -117,7 +117,7 @@ public final class StarlarkEnvironmentsProtoInfoItem extends InfoItem {
     buildFor(builder, ApiContext.BUILD, builtins.predeclaredForBuild);
     buildFor(builder, ApiContext.MODULE, env.getModuleBazelEnv());
     buildFor(builder, ApiContext.REPO, env.getRepoBazelEnv());
-    // TODO: Add ApiContext.VENDOR
+    buildFor(builder, ApiContext.VENDOR, env.getStarlarkGlobals().getVendorToplevels());
     // TODO: Add ApiContext.WORKSPACE
 
     return builder.build().toByteArray();
