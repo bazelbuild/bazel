@@ -63,7 +63,6 @@ public final class BuildOptionsScopeFunction implements SkyFunction {
     BuildOptions.Builder fullyResolvedBuildOptionsBuilder = key.getBuildOptions().toBuilder();
     LinkedHashMap<Label, Scope> scopes = new LinkedHashMap<>();
     for (Label scopedFlag : key.getFlagsWithIncompleteScopeInfo()) {
-      // Scope.ScopeType scopeType;
       Scope.ScopeType scopeType = key.getBuildOptions().getScopeTypeMap().get(scopedFlag);
       if (scopeType == null) {
         scopeType = getScopeType(env, scopedFlag, scopedFlag.getPackageIdentifier());
