@@ -41,8 +41,6 @@ tasks:
       - "-//src/test/shell/bazel:bazel_coverage_cc_released_test_gcc"
       - "-//src/test/shell/bazel:bazel_coverage_cc_head_test_gcc"
       - "-//src/test/shell/bazel:bazel_coverage_sh_test"
-      # Disable some Android tests since we are moving Android rules out of the Bazel repo.
-      - "-//src/test/shell/bazel:bazel_android_tools_test"
     include_json_profile:
       - build
       - test
@@ -86,8 +84,6 @@ tasks:
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
-      # Disable some Android tests since we are moving Android rules out of the Bazel repo.
-      - "-//src/test/shell/bazel:bazel_android_tools_test"
     include_json_profile:
       - build
       - test
@@ -141,8 +137,6 @@ tasks:
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
-      # Disable some Android tests since we are moving Android rules out of the Bazel repo.
-      - "-//src/test/shell/bazel:bazel_android_tools_test"
     include_json_profile:
       - build
       - test
@@ -220,8 +214,6 @@ tasks:
       - "//tools/bash/..."
       # https://github.com/bazelbuild/bazel/issues/17410
       - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
-      # Disable android tests since we are moving Android rules out of Bazel repo.
-      - "-//src/test/shell/bazel:bazel_android_tools_test"
       # Disable some slow tests
       - "-//src/test/shell/bazel:bazel_bootstrap_distfile_test"
       - "-//src/test/shell/bazel:bazel_bootstrap_distfile_tar_test"
@@ -348,8 +340,6 @@ tasks:
       # Flaky on rbe_ubuntu2004
       # https://github.com/bazelbuild/continuous-integration/issues/1631
       - "-//src/test/shell/bazel:bazel_sandboxing_networking_test"
-      # Disable some Android tests since we are moving Android rules out of the Bazel repo.
-      - "-//src/test/shell/bazel:bazel_android_tools_test"
     include_json_profile:
       - build
       - test
