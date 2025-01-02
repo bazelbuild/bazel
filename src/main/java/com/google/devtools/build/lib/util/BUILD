@@ -411,6 +411,7 @@ java_library(
     name = "heap_offset_helper",
     srcs = ["HeapOffsetHelper.java"],
     deps = [
+        ":TestType",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//third_party:flogger",
         "//third_party:guava",
