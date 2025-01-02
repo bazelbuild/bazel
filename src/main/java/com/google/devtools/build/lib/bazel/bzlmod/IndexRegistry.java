@@ -181,7 +181,7 @@ public class IndexRegistry implements Registry {
           // Guarantee reproducibility by assuming that the file still doesn't exist.
           throw new NotFoundException(
               String.format(
-                  "%s: previously not found (as recorded in %s)",
+                  "%s: previously not found (as recorded in %s, refresh with --lockfile_mode=refresh)",
                   rawUrl, LabelConstants.MODULE_LOCKFILE_NAME));
         }
       } else {

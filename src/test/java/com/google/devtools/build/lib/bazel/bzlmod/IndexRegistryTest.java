@@ -504,7 +504,7 @@ public class IndexRegistryTest extends FoundationTestCase {
         .hasMessageThat()
         .isEqualTo(
             server.getUrl()
-                + "/myreg/modules/bar/1.0/MODULE.bazel: previously not found (as recorded in MODULE.bazel.lock)");
+                + "/myreg/modules/bar/1.0/MODULE.bazel: previously not found (as recorded in MODULE.bazel.lock, refresh with --lockfile_mode=refresh)");
   }
 
   @Test
