@@ -2128,4 +2128,45 @@ EOF
   bazel build //pkg:testCodegen &> "$TEST_log" || fail "Build failed"
 }
 
+function test_extend_cc_binary_with_dynamic_deps() {
+  mkdir -p pkg
+  cat >pkg/BUILD <<'EOF'
+load("my_cc_binary.bzl", "my_cc_binary")
+
+constraint_setting(name = "foo")
+constraint_value(name = "never_selected", constraint_setting = ":foo")
+
+my_cc_binary(
+    name = "hello",
+    srcs = ["main.cpp"],
+    # Ensure that the select has no effect but can't be simplified.
+    dynamic_deps = select({":never_selected": ["unused"], "//conditions:default": []}),
+)
+EOF
+
+  cat >pkg/my_cc_binary.bzl << 'EOF'
+def _my_cc_binary_impl(ctx):
+  print("Hello from my_cc_binary")
+  return ctx.super()
+
+my_cc_binary = rule(
+  implementation = _my_cc_binary_impl,
+  parent = native.cc_binary,
+)
+EOF
+
+  cat >pkg/main.cpp <<'EOF'
+#include <iostream>
+
+int main() {
+  std::cout << "Hello from main.cpp" << std::endl;
+  return 0;
+}
+EOF
+
+  bazel run //pkg:hello &> $TEST_log || fail "Expected success"
+  expect_log "Hello from my_cc_binary"
+  expect_log "Hello from main.cpp"
+}
+
 run_suite "cc_integration_test"
