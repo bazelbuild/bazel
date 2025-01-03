@@ -872,10 +872,6 @@ public class BuildEventStreamer {
       // Publish failed actions
       return true;
     }
-    if (!event.getActionMetadataLogs().isEmpty()) {
-      // Publish all new logs with inputs and input sizes
-      return true;
-    }
     return event.getAction() instanceof ExtraAction;
   }
 

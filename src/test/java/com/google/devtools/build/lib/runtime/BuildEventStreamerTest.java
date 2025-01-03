@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.SpawnResult.MetadataLog;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
@@ -62,7 +61,6 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Abo
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted.AbortReason;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.NamedSetOfFilesId;
-import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.File;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransportClosedEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithConfiguration;
@@ -89,7 +87,6 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
@@ -162,7 +159,6 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
           FileArtifactValue.MISSING_FILE_MARKER,
           /* stdout= */ null,
           /* stderr= */ null,
-          /* actionMetadataLogs= */ ImmutableList.of(),
           ErrorTiming.NO_ERROR,
           /* startTime= */ null,
           /* endTime= */ null);
@@ -1482,7 +1478,6 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
             /* primaryOutputMetadata= */ null,
             /* stdout= */ null,
             /* stderr= */ null,
-            /* actionMetadataLogs= */ ImmutableList.of(),
             ErrorTiming.BEFORE_EXECUTION,
             /* startTime= */ null,
             /* endTime= */ null);
@@ -1528,7 +1523,6 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
             /* primaryOutputMetadata= */ null,
             /* stdout= */ null,
             /* stderr= */ null,
-            /* actionMetadataLogs= */ ImmutableList.of(),
             ErrorTiming.BEFORE_EXECUTION,
             /* startTime= */ null,
             /* endTime= */ null);
@@ -1783,74 +1777,6 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
       return new BuildCompleteEvent(result);
     }
     return new BuildCompleteEvent(result, childrenEvents);
-  }
-
-  private static ActionExecutedEvent createActionExecutedEventWithLogs(
-      ImmutableList<MetadataLog> metadataLogs) {
-    return new ActionExecutedEvent(
-        ActionsTestUtil.DUMMY_ARTIFACT.getExecPath(),
-        new ActionsTestUtil.NullAction(),
-        /* exception= */ null,
-        ActionsTestUtil.DUMMY_ARTIFACT.getPath(),
-        ActionsTestUtil.DUMMY_ARTIFACT,
-        FileArtifactValue.MISSING_FILE_MARKER,
-        /* stdout= */ null,
-        /* stderr= */ null,
-        metadataLogs,
-        ErrorTiming.NO_ERROR,
-        /* startTime= */ null,
-        /* endTime= */ null);
-  }
-
-  @Test
-  public void testActionExecutedEventLogsConstructor() {
-    String metadataLogName = "action_metadata";
-    Path testPath1 = FileSystems.getJavaIoFileSystem().getPath("/path/to/logs-1");
-    Path testPath2 = FileSystems.getJavaIoFileSystem().getPath("/path/to/logs-2");
-    MetadataLog testMetadataLog1 = new MetadataLog(metadataLogName, testPath1);
-    MetadataLog testMetadataLog2 = new MetadataLog(metadataLogName, testPath2);
-
-    ActionExecutedEvent withLogsEvent =
-        createActionExecutedEventWithLogs(ImmutableList.of(testMetadataLog1, testMetadataLog2));
-
-    assertWithMessage("List parameter should return list of log path values")
-        .that(withLogsEvent.getActionMetadataLogs())
-        .containsExactly(testMetadataLog1, testMetadataLog2);
-    assertWithMessage("Null logs parameter should return empty list.")
-        .that(SUCCESSFUL_ACTION_EXECUTED_EVENT.getActionMetadataLogs())
-        .isEmpty();
-  }
-
-  @Test
-  public void testActionExcutedEventProtoLogs() throws Exception {
-    String metadataLogName = "action_metadata";
-    Path testPath1 = FileSystems.getJavaIoFileSystem().getPath("/path/to/logs-1");
-    Path testPath2 = FileSystems.getJavaIoFileSystem().getPath("/path/to/logs-2");
-
-    ActionExecutedEvent withLogsEvent =
-        createActionExecutedEventWithLogs(
-            ImmutableList.of(
-                new MetadataLog(metadataLogName, testPath1),
-                new MetadataLog(metadataLogName, testPath2)));
-
-    BuildEventStreamProtos.BuildEvent buildEventLogs =
-        withLogsEvent.asStreamProto(getTestBuildEventContext(artifactGroupNamer));
-    BuildEventStreamProtos.BuildEvent buildEventNoLogs =
-        SUCCESSFUL_ACTION_EXECUTED_EVENT.asStreamProto(
-            getTestBuildEventContext(artifactGroupNamer));
-
-    assertWithMessage("With logs build event action should contain 2 log files")
-        .that(buildEventLogs.getAction().getActionMetadataLogsCount())
-        .isEqualTo(2);
-    assertWithMessage("No logs build event action should contain 0 log files")
-        .that(buildEventNoLogs.getAction().getActionMetadataLogsCount())
-        .isEqualTo(0);
-    assertWithMessage("Event action should contains the two paths")
-        .that(
-            buildEventLogs.getAction().getActionMetadataLogsList().stream()
-                .map(File::getUri)
-                .collect(ImmutableList.toImmutableList()))
-        .containsExactly(testPath1.toString(), testPath2.toString());
   }
 
   private OptionsParsingResult createMockOptions() {
