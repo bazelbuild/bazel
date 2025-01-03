@@ -118,7 +118,22 @@ public final class StarlarkEnvironmentsProtoInfoItem extends InfoItem {
     buildFor(builder, ApiContext.MODULE, env.getModuleBazelEnv());
     buildFor(builder, ApiContext.REPO, env.getRepoBazelEnv());
     buildFor(builder, ApiContext.VENDOR, env.getStarlarkGlobals().getVendorToplevels());
-    // TODO: Add ApiContext.WORKSPACE
+
+    // Construct WORKSPACE symbols manually, similarly as done in WorkspaceFactory.
+    // As commented in WorkspaceFactory.getDefaultEnvironment, the WORKSPACE file is going away so method to get
+    // its symbols have not been added to the BazelStarlarkEnvironment.
+    ImmutableMap.Builder<String, Object> workspaceEnv = ImmutableMap.builder();
+    for (Map.Entry<String, RuleClass> entry : provider.getRuleClassMap().entrySet()) {
+      // Add workspace-only symbols, otherwise a lot of unsupported symbols would be added to the WORKSPACE environment.
+      if (entry.getValue().getWorkspaceOnly()) {
+        workspaceEnv.put(entry.getKey(), entry.getValue());
+      }
+    }
+    WorkspaceGlobals workspaceGlobals = new WorkspaceGlobals(
+            /* allowWorkspaceFunction */ true,
+            provider.getRuleClassMap());
+    Starlark.addMethods(workspaceEnv, workspaceGlobals, StarlarkSemantics.DEFAULT);
+    buildFor(builder, ApiContext.WORKSPACE, workspaceEnv.buildKeepingLast());
 
     return builder.build().toByteArray();
   }
