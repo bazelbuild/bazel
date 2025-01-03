@@ -14,8 +14,10 @@
 package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.evaluateProjectFile;
+import static com.google.devtools.common.options.OptionsParser.STARLARK_SKIPPED_PREFIXES;
 import static java.util.Objects.requireNonNull;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -72,10 +74,13 @@ import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.query2.aquery.ActionGraphProtoOutputFormatterCallback;
+import com.google.devtools.build.lib.runtime.BlazeOptionHandler.SkyframeExecutorTargetLoader;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.CommandLineEvent.CanonicalCommandLineEvent;
 import com.google.devtools.build.lib.runtime.ConfigFlagDefinitions;
+import com.google.devtools.build.lib.runtime.StarlarkOptionsParser;
+import com.google.devtools.build.lib.runtime.StarlarkOptionsParser.BuildSettingLoader;
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -252,10 +257,26 @@ public class BuildTool {
               request, buildOptions, request.getUserOptions(), targetPatternPhaseValue, env);
 
       if (!projectEvaluationResult.buildOptions().isEmpty()) {
+        // First parse the native options from the project file.
         optionsParser.parse(
             PriorityCategory.COMMAND_LINE,
             projectEvaluationResult.projectFile().get().toString(),
-            projectEvaluationResult.buildOptions().asList());
+            projectEvaluationResult.buildOptions().stream()
+                .filter(o -> STARLARK_SKIPPED_PREFIXES.stream().noneMatch(o::startsWith))
+                .collect(toImmutableList()));
+        // Then parse the starlark options from the project file.
+        BuildSettingLoader buildSettingLoader = new SkyframeExecutorTargetLoader(env);
+        StarlarkOptionsParser starlarkOptionsParser =
+            StarlarkOptionsParser.builder()
+                .buildSettingLoader(buildSettingLoader)
+                .nativeOptionsParser(optionsParser)
+                .build();
+        Preconditions.checkState(
+            starlarkOptionsParser.parseGivenArgs(
+                projectEvaluationResult.buildOptions().stream()
+                    .filter(o -> STARLARK_SKIPPED_PREFIXES.stream().anyMatch(o::startsWith))
+                    .collect(toImmutableList())));
+
         env.getEventBus()
             .post(new CanonicalCommandLineEvent(runtime, request.getCommandName(), optionsParser));
         env.getEventBus().post(new UpdateOptionsEvent(optionsParser));
