@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.skyframe.SkyKey;
 
@@ -28,9 +29,22 @@ import com.google.devtools.build.skyframe.SkyKey;
  */
 public interface RemoteAnalysisCachingDependenciesProvider {
 
+  // TODO: b/386406395 - rename this to requiresBackendConnectivity
   default boolean enabled() {
-    return true;
+    switch (mode()) {
+      case DOWNLOAD:
+      // fall through
+      case UPLOAD:
+        return true;
+      default:
+        return false;
+    }
   }
+
+  RemoteAnalysisCacheMode mode();
+
+  /** Value of RemoteAnalysisCachingOptions#serializedFrontierProfile. */
+  String serializedFrontierProfile();
 
   /** Returns true if the {@link PackageIdentifier} is in the set of active directories. */
   boolean withinActiveDirectories(PackageIdentifier pkg);
@@ -67,8 +81,13 @@ public interface RemoteAnalysisCachingDependenciesProvider {
     private DisabledDependenciesProvider() {}
 
     @Override
-    public boolean enabled() {
-      return false;
+    public RemoteAnalysisCacheMode mode() {
+      return RemoteAnalysisCacheMode.OFF;
+    }
+
+    @Override
+    public String serializedFrontierProfile() {
+      return "";
     }
 
     @Override

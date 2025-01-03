@@ -27,6 +27,7 @@ java_library(
     name = "dependencies_provider",
     srcs = ["RemoteAnalysisCachingDependenciesProvider.java"],
     deps = [
+        ":options",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -62,6 +63,7 @@ java_library(
     deps = [
         ":dependencies_provider",
         ":event_listener",
+        ":options",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",

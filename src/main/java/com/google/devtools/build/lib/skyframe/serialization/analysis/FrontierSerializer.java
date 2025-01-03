@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.skyframe.serialization.ProfileCollector;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationResult;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingEventListener.SerializedNodeEvent;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.InMemoryNodeEntry;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -82,9 +83,7 @@ public final class FrontierSerializer {
       RemoteAnalysisCachingDependenciesProvider dependenciesProvider,
       SkyframeExecutor skyframeExecutor,
       Reporter reporter,
-      EventBus eventBus,
-      String profilePath,
-      boolean dumpUploadManifestOnly)
+      EventBus eventBus)
       throws InterruptedException {
     // Starts initializing ObjectCodecs in a background thread as it can take some time.
     var futureCodecs = new FutureTask<>(dependenciesProvider::getObjectCodecs);
@@ -100,7 +99,7 @@ public final class FrontierSerializer {
         Event.info(
             String.format("Found %d active or frontier keys in %s", selection.size(), stopwatch)));
 
-    if (dumpUploadManifestOnly) {
+    if (dependenciesProvider.mode() == RemoteAnalysisCacheMode.DUMP_UPLOAD_MANIFEST_ONLY) {
       reporter.handle(
           Event.warn("Dry run of upload, dumping selection to stdout (warning: can be large!)"));
       dumpUploadManifest(
@@ -166,6 +165,7 @@ public final class FrontierSerializer {
     reporter.handle(
         Event.info(String.format("Waiting for write futures took an additional %s", stopwatch)));
 
+    String profilePath = dependenciesProvider.serializedFrontierProfile();
     if (profilePath.isEmpty()) {
       return Optional.empty();
     }
