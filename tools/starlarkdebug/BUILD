@@ -28,3 +28,21 @@ py_binary(
     srcs = ["trace.py"],
     deps = [":debugger"],
 )
+
+py_library(
+    name = "python_sandbox",
+    srcs = [
+        "testsupport/__init__.py",
+        "testsupport/python_sandbox.py",
+    ],
+    imports = ["."],
+)
+
+py_test(
+    name = "debugger_test",
+    srcs = ["debugger_test.py"],
+    deps = [
+        ":debugger",
+        ":python_sandbox",
+    ],
+)
