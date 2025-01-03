@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableSet;
 
 /** Type representing a directory listing operation. */
 final class ListingDependencies
-    implements FileDependencyDeserializer.GetListingDependenciesResult, FileSystemDependencies {
+    implements FileDependencyDeserializer.ListingDependenciesOrFuture, FileSystemDependencies {
   private final FileDependencies realDirectory;
 
   ListingDependencies(FileDependencies realDirectory) {

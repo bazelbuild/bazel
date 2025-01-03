@@ -26,11 +26,11 @@ import java.util.Arrays;
  * implementation is mostly decoupled from Bazel code.
  */
 final class NestedDependencies
-    implements FileSystemDependencies, FileDependencyDeserializer.GetNestedDependenciesResult {
+    implements FileSystemDependencies, FileDependencyDeserializer.NestedDependenciesOrFuture {
   private final FileSystemDependencies[] elements;
 
   NestedDependencies(FileSystemDependencies[] elements) {
-    checkArgument(elements.length > 1, "expected at least length 2, was %s", elements.length);
+    checkArgument(elements.length >= 1, "expected at least length 1, was %s", elements.length);
     this.elements = elements;
   }
 

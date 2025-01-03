@@ -50,3 +50,15 @@ java_test(
         "//third_party:truth",
     ],
 )
+
+java_test(
+    name = "ValueOrFutureMapTest",
+    srcs = ["ValueOrFutureMapTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/concurrent:settable_future_keyed_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:value_or_future_map",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)

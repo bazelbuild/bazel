@@ -32,7 +32,7 @@ import java.util.ArrayList;
  * value is invalidated.
  */
 abstract sealed class FileDependencies
-    implements FileSystemDependencies, FileDependencyDeserializer.GetFileDependenciesResult
+    implements FileSystemDependencies, FileDependencyDeserializer.FileDependenciesOrFuture
     permits FileDependencies.SingleResolvedPath,
         FileDependencies.SingleResolvedPathAndDependency,
         FileDependencies.MultiplePaths {
