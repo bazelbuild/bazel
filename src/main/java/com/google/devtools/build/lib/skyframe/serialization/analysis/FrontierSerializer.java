@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer.SelectionMarking.ACTIVE;
@@ -23,6 +24,7 @@ import static java.util.concurrent.ForkJoinPool.commonPool;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -53,6 +55,8 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -89,7 +93,7 @@ public final class FrontierSerializer {
     var stopwatch = new ResettingStopwatch(Stopwatch.createStarted());
     InMemoryGraph graph = skyframeExecutor.getEvaluator().getInMemoryGraph();
 
-    ConcurrentHashMap<SkyKey, SelectionMarking> selection =
+    ImmutableMap<SkyKey, SelectionMarking> selection =
         computeSelection(graph, dependenciesProvider::withinActiveDirectories);
 
     reporter.handle(
@@ -124,64 +128,24 @@ public final class FrontierSerializer {
 
     var writeStatuses = Collections.synchronizedList(new ArrayList<ListenableFuture<Void>>());
     AtomicInteger frontierValueCount = new AtomicInteger();
-    var fingerprintValueService = dependenciesProvider.getFingerprintValueService();
-    selection.forEach(
-        /* parallelismThreshold= */ 0,
-        (key, marking) -> {
-          if (!marking.equals(FRONTIER_CANDIDATE)) {
-            return;
-          }
-
-          // Filter for ActionExecutionValues owned by active analysis nodes and skip them, because
-          // they should be evaluated locally.
-          if (key instanceof ActionLookupData ald) {
-            switch (selection.get(ald.getActionLookupKey())) {
-              case ACTIVE: // Active set. Always evaluated locally.
+    selection.entrySet().parallelStream()
+        .forEach(
+            entry -> {
+              if (entry.getValue() != FRONTIER_CANDIDATE) {
                 return;
-              case FRONTIER_CANDIDATE:
-              case null:
-                // null / under the frontier: still necessary as inputs to nested sets / actions,
-                // and the parent ActionLookupKey might not be available..
-                break;
-            }
-          }
+              }
 
-          // TODO: b/371508153 - only upload nodes that were freshly computed by this invocation and
-          // unaffected by local, un-submitted changes.
-          try {
-            SerializationResult<ByteString> keyBytes =
-                codecs.serializeMemoizedAndBlocking(fingerprintValueService, key, profileCollector);
-            var keyWriteStatus = keyBytes.getFutureToBlockWritesOn();
-            if (keyWriteStatus != null) {
-              writeStatuses.add(keyWriteStatus);
-            }
+              SkyKey key = entry.getKey();
 
-            InMemoryNodeEntry node = checkNotNull(graph.getIfPresent(key), key);
-            SerializationResult<ByteString> valueBytes =
-                codecs.serializeMemoizedAndBlocking(
-                    fingerprintValueService, node.getValue(), profileCollector);
-            var writeStatusFuture = valueBytes.getFutureToBlockWritesOn();
-            if (writeStatusFuture != null) {
-              writeStatuses.add(writeStatusFuture);
-            }
-
-            // Associates the SkyKey to the SkyValue.
-            //
-            // TODO: b/364831651 - determine the version metadata that should also be part
-            // of this key.
-            writeStatuses.add(
-                fingerprintValueService.put(
-                    fingerprintValueService.fingerprint(
-                        dependenciesProvider
-                            .getSkyValueVersion()
-                            .concat(keyBytes.getObject().toByteArray())),
-                    valueBytes.getObject().toByteArray()));
-            frontierValueCount.getAndIncrement();
-            eventBus.post(new SerializedNodeEvent(key));
-          } catch (SerializationException e) {
-            writeStatuses.add(immediateFailedFuture(e));
-          }
-        });
+              try {
+                serializeAndUploadEntry(
+                    dependenciesProvider, codecs, key, profileCollector, writeStatuses, graph);
+                frontierValueCount.getAndIncrement();
+                eventBus.post(new SerializedNodeEvent(key));
+              } catch (SerializationException e) {
+                writeStatuses.add(immediateFailedFuture(e));
+              }
+            });
 
     reporter.handle(
         Event.info(
@@ -217,8 +181,44 @@ public final class FrontierSerializer {
     return Optional.empty();
   }
 
-  private static void dumpUploadManifest(
-      PrintStream out, ConcurrentHashMap<SkyKey, SelectionMarking> selection) {
+  private static void serializeAndUploadEntry(
+      RemoteAnalysisCachingDependenciesProvider dependenciesProvider,
+      ObjectCodecs codecs,
+      SkyKey key,
+      ProfileCollector profileCollector,
+      List<ListenableFuture<Void>> writeStatuses,
+      InMemoryGraph graph)
+      throws SerializationException {
+    var fingerprintValueService = dependenciesProvider.getFingerprintValueService();
+    SerializationResult<ByteString> keyBytes =
+        codecs.serializeMemoizedAndBlocking(fingerprintValueService, key, profileCollector);
+    var keyWriteStatus = keyBytes.getFutureToBlockWritesOn();
+    if (keyWriteStatus != null) {
+      writeStatuses.add(keyWriteStatus);
+    }
+
+    InMemoryNodeEntry node = checkNotNull(graph.getIfPresent(key), key);
+    SerializationResult<ByteString> valueBytes =
+        codecs.serializeMemoizedAndBlocking(
+            fingerprintValueService, node.getValue(), profileCollector);
+    var writeStatusFuture = valueBytes.getFutureToBlockWritesOn();
+    if (writeStatusFuture != null) {
+      writeStatuses.add(writeStatusFuture);
+    }
+
+    // Associates the SkyKey to the SkyValue.
+    //
+    // TODO: b/364831651 - determine the version metadata that should also be part of this key.
+    writeStatuses.add(
+        fingerprintValueService.put(
+            fingerprintValueService.fingerprint(
+                dependenciesProvider
+                    .getSkyValueVersion()
+                    .concat(keyBytes.getObject().toByteArray())),
+            valueBytes.getObject().toByteArray()));
+  }
+
+  private static void dumpUploadManifest(PrintStream out, Map<SkyKey, SelectionMarking> selection) {
     var frontierCandidates = ImmutableList.builder();
     var activeSet = ImmutableList.builder();
     selection
@@ -252,7 +252,7 @@ public final class FrontierSerializer {
   }
 
   @VisibleForTesting
-  static ConcurrentHashMap<SkyKey, SelectionMarking> computeSelection(
+  static ImmutableMap<SkyKey, SelectionMarking> computeSelection(
       InMemoryGraph graph, Predicate<PackageIdentifier> matcher) {
     ConcurrentHashMap<SkyKey, SelectionMarking> selection = new ConcurrentHashMap<>();
     graph.parallelForEach(
@@ -291,7 +291,22 @@ public final class FrontierSerializer {
             default -> {}
           }
         });
-    return selection;
+
+    // Filter for ActionExecutionValues owned by active analysis nodes and skip them, because
+    // they should be evaluated locally.
+    return selection.entrySet().parallelStream()
+        .map(
+            entry -> {
+              if (!(entry.getKey() instanceof ActionLookupData ald)) {
+                return entry;
+              }
+              if (entry.getValue() == FRONTIER_CANDIDATE
+                  && selection.get(ald.getActionLookupKey()) == ACTIVE) {
+                return Map.entry(entry.getKey(), ACTIVE);
+              }
+              return entry;
+            })
+        .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
   private static void markActiveAndTraverseEdges(

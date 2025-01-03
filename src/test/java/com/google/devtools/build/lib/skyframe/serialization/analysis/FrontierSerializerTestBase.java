@@ -24,6 +24,7 @@ import static org.junit.Assume.assumeTrue;
 
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionLookupData;
@@ -55,7 +56,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import org.junit.Before;
 import org.junit.Test;
@@ -208,7 +208,7 @@ project = {
             parseCanonicalUnchecked("//bar:PROJECT.scl"),
             getSkyframeExecutor(),
             getCommandEnvironment().getReporter());
-    ConcurrentHashMap<SkyKey, SelectionMarking> selection =
+    ImmutableMap<SkyKey, SelectionMarking> selection =
         FrontierSerializer.computeSelection(
             graph, (PackageIdentifier pkgId) -> matcher.includes(pkgId.getPackageFragment()));
 
@@ -870,6 +870,7 @@ ACTIVE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//A:copy_of_A, config=
 ACTIVE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//A:A, config=
 ACTIVE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//A:A, config=
 ACTIVE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//A:in.txt, config=null}
+ACTION_EXECUTION:ActionLookupData0{actionLookupKey=ConfiguredTargetKey{label=//A:copy_of_A, config=
 """
             .lines()
             .collect(toImmutableList());
