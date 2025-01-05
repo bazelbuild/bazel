@@ -190,10 +190,9 @@ public final class StarlarkEnvironmentsProtoInfoItem extends InfoItem {
       } else if (obj instanceof StarlarkProvider p) {
         // Samples: CcSharedLibraryInfo, JavaInfo, ProtoInfo, PyInfo
         fillForStarlarkProvider(value, p);
-      } else if (obj instanceof StarlarkInfoNoSchema info) {
+      } else if (obj instanceof Structure struct) {
         // Samples: cc_common, java_common, native
-        // TODO: Export as Type.
-        value.setType("CLASS: " + obj.getClass().getName());
+        fillForStructure(value, struct);
       } else if (obj instanceof BuiltinProvider p) {
         // Samples: CcInfo, DefaultInfo, InstrumentedFilesInfo, struct
         fillForBuiltinProvider(value, p);
@@ -240,7 +239,7 @@ public final class StarlarkEnvironmentsProtoInfoItem extends InfoItem {
   }
 
   private static void fillForBuiltinProvider(Value.Builder value, BuiltinProvider p) {
-    Signature sig = new Signature();
+    Signature sig;
 
     Class valueClass = p.getValueClass();
 
@@ -282,6 +281,13 @@ public final class StarlarkEnvironmentsProtoInfoItem extends InfoItem {
       }
     }
     signatureToValue(value, sig);
+  }
+
+  private void fillForStructure(Value.Builder value, Structure struct) {
+    // TODO: Missing documentation for struct itself and for fields.
+    for (String field : struct.getFieldNames()) {
+      value.addGlobal(Value.newBuilder().setName(field));
+    }
   }
 
   private static void fillForRuleFunction(Value.Builder value, RuleFunction fn) {
