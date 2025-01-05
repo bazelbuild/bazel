@@ -204,11 +204,11 @@ public final class StarlarkEnvironmentsProtoInfoItem extends InfoItem {
           StarlarkBuiltin starlarkBuiltin = StarlarkAnnotations.getStarlarkBuiltin(obj.getClass());
           if (starlarkBuiltin != null) {
             // Sample: attr, config, json, proto,
-            // TODO: Export as Type, use Starlark.getMethodAnnotations to collect all available methods.
-            value.setDoc(starlarkBuiltin.doc());
+            fillForStarlarkBuiltin(env, value, obj.getClass(), starlarkBuiltin);
+          } else {
+            // TODO: Handle more gracefully.
+            value.setType("CLASS: " + obj.getClass().getName());
           }
-        // TODO: Handle more gracefully.
-        value.setType("CLASS: " + obj.getClass().getName());
       }
 
       builtins.addGlobal(value.build());
@@ -232,8 +232,6 @@ public final class StarlarkEnvironmentsProtoInfoItem extends InfoItem {
   private static void fillForStarlarkAspect(Value.Builder value, StarlarkAspect aspect) {
     Signature sig = new Signature();
 
-    sig.parameterNames = new ArrayList<>();
-    sig.paramDocs = new ArrayList<>();
     for (String fieldName : aspect.getParamAttributes()) {
       sig.parameterNames.add(fieldName);
       sig.paramDocs.add("");
@@ -243,8 +241,6 @@ public final class StarlarkEnvironmentsProtoInfoItem extends InfoItem {
 
   private static void fillForBuiltinProvider(Value.Builder value, BuiltinProvider p) {
     Signature sig = new Signature();
-    sig.parameterNames = new ArrayList<>();
-    sig.paramDocs = new ArrayList<>();
 
     Class valueClass = p.getValueClass();
 
@@ -272,13 +268,10 @@ public final class StarlarkEnvironmentsProtoInfoItem extends InfoItem {
     signatureToValue(value, sig);
   }
 
-  // TODO: Order methods.
   private static void fillForStarlarkProvider(Value.Builder value, StarlarkProvider p) {
     Signature sig = new Signature();
     sig.doc = p.getDocumentation().orElseGet(() -> "NO DOC");
 
-    sig.parameterNames = new ArrayList<>();
-    sig.paramDocs = new ArrayList<>();
     if (p.getFields() != null) {
       Map<String, Optional<String>> schema = p.getSchema();
       for (String fieldName : p.getFields()) {
@@ -298,8 +291,6 @@ public final class StarlarkEnvironmentsProtoInfoItem extends InfoItem {
     //     https://github.com/bazelbuild/bazel/blob/b8073bbcaa63c9405824f94184014b19a2255a52/src/main/java/com/google/devtools/build/lib/rules/Alias.java#L110
     //     and its parsed out by BuildDocCollector from source files...
     sig.doc = clz.getStarlarkDocumentation();
-    sig.parameterNames = new ArrayList<>();
-    sig.paramDocs = new ArrayList<>();
     List<Object> defaultValues = new ArrayList<>();
 
     List<Attribute> sortedAttrs = new ArrayList<>(clz.getAttributes());
@@ -337,6 +328,22 @@ public final class StarlarkEnvironmentsProtoInfoItem extends InfoItem {
     signatureToValue(value, sig);
   }
 
+  private static void fillForStarlarkBuiltin(
+          ApiContext env, Value.Builder value, Class clz, StarlarkBuiltin starlarkBuiltin) {
+    value.setDoc(starlarkBuiltin.doc());
+
+    for (var entry: Starlark.getMethodAnnotations(clz).entrySet()) {
+      Method method = entry.getKey();
+      StarlarkMethod starlarkMethod = entry.getValue();
+
+      Value.Builder moduleGlobal = Value.newBuilder();
+      moduleGlobal.setName(method.getName());
+      moduleGlobal.setApiContext(env);
+      fillForStarlarkMethod(moduleGlobal, starlarkMethod);
+      value.addGlobal(moduleGlobal.build());
+    }
+  }
+
   // ------------------------------------------------
   // ----- TODO: Code chopped from ApiExporter
   private static void fillForStarlarkMethod(Value.Builder value, StarlarkMethod annot) {
@@ -357,6 +364,9 @@ public final class StarlarkEnvironmentsProtoInfoItem extends InfoItem {
     BuiltinProtos.Callable.Builder callable = BuiltinProtos.Callable.newBuilder();
     for (int i = 0; i < sig.parameterNames.size(); i++) {
       String name = sig.parameterNames.get(i);
+      if (name.startsWith("$") || name.startsWith("_") || name.startsWith(":")) {
+        continue;
+      }
       BuiltinProtos.Param.Builder param = BuiltinProtos.Param.newBuilder();
       if (i == varargsIndex) {
         // *args
@@ -376,8 +386,7 @@ public final class StarlarkEnvironmentsProtoInfoItem extends InfoItem {
           param.setIsMandatory(true); // bool seems redundant
         }
       }
-      // TODO: Validate when it can be null.
-      if (sig.paramDocs != null && sig.paramDocs.get(i) != null) {
+      if (i < sig.paramDocs.size() && sig.paramDocs.get(i) != null) {
         param.setDoc(sig.paramDocs.get(i));
       }
       callable.addParam(param);
@@ -444,8 +453,8 @@ public final class StarlarkEnvironmentsProtoInfoItem extends InfoItem {
   }
 
   private static class Signature {
-    List<String> parameterNames;
-    List<String> paramDocs;
+    List<String> parameterNames = new ArrayList<>();
+    List<String> paramDocs = new ArrayList<>();
     boolean hasVarargs;
     boolean hasKwargs;
     String doc;
