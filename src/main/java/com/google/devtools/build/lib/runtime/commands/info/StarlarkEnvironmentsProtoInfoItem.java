@@ -279,6 +279,13 @@ public final class StarlarkEnvironmentsProtoInfoItem extends InfoItem {
     sig.paramDocs = new ArrayList<>();
     List<Object> defaultValues = new ArrayList<>();
     for (Attribute attr : clz.getAttributes()) {
+      // Remove all undocumented attributes, including e.g. generator_{name,function,location}, or attributes
+      // with names beggining with $ and :.
+      // TODO: Provide better way of marking attributes that are not writable in Stalark, undocumented does not imply
+      //   that attribute cannot be used in Stalark files.
+      if (!attr.isDocumented()) {
+        continue;
+      }
       sig.parameterNames.add(attr.getName());
       // TODO: Common attributes do not have documentation.
       sig.paramDocs.add(attr.getDoc());
