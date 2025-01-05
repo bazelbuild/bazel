@@ -159,7 +159,11 @@ public final class StarlarkEnvironmentsProtoInfoItem extends InfoItem {
       value.setApiContext(env);
 
       // TODO: Figure out if number of cases can be reduced.
-      if (obj instanceof BuiltinFunction builtinFunction) {
+      if (name.equals("True") || name.equals("False")) { // Special case for a few well known symbols.
+        value.setType("bool");
+      } else if (name.equals("None")) {
+        value.setType("NoneType");
+      } else if (obj instanceof BuiltinFunction builtinFunction) {
         // Samples: depset, int, package, rule, str
         fillForStarlarkMethod(value, builtinFunction.getAnnotation());
       } else if (obj instanceof RuleFunction fn) {
