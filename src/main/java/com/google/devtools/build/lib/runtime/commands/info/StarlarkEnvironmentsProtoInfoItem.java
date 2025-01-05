@@ -61,6 +61,21 @@ import static com.google.common.base.Preconditions.checkNotNull;
  *
  */
 public final class StarlarkEnvironmentsProtoInfoItem extends InfoItem {
+  // TODO: Taken from DocgenConsts.
+  public static final ImmutableMap<String, Integer> ATTRIBUTE_ORDERING =
+          ImmutableMap.<String, Integer>builder()
+                  .put("name", -99)
+                  .put("deps", -98)
+                  .put("src", -97)
+                  .put("srcs", -96)
+                  .put("data", -95)
+                  .put("resource", -94)
+                  .put("resources", -93)
+                  .put("out", -92)
+                  .put("outs", -91)
+                  .put("hdrs", -90)
+                  .buildOrThrow();
+
 
   public StarlarkEnvironmentsProtoInfoItem() {
     super("starlark-environments-proto", "TODO", true);
@@ -286,7 +301,21 @@ public final class StarlarkEnvironmentsProtoInfoItem extends InfoItem {
     sig.parameterNames = new ArrayList<>();
     sig.paramDocs = new ArrayList<>();
     List<Object> defaultValues = new ArrayList<>();
-    for (Attribute attr : clz.getAttributes()) {
+
+    List<Attribute> sortedAttrs = new ArrayList<>(clz.getAttributes());
+    sortedAttrs.sort(
+            (o1, o2) ->
+            {
+              // Logic taken from RuleDocumentationAttribute
+              int p1 = ATTRIBUTE_ORDERING.getOrDefault(o1.getName(), 0);
+              int p2 = ATTRIBUTE_ORDERING.getOrDefault(o2.getName(), 0);
+              if (p1 != p2) {
+                return p1 - p2;
+              }
+              return o1.getName().compareTo(o2.getName());
+            });
+
+    for (Attribute attr : sortedAttrs) {
       // Remove all undocumented attributes, including e.g. generator_{name,function,location}, or attributes
       // with names beggining with $ and :.
       // TODO: Provide better way of marking attributes that are not writable in Stalark, undocumented does not imply
