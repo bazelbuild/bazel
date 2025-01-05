@@ -146,6 +146,10 @@ public final class StarlarkEnvironmentsProtoInfoItem extends InfoItem {
       String name = entry.getKey();
       Object obj = entry.getValue();
 
+      if (name.startsWith("_")) {
+        continue;
+      }
+
       if (obj instanceof GuardedValue guardedValue) {
         obj = guardedValue.getObject();
       }
