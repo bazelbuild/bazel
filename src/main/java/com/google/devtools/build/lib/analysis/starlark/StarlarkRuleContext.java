@@ -813,7 +813,7 @@ public final class StarlarkRuleContext
   }
 
   @Override
-  public Dict<String, String> var() throws EvalException, InterruptedException {
+  public Dict<String, String> var() throws EvalException {
     checkMutable("var");
     if (cachedMakeVariables == null) {
       Dict.Builder<String, String> vars;
@@ -933,7 +933,7 @@ public final class StarlarkRuleContext
   @Override
   public String expandMakeVariables(
       String attributeName, String command, Dict<?, ?> additionalSubstitutions) // <String, String>
-      throws EvalException, InterruptedException {
+      throws EvalException {
     checkMutable("expand_make_variables");
     final Map<String, String> additionalSubstitutionsMap =
         Dict.cast(additionalSubstitutions, String.class, String.class, "additional_substitutions");
@@ -941,8 +941,7 @@ public final class StarlarkRuleContext
   }
 
   private String expandMakeVariables(
-      String attributeName, String command, Map<String, String> additionalSubstitutionsMap)
-      throws InterruptedException {
+      String attributeName, String command, Map<String, String> additionalSubstitutionsMap) {
     ConfigurationMakeVariableContext makeVariableContext =
         new ConfigurationMakeVariableContext(
             ruleContext,
@@ -950,8 +949,7 @@ public final class StarlarkRuleContext
             ruleContext.getConfiguration(),
             ImmutableList.of()) {
           @Override
-          public String lookupVariable(String variableName)
-              throws ExpansionException, InterruptedException {
+          public String lookupVariable(String variableName) throws ExpansionException {
             if (additionalSubstitutionsMap.containsKey(variableName)) {
               return additionalSubstitutionsMap.get(variableName);
             } else {
@@ -1125,7 +1123,7 @@ public final class StarlarkRuleContext
       Dict<?, ?> labelDictUnchecked,
       Dict<?, ?> executionRequirementsUnchecked,
       StarlarkThread thread)
-      throws EvalException, InterruptedException {
+      throws EvalException {
     checkMutable("resolve_command");
     Map<Label, Iterable<Artifact>> labelDict = checkLabelDict(labelDictUnchecked);
     // The best way to fix this probably is to convert CommandHelper to Starlark.
