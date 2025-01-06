@@ -581,12 +581,9 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   @Option(
       name = "check_licenses",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      help =
-          "Check that licensing constraints imposed by dependent packages "
-              + "do not conflict with distribution modes of the targets being built. "
-              + "By default, licenses are not checked.")
+      help = "Deprecated in favor of --config=check_licenses.")
   public boolean checkLicenses;
 
   @Option(
