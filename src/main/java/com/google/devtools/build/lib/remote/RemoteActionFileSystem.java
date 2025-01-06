@@ -590,11 +590,11 @@ public class RemoteActionFileSystem extends AbstractFileSystem
       throws IOException {
     linkPath = resolveSymbolicLinksForParent(linkPath);
 
-    if (isOutput(linkPath)) {
+    if (isOutput(linkPath) && isOutput(targetFragment)) {
       remoteOutputTree.getPath(linkPath).createSymbolicLink(targetFragment);
+    } else {
+      localFs.getPath(linkPath).createSymbolicLink(targetFragment);
     }
-
-    localFs.getPath(linkPath).createSymbolicLink(targetFragment);
   }
 
   @Override

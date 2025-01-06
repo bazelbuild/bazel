@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileContentsProxy;
+import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
@@ -380,7 +381,12 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
       // Metadata may legitimately be missing, e.g. if this is an optional test output.
       FileArtifactValue metadata = metadataSupplier.getMetadata(input);
-      if (metadata == null || !canDownloadFile(execRoot.getRelative(execPath), metadata)) {
+      if (metadata == null) {
+        return immediateVoidFuture();
+      } else if (metadata.getType() == FileStateType.SYMLINK) {
+        return toListenableFuture(
+            plantRelativeSymlink(execPath, metadata.getUnresolvedSymlinkTarget()));
+      } else if (!canDownloadFile(execRoot.getRelative(execPath), metadata)) {
         return immediateVoidFuture();
       }
 
@@ -416,7 +422,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                   });
 
       if (symlink != null) {
-        result = result.andThen(plantSymlink(symlink));
+        result = result.andThen(plantAbsoluteSymlink(symlink));
       }
 
       return toListenableFuture(result);
@@ -468,9 +474,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    */
   @Nullable
   private Symlink maybeGetSymlink(
-      ActionInput input,
-      FileArtifactValue metadata,
-      MetadataSupplier metadataSupplier)
+      ActionInput input, FileArtifactValue metadata, MetadataSupplier metadataSupplier)
       throws IOException, InterruptedException {
     if (input instanceof TreeFileArtifact treeFile) {
       SpecialArtifact treeArtifact = treeFile.getParent();
@@ -679,7 +683,21 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     }
   }
 
-  private Completable plantSymlink(Symlink symlink) {
+  private Completable plantRelativeSymlink(PathFragment linkPath, String target) {
+    return downloadCache.executeIfNot(
+        execRoot.getRelative(linkPath),
+        Completable.defer(
+            () -> {
+              Path link = execRoot.getRelative(linkPath);
+              // Delete the link path if it already exists. This is the case for tree artifacts,
+              // whose root directory is created before the action runs.
+              link.delete();
+              link.createSymbolicLink(PathFragment.create(target));
+              return Completable.complete();
+            }));
+  }
+
+  private Completable plantAbsoluteSymlink(Symlink symlink) {
     return downloadCache.executeIfNot(
         execRoot.getRelative(symlink.linkExecPath()),
         Completable.defer(
