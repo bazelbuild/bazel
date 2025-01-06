@@ -44,7 +44,7 @@ public abstract class AspectBaseTargetResolvedToolchainContext
     implements ResolvedToolchainsDataInterface<
         AspectBaseTargetResolvedToolchainContext.ToolchainAspectsProviders> {
 
-  public abstract ImmutableMap<ToolchainTypeInfo, ToolchainAspectsProviders> getToolchains();
+  public abstract ImmutableMap<ToolchainTypeInfo, ToolchainAspectsProviders> toolchains();
 
   public static AspectBaseTargetResolvedToolchainContext load(
       UnloadedToolchainContext unloadedToolchainContext,
@@ -96,7 +96,7 @@ public abstract class AspectBaseTargetResolvedToolchainContext
   @Nullable
   public ToolchainAspectsProviders forToolchainType(Label toolchainTypeLabel) {
     if (requestedToolchainTypeLabels().containsKey(toolchainTypeLabel)) {
-      return getToolchains().get(requestedToolchainTypeLabels().get(toolchainTypeLabel));
+      return toolchains().get(requestedToolchainTypeLabels().get(toolchainTypeLabel));
     }
 
     return null;

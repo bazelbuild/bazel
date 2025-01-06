@@ -128,7 +128,7 @@ public final class AspectContext extends RuleContext {
       }
     }
     return execGroupContext
-        .getToolchains()
+        .toolchains()
         .get(execGroupContext.requestedToolchainTypeLabels().get(toolchainType));
   }
 
