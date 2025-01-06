@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -60,6 +61,8 @@ import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.rules.config.ConfigRuleClasses.ConfigSettingRule;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.common.options.FieldOptionDefinition;
+import com.google.devtools.common.options.IsolatedOptionsData;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.ArrayList;
@@ -309,39 +312,61 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
     for (Map.Entry<String, String> setting : expectedSettings) {
       String optionName = setting.getKey();
       String expectedRawValue = setting.getValue();
-      if (DEPRECATED_FLAGS.contains(optionName)) {
-        ruleContext.ruleWarning(
-            String.format(
-                "select() on %s is deprecated. Use platform constraints instead:"
-                    + " https://bazel.build/docs/configurable-attributes#platforms.",
-                optionName));
-      }
-      Class<? extends FragmentOptions> optionClass = options.getOptionClass(optionName);
-      if (optionClass == null) {
-        ruleContext.attributeError(
-            ConfigSettingRule.SETTINGS_ATTRIBUTE,
-            String.format(PARSE_ERROR_MESSAGE + "unknown option: '%s'", optionName));
-        foundMismatch = true;
-        continue;
-      }
-
-      OptionsParser parser;
-      try {
-        parser = OptionsParser.builder().optionsClasses(optionClass).build();
-        parser.parse("--" + optionName + "=" + expectedRawValue);
-      } catch (OptionsParsingException ex) {
-        ruleContext.attributeError(
-            ConfigSettingRule.SETTINGS_ATTRIBUTE, PARSE_ERROR_MESSAGE + ex.getMessage());
-        foundMismatch = true;
-        continue;
-      }
-
-      Object expectedParsedValue = parser.getOptions(optionClass).asMap().get(optionName);
-      if (!optionMatches(options, optionName, expectedParsedValue)) {
+      if (!checkOptionValue(options, ruleContext, optionName, expectedRawValue)) {
         foundMismatch = true;
       }
     }
     return !foundMismatch;
+  }
+
+  /** Returns {@code true} if the option is set to the expected value in the configuration. */
+  private static boolean checkOptionValue(
+      BuildOptionDetails options,
+      RuleContext ruleContext,
+      String optionName,
+      String expectedRawValue) {
+    if (DEPRECATED_FLAGS.contains(optionName)) {
+      ruleContext.ruleWarning(
+          String.format(
+              "select() on %s is deprecated. Use platform constraints instead:"
+                  + " https://bazel.build/docs/configurable-attributes#platforms.",
+              optionName));
+    }
+    Class<? extends FragmentOptions> optionClass = options.getOptionClass(optionName);
+    if (optionClass == null) {
+      if (isTestOption(optionName)) {
+        // If TestOptions isn't present then they were trimmed, so any test options set are
+        // considered unset by default.
+        return false;
+      }
+
+      // Report the unknown option as an error.
+      ruleContext.attributeError(
+          ConfigSettingRule.SETTINGS_ATTRIBUTE,
+          String.format(PARSE_ERROR_MESSAGE + "unknown option: '%s'", optionName));
+      return false;
+    }
+
+    OptionsParser parser;
+    try {
+      parser = OptionsParser.builder().optionsClasses(optionClass).build();
+      parser.parse("--" + optionName + "=" + expectedRawValue);
+    } catch (OptionsParsingException ex) {
+      ruleContext.attributeError(
+          ConfigSettingRule.SETTINGS_ATTRIBUTE, PARSE_ERROR_MESSAGE + ex.getMessage());
+      return false;
+    }
+
+    Object expectedParsedValue = parser.getOptions(optionClass).asMap().get(optionName);
+    return optionMatches(options, optionName, expectedParsedValue);
+  }
+
+  // Special hard-coded check to allow config_setting to handle test options even when the test
+  // configuration has been trimmed.
+  private static boolean isTestOption(String optionName) {
+    return IsolatedOptionsData.getAllOptionDefinitionsForClass(TestOptions.class).stream()
+        .map(FieldOptionDefinition::getOptionName)
+        .anyMatch(name -> name.equals(optionName));
   }
 
   /**
