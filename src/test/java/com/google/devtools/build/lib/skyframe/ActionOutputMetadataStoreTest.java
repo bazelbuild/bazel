@@ -394,7 +394,9 @@ public final class ActionOutputMetadataStoreTest {
     FileSystemUtils.writeContentAsLatin1(resolvedPath, "foo");
 
     assertThat(store.getOutputMetadata(outputArtifact))
-        .isEqualTo(FileArtifactValue.createForTesting(resolvedPath));
+        .isEqualTo(
+            FileArtifactValue.createFromExistingWithResolvedPath(
+                FileArtifactValue.createForTesting(resolvedPath), resolvedPath.asFragment()));
   }
 
   @Test
@@ -771,7 +773,10 @@ public final class ActionOutputMetadataStoreTest {
 
     var symlinkMetadata = store.getOutputMetadata(symlink);
 
-    assertThat(symlinkMetadata).isEqualTo(targetMetadata);
+    assertThat(symlinkMetadata)
+        .isEqualTo(
+            FileArtifactValue.createFromExistingWithResolvedPath(
+                targetMetadata, target.getPath().asFragment()));
     assertThat(DigestUtils.getCacheStats().hitCount()).isEqualTo(1);
   }
 }

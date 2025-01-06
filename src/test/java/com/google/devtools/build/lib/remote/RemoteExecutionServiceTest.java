@@ -780,6 +780,8 @@ public class RemoteExecutionServiceTest {
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
     RemoteExecutionService service = newRemoteExecutionService();
     RemoteAction action = service.buildRemoteAction(spawn, context);
+    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any(), any()))
+        .thenReturn(true);
 
     // Doesn't check for dangling links, hence download succeeds.
     service.downloadOutputs(action, result);

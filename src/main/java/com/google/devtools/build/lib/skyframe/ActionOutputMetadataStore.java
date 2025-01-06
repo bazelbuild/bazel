@@ -532,9 +532,7 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
     // If the artifact was materialized in the filesystem as as symlink to another artifact, record
     // the real path in the metadata so that it can be recreated as such later.
     // See {@link FileArtifactValue#getResolvedPath} for why this is useful.
-    // TODO(tjgq): Actually check whether the path matches one of the action inputs. The presence
-    // of a FileStatusWithMetadata happens to coincide, but seems a little brittle.
-    if (realStat instanceof FileStatusWithMetadata && fileArtifactValue.getResolvedPath() == null) {
+    if (fileArtifactValue.getResolvedPath() == null) {
       fileArtifactValue =
           FileArtifactValue.createFromExistingWithResolvedPath(
               fileArtifactValue, realRootedPath.asPath().asFragment());

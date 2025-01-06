@@ -283,14 +283,17 @@ public class RemoteActionFileSystem extends AbstractFileSystem
 
   /** Returns whether a path is stored remotely. Follows symlinks. */
   boolean isRemote(Path path) throws IOException {
-    return isRemote(path.asFragment());
-  }
-
-  private boolean isRemote(PathFragment path) throws IOException {
     // Files in the local filesystem are non-remote by definition, so stat only in-memory sources.
-    var status = statInternal(path, FollowMode.FOLLOW_ALL, StatSources.IN_MEMORY_ONLY);
+    var status = statInternal(path.asFragment(), FollowMode.FOLLOW_ALL, StatSources.IN_MEMORY_ONLY);
     return status instanceof FileStatusWithMetadata fileStatusWithMetadata
         && fileStatusWithMetadata.getMetadata().isRemote();
+  }
+
+  private boolean isLazy(PathFragment path) throws IOException {
+    // Files in the local filesystem are non-lazy by definition, so stat only in-memory sources.
+    var status = statInternal(path, FollowMode.FOLLOW_ALL, StatSources.IN_MEMORY_ONLY);
+    return status instanceof FileStatusWithMetadata fileStatusWithMetadata
+        && fileStatusWithMetadata.getMetadata().isLazy();
   }
 
   public void updateContext(ActionExecutionMetadata action) {
@@ -368,7 +371,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   @Override
   protected InputStream getInputStream(PathFragment path) throws IOException {
     try {
-      downloadIfRemote(path);
+      materializeIfLazy(path);
     } catch (BulkTransferException e) {
       var newlyLostInputs = e.getLostArtifacts(inputArtifactData::getInput);
       if (!newlyLostInputs.isEmpty()) {
@@ -379,8 +382,8 @@ public class RemoteActionFileSystem extends AbstractFileSystem
     return localFs.getPath(path).getInputStream();
   }
 
-  private void downloadIfRemote(PathFragment path) throws IOException {
-    if (!isRemote(path)) {
+  private void materializeIfLazy(PathFragment path) throws IOException {
+    if (!isLazy(path)) {
       return;
     }
     PathFragment execPath = path.relativeTo(execRoot);
@@ -592,9 +595,9 @@ public class RemoteActionFileSystem extends AbstractFileSystem
 
     if (isOutput(linkPath)) {
       remoteOutputTree.getPath(linkPath).createSymbolicLink(targetFragment);
+    } else {
+      localFs.getPath(linkPath).createSymbolicLink(targetFragment);
     }
-
-    localFs.getPath(linkPath).createSymbolicLink(targetFragment);
   }
 
   @Override
