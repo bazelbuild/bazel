@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.runtime.commands.info;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.builtin.BuiltinProtos.Builtins;
 import com.google.devtools.build.docgen.builtin.BuiltinProtos;
@@ -238,32 +239,37 @@ public final class StarlarkEnvironmentsProtoInfoItem extends InfoItem {
     signatureToValue(value, sig);
   }
 
-  private static void fillForBuiltinProvider(Value.Builder value, BuiltinProvider p) {
-    Signature sig;
-
-    Class valueClass = p.getValueClass();
+  private static <T extends Info> void fillForBuiltinProvider(Value.Builder value, BuiltinProvider<T> p) {
+    // Get documentation from the provider symbol itself. If it's not documented, or the documentation is inherited from
+    // some builtin like Provider itself, then get documentation from the class holding actual value
+    // ("provider instance").
+    StarlarkBuiltin starlarkBuiltin = StarlarkAnnotations.getStarlarkBuiltin(p.getClass());
+    String doc = "";
+    if ("PROVIDER".equals(starlarkBuiltin.category()) && !starlarkBuiltin.doc().isEmpty()) {
+      doc = starlarkBuiltin.doc();
+    } else {
+      Class valueClass = p.getValueClass();
+      StarlarkBuiltin valueClassBuiltin = StarlarkAnnotations.getStarlarkBuiltin(valueClass);
+      doc = valueClassBuiltin.doc();
+    }
 
     Method selfCall = Starlark.getSelfCallMethod(StarlarkSemantics.DEFAULT, p.getClass());
-    if (selfCall != null) {
-      StarlarkMethod m = StarlarkAnnotations.getStarlarkMethod(selfCall);
-      if (m != null) {
-        sig = getSignature(m);
-      } else {
-        // TODO: Handle.
-        value.setType("CLASS: " + valueClass);
-        return;
-      }
-    } else {
-      // TODO: Handle.
-      value.setType("CLASS: " + valueClass);
+
+    if (selfCall == null) {
+      // Provider cannot be constructed in Starlark code.
+      // This is true for example for: Actions (deprecated), AnalysisFailureInfo, CcToolchainConfigInfo,
+      // InstrumentedFilesInfo, PackageSpecificationInfo.
+      // TODO: Error displayed by bazel when all above but Actions providers are called is:
+      //       Error: 'Provider' object is not callable
+      //       This is somewhat confusing as other Providers are callable.
+      value.setDoc(doc);
       return;
     }
 
-    // Override doc with documentation of type itself, otherwise it will have simple
-    // "Constructor for type" documentation.
-    StarlarkBuiltin starlarkBuiltin = StarlarkAnnotations.getStarlarkBuiltin(valueClass);
-    sig.doc = starlarkBuiltin.doc();
-
+    StarlarkMethod m = StarlarkAnnotations.getStarlarkMethod(selfCall);
+    Preconditions.checkNotNull(m);
+    Signature sig = getSignature(m);
+    sig.doc = doc;
     signatureToValue(value, sig);
   }
 
@@ -283,7 +289,7 @@ public final class StarlarkEnvironmentsProtoInfoItem extends InfoItem {
     signatureToValue(value, sig);
   }
 
-  private void fillForStructure(Value.Builder value, Structure struct) {
+  private static void fillForStructure(Value.Builder value, Structure struct) {
     // TODO: Missing documentation for struct itself and for fields.
     for (String field : struct.getFieldNames()) {
       value.addGlobal(Value.newBuilder().setName(field));
