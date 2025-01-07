@@ -216,6 +216,12 @@ public final class InstrumentationOutputFactoryTest extends BuildIntegrationTest
             }
 
             @Override
+            @CanIgnoreReturnValue
+            public InstrumentationOutputBuilder setCreateParent(boolean createParent) {
+              return this;
+            }
+
+            @Override
             public InstrumentationOutput build() {
               return fakeRedirectInstrumentationOutput;
             }

@@ -91,7 +91,7 @@ public final class LocalInstrumentationOutputTest {
     localInstrumentationOutputBuilder.setName("recursive-dir-output").setPath(path);
     if (enableRecursiveCreateDirectory) {
       InstrumentationOutput localInstrumentationOutput =
-          localInstrumentationOutputBuilder.enableCreateParent().build();
+          localInstrumentationOutputBuilder.setCreateParent(/* createParent= */ true).build();
       var unused = localInstrumentationOutput.createOutputStream();
       assertThat(path.exists()).isTrue();
     } else {

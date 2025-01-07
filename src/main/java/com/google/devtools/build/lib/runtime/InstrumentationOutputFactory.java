@@ -146,6 +146,7 @@ public final class InstrumentationOutputFactory {
             .setDestination(destination)
             .setDestinationRelatedToType(destinationRelativeTo)
             .setOptions(env.getOptions())
+            .setCreateParent(createParent)
             .build();
       }
       eventHandler.handle(
@@ -166,17 +167,14 @@ public final class InstrumentationOutputFactory {
                   env.getRuntime().getFileSystem().getPath(localTempLoggingDirPathStr);
             })
             .getRelative(destination);
-    LocalInstrumentationOutput.Builder localOutputBuilder =
-        localInstrumentationOutputBuilderSupplier.get();
-    localOutputBuilder
+    return localInstrumentationOutputBuilderSupplier
+        .get()
         .setName(name)
         .setPath(localOutputPath)
         .setAppend(append)
-        .setInternal(internal);
-    if (createParent) {
-      localOutputBuilder.enableCreateParent();
-    }
-    return localOutputBuilder.build();
+        .setInternal(internal)
+        .setCreateParent(createParent)
+        .build();
   }
 
   public BuildEventArtifactInstrumentationOutput createBuildEventArtifactInstrumentationOutput(

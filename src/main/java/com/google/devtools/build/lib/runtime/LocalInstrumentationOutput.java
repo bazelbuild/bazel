@@ -86,7 +86,7 @@ final class LocalInstrumentationOutput implements InstrumentationOutput {
     @Nullable private String convenienceName;
     @Nullable private Boolean append;
     @Nullable private Boolean internal;
-    private boolean createParent = false;
+    private boolean createParent;
 
     @CanIgnoreReturnValue
     @Override
@@ -126,8 +126,9 @@ final class LocalInstrumentationOutput implements InstrumentationOutput {
     }
 
     @CanIgnoreReturnValue
-    public Builder enableCreateParent() {
-      this.createParent = true;
+    @Override
+    public Builder setCreateParent(boolean createParent) {
+      this.createParent = createParent;
       return this;
     }
 
