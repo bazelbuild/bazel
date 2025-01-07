@@ -321,7 +321,7 @@ public final class FlagSetFunction implements SkyFunction {
         ans.add(flag);
         continue;
       }
-      // TODO: b380481103 - fail when a --config sets non-BuildOptions flags.
+      // TODO: b/388289978 - fail when a --config sets non-BuildOptions flags.
       ConfigFlagDefinitions.ConfigValue expandedFlags;
       try {
         expandedFlags =
