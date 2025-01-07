@@ -60,7 +60,8 @@ public class RuleTransitionApplier
     void acceptConfiguration(
         BuildConfigurationKey configurationKey, IdempotencyState idempotencyState);
 
-    void acceptErrorMessage(String message, Location location, DetailedExitCode exitCode);
+    void acceptErrorMessage(
+        String message, @Nullable Location location, @Nullable DetailedExitCode exitCode);
   }
 
   /**
