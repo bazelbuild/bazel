@@ -2090,9 +2090,23 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
                       /* numThreads= */ DEFAULT_THREAD_COUNT,
                       eventHandler);
               if (result.hasError()) {
-                if (result.getError(bzlKey).getException() instanceof BzlLoadFailedException e) {
-                  throw e;
+                Map.Entry<SkyKey, ErrorInfo> firstError =
+                    Iterables.get(result.errorMap().entrySet(), 0);
+                ErrorInfo error = firstError.getValue();
+                Throwable e = error.getException();
+                // Wrap loading failed exceptions
+                if (e != null) {
+                  // If it's a BzlLoadFailedException, rethrow it directly.
+                  Throwables.throwIfInstanceOf(e, BzlLoadFailedException.class);
+                  // Otherwise, wrap it.
+                  throw new StarlarkExecTransitionLoadingException(e);
+                } else if (e == null && !error.getCycleInfo().isEmpty()) {
+                  cyclesReporter.reportCycles(
+                      error.getCycleInfo(), firstError.getKey(), eventHandler);
+                  throw new StarlarkExecTransitionLoadingException(
+                      "Unexpected cycle in exec transition dependencies");
                 }
+                throw new IllegalStateException("Unknown error while creating exec transition", e);
               }
               return (BzlLoadValue) result.get(bzlKey);
             })
