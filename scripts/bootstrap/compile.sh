@@ -264,6 +264,13 @@ EOF
 
   link_dir ${PWD}/third_party ${BAZEL_TOOLS_REPO}/third_party
 
+  # Set up the function_transition_allowlist target, which needs to exist for
+  # Starlark rules that use Starlark transitions.
+  mkdir -p "${BAZEL_TOOLS_REPO}/tools/allowlists/function_transition_allowlist"
+  link_file "${PWD}/tools/allowlists/function_transition_allowlist/BUILD.tools" \
+      "${BAZEL_TOOLS_REPO}/tools/allowlists/function_transition_allowlist/BUILD"
+  link_children "${PWD}" tools/allowlists "${BAZEL_TOOLS_REPO}"
+
   # Create @bazel_tools//tools/cpp/runfiles
   mkdir -p ${BAZEL_TOOLS_REPO}/tools/cpp/runfiles
   link_file "${PWD}/tools/cpp/runfiles/runfiles.h" \
