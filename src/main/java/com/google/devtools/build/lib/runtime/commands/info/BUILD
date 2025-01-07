@@ -15,6 +15,7 @@ java_library(
     name = "info",
     srcs = glob(["*.java"]),
     deps = [
+        "//src/main/java/com/google/devtools/build/docgen:visible_to_info",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib:runtime/memory_pressure",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
@@ -31,6 +32,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe:starlark_builtins_value",
+        "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:debug-logger-configurator",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",

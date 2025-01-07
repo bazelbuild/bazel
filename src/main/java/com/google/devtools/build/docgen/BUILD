@@ -15,6 +15,42 @@ filegroup(
     visibility = ["//src:__subpackages__"],
 )
 
+# TODO: Move those to a separate package
+java_library(
+    name = "visible_to_info",
+    srcs = [
+        "DocLinkMap.java",
+        "DocgenConsts.java",
+        "RuleLinkExpander.java",
+    ],
+    resources = [":bazel_link_map"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib/runtime/commands/info:__pkg__"],
+    # TODO: Just copied all from docgen_javalib.
+    deps = [
+        "//src/main/java/com/google/devtools/build/docgen/annot",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/starlarkdocextract:labelrenderer",
+        "//src/main/java/com/google/devtools/build/lib/util:classpath",
+        "//src/main/java/com/google/devtools/build/lib/util:filetype",
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/main/java/net/starlark/java/annot",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/protobuf:builtin_java_proto",
+        "//src/main/protobuf:stardoc_output_java_proto",
+        "//third_party:apache_velocity",
+        "//third_party:auto_value",
+        "//third_party:flogger",
+        "//third_party:gson",
+        "//third_party:guava",
+        "//third_party:jsr305",
+        "@com_google_protobuf//:protobuf_java",
+    ],
+)
+
 java_library(
     name = "docgen_javalib",
     srcs = glob(["**/*.java"]),

@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.runtime.commands.info;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.docgen.DocLinkMap;
+import com.google.devtools.build.docgen.RuleLinkExpander;
 import com.google.devtools.build.docgen.builtin.BuiltinProtos.Builtins;
 import com.google.devtools.build.docgen.builtin.BuiltinProtos;
 import com.google.devtools.build.docgen.builtin.BuiltinProtos.Value;
@@ -32,6 +34,7 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyValue;
 import net.starlark.java.annot.StarlarkAnnotations;
@@ -39,6 +42,7 @@ import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.*;
 
+import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.*;
 import java.util.function.Function;
@@ -116,7 +120,7 @@ public final class StarlarkEnvironmentsProtoInfoItem extends InfoItem {
     return (StarlarkBuiltinsValue) result.get(StarlarkBuiltinsValue.key(true));
   }
 
-  private byte[] build(StarlarkBuiltinsValue builtins) {
+  private byte[] build(StarlarkBuiltinsValue builtins) throws AbruptExitException {
     Builtins.Builder builder = Builtins.newBuilder();
 
     ConfiguredRuleClassProvider provider = BazelRuleClassProvider.create();
@@ -150,6 +154,8 @@ public final class StarlarkEnvironmentsProtoInfoItem extends InfoItem {
             provider.getRuleClassMap());
     Starlark.addMethods(workspaceEnv, workspaceGlobals, StarlarkSemantics.DEFAULT);
     buildFor(builder, ApiContext.WORKSPACE, workspaceEnv.buildKeepingLast());
+
+    expandLinks(builder);
 
     return builder.build().toByteArray();
   }
@@ -211,7 +217,7 @@ public final class StarlarkEnvironmentsProtoInfoItem extends InfoItem {
           }
       }
 
-      builtins.addGlobal(value.build());
+      builtins.addGlobal(value);
     }
   }
 
@@ -352,8 +358,54 @@ public final class StarlarkEnvironmentsProtoInfoItem extends InfoItem {
       moduleGlobal.setName(method.getName());
       moduleGlobal.setApiContext(env);
       fillForStarlarkMethod(moduleGlobal, starlarkMethod);
-      value.addGlobal(moduleGlobal.build());
+      value.addGlobal(moduleGlobal);
     }
+  }
+
+  private void expandLinks(Builtins.Builder value) throws AbruptExitException {
+    RuleLinkExpander linkExpander = createLinkExpander();
+    for (Value.Builder global : value.getGlobalBuilderList()) {
+      expandLinksForValue(global, linkExpander);
+    }
+  }
+
+  private void expandLinksForValue(Value.Builder value, RuleLinkExpander linkExpander) {
+    value.setDoc(linkExpander.expand(value.getDoc()));
+    if (value.hasCallable()) {
+      for (BuiltinProtos.Param.Builder param : value.getCallableBuilder().getParamBuilderList()) {
+          param.setDoc(linkExpander.expand(param.getDoc()));
+      }
+    }
+    for (var global : value.getGlobalBuilderList()) {
+      expandLinksForValue(global, linkExpander);
+    }
+  }
+
+  private static RuleLinkExpander createLinkExpander() throws AbruptExitException {
+    String jsonMap;
+    try {
+      jsonMap = ResourceFileLoader.loadResource(DocLinkMap.class, "bazel_link_map.json");
+    } catch (IOException e) {
+      throw new AbruptExitException(
+              DetailedExitCode.of(
+                      FailureDetails.FailureDetail.newBuilder()
+                              .setMessage("Failed to load bazel_link_map.json: " + e.getMessage())
+                              .setInfoCommand(FailureDetails.InfoCommand.getDefaultInstance())
+                              .build()));
+    }
+
+    return new RuleLinkExpander(
+            // TODO: This is super hacky, providing mapping only for rule name -> normalized rule family only
+            // for rules that actually have corresponding ${link rule}. For api exported it's created in
+            // BuildDocCollector.
+            ImmutableMap.of(
+                    "cc_binary", "c-cpp",
+                    "cc_test", "c-cpp",
+                    "cc_library", "c-cpp",
+                    "filegroup", "general",
+                    "objc_library", "objective-c"),
+            /* singlePage */ false,
+            DocLinkMap.createFromString(jsonMap));
   }
 
   // ------------------------------------------------
