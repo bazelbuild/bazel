@@ -31,6 +31,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
@@ -276,17 +278,25 @@ public final class FrontierSerializer {
                 markActiveAndTraverseEdges(graph, data.getActionLookupKey(), selection);
               }
             }
-            case Artifact key when key.valueIsShareable() -> {
-              // Artifact#key is the canonical function to produce the SkyKey that will build this
-              // artifact. We want to avoid serializing ordinary DerivedArtifacts, which
-              // are never built by Skyframe directly, and the function will return
-              // ActionLookupData as the canonical key for those artifacts instead.
-              SkyKey aKey = Artifact.key(key);
-              if (aKey instanceof ActionLookupData) {
-                // Already handled in the ActionLookupData switch case above.
-                return;
+            case Artifact artifact -> {
+              switch (artifact) {
+                case DerivedArtifact derived:
+                  if (!derived.valueIsShareable()) {
+                    return;
+                  }
+                  // Artifact#key is the canonical function to produce the SkyKey that will build
+                  // this artifact. We want to avoid serializing ordinary DerivedArtifacts, which
+                  // are never built by Skyframe directly, and the function will return
+                  // ActionLookupData as the canonical key for those artifacts instead.
+                  SkyKey artifactKey = Artifact.key(derived);
+                  if (artifactKey instanceof ActionLookupData) {
+                    return; // Already handled in the ActionLookupData switch case above.
+                  }
+                  selection.putIfAbsent(artifactKey, FRONTIER_CANDIDATE);
+                  break;
+                case SourceArtifact source:
+                  break; // Skips source artifacts because they are cheap to compute.
               }
-              selection.putIfAbsent(aKey, FRONTIER_CANDIDATE);
             }
             default -> {}
           }
