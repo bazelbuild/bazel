@@ -148,7 +148,7 @@ public class StarlarkAttributesCollection implements StarlarkAttributesCollectio
     checkMutable("exec_groups");
     if (((AspectContext) starlarkRuleContext.getRuleContext()).getBaseTargetToolchainContexts()
         == null) {
-      return StarlarkExecGroupCollection.EXEC_GRPOUP_COLLECTION_NOT_VALID;
+      return StarlarkExecGroupCollection.EXEC_GROUP_COLLECTION_NOT_VALID;
     }
     // Create a thin wrapper around the toolchain collection, to expose the Starlark API.
     return StarlarkExecGroupCollection.create(
