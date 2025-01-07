@@ -83,7 +83,6 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.StarlarkAspectClass;
 import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
@@ -110,7 +109,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * The Skyframe function that generates aspects.
@@ -327,29 +325,14 @@ final class AspectFunction implements SkyFunction {
         associatedTarget.getOriginalLabel(),
         associatedTarget.getLabel());
 
-    // If the incompatible flag is set, the top-level aspect should not be applied on top-level
-    // targets whose rules do not advertise the aspect's required providers. The aspect should not
-    // also propagate to these targets dependencies.
-    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
-    if (starlarkSemantics == null) {
-      return null;
-    }
-    boolean checkRuleAdvertisedProviders =
-        starlarkSemantics.getBool(
-            BuildLanguageOptions.INCOMPATIBLE_TOP_LEVEL_ASPECTS_REQUIRE_PROVIDERS);
-    if (checkRuleAdvertisedProviders) {
-      if (target instanceof Rule) {
-        if (!aspect
-            .getDefinition()
-            .getRequiredProviders()
-            .isSatisfiedBy(((Rule) target).getRuleClassObject().getAdvertisedProviders())) {
-          return AspectValue.create(
-              key,
-              aspect,
-              ConfiguredAspect.NonApplicableAspect.INSTANCE,
-              computeDependenciesState.transitivePackages());
-        }
-      }
+    if (associatedTarget.getConfigurationKey() == null || !targetSatisfiesAspect(target, aspect)) {
+      // Aspects cannot apply to PackageGroups or InputFiles, the only cases where configuration key
+      // is null. They also cannot apply to targets that don't satisfy the aspect's requirements.
+      return AspectValue.create(
+          key,
+          aspect,
+          ConfiguredAspect.NonApplicableAspect.INSTANCE,
+          computeDependenciesState.transitivePackages());
     }
 
     ImmutableList<Aspect> topologicalAspectPath;
@@ -1010,8 +993,7 @@ final class AspectFunction implements SkyFunction {
       Label label = outputFile.getGeneratingRule().getLabel();
       return createAliasAspect(
           env, associatedTarget, key, aspect, key.withLabel(label), transitiveState);
-    } else if (aspectMatchesConfiguredTarget(
-        associatedConfiguredTarget, associatedTarget instanceof Rule, aspect)) {
+    } else {
       try {
         CurrentRuleTracker.beginConfiguredAspect(aspect.getAspectClass());
         configuredAspect =
@@ -1044,8 +1026,6 @@ final class AspectFunction implements SkyFunction {
       } finally {
         CurrentRuleTracker.endConfiguredAspect();
       }
-    } else {
-      configuredAspect = ConfiguredAspect.NonApplicableAspect.INSTANCE;
     }
 
     events.replayOn(env.getListener());
@@ -1071,20 +1051,16 @@ final class AspectFunction implements SkyFunction {
     return AspectValue.create(key, aspect, configuredAspect, transitiveState.transitivePackages());
   }
 
-  private static boolean aspectMatchesConfiguredTarget(
-      ConfiguredTarget ct, boolean isRule, Aspect aspect) {
-    if (!aspect.getDefinition().applyToFiles()
-        && !aspect.getDefinition().applyToGeneratingRules()
-        && !isRule) {
-      return false;
+  private static boolean targetSatisfiesAspect(Target target, Aspect aspect) {
+    if (target.isRule()) {
+      return ((Rule) target).satisfies(aspect.getDefinition().getRequiredProviders());
     }
-    if (ct.getConfigurationKey() == null) {
-      // Aspects cannot apply to PackageGroups or InputFiles, the only cases where this is null.
-      return false;
+
+    if (aspect.getDefinition().applyToFiles() || aspect.getDefinition().applyToGeneratingRules()) {
+      return true;
     }
-    // We need to check the configured target's providers against the aspect's required providers
-    // because top-level aspects do not check advertised providers of top-level targets.
-    return ct.satisfies(aspect.getDefinition().getRequiredProviders());
+
+    return false;
   }
 
   @Override

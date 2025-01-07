@@ -663,18 +663,6 @@ public final class BuildLanguageOptions extends OptionsBase {
   public int nestedSetDepthLimit;
 
   @Option(
-      name = "incompatible_top_level_aspects_require_providers",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      help =
-          "If set to true, the top level aspect will honor its required providers and only run on"
-              + " top level targets whose rules' advertised providers satisfy the required"
-              + " providers of the aspect.")
-  public boolean incompatibleTopLevelAspectsRequireProviders;
-
-  @Option(
       name = "incompatible_disable_starlark_host_transitions",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -885,9 +873,6 @@ public final class BuildLanguageOptions extends OptionsBase {
             .set(MAX_COMPUTATION_STEPS, maxComputationSteps)
             .set(NESTED_SET_DEPTH_LIMIT, nestedSetDepthLimit)
             .setBool(
-                INCOMPATIBLE_TOP_LEVEL_ASPECTS_REQUIRE_PROVIDERS,
-                incompatibleTopLevelAspectsRequireProviders)
-            .setBool(
                 INCOMPATIBLE_DISABLE_STARLARK_HOST_TRANSITIONS,
                 incompatibleDisableStarlarkHostTransitions)
             .setBool(
@@ -994,8 +979,6 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-incompatible_use_cc_configure_from_rules";
   public static final String INCOMPATIBLE_UNAMBIGUOUS_LABEL_STRINGIFICATION =
       "+incompatible_unambiguous_label_stringification";
-  public static final String INCOMPATIBLE_TOP_LEVEL_ASPECTS_REQUIRE_PROVIDERS =
-      "+incompatible_top_level_aspects_require_providers";
   public static final String INCOMPATIBLE_DISABLE_STARLARK_HOST_TRANSITIONS =
       "-incompatible_disable_starlark_host_transitions";
   public static final String INCOMPATIBLE_MERGE_FIXED_AND_DEFAULT_SHELL_ENV =

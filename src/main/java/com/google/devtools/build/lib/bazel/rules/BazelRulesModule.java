@@ -452,6 +452,15 @@ public final class BazelRulesModule extends BlazeModule {
     public String autoCpuEnvironmentGroup;
 
     @Option(
+        name = "incompatible_top_level_aspects_require_providers",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public boolean incompatibleTopLevelAspectsRequireProviders;
+
+    @Option(
         name = "separate_aspect_deps",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
