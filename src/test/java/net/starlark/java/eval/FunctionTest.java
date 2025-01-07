@@ -668,13 +668,14 @@ public final class FunctionTest {
     ev.exec(
         """
         def f(a, b, *args, k = 42, **kwargs):
+            kwargs["mutable"] = True  # verify that **kwargs is a mutable dict
             return "k=%s args=%s kwargs=%s" % (repr(k), repr(args), repr(kwargs))
         """);
     StarlarkFunction f = (StarlarkFunction) ev.lookup("f");
     try (Mutability mu = Mutability.create("test")) {
       StarlarkThread thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
       assertThat((String) Starlark.positionalOnlyCall(thread, f, "a", "b", "c", "d"))
-          .isEqualTo("k=42 args=(\"c\", \"d\") kwargs={}");
+          .isEqualTo("k=42 args=(\"c\", \"d\") kwargs={\"mutable\": True}");
     }
   }
 }

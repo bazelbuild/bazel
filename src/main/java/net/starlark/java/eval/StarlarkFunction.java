@@ -205,7 +205,7 @@ public final class StarlarkFunction implements StarlarkCallable {
     checkRecursive(thread);
     ArgumentProcessor argumentProcessor = new ArgumentProcessor(this);
     // Feed only positional arguments into the argument processor.
-    argumentProcessor.processPositionalOnly(positional);
+    argumentProcessor.processPositionalOnly(positional, thread.mutability());
     return callWithArguments(thread, argumentProcessor);
   }
 
@@ -392,13 +392,14 @@ public final class StarlarkFunction implements StarlarkCallable {
       bindNamedArgsToLocals(named, mu);
     }
 
-    void processPositionalOnly(Object[] positional) throws EvalException {
+    void processPositionalOnly(Object[] positional, Mutability mu) throws EvalException {
       numNonSurplusPositionalArgs = getNumNonSurplusPositionalArgs(positional);
       bindPositionalArgsToLocals(positional);
       bindSurplusPositionalArgsToVarArgs(positional);
-      // Bind an empty dict to **kwargs if present.
+      // Bind an empty dict to **kwargs if present. (The dict, unfortunately, needs to be mutable;
+      // see https://github.com/bazelbuild/starlark/issues/295)
       if (owner.rfn.hasKwargs()) {
-        locals[owner.rfn.getParameters().size() - 1] = Dict.empty();
+        locals[owner.rfn.getParameters().size() - 1] = Dict.of(mu);
       }
     }
 
