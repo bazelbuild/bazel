@@ -29,8 +29,7 @@ import com.google.devtools.build.skyframe.SkyKey;
  */
 public interface RemoteAnalysisCachingDependenciesProvider {
 
-  // TODO: b/386406395 - rename this to requiresBackendConnectivity
-  default boolean enabled() {
+  default boolean requiresBackendConnectivity() {
     switch (mode()) {
       case DOWNLOAD:
       // fall through

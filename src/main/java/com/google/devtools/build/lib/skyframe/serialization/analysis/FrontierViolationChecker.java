@@ -76,7 +76,7 @@ public final class FrontierViolationChecker {
       MemoizingEvaluator evaluator,
       String productName)
       throws AbruptExitException {
-    Preconditions.checkArgument(provider.enabled());
+    Preconditions.checkArgument(provider.requiresBackendConnectivity());
 
     if (check == DISABLED_FOR_TESTING) {
       checkState(TestType.isInTest());
