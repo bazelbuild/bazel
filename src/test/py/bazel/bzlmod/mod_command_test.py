@@ -682,13 +682,13 @@ class ModCommandTest(test_base.TestBase):
     # The extensions should not be reevaluated by the command.
     self.assertNotIn('ext1 is being evaluated', stderr)
     self.assertNotIn('ext2 is being evaluated', stderr)
-    # The fixup warnings should be shown again due to Skyframe replaying.
-    self.assertIn(
+    # bazel mod tidy doesn't show fixup warnings.
+    self.assertNotIn(
         'Not imported, but reported as direct dependencies by the extension'
         ' (may cause the build to fail):\nmissing_dep',
         stderr,
     )
-    self.assertIn(
+    self.assertNotIn(
         'Imported, but reported as indirect dependencies by the'
         ' extension:\nindirect_dep',
         stderr,
@@ -984,10 +984,6 @@ class ModCommandTest(test_base.TestBase):
     # extension fails after evaluation.
     _, _, stderr = self.RunBazel(['mod', 'tidy'])
     stderr = '\n'.join(stderr)
-    self.assertIn(
-        'ext defined in @//:extension.bzl reported incorrect imports', stderr
-    )
-    self.assertIn('invalid_dep', stderr)
     self.assertIn(
         'INFO: Updated use_repo calls for @//:extension.bzl%ext', stderr
     )
