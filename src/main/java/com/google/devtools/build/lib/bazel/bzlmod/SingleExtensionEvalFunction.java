@@ -199,7 +199,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                     String.format(
                         "The module extension %s produced an invalid lockfile entry because it"
                             + " referenced %s. Please report this issue to its maintainers.",
-                        extensionId.asTargetString(), nonVisibleRepoNames)));
+                        extensionId, nonVisibleRepoNames)));
       }
     }
     if (lockfileMode.equals(LockfileMode.ERROR)) {
