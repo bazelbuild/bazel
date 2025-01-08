@@ -67,6 +67,7 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
+import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.OutputFile;
@@ -109,7 +110,6 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.SymbolGenerator;
-import net.starlark.java.syntax.Identifier;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -1095,11 +1095,6 @@ public class RuleContext extends TargetContext
     return toolchainContexts == null ? null : toolchainContexts.getToolchainContext(execGroup);
   }
 
-  /** Returns true if the given exec group is an automatic exec group. */
-  public boolean isAutomaticExecGroup(String execGroupName) {
-    return !Identifier.isValid(execGroupName) && !execGroupName.equals(DEFAULT_EXEC_GROUP_NAME);
-  }
-
   @Nullable
   private ResolvedToolchainContext getToolchainContextForToolchainType(Label toolchainType) {
     ResolvedToolchainContext toolchainContext =
@@ -1113,7 +1108,7 @@ public class RuleContext extends TargetContext
     // type in its ResolvedToolchainContext (AEGs are created before toolchain context is resolved).
     String aliasName =
         toolchainContexts.getExecGroupNames().stream()
-            .filter(this::isAutomaticExecGroup)
+            .filter(ExecGroup::isAutomatic)
             .filter(
                 name -> {
                   ResolvedToolchainContext context = toolchainContexts.getToolchainContext(name);

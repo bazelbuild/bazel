@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.ExecGroupApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import javax.annotation.Nullable;
+import net.starlark.java.syntax.Identifier;
 
 /**
  * Resolves the appropriate toolchains for the given parameters.
@@ -61,6 +62,11 @@ public record ExecGroup(
         .copyFromDefault(false)
         .toolchainTypes(ImmutableSet.of())
         .execCompatibleWith(ImmutableSet.of());
+  }
+
+  /** Returns true if the given exec group is an automatic exec group. */
+  public static boolean isAutomatic(String execGroupName) {
+    return !Identifier.isValid(execGroupName) && !execGroupName.equals(DEFAULT_EXEC_GROUP_NAME);
   }
 
   /** Returns the required toolchain types for this exec group. */

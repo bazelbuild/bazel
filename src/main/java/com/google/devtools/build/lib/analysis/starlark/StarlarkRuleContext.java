@@ -68,6 +68,7 @@ import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinRestriction;
+import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.OutputFile;
@@ -846,7 +847,7 @@ public final class StarlarkRuleContext
         ruleContext.getToolchainContexts();
 
     return toolchainContexts.getExecGroupNames().stream()
-        .filter(e -> ruleContext.isAutomaticExecGroup(e))
+        .filter(ExecGroup::isAutomatic)
         .flatMap(
             execGroupName ->
                 toolchainContexts
