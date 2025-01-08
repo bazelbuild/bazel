@@ -1010,4 +1010,32 @@ binary = rule(
     NestedSet<Artifact> filesToBuild = propagator.getProvider(FileProvider.class).getFilesToBuild();
     assertThat(ActionsTestUtil.baseArtifactNames(filesToBuild)).containsExactly("o");
   }
+
+  @Test
+  public void testLabelInMaterializer() throws Exception {
+    scratch.file(
+        "dormant/dormant.bzl",
+        """
+        def _binary_impl(ctx):
+          return [DefaultInfo()]
+
+        def _materializer(ctx):
+          print("MATERIALIZER LABEL " + str(ctx.label))
+          return []
+
+        binary = rule(
+          implementation = _binary_impl,
+          attrs = { "_materialized": attr.label_list(materializer = _materializer) })
+        """);
+
+    scratch.file(
+        "dormant/BUILD",
+        """
+        load(":dormant.bzl", "binary")
+        binary(name="binary")
+        """);
+
+    update("//dormant:binary");
+    assertContainsEvent("MATERIALIZER LABEL @@//dormant:binary");
+  }
 }
