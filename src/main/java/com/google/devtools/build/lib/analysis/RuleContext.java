@@ -664,7 +664,6 @@ public class RuleContext extends TargetContext
     return switch (outputFileKind) {
       case FILE -> getDerivedArtifact(rootRelativePath, root);
       case FILESET -> getAnalysisEnvironment().getFilesetArtifact(rootRelativePath, root);
-      default -> throw new IllegalStateException();
     };
   }
 
