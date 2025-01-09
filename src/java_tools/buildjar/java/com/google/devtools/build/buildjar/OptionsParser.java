@@ -54,6 +54,7 @@ public final class OptionsParser {
   /** This modes controls how a probablistic Java classpath reduction is used. */
   public enum ReduceClasspathMode {
     BAZEL_REDUCED,
+    BAZEL_REDUCED_NO_FALLBACK,
     BAZEL_FALLBACK,
     JAVABUILDER_REDUCED,
     NONE
