@@ -16,6 +16,7 @@ package net.starlark.java.eval;
 
 import com.google.common.collect.Maps;
 import java.util.LinkedHashMap;
+import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -105,6 +106,32 @@ public interface StarlarkCallable extends StarlarkValue {
   default Object positionalOnlyCall(StarlarkThread thread, Object... positional)
       throws EvalException, InterruptedException {
     return fastcall(thread, positional, new Object[] {});
+  }
+
+  /**
+   * Defines a helper object for a new and hopefully faster way to invoke a StarlarkCallable.
+   *
+   * <p>An ArgumentProcessor implementation is returned by {@link #requestArgumentProcessor} if the
+   * callable supports invocation via ArgumentProcessor. The ArgumentProcessor implementation must
+   * then be used to first place the arguments, and then the {@link #call} is used to make the
+   * invocation.
+   */
+  public interface ArgumentProcessor {
+    void addPositionalArg(Object value) throws EvalException;
+
+    void addNamedArg(String name, Object value) throws EvalException;
+
+    StarlarkCallable getCallable();
+
+    Object call(StarlarkThread thread) throws EvalException, InterruptedException;
+  }
+
+  /**
+   * Returns a FasterCall implementation if the callable supports fasterCall invocations, else null.
+   */
+  @Nullable
+  default ArgumentProcessor requestArgumentProcessor(StarlarkThread thread) {
+    return null;
   }
 
   /** Returns the form this callable value should take in a stack trace. */

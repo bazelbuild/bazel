@@ -300,6 +300,8 @@ public final class Starlark {
     }
   }
 
+  private static final Object[] EMPTY = {};
+
   /**
    * Returns the length of a Starlark string, sequence (such as a list or tuple), dict, or other
    * iterable, as if by the Starlark expression {@code len(x)}, or -1 if the value is valid but has
@@ -788,6 +790,9 @@ public final class Starlark {
    * Starlark call stack rather than the Java call stack. The original throwable (and the Java call
    * stack) may be retrieved using {@link Throwable#getCause}.
    */
+  // TODO(b/380824219): Remove this method once callWithArguments has been implemented on all
+  // StarlarkCallable implementations that currently implement fastcall, plus a default
+  // implementation in StarlarkCallable that forwards to StarlarkCallable.call().
   public static Object fastcall(
       StarlarkThread thread, Object fn, Object[] positional, Object[] named)
       throws EvalException, InterruptedException {
@@ -810,6 +815,38 @@ public final class Starlark {
       thread.pop();
     }
     // LINT.ThenChange(:positionalOnlyCall)
+  }
+
+  /**
+   * Calls the a function-like value in the specified thread via the given ArgumentProcessor which
+   * previously has been returned by {@link #requestArgumentProcessor} and has been populated with
+   * the arguments.
+   *
+   * <p>If the call throws an unchecked throwable, regardless of whether it originates in a
+   * user-defined built-in function or a bug in the interpreter itself, the throwable is wrapped by
+   * {@link UncheckedEvalException} (for {@link RuntimeException}) or {@link UncheckedEvalError}
+   * (for {@link Error}). The {@linkplain Throwable#getStackTrace stack trace} will reflect the
+   * Starlark call stack rather than the Java call stack. The original throwable (and the Java call
+   * stack) may be retrieved using {@link Throwable#getCause}.
+   */
+  public static Object callViaArgumentProcessor(
+      StarlarkThread thread, StarlarkCallable.ArgumentProcessor argumentProcessor)
+      throws EvalException, InterruptedException {
+    thread.push(argumentProcessor.getCallable());
+    try {
+      return argumentProcessor.call(thread);
+    } catch (UncheckedEvalException | UncheckedEvalError ex) {
+      throw ex; // already wrapped
+    } catch (RuntimeException ex) {
+      throw new UncheckedEvalException(ex, thread);
+    } catch (Error ex) {
+      throw new UncheckedEvalError(ex, thread);
+    } catch (EvalException ex) {
+      // If this exception was newly thrown, set its stack.
+      throw ex.ensureStack(thread);
+    } finally {
+      thread.pop();
+    }
   }
 
   /**
@@ -848,8 +885,6 @@ public final class Starlark {
     // LINT.ThenChange(:fastcall)
   }
 
-  private static final Object[] EMPTY = {};
-
   private static StarlarkCallable getStarlarkCallable(StarlarkThread thread, Object fn)
       throws EvalException {
     StarlarkCallable callable;
@@ -865,6 +900,18 @@ public final class Starlark {
       callable = new BuiltinFunction(fn, desc.getName(), desc);
     }
     return callable;
+  }
+
+  @Nullable
+  public static StarlarkCallable.ArgumentProcessor requestArgumentProcessor(
+      StarlarkThread thread, Object fn) {
+    // Note: Once BuiltinFunction also implements requestArgumentProcessor, this method body should
+    // be replaced by
+    // return getStarlarkCallable(thread, fn).requestArgumentProcessor(thread);
+    if (fn instanceof StarlarkCallable starlarkCallable) {
+      return starlarkCallable.requestArgumentProcessor(thread);
+    }
+    return null;
   }
 
   /**

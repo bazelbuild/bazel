@@ -669,12 +669,103 @@ final class Eval {
     }
     // Inv: n = |positional| + |named|
 
+    StarlarkCallable.ArgumentProcessor argumentProcessor =
+        Starlark.requestArgumentProcessor(fr.thread, fn);
+    if (argumentProcessor != null) {
+      return evalCallWithArgumentProcessor(
+          fr, call, argumentProcessor, arguments, star, starstar, n);
+    }
+    return evalFastcall(fr, fn, call, arguments, star, starstar, n);
+  }
+
+  // TODO(b/380824219): Inline this method into evalCall() and remove evalFastcall() once all
+  // implementations of StarlarkCallable.fastcall() (i.e. BuiltinFunction, StarlarkProvider, the
+  // default on StarlarkCallable and a few tests) have a callViaArgumentProcessor alternative.
+  private static Object evalCallWithArgumentProcessor(
+      StarlarkThread.Frame fr,
+      CallExpression call,
+      StarlarkCallable.ArgumentProcessor argumentProcessor,
+      ImmutableList<Argument> arguments,
+      Argument.Star star,
+      Argument.StarStar starstar,
+      int numNonStarArgs)
+      throws EvalException, InterruptedException {
+
+    int numPositionalArguments = call.getNumPositionalArguments();
+
+    // f(expr) -- positional args
+    int i;
+    for (i = 0; i < numPositionalArguments; i++) {
+      Argument arg = arguments.get(i);
+      argumentProcessor.addPositionalArg(eval(fr, arg.getValue()));
+    }
+
+    // f(id=expr) -- named args
+    for (; i < numNonStarArgs; i++) {
+      Argument arg = arguments.get(i);
+      argumentProcessor.addNamedArg(arg.getName(), eval(fr, arg.getValue()));
+    }
+
+    // f(*args) -- varargs
+    if (star != null) {
+      Object value = eval(fr, star.getValue());
+      if (!(value instanceof StarlarkIterable<?> iter)) {
+        fr.setErrorLocation(star.getStartLocation());
+        throw Starlark.errorf("argument after * must be an iterable, not %s", Starlark.type(value));
+      }
+      for (Object o : iter) {
+        argumentProcessor.addPositionalArg(o);
+      }
+    }
+
+    // f(**kwargs)
+    if (starstar != null) {
+      Object value = eval(fr, starstar.getValue());
+      // Unlike *args, we don't have a Starlark-specific mapping interface to check for in **kwargs,
+      // so check for Java's Map instead.
+      if (!(value instanceof Map<?, ?> kwargs)) {
+        fr.setErrorLocation(starstar.getStartLocation());
+        throw Starlark.errorf("argument after ** must be a dict, not %s", Starlark.type(value));
+      }
+      for (Map.Entry<?, ?> e : kwargs.entrySet()) {
+        if (!(e.getKey() instanceof String eKey)) {
+          fr.setErrorLocation(starstar.getStartLocation());
+          throw Starlark.errorf("keywords must be strings, not %s", Starlark.type(e.getKey()));
+        }
+        argumentProcessor.addNamedArg(eKey, e.getValue());
+      }
+    }
+
+    Location loc = call.getLparenLocation(); // (Location is prematerialized)
+    fr.setLocation(loc);
+
+    try {
+      return Starlark.callViaArgumentProcessor(fr.thread, argumentProcessor);
+    } catch (EvalException ex) {
+      fr.setErrorLocation(loc);
+      throw ex;
+    }
+  }
+
+  // TODO(b/380824219): Remove evalFastcall() once all implementations of
+  // StarlarkCallable.fastcall() (i.e. BuiltinFunction, StarlarkProvider, the default on
+  // StarlarkCallable and a few tests) have a callViaArgumentProcessor alternative.
+  private static Object evalFastcall(
+      StarlarkThread.Frame fr,
+      Object fn,
+      CallExpression call,
+      ImmutableList<Argument> arguments,
+      Argument.Star star,
+      Argument.StarStar starstar,
+      int numNonStarArgs)
+      throws EvalException, InterruptedException {
+
     // Allocate assuming no *args/**kwargs.
     int npos = call.getNumPositionalArguments();
-    int i;
 
     // f(expr) -- positional args
     Object[] positional = npos == 0 ? EMPTY : new Object[npos];
+    int i;
     for (i = 0; i < npos; i++) {
       Argument arg = arguments.get(i);
       Object value = eval(fr, arg.getValue());
@@ -682,8 +773,8 @@ final class Eval {
     }
 
     // f(id=expr) -- named args
-    Object[] named = n == npos ? EMPTY : new Object[2 * (n - npos)];
-    for (int j = 0; i < n; i++) {
+    Object[] named = numNonStarArgs == npos ? EMPTY : new Object[2 * (numNonStarArgs - npos)];
+    for (int j = 0; i < numNonStarArgs; i++) {
       Argument.Keyword arg = (Argument.Keyword) arguments.get(i);
       Object value = eval(fr, arg.getValue());
       named[j++] = arg.getName();
@@ -697,7 +788,6 @@ final class Eval {
         fr.setErrorLocation(star.getStartLocation());
         throw Starlark.errorf("argument after * must be an iterable, not %s", Starlark.type(value));
       }
-      // TODO(adonovan): opt: if value.size is known, preallocate (and skip if empty).
       ArrayList<Object> list = new ArrayList<>();
       Collections.addAll(list, positional);
       Iterables.addAll(list, iter);
