@@ -224,9 +224,7 @@ ATTRIBUTE_NORETURN void SignalHandler::PropagateSignalOrExit(int exit_code) {
   }
 }
 
-string GetProcessIdAsString() {
-  return blaze_util::ToString(getpid());
-}
+string GetProcessIdAsString() { return blaze_util::ToString(getpid()); }
 
 string GetHomeDir() { return GetPathEnv("HOME"); }
 
@@ -305,9 +303,7 @@ class CharPP {
   }
 
   // Obtains the raw pointer to the array of strings.
-  char** get() {
-    return charpp_;
-  }
+  char** get() { return charpp_; }
 
   // Prevent copies as we manually manage memory.
   CharPP(const CharPP&) = delete;
@@ -368,13 +364,9 @@ class SocketBlazeServerStartup : public BlazeServerStartup {
   int fd;
 };
 
-SocketBlazeServerStartup::SocketBlazeServerStartup(int fd)
-    : fd(fd) {
-}
+SocketBlazeServerStartup::SocketBlazeServerStartup(int fd) : fd(fd) {}
 
-SocketBlazeServerStartup::~SocketBlazeServerStartup() {
-  close(fd);
-}
+SocketBlazeServerStartup::~SocketBlazeServerStartup() { close(fd); }
 
 bool SocketBlazeServerStartup::IsStillAlive() {
   struct pollfd pfd;
@@ -399,7 +391,7 @@ bool SocketBlazeServerStartup::IsStillAlive() {
 // Returns zero on success or -1 on error, in which case errno is set to the
 // corresponding error details.
 int ConfigureDaemonProcess(posix_spawnattr_t* attrp,
-                           const StartupOptions &options);
+                           const StartupOptions& options);
 
 void WriteSystemSpecificProcessIdentifier(const blaze_util::Path& server_dir,
                                           pid_t server_pid);
@@ -440,11 +432,13 @@ int ExecuteDaemon(
   posix_spawn_file_actions_t file_actions;
   if (posix_spawn_file_actions_init(&file_actions) != 0) {
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
-      << "Failed to create posix_spawn_file_actions: " << GetLastErrorString();
+        << "Failed to create posix_spawn_file_actions: "
+        << GetLastErrorString();
   }
   if (posix_spawn_file_actions_addclose(&file_actions, fds[0]) != 0) {
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
-      << "Failed to modify posix_spawn_file_actions: "<< GetLastErrorString();
+        << "Failed to modify posix_spawn_file_actions: "
+        << GetLastErrorString();
   }
 
   posix_spawnattr_t attrp;
@@ -461,8 +455,8 @@ int ExecuteDaemon(
   if (posix_spawn(&transient_pid, daemonize.c_str(), &file_actions, &attrp,
                   CharPP(daemonize_args).get(), CharPP(env).get()) != 0) {
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
-      << "Failed to execute JVM via " << daemonize
-      << ": " << GetLastErrorString();
+        << "Failed to execute JVM via " << daemonize << ": "
+        << GetLastErrorString();
   }
   close(fds[1]);
 
@@ -568,9 +562,7 @@ void SetEnv(const string& name, const string& value) {
   setenv(name.c_str(), value.c_str(), 1);
 }
 
-void UnsetEnv(const string& name) {
-  unsetenv(name.c_str());
-}
+void UnsetEnv(const string& name) { unsetenv(name.c_str()); }
 
 bool WarnIfStartedFromDesktop() { return false; }
 
@@ -601,7 +593,7 @@ void SetupStdStreams() {
 // Blaze server.
 // Also, it's a good idea to start each message with a newline,
 // in case the Blaze server has written a partial line.
-void SigPrintf(const char *format, ...) {
+void SigPrintf(const char* format, ...) {
   char buf[1024];
   va_list ap;
   va_start(ap, format);
@@ -785,7 +777,7 @@ string GetUserName() {
     return user;
   }
   errno = 0;
-  passwd *pwent = getpwuid(getuid());  // NOLINT (single-threaded)
+  passwd* pwent = getpwuid(getuid());  // NOLINT (single-threaded)
   if (pwent == nullptr || pwent->pw_name == nullptr) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "$USER is not set, and unable to look up name of current user: "
@@ -869,7 +861,7 @@ static bool UnlimitResource(const int resource, const bool allow_infinity) {
     rl.rlim_cur = rl.rlim_max;
   } else {
     if ((rl.rlim_max == RLIM_INFINITY && !allow_infinity) ||
-       rl.rlim_max > explicit_limit) {
+        rl.rlim_max > explicit_limit) {
       rl.rlim_cur = explicit_limit;
     } else {
       rl.rlim_cur = rl.rlim_max;
@@ -893,9 +885,7 @@ bool UnlimitResources() {
   return success;
 }
 
-bool UnlimitCoredumps() {
-  return UnlimitResource(RLIMIT_CORE, true);
-}
+bool UnlimitCoredumps() { return UnlimitResource(RLIMIT_CORE, true); }
 
 void EnsurePythonPathOption(vector<string>* options) {
   // do nothing.

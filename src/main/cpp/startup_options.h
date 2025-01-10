@@ -39,8 +39,7 @@ namespace blaze {
 struct RcStartupFlag {
   const std::string source;
   const std::string value;
-  RcStartupFlag(const std::string& source_arg,
-                const std::string& value_arg)
+  RcStartupFlag(const std::string &source_arg, const std::string &value_arg)
       : source(source_arg), value(value_arg) {}
 };
 
@@ -63,8 +62,7 @@ class StartupOptions {
 
   // Process an ordered list of RcStartupFlags using ProcessArg.
   blaze_exit_code::ExitCode ProcessArgs(
-      const std::vector<RcStartupFlag>& rcstartup_flags,
-      std::string *error);
+      const std::vector<RcStartupFlag> &rcstartup_flags, std::string *error);
 
   // Adds any other options needed to result.
   //
@@ -122,7 +120,7 @@ class StartupOptions {
 
   // Checks whether the argument is a valid unary option.
   // E.g. --blazerc=foo, --blazerc foo.
-  bool IsUnary(const std::string& arg) const;
+  bool IsUnary(const std::string &arg) const;
 
   std::string GetLowercaseProductName() const;
 
@@ -342,7 +340,7 @@ class StartupOptions {
 
   virtual std::string GetRcFileBaseName() const = 0;
 
-  void RegisterUnaryStartupFlag(const std::string& flag_name);
+  void RegisterUnaryStartupFlag(const std::string &flag_name);
 
   // Register a nullary startup flag.
   // Both '--flag_name' and '--noflag_name' will be registered as valid nullary
@@ -368,10 +366,10 @@ class StartupOptions {
   // Prevent copying and moving the object to avoid invalidating pointers to
   // members (in all_nullary_startup_flags_ for example).
   StartupOptions() = delete;
-  StartupOptions(const StartupOptions&) = delete;
-  StartupOptions& operator=(const StartupOptions&) = delete;
-  StartupOptions(StartupOptions&&) = delete;
-  StartupOptions& operator=(StartupOptions&&) = delete;
+  StartupOptions(const StartupOptions &) = delete;
+  StartupOptions &operator=(const StartupOptions &) = delete;
+  StartupOptions(StartupOptions &&) = delete;
+  StartupOptions &operator=(StartupOptions &&) = delete;
 
   // Parses a single argument, either from the command line or from the .blazerc
   // "startup" options.

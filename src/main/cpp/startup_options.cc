@@ -194,13 +194,15 @@ bool StartupOptions::MaybeCheckValidNullary(const string &arg, bool *result,
 
 void StartupOptions::AddExtraOptions(vector<string> *result) const {}
 
-blaze_exit_code::ExitCode StartupOptions::ProcessArg(
-      const string &argstr, const string &next_argstr, const string &rcfile,
-      bool *is_space_separated, string *error) {
+blaze_exit_code::ExitCode StartupOptions::ProcessArg(const string &argstr,
+                                                     const string &next_argstr,
+                                                     const string &rcfile,
+                                                     bool *is_space_separated,
+                                                     string *error) {
   // We have to parse a specific option syntax, so GNU getopts won't do.  All
   // options begin with "--" or "-". Values are given together with the option
   // delimited by '=' or in the next option.
-  const char* arg = argstr.c_str();
+  const char *arg = argstr.c_str();
   const char *next_arg = next_argstr.empty() ? nullptr : next_argstr.c_str();
   const char *value = nullptr;
 
@@ -276,9 +278,9 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
     option_sources["host_jvm_args"] = rcfile;  // NB: This is incorrect
   } else if ((value = GetUnaryOption(arg, next_arg, "--io_nice_level")) !=
              nullptr) {
-    if (!blaze_util::safe_strto32(value, &io_nice_level) ||
-        io_nice_level > 7) {
-      blaze_util::StringPrintf(error,
+    if (!blaze_util::safe_strto32(value, &io_nice_level) || io_nice_level > 7) {
+      blaze_util::StringPrintf(
+          error,
           "Invalid argument to --io_nice_level: '%s'. Must not exceed 7.",
           value);
       return blaze_exit_code::BAD_ARGV;
@@ -286,10 +288,9 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
     option_sources["io_nice_level"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--max_idle_secs")) !=
              nullptr) {
-    if (!blaze_util::safe_strto32(value, &max_idle_secs) ||
-        max_idle_secs < 0) {
-      blaze_util::StringPrintf(error,
-          "Invalid argument to --max_idle_secs: '%s'.", value);
+    if (!blaze_util::safe_strto32(value, &max_idle_secs) || max_idle_secs < 0) {
+      blaze_util::StringPrintf(
+          error, "Invalid argument to --max_idle_secs: '%s'.", value);
       return blaze_exit_code::BAD_ARGV;
     }
     option_sources["max_idle_secs"] = rcfile;
@@ -348,12 +349,12 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
     option_sources["unix_digest_hash_attribute_name"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--command_port")) !=
              nullptr) {
-    if (!blaze_util::safe_strto32(value, &command_port) ||
-        command_port < 0 || command_port > 65535) {
+    if (!blaze_util::safe_strto32(value, &command_port) || command_port < 0 ||
+        command_port > 65535) {
       blaze_util::StringPrintf(error,
-          "Invalid argument to --command_port: '%s'.\n"
-          "Must be a valid port number or 0.\n",
-          value);
+                               "Invalid argument to --command_port: '%s'.\n"
+                               "Must be a valid port number or 0.\n",
+                               value);
       return blaze_exit_code::BAD_ARGV;
     }
     option_sources["command_port"] = rcfile;
@@ -364,7 +365,8 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
       invocation_policy = value;
       option_sources["invocation_policy"] = rcfile;
     } else {
-      *error = "The startup flag --invocation_policy cannot be specified "
+      *error =
+          "The startup flag --invocation_policy cannot be specified "
           "multiple times.";
       return blaze_exit_code::BAD_ARGV;
     }
@@ -396,8 +398,7 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
 }
 
 blaze_exit_code::ExitCode StartupOptions::ProcessArgs(
-    const std::vector<RcStartupFlag>& rcstartup_flags,
-    std::string *error) {
+    const std::vector<RcStartupFlag> &rcstartup_flags, std::string *error) {
   std::vector<RcStartupFlag>::size_type i = 0;
   while (i < rcstartup_flags.size()) {
     bool is_space_separated = false;
