@@ -33,7 +33,6 @@ filegroup(
         "//tools/test:srcs",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:srcs",
         "//tools/test/CoverageOutputGenerator/javatests/com/google/devtools/coverageoutputgenerator:srcs",
-        "//tools/windows:srcs",
         "//tools/zip:srcs",
     ],
 )
@@ -66,7 +65,6 @@ filegroup(
         "//tools/sh:embedded_tools",
         "//tools/test:embedded_tools",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:embedded_tools",
-        "//tools/windows:srcs",
         "//tools/zip:srcs",
     ],
 )
@@ -85,7 +83,6 @@ filegroup(
         "//tools/python:bzl_srcs",
         "//tools/sh:bzl_srcs",
         "//tools/test:bzl_srcs",
-        "//tools/windows:bzl_srcs",
     ],
 )
 
