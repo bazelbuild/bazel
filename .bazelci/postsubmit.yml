@@ -331,7 +331,7 @@ tasks:
     include_json_profile:
       - build
       - test
-  kythe_ubuntu2204:
+  kythe_ubuntu2404:
     shell_commands:
     # Disable custom proto_toolchain_for_cc from kythe because it doesn't work with protobuf 29. See b/371908235.
     # TODO(chiwang): Remove this once kythe resolves the issue.
