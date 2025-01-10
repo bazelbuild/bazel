@@ -77,7 +77,6 @@ public class ReducedClasspathJavaLibraryBuilder extends SimpleJavaLibraryBuilder
 
     switch (build.reduceClasspathMode()) {
       case BAZEL_REDUCED:
-      case BAZEL_REDUCED_NO_FALLBACK:
       case BAZEL_FALLBACK:
         stats.transitiveClasspathLength(build.fullClasspathLength());
         stats.reducedClasspathLength(build.reducedClasspathLength());
