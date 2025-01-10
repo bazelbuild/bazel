@@ -354,11 +354,13 @@ EOF
 function test_runfiles_tree_file_type_changes_tree_to_individual {
   setup_runfiles_tree_file_type_changes
 
-  bazel build --//pkg:use_tree=True //pkg:output || fail "Build failed"
+  bazel build --noexperimental_inprocess_symlink_creation \
+    --//pkg:use_tree=True //pkg:output || fail "Build failed"
   [[ -f bazel-bin/pkg/output.runfiles/_main/lib/sample1.txt ]] || fail "sample1.txt not found"
   [[ -f bazel-bin/pkg/output.runfiles/_main/lib/sample2.txt ]] || fail "sample2.txt not found"
 
-  bazel build --//pkg:use_tree=False //pkg:output || fail "Build failed"
+  bazel build --noexperimental_inprocess_symlink_creation \
+    --//pkg:use_tree=False //pkg:output || fail "Build failed"
   [[ -f bazel-bin/pkg/output.runfiles/_main/lib/sample1.txt ]] || fail "sample1.txt not found"
   [[ -f bazel-bin/pkg/output.runfiles/_main/lib/sample2.txt ]] || fail "sample2.txt not found"
 }
@@ -366,11 +368,13 @@ function test_runfiles_tree_file_type_changes_tree_to_individual {
 function test_runfiles_tree_file_type_changes_individual_to_tree {
   setup_runfiles_tree_file_type_changes
 
-  bazel build --//pkg:use_tree=False //pkg:output || fail "Build failed"
+  bazel build --noexperimental_inprocess_symlink_creation \
+    --//pkg:use_tree=False //pkg:output || fail "Build failed"
   [[ -f bazel-bin/pkg/output.runfiles/_main/lib/sample1.txt ]] || fail "sample1.txt not found"
   [[ -f bazel-bin/pkg/output.runfiles/_main/lib/sample2.txt ]] || fail "sample2.txt not found"
 
-  bazel build --//pkg:use_tree=True //pkg:output || fail "Build failed"
+  bazel build --noexperimental_inprocess_symlink_creation \
+    --//pkg:use_tree=True //pkg:output || fail "Build failed"
   [[ -f bazel-bin/pkg/output.runfiles/_main/lib/sample1.txt ]] || fail "sample1.txt not found"
   [[ -f bazel-bin/pkg/output.runfiles/_main/lib/sample2.txt ]] || fail "sample2.txt not found"
 }
