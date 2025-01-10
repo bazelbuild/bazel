@@ -359,15 +359,6 @@ bazel_fragments["GenQueryConfiguration$GenQueryOptions"] = fragment(
     ],
 )
 
-bazel_fragments["J2ObjcCommandLineOptions"] = fragment(
-    propagate = [
-        "//command_line_option:j2objc_translation_flags",
-        "//command_line_option:incompatible_j2objc_library_migration",
-        "//command_line_option:experimental_j2objc_header_map",
-        "//command_line_option:experimental_j2objc_shorter_header_path",
-    ],
-)
-
 def _java_options(settings):
     ans = {}
     if settings["//command_line_option:host_jvmopt"] == []:

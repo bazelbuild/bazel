@@ -21,7 +21,6 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
 import static com.google.devtools.build.lib.rules.objc.CompilationSupport.ABSOLUTE_INCLUDES_PATH_FORMAT;
 import static com.google.devtools.build.lib.rules.objc.CompilationSupport.BOTH_MODULE_NAME_AND_MODULE_MAP_SPECIFIED;
-import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
@@ -46,14 +45,10 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
-import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
-import com.google.devtools.build.lib.packages.StarlarkProvider;
-import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
@@ -1611,24 +1606,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     CommandAction action = compileAction("//objc:lib", "a.o");
 
     assertAppleSdkPlatformEnv(action, "iPhoneOS");
-  }
-
-  private static StructImpl getJ2ObjcInfoFromTarget(
-      ConfiguredTarget configuredTarget, String providerName) throws Exception {
-    Provider.Key key =
-        new StarlarkProvider.Key(
-            keyForBuiltins(Label.parseCanonical("@_builtins//:common/objc/providers.bzl")),
-            providerName);
-    return (StructImpl) configuredTarget.get(key);
-  }
-
-  @Test
-  public void testExportsJ2ObjcProviders() throws Exception {
-    ConfiguredTarget lib = createLibraryTargetWriter("//a:lib").write();
-    StructImpl j2ObjcEntryClassInfo = getJ2ObjcInfoFromTarget(lib, "J2ObjcEntryClassInfo");
-    StructImpl j2ObjcMappingFileInfo = getJ2ObjcInfoFromTarget(lib, "J2ObjcMappingFileInfo");
-    assertThat(j2ObjcEntryClassInfo).isNotNull();
-    assertThat(j2ObjcMappingFileInfo).isNotNull();
   }
 
   @Test

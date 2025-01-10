@@ -16,14 +16,12 @@
 
 load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_helper.bzl", "cc_helper")
-load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/semantics.bzl", cc_semantics = "semantics")
 load(":common/objc/apple_configuration.bzl", "apple_configuration")
 load(":common/objc/apple_env.bzl", "apple_host_system_env", "target_apple_env")
 load(":common/objc/compilation_artifacts_info.bzl", "CompilationArtifactsInfo")
 load(":common/objc/intermediate_artifacts.bzl", "create_intermediate_artifacts")
 load(":common/objc/objc_common.bzl", "objc_common")
-load(":common/objc/providers.bzl", "J2ObjcEntryClassInfo", "J2ObjcMappingFileInfo")
 load(":common/paths.bzl", "paths")
 load(":common/xcode/providers.bzl", "XcodeVersionInfo")
 
@@ -265,54 +263,6 @@ def _paths_to_include_args(paths):
     for path in paths:
         new_paths.append("-I" + path)
     return new_paths
-
-# TODO(bazel-team): This method can be deleted as soon as the native j2objc
-#  rules are deleted. The native rules are deprecated and will be replaced by
-#  better Starlark rules that are not a literal translation of the native
-#  implementation and use a better approach. This is not done by the Bazel team
-# but a separate team (tball@). This method is added so that common utility code
-# in CompilationSupport can be deleted from Java.
-def _register_compile_and_archive_actions_for_j2objc(
-        ctx,
-        toolchain,
-        intermediate_artifacts,
-        compilation_artifacts,
-        objc_compilation_context,
-        cc_linking_contexts,
-        extra_compile_args):
-    compilation_attributes = _create_compilation_attributes(ctx = ctx)
-
-    objc_linking_context = struct(
-        cc_linking_contexts = cc_linking_contexts,
-        linkopts = [],
-    )
-
-    common_variables = struct(
-        ctx = ctx,
-        intermediate_artifacts = intermediate_artifacts,
-        compilation_attributes = compilation_attributes,
-        compilation_artifacts = compilation_artifacts,
-        extra_enabled_features = ["j2objc_transpiled"],
-        extra_disabled_features = ["layering_check", "parse_headers"],
-        objc_compilation_context = objc_compilation_context,
-        objc_linking_context = objc_linking_context,
-        toolchain = toolchain,
-        alwayslink = True,
-        use_pch = False,
-        objc_config = ctx.fragments.objc,
-        objc_provider = None,
-    )
-
-    return _cc_compile_and_link(
-        compilation_artifacts.srcs,
-        compilation_artifacts.non_arc_srcs,
-        [],
-        compilation_artifacts.additional_hdrs,
-        common_variables,
-        extra_compile_args,
-        priority_headers = [],
-        generate_module_map_for_swift = True,
-    )
 
 def _register_compile_and_archive_actions(
         common_variables,
@@ -622,85 +572,6 @@ def _register_fully_link_action(name, common_variables, cc_linking_context):
         variables_extension = extensions,
     )
 
-def _register_j2objc_dead_code_removal_actions(common_variables, deps, build_config):
-    """Registers actions to perform J2Objc dead code removal (when enabled)."""
-    ctx = common_variables.ctx
-
-    j2objc_entry_class_info = objc_common.j2objc_entry_class_info_union(
-        [dep[J2ObjcEntryClassInfo] for dep in deps if J2ObjcEntryClassInfo in dep],
-    )
-    entry_classes = j2objc_entry_class_info.entry_classes
-
-    # Only perform J2ObjC dead code stripping if flag --j2objc_dead_code_removal is specified and
-    # users have specified entry classes.
-    if (not ctx.fragments.j2objc.remove_dead_code() or not entry_classes or
-        not common_variables.objc_provider.j2objc_library.to_list()):
-        return {}
-
-    j2objc_mapping_file_info = objc_common.j2objc_mapping_file_info_union(
-        [dep[J2ObjcMappingFileInfo] for dep in deps if J2ObjcMappingFileInfo in dep],
-    )
-    j2objc_dependency_mapping_files = j2objc_mapping_file_info.dependency_mapping_files
-    j2objc_header_mapping_files = j2objc_mapping_file_info.header_mapping_files
-    j2objc_archive_source_mapping_files = j2objc_mapping_file_info.archive_source_mapping_files
-
-    replace_libs = {}
-    for j2objc_archive in common_variables.objc_provider.j2objc_library.to_list():
-        pruned_j2objc_archive = ctx.actions.declare_shareable_artifact(
-            paths.join(
-                ctx.label.package,
-                "_j2objc_pruned",
-                ctx.label.name,
-                j2objc_archive.short_path[:-len(j2objc_archive.extension)].strip(".") +
-                "_pruned." + j2objc_archive.extension,
-            ),
-            build_config.bin_dir,
-        )
-        replace_libs[j2objc_archive] = pruned_j2objc_archive
-
-        # Although _dummy_lib is always a label, weirdly when it has a cfg attached to it
-        # Bazel makes it a list (even if the cfg is not split)
-        _dummy_lib = ctx.attr._dummy_lib if type(ctx.attr._dummy_lib) == "Target" else ctx.attr._dummy_lib[0]
-        [dummy_archive] = _get_libraries_for_linking(cc_helper.libraries_from_linking_context(
-            _dummy_lib[CcInfo].linking_context,
-        ).to_list())
-
-        args = ctx.actions.args()
-        args.add("--input_archive", j2objc_archive)
-        args.add("--output_archive", pruned_j2objc_archive)
-        args.add("--dummy_archive", dummy_archive)
-        args.add_joined(
-            "--dependency_mapping_files",
-            j2objc_dependency_mapping_files,
-            join_with = ",",
-        )
-        args.add_joined("--header_mapping_files", j2objc_header_mapping_files, join_with = ",")
-        args.add_joined(
-            "--archive_source_mapping_files",
-            j2objc_archive_source_mapping_files,
-            join_with = ",",
-        )
-        args.add("--entry_classes")
-        args.add_joined(entry_classes, join_with = ",")
-        args.set_param_file_format("multiline")
-        args.use_param_file("@%s", use_always = True)
-        ctx.actions.run(
-            mnemonic = "DummyPruner",
-            executable = ctx.executable._j2objc_dead_code_pruner,
-            inputs = depset(
-                [j2objc_archive, dummy_archive],
-                transitive = [
-                    j2objc_dependency_mapping_files,
-                    j2objc_header_mapping_files,
-                    j2objc_archive_source_mapping_files,
-                ],
-            ),
-            arguments = [args],
-            outputs = [pruned_j2objc_archive],
-            exec_group = "j2objc",
-        )
-    return replace_libs
-
 def _register_obj_filelist_action(ctx, build_config, obj_files):
     """
     Returns a File containing the given set of object files.
@@ -910,17 +781,6 @@ def _register_configuration_specific_link_actions_with_cpp_variables(
         attr_linkopts):
     ctx = common_variables.ctx
 
-    replace_libs = _register_j2objc_dead_code_removal_actions(common_variables, deps, build_config)
-
-    if replace_libs:
-        cc_linking_context = _substitute_j2objc_pruned_libraries(
-            ctx.actions,
-            feature_configuration,
-            common_variables.toolchain,
-            cc_linking_context,
-            replace_libs,
-        )
-
     prefixed_attr_linkopts = [
         "-Wl,%s" % linkopt
         for linkopt in attr_linkopts
@@ -1039,50 +899,6 @@ def _create_deduped_linkopts_linking_context(owner, cc_linking_context, seen_fla
         seen_flags,
     )
 
-def _substitute_j2objc_pruned_libraries(
-        actions,
-        feature_configuration,
-        cc_toolchain,
-        cc_linking_context,
-        replace_libs):
-    linker_inputs = []
-    for linker_input in cc_linking_context.linker_inputs.to_list():
-        need_replacement = any([
-            _get_library_for_linking(library_to_link) in replace_libs
-            for library_to_link in linker_input.libraries
-        ])
-
-        if need_replacement:
-            libraries_to_link = []
-            for library_to_link in linker_input.libraries:
-                library = _get_library_for_linking(library_to_link)
-                if library not in replace_libs:
-                    libraries_to_link.append(library_to_link)
-                else:
-                    new_library_to_link = cc_common.create_library_to_link(
-                        actions = actions,
-                        feature_configuration = feature_configuration,
-                        cc_toolchain = cc_toolchain,
-                        static_library = replace_libs[library],
-                        alwayslink = library_to_link.alwayslink,
-                    )
-                    libraries_to_link.append(new_library_to_link)
-
-            new_linker_input = cc_common.create_linker_input(
-                owner = linker_input.owner,
-                libraries = depset(libraries_to_link),
-                user_link_flags = linker_input.user_link_flags,
-                additional_inputs = depset(linker_input.additional_inputs),
-            )
-
-            linker_inputs.append(new_linker_input)
-        else:
-            linker_inputs.append(linker_input)
-
-    return cc_common.create_linking_context(
-        linker_inputs = depset(linker_inputs),
-    )
-
 def _register_configuration_specific_link_actions_with_objc_variables(
         name,
         binary,
@@ -1104,12 +920,6 @@ def _register_configuration_specific_link_actions_with_objc_variables(
     # resulting in duplicate symbol errors unless they are deduped.
     libraries_to_link = cc_helper.libraries_from_linking_context(cc_linking_context).to_list()
     always_link_libraries, as_needed_libraries = _classify_libraries(libraries_to_link)
-
-    replace_libs = _register_j2objc_dead_code_removal_actions(common_variables, deps, build_config)
-
-    # Substitutes both sets of unpruned J2ObjC libraries with pruned ones
-    always_link_libraries = [replace_libs.get(lib, lib) for lib in always_link_libraries]
-    as_needed_libraries = [replace_libs.get(lib, lib) for lib in as_needed_libraries]
 
     static_runtimes = common_variables.toolchain.static_runtime_lib(
         feature_configuration = feature_configuration,
@@ -1183,7 +993,6 @@ def _register_configuration_specific_link_actions_with_objc_variables(
 
 compilation_support = struct(
     register_compile_and_archive_actions = _register_compile_and_archive_actions,
-    register_compile_and_archive_actions_for_j2objc = _register_compile_and_archive_actions_for_j2objc,
     build_common_variables = _build_common_variables,
     build_feature_configuration = _build_feature_configuration,
     get_library_for_linking = _get_library_for_linking,

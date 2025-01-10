@@ -41,8 +41,16 @@ public final class BazelRulesModule extends BlazeModule {
    * This is where deprecated options used by both Bazel and Blaze but only needed for the build
    * command go to die.
    */
-  @SuppressWarnings("deprecation") // These fields have no JavaDoc by design
   public static class BuildGraveyardOptions extends OptionsBase {
+
+    @Option(
+        name = "j2objc_dead_code_removal",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "Deprecated. No-op.")
+    public boolean removeDeadCode;
+
     @Option(
         name = "experimental_proto_extra_actions",
         defaultValue = "false",
@@ -296,7 +304,6 @@ public final class BazelRulesModule extends BlazeModule {
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */
-  @SuppressWarnings("deprecation") // These fields have no JavaDoc by design
   public static final class BazelBuildGraveyardOptions extends BuildGraveyardOptions {
     @Option(
         name = "incompatible_load_python_rules_from_bzl",
