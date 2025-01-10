@@ -56,7 +56,8 @@ java_library(
     srcs = glob(["**/*.java"]),
     resources = [":template_files"],
     runtime_deps = [
-        "//src/main/java/com/google/devtools/build/lib/bazel:main",
+        # TODO: Commented out for now to avoid cyclic deps for rule_src_doc_exporter.
+        #        "//src/main/java/com/google/devtools/build/lib/bazel:main",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/docgen/annot",
@@ -72,6 +73,7 @@ java_library(
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/protobuf:builtin_java_proto",
+        "//src/main/protobuf:rule_src_doc_java_proto",
         "//src/main/protobuf:stardoc_output_java_proto",
         "//third_party:apache_velocity",
         "//third_party:auto_value",
@@ -119,6 +121,26 @@ java_binary(
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/protobuf:builtin_java_proto",
+        "//third_party:guava",
+    ],
+)
+
+java_binary(
+    name = "rule_src_doc_exporter",
+    srcs = ["RuleSrcDocExporter.java"],
+    main_class = "com.google.devtools.build.docgen.RuleSrcDocExporter",
+    runtime_deps = [
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules",
+        "//src/main/java/net/starlark/java/syntax",
+    ],
+    deps = [
+        ":docgen_javalib",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/main/java/net/starlark/java/annot",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/protobuf:rule_src_doc_java_proto",
         "//third_party:guava",
     ],
 )

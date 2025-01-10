@@ -14,6 +14,9 @@ filegroup(
 java_library(
     name = "info",
     srcs = glob(["*.java"]),
+    resources = [
+        ":gen_rule_src_doc_proto",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/docgen:visible_to_info",
         "//src/main/java/com/google/devtools/build/lib:runtime",
@@ -49,7 +52,40 @@ java_library(
         "//src/main/protobuf:build_java_proto",
         "//src/main/protobuf:builtin_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
+        "//src/main/protobuf:rule_src_doc_java_proto",
         "//third_party:flogger",
         "//third_party:guava",
+    ],
+)
+
+genrule(
+    name = "gen_rule_src_doc_proto",
+    srcs = [
+        "//src/main/java/com/google/devtools/build/docgen:bazel_link_map",
+        "//src/main/starlark/docgen:gen_be_proto_stardoc_proto",
+        "//src/main/starlark/docgen:gen_be_java_stardoc_proto",
+        "//src/main/starlark/docgen:gen_be_cpp_stardoc_proto",
+        "//src/main/starlark/docgen:gen_be_objc_stardoc_proto",
+        "//src/main/starlark/docgen:gen_be_python_stardoc_proto",
+        "//src/main/starlark/docgen:gen_be_shell_stardoc_proto",
+        "//src/main/java/com/google/devtools/build/lib:docs_embedded_in_sources",
+    ],
+    outs = ["rule_src_doc.pb"],
+    cmd = (
+        "$(location //src/main/java/com/google/devtools/build/docgen:rule_src_doc_exporter)" +
+        " --output_file=$@" +
+        " --link_map_path=$(location //src/main/java/com/google/devtools/build/docgen:bazel_link_map) " +
+        " --provider=com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider" +
+        " --input_root=$$PWD" +
+        " --input_dir=$$PWD/src/main/java/com/google/devtools/build/lib" +
+        " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_proto_stardoc_proto)" +
+        " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_java_stardoc_proto)" +
+        " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_cpp_stardoc_proto)" +
+        " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_objc_stardoc_proto)" +
+        " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_python_stardoc_proto)" +
+        " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_shell_stardoc_proto)"
+    ),
+    tools = [
+        "//src/main/java/com/google/devtools/build/docgen:rule_src_doc_exporter",
     ],
 )

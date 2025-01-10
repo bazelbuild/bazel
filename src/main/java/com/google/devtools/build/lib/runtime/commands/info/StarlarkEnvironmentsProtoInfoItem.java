@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime.commands.info;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.docgen.DocLinkMap;
 import com.google.devtools.build.docgen.RuleLinkExpander;
 import com.google.devtools.build.docgen.builtin.BuiltinProtos.Builtins;
@@ -24,6 +25,9 @@ import com.google.devtools.build.docgen.builtin.BuiltinProtos.Value;
 import com.google.devtools.build.docgen.builtin.BuiltinProtos.ApiContext;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.docgen.rulesrcdoc.RuleSrcDoc.RuleSrcDocs;
+import com.google.devtools.build.docgen.rulesrcdoc.RuleSrcDoc.RuleDocumentationProto;
+import com.google.devtools.build.docgen.rulesrcdoc.RuleSrcDoc.RuleDocumentationAttributeProto;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider;
@@ -43,6 +47,7 @@ import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.*;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.Method;
 import java.util.*;
 import java.util.function.Function;
@@ -98,7 +103,8 @@ public final class StarlarkEnvironmentsProtoInfoItem extends InfoItem {
       throws AbruptExitException {
     checkNotNull(env);
     StarlarkBuiltinsValue builtins = loadStarlarkBuiltins(env);
-    return print(build(builtins));
+    RuleSrcDocs ruleSrcDocs = loadRuleSrcDocs();
+    return print(build(builtins, ruleSrcDocs));
   }
 
   private StarlarkBuiltinsValue loadStarlarkBuiltins(CommandEnvironment env)
@@ -120,7 +126,24 @@ public final class StarlarkEnvironmentsProtoInfoItem extends InfoItem {
     return (StarlarkBuiltinsValue) result.get(StarlarkBuiltinsValue.key(true));
   }
 
-  private byte[] build(StarlarkBuiltinsValue builtins) throws AbruptExitException {
+  private static RuleSrcDocs loadRuleSrcDocs() throws AbruptExitException {
+    String resourceName = ResourceFileLoader.resolveResource(StarlarkEnvironmentsProtoInfoItem.class, "rule_src_doc.pb");
+
+    ClassLoader loader = ResourceFileLoader.class.getClassLoader();
+    try (InputStream ruleSrcDocPb = loader.getResourceAsStream(resourceName)) {
+      Preconditions.checkNotNull(ruleSrcDocPb, "Unable to find " + resourceName);
+      return RuleSrcDocs.parseFrom(ruleSrcDocPb);
+    } catch (IOException ex) {
+      throw new AbruptExitException(
+              DetailedExitCode.of(
+                      FailureDetails.FailureDetail.newBuilder()
+                              .setMessage("Failed to load Rule source documentation")
+                              .setInfoCommand(FailureDetails.InfoCommand.getDefaultInstance())
+                              .build()));
+    }
+  }
+
+  private byte[] build(StarlarkBuiltinsValue builtins, RuleSrcDocs ruleSrcDocs) throws AbruptExitException {
     Builtins.Builder builder = Builtins.newBuilder();
 
     ConfiguredRuleClassProvider provider = BazelRuleClassProvider.create();
@@ -156,6 +179,7 @@ public final class StarlarkEnvironmentsProtoInfoItem extends InfoItem {
     buildFor(builder, ApiContext.WORKSPACE, workspaceEnv.buildKeepingLast());
 
     expandLinks(builder);
+    supplementRuleSrcDocs(builder, ruleSrcDocs);
 
     return builder.build().toByteArray();
   }
@@ -180,7 +204,7 @@ public final class StarlarkEnvironmentsProtoInfoItem extends InfoItem {
       value.setName(name);
       value.setApiContext(env);
 
-      // TODO: Figure out if number of cases can be reduced.
+      // TODO: Order entries by how essential they are and document what each category of entries mean.
       if (name.equals("True") || name.equals("False")) { // Special case for a few well known symbols.
         value.setType("bool");
       } else if (name.equals("None")) {
@@ -407,6 +431,58 @@ public final class StarlarkEnvironmentsProtoInfoItem extends InfoItem {
             /* singlePage */ false,
             DocLinkMap.createFromString(jsonMap));
   }
+
+  private static void supplementRuleSrcDocs(Builtins.Builder builtins, RuleSrcDocs ruleSrcDocs) {
+    Map<String, RuleDocumentationProto> ruleMap =
+            Maps.uniqueIndex(ruleSrcDocs.getRuleList(), RuleDocumentationProto::getRuleName);
+
+    for (Value.Builder global : builtins.getGlobalBuilderList()) {
+      if (ruleMap.containsKey(global.getName())) {
+        supplementSrcDocs(global, ruleMap.get(global.getName()));
+      }
+    }
+  }
+
+  private static void supplementSrcDocs(Value.Builder global, RuleDocumentationProto ruleDocumentationProto) {
+    if (!ruleDocumentationProto.getHtmlDocumentation().isEmpty()) {
+      global.setDoc(ruleDocumentationProto.getHtmlDocumentation());
+    }
+
+    // TODO: Logic of detecting single **attr is fragile, find out whether this can be improved.
+    BuiltinProtos.Callable.Builder callable = global.getCallableBuilder();
+    if (callable.getParamCount() == 1 && callable.getParam(0).getName().equals("**attrs")) {
+      callable.clearParam();
+      for (RuleDocumentationAttributeProto attr : ruleDocumentationProto.getAttributeList()) {
+          BuiltinProtos.Param.Builder param = callable.addParamBuilder();
+          param.setName(attr.getAttributeName());
+          param.setDoc(attr.getHtmlDocumentation());
+          param.setDefaultValue(attr.getDefaultValue());
+          param.setIsMandatory(attr.getIsMandatory());
+      }
+      return;
+    }
+
+    ImmutableMap<String, RuleDocumentationAttributeProto> attributeMap =
+            Maps.uniqueIndex(ruleDocumentationProto.getAttributeList(), RuleDocumentationAttributeProto::getAttributeName);
+
+    for (BuiltinProtos.Param.Builder param : callable.getParamBuilderList()) {
+      RuleDocumentationAttributeProto attribute = attributeMap.get(param.getName());
+      if (attribute == null) {
+        continue;
+      }
+
+      if (!attribute.getHtmlDocumentation().isEmpty()) {
+        param.setDoc(attribute.getHtmlDocumentation());
+      }
+      if (attribute.getDefaultValue().isEmpty()) {
+        param.setDefaultValue(attribute.getDefaultValue());
+      }
+      if (attribute.getIsMandatory()) {
+        param.setIsMandatory(true);
+      }
+    }
+  }
+
 
   // ------------------------------------------------
   // ----- TODO: Code chopped from ApiExporter
