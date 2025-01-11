@@ -36,6 +36,8 @@ import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.Scrubber.SpawnScrubber;
+import com.google.devtools.build.lib.remote.merkletree.MerkleTree.ContentSource.PathSource;
+import com.google.devtools.build.lib.remote.merkletree.MerkleTree.ContentSource.VirtualActionInputSource;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -183,13 +185,14 @@ public class MerkleTree {
 
   @Nullable
   public ContentSource getFileByDigest(Digest digest) {
-    Object pathOrVirtualActionInput = getDigestFileMap().get(digest);
-    if (pathOrVirtualActionInput instanceof Path path) {
-      return new ContentSource.PathSource(path);
-    } else {
-      return new ContentSource.VirtualActionInputSource(
-          (VirtualActionInput) pathOrVirtualActionInput);
-    }
+    return switch (getDigestFileMap().get(digest)) {
+      case Path path -> new PathSource(path);
+      case VirtualActionInput virtualActionInput ->
+          new VirtualActionInputSource(virtualActionInput);
+      case null -> null;
+      default ->
+          throw new IllegalStateException("Unexpected value: " + getDigestFileMap().get(digest));
+    };
   }
 
   /**
