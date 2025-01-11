@@ -501,6 +501,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
         () -> {
           try {
             chunker.reset();
+            chunker.closeQuietly();
           } catch (IOException e) {
             logger.atWarning().withCause(e).log(
                 "failed to reset chunker uploading %s/%d", digest.getHash(), digest.getSizeBytes());

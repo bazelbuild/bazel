@@ -639,7 +639,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
           public void close() {
             // Ensure that the InputStream can't be closed somewhere in the Netty
             // pipeline, so that we can support retries. The InputStream is closed in
-            // the finally block below.
+            // the listener block below.
           }
         };
     UploadCommand upload = new UploadCommand(uri, casUpload, key, wrappedIn, length);
@@ -720,8 +720,12 @@ public final class HttpCacheClient implements RemoteCacheClient {
   public ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context, Digest digest, CloseableBlobSupplier in) {
     return retrier.executeAsync(
-        () ->
-            uploadAsync(digest.getHash(), digest.getSizeBytes(), in.get(), /* casUpload= */ true));
+        () -> {
+          var result =
+              uploadAsync(digest.getHash(), digest.getSizeBytes(), in.get(), /* casUpload= */ true);
+          result.addListener(in::close, MoreExecutors.directExecutor());
+          return result;
+        });
   }
 
   @Override

@@ -27,9 +27,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
-import com.google.protobuf.ByteString;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.Map;
@@ -38,7 +36,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /** A {@link RemoteCacheClient} that stores its contents in memory. */
@@ -141,9 +138,10 @@ public class InMemoryCacheClient implements RemoteCacheClient {
     ac.put(actionKey, actionResult);
     return Futures.immediateFuture(null);
   }
+
   @Override
   public ListenableFuture<Void> uploadBlob(
-      RemoteActionExecutionContext context, Digest digest, Supplier<InputStream> data) {
+      RemoteActionExecutionContext context, Digest digest, CloseableBlobSupplier data) {
     try {
       cas.put(digest, data.get().readAllBytes());
     } catch (IOException e) {

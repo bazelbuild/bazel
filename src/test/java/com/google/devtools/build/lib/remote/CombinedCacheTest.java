@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.remote.common.LostInputsEvent;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.CloseableBlobSupplier;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -399,7 +400,7 @@ public class CombinedCacheTest {
               return future;
             })
         .when(cacheProtocol)
-        .uploadBlob(any(), any(), (Supplier<InputStream>) any());
+        .uploadBlob(any(), any(), (CloseableBlobSupplier) any());
     doAnswer(
             invocationOnMock -> {
               SettableFuture<Void> future = SettableFuture.create();
@@ -474,7 +475,7 @@ public class CombinedCacheTest {
               return future;
             })
         .when(cacheProtocol)
-        .uploadBlob(any(), any(), (Supplier<InputStream>) any());
+        .uploadBlob(any(), any(), (CloseableBlobSupplier) any());
     doAnswer(
             invocationOnMock -> {
               SettableFuture<Void> future = SettableFuture.create();
@@ -555,7 +556,7 @@ public class CombinedCacheTest {
               return future;
             })
         .when(cacheProtocol)
-        .uploadBlob(any(), any(), (Supplier<InputStream>) any());
+        .uploadBlob(any(), any(), (CloseableBlobSupplier) any());
     doAnswer(
             invocationOnMock -> {
               Path file = invocationOnMock.getArgument(2, Path.class);
@@ -654,7 +655,7 @@ public class CombinedCacheTest {
     RemoteCacheClient cacheProtocol = spy(new InMemoryCacheClient());
     doAnswer(invocationOnMock -> Futures.immediateFailedFuture(new IOException("upload failed")))
         .when(cacheProtocol)
-        .uploadBlob(any(), any(), (Supplier<InputStream>) any());
+        .uploadBlob(any(), any(), (CloseableBlobSupplier) any());
     doAnswer(invocationOnMock -> Futures.immediateFailedFuture(new IOException("upload failed")))
         .when(cacheProtocol)
         .uploadFile(any(), any(), any());

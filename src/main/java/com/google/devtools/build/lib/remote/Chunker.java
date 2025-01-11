@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.remote.zstd.ZstdCompressingInputStream;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import java.io.ByteArrayInputStream;
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PushbackInputStream;
@@ -141,7 +142,6 @@ public class Chunker {
     close();
     offset = 0;
     initialized = false;
-    dataSupplier.close();
   }
 
   /**
@@ -182,6 +182,10 @@ public class Chunker {
       data = null;
     }
     chunkCache = null;
+  }
+
+  public void closeQuietly() {
+    dataSupplier.close();
   }
 
   /** Attempts reading at most a full chunk and stores it in the chunkCache buffer */
