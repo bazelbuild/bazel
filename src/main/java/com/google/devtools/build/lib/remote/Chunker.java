@@ -22,7 +22,7 @@ import static java.lang.Math.min;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.io.ByteStreams;
-import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.CloseableBlobSupplier;
 import com.google.devtools.build.lib.remote.zstd.ZstdCompressingInputStream;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
@@ -97,7 +97,7 @@ public class Chunker {
     }
   }
 
-  private final RemoteCacheClient.CloseableBlobSupplier dataSupplier;
+  private final CloseableBlobSupplier dataSupplier;
   private final long uncompressedSize;
   private final int chunkSize;
   private final Chunk emptyChunk;
@@ -113,7 +113,7 @@ public class Chunker {
   private boolean initialized;
 
   Chunker(
-      RemoteCacheClient.CloseableBlobSupplier dataSupplier,
+      CloseableBlobSupplier dataSupplier,
       long uncompressedSize,
       int chunkSize,
       boolean compressed) {
@@ -290,10 +290,10 @@ public class Chunker {
     private int chunkSize = getDefaultChunkSize();
     protected long size;
     private boolean compressed;
-    protected RemoteCacheClient.CloseableBlobSupplier inputStream;
+    protected CloseableBlobSupplier inputStream;
 
     @CanIgnoreReturnValue
-    public Builder setInput(long size, RemoteCacheClient.CloseableBlobSupplier in) {
+    public Builder setInput(long size, CloseableBlobSupplier in) {
       checkState(inputStream == null);
       checkNotNull(in);
       this.size = size;
@@ -306,14 +306,7 @@ public class Chunker {
     public Builder setInput(byte[] data) {
       checkState(inputStream == null);
       size = data.length;
-      setInputSupplier(() -> new ByteArrayInputStream(data));
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    @VisibleForTesting
-    protected final Builder setInputSupplier(RemoteCacheClient.CloseableBlobSupplier inputStream) {
-      this.inputStream = inputStream;
+      this.inputStream = () -> new ByteArrayInputStream(data);
       return this;
     }
 

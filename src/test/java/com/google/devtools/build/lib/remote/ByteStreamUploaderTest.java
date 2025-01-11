@@ -42,6 +42,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.CloseableBlobSupplier;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TestUtils;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -1764,7 +1765,7 @@ public class ByteStreamUploaderTest {
   /* Custom Chunker used to track number of open files */
   private static class TestChunker extends Chunker {
 
-    TestChunker(ChunkDataSupplier dataSupplier, long size, int chunkSize, boolean compressed) {
+    TestChunker(CloseableBlobSupplier dataSupplier, long size, int chunkSize, boolean compressed) {
       super(dataSupplier, size, chunkSize, compressed);
     }
 
@@ -1783,7 +1784,8 @@ public class ByteStreamUploaderTest {
       public Chunker.Builder setInput(byte[] existingData) {
         checkState(this.inputStream == null);
         this.size = existingData.length;
-        return setInputSupplier(
+        return setInput(
+            existingData.length,
             () -> new TestByteArrayInputStream(existingData, customFileTracker));
       }
     }
