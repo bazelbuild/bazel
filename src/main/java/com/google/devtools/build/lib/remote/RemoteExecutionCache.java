@@ -27,6 +27,7 @@ import static java.lang.String.format;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -41,6 +42,7 @@ import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.LostInputsEvent;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.CloseableBlobSupplier;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree.ContentSource;
@@ -175,13 +177,12 @@ public class RemoteExecutionCache extends CombinedCache {
     }
   }
 
-  private static final class VirtualActionInputDataSupplier
-      implements RemoteCacheClient.CloseableBlobSupplier {
+  private static final class VirtualActionInputDataSupplier implements CloseableBlobSupplier {
     private VirtualActionInput virtualActionInput;
     private volatile ByteString data;
 
     VirtualActionInputDataSupplier(VirtualActionInput virtualActionInput) {
-      this.virtualActionInput = virtualActionInput;
+      this.virtualActionInput = Preconditions.checkNotNull(virtualActionInput);
     }
 
     @Override
@@ -189,7 +190,7 @@ public class RemoteExecutionCache extends CombinedCache {
       if (data == null) {
         synchronized (this) {
           if (data == null) {
-            data = virtualActionInput.getBytes();
+            data = Preconditions.checkNotNull(virtualActionInput, "used after close()").getBytes();
           }
         }
       }
