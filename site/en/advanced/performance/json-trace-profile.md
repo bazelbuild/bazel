@@ -9,8 +9,8 @@ The JSON trace profile can be very useful to quickly understand what Bazel spent
 time on during the invocation.
 
 By default, for all build-like commands and query, Bazel writes a profile into
-the output base named `command-$INOVCATION_ID.profile.gz`, where
-`$INOVCATION_ID` is the invocation identifier of the command. Bazel also creates
+the output base named `command-$INVOCATION_ID.profile.gz`, where
+`$INVOCATION_ID` is the invocation identifier of the command. Bazel also creates
 a symlink called `command.profile.gz` in the output base that points the profile
 of the latest command. You can configure whether a profile is written with the
 [`--generate_json_trace_profile`](/reference/command-line-reference#flag--generate_json_trace_profile)
