@@ -47,6 +47,8 @@ import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupC
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClassId;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.ActionApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.function.Consumer;
@@ -64,6 +66,7 @@ import net.starlark.java.eval.StarlarkThread;
  * works, see {@link com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory}.
  */
 @Immutable
+@AutoCodec
 public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
 
   /** A set of this target's implicitDeps. */
@@ -172,6 +175,27 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
         ruleClassId,
         ImmutableList.of());
     checkState(providers.get(IncompatiblePlatformProvider.PROVIDER) != null, actionLookupKey);
+  }
+
+  /**
+   * @deprecated for serialization only
+   */
+  @Deprecated
+  @VisibleForSerialization
+  @AutoCodec.Instantiator
+  RuleConfiguredTarget(
+      ActionLookupKey lookupKey,
+      NestedSet<PackageGroupContents> visibility,
+      TransitiveInfoProviderMap providers,
+      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      ImmutableSet<ConfiguredTargetKey> implicitDeps,
+      RuleClassId ruleClassId) {
+    super(lookupKey, visibility);
+    this.providers = providers;
+    this.configConditions = configConditions;
+    this.implicitDeps = implicitDeps;
+    this.ruleClassId = ruleClassId;
+    this.actions = null; // not currently serialized
   }
 
   /**
