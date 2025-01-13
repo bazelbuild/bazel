@@ -49,6 +49,7 @@ import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.UUID;
 import net.starlark.java.syntax.Location;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -155,7 +156,8 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
                     Protos.ExecLogEntry.Invocation.newBuilder()
                         .setHashFunctionName("SHA-256")
                         .setWorkspaceRunfilesDirectory(TestConstants.WORKSPACE_NAME)
-                        .setSiblingRepositoryLayout(siblingRepositoryLayout))
+                        .setSiblingRepositoryLayout(siblingRepositoryLayout)
+                        .setId("00000000-0000-0000-0000-000000000000"))
                 .build(),
             Protos.ExecLogEntry.newBuilder()
                 .setSymlinkAction(
@@ -265,7 +267,8 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
         siblingRepositoryLayout,
         remoteOptions,
         DigestHashFunction.SHA256,
-        SyscallCache.NO_CACHE);
+        SyscallCache.NO_CACHE,
+        UUID.fromString("00000000-0000-0000-0000-000000000000"));
   }
 
   @Override
