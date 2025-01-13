@@ -1814,7 +1814,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
   protected void assertOutputDoesNotExist(String binRelativePath) {
     Path output = getOutputPath(binRelativePath);
-    assertThat(output.exists()).isFalse();
+    assertThat(output.exists(Symlinks.NOFOLLOW)).isFalse();
   }
 
   protected void assertOnlyOutputContent(String target, String filename, String content)
