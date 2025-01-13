@@ -484,12 +484,12 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
 
   @Override
   public ListenableFuture<Void> uploadBlob(
-      RemoteActionExecutionContext context, Digest digest, CloseableBlobSupplier data) {
+      RemoteActionExecutionContext context, Digest digest, Blob blob) {
     return uploadChunker(
         context,
         digest,
         Chunker.builder()
-            .setInput(digest.getSizeBytes(), data)
+            .setInput(digest.getSizeBytes(), blob)
             .setCompressed(shouldCompress(digest))
             .build());
   }
@@ -500,11 +500,10 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
     f.addListener(
         () -> {
           try {
-            chunker.reset();
-            chunker.closeQuietly();
+            chunker.close();
           } catch (IOException e) {
             logger.atWarning().withCause(e).log(
-                "failed to reset chunker uploading %s/%d", digest.getHash(), digest.getSizeBytes());
+                "failed to close chunker uploading %s/%d", digest.getHash(), digest.getSizeBytes());
           }
         },
         MoreExecutors.directExecutor());

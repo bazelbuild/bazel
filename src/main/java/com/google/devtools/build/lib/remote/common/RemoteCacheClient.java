@@ -20,9 +20,9 @@ import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -113,9 +113,16 @@ public interface RemoteCacheClient extends MissingDigestsFinder {
   ListenableFuture<Void> downloadBlob(
       RemoteActionExecutionContext context, Digest digest, OutputStream out);
 
+  /**
+   * A supplier for the data comprising a BLOB.
+   *
+   * <p>As blobs can be large and may need to be kept in memory, consumers should call {@link #get}
+   * as late as possible and close the blob as soon as they are done with it.
+   */
   @FunctionalInterface
-  interface CloseableBlobSupplier extends SilentCloseable {
-    InputStream get();
+  interface Blob extends Closeable {
+    /** Get an input stream for the blob's data. Can be called multiple times. */
+    InputStream get() throws IOException;
 
     @Override
     default void close() {}
@@ -126,14 +133,14 @@ public interface RemoteCacheClient extends MissingDigestsFinder {
    *
    * @param context the context for the action.
    * @param digest The digest of the blob.
-   * @param data A supplier for the data to upload. May be called multiple times.
+   * @param blob A supplier for the blob to upload. May be called multiple times, but is closed by
+   *     the implementation after the upload is complete.
    * @return A future representing pending completion of the upload.
    */
-  ListenableFuture<Void> uploadBlob(
-      RemoteActionExecutionContext context, Digest digest, CloseableBlobSupplier data);
+  ListenableFuture<Void> uploadBlob(RemoteActionExecutionContext context, Digest digest, Blob blob);
 
   /**
-   * Uploads a {@code file} to the CAS.
+   * Uploads a {@code file} BLOB to the CAS.
    *
    * @param context the context for the action.
    * @param digest The digest of the file.
@@ -146,7 +153,7 @@ public interface RemoteCacheClient extends MissingDigestsFinder {
   }
 
   /**
-   * Uploads a BLOB to the CAS.
+   * Uploads an in-memory BLOB to the CAS.
    *
    * @param context the context for the action.
    * @param digest The digest of the blob.

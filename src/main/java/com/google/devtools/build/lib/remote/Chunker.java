@@ -22,12 +22,11 @@ import static java.lang.Math.min;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.io.ByteStreams;
-import com.google.devtools.build.lib.remote.common.RemoteCacheClient.CloseableBlobSupplier;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.zstd.ZstdCompressingInputStream;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import java.io.ByteArrayInputStream;
-import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PushbackInputStream;
@@ -44,7 +43,7 @@ import java.util.Objects;
  *
  * <p>This class should not be extended - it's only non-final for testing.
  */
-public class Chunker {
+public class Chunker implements AutoCloseable {
 
   private static int defaultChunkSize = 1024 * 16;
 
@@ -98,7 +97,7 @@ public class Chunker {
     }
   }
 
-  private final CloseableBlobSupplier dataSupplier;
+  private final Blob blob;
   private final long uncompressedSize;
   private final int chunkSize;
   private final Chunk emptyChunk;
@@ -113,12 +112,8 @@ public class Chunker {
   // lazily on the first call to next(), as opposed to opening it in the constructor or on reset().
   private boolean initialized;
 
-  Chunker(
-      CloseableBlobSupplier dataSupplier,
-      long uncompressedSize,
-      int chunkSize,
-      boolean compressed) {
-    this.dataSupplier = checkNotNull(dataSupplier);
+  Chunker(Blob blob, long uncompressedSize, int chunkSize, boolean compressed) {
+    this.blob = checkNotNull(blob);
     this.uncompressedSize = uncompressedSize;
     this.chunkSize = chunkSize;
     this.emptyChunk = new Chunk(ByteString.EMPTY, 0);
@@ -139,7 +134,7 @@ public class Chunker {
    * <p>Closes any open resources (file handles, ...).
    */
   public void reset() throws IOException {
-    close();
+    closeInput();
     offset = 0;
     initialized = false;
   }
@@ -164,7 +159,7 @@ public class Chunker {
       initialize(toOffset);
     }
     if (uncompressedSize > 0 && data.finished()) {
-      close();
+      closeInput();
     }
   }
 
@@ -176,7 +171,7 @@ public class Chunker {
   }
 
   /** Closes the input stream and reset chunk cache */
-  private void close() throws IOException {
+  private void closeInput() throws IOException {
     if (data != null) {
       data.close();
       data = null;
@@ -184,8 +179,10 @@ public class Chunker {
     chunkCache = null;
   }
 
-  public void closeQuietly() {
-    dataSupplier.close();
+  @Override
+  public void close() throws IOException {
+    reset();
+    blob.close();
   }
 
   /** Attempts reading at most a full chunk and stores it in the chunkCache buffer */
@@ -217,7 +214,7 @@ public class Chunker {
     maybeInitialize();
 
     if (uncompressedSize == 0) {
-      close();
+      closeInput();
       return emptyChunk;
     }
 
@@ -249,7 +246,7 @@ public class Chunker {
     // or the guard in getActualSize won't work.
     offset += bytesRead;
     if (data.finished()) {
-      close();
+      closeInput();
     }
 
     return new Chunk(blob, offsetBefore);
@@ -268,7 +265,7 @@ public class Chunker {
     checkState(offset == 0);
     checkState(chunkCache == null);
     try {
-      var src = dataSupplier.get();
+      var src = blob.get();
       ByteStreams.skipFully(src, srcPos);
       data =
           compressed
@@ -294,10 +291,10 @@ public class Chunker {
     private int chunkSize = getDefaultChunkSize();
     protected long size;
     private boolean compressed;
-    protected CloseableBlobSupplier inputStream;
+    protected Blob inputStream;
 
     @CanIgnoreReturnValue
-    public Builder setInput(long size, CloseableBlobSupplier in) {
+    public Builder setInput(long size, Blob in) {
       checkState(inputStream == null);
       checkNotNull(in);
       this.size = size;

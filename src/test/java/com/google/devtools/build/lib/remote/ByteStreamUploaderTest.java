@@ -44,7 +44,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
-import com.google.devtools.build.lib.remote.common.RemoteCacheClient.CloseableBlobSupplier;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TestUtils;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -1815,7 +1815,7 @@ public class ByteStreamUploaderTest {
   /* Custom Chunker used to track number of open files */
   private static class TestChunker extends Chunker {
 
-    TestChunker(CloseableBlobSupplier dataSupplier, long size, int chunkSize, boolean compressed) {
+    TestChunker(Blob dataSupplier, long size, int chunkSize, boolean compressed) {
       super(dataSupplier, size, chunkSize, compressed);
     }
 

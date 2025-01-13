@@ -57,6 +57,7 @@ import javax.annotation.Nullable;
 public class MerkleTree {
   private static final String BAZEL_TOOL_INPUT_MARKER = "bazel_tool_input";
 
+  /** A source of a file's content */
   public sealed interface ContentSource {
     record PathSource(Path path) implements ContentSource {}
 

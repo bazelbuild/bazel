@@ -42,7 +42,7 @@ import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.LostInputsEvent;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
-import com.google.devtools.build.lib.remote.common.RemoteCacheClient.CloseableBlobSupplier;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree.ContentSource;
@@ -177,11 +177,13 @@ public class RemoteExecutionCache extends CombinedCache {
     }
   }
 
-  private static final class VirtualActionInputDataSupplier implements CloseableBlobSupplier {
+  private static final class VirtualActionInputBlob implements Blob {
     private VirtualActionInput virtualActionInput;
+    // Can be large compared to the retained size of the VirtualActionInput and thus shouldn't be
+    // kept in memory for an extended period of time.
     private volatile ByteString data;
 
-    VirtualActionInputDataSupplier(VirtualActionInput virtualActionInput) {
+    VirtualActionInputBlob(VirtualActionInput virtualActionInput) {
       this.virtualActionInput = Preconditions.checkNotNull(virtualActionInput);
     }
 
@@ -220,7 +222,7 @@ public class RemoteExecutionCache extends CombinedCache {
       return switch (file) {
         case ContentSource.VirtualActionInputSource(VirtualActionInput virtualActionInput) ->
             remoteCacheClient.uploadBlob(
-                context, digest, new VirtualActionInputDataSupplier(virtualActionInput));
+                context, digest, new VirtualActionInputBlob(virtualActionInput));
         case ContentSource.PathSource(Path path) -> {
           try {
             if (remotePathChecker.isRemote(context, path)) {

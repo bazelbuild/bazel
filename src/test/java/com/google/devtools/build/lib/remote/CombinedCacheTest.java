@@ -55,7 +55,7 @@ import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.remote.common.LostInputsEvent;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
-import com.google.devtools.build.lib.remote.common.RemoteCacheClient.CloseableBlobSupplier;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -74,7 +74,6 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Deque;
@@ -90,7 +89,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Supplier;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -400,7 +398,7 @@ public class CombinedCacheTest {
               return future;
             })
         .when(cacheProtocol)
-        .uploadBlob(any(), any(), (CloseableBlobSupplier) any());
+        .uploadBlob(any(), any(), (Blob) any());
     doAnswer(
             invocationOnMock -> {
               SettableFuture<Void> future = SettableFuture.create();
@@ -475,7 +473,7 @@ public class CombinedCacheTest {
               return future;
             })
         .when(cacheProtocol)
-        .uploadBlob(any(), any(), (CloseableBlobSupplier) any());
+        .uploadBlob(any(), any(), (Blob) any());
     doAnswer(
             invocationOnMock -> {
               SettableFuture<Void> future = SettableFuture.create();
@@ -556,7 +554,7 @@ public class CombinedCacheTest {
               return future;
             })
         .when(cacheProtocol)
-        .uploadBlob(any(), any(), (CloseableBlobSupplier) any());
+        .uploadBlob(any(), any(), (Blob) any());
     doAnswer(
             invocationOnMock -> {
               Path file = invocationOnMock.getArgument(2, Path.class);
@@ -655,7 +653,7 @@ public class CombinedCacheTest {
     RemoteCacheClient cacheProtocol = spy(new InMemoryCacheClient());
     doAnswer(invocationOnMock -> Futures.immediateFailedFuture(new IOException("upload failed")))
         .when(cacheProtocol)
-        .uploadBlob(any(), any(), (CloseableBlobSupplier) any());
+        .uploadBlob(any(), any(), (Blob) any());
     doAnswer(invocationOnMock -> Futures.immediateFailedFuture(new IOException("upload failed")))
         .when(cacheProtocol)
         .uploadFile(any(), any(), any());

@@ -110,7 +110,7 @@ final class ByteStreamUploader {
    * performed. This is transparent to the user of this API.
    *
    * @param digest the {@link Digest} of the data to upload.
-   * @param chunker the data to upload.
+   * @param chunker the data to upload. Callers are responsible for closing the {@link Chunker}.
    */
   public ListenableFuture<Void> uploadBlobAsync(
       RemoteActionExecutionContext context, Digest digest, Chunker chunker) {

@@ -136,7 +136,7 @@ public class ChunkerTest {
 
     byte[] data = new byte[] {1, 2};
     final AtomicReference<InputStream> in = new AtomicReference<>();
-    RemoteCacheClient.CloseableBlobSupplier supplier =
+    RemoteCacheClient.Blob supplier =
         () -> {
           in.set(Mockito.spy(new ByteArrayInputStream(data)));
           return in.get();

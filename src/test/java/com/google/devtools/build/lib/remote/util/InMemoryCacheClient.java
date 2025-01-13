@@ -141,9 +141,9 @@ public class InMemoryCacheClient implements RemoteCacheClient {
 
   @Override
   public ListenableFuture<Void> uploadBlob(
-      RemoteActionExecutionContext context, Digest digest, CloseableBlobSupplier data) {
-    try {
-      cas.put(digest, data.get().readAllBytes());
+      RemoteActionExecutionContext context, Digest digest, Blob blob) {
+    try (blob) {
+      cas.put(digest, blob.get().readAllBytes());
     } catch (IOException e) {
       return Futures.immediateFailedFuture(e);
     }

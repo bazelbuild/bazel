@@ -85,11 +85,11 @@ final class ByteStreamServer extends ByteStreamImplBase {
       // This still relies on the blob size to be small enough to fit in memory.
       // TODO(olaola): refactor to fix this if the need arises.
       byte[] bytes = getFromFuture(cache.downloadBlob(context, digest));
-      Chunker c =
-          Chunker.builder().setInput(bytes.length, () -> new ByteArrayInputStream(bytes)).build();
-      while (c.hasNext()) {
-        responseObserver.onNext(
-            ReadResponse.newBuilder().setData(c.next().getData()).build());
+      try (Chunker c =
+          Chunker.builder().setInput(bytes.length, () -> new ByteArrayInputStream(bytes)).build()) {
+        while (c.hasNext()) {
+          responseObserver.onNext(ReadResponse.newBuilder().setData(c.next().getData()).build());
+        }
       }
       responseObserver.onCompleted();
     } catch (CacheNotFoundException e) {
