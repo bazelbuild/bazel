@@ -47,6 +47,10 @@ exported_toplevels = {
     "CcSharedLibraryHintInfo": CcSharedLibraryHintInfo,
     "cc_common": cc_common,
     "apple_common": apple_common,
+    "proto_common_do_not_use": struct(
+        INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION =
+            _builtins.toplevel.proto_common_do_not_use.incompatible_enable_proto_toolchain_resolution(),
+    ),
 }
 
 # A list of Starlarkified native rules.
