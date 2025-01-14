@@ -29,12 +29,16 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.buildtool.BuildTool;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
+import com.google.devtools.build.lib.runtime.BlazeModule;
+import com.google.devtools.build.lib.runtime.BlazeRuntime;
+import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.runtime.commands.CqueryCommand;
 import com.google.devtools.build.lib.runtime.commands.TestCommand;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectBaseKey;
@@ -44,6 +48,11 @@ import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer.SelectionMarking;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
+import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.FileStatus;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.errorprone.annotations.ForOverride;
@@ -51,18 +60,24 @@ import com.google.perftools.profiles.ProfileProto.Profile;
 import com.google.protobuf.ExtensionRegistry;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import javax.annotation.Nullable;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 
 public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCase {
+  @Rule public TestName testName = new TestName();
 
   protected FingerprintValueService service;
+  private final ClearCountingSyscallCache syscallCache = new ClearCountingSyscallCache();
 
   @Before
   public void setup() {
@@ -245,6 +260,25 @@ project = {
 
   @Test
   public void buildCommandWithSkymeld_uploadsFrontierBytesWithUploadMode() throws Exception {
+    runSkymeldScenario();
+    // Validate that Skymeld did run.
+    assertThat(getCommandEnvironment().withMergedAnalysisAndExecutionSourceOfTruth()).isTrue();
+
+    var listener = getCommandEnvironment().getRemoteAnalysisCachingEventListener();
+    assertThat(listener.getSerializedKeysCount()).isAtLeast(1);
+    assertThat(listener.getSkyfunctionCounts().count(SkyFunctions.CONFIGURED_TARGET)).isAtLeast(1);
+
+    assertContainsEvent("Waiting for write futures took an additional");
+  }
+
+  @Test
+  public void buildCommandWithSkymeld_doesNotClearCacheMidBuild() throws Exception {
+    runSkymeldScenario();
+
+    assertThat(getSyscallCacheClearCount()).isEqualTo(2);
+  }
+
+  private void runSkymeldScenario() throws Exception {
     write(
         "foo/PROJECT.scl",
         """
@@ -269,21 +303,12 @@ project = {
         "--experimental_merged_skyframe_analysis_execution" // forces Skymeld.
         );
     assertThat(buildTarget("//foo:all").getSuccess()).isTrue();
-
-    // Validate that Skymeld did run.
-    assertThat(getCommandEnvironment().withMergedAnalysisAndExecutionSourceOfTruth()).isTrue();
-
-    var listener = getCommandEnvironment().getRemoteAnalysisCachingEventListener();
-    assertThat(listener.getSerializedKeysCount()).isAtLeast(1);
-    assertThat(listener.getSkyfunctionCounts().count(SkyFunctions.CONFIGURED_TARGET)).isAtLeast(1);
-
-    assertContainsEvent("Waiting for write futures took an additional");
   }
 
   @Test
   public void buildCommand_serializedFrontierProfileContainsExpectedClasses() throws Exception {
     @SuppressWarnings("UnnecessarilyFullyQualified") // to avoid confusion with vfs Paths
-    Path profilePath = Files.createTempFile(null, "profile");
+    java.nio.file.Path profilePath = Files.createTempFile(null, "profile");
 
     addOptions("--serialized_frontier_profile=" + profilePath);
     setupScenarioWithAspects();
@@ -1004,5 +1029,56 @@ project = { "active_directories": {"default": ["A"]} }
     assertWithMessage("expected to deserialize at least one Skyframe node")
         .that(getCommandEnvironment().getRemoteAnalysisCachingEventListener().getCacheHits())
         .isNotEmpty();
+  }
+
+  @Override
+  protected BlazeRuntime.Builder getRuntimeBuilder() throws Exception {
+    var builder = super.getRuntimeBuilder();
+    if (testUsesSyscallCacheClearCount()) {
+      // There isn't really a good way to apply this conditionally during @Before in Junit.
+      builder.addBlazeModule(new SyscallCacheInjectingModule());
+    }
+    return builder;
+  }
+
+  boolean testUsesSyscallCacheClearCount() {
+    return testName.getMethodName().equals("buildCommandWithSkymeld_doesNotClearCacheMidBuild");
+  }
+
+  int getSyscallCacheClearCount() {
+    return syscallCache.clearCount.get();
+  }
+
+  static class ClearCountingSyscallCache implements SyscallCache {
+    private final AtomicInteger clearCount = new AtomicInteger(0);
+
+    @Override
+    public Collection<Dirent> readdir(Path path) throws IOException {
+      return path.readdir(Symlinks.NOFOLLOW);
+    }
+
+    @Nullable
+    @Override
+    public FileStatus statIfFound(Path path, Symlinks symlinks) throws IOException {
+      return path.statIfFound(symlinks);
+    }
+
+    @Override
+    public DirentTypeWithSkip getType(Path path, Symlinks symlinks) {
+      return DirentTypeWithSkip.FILESYSTEM_OP_SKIPPED;
+    }
+
+    @Override
+    public void clear() {
+      clearCount.incrementAndGet();
+    }
+  }
+
+  class SyscallCacheInjectingModule extends BlazeModule {
+    @Override
+    public void workspaceInit(
+        BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
+      builder.setSyscallCache(syscallCache);
+    }
   }
 }

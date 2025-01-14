@@ -2380,30 +2380,26 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       QuiescingExecutor executor)
       throws InterruptedException {
     checkActive();
-    try {
-      buildDriverFunction.setShouldCheckForConflictWithTraversal(
-          () -> conflictCheckingModeInThisBuild == WITH_TRAVERSAL);
-      if (conflictCheckingModeInThisBuild != NONE) {
-        initializeSkymeldConflictFindingStates();
-      }
-      eventHandler.post(new ConfigurationPhaseStartedEvent(analysisProgress));
-      // For the workspace status actions.
-      eventHandler.post(SomeExecutionStartedEvent.notCountedInExecutionTime());
-      EvaluationContext evaluationContext =
-          newEvaluationContextBuilder()
-              .setKeepGoing(keepGoing)
-              .setParallelism(executionParallelism)
-              .setExecutor(executor)
-              .setEventHandler(eventHandler)
-              .setMergingSkyframeAnalysisExecutionPhases(true)
-              .build();
-      return memoizingEvaluator.evaluate(
-          Iterables.concat(
-              buildDriverCTKeys, buildDriverAspectKeys, Artifact.keys(workspaceStatusArtifacts)),
-          evaluationContext);
-    } finally {
-      clearSyscallCache();
+    buildDriverFunction.setShouldCheckForConflictWithTraversal(
+        () -> conflictCheckingModeInThisBuild == WITH_TRAVERSAL);
+    if (conflictCheckingModeInThisBuild != NONE) {
+      initializeSkymeldConflictFindingStates();
     }
+    eventHandler.post(new ConfigurationPhaseStartedEvent(analysisProgress));
+    // For the workspace status actions.
+    eventHandler.post(SomeExecutionStartedEvent.notCountedInExecutionTime());
+    EvaluationContext evaluationContext =
+        newEvaluationContextBuilder()
+            .setKeepGoing(keepGoing)
+            .setParallelism(executionParallelism)
+            .setExecutor(executor)
+            .setEventHandler(eventHandler)
+            .setMergingSkyframeAnalysisExecutionPhases(true)
+            .build();
+    return memoizingEvaluator.evaluate(
+        Iterables.concat(
+            buildDriverCTKeys, buildDriverAspectKeys, Artifact.keys(workspaceStatusArtifacts)),
+        evaluationContext);
   }
 
   /** Called after a single Skyframe evaluation that involves action execution. */
