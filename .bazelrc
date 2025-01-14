@@ -28,6 +28,7 @@ build:ubuntu2004 --config=remote_shared
 # Alias
 build:remote --config=ubuntu2004
 
+build:macos --host_macos_minimum_os=10.13
 build:macos --macos_minimum_os=10.13
 
 build:windows_arm64 --platforms=//:windows_arm64
