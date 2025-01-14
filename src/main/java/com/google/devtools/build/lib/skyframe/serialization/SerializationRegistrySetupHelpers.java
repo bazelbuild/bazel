@@ -137,7 +137,8 @@ public final class SerializationRegistrySetupHelpers {
    * Holder to ensure codecs are not loaded unless {@link #analysisCachingCodecs} is called.
    *
    * <p>This class is loaded on-demand, which is especially important for
-   * bazel_bootstrap_distfile_test, where AutoCodec doesn't exist. See <a
+   * bazel_bootstrap_distfile_test, where AutoCodec doesn't exist. This is fine for the test,
+   * because it doesn't actually use the codecs. See <a
    * href="https://en.wikipedia.org/wiki/Initialization-on-demand_holder_idiom">Initialization on
    * demand idiom</a>.
    */
@@ -174,7 +175,7 @@ public final class SerializationRegistrySetupHelpers {
           // not marked with generates_api = True (to avoid build time impact) the actual AutoCodec
           // classes are not visible as imports. The dependency on the respective ConfiguredTarget
           // class ensures that the required target dependency exists. The corresponding AutoCodec
-          // class in the same jar file.
+          // class will be in the same jar file.
           Constructor<?> autoCodecConstructor =
               Class.forName(configuredTargetClass.getName() + "_AutoCodec")
                   .getDeclaredConstructor();
