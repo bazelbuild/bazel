@@ -284,6 +284,10 @@ class StartupOptions {
 
 #ifdef __linux__
   std::string cgroup_parent;
+
+  // If enabled, the Bazel server will be run with systemd-run, and the user
+  // will own the cgroup.
+  bool run_in_user_cgroup;
 #endif
 
   // Whether to create symbolic links on Windows for files. Requires
