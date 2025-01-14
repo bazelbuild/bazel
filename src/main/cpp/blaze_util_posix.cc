@@ -317,8 +317,9 @@ class CharPP {
   char** charpp_;
 };
 
-ATTRIBUTE_NORETURN static void ExecuteProgram(
-    const blaze_util::Path& exe, const vector<string>& args_vector) {
+ATTRIBUTE_NORETURN static void ExecuteProgram(const blaze_util::Path& exe,
+                                              const vector<string>& args_vector,
+                                              const bool run_in_user_cgroup) {
   BAZEL_LOG(INFO) << "Invoking binary " << exe.AsPrintablePath() << " in "
                   << blaze_util::GetCwd();
 
@@ -338,13 +339,15 @@ ATTRIBUTE_NORETURN static void ExecuteProgram(
 }
 
 void ExecuteServerJvm(const blaze_util::Path& exe,
-                      const std::vector<string>& server_jvm_args) {
-  ExecuteProgram(exe, server_jvm_args);
+                      const std::vector<string>& server_jvm_args,
+                      const bool run_in_user_cgroup) {
+  ExecuteProgram(exe, server_jvm_args, run_in_user_cgroup);
 }
 
 void ExecuteRunRequest(const blaze_util::Path& exe,
                        const std::vector<string>& run_request_args) {
-  ExecuteProgram(exe, run_request_args);
+  ExecuteProgram(exe, run_request_args,
+                 /* run_in_user_cgroup= */ false);
 }
 
 const char kListSeparator = ':';
@@ -423,6 +426,11 @@ int ExecuteDaemon(
   if (!options.cgroup_parent.empty()) {
     daemonize_args.push_back("-c");
     daemonize_args.push_back(options.cgroup_parent);
+  }
+  if (options.run_in_user_cgroup) {
+    daemonize_args.push_back("-s");
+    daemonize_args.push_back(
+        server_dir.GetRelative("systemd-wrapper.sh").AsNativePath());
   }
 #endif
   daemonize_args.push_back("--");

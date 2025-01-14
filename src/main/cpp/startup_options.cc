@@ -99,6 +99,7 @@ StartupOptions::StartupOptions(const string &product_name,
       unlimit_coredumps(false),
 #ifdef __linux__
       cgroup_parent(),
+      run_in_user_cgroup(false),
 #endif
       windows_enable_symlinks(false) {
 #if defined(_WIN32) || defined(__CYGWIN__)
@@ -135,6 +136,10 @@ StartupOptions::StartupOptions(const string &product_name,
   RegisterNullaryStartupFlag("write_command_log", &write_command_log);
   RegisterNullaryStartupFlag("windows_enable_symlinks",
                              &windows_enable_symlinks);
+#ifdef __linux__
+  RegisterNullaryStartupFlag("experimental_run_in_user_cgroup",
+                             &run_in_user_cgroup);
+#endif
   RegisterUnaryStartupFlag("command_port");
   RegisterUnaryStartupFlag("connect_timeout_secs");
   RegisterUnaryStartupFlag("local_startup_timeout_secs");

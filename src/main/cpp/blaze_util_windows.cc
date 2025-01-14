@@ -301,9 +301,8 @@ BOOL WINAPI ConsoleCtrlHandler(_In_ DWORD ctrlType) {
     case CTRL_C_EVENT:
     case CTRL_BREAK_EVENT:
       if (++sigint_count >= 3) {
-        SigPrintf(
-            "\n%s caught third Ctrl+C handler signal; killed.\n\n",
-            SignalHandler::Get().GetProductName().c_str());
+        SigPrintf("\n%s caught third Ctrl+C handler signal; killed.\n\n",
+                  SignalHandler::Get().GetProductName().c_str());
         if (SignalHandler::Get().GetServerProcessInfo()->server_pid_ != -1) {
           KillServerProcess(
               SignalHandler::Get().GetServerProcessInfo()->server_pid_,
@@ -311,9 +310,8 @@ BOOL WINAPI ConsoleCtrlHandler(_In_ DWORD ctrlType) {
         }
         _exit(1);
       }
-      SigPrintf(
-          "\n%s Ctrl+C handler; shutting down.\n\n",
-          SignalHandler::Get().GetProductName().c_str());
+      SigPrintf("\n%s Ctrl+C handler; shutting down.\n\n",
+                SignalHandler::Get().GetProductName().c_str());
       SignalHandler::Get().CancelServer();
       return TRUE;
 
@@ -350,7 +348,7 @@ ATTRIBUTE_NORETURN void SignalHandler::PropagateSignalOrExit(int exit_code) {
 // Blaze server.
 // Also, it's a good idea to start each message with a newline,
 // in case the Blaze server has written a partial line.
-void SigPrintf(const char *format, ...) {
+void SigPrintf(const char* format, ...) {
   int stderr_fileno = _fileno(stderr);
   char buf[1024];
   va_list ap;
@@ -467,7 +465,7 @@ std::unique_ptr<blaze_util::Path> GetProcessCWD(int pid) {
   return nullptr;
 }
 
-bool IsSharedLibrary(const string &filename) {
+bool IsSharedLibrary(const string& filename) {
   return blaze_util::ends_with(filename, ".dll");
 }
 
@@ -781,7 +779,8 @@ ATTRIBUTE_NORETURN static void ExecuteProgram(
 }
 
 void ExecuteServerJvm(const blaze_util::Path& exe,
-                      const std::vector<string>& server_jvm_args) {
+                      const std::vector<string>& server_jvm_args,
+                      bool run_in_user_cgroup) {
   std::vector<std::wstring> wargs;
   wargs.reserve(server_jvm_args.size());
   for (const string& a : server_jvm_args) {
@@ -852,7 +851,7 @@ bool VerifyServerProcess(int pid, const blaze_util::Path& output_base) {
   // If start time file got deleted, but PID file didn't, assume that this is an
   // old Bazel process that doesn't know how to write start time files yet.
   return !file_present ||
-      recorded_start_time == blaze_util::ToString(start_time);
+         recorded_start_time == blaze_util::ToString(start_time);
 }
 
 bool KillServerProcess(int pid, const blaze_util::Path& output_base) {
@@ -877,9 +876,7 @@ bool KillServerProcess(int pid, const blaze_util::Path& output_base) {
   return result;
 }
 
-void TrySleep(unsigned int milliseconds) {
-  Sleep(milliseconds);
-}
+void TrySleep(unsigned int milliseconds) { Sleep(milliseconds); }
 
 // Not supported.
 void ExcludePathFromBackup(const blaze_util::Path& path) {}
@@ -1079,8 +1076,7 @@ LARGE_INTEGER WindowsClock::GetMillisecondsAsLargeInt(
 
 const WindowsClock WindowsClock::INSTANCE;
 
-WindowsClock::WindowsClock()
-    : kFrequency(GetFrequency()) {}
+WindowsClock::WindowsClock() : kFrequency(GetFrequency()) {}
 
 uint64_t WindowsClock::GetMilliseconds() const {
   return GetMillisecondsAsLargeInt(kFrequency).QuadPart;
