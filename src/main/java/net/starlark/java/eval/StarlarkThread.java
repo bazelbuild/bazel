@@ -195,7 +195,7 @@ public final class StarlarkThread {
           }
         }
       }
-      return env.buildOrThrow();
+      return env.buildKeepingLast();
     }
 
     @Override

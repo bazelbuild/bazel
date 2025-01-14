@@ -250,4 +250,73 @@ public class StarlarkThreadDebuggingTest {
     assertThat(Starlark.execFile(ParserInput.fromLines("a"), FileOptions.DEFAULT, module, thread))
         .isEqualTo(StarlarkInt.of(1));
   }
+
+  @Test
+  public void testListComprehensionVariable() throws Exception {
+    // f is a built-in that captures the stack using the Debugger API.
+    Object[] result = {null, null};
+    StarlarkCallable f =
+        new StarlarkCallable() {
+          @Override
+          public String getName() {
+            return "f";
+          }
+
+          @Override
+          public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named) {
+            result[0] = Debug.getCallStack(thread);
+            result[1] = thread.getCallStack();
+            return Starlark.NONE;
+          }
+
+          @Override
+          public Location getLocation() {
+            return Location.fromFileLineColumn("builtin", 12, 0);
+          }
+
+          @Override
+          public String toString() {
+            return "<debug function>";
+          }
+        };
+
+    // Set up global environment.
+    Module module =
+        Module.withPredeclared(StarlarkSemantics.DEFAULT, ImmutableMap.of("a", 1, "b", 2, "f", f));
+
+    // Execute a small file that calls f.
+    // shadows global a
+    ParserInput input =
+        ParserInput.fromString(
+            """
+                def g(a, y, z):
+                  a = [x for x in range(3)]
+                  a = [x for x in range(6)]
+                  f()
+                g(4, 5, 6)""",
+            "main.star");
+    Starlark.execFile(input, FileOptions.DEFAULT, module, newThread());
+
+    @SuppressWarnings("unchecked")
+    ImmutableList<Debug.Frame> stack = (ImmutableList<Debug.Frame>) result[0];
+
+    // Check the stack captured by f.
+    // We compare printed string forms, as it gives more informative assertion failures.
+    StringBuilder buf = new StringBuilder();
+    for (Debug.Frame fr : stack) {
+      buf.append(
+          String.format(
+              "%s @ %s local=%s\n", fr.getFunction().getName(), fr.getLocation(), fr.getLocals()));
+    }
+    // location is paren of g(4, 5, 6) call:
+    // location is paren of "f()" call:
+    // location is "current PC" in f.
+    assertThat(buf.toString())
+        .isEqualTo(
+            """
+                <toplevel> @ main.star:5:2 local={}
+                g @ main.star:4:4 local={a=[0, 1, 2, 3, 4, 5], y=5, z=6, x=5}
+                f @ builtin:12 local={}
+                """);
+  }
 }
