@@ -408,7 +408,7 @@ public class SandboxOptions extends OptionsBase {
 
   @Option(
       name = "incompatible_use_new_cgroup_implementation",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION},
       converter = BooleanConverter.class,
