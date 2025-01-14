@@ -163,7 +163,7 @@ public class RunfilesTreeUpdater {
       case SKIP -> helper.clearRunfilesDirectory();
       case EXTERNAL -> helper.createSymlinksUsingCommand(binTools, env, outErr);
       case INTERNAL -> {
-        helper.createSymlinksDirectly(tree.getMapping());
+        helper.createRunfilesSymlinksDirectly(tree.getMapping());
         outputManifest.createSymbolicLink(inputManifest);
       }
     }
