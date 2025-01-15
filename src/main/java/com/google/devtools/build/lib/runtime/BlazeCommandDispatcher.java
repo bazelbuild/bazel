@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.PrintingEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
@@ -648,8 +649,10 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
                   runtime, workspace, command, commandAnnotation, optionsParser, invocationPolicy);
           ImmutableList.Builder<OptionAndRawValue> invocationPolicyFlagListBuilder =
               ImmutableList.builder();
+          // Do not handle any events since this is the second time we parse the options.
           earlyExitCode =
-              optionHandler.parseOptions(args, reporter, invocationPolicyFlagListBuilder);
+              optionHandler.parseOptions(
+                  args, ExtendedEventHandler.NOOP, invocationPolicyFlagListBuilder);
           env.setInvocationPolicyFlags(invocationPolicyFlagListBuilder.build());
         }
         if (!earlyExitCode.isSuccess()) {
