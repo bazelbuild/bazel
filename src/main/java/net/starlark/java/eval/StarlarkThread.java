@@ -19,7 +19,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
@@ -182,8 +184,15 @@ public final class StarlarkThread {
 
     @Override
     public ImmutableMap<String, Object> getLocals() {
+      // TODO: List comprehensions introduce new locals that can shadow outer locals. Find a way to
+      //  accurately represent them and their values in a situation such as:
+      //
+      //  def foo(x):
+      //    x += [[j(x) for x in i(x)] + h(x) for x in f(x) if g(x)]
+      //    return k(x)
+      //
       // TODO(adonovan): provide a more efficient API.
-      ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
+      LinkedHashMap<String, Object> env = new LinkedHashMap<>();
       if (fn instanceof StarlarkFunction) {
         for (int i = 0; i < locals.length; i++) {
           Object local = locals[i];
@@ -191,11 +200,17 @@ public final class StarlarkThread {
             local = ((StarlarkFunction.Cell) local).x;
           }
           if (local != null) {
-            env.put(((StarlarkFunction) fn).rfn.getLocals().get(i).getName(), local);
+            env.merge(
+                ((StarlarkFunction) fn).rfn.getLocals().get(i).getName(),
+                local,
+                (oldValue, newValue) ->
+                    Objects.equals(oldValue, newValue)
+                        ? oldValue
+                        : new Debug.DebuggerMessage("different values in scope"));
           }
         }
       }
-      return env.buildKeepingLast();
+      return ImmutableMap.copyOf(env);
     }
 
     @Override

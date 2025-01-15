@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.syntax.Location;
 
 /** Debugger API. */
@@ -35,6 +36,29 @@ public final class Debug {
 
     /** Notify the debugger that it will no longer receive events from the interpreter. */
     void close();
+  }
+
+  /** A distinguished value that carries a message. */
+  @StarlarkBuiltin(
+      name = "debugger_message",
+      doc = "A distinguished value that carries a message.",
+      documented = false)
+  public static final class DebuggerMessage implements StarlarkValue {
+    private final String message;
+
+    public DebuggerMessage(String message) {
+      this.message = message;
+    }
+
+    @Override
+    public String toString() {
+      return "<" + message + ">";
+    }
+
+    @Override
+    public void repr(Printer printer) {
+      printer.append("<").append(message).append(">");
+    }
   }
 
   /** A Starlark value that can expose additional information to a debugger. */

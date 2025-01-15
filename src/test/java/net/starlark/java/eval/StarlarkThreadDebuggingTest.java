@@ -315,7 +315,7 @@ public class StarlarkThreadDebuggingTest {
         .isEqualTo(
             """
                 <toplevel> @ main.star:5:2 local={}
-                g @ main.star:4:4 local={a=[0, 1, 2, 3, 4, 5], y=5, z=6, x=5}
+                g @ main.star:4:4 local={a=[0, 1, 2, 3, 4, 5], y=5, z=6, x=<different values in scope>}
                 f @ builtin:12 local={}
                 """);
   }
