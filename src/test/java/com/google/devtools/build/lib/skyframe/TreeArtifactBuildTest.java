@@ -659,14 +659,12 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
         RemoteFileArtifactValue.create(
             Hashing.sha256().hashString("one", UTF_8).asBytes(),
             /* size= */ 3,
-            /* locationIndex= */ 1,
-            /* expireAtEpochMilli= */ -1);
+            /* locationIndex= */ 1);
     RemoteFileArtifactValue remoteFile2 =
         RemoteFileArtifactValue.create(
             Hashing.sha256().hashString("two", UTF_8).asBytes(),
             /* size= */ 3,
-            /* locationIndex= */ 2,
-            /* expireAtEpochMilli= */ -1);
+            /* locationIndex= */ 2);
 
     Action action =
         new SimpleTestAction(out) {

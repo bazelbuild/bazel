@@ -522,12 +522,17 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
 
     @Override
     protected boolean couldBeModifiedByMetadata(FileArtifactValue o) {
-      if (!(o instanceof RegularFileArtifactValue)) {
-        return true;
+      switch (o) {
+        case RegularFileArtifactValue lastKnown -> {
+          return size != lastKnown.size || !Objects.equals(proxy, lastKnown.proxy);
+        }
+        case RemoteFileArtifactValueWithMaterializationData lastKnown -> {
+          return size != lastKnown.getSize() || !Objects.equals(proxy, lastKnown.proxy);
+        }
+        default -> {
+          return true;
+        }
       }
-
-      RegularFileArtifactValue lastKnown = (RegularFileArtifactValue) o;
-      return size != lastKnown.size || !Objects.equals(proxy, lastKnown.proxy);
     }
   }
 
@@ -536,36 +541,25 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     private final byte[] digest;
     private final long size;
     private final int locationIndex;
-    @Nullable private final PathFragment materializationExecPath;
 
-    private RemoteFileArtifactValue(
-        byte[] digest,
-        long size,
-        int locationIndex,
-        @Nullable PathFragment materializationExecPath) {
-      this.digest = Preconditions.checkNotNull(digest);
+    private RemoteFileArtifactValue(byte[] digest, long size, int locationIndex) {
+      this.digest = checkNotNull(digest);
       this.size = size;
       this.locationIndex = locationIndex;
-      this.materializationExecPath = materializationExecPath;
     }
 
-    public static RemoteFileArtifactValue create(
-        byte[] digest, long size, int locationIndex, long expireAtEpochMilli) {
-      return create(
-          digest, size, locationIndex, expireAtEpochMilli, /* materializationExecPath= */ null);
+    public static RemoteFileArtifactValue create(byte[] digest, long size, int locationIndex) {
+      return new RemoteFileArtifactValue(digest, size, locationIndex);
     }
 
-    @VisibleForTesting
-    public static RemoteFileArtifactValue create(
+    public static RemoteFileArtifactValueWithMaterializationData createWithMaterializationData(
         byte[] digest,
         long size,
         int locationIndex,
         long expireAtEpochMilli,
         @Nullable PathFragment materializationExecPath) {
-      return expireAtEpochMilli < 0
-          ? new RemoteFileArtifactValue(digest, size, locationIndex, materializationExecPath)
-          : new RemoteFileArtifactValueWithExpiration(
-              digest, size, locationIndex, materializationExecPath, expireAtEpochMilli);
+      return new RemoteFileArtifactValueWithMaterializationData(
+          digest, size, locationIndex, materializationExecPath, expireAtEpochMilli);
     }
 
     /**
@@ -575,10 +569,10 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     public static RemoteFileArtifactValue createFromExistingWithMaterializationPath(
         RemoteFileArtifactValue metadata, PathFragment materializationExecPath) {
       checkNotNull(materializationExecPath);
-      if (metadata.materializationExecPath != null) {
+      if (metadata.getMaterializationExecPath().isPresent()) {
         return metadata;
       }
-      return create(
+      return createWithMaterializationData(
           metadata.getDigest(),
           metadata.getSize(),
           metadata.getLocationIndex(),
@@ -598,13 +592,12 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       RemoteFileArtifactValue that = (RemoteFileArtifactValue) o;
       return Arrays.equals(digest, that.digest)
           && size == that.size
-          && locationIndex == that.locationIndex
-          && Objects.equals(materializationExecPath, that.materializationExecPath);
+          && locationIndex == that.locationIndex;
     }
 
     @Override
-    public final int hashCode() {
-      return Objects.hash(Arrays.hashCode(digest), size, locationIndex, materializationExecPath);
+    public int hashCode() {
+      return Objects.hash(Arrays.hashCode(digest), size, locationIndex);
     }
 
     @Override
@@ -618,7 +611,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     }
 
     @Override
-    public final FileContentsProxy getContentsProxy() {
+    public FileContentsProxy getContentsProxy() {
       throw new UnsupportedOperationException();
     }
 
@@ -636,11 +629,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     @Override
     public final int getLocationIndex() {
       return locationIndex;
-    }
-
-    @Override
-    public final Optional<PathFragment> getMaterializationExecPath() {
-      return Optional.ofNullable(materializationExecPath);
     }
 
     /**
@@ -674,28 +662,33 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     }
 
     @Override
-    public final String toString() {
+    public String toString() {
       return MoreObjects.toStringHelper(this)
           .add("digest", bytesToString(digest))
           .add("size", size)
           .add("locationIndex", locationIndex)
-          .add("materializationExecPath", materializationExecPath)
-          .add("expireAtEpochMilli", getExpireAtEpochMilli())
           .toString();
     }
   }
 
-  /** A remote artifact that expires at a particular time. */
-  private static final class RemoteFileArtifactValueWithExpiration extends RemoteFileArtifactValue {
+  /**
+   * A remote artifact that contains additional data for materialization. This is used when the
+   * output mode allows Bazel to materialize remote output to local filesystem.
+   */
+  public static final class RemoteFileArtifactValueWithMaterializationData
+      extends RemoteFileArtifactValue {
+    @Nullable private final PathFragment materializationExecPath;
     private long expireAtEpochMilli;
+    @Nullable private FileContentsProxy proxy;
 
-    private RemoteFileArtifactValueWithExpiration(
+    private RemoteFileArtifactValueWithMaterializationData(
         byte[] digest,
         long size,
         int locationIndex,
         PathFragment materializationExecPath,
         long expireAtEpochMilli) {
-      super(digest, size, locationIndex, materializationExecPath);
+      super(digest, size, locationIndex);
+      this.materializationExecPath = materializationExecPath;
       this.expireAtEpochMilli = expireAtEpochMilli;
     }
 
@@ -706,13 +699,74 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
 
     @Override
     public void extendExpireAtEpochMilli(long expireAtEpochMilli) {
+      if (expireAtEpochMilli < 0) {
+        return;
+      }
       Preconditions.checkState(expireAtEpochMilli > this.expireAtEpochMilli);
       this.expireAtEpochMilli = expireAtEpochMilli;
     }
 
+    /**
+     * Returns a non-null {@link FileContentsProxy} if this remote metadata is backed by a local
+     * file, e.g. the file is materialized after action execution.
+     */
+    @Override
+    public FileContentsProxy getContentsProxy() {
+      return proxy;
+    }
+
+    /**
+     * Sets the {@link FileContentsProxy} if the output backed by this remote metadata is
+     * materialized later.
+     */
+    public void setContentsProxy(FileContentsProxy proxy) {
+      this.proxy = proxy;
+    }
+
     @Override
     public boolean isAlive(Instant now) {
+      if (expireAtEpochMilli < 0) {
+        return true;
+      }
       return now.toEpochMilli() < expireAtEpochMilli;
+    }
+
+    @Override
+    public Optional<PathFragment> getMaterializationExecPath() {
+      return Optional.ofNullable(materializationExecPath);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof RemoteFileArtifactValueWithMaterializationData that)) {
+        return false;
+      }
+
+      return Arrays.equals(getDigest(), that.getDigest())
+          && getSize() == that.getSize()
+          && getLocationIndex() == that.getLocationIndex()
+          && Objects.equals(materializationExecPath, that.materializationExecPath);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(
+          Arrays.hashCode(getDigest()), getSize(), getLocationIndex(), materializationExecPath);
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this)
+          .add("digest", bytesToString(getDigest()))
+          .add("size", getSize())
+          .add("locationIndex", getLocationIndex())
+          .add("materializationExecPath", materializationExecPath)
+          .add("expireAtEpochMilli", expireAtEpochMilli)
+          .add("proxy", proxy)
+          .toString();
     }
   }
 
