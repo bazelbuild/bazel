@@ -267,7 +267,13 @@ public abstract class OptionValueDescription {
                     expandedFrom,
                     effectiveOptionInstance.getCommandLineForm(),
                     parsedOption.getCommandLineForm()));
-          } else if ((optionThatExpandedToEffectiveValue != null) && (expandedFrom != null)) {
+          } else if ((optionThatExpandedToEffectiveValue != null)
+              && (expandedFrom != null)
+              && !(samePriorityCategory
+                  && parsedOption
+                      .getPriority()
+                      .getPriorityCategory()
+                      .equals(PriorityCategory.RC_FILE))) {
             warnings.add(
                 String.format(
                     "%s was expanded from both %s and %s",
@@ -485,5 +491,3 @@ public abstract class OptionValueDescription {
     }
   }
 }
-
-
