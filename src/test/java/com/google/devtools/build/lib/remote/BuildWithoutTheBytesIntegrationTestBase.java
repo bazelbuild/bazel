@@ -923,6 +923,33 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
+  public void downloadMinimal_symlinkToGeneratedFile() throws Exception {
+    writeSymlinkRule();
+    write(
+        "BUILD",
+        "load(':symlink.bzl', 'symlink')",
+        "genrule(",
+        "  name = 'foo',",
+        "  srcs = [],",
+        "  outs = ['out/foo.txt'],",
+        "  cmd = 'echo foo > $@',",
+        ")",
+        "symlink(",
+        "  name = 'foo-link',",
+        "  target_artifact = ':foo',",
+        ")");
+
+    buildTarget("//:foo-link");
+
+    assertOutputsDoNotExist("//:foo");
+    // On Windows, symlinks are replaced with copies and should not result in a download.
+    if (OS.getCurrent() == OS.WINDOWS) {
+      assertOutputsDoNotExist("//:foo-link");
+    }
+    // TODO: Create symlinks lazily on other platforms.
+  }
+
+  @Test
   public void downloadToplevel_symlinkToGeneratedFile() throws Exception {
     setDownloadToplevel();
     writeSymlinkRule();
@@ -944,6 +971,10 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
     assertSymlink("foo-link", getOutputPath("out/foo.txt").asFragment());
     assertValidOutputFile("foo-link", "foo\n");
+    // On Windows, symlinks are replaced with copies, which should not result in two downloads.
+    if (OS.getCurrent() == OS.WINDOWS) {
+      assertOutputsDoNotExist("//:foo");
+    }
 
     // Delete link, re-plant symlink
     getOutputPath("foo-link").delete();
@@ -951,6 +982,9 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
     assertSymlink("foo-link", getOutputPath("out/foo.txt").asFragment());
     assertValidOutputFile("foo-link", "foo\n");
+    if (OS.getCurrent() == OS.WINDOWS) {
+      assertOutputsDoNotExist("//:foo");
+    }
 
     // Delete target, re-download it
     getOutputPath("out/foo.txt").delete();
@@ -958,6 +992,9 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
     assertSymlink("foo-link", getOutputPath("out/foo.txt").asFragment());
     assertValidOutputFile("foo-link", "foo\n");
+    if (OS.getCurrent() == OS.WINDOWS) {
+      assertOutputsDoNotExist("//:foo");
+    }
   }
 
   @Test

@@ -222,12 +222,11 @@ public final class SymlinkAction extends AbstractAction {
         outputPath.delete();
       }
       // If the filesystem doesn't support symlinks, it may attempt to copy the file instead or
-      // create a junction (Windows) for a file, which doesn't work if the file hasn't been
-      // downloaded yet. Instead of forcing a download that would block this action, forward the
-      // existing metadata.
+      // create a junction (Windows) to a file. Instead of forcing a download that would block this
+      // action, forward the existing metadata.
       if (!targetPath.getFileSystem().supportsSymbolicLinksNatively(targetPath.asFragment())
           && !getPrimaryOutput().isDirectory()
-          && getInputs().isSingleton()
+          && getPrimaryInput() != null
           && actionExecutionContext
               .getInputMetadataProvider()
               .getInputMetadata(getPrimaryInput())
