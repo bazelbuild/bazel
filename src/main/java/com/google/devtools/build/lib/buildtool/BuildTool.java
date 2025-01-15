@@ -1288,6 +1288,7 @@ public class BuildTool {
           FrontierSerializer.serializeAndUploadFrontier(
               dependenciesProvider,
               env.getSkyframeExecutor(),
+              env.getVersionGetter(),
               env.getReporter(),
               env.getEventBus());
       if (maybeFailureDetail.isPresent()) {

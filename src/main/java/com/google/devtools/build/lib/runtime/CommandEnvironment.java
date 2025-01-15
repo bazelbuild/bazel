@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.CommandExtensionReporter;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.versioning.LongVersionGetter;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.LocalOutputService;
 import com.google.devtools.build.lib.vfs.OutputService;
@@ -165,6 +166,9 @@ public class CommandEnvironment {
   // List of flags and their values that were added by invocation policy. May contain multiple
   // occurrences of the same flag.
   private ImmutableList<OptionAndRawValue> invocationPolicyFlags = ImmutableList.of();
+
+  @Nullable // Optionally set in `beforeCommand` phase.
+  private LongVersionGetter versionGetter;
 
   /**
    * Gets the {@link RemoteAnalysisCachingEventListener} for this invocation.
@@ -1051,5 +1055,14 @@ public class CommandEnvironment {
   /** Returns the list of registered idle tasks. */
   public ImmutableList<IdleTask> getIdleTasks() {
     return idleTasks.build();
+  }
+
+  public void setVersionGetter(LongVersionGetter versionGetter) {
+    this.versionGetter = versionGetter;
+  }
+
+  @Nullable
+  public LongVersionGetter getVersionGetter() {
+    return versionGetter;
   }
 }

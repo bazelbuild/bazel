@@ -72,6 +72,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/versioning:long_version_getter",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/protobuf:failure_details_java_proto",

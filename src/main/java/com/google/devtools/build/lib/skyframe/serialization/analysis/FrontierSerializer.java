@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.skyframe.serialization.SerializationExcepti
 import com.google.devtools.build.lib.skyframe.serialization.SerializationResult;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingEventListener.SerializedNodeEvent;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
+import com.google.devtools.build.lib.versioning.LongVersionGetter;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.InMemoryNodeEntry;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -84,6 +85,7 @@ public final class FrontierSerializer {
   public static Optional<FailureDetail> serializeAndUploadFrontier(
       RemoteAnalysisCachingDependenciesProvider dependenciesProvider,
       SkyframeExecutor skyframeExecutor,
+      LongVersionGetter unusedVersionGetter,
       Reporter reporter,
       EventBus eventBus)
       throws InterruptedException {

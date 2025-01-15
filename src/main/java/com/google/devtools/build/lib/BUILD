@@ -502,6 +502,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/util/io:io-proto",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
+        "//src/main/java/com/google/devtools/build/lib/versioning:long_version_getter",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:output_service",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
