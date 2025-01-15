@@ -40,6 +40,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValueWithMaterializationData;
+import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
@@ -564,7 +566,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                         directExecutor())
                     .doOnComplete(
                         () -> {
-                          finalizeDownload(tempPath, finalPath, dirsWithOutputPermissions);
+                          finalizeDownload(
+                              metadata, tempPath, finalPath, dirsWithOutputPermissions);
                           alreadyDeleted.set(true);
                         })
                     .doOnError(
@@ -586,7 +589,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
             }));
   }
 
-  private void finalizeDownload(Path tmpPath, Path finalPath, Set<Path> dirsWithOutputPermissions)
+  private void finalizeDownload(
+      FileArtifactValue metadata, Path tmpPath, Path finalPath, Set<Path> dirsWithOutputPermissions)
       throws IOException {
     Path parentDir = checkNotNull(finalPath.getParentDirectory());
 
@@ -616,6 +620,9 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     // for artifacts produced by local actions.
     tmpPath.chmod(outputPermissions.getPermissionsMode());
     FileSystemUtils.moveFile(tmpPath, finalPath);
+    if (metadata instanceof RemoteFileArtifactValueWithMaterializationData remote) {
+      remote.setContentsProxy(FileContentsProxy.create(finalPath.stat()));
+    }
   }
 
   private interface TaskWithTempPath {

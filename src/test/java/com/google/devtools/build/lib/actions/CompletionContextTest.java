@@ -48,10 +48,7 @@ import org.mockito.InOrder;
 public final class CompletionContextTest {
   private static final FileArtifactValue DUMMY_METADATA =
       RemoteFileArtifactValue.create(
-          /* digest= */ new byte[0],
-          /* size= */ 0,
-          /* locationIndex= */ 0,
-          /* expireAtEpochMilli= */ -1);
+          /* digest= */ new byte[0], /* size= */ 0, /* locationIndex= */ 0);
 
   private final ActionInputMap inputMap = new ActionInputMap(BugReporter.defaultInstance(), 0);
   private final Map<Artifact, TreeArtifactValue> treeExpansions = new HashMap<>();
