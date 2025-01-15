@@ -116,27 +116,18 @@ public class WorkerPoolImpl implements WorkerPool {
   }
 
   @Override
-  public Worker borrowObject(WorkerKey key) throws IOException, InterruptedException {
+  public Worker borrowWorker(WorkerKey key) throws IOException, InterruptedException {
     return getPool(key).borrowWorker(key);
   }
 
   @Override
-  public void returnObject(WorkerKey key, Worker obj) {
+  public void returnWorker(WorkerKey key, Worker obj) {
     getPool(key).returnWorker(key, /* worker= */ obj);
   }
 
   @Override
-  public void invalidateObject(WorkerKey key, Worker obj) throws InterruptedException {
-    invalidateWorker(
-        /* worker= */ obj, /* shouldShrinkPool= */ obj.getStatus().isPendingEviction());
-  }
-
-  /**
-   * TODO(b/323880131): This should be the main interface once the we remove the legacy worker pool
-   * implementation.
-   */
-  private void invalidateWorker(Worker worker, boolean shouldShrinkPool) {
-    getPool(worker.getWorkerKey()).invalidateWorker(worker, shouldShrinkPool);
+  public void invalidateWorker(Worker worker) throws InterruptedException {
+    getPool(worker.getWorkerKey()).invalidateWorker(worker, worker.getStatus().isPendingEviction());
   }
 
   @Override

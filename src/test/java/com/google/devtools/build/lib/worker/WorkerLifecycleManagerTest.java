@@ -112,8 +112,8 @@ public final class WorkerLifecycleManagerTest {
         new WorkerPoolImpl(
             factoryMock, new WorkerPoolConfig(entryList(DUMMY_MNEMONIC, 1), emptyEntryList()));
     WorkerKey key = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
-    Worker w1 = workerPool.borrowObject(key);
-    workerPool.returnObject(key, w1);
+    Worker w1 = workerPool.borrowWorker(key);
+    workerPool.returnWorker(key, w1);
     ImmutableList<WorkerProcessMetrics> workerMetrics =
         ImmutableList.of(createWorkerMetric(w1, PROCESS_ID_1, /* memoryInKb= */ 1000));
     WorkerOptions options = new WorkerOptions();
@@ -138,8 +138,8 @@ public final class WorkerLifecycleManagerTest {
         new WorkerPoolImpl(
             factoryMock, new WorkerPoolConfig(entryList(DUMMY_MNEMONIC, 1), emptyEntryList()));
     WorkerKey key = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
-    Worker w1 = workerPool.borrowObject(key);
-    workerPool.returnObject(key, w1);
+    Worker w1 = workerPool.borrowWorker(key);
+    workerPool.returnWorker(key, w1);
 
     ImmutableList<WorkerProcessMetrics> workerMetrics =
         ImmutableList.of(createWorkerMetric(w1, PROCESS_ID_1, /* memoryInKb= */ 1000));
@@ -165,8 +165,8 @@ public final class WorkerLifecycleManagerTest {
         new WorkerPoolImpl(
             factoryMock, new WorkerPoolConfig(entryList(DUMMY_MNEMONIC, 1), emptyEntryList()));
     WorkerKey key = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
-    Worker w1 = workerPool.borrowObject(key);
-    workerPool.returnObject(key, w1);
+    Worker w1 = workerPool.borrowWorker(key);
+    workerPool.returnWorker(key, w1);
 
     ImmutableList<WorkerProcessMetrics> workerMetrics = ImmutableList.of();
     WorkerOptions options = new WorkerOptions();
@@ -191,8 +191,8 @@ public final class WorkerLifecycleManagerTest {
         new WorkerPoolImpl(
             factoryMock, new WorkerPoolConfig(entryList(DUMMY_MNEMONIC, 1), emptyEntryList()));
     WorkerKey key = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
-    Worker w1 = workerPool.borrowObject(key);
-    workerPool.returnObject(key, w1);
+    Worker w1 = workerPool.borrowWorker(key);
+    workerPool.returnWorker(key, w1);
     ImmutableList<WorkerProcessMetrics> workerMetrics =
         ImmutableList.of(createWorkerMetric(w1, PROCESS_ID_1, /* memoryInKb= */ 2000));
     WorkerOptions options = new WorkerOptions();
@@ -218,12 +218,12 @@ public final class WorkerLifecycleManagerTest {
         new WorkerPoolImpl(
             factoryMock, new WorkerPoolConfig(entryList(DUMMY_MNEMONIC, 3), emptyEntryList()));
     WorkerKey key = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
-    Worker w1 = workerPool.borrowObject(key);
-    Worker w2 = workerPool.borrowObject(key);
-    Worker w3 = workerPool.borrowObject(key);
-    workerPool.returnObject(key, w1);
-    workerPool.returnObject(key, w2);
-    workerPool.returnObject(key, w3);
+    Worker w1 = workerPool.borrowWorker(key);
+    Worker w2 = workerPool.borrowWorker(key);
+    Worker w3 = workerPool.borrowWorker(key);
+    workerPool.returnWorker(key, w1);
+    workerPool.returnWorker(key, w2);
+    workerPool.returnWorker(key, w3);
 
     ImmutableList<WorkerProcessMetrics> workerMetrics =
         ImmutableList.of(
@@ -258,14 +258,14 @@ public final class WorkerLifecycleManagerTest {
         new WorkerPoolImpl(
             factoryMock, new WorkerPoolConfig(entryList(DUMMY_MNEMONIC, 4), emptyEntryList()));
     WorkerKey key = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
-    Worker w1 = workerPool.borrowObject(key);
-    Worker w2 = workerPool.borrowObject(key);
-    Worker w3 = workerPool.borrowObject(key);
-    Worker w4 = workerPool.borrowObject(key);
-    workerPool.returnObject(key, w1);
-    workerPool.returnObject(key, w2);
-    workerPool.returnObject(key, w3);
-    workerPool.returnObject(key, w4);
+    Worker w1 = workerPool.borrowWorker(key);
+    Worker w2 = workerPool.borrowWorker(key);
+    Worker w3 = workerPool.borrowWorker(key);
+    Worker w4 = workerPool.borrowWorker(key);
+    workerPool.returnWorker(key, w1);
+    workerPool.returnWorker(key, w2);
+    workerPool.returnWorker(key, w3);
+    workerPool.returnWorker(key, w4);
 
     ImmutableList<WorkerProcessMetrics> workerMetrics =
         ImmutableList.of(
@@ -300,12 +300,12 @@ public final class WorkerLifecycleManagerTest {
     WorkerKey key1 = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
     WorkerKey key2 = createWorkerKey(DUMMY_MNEMONIC, fileSystem, true);
 
-    Worker w1 = workerPool.borrowObject(key1);
-    Worker w2 = workerPool.borrowObject(key2);
-    Worker w3 = workerPool.borrowObject(key2);
-    workerPool.returnObject(key1, w1);
-    workerPool.returnObject(key2, w2);
-    workerPool.returnObject(key2, w3);
+    Worker w1 = workerPool.borrowWorker(key1);
+    Worker w2 = workerPool.borrowWorker(key2);
+    Worker w3 = workerPool.borrowWorker(key2);
+    workerPool.returnWorker(key1, w1);
+    workerPool.returnWorker(key2, w2);
+    workerPool.returnWorker(key2, w3);
 
     ImmutableList<WorkerProcessMetrics> workerMetrics =
         ImmutableList.of(
@@ -341,11 +341,11 @@ public final class WorkerLifecycleManagerTest {
         new WorkerPoolImpl(
             factoryMock, new WorkerPoolConfig(entryList(DUMMY_MNEMONIC, 3), emptyEntryList()));
     WorkerKey key = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
-    Worker w1 = workerPool.borrowObject(key);
-    Worker w2 = workerPool.borrowObject(key);
-    Worker w3 = workerPool.borrowObject(key);
-    workerPool.returnObject(key, w1);
-    workerPool.returnObject(key, w2);
+    Worker w1 = workerPool.borrowWorker(key);
+    Worker w2 = workerPool.borrowWorker(key);
+    Worker w3 = workerPool.borrowWorker(key);
+    workerPool.returnWorker(key, w1);
+    workerPool.returnWorker(key, w2);
 
     ImmutableList<WorkerProcessMetrics> workerMetrics =
         ImmutableList.of(
@@ -382,14 +382,14 @@ public final class WorkerLifecycleManagerTest {
             new WorkerPoolConfig(entryList(DUMMY_MNEMONIC, 2, "smart", 2), emptyEntryList()));
     WorkerKey key1 = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
     WorkerKey key2 = createWorkerKey("smart", fileSystem);
-    Worker w1 = workerPool.borrowObject(key1);
-    Worker w2 = workerPool.borrowObject(key1);
-    Worker w3 = workerPool.borrowObject(key2);
-    Worker w4 = workerPool.borrowObject(key2);
-    workerPool.returnObject(key1, w1);
-    workerPool.returnObject(key1, w2);
-    workerPool.returnObject(key2, w3);
-    workerPool.returnObject(key2, w4);
+    Worker w1 = workerPool.borrowWorker(key1);
+    Worker w2 = workerPool.borrowWorker(key1);
+    Worker w3 = workerPool.borrowWorker(key2);
+    Worker w4 = workerPool.borrowWorker(key2);
+    workerPool.returnWorker(key1, w1);
+    workerPool.returnWorker(key1, w2);
+    workerPool.returnWorker(key2, w3);
+    workerPool.returnWorker(key2, w4);
 
     ImmutableList<WorkerProcessMetrics> workerMetrics =
         ImmutableList.of(
@@ -417,8 +417,8 @@ public final class WorkerLifecycleManagerTest {
     assertThat(workerPool.getIdleWorkers()).containsExactly(w1.getWorkerId(), w4.getWorkerId());
     assertThat(workerPool.getNumActive(key1)).isEqualTo(0);
     assertThat(workerPool.getNumActive(key2)).isEqualTo(0);
-    assertThat(workerPool.borrowObject(key1).getWorkerId()).isEqualTo(w1.getWorkerId());
-    assertThat(workerPool.borrowObject(key2).getWorkerId()).isEqualTo(w4.getWorkerId());
+    assertThat(workerPool.borrowWorker(key1).getWorkerId()).isEqualTo(w1.getWorkerId());
+    assertThat(workerPool.borrowWorker(key2).getWorkerId()).isEqualTo(w4.getWorkerId());
     assertThat(w1.getStatus().isValid()).isTrue();
     assertThat(w2.getStatus().get()).isEqualTo(Status.KILLED_DUE_TO_MEMORY_PRESSURE);
     assertThat(w3.getStatus().get()).isEqualTo(Status.KILLED_DUE_TO_MEMORY_PRESSURE);
@@ -431,8 +431,8 @@ public final class WorkerLifecycleManagerTest {
         new WorkerPoolImpl(
             factoryMock, new WorkerPoolConfig(entryList(DUMMY_MNEMONIC, 2), emptyEntryList()));
     WorkerKey key = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
-    Worker w1 = workerPool.borrowObject(key);
-    Worker w2 = workerPool.borrowObject(key);
+    Worker w1 = workerPool.borrowWorker(key);
+    Worker w2 = workerPool.borrowWorker(key);
 
     ImmutableList<WorkerProcessMetrics> workerMetrics =
         ImmutableList.of(
@@ -456,7 +456,7 @@ public final class WorkerLifecycleManagerTest {
     assertThat(w2.getStatus().get()).isEqualTo(Status.PENDING_KILL_DUE_TO_MEMORY_PRESSURE);
 
     // Return only one worker.
-    workerPool.returnObject(key, w1);
+    workerPool.returnWorker(key, w1);
 
     // w1 gets destroyed when it is returned, so there are 0 idle workers.
     assertThat(workerPool.getIdleWorkers()).isEmpty();
@@ -467,7 +467,7 @@ public final class WorkerLifecycleManagerTest {
     assertThat(w2.getStatus().get()).isEqualTo(Status.PENDING_KILL_DUE_TO_MEMORY_PRESSURE);
 
     // Return the remaining worker.
-    workerPool.returnObject(key, w2);
+    workerPool.returnWorker(key, w2);
     assertThat(w2.getStatus().get()).isEqualTo(Status.KILLED_DUE_TO_MEMORY_PRESSURE);
   }
 
@@ -477,13 +477,13 @@ public final class WorkerLifecycleManagerTest {
         new WorkerPoolImpl(
             factoryMock, new WorkerPoolConfig(entryList(DUMMY_MNEMONIC, 5), emptyEntryList()));
     WorkerKey key = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
-    Worker w1 = workerPool.borrowObject(key);
-    Worker w2 = workerPool.borrowObject(key);
-    Worker w3 = workerPool.borrowObject(key);
-    Worker w4 = workerPool.borrowObject(key);
-    Worker w5 = workerPool.borrowObject(key);
-    workerPool.returnObject(key, w1);
-    workerPool.returnObject(key, w2);
+    Worker w1 = workerPool.borrowWorker(key);
+    Worker w2 = workerPool.borrowWorker(key);
+    Worker w3 = workerPool.borrowWorker(key);
+    Worker w4 = workerPool.borrowWorker(key);
+    Worker w5 = workerPool.borrowWorker(key);
+    workerPool.returnWorker(key, w1);
+    workerPool.returnWorker(key, w2);
 
     ImmutableList<WorkerProcessMetrics> workerMetrics =
         ImmutableList.of(
@@ -527,14 +527,14 @@ public final class WorkerLifecycleManagerTest {
             factoryMock, new WorkerPoolConfig(emptyEntryList(), entryList(DUMMY_MNEMONIC, 2)));
     WorkerKey key =
         createWorkerKey(DUMMY_MNEMONIC, fileSystem, /* multiplex= */ true, /* sandboxed= */ false);
-    Worker w1 = workerPool.borrowObject(key);
-    Worker w2 = workerPool.borrowObject(key);
+    Worker w1 = workerPool.borrowWorker(key);
+    Worker w2 = workerPool.borrowWorker(key);
 
     // Multiplex workers should share the same status instance.
     assertThat(w1.getStatus()).isSameInstanceAs(w2.getStatus());
 
-    workerPool.returnObject(key, w1);
-    workerPool.returnObject(key, w2);
+    workerPool.returnWorker(key, w1);
+    workerPool.returnWorker(key, w2);
     ImmutableList<WorkerProcessMetrics> workerMetrics =
         ImmutableList.of(
             createMultiplexWorkerMetric(
@@ -558,13 +558,13 @@ public final class WorkerLifecycleManagerTest {
             factoryMock, new WorkerPoolConfig(emptyEntryList(), entryList(DUMMY_MNEMONIC, 2)));
     WorkerKey key =
         createWorkerKey(DUMMY_MNEMONIC, fileSystem, /* multiplex= */ true, /* sandboxed= */ false);
-    Worker w1 = workerPool.borrowObject(key);
-    Worker w2 = workerPool.borrowObject(key);
+    Worker w1 = workerPool.borrowWorker(key);
+    Worker w2 = workerPool.borrowWorker(key);
 
     // Multiplex workers should share the same status instance.
     assertThat(w1.getStatus()).isSameInstanceAs(w2.getStatus());
 
-    workerPool.returnObject(key, w1);
+    workerPool.returnWorker(key, w1);
     ImmutableList<WorkerProcessMetrics> workerMetrics =
         ImmutableList.of(
             createMultiplexWorkerMetric(
@@ -582,7 +582,7 @@ public final class WorkerLifecycleManagerTest {
     // Not yet killed because w2 is still alive (and both share a WorkerProcessStatus).
     assertThat(w1.getStatus().get()).isEqualTo(Status.PENDING_KILL_DUE_TO_MEMORY_PRESSURE);
 
-    workerPool.returnObject(key, w2);
+    workerPool.returnWorker(key, w2);
     assertThat(workerPool.getIdleWorkers()).isEmpty();
     assertThat(workerPool.getNumActive(key)).isEqualTo(0);
     // Status is only set to killed after the last worker proxy is destroyed.
