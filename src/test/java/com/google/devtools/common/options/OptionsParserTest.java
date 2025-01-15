@@ -1459,7 +1459,7 @@ public final class OptionsParserTest {
     parser.parse("--first", "--second");
     assertThat(parser.getWarnings())
         .containsExactly(
-            "option '--underlying' was expanded to from both option '--first' and option "
+            "option '--underlying' was expanded from both option '--first' and option "
                 + "'--second'");
   }
 

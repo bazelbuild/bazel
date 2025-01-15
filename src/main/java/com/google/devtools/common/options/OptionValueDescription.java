@@ -270,7 +270,7 @@ public abstract class OptionValueDescription {
           } else if ((optionThatExpandedToEffectiveValue != null) && (expandedFrom != null)) {
             warnings.add(
                 String.format(
-                    "%s was expanded to from both %s and %s",
+                    "%s was expanded from both %s and %s",
                     optionDefinition, optionThatExpandedToEffectiveValue, expandedFrom));
           }
         }
