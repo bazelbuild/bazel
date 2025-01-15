@@ -880,9 +880,10 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     private final DeterministicWriter writer;
     private final long size;
     private final byte[] digest;
+    private final boolean isExecutable;
 
     public static FileWriteOutputArtifactValue hashAndCreate(
-        DeterministicWriter writer, HashFunction hashFunction) {
+        DeterministicWriter writer, HashFunction hashFunction, boolean isExecutable) {
       long size;
       byte[] digest;
       try (CountingOutputStream countingOut =
@@ -895,13 +896,15 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
         // The output streams don't throw IOExceptions, so this should never happen.
         throw new IllegalStateException(e);
       }
-      return new FileWriteOutputArtifactValue(writer, size, digest);
+      return new FileWriteOutputArtifactValue(writer, size, digest, isExecutable);
     }
 
-    private FileWriteOutputArtifactValue(DeterministicWriter writer, long size, byte[] digest) {
+    private FileWriteOutputArtifactValue(
+        DeterministicWriter writer, long size, byte[] digest, boolean isExecutable) {
       this.writer = writer;
       this.size = size;
       this.digest = digest;
+      this.isExecutable = isExecutable;
     }
 
     @Override
@@ -919,6 +922,11 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       return size;
     }
 
+    public boolean isExecutable() {
+      return isExecutable;
+    }
+
+    @Override
     public void writeTo(OutputStream out) throws IOException {
       writer.writeOutputFile(out);
     }
