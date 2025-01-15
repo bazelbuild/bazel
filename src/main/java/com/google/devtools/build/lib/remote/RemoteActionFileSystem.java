@@ -306,7 +306,12 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat
       return;
     }
     var metadata =
-        RemoteFileArtifactValue.create(digest, size, /* locationIndex= */ 1, expireAtEpochMilli);
+        RemoteFileArtifactValue.createWithMaterializationData(
+            digest,
+            size,
+            /* locationIndex= */ 1,
+            expireAtEpochMilli,
+            /* materializationExecPath= */ null);
     remoteOutputTree.injectFile(path, metadata);
   }
 

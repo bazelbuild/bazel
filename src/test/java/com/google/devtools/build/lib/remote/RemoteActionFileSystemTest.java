@@ -1332,8 +1332,12 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     int size = Utf8.encodedLength(content);
     ((RemoteActionFileSystem) actionFs)
         .injectRemoteFile(path, digest, size, /* expireAtEpochMilli= */ -1);
-    return RemoteFileArtifactValue.create(
-        digest, size, /* locationIndex= */ 1, /* expireAtEpochMilli= */ -1);
+    return RemoteFileArtifactValue.createWithMaterializationData(
+        digest,
+        size,
+        /* locationIndex= */ 1,
+        /* expireAtEpochMilli= */ -1,
+        /* materializationExecPath= */ null);
   }
 
   @Override
@@ -1349,11 +1353,12 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
       String pathFragment, String content, ActionInputMap inputs) {
     Artifact a = ActionsTestUtil.createArtifact(outputRoot, pathFragment);
     RemoteFileArtifactValue f =
-        RemoteFileArtifactValue.create(
+        RemoteFileArtifactValue.createWithMaterializationData(
             getDigest(content),
             Utf8.encodedLength(content),
             /* locationIndex= */ 1,
-            /* expireAtEpochMilli= */ -1);
+            /* expireAtEpochMilli= */ -1,
+            /* materializationExecPath= */ null);
     inputs.putWithNoDepOwner(a, f);
     return a;
   }
@@ -1374,11 +1379,12 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
       TreeFileArtifact child = TreeFileArtifact.createTreeOutput(a, entry.getKey());
       String content = entry.getValue();
       RemoteFileArtifactValue childMeta =
-          RemoteFileArtifactValue.create(
+          RemoteFileArtifactValue.createWithMaterializationData(
               getDigest(content),
               Utf8.encodedLength(content),
               /* locationIndex= */ 0,
-              /* expireAtEpochMilli= */ -1);
+              /* expireAtEpochMilli= */ -1,
+              /* materializationExecPath= */ null);
       builder.putChild(child, childMeta);
     }
     return builder.build();
