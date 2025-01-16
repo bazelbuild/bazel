@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Utf8;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.actions.FileValue;
@@ -22,6 +23,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.AutoloadSymbols;
 import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -35,6 +37,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.syntax.FileOptions;
+import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.Program;
 import net.starlark.java.syntax.StarlarkFile;
@@ -142,6 +145,25 @@ public class BzlCompileFunction implements SkyFunction {
     StarlarkSemantics semantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     if (semantics == null) {
       return null;
+    }
+
+    switch (semantics.get(BuildLanguageOptions.INCOMPATIBLE_ENFORCE_UTF8)) {
+      case OFF -> {}
+      case WARNING -> {
+        if (!Utf8.isWellFormed(bytes)) {
+          env.getListener()
+              .handle(
+                  Event.warn(
+                      Location.fromFile(inputName),
+                      "not a valid UTF-8 encoded file; this can lead to inconsistent behavior and will be disallowed in a future version of Bazel"));
+        }
+      }
+      case ERROR -> {
+        if (!Utf8.isWellFormed(bytes)) {
+          return BzlCompileValue.noFile(
+              "compilation of module '%s' failed: not a valid UTF-8 encoded file", inputName);
+        }
+      }
     }
 
     ImmutableMap<String, Object> predeclared;
