@@ -480,6 +480,14 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.UNKNOWN},
         help = "Do not use.")
     public String javaOptimizationMode;
+
+    @Option(
+        name = "experimental_action_resource_set",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public boolean experimentalActionResourceSet;
   }
 
   @Override

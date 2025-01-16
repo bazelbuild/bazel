@@ -392,7 +392,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
             .build());
     scratch.file("BUILD", "cc_library(name = 'cclib',", "  srcs = ['r/my_sub_lib.h'])");
     invalidatePackages(
-        /*alsoConfigs=*/ false); // Repository shuffling messes with toolchain labels.
+        /* alsoConfigs= */ false); // Repository shuffling messes with toolchain labels.
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//:cclib");
     assertContainsEvent(
@@ -413,7 +413,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
             .add("local_repository(name='r', path='/r')")
             .build());
     invalidatePackages(
-        /*alsoConfigs=*/ false); // Repository shuffling messes with toolchain labels.
+        /* alsoConfigs= */ false); // Repository shuffling messes with toolchain labels.
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("@r//:cclib");
     assertContainsEvent(
@@ -688,7 +688,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testCreateStarlarkActionArgumentsWithResourceSet_success() throws Exception {
-    setBuildLanguageOptions("--experimental_action_resource_set");
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
 
@@ -714,8 +713,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCreateStarlarkActionArgumentsWithResourceSet_flagDisabled() throws Exception {
-    setBuildLanguageOptions("--noexperimental_action_resource_set");
+  public void testCreateStarlarkActionArgumentsWithResourceSet_noneResourceSet() throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
 
@@ -727,7 +725,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "ruleContext.actions.run(",
         "  inputs = ruleContext.files.srcs,",
         "  outputs = ruleContext.files.srcs,",
-        "  resource_set = get_resources,",
+        "  resource_set = None,",
         "  executable = 'executable')");
     StarlarkAction action =
         (StarlarkAction)
@@ -740,7 +738,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testCreateStarlarkActionArgumentsWithResourceSet_lambdaForbidden() throws Exception {
-    setBuildLanguageOptions("--experimental_action_resource_set");
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
 
@@ -761,7 +758,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testCreateStarlarkActionArgumentsWithResourceSet_illegalResource() throws Exception {
-    setBuildLanguageOptions("--experimental_action_resource_set");
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
 
@@ -787,7 +783,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testCreateStarlarkActionArgumentsWithResourceSet_defaultValue() throws Exception {
-    setBuildLanguageOptions("--experimental_action_resource_set");
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
 
@@ -810,7 +805,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testCreateStarlarkActionArgumentsWithResourceSet_intDict() throws Exception {
-    setBuildLanguageOptions("--experimental_action_resource_set");
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
 
@@ -833,7 +827,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testCreateStarlarkActionArgumentsWithResourceSet_notDict() throws Exception {
-    setBuildLanguageOptions("--experimental_action_resource_set");
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
 
@@ -859,7 +852,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testCreateStarlarkActionArgumentsWithResourceSet_wrongDict() throws Exception {
-    setBuildLanguageOptions("--experimental_action_resource_set");
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
 
@@ -886,7 +878,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   @Test
   public void testCreateStarlarkActionArgumentsWithResourceSet_incorrectSignature()
       throws Exception {
-    setBuildLanguageOptions("--experimental_action_resource_set");
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
 
@@ -1082,7 +1073,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     assertThat(fragment.getPathString()).isEqualTo("foo/a/c");
     assertThat(artifact.isTreeArtifact()).isTrue();
   }
-
 
   @Test
   public void testParamFileSuffix() throws Exception {
@@ -1637,7 +1627,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
             .build());
 
     invalidatePackages(
-        /*alsoConfigs=*/ false); // Repository shuffling messes with toolchain labels.
+        /* alsoConfigs= */ false); // Repository shuffling messes with toolchain labels.
     setRuleContext(createRuleContext("@r//a:r"));
     Label depLabel = (Label) ev.eval("ruleContext.attr.internal_dep.label");
     assertThat(depLabel).isEqualTo(Label.parseCanonical("//:dep"));
@@ -1648,7 +1638,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     // RepositoryDelegatorFunction deletes and creates symlink for the repository and as such is not
     // safe to execute in parallel. Disable checks with package loader to avoid parallel
     // evaluations.
-    initializeSkyframeExecutor(/*doPackageLoadingChecks=*/ false);
+    initializeSkyframeExecutor(/* doPackageLoadingChecks= */ false);
     scratch.file(
         "/r1/BUILD",
         "filegroup(name = 'test',",
@@ -1680,7 +1670,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
             .build());
 
     invalidatePackages(
-        /*alsoConfigs=*/ false); // Repository shuffling messes with toolchain labels.
+        /* alsoConfigs= */ false); // Repository shuffling messes with toolchain labels.
     assertThat(getConfiguredTarget("@r1//:test")).isNotNull();
   }
 
@@ -1702,7 +1692,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
             .build());
 
     invalidatePackages(
-        /*alsoConfigs=*/ false); // Repository shuffling messes with toolchain labels.
+        /* alsoConfigs= */ false); // Repository shuffling messes with toolchain labels.
     assertThat(
             (List)
                 getConfiguredTargetAndData("@foo//:baz")
@@ -1723,7 +1713,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
             .add("local_repository(name = 'foo', path = '/baz')")
             .build());
 
-    invalidatePackages(/*alsoConfigs=*/ false); // Repository shuffling messes with toolchains.
+    invalidatePackages(/* alsoConfigs= */ false); // Repository shuffling messes with toolchains.
     assertThrows(Exception.class, () -> createRuleContext("@foo//:baz"));
     assertContainsEvent(
         "Cannot redefine repository after any load statement in the WORKSPACE file "
