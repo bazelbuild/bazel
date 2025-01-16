@@ -106,6 +106,18 @@ java_library(
 )
 
 java_library(
+    name = "invalidation_data_reference_or_future",
+    srcs = ["InvalidationDataInfoOrFuture.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/concurrent:settable_future_keyed_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:filesystem_keys",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "file_dependency_deserializer",
     srcs = [
         "FileDependencies.java",
