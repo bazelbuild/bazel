@@ -649,7 +649,7 @@ public sealed class JavaInfo extends NativeInfo
 
     private Builder() {}
 
-    public static Builder create() {
+    private static Builder create() {
       return new Builder()
           .setRuntimeJars(ImmutableList.of())
           .setJavaConstraints(ImmutableList.of());
