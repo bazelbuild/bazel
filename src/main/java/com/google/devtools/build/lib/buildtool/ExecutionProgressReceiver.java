@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.buildtool;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.actions.ActionChangePrunedEvent;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
@@ -145,6 +146,13 @@ public final class ExecutionProgressReceiver
               ConfiguredTargetKey.fromConfiguredTarget(
                   ((ConfiguredTargetValue) buildDriverValue.getWrappedSkyValue())
                       .getConfiguredTarget())));
+    }
+  }
+
+  @Override
+  public void changePruned(SkyKey skyKey) {
+    if (skyKey.functionName().equals(SkyFunctions.ACTION_EXECUTION)) {
+      eventBus.post(new ActionChangePrunedEvent((ActionLookupData) skyKey.argument()));
     }
   }
 

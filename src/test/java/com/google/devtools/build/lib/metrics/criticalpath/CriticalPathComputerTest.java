@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionChangePrunedEvent;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupData;
@@ -61,7 +62,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.time.Duration;
 import java.time.Instant;
@@ -940,7 +940,7 @@ public class CriticalPathComputerTest extends FoundationTestCase {
   }
 
   @Test
-  public void testChangePruning(@TestParameter boolean queryGraph) throws Exception {
+  public void testChangePruning() throws Exception {
     MockAction action1 =
         new MockAction(ImmutableSet.of(), ImmutableSet.of(derivedArtifact("test/action1.out")));
     MockAction action2 =
@@ -1021,7 +1021,6 @@ public class CriticalPathComputerTest extends FoundationTestCase {
                 throw new UnsupportedOperationException();
               }
             });
-    computer.setQueryGraph(queryGraph);
 
     // Action 1 - 0s - 1s
     long action1Start = clock.nanoTime();
@@ -1046,6 +1045,8 @@ public class CriticalPathComputerTest extends FoundationTestCase {
             new FakeActionInputFileCache(),
             mock(ActionLookupData.class)));
     // Action 3 - 3s - 3s, change pruned, no events
+    computer.actionChangePruned(
+        new ActionChangePrunedEvent(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA));
     // Action 4 - 3s - 6s
     long action4Start = clock.nanoTime();
     computer.actionStarted(new ActionStartedEvent(action4, action4Start));
@@ -1058,44 +1059,24 @@ public class CriticalPathComputerTest extends FoundationTestCase {
             new FakeActionInputFileCache(),
             mock(ActionLookupData.class)));
 
-    if (queryGraph) {
-      // The total run time should be 6s (Action 1 + Action 2 + Action 4) since Action 3 is
-      // change-pruned.
-      assertThat(computer.getMaxCriticalPath().getAggregatedElapsedTime())
-          .isEqualTo(Duration.ofSeconds(6));
-      AggregatedCriticalPath criticalPath = computer.aggregate();
-      assertThat(criticalPath.components()).hasSize(4);
-      // Action 4 has a run time of 3 seconds
-      assertThat(criticalPath.components().get(0).prettyPrintAction()).contains("action4.out");
-      assertThat(criticalPath.components().get(0).getElapsedTime())
-          .isEqualTo(Duration.ofSeconds(3));
-      // Action 3 has a run time of 0 seconds
-      assertThat(criticalPath.components().get(1).prettyPrintAction()).contains("action3.out");
-      assertThat(criticalPath.components().get(1).getElapsedTime()).isEqualTo(Duration.ZERO);
-      // Action 2 has a run time of 2 seconds
-      assertThat(criticalPath.components().get(2).prettyPrintAction()).contains("action2.out");
-      assertThat(criticalPath.components().get(2).getElapsedTime())
-          .isEqualTo(Duration.ofSeconds(2));
-      // Action 1 has a run time of 1 seconds
-      assertThat(criticalPath.components().get(3).prettyPrintAction()).contains("action1.out");
-      assertThat(criticalPath.components().get(3).getElapsedTime())
-          .isEqualTo(Duration.ofSeconds(1));
-    } else {
-      // The total run time should be 3s (Action 1 + Action 4) since Action 3 is change-pruned and
-      // queryGraph is false.
-      assertThat(computer.getMaxCriticalPath().getAggregatedElapsedTime())
-          .isEqualTo(Duration.ofSeconds(4));
-      AggregatedCriticalPath criticalPath = computer.aggregate();
-      assertThat(criticalPath.components()).hasSize(2);
-      // Action 4 has a run time of 3 seconds
-      assertThat(criticalPath.components().get(0).prettyPrintAction()).contains("action4.out");
-      assertThat(criticalPath.components().get(0).getElapsedTime())
-          .isEqualTo(Duration.ofSeconds(3));
-      // Action 1 has a run time of 1 seconds
-      assertThat(criticalPath.components().get(1).prettyPrintAction()).contains("action1.out");
-      assertThat(criticalPath.components().get(1).getElapsedTime())
-          .isEqualTo(Duration.ofSeconds(1));
-    }
+    // The total run time should be 6s (Action 1 + Action 2 + Action 4) since Action 3 is
+    // change-pruned.
+    assertThat(computer.getMaxCriticalPath().getAggregatedElapsedTime())
+        .isEqualTo(Duration.ofSeconds(6));
+    AggregatedCriticalPath criticalPath = computer.aggregate();
+    assertThat(criticalPath.components()).hasSize(4);
+    // Action 4 has a run time of 3 seconds
+    assertThat(criticalPath.components().get(0).prettyPrintAction()).contains("action4.out");
+    assertThat(criticalPath.components().get(0).getElapsedTime()).isEqualTo(Duration.ofSeconds(3));
+    // Action 3 has a run time of 0 seconds
+    assertThat(criticalPath.components().get(1).prettyPrintAction()).contains("action3.out");
+    assertThat(criticalPath.components().get(1).getElapsedTime()).isEqualTo(Duration.ZERO);
+    // Action 2 has a run time of 2 seconds
+    assertThat(criticalPath.components().get(2).prettyPrintAction()).contains("action2.out");
+    assertThat(criticalPath.components().get(2).getElapsedTime()).isEqualTo(Duration.ofSeconds(2));
+    // Action 1 has a run time of 1 seconds
+    assertThat(criticalPath.components().get(3).prettyPrintAction()).contains("action1.out");
+    assertThat(criticalPath.components().get(3).getElapsedTime()).isEqualTo(Duration.ofSeconds(1));
   }
 
   private void simulateActionExec(Action action, int totalTime) throws InterruptedException {

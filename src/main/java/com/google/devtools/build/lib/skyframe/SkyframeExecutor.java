@@ -3292,6 +3292,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       }
     }
 
+    @Override
+    public void changePruned(SkyKey skyKey) {
+      if (executionProgressReceiver != null) {
+        executionProgressReceiver.changePruned(skyKey);
+      }
+    }
+
     private void maybeDropGenQueryDep(SkyValue newValue, GroupedDeps directDeps) {
       if (!(newValue instanceof RuleConfiguredTargetValue)) {
         return;

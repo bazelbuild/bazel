@@ -36,6 +36,7 @@ java_library(
         "ActionCacheAwareAction.java",
         "ActionCacheChecker.java",
         "ActionCacheUtils.java",
+        "ActionChangePrunedEvent.java",
         "ActionCompletionEvent.java",
         "ActionConcurrencyMeter.java",
         "ActionConflictException.java",
