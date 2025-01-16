@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.actions.FileStateType.SYMLINK;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencyKeySupport.DIRECTORY_KEY_DELIMITER;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencyKeySupport.FILE_KEY_DELIMITER;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencyKeySupport.MAX_KEY_LENGTH;
-import static com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencyKeySupport.MTSV_SENTINEL;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencyKeySupport.computeCacheKey;
 import static com.google.devtools.build.lib.vfs.RootedPath.toRootedPath;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -43,6 +42,7 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.Invalidatio
 import com.google.devtools.build.lib.skyframe.serialization.proto.DirectoryListingInvalidationData;
 import com.google.devtools.build.lib.skyframe.serialization.proto.FileInvalidationData;
 import com.google.devtools.build.lib.skyframe.serialization.proto.Symlink;
+import com.google.devtools.build.lib.versioning.LongVersionGetter;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.InMemoryGraph;
@@ -145,7 +145,7 @@ final class FileDependencySerializer {
           registerDependency(FileValue.key(rootedPath.getParentDirectory()));
       if (parentReference != null) {
         long mtsv = parentReference.getMtsv();
-        if (mtsv != MTSV_SENTINEL) {
+        if (mtsv != LongVersionGetter.MINIMAL) {
           data.setParentMtsv(parentReference.getMtsv());
         }
         writeStatuses.add(parentReference);
@@ -208,7 +208,7 @@ final class FileDependencySerializer {
           registerDependency(FileValue.key(key.argument()));
       if (fileReference != null) {
         long mtsv = fileReference.getMtsv();
-        if (mtsv != MTSV_SENTINEL) {
+        if (mtsv != LongVersionGetter.MINIMAL) {
           data.setFileMtsv(fileReference.getMtsv());
         }
       }
@@ -326,7 +326,7 @@ final class FileDependencySerializer {
                 unresolvedTargetParent);
         ancestorDeps.add(parentReference);
         long parentMtsv = parentReference.getMtsv();
-        if (parentMtsv != MTSV_SENTINEL) {
+        if (parentMtsv != LongVersionGetter.MINIMAL) {
           symlinkData.setParentMtsv(parentReference.getMtsv());
         }
         RootedPath resolvedParentRootedPath = parentReference.getRealPath();
