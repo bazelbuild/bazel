@@ -290,9 +290,7 @@ public final class ActionOutputMetadataStoreTest {
     assertThat(chmodCalls).containsExactly(outputPath, 0555);
 
     // Inject a remote file of size 42.
-    store.injectFile(
-        artifact,
-        RemoteFileArtifactValue.create(new byte[] {1, 2, 3}, 42, 0, /* expireAtEpochMilli= */ -1));
+    store.injectFile(artifact, RemoteFileArtifactValue.create(new byte[] {1, 2, 3}, 42, 0));
     assertThat(store.getOutputMetadata(artifact).getSize()).isEqualTo(42);
 
     // Reset this output, which will make the store stat the file again.
@@ -313,9 +311,7 @@ public final class ActionOutputMetadataStoreTest {
     byte[] digest = new byte[] {1, 2, 3};
     int size = 10;
     store.injectFile(
-        artifact,
-        RemoteFileArtifactValue.create(
-            digest, size, /* locationIndex= */ 1, /* expireAtEpochMilli= */ -1));
+        artifact, RemoteFileArtifactValue.create(digest, size, /* locationIndex= */ 1));
 
     FileArtifactValue v = store.getOutputMetadata(artifact);
     assertThat(v).isNotNull();
@@ -333,8 +329,7 @@ public final class ActionOutputMetadataStoreTest {
     ActionOutputMetadataStore store = createStore(/* outputs= */ ImmutableSet.of(treeArtifact));
     store.prepareForActionExecution();
 
-    RemoteFileArtifactValue childValue =
-        RemoteFileArtifactValue.create(new byte[] {1, 2, 3}, 5, 1, /* expireAtEpochMilli= */ -1);
+    RemoteFileArtifactValue childValue = RemoteFileArtifactValue.create(new byte[] {1, 2, 3}, 5, 1);
 
     assertThrows(IllegalArgumentException.class, () -> store.injectFile(child, childValue));
     assertThat(store.getAllArtifactData()).isEmpty();
@@ -353,8 +348,7 @@ public final class ActionOutputMetadataStoreTest {
     ActionOutputMetadataStore store = createStore(/* outputs= */ ImmutableSet.of(treeArtifact));
     store.prepareForActionExecution();
 
-    RemoteFileArtifactValue value =
-        RemoteFileArtifactValue.create(new byte[] {1, 2, 3}, 5, 1, /* expireAtEpochMilli= */ -1);
+    RemoteFileArtifactValue value = RemoteFileArtifactValue.create(new byte[] {1, 2, 3}, 5, 1);
     store.injectFile(output, value);
 
     assertThat(store.getAllArtifactData()).containsExactly(output, value);
@@ -373,12 +367,10 @@ public final class ActionOutputMetadataStoreTest {
         TreeArtifactValue.newBuilder(treeArtifact)
             .putChild(
                 TreeFileArtifact.createTreeOutput(treeArtifact, "foo"),
-                RemoteFileArtifactValue.create(
-                    new byte[] {1, 2, 3}, 5, 1, /* expireAtEpochMilli= */ -1))
+                RemoteFileArtifactValue.create(new byte[] {1, 2, 3}, 5, 1))
             .putChild(
                 TreeFileArtifact.createTreeOutput(treeArtifact, "bar"),
-                RemoteFileArtifactValue.create(
-                    new byte[] {4, 5, 6}, 10, 1, /* expireAtEpochMilli= */ -1))
+                RemoteFileArtifactValue.create(new byte[] {4, 5, 6}, 10, 1))
             .build();
 
     store.injectTree(treeArtifact, tree);
@@ -452,7 +444,7 @@ public final class ActionOutputMetadataStoreTest {
       case LOCAL:
         return FileArtifactValue.createForNormalFile(new byte[] {1, 2, 3}, /* proxy= */ null, 10);
       case REMOTE:
-        return RemoteFileArtifactValue.create(
+        return RemoteFileArtifactValue.createWithMaterializationData(
             new byte[] {1, 2, 3}, 10, 1, -1, materializationExecPath);
     }
     throw new AssertionError();
@@ -522,9 +514,9 @@ public final class ActionOutputMetadataStoreTest {
         FileArtifactValue.createForNormalFile(new byte[] {1, 2, 3}, /* proxy= */ null, 20);
 
     RemoteFileArtifactValue remoteMetadata1 =
-        RemoteFileArtifactValue.create(new byte[] {1, 2, 3}, 10, 1, -1);
+        RemoteFileArtifactValue.create(new byte[] {1, 2, 3}, 10, 1);
     RemoteFileArtifactValue remoteMetadata2 =
-        RemoteFileArtifactValue.create(new byte[] {4, 5, 6}, 20, 1, -1);
+        RemoteFileArtifactValue.create(new byte[] {4, 5, 6}, 20, 1);
 
     switch (composition) {
       case EMPTY:

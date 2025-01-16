@@ -212,7 +212,7 @@ public class CompactPersistentActionCacheTest {
             .getHashFunction()
             .hashBytes(bytes)
             .asBytes();
-    return RemoteFileArtifactValue.create(
+    return RemoteFileArtifactValue.createWithMaterializationData(
         digest, bytes.length, 1, expireAtEpochMilli, materializationExecPath);
   }
 

@@ -54,16 +54,10 @@ import org.junit.runners.JUnit4;
 public final class ActionExecutionValueTest {
   private static final FileArtifactValue VALUE_1_REMOTE =
       RemoteFileArtifactValue.create(
-          /* digest= */ new byte[0],
-          /* size= */ 0,
-          /* locationIndex= */ 1,
-          /* expireAtEpochMilli= */ -1);
+          /* digest= */ new byte[0], /* size= */ 0, /* locationIndex= */ 1);
   private static final FileArtifactValue VALUE_2_REMOTE =
       RemoteFileArtifactValue.create(
-          /* digest= */ new byte[0],
-          /* size= */ 0,
-          /* locationIndex= */ 2,
-          /* expireAtEpochMilli= */ -1);
+          /* digest= */ new byte[0], /* size= */ 0, /* locationIndex= */ 2);
 
   private static final ActionLookupKey KEY = ActionsTestUtil.NULL_ARTIFACT_OWNER;
   private static final ActionLookupData ACTION_LOOKUP_DATA_1 = ActionLookupData.create(KEY, 1);

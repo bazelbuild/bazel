@@ -89,8 +89,18 @@ public final class FileArtifactValueTest {
             FileArtifactValue.createForDirectoryWithMtime(2))
         .addEqualityGroup(
             // expireAtEpochMilli doesn't contribute to the equality
-            RemoteFileArtifactValue.create(toBytes("00112233445566778899AABBCCDDEEFF"), 1, 1, 1),
-            RemoteFileArtifactValue.create(toBytes("00112233445566778899AABBCCDDEEFF"), 1, 1, 2))
+            RemoteFileArtifactValue.createWithMaterializationData(
+                toBytes("00112233445566778899AABBCCDDEEFF"),
+                1,
+                1,
+                1,
+                /* materializationExecPath= */ null),
+            RemoteFileArtifactValue.createWithMaterializationData(
+                toBytes("00112233445566778899AABBCCDDEEFF"),
+                1,
+                1,
+                2,
+                /* materializationExecPath= */ null))
         .addEqualityGroup(FileArtifactValue.OMITTED_FILE_MARKER)
         .addEqualityGroup(FileArtifactValue.MISSING_FILE_MARKER)
         .addEqualityGroup(FileArtifactValue.DEFAULT_MIDDLEMAN)
@@ -152,7 +162,7 @@ public final class FileArtifactValueTest {
 
   @Test
   public void testDirectory() throws Exception {
-    Path path = scratchDir("/dir", /*mtime=*/ 1L);
+    Path path = scratchDir("/dir", /* mtime= */ 1L);
     FileArtifactValue value = createForTesting(path);
     assertThat(value.getDigest()).isNull();
     assertThat(value.getModifiedTime()).isEqualTo(1L);
@@ -272,9 +282,9 @@ public final class FileArtifactValueTest {
   @Test
   public void addToFingerprint_equalByDigest() throws Exception {
     FileArtifactValue value1 =
-        FileArtifactValue.createForTesting(scratchFile("/dir/file1", /*mtime=*/ 1, "content"));
+        FileArtifactValue.createForTesting(scratchFile("/dir/file1", /* mtime= */ 1, "content"));
     FileArtifactValue value2 =
-        FileArtifactValue.createForTesting(scratchFile("/dir/file2", /*mtime=*/ 2, "content"));
+        FileArtifactValue.createForTesting(scratchFile("/dir/file2", /* mtime= */ 2, "content"));
     Fingerprint fingerprint1 = new Fingerprint();
     Fingerprint fingerprint2 = new Fingerprint();
 
@@ -289,9 +299,9 @@ public final class FileArtifactValueTest {
   @Test
   public void addToFingerprint_notEqualByDigest() throws Exception {
     FileArtifactValue value1 =
-        FileArtifactValue.createForTesting(scratchFile("/dir/file1", /*mtime=*/ 1, "content1"));
+        FileArtifactValue.createForTesting(scratchFile("/dir/file1", /* mtime= */ 1, "content1"));
     FileArtifactValue value2 =
-        FileArtifactValue.createForTesting(scratchFile("/dir/file2", /*mtime=*/ 1, "content2"));
+        FileArtifactValue.createForTesting(scratchFile("/dir/file2", /* mtime= */ 1, "content2"));
     Fingerprint fingerprint1 = new Fingerprint();
     Fingerprint fingerprint2 = new Fingerprint();
 
@@ -306,9 +316,9 @@ public final class FileArtifactValueTest {
   @Test
   public void addToFingerprint_equalByMtime() throws Exception {
     FileArtifactValue value1 =
-        FileArtifactValue.createForTesting(scratchDir("/dir1", /*mtime=*/ 1));
+        FileArtifactValue.createForTesting(scratchDir("/dir1", /* mtime= */ 1));
     FileArtifactValue value2 =
-        FileArtifactValue.createForTesting(scratchDir("/dir2", /*mtime=*/ 1));
+        FileArtifactValue.createForTesting(scratchDir("/dir2", /* mtime= */ 1));
     Fingerprint fingerprint1 = new Fingerprint();
     Fingerprint fingerprint2 = new Fingerprint();
 
@@ -323,9 +333,9 @@ public final class FileArtifactValueTest {
   @Test
   public void addToFingerprint_notEqualByMtime() throws Exception {
     FileArtifactValue value1 =
-        FileArtifactValue.createForTesting(scratchDir("/dir1", /*mtime=*/ 1));
+        FileArtifactValue.createForTesting(scratchDir("/dir1", /* mtime= */ 1));
     FileArtifactValue value2 =
-        FileArtifactValue.createForTesting(scratchDir("/dir2", /*mtime=*/ 2));
+        FileArtifactValue.createForTesting(scratchDir("/dir2", /* mtime= */ 2));
     Fingerprint fingerprint1 = new Fingerprint();
     Fingerprint fingerprint2 = new Fingerprint();
 
@@ -339,9 +349,10 @@ public final class FileArtifactValueTest {
 
   @Test
   public void addToFingerprint_fileWithDigestNotEqualToFileWithOnlyMtime() throws Exception {
-    FileArtifactValue value1 = FileArtifactValue.createForTesting(scratchDir("/dir", /*mtime=*/ 1));
+    FileArtifactValue value1 =
+        FileArtifactValue.createForTesting(scratchDir("/dir", /* mtime= */ 1));
     FileArtifactValue value2 =
-        FileArtifactValue.createForTesting(scratchFile("/dir/file", /*mtime=*/ 1, "contents"));
+        FileArtifactValue.createForTesting(scratchFile("/dir/file", /* mtime= */ 1, "contents"));
     Fingerprint fingerprint1 = new Fingerprint();
     Fingerprint fingerprint2 = new Fingerprint();
 

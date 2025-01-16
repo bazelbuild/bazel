@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 import com.google.common.base.Preconditions;
@@ -31,6 +32,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
+import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValueWithMaterializationData;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
@@ -476,21 +478,39 @@ public class FilesystemValueChecker {
 
     // This could be improved by short-circuiting as soon as we see a child that is not present in
     // the TreeArtifactValue, but it doesn't seem to be a major source of overhead.
-    // visitTree() is called from multiple threads in parallel so this need to be a hash set
-    Set<PathFragment> currentChildren = Sets.newConcurrentHashSet();
+    // visitTree() is called from multiple threads in parallel so this need to be a concurrent set
+    Set<PathFragment> currentLocalChildren = Sets.newConcurrentHashSet();
     try {
       TreeArtifactValue.visitTree(
           path,
           (child, type, traversedSymlink) -> {
             if (type != Dirent.Type.DIRECTORY) {
-              currentChildren.add(child);
+              currentLocalChildren.add(child);
             }
           });
     } catch (IOException e) {
       return true;
     }
-    return !(currentChildren.isEmpty() && value.isEntirelyRemote())
-        && !currentChildren.equals(value.getChildPaths());
+
+    if (currentLocalChildren.isEmpty() && value.isEntirelyRemote()) {
+      return false;
+    }
+
+    var lastKnownLocalChildren =
+        value.getChildValues().entrySet().stream()
+            .filter(
+                entry -> {
+                  var metadata = entry.getValue();
+                  if (!(metadata
+                      instanceof RemoteFileArtifactValueWithMaterializationData remote)) {
+                    return true;
+                  }
+                  return remote.getContentsProxy() != null;
+                })
+            .map(entry -> entry.getKey().getParentRelativePath())
+            .collect(toImmutableSet());
+
+    return !currentLocalChildren.equals(lastKnownLocalChildren);
   }
 
   private boolean artifactIsDirtyWithDirectSystemCalls(

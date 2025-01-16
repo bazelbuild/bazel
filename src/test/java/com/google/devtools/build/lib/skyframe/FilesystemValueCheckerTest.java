@@ -38,6 +38,8 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
+import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValueWithMaterializationData;
+import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
@@ -1406,32 +1408,34 @@ public final class FilesystemValueCheckerTest {
         ActionsTestUtil.createActionExecutionValue(ImmutableMap.of(output, value)));
   }
 
-  private RemoteFileArtifactValue createRemoteFileArtifactValue(String contents) {
+  private RemoteFileArtifactValueWithMaterializationData createRemoteFileArtifactValue(
+      String contents) {
     return createRemoteFileArtifactValue(contents, /* expireAtEpochMilli= */ -1);
   }
 
-  private RemoteFileArtifactValue createRemoteFileArtifactValue(
+  private RemoteFileArtifactValueWithMaterializationData createRemoteFileArtifactValue(
       String contents, long expireAtEpochMilli) {
     byte[] data = contents.getBytes();
     DigestHashFunction hashFn = fs.getDigestFunction();
     HashCode hash = hashFn.getHashFunction().hashBytes(data);
-    return RemoteFileArtifactValue.create(hash.asBytes(), data.length, -1, expireAtEpochMilli);
+    return RemoteFileArtifactValue.createWithMaterializationData(
+        hash.asBytes(), data.length, -1, expireAtEpochMilli, /* materializationExecPath= */ null);
   }
 
   @Test
-  public void testRemoteAndLocalArtifacts() throws Exception {
-    // Test that injected remote artifacts are trusted by the FileSystemValueChecker
-    // if it is configured to trust remote artifacts, and that local files always take precedence
-    // over remote files.
+  public void testRemoteAndLocalArtifacts(@TestParameter boolean setContentsProxy)
+      throws Exception {
+    // Test that injected remote artifacts are trusted by the FileSystemValueChecker if it is
+    // configured to trust remote artifacts, and that local files always take precedence over remote
+    // files if they are different.
     SkyKey actionKey1 = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
     SkyKey actionKey2 = ActionLookupData.create(ACTION_LOOKUP_KEY, 1);
 
     Artifact out1 = createDerivedArtifact("foo");
     Artifact out2 = createDerivedArtifact("bar");
     Map<SkyKey, Delta> metadataToInject = new HashMap<>();
-    metadataToInject.put(
-        actionKey1,
-        actionValueWithRemoteArtifact(out1, createRemoteFileArtifactValue("foo-content")));
+    var out1Metadata = createRemoteFileArtifactValue("foo-content");
+    metadataToInject.put(actionKey1, actionValueWithRemoteArtifact(out1, out1Metadata));
     metadataToInject.put(
         actionKey2,
         actionValueWithRemoteArtifact(out2, createRemoteFileArtifactValue("bar-content")));
@@ -1461,6 +1465,11 @@ public final class FilesystemValueCheckerTest {
                     RemoteArtifactChecker.TRUST_ALL,
                     (ignored, ignored2) -> {}))
         .isEmpty();
+
+    if (setContentsProxy) {
+      FileSystemUtils.writeContentAsLatin1(out1.getPath(), "foo-content");
+      out1Metadata.setContentsProxy(FileContentsProxy.create(out1.getPath().stat()));
+    }
 
     // Create the "out1" artifact on the filesystem and test that it invalidates the generating
     // action's SkyKey.
@@ -1481,18 +1490,18 @@ public final class FilesystemValueCheckerTest {
   }
 
   @Test
-  public void testRemoteAndLocalArtifacts_identicalContent() throws Exception {
-    // Test that even if injected remote artifacts and local files are NO_OVERRIDE, the generating
-    // actions are marked as dirty.
+  public void testRemoteAndLocalArtifacts_identicalContent(@TestParameter boolean setContentsProxy)
+      throws Exception {
+    // Test that if injected remote artifacts and local files are identical, the generating actions
+    // are not marked as dirty if it has contents proxy.
     SkyKey actionKey1 = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
     SkyKey actionKey2 = ActionLookupData.create(ACTION_LOOKUP_KEY, 1);
 
     Artifact out1 = createDerivedArtifact("foo");
     Artifact out2 = createDerivedArtifact("bar");
     Map<SkyKey, Delta> metadataToInject = new HashMap<>();
-    metadataToInject.put(
-        actionKey1,
-        actionValueWithRemoteArtifact(out1, createRemoteFileArtifactValue("foo-content")));
+    var out1Metadata = createRemoteFileArtifactValue("foo-content");
+    metadataToInject.put(actionKey1, actionValueWithRemoteArtifact(out1, out1Metadata));
     metadataToInject.put(
         actionKey2,
         actionValueWithRemoteArtifact(out2, createRemoteFileArtifactValue("bar-content")));
@@ -1523,22 +1532,29 @@ public final class FilesystemValueCheckerTest {
                     (ignored, ignored2) -> {}))
         .isEmpty();
 
-    // Create NO_OVERRIDE "out1" artifact on the filesystem and test that it invalidates the
-    // generating action's SkyKey.
+    // Create identical "out1" artifact on the filesystem and test that it doesn't invalidate the
+    // generating action's SkyKey if contents proxy is set.
     FileSystemUtils.writeContentAsLatin1(out1.getPath(), "foo-content");
-    assertThat(
-            new FilesystemValueChecker(
-                    /* tsgm= */ null,
-                    SyscallCache.NO_CACHE,
-                    XattrProviderOverrider.NO_OVERRIDE,
-                    FSVC_THREADS_FOR_TEST)
-                .getDirtyActionValues(
-                    evaluator.getValues(),
-                    /* batchStatter= */ null,
-                    ModifiedFileSet.EVERYTHING_MODIFIED,
-                    RemoteArtifactChecker.TRUST_ALL,
-                    (ignored, ignored2) -> {}))
-        .containsExactly(actionKey1);
+    if (setContentsProxy) {
+      out1Metadata.setContentsProxy(FileContentsProxy.create(out1.getPath().stat()));
+    }
+    var dirtyActionKeys =
+        new FilesystemValueChecker(
+                /* tsgm= */ null,
+                SyscallCache.NO_CACHE,
+                XattrProviderOverrider.NO_OVERRIDE,
+                FSVC_THREADS_FOR_TEST)
+            .getDirtyActionValues(
+                evaluator.getValues(),
+                /* batchStatter= */ null,
+                ModifiedFileSet.EVERYTHING_MODIFIED,
+                RemoteArtifactChecker.TRUST_ALL,
+                (ignored, ignored2) -> {});
+    if (setContentsProxy) {
+      assertThat(dirtyActionKeys).isEmpty();
+    } else {
+      assertThat(dirtyActionKeys).containsExactly(actionKey1);
+    }
   }
 
   @Test
@@ -1587,8 +1603,7 @@ public final class FilesystemValueCheckerTest {
 
   @Test
   public void testRemoteAndLocalTreeArtifacts() throws Exception {
-    // Test that injected remote tree artifacts are trusted by the FileSystemValueChecker
-    // and that local files always takes preference over remote files.
+    // Test that change to local tree files invalidates generating action.
     SkyKey actionKey = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
 
     SpecialArtifact treeArtifact = createTreeArtifact("dir");
@@ -1646,18 +1661,19 @@ public final class FilesystemValueCheckerTest {
   }
 
   @Test
-  public void testRemoteAndLocalTreeArtifacts_identicalContent() throws Exception {
-    // Test that even if injected remote tree artifacts and local files are NO_OVERRIDE, the
-    // generating actions are marked as dirty.
+  public void testRemoteAndLocalTreeArtifacts_partiallyDownloaded(
+      ) throws Exception {
+    boolean setContentsProxy = true;
+    // Test that if injected remote tree artifacts and local files are identical, but the tree is
+    // partially downloaded, the generating action is not marked as dirty.
     SkyKey actionKey = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
 
     SpecialArtifact treeArtifact = createTreeArtifact("dir");
     treeArtifact.getPath().createDirectoryAndParents();
+    var fooMetadata = createRemoteFileArtifactValue("foo-content");
     TreeArtifactValue tree =
         TreeArtifactValue.newBuilder(treeArtifact)
-            .putChild(
-                TreeFileArtifact.createTreeOutput(treeArtifact, "foo"),
-                createRemoteFileArtifactValue("foo-content"))
+            .putChild(TreeFileArtifact.createTreeOutput(treeArtifact, "foo"), fooMetadata)
             .putChild(
                 TreeFileArtifact.createTreeOutput(treeArtifact, "bar"),
                 createRemoteFileArtifactValue("bar-content"))
@@ -1687,10 +1703,59 @@ public final class FilesystemValueCheckerTest {
                     (ignored, ignored2) -> {}))
         .isEmpty();
 
-    // Create NO_OVERRIDE dir/foo on the local disk and test that it invalidates the associated sky
-    // key.
+    // Create identical dir/foo on the local disk and test that it doesn't invalidate the associated
+    // sky key.
     TreeFileArtifact fooArtifact = TreeFileArtifact.createTreeOutput(treeArtifact, "foo");
     FileSystemUtils.writeContentAsLatin1(fooArtifact.getPath(), "foo-content");
+    if (setContentsProxy) {
+      fooMetadata.setContentsProxy(FileContentsProxy.create(fooArtifact.getPath().stat()));
+    }
+    var dirtyActionKeys =
+        new FilesystemValueChecker(
+                /* tsgm= */ null,
+                SyscallCache.NO_CACHE,
+                XattrProviderOverrider.NO_OVERRIDE,
+                FSVC_THREADS_FOR_TEST)
+            .getDirtyActionValues(
+                evaluator.getValues(),
+                /* batchStatter= */ null,
+                ModifiedFileSet.EVERYTHING_MODIFIED,
+                RemoteArtifactChecker.TRUST_ALL,
+                (ignored, ignored2) -> {});
+    if (setContentsProxy) {
+      assertThat(dirtyActionKeys).isEmpty();
+    } else {
+      assertThat(dirtyActionKeys).containsExactly(actionKey);
+    }
+  }
+
+  @Test
+  public void testRemoteAndLocalTreeArtifacts_identicalContent(
+      @TestParameter boolean setContentsProxy) throws Exception {
+    // Test that if injected remote tree artifacts and local files are identical, the generating
+    // actions are not marked as dirty if contents proxy is set.
+    SkyKey actionKey = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
+
+    SpecialArtifact treeArtifact = createTreeArtifact("dir");
+    treeArtifact.getPath().createDirectoryAndParents();
+    var fooMetadata = createRemoteFileArtifactValue("foo-content");
+    var barMetadata = createRemoteFileArtifactValue("bar-content");
+    TreeArtifactValue tree =
+        TreeArtifactValue.newBuilder(treeArtifact)
+            .putChild(TreeFileArtifact.createTreeOutput(treeArtifact, "foo"), fooMetadata)
+            .putChild(TreeFileArtifact.createTreeOutput(treeArtifact, "bar"), barMetadata)
+            .build();
+
+    differencer.inject(ImmutableMap.of(actionKey, actionValueWithTreeArtifact(treeArtifact, tree)));
+
+    EvaluationContext evaluationContext =
+        EvaluationContext.newBuilder()
+            .setKeepGoing(false)
+            .setParallelism(1)
+            .setEventHandler(NullEventHandler.INSTANCE)
+            .build();
+    assertThat(evaluator.evaluate(ImmutableList.of(actionKey), evaluationContext).hasError())
+        .isFalse();
     assertThat(
             new FilesystemValueChecker(
                     /* tsgm= */ null,
@@ -1703,7 +1768,35 @@ public final class FilesystemValueCheckerTest {
                     ModifiedFileSet.EVERYTHING_MODIFIED,
                     RemoteArtifactChecker.TRUST_ALL,
                     (ignored, ignored2) -> {}))
-        .containsExactly(actionKey);
+        .isEmpty();
+
+    // Create identical dir/foo and dir/bar on the local disk and test that it doesn't invalidate
+    // the associated sky key.
+    TreeFileArtifact fooArtifact = TreeFileArtifact.createTreeOutput(treeArtifact, "foo");
+    FileSystemUtils.writeContentAsLatin1(fooArtifact.getPath(), "foo-content");
+    TreeFileArtifact barArtifact = TreeFileArtifact.createTreeOutput(treeArtifact, "bar");
+    FileSystemUtils.writeContentAsLatin1(barArtifact.getPath(), "bar-content");
+    if (setContentsProxy) {
+      fooMetadata.setContentsProxy(FileContentsProxy.create(fooArtifact.getPath().stat()));
+      barMetadata.setContentsProxy(FileContentsProxy.create(barArtifact.getPath().stat()));
+    }
+    var dirtyActionKeys =
+        new FilesystemValueChecker(
+                /* tsgm= */ null,
+                SyscallCache.NO_CACHE,
+                XattrProviderOverrider.NO_OVERRIDE,
+                FSVC_THREADS_FOR_TEST)
+            .getDirtyActionValues(
+                evaluator.getValues(),
+                /* batchStatter= */ null,
+                ModifiedFileSet.EVERYTHING_MODIFIED,
+                RemoteArtifactChecker.TRUST_ALL,
+                (ignored, ignored2) -> {});
+    if (setContentsProxy) {
+      assertThat(dirtyActionKeys).isEmpty();
+    } else {
+      assertThat(dirtyActionKeys).containsExactly(actionKey);
+    }
   }
 
   @Test

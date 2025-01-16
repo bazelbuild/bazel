@@ -512,14 +512,14 @@ public class ActionCacheCheckerTest {
   private RemoteFileArtifactValue createRemoteFileMetadata(
       String content, @Nullable PathFragment materializationExecPath) {
     byte[] bytes = content.getBytes(UTF_8);
-    return RemoteFileArtifactValue.create(
+    return RemoteFileArtifactValue.createWithMaterializationData(
         digest(bytes), bytes.length, 1, /* expireAtEpochMilli= */ -1, materializationExecPath);
   }
 
   private RemoteFileArtifactValue createRemoteFileMetadata(
       String content, long expireAtEpochMilli, @Nullable PathFragment materializationExecPath) {
     byte[] bytes = content.getBytes(UTF_8);
-    return RemoteFileArtifactValue.create(
+    return RemoteFileArtifactValue.createWithMaterializationData(
         digest(bytes), bytes.length, 1, expireAtEpochMilli, materializationExecPath);
   }
 
