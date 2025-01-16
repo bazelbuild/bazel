@@ -140,7 +140,7 @@ public class ConsistencyTest {
         "--incompatible_disallow_struct_provider_syntax=" + rand.nextBoolean(),
         "--incompatible_do_not_split_linking_cmdline=" + rand.nextBoolean(),
         "--incompatible_enable_deprecated_label_apis=" + rand.nextBoolean(),
-        "--incompatible_enforce_utf8="
+        "--incompatible_enforce_starlark_utf8="
             + BuildLanguageOptions.Utf8EnforcementMode.values()[
                 rand.nextInt(BuildLanguageOptions.Utf8EnforcementMode.values().length)]
                 .toString()
@@ -194,7 +194,7 @@ public class ConsistencyTest {
         .setBool(BuildLanguageOptions.INCOMPATIBLE_DO_NOT_SPLIT_LINKING_CMDLINE, rand.nextBoolean())
         .setBool(BuildLanguageOptions.INCOMPATIBLE_ENABLE_DEPRECATED_LABEL_APIS, rand.nextBoolean())
         .set(
-            BuildLanguageOptions.INCOMPATIBLE_ENFORCE_UTF8,
+            BuildLanguageOptions.INCOMPATIBLE_ENFORCE_STARLARK_UTF8,
             BuildLanguageOptions.Utf8EnforcementMode.values()[
                 rand.nextInt(BuildLanguageOptions.Utf8EnforcementMode.values().length)])
         .setBool(BuildLanguageOptions.INCOMPATIBLE_LOCATIONS_PREFERS_EXECUTABLE, rand.nextBoolean())

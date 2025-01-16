@@ -171,7 +171,7 @@ public class BzlCompileFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testInvalidUtf8_enforcementOff() throws Exception {
-    setBuildLanguageOptions("--noincompatible_enforce_utf8");
+    setBuildLanguageOptions("--noincompatible_enforce_starlark_utf8");
 
     scratch.file("pkg/BUILD");
     scratch.file("pkg/foo.bzl", new byte[] {'#', ' ', (byte) 0x80});
@@ -186,7 +186,7 @@ public class BzlCompileFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testInvalidUtf8_enforcementWarning() throws Exception {
-    setBuildLanguageOptions("--incompatible_enforce_utf8=warning");
+    setBuildLanguageOptions("--incompatible_enforce_starlark_utf8=warning");
 
     scratch.file("pkg/BUILD");
     scratch.file("pkg/foo.bzl", new byte[] {'#', ' ', (byte) 0x80});
@@ -202,7 +202,7 @@ public class BzlCompileFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testInvalidUtf8_enforcementError() throws Exception {
-    setBuildLanguageOptions("--incompatible_enforce_utf8");
+    setBuildLanguageOptions("--incompatible_enforce_starlark_utf8");
 
     scratch.file("pkg/BUILD");
     scratch.file("pkg/foo.bzl", new byte[] {'#', ' ', (byte) 0x80});

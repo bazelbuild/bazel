@@ -147,7 +147,7 @@ public class BzlCompileFunction implements SkyFunction {
       return null;
     }
 
-    switch (semantics.get(BuildLanguageOptions.INCOMPATIBLE_ENFORCE_UTF8)) {
+    switch (semantics.get(BuildLanguageOptions.INCOMPATIBLE_ENFORCE_STARLARK_UTF8)) {
       case OFF -> {}
       case WARNING -> {
         if (!Utf8.isWellFormed(bytes)) {
