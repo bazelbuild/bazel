@@ -332,10 +332,6 @@ tasks:
       - build
       - test
   kythe_ubuntu2404:
-    shell_commands:
-    # Disable custom proto_toolchain_for_cc from kythe because it doesn't work with protobuf 29. See b/371908235.
-    # TODO(chiwang): Remove this once kythe resolves the issue.
-    - sed -i -e 's/build --proto_toolchain_for_cc=@kythe_release\/\/:cc_native_proto_toolchain//' /usr/local/kythe/extractors.bazelrc
     index_flags:
     - "--define=kythe_corpus=github.com/bazelbuild/bazel"
     index_targets_query: "kind(\"cc_(binary|library|test|proto_library) rule\", ...) union kind(\"java_(binary|import|library|plugin|test|proto_library) rule\", ...) union kind(\"proto_library rule\", ...)"
