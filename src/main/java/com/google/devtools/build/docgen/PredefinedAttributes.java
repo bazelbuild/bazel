@@ -64,6 +64,7 @@ public class PredefinedAttributes {
           "templates/attributes/common/exec_compatible_with.html",
           "templates/attributes/common/exec_properties.html",
           "templates/attributes/common/features.html",
+          "templates/attributes/common/package_metadata.html",
           "templates/attributes/common/restricted_to.html",
           "templates/attributes/common/tags.html",
           "templates/attributes/common/target_compatible_with.html",
