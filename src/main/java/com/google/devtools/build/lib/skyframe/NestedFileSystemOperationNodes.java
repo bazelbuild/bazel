@@ -13,8 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.ArrayList;
+import static com.google.common.base.Preconditions.checkArgument;
+
+import java.util.Collection;
 import javax.annotation.Nullable;
 
 /** Represents multiple {@link FileSystemOperationNode}s with nestable composition. */
@@ -33,8 +34,19 @@ public final class NestedFileSystemOperationNodes implements FileSystemOperation
    */
   private volatile Object serializationScratch;
 
-  public static FileSystemOperationNodeBuilder builder(FileSystemOperationNode node) {
-    return new FileSystemOperationNodeBuilder(node);
+  /**
+   * Effectively, a factory method for {@link NestedFileSystemOperationNodes}, but formally a
+   * factory method for {@link FileSystemOperationNode}.
+   *
+   * <p>When there is only one node, returns the node directly instead of creating a useless
+   * wrapper.
+   */
+  public static FileSystemOperationNode from(Collection<FileSystemOperationNode> nodes) {
+    checkArgument(!nodes.isEmpty());
+    if (nodes.size() == 1) {
+      return nodes.iterator().next();
+    }
+    return new NestedFileSystemOperationNodes(nodes.toArray(FileSystemOperationNode[]::new));
   }
 
   private NestedFileSystemOperationNodes(FileSystemOperationNode[] nodes) {
@@ -56,33 +68,5 @@ public final class NestedFileSystemOperationNodes implements FileSystemOperation
 
   public void setSerializationScratch(Object value) {
     this.serializationScratch = value;
-  }
-
-  /**
-   * Effectively, a builder for {@link NestedFileSystemOperationNodes}, but formally a builder for
-   * {@link FileSystemOperationNode}.
-   *
-   * <p>When there is only one node, this builder returns the node directly instead of creating a
-   * useless wrapper.
-   */
-  public static class FileSystemOperationNodeBuilder {
-    private final ArrayList<FileSystemOperationNode> nodes = new ArrayList<>();
-
-    private FileSystemOperationNodeBuilder(FileSystemOperationNode node) {
-      nodes.add(node);
-    }
-
-    @CanIgnoreReturnValue
-    public FileSystemOperationNodeBuilder add(FileSystemOperationNode node) {
-      nodes.add(node);
-      return this;
-    }
-
-    public FileSystemOperationNode build() {
-      if (nodes.size() > 1) {
-        return new NestedFileSystemOperationNodes(nodes.toArray(FileSystemOperationNode[]::new));
-      }
-      return nodes.get(0);
-    }
   }
 }
