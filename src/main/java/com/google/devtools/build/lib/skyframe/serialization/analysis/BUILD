@@ -83,12 +83,11 @@ java_library(
 
 java_library(
     name = "file_dependency_serializer",
-    srcs = [
-        "FileDependencySerializer.java",
-        "InvalidationDataReference.java",
-    ],
+    srcs = ["FileDependencySerializer.java"],
     deps = [
         ":file_dependency_key_support",
+        ":invalidation_data_reference_or_future",
+        ":value_or_future_map",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe:filesystem_keys",
@@ -97,7 +96,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/protobuf:file_invalidation_data_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
