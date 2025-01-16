@@ -570,7 +570,7 @@ message ExecutionOptions {
     DYNAMIC_STRATEGY_NOT_SANDBOXED = 10 [(metadata) = { exit_code: 2 }];
     MULTIPLE_EXECUTION_LOG_FORMATS = 11 [(metadata) = { exit_code: 2 }];
 
-    reserved 1, 2; // For internal use
+    reserved 1, 2, 12, 13; // For internal use
   }
 
   Code code = 1;
