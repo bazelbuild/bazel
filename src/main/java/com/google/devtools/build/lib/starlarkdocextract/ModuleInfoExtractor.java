@@ -14,8 +14,11 @@
 
 package com.google.devtools.build.lib.starlarkdocextract;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions.MacroFunction;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions.StarlarkRuleFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtension;
@@ -39,6 +42,7 @@ import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.Orig
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ProviderFieldInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ProviderInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.RepositoryRuleInfo;
+import com.google.devtools.build.lib.util.StringEncoding;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -124,9 +128,13 @@ public final class ModuleInfoExtractor {
   /** Extracts structured documentation for the loadable symbols of a given module. */
   public ModuleInfo extractFrom(Module module) throws ExtractionException {
     ModuleInfo.Builder builder = ModuleInfo.newBuilder();
-    Optional.ofNullable(module.getDocumentation()).ifPresent(builder::setModuleDocstring);
+    Optional.ofNullable(module.getDocumentation())
+        .map(StringEncoding::internalToUnicode)
+        .ifPresent(builder::setModuleDocstring);
     Optional.ofNullable(BazelModuleContext.of(module))
-        .map(bazelModuleContext -> labelRenderer.render(bazelModuleContext.label()))
+        .map(
+            bazelModuleContext ->
+                internalToUnicode(labelRenderer.render(bazelModuleContext.label())))
         .ifPresent(builder::setFile);
 
     // We do two traversals over the module's globals: (1) find qualified names (including any
@@ -365,13 +373,18 @@ public final class ModuleInfoExtractor {
       MacroInfo.Builder macroInfoBuilder = MacroInfo.newBuilder();
       // Record the name under which this symbol is made accessible, which may differ from the
       // symbol's exported name
-      macroInfoBuilder.setMacroName(qualifiedName);
+      macroInfoBuilder.setMacroName(internalToUnicode(qualifiedName));
       // ... but record the origin rule key for cross references.
       macroInfoBuilder.setOriginKey(
           OriginKey.newBuilder()
-              .setName(macroFunction.getName())
-              .setFile(context.labelRenderer().render(macroFunction.getExtensionLabel())));
-      macroFunction.getDocumentation().ifPresent(macroInfoBuilder::setDocString);
+              .setName(internalToUnicode(macroFunction.getName()))
+              .setFile(
+                  internalToUnicode(
+                      context.labelRenderer().render(macroFunction.getExtensionLabel()))));
+      macroFunction
+          .getDocumentation()
+          .map(StringEncoding::internalToUnicode)
+          .ifPresent(macroInfoBuilder::setDocString);
 
       MacroClass macroClass = macroFunction.getMacroClass();
       if (macroClass.isFinalizer()) {
@@ -407,20 +420,28 @@ public final class ModuleInfoExtractor {
       // existing Stardoc templates). Note that for backwards compatibility,
       // ProviderNameGroup.provider_name would still need to refer to only the first qualified name
       // under which a given provider is made accessible by the module.
-      providerInfoBuilder.setProviderName(qualifiedName);
+      providerInfoBuilder.setProviderName(internalToUnicode(qualifiedName));
       // Record the origin provider key for cross references.
       providerInfoBuilder.setOriginKey(
           OriginKey.newBuilder()
-              .setName(provider.getName())
-              .setFile(context.labelRenderer().render(provider.getKey().getExtensionLabel())));
-      provider.getDocumentation().ifPresent(providerInfoBuilder::setDocString);
+              .setName(internalToUnicode(provider.getName()))
+              .setFile(
+                  internalToUnicode(
+                      context.labelRenderer().render(provider.getKey().getExtensionLabel()))));
+      provider
+          .getDocumentation()
+          .map(StringEncoding::internalToUnicode)
+          .ifPresent(providerInfoBuilder::setDocString);
       ImmutableMap<String, Optional<String>> schema = provider.getSchema();
       if (schema != null) {
         for (Map.Entry<String, Optional<String>> entry : schema.entrySet()) {
           if (ExtractorContext.isPublicName(entry.getKey())) {
             ProviderFieldInfo.Builder fieldInfoBuilder = ProviderFieldInfo.newBuilder();
-            fieldInfoBuilder.setName(entry.getKey());
-            entry.getValue().ifPresent(fieldInfoBuilder::setDocString);
+            fieldInfoBuilder.setName(internalToUnicode(entry.getKey()));
+            entry
+                .getValue()
+                .map(StringEncoding::internalToUnicode)
+                .ifPresent(fieldInfoBuilder::setDocString);
             providerInfoBuilder.addFieldInfo(fieldInfoBuilder.build());
           }
         }
@@ -443,14 +464,20 @@ public final class ModuleInfoExtractor {
       AspectInfo.Builder aspectInfoBuilder = AspectInfo.newBuilder();
       // Record the name under which this symbol is made accessible, which may differ from the
       // symbol's exported name
-      aspectInfoBuilder.setAspectName(qualifiedName);
+      aspectInfoBuilder.setAspectName(internalToUnicode(qualifiedName));
       // ... but record the origin aspect key for cross references.
       aspectInfoBuilder.setOriginKey(
           OriginKey.newBuilder()
-              .setName(aspect.getAspectClass().getExportedName())
+              .setName(internalToUnicode(aspect.getAspectClass().getExportedName()))
               .setFile(
-                  context.labelRenderer().render(aspect.getAspectClass().getExtensionLabel())));
-      aspect.getDocumentation().ifPresent(aspectInfoBuilder::setDocString);
+                  internalToUnicode(
+                      context
+                          .labelRenderer()
+                          .render(aspect.getAspectClass().getExtensionLabel()))));
+      aspect
+          .getDocumentation()
+          .map(StringEncoding::internalToUnicode)
+          .ifPresent(aspectInfoBuilder::setDocString);
       for (String aspectAttribute : aspect.getAttributeAspects()) {
         if (ExtractorContext.isPublicName(aspectAttribute)) {
           aspectInfoBuilder.addAspectAttribute(aspectAttribute);
@@ -465,7 +492,7 @@ public final class ModuleInfoExtractor {
     protected void visitModuleExtension(String qualifiedName, ModuleExtension moduleExtension)
         throws ExtractionException {
       ModuleExtensionInfo.Builder moduleExtensionInfoBuilder = ModuleExtensionInfo.newBuilder();
-      moduleExtensionInfoBuilder.setExtensionName(qualifiedName);
+      moduleExtensionInfoBuilder.setExtensionName(internalToUnicode(qualifiedName));
       moduleExtensionInfoBuilder.setOriginKey(
           OriginKey.newBuilder()
               // TODO(arostovtsev): attempt to retrieve the name under which the module was
@@ -473,13 +500,22 @@ public final class ModuleInfoExtractor {
               // make ModuleExtension a StarlarkExportable (partially reverting cl/513213080).
               // Alternatively, we'd need to search the defining module's globals, similarly to what
               // we do in FunctionUtil#getFunctionOriginKey.
-              .setFile(context.labelRenderer().render(moduleExtension.definingBzlFileLabel())));
-      moduleExtension.doc().ifPresent(moduleExtensionInfoBuilder::setDocString);
+              .setFile(
+                  internalToUnicode(
+                      context.labelRenderer().render(moduleExtension.definingBzlFileLabel()))));
+      moduleExtension
+          .doc()
+          .map(StringEncoding::internalToUnicode)
+          .ifPresent(moduleExtensionInfoBuilder::setDocString);
       for (Map.Entry<String, TagClass> entry : moduleExtension.tagClasses().entrySet()) {
         ModuleExtensionTagClassInfo.Builder tagClassInfoBuilder =
             ModuleExtensionTagClassInfo.newBuilder();
-        tagClassInfoBuilder.setTagName(entry.getKey());
-        entry.getValue().doc().ifPresent(tagClassInfoBuilder::setDocString);
+        tagClassInfoBuilder.setTagName(internalToUnicode(entry.getKey()));
+        entry
+            .getValue()
+            .doc()
+            .map(StringEncoding::internalToUnicode)
+            .ifPresent(tagClassInfoBuilder::setDocString);
         AttributeInfoExtractor.addDocumentableAttributes(
             context,
             ImmutableMap.of(),
@@ -495,13 +531,18 @@ public final class ModuleInfoExtractor {
         String qualifiedName, RepositoryRuleFunction repositoryRuleFunction)
         throws ExtractionException {
       RepositoryRuleInfo.Builder repositoryRuleInfoBuilder = RepositoryRuleInfo.newBuilder();
-      repositoryRuleInfoBuilder.setRuleName(qualifiedName);
-      repositoryRuleFunction.getDocumentation().ifPresent(repositoryRuleInfoBuilder::setDocString);
+      repositoryRuleInfoBuilder.setRuleName(internalToUnicode(qualifiedName));
+      repositoryRuleFunction
+          .getDocumentation()
+          .map(StringEncoding::internalToUnicode)
+          .ifPresent(repositoryRuleInfoBuilder::setDocString);
       RuleClass ruleClass = repositoryRuleFunction.getRuleClass();
       repositoryRuleInfoBuilder.setOriginKey(
           OriginKey.newBuilder()
-              .setName(ruleClass.getName())
-              .setFile(context.labelRenderer().render(repositoryRuleFunction.getExtensionLabel())));
+              .setName(internalToUnicode(ruleClass.getName()))
+              .setFile(
+                  internalToUnicode(
+                      context.labelRenderer().render(repositoryRuleFunction.getExtensionLabel()))));
       AttributeInfoExtractor.addDocumentableAttributes(
           context,
           IMPLICIT_REPOSITORY_RULE_ATTRIBUTES,
@@ -509,7 +550,10 @@ public final class ModuleInfoExtractor {
           repositoryRuleInfoBuilder::addAttribute);
       if (ruleClass.hasAttr("$environ", Types.STRING_LIST)) {
         repositoryRuleInfoBuilder.addAllEnviron(
-            Types.STRING_LIST.cast(ruleClass.getAttributeByName("$environ").getDefaultValue(null)));
+            Iterables.transform(
+                Types.STRING_LIST.cast(
+                    ruleClass.getAttributeByName("$environ").getDefaultValue(null)),
+                StringEncoding::internalToUnicode));
       }
       moduleInfoBuilder.addRepositoryRuleInfo(repositoryRuleInfoBuilder);
     }
