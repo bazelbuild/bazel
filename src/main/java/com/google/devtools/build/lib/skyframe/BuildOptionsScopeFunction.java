@@ -120,11 +120,8 @@ public final class BuildOptionsScopeFunction implements SkyFunction {
                   : new Scope.ScopeDefinition(projectValue.getDefaultActiveDirectory())));
     }
 
-    BuildOptions baseline = PrecomputedValue.BASELINE_CONFIGURATION.get(env);
-
     return BuildOptionsScopeValue.create(
         fullyResolvedBuildOptionsBuilder.build(),
-        baseline,
         Lists.newArrayList(projectValueSkyKeysMap.keySet()),
         scopes);
   }

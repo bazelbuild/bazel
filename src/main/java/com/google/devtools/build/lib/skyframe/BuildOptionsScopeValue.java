@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyKey.SkyKeyInterner;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -30,7 +29,6 @@ import java.util.Objects;
 public final class BuildOptionsScopeValue implements SkyValue {
 
   BuildOptions resolvedBuildOptionsWithScopeTypes;
-  BuildOptions baselineConfiguration;
   List<Label> scopedFlags;
   LinkedHashMap<Label, Scope> fullyResolvedScopes;
 
@@ -95,20 +93,16 @@ public final class BuildOptionsScopeValue implements SkyValue {
   public static BuildOptionsScopeValue create(
       BuildOptions inputBuildOptions,
       // BuildOptions buildOptionsWithScopes,
-      BuildOptions baselineConfiguration,
       List<Label> scopedFlags,
       LinkedHashMap<Label, Scope> fullyResolvedScopes) {
-    return new BuildOptionsScopeValue(
-        inputBuildOptions, baselineConfiguration, scopedFlags, fullyResolvedScopes);
+    return new BuildOptionsScopeValue(inputBuildOptions, scopedFlags, fullyResolvedScopes);
   }
 
   public BuildOptionsScopeValue(
       BuildOptions resolvedBuildOptionsWithScopeTypes,
-      BuildOptions baselineConfiguration,
       List<Label> scopedFlags,
       LinkedHashMap<Label, Scope> fullyResolvedScopes) {
     this.resolvedBuildOptionsWithScopeTypes = resolvedBuildOptionsWithScopeTypes;
-    this.baselineConfiguration = baselineConfiguration;
     this.scopedFlags = scopedFlags;
     this.fullyResolvedScopes = fullyResolvedScopes;
   }
@@ -127,9 +121,5 @@ public final class BuildOptionsScopeValue implements SkyValue {
    */
   public LinkedHashMap<Label, Scope> getFullyResolvedScopes() {
     return fullyResolvedScopes;
-  }
-
-  public BuildOptions getBaselineConfiguration() {
-    return baselineConfiguration;
   }
 }

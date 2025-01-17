@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.platform.PlatformValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.BuildOptionsScopeFunction.BuildOptionsScopeFunctionException;
 import com.google.devtools.build.lib.skyframe.BuildOptionsScopeValue;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.config.ParsedFlagsValue;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingException;
@@ -105,6 +106,7 @@ public final class BuildConfigurationKeyProducer<C>
   private PlatformMappingValue platformMappingValue;
   private BuildOptionsScopeValue buildOptionsScopeValue;
   private BuildOptions postPlatformProcessedOptions;
+  private BuildOptions baselineConfiguration;
 
   BuildConfigurationKeyProducer(
       ResultSink<C> sink, StateMachine runAfter, C context, BuildOptions options, Label label) {
@@ -164,7 +166,7 @@ public final class BuildConfigurationKeyProducer<C>
     Preconditions.checkNotNull(this.postPlatformProcessedOptions);
     // including platform-based flags in skykey for scopes lookUp
     if (postPlatformProcessedOptions.getStarlarkOptions().isEmpty()) {
-      return this::finishConfigurationKeyProcessing;
+      return this::possiblyApplyScopes;
     }
 
     // the list of flags that are either project scoped or their scopes are not yet resolved.
@@ -184,14 +186,14 @@ public final class BuildConfigurationKeyProducer<C>
     // if flagsWithIncompleteScopeInfo is empty, we do not need to do any further lookUp for the
     // ScopeType and ScopeDefinition
     if (flagsWithIncompleteScopeInfo.isEmpty()) {
-      return this::finishConfigurationKeyProcessing;
+      return this::possiblyApplyScopes;
     }
 
     BuildOptionsScopeValue.Key buildOptionsScopeValueKey =
         BuildOptionsScopeValue.Key.create(
             this.postPlatformProcessedOptions, flagsWithIncompleteScopeInfo);
     tasks.lookUp(buildOptionsScopeValueKey, (Consumer<SkyValue>) this);
-    return this::finishConfigurationKeyProcessing;
+    return this::possiblyApplyScopes;
   }
 
   /**
@@ -258,28 +260,12 @@ public final class BuildConfigurationKeyProducer<C>
     this.buildOptionsScopeValue = (BuildOptionsScopeValue) value;
   }
 
-  private StateMachine finishConfigurationKeyProcessing(Tasks tasks) {
-    if (this.postPlatformProcessedOptions.getStarlarkOptions().isEmpty()) {
-      sink.acceptTransitionedConfiguration(
-          this.context, BuildConfigurationKey.create(this.postPlatformProcessedOptions));
-      return this.runAfter;
-    }
-
-    BuildConfigurationKey finalBuildConfigurationKey =
-        possiblyApplyScopes(
-            this.buildOptionsScopeValue, this.label, this.postPlatformProcessedOptions);
-    sink.acceptTransitionedConfiguration(this.context, finalBuildConfigurationKey);
-    return this.runAfter;
-  }
-
-  private BuildConfigurationKey possiblyApplyScopes(
-      @Nullable BuildOptionsScopeValue buildOptionsScopeValue,
-      Label label,
-      BuildOptions postPlatformBasedFlagsOptions) {
+  private StateMachine possiblyApplyScopes(Tasks tasks) {
     // This is not the same as null associated with Skyframe lookUp. This happens when scoping logic
     // is not enabled. This means the lookup via BuildOptionsScopesFunction was not performed.
-    if (buildOptionsScopeValue == null) {
-      return BuildConfigurationKey.create(postPlatformBasedFlagsOptions);
+    if (buildOptionsScopeValue == null
+        || postPlatformProcessedOptions.getStarlarkOptions().isEmpty()) {
+      return finishConfigurationKeyProcessing(postPlatformProcessedOptions);
     }
 
     boolean shouldApplyScopes =
@@ -287,20 +273,29 @@ public final class BuildConfigurationKeyProducer<C>
             .anyMatch(scope -> scope.getScopeType() == Scope.ScopeType.PROJECT);
 
     if (!shouldApplyScopes) {
-      return BuildConfigurationKey.create(
-          this.buildOptionsScopeValue.getResolvedBuildOptionsWithScopeTypes());
+      return finishConfigurationKeyProcessing(
+          buildOptionsScopeValue.getResolvedBuildOptionsWithScopeTypes());
     }
 
-    if (!buildOptionsScopeValue
-        .getBaselineConfiguration()
-        .getStarlarkOptions()
-        .equals(
-            buildOptionsScopeValue.getResolvedBuildOptionsWithScopeTypes().getStarlarkOptions())) {
-      return BuildConfigurationKey.create(resetFlags(buildOptionsScopeValue, label));
-    }
+    // TODO: b/390669368 - The same performance issue still exists if we reach this point.
+    tasks.lookUp(
+        PrecomputedValue.BASELINE_CONFIGURATION.getKey(),
+        val -> this.baselineConfiguration = (BuildOptions) ((PrecomputedValue) val).get());
+    return this::applyScopes;
+  }
 
-    return BuildConfigurationKey.create(
-        buildOptionsScopeValue.getResolvedBuildOptionsWithScopeTypes());
+  private StateMachine applyScopes(Tasks tasks) {
+    BuildOptions resolved = buildOptionsScopeValue.getResolvedBuildOptionsWithScopeTypes();
+    BuildOptions finalBuildOptions =
+        baselineConfiguration.getStarlarkOptions().equals(resolved.getStarlarkOptions())
+            ? resolved
+            : resetFlags(buildOptionsScopeValue, baselineConfiguration, label);
+    return finishConfigurationKeyProcessing(finalBuildOptions);
+  }
+
+  private StateMachine finishConfigurationKeyProcessing(BuildOptions finalBuildOptions) {
+    sink.acceptTransitionedConfiguration(context, BuildConfigurationKey.create(finalBuildOptions));
+    return runAfter;
   }
 
   /**
@@ -318,7 +313,9 @@ public final class BuildConfigurationKeyProducer<C>
    * has the {@link Scope.ScopeType} information for all starlark flags.
    */
   private static BuildOptions resetFlags(
-      BuildOptionsScopeValue buildOptionsScopeValue, Label label) {
+      BuildOptionsScopeValue buildOptionsScopeValue,
+      BuildOptions baselineConfiguration,
+      Label label) {
     Preconditions.checkNotNull(buildOptionsScopeValue);
     Preconditions.checkNotNull(label);
 
@@ -329,7 +326,6 @@ public final class BuildConfigurationKeyProducer<C>
       return transitionedOptionsWithScopeType;
     }
 
-    BuildOptions baselineConfiguration = buildOptionsScopeValue.getBaselineConfiguration();
     Preconditions.checkNotNull(baselineConfiguration);
     boolean flagsRemoved = false;
     boolean flagsResetToBaseline = false;
