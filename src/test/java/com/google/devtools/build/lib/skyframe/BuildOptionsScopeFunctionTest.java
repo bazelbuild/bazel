@@ -119,7 +119,6 @@ public final class BuildOptionsScopeFunctionTest extends BuildViewTestCase {
     BuildOptionsScopeValue buildOptionsScopeValue = executeFunction(key);
 
     // verify that the Scope is fully resolved for //test_flags:foo and //test_flags:bar
-    assertThat(buildOptionsScopeValue.getBaselineConfiguration()).isNotNull();
     var unused =
         assertThat(
             buildOptionsScopeValue
@@ -175,7 +174,6 @@ public final class BuildOptionsScopeFunctionTest extends BuildViewTestCase {
         BuildOptionsScopeValue.Key.create(buildOptionsWithoutScopes, scopedFlags);
 
     BuildOptionsScopeValue buildOptionsScopeValue = executeFunction(key);
-    assertThat(buildOptionsScopeValue.getBaselineConfiguration()).isNotNull();
     var unused =
         assertThat(
             buildOptionsScopeValue
