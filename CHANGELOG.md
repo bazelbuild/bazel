@@ -1,3 +1,45 @@
+## Release 9.0.0-pre.20250109.2 (2025-01-17)
+
+```
+Baseline: 457d248218540b0ae93d6454fa8a95ccad877063
+```
+
+New features:
+
+  - Materializer functions now have access to the label of the rule
+    they are running on as ctx.label .
+
+Important changes:
+
+  - Extra targets provided to `ctx.expand_location` now expand to
+    their executable (if any) instead of resulting in an error if
+    they provide a number of files different from one.
+    RELNOTES[INC]: The `--incompatible_locations_prefers_executable`
+    flag has been added and enabled, which makes it so that
+    `ctx.expand_location` expands `$(locations :x)` to the executable
+    of an extra target `:x` if it provides one and the number of
+    files provided by it is not one.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Fabian Meumertzheim.
+
+## Release 9.0.0-pre.20250106.2 (2025-01-13)
+
+```
+Baseline: fa48bc66e7118ca251c73bdad2c94039f51b5301
+```
+
+Important changes:
+
+  - Baseline coverage files are no longer ignored.
+  - select() on `cpu`, `host_cpu`, or `crosstool_top now emits a
+    "deprecated flag" warning
+  - `--max_idle_secs` now takes system sleep time into account when
+    deciding when to shutdown the blaze server.
+  - Flip --experimental_enable_starlark_set and enable the Starlark
+    set data type by default.
+
+This release contains contributions from many people at Google, as well as Alessandro Patti, Boleyn Su, Eric Riff, Fabian Meumertzheim, Keith Smiley, Kiron, Pareesh Madan, Steve Barrau, Torgil Svensson.
+
 ## Release 9.0.0-pre.20241208.2 (2024-12-18)
 
 ```
