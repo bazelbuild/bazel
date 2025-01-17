@@ -1035,7 +1035,7 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final StarlarkSemantics.Key<Utf8EnforcementMode>
       INCOMPATIBLE_ENFORCE_STARLARK_UTF8 =
           new StarlarkSemantics.Key<>(
-              "incompatible_enforce_starlark_utf8", Utf8EnforcementMode.OFF);
+              "incompatible_enforce_starlark_utf8", Utf8EnforcementMode.WARNING);
   public static final StarlarkSemantics.Key<Long> MAX_COMPUTATION_STEPS =
       new StarlarkSemantics.Key<>("max_computation_steps", 0L);
   public static final StarlarkSemantics.Key<Integer> NESTED_SET_DEPTH_LIMIT =
