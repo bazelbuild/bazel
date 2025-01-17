@@ -261,7 +261,6 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
 
     StarlarkSemantics semantics =
         StarlarkSemantics.builder()
-            .setBool(BuildLanguageOptions.ENABLE_BZLMOD, true)
             .setBool(BuildLanguageOptions.EXPERIMENTAL_ISOLATED_EXTENSION_USAGES, true)
             .set(BuildLanguageOptions.INCOMPATIBLE_AUTOLOAD_EXTERNALLY, ImmutableList.of())
             .build();

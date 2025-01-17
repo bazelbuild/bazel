@@ -37,7 +37,6 @@ class BazelVendorTest(test_base.TestBase):
         [
             # In ipv6 only network, this has to be enabled.
             # 'startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true',
-            'common --noenable_workspace',
             'common --experimental_isolated_extension_usages',
             'common --registry=' + self.main_registry.getURL(),
             'common --registry=https://bcr.bazel.build',
@@ -263,40 +262,6 @@ class BazelVendorTest(test_base.TestBase):
         " is not defined, No repository visible as '@nana' from main"
         ' repository]',
         stderr,
-    )
-
-  # Remove this test when workspace is removed
-  def testVendorDirIsNotCheckedForWorkspaceRepos(self):
-    self.ScratchFile(
-        'MODULE.bazel',
-        [
-            'local_path_override(module_name="bazel_tools", path="tools_mock")',
-            'local_path_override(module_name="local_config_platform", ',
-            'path="platforms_mock")',
-        ],
-    )
-    self.ScratchFile(
-        'WORKSPACE.bzlmod',
-        ['load("//:main.bzl", "dump_env")', 'dump_env(name = "dummyRepo")'],
-    )
-    self.ScratchFile('BUILD')
-    self.ScratchFile(
-        'main.bzl',
-        [
-            'def _dump_env(ctx):',
-            '    ctx.file("BUILD")',
-            'dump_env = repository_rule(implementation = _dump_env)',
-        ],
-    )
-    _, _, stderr = self.RunBazel([
-        'fetch',
-        '@@dummyRepo//:all',
-        '--enable_workspace=true',
-        '--vendor_dir=blabla',
-        '--incompatible_autoload_externally=',
-    ])
-    self.assertNotIn(
-        "Vendored repository 'dummyRepo' is out-of-date.", '\n'.join(stderr)
     )
 
   def testIgnoreFromVendoring(self):

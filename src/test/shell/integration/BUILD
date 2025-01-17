@@ -777,25 +777,9 @@ sh_test(
 )
 
 sh_test(
-    name = "incompatible_autoload_externally_bzlmod_test",
+    name = "incompatible_autoload_externally_test",
     size = "medium",
     srcs = ["incompatible_autoload_externally_test.sh"],
-    args = ["--enable_bzlmod"],
-    data = [":test-deps"],
-    tags = [
-        "no_windows",
-        "requires-network",
-    ],
-)
-
-sh_test(
-    name = "incompatible_autoload_externally_workspace_test",
-    size = "medium",
-    srcs = ["incompatible_autoload_externally_test.sh"],
-    args = [
-        "--noenable_bzlmod",
-        "--enable_workspace",
-    ],
     data = [":test-deps"],
     tags = [
         "no_windows",

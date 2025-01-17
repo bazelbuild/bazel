@@ -53,7 +53,6 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.AutoloadSymbols;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.SuccessfulRepositoryDirectoryValue;
@@ -271,8 +270,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     RepositoryDelegatorFunction.FORCE_FETCH.set(
         differencer, RepositoryDelegatorFunction.FORCE_FETCH_DISABLED);
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
-    StarlarkSemantics semantics =
-        StarlarkSemantics.builder().setBool(BuildLanguageOptions.ENABLE_BZLMOD, true).build();
+    StarlarkSemantics semantics = StarlarkSemantics.DEFAULT;
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, semantics);
     AutoloadSymbols.AUTOLOAD_SYMBOLS.set(
         differencer, new AutoloadSymbols(ruleClassProvider, semantics));
@@ -419,55 +417,6 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
   }
 
   @Test
-  public void loadRepositoryFromBzlmod() throws Exception {
-    PrecomputedValue.STARLARK_SEMANTICS.set(
-        differencer,
-        StarlarkSemantics.builder().setBool(BuildLanguageOptions.ENABLE_WORKSPACE, true).build());
-    scratch.overwriteFile(
-        rootPath.getRelative("MODULE.bazel").getPathString(),
-        "module(name='aaa',version='0.1')",
-        "bazel_dep(name='bazel_tools',version='1.0')");
-    scratch.file(rootPath.getRelative("BUILD").getPathString());
-    scratch.file(
-        rootPath.getRelative("repo_rule.bzl").getPathString(),
-        "def _impl(rctx):",
-        " rctx.file('BUILD', '')",
-        "fictive_repo_rule = repository_rule(implementation = _impl)");
-    // WORKSPACE.bzlmod is preferred when Bzlmod is enabled.
-    scratch.file(
-        rootPath.getRelative("WORKSPACE.bzlmod").getPathString(),
-        "load(':repo_rule.bzl', 'fictive_repo_rule')",
-        "fictive_repo_rule(name = 'bazel_tools')",
-        "fictive_repo_rule(name = 'C')");
-    scratch.file(
-        rootPath.getRelative("WORKSPACE").getPathString(),
-        "load(':repo_rule.bzl', 'fictive_repo_rule')",
-        "fictive_repo_rule(name = 'bazel_tools')");
-
-    StoredEventHandler eventHandler = new StoredEventHandler();
-    SkyKey key = RepositoryDirectoryValue.key(RepositoryName.BAZEL_TOOLS);
-    EvaluationContext evaluationContext =
-        EvaluationContext.newBuilder()
-            .setKeepGoing(false)
-            .setParallelism(8)
-            .setEventHandler(eventHandler)
-            .build();
-    EvaluationResult<SkyValue> result =
-        evaluator.evaluate(ImmutableList.of(key), evaluationContext);
-
-    // bazel_tools should be fetched from MODULE.bazel file instead of WORKSPACE file.
-    // Because FakeRegistry will look for the contents of bazel_tools under
-    // $scratch/modules/bazel_tools which doesn't exist, the fetch should fail as expected.
-    assertThat(result.hasError()).isTrue();
-    assertThat(result.getError().getException())
-        .hasMessageThat()
-        .contains("but it does not exist or is not a directory");
-
-    // C should still be fetched from WORKSPACE.bzlmod successfully.
-    loadRepo("C");
-  }
-
-  @Test
   public void loadInvisibleRepository() throws Exception {
     StoredEventHandler eventHandler = new StoredEventHandler();
     SkyKey key =
@@ -516,23 +465,5 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
         .contains("No repository visible as '@foo' from main repository");
     assertThat(repositoryDirectoryValue.getErrorMsg())
         .contains(ExternalPackageHelper.WORKSPACE_DEPRECATION);
-  }
-
-  private void loadRepo(String strippedRepoName) throws InterruptedException {
-    StoredEventHandler eventHandler = new StoredEventHandler();
-    SkyKey key = RepositoryDirectoryValue.key(RepositoryName.createUnvalidated(strippedRepoName));
-    // Make it be evaluated every time, as we are testing evaluation.
-    differencer.invalidate(ImmutableSet.of(key));
-    EvaluationContext evaluationContext =
-        EvaluationContext.newBuilder()
-            .setKeepGoing(false)
-            .setParallelism(8)
-            .setEventHandler(eventHandler)
-            .build();
-    EvaluationResult<SkyValue> result =
-        evaluator.evaluate(ImmutableList.of(key), evaluationContext);
-    assertThat(result.hasError()).isFalse();
-    RepositoryDirectoryValue repositoryDirectoryValue = (RepositoryDirectoryValue) result.get(key);
-    assertThat(repositoryDirectoryValue.repositoryExists()).isTrue();
   }
 }

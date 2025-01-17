@@ -1969,32 +1969,6 @@ EOF
   expect_log "Compiling pkg/lib.h"
 }
 
-# Test for a very obscure case that is sadly used by protobuf: when the
-# WORKSPACE file contains a local_repository with the same name as the main
-# one. See HeaderDiscovery.runDiscovery() for more details.
-function test_inclusion_validation_with_overlapping_external_repo() {
-  cat >> WORKSPACE<<EOF
-local_repository(name="$WORKSPACE_NAME", path=".")
-EOF
-
-  mkdir -p a
-  cat > a/BUILD <<'EOF'
-cc_library(name="a", srcs=["a.cc"])
-EOF
-
-  cat > a/a.cc <<'EOF'
-int a() {
-  return 3;
-}
-EOF
-
-  bazel build \
-    --noenable_bzlmod \
-    --enable_workspace \
-    --experimental_sibling_repository_layout \
-    "@@$WORKSPACE_NAME//a:a" || fail "build failed"
-}
-
 function test_tree_artifact_sources_in_no_deps_library() {
   mkdir -p pkg
   cat > pkg/BUILD <<'EOF'

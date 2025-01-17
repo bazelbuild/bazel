@@ -559,36 +559,6 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void workspaceLoadedBzlUsesInjectionButNotWORKSPACE() throws Exception {
-    writeExportsBzl(
-        "exported_toplevels = {'overridable_symbol': 'new_value'}",
-        "exported_rules = {'overridable_rule': 'new_rule'}",
-        "exported_to_java = {}");
-    writePkgBuild();
-    writePkgBzl();
-    scratch.appendFile(
-        "WORKSPACE", //
-        "load(':foo.bzl', 'dummy_symbol')",
-        "print('In WORKSPACE: overridable_rule :: %s' % overridable_rule)",
-        "print(dummy_symbol)");
-    scratch.file("BUILD");
-    scratch.file(
-        "foo.bzl",
-        """
-        dummy_symbol = None
-        print("In bzl: overridable_symbol :: %s" % overridable_symbol)
-        """);
-    setBuildLanguageOptionsWithBuiltinsStaging("--enable_workspace");
-
-    buildAndAssertSuccess();
-    // Builtins for WORKSPACE bzls are populated the same as for BUILD bzls.
-    assertContainsEvent("In bzl: overridable_symbol :: new_value");
-    // We don't assert that the rule isn't injected because the workspace native object doesn't
-    // contain our original mock rule. We can test this for WORKSPACE files at the top-level though.
-    assertContainsEvent("In WORKSPACE: overridable_rule :: <built-in function overridable_rule>");
-  }
-
-  @Test
   public void builtinsCanSeeOriginalNativeToplevels() throws Exception {
     writeExportsBzl(
         "print('In builtins: overridable_symbol :: %s' % _builtins.toplevel.overridable_symbol)",

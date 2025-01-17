@@ -124,8 +124,6 @@ public class ConsistencyTest {
         "--experimental_bzl_visibility=" + rand.nextBoolean(),
         "--experimental_enable_android_migration_apis=" + rand.nextBoolean(),
         "--experimental_single_package_toolchain_binding=" + rand.nextBoolean(),
-        "--enable_bzlmod=" + rand.nextBoolean(),
-        "--enable_workspace=" + rand.nextBoolean(),
         "--experimental_isolated_extension_usages=" + rand.nextBoolean(),
         "--incompatible_no_implicit_watch_label=" + rand.nextBoolean(),
         "--experimental_google_legacy_api=" + rand.nextBoolean(),
@@ -170,8 +168,6 @@ public class ConsistencyTest {
             BuildLanguageOptions.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS, rand.nextBoolean())
         .setBool(
             BuildLanguageOptions.EXPERIMENTAL_SINGLE_PACKAGE_TOOLCHAIN_BINDING, rand.nextBoolean())
-        .setBool(BuildLanguageOptions.ENABLE_BZLMOD, rand.nextBoolean())
-        .setBool(BuildLanguageOptions.ENABLE_WORKSPACE, rand.nextBoolean())
         .setBool(BuildLanguageOptions.EXPERIMENTAL_ISOLATED_EXTENSION_USAGES, rand.nextBoolean())
         .setBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_WATCH_LABEL, rand.nextBoolean())
         .setBool(BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API, rand.nextBoolean())

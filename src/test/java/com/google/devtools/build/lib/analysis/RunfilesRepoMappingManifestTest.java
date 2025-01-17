@@ -223,27 +223,6 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
   }
 
   @Test
-  public void actionRerunsOnRepoMappingChange_workspaceName() throws Exception {
-    setBuildLanguageOptions("--enable_workspace");
-    overwriteWorkspaceFile("workspace(name='aaa_ws')");
-    scratch.overwriteFile(
-        "MODULE.bazel",
-        "module(name='aaa',version='1.0')",
-        "bazel_dep(name='bare_rule',version='1.0')");
-    scratch.overwriteFile(
-        "BUILD", "load('@bare_rule//:defs.bzl', 'bare_binary')", "bare_binary(name='aaa')");
-    invalidatePackages();
-
-    RepoMappingManifestAction actionBeforeChange = getRepoMappingManifestActionForTarget("//:aaa");
-
-    overwriteWorkspaceFile("workspace(name='not_aaa_ws')");
-    invalidatePackages();
-
-    RepoMappingManifestAction actionAfterChange = getRepoMappingManifestActionForTarget("//:aaa");
-    assertThat(computeKey(actionBeforeChange)).isNotEqualTo(computeKey(actionAfterChange));
-  }
-
-  @Test
   public void actionRerunsOnRepoMappingChange_repoName() throws Exception {
     overwriteWorkspaceFile("workspace(name='aaa_ws')");
     scratch.overwriteFile(

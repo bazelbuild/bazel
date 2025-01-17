@@ -44,7 +44,6 @@ class BazelLockfileTest(test_base.TestBase):
         [
             # In ipv6 only network, this has to be enabled.
             # 'startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true',
-            'build --noenable_workspace',
             'build --experimental_isolated_extension_usages',
             'build --registry=' + self.main_registry.getURL(),
             # We need to have BCR here to make sure built-in modules like
@@ -2020,50 +2019,6 @@ class BazelLockfileTest(test_base.TestBase):
     stderr = '\n'.join(stderr)
     self.assertIn('ran the extension!', stderr)
     self.assertIn('STR=@@foo+//:lib_foo', stderr)
-
-  def testExtensionRepoMappingChange_mainRepoEvalCycleWithWorkspace(self):
-    # Regression test for #20942
-    self.main_registry.createCcModule('foo', '1.0')
-    self.ScratchFile(
-        'MODULE.bazel',
-        [
-            'bazel_dep(name="foo",version="1.0")',
-            'ext = use_extension(":ext.bzl", "ext")',
-            'use_repo(ext, "repo")',
-        ],
-    )
-    self.ScratchFile(
-        'BUILD.bazel',
-        [
-            'load("@repo//:defs.bzl", "STR")',
-            'print("STR="+STR)',
-            'filegroup(name="lol")',
-        ],
-    )
-    self.ScratchFile(
-        'ext.bzl',
-        [
-            'def _repo_impl(rctx):',
-            '  rctx.file("BUILD")',
-            '  rctx.file("defs.bzl", "STR = " + repr(str(rctx.attr.value)))',
-            'repo = repository_rule(_repo_impl,attrs={"value":attr.label()})',
-            'def _ext_impl(mctx):',
-            '  print("ran the extension!")',
-            '  repo(name = "repo", value = Label("@foo//:lib_foo"))',
-            'ext = module_extension(_ext_impl)',
-        ],
-    )
-    # any `load` in WORKSPACE should trigger the bug
-    self.ScratchFile('WORKSPACE.bzlmod', ['load("@repo//:defs.bzl","STR")'])
-
-    _, _, stderr = self.RunBazel(['build', '--enable_workspace', ':lol'])
-    self.assertIn('STR=@@foo+//:lib_foo', '\n'.join(stderr))
-
-    # Shutdown bazel to make sure we rely on the lockfile and not skyframe
-    self.RunBazel(['shutdown'])
-    # Build again. This should _NOT_ trigger a failure!
-    _, _, stderr = self.RunBazel(['build', '--enable_workspace', ':lol'])
-    self.assertNotIn('ran the extension!', '\n'.join(stderr))
 
   def testReproducibleExtensionsIgnoredInLockfile(self):
     self.ScratchFile(

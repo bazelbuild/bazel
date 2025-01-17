@@ -556,6 +556,23 @@ public final class BazelRulesModule extends BlazeModule {
     public boolean incompatibleUsePlusInRepoNames;
 
     @Option(
+        name = "enable_bzlmod",
+        oldName = "experimental_enable_bzlmod",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+        effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
+        help = "No-op.")
+    public boolean enableBzlmod;
+
+    @Option(
+        name = "enable_workspace",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+        effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
+        help = "No-op.")
+    public boolean enableWorkspace;
+
+    @Option(
         name = "experimental_announce_profile_path",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

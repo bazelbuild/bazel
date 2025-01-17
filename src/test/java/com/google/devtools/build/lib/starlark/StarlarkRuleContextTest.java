@@ -409,29 +409,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   /* The error message for this case used to be wrong. */
   @Test
-  public void testPackageBoundaryError_externalRepository_boundary() throws Exception {
-    // Doesn't work with Bzlmod due to https://github.com/bazelbuild/bazel/issues/22208
-    setBuildLanguageOptions("--enable_workspace");
-    scratch.file("r/WORKSPACE");
-    scratch.file("r/BUILD");
-    scratch.overwriteFile(
-        "WORKSPACE",
-        new ImmutableList.Builder<String>()
-            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
-            .add("local_repository(name='r', path='r')")
-            .build());
-    scratch.file("BUILD", "cc_library(name = 'cclib',", "  srcs = ['r/my_sub_lib.h'])");
-    invalidatePackages(
-        /* alsoConfigs= */ false); // Repository shuffling messes with toolchain labels.
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//:cclib");
-    assertContainsEvent(
-        "/workspace/BUILD:1:11: Label '//:r/my_sub_lib.h' is invalid because "
-            + "'@@r//' is a subpackage");
-  }
-
-  /* The error message for this case used to be wrong. */
-  @Test
   public void testPackageBoundaryError_externalRepository_entirelyInside() throws Exception {
     scratch.file("/r/MODULE.bazel", "module(name = 'r')");
     scratch.file(
@@ -1744,103 +1721,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     setRuleContext(createRuleContext("@@r+//a:r"));
     Label depLabel = (Label) ev.eval("ruleContext.attr.internal_dep.label");
     assertThat(depLabel).isEqualTo(Label.parseCanonical("//:dep"));
-  }
-
-  @Test
-  public void testExternalWorkspaceLoad() throws Exception {
-    // RepositoryDelegatorFunction deletes and creates symlink for the repository and as such is not
-    // safe to execute in parallel. Disable checks with package loader to avoid parallel
-    // evaluations.
-    initializeSkyframeExecutor(/* doPackageLoadingChecks= */ false);
-    setBuildLanguageOptions("--enable_workspace");
-    scratch.file(
-        "/r1/BUILD",
-        """
-        filegroup(name = 'test',
-         srcs = ['test.txt'],
-         visibility = ['//visibility:public'],
-        )
-        """);
-    scratch.file("/r1/WORKSPACE");
-    scratch.file("/r2/BUILD", "exports_files(['test.bzl'])");
-    scratch.file(
-        "/r2/test.bzl",
-        """
-        def macro(name, path):
-          native.local_repository(name = name, path = path)
-        """);
-    scratch.file("/r2/WORKSPACE");
-    scratch.file(
-        "/r2/other_test.bzl",
-        """
-        def other_macro(name, path):
-          print(name + ': ' + path)
-        """);
-    scratch.file("BUILD");
-
-    scratch.overwriteFile(
-        "WORKSPACE",
-        new ImmutableList.Builder<String>()
-            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
-            .add("local_repository(name='r2', path='/r2')")
-            .add("load('@r2//:test.bzl', 'macro')")
-            .add("macro('r1', '/r1')")
-            .add("NEXT_NAME = 'r3'")
-            // We can still refer to r2 in other chunks:
-            .add("load('@r2//:other_test.bzl', 'other_macro')")
-            .add("macro(NEXT_NAME, '/r2')") // and we can still use macro outside of its chunk.
-            .build());
-
-    invalidatePackages(
-        /* alsoConfigs= */ false); // Repository shuffling messes with toolchain labels.
-    assertThat(getConfiguredTarget("@r1//:test")).isNotNull();
-  }
-
-  @Test
-  public void testLoadBlockRepositoryRedefinition() throws Exception {
-    setBuildLanguageOptions("--enable_workspace");
-    reporter.removeHandler(failFastHandler);
-    scratch.file("/bar/WORKSPACE");
-    scratch.file("/bar/bar.txt");
-    scratch.file("/bar/BUILD", "filegroup(name = 'baz', srcs = ['bar.txt'])");
-    scratch.file("/baz/WORKSPACE");
-    scratch.file("/baz/baz.txt");
-    scratch.file("/baz/BUILD", "filegroup(name = 'baz', srcs = ['baz.txt'])");
-    scratch.overwriteFile(
-        "WORKSPACE",
-        new ImmutableList.Builder<String>()
-            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
-            .add("local_repository(name = 'foo', path = '/bar')")
-            .add("local_repository(name = 'foo', path = '/baz')")
-            .build());
-
-    invalidatePackages(
-        /* alsoConfigs= */ false); // Repository shuffling messes with toolchain labels.
-    assertThat(
-            (List)
-                getConfiguredTargetAndData("@foo//:baz")
-                    .getTargetForTesting()
-                    .getAssociatedRule()
-                    .getAttr("srcs"))
-        .contains(Label.parseCanonical("@foo//:baz.txt"));
-
-    scratch.overwriteFile("BUILD");
-    scratch.overwriteFile("bar.bzl", "dummy = 1");
-
-    scratch.overwriteFile(
-        "WORKSPACE",
-        new ImmutableList.Builder<String>()
-            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
-            .add("local_repository(name = 'foo', path = '/bar')")
-            .add("load('//:bar.bzl', 'dummy')")
-            .add("local_repository(name = 'foo', path = '/baz')")
-            .build());
-
-    invalidatePackages(/* alsoConfigs= */ false); // Repository shuffling messes with toolchains.
-    assertThrows(Exception.class, () -> createRuleContext("@foo//:baz"));
-    assertContainsEvent(
-        "Cannot redefine repository after any load statement in the WORKSPACE file "
-            + "(for repository 'foo')");
   }
 
   @Test

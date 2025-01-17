@@ -322,14 +322,6 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
     registry.addModule(key, moduleFileLines);
   }
 
-  protected boolean enableBzlmod() {
-    return true;
-  }
-
-  protected boolean enableWorkspace() {
-    return false;
-  }
-
   private void initTargetPatternEvaluator(ConfiguredRuleClassProvider ruleClassProvider) {
     this.toolsRepository = ruleClassProvider.getToolsRepository();
     if (skyframeExecutor != null) {
@@ -344,8 +336,6 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
     packageOptions.packagePath = ImmutableList.of(rootDirectory.getPathString());
 
     BuildLanguageOptions buildLanguageOptions = Options.getDefaults(BuildLanguageOptions.class);
-    buildLanguageOptions.enableBzlmod = enableBzlmod();
-    buildLanguageOptions.enableWorkspace = enableWorkspace();
     buildLanguageOptions.experimentalGoogleLegacyApi = !analysisMock.isThisBazel();
     // TODO(b/256127926): Delete once flipped.
     buildLanguageOptions.experimentalEnableSclDialect = true;
