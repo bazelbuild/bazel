@@ -807,12 +807,6 @@ launcher_flag_alias(
         """);
 
     config.create("embedded_tools/tools/sh/BUILD");
-    config.create(
-        "embedded_tools/tools/sh/sh_configure.bzl",
-        """
-        def sh_configure(**kwargs):
-            pass
-        """);
     config.create("embedded_tools/tools/osx/BUILD");
     config.create(
         "embedded_tools/tools/osx/xcode_configure.bzl",

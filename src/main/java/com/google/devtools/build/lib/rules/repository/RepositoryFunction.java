@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -404,8 +405,15 @@ public abstract class RepositoryFunction {
       // repository path.
       return;
     }
-    String repositoryName = repositoryPath.getSegment(0);
-    env.getValue(RepositoryDirectoryValue.key(RepositoryName.createUnvalidated(repositoryName)));
+    RepositoryName repositoryName;
+    try {
+      repositoryName = RepositoryName.create(repositoryPath.getSegment(0));
+    } catch (LabelSyntaxException ignored) {
+      // The directory of a repository with an invalid name can never exist, so we don't need to
+      // add a dependency on it.
+      return;
+    }
+    env.getValue(RepositoryDirectoryValue.key(repositoryName));
   }
 
   /** Sets up a mapping of environment variables to use. */
