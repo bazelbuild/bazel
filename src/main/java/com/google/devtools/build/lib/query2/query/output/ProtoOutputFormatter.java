@@ -574,6 +574,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     // Same for maps as for collections.
     if (attrType == Types.STRING_DICT
         || attrType == Types.STRING_LIST_DICT
+        || attrType == BuildType.LABEL_LIST_DICT
         || attrType == BuildType.LABEL_DICT_UNARY
         || attrType == BuildType.LABEL_KEYED_STRING_DICT) {
       Map<Object, Object> mergedDict = new HashMap<>();

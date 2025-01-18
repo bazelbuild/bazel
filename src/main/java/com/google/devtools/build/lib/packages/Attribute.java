@@ -1468,7 +1468,7 @@ public final class Attribute implements Comparable<Attribute> {
           if (!Starlark.isNullOrNone(value)) {
             // Some attribute values are not valid Starlark values:
             // visibility is an ImmutableList, for example.
-            attrValues.put(attr.getName(), Starlark.fromJava(value, /*mutability=*/ null));
+            attrValues.put(attr.getName(), Attribute.valueToStarlark(value));
           }
         }
       }
@@ -2420,8 +2420,9 @@ public final class Attribute implements Comparable<Attribute> {
    * Starlark uses only immutable {@link net.starlark.java.eval.StarlarkList} and {@link Dict}.
    *
    * <p>The conversion is similar to {@link Starlark#fromJava} for all types except {@code
-   * attr.string_list_dict} ({@code Map<String, List<String>>}), for which fromJava does not
-   * recursively convert elements. (Doing so is expensive.)
+   * attr.string_list_dict} ({@code Map<String, List<String>>}) and {@link
+   * BuildType#LABEL_LIST_DICT}, for which fromJava does not recursively convert elements. (Doing so
+   * is expensive.)
    *
    * <p>It is tempting to require that attributes are stored internally in Starlark form. However, a
    * number of obstacles would need to be overcome:
@@ -2437,13 +2438,11 @@ public final class Attribute implements Comparable<Attribute> {
    */
   public static Object valueToStarlark(Object x) {
     if (x instanceof Map<?, ?> map) {
-      // Is x a non-empty string_list_dict?
+      // Is x a non-empty {label,string}_list_dict?
       if (!map.isEmpty() && map.values().iterator().next() instanceof List) {
         // Recursively convert subelements.
         Dict.Builder<Object, Object> dict = Dict.builder();
-        for (Map.Entry<?, ?> e : map.entrySet()) {
-          dict.put(e.getKey(), Starlark.fromJava(e.getValue(), null));
-        }
+        map.forEach((key, value) -> dict.put(key, Starlark.fromJava(value, null)));
         return dict.buildImmutable();
       }
     } else if (x instanceof Set<?> set) {

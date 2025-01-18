@@ -129,6 +129,8 @@ public final class AttributeInfoExtractor {
       return AttributeType.STRING_DICT;
     } else if (type.equals(Types.STRING_LIST_DICT)) {
       return AttributeType.STRING_LIST_DICT;
+    } else if (type.equals(BuildType.LABEL_LIST_DICT)) {
+      return AttributeType.LABEL_LIST_DICT;
     } else if (type.equals(BuildType.LABEL_DICT_UNARY)) {
       return AttributeType.LABEL_DICT_UNARY;
     } else if (type.equals(BuildType.OUTPUT)) {
