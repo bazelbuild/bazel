@@ -57,6 +57,9 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.Command;
@@ -251,7 +254,8 @@ public final class ModCommand implements BlazeCommand {
         return reportAndCreateFailureResult(
             env, "Repositories not found: " + missingRepos, Code.INVALID_ARGUMENTS);
       }
-      try {
+      try (SilentCloseable c =
+          Profiler.instance().profile(ProfilerTask.BZLMOD, "execute mod " + subcommand)) {
         dumpRepoMappings(
             repoMappingValues,
             new OutputStreamWriter(
@@ -267,7 +271,10 @@ public final class ModCommand implements BlazeCommand {
         return reportAndCreateFailureResult(
             env, "the 'tidy' command doesn't take extra arguments", Code.TOO_MANY_ARGUMENTS);
       }
-      return runTidy(env, modTidyValue);
+      try (SilentCloseable c =
+          Profiler.instance().profile(ProfilerTask.BZLMOD, "execute mod " + subcommand)) {
+        return runTidy(env, modTidyValue);
+      }
     }
 
     // Extract and check the --base_module argument first to use it when parsing the other args.
@@ -524,7 +531,8 @@ public final class ModCommand implements BlazeCommand {
                 env.getReporter().getOutErr().getOutputStream(),
                 modOptions.charset == UTF8 ? UTF_8 : US_ASCII));
 
-    try {
+    try (SilentCloseable c =
+        Profiler.instance().profile(ProfilerTask.BZLMOD, "execute mod " + subcommand)) {
       switch (subcommand) {
         case GRAPH -> modExecutor.graph(fromKeys);
         case DEPS -> modExecutor.graph(argsAsModules);

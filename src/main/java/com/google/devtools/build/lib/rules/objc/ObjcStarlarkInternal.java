@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.Expander;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.packages.Types;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.List;
@@ -128,7 +129,10 @@ public class ObjcStarlarkInternal implements StarlarkValue {
                             starlarkRuleContext.getRuleContext().getPrerequisites("srcs"),
                             starlarkRuleContext.getRuleContext().getPrerequisites("non_arc_srcs"),
                             starlarkRuleContext.getRuleContext().getPrerequisites("hdrs"),
-                            starlarkRuleContext.getRuleContext().getPrerequisites("data")))))
+                            starlarkRuleContext.getRuleContext().getPrerequisites("data"))),
+                    starlarkRuleContext
+                        .getStarlarkSemantics()
+                        .getBool(BuildLanguageOptions.INCOMPATIBLE_LOCATIONS_PREFERS_EXECUTABLE)))
             .withDataExecLocations();
     ImmutableList<String> expandedFlags =
         expander.tokenized(attributeName, Sequence.cast(flags, String.class, attributeName));

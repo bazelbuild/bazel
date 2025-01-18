@@ -1,3 +1,112 @@
+## Release 8.0.1 (2025-01-17)
+
+```
+
+Release Notes:
+
+```
+
+## Release 9.0.0-pre.20250109.2 (2025-01-17)
+
+```
+Baseline: 457d248218540b0ae93d6454fa8a95ccad877063
+```
+
+New features:
+
+  - Materializer functions now have access to the label of the rule
+    they are running on as ctx.label .
+
+Important changes:
+
+  - Extra targets provided to `ctx.expand_location` now expand to
+    their executable (if any) instead of resulting in an error if
+    they provide a number of files different from one.
+    RELNOTES[INC]: The `--incompatible_locations_prefers_executable`
+    flag has been added and enabled, which makes it so that
+    `ctx.expand_location` expands `$(locations :x)` to the executable
+    of an extra target `:x` if it provides one and the number of
+    files provided by it is not one.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Fabian Meumertzheim.
+
+## Release 9.0.0-pre.20250106.2 (2025-01-13)
+
+```
+Baseline: fa48bc66e7118ca251c73bdad2c94039f51b5301
+```
+
+Important changes:
+
+  - Baseline coverage files are no longer ignored.
+  - select() on `cpu`, `host_cpu`, or `crosstool_top now emits a
+    "deprecated flag" warning
+  - `--max_idle_secs` now takes system sleep time into account when
+    deciding when to shutdown the blaze server.
+  - Flip --experimental_enable_starlark_set and enable the Starlark
+    set data type by default.
+
+This release contains contributions from many people at Google, as well as Alessandro Patti, Boleyn Su, Eric Riff, Fabian Meumertzheim, Keith Smiley, Kiron, Pareesh Madan, Steve Barrau, Torgil Svensson.
+
+## Release 9.0.0-pre.20241208.2 (2024-12-18)
+
+```
+Baseline: b00576de25ad5eed2af6607f51ad004874079519
+
+Cherry picks:
+
+   + a8e2c58656383f12dcee7125b8bd123bcec3428d:
+     Throw toolchain resolution error (as EvalError) instead of
+     IllegalStateException if create_compile_action() is called for
+     an action that isn't configured for the toolchain.
+```
+
+This release contains contributions from many people at Google, as well as .
+
+## Release 9.0.0-pre.20241208.1 (2024-12-16)
+
+```
+Baseline: b00576de25ad5eed2af6607f51ad004874079519
+```
+
+Important changes:
+
+  - Changing any part of --run_under that isn't the label (such as
+    the shell command) no longer invalidates the analysis cache.
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Keith Smiley.
+
+## Release 9.0.0-pre.20241205.2 (2024-12-12)
+
+```
+Baseline: 41557184fedc704037897226f8d255dda0780c55
+
+Cherry picks:
+
+   + a1d1902e07adaad8be3d46a44fa42b2e9b150c1a:
+     Fix `EmptyRuleConfiguredTargetFactory` for native rules that are
+     not instances of `EmptyRule`
+```
+
+Incompatible changes:
+
+  - The legacy `@bazel_tools//tools/build_defs/repo:maven_rules.bzl`
+    rule for downloading Maven artifacts has been deleted. Consider
+    migrating to rules_jvm_external if you are using this rule.
+
+Important changes:
+
+  - Fix starlark_doc_extract proto output for symbolic macro
+    visibility,
+    attribute inheritance, and rule finalizers; and remove
+    non-existent "name"
+    attribute from starlark_doc_extract output for aspects.
+  - Java tests are no longer run with a `SecurityManager` that
+    prevents `System.exit`, since `SecurityManager` functionality is
+    being removed from the JDK.
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Keith Lea, Keith Smiley, Lucas Loffel, Sara Adams, Xdng Yng.
+
 ## Release 8.0.0 (2024-12-09)
 
 ```

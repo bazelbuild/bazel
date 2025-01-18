@@ -1195,8 +1195,8 @@ class BazelModuleTest(test_base.TestBase):
     )
     self.AssertExitCode(exit_code, 48, stderr)
     self.assertIn(
-        'ERROR: Pending asynchronous work after module extension ext in'
-        ' @@//:extensions.bzl finished execution',
+        'ERROR: Pending asynchronous work after module extension'
+        ' @@//:extensions.bzl%ext finished execution',
         stderr,
     )
 
