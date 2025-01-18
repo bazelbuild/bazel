@@ -294,6 +294,32 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
   }
 
   @Test
+  public void testStarlarkLinkBinaryInRootPackage() throws Exception {
+    scratch.file("a.m");
+    addAppleBinaryStarlarkRule(scratch);
+    scratch.file(
+        "BUILD",
+        """
+        load("//test_starlark:apple_binary_starlark.bzl", "apple_binary_starlark")
+
+        package(default_visibility = ["//visibility:public"])
+
+        objc_library(
+            name = "lib",
+            srcs = ["a.m"],
+        )
+
+        apple_binary_starlark(
+            name = "bin",
+            platform_type = "macos",
+            deps = [":lib"],
+        )
+        """);
+
+    assertThat(getConfiguredTarget("//:bin")).isNotNull();
+  }
+
+  @Test
   public void testObjcRuleCanDependOnArbitraryStarlarkRuleThatProvidesCcInfo() throws Exception {
     scratch.file("test_starlark/rule/BUILD");
     scratch.file(

@@ -1189,7 +1189,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 .addExtensionUsage(
                     ModuleExtensionUsage.builder()
                         .setExtensionBzlFile("//:MODULE.bazel")
-                        .setExtensionName("//:repo.bzl%repo")
+                        .setExtensionName("//:repo.bzl repo")
                         .setIsolationKey(Optional.empty())
                         .setRepoOverrides(ImmutableMap.of())
                         .addProxy(
@@ -1218,7 +1218,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 .addExtensionUsage(
                     ModuleExtensionUsage.builder()
                         .setExtensionBzlFile("//:MODULE.bazel")
-                        .setExtensionName("@bazel_tools//:http.bzl%http_archive")
+                        .setExtensionName("@bazel_tools//:http.bzl http_archive")
                         .setIsolationKey(Optional.empty())
                         .setRepoOverrides(ImmutableMap.of())
                         .addProxy(
