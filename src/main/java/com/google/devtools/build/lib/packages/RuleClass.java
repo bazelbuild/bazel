@@ -161,6 +161,9 @@ public class RuleClass implements RuleClassData {
 
   public static final String APPLICABLE_METADATA_ATTR_ALT = "applicable_licenses";
 
+  public static final String DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME = "test";
+  public static final ExecGroup DEFAULT_TEST_RUNNER_EXEC_GROUP = ExecGroup.COPY_FROM_DEFAULT;
+
   /** Interface for determining whether a rule needs toolchain resolution or not. */
   @FunctionalInterface
   public interface ToolchainResolutionMode extends Serializable {
@@ -258,9 +261,15 @@ public class RuleClass implements RuleClassData {
 
   /**
    * For Bazel's constraint system: the attribute that declares the list of constraints that the
-   * execution platform must satisfy to be considered compatible.
+   * default exec group's execution platform must satisfy to be considered compatible.
    */
   public static final String EXEC_COMPATIBLE_WITH_ATTR = "exec_compatible_with";
+
+  /**
+   * For Bazel's constraint system: the attribute that declares the list of constraints that the
+   * given exec groups' execution platforms must satisfy to be considered compatible.
+   */
+  public static final String EXEC_GROUP_COMPATIBLE_WITH_ATTR = "exec_group_compatible_with";
 
   /**
    * The attribute that declares execution properties that should be added to actions created by
@@ -1620,11 +1629,6 @@ public class RuleClass implements RuleClassData {
         }
       }
       return this;
-    }
-
-    /** Adds an exec group that copies its toolchains and constraints from the rule. */
-    public Builder addExecGroup(String name) {
-      return addExecGroups(ImmutableMap.of(name, ExecGroup.COPY_FROM_DEFAULT));
     }
 
     /** An error to help report {@link ExecGroup}s with the same name */

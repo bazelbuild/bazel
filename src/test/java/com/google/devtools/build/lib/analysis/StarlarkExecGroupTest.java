@@ -774,6 +774,21 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
             constraint_setting = ":fast_cpu",
         )
 
+        constraint_setting(
+            name = "gpu",
+            default_constraint_value = ":no_gpu",
+        )
+
+        constraint_value(
+            name = "no_gpu",
+            constraint_setting = ":gpu",
+        )
+
+        constraint_value(
+            name = "has_gpu",
+            constraint_setting = ":gpu",
+        )
+
         platform(
             name = "target_platform",
             constraint_values = [
@@ -789,6 +804,21 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
             ],
             exec_properties = {
                 "require_fast_cpu": "true",
+            },
+        )
+
+        platform(
+            name = "gpu_platform",
+            constraint_values = [
+                "@platforms//os:linux",
+                # TODO: This constraint should not be needed, it's only required
+                # because default exec constraints implicitly leak into the
+                # 'test' exec group.
+                ":has_fast_cpu",
+                ":has_gpu",
+            ],
+            exec_properties = {
+                "require_gpu": "true",
             },
         )
         """);
@@ -831,8 +861,10 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
             exec_compatible_with = [
                 "//platform:has_fast_cpu",
             ],
-            exec_properties = {
-                "test.require_gpu": "true",
+            exec_group_compatible_with = {
+                "test": [
+                    "//platform:has_gpu",
+                ],
             },
         )
         """);
@@ -840,7 +872,7 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
     useConfiguration(
         "--extra_toolchains=//toolchain:target_target_toolchain,//toolchain:exec_target_toolchain",
         "--platforms=//platform:target_platform",
-        "--extra_execution_platforms=//platform:target_platform,//platform:fast_cpu_platform");
+        "--extra_execution_platforms=//platform:target_platform,//platform:fast_cpu_platform,//platform:gpu_platform");
 
     ConfiguredTarget target = getConfiguredTarget("//test:my_test");
 
@@ -859,14 +891,156 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
             .filter(action -> action.getMnemonic().equals("TestRunner"))
             .findFirst()
             .orElseThrow();
-    // This is NOT the desired behavior: the test action should not be affected by
-    // the exec_compatible_with constraint and thus select the target platform.
-    // TODO: Change this as soon as exec_group_compatible_with is available, which provides an
-    // explicit way to specify additional constraints for the test exec group.
-    // https://github.com/bazelbuild/bazel/issues/23802
     assertThat(testAction.getExecutionPlatform().label())
-        .isEqualTo(Label.parseCanonicalUnchecked("//platform:fast_cpu_platform"));
-    assertThat(testAction.getExecProperties())
-        .containsExactly("require_fast_cpu", "true", "require_gpu", "true");
+        .isEqualTo(Label.parseCanonicalUnchecked("//platform:gpu_platform"));
+    assertThat(testAction.getExecProperties()).containsExactly("require_gpu", "true");
+  }
+
+  @Test
+  public void invalidExecGroupCompatibleWith() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        """
+        def _impl(ctx):
+            pass
+
+        my_rule = rule(
+            implementation = _impl,
+            exec_groups = {
+                "my_group": exec_group(),
+            },
+        )
+        """);
+
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:defs.bzl", "my_rule")
+
+        my_rule(
+            name = "a",
+            exec_group_compatible_with = {
+                "my_grou": [
+                    "@platforms//os:linux",
+                ],
+            },
+        )
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:a");
+    assertContainsEvent(
+        "Tried to set execution constraints for non-existent exec groups: my_grou (did you mean 'my_group'?)");
+  }
+
+  @Test
+  public void multipleExecGroups() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        """
+        def _impl(ctx):
+            outs = []
+            for i in range(1, 5):
+                out = ctx.actions.declare_file(ctx.label.name + str(i))
+                ctx.actions.run_shell(
+                    outputs = [out],
+                    command = "echo hello > $1",
+                    arguments = [out.path],
+                    exec_group = "exec" + str(i),
+                )
+                outs.append(out)
+            return DefaultInfo(files = depset(outs))
+
+        my_rule = rule(
+            implementation = _impl,
+            exec_groups = {
+                "exec1": exec_group(),
+                "exec2": exec_group(),
+                "exec3": exec_group(),
+                "exec4": exec_group(),
+            },
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:defs.bzl", "my_rule")
+
+        platform(
+            name = "linux_x86_64",
+            constraint_values = [
+                "@platforms//os:linux",
+                "@platforms//cpu:x86_64",
+            ],
+        )
+
+        platform(
+            name = "linux_arm64",
+            constraint_values = [
+                "@platforms//os:linux",
+                "@platforms//cpu:arm64",
+            ],
+        )
+
+        platform(
+            name = "macos_x86_64",
+            constraint_values = [
+                "@platforms//os:macos",
+                "@platforms//cpu:x86_64",
+            ],
+        )
+
+        platform(
+            name = "macos_arm64",
+            constraint_values = [
+                "@platforms//os:macos",
+                "@platforms//cpu:arm64",
+            ],
+        )
+
+        my_rule(
+            name = "a",
+            exec_group_compatible_with = {
+                "exec1": [
+                    "@platforms//os:linux",
+                    "@platforms//cpu:x86_64",
+                ],
+                "exec2": [
+                    "@platforms//os:linux",
+                    "@platforms//cpu:arm64",
+                ],
+                "exec3": [
+                    "@platforms//os:macos",
+                    "@platforms//cpu:x86_64",
+                ],
+                "exec4": [
+                    "@platforms//os:macos",
+                    "@platforms//cpu:arm64",
+                ],
+            },
+        )
+        """);
+
+    useConfiguration(
+        "--extra_execution_platforms=//test:linux_x86_64,//test:linux_arm64,"
+            + "//test:macos_x86_64,//test:macos_arm64");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:a");
+
+    Action action1 = getGeneratingAction(target, "test/a1");
+    assertThat(action1.getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonicalUnchecked("//test:linux_x86_64"));
+
+    Action action2 = getGeneratingAction(target, "test/a2");
+    assertThat(action2.getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonicalUnchecked("//test:linux_arm64"));
+
+    Action action3 = getGeneratingAction(target, "test/a3");
+    assertThat(action3.getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonicalUnchecked("//test:macos_x86_64"));
+
+    Action action4 = getGeneratingAction(target, "test/a4");
+    assertThat(action4.getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonicalUnchecked("//test:macos_arm64"));
   }
 }

@@ -418,7 +418,8 @@ public final class DependencyResolver {
         | ConfiguredValueCreationException
         | AspectCreationException
         | StarlarkExecTransitionLoadingException
-        | ToolchainException e) {
+        | ToolchainException
+        | ExecGroupCollection.InvalidExecGroupException e) {
       // We handle exceptions in a dedicated method to keep this method concise and readable.
       handleException(listener, targetAndConfiguration.getTarget(), e);
     }
@@ -437,7 +438,8 @@ public final class DependencyResolver {
           ToolchainException,
           ConfiguredValueCreationException,
           IncompatibleTargetException,
-          DependencyEvaluationException {
+          DependencyEvaluationException,
+          ExecGroupCollection.InvalidExecGroupException {
     if (state.dependencyContext != null) {
       return state.dependencyContext;
     }
@@ -566,6 +568,16 @@ public final class DependencyResolver {
           // Report the error to the user.
           listener.handle(Event.error(null, e.getMessage()));
         }
+        yield new ReportedException(
+            new ConfiguredValueCreationException(
+                targetAndConfiguration.getTarget(),
+                configurationId(targetAndConfiguration.getConfiguration()),
+                e.getMessage(),
+                /* rootCauses= */ null,
+                /* detailedExitCode= */ null));
+      }
+      case ExecGroupCollection.InvalidExecGroupException e -> {
+        listener.handle(Event.error(target.getLocation(), e.getMessage()));
         yield new ReportedException(
             new ConfiguredValueCreationException(
                 targetAndConfiguration.getTarget(),
@@ -743,7 +755,7 @@ public final class DependencyResolver {
       @Nullable Label parentExecutionPlatformLabel,
       RuleClassProvider ruleClassProvider,
       ExtendedEventHandler listener)
-      throws InterruptedException {
+      throws InterruptedException, ExecGroupCollection.InvalidExecGroupException {
     if (targetAndConfiguration.getConfiguration() == null) {
       return UnloadedToolchainContextsInputs.empty();
     }

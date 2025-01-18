@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.ExecGroupCollection;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -148,15 +149,20 @@ public class RuleTransitionApplier
       unloadedToolchainContextsInputs = UnloadedToolchainContextsInputs.empty();
     } else {
       platformConfiguration = new PlatformConfiguration(platformOptions);
-      unloadedToolchainContextsInputs =
-          ToolchainContextUtil.getUnloadedToolchainContextsInputs(
-              target,
-              preRuleTransitionKey.getConfigurationKey().getOptions().get(CoreOptions.class),
-              platformConfiguration,
-              preRuleTransitionKey.getExecutionPlatformLabel(),
-              computeToolchainConfigurationKey(
-                  preRuleTransitionKey.getConfigurationKey().getOptions(),
-                  targetAndConfigurationData.getToolchainTaggedTrimmingTransition()));
+      try {
+        unloadedToolchainContextsInputs =
+            ToolchainContextUtil.getUnloadedToolchainContextsInputs(
+                target,
+                preRuleTransitionKey.getConfigurationKey().getOptions().get(CoreOptions.class),
+                platformConfiguration,
+                preRuleTransitionKey.getExecutionPlatformLabel(),
+                computeToolchainConfigurationKey(
+                    preRuleTransitionKey.getConfigurationKey().getOptions(),
+                    targetAndConfigurationData.getToolchainTaggedTrimmingTransition()));
+      } catch (ExecGroupCollection.InvalidExecGroupException e) {
+        emitErrorMessage(e.getMessage());
+        return runAfter;
+      }
     }
 
     if (unloadedToolchainContextsInputs.targetToolchainContextKey() != null) {

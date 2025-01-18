@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.Type;
@@ -227,6 +228,13 @@ public class StarlarkAttributesCollection implements StarlarkAttributesCollectio
       // and currently only applies to subrule attributes
       // TODO: b/293304174 - let subrules explicitly mark attributes as not-visible-to-starlark
       if (!Identifier.isValid(skyname)) {
+        return null;
+      }
+
+      // Don't expose exec_group_compatible_with to Starlark. There is no reason for it to be used
+      // by the rule implementation function and its type (LABEL_LIST_DICT) is not available to
+      // Starlark.
+      if (a.getName().equals(RuleClass.EXEC_GROUP_COMPATIBLE_WITH_ATTR)) {
         return null;
       }
 
