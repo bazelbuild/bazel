@@ -63,7 +63,7 @@ public record ModuleExtensionId(
     }
 
     @Override
-    public final String toString() {
+    public String toString() {
       return module() + "+" + usageExportedName();
     }
 
@@ -79,11 +79,12 @@ public record ModuleExtensionId(
     return new ModuleExtensionId(bzlFileLabel, extensionName, isolationKey);
   }
 
-  public final boolean isInnate() {
-    return extensionName().contains("%");
+  public boolean isInnate() {
+    return extensionName().contains(" ");
   }
 
-  public String asTargetString() {
+  @Override
+  public String toString() {
     String isolationKeyPart = isolationKey().map(key -> "%" + key).orElse("");
     return String.format(
         "%s%%%s%s",
