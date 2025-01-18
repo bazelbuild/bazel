@@ -13,6 +13,6 @@
 # limitations under the License.
 """Deprecated forwarders to rules_shell."""
 
-load("@rules_shell//shell:sh_toolchain.bzl", _sh_toolchain = "sh_toolchain")
+load("@rules_shell//shell/toolchains:sh_toolchain.bzl", _sh_toolchain = "sh_toolchain")
 
 sh_toolchain = _sh_toolchain
