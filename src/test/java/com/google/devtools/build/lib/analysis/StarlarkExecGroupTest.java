@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
+import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -706,5 +707,165 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
         .containsExactly("ripeness", "ripe", "color", "red");
     assertThat(getGeneratingAction(target, "test/out.txt").getOwner().getExecProperties())
         .containsExactly("ripeness", "unknown");
+  }
+
+  @Test
+  public void testRuleExecGroup() throws Exception {
+    scratch.file(
+        "rule/my_toolchain.bzl",
+        """
+        def _impl(ctx):
+            return [platform_common.ToolchainInfo(label = ctx.label)]
+
+        my_toolchain = rule(
+            implementation = _impl,
+        )
+        """);
+    scratch.file(
+        "rule/BUILD",
+        """
+        toolchain_type(name = "toolchain_type")
+        """);
+    scratch.file(
+        "toolchain/BUILD",
+        """
+        load("//rule:my_toolchain.bzl", "my_toolchain")
+
+        my_toolchain(
+            name = "target_target",
+        )
+
+        toolchain(
+            name = "target_target_toolchain",
+            exec_compatible_with = ["@platforms//os:linux"],
+            target_compatible_with = ["@platforms//os:linux"],
+            toolchain = ":target_target",
+            toolchain_type = "//rule:toolchain_type",
+        )
+
+        my_toolchain(
+            name = "exec_target",
+        )
+
+        toolchain(
+            name = "exec_target_toolchain",
+            exec_compatible_with = ["@platforms//os:macos"],
+            target_compatible_with = ["@platforms//os:linux"],
+            toolchain = ":exec_target",
+            toolchain_type = "//rule:toolchain_type",
+        )
+        """);
+
+    scratch.overwriteFile(
+        "platform/BUILD",
+        """
+        constraint_setting(
+            name = "fast_cpu",
+            default_constraint_value = ":no_fast_cpu",
+        )
+
+        constraint_value(
+            name = "no_fast_cpu",
+            constraint_setting = ":fast_cpu",
+        )
+
+        constraint_value(
+            name = "has_fast_cpu",
+            constraint_setting = ":fast_cpu",
+        )
+
+        platform(
+            name = "target_platform",
+            constraint_values = [
+                "@platforms//os:linux",
+            ],
+        )
+
+        platform(
+            name = "fast_cpu_platform",
+            constraint_values = [
+                "@platforms//os:macos",
+                ":has_fast_cpu",
+            ],
+            exec_properties = {
+                "require_fast_cpu": "true",
+            },
+        )
+        """);
+
+    scratch.file(
+        "test/defs.bzl",
+        """
+        MyInfo = provider(fields = ["toolchain_label"])
+
+        def _impl(ctx):
+            executable = ctx.actions.declare_file(ctx.label.name)
+            ctx.actions.run_shell(
+                outputs = [executable],
+                command = "touch $1",
+                arguments = [executable.path],
+            )
+            return [
+                DefaultInfo(
+                    executable = executable,
+                ),
+                MyInfo(
+                    toolchain_label = ctx.toolchains["//rule:toolchain_type"].label,
+                ),
+            ]
+
+        my_cc_test = rule(
+            implementation = _impl,
+            test = True,
+            toolchains = ["//rule:toolchain_type"],
+        )
+        """);
+
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:defs.bzl", "my_cc_test")
+
+        my_cc_test(
+            name = "my_test",
+            exec_compatible_with = [
+                "//platform:has_fast_cpu",
+            ],
+            exec_properties = {
+                "test.require_gpu": "true",
+            },
+        )
+        """);
+
+    useConfiguration(
+        "--extra_toolchains=//toolchain:target_target_toolchain,//toolchain:exec_target_toolchain",
+        "--platforms=//platform:target_platform",
+        "--extra_execution_platforms=//platform:target_platform,//platform:fast_cpu_platform");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:my_test");
+
+    Provider.Key key =
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "MyInfo");
+    Label toolchainLabel = (Label) ((StructImpl) target.get(key)).getValue("toolchain_label");
+    assertThat(toolchainLabel).isEqualTo(Label.parseCanonicalUnchecked("//toolchain:exec_target"));
+
+    Action compileAction = getGeneratingAction(target, "test/my_test");
+    assertThat(compileAction.getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonicalUnchecked("//platform:fast_cpu_platform"));
+    assertThat(compileAction.getExecProperties()).containsExactly("require_fast_cpu", "true");
+
+    Action testAction =
+        getActions("//test:my_test").stream()
+            .filter(action -> action.getMnemonic().equals("TestRunner"))
+            .findFirst()
+            .orElseThrow();
+    // This is NOT the desired behavior: the test action should not be affected by
+    // the exec_compatible_with constraint and thus select the target platform.
+    // TODO: Change this as soon as exec_group_compatible_with is available, which provides an
+    // explicit way to specify additional constraints for the test exec group.
+    assertThat(testAction.getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonicalUnchecked("//platform:fast_cpu_platform"));
+    assertThat(testAction.getExecProperties())
+        .containsExactly("require_fast_cpu", "true", "require_gpu", "true");
   }
 }
