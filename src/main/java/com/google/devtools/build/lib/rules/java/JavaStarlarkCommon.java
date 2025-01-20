@@ -369,13 +369,6 @@ public class JavaStarlarkCommon
   }
 
   @Override
-  public JavaInfo wrapJavaInfo(Info javaInfo, StarlarkThread thread)
-      throws EvalException, RuleErrorException {
-    checkPrivateAccess(thread);
-    return JavaInfo.wrap(javaInfo);
-  }
-
-  @Override
   public boolean incompatibleDisableNonExecutableJavaBinary(StarlarkThread thread) {
     return thread
         .getSemantics()

@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.Serializat
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaModuleFlagsProviderApi;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.Keep;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -120,19 +119,6 @@ public sealed class JavaInfo extends NativeInfo
     return CcInfo.EMPTY;
   }
 
-  public static ImmutableList<CcInfo> ccInfos(Iterable<? extends TransitiveInfoCollection> targets)
-      throws RuleErrorException {
-    ImmutableList.Builder<CcInfo> builder = ImmutableList.builder();
-    for (TransitiveInfoCollection target : targets) {
-      builder.add(JavaInfo.ccInfo(target));
-    }
-    return builder.build();
-  }
-
-  public Optional<JavaCompilationArgsProvider> compilationArgsProvider() {
-    return Optional.ofNullable(providerJavaCompilationArgs);
-  }
-
   /** Marker interface for encapuslated providers */
   public interface JavaInfoInternalProvider {}
 
@@ -141,7 +127,20 @@ public sealed class JavaInfo extends NativeInfo
     return object != Starlark.NONE ? type.cast(object) : null;
   }
 
-  static final JavaInfo EMPTY_JAVA_INFO_FOR_TESTING = Builder.create().build();
+  static final JavaInfo EMPTY_JAVA_INFO_FOR_TESTING =
+      new JavaInfo(
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          ImmutableList.of(),
+          false,
+          ImmutableList.of(),
+          Location.BUILTIN);
 
   private final JavaCompilationArgsProvider providerJavaCompilationArgs;
   private final JavaSourceJarsProvider providerJavaSourceJars;
@@ -221,6 +220,7 @@ public sealed class JavaInfo extends NativeInfo
     return info;
   }
 
+  @VisibleForTesting
   public static JavaInfo wrap(Info info) throws RuleErrorException {
     Provider.Key key = info.getProvider().getKey();
     if (key.equals(RULES_JAVA_PROVIDER.getKey())) {
@@ -519,35 +519,6 @@ public sealed class JavaInfo extends NativeInfo
   }
 
   static final class WorkspaceJavaInfo extends JavaInfo {
-
-    private WorkspaceJavaInfo(
-        JavaCcInfoProvider javaCcInfoProvider,
-        JavaCompilationArgsProvider javaCompilationArgsProvider,
-        JavaCompilationInfoProvider javaCompilationInfoProvider,
-        JavaGenJarsProvider javaGenJarsProvider,
-        JavaModuleFlagsProvider javaModuleFlagsProvider,
-        JavaPluginInfo javaPluginInfo,
-        JavaRuleOutputJarsProvider javaRuleOutputJarsProvider,
-        JavaSourceJarsProvider javaSourceJarsProvider,
-        ImmutableList<Artifact> directRuntimeJars,
-        boolean neverlink,
-        ImmutableList<String> javaConstraints,
-        Location creationLocation) {
-      super(
-          javaCcInfoProvider,
-          javaCompilationArgsProvider,
-          javaCompilationInfoProvider,
-          javaGenJarsProvider,
-          javaModuleFlagsProvider,
-          javaPluginInfo,
-          javaRuleOutputJarsProvider,
-          javaSourceJarsProvider,
-          directRuntimeJars,
-          neverlink,
-          javaConstraints,
-          creationLocation);
-    }
-
     private WorkspaceJavaInfo(StructImpl javaInfo)
         throws EvalException, TypeException, RuleErrorException {
       super(javaInfo);
@@ -631,114 +602,6 @@ public sealed class JavaInfo extends NativeInfo
     @Override
     public Location getLocation() {
       return Location.BUILTIN;
-    }
-  }
-
-  /** A Builder for {@link JavaInfo}. */
-  public static class Builder {
-
-    private JavaCompilationArgsProvider providerJavaCompilationArgs;
-    private JavaCompilationInfoProvider providerJavaCompilationInfo;
-    private JavaRuleOutputJarsProvider providerJavaRuleOutputJars;
-    private JavaSourceJarsProvider providerJavaSourceJars;
-    private ImmutableList<Artifact> runtimeJars;
-    private ImmutableList<String> javaConstraints;
-    private boolean neverlink;
-    private Location creationLocation = Location.BUILTIN;
-    private Provider provider = PROVIDER;
-
-    private Builder() {}
-
-    private static Builder create() {
-      return new Builder()
-          .setRuntimeJars(ImmutableList.of())
-          .setJavaConstraints(ImmutableList.of());
-    }
-
-    @CanIgnoreReturnValue
-    public Builder setRuntimeJars(ImmutableList<Artifact> runtimeJars) {
-      this.runtimeJars = runtimeJars;
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder setNeverlink(boolean neverlink) {
-      this.neverlink = neverlink;
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder setJavaConstraints(ImmutableList<String> javaConstraints) {
-      this.javaConstraints = javaConstraints;
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder setLocation(Location location) {
-      this.creationLocation = location;
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder javaCompilationArgs(JavaCompilationArgsProvider provider) {
-      this.providerJavaCompilationArgs = provider;
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder javaCompilationInfo(JavaCompilationInfoProvider provider) {
-      this.providerJavaCompilationInfo = provider;
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder javaRuleOutputs(JavaRuleOutputJarsProvider provider) {
-      this.providerJavaRuleOutputJars = provider;
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder javaSourceJars(JavaSourceJarsProvider provider) {
-      this.providerJavaSourceJars = provider;
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder setProvider(Provider provider) {
-      this.provider = provider;
-      return this;
-    }
-
-    public JavaInfo build() {
-      if (provider.getKey().equals(WORKSPACE_PROVIDER.getKey())) {
-        return new WorkspaceJavaInfo(
-            /* javaCcInfoProvider= */ null,
-            providerJavaCompilationArgs,
-            providerJavaCompilationInfo,
-            /* javaGenJarsProvider= */ null,
-            /* javaModuleFlagsProvider= */ null,
-            /* javaPluginInfo= */ null,
-            providerJavaRuleOutputJars,
-            providerJavaSourceJars,
-            runtimeJars,
-            neverlink,
-            javaConstraints,
-            creationLocation);
-      } else {
-        return new JavaInfo(
-            /* javaCcInfoProvider= */ null,
-            providerJavaCompilationArgs,
-            providerJavaCompilationInfo,
-            /* javaGenJarsProvider= */ null,
-            /* javaModuleFlagsProvider= */ null,
-            /* javaPluginInfo= */ null,
-            providerJavaRuleOutputJars,
-            providerJavaSourceJars,
-            runtimeJars,
-            neverlink,
-            javaConstraints,
-            creationLocation);
-      }
     }
   }
 
