@@ -95,8 +95,31 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
    */
   public abstract long getModifiedTime();
 
-  // TODO(lberki): This is only used by FileArtifactValue itself. It seems possible to remove this.
-  public abstract FileContentsProxy getContentsProxy();
+  /**
+   * Returns a contents proxy (typically, a subset of the file system object's inode properties)
+   * that can be used to detect modifications more cheaply (at the cost of increased chance of a
+   * false negative) in situations where a digest would be too expensive to compute.
+   *
+   * <p>If no proxy is available, returns null.
+   */
+  @Nullable
+  public FileContentsProxy getContentsProxy() {
+    return null;
+  }
+
+  /**
+   * Sets the contents proxy.
+   *
+   * <p>Must not be called unless {@link #canSetContentsProxy} returns true.
+   */
+  public void setContentsProxy(FileContentsProxy proxy) {
+    throw new UnsupportedOperationException();
+  }
+
+  /** Whether the contents proxy can be set through {@link #setContentsProxy}. */
+  public boolean canSetContentsProxy() {
+    return false;
+  }
 
   @Nullable
   public byte[] getValueFingerprint() {
@@ -114,7 +137,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     return 0;
   }
 
-  /** Returns {@code true} if the file only exists remotely. */
+  /** Returns whether the file contents exist remotely. */
   public boolean isRemote() {
     return false;
   }
@@ -355,11 +378,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     }
 
     @Override
-    public FileContentsProxy getContentsProxy() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
     public byte[] getValueFingerprint() {
       return new Fingerprint()
           .addString(getClass().getCanonicalName())
@@ -419,11 +437,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     @Override
     public byte[] getDigest() {
       return digest;
-    }
-
-    @Override
-    public FileContentsProxy getContentsProxy() {
-      throw new UnsupportedOperationException();
     }
 
     @Override
@@ -618,11 +631,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     }
 
     @Override
-    public FileContentsProxy getContentsProxy() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
     public final long getSize() {
       return size;
     }
@@ -714,20 +722,31 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     }
 
     /**
-     * Returns a non-null {@link FileContentsProxy} if this remote metadata is backed by a local
-     * file, e.g. the file is materialized after action execution.
+     * {@inheritDoc}
+     *
+     * <p>Returns non-null if the file backed by this remote metadata has been materialized in the
+     * local filesystem.
      */
     @Override
+    @Nullable
     public FileContentsProxy getContentsProxy() {
       return proxy;
     }
 
     /**
-     * Sets the {@link FileContentsProxy} if the output backed by this remote metadata is
-     * materialized later.
+     * {@inheritDoc}
+     *
+     * <p>Called when the file backed by this remote metadata is materialized to the local
+     * filesystem.
      */
+    @Override
     public void setContentsProxy(FileContentsProxy proxy) {
       this.proxy = proxy;
+    }
+
+    @Override
+    public boolean canSetContentsProxy() {
+      return true;
     }
 
     @Override
@@ -828,11 +847,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     }
 
     @Override
-    public FileContentsProxy getContentsProxy() {
-      throw new IllegalStateException();
-    }
-
-    @Override
     public boolean equals(Object o) {
       if (this == o) {
         return true;
@@ -903,11 +917,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     @Override
     public byte[] getDigest() {
       return digest;
-    }
-
-    @Override
-    public FileContentsProxy getContentsProxy() {
-      throw new UnsupportedOperationException();
     }
 
     @Override
@@ -1082,8 +1091,19 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     }
 
     @Override
+    @Nullable
     public FileContentsProxy getContentsProxy() {
       return delegate.getContentsProxy();
+    }
+
+    @Override
+    public void setContentsProxy(FileContentsProxy proxy) {
+      delegate.setContentsProxy(proxy);
+    }
+
+    @Override
+    public boolean canSetContentsProxy() {
+      return delegate.canSetContentsProxy();
     }
 
     @Override
@@ -1122,11 +1142,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     @Override
     public byte[] getDigest() {
       return null;
-    }
-
-    @Override
-    public FileContentsProxy getContentsProxy() {
-      throw new UnsupportedOperationException();
     }
 
     @Override
@@ -1173,11 +1188,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     @Override
     public byte[] getDigest() {
       return DIGEST;
-    }
-
-    @Override
-    public FileContentsProxy getContentsProxy() {
-      throw new UnsupportedOperationException();
     }
 
     @Override

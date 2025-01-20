@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
-import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValueWithMaterializationData;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
@@ -502,11 +501,9 @@ public class FilesystemValueChecker {
             .filter(
                 entry -> {
                   var metadata = entry.getValue();
-                  if (!(metadata
-                      instanceof RemoteFileArtifactValueWithMaterializationData remote)) {
-                    return true;
-                  }
-                  return remote.getContentsProxy() != null;
+                  // For remote metadata, a non-null contents proxy indicates that the file has
+                  // been materialized in the local filesystem.
+                  return !metadata.isRemote() || metadata.getContentsProxy() != null;
                 })
             .map(entry -> entry.getKey().getParentRelativePath())
             .collect(toImmutableSet());
