@@ -112,6 +112,8 @@ public class SkyframeBuilder implements Builder {
     // TODO(bazel-team): Should use --experimental_fsvc_threads instead of the hardcoded constant
     // but plumbing the flag through is hard.
     int fsvcThreads = buildRequestOptions == null ? 200 : buildRequestOptions.fsvcThreads;
+    boolean skyframeErrorHandlingRefactor =
+        buildRequestOptions != null && buildRequestOptions.skyframeErrorHandlingRefactor;
     skyframeExecutor.detectModifiedOutputFiles(
         modifiedOutputFiles, lastExecutionTimeRange, remoteArtifactChecker, fsvcThreads);
     try (SilentCloseable c = Profiler.instance().profile("configureActionExecutor")) {
@@ -175,12 +177,16 @@ public class SkyframeBuilder implements Builder {
               topLevelArtifactContext);
       // progressReceiver is finished, so unsynchronized access to builtTargets is now safe.
       DetailedExitCode detailedExitCode =
-          SkyframeErrorProcessor.processResult(
-              reporter,
-              result,
-              options.getOptions(KeepGoingOption.class).keepGoing,
-              skyframeExecutor.getCyclesReporter(),
-              bugReporter);
+          SkyframeErrorProcessor.processExecutionErrors(
+                  result,
+                  skyframeExecutor.getCyclesReporter(),
+                  reporter,
+                  options.getOptions(KeepGoingOption.class).keepGoing,
+                  skyframeExecutor.tracksStateForIncrementality(),
+                  skyframeExecutor.getEventBus(),
+                  bugReporter,
+                  skyframeErrorHandlingRefactor)
+              .executionDetailedExitCode();
 
       if (detailedExitCode != null) {
         detailedExitCodes.add(detailedExitCode);
@@ -202,13 +208,18 @@ public class SkyframeBuilder implements Builder {
                 actionCacheChecker,
                 actionOutputDirectoryHelper,
                 topLevelArtifactContext);
+
         detailedExitCode =
-            SkyframeErrorProcessor.processResult(
-                reporter,
-                result,
-                options.getOptions(KeepGoingOption.class).keepGoing,
-                skyframeExecutor.getCyclesReporter(),
-                bugReporter);
+            SkyframeErrorProcessor.processExecutionErrors(
+                    result,
+                    skyframeExecutor.getCyclesReporter(),
+                    reporter,
+                    options.getOptions(KeepGoingOption.class).keepGoing,
+                    skyframeExecutor.tracksStateForIncrementality(),
+                    skyframeExecutor.getEventBus(),
+                    bugReporter,
+                    skyframeErrorHandlingRefactor)
+                .executionDetailedExitCode();
         Preconditions.checkState(
             detailedExitCode != null || !result.keyNames().isEmpty(),
             "Build reported as successful but test %s not executed: %s",
@@ -229,13 +240,18 @@ public class SkyframeBuilder implements Builder {
                 options,
                 actionCacheChecker,
                 actionOutputDirectoryHelper);
+
         detailedExitCode =
-            SkyframeErrorProcessor.processResult(
-                reporter,
-                result,
-                options.getOptions(KeepGoingOption.class).keepGoing,
-                skyframeExecutor.getCyclesReporter(),
-                bugReporter);
+            SkyframeErrorProcessor.processExecutionErrors(
+                    result,
+                    skyframeExecutor.getCyclesReporter(),
+                    reporter,
+                    options.getOptions(KeepGoingOption.class).keepGoing,
+                    skyframeExecutor.tracksStateForIncrementality(),
+                    skyframeExecutor.getEventBus(),
+                    bugReporter,
+                    skyframeErrorHandlingRefactor)
+                .executionDetailedExitCode();
         if (detailedExitCode != null) {
           detailedExitCodes.add(detailedExitCode);
         }

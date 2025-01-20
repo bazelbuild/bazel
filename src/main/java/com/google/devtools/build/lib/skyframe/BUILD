@@ -2576,6 +2576,7 @@ java_library(
     deps = [
         ":action_artifact_cycle_reporter",
         ":artifact_nested_set_function",
+        ":aspect_completion_value",
         ":aspect_key_creator",
         ":build_driver_key",
         ":configured_target_key",
@@ -2583,6 +2584,7 @@ java_library(
         ":detailed_exceptions",
         ":sane_analysis_exception",
         ":sky_functions",
+        ":target_completion_value",
         ":test_completion_value",
         ":top_level_conflict_exception",
         ":transitive_target_key",
