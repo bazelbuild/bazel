@@ -33,7 +33,7 @@ public class BaseSpawn implements Spawn {
   private final ImmutableMap<String, String> executionInfo;
   private final ActionExecutionMetadata action;
   private final ResourceSetOrBuilder localResources;
-  private ResourceSet localResourcesCached = null;
+  @Nullable private ResourceSet localResourcesCached;
 
   public BaseSpawn(
       List<String> arguments,
@@ -92,13 +92,15 @@ public class BaseSpawn implements Spawn {
 
   @Override
   public ResourceSet getLocalResources() throws ExecException {
-    if (localResourcesCached == null) {
+    ResourceSet result = localResourcesCached;
+    if (result == null) {
       // Not expected to be called concurrently, and an idempotent computation if it is.
-      localResourcesCached =
+      result =
           localResources.buildResourceSet(
               OS.getCurrent(), action.getInputs().memoizedFlattenAndGetSize());
+      localResourcesCached = result;
     }
-    return localResourcesCached;
+    return result;
   }
 
   @Override
