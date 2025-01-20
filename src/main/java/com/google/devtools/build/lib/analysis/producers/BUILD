@@ -19,11 +19,13 @@ java_library(
             "BuildConfigurationKeyMapProducer.java",
             "BuildConfigurationKeyProducer.java",
             "PlatformProducer.java",
+            "UnloadedToolchainContextsInputs.java",
         ],
     ),
     deps = [
         ":build_configuration_key_map_producer",
         ":platform_producer",
+        ":unloaded_toolchain_contexts_inputs",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:aspect_collection",
@@ -35,7 +37,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/core_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/invalid_configuration_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/starlark_transition_cache",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/toolchain_type_requirement",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/composing_transition_factory",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/configuration_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/patch_transition",
@@ -45,7 +46,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",
         "//src/main/java/com/google/devtools/build/lib/analysis:constraints/incompatible_target_checker",
         "//src/main/java/com/google/devtools/build/lib/analysis:dependency_kind",
-        "//src/main/java/com/google/devtools/build/lib/analysis:exec_group_collection",
         "//src/main/java/com/google/devtools/build/lib/analysis:inconsistent_aspect_order_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:inconsistent_null_config_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:invalid_visibility_dependency_exception",
@@ -81,6 +81,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:no_matching_platform_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:platform_lookup_util",
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:toolchain_context_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:toolchain_context_util",
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:toolchain_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:unloaded_toolchain_context",
         "//src/main/java/com/google/devtools/build/lib/util",
@@ -131,6 +132,19 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "unloaded_toolchain_contexts_inputs",
+    srcs = ["UnloadedToolchainContextsInputs.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:exec_group_collection",
+        "//src/main/java/com/google/devtools/build/lib/packages:exec_group",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:toolchain_context_key",
+        "//third_party:auto_value",
+        "//third_party:guava",
         "//third_party:jsr305",
     ],
 )
