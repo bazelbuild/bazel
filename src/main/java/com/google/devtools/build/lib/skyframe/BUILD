@@ -1547,13 +1547,14 @@ java_library(
 java_library(
     name = "filesystem_keys",
     srcs = [
+        "AbstractNestedFileOpNodes.java",
         "DirectoryListingKey.java",
         "FileKey.java",
-        "FileSystemOperationNode.java",
-        "NestedFileSystemOperationNodes.java",
+        "FileOpNodeOrFuture.java",
     ],
     deps = [
         ":sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:settable_future_keyed_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/vfs",

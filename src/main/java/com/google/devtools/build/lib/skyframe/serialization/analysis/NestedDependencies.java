@@ -22,28 +22,47 @@ import java.util.Arrays;
  * A representation of a recursively composable set of {@link FileSystemDependencies}.
  *
  * <p>This corresponds to a previously serialized {@link
- * com.google.devtools.build.lib.skyframe.NestedFileSystemOperationNodes} instance, but this
+ * com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes} instance, but this
  * implementation is mostly decoupled from Bazel code.
  */
 final class NestedDependencies
     implements FileSystemDependencies, FileDependencyDeserializer.NestedDependenciesOrFuture {
-  private final FileSystemDependencies[] elements;
+  // While formally possible, we don't anticipate analysisDependencies being empty often. `sources`
+  // could be frequently empty.
+  static final FileDependencies[] EMPTY_SOURCES = new FileDependencies[0];
 
-  NestedDependencies(FileSystemDependencies[] elements) {
-    checkArgument(elements.length >= 1, "expected at least length 1, was %s", elements.length);
-    this.elements = elements;
+  private final FileSystemDependencies[] analysisDependencies;
+  private final FileDependencies[] sources;
+
+  NestedDependencies(FileSystemDependencies[] analysisDependencies, FileDependencies[] sources) {
+    checkArgument(
+        analysisDependencies.length >= 1 || sources.length >= 1,
+        "analysisDependencies and sources both empty");
+    this.analysisDependencies = analysisDependencies;
+    this.sources = sources;
   }
 
-  int count() {
-    return elements.length;
+  int analysisDependenciesCount() {
+    return analysisDependencies.length;
   }
 
-  FileSystemDependencies getElement(int index) {
-    return elements[index];
+  FileSystemDependencies getAnalysisDependency(int index) {
+    return analysisDependencies[index];
+  }
+
+  int sourceCount() {
+    return sources.length;
+  }
+
+  FileDependencies getSource(int index) {
+    return sources[index];
   }
 
   @Override
   public String toString() {
-    return toStringHelper(this).add("elements", Arrays.asList(elements)).toString();
+    return toStringHelper(this)
+        .add("analysisDependencies", Arrays.asList(analysisDependencies))
+        .add("sources", Arrays.asList(sources))
+        .toString();
   }
 }

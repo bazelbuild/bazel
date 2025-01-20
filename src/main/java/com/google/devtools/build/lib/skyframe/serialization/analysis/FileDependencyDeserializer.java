@@ -532,9 +532,12 @@ final class FileDependencyDeserializer {
         int fileCount = codedIn.readInt32();
         int listingCount = codedIn.readInt32();
         int nestedCount = codedIn.readInt32();
+        int sourceCount = codedIn.readInt32();
 
         var elements = new FileSystemDependencies[fileCount + listingCount + nestedCount];
-        var countdown = new PendingElementCountdown(elements);
+        var sources =
+            sourceCount > 0 ? new FileDependencies[sourceCount] : NestedDependencies.EMPTY_SOURCES;
+        var countdown = new PendingElementCountdown(elements, sources);
 
         for (int i = 0; i < fileCount; i++) {
           String key = codedIn.readString();
@@ -576,6 +579,19 @@ final class FileDependencyDeserializer {
               break;
           }
         }
+
+        for (int i = 0; i < sourceCount; i++) {
+          String key = codedIn.readString();
+          switch (getFileDependencies(key)) {
+            case FileDependencies dependencies:
+              sources[i] = dependencies;
+              break;
+            case FutureFileDependencies future:
+              countdown.registerPendingElement();
+              Futures.addCallback(future, new WaitingForSource(i, countdown), directExecutor());
+              break;
+          }
+        }
         countdown.notifyInitializationDone();
         return countdown;
       } catch (IOException e) {
@@ -591,9 +607,11 @@ final class FileDependencyDeserializer {
    */
   private static class PendingElementCountdown extends QuiescingFuture<NestedDependencies> {
     private final FileSystemDependencies[] elements;
+    private final FileDependencies[] sources;
 
-    private PendingElementCountdown(FileSystemDependencies[] elements) {
+    private PendingElementCountdown(FileSystemDependencies[] elements, FileDependencies[] sources) {
       this.elements = elements;
+      this.sources = sources;
     }
 
     private void registerPendingElement() {
@@ -609,13 +627,18 @@ final class FileDependencyDeserializer {
       decrement();
     }
 
-    private void notifyElementFailure(Throwable e) {
+    private void setSource(int index, FileDependencies value) {
+      sources[index] = value;
+      decrement();
+    }
+
+    private void notifyFailure(Throwable e) {
       notifyException(e);
     }
 
     @Override
     protected NestedDependencies getValue() {
-      return new NestedDependencies(elements);
+      return new NestedDependencies(elements, sources);
     }
   }
 
@@ -640,7 +663,27 @@ final class FileDependencyDeserializer {
 
     @Override
     public void onFailure(Throwable t) {
-      countdown.notifyElementFailure(t);
+      countdown.notifyFailure(t);
+    }
+  }
+
+  private static class WaitingForSource implements FutureCallback<FileDependencies> {
+    private final int index;
+    private final PendingElementCountdown countdown;
+
+    private WaitingForSource(int index, PendingElementCountdown countdown) {
+      this.index = index;
+      this.countdown = countdown;
+    }
+
+    @Override
+    public void onSuccess(FileDependencies dependencies) {
+      countdown.setSource(index, dependencies);
+    }
+
+    @Override
+    public void onFailure(Throwable t) {
+      countdown.notifyFailure(t);
     }
   }
 

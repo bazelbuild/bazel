@@ -15,9 +15,9 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.concurrent.SettableFutureKeyedValue;
+import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes;
 import com.google.devtools.build.lib.skyframe.DirectoryListingKey;
 import com.google.devtools.build.lib.skyframe.FileKey;
-import com.google.devtools.build.lib.skyframe.NestedFileSystemOperationNodes;
 import com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import java.util.function.BiConsumer;
@@ -160,7 +160,7 @@ sealed interface InvalidationDataInfoOrFuture
     CONSTANT_NODE;
   }
 
-  /** Information about remotely persisted {@link NestedFileSystemOperationNodes}. */
+  /** Information about remotely persisted {@link AbstractNestedFileOpNodes}. */
   static final class NodeInvalidationDataInfo extends BaseInvalidationDataInfo<PackedFingerprint>
       implements NodeDataInfo {
     NodeInvalidationDataInfo(PackedFingerprint key, ListenableFuture<Void> writeStatus) {
@@ -169,14 +169,13 @@ sealed interface InvalidationDataInfoOrFuture
   }
 
   static final class FutureNodeDataInfo
-      extends SettableFutureKeyedValue<
-          FutureNodeDataInfo, NestedFileSystemOperationNodes, NodeDataInfo>
+      extends SettableFutureKeyedValue<FutureNodeDataInfo, AbstractNestedFileOpNodes, NodeDataInfo>
       implements NodeDataInfoOrFuture {
-    FutureNodeDataInfo(NestedFileSystemOperationNodes key) {
+    FutureNodeDataInfo(AbstractNestedFileOpNodes key) {
       super(key, FutureNodeDataInfo::setNodeDataInfo);
     }
 
-    private static void setNodeDataInfo(NestedFileSystemOperationNodes key, NodeDataInfo value) {
+    private static void setNodeDataInfo(AbstractNestedFileOpNodes key, NodeDataInfo value) {
       key.setSerializationScratch(value);
     }
   }
