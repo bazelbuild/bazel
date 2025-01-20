@@ -356,7 +356,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         getConfiguredTarget("//a:lib").get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
 
     assertThat(instrumentedFilesInfo.getCoverageEnvironment())
-        .containsEntry("COVERAGE_GCOV_PATH", "");
+        .doesNotContainKey("COVERAGE_GCOV_PATH");
   }
 
   // regression test for b/319501294
@@ -503,7 +503,8 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
             .get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR)
             .getCoverageEnvironment();
 
-    assertThat(coverageEnv).containsAtLeast("LLVM_COV", "", "LLVM_PROFDATA", "");
+    assertThat(coverageEnv).doesNotContainKey("LLVM_COV");
+    assertThat(coverageEnv).doesNotContainKey("LLVM_PROFDATA");
   }
 
   @Test
