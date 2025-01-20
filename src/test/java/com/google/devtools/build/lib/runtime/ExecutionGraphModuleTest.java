@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionChangePrunedEvent;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
@@ -335,14 +336,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
                     .setProcessOutputsTimeInMs(3456)
                     .build())
             .build();
-    startLogging(
-        eventBus,
-        BugReporter.defaultInstance(),
-        /* localLockFreeOutputEnabled= */ false,
-        /* logFileWriteEdges= */ false,
-        uuid,
-        buffer,
-        DependencyInfo.ALL,
+    module.setGraph(
         new WalkableGraph() {
           @Override
           public SkyValue getValue(SkyKey key) throws InterruptedException {
@@ -403,12 +397,16 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
             throw new UnsupportedOperationException();
           }
         });
+    startLogging(eventBus, uuid, buffer, DependencyInfo.ALL);
     Instant startTimeInstant = Instant.now();
     module.spawnExecuted(
         new SpawnExecutedEvent(
             spawnOut1, new FakeActionInputFileCache(), result, startTimeInstant));
     // spawnOut2 is change pruned.
     var unused = spawnOut2;
+    module.actionChangePruned(
+        new ActionChangePrunedEvent(
+            ActionsTestUtil.NULL_ACTION_LOOKUP_DATA, startTimeInstant.toEpochMilli() * 1_000_000));
     module.spawnExecuted(
         new SpawnExecutedEvent(
             spawnOut3, new FakeActionInputFileCache(), result, startTimeInstant));
@@ -470,8 +468,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
             OutputStream.nullOutputStream(),
             uuid,
             DependencyInfo.NONE,
-            -1,
-            /* graph= */ null) {
+            -1) {
           @Override
           protected void updateLogs(BuildToolLogCollection logs) {}
 
@@ -496,8 +493,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         /* logFileWriteEdges= */ false,
         uuid,
         buffer,
-        depType,
-        /* graph= */ null);
+        depType);
   }
 
   private void startLogging(
@@ -507,18 +503,10 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
       boolean logFileWriteEdges,
       UUID uuid,
       OutputStream buffer,
-      DependencyInfo depType,
-      @Nullable WalkableGraph graph) {
+      DependencyInfo depType) {
     ActionDumpWriter writer =
         new ActionDumpWriter(
-            bugReporter,
-            localLockFreeOutputEnabled,
-            logFileWriteEdges,
-            buffer,
-            uuid,
-            depType,
-            -1,
-            graph) {
+            bugReporter, localLockFreeOutputEnabled, logFileWriteEdges, buffer, uuid, depType, -1) {
           @Override
           protected void updateLogs(BuildToolLogCollection logs) {}
         };
@@ -754,8 +742,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         /* logFileWriteEdges= */ false,
         UUID.randomUUID(),
         buffer,
-        DependencyInfo.ALL,
-        /* graph= */ null);
+        DependencyInfo.ALL);
     SpawnResult localResult = createLocalSpawnResult(100);
     SpawnResult remoteResult = createRemoteSpawnResult(200);
     Spawn spawn =
@@ -804,8 +791,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         /* logFileWriteEdges= */ false,
         UUID.randomUUID(),
         buffer,
-        DependencyInfo.ALL,
-        /* graph= */ null);
+        DependencyInfo.ALL);
     SpawnResult localResult = createLocalSpawnResult(100);
     SpawnResult remoteResult = createRemoteSpawnResult(200);
     Artifact input = createOutputArtifact("foo/input");

@@ -899,10 +899,7 @@ public class CriticalPathComputerTest extends FoundationTestCase {
     Artifact artifact = artifact("a.out");
     MockAction sharedAction = new MockAction(ImmutableList.of(), ImmutableSet.of(artifact));
     MockAction nonSharedAction =
-        new MockAction(
-            ImmutableList.of(),
-            ImmutableSet.of(artifact),
-            /* isShareable= */ false);
+        new MockAction(ImmutableList.of(), ImmutableSet.of(artifact), /* isShareable= */ false);
     computer.actionStarted(new ActionStartedEvent(sharedAction, clock.nanoTime()));
     IllegalStateException exception =
         assertThrows(
@@ -1046,7 +1043,7 @@ public class CriticalPathComputerTest extends FoundationTestCase {
             mock(ActionLookupData.class)));
     // Action 3 - 3s - 3s, change pruned, no events
     computer.actionChangePruned(
-        new ActionChangePrunedEvent(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA));
+        new ActionChangePrunedEvent(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA, clock.nanoTime()));
     // Action 4 - 3s - 6s
     long action4Start = clock.nanoTime();
     computer.actionStarted(new ActionStartedEvent(action4, action4Start));

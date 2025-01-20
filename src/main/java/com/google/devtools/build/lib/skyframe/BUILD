@@ -269,7 +269,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:constraints/incompatible_target_checker",
         "//src/main/java/com/google/devtools/build/lib/analysis:dependency_kind",
         "//src/main/java/com/google/devtools/build/lib/analysis:exec_group_collection",
-        "//src/main/java/com/google/devtools/build/lib/analysis:files_modified_event",
         "//src/main/java/com/google/devtools/build/lib/analysis:incompatible_platform_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:inconsistent_aspect_order_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:inconsistent_null_config_exception",
