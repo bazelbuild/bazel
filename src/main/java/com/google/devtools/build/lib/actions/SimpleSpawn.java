@@ -296,11 +296,6 @@ public final class SimpleSpawn implements Spawn {
   }
 
   @Override
-  public ImmutableMap<String, String> getCombinedExecProperties() {
-    return owner.getExecProperties();
-  }
-
-  @Override
   @Nullable
   public PlatformInfo getExecutionPlatform() {
     return owner.getExecutionPlatform();

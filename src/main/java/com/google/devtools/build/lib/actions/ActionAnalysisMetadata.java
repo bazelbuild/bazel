@@ -224,7 +224,13 @@ public interface ActionAnalysisMetadata {
    */
   NestedSet<Artifact> getMandatoryInputs();
 
-  /** Returns a String to String map containing the execution properties of this action. */
+  /**
+   * Returns a String to String map containing the execution properties of this action.
+   *
+   * <p>These properties are typically inherited from {@link #getOwner()} and contain the
+   * exec_properties provided on the target or execution platform level. Subclasses representing
+   * actions that are internal only can override this to return an empty map.
+   */
   ImmutableMap<String, String> getExecProperties();
 
   /**
