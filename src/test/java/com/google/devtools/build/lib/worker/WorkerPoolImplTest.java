@@ -40,7 +40,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests WorkerPool. */
 @RunWith(JUnit4.class)
-public class WorkerPoolTest {
+public class WorkerPoolImplTest {
 
   public static final FileSystem fileSystem =
       new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.SHA256);
@@ -68,7 +68,8 @@ public class WorkerPoolTest {
             new WorkerPoolConfig(
                 /* workerMaxInstances= */ ImmutableList.of(Maps.immutableEntry("mnem", 2)),
                 /* workerMaxMultiplexInstances= */ ImmutableList.of(
-                    Maps.immutableEntry("mnem", 2))));
+                    Maps.immutableEntry("mnem", 2))),
+            options);
     doAnswer(
             arg ->
                 new TestWorker(
@@ -292,6 +293,22 @@ public class WorkerPoolTest {
     // Worker2 does not get evicted because it is still active.
     assertThat(evicted).containsExactly(worker1.getWorkerId());
     assertThat(workerPool.getNumActive(workerKey)).isEqualTo(1);
+  }
+
+  @Test
+  public void testEvict_postponeInvalidationOfIdleWorkers() throws Exception {
+    // The postpone-invalidation should only work when shrinking is enabled.
+    options.shrinkWorkerPool = true;
+    WorkerKey workerKey = createWorkerKey(fileSystem, "mnem", false);
+    Worker worker1 = workerPool.borrowWorker(workerKey);
+    Worker worker2 = workerPool.borrowWorker(workerKey);
+    workerPool.returnWorker(workerKey, worker1);
+    workerPool.returnWorker(workerKey, worker2);
+    ImmutableSet<Integer> evicted = workerPool.evictWorkers(ImmutableSet.of(worker1.getWorkerId()));
+    assertThat(evicted).containsExactly(worker1.getWorkerId());
+    // Worker2 does not get evicted because it's not passed in the eviction list, but it should be
+    // marked with `Status.PENDING_KILL_DUE_TO_MEMORY_PRESSURE`.
+    assertThat(worker2.getStatus().get()).isEqualTo(Status.PENDING_KILL_DUE_TO_MEMORY_PRESSURE);
   }
 
   @Test

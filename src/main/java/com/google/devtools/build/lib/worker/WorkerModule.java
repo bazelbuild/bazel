@@ -185,7 +185,7 @@ public class WorkerModule extends BlazeModule {
     }
 
     if (workerPool == null) {
-      workerPool = new WorkerPoolImpl(workerFactory, newConfig);
+      workerPool = new WorkerPoolImpl(workerFactory, newConfig, options);
       config = newConfig;
       // If workerPool is restarted then we should recreate metrics.
       WorkerProcessMetricsCollector.instance().clear();
