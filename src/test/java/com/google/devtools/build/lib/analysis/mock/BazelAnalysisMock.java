@@ -182,8 +182,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "third_party/bazel_rules/rules_shell");
 
     Runfiles runfiles = Runfiles.preload().withSourceRepository("");
-    for (String filename :
-        Arrays.asList("tools/jdk/java_toolchain_alias.bzl", "tools/jdk/java_stub_template.txt")) {
+    for (String filename : Arrays.asList("tools/jdk/java_toolchain_alias.bzl")) {
       java.nio.file.Path path = Paths.get(runfiles.rlocation("io_bazel/" + filename));
       if (!Files.exists(path)) {
         continue; // the io_bazel workspace root only exists for Bazel

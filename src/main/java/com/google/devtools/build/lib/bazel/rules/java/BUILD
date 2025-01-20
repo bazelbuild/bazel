@@ -11,8 +11,6 @@ filegroup(
     visibility = ["//src:__subpackages__"],
 )
 
-exports_files(["java_stub_template.txt"])
-
 java_library(
     name = "bazel_java_semantics",
     srcs = ["BazelJavaSemantics.java"],
