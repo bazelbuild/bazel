@@ -257,7 +257,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
                   /* prettyPrintArgs= */ true,
                   ((CommandAction) action)
                       .getArguments().stream()
-                          .map(a -> internalToEscapedUnicode(a))
+                          .map(ActionGraphTextOutputFormatterCallback::internalToEscapedUnicode)
                           .collect(toImmutableList()),
                   /* environment= */ null,
                   /* environmentVariablesToClear= */ null,
@@ -265,7 +265,8 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
                   action.getOwner().getConfigurationChecksum(),
                   action.getExecutionPlatform() != null
                       ? action.getExecutionPlatform().label()
-                      : null))
+                      : null,
+                  action.getExecutionInfo()))
           .append("\n");
     }
 

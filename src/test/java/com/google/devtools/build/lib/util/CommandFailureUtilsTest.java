@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.util;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import java.util.Arrays;
@@ -51,7 +52,8 @@ public class CommandFailureUtilsTest {
             cwd,
             "cfg12345",
             "target " + target,
-            executionPlatform.label());
+            executionPlatform.label(),
+            ImmutableMap.of("remote-cache", "false", "timeout", "7"));
     assertThat(message)
         .isEqualTo(
             "sh failed: error executing Mnemonic command (from target //foo:bar) "
@@ -80,16 +82,19 @@ public class CommandFailureUtilsTest {
             cwd,
             "cfg12345",
             "target " + target,
-            executionPlatform.label());
+            executionPlatform.label(),
+            ImmutableMap.of("remote-cache", "false", "timeout", "7"));
     assertThat(message)
         .isEqualTo(
-            "sh failed: error executing Mnemonic command (from target //foo:bar) \n"
-                + "  (exec env - \\\n"
-                + "    FOO=foo \\\n"
-                + "    PATH=/usr/bin:/bin:/sbin \\\n"
-                + "  /bin/sh -c 'echo Some errors 1>&2; echo Some output; exit 42')\n"
-                + "# Configuration: cfg12345\n"
-                + "# Execution platform: //platform:exec");
+            """
+                sh failed: error executing Mnemonic command (from target //foo:bar)\s
+                  (exec env - \\
+                    FOO=foo \\
+                    PATH=/usr/bin:/bin:/sbin \\
+                  /bin/sh -c 'echo Some errors 1>&2; echo Some output; exit 42')
+                # Configuration: cfg12345
+                # Execution platform: //platform:exec
+                # Execution info: remote-cache: false, timeout: 7""");
   }
 
   @Test
@@ -117,7 +122,8 @@ public class CommandFailureUtilsTest {
             cwd,
             "cfg12345",
             "target " + target,
-            executionPlatform.label());
+            executionPlatform.label(),
+            ImmutableMap.of("remote-cache", "false", "timeout", "7"));
     assertThat(message)
         .isEqualTo(
             "some_command failed: error executing Mnemonic command (from target //foo:bar) "
@@ -153,21 +159,24 @@ public class CommandFailureUtilsTest {
             cwd,
             "cfg12345",
             "target " + target,
-            executionPlatform.label());
+            executionPlatform.label(),
+            ImmutableMap.of("remote-cache", "false", "timeout", "7"));
     assertThat(message)
         .isEqualTo(
-            "some_command failed: error executing Mnemonic command (from target //foo:bar) \n"
-                + "  (cd /my/working/directory && \\\n"
-                + "  exec env - \\\n"
-                + "    FOO=foo \\\n"
-                + "    PATH=/usr/bin:/bin:/sbin \\\n"
-                + "  some_command arg1 arg2 arg3 arg4 arg5 arg6 'with spaces' arg8 '*' arg10 "
-                + "arg11 arg12 arg13 arg14 arg15 arg16 arg17 arg18 "
-                + "arg19 arg20 arg21 arg22 arg23 arg24 arg25 arg26 "
-                + "arg27 arg28 arg29 arg30 arg31 arg32 arg33 arg34 "
-                + "arg35 arg36 arg37 arg38 arg39)\n"
-                + "# Configuration: cfg12345\n"
-                + "# Execution platform: //platform:exec");
+            """
+                some_command failed: error executing Mnemonic command (from target //foo:bar)\s
+                  (cd /my/working/directory && \\
+                  exec env - \\
+                    FOO=foo \\
+                    PATH=/usr/bin:/bin:/sbin \\
+                  some_command arg1 arg2 arg3 arg4 arg5 arg6 'with spaces' arg8 '*' arg10 \
+                arg11 arg12 arg13 arg14 arg15 arg16 arg17 arg18 \
+                arg19 arg20 arg21 arg22 arg23 arg24 arg25 arg26 \
+                arg27 arg28 arg29 arg30 arg31 arg32 arg33 arg34 \
+                arg35 arg36 arg37 arg38 arg39)
+                # Configuration: cfg12345
+                # Execution platform: //platform:exec
+                # Execution info: remote-cache: false, timeout: 7""");
   }
 
   @Test
@@ -191,7 +200,8 @@ public class CommandFailureUtilsTest {
             cwd,
             "cfg12345",
             "target " + target,
-            executionPlatform.label());
+            executionPlatform.label(),
+            ImmutableMap.of("remote-cache", "false", "timeout", "7"));
     assertThat(message)
         .isEqualTo(
             "some_command failed: error executing Mnemonic command (from target //foo:bar)"
@@ -230,23 +240,26 @@ public class CommandFailureUtilsTest {
             envToClear,
             cwd,
             "cfg12345",
-            executionPlatform.label());
+            executionPlatform.label(),
+            ImmutableMap.of("remote-cache", "false", "timeout", "7"));
 
     assertThat(message)
         .isEqualTo(
-            "(cd /my/working/directory && \\\n"
-                + "  exec env - \\\n"
-                + "    -u CLEAR \\\n"
-                + "    -u THIS \\\n"
-                + "    FOO=foo \\\n"
-                + "    PATH=/usr/bin:/bin:/sbin \\\n"
-                + "  some_command \\\n"
-                + "    arg1 \\\n"
-                + "    arg2 \\\n"
-                + "    'with spaces' \\\n"
-                + "    '*' \\\n"
-                + "    arg5)\n"
-                + "# Configuration: cfg12345\n"
-                + "# Execution platform: //platform:exec");
+            """
+                (cd /my/working/directory && \\
+                  exec env - \\
+                    -u CLEAR \\
+                    -u THIS \\
+                    FOO=foo \\
+                    PATH=/usr/bin:/bin:/sbin \\
+                  some_command \\
+                    arg1 \\
+                    arg2 \\
+                    'with spaces' \\
+                    '*' \\
+                    arg5)
+                # Configuration: cfg12345
+                # Execution platform: //platform:exec
+                # Execution info: remote-cache: false, timeout: 7""");
   }
 }

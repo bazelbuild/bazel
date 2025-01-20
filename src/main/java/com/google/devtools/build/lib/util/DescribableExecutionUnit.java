@@ -49,5 +49,11 @@ public interface DescribableExecutionUnit {
     return null;
   }
 
+  /** Returns the execution info for this command, if any. */
+  @Nullable
+  default ImmutableMap<String, String> getExecutionInfo() {
+    return null;
+  }
+
   String getMnemonic();
 }
