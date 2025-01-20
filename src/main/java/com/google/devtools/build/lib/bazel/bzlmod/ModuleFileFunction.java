@@ -115,6 +115,7 @@ public class ModuleFileFunction implements SkyFunction {
       # For more details, please check https://github.com/bazelbuild/bazel/issues/18958
       ###############################################################################
       """;
+  private static final String INCLUDE_FILENAME_SUFFIX = ".MODULE.bazel";
 
   /**
    * @param builtinModules A list of "built-in" modules that are treated as implicit dependencies of
@@ -328,16 +329,9 @@ public class ModuleFileFunction implements SkyFunction {
             includeStatement.includeLabel(),
             includeStatement.location());
       }
-      if (!includeStatement.includeLabel().endsWith(".MODULE.bazel")) {
-        throw errorf(
-            Code.BAD_MODULE,
-            "bad include label '%s' at %s: the file to be included must have a name ending in"
-                + " '.MODULE.bazel'",
-            includeStatement.includeLabel(),
-            includeStatement.location());
-      }
+      Label includeLabel;
       try {
-        includeLabels.add(Label.parseCanonical(includeStatement.includeLabel()));
+        includeLabel = Label.parseCanonical(includeStatement.includeLabel());
       } catch (LabelSyntaxException e) {
         throw errorf(
             Code.BAD_MODULE,
@@ -346,6 +340,26 @@ public class ModuleFileFunction implements SkyFunction {
             includeStatement.location(),
             e.getMessage());
       }
+      String basename =
+          includeLabel.getName().substring(includeLabel.getName().lastIndexOf('/') + 1);
+      if (!basename.endsWith(INCLUDE_FILENAME_SUFFIX)) {
+        throw errorf(
+            Code.BAD_MODULE,
+            "bad include label '%s' at %s: the file to be included must have a name ending in"
+                + " '%s'",
+            includeStatement.includeLabel(),
+            includeStatement.location(),
+            INCLUDE_FILENAME_SUFFIX);
+      }
+      if (basename.startsWith(".")) {
+        throw errorf(
+            Code.BAD_MODULE,
+            "bad include label '%s' at %s: the name of the file to be included must not start"
+                + " with '.'",
+            includeStatement.includeLabel(),
+            includeStatement.location());
+      }
+      includeLabels.add(includeLabel);
     }
     SkyframeLookupResult result =
         env.getValuesAndExceptions(
