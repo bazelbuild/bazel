@@ -192,6 +192,7 @@ semantics = struct(
     CC_PROTO_TOOLCHAIN = "@rules_cc//cc/proto:toolchain_type",
     is_bazel = True,
     stamp_extra_docs = "",
+    extra_exec_groups = {},
     malloc_docs = """
  Override the default dependency on malloc.
  <p>

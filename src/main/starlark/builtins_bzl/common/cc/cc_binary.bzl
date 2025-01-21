@@ -832,7 +832,7 @@ be <code>main</code>.
     fragments = ["cpp"] + semantics.additional_fragments(),
     exec_groups = {
         "cpp_link": exec_group(toolchains = cc_helper.use_cpp_toolchain()),
-    },
+    } | semantics.extra_exec_groups,
     toolchains = cc_helper.use_cpp_toolchain() +
                  semantics.get_runtimes_toolchain(),
     provides = [CcInfo],
