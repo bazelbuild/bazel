@@ -1581,19 +1581,6 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
   return 0;
 }
 
-// There might be a mismatch between std::string and the string type returned
-// from protos. This function is the safe way to compare such strings.
-template <typename StringTypeA, typename StringTypeB>
-static bool ProtoStringEqual(const StringTypeA &cookieA,
-                             const StringTypeB &cookieB) {
-  // use strncmp insted of strcmp to deal with null bytes in the cookie.
-  auto cookie_length = cookieA.size();
-  if (cookie_length != cookieB.size()) {
-    return false;
-  }
-  return memcmp(cookieA.c_str(), cookieB.c_str(), cookie_length) == 0;
-}
-
 BlazeServer::BlazeServer(const StartupOptions &startup_options)
     : process_info_(startup_options.output_base,
                     startup_options.server_jvm_out),
@@ -1623,7 +1610,7 @@ bool BlazeServer::TryConnect(CommandServer::Stub *client) {
                   << connect_timeout_secs_ << " secs)...";
   grpc::Status status = client->Ping(&context, request, &response);
 
-  if (!status.ok() || !ProtoStringEqual(response.cookie(), response_cookie_)) {
+  if (!status.ok() || response.cookie() != response_cookie_) {
     BAZEL_LOG(INFO) << "Connection to server failed: (" << status.error_code()
                     << ") " << status.error_message().c_str() << "\n";
     return false;
@@ -1913,7 +1900,7 @@ unsigned int BlazeServer::Communicate(
       finished_warning_emitted = true;
     }
 
-    if (!ProtoStringEqual(response.cookie(), response_cookie_)) {
+    if (response.cookie() != response_cookie_) {
       BAZEL_LOG(USER) << "\nServer response cookie invalid, exiting";
       return blaze_exit_code::INTERNAL_ERROR;
     }
