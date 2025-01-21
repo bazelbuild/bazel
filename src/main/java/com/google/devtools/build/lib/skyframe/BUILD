@@ -3273,7 +3273,7 @@ java_library(
 java_library(
     name = "rule_configured_target_value",
     srcs = [
-        "BaseRuleConfiguredTargetValue.java",
+        "AbstractConfiguredTargetValue.java",
         "NonRuleConfiguredTargetValue.java",
         "RemoteConfiguredTargetValue.java",
         "RuleConfiguredTargetValue.java",
