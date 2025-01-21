@@ -1,0 +1,10 @@
+startup --host_jvm_args=-Xmx4g
+
+build --action_env=PATH=/opt/rh/devtoolset-10/root/usr/bin:/opt/rh/rh-python36/root/usr/bin:/bin:/usr/bin:/usr/local/bin
+build --action_env=LD_LIBRARY_PATH=/opt/rh/devtoolset-10/root/usr/lib64:/opt/rh/devtoolset-10/root/usr/lib:/opt/rh/devtoolset-10/root/usr/lib64/dyninst:/opt/rh/devtoolset-10/root/usr/lib/dyninst:/opt/rh/devtoolset-10/root/usr/lib64:/opt/rh/devtoolset-10/root/usr/lib
+build --host_action_env=PATH=/opt/rh/devtoolset-10/root/usr/bin:/opt/rh/rh-python36/root/usr/bin:/bin:/usr/bin:/usr/local/bin
+build --host_action_env=LD_LIBRARY_PATH=/opt/rh/devtoolset-10/root/usr/lib64:/opt/rh/devtoolset-10/root/usr/lib:/opt/rh/devtoolset-10/root/usr/lib64/dyninst:/opt/rh/devtoolset-10/root/usr/lib/dyninst:/opt/rh/devtoolset-10/root/usr/lib64:/opt/rh/devtoolset-10/root/usr/lib
+
+# Ensure a clean /tmp across actions rather than using /tmp from the real filesystem
+# to workaround JVM crashes (https://github.com/bazelbuild/bazel/issues/3236).
+build --sandbox_tmpfs_path=/tmp
