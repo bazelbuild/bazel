@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.repository.ExternalRuleNotFoundException;
 import com.google.devtools.build.lib.repository.RepositoryFailedEvent;
 import com.google.devtools.build.lib.repository.RepositoryFetchProgress;
+import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.NeverUpToDateRepoRecordedInput;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.NoRepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.AlreadyReportedRepositoryAccessException;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
@@ -623,7 +624,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   private static class DigestWriter {
     // Input value map to force repo invalidation upon an invalid marker file.
     private static final ImmutableMap<RepoRecordedInput, String> PARSE_FAILURE =
-        ImmutableMap.of(RepoRecordedInput.PARSE_FAILURE, "");
+        ImmutableMap.of(NeverUpToDateRepoRecordedInput.PARSE_FAILURE, "");
 
     private final BlazeDirectories directories;
     private final Path markerPath;
@@ -658,7 +659,8 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       return new Fingerprint().addString(content).digestAndReset();
     }
 
-    sealed interface RepoDirectoryState {
+    private sealed interface RepoDirectoryState {
+      @SuppressWarnings("ArrayRecordComponent")
       record UpToDate(byte[] markerDigest) implements RepoDirectoryState {}
 
       record OutOfDate(String reason) implements RepoDirectoryState {}
@@ -722,7 +724,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
             // Break early, need to reload anyway. This also detects marker file version changes
             // so that unknown formats are not parsed.
             return ImmutableMap.of(
-                new RepoRecordedInput.NeverUpToDateRepoRecordedInput(
+                new NeverUpToDateRepoRecordedInput(
                     "Bazel version, flags, repo rule definition or attributes changed"),
                 "");
           }
@@ -732,7 +734,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
           int sChar = line.indexOf(' ');
           if (sChar > 0) {
             RepoRecordedInput input = RepoRecordedInput.parse(unescape(line.substring(0, sChar)));
-            if (!input.equals(RepoRecordedInput.PARSE_FAILURE)) {
+            if (!input.equals(NeverUpToDateRepoRecordedInput.PARSE_FAILURE)) {
               recordedInputValues.put(input, unescape(line.substring(sChar + 1)));
               continue;
             }

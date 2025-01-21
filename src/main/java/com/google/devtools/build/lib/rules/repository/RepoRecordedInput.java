@@ -96,13 +96,13 @@ public abstract sealed class RepoRecordedInput implements Comparable<RepoRecorde
    * Parses a recorded input from its string representation.
    *
    * @param s the string representation
-   * @return The parsed recorded input object, or {@link #PARSE_FAILURE} if the string
-   *     representation is invalid
+   * @return The parsed recorded input object, or {@link
+   *     NeverUpToDateRepoRecordedInput#PARSE_FAILURE} if the string representation is invalid
    */
   public static RepoRecordedInput parse(String s) {
     List<String> parts = Splitter.on(':').limit(2).splitToList(s);
     if (parts.size() < 2) {
-      return PARSE_FAILURE;
+      return NeverUpToDateRepoRecordedInput.PARSE_FAILURE;
     }
     for (Parser parser :
         new Parser[] {
@@ -112,7 +112,7 @@ public abstract sealed class RepoRecordedInput implements Comparable<RepoRecorde
         return parser.parse(parts.get(1));
       }
     }
-    return PARSE_FAILURE;
+    return NeverUpToDateRepoRecordedInput.PARSE_FAILURE;
   }
 
   /**
@@ -184,10 +184,6 @@ public abstract sealed class RepoRecordedInput implements Comparable<RepoRecorde
       throws InterruptedException;
 
   private static final Optional<String> UNDECIDED = Optional.of("values missing");
-
-  /** A sentinel "input" that's always out-of-date to signify parse failure. */
-  public static final RepoRecordedInput PARSE_FAILURE =
-      new NeverUpToDateRepoRecordedInput("malformed marker file entry encountered");
 
   /**
    * Represents a filesystem path stored in a way that is repo-cache-friendly. That is, if the path
@@ -285,7 +281,7 @@ public abstract sealed class RepoRecordedInput implements Comparable<RepoRecorde
               return new File(RepoCacheFriendlyPath.parse(s));
             } catch (LabelSyntaxException e) {
               // malformed inputs cause refetch
-              return PARSE_FAILURE;
+              return NeverUpToDateRepoRecordedInput.PARSE_FAILURE;
             }
           }
         };
@@ -384,7 +380,7 @@ public abstract sealed class RepoRecordedInput implements Comparable<RepoRecorde
               return new Dirents(RepoCacheFriendlyPath.parse(s));
             } catch (LabelSyntaxException e) {
               // malformed inputs cause refetch
-              return PARSE_FAILURE;
+              return NeverUpToDateRepoRecordedInput.PARSE_FAILURE;
             }
           }
         };
@@ -475,7 +471,7 @@ public abstract sealed class RepoRecordedInput implements Comparable<RepoRecorde
               return new DirTree(RepoCacheFriendlyPath.parse(s));
             } catch (LabelSyntaxException e) {
               // malformed inputs cause refetch
-              return PARSE_FAILURE;
+              return NeverUpToDateRepoRecordedInput.PARSE_FAILURE;
             }
           }
         };
@@ -628,7 +624,7 @@ public abstract sealed class RepoRecordedInput implements Comparable<RepoRecorde
               return new RecordedRepoMapping(RepositoryName.create(parts.get(0)), parts.get(1));
             } catch (LabelSyntaxException | IndexOutOfBoundsException e) {
               // malformed inputs cause refetch
-              return PARSE_FAILURE;
+              return NeverUpToDateRepoRecordedInput.PARSE_FAILURE;
             }
           }
         };
@@ -710,6 +706,10 @@ public abstract sealed class RepoRecordedInput implements Comparable<RepoRecorde
 
   /** A sentinel "input" that's always out-of-date for a given reason. */
   public static final class NeverUpToDateRepoRecordedInput extends RepoRecordedInput {
+    /** A sentinel "input" that's always out-of-date to signify parse failure. */
+    public static final RepoRecordedInput PARSE_FAILURE =
+        new NeverUpToDateRepoRecordedInput("malformed marker file entry encountered");
+
     private final String reason;
 
     public NeverUpToDateRepoRecordedInput(String reason) {
