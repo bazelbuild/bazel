@@ -101,3 +101,13 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
     ],
 )
+
+java_library(
+    name = "install_base_garbage_collector",
+    srcs = ["InstallBaseGarbageCollector.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/util:file_system_lock",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:guava",
+    ],
+)
