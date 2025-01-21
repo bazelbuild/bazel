@@ -155,13 +155,14 @@ public class BzlCompileFunction implements SkyFunction {
               .handle(
                   Event.warn(
                       Location.fromFile(inputName),
-                      "not a valid UTF-8 encoded file; this can lead to inconsistent behavior and will be disallowed in a future version of Bazel"));
+                      "not a valid UTF-8 encoded file; this can lead to inconsistent behavior and"
+                          + " will be disallowed in a future version of Bazel"));
         }
       }
       case ERROR -> {
         if (!Utf8.isWellFormed(bytes)) {
           return BzlCompileValue.noFile(
-              "compilation of module '%s' failed: not a valid UTF-8 encoded file", inputName);
+              "compilation of '%s' failed: not a valid UTF-8 encoded file", inputName);
         }
       }
     }

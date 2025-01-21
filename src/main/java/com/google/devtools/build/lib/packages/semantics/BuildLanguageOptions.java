@@ -796,9 +796,10 @@ public final class BuildLanguageOptions extends OptionsBase {
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
-          "If enabled (or set to 'error'), fail if Starlark files are not UTF-8 encoded."
-              + " If set to 'warning', emits a warning instead. Even if set to 'off', Bazel will"
-              + " assume that Starlark files are UTF-8 encoded.")
+          "If enabled (or set to 'error'), fail if Starlark files are not UTF-8 encoded. If set to"
+              + " 'warning', emit a warning instead. If set to 'off', Bazel assumes that Starlark"
+              + " files are UTF-8 encoded but does not verify this assumption. Note that Starlark"
+              + " files which are not UTF-8 encoded can cause Bazel to behave inconsistently.")
   public Utf8EnforcementMode incompatibleEnforceStarlarkUtf8;
 
   /**
