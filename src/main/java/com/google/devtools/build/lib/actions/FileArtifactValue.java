@@ -538,22 +538,11 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     }
 
     @Override
-    protected boolean couldBeModifiedByMetadata(FileArtifactValue o) {
-      if (o instanceof SymlinkToSourceFileArtifactValue symlinkToSource) {
-        o = symlinkToSource.sourceFileMetadata; // "Dereference" the symlink.
+    protected boolean couldBeModifiedByMetadata(FileArtifactValue lastKnown) {
+      if (lastKnown instanceof SymlinkToSourceFileArtifactValue symlinkToSource) {
+        lastKnown = symlinkToSource.sourceFileMetadata; // "Dereference" the symlink.
       }
-
-      switch (o) {
-        case RegularFileArtifactValue lastKnown -> {
-          return size != lastKnown.size || !Objects.equals(proxy, lastKnown.proxy);
-        }
-        case RemoteFileArtifactValueWithMaterializationData lastKnown -> {
-          return size != lastKnown.getSize() || !Objects.equals(proxy, lastKnown.proxy);
-        }
-        default -> {
-          return true;
-        }
-      }
+      return size != lastKnown.getSize() || !Objects.equals(proxy, lastKnown.getContentsProxy());
     }
   }
 
