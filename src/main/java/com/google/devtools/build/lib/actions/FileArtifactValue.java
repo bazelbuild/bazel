@@ -932,7 +932,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     public static SymlinkToSourceFileArtifactValue toSourceArtifact(
         SourceArtifact sourceArtifact, FileArtifactValue sourceFileMetadata) {
       return new SymlinkToSourceFileArtifactValue(
-          sourceArtifact.getPath().asFragment(), sourceFileMetadata, sourceArtifact.getExecPath());
+          sourceArtifact.getPath().asFragment(), sourceFileMetadata);
     }
 
     /**
@@ -944,22 +944,17 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
      */
     public static SymlinkToSourceFileArtifactValue toUnknownSourceFile(
         PathFragment resolvedPath, FileArtifactValue sourceFileMetadata) {
-      return new SymlinkToSourceFileArtifactValue(
-          resolvedPath, sourceFileMetadata, /* sourceArtifactExecPath= */ null);
+      return new SymlinkToSourceFileArtifactValue(resolvedPath, sourceFileMetadata);
     }
 
     private final PathFragment resolvedPath;
     private final FileArtifactValue sourceFileMetadata;
-    @Nullable private final PathFragment sourceArtifactExecPath;
 
     private SymlinkToSourceFileArtifactValue(
-        PathFragment resolvedPath,
-        FileArtifactValue sourceFileMetadata,
-        @Nullable PathFragment sourceArtifactExecPath) {
+        PathFragment resolvedPath, FileArtifactValue sourceFileMetadata) {
       checkArgument(resolvedPath.isAbsolute(), "Resolved path must be absolute: %s", resolvedPath);
       this.resolvedPath = resolvedPath;
       this.sourceFileMetadata = checkNotNull(sourceFileMetadata);
-      this.sourceArtifactExecPath = sourceArtifactExecPath;
     }
 
     @Override
@@ -971,13 +966,12 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
         return false;
       }
       return resolvedPath.equals(that.resolvedPath)
-          && sourceFileMetadata.equals(that.sourceFileMetadata)
-          && Objects.equals(sourceArtifactExecPath, that.sourceArtifactExecPath);
+          && sourceFileMetadata.equals(that.sourceFileMetadata);
     }
 
     @Override
     public int hashCode() {
-      return HashCodes.hashObjects(resolvedPath, sourceFileMetadata, sourceArtifactExecPath);
+      return HashCodes.hashObjects(resolvedPath, sourceFileMetadata);
     }
 
     @Override
@@ -985,24 +979,12 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       return MoreObjects.toStringHelper(this)
           .add("resolvedPath", resolvedPath)
           .add("sourceFileMetadata", sourceFileMetadata)
-          .add("sourceArtifactExecPath", sourceArtifactExecPath)
           .toString();
     }
 
     /** Returns the absolute path to which the symlink resolves. */
     public PathFragment getResolvedPath() {
       return resolvedPath;
-    }
-
-    /**
-     * If the symlink resolves to a {@link SourceArtifact}, returns that artifact's exec path.
-     *
-     * <p>Returns {@code null} when the symlink does not resolve to a known {@link SourceArtifact}.
-     * See {@link #toUnknownSourceFile}.
-     */
-    @Nullable
-    public PathFragment getSourceArtifactExecPath() {
-      return sourceArtifactExecPath;
     }
 
     @Override
