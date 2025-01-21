@@ -466,14 +466,16 @@ public class ActionCacheCheckerTest {
       String content, @Nullable PathFragment materializationExecPath) {
     byte[] bytes = content.getBytes(UTF_8);
     return RemoteFileArtifactValue.createWithMaterializationData(
-        digest(bytes), bytes.length, 1, /* expireAtEpochMilli= */ -1, materializationExecPath);
+        digest(bytes), bytes.length, 1, /* expirationTime= */ null, materializationExecPath);
   }
 
   private RemoteFileArtifactValue createRemoteFileMetadata(
-      String content, long expireAtEpochMilli, @Nullable PathFragment materializationExecPath) {
+      String content,
+      @Nullable Instant expirationTime,
+      @Nullable PathFragment materializationExecPath) {
     byte[] bytes = content.getBytes(UTF_8);
     return RemoteFileArtifactValue.createWithMaterializationData(
-        digest(bytes), bytes.length, 1, expireAtEpochMilli, materializationExecPath);
+        digest(bytes), bytes.length, 1, expirationTime, materializationExecPath);
   }
 
   private static TreeArtifactValue createTreeMetadata(
@@ -609,7 +611,9 @@ public class ActionCacheCheckerTest {
         new InjectOutputFileMetadataAction(
             output,
             createRemoteFileMetadata(
-                content, /* expireAtEpochMilli= */ 0, /* materializationExecPath= */ null));
+                content,
+                /* expirationTime= */ Instant.ofEpochMilli(1),
+                /* materializationExecPath= */ null));
     FakeInputMetadataHandler metadataHandler = new FakeInputMetadataHandler();
 
     runAction(action);
@@ -1190,7 +1194,9 @@ public class ActionCacheCheckerTest {
             "file1", createRemoteFileMetadata("content1"),
             "file2",
                 createRemoteFileMetadata(
-                    "content2", /* expireAtEpochMilli= */ 0, /* materializationExecPath= */ null));
+                    "content2",
+                    /* expirationTime= */ Instant.ofEpochMilli(1),
+                    /* materializationExecPath= */ null));
     Action action =
         new InjectOutputTreeMetadataAction(
             output,
@@ -1240,7 +1246,7 @@ public class ActionCacheCheckerTest {
                 /* archivedArtifactValue= */ Optional.of(
                     createRemoteFileMetadata(
                         "archived",
-                        /* expireAtEpochMilli= */ 0,
+                        /* expirationTime= */ Instant.ofEpochMilli(1),
                         /* materializationExecPath= */ null)),
                 /* materializationExecPath= */ Optional.empty()));
     FakeInputMetadataHandler metadataHandler = new FakeInputMetadataHandler();

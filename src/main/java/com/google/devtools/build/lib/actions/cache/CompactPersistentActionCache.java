@@ -506,7 +506,8 @@ public class CompactPersistentActionCache implements ActionCache {
 
     VarInt.putVarInt(value.getLocationIndex(), sink);
 
-    VarInt.putVarLong(value.getExpireAtEpochMilli(), sink);
+    VarInt.putVarLong(
+        value.getExpirationTime() != null ? value.getExpirationTime().toEpochMilli() : -1, sink);
 
     Optional<PathFragment> materializationExecPath = value.getMaterializationExecPath();
     if (materializationExecPath.isPresent()) {
@@ -532,7 +533,7 @@ public class CompactPersistentActionCache implements ActionCache {
 
     int locationIndex = VarInt.getVarInt(source);
 
-    long expireAtEpochMilli = VarInt.getVarLong(source);
+    long expirationTimeEpochMilli = VarInt.getVarLong(source);
 
     PathFragment materializationExecPath = null;
     int numMaterializationExecPath = VarInt.getVarInt(source);
@@ -544,12 +545,16 @@ public class CompactPersistentActionCache implements ActionCache {
           PathFragment.create(getStringForIndex(indexer, VarInt.getVarInt(source)));
     }
 
-    if (expireAtEpochMilli < 0 && materializationExecPath == null) {
+    if (expirationTimeEpochMilli < 0 && materializationExecPath == null) {
       return RemoteFileArtifactValue.create(digest, size, locationIndex);
     }
 
     return RemoteFileArtifactValue.createWithMaterializationData(
-        digest, size, locationIndex, expireAtEpochMilli, materializationExecPath);
+        digest,
+        size,
+        locationIndex,
+        Instant.ofEpochMilli(expirationTimeEpochMilli),
+        materializationExecPath);
   }
 
   /**

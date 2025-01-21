@@ -59,6 +59,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.channels.SeekableByteChannel;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -299,7 +300,7 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat
     this.action = action;
   }
 
-  void injectRemoteFile(PathFragment path, byte[] digest, long size, long expireAtEpochMilli)
+  void injectRemoteFile(PathFragment path, byte[] digest, long size, Instant expirationTime)
       throws IOException {
     if (!isOutput(path)) {
       return;
@@ -309,7 +310,7 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat
             digest,
             size,
             /* locationIndex= */ 1,
-            expireAtEpochMilli,
+            expirationTime,
             /* materializationExecPath= */ null);
     remoteOutputTree.injectFile(path, metadata);
   }

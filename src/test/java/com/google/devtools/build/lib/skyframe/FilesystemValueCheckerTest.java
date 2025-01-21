@@ -1395,16 +1395,16 @@ public final class FilesystemValueCheckerTest {
 
   private RemoteFileArtifactValueWithMaterializationData createRemoteFileArtifactValue(
       String contents) {
-    return createRemoteFileArtifactValue(contents, /* expireAtEpochMilli= */ -1);
+    return createRemoteFileArtifactValue(contents, /* expirationTime= */ null);
   }
 
   private RemoteFileArtifactValueWithMaterializationData createRemoteFileArtifactValue(
-      String contents, long expireAtEpochMilli) {
+      String contents, Instant expirationTime) {
     byte[] data = contents.getBytes();
     DigestHashFunction hashFn = fs.getDigestFunction();
     HashCode hash = hashFn.getHashFunction().hashBytes(data);
     return RemoteFileArtifactValue.createWithMaterializationData(
-        hash.asBytes(), data.length, -1, expireAtEpochMilli, /* materializationExecPath= */ null);
+        hash.asBytes(), data.length, -1, expirationTime, /* materializationExecPath= */ null);
   }
 
   @Test
@@ -1557,7 +1557,7 @@ public final class FilesystemValueCheckerTest {
     metadataToInject.put(
         actionKey2,
         actionValueWithRemoteArtifact(
-            out2, createRemoteFileArtifactValue("bar-content", /* expireAtEpochMilli= */ 0)));
+            out2, createRemoteFileArtifactValue("bar-content", Instant.ofEpochMilli(1))));
     differencer.inject(metadataToInject);
 
     EvaluationContext evaluationContext =
@@ -1797,7 +1797,7 @@ public final class FilesystemValueCheckerTest {
                 createRemoteFileArtifactValue("foo-content"))
             .putChild(
                 TreeFileArtifact.createTreeOutput(treeArtifact, "bar"),
-                createRemoteFileArtifactValue("bar-content", /* expireAtEpochMilli= */ 0))
+                createRemoteFileArtifactValue("bar-content", Instant.ofEpochMilli(1)))
             .build();
 
     differencer.inject(ImmutableMap.of(actionKey, actionValueWithTreeArtifact(treeArtifact, tree)));
@@ -1843,7 +1843,7 @@ public final class FilesystemValueCheckerTest {
                 createRemoteFileArtifactValue("bar-content"))
             .setArchivedRepresentation(
                 createArchivedTreeArtifactWithContent(treeArtifact),
-                createRemoteFileArtifactValue("archived", /* expireAtEpochMilli= */ 0))
+                createRemoteFileArtifactValue("archived", Instant.ofEpochMilli(1)))
             .build();
 
     differencer.inject(ImmutableMap.of(actionKey, actionValueWithTreeArtifact(treeArtifact, tree)));

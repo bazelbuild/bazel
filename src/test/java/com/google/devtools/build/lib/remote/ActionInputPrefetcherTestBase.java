@@ -159,7 +159,7 @@ public abstract class ActionInputPrefetcherTestBase {
             hashCode.asBytes(),
             contentsBytes.length,
             /* locationIndex= */ 1,
-            /* expireAtEpochMilli= */ -1,
+            /* expirationTime= */ null,
             materializationExecPath);
     metadata.put(a, f);
     if (cas != null) {
@@ -217,7 +217,7 @@ public abstract class ActionInputPrefetcherTestBase {
               hashCode.asBytes(),
               contents.length,
               /* locationIndex= */ 1,
-              /* expireAtEpochMilli= */ -1,
+              /* expirationTime= */ null,
               /* materializationExecPath= */ null);
       treeBuilder.putChild(child, childValue);
       metadata.put(child, childValue);

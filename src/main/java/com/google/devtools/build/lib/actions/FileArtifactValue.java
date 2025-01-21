@@ -127,19 +127,39 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     return getDigest();
   }
 
-  /**
-   * Index used to resolve remote files.
-   *
-   * <p>0 indicates that no such information is available which can mean that it's either a local
-   * file, empty, or an omitted output.
-   */
+  /** Returns whether the file contents exist remotely. */
+  public boolean isRemote() {
+    return false;
+  }
+
+  /** Returns the location index for remote files. For non-remote files, returns 0. */
   public int getLocationIndex() {
     return 0;
   }
 
-  /** Returns whether the file contents exist remotely. */
-  public boolean isRemote() {
-    return false;
+  /**
+   * Returns the time when the remote file contents expire. If the contents never expire, including
+   * when they're not remote, returns null.
+   *
+   * <p>The expiration time does not factor into equality, as it can be mutated by {@link
+   * #setExpirationTime}.
+   */
+  @Nullable
+  public Instant getExpirationTime() {
+    return null;
+  }
+
+  /**
+   * Sets the expiration time. If this metadata was originally constructed without an expiration
+   * time, does nothing.
+   */
+  public void setExpirationTime(Instant newExpirationTime) {}
+
+  /**
+   * Returns whether the file contents are available (either locally, or remotely and not expired).
+   */
+  public final boolean isAlive(Instant now) {
+    return getExpirationTime() == null || getExpirationTime().isAfter(now);
   }
 
   /**
@@ -566,10 +586,10 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
         byte[] digest,
         long size,
         int locationIndex,
-        long expireAtEpochMilli,
+        @Nullable Instant expirationTime,
         @Nullable PathFragment materializationExecPath) {
       return new RemoteFileArtifactValueWithMaterializationData(
-          digest, size, locationIndex, materializationExecPath, expireAtEpochMilli);
+          digest, size, locationIndex, materializationExecPath, expirationTime);
     }
 
     /**
@@ -586,7 +606,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
           metadata.getDigest(),
           metadata.getSize(),
           metadata.getLocationIndex(),
-          metadata.getExpireAtEpochMilli(),
+          metadata.getExpirationTime(),
           metadata.getMaterializationExecPath().orElse(materializationExecPath));
     }
 
@@ -635,26 +655,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       return locationIndex;
     }
 
-    /**
-     * Returns the time when the remote file expires in milliseconds since epoch. A negative value
-     * means the remote is not known to expire.
-     *
-     * <p>Expiration time does not contribute to equality of remote files.
-     */
-    public long getExpireAtEpochMilli() {
-      return -1;
-    }
-
-    /**
-     * Extends the expiration time for this metadata. If it was constructed without known expiration
-     * time (i.e. expireAtEpochMilli < 0), this extension does nothing.
-     */
-    public void extendExpireAtEpochMilli(long expireAtEpochMilli) {}
-
-    public boolean isAlive(Instant now) {
-      return true;
-    }
-
     @Override
     public final boolean wasModifiedSinceDigest(Path path) {
       return false;
@@ -682,32 +682,38 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
   public static final class RemoteFileArtifactValueWithMaterializationData
       extends RemoteFileArtifactValue {
     @Nullable private final PathFragment materializationExecPath;
-    private long expireAtEpochMilli;
+    private long expirationTime;
     @Nullable private FileContentsProxy proxy;
 
     private RemoteFileArtifactValueWithMaterializationData(
         byte[] digest,
         long size,
         int locationIndex,
-        PathFragment materializationExecPath,
-        long expireAtEpochMilli) {
+        @Nullable PathFragment materializationExecPath,
+        @Nullable Instant expirationTime) {
       super(digest, size, locationIndex);
       this.materializationExecPath = materializationExecPath;
-      this.expireAtEpochMilli = expireAtEpochMilli;
+      this.expirationTime = toEpochMilli(expirationTime);
+    }
+
+    private static long toEpochMilli(@Nullable Instant expirationTime) {
+      return expirationTime != null ? expirationTime.toEpochMilli() : -1;
+    }
+
+    @Nullable
+    private static Instant fromEpochMilli(long expirationTime) {
+      return expirationTime >= 0 ? Instant.ofEpochMilli(expirationTime) : null;
     }
 
     @Override
-    public long getExpireAtEpochMilli() {
-      return expireAtEpochMilli;
+    @Nullable
+    public Instant getExpirationTime() {
+      return fromEpochMilli(expirationTime);
     }
 
     @Override
-    public void extendExpireAtEpochMilli(long expireAtEpochMilli) {
-      if (expireAtEpochMilli < 0) {
-        return;
-      }
-      checkState(expireAtEpochMilli > this.expireAtEpochMilli);
-      this.expireAtEpochMilli = expireAtEpochMilli;
+    public void setExpirationTime(Instant expirationTime) {
+      this.expirationTime = toEpochMilli(expirationTime);
     }
 
     /**
@@ -736,14 +742,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     @Override
     public boolean canSetContentsProxy() {
       return true;
-    }
-
-    @Override
-    public boolean isAlive(Instant now) {
-      if (expireAtEpochMilli < 0) {
-        return true;
-      }
-      return now.toEpochMilli() < expireAtEpochMilli;
     }
 
     @Override
@@ -779,7 +777,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
           .add("size", getSize())
           .add("locationIndex", getLocationIndex())
           .add("materializationExecPath", materializationExecPath)
-          .add("expireAtEpochMilli", expireAtEpochMilli)
+          .add("expirationTime", fromEpochMilli(expirationTime))
           .add("proxy", proxy)
           .toString();
     }

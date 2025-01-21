@@ -446,7 +446,7 @@ public final class ActionOutputMetadataStoreTest {
         return FileArtifactValue.createForNormalFile(new byte[] {1, 2, 3}, /* proxy= */ null, 10);
       case REMOTE:
         return RemoteFileArtifactValue.createWithMaterializationData(
-            new byte[] {1, 2, 3}, 10, 1, -1, materializationExecPath);
+            new byte[] {1, 2, 3}, 10, 1, null, materializationExecPath);
     }
     throw new AssertionError();
   }
