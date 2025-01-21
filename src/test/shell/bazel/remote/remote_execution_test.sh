@@ -3508,6 +3508,7 @@ my_test(
     # forced by this constraint for both the build and the test action. Instead,
     # use exec_group_compatible_with = {"test": [":has_foo"]} once it is
     # implemented.
+    # https://github.com/bazelbuild/bazel/issues/23802
     exec_compatible_with = [":has_foo"],
 )
 

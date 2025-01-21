@@ -863,6 +863,7 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
     // the exec_compatible_with constraint and thus select the target platform.
     // TODO: Change this as soon as exec_group_compatible_with is available, which provides an
     // explicit way to specify additional constraints for the test exec group.
+    // https://github.com/bazelbuild/bazel/issues/23802
     assertThat(testAction.getExecutionPlatform().label())
         .isEqualTo(Label.parseCanonicalUnchecked("//platform:fast_cpu_platform"));
     assertThat(testAction.getExecProperties())
