@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.sandbox.SandboxOptions;
 import com.google.devtools.build.lib.sandbox.cgroups.VirtualCgroup;
 import com.google.devtools.build.lib.sandbox.cgroups.VirtualCgroupFactory;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.worker.SandboxedWorker.WorkerSandboxOptions;
 import com.google.devtools.common.options.OptionsBase;
@@ -124,7 +125,9 @@ public class WorkerModule extends BlazeModule {
       }
     }
     VirtualCgroupFactory cgroupFactory =
-        sandboxOptions == null || !sandboxOptions.useNewCgroupImplementation
+        OS.getCurrent() != OS.LINUX
+                || sandboxOptions == null
+                || !sandboxOptions.useNewCgroupImplementation
             ? null
             : new VirtualCgroupFactory(
                 "worker_",
@@ -197,7 +200,8 @@ public class WorkerModule extends BlazeModule {
 
     // Override the flag value if we can't actually use cgroups so that we at least fallback to ps.
     boolean useCgroupsOnLinux =
-        options.useCgroupsOnLinux
+        OS.getCurrent() == OS.LINUX
+            && options.useCgroupsOnLinux
             && ((sandboxOptions == null || !sandboxOptions.useNewCgroupImplementation)
                 ? CgroupsInfo.isSupported()
                 : VirtualCgroup.getInstance().memory() != null);
