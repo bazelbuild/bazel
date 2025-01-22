@@ -92,10 +92,6 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
   @Test
   public void disableRunfiles_buildSuccessfully() throws Exception {
-    // Disable on Windows since it fails for unknown reasons.
-    // TODO(chiwang): Enable it on windows.
-    assumeFalse(OS.getCurrent() == OS.WINDOWS);
-
     write(
         "BUILD",
         "load('//test_defs:foo_test.bzl', 'foo_test')",
