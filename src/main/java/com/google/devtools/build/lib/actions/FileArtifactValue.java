@@ -502,7 +502,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
 
     @Override
     public int hashCode() {
-      return Objects.hash(Arrays.hashCode(digest), proxy, size);
+      return HashCodes.hashObjects(Arrays.hashCode(digest), proxy, size);
     }
 
     @Override
@@ -615,7 +615,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
 
     @Override
     public int hashCode() {
-      return Objects.hash(Arrays.hashCode(digest), size, locationIndex);
+      return HashCodes.hashObjects(Arrays.hashCode(digest), size, locationIndex);
     }
 
     @Override
@@ -752,7 +752,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
 
     @Override
     public int hashCode() {
-      return Objects.hash(
+      return HashCodes.hashObjects(
           Arrays.hashCode(getDigest()), getSize(), getLocationIndex(), materializationExecPath);
     }
 
