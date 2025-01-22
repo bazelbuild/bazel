@@ -263,7 +263,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                 .build(),
             differencer);
     overrideDirectory = scratch.dir("/foo");
-    scratch.file("/foo/WORKSPACE");
+    scratch.file("/foo/REPO.bazel");
     RepositoryMappingFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
     RepositoryDelegatorFunction.IS_VENDOR_COMMAND.set(differencer, false);
     RepositoryDelegatorFunction.VENDOR_DIRECTORY.set(differencer, Optional.empty());

@@ -43,7 +43,6 @@ java_test(
         include = ["*.java"],
         exclude = [
             "BazelDocumentationTest.java",
-            "ExternalPackageTest.java",
             "WorkspaceFactoryTestHelper.java",
         ],
     ),

@@ -408,7 +408,7 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
         BzlmodTestUtil.createModuleKey("origin_repo", "0.1"),
         "module(name='origin_repo', version='0.1')");
     Path originRepoPath = moduleRoot.getRelative("origin_repo+0.1");
-    scratch.file(originRepoPath.getRelative("WORKSPACE").getPathString());
+    scratch.file(originRepoPath.getRelative("REPO.bazel").getPathString());
     scratch.file(
         originRepoPath.getRelative("BUILD").getPathString(), //
         "exports_files(['origin.bzl'])");
@@ -1160,7 +1160,7 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
     registry.addModule(
         BzlmodTestUtil.createModuleKey("dep_mod", "0.1"), "module(name='dep_mod', version='0.1')");
     Path depModRepoPath = moduleRoot.getRelative("dep_mod+0.1");
-    scratch.file(depModRepoPath.getRelative("WORKSPACE").getPathString());
+    scratch.file(depModRepoPath.getRelative("REPO.bazel").getPathString());
     scratch.file(
         depModRepoPath.getRelative("foo.bzl").getPathString(),
         """

@@ -1666,7 +1666,6 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testSlashSlashDotDotDot() throws Exception {
     useReducedSetOfRules();
-    writeFile("WORKSPACE");
     writeFile("MODULE.bazel");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['a.sh'])");
     assertThat(eval("//...")).isEqualTo(eval("//a"));
@@ -1762,57 +1761,44 @@ public abstract class AbstractQueryTest<T> {
     helper.clearAllFiles();
     helper.useRuleClassProvider(analysisMock.createRuleClassProvider());
     helper.writeFile("/workspace/embedded_tools/BUILD");
-    helper.writeFile("/workspace/embedded_tools/WORKSPACE");
     helper.writeFile("/workspace/embedded_tools/MODULE.bazel", "module(name='bazel_tools')");
     helper.writeFile("/workspace/platforms_workspace/BUILD");
-    helper.writeFile("/workspace/platforms_workspace/WORKSPACE");
     helper.writeFile("/workspace/platforms_workspace/MODULE.bazel", "module(name='platforms')");
     helper.writeFile("/workspace/local_config_xcode_workspace/BUILD");
-    helper.writeFile("/workspace/local_config_xcode_workspace/WORKSPACE");
     helper.writeFile(
         "/workspace/local_config_xcode_workspace/MODULE.bazel",
         "module(name='local_config_xcode')");
     helper.writeFile("/workspace/rules_java_workspace/BUILD");
-    helper.writeFile("/workspace/rules_java_workspace/WORKSPACE");
     helper.writeFile("/workspace/rules_java_workspace/MODULE.bazel", "module(name='rules_java')");
     helper.writeFile("/workspace/rules_python_workspace/BUILD");
-    helper.writeFile("/workspace/rules_python_workspace/WORKSPACE");
     helper.writeFile(
         "/workspace/rules_python_workspace/MODULE.bazel", "module(name='rules_python')");
     helper.writeFile("/workspace/rules_python_internal_workspace/BUILD");
-    helper.writeFile("/workspace/rules_python_internal_workspace/WORKSPACE");
     helper.writeFile(
         "/workspace/rules_python_internal_workspace/MODULE.bazel",
         "module(name='rules_python_internal')");
     helper.writeFile("/workspace/bazel_skylib_workspace/BUILD");
-    helper.writeFile("/workspace/bazel_skylib_workspace/WORKSPACE");
     helper.writeFile(
         "/workspace/bazel_skylib_workspace/MODULE.bazel", "module(name='bazel_skylib')");
     helper.writeFile("/workspace/third_party/protobuf/BUILD");
-    helper.writeFile("/workspace/third_party/protobuf/WORKSPACE");
     helper.writeFile(
         "/workspace/third_party/protobuf/MODULE.bazel", "module(name='com_google_protobuf')");
     helper.writeFile("/workspace/proto_bazel_features_workspace/BUILD");
-    helper.writeFile("/workspace/proto_bazel_features_workspace/WORKSPACE");
     helper.writeFile(
         "/workspace/proto_bazel_features_workspace/MODULE.bazel",
         "module(name='proto_bazel_features')");
     helper.writeFile("/workspace/local_config_platform_workspace/BUILD");
-    helper.writeFile("/workspace/local_config_platform_workspace/WORKSPACE");
     helper.writeFile(
         "/workspace/local_config_platform_workspace/MODULE.bazel",
         "module(name='local_config_platform')");
     helper.writeFile("/workspace/build_bazel_apple_support/BUILD");
-    helper.writeFile("/workspace/build_bazel_apple_support/WORKSPACE");
     helper.writeFile(
         "/workspace/build_bazel_apple_support/MODULE.bazel",
         "module(name='build_bazel_apple_support')");
     helper.writeFile("/workspace/third_party/bazel_rules/rules_cc/BUILD");
-    helper.writeFile("/workspace/third_party/bazel_rules/rules_cc/WORKSPACE");
     helper.writeFile(
         "/workspace/third_party/bazel_rules/rules_cc/MODULE.bazel", "module(name='rules_cc')");
     helper.writeFile("/workspace/third_party/bazel_rules/rules_shell/BUILD");
-    helper.writeFile("/workspace/third_party/bazel_rules/rules_shell/WORKSPACE");
     helper.writeFile(
         "/workspace/third_party/bazel_rules/rules_shell/MODULE.bazel",
         "module(name='rules_shell')");
@@ -1866,7 +1852,6 @@ public abstract class AbstractQueryTest<T> {
 
   public void simpleVisibilityTest(String visibility, boolean expectVisible) throws Exception {
     useReducedSetOfRules();
-    writeFile("WORKSPACE");
     writeFile("MODULE.bazel");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b:b'])");
     writeFile(
@@ -1907,7 +1892,6 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testVisible_private_same_package() throws Exception {
     useReducedSetOfRules();
-    writeFile("WORKSPACE");
     writeFile("MODULE.bazel");
     writeFile(
         "a/BUILD",
@@ -1921,7 +1905,6 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testVisible_package_group() throws Exception {
     useReducedSetOfRules();
-    writeFile("WORKSPACE");
     writeFile("MODULE.bazel");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b:b'])");
     writeFile(
@@ -1936,7 +1919,6 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testVisible_package_group_invisible() throws Exception {
     useReducedSetOfRules();
-    writeFile("WORKSPACE");
     writeFile("MODULE.bazel");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b:b'])");
     writeFile(
@@ -1952,7 +1934,6 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testVisible_package_group_include() throws Exception {
     useReducedSetOfRules();
-    writeFile("WORKSPACE");
     writeFile("MODULE.bazel");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b:b'])");
     writeFile(
@@ -1969,7 +1950,6 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testVisible_java_javatests() throws Exception {
     useReducedSetOfRules();
-    writeFile("WORKSPACE");
     writeFile("MODULE.bazel");
     writeFile(
         "java/com/google/a/BUILD",
@@ -1988,7 +1968,6 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testVisible_java_javatests_different_package() throws Exception {
     useReducedSetOfRules();
-    writeFile("WORKSPACE");
     writeFile("MODULE.bazel");
     writeFile(
         "java/com/google/a/BUILD",
@@ -2008,7 +1987,6 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testVisible_javatests_java() throws Exception {
     useReducedSetOfRules();
-    writeFile("WORKSPACE");
     writeFile("MODULE.bazel");
     writeFile(
         "javatests/com/google/a/BUILD",
@@ -2027,7 +2005,6 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testVisible_default_private() throws Exception {
     useReducedSetOfRules();
-    writeFile("WORKSPACE");
     writeFile("MODULE.bazel");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b'])");
     writeFile(
@@ -2042,7 +2019,6 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testVisible_default_public() throws Exception {
     useReducedSetOfRules();
-    writeFile("WORKSPACE");
     writeFile("MODULE.bazel");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b'])");
     writeFile(
@@ -2057,7 +2033,6 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testPackageGroupAllBeneath() throws Exception {
     useReducedSetOfRules();
-    writeFile("WORKSPACE");
     writeFile("MODULE.bazel");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b:b'])");
     writeFile(
@@ -2617,7 +2592,7 @@ public abstract class AbstractQueryTest<T> {
         ")");
     helper.addModule(
         new ModuleKey("repo", Version.parse("1.0")), "module(name = 'repo', version = '1.0')");
-    writeFile(helper.getModuleRoot().getRelative("repo+1.0/WORKSPACE").getPathString(), "");
+    writeFile(helper.getModuleRoot().getRelative("repo+1.0/REPO.bazel").getPathString(), "");
     writeFile(
         helper.getModuleRoot().getRelative("repo+1.0/a/BUILD").getPathString(),
         "exports_files(['x', 'y', 'z'])",

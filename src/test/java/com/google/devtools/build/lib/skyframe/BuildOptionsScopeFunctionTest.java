@@ -64,7 +64,6 @@ public final class BuildOptionsScopeFunctionTest extends BuildViewTestCase {
   @Test
   @Ignore("TODO(b/359622692): turns this back on in a follow up CL")
   public void buildOptionsScopesFunction_returnsCorrectScope() throws Exception {
-    rewriteWorkspace("WORKSPACE", "workspace(name = 'foo')");
     scratch.file(
         "test_flags/build_setting.bzl",
         """
@@ -144,7 +143,6 @@ public final class BuildOptionsScopeFunctionTest extends BuildViewTestCase {
 
   @Test
   public void buildOptionsScopesFunction_doesNotErrorOut_whenNoProjectFile() throws Exception {
-    rewriteWorkspace("WORKSPACE", "workspace(name = 'foo')");
     scratch.file(
         "test_flags/build_setting.bzl",
         """

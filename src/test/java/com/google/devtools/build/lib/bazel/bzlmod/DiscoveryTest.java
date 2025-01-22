@@ -523,7 +523,6 @@ public class DiscoveryTest extends FoundationTestCase {
     Path pathToC = scratch.dir("/pathToC");
     scratch.file(
         pathToC.getRelative("MODULE.bazel").getPathString(), "module(name='ccc',version='2.0')");
-    scratch.file(pathToC.getRelative("WORKSPACE").getPathString());
     scratch.file(
         workspaceRoot.getRelative("MODULE.bazel").getPathString(),
         "module(name='aaa',version='0.1')",
@@ -579,12 +578,10 @@ public class DiscoveryTest extends FoundationTestCase {
     scratch.file(
         workspaceRoot.getRelative("MODULE.bazel").getPathString(),
         "bazel_dep(name='foo',version='2.0')");
-    scratch.file(rootDirectory.getRelative("tools/WORKSPACE").getPathString());
     scratch.file(
         rootDirectory.getRelative("tools/MODULE.bazel").getPathString(),
         "module(name='bazel_tools',version='1.0')",
         "bazel_dep(name='foo',version='1.0')");
-    scratch.file(rootDirectory.getRelative("localplat/WORKSPACE").getPathString());
     scratch.file(
         rootDirectory.getRelative("localplat/MODULE.bazel").getPathString(),
         "module(name='local_config_platform')");

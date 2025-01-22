@@ -145,7 +145,6 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
 
     MockToolsConfig mockToolsConfig = new MockToolsConfig(rootDirectory);
     analysisMock.setupMockClient(mockToolsConfig);
-    analysisMock.setupMockWorkspaceFiles(directories.getEmbeddedBinariesRoot());
     analysisMock.setupMockToolsRepository(mockToolsConfig);
     analysisMock.ccSupport().setup(mockToolsConfig);
     analysisMock.pySupport().setup(mockToolsConfig);
