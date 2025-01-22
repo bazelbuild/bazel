@@ -14,7 +14,7 @@
 
 #include "src/main/cpp/util/file.h"
 
-#include <limits.h>  // PATH_MAX
+#include <limits.h>
 
 #include <algorithm>
 #include <cstdlib>

@@ -12,16 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <dirent.h>  // DIR, dirent, opendir, closedir
+#include <dirent.h>
 #include <errno.h>
-#include <fcntl.h>   // O_RDONLY
-#include <limits.h>  // PATH_MAX
-#include <stdlib.h>  // getenv
-#include <string.h>  // strncmp
+#include <fcntl.h>
+#include <limits.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <time.h>
-#include <unistd.h>  // access, open, close, fsync
-#include <utime.h>   // utime
+#include <unistd.h>
+#include <utime.h>
 
 #include <string>
 

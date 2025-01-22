@@ -29,7 +29,7 @@
 #include <stdlib.h>
 
 #include <cassert>
-#include <memory>  // unique_ptr
+#include <memory>
 
 #include "src/main/cpp/util/exit_code.h"
 

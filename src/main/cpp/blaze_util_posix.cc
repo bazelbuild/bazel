@@ -13,12 +13,10 @@
 // limitations under the License.
 
 #define _WITH_DPRINTF
-#include "src/main/cpp/blaze_util_platform.h"
-
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <limits.h>  // PATH_MAX
+#include <limits.h>
 #include <poll.h>
 #include <pwd.h>
 #include <signal.h>
@@ -38,7 +36,6 @@
 
 #include <algorithm>
 #include <cassert>
-#include <cinttypes>
 #include <cstdlib>
 #include <fstream>
 #include <iterator>
@@ -50,6 +47,7 @@
 #include <vector>
 
 #include "src/main/cpp/blaze_util.h"
+#include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/startup_options.h"
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
