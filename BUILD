@@ -110,6 +110,7 @@ pkg_tar(
     srcs = [
         "//third_party/googleapis:dist_jars",
         "//third_party/grpc-java:grpc_jars",
+        "@async_profiler//file",
         "@com_google_protobuf//:protobuf_java",
         "@com_google_protobuf//:protobuf_java_util",
         "@com_google_protobuf//:protobuf_javalite",
