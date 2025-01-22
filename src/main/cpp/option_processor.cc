@@ -22,8 +22,9 @@
 #include <iterator>
 #include <memory>
 #include <set>
-#include <sstream>
+#include <string>
 #include <utility>
+#include <vector>
 
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
@@ -34,6 +35,11 @@
 #include "src/main/cpp/util/path_platform.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/main/cpp/workspace_layout.h"
+#include "absl/container/flat_hash_map.h"
+#include "absl/strings/str_cat.h"
+#include "src/main/cpp/rc_file.h"
+#include "src/main/cpp/startup_options.h"
+#include "src/main/cpp/util/exit_code.h"
 
 // On OSX, there apparently is no header that defines this.
 #ifndef environ
@@ -47,7 +53,6 @@ extern char **environ;
 
 namespace blaze {
 
-using std::map;
 using std::set;
 using std::string;
 using std::vector;
@@ -524,8 +529,9 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
     return parse_startup_options_exit_code;
   }
 
+  parsed_blazercs_ = GetBlazercOptions(cwd, rc_file_ptrs);
   blazerc_and_env_command_args_ = GetBlazercAndEnvCommandArgs(
-      cwd, rc_file_ptrs, blaze::internal::GetProcessedEnv());
+      cwd, parsed_blazercs_, blaze::internal::GetProcessedEnv());
   return blaze_exit_code::SUCCESS;
 }
 
@@ -595,46 +601,23 @@ blaze_exit_code::ExitCode OptionProcessor::ParseStartupOptions(
   return startup_options_->ProcessArgs(rcstartup_flags, error);
 }
 
-// IMPORTANT: The options added here do not come from the user. In order for
-// their source to be correctly tracked, the options must either be passed
-// as --default_override=0, 0 being "client", or must be listed in
-// BlazeOptionHandler.INTERNAL_COMMAND_OPTIONS!
-std::vector<std::string> OptionProcessor::GetBlazercAndEnvCommandArgs(
-    const std::string& cwd,
-    const std::vector<RcFile*>& blazercs,
-    const std::vector<std::string>& env) {
-  // Provide terminal options as coming from the least important rc file.
-  std::vector<std::string> result = {
-      // LINT.IfChange
-      "--rc_source=client",
-      // LINT.ThenChange(src/main/java/com/google/devtools/common/options/GlobalRcUtils.java)
-      "--default_override=0:common=--isatty=" +
-          blaze_util::ToString(IsStandardTerminal()),
-      "--default_override=0:common=--terminal_columns=" +
-          blaze_util::ToString(GetTerminalColumns())};
+std::vector<BlazercOption> OptionProcessor::GetBlazercOptions(
+    const std::string& cwd, const std::vector<RcFile*>& blazercs) {
+  std::vector<BlazercOption> result;
+
+  // Provide terminal options as least important options.
+  // LINT.IfChange
+  std::string terminal_rc_source = "client";
+  // LINT.ThenChange(src/main/java/com/google/devtools/common/options/GlobalRcUtils.java)
+  result.push_back({terminal_rc_source, "common",
+                    "--isatty=" + blaze_util::ToString(IsStandardTerminal())});
+  result.push_back(
+      {terminal_rc_source, "common",
+       "--terminal_columns=" + blaze_util::ToString(GetTerminalColumns())});
   if (IsEmacsTerminal()) {
-    result.push_back("--default_override=0:common=--emacs");
+    result.push_back({terminal_rc_source, "common", "--emacs"});
   }
 
-  EnsurePythonPathOption(&result);
-
-  // Map .blazerc numbers to filenames. The indexes here start at 1 because #0
-  // is reserved the "client" options created by this function.
-  int cur_index = 1;
-  std::map<std::string, int> rcfile_indexes;
-  for (const auto* blazerc : blazercs) {
-    for (const std::string& source_path : blazerc->canonical_source_paths()) {
-      // Deduplicate the rc_source list because the same file might be included
-      // from multiple places.
-      if (rcfile_indexes.find(source_path) != rcfile_indexes.end()) continue;
-
-      result.push_back("--rc_source=" + blaze_util::ConvertPath(source_path));
-      rcfile_indexes[source_path] = cur_index;
-      cur_index++;
-    }
-  }
-
-  // Add RcOptions as default_overrides.
   for (const auto* blazerc : blazercs) {
     for (const auto& command_options : blazerc->options()) {
       const string& command = command_options.first;
@@ -644,12 +627,43 @@ std::vector<std::string> OptionProcessor::GetBlazercAndEnvCommandArgs(
       for (const RcOption& rcoption : command_options.second) {
         const std::string& source_path =
             blazerc->canonical_source_paths()[rcoption.source_index];
-        std::ostringstream oss;
-        oss << "--default_override=" << rcfile_indexes[source_path] << ':'
-            << command << '=' << rcoption.option;
-        result.push_back(oss.str());
+        result.push_back({source_path, command, rcoption.option});
       }
     }
+  }
+
+  return result;
+}
+
+// IMPORTANT: The options added here do not come from the user. In order for
+// their source to be correctly tracked, the options must either be passed
+// as --default_override=0, 0 being "client", or must be listed in
+// BlazeOptionHandler.INTERNAL_COMMAND_OPTIONS!
+std::vector<std::string> OptionProcessor::GetBlazercAndEnvCommandArgs(
+    const std::string& cwd, const std::vector<BlazercOption>& blazerc_options,
+    const std::vector<std::string>& env) {
+  std::vector<std::string> result;
+  absl::flat_hash_map<std::string, int> rcfile_index;
+
+  // Fix first value of `--rc_source` to allow for user-defined
+  // `--default_override=0` values.
+  // LINT.IfChange
+  result.push_back("--rc_source=client");
+  rcfile_index["client"] = 0;
+  // LINT.ThenChange(src/main/java/com/google/devtools/common/options/GlobalRcUtils.java)
+  int cur_index = 1;
+  for (const auto& option : blazerc_options) {
+    if (rcfile_index.contains(option.source_path)) continue;
+    rcfile_index[option.source_path] = cur_index;
+    result.push_back(absl::StrCat("--rc_source=",
+                                  blaze_util::ConvertPath(option.source_path)));
+    ++cur_index;
+  }
+  EnsurePythonPathOption(&result);
+  for (const auto& option : blazerc_options) {
+    result.push_back(
+        absl::StrCat("--default_override=", rcfile_index[option.source_path],
+                     ":", option.command, "=", option.option));
   }
 
   // Pass the client environment to the server.

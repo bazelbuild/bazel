@@ -15,7 +15,6 @@
 #ifndef BAZEL_SRC_MAIN_CPP_OPTION_PROCESSOR_H_
 #define BAZEL_SRC_MAIN_CPP_OPTION_PROCESSOR_H_
 
-#include <list>
 #include <memory>
 #include <string>
 #include <utility>
@@ -47,6 +46,13 @@ struct CommandLine {
         startup_args(std::move(startup_args_arg)),
         command(std::move(command_arg)),
         command_args(std::move(command_args_arg)) {}
+};
+
+// Represents an option parsed from a blazerc file.
+struct BlazercOption {
+  std::string source_path;
+  std::string command;
+  std::string option;
 };
 
 // This class is responsible for parsing the command line of the Blaze binary,
@@ -117,11 +123,16 @@ class OptionProcessor {
   // the failure. Otherwise, the server will handle any required logging.
   void PrintStartupOptionsProvenanceMessage() const;
 
+  // Parse the files in `blazercs` and return all options that need to be passed
+  // to the server. The options are returned in the order they should be appear
+  // on the command line (later options have precedence over earlier ones).
+  static std::vector<BlazercOption> GetBlazercOptions(
+      const std::string& cwd, const std::vector<RcFile*>& blazercs);
+
   // Constructs all synthetic command args that should be passed to the
   // server to configure blazerc options and client environment.
   static std::vector<std::string> GetBlazercAndEnvCommandArgs(
-      const std::string& cwd,
-      const std::vector<RcFile*>& blazercs,
+      const std::string& cwd, const std::vector<BlazercOption>& blazerc_options,
       const std::vector<std::string>& env);
 
   // Finds and parses the appropriate RcFiles:
@@ -143,6 +154,8 @@ class OptionProcessor {
   // An ordered list of command args that contain information about the
   // execution environment and the flags passed via the bazelrc files.
   std::vector<std::string> blazerc_and_env_command_args_;
+
+  std::vector<BlazercOption> parsed_blazercs_;
 
   // The command line constructed after calling ParseOptions.
   std::unique_ptr<CommandLine> cmd_line_;
