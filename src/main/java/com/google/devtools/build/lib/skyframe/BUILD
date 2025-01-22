@@ -509,6 +509,7 @@ java_library(
     deps = [
         ":action_execution_value",
         ":metadata_consumer_for_metrics",
+        ":rule_configured_target_value",
         ":tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
