@@ -156,6 +156,11 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
             Instant.ofEpochMilli(actionExecutionContext.getClock().currentTimeMillis());
         // Actual execution.
         spawnResult = spawnRunner.exec(spawn, context);
+
+        String spawnIdentifier = null;
+        if (spawnResult.getDigest() != null) {
+          spawnIdentifier = spawnResult.getDigest().getHash();
+        }
         actionExecutionContext
             .getEventHandler()
             .post(
@@ -163,7 +168,8 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
                     spawn,
                     actionExecutionContext.getInputMetadataProvider(),
                     spawnResult,
-                    startTime));
+                    startTime,
+                    spawnIdentifier));
         if (cacheHandle.willStore()) {
           cacheHandle.store(spawnResult);
         }
@@ -328,6 +334,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     public InputMetadataProvider getInputMetadataProvider() {
       return actionExecutionContext.getInputMetadataProvider();
     }
+
     @Override
     public <T extends ActionContext> T getContext(Class<T> identifyingType) {
       return actionExecutionContext.getContext(identifyingType);
