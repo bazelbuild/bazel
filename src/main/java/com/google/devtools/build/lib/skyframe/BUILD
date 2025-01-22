@@ -192,6 +192,7 @@ java_library(
         ":skyframe_executor_repository_helpers_holder",
         ":skyframe_incremental_build_monitor",
         ":skyframe_stats",
+        ":skyframe_util",
         ":skyvalue_retriever_utils",
         ":starlark_builtins_value",
         ":state_informing_sky_function_environment",
@@ -799,6 +800,7 @@ java_library(
     deps = [
         ":bzl_compile_value",
         ":precomputed_value",
+        ":skyframe_util",
         ":starlark_builtins_value",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -2402,10 +2404,12 @@ java_library(
     deps = [
         ":precomputed_value",
         ":repo_file_value",
+        ":skyframe_util",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_directory_value",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
@@ -3335,6 +3339,17 @@ java_library(
     deps = [
         ":sky_key_stats",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "skyframe_util",
+    srcs = ["SkyframeUtil.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
+        "//src/main/java/net/starlark/java/syntax",
         "//third_party:guava",
     ],
 )

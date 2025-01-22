@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.base.Utf8;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.actions.FileValue;
@@ -33,11 +32,11 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
+import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.syntax.FileOptions;
-import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.Program;
 import net.starlark.java.syntax.StarlarkFile;
@@ -147,26 +146,6 @@ public class BzlCompileFunction implements SkyFunction {
       return null;
     }
 
-    switch (semantics.get(BuildLanguageOptions.INCOMPATIBLE_ENFORCE_STARLARK_UTF8)) {
-      case OFF -> {}
-      case WARNING -> {
-        if (!Utf8.isWellFormed(bytes)) {
-          env.getListener()
-              .handle(
-                  Event.warn(
-                      Location.fromFile(inputName),
-                      "not a valid UTF-8 encoded file; this can lead to inconsistent behavior and"
-                          + " will be disallowed in a future version of Bazel"));
-        }
-      }
-      case ERROR -> {
-        if (!Utf8.isWellFormed(bytes)) {
-          return BzlCompileValue.noFile(
-              "compilation of '%s' failed: not a valid UTF-8 encoded file", inputName);
-        }
-      }
-    }
-
     ImmutableMap<String, Object> predeclared;
     if (key.isSclDialect()) {
       predeclared = bazelStarlarkEnvironment.getStarlarkGlobals().getSclToplevels();
@@ -192,7 +171,15 @@ public class BzlCompileFunction implements SkyFunction {
     }
 
     // We have all deps. Parse, resolve, and return.
-    ParserInput input = ParserInput.fromLatin1(bytes, inputName);
+    Optional<ParserInput> input =
+        SkyframeUtil.createParserInput(
+            bytes,
+            inputName,
+            semantics.get(BuildLanguageOptions.INCOMPATIBLE_ENFORCE_STARLARK_UTF8),
+            env.getListener());
+    if (input.isEmpty()) {
+      return BzlCompileValue.noFile("compilation of '%s' failed", inputName);
+    }
     FileOptions options =
         FileOptions.builder()
             // By default, Starlark load statements create file-local bindings.
@@ -208,7 +195,7 @@ public class BzlCompileFunction implements SkyFunction {
             // detail in errors (i.e. new fields or error subclasses).
             .stringLiteralsAreAsciiOnly(key.isSclDialect())
             .build();
-    StarlarkFile file = StarlarkFile.parse(input, options);
+    StarlarkFile file = StarlarkFile.parse(input.get(), options);
 
     // compile
     final Module module;

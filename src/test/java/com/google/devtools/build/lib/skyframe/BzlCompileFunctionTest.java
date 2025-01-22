@@ -203,6 +203,7 @@ public class BzlCompileFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testInvalidUtf8_enforcementError() throws Exception {
+    reporter.removeHandler(failFastHandler);
     setBuildLanguageOptions("--incompatible_enforce_starlark_utf8");
 
     scratch.file("pkg/BUILD");
@@ -214,7 +215,9 @@ public class BzlCompileFunctionTest extends BuildViewTestCase {
             getSkyframeExecutor(), skyKey, /* keepGoing= */ false, reporter);
     assertThat(result.get(skyKey).lookupSuccessful()).isFalse();
     assertThat(result.get(skyKey).getError())
-        .isEqualTo(
-            "compilation of '/workspace/pkg/foo.bzl' failed: not a valid UTF-8 encoded file");
+        .isEqualTo("compilation of '/workspace/pkg/foo.bzl' failed");
+    assertContainsEvent(
+        "ERROR /workspace/pkg/foo.bzl: not a valid UTF-8 encoded file; this can lead to"
+            + " inconsistent behavior and will be disallowed in a future version of Bazel");
   }
 }

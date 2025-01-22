@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -31,6 +32,8 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.io.FileSymlinkException;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.AutoloadSymbols;
@@ -85,6 +88,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -1079,7 +1083,8 @@ public abstract class PackageFunction implements SkyFunction {
                 buildFileRootedPath,
                 buildFileValue,
                 starlarkBuiltinsValue,
-                preludeBindings);
+                preludeBindings,
+                env.getListener());
         state.compiledBuildFile = compiled;
       }
 
@@ -1232,7 +1237,8 @@ public abstract class PackageFunction implements SkyFunction {
       RootedPath buildFilePath,
       FileValue buildFileValue,
       StarlarkBuiltinsValue starlarkBuiltinsValue,
-      @Nullable Map<String, Object> preludeBindings)
+      @Nullable Map<String, Object> preludeBindings,
+      ExtendedEventHandler reporter)
       throws PackageFunctionException {
     // Though it could be in principle, `cpuBoundSemaphore` is not held here as this method does
     // not show up in profiles as being significantly impacted by thrashing. It could be worth doing
@@ -1266,7 +1272,20 @@ public abstract class PackageFunction implements SkyFunction {
       // If control flow reaches here, we're in territory that is deliberately unsound.
       // See the javadoc for ActionOnIOExceptionReadingBuildFile.
     }
-    ParserInput input = ParserInput.fromLatin1(buildFileBytes, inputFile.toString());
+    StoredEventHandler handler = new StoredEventHandler();
+    Optional<ParserInput> input =
+        SkyframeUtil.createParserInput(
+            buildFileBytes,
+            inputFile.toString(),
+            semantics.get(BuildLanguageOptions.INCOMPATIBLE_ENFORCE_STARLARK_UTF8),
+            handler);
+    if (input.isEmpty()) {
+      return new CompiledBuildFile(
+          handler.getEvents().stream()
+              .map(event -> new SyntaxError(event.getLocation(), event.getMessage()))
+              .collect(toImmutableList()));
+    }
+    handler.replayOn(reporter);
 
     // Options for processing BUILD files.
     FileOptions options =
@@ -1281,7 +1300,7 @@ public abstract class PackageFunction implements SkyFunction {
             .build();
 
     // parse
-    StarlarkFile file = StarlarkFile.parse(input, options);
+    StarlarkFile file = StarlarkFile.parse(input.get(), options);
     if (!file.ok()) {
       return new CompiledBuildFile(file.errors());
     }

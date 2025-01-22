@@ -21,8 +21,10 @@ import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.repository.ResolvedFileValue.ResolvedFileKey;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.SkyframeUtil;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -31,6 +33,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
@@ -72,8 +75,16 @@ public class ResolvedFileFunction implements SkyFunction {
                 key.getPath().asPath(), key.getPath().asPath().getFileSize());
 
         // parse
-        StarlarkFile file =
-            StarlarkFile.parse(ParserInput.fromLatin1(bytes, key.getPath().asPath().toString()));
+        Optional<ParserInput> parserInput =
+            SkyframeUtil.createParserInput(
+                bytes,
+                key.getPath().asPath().toString(),
+                starlarkSemantics.get(BuildLanguageOptions.INCOMPATIBLE_ENFORCE_STARLARK_UTF8),
+                env.getListener());
+        if (parserInput.isEmpty()) {
+          throw resolvedValueError("Failed to read resolved file " + key.getPath());
+        }
+        StarlarkFile file = StarlarkFile.parse(parserInput.get());
         if (!file.ok()) {
           Event.replayEventsOn(env.getListener(), file.errors());
           throw resolvedValueError("Failed to parse resolved file " + key.getPath());
