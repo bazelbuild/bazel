@@ -619,10 +619,9 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     // for artifacts produced by local actions.
     tmpPath.chmod(outputPermissions.getPermissionsMode());
     FileSystemUtils.moveFile(tmpPath, finalPath);
-    // Set the contents proxy to make future modification checks cheaper.
-    if (metadata.canSetContentsProxy()) {
-      metadata.setContentsProxy(FileContentsProxy.create(finalPath.stat()));
-    }
+
+    // Set the contents proxy when supported, to make future modification checks cheaper.
+    metadata.setContentsProxy(FileContentsProxy.create(finalPath.stat()));
   }
 
   private interface TaskWithTempPath {

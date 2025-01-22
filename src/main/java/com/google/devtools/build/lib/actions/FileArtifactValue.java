@@ -108,18 +108,10 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
   }
 
   /**
-   * Sets the contents proxy.
-   *
-   * <p>Must not be called unless {@link #canSetContentsProxy} returns true.
+   * Sets the contents proxy. If this metadata does not support setting the contents proxy, does
+   * nothing.
    */
-  public void setContentsProxy(FileContentsProxy proxy) {
-    throw new UnsupportedOperationException();
-  }
-
-  /** Whether the contents proxy can be set through {@link #setContentsProxy}. */
-  public boolean canSetContentsProxy() {
-    return false;
-  }
+  public void setContentsProxy(FileContentsProxy proxy) {}
 
   @Nullable
   public byte[] getValueFingerprint() {
@@ -150,8 +142,8 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
   }
 
   /**
-   * Sets the expiration time. If this metadata was originally constructed without an expiration
-   * time, does nothing.
+   * Sets the expiration time. If this metadata does not support setting the expiration time, does
+   * nothing.
    */
   public void setExpirationTime(Instant newExpirationTime) {}
 
@@ -673,8 +665,12 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
   }
 
   /**
-   * A remote artifact that contains additional data for materialization. This is used when the
-   * output mode allows Bazel to materialize remote output to local filesystem.
+   * Metadata for remotely stored files, with the additional ability to store a {@link
+   * #getMaterializationExecPath}, a {@link #getExpirationTime} modifiable via {@link
+   * #setExpirationTime}, and a {@link #getContentsProxy} modifiable via {@link #setContentsProxy}.
+   *
+   * <p>This is used when the output mode allows for late materialization of remote outputs in the
+   * local filesystem.
    */
   public static final class RemoteFileArtifactValueWithMaterializationData
       extends RemoteFileArtifactValue {
@@ -716,8 +712,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     /**
      * {@inheritDoc}
      *
-     * <p>Returns non-null if the file backed by this remote metadata has been materialized in the
-     * local filesystem.
+     * <p>Returns non-null if the file contents have been materialized in the local filesystem.
      */
     @Override
     @Nullable
@@ -728,17 +723,11 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     /**
      * {@inheritDoc}
      *
-     * <p>Called when the file backed by this remote metadata is materialized to the local
-     * filesystem.
+     * <p>Called when the file contents are materialized in the local filesystem.
      */
     @Override
     public void setContentsProxy(FileContentsProxy proxy) {
       this.proxy = proxy;
-    }
-
-    @Override
-    public boolean canSetContentsProxy() {
-      return true;
     }
 
     @Override
@@ -1065,11 +1054,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     @Override
     public void setContentsProxy(FileContentsProxy proxy) {
       delegate.setContentsProxy(proxy);
-    }
-
-    @Override
-    public boolean canSetContentsProxy() {
-      return delegate.canSetContentsProxy();
     }
 
     @Override
