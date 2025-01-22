@@ -101,7 +101,7 @@ public record Version(
         try {
           return new Identifier(true, Long.parseUnsignedLong(string), string);
         } catch (NumberFormatException e) {
-          throw new ParseException("numeric version segment is too large: " + string);
+          throw new ParseException("numeric version segment is too large: " + string, e);
         }
       } else {
         return new Identifier(false, 0, string);
