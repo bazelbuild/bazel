@@ -209,6 +209,15 @@ java_library(
 )
 
 java_library(
+    name = "versioned_changes",
+    srcs = ["VersionedChanges.java"],
+    deps = [
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "long_version_getter_test_injection",
     srcs = ["LongVersionGetterTestInjection.java"],
     deps = [
