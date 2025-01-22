@@ -764,14 +764,14 @@ final class FileDependencySerializer {
      * of {@link NestedFileOpNodes} fingerprints. Its byte representation is specified as follows.
      *
      * <ol>
+     *   <li>The count of nested nodes, as a proto-encoded int.
      *   <li>The count of file keys, as a proto-encoded int.
      *   <li>The count of listing keys, as a proto-encoded int.
-     *   <li>The count of nested nodes, as a proto-encoded int.
      *   <li>The count of source file keys, as a proto-encoded int.
-     *   <li>Sorted and deduplicated, proto-encoded strings of the file keys.
-     *   <li>Sorted and deduplicated, proto-encoded strings of the listing keys.
      *   <li>Sorted and deduplicated, fingerprints of the {@link NestedFileOpNodes} byte
      *       representations.
+     *   <li>Sorted and deduplicated, proto-encoded strings of the file keys.
+     *   <li>Sorted and deduplicated, proto-encoded strings of the listing keys.
      *   <li>Sorted and deduplicated, proto-encoded strings of the source keys.
      * </ol>
      *
@@ -781,18 +781,18 @@ final class FileDependencySerializer {
       try {
         var bytesOut = new ByteArrayOutputStream();
         var codedOut = CodedOutputStream.newInstance(bytesOut);
+        codedOut.writeInt32NoTag(nodeDependencies.size());
         codedOut.writeInt32NoTag(fileKeys.size());
         codedOut.writeInt32NoTag(listingKeys.size());
-        codedOut.writeInt32NoTag(nodeDependencies.size());
         codedOut.writeInt32NoTag(sourceFileKeys.size());
+        for (PackedFingerprint fp : nodeDependencies.keySet()) {
+          fp.writeTo(codedOut);
+        }
         for (String key : fileKeys) {
           codedOut.writeStringNoTag(key);
         }
         for (String key : listingKeys) {
           codedOut.writeStringNoTag(key);
-        }
-        for (PackedFingerprint fp : nodeDependencies.keySet()) {
-          fp.writeTo(codedOut);
         }
         for (String key : sourceFileKeys) {
           codedOut.writeStringNoTag(key);
