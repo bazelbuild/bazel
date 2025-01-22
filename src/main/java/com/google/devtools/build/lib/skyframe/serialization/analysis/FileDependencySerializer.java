@@ -26,6 +26,7 @@ import static com.google.devtools.build.lib.skyframe.serialization.analysis.File
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.ConstantFileData.CONSTANT_FILE;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.ConstantListingData.CONSTANT_LISTING;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.ConstantNodeData.CONSTANT_NODE;
+import static com.google.devtools.build.lib.util.TestType.isInTest;
 import static com.google.devtools.build.lib.vfs.RootedPath.toRootedPath;
 import static java.lang.Math.max;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -178,10 +179,11 @@ final class FileDependencySerializer {
   FileDataInfoOrFuture populateFutureFileDataInfo(FutureFileDataInfo future) {
     FileKey key = future.key();
     RootedPath rootedPath = key.argument();
+    RootedPath parentRootedPath;
     // Builtin files don't change.
-    if (rootedPath.getRoot().getFileSystem() instanceof BundledFileSystem
+    if ((rootedPath.getRoot().getFileSystem() instanceof BundledFileSystem)
         // Assumes that the root folder doesn't change.
-        || rootedPath.getRootRelativePath().isEmpty()) {
+        || (parentRootedPath = rootedPath.getParentDirectory()) == null) {
       return future.completeWith(CONSTANT_FILE);
     }
 
@@ -199,7 +201,12 @@ final class FileDependencySerializer {
         return future.failWith(e);
       }
     }
-    var uploader = new FileInvalidationDataUploader(rootedPath, realRootedPath, initialMtsv);
+    var uploader =
+        new FileInvalidationDataUploader(
+            /* rootedPath= */ rootedPath,
+            /* parentRootedPath= */ parentRootedPath,
+            /* realRootedPath= */ realRootedPath,
+            initialMtsv);
     return future.completeWith(
         Futures.transform(
             fullyResolvePath(value.isSymlink() ? value.getUnresolvedLinkTarget() : null, uploader),
@@ -222,9 +229,12 @@ final class FileDependencySerializer {
     private long mtsv;
 
     private FileInvalidationDataUploader(
-        RootedPath rootedPath, RootedPath realRootedPath, long initialMtsv) {
+        RootedPath rootedPath,
+        RootedPath parentRootedPath,
+        RootedPath realRootedPath,
+        long initialMtsv) {
       this.rootedPath = rootedPath;
-      this.parentRootedPath = rootedPath.getParentDirectory();
+      this.parentRootedPath = parentRootedPath;
       this.realRootedPath = realRootedPath;
       this.mtsv = initialMtsv;
     }
@@ -357,6 +367,15 @@ final class FileDependencySerializer {
       Path linkPath,
       PathFragment link,
       FileInvalidationDataUploader uploader) {
+    if (link.isAbsolute()) {
+      if (isInTest()) {
+        // Test environments may use absolute symlinks, which aren't allowed in production
+        // environments with analysis caching. Skips further dependency resolution for those.
+        return immediateVoidFuture();
+      }
+      throw new IllegalStateException(
+          String.format("Absolute symlink not permitted: %s contained %s", linkPath, link));
+    }
     Symlink.Builder symlinkData = uploader.addSymlinksBuilder().setContents(link.getPathString());
     PathFragment linkParent = parentRootedPath.getRootRelativePath();
     PathFragment unresolvedTarget = linkParent.getRelative(link);

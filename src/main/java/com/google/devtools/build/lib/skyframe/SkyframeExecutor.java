@@ -541,7 +541,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * #setRemoteAnalysisCachingDependenciesProvider(RemoteAnalysisCachingDependenciesProvider)} for
    * the exact point.
    */
-  private RemoteAnalysisCachingDependenciesProvider getRemoteAnalysisCachingDependenciesProvider() {
+  @VisibleForTesting // productionVisibility = Visibility.PRIVATE
+  public RemoteAnalysisCachingDependenciesProvider getRemoteAnalysisCachingDependenciesProvider() {
     return remoteAnalysisCachingDependenciesProvider;
   }
 

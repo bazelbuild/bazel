@@ -33,6 +33,7 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",
+        "//third_party:mockito",
         "//third_party:truth",
         "//third_party/pprof:profile_java_proto",
         "@com_google_protobuf//:protobuf_java",
@@ -49,7 +50,10 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:serialization_module",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:long_version_getter_test_injection",
+        "//src/main/java/com/google/devtools/build/lib/versioning:long_version_getter",
         "//third_party:junit4",
+        "//third_party:mockito",
         "//third_party:truth",
     ],
 )

@@ -437,6 +437,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:dumper",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:fake_invalidation_data_helper",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:round-tripping",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
