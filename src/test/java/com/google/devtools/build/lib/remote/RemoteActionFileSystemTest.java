@@ -178,7 +178,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     doAnswer(mockPrefetchFile(artifact.getPath(), "remote contents"))
         .when(inputFetcher)
         .prefetchFiles(
-            any(), eq(ImmutableList.of(artifact)), any(), eq(Priority.CRITICAL), Reason.INPUTS);
+            any(), eq(ImmutableList.of(artifact)), any(), eq(Priority.CRITICAL), eq(Reason.INPUTS));
 
     // act
     Path actionFsPath = actionFs.getPath(artifact.getPath().asFragment());
@@ -189,7 +189,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     assertThat(contents).isEqualTo("remote contents");
     verify(inputFetcher)
         .prefetchFiles(
-            any(), eq(ImmutableList.of(artifact)), any(), eq(Priority.CRITICAL), Reason.INPUTS);
+            any(), eq(ImmutableList.of(artifact)), any(), eq(Priority.CRITICAL), eq(Reason.INPUTS));
     verifyNoMoreInteractions(inputFetcher);
   }
 
@@ -202,7 +202,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     doAnswer(mockPrefetchFile(artifact.getPath(), "remote contents"))
         .when(inputFetcher)
         .prefetchFiles(
-            any(), eq(ImmutableList.of(artifact)), any(), eq(Priority.CRITICAL), Reason.INPUTS);
+            any(), eq(ImmutableList.of(artifact)), any(), eq(Priority.CRITICAL), eq(Reason.INPUTS));
 
     // act
     Path actionFsPath = actionFs.getPath(artifact.getPath().asFragment());
@@ -213,7 +213,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     assertThat(contents).isEqualTo("remote contents");
     verify(inputFetcher)
         .prefetchFiles(
-            any(), eq(ImmutableList.of(artifact)), any(), eq(Priority.CRITICAL), Reason.INPUTS);
+            any(), eq(ImmutableList.of(artifact)), any(), eq(Priority.CRITICAL), eq(Reason.INPUTS));
     verifyNoMoreInteractions(inputFetcher);
   }
 
@@ -227,7 +227,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     doAnswer(mockPrefetchFile(path, "remote contents"))
         .when(inputFetcher)
         .prefetchFiles(
-            any(), eq(ImmutableList.of(input)), any(), eq(Priority.CRITICAL), Reason.INPUTS);
+            any(), eq(ImmutableList.of(input)), any(), eq(Priority.CRITICAL), eq(Reason.INPUTS));
 
     // act
     Path actionFsPath = actionFs.getPath(path.asFragment());
@@ -238,7 +238,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     assertThat(contents).isEqualTo("remote contents");
     verify(inputFetcher)
         .prefetchFiles(
-            any(), eq(ImmutableList.of(input)), any(), eq(Priority.CRITICAL), Reason.INPUTS);
+            any(), eq(ImmutableList.of(input)), any(), eq(Priority.CRITICAL), eq(Reason.INPUTS));
     verifyNoMoreInteractions(inputFetcher);
   }
 
