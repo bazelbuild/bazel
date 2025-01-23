@@ -124,7 +124,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
       ActionExecutionContext actionExecutionContext,
       @Nullable SandboxedSpawnStrategy.StopConcurrentSpawns stopConcurrentSpawns)
       throws ExecException, InterruptedException {
-    actionExecutionContext.maybeReportSubcommand(spawn);
+    actionExecutionContext.maybeReportSubcommand(spawn, spawnRunner.getName());
 
     final Duration timeout = Spawns.getTimeout(spawn);
     SpawnExecutionContext context =
