@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Objects;
@@ -117,6 +118,23 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
   public byte[] getValueFingerprint() {
     // TODO(janakr): return fingerprint in other cases: symlink, directory.
     return getDigest();
+  }
+
+  /**
+   * Returns whether the file contents are inline, i.e., can be obtained directly from this {@link
+   * FileArtifactValue} by calling {@link #getInputStream}.
+   */
+  public boolean isInline() {
+    return false;
+  }
+
+  /**
+   * Returns an input stream for the inline file contents.
+   *
+   * @throws UnsupportedOperationException if the file contents are not inline.
+   */
+  public InputStream getInputStream() {
+    throw new UnsupportedOperationException();
   }
 
   /** Returns whether the file contents exist remotely. */
@@ -344,6 +362,10 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     return new DirectoryArtifactValue(mtime);
   }
 
+  public static FileArtifactValue createForInlineFile(byte[] bytes, HashFunction hashFunction) {
+    return new InlineFileArtifactValue(bytes, hashFunction.hashBytes(bytes).asBytes());
+  }
+
   public static FileArtifactValue createForRemoteFile(byte[] digest, long size, int locationIndex) {
     return new RemoteFileArtifactValue(digest, size, locationIndex);
   }
@@ -485,7 +507,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
 
     @Override
     public String toString() {
-      return MoreObjects.toStringHelper(this).add("digest", digest).toString();
+      return MoreObjects.toStringHelper(this).add("digest", bytesToString(digest)).toString();
     }
   }
 
@@ -848,13 +870,8 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     }
   }
 
-  /** File stored inline in metadata. */
+  /** Metadata for files whose contents are available in memory. */
   public static final class InlineFileArtifactValue extends FileArtifactValue {
-
-    public static InlineFileArtifactValue create(byte[] bytes, HashFunction hashFunction) {
-      return new InlineFileArtifactValue(bytes, hashFunction.hashBytes(bytes).asBytes());
-    }
-
     private final byte[] data;
     private final byte[] digest;
 
@@ -864,21 +881,11 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     }
 
     @Override
-    public boolean equals(Object o) {
-      if (this == o) {
-        return true;
-      }
-      if (!(o instanceof InlineFileArtifactValue that)) {
-        return false;
-      }
-      return Arrays.equals(digest, that.digest);
+    public boolean isInline() {
+      return true;
     }
 
     @Override
-    public int hashCode() {
-      return Arrays.hashCode(digest);
-    }
-
     public ByteArrayInputStream getInputStream() {
       return new ByteArrayInputStream(data);
     }
@@ -906,6 +913,30 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     @Override
     public boolean wasModifiedSinceDigest(Path path) {
       throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof InlineFileArtifactValue that)) {
+        return false;
+      }
+      return Arrays.equals(digest, that.digest);
+    }
+
+    @Override
+    public int hashCode() {
+      return Arrays.hashCode(digest);
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this)
+          .add("digest", bytesToString(digest))
+          .add("size", getSize())
+          .toString();
     }
   }
 

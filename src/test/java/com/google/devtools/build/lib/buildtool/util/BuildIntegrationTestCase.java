@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FileArtifactValue.InlineFileArtifactValue;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -1037,9 +1036,8 @@ public abstract class BuildIntegrationTestCase {
 
   protected String readInlineOutput(Artifact output) throws IOException, InterruptedException {
     FileArtifactValue metadata = getOutputMetadata(output);
-    assertThat(metadata).isInstanceOf(InlineFileArtifactValue.class);
-    return new String(
-        FileSystemUtils.readContentAsLatin1(((InlineFileArtifactValue) metadata).getInputStream()));
+    assertThat(metadata.isInline()).isTrue();
+    return new String(FileSystemUtils.readContentAsLatin1(metadata.getInputStream()));
   }
 
   protected FileArtifactValue getOutputMetadata(Artifact output)
