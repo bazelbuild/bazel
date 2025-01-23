@@ -26,7 +26,6 @@ import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
@@ -104,7 +103,7 @@ public interface ActionCache {
     private Map<String, FileArtifactValue> mdMap;
     private byte[] digest;
     private final byte[] actionPropertiesDigest;
-    private final Map<String, RemoteFileArtifactValue> outputFileMetadata;
+    private final Map<String, FileArtifactValue> outputFileMetadata;
     private final Map<String, SerializableTreeArtifactValue> outputTreeMetadata;
 
     /**
@@ -116,8 +115,8 @@ public interface ActionCache {
      * @param childValues A map from parentRelativePath to the file metadata
      */
     public record SerializableTreeArtifactValue(
-        ImmutableMap<String, RemoteFileArtifactValue> childValues,
-        Optional<RemoteFileArtifactValue> archivedFileValue,
+        ImmutableMap<String, FileArtifactValue> childValues,
+        Optional<FileArtifactValue> archivedFileValue,
         Optional<PathFragment> materializationExecPath) {
       public SerializableTreeArtifactValue {
         requireNonNull(childValues, "childValues");
@@ -126,8 +125,8 @@ public interface ActionCache {
       }
 
       public static SerializableTreeArtifactValue create(
-          ImmutableMap<String, RemoteFileArtifactValue> childValues,
-          Optional<RemoteFileArtifactValue> archivedFileValue,
+          ImmutableMap<String, FileArtifactValue> childValues,
+          Optional<FileArtifactValue> archivedFileValue,
           Optional<PathFragment> materializationExecPath) {
         return new SerializableTreeArtifactValue(
             childValues, archivedFileValue, materializationExecPath);
@@ -141,21 +140,19 @@ public interface ActionCache {
        */
       public static Optional<SerializableTreeArtifactValue> createSerializable(
           TreeArtifactValue treeMetadata) {
-        ImmutableMap<String, RemoteFileArtifactValue> childValues =
+        ImmutableMap<String, FileArtifactValue> childValues =
             treeMetadata.getChildValues().entrySet().stream()
                 // Only save remote tree file
                 .filter(e -> e.getValue().isRemote())
                 .collect(
-                    toImmutableMap(
-                        e -> e.getKey().getTreeRelativePathString(),
-                        e -> (RemoteFileArtifactValue) e.getValue()));
+                    toImmutableMap(e -> e.getKey().getTreeRelativePathString(), e -> e.getValue()));
 
         // Only save remote archived artifact
-        Optional<RemoteFileArtifactValue> archivedFileValue =
+        Optional<FileArtifactValue> archivedFileValue =
             treeMetadata
                 .getArchivedRepresentation()
                 .filter(ar -> ar.archivedFileValue().isRemote())
-                .map(ar -> (RemoteFileArtifactValue) ar.archivedFileValue());
+                .map(ar -> ar.archivedFileValue());
 
         Optional<PathFragment> materializationExecPath = treeMetadata.getMaterializationExecPath();
 
@@ -189,7 +186,7 @@ public interface ActionCache {
         byte[] actionPropertiesDigest,
         @Nullable List<String> files,
         byte[] digest,
-        Map<String, RemoteFileArtifactValue> outputFileMetadata,
+        Map<String, FileArtifactValue> outputFileMetadata,
         Map<String, SerializableTreeArtifactValue> outputTreeMetadata) {
       actionKey = key;
       this.actionPropertiesDigest = actionPropertiesDigest;
@@ -236,20 +233,20 @@ public interface ActionCache {
       String execPath = output.getExecPathString();
       // Only save remote file metadata
       if (saveFileMetadata && value.isRemote()) {
-        outputFileMetadata.put(execPath, (RemoteFileArtifactValue) value);
+        outputFileMetadata.put(execPath, value);
       }
       mdMap.put(execPath, value);
     }
 
     /** Gets metadata of an output file */
     @Nullable
-    public RemoteFileArtifactValue getOutputFile(Artifact output) {
+    public FileArtifactValue getOutputFile(Artifact output) {
       checkState(!isCorrupted());
       return outputFileMetadata.get(output.getExecPathString());
     }
 
     /** Gets metadata of all output files */
-    public Map<String, RemoteFileArtifactValue> getOutputFiles() {
+    public Map<String, FileArtifactValue> getOutputFiles() {
       return outputFileMetadata;
     }
 
@@ -383,7 +380,7 @@ public interface ActionCache {
         }
       }
 
-      for (Map.Entry<String, RemoteFileArtifactValue> entry : outputFileMetadata.entrySet()) {
+      for (Map.Entry<String, FileArtifactValue> entry : outputFileMetadata.entrySet()) {
         builder
             .append("      ")
             .append(entry.getKey())

@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.ActionCache.Entry.SerializableTreeArtifactValue;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.events.NullEventHandler;
@@ -217,7 +216,7 @@ public class CompactPersistentActionCacheTest {
     return FileArtifactValue.createForTesting(artifact.getPath());
   }
 
-  private RemoteFileArtifactValue createRemoteMetadata(
+  private FileArtifactValue createRemoteMetadata(
       Artifact artifact,
       String content,
       @Nullable Instant expirationTime,
@@ -231,17 +230,17 @@ public class CompactPersistentActionCacheTest {
             .getHashFunction()
             .hashBytes(bytes)
             .asBytes();
-    return RemoteFileArtifactValue.createWithMaterializationData(
+    return FileArtifactValue.createForRemoteFileWithMaterializationData(
         digest, bytes.length, 1, expirationTime, materializationExecPath);
   }
 
-  private RemoteFileArtifactValue createRemoteMetadata(
+  private FileArtifactValue createRemoteMetadata(
       Artifact artifact, String content, @Nullable PathFragment materializationExecPath) {
     return createRemoteMetadata(
         artifact, content, /* expirationTime= */ null, materializationExecPath);
   }
 
-  private RemoteFileArtifactValue createRemoteMetadata(Artifact artifact, String content) {
+  private FileArtifactValue createRemoteMetadata(Artifact artifact, String content) {
     return createRemoteMetadata(artifact, content, /* materializationExecPath= */ null);
   }
 
@@ -273,7 +272,7 @@ public class CompactPersistentActionCacheTest {
     ActionCache.Entry entry =
         new ActionCache.Entry(key, ImmutableMap.of(), false, OutputPermissions.READONLY);
     Artifact artifact = ActionsTestUtil.DUMMY_ARTIFACT;
-    RemoteFileArtifactValue metadata = createRemoteMetadata(artifact, "content");
+    FileArtifactValue metadata = createRemoteMetadata(artifact, "content");
     entry.addOutputFile(artifact, metadata, /*saveFileMetadata=*/ true);
 
     cache.put(key, entry);
@@ -289,7 +288,7 @@ public class CompactPersistentActionCacheTest {
         new ActionCache.Entry(key, ImmutableMap.of(), false, OutputPermissions.READONLY);
     Artifact artifact = ActionsTestUtil.DUMMY_ARTIFACT;
     Instant expirationTime = Instant.now().truncatedTo(ChronoUnit.MILLIS);
-    RemoteFileArtifactValue metadata =
+    FileArtifactValue metadata =
         createRemoteMetadata(
             artifact, "content", expirationTime, /* materializationExecPath= */ null);
     entry.addOutputFile(artifact, metadata, /* saveFileMetadata= */ true);
@@ -306,7 +305,7 @@ public class CompactPersistentActionCacheTest {
     ActionCache.Entry entry =
         new ActionCache.Entry(key, ImmutableMap.of(), false, OutputPermissions.READONLY);
     Artifact artifact = ActionsTestUtil.DUMMY_ARTIFACT;
-    RemoteFileArtifactValue metadata =
+    FileArtifactValue metadata =
         createRemoteMetadata(artifact, "content", PathFragment.create("/execroot/some/path"));
     entry.addOutputFile(artifact, metadata, /*saveFileMetadata=*/ true);
 

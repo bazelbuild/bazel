@@ -344,6 +344,20 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     return new DirectoryArtifactValue(mtime);
   }
 
+  public static FileArtifactValue createForRemoteFile(byte[] digest, long size, int locationIndex) {
+    return new RemoteFileArtifactValue(digest, size, locationIndex);
+  }
+
+  public static FileArtifactValue createForRemoteFileWithMaterializationData(
+      byte[] digest,
+      long size,
+      int locationIndex,
+      @Nullable Instant expirationTime,
+      @Nullable PathFragment materializationExecPath) {
+    return new RemoteFileArtifactValueWithMaterializationData(
+        digest, size, locationIndex, materializationExecPath, expirationTime);
+  }
+
   /**
    * Creates a FileArtifactValue used as a 'proxy' input for other ArtifactValues. These are used in
    * {@link ActionCacheChecker}.
@@ -567,20 +581,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       this.locationIndex = locationIndex;
     }
 
-    public static RemoteFileArtifactValue create(byte[] digest, long size, int locationIndex) {
-      return new RemoteFileArtifactValue(digest, size, locationIndex);
-    }
-
-    public static RemoteFileArtifactValueWithMaterializationData createWithMaterializationData(
-        byte[] digest,
-        long size,
-        int locationIndex,
-        @Nullable Instant expirationTime,
-        @Nullable PathFragment materializationExecPath) {
-      return new RemoteFileArtifactValueWithMaterializationData(
-          digest, size, locationIndex, materializationExecPath, expirationTime);
-    }
-
     /**
      * Returns a {@link RemoteFileArtifactValue} identical to the given one, except that its
      * materialization path is set to the given value unless already present.
@@ -591,12 +591,13 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       if (metadata.getMaterializationExecPath().isPresent()) {
         return metadata;
       }
-      return createWithMaterializationData(
-          metadata.getDigest(),
-          metadata.getSize(),
-          metadata.getLocationIndex(),
-          metadata.getExpirationTime(),
-          metadata.getMaterializationExecPath().orElse(materializationExecPath));
+      return (RemoteFileArtifactValue)
+          FileArtifactValue.createForRemoteFileWithMaterializationData(
+              metadata.getDigest(),
+              metadata.getSize(),
+              metadata.getLocationIndex(),
+              metadata.getExpirationTime(),
+              metadata.getMaterializationExecPath().orElse(materializationExecPath));
     }
 
     @Override

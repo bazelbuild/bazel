@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -1325,7 +1324,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     int size = Utf8.encodedLength(content);
     ((RemoteActionFileSystem) actionFs)
         .injectRemoteFile(path, digest, size, /* expirationTime= */ null);
-    return RemoteFileArtifactValue.createWithMaterializationData(
+    return FileArtifactValue.createForRemoteFileWithMaterializationData(
         digest,
         size,
         /* locationIndex= */ 1,
@@ -1345,8 +1344,8 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   private Artifact createRemoteArtifact(
       String pathFragment, String content, ActionInputMap inputs) {
     Artifact a = ActionsTestUtil.createArtifact(outputRoot, pathFragment);
-    RemoteFileArtifactValue f =
-        RemoteFileArtifactValue.createWithMaterializationData(
+    FileArtifactValue f =
+        FileArtifactValue.createForRemoteFileWithMaterializationData(
             getDigest(content),
             Utf8.encodedLength(content),
             /* locationIndex= */ 1,
@@ -1371,8 +1370,8 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     for (Map.Entry<String, String> entry : contentMap.entrySet()) {
       TreeFileArtifact child = TreeFileArtifact.createTreeOutput(a, entry.getKey());
       String content = entry.getValue();
-      RemoteFileArtifactValue childMeta =
-          RemoteFileArtifactValue.createWithMaterializationData(
+      FileArtifactValue childMeta =
+          FileArtifactValue.createForRemoteFileWithMaterializationData(
               getDigest(content),
               Utf8.encodedLength(content),
               /* locationIndex= */ 0,

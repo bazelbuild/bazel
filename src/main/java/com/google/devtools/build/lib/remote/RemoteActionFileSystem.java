@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.UnresolvedSymlinkArtifactValue;
 import com.google.devtools.build.lib.actions.FileStatusWithMetadata;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
@@ -306,7 +305,7 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat
       return;
     }
     var metadata =
-        RemoteFileArtifactValue.createWithMaterializationData(
+        FileArtifactValue.createForRemoteFileWithMaterializationData(
             digest,
             size,
             /* locationIndex= */ 1,
@@ -932,10 +931,10 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat
     }
 
     protected void injectFile(PathFragment path, FileArtifactValue metadata) throws IOException {
+      checkArgument(metadata.isRemote(), "metadata is not remote: %s", metadata);
       createDirectoryAndParents(path.getParentDirectory());
       InMemoryContentInfo node = getOrCreateWritableInode(path);
-      // If a node was already existed and is not a remote file node (i.e. directory or symlink node
-      // ), throw an error.
+      // If a node already exists but is not a regular file, throw an error.
       if (!(node instanceof RemoteInMemoryFileInfo remoteInMemoryFileInfo)) {
         throw new IOException("Could not inject into " + node);
       }

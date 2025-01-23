@@ -53,7 +53,6 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.remote.AbstractActionInputPrefetcher.MetadataSupplier;
 import com.google.devtools.build.lib.remote.common.LostInputsEvent;
@@ -154,8 +153,8 @@ public abstract class ActionInputPrefetcherTestBase {
     Artifact a = ActionsTestUtil.createArtifact(artifactRoot, p);
     byte[] contentsBytes = contents.getBytes(UTF_8);
     HashCode hashCode = HASH_FUNCTION.getHashFunction().hashBytes(contentsBytes);
-    RemoteFileArtifactValue f =
-        RemoteFileArtifactValue.createWithMaterializationData(
+    FileArtifactValue f =
+        FileArtifactValue.createForRemoteFileWithMaterializationData(
             hashCode.asBytes(),
             contentsBytes.length,
             /* locationIndex= */ 1,
@@ -212,8 +211,8 @@ public abstract class ActionInputPrefetcherTestBase {
               : TreeFileArtifact.createTreeOutput(parent, parentRelativePath);
       byte[] contents = entry.getValue().getBytes(UTF_8);
       HashCode hashCode = HASH_FUNCTION.getHashFunction().hashBytes(contents);
-      RemoteFileArtifactValue childValue =
-          RemoteFileArtifactValue.createWithMaterializationData(
+      FileArtifactValue childValue =
+          FileArtifactValue.createForRemoteFileWithMaterializationData(
               hashCode.asBytes(),
               contents.length,
               /* locationIndex= */ 1,

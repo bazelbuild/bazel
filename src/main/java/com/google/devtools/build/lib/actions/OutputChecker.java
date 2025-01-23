@@ -13,16 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
+/**
+ * An interface used to check whether the metadata for an output should be trusted.
+ *
+ * <p>Used to invalidate metadata when the respective contents are stored with a bounded lifetime.
+ */
+public interface OutputChecker {
+  static final OutputChecker TRUST_ALL = (file, metadata) -> true;
+  static final OutputChecker TRUST_LOCAL_ONLY = (file, metadata) -> !metadata.isRemote();
 
-/** An interface used to check whether Bazel should trust a remote artifact. */
-public interface RemoteArtifactChecker {
-  RemoteArtifactChecker TRUST_ALL = (file, metadata) -> true;
-  RemoteArtifactChecker IGNORE_ALL = (file, metadata) -> false;
-
-  /**
-   * Returns true if Bazel should trust (and not verify) build artifacts that were last seen
-   * remotely and do not exist locally.
-   */
-  boolean shouldTrustRemoteArtifact(ActionInput file, RemoteFileArtifactValue metadata);
+  /** Returns whether the given metadata should be trusted. */
+  boolean shouldTrustArtifact(ActionInput file, FileArtifactValue metadata);
 }
