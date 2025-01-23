@@ -246,10 +246,9 @@ void ExcludePathFromBackup(const blaze_util::Path& path);
 blaze_util::Path GetHashedBaseDir(const blaze_util::Path& root,
                                   const std::string& hashable);
 
-// Create a safe installation directory where we keep state, installations etc.
-// This method ensures that the directory is created, is owned by the current
-// user, and not accessible to anyone else.
-void CreateSecureOutputRoot(const blaze_util::Path& path);
+// Creates a directory while making sure it is owned by the current user and
+// not accessible to anyone else.
+void CreateSecureDirectory(const blaze_util::Path& path);
 
 std::string GetEnv(const std::string& name);
 

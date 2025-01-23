@@ -508,7 +508,7 @@ blaze_util::Path GetHashedBaseDir(const blaze_util::Path& root,
   return root.GetRelative(digest.String());
 }
 
-void CreateSecureOutputRoot(const blaze_util::Path& path) {
+void CreateSecureDirectory(const blaze_util::Path& path) {
   struct stat fileinfo = {};
 
   if (!blaze_util::MakeDirectories(path, 0755)) {

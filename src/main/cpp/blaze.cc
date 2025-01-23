@@ -1553,7 +1553,7 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
     UnlimitCoredumps();
   }
 
-  blaze::CreateSecureOutputRoot(
+  blaze::CreateSecureDirectory(
       blaze_util::Path(startup_options->output_user_root));
 
   // Only start a server when in a workspace because otherwise we won't do more
