@@ -1,3 +1,25 @@
+## Release 9.0.0-pre.20250115.2 (2025-01-23)
+
+```
+Baseline: 67c89b31f1d40635ad122639c3099ac3d882935d
+
+Cherry picks:
+
+   + cf701ebeab2565e910453cad8b1b950553596d83:
+     Fix performance regression on builds that change a test
+     configuration flag.
+```
+
+Important changes:
+
+  - On Linux, the default limit on the number of `--watchfs` file
+    events per directory has been raised to 10,000 (from 500). If
+    needed, it can be increased further via
+    `--host_jvm_args=-Djdk.nio.file.WatchService.maxEventsPerPoll=<lim
+    it>`.
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim.
+
 ## Release 8.0.1 (2025-01-17)
 
 ```
