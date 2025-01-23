@@ -1551,6 +1551,8 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
   BAZEL_LOG(INFO) << "Debug logging requested, sending all client log "
                      "statements to stderr";
 
+  BAZEL_LOG(INFO) << "Running (pid=" << GetProcessIdAsString() << ")";
+
   if (startup_options->unlimit_coredumps) {
     UnlimitCoredumps();
   }
