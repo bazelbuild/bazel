@@ -234,6 +234,7 @@ public final class WorkerKey {
         /* environmentVariablesToClear= */ null,
         execRoot.getPathString(),
         /* configurationChecksum= */ null,
-        /* executionPlatformLabel= */ null);
+        /* executionPlatformLabel= */ null,
+        /* spawnRunner= */ getWorkerTypeName());
   }
 }
