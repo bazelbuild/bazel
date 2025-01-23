@@ -197,8 +197,8 @@ class BlazeServer final {
   explicit BlazeServer(const StartupOptions &startup_options);
 
   // Acquire a lock for the output base this server is running in.
-  // If we had to wait for the lock, returns the time we spent waiting.
-  std::optional<DurationMillis> AcquireLock();
+  // Returns the time spent waiting for the lock.
+  DurationMillis AcquireLock();
 
   // Whether there is an active connection to a server.
   bool Connected() const { return client_.get(); }
@@ -274,7 +274,7 @@ static BlazeServer *blaze_server;
 // _exit(2) (attributed with ATTRIBUTE_NORETURN) meaning we have to delete the
 // objects before those.
 
-std::optional<DurationMillis> BlazeServer::AcquireLock() {
+DurationMillis BlazeServer::AcquireLock() {
   if (output_base_lock_.has_value()) {
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
         << "AcquireLock() called but the lock is already held.";
@@ -664,8 +664,7 @@ static void RunBatchMode(
     const OptionProcessor &option_processor,
     const StartupOptions &startup_options, LoggingInfo *logging_info,
     const std::optional<DurationMillis> extract_data_duration,
-    const std::optional<DurationMillis> command_wait_duration,
-    BlazeServer *server) {
+    DurationMillis command_wait_duration, BlazeServer *server) {
   if (server->Connected()) {
     server->KillRunningServer();
   }
@@ -1066,8 +1065,8 @@ static ATTRIBUTE_NORETURN void RunClientServerMode(
     const string &workspace, const OptionProcessor &option_processor,
     const StartupOptions &startup_options, LoggingInfo *logging_info,
     const std::optional<DurationMillis> extract_data_duration,
-    const std::optional<DurationMillis> command_wait_duration,
-    BlazeServer *server, const string &build_label) {
+    DurationMillis command_wait_duration, BlazeServer *server,
+    const string &build_label) {
   while (true) {
     if (!server->Connected()) {
       StartServerAndConnect(server_exe, server_exe_args, server_dir,
@@ -1411,12 +1410,9 @@ static void RunLauncher(const string &self_path,
                         const string &workspace, LoggingInfo *logging_info) {
   blaze_server = new BlazeServer(startup_options);
 
-  const std::optional<DurationMillis> command_wait_duration =
-      blaze_server->AcquireLock();
-  const uint64_t wait_ms =
-      command_wait_duration.has_value() ? command_wait_duration->millis : 0;
-  BAZEL_LOG(INFO) << "Acquired the client lock, waited " << wait_ms
-                  << " milliseconds";
+  const DurationMillis command_wait_duration = blaze_server->AcquireLock();
+  BAZEL_LOG(INFO) << "Acquired the client lock, waited "
+                  << command_wait_duration.millis << " milliseconds";
 
   WarnFilesystemType(startup_options.output_base);
 

@@ -217,9 +217,10 @@ enum class LockMode {
 // Returns a handle that can be subsequently passed to ReleaseLock as well as
 // the time spent waiting for the lock, if any.
 // Crashes if an error occurs while attempting to obtain the lock.
-std::pair<LockHandle, std::optional<DurationMillis>> AcquireLock(
-    const std::string& name, const blaze_util::Path& path, LockMode mode,
-    bool batch_mode, bool block);
+std::pair<LockHandle, DurationMillis> AcquireLock(const std::string& name,
+                                                  const blaze_util::Path& path,
+                                                  LockMode mode,
+                                                  bool batch_mode, bool block);
 
 // Releases a lock previously obtained from AcquireLock.
 void ReleaseLock(LockHandle lock_handle);
