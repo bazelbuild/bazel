@@ -22,10 +22,12 @@ import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerializat
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.TokenKind;
 
@@ -59,6 +61,63 @@ public class StarlarkInfoWithSchema extends StarlarkInfo {
   @VisibleForSerialization // private
   Object[] getTable() {
     return table;
+  }
+
+  static StarlarkProvider.StarlarkInfoFactory newStarlarkInfoFactory(
+      StarlarkProvider provider, StarlarkThread thread) {
+    return new StarlarkInfoFactory(provider, thread);
+  }
+
+  static class StarlarkInfoFactory extends StarlarkProvider.StarlarkInfoFactory {
+    private final ImmutableList<String> fields;
+    private final Object[] valueTable;
+    private List<String> unexpected;
+
+    StarlarkInfoFactory(StarlarkProvider provider, StarlarkThread thread) {
+      super(provider, thread);
+      this.fields = provider.getFields();
+      this.valueTable = new Object[fields.size()];
+      this.unexpected = null;
+    }
+
+    @Override
+    public void addNamedArg(String name, Object value) throws EvalException {
+      int pos = Collections.binarySearch(fields, name);
+      if (pos >= 0) {
+        if (valueTable[pos] != null) {
+          throw Starlark.errorf(
+              "got multiple values for parameter %s in call to instantiate provider %s",
+              name, provider.getPrintableName());
+        }
+        valueTable[pos] = provider.optimizeField(pos, value);
+      } else {
+        if (unexpected == null) {
+          unexpected = new ArrayList<>();
+        }
+        unexpected.add(name);
+      }
+    }
+
+    @Override
+    public StarlarkInfoWithSchema createFromArgs(StarlarkThread thread) throws EvalException {
+      if (unexpected != null) {
+        throw Starlark.errorf(
+            "got unexpected field%s '%s' in call to instantiate provider %s",
+            unexpected.size() > 1 ? "s" : "",
+            Joiner.on("', '").join(unexpected),
+            provider.getPrintableName());
+      }
+      return new StarlarkInfoWithSchema(provider, valueTable, thread.getCallerLocation());
+    }
+
+    @Override
+    public StarlarkInfo createFromMap(Map<String, Object> map, StarlarkThread thread)
+        throws EvalException {
+      for (Map.Entry<String, Object> e : map.entrySet()) {
+        addNamedArg(e.getKey(), e.getValue());
+      }
+      return createFromArgs(thread);
+    }
   }
 
   /**
