@@ -157,6 +157,7 @@ java_library(
     deps = [
         ":file_dependency_key_support",
         ":value_or_future_map",
+        ":versioned_changes",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/concurrent:settable_future_keyed_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",

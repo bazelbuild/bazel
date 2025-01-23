@@ -97,3 +97,15 @@ java_test(
         "//third_party:truth",
     ],
 )
+
+java_test(
+    name = "FileSystemDependenciesTest",
+    srcs = ["FileSystemDependenciesTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:file_dependency_deserializer",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:versioned_changes",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
