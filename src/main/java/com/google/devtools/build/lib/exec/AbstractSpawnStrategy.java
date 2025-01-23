@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
+import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Reason;
 import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
@@ -296,7 +297,8 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
                     getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true)
                         .values(),
                     getInputMetadataProvider(),
-                    Priority.MEDIUM),
+                    Priority.MEDIUM,
+                    Reason.INPUTS),
             BulkTransferException.class,
             (BulkTransferException e) -> {
               if (executionOptions.useNewExitCodeForLostInputs
