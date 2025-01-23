@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.BazelRuleAnalysisThreadContext;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Expander;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -300,7 +301,7 @@ public class JavaStarlarkCommon
                   }
                   return true;
                 })
-            .map(artifact -> artifact.getRootRelativePath().getParentDirectory().getPathString())
+            .map(artifact -> artifact.getRunfilesPath().getParentDirectory().getPathString())
             .distinct()
             .collect(toImmutableList());
     return StarlarkList.immutableCopyOf(uniqueDirs);
