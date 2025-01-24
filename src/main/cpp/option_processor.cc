@@ -704,4 +704,9 @@ StartupOptions* OptionProcessor::GetParsedStartupOptions() const {
   return startup_options_.get();
 }
 
+std::vector<BlazercOption> OptionProcessor::GetParsedBlazercOptions() const {
+  assert(parse_options_called_);
+  return parsed_blazercs_;
+}
+
 }  // namespace blaze

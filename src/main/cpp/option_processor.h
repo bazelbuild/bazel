@@ -114,6 +114,10 @@ class OptionProcessor {
   // Gets the arguments explicitly provided by the user's command line.
   std::vector<std::string> GetExplicitCommandArguments() const;
 
+  // Gets the options extracted from the blazerc files. Must only be called
+  // after ParseOptions.
+  std::vector<BlazercOption> GetParsedBlazercOptions() const;
+
   // Returns the underlying StartupOptions object with parsed values. Must
   // only be called after ParseOptions.
   virtual StartupOptions* GetParsedStartupOptions() const;
@@ -155,6 +159,9 @@ class OptionProcessor {
   // execution environment and the flags passed via the bazelrc files.
   std::vector<std::string> blazerc_and_env_command_args_;
 
+  // After calling ParseOptions, this contains a list of options that originate
+  // from bazelrc files. If multiple options are specified for the same command,
+  // they are in the order they appear in the files.
   std::vector<BlazercOption> parsed_blazercs_;
 
   // The command line constructed after calling ParseOptions.
