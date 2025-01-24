@@ -93,6 +93,20 @@ example_transition = transition(
       "//%s:universal_flag" % universal_flag_location
     ]
 )
+
+def _out_of_scope_transition_impl(settings, attr):
+    return {
+      "//out_of_scope:project_flag_baseline" : "baseline"
+    }
+
+out_of_scope_transition = transition(
+    implementation = _out_of_scope_transition_impl,
+    inputs = [],
+    outputs = [
+      "//out_of_scope:project_flag_baseline"
+    ]
+)
+
 def _rule_impl(ctx):
     print("dummy")
 
@@ -100,6 +114,23 @@ transition_attached = rule(
     implementation = _rule_impl,
     cfg = example_transition,
 )
+
+def _aspect_impl(target, ctx):
+    print("dummy")
+    return []
+
+simple_aspect = aspect(
+    implementation = _aspect_impl,
+    attr_aspects = [],
+)
+
+transition_on_dep = rule(
+    implementation = _rule_impl,
+    attrs = {
+        "dep": attr.label(aspects = [simple_aspect], cfg = out_of_scope_transition),
+    },
+)
+
 EOF
 }
 
@@ -192,6 +223,68 @@ EOF
   expect_log "//universal_flags:universal_flag: changed_value_universal_flag"
   expect_log "//out_of_scope_flags:project_flag_baseline: baseline"
   expect_not_log "//out_of_scope_flags:project_flag: changed_value_project_flag2"
+}
+
+function test_flags_scoping_works_with_aspect_on_alias_chain() {
+  echo "testing test_flags_scoping_works_with_aspect_on_alias_chain"
+  local -r pkg="$FUNCNAME"
+  local -r in_scope_pkg="in_scope"
+  local -r out_of_scope_pkg="out_of_scope"
+  local -r universal_pkg="universal"
+
+  mkdir -p "${pkg}"
+  mkdir -p "${in_scope_pkg}"
+  mkdir -p "${out_of_scope_pkg}"
+  mkdir -p "${universal_pkg}"
+
+  set_up_flags "${pkg}" "${in_scope_pkg}" "${out_of_scope_pkg}" "${universal_pkg}"
+  create_transitions "${pkg}" "${in_scope_pkg}" "${out_of_scope_pkg}" "${universal_pkg}"
+
+# set up target that is in scope for the project
+  cat > "${pkg}/BUILD" <<EOF
+load("//${pkg}:def.bzl", "transition_on_dep")
+
+transition_on_dep(
+    name = "main",
+    dep = ":in_scope_alias",
+)
+
+alias(
+    name = "in_scope_alias",
+    actual = "//${out_of_scope_pkg}:out_of_scope_alias",
+)
+EOF
+
+  cat > "${out_of_scope_pkg}/PROJECT.scl" <<EOF
+project = {
+  "active_directories": { "default": [ "//${pkg}"] }
+}
+EOF
+
+  # set up package with out of scope alias chain and actual target
+  cat > "${out_of_scope_pkg}/BUILD" <<EOF
+load("//${pkg}:def.bzl", "transition_on_dep")
+load("//${pkg}:flag.bzl", "sample_flag")
+
+alias(
+    name = "out_of_scope_alias",
+    actual = ":actual",
+    visibility = ["//visibility:public"],
+)
+
+transition_on_dep(
+    name = "actual",
+)
+
+sample_flag(
+    name = "project_flag_baseline",
+    scope = "project",
+    build_setting_default = "foo",
+)
+
+EOF
+
+  bazel build //${pkg}:main --experimental_enable_scl_dialect || fail "bazel failed"
 }
 
 run_suite "Integration tests for flags scoping"

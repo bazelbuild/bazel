@@ -890,21 +890,15 @@ final class AspectFunction implements SkyFunction {
     ImmutableList<Label> aliasChain =
         baseConfiguredTarget.getProvider(AliasProvider.class).getAliasChain();
 
-    AspectKey actualKey;
+    ConfiguredTarget nextTarget = baseConfiguredTarget.getActualNoFollow();
+
     if (aliasChain.size() > 1) {
-      // If there is another alias in the chain, follows it, creating the next alias aspect.
-      actualKey =
-          buildAliasAspectKey(
-              originalKey, aliasChain.get(1), baseConfiguredTarget.getConfigurationKey());
-    } else {
-      // Otherwise, creates an aspect of the real configured target using its real configuration key
-      // which includes any transitions.
-      actualKey =
-          buildAliasAspectKey(
-              originalKey,
-              baseConfiguredTarget.getLabel(),
-              baseConfiguredTarget.getActual().getConfigurationKey());
+      Preconditions.checkState(aliasChain.get(1).equals(nextTarget.getOriginalLabel()));
     }
+
+    AspectKey actualKey =
+        buildAliasAspectKey(
+            originalKey, nextTarget.getOriginalLabel(), nextTarget.getConfigurationKey());
 
     return createAliasAspect(
         env, targetAndConfiguration.getTarget(), originalKey, aspect, actualKey, transitiveState);
