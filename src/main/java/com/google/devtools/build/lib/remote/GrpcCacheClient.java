@@ -335,13 +335,13 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
       out = digestOut;
     }
 
-    return downloadBlob(context, digest, new CountingOutputStream(out), digestSupplier);
+    return downloadBlob(context, digest, out, digestSupplier);
   }
 
   private ListenableFuture<Void> downloadBlob(
       RemoteActionExecutionContext context,
       Digest digest,
-      CountingOutputStream out,
+      OutputStream out,
       @Nullable Supplier<Digest> digestSupplier) {
     ProgressiveBackoff progressiveBackoff = new ProgressiveBackoff(retrier::newBackoff);
     ListenableFuture<Long> downloadFuture =
@@ -355,7 +355,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
                                     context,
                                     progressiveBackoff,
                                     digest,
-                                    out,
+                                    new CountingOutputStream(out),
                                     digestSupplier,
                                     channel)),
                     progressiveBackoff),
