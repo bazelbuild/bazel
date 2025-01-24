@@ -174,6 +174,23 @@ java_library(
 )
 
 java_library(
+    name = "depot_delta_validator",
+    srcs = [
+        "FileOpMatchMemoizingLookup.java",
+        "FileOpMatchResultTypes.java",
+        "NoMatch.java",
+    ],
+    deps = [
+        ":file_dependency_deserializer",
+        ":value_or_future_map",
+        ":versioned_changes",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:settable_future_keyed_value",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "file_dependency_key_support",
     srcs = ["FileDependencyKeySupport.java"],
     deps = [

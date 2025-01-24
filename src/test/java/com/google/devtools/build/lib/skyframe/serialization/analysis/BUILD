@@ -109,3 +109,17 @@ java_test(
         "//third_party:truth",
     ],
 )
+
+java_test(
+    name = "FileOpMatchMemoizingLookupTest",
+    srcs = ["FileOpMatchMemoizingLookupTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:depot_delta_validator",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:file_dependency_deserializer",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:versioned_changes",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
+    ],
+)

@@ -30,13 +30,10 @@ import java.util.ArrayList;
  * {@link #getDependencyCount} and {@link #getDependency}. If any matches are encountered, the
  * associated value is invalidated.
  */
-abstract sealed class FileDependencies
+// non-sealed for test fakes
+abstract non-sealed class FileDependencies
     implements FileSystemDependencies.FileOpDependency,
-        FileDependencyDeserializer.FileDependenciesOrFuture
-    permits FileDependencies.SingleResolvedPath,
-        FileDependencies.SingleResolvedPathAndDependency,
-        FileDependencies.MultiplePaths {
-
+        FileDependencyDeserializer.FileDependenciesOrFuture {
   /**
    * Finds the earliest version where any contained path matches a change in {@code changes}.
    *
@@ -77,7 +74,7 @@ abstract sealed class FileDependencies
     return new Builder(firstResolvedPath);
   }
 
-  static class Builder {
+  static final class Builder {
     private final ArrayList<String> paths = new ArrayList<>();
     private final ArrayList<FileDependencies> dependencies = new ArrayList<>();
 
@@ -119,7 +116,7 @@ abstract sealed class FileDependencies
 
   // The implementations here exist to reduce indirection and memory use.
 
-  static final class SingleResolvedPath extends FileDependencies {
+  private static final class SingleResolvedPath extends FileDependencies {
     private final String resolvedPath;
 
     private SingleResolvedPath(String resolvedPath) {
@@ -157,7 +154,7 @@ abstract sealed class FileDependencies
     }
   }
 
-  static final class SingleResolvedPathAndDependency extends FileDependencies {
+  private static final class SingleResolvedPathAndDependency extends FileDependencies {
     private final String resolvedPath;
     private final FileDependencies dependency;
 
@@ -203,7 +200,7 @@ abstract sealed class FileDependencies
     }
   }
 
-  static final class MultiplePaths extends FileDependencies {
+  private static final class MultiplePaths extends FileDependencies {
     private final ImmutableList<String> resolvedPaths;
     private final ImmutableList<FileDependencies> dependencies;
 
