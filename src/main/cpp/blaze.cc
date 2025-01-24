@@ -431,6 +431,8 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
   // and can always be increased by the user if necessary.
   // https://github.com/openjdk/jdk/blob/2faf8b8d582183275b1fdc92313a1c63c1753e80/src/java.base/share/classes/sun/nio/fs/AbstractWatchKey.java#L40
   result.push_back("-Djdk.nio.file.WatchService.maxEventsPerPoll=10000");
+  result.push_back("-XX:+UnlockExperimentalVMOptions");
+  result.push_back("-XX:+TrustFinalNonStaticFields");
 
   if (startup_options.host_jvm_debug) {
     BAZEL_LOG(USER)
