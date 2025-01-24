@@ -647,7 +647,7 @@ project = {
             /* enforceCanonical= */ true);
 
     var thrown = assertThrows(Exception.class, () -> executeFunction(key));
-    assertThat(thrown).hasMessageThat().contains("Found ['--bar' (expanded from '--config=foo')]");
+    assertThat(thrown).hasMessageThat().contains("Found ['--config=foo']");
   }
 
   @Test

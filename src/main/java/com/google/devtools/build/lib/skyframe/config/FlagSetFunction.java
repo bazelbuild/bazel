@@ -387,7 +387,7 @@ public final class FlagSetFunction implements SkyFunction {
                 option ->
                     userOptions.get(option).isEmpty()
                         ? "'" + option + "'"
-                        : "'" + option + "' (expanded from '" + userOptions.get(option) + "')")
+                        : "'" + userOptions.get(option) + "'")
             .collect(toImmutableSet());
     if (overlap.isEmpty()) {
       return;
