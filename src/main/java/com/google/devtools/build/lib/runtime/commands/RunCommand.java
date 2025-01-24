@@ -270,7 +270,7 @@ public class RunCommand implements BlazeCommand {
         ImmutableList.copyOf(targetAndArgs.subList(1, targetAndArgs.size()));
     RunCommandLine runCommandLine;
     try {
-      runCommandLine = getCommandLineInfo(env, builtTargets, options, argsFromResidue, testPolicy);
+      runCommandLine = getCommandLineInfo(env, builtTargets, options, argsFromResidue, runOptions.runEnvironment, testPolicy);
     } catch (RunCommandException e) {
       return e.result;
     }
@@ -284,10 +284,6 @@ public class RunCommand implements BlazeCommand {
       // In --batch, prioritize original client env-var values over those added by the c++ launcher.
       // Only necessary in --batch since the command runs as a subprocess of the java server.
       finalRunEnv.putAll(env.getClientEnv());
-    }
-
-    for (Map.Entry<String, String> entry : runOptions.runEnvironment) {
-      finalRunEnv.put(entry.getKey(), entry.getValue());
     }
 
     ExecRequest.Builder execRequest;
@@ -640,6 +636,7 @@ public class RunCommand implements BlazeCommand {
       BuiltTargets builtTargets,
       OptionsParsingResult options,
       ImmutableList<String> argsFromResidue,
+      List<Map.Entry<String, String>> extraRunEnvironment,
       TestPolicy testPolicy)
       throws RunCommandException {
     if (builtTargets.targetToRun.getProvider(TestProvider.class) != null) {
@@ -660,6 +657,9 @@ public class RunCommand implements BlazeCommand {
     }
     TreeMap<String, String> runEnvironment = makeMutableRunEnvironment(env);
     actionEnvironment.resolve(runEnvironment, env.getClientEnv());
+    for (var entry : extraRunEnvironment) {
+      runEnvironment.put(entry.getKey(), entry.getValue());
+    }
 
     ImmutableList<String> argsFromBinary;
     try {
