@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
+import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Reason;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
@@ -765,7 +766,11 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat
       }
       getFromFuture(
           inputFetcher.prefetchFiles(
-              action, ImmutableList.of(input), this::getInputMetadata, Priority.CRITICAL));
+              action,
+              ImmutableList.of(input),
+              this::getInputMetadata,
+              Priority.CRITICAL,
+              Reason.INPUTS));
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       throw new IOException(String.format("Received interrupt while fetching file '%s'", path), e);

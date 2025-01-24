@@ -246,14 +246,14 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       Path tempPath,
       PathFragment execPath,
       FileArtifactValue metadata,
-      Priority priority)
+      Priority priority,
+      Reason reason)
       throws IOException;
 
   protected void prefetchVirtualActionInput(VirtualActionInput input) throws IOException {}
 
   /**
-   * Fetches remotely stored action outputs, that are inputs to this spawn, and stores them under
-   * their path in the output base.
+   * Fetches remotely stored action outputs and stores them under their path in the output base.
    *
    * <p>The {@code inputs} may not contain any unexpanded directories.
    *
@@ -267,7 +267,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       ActionExecutionMetadata action,
       Iterable<? extends ActionInput> inputs,
       MetadataSupplier metadataSupplier,
-      Priority priority) {
+      Priority priority,
+      Reason reason) {
     List<ActionInput> files = new ArrayList<>();
 
     for (ActionInput input : inputs) {
@@ -301,7 +302,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     try (var s = Profiler.instance().profile("compose prefetches")) {
       for (var file : files) {
         transfers.add(
-            prefetchFile(action, dirsWithOutputPermissions, metadataSupplier, file, priority));
+            prefetchFile(
+                action, dirsWithOutputPermissions, metadataSupplier, file, priority, reason));
       }
     }
 
@@ -332,7 +334,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       Set<Path> dirsWithOutputPermissions,
       MetadataSupplier metadataSupplier,
       ActionInput input,
-      Priority priority) {
+      Priority priority,
+      Reason reason) {
     try {
       if (input instanceof VirtualActionInput) {
         prefetchVirtualActionInput((VirtualActionInput) input);
@@ -364,7 +367,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
               dirsWithOutputPermissions,
               input,
               metadata,
-              priority);
+              priority,
+              reason);
 
       if (symlink != null) {
         result = result.andThen(plantSymlink(symlink));
@@ -485,7 +489,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       Set<Path> dirsWithOutputPermissions,
       ActionInput actionInput,
       FileArtifactValue metadata,
-      Priority priority) {
+      Priority priority,
+      Reason reason) {
     // If the path to be prefetched is a non-dangling symlink, prefetch its target path instead.
     // Note that this only applies to symlinks created by spawns (or, currently, with the internal
     // version of BwoB); symlinks created in-process through an ActionFileSystem should have already
@@ -530,7 +535,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                                 tempPath,
                                 finalPath.relativeTo(execRoot),
                                 metadata,
-                                priority),
+                                priority,
+                                reason),
                         directExecutor())
                     .doOnComplete(
                         () -> {
@@ -699,7 +705,11 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       try (var s = Profiler.instance().profile(ProfilerTask.REMOTE_DOWNLOAD, "Download outputs")) {
         getFromFuture(
             prefetchFiles(
-                action, outputsToDownload, outputMetadataStore::getOutputMetadata, Priority.HIGH));
+                action,
+                outputsToDownload,
+                outputMetadataStore::getOutputMetadata,
+                Priority.HIGH,
+                Reason.OUTPUTS));
       }
     }
   }
