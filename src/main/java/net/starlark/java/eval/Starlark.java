@@ -904,14 +904,8 @@ public final class Starlark {
 
   @Nullable
   public static StarlarkCallable.ArgumentProcessor requestArgumentProcessor(
-      StarlarkThread thread, Object fn) {
-    // Note: Once BuiltinFunction also implements requestArgumentProcessor, this method body should
-    // be replaced by
-    // return getStarlarkCallable(thread, fn).requestArgumentProcessor(thread);
-    if (fn instanceof StarlarkCallable starlarkCallable) {
-      return starlarkCallable.requestArgumentProcessor(thread);
-    }
-    return null;
+      StarlarkThread thread, Object fn) throws EvalException {
+    return getStarlarkCallable(thread, fn).requestArgumentProcessor(thread);
   }
 
   /**

@@ -245,7 +245,8 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
 
   @Override
   @Nullable
-  public StarlarkCallable.ArgumentProcessor requestArgumentProcessor(StarlarkThread thread) {
+  public StarlarkCallable.ArgumentProcessor requestArgumentProcessor(StarlarkThread thread)
+      throws EvalException {
     StarlarkCallable.ArgumentProcessor initArgumentProcessor = null;
     if (init != null) {
       initArgumentProcessor = Starlark.requestArgumentProcessor(thread, init);

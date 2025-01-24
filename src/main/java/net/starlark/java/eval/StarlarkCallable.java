@@ -130,7 +130,7 @@ public interface StarlarkCallable extends StarlarkValue {
    * Returns a FasterCall implementation if the callable supports fasterCall invocations, else null.
    */
   @Nullable
-  default ArgumentProcessor requestArgumentProcessor(StarlarkThread thread) {
+  default ArgumentProcessor requestArgumentProcessor(StarlarkThread thread) throws EvalException {
     return null;
   }
 

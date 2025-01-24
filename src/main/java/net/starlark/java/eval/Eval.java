@@ -693,6 +693,10 @@ final class Eval {
 
     int numPositionalArguments = call.getNumPositionalArguments();
 
+    // Set the location of the call before the first calls to argumentProcessor.add*Arg().
+    Location loc = call.getLparenLocation();
+    fr.setLocation(loc);
+
     // f(expr) -- positional args
     int i;
     for (i = 0; i < numPositionalArguments; i++) {
@@ -736,7 +740,8 @@ final class Eval {
       }
     }
 
-    Location loc = call.getLparenLocation(); // (Location is prematerialized)
+    // Set the location of the call again after the argument values were evaluated.
+    // Argument values that contain callable invocations may have changed the location.
     fr.setLocation(loc);
 
     try {
