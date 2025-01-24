@@ -15,8 +15,8 @@
 package net.starlark.java.eval;
 
 import com.google.common.collect.Maps;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -109,12 +109,11 @@ public interface StarlarkCallable extends StarlarkValue {
   }
 
   /**
-   * Defines a helper object for a new and hopefully faster way to invoke a StarlarkCallable.
+   * Defines a helper object for invoking a StarlarkCallable.
    *
-   * <p>An ArgumentProcessor implementation is returned by {@link #requestArgumentProcessor} if the
-   * callable supports invocation via ArgumentProcessor. The ArgumentProcessor implementation must
-   * then be used to first place the arguments, and then the {@link #call} is used to make the
-   * invocation.
+   * <p>An ArgumentProcessor implementation is returned by {@link #requestArgumentProcessor}. The
+   * ArgumentProcessor implementation must then be used to first place the arguments, and then its
+   * method {@link #call} is used to make the invocation.
    */
   public interface ArgumentProcessor {
     void addPositionalArg(Object value) throws EvalException;
@@ -127,11 +126,49 @@ public interface StarlarkCallable extends StarlarkValue {
   }
 
   /**
+   * A default implementation of ArgumentProcessor that simply stores the arguments in a list and a
+   * LinkedHashMap and then passes them to the StarlarkCallable.call() method.
+   */
+  static class DefaultArgumentProcessor implements ArgumentProcessor {
+    private final StarlarkCallable owner;
+    private final ArrayList<Object> positional;
+    private final LinkedHashMap<String, Object> named;
+
+    DefaultArgumentProcessor(StarlarkCallable owner) {
+      this.owner = owner;
+      this.positional = new ArrayList<>();
+      this.named = Maps.newLinkedHashMapWithExpectedSize(0);
+    }
+
+    @Override
+    public void addPositionalArg(Object value) throws EvalException {
+      positional.add(value);
+    }
+
+    @Override
+    public void addNamedArg(String name, Object value) throws EvalException {
+      if (named.put(name, value) != null) {
+        throw Starlark.errorf("%s got multiple values for parameter '%s'", this, name);
+      }
+    }
+
+    @Override
+    public StarlarkCallable getCallable() {
+      return owner;
+    }
+
+    @Override
+    public Object call(StarlarkThread thread) throws EvalException, InterruptedException {
+      return owner.call(
+          thread, Tuple.wrap(positional.toArray()), Dict.wrap(thread.mutability(), named));
+    }
+  }
+
+  /**
    * Returns a FasterCall implementation if the callable supports fasterCall invocations, else null.
    */
-  @Nullable
   default ArgumentProcessor requestArgumentProcessor(StarlarkThread thread) throws EvalException {
-    return null;
+    return new DefaultArgumentProcessor(this);
   }
 
   /** Returns the form this callable value should take in a stack trace. */

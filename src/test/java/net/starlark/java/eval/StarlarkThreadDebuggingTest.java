@@ -20,6 +20,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Debug.ReadyToPause;
 import net.starlark.java.eval.Debug.Stepping;
@@ -96,13 +97,13 @@ public class StarlarkThreadDebuggingTest {
     }
 
     @Override
-    public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named) {
+    public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs) {
       debugStack =
           Debug.getCallStack(thread).stream()
               .map(this::formatDebugFrame)
               .collect(toImmutableList());
       liteStack = thread.getCallStack();
-      return positional.length != 0 ? positional[0] : Starlark.NONE;
+      return Iterables.getFirst(args, Starlark.NONE);
     }
 
     private String formatDebugFrame(Debug.Frame fr) {

@@ -133,7 +133,6 @@ public final class BuiltinFunction implements StarlarkCallable {
   }
 
   @Override
-  @Nullable
   public StarlarkCallable.ArgumentProcessor requestArgumentProcessor(StarlarkThread thread) {
     return new ArgumentProcessor(this, thread, getMethodDescriptor(thread.getSemantics()));
   }

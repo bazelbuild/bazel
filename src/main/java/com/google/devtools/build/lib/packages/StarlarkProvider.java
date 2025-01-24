@@ -244,27 +244,20 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
   }
 
   @Override
-  @Nullable
   public StarlarkCallable.ArgumentProcessor requestArgumentProcessor(StarlarkThread thread)
       throws EvalException {
     StarlarkCallable.ArgumentProcessor initArgumentProcessor = null;
     if (init != null) {
       initArgumentProcessor = Starlark.requestArgumentProcessor(thread, init);
-      if (initArgumentProcessor == null) {
-        // If the init function doesn't support ArgumentProcessor, StarlarkProvider can't, either.
-        return null;
-      }
     }
     return newArgumentProcessor(this, thread, initArgumentProcessor);
   }
 
-  @Nullable
   private StarlarkCallable.ArgumentProcessor requestRawArgumentProcessor(
       StarlarkCallable owner, StarlarkThread thread) {
     return newArgumentProcessor(owner, thread, null);
   }
 
-  @Nullable
   private StarlarkCallable.ArgumentProcessor newArgumentProcessor(
       StarlarkCallable owner,
       StarlarkThread thread,
@@ -410,7 +403,6 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
     }
 
     @Override
-    @Nullable
     public StarlarkCallable.ArgumentProcessor requestArgumentProcessor(StarlarkThread thread) {
       return provider.requestRawArgumentProcessor(this, thread);
     }
