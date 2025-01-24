@@ -206,6 +206,7 @@ final class FileDependencySerializer {
             /* rootedPath= */ rootedPath,
             /* parentRootedPath= */ parentRootedPath,
             /* realRootedPath= */ realRootedPath,
+            value.exists(),
             initialMtsv);
     return future.completeWith(
         Futures.transform(
@@ -223,6 +224,7 @@ final class FileDependencySerializer {
     private final RootedPath rootedPath;
     private final RootedPath parentRootedPath;
     private final RootedPath realRootedPath;
+    private final boolean exists;
 
     private final FileInvalidationData.Builder data = FileInvalidationData.newBuilder();
     private final ArrayList<ListenableFuture<Void>> writeStatuses = new ArrayList<>();
@@ -232,10 +234,12 @@ final class FileDependencySerializer {
         RootedPath rootedPath,
         RootedPath parentRootedPath,
         RootedPath realRootedPath,
+        boolean exists,
         long initialMtsv) {
       this.rootedPath = rootedPath;
       this.parentRootedPath = parentRootedPath;
       this.realRootedPath = realRootedPath;
+      this.exists = exists;
       this.mtsv = initialMtsv;
     }
 
@@ -246,7 +250,7 @@ final class FileDependencySerializer {
       byte[] dataBytes = data.build().toByteArray();
       writeStatuses.add(fingerprintValueService.put(keyBytes, dataBytes));
       return new FileInvalidationDataInfo(
-          cacheKey, combineWriteStatuses(writeStatuses), mtsv, realRootedPath);
+          cacheKey, combineWriteStatuses(writeStatuses), exists, mtsv, realRootedPath);
     }
 
     /**
@@ -330,6 +334,7 @@ final class FileDependencySerializer {
           break;
         case FileInvalidationDataInfo parentReference:
           uploader.addParent(parentReference);
+          // If the parent folder doesn't exist, unresolvedLinkTarget will be null.
           realParentPath = parentReference.realPath();
           break;
       }
@@ -480,6 +485,10 @@ final class FileDependencySerializer {
           long parentMtsv = parentReference.mtsv();
           if (parentMtsv != LongVersionGetter.MINIMAL) {
             symlinkData.setParentMtsv(parentMtsv);
+          }
+          if (!parentReference.exists()) {
+            // The parent folder doesn't exist so further resolution of the symlink is moot.
+            return immediateVoidFuture();
           }
           resolvedParentRootedPath = parentReference.realPath();
           break;
