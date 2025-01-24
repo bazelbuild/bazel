@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.OS_TO_CONSTRAINTS;
 import static com.google.devtools.build.lib.analysis.test.ExecutionInfo.DEFAULT_TEST_RUNNER_EXEC_GROUP;
@@ -925,15 +926,60 @@ public class RuleContext extends TargetContext
     return getOwningPrerequisitesCollection(attributeName).getExecutablePrerequisite(attributeName);
   }
 
-  public void initConfigurationMakeVariableContext(
-      Iterable<? extends MakeVariableSupplier> makeVariableSuppliers) {
+  private ImmutableList<TemplateVariableInfo> fromAttributes(Iterable<String> attributeNames) {
+    // Get template variable providers from the attributes.
+    ImmutableList<TemplateVariableInfo> fromAttributes =
+        Streams.stream(attributeNames)
+            // Only process this attribute it if is present in the rule.
+            .filter(attrName -> this.attributes().has(attrName))
+            // Get the TemplateVariableInfo providers from this attribute.
+            .flatMap(
+                attrName -> this.getPrerequisites(attrName, TemplateVariableInfo.PROVIDER).stream())
+            .collect(toImmutableList());
+
+    return fromAttributes;
+  }
+
+  private ImmutableList<TemplateVariableInfo> fromToolchains() {
+    if (this.getToolchainContexts() == null) {
+      return ImmutableList.of();
+    }
+
+    ImmutableList<TemplateVariableInfo> toolchainProviders =
+        this.getToolchainContexts().contextMap().values().stream()
+            .flatMap(context -> context.templateVariableProviders().stream())
+            .collect(toImmutableList());
+    return toolchainProviders;
+  }
+
+  // TODO(b/37567440): Remove when Starlark callers can be updated to get this from
+  // CcToolchainProvider. We should use CcCommon.CC_TOOLCHAIN_ATTRIBUTE_NAME, but we didn't want to
+  // pollute core with C++ specific constant.
+  protected static final ImmutableList<String> DEFAULT_MAKE_VARIABLE_ATTRIBUTES =
+      ImmutableList.of("toolchains", ":cc_toolchain", "$toolchains", "$cc_toolchain");
+
+  public ImmutableList<TemplateVariableInfo> getDefaultTemplateVariableProviders() {
+    ImmutableList<TemplateVariableInfo> ruleTemplateVariableInfo =
+        new ImmutableList.Builder<TemplateVariableInfo>()
+            .addAll(fromAttributes(DEFAULT_MAKE_VARIABLE_ATTRIBUTES))
+            .addAll(fromToolchains())
+            .build();
+
+    return ruleTemplateVariableInfo;
+  }
+
+  protected ConfigurationMakeVariableContext initConfigurationMakeVariableContext(
+      Iterable<? extends MakeVariableSupplier> additionalMakeVariableSuppliers) {
     Preconditions.checkState(
         configurationMakeVariableContext == null,
         "Attempted to init an already initialized Make var context (did you call"
             + " initConfigurationMakeVariableContext() after accessing ctx.var?)");
-    configurationMakeVariableContext =
-        new ConfigurationMakeVariableContext(
-            this, rule.getPackage(), getConfiguration(), makeVariableSuppliers);
+
+    return new ConfigurationMakeVariableContext(
+        rule.getPackage(),
+        getConfiguration(),
+        getDefaultTemplateVariableProviders(),
+        additionalMakeVariableSuppliers);
   }
 
   public Expander getExpander(TemplateContext templateContext) {
@@ -964,7 +1010,7 @@ public class RuleContext extends TargetContext
    */
   public ConfigurationMakeVariableContext getConfigurationMakeVariableContext() {
     if (configurationMakeVariableContext == null) {
-      initConfigurationMakeVariableContext(ImmutableList.of());
+      configurationMakeVariableContext = initConfigurationMakeVariableContext(ImmutableList.of());
     }
     return configurationMakeVariableContext;
   }

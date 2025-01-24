@@ -945,10 +945,9 @@ public final class StarlarkRuleContext
       String attributeName, String command, Map<String, String> additionalSubstitutionsMap) {
     ConfigurationMakeVariableContext makeVariableContext =
         new ConfigurationMakeVariableContext(
-            ruleContext,
             ruleContext.getRule().getPackage(),
             ruleContext.getConfiguration(),
-            ImmutableList.of()) {
+            ruleContext.getDefaultTemplateVariableProviders()) {
           @Override
           public String lookupVariable(String variableName) throws ExpansionException {
             if (additionalSubstitutionsMap.containsKey(variableName)) {
