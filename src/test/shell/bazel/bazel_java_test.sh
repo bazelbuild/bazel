@@ -1584,13 +1584,69 @@ EOF
 # Build and run a java_binary that calls a C++ function through JNI.
 # This test exercises the built-in @bazel_tools//tools/jdk:jni target.
 #
-# The java_binary wrapper script specifies -Djava.library.path=$runfiles/test,
+# The java_binary wrapper script specifies -Djava.library.path=$runfiles/jni,
 # and the Java program expects to find a DSO there---except on MS Windows,
 # which lacks support for symbolic links. Really there needs to
 # be a cleaner mechanism for finding and loading the JNI library (and better
 # hygiene around the library namespace). By contrast, Blaze links all the
 # native code and the JVM into a single executable, which is an elegant solution.
 #
+function setup_jni_targets() {
+  repo="${1:-.}"
+  if [ "$repo" != "." ]; then
+    mkdir $repo
+    touch $repo/REPO.bazel
+    cat > $(setup_module_dot_bazel) <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+local_repository(
+  name="$repo",
+  path="./$repo",
+)
+EOF
+  fi
+  mkdir -p ${repo}/jni
+  cat > $repo/jni/BUILD <<EOF
+java_library(
+  name = "lib",
+  srcs = ["App.java"],
+  deps = [":libnative.so"],
+  visibility = ["//visibility:public"],
+)
+cc_binary(
+  name = "libnative.so",
+  srcs = ["native.cc"],
+  linkshared = 1,
+  deps = ["@bazel_tools//tools/jdk:jni"],
+)
+EOF
+  cat > ${repo}/jni/App.java <<'EOF'
+package foo;
+
+public class App {
+  static { System.loadLibrary("native"); }
+  public static void main(String[] args) { f(123); }
+  private static native void f(int x);
+}
+EOF
+  cat > ${repo}/jni/native.cc <<'EOF'
+#include <jni.h>
+#include <stdio.h>
+
+extern "C" JNIEXPORT void JNICALL Java_foo_App_f(JNIEnv *env, jclass clazz, jint x) {
+  printf("hello %d\n", x);
+}
+EOF
+
+  mkdir -p test/
+  cat > test/BUILD <<EOF
+java_binary(
+  name = "app",
+  main_class = 'foo.App',
+  runtime_deps = ["@$1//jni:lib"],
+)
+EOF
+}
+
 function test_jni() {
   # Skip on MS Windows, as Bazel does not create a runfiles symlink tree.
   # (MSYS_NT is the system name reported by MinGW uname.)
@@ -1602,40 +1658,39 @@ function test_jni() {
   # TODO(adonovan): make this just work.
   uname -s | grep -q Darwin && return
 
-  mkdir -p test/
-  cat > test/BUILD <<'EOF'
-java_binary(
-  name = "app",
-  srcs = ["App.java"],
-  main_class = 'foo.App',
-  data = [":libnative.so"],
-  jvm_flags = ["-Djava.library.path=test"],
-)
-cc_binary(
-  name = "libnative.so",
-  srcs = ["native.cc"],
-  linkshared = 1,
-  deps = ["@bazel_tools//tools/jdk:jni"],
-)
-EOF
-  cat > test/App.java <<'EOF'
-package foo;
+  setup_jni_targets ""
 
-public class App {
-  static { System.loadLibrary("native"); }
-  public static void main(String[] args) { f(123); }
-  private static native void f(int x);
+  bazel run //test:app >> $TEST_log || {
+    find bazel-bin/ | native # helpful for debugging
+    fail "bazel run command failed"
+  }
+  expect_log "hello 123"
 }
-EOF
-  cat > test/native.cc <<'EOF'
-#include <jni.h>
-#include <stdio.h>
 
-extern "C" JNIEXPORT void JNICALL Java_foo_App_f(JNIEnv *env, jclass clazz, jint x) {
-  printf("hello %d\n", x);
+function test_jni_external_repo_legacy_external_runfiles() {
+  # Skip on MS Windows, see details in test_jni
+  uname -s | grep -q MSYS_NT && return
+  # Skip on Darwin, see details in test_jni
+  uname -s | grep -q Darwin && return
+
+  setup_jni_targets "my_other_repo"
+
+  bazel run --legacy_external_runfiles //test:app >> $TEST_log || {
+    find bazel-bin/ | native # helpful for debugging
+    fail "bazel run command failed"
+  }
+  expect_log "hello 123"
 }
-EOF
-  bazel run //test:app > $TEST_log || {
+
+function test_jni_external_repo_no_legacy_external_runfiles() {
+  # Skip on MS Windows, see details in test_jni
+  uname -s | grep -q MSYS_NT && return
+  # Skip on Darwin, see details in test_jni
+  uname -s | grep -q Darwin && return
+
+  setup_jni_targets "my_other_repo"
+
+  bazel run --nolegacy_external_runfiles //test:app >> $TEST_log || {
     find bazel-bin/ | native # helpful for debugging
     fail "bazel run command failed"
   }
