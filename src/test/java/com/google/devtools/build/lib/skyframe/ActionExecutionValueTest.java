@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -46,10 +45,10 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class ActionExecutionValueTest {
   private static final FileArtifactValue VALUE_1_REMOTE =
-      RemoteFileArtifactValue.create(
+      FileArtifactValue.createForRemoteFile(
           /* digest= */ new byte[0], /* size= */ 0, /* locationIndex= */ 1);
   private static final FileArtifactValue VALUE_2_REMOTE =
-      RemoteFileArtifactValue.create(
+      FileArtifactValue.createForRemoteFile(
           /* digest= */ new byte[0], /* size= */ 0, /* locationIndex= */ 2);
 
   private static final ActionLookupKey KEY = ActionsTestUtil.NULL_ARTIFACT_OWNER;

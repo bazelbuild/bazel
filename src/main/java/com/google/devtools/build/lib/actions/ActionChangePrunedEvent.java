@@ -14,4 +14,4 @@
 package com.google.devtools.build.lib.actions;
 
 /** An event that is fired after an action is change pruned. */
-public record ActionChangePrunedEvent(ActionLookupData actionLookupData) {}
+public record ActionChangePrunedEvent(ActionLookupData actionLookupData, long finishTimeNanos) {}

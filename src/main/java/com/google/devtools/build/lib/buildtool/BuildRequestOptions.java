@@ -449,6 +449,17 @@ public class BuildRequestOptions extends OptionsBase {
   public boolean enforceProjectConfigs;
 
   @Option(
+      name = "experimental_skyframe_error_handling_refactor",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {OptionEffectTag.NO_OP},
+      help =
+          "Used solely for the safe rollout of simplifying Skyframe error handling. This will be"
+              + "removed once the rollout is complete (expected timeframe: 1 release)")
+  public boolean skyframeErrorHandlingRefactor;
+
+  @Option(
       name = "experimental_aquery_dump_after_build_format",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

@@ -107,11 +107,6 @@ public class BaseSpawn implements Spawn {
   }
 
   @Override
-  public ImmutableMap<String, String> getCombinedExecProperties() {
-    return action.getOwner().getExecProperties();
-  }
-
-  @Override
   @Nullable
   public PlatformInfo getExecutionPlatform() {
     return action.getExecutionPlatform();

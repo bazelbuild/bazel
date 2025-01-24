@@ -43,7 +43,6 @@ class BazelRepoMappingTest(test_base.TestBase):
         [
             # In ipv6 only network, this has to be enabled.
             # 'startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true',
-            'build --noenable_workspace',
             'build --registry=' + self.main_registry.getURL(),
             # We need to have BCR here to make sure built-in modules like
             # bazel_tools can work.
@@ -112,7 +111,6 @@ class BazelRepoMappingTest(test_base.TestBase):
             'multiple_version_override(module_name="quux",versions=["1.0","2.0"])',
         ],
     )
-    self.ScratchFile('WORKSPACE.bzlmod', ['workspace(name="me_ws")'])
     self.ScratchFile(
         'BUILD',
         [
@@ -155,9 +153,7 @@ class BazelRepoMappingTest(test_base.TestBase):
     bazel_command = 'build' if self.IsWindows() else 'test'
 
     # Finally we get to build stuff!
-    self.RunBazel(
-        [bazel_command, '--enable_workspace', '//:me', '--test_output=errors']
-    )
+    self.RunBazel([bazel_command, '//:me', '--test_output=errors'])
 
     paths = ['bazel-bin/me.repo_mapping']
     if not self.IsWindows():
@@ -168,7 +164,6 @@ class BazelRepoMappingTest(test_base.TestBase):
             f.read().strip(),
             """,foo,foo+
 ,me,_main
-,me_ws,_main
 foo+,foo,foo+
 foo+,quux,quux+1.0
 quux+1.0,quux,quux+1.0""",
@@ -176,12 +171,7 @@ quux+1.0,quux,quux+1.0""",
     with open(self.Path('bazel-bin/me.runfiles_manifest')) as f:
       self.assertIn('_repo_mapping ', f.read())
 
-    self.RunBazel([
-        bazel_command,
-        '--enable_workspace',
-        '@bar//:bar',
-        '--test_output=errors',
-    ])
+    self.RunBazel([bazel_command, '@bar//:bar', '--test_output=errors'])
 
     paths = ['bazel-bin/external/bar+/bar.repo_mapping']
     if not self.IsWindows():

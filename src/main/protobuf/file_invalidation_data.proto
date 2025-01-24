@@ -147,3 +147,15 @@ message Symlink {
   // Optional.
   int64 parent_mtsv = 2;
 }
+
+// Markers to indicate different types of invalidation data.
+enum DataType {
+  // To conform with:
+  // https://protobuf.dev/programming-guides/style/#enums
+  DATA_TYPE_UNSPECIFIED = 0;
+  DATA_TYPE_EMPTY = 1;    // No invalidation data.
+  DATA_TYPE_FILE = 2;     // FileInvalidationData.
+  DATA_TYPE_LISTING = 3;  // DirectoryListingInvalidationData.
+  // A node type, representing a recursive aggregate of files and listings.
+  DATA_TYPE_NODE = 4;
+}

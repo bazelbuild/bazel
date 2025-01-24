@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.actions.DiscoveredInputsEvent;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
-import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewoundEvent;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.time.Duration;
@@ -328,9 +327,9 @@ public class CriticalPathComputer {
       return;
     }
 
-    var now = BlazeClock.nanoTime();
-    var component = tryAddComponent(createComponent(action, now));
-    finalizeActionStat(now, now, action, component, "change pruned");
+    var component = tryAddComponent(createComponent(action, event.finishTimeNanos()));
+    finalizeActionStat(
+        event.finishTimeNanos(), event.finishTimeNanos(), action, component, "change pruned");
   }
 
   /**

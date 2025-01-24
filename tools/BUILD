@@ -54,7 +54,6 @@ filegroup(
         "//tools/def_parser:srcs",
         "//tools/genrule:srcs",
         "//tools/java:embedded_tools",
-        "//tools/java:java_stub_template.txt",
         "//tools/jdk:package-srcs",
         "//tools/jdk:srcs",
         "//tools/launcher:srcs",

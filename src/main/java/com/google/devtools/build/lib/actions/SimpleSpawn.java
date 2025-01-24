@@ -202,11 +202,11 @@ public final class SimpleSpawn implements Spawn {
         arguments,
         environment,
         executionInfo,
-        /*filesetMappings=*/ ImmutableMap.of(),
+        /* filesetMappings= */ ImmutableMap.of(),
         inputs,
-        /*tools=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         outputs,
-        /*mandatoryOutputs=*/ null,
+        /* mandatoryOutputs= */ null,
         localResourcesSupplier);
   }
 
@@ -227,7 +227,7 @@ public final class SimpleSpawn implements Spawn {
         inputs,
         NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         outputs,
-        /*mandatoryOutputs=*/ null,
+        /* mandatoryOutputs= */ null,
         resourceSet);
   }
 
@@ -293,11 +293,6 @@ public final class SimpleSpawn implements Spawn {
   @Override
   public String getMnemonic() {
     return owner.getMnemonic();
-  }
-
-  @Override
-  public ImmutableMap<String, String> getCombinedExecProperties() {
-    return owner.getExecProperties();
   }
 
   @Override

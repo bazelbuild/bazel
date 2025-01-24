@@ -26,6 +26,7 @@ import static com.google.devtools.build.lib.skyframe.serialization.analysis.File
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.ConstantFileData.CONSTANT_FILE;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.ConstantListingData.CONSTANT_LISTING;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.ConstantNodeData.CONSTANT_NODE;
+import static com.google.devtools.build.lib.util.TestType.isInTest;
 import static com.google.devtools.build.lib.vfs.RootedPath.toRootedPath;
 import static java.lang.Math.max;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -38,10 +39,12 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.BundledFileSystem;
+import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes;
+import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes.NestedFileOpNodes;
+import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes.NestedFileOpNodesWithSources;
 import com.google.devtools.build.lib.skyframe.DirectoryListingKey;
 import com.google.devtools.build.lib.skyframe.FileKey;
-import com.google.devtools.build.lib.skyframe.FileSystemOperationNode;
-import com.google.devtools.build.lib.skyframe.NestedFileSystemOperationNodes;
+import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FileOpNode;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.KeyBytesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint;
@@ -80,7 +83,7 @@ import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /**
- * Records {@link FileKey}, {@link DirectoryListingKey} or {@link NestedFileSystemOperationNodes}
+ * Records {@link FileKey}, {@link DirectoryListingKey} or {@link AbstractNestedFileOpNodes}
  * invalidation to a remote {@link FingerprintValueService}.
  */
 final class FileDependencySerializer {
@@ -124,13 +127,13 @@ final class FileDependencySerializer {
    * <p>See comments at {@link FileInvalidationData} and {@link DirectoryListingInvalidationData}
    * for more details about the data being persisted.
    */
-  InvalidationDataInfoOrFuture registerDependency(FileSystemOperationNode node) {
+  InvalidationDataInfoOrFuture registerDependency(FileOpNode node) {
     switch (node) {
       case FileKey file:
         return registerDependency(file);
       case DirectoryListingKey listing:
         return registerDependency(listing);
-      case NestedFileSystemOperationNodes nested:
+      case AbstractNestedFileOpNodes nested:
         return registerDependency(nested);
     }
   }
@@ -148,7 +151,7 @@ final class FileDependencySerializer {
    *
    * <p>Uploads the result to the {@link #fingerprintValueService}.
    */
-  NodeDataInfoOrFuture registerDependency(NestedFileSystemOperationNodes node) {
+  NodeDataInfoOrFuture registerDependency(AbstractNestedFileOpNodes node) {
     var reference = (NodeDataInfoOrFuture) node.getSerializationScratch();
     if (reference != null) {
       return reference;
@@ -176,10 +179,11 @@ final class FileDependencySerializer {
   FileDataInfoOrFuture populateFutureFileDataInfo(FutureFileDataInfo future) {
     FileKey key = future.key();
     RootedPath rootedPath = key.argument();
+    RootedPath parentRootedPath;
     // Builtin files don't change.
-    if (rootedPath.getRoot().getFileSystem() instanceof BundledFileSystem
+    if ((rootedPath.getRoot().getFileSystem() instanceof BundledFileSystem)
         // Assumes that the root folder doesn't change.
-        || rootedPath.getRootRelativePath().isEmpty()) {
+        || (parentRootedPath = rootedPath.getParentDirectory()) == null) {
       return future.completeWith(CONSTANT_FILE);
     }
 
@@ -197,7 +201,12 @@ final class FileDependencySerializer {
         return future.failWith(e);
       }
     }
-    var uploader = new FileInvalidationDataUploader(rootedPath, realRootedPath, initialMtsv);
+    var uploader =
+        new FileInvalidationDataUploader(
+            /* rootedPath= */ rootedPath,
+            /* parentRootedPath= */ parentRootedPath,
+            /* realRootedPath= */ realRootedPath,
+            initialMtsv);
     return future.completeWith(
         Futures.transform(
             fullyResolvePath(value.isSymlink() ? value.getUnresolvedLinkTarget() : null, uploader),
@@ -220,9 +229,12 @@ final class FileDependencySerializer {
     private long mtsv;
 
     private FileInvalidationDataUploader(
-        RootedPath rootedPath, RootedPath realRootedPath, long initialMtsv) {
+        RootedPath rootedPath,
+        RootedPath parentRootedPath,
+        RootedPath realRootedPath,
+        long initialMtsv) {
       this.rootedPath = rootedPath;
-      this.parentRootedPath = rootedPath.getParentDirectory();
+      this.parentRootedPath = parentRootedPath;
       this.realRootedPath = realRootedPath;
       this.mtsv = initialMtsv;
     }
@@ -355,6 +367,15 @@ final class FileDependencySerializer {
       Path linkPath,
       PathFragment link,
       FileInvalidationDataUploader uploader) {
+    if (link.isAbsolute()) {
+      if (isInTest()) {
+        // Test environments may use absolute symlinks, which aren't allowed in production
+        // environments with analysis caching. Skips further dependency resolution for those.
+        return immediateVoidFuture();
+      }
+      throw new IllegalStateException(
+          String.format("Absolute symlink not permitted: %s contained %s", linkPath, link));
+    }
     Symlink.Builder symlinkData = uploader.addSymlinksBuilder().setContents(link.getPathString());
     PathFragment linkParent = parentRootedPath.getRootRelativePath();
     PathFragment unresolvedTarget = linkParent.getRelative(link);
@@ -533,24 +554,34 @@ final class FileDependencySerializer {
   }
 
   NodeDataInfoOrFuture populateFutureNodeDataInfo(FutureNodeDataInfo future) {
-    NestedFileSystemOperationNodes node = future.key();
+    AbstractNestedFileOpNodes node = future.key();
     var dependencyHandler = new NodeDependencyHandler();
 
     // Loops through all node dependencies, registering them with the dependencyHandler. The
     // dependencyHandler triggers recursive registration, keeping track of immediate results and
     // any futures.
-    for (int i = 0; i < node.count(); i++) {
-      switch (node.get(i)) {
+    for (int i = 0; i < node.analysisDependenciesCount(); i++) {
+      switch (node.getAnalysisDependency(i)) {
         case FileKey fileKey:
           dependencyHandler.addFileKey(fileKey);
           break;
         case DirectoryListingKey listingKey:
           dependencyHandler.addListingKey(listingKey);
           break;
-        case NestedFileSystemOperationNodes nestedKeys:
+        case AbstractNestedFileOpNodes nestedKeys:
           dependencyHandler.addNodeKey(nestedKeys);
           break;
       }
+    }
+
+    switch (node) {
+      case NestedFileOpNodes plainNodes:
+        break;
+      case NestedFileOpNodesWithSources withSources:
+        for (int i = 0; i < withSources.sourceCount(); i++) {
+          dependencyHandler.addSourceFile(withSources.getSource(i));
+        }
+        break;
     }
 
     var allFutures = dependencyHandler.getCombinedFutures();
@@ -580,12 +611,14 @@ final class FileDependencySerializer {
     private final TreeSet<String> listingKeys = new TreeSet<>();
     private final TreeMap<PackedFingerprint, NodeInvalidationDataInfo> nodeDependencies =
         new TreeMap<>();
+    private final TreeSet<String> sourceFileKeys = new TreeSet<>();
 
     private final ArrayList<ListenableFuture<Void>> writeStatuses = new ArrayList<>();
 
     private final ArrayList<FutureFileDataInfo> futureFileDataInfo = new ArrayList<>();
     private final ArrayList<FutureListingDataInfo> futureListingDataInfo = new ArrayList<>();
     private final ArrayList<FutureNodeDataInfo> futureNodeDataInfo = new ArrayList<>();
+    private final ArrayList<FutureFileDataInfo> futureSourceFileInfo = new ArrayList<>();
 
     @Override
     public NodeDataInfo call() throws ExecutionException {
@@ -598,8 +631,11 @@ final class FileDependencySerializer {
       for (FutureNodeDataInfo futureInfo : futureNodeDataInfo) {
         addNodeInfo(Futures.getDone(futureInfo));
       }
+      for (FutureFileDataInfo futureInfo : futureSourceFileInfo) {
+        addSourceFileInfo(Futures.getDone(futureInfo));
+      }
 
-      if (fileKeys.isEmpty() && listingKeys.isEmpty()) {
+      if (fileKeys.isEmpty() && listingKeys.isEmpty() && sourceFileKeys.isEmpty()) {
         if (nodeDependencies.isEmpty()) {
           return CONSTANT_NODE; // None of the dependencies are relevant to invalidation.
         }
@@ -607,7 +643,7 @@ final class FileDependencySerializer {
         // least 2 children. The following may reduce child count.
         // 1. TreeSet deduplication.
         // 2. Constant references.
-        // 3. NestedFileSystemOperationNodes with the same fingerprints.
+        // 3. NestedFileOpNodes with the same fingerprints.
         if (nodeDependencies.size() == 1) {
           // It ended up as a node wrapping another node. Discards the wrapper.
           //
@@ -667,7 +703,7 @@ final class FileDependencySerializer {
       }
     }
 
-    private void addNodeKey(NestedFileSystemOperationNodes nestedKeys) {
+    private void addNodeKey(AbstractNestedFileOpNodes nestedKeys) {
       switch (registerDependency(nestedKeys)) {
         case NodeDataInfo info:
           addNodeInfo(info);
@@ -689,11 +725,34 @@ final class FileDependencySerializer {
       }
     }
 
+    private void addSourceFile(FileKey sourceFile) {
+      switch (registerDependency(sourceFile)) {
+        case FileDataInfo info:
+          addSourceFileInfo(info);
+          break;
+        case FutureFileDataInfo futureInfo:
+          futureSourceFileInfo.add(futureInfo);
+          break;
+      }
+    }
+
+    private void addSourceFileInfo(FileDataInfo info) {
+      switch (info) {
+        case CONSTANT_FILE:
+          break;
+        case FileInvalidationDataInfo fileInfo:
+          sourceFileKeys.add(fileInfo.cacheKey());
+          addWriteStatusUnlessSuccess(fileInfo.writeStatus(), writeStatuses);
+          break;
+      }
+    }
+
     private ImmutableList<ListenableFuture<?>> getCombinedFutures() {
       return ImmutableList.<ListenableFuture<?>>builder()
           .addAll(futureFileDataInfo)
           .addAll(futureListingDataInfo)
           .addAll(futureNodeDataInfo)
+          .addAll(futureSourceFileInfo)
           .build();
     }
 
@@ -702,16 +761,18 @@ final class FileDependencySerializer {
      *
      * <p>Logically, a node is a set of string file or listing keys, as described at {@link
      * FileInvalidationData} and {@link DirectoryListingInvalidationData}, respectively, and a set
-     * of {@link NestedFileSystemOperationNodes} fingerprints. Its byte representation is specified
-     * as follows.
+     * of {@link NestedFileOpNodes} fingerprints. Its byte representation is specified as follows.
      *
      * <ol>
+     *   <li>The count of nested nodes, as a proto-encoded int.
      *   <li>The count of file keys, as a proto-encoded int.
      *   <li>The count of listing keys, as a proto-encoded int.
-     *   <li>The count of nested nodes, as a proto-encoded int.
+     *   <li>The count of source file keys, as a proto-encoded int.
+     *   <li>Sorted and deduplicated, fingerprints of the {@link NestedFileOpNodes} byte
+     *       representations.
      *   <li>Sorted and deduplicated, proto-encoded strings of the file keys.
      *   <li>Sorted and deduplicated, proto-encoded strings of the listing keys.
-     *   <li>The fingerprints of the {@link NestedFileSystemOperationNodes} byte representations.
+     *   <li>Sorted and deduplicated, proto-encoded strings of the source keys.
      * </ol>
      *
      * <p>More compact formats are possible, but this reduces the complexity of the deserializer.
@@ -720,17 +781,21 @@ final class FileDependencySerializer {
       try {
         var bytesOut = new ByteArrayOutputStream();
         var codedOut = CodedOutputStream.newInstance(bytesOut);
+        codedOut.writeInt32NoTag(nodeDependencies.size());
         codedOut.writeInt32NoTag(fileKeys.size());
         codedOut.writeInt32NoTag(listingKeys.size());
-        codedOut.writeInt32NoTag(nodeDependencies.size());
+        codedOut.writeInt32NoTag(sourceFileKeys.size());
+        for (PackedFingerprint fp : nodeDependencies.keySet()) {
+          fp.writeTo(codedOut);
+        }
         for (String key : fileKeys) {
           codedOut.writeStringNoTag(key);
         }
         for (String key : listingKeys) {
           codedOut.writeStringNoTag(key);
         }
-        for (PackedFingerprint fp : nodeDependencies.keySet()) {
-          fp.writeTo(codedOut);
+        for (String key : sourceFileKeys) {
+          codedOut.writeStringNoTag(key);
         }
         codedOut.flush();
         bytesOut.flush();

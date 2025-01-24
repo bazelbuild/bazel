@@ -577,13 +577,12 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
    *
    * @param moduleClass a class or interface that we want to match to a module
    * @param <T> the type of the module's class
-   * @return a module that is an instance of this class or interface
+   * @return a module that is an instance of the given class or interface
    */
-  @SuppressWarnings("unchecked")
   public <T> T getBlazeModule(Class<T> moduleClass) {
     for (BlazeModule module : blazeModules) {
       if (moduleClass.isInstance(module)) {
-        return (T) module;
+        return moduleClass.cast(module);
       }
     }
     return null;

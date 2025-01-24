@@ -688,6 +688,13 @@ def _classify_libraries(libraries_to_link):
     }
     return always_link_libraries.keys(), as_needed_libraries.keys()
 
+def _emit_builtin_objc_strip_action(ctx):
+    return (
+        ctx.fragments.objc.builtin_objc_strip_action and
+        ctx.fragments.cpp.objc_enable_binary_stripping() and
+        ctx.fragments.cpp.compilation_mode() == "opt"
+    )
+
 def _register_configuration_specific_link_actions(
         name,
         common_variables,
@@ -717,8 +724,7 @@ def _register_configuration_specific_link_actions(
     # symbols for dead-code removal. The binary is also used to generate dSYM bundle if
     # --apple_generate_dsym is specified. A symbol strip action is later registered to strip
     # the symbol table from the unstripped binary.
-    if (ctx.fragments.cpp.objc_enable_binary_stripping() and
-        ctx.fragments.cpp.compilation_mode() == "opt"):
+    if _emit_builtin_objc_strip_action(ctx):
         binary = ctx.actions.declare_shareable_artifact(
             paths.join(ctx.label.package, name + "_unstripped"),
             build_config.bin_dir,
@@ -817,10 +823,7 @@ def _register_configuration_specific_link_actions_with_cpp_variables(
         variables_extension = user_variable_extensions,
     )
 
-    if not (ctx.fragments.cpp.objc_enable_binary_stripping() and
-            ctx.fragments.cpp.compilation_mode() == "opt"):
-        return binary
-    else:
+    if _emit_builtin_objc_strip_action(ctx):
         return _register_binary_strip_action(
             ctx,
             name,
@@ -829,6 +832,8 @@ def _register_configuration_specific_link_actions_with_cpp_variables(
             build_config,
             extra_link_args,
         )
+    else:
+        return binary
 
 def _dedup_link_flags(flags, seen_flags = {}):
     new_flags = []
@@ -985,11 +990,17 @@ def _register_configuration_specific_link_actions_with_objc_variables(
         main_output = binary,
     )
 
-    if not (ctx.fragments.cpp.objc_enable_binary_stripping() and
-            ctx.fragments.cpp.compilation_mode() == "opt"):
-        return binary
+    if _emit_builtin_objc_strip_action(ctx):
+        return _register_binary_strip_action(
+            ctx,
+            name,
+            binary,
+            feature_configuration,
+            build_config,
+            extra_link_args,
+        )
     else:
-        return _register_binary_strip_action(ctx, name, binary, feature_configuration, build_config, extra_link_args)
+        return binary
 
 compilation_support = struct(
     register_compile_and_archive_actions = _register_compile_and_archive_actions,

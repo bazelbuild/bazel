@@ -387,7 +387,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
                 new StarlarkProvider.Key(
                     keyForBuild(Label.parseCanonical("//java/test:extension.bzl")), "result"));
 
-    @SuppressWarnings("unchecked") // deserialization
     ImmutableList<JavaOutput> javaOutputs =
         JavaOutput.wrapSequence(info.getValue("outputs", Sequence.class));
 
@@ -4934,7 +4933,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     "{api: check_provider_instances}",
     "{api: _google_legacy_api_enabled}",
     "{api: _check_java_toolchain_is_declared_on_rule}",
-    "{api: wrap_java_info}",
     "{api: tokenize_javacopts}",
   })
   public void testJavaCommonPrivateApis_areNotVisibleToPublicStarlark(String api) throws Exception {

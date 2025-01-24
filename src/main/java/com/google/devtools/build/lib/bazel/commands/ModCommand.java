@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -116,13 +115,6 @@ public final class ModCommand implements BlazeCommand {
 
   @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
-    if (!options.getOptions(BuildLanguageOptions.class).enableBzlmod) {
-      return reportAndCreateFailureResult(
-          env,
-          "Bzlmod has to be enabled for mod command to work, run with --enable_bzlmod",
-          Code.MISSING_ARGUMENTS);
-    }
-
     env.getEventBus()
         .post(
             new NoBuildEvent(

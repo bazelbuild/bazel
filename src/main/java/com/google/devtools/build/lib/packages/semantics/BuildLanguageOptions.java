@@ -254,27 +254,6 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean experimentalEnableSclDialect;
 
   @Option(
-      name = "enable_bzlmod",
-      oldName = "experimental_enable_bzlmod",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
-      help =
-          "If true, enables the Bzlmod dependency management system, taking precedence over"
-              + " WORKSPACE. See https://bazel.build/docs/bzlmod for more information.")
-  public boolean enableBzlmod;
-
-  @Option(
-      name = "enable_workspace",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
-      help =
-          "If true, enables the legacy WORKSPACE system for external dependencies. See"
-              + " https://bazel.build/external/overview for more information.")
-  public boolean enableWorkspace;
-
-  @Option(
       name = "experimental_isolated_extension_usages",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -822,8 +801,6 @@ public final class BuildLanguageOptions extends OptionsBase {
                 experimentalSinglePackageToolchainBinding)
             .setBool(EXPERIMENTAL_ENABLE_FIRST_CLASS_MACROS, experimentalEnableFirstClassMacros)
             .setBool(EXPERIMENTAL_ENABLE_SCL_DIALECT, experimentalEnableSclDialect)
-            .setBool(ENABLE_BZLMOD, enableBzlmod)
-            .setBool(ENABLE_WORKSPACE, enableWorkspace)
             .setBool(EXPERIMENTAL_ISOLATED_EXTENSION_USAGES, experimentalIsolatedExtensionUsages)
             .setBool(INCOMPATIBLE_NO_IMPLICIT_WATCH_LABEL, incompatibleNoImplicitWatchLabel)
             .setBool(EXPERIMENTAL_GOOGLE_LEGACY_API, experimentalGoogleLegacyApi)

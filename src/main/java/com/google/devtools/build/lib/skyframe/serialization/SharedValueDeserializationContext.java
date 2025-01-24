@@ -141,9 +141,8 @@ final class SharedValueDeserializationContext extends MemoizingDeserializationCo
       ObjectCodecRegistry codecRegistry,
       ImmutableClassToInstanceMap<Object> dependencies,
       FingerprintValueService fingerprintValueService,
-      ByteString bytes)
+      CodedInputStream codedIn)
       throws SerializationException {
-    CodedInputStream codedIn = bytes.newCodedInput();
     // Enabling aliasing of `codedIn` here might be better for performance but causes deserialized
     // values to differ subtly from the input values, complicating testing.
     //

@@ -25,14 +25,6 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 
 set -e
 
-# Used to pass --noenable_bzlmod, --enable_workpace flags
-if [[ "${1:-}" == "--enable_bzlmod" ]]; then
-  is_bzlmod_enabled=true
-else
-  is_bzlmod_enabled=false
-fi
-add_to_bazelrc "common $@"
-
 #### TESTS #############################################################
 
 function mock_rules_android() {
@@ -165,11 +157,7 @@ xcode_version(
 )
 EOF
   bazel build --incompatible_autoload_externally=xcode_version :xcode_version >&$TEST_log 2>&1 && fail "build unexpectedly succeeded"
-  if "$is_bzlmod_enabled"; then
-    expect_log "Couldn't auto load 'xcode_version' from '@build_bazel_apple_support//xcode:xcode_version.bzl'. Ensure that you have a 'bazel_dep(name = \"apple_support\", ...)' in your MODULE.bazel file or add an explicit load statement to your BUILD file."
-  else
-    expect_log "Couldn't auto load 'xcode_version' from '@build_bazel_apple_support//xcode:xcode_version.bzl'. Ensure that you have an 'http_archive(name = \"build_bazel_apple_support\", ...)' in your WORKSPACE file or add an explicit load statement to your BUILD file."
-  fi
+  expect_log "Couldn't auto load 'xcode_version' from '@build_bazel_apple_support//xcode:xcode_version.bzl'. Ensure that you have a 'bazel_dep(name = \"apple_support\", ...)' in your MODULE.bazel file or add an explicit load statement to your BUILD file."
 }
 
 function test_missing_unnecessary_repo_doesnt_fail() {

@@ -66,7 +66,6 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
     Path tools = embeddedBinaries.getRelative("embedded_tools");
     tools.getRelative("tools/cpp").createDirectoryAndParents();
     tools.getRelative("tools/osx").createDirectoryAndParents();
-    FileSystemUtils.writeIsoLatin1(tools.getRelative("WORKSPACE"), "");
     FileSystemUtils.writeIsoLatin1(tools.getRelative("MODULE.bazel"), "module(name='bazel_tools')");
     FileSystemUtils.writeIsoLatin1(tools.getRelative("tools/cpp/BUILD"), "");
     FileSystemUtils.writeIsoLatin1(

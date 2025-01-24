@@ -17,7 +17,6 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
@@ -27,17 +26,36 @@ import java.util.ArrayList;
  *
  * <p>Most values can be associated with some set of input files, represented in this nested way to
  * facilitate sharing between values. So given a set of changed files, invalidation is performed by
- * calling {@link #containsMatch} on an instance and all transitively reachable instances via {@link
- * #getDependencyCount} and {@link #getDependency}. If any matches are encountered, the associated
- * value is invalidated.
+ * calling {@link #findEarliestMatch} on an instance and all transitively reachable instances via
+ * {@link #getDependencyCount} and {@link #getDependency}. If any matches are encountered, the
+ * associated value is invalidated.
  */
 abstract sealed class FileDependencies
-    implements FileSystemDependencies, FileDependencyDeserializer.FileDependenciesOrFuture
+    implements FileSystemDependencies.FileOpDependency,
+        FileDependencyDeserializer.FileDependenciesOrFuture
     permits FileDependencies.SingleResolvedPath,
         FileDependencies.SingleResolvedPathAndDependency,
         FileDependencies.MultiplePaths {
 
-  abstract boolean containsMatch(ImmutableSet<String> paths);
+  /**
+   * Finds the earliest version where any contained path matches a change in {@code changes}.
+   *
+   * <p>The caller must ensure the following.
+   *
+   * <ul>
+   *   <li>All the paths within are known to be valid at {@code validityHorizon} (VH).
+   *   <li>All changes over the range {@code (VH, VC]} are registered with {@code changes} before
+   *       calling this method. (VC is the synced version of the cache reader.)
+   * </ul>
+   *
+   * <p>See description of {@link VersionedChanges} for more details.
+   *
+   * <p>NOTE: this does not match anything from {@link #getDependency}.
+   *
+   * @return the earliest version where a matching (invalidating) change is identified, otherwise
+   *     {@link VersionedChanges#NO_MATCH}.
+   */
+  abstract int findEarliestMatch(VersionedChanges changes, int validityHorizon);
 
   abstract int getDependencyCount();
 
@@ -109,8 +127,8 @@ abstract sealed class FileDependencies
     }
 
     @Override
-    boolean containsMatch(ImmutableSet<String> paths) {
-      return paths.contains(resolvedPath);
+    int findEarliestMatch(VersionedChanges changes, int validityHorizon) {
+      return changes.matchFileChange(resolvedPath, validityHorizon);
     }
 
     @Override
@@ -149,8 +167,8 @@ abstract sealed class FileDependencies
     }
 
     @Override
-    boolean containsMatch(ImmutableSet<String> paths) {
-      return paths.contains(resolvedPath);
+    int findEarliestMatch(VersionedChanges changes, int validityHorizon) {
+      return changes.matchFileChange(resolvedPath, validityHorizon);
     }
 
     @Override
@@ -196,13 +214,15 @@ abstract sealed class FileDependencies
     }
 
     @Override
-    boolean containsMatch(ImmutableSet<String> paths) {
-      for (int i = 0; i < resolvedPaths.size(); i++) {
-        if (paths.contains(resolvedPaths.get(i))) {
-          return true;
+    int findEarliestMatch(VersionedChanges changes, int validityHorizon) {
+      int minMatch = VersionedChanges.NO_MATCH;
+      for (String element : resolvedPaths) {
+        int result = changes.matchFileChange(element, validityHorizon);
+        if (result < minMatch) {
+          minMatch = result;
         }
       }
-      return false;
+      return minMatch;
     }
 
     @Override

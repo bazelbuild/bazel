@@ -1269,4 +1269,69 @@ EOF
   expect_log "\"//foo:c.sh\"$"
 }
 
+function test_proto_non_ascii_attributes() {
+  rm -rf foo
+  mkdir -p foo
+  cat > foo/defs.bzl <<'EOF'
+def _impl(ctx): pass
+r = rule(
+  implementation = _impl,
+  attrs = {
+    "label": attr.label(),
+    "label_keyed_string_dict": attr.label_keyed_string_dict(),
+    "label_list": attr.label_list(),
+    "output": attr.output(),
+    "output_list": attr.output_list(),
+    "string": attr.string(),
+    "string_dict": attr.string_dict(),
+    "string_keyed_label_dict": attr.string_keyed_label_dict(),
+    "string_list": attr.string_list(),
+    "string_list_dict": attr.string_list_dict(),
+  },
+)
+
+def test_case(name, with_select):
+  def maybe_select(x):
+    if with_select:
+      return select({"//conditions:default": x})
+    return x
+
+  r(
+    name = name,
+    label = maybe_select("leaf🌱"),
+    label_keyed_string_dict = maybe_select({"fire🔥": "ice❄️"}),
+    label_list = maybe_select(["star⭐"]),
+    output = name + "flower🌸",
+    output_list = [name + "party🎉"],
+    string = maybe_select("ball⚽"),
+    string_dict = maybe_select({"sun☀️": "moon🌙"}),
+    string_keyed_label_dict = maybe_select({"heart❤️": "skull💀"}),
+    string_list = maybe_select(["rocket🚀"]),
+    string_list_dict = maybe_select({"dog🐶": ["cat🐱"]}),
+  )
+EOF
+  cat > foo/BUILD <<'EOF'
+load(":defs.bzl", "test_case")
+test_case(name = "without_select", with_select = False)
+test_case(name = "with_select", with_select = True)
+EOF
+
+  declare -a items=("leaf🌱" "fire🔥" "ice❄️" "star⭐" "flower🌸" "party🎉"
+    "ball⚽" "sun☀️" "moon🌙" "heart❤️" "skull💀" "rocket🚀" "dog🐶" "cat🐱")
+
+  bazel query --output=proto //foo:without_select >& $TEST_log \
+      || fail "Expected success"
+
+  for x in "${items[@]}"; do
+    grep -q "$x" $TEST_log || fail "Expected $x in query output for //foo:without_select"
+  done
+
+  bazel query --output=proto //foo:with_select >& $TEST_log \
+      || fail "Expected success"
+
+  for x in "${items[@]}"; do
+    grep -q "$x" $TEST_log || fail "Expected $x in query output for //foo:with_select"
+  done
+}
+
 run_suite "${PRODUCT_NAME} query tests"

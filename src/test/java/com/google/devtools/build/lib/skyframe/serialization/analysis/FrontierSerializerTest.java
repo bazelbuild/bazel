@@ -14,17 +14,28 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.skyframe.serialization.analysis.LongVersionGetterTestInjection.injectVersionGetterForTesting;
+import static org.mockito.Mockito.mock;
 
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationModule;
+import com.google.devtools.build.lib.versioning.LongVersionGetter;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public final class FrontierSerializerTest extends FrontierSerializerTestBase {
+  private final LongVersionGetter versionGetter = mock(LongVersionGetter.class);
+
+  @Before
+  public void injectVersionGetter() {
+    injectVersionGetterForTesting(versionGetter);
+  }
+
   private class ModuleWithOverrides extends SerializationModule {
 
     @Override

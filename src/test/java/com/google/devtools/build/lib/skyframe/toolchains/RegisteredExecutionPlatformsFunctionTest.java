@@ -229,51 +229,6 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
   }
 
   @Test
-  public void testRegisteredExecutionPlatforms_targetPattern_otherRepo() throws Exception {
-    setBuildLanguageOptions("--enable_workspace");
-    scratch.file(
-        "myrepo/WORKSPACE",
-        """
-        workspace(name = "myrepo")
-        """);
-    scratch.file("myrepo/BUILD");
-    scratch.file(
-        "myrepo/platforms/BUILD",
-        """
-        platform(name = "execution_platform_1")
-
-        platform(name = "execution_platform_2")
-        """);
-    scratch.file(
-        "myrepo/macro.bzl",
-        """
-        def reg():
-            native.register_execution_platforms("//platforms:all")
-        """);
-
-    rewriteWorkspace(
-        """
-        local_repository(name = "myrepo", path = "myrepo")
-
-        load("@myrepo//:macro.bzl", "reg")
-
-        reg()
-        """);
-
-    SkyKey executionPlatformsKey =
-        RegisteredExecutionPlatformsValue.key(targetConfigKey, /* debug= */ false);
-    EvaluationResult<RegisteredExecutionPlatformsValue> result =
-        requestExecutionPlatformsFromSkyframe(executionPlatformsKey);
-    assertThatEvaluationResult(result).hasNoError();
-
-    assertExecutionPlatformLabels(result.get(executionPlatformsKey))
-        .containsAtLeast(
-            Label.parseCanonicalUnchecked("@myrepo//platforms:execution_platform_1"),
-            Label.parseCanonicalUnchecked("@myrepo//platforms:execution_platform_2"))
-        .inOrder();
-  }
-
-  @Test
   public void testRegisteredExecutionPlatforms_targetPattern_mixed() throws Exception {
 
     // Add several targets, some of which are not actually platforms.
@@ -406,7 +361,6 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
 
   @Test
   public void testRegisteredExecutionPlatforms_bzlmod() throws Exception {
-    setBuildLanguageOptions("--enable_workspace");
     scratch.overwriteFile(
         "MODULE.bazel",
         """
@@ -452,7 +406,7 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
             module(name = "eee", version = "1.0")
             """);
     for (String repo : ImmutableList.of("bbb+1.0", "ccc+1.1", "ddd+1.0", "ddd+1.1", "eee+1.0")) {
-      scratch.file(moduleRoot.getRelative(repo).getRelative("WORKSPACE").getPathString());
+      scratch.file(moduleRoot.getRelative(repo).getRelative("REPO.bazel").getPathString());
       scratch.file(
           moduleRoot.getRelative(repo).getRelative("BUILD").getPathString(),
           """
@@ -464,14 +418,8 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
         """
         platform(name = "plat")
         platform(name = "dev_plat")
-        platform(name = "wsplat")
-        platform(name = "wsplat2")
         """);
-    rewriteWorkspace(
-        """
-        register_execution_platforms("//:wsplat")
-        register_execution_platforms("//:wsplat2")
-        """);
+    invalidatePackages();
 
     SkyKey executionPlatformsKey =
         RegisteredExecutionPlatformsValue.key(targetConfigKey, /* debug= */ false);
@@ -482,16 +430,12 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
     }
     assertThatEvaluationResult(result).hasNoError();
 
-    // Verify that the execution platforms registered with bzlmod come in the BFS order and before
-    // WORKSPACE registrations.
+    // Verify that the execution platforms registered with bzlmod come in the BFS order
     assertExecutionPlatformLabels(result.get(executionPlatformsKey))
         .containsExactly(
             // Root module platforms
             Label.parseCanonical("//:plat"),
             Label.parseCanonical("//:dev_plat"),
-            // WORKSPACE platforms
-            Label.parseCanonical("//:wsplat"),
-            Label.parseCanonical("//:wsplat2"),
             // Other modules' toolchains
             Label.parseCanonical("@@bbb+//:plat"),
             Label.parseCanonical("@@ccc+//:plat"),

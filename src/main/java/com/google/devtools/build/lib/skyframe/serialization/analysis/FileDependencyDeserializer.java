@@ -529,14 +529,31 @@ final class FileDependencyDeserializer {
     public ListenableFuture<NestedDependencies> apply(byte[] bytes) {
       try {
         var codedIn = CodedInputStream.newInstance(bytes);
+        int nestedCount = codedIn.readInt32();
         int fileCount = codedIn.readInt32();
         int listingCount = codedIn.readInt32();
-        int nestedCount = codedIn.readInt32();
+        int sourceCount = codedIn.readInt32();
 
-        var elements = new FileSystemDependencies[fileCount + listingCount + nestedCount];
-        var countdown = new PendingElementCountdown(elements);
+        var elements = new FileSystemDependencies[nestedCount + fileCount + listingCount];
+        var sources =
+            sourceCount > 0 ? new FileDependencies[sourceCount] : NestedDependencies.EMPTY_SOURCES;
+        var countdown = new PendingElementCountdown(elements, sources);
 
-        for (int i = 0; i < fileCount; i++) {
+        for (int i = 0; i < nestedCount; i++) {
+          var key = PackedFingerprint.readFrom(codedIn);
+          switch (getNestedDependencies(key)) {
+            case NestedDependencies dependencies:
+              elements[i] = dependencies;
+              break;
+            case FutureNestedDependencies future:
+              countdown.registerPendingElement();
+              Futures.addCallback(future, new WaitingForElement(i, countdown), directExecutor());
+              break;
+          }
+        }
+
+        int nestedAndFileCount = nestedCount + fileCount;
+        for (int i = nestedCount; i < nestedAndFileCount; i++) {
           String key = codedIn.readString();
           switch (getFileDependencies(key)) {
             case FileDependencies dependencies:
@@ -549,8 +566,8 @@ final class FileDependencyDeserializer {
           }
         }
 
-        int directCount = fileCount + listingCount;
-        for (int i = fileCount; i < directCount; i++) {
+        int total = nestedAndFileCount + listingCount;
+        for (int i = nestedAndFileCount; i < total; i++) {
           String key = codedIn.readString();
           switch (getListingDependencies(key)) {
             case ListingDependencies dependencies:
@@ -563,16 +580,15 @@ final class FileDependencyDeserializer {
           }
         }
 
-        int total = directCount + nestedCount;
-        for (int i = directCount; i < total; i++) {
-          var key = PackedFingerprint.readFrom(codedIn);
-          switch (getNestedDependencies(key)) {
-            case NestedDependencies dependencies:
-              elements[i] = dependencies;
+        for (int i = 0; i < sourceCount; i++) {
+          String key = codedIn.readString();
+          switch (getFileDependencies(key)) {
+            case FileDependencies dependencies:
+              sources[i] = dependencies;
               break;
-            case FutureNestedDependencies future:
+            case FutureFileDependencies future:
               countdown.registerPendingElement();
-              Futures.addCallback(future, new WaitingForElement(i, countdown), directExecutor());
+              Futures.addCallback(future, new WaitingForSource(i, countdown), directExecutor());
               break;
           }
         }
@@ -591,9 +607,11 @@ final class FileDependencyDeserializer {
    */
   private static class PendingElementCountdown extends QuiescingFuture<NestedDependencies> {
     private final FileSystemDependencies[] elements;
+    private final FileDependencies[] sources;
 
-    private PendingElementCountdown(FileSystemDependencies[] elements) {
+    private PendingElementCountdown(FileSystemDependencies[] elements, FileDependencies[] sources) {
       this.elements = elements;
+      this.sources = sources;
     }
 
     private void registerPendingElement() {
@@ -609,13 +627,18 @@ final class FileDependencyDeserializer {
       decrement();
     }
 
-    private void notifyElementFailure(Throwable e) {
+    private void setSource(int index, FileDependencies value) {
+      sources[index] = value;
+      decrement();
+    }
+
+    private void notifyFailure(Throwable e) {
       notifyException(e);
     }
 
     @Override
     protected NestedDependencies getValue() {
-      return new NestedDependencies(elements);
+      return new NestedDependencies(elements, sources);
     }
   }
 
@@ -640,7 +663,27 @@ final class FileDependencyDeserializer {
 
     @Override
     public void onFailure(Throwable t) {
-      countdown.notifyElementFailure(t);
+      countdown.notifyFailure(t);
+    }
+  }
+
+  private static class WaitingForSource implements FutureCallback<FileDependencies> {
+    private final int index;
+    private final PendingElementCountdown countdown;
+
+    private WaitingForSource(int index, PendingElementCountdown countdown) {
+      this.index = index;
+      this.countdown = countdown;
+    }
+
+    @Override
+    public void onSuccess(FileDependencies dependencies) {
+      countdown.setSource(index, dependencies);
+    }
+
+    @Override
+    public void onFailure(Throwable t) {
+      countdown.notifyFailure(t);
     }
   }
 

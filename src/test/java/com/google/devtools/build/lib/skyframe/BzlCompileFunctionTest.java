@@ -103,14 +103,8 @@ public class BzlCompileFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testLoadFromFileInRemoteRepo() throws Exception {
-    scratch.overwriteFile(
-        "WORKSPACE",
-        "local_repository(",
-        "    name = 'a_remote_repo',",
-        "    path = '/a_remote_repo'",
-        ")");
     Path repoPath = scratch.dir("/a_remote_repo");
-    scratch.file("/a_remote_repo/WORKSPACE");
+    scratch.file("/a_remote_repo/REPO.bazel");
     scratch.file("/a_remote_repo/remote_pkg/BUILD");
     scratch.file("/a_remote_repo/remote_pkg/foo.bzl", "load(':bar.bzl', 'CONST')");
     scratch.file("/a_remote_repo/remote_pkg/bar.bzl", "CONST = 17");

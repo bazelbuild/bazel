@@ -18,12 +18,14 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.TokenKind;
 
@@ -86,6 +88,11 @@ public class StarlarkInfoNoSchema extends StarlarkInfo {
     int n = values.size();
     Object[] table = new Object[n + n];
     int i = 0;
+    // TODO(b/380824219): Once fastcall and thus createFromNamedArgs is removed, consider whether
+    // we can wrap values.entrySet() in a SortedSet and avoid and remove sortPairs().
+    // Maybe an overloaded constructor StarlarkInfoNoSchema(Provider, SortedMap<>, Location)
+    // could also be useful in this context. Connection with b/380824219: StarlarkInfoFactory
+    // assembles values into a TreeMap and calls StarlarkInfoNoSchema(Provider, Map<>, Location).
     for (Map.Entry<String, Object> e : values.entrySet()) {
       table[i] = e.getKey();
       table[n + i] = Starlark.checkValid(e.getValue());
@@ -96,6 +103,43 @@ public class StarlarkInfoNoSchema extends StarlarkInfo {
       sortPairs(table, 0, n - 1);
     }
     return table;
+  }
+
+  static StarlarkProvider.StarlarkInfoFactory newStarlarkInfoFactory(
+      StarlarkProvider provider, StarlarkThread thread) {
+    return new StarlarkInfoFactory(provider, thread);
+  }
+
+  static class StarlarkInfoFactory extends StarlarkProvider.StarlarkInfoFactory {
+    private final Map<String, Object> namedArgMap;
+
+    StarlarkInfoFactory(StarlarkProvider provider, StarlarkThread thread) {
+      super(provider, thread);
+      this.namedArgMap = new HashMap<>();
+    }
+
+    @Override
+    public void addNamedArg(String name, Object value) throws EvalException {
+      // TODO(b/380824219): Evaluate whether we can know the number of named args here, and then
+      // place the args into the table directly.
+      Object oldValue = namedArgMap.put(name, value);
+      if (oldValue != null) {
+        throw Starlark.errorf(
+            "got multiple values for parameter %s in call to instantiate provider %s",
+            name, provider.getPrintableName());
+      }
+    }
+
+    @Override
+    public StarlarkInfo createFromArgs(StarlarkThread thread) throws EvalException {
+      return new StarlarkInfoNoSchema(provider, namedArgMap, thread.getCallerLocation());
+    }
+
+    @Override
+    public StarlarkInfo createFromMap(Map<String, Object> map, StarlarkThread thread)
+        throws EvalException {
+      return new StarlarkInfoNoSchema(provider, map, thread.getCallerLocation());
+    }
   }
 
   /**

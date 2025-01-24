@@ -592,11 +592,6 @@ java_library(
 )
 
 java_library(
-    name = "files_modified_event",
-    srcs = ["FilesModifiedEvent.java"],
-)
-
-java_library(
     name = "build_setting_provider",
     srcs = ["BuildSettingProvider.java"],
     deps = [

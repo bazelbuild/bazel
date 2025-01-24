@@ -15,10 +15,10 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer.SelectionMarking.ACTIVE;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer.SelectionMarking.FRONTIER_CANDIDATE;
+import static com.google.devtools.build.lib.skyframe.serialization.analysis.LongVersionGetterTestInjection.getVersionGetterForTesting;
+import static com.google.devtools.build.lib.util.TestType.isInTest;
 import static java.util.concurrent.ForkJoinPool.commonPool;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -26,7 +26,6 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.EventBus;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
@@ -45,21 +44,16 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.ProfileCollector;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationResult;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingEventListener.SerializedNodeEvent;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
 import com.google.devtools.build.lib.versioning.LongVersionGetter;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.InMemoryNodeEntry;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.protobuf.ByteString;
 import java.io.BufferedOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -73,7 +67,6 @@ import java.util.function.Predicate;
  * --experimental_remote_analysis_cache_mode=upload}.
  */
 public final class FrontierSerializer {
-
   private FrontierSerializer() {}
 
   /**
@@ -85,7 +78,7 @@ public final class FrontierSerializer {
   public static Optional<FailureDetail> serializeAndUploadFrontier(
       RemoteAnalysisCachingDependenciesProvider dependenciesProvider,
       SkyframeExecutor skyframeExecutor,
-      LongVersionGetter unusedVersionGetter,
+      LongVersionGetter versionGetter,
       Reporter reporter,
       EventBus eventBus)
       throws InterruptedException {
@@ -113,7 +106,6 @@ public final class FrontierSerializer {
       return Optional.empty();
     }
 
-    var profileCollector = new ProfileCollector();
     ObjectCodecs codecs;
     try {
       codecs = futureCodecs.get();
@@ -129,34 +121,44 @@ public final class FrontierSerializer {
 
     reporter.handle(Event.info(String.format("Initializing codecs took %s\n", stopwatch)));
 
-    var writeStatuses = Collections.synchronizedList(new ArrayList<ListenableFuture<Void>>());
-    AtomicInteger frontierValueCount = new AtomicInteger();
-    selection.entrySet().parallelStream()
-        .forEach(
-            entry -> {
-              if (entry.getValue() != FRONTIER_CANDIDATE) {
-                return;
-              }
+    FrontierNodeVersion frontierVersion;
+    try {
+      frontierVersion = dependenciesProvider.getSkyValueVersion();
+    } catch (SerializationException e) {
+      String message = "error computing frontier version " + e.getMessage();
+      reporter.error(null, message);
+      return Optional.of(createFailureDetail(message, Code.SERIALIZED_FRONTIER_PROFILE_FAILED));
+    }
 
-              SkyKey key = entry.getKey();
+    var profileCollector = new ProfileCollector();
+    var frontierValueCount = new AtomicInteger();
 
-              try {
-                serializeAndUploadEntry(
-                    dependenciesProvider, codecs, key, profileCollector, writeStatuses, graph);
-                frontierValueCount.getAndIncrement();
-                eventBus.post(new SerializedNodeEvent(key));
-              } catch (SerializationException e) {
-                writeStatuses.add(immediateFailedFuture(e));
-              }
-            });
+    if (versionGetter == null) {
+      if (isInTest()) {
+        versionGetter = getVersionGetterForTesting();
+      } else {
+        throw new NullPointerException("missing versionGetter");
+      }
+    }
+
+    ListenableFuture<Void> writeStatus =
+        SelectedEntrySerializer.uploadSelection(
+            graph,
+            versionGetter,
+            codecs,
+            frontierVersion,
+            selection,
+            dependenciesProvider.getFingerprintValueService(),
+            eventBus,
+            profileCollector,
+            frontierValueCount);
 
     reporter.handle(
         Event.info(
             String.format("Serialized %s frontier entries in %s", frontierValueCount, stopwatch)));
 
     try {
-      var unusedNull =
-          Futures.whenAllSucceed(writeStatuses).call(() -> null, directExecutor()).get();
+      var unusedNull = writeStatus.get();
     } catch (ExecutionException e) {
       Throwable cause = e.getCause();
       String message = cause.getMessage();
@@ -183,43 +185,6 @@ public final class FrontierSerializer {
       return Optional.of(createFailureDetail(message, Code.SERIALIZED_FRONTIER_PROFILE_FAILED));
     }
     return Optional.empty();
-  }
-
-  private static void serializeAndUploadEntry(
-      RemoteAnalysisCachingDependenciesProvider dependenciesProvider,
-      ObjectCodecs codecs,
-      SkyKey key,
-      ProfileCollector profileCollector,
-      List<ListenableFuture<Void>> writeStatuses,
-      InMemoryGraph graph)
-      throws SerializationException {
-    var fingerprintValueService = dependenciesProvider.getFingerprintValueService();
-    SerializationResult<ByteString> keyBytes =
-        codecs.serializeMemoizedAndBlocking(fingerprintValueService, key, profileCollector);
-    var keyWriteStatus = keyBytes.getFutureToBlockWritesOn();
-    if (keyWriteStatus != null) {
-      writeStatuses.add(keyWriteStatus);
-    }
-
-    InMemoryNodeEntry node = checkNotNull(graph.getIfPresent(key), key);
-    SerializationResult<ByteString> valueBytes =
-        codecs.serializeMemoizedAndBlocking(
-            fingerprintValueService, node.getValue(), profileCollector);
-    var writeStatusFuture = valueBytes.getFutureToBlockWritesOn();
-    if (writeStatusFuture != null) {
-      writeStatuses.add(writeStatusFuture);
-    }
-
-    // Associates the SkyKey to the SkyValue.
-    //
-    // TODO: b/364831651 - determine the version metadata that should also be part of this key.
-    writeStatuses.add(
-        fingerprintValueService.put(
-            fingerprintValueService.fingerprint(
-                dependenciesProvider
-                    .getSkyValueVersion()
-                    .concat(keyBytes.getObject().toByteArray())),
-            valueBytes.getObject().toByteArray()));
   }
 
   private static void dumpUploadManifest(PrintStream out, Map<SkyKey, SelectionMarking> selection) {

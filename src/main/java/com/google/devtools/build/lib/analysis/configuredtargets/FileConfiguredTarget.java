@@ -31,13 +31,11 @@ import com.google.devtools.build.lib.util.FileType;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 
-/**
- * A ConfiguredTarget for a source FileTarget. (Generated files use a subclass,
- * OutputFileConfiguredTarget.)
- */
+/** A configured target representing a source or derived / generated file. */
 @Immutable
-public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
-    implements FileType.HasFileType, LicensesProvider {
+public abstract sealed class FileConfiguredTarget extends AbstractConfiguredTarget
+    implements FileType.HasFileType, LicensesProvider
+    permits InputFileConfiguredTarget, OutputFileConfiguredTarget {
 
   private final NestedSet<Artifact> singleFile;
 

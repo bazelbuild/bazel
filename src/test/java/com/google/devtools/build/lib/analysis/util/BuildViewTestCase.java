@@ -204,7 +204,6 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
 import java.util.function.Predicate;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -418,7 +417,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected void initializeMockClient() throws IOException {
     analysisMock.setupMockClient(mockToolsConfig);
-    analysisMock.setupMockWorkspaceFiles(directories.getEmbeddedBinariesRoot());
     analysisMock.setupPrelude(mockToolsConfig);
   }
 
@@ -565,7 +563,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected List<String> getDefaultBuildLanguageOptions() throws Exception {
     ImmutableList.Builder<String> ans = ImmutableList.builder();
     ans.addAll(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
-    ans.add("--enable_bzlmod");
     return ans.build();
   }
 
@@ -1201,22 +1198,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
                     && ((AspectKey) e.getKey()).getAspectName().equals(label))
         .map(e -> (AspectValue) e.getValue())
         .collect(onlyElement());
-  }
-
-  /**
-   * Rewrites the WORKSPACE to have the required boilerplate and the given lines of content.
-   *
-   * <p>Triggers Skyframe to reinitialize everything.
-   */
-  public void rewriteWorkspace(String... lines) throws Exception {
-    scratch.overwriteFile(
-        "WORKSPACE",
-        new ImmutableList.Builder<String>()
-            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
-            .addAll(ImmutableList.copyOf(lines))
-            .build());
-
-    invalidatePackages();
   }
 
   /**
@@ -2374,31 +2355,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return getBinArtifact(getImplicitOutputPath(target, outputFunction), target);
   }
 
-  static final Pattern WORKSPACE_NAME_PATTERN =
-      Pattern.compile(
-          "workspace\\(\\s*name\\s*=\\s*(?:'|\")(\\w+)(?:'|\")\\s*\\)", Pattern.MULTILINE);
-
-  private String findWorkspaceName() {
-    // HACK -- we have to somehow get the workspace name here. But running skyframe itself is too
-    // demanding (and who knows what might go wrong if we run skyframe mid-setup); so we fall back
-    // to just reading out the WORKSPACE file ourselves and doing a simple parse. This function
-    // crudely reproduces the logic of WorkspaceNameFunction.
-    if (buildLanguageOptions.enableBzlmod) {
-      return ruleClassProvider.getRunfilesPrefix();
-    }
-    try {
-      Matcher matcher = WORKSPACE_NAME_PATTERN.matcher(scratch.readFile("WORKSPACE"));
-      if (matcher.find()) {
-        return matcher.group(1);
-      }
-      return "__main__";
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
   public Path getExecRoot() {
-    return directories.getExecRoot(findWorkspaceName());
+    return directories.getExecRoot(ruleClassProvider.getRunfilesPrefix());
   }
 
   /** Returns true iff commandLine contains the option --flagName followed by arg. */

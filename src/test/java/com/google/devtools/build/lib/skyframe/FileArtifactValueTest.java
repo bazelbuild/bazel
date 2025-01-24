@@ -20,7 +20,6 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.io.BaseEncoding;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.UnresolvedSymlinkArtifactValue;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -31,6 +30,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
+import java.time.Instant;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -89,17 +89,17 @@ public final class FileArtifactValueTest {
             FileArtifactValue.createForDirectoryWithMtime(2))
         .addEqualityGroup(
             // expireAtEpochMilli doesn't contribute to the equality
-            RemoteFileArtifactValue.createWithMaterializationData(
+            FileArtifactValue.createForRemoteFileWithMaterializationData(
                 toBytes("00112233445566778899AABBCCDDEEFF"),
-                1,
-                1,
-                1,
+                /* size= */ 1,
+                /* locationIndex= */ 1,
+                /* expirationTime= */ Instant.ofEpochMilli(1),
                 /* materializationExecPath= */ null),
-            RemoteFileArtifactValue.createWithMaterializationData(
+            FileArtifactValue.createForRemoteFileWithMaterializationData(
                 toBytes("00112233445566778899AABBCCDDEEFF"),
-                1,
-                1,
-                2,
+                /* size= */ 1,
+                /* locationIndex= */ 1,
+                /* expirationTime= */ Instant.ofEpochMilli(2),
                 /* materializationExecPath= */ null))
         .addEqualityGroup(FileArtifactValue.MISSING_FILE_MARKER)
         .addEqualityGroup(FileArtifactValue.RUNFILES_TREE_MARKER)

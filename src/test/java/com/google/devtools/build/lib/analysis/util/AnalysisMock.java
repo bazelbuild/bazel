@@ -53,12 +53,10 @@ import com.google.devtools.build.lib.skyframe.RepositoryMappingFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.packages.PackageFactoryBuilderWithSkyframeForTesting;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import java.io.IOException;
 import java.lang.reflect.Field;
-import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -108,13 +106,11 @@ public abstract class AnalysisMock extends LoadingMock {
    * configuration.
    */
   public void setupMockClient(MockToolsConfig mockToolsConfig) throws IOException {
-    ImmutableList<String> workspaceContents = getWorkspaceContents(mockToolsConfig);
-    setupMockClient(mockToolsConfig, workspaceContents);
+    setupMockClientInternal(mockToolsConfig);
     setupMockTestingRules(mockToolsConfig);
   }
 
-  public abstract void setupMockClient(
-      MockToolsConfig mockToolsConfig, List<String> getWorkspaceContents) throws IOException;
+  public abstract void setupMockClientInternal(MockToolsConfig mockToolsConfig) throws IOException;
 
   public void setupMockTestingRules(MockToolsConfig mockToolsConfig) throws IOException {
     mockToolsConfig.create("test_defs/BUILD");
@@ -172,18 +168,6 @@ public abstract class AnalysisMock extends LoadingMock {
         )
         """);
   }
-
-  /** Returns the contents of WORKSPACE. */
-  public abstract ImmutableList<String> getWorkspaceContents(MockToolsConfig config);
-
-  /** Returns the repos defined in the contents of WORKSPACE above. */
-  public abstract ImmutableList<String> getWorkspaceRepos();
-
-  /**
-   * This is called from test setup to create any necessary mock workspace files in the <code>
-   * _embedded_binaries</code> directory.
-   */
-  public abstract void setupMockWorkspaceFiles(Path embeddedBinariesRoot) throws IOException;
 
   /** Creates a mock tools repository. */
   public void setupMockToolsRepository(MockToolsConfig config) throws IOException {
@@ -298,24 +282,8 @@ public abstract class AnalysisMock extends LoadingMock {
     }
 
     @Override
-    public void setupMockClient(MockToolsConfig mockToolsConfig, List<String> workspaceContents)
-        throws IOException {
-      delegate.setupMockClient(mockToolsConfig, workspaceContents);
-    }
-
-    @Override
-    public ImmutableList<String> getWorkspaceContents(MockToolsConfig mockToolsConfig) {
-      return delegate.getWorkspaceContents(mockToolsConfig);
-    }
-
-    @Override
-    public ImmutableList<String> getWorkspaceRepos() {
-      return delegate.getWorkspaceRepos();
-    }
-
-    @Override
-    public void setupMockWorkspaceFiles(Path embeddedBinariesRoot) throws IOException {
-      delegate.setupMockWorkspaceFiles(embeddedBinariesRoot);
+    public void setupMockClientInternal(MockToolsConfig mockToolsConfig) throws IOException {
+      delegate.setupMockClientInternal(mockToolsConfig);
     }
 
     @Override

@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.Lockfile
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
 import com.google.devtools.build.lib.clock.BlazeClock;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
@@ -223,9 +222,7 @@ public class DiscoveryTest extends FoundationTestCase {
                 .buildOrThrow(),
             differencer);
 
-    PrecomputedValue.STARLARK_SEMANTICS.set(
-        differencer,
-        StarlarkSemantics.builder().setBool(BuildLanguageOptions.ENABLE_BZLMOD, true).build());
+    PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
     RepositoryMappingFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
     RepositoryDelegatorFunction.FORCE_FETCH.set(
         differencer, RepositoryDelegatorFunction.FORCE_FETCH_DISABLED);
@@ -526,7 +523,6 @@ public class DiscoveryTest extends FoundationTestCase {
     Path pathToC = scratch.dir("/pathToC");
     scratch.file(
         pathToC.getRelative("MODULE.bazel").getPathString(), "module(name='ccc',version='2.0')");
-    scratch.file(pathToC.getRelative("WORKSPACE").getPathString());
     scratch.file(
         workspaceRoot.getRelative("MODULE.bazel").getPathString(),
         "module(name='aaa',version='0.1')",
@@ -582,12 +578,10 @@ public class DiscoveryTest extends FoundationTestCase {
     scratch.file(
         workspaceRoot.getRelative("MODULE.bazel").getPathString(),
         "bazel_dep(name='foo',version='2.0')");
-    scratch.file(rootDirectory.getRelative("tools/WORKSPACE").getPathString());
     scratch.file(
         rootDirectory.getRelative("tools/MODULE.bazel").getPathString(),
         "module(name='bazel_tools',version='1.0')",
         "bazel_dep(name='foo',version='1.0')");
-    scratch.file(rootDirectory.getRelative("localplat/WORKSPACE").getPathString());
     scratch.file(
         rootDirectory.getRelative("localplat/MODULE.bazel").getPathString(),
         "module(name='local_config_platform')");

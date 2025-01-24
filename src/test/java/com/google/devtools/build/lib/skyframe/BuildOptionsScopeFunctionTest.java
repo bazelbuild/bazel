@@ -64,7 +64,6 @@ public final class BuildOptionsScopeFunctionTest extends BuildViewTestCase {
   @Test
   @Ignore("TODO(b/359622692): turns this back on in a follow up CL")
   public void buildOptionsScopesFunction_returnsCorrectScope() throws Exception {
-    rewriteWorkspace("WORKSPACE", "workspace(name = 'foo')");
     scratch.file(
         "test_flags/build_setting.bzl",
         """
@@ -119,7 +118,6 @@ public final class BuildOptionsScopeFunctionTest extends BuildViewTestCase {
     BuildOptionsScopeValue buildOptionsScopeValue = executeFunction(key);
 
     // verify that the Scope is fully resolved for //test_flags:foo and //test_flags:bar
-    assertThat(buildOptionsScopeValue.getBaselineConfiguration()).isNotNull();
     var unused =
         assertThat(
             buildOptionsScopeValue
@@ -145,7 +143,6 @@ public final class BuildOptionsScopeFunctionTest extends BuildViewTestCase {
 
   @Test
   public void buildOptionsScopesFunction_doesNotErrorOut_whenNoProjectFile() throws Exception {
-    rewriteWorkspace("WORKSPACE", "workspace(name = 'foo')");
     scratch.file(
         "test_flags/build_setting.bzl",
         """
@@ -175,7 +172,6 @@ public final class BuildOptionsScopeFunctionTest extends BuildViewTestCase {
         BuildOptionsScopeValue.Key.create(buildOptionsWithoutScopes, scopedFlags);
 
     BuildOptionsScopeValue buildOptionsScopeValue = executeFunction(key);
-    assertThat(buildOptionsScopeValue.getBaselineConfiguration()).isNotNull();
     var unused =
         assertThat(
             buildOptionsScopeValue

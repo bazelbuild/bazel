@@ -194,9 +194,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 .buildOrThrow(),
             differencer);
 
-    PrecomputedValue.STARLARK_SEMANTICS.set(
-        differencer,
-        StarlarkSemantics.builder().setBool(BuildLanguageOptions.ENABLE_BZLMOD, true).build());
+    PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
     RepositoryMappingFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
     RepositoryDelegatorFunction.FORCE_FETCH.set(
         differencer, RepositoryDelegatorFunction.FORCE_FETCH_DISABLED);
@@ -639,7 +637,6 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         rootDirectory.getRelative("code_for_b/MODULE.bazel").getPathString(),
         "module(name='bbb',version='1.0')",
         "bazel_dep(name='ccc',version='2.0')");
-    scratch.overwriteFile(rootDirectory.getRelative("code_for_b/WORKSPACE").getPathString());
     FakeRegistry registry =
         registryFactory
             .newFakeRegistry("/foo")
@@ -680,12 +677,10 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     scratch.overwriteFile(
         rootDirectory.getRelative("ignored_override/MODULE.bazel").getPathString(),
         "module(name='bbb',version='1.0')");
-    scratch.overwriteFile(rootDirectory.getRelative("ignored_override/WORKSPACE").getPathString());
     scratch.overwriteFile(
         rootDirectory.getRelative("used_override/MODULE.bazel").getPathString(),
         "module(name='bbb',version='1.0')",
         "bazel_dep(name='ccc',version='2.0')");
-    scratch.overwriteFile(rootDirectory.getRelative("used_override/WORKSPACE").getPathString());
 
     // ModuleFileFuncion.MODULE_OVERRIDES should be filled from command line options
     // Inject for testing
@@ -1443,7 +1438,6 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "bazel_dep(name='foo',version='1.0')");
-    scratch.overwriteFile(rootDirectory.getRelative("tools/WORKSPACE").getPathString());
     scratch.overwriteFile(
         rootDirectory.getRelative("tools/MODULE.bazel").getPathString(),
         "module(name='bazel_tools',version='1.0')",
@@ -1556,7 +1550,6 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     PrecomputedValue.STARLARK_SEMANTICS.set(
         differencer,
         StarlarkSemantics.builder()
-            .setBool(BuildLanguageOptions.ENABLE_BZLMOD, true)
             .setBool(BuildLanguageOptions.EXPERIMENTAL_ISOLATED_EXTENSION_USAGES, true)
             .build());
 
@@ -1583,7 +1576,6 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     PrecomputedValue.STARLARK_SEMANTICS.set(
         differencer,
         StarlarkSemantics.builder()
-            .setBool(BuildLanguageOptions.ENABLE_BZLMOD, true)
             .setBool(BuildLanguageOptions.EXPERIMENTAL_ISOLATED_EXTENSION_USAGES, true)
             .build());
 

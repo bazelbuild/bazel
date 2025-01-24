@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.packages.Package;
 import javax.annotation.Nullable;
 
 /** Common base class for configured target values for rules and non-rules. */
-abstract class BaseRuleConfiguredTargetValue<T extends ConfiguredTarget>
+abstract class AbstractConfiguredTargetValue<T extends ConfiguredTarget>
     implements ConfiguredTargetValue {
   // This variable is non-final because it may be clear()ed to save memory. It is null only after
   // clear(true) is called.
@@ -32,7 +32,7 @@ abstract class BaseRuleConfiguredTargetValue<T extends ConfiguredTarget>
   // deserialization.
   @Nullable private transient NestedSet<Package> transitivePackages;
 
-  BaseRuleConfiguredTargetValue(
+  AbstractConfiguredTargetValue(
       T configuredTarget, @Nullable NestedSet<Package> transitivePackages) {
     this.configuredTarget = Preconditions.checkNotNull(configuredTarget);
     this.transitivePackages = transitivePackages;
