@@ -267,9 +267,9 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
             ? StarlarkInfoWithSchema.newStarlarkInfoFactory(this, thread)
             : StarlarkInfoNoSchema.newStarlarkInfoFactory(this, thread);
     if (initArgumentProcessor != null) {
-      return new ArgumentProcessorWithInit(owner, factory, initArgumentProcessor);
+      return new ArgumentProcessorWithInit(owner, factory, initArgumentProcessor, thread);
     } else {
-      return new RawArgumentProcessor(owner, factory);
+      return new RawArgumentProcessor(owner, factory, thread);
     }
   }
 
@@ -279,8 +279,9 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
     ArgumentProcessorWithInit(
         StarlarkCallable owner,
         StarlarkProvider.StarlarkInfoFactory factory,
-        StarlarkCallable.ArgumentProcessor initArgumentProcessor) {
-      super(owner, factory);
+        StarlarkCallable.ArgumentProcessor initArgumentProcessor,
+        StarlarkThread thread) {
+      super(owner, factory, thread);
       this.initArgumentProcessor = initArgumentProcessor;
     }
 
@@ -303,18 +304,22 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
     }
   }
 
-  static class RawArgumentProcessor implements StarlarkCallable.ArgumentProcessor {
+  static class RawArgumentProcessor extends StarlarkCallable.ArgumentProcessor {
     protected final StarlarkCallable owner;
     protected final StarlarkProvider.StarlarkInfoFactory factory;
 
-    RawArgumentProcessor(StarlarkCallable owner, StarlarkProvider.StarlarkInfoFactory factory) {
+    RawArgumentProcessor(
+        StarlarkCallable owner,
+        StarlarkProvider.StarlarkInfoFactory factory,
+        StarlarkThread thread) {
+      super(thread);
       this.owner = owner;
       this.factory = factory;
     }
 
     @Override
     public void addPositionalArg(Object value) throws EvalException {
-      throw Starlark.errorf("%s: unexpected positional arguments", owner.getName());
+      pushCallableAndThrow(Starlark.errorf("%s: unexpected positional arguments", owner.getName()));
     }
 
     @Override
@@ -348,10 +353,6 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
         throws EvalException;
 
     abstract void addNamedArg(String name, Object value) throws EvalException;
-
-    void addPositionalArg(Object value) throws EvalException {
-      throw Starlark.errorf("%s: unexpected positional arguments", provider.getName());
-    }
   }
 
   private static Object[] toNamedArgs(Object value, String descriptionForError)

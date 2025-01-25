@@ -193,7 +193,7 @@ public final class StarlarkFunction implements StarlarkCallable {
   public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named)
       throws EvalException, InterruptedException {
     checkRecursive(thread);
-    FastcallArgumentProcessor argumentProcessor = new FastcallArgumentProcessor(this);
+    FastcallArgumentProcessor argumentProcessor = new FastcallArgumentProcessor(this, thread);
     // Feed positional and named arguments into the argument processor.
     argumentProcessor.processPositionalAndNamed(positional, named, thread.mutability());
     return callWithArguments(thread, argumentProcessor);
@@ -203,7 +203,7 @@ public final class StarlarkFunction implements StarlarkCallable {
   public Object positionalOnlyCall(StarlarkThread thread, Object... positional)
       throws EvalException, InterruptedException {
     checkRecursive(thread);
-    FastcallArgumentProcessor argumentProcessor = new FastcallArgumentProcessor(this);
+    FastcallArgumentProcessor argumentProcessor = new FastcallArgumentProcessor(this, thread);
     // Feed only positional arguments into the argument processor.
     argumentProcessor.processPositionalOnly(positional, thread.mutability());
     return callWithArguments(thread, argumentProcessor);
@@ -211,7 +211,7 @@ public final class StarlarkFunction implements StarlarkCallable {
 
   @Override
   public StarlarkCallable.ArgumentProcessor requestArgumentProcessor(StarlarkThread thread) {
-    return new ArgumentProcessor(this);
+    return new ArgumentProcessor(this, thread);
   }
 
   private Object callWithArguments(StarlarkThread thread, BaseArgumentProcessor argumentProcessor)
@@ -335,8 +335,7 @@ public final class StarlarkFunction implements StarlarkCallable {
   // Newly allocated values (e.g. a **kwargs dict) use the Mutability mu.
   //
   // If the function has optional parameters, their default values are supplied by getDefaultValue.
-  private abstract static class BaseArgumentProcessor
-      implements StarlarkCallable.ArgumentProcessor {
+  private abstract static class BaseArgumentProcessor extends StarlarkCallable.ArgumentProcessor {
 
     // This is the general schema of a function:
     //
@@ -385,7 +384,8 @@ public final class StarlarkFunction implements StarlarkCallable {
     // args, not just the first one that was encountered.
     @Nullable protected List<String> unexpectedNamedArgs;
 
-    public BaseArgumentProcessor(StarlarkFunction owner) {
+    public BaseArgumentProcessor(StarlarkFunction owner, StarlarkThread thread) {
+      super(thread);
       this.owner = owner;
       this.locals = new Object[owner.rfn.getLocals().size()];
       this.unexpectedNamedArgs = null;
@@ -493,8 +493,8 @@ public final class StarlarkFunction implements StarlarkCallable {
 
   private static class FastcallArgumentProcessor extends BaseArgumentProcessor {
 
-    public FastcallArgumentProcessor(StarlarkFunction owner) {
-      super(owner);
+    public FastcallArgumentProcessor(StarlarkFunction owner, StarlarkThread thread) {
+      super(owner, thread);
     }
 
     void processPositionalAndNamed(Object[] positional, Object[] named, Mutability mu)
@@ -629,8 +629,8 @@ public final class StarlarkFunction implements StarlarkCallable {
     @Nullable private ArrayList<Object> varArgs;
     @Nullable private LinkedHashMap<String, Object> kwargs;
 
-    ArgumentProcessor(StarlarkFunction owner) {
-      super(owner);
+    ArgumentProcessor(StarlarkFunction owner, StarlarkThread thread) {
+      super(owner, thread);
       this.varArgs = null;
       this.kwargs = null;
     }
@@ -658,7 +658,8 @@ public final class StarlarkFunction implements StarlarkCallable {
     }
 
     protected void throwDoubleDefinedKeywordArg(String name) throws EvalException {
-      throw Starlark.errorf("%s() got multiple values for parameter '%s'", owner.getName(), name);
+      pushCallableAndThrow(
+          Starlark.errorf("%s() got multiple values for parameter '%s'", owner.getName(), name));
     }
 
     @Override

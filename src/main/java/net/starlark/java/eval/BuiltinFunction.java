@@ -137,9 +137,8 @@ public final class BuiltinFunction implements StarlarkCallable {
     return new ArgumentProcessor(this, thread, getMethodDescriptor(thread.getSemantics()));
   }
 
-  static class ArgumentProcessor implements StarlarkCallable.ArgumentProcessor {
+  static class ArgumentProcessor extends StarlarkCallable.ArgumentProcessor {
     private final BuiltinFunction owner;
-    private final StarlarkThread thread;
     private final MethodDescriptor desc;
     private final ParamDescriptor[] parameters;
     private final Object[] vector;
@@ -151,8 +150,8 @@ public final class BuiltinFunction implements StarlarkCallable {
     private int unexpectedPositionalArgCount;
 
     ArgumentProcessor(BuiltinFunction owner, StarlarkThread thread, MethodDescriptor desc) {
+      super(thread);
       this.owner = owner;
-      this.thread = thread;
       this.desc = desc;
       this.parameters = desc.getParameters();
       varArgs = null;
@@ -225,7 +224,7 @@ public final class BuiltinFunction implements StarlarkCallable {
               Arrays.stream(parameters)
                   .map(ParamDescriptor::getName)
                   .collect(ImmutableList.toImmutableList());
-          throwEvalException(
+          pushCallableAndThrow(
               Starlark.errorf(
                   "%s() got unexpected keyword argument '%s'%s",
                   owner.methodName, name, SpellChecker.didYouMean(name, allNames)));
@@ -233,7 +232,7 @@ public final class BuiltinFunction implements StarlarkCallable {
 
         // duplicate named argument?
         if (kwargs.put(name, value) != null) {
-          throwEvalException(
+          pushCallableAndThrow(
               Starlark.errorf(
                   "%s() got multiple values for keyword argument '%s'", owner.methodName, name));
         }
@@ -245,7 +244,7 @@ public final class BuiltinFunction implements StarlarkCallable {
       if (!param.isNamed()) {
         // spill to **kwargs
         if (kwargs == null) {
-          throwEvalException(
+          pushCallableAndThrow(
               Starlark.errorf(
                   "%s() got named argument for positional-only parameter '%s'",
                   owner.methodName, name));
@@ -253,7 +252,7 @@ public final class BuiltinFunction implements StarlarkCallable {
 
         // duplicate named argument?
         if (kwargs.put(name, value) != null) {
-          throwEvalException(
+          pushCallableAndThrow(
               Starlark.errorf(
                   "%s() got multiple values for keyword argument '%s'", owner.methodName, name));
         }
@@ -267,7 +266,7 @@ public final class BuiltinFunction implements StarlarkCallable {
         // TODO(b/380824219): Disabled named parameters should be skipped, no matter whether kwargs
         // is null or not. Disabled parameters should not be spilled to **kwargs.
         if (kwargs == null) {
-          throwEvalException(
+          pushCallableAndThrow(
               Starlark.errorf(
                   "in call to %s(), parameter '%s' is %s",
                   owner.methodName, param.getName(), disabled(flag, thread.getSemantics())));
@@ -275,7 +274,7 @@ public final class BuiltinFunction implements StarlarkCallable {
 
         // duplicate named argument?
         if (kwargs.put(name, value) != null) {
-          throwEvalException(
+          pushCallableAndThrow(
               Starlark.errorf(
                   "%s() got multiple values for keyword argument '%s'", owner.methodName, name));
         }
@@ -286,7 +285,7 @@ public final class BuiltinFunction implements StarlarkCallable {
 
       // duplicate?
       if (vector[index] != null) {
-        throwEvalException(
+        pushCallableAndThrow(
             Starlark.errorf("%s() got multiple values for argument '%s'", owner.methodName, name));
       }
 
@@ -308,7 +307,7 @@ public final class BuiltinFunction implements StarlarkCallable {
         }
       }
       if (!ok) {
-        throwEvalException(
+        pushCallableAndThrow(
             Starlark.errorf(
                 "in call to %s(), parameter '%s' got value of type '%s', want '%s'",
                 owner.methodName,
@@ -316,11 +315,6 @@ public final class BuiltinFunction implements StarlarkCallable {
                 Starlark.type(value),
                 param.getTypeErrorMessage()));
       }
-    }
-
-    private void throwEvalException(EvalException e) throws EvalException {
-      thread.push(owner);
-      throw e;
     }
 
     @Override
