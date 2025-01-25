@@ -105,7 +105,13 @@ public interface StarlarkCallable extends StarlarkValue {
    */
   default Object positionalOnlyCall(StarlarkThread thread, Object... positional)
       throws EvalException, InterruptedException {
-    return fastcall(thread, positional, new Object[] {});
+    ArgumentProcessor argumentProcessor = requestArgumentProcessor(thread);
+    // TODO(b/380824219): Consider adding am addPositionalArgs(Object[] positional) method to
+    // ArgumentProcessor. See also b/380824219#comment23
+    for (Object value : positional) {
+      argumentProcessor.addPositionalArg(value);
+    }
+    return argumentProcessor.call(thread);
   }
 
   /**
