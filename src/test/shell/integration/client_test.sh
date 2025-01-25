@@ -472,7 +472,7 @@ function test_noblock_for_lock_reuse_server() {
 
   # Get the client pid from the log. This isn't necessarily the subshell pid
   # because there might be wrapper scripts in between.
-  local -r client_pid="$(cat "$TEST_log" | sed -nr 's/.*Running \(pid=([0-9]+)\)/\1/p')"
+  local -r client_pid="$(cat "$TEST_log" | scrape_client_pid)"
 
   # Run another command in the same workspace but different startup options,
   # which requires a server restart. Since the server is currently running the
@@ -538,7 +538,7 @@ function test_noblock_for_lock_with_batch() {
 
   # Get the client pid from the log. This isn't necessarily the subshell pid
   # because there might be wrapper scripts in between.
-  local -r client_pid="$(cat "$TEST_log" | sed -nr 's/.*Running \(pid=([0-9]+)\)/\1/p')"
+  local -r client_pid="$(cat "$TEST_log" | scrape_client_pid)"
 
   local exit_code=0
   bazel --client_debug --batch --noblock_for_lock info &>"$TEST_log-2" || exit_code=$?
@@ -809,6 +809,40 @@ function test_client_is_quiet_by_default() {
 
   assert_equals 1 $(cat $TEST_log | wc -l)
   expect_log "^[0-9]\+$"
+}
+
+function test_sigquit() {
+  # Use a FIFO to spoonfeed the Bazel server.
+  mkdir -p a && mkfifo a/BUILD || fail "couldn't create fifo a"
+  mkdir -p b && mkfifo b/BUILD || fail "couldn't create fifo b"
+  bazel --client_debug build --nobuild //a:a &> "$TEST_log" &
+  local -r subshell_pid="$!"
+
+  # Wait until Bazel reads a/BUILD. After that, it will block on b/BUILD.
+  echo "filegroup(name='a', srcs=['//b:b'])" > a/BUILD
+
+  # Get the client pid from the log. This isn't necessarily the subshell pid
+  # because there might be wrapper scripts in between.
+  local -r client_pid="$(cat "$TEST_log" | scrape_client_pid)"
+
+  # Send a SIGQUIT to the client.
+  kill -SIGQUIT "$client_pid"
+
+  # Unstick the server *before* checking expectations, otherwise the test suite
+  # will hang.
+  echo "filegroup(name='b', visibility=['//visibility:public'])" > b/BUILD
+  wait "$subshell_pid" || fail "Couldn't wait"
+  rm -rf a b
+
+  # Get the jvm.out location.
+  local -r jvm_out="$(bazel --client_debug info output_base)/server/jvm.out"
+
+  # Look for a distinctive string indicating the presence of a thread dump.
+  assert_contains "Full thread dump" "$jvm_out"
+}
+
+function scrape_client_pid() {
+  sed -nr 's/.*Running \(pid=([0-9]+)\)/\1/p'
 }
 
 run_suite "Tests of the bazel client."
