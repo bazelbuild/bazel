@@ -520,6 +520,7 @@ def _create_cc_toolchain_config_info(
         tool_paths = [],
         make_variables = [],
         builtin_sysroot = None,
+        additional_link_outputs = [],
         cc_target_os = None):
     return cc_common_internal.create_cc_toolchain_config_info(
         ctx = ctx,
@@ -529,6 +530,7 @@ def _create_cc_toolchain_config_info(
         target_libc = target_libc,
         compiler = compiler,
         features = features,
+        additional_link_outputs = additional_link_outputs,
         action_configs = action_configs,
         artifact_name_patterns = artifact_name_patterns,
         cxx_builtin_include_directories = cxx_builtin_include_directories,

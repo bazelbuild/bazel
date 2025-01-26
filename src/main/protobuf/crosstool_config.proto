@@ -485,7 +485,9 @@ message CToolchain {
   // things internal to Google.
   optional string cc_target_os = 55;
 
-  // Next free id: 56
+  repeated string additional_link_outputs = 56;
+
+  // Next free id: 57
 }
 
 message ToolPath {

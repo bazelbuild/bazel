@@ -1994,6 +1994,12 @@ public interface CcModuleApi<
             doc =
                 "The built-in sysroot. If this attribute is not present, Bazel does not "
                     + "allow using a different sysroot, i.e. through the --grte_top option."),
+        @Param(
+            name = "additional_link_outputs",
+            positional = false,
+            named = true,
+            defaultValue = "[]",
+            doc = "TODO: doc"),
       })
   CcToolchainConfigInfoT ccToolchainConfigInfoFromStarlark(
       StarlarkRuleContextT starlarkRuleContext,
@@ -2012,6 +2018,7 @@ public interface CcModuleApi<
       Sequence<?> toolPaths, // <StructApi> expected
       Sequence<?> makeVariables, // <StructApi> expected
       Object builtinSysroot,
+      Sequence<?> additionalLinkOutputs,
       StarlarkThread thread)
       throws EvalException;
 
