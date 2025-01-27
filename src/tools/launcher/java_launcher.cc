@@ -250,7 +250,7 @@ wstring JavaBinaryLauncher::CreateClasspathJar(const wstring& classpath) {
       binary_base_path + rand_id + L".jar_manifest";
   blaze_util::AddUncPrefixMaybe(&jar_manifest_file_path);
 #if (__cplusplus >= 201703L)
-  wofstream jar_manifest_file(std::filesystem::path(jar_manifest_file_path));
+  wofstream jar_manifest_file{std::filesystem::path(jar_manifest_file_path)};
 #else
   wofstream jar_manifest_file(jar_manifest_file_path);
 #endif
