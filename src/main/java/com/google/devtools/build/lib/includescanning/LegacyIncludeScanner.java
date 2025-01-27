@@ -828,7 +828,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
         final Artifact source, int contextPathPos, Kind contextKind, Set<Artifact> visited)
         throws IOException, ExecException, InterruptedException {
       ListenableFuture<Collection<Inclusion>> cacheResult = fileParseCache.get(source);
-      if (cacheResult != null) {
+      if (cacheResult != null && cacheResult.isDone()) {
         process(source, contextPathPos, contextKind, visited);
       } else {
         super.execute(
