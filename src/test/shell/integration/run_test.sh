@@ -799,11 +799,6 @@ EOF
 }
 
 function test_run_env_script_path() {
-  if "$is_windows"; then
-    # TODO(laszlocsomor): fix this test on Windows, and enable it.
-    return
-  fi
-
   local -r pkg="pkg${LINENO}"
   mkdir -p "${pkg}"
   cat > "$pkg/BUILD" <<'EOF'
@@ -828,9 +823,9 @@ EOF
 
   chmod +x "$pkg/foo.sh"
 
-  bazel run --script_path=script.sh --run_env=OVERRIDDEN_RUN_ENV=FOO --run_env=RUN_ENV_ONLY=BAR "//$pkg:foo" || fail "expected run to succeed"
+  bazel run --script_path=script.bat --run_env=OVERRIDDEN_RUN_ENV=FOO --run_env=RUN_ENV_ONLY=BAR "//$pkg:foo" || fail "expected run to succeed"
 
-  ./script.sh >"$TEST_log" || fail "expected script to succeed"
+  ./script.bat >"$TEST_log" || fail "expected script to succeed"
 
   expect_log "FROMBUILD: '1'"
   expect_log "OVERRIDDEN_RUN_ENV: 'FOO'"
