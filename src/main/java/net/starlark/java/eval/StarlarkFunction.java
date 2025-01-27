@@ -200,16 +200,6 @@ public final class StarlarkFunction implements StarlarkCallable {
   }
 
   @Override
-  public Object positionalOnlyCall(StarlarkThread thread, Object... positional)
-      throws EvalException, InterruptedException {
-    checkRecursive(thread);
-    FastcallArgumentProcessor argumentProcessor = new FastcallArgumentProcessor(this, thread);
-    // Feed only positional arguments into the argument processor.
-    argumentProcessor.processPositionalOnly(positional, thread.mutability());
-    return callWithArguments(thread, argumentProcessor);
-  }
-
-  @Override
   public StarlarkCallable.ArgumentProcessor requestArgumentProcessor(StarlarkThread thread) {
     return new ArgumentProcessor(this, thread);
   }
@@ -503,17 +493,6 @@ public final class StarlarkFunction implements StarlarkCallable {
       bindPositionalArgsToLocals(positional);
       bindSurplusPositionalArgsToVarArgs(positional);
       bindNamedArgsToLocals(named, mu);
-    }
-
-    void processPositionalOnly(Object[] positional, Mutability mu) throws EvalException {
-      numNonSurplusPositionalArgs = getNumNonSurplusPositionalArgs(positional);
-      bindPositionalArgsToLocals(positional);
-      bindSurplusPositionalArgsToVarArgs(positional);
-      // Bind an empty dict to **kwargs if present. (The dict, unfortunately, needs to be mutable;
-      // see https://github.com/bazelbuild/starlark/issues/295)
-      if (owner.rfn.hasKwargs()) {
-        locals[owner.rfn.getParameters().size() - 1] = Dict.of(mu);
-      }
     }
 
     /**
