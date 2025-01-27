@@ -19,6 +19,7 @@ import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.CommandLineItem.ExceptionlessMapFn;
 import com.google.devtools.build.lib.actions.CommandLineItem.MapFn;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileRootApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CheckReturnValue;
@@ -45,7 +46,7 @@ public interface PathMapper {
    * {@link #storeIn(StarlarkSemantics)}.
    */
   static PathMapper loadFrom(StarlarkSemantics semantics) {
-    return semantics.get(SEMANTICS_KEY);
+    return semantics.get(PathMapperConstants.SEMANTICS_KEY);
   }
 
   /**
@@ -65,10 +66,11 @@ public interface PathMapper {
   default StarlarkSemantics storeIn(StarlarkSemantics semantics) {
     // This in particular covers the case where the semantics do not have a path mapper yet and this
     // is NOOP.
-    if (semantics.get(SEMANTICS_KEY) == this) {
+    if (semantics.get(PathMapperConstants.SEMANTICS_KEY) == this) {
       return semantics;
     }
-    return new StarlarkSemantics(semantics.toBuilder().set(SEMANTICS_KEY, this).build()) {
+    return new StarlarkSemantics(
+        semantics.toBuilder().set(PathMapperConstants.SEMANTICS_KEY, this).build()) {
       // The path mapper doesn't affect which fields or methods are available on any given Starlark
       // object; it just affects the behavior of certain methods on Artifact. We thus preserve the
       // original semantics as a cache key. Otherwise, even if PathMapper#equals returned true for
@@ -80,6 +82,13 @@ public interface PathMapper {
         return semantics;
       }
     };
+  }
+
+  /** Returns the instance to use during action key computation. */
+  static PathMapper forActionKey(CoreOptions.OutputPathsMode outputPathsMode) {
+    return outputPathsMode == CoreOptions.OutputPathsMode.OFF
+        ? NOOP
+        : PathMapperConstants.FOR_FINGERPRINTING;
   }
 
   /**
@@ -142,7 +151,7 @@ public interface PathMapper {
     if (root.isSourceRoot()) {
       // Source roots' paths are never mapped, but we still need to wrap them in a
       // MappedArtifactRoot to ensure correct Starlark comparison behavior.
-      return mappedSourceRoots.get(root);
+      return PathMapperConstants.mappedSourceRoots.get(root);
     }
     // It would *not* be correct to just apply #map to the exec path of the root: The root part of
     // the mapped exec path of this artifact may depend on its complete exec path as well as on e.g.
@@ -191,15 +200,6 @@ public interface PathMapper {
           return artifact.getRoot();
         }
       };
-
-  StarlarkSemantics.Key<PathMapper> SEMANTICS_KEY =
-      new StarlarkSemantics.Key<>("path_mapper", PathMapper.NOOP);
-
-  // Not meant for use outside this interface.
-  LoadingCache<ArtifactRoot, MappedArtifactRoot> mappedSourceRoots =
-      Caffeine.newBuilder()
-          .weakKeys()
-          .build(sourceRoot -> new MappedArtifactRoot(sourceRoot.getExecPath()));
 
   /** A {@link FileRootApi} returned by {@link PathMapper#mapRoot(Artifact)}. */
   @StarlarkBuiltin(
@@ -255,4 +255,62 @@ public interface PathMapper {
       return true;
     }
   }
+}
+
+/** Holder class for symbols used by the PathMapper interface that shouldn't be public. */
+final class PathMapperConstants {
+
+  public static final StarlarkSemantics.Key<PathMapper> SEMANTICS_KEY =
+      new StarlarkSemantics.Key<>("path_mapper", PathMapper.NOOP);
+  public static final LoadingCache<ArtifactRoot, PathMapper.MappedArtifactRoot> mappedSourceRoots =
+      Caffeine.newBuilder()
+          .weakKeys()
+          .build(sourceRoot -> new PathMapper.MappedArtifactRoot(sourceRoot.getExecPath()));
+
+  private static final PathFragment BAZEL_OUT = PathFragment.create("bazel-out");
+  private static final PathFragment BLAZE_OUT = PathFragment.create("blaze-out");
+
+  /**
+   * A special instance for use in {@link AbstractAction#computeKey} when path mapping is generally
+   * enabled for an action.
+   *
+   * <p>When computing an action key, the following approaches to taking path mapping into account
+   * do <b>not</b> work:
+   *
+   * <ul>
+   *   <li>Using the actual path mapper is prohibitive since constructing it requires checking for
+   *       collisions among the action input's paths when computing the action key, which flattens
+   *       the input depsets of all actions that opt into path mapping and also increases CPU usage.
+   *   <li>Unconditionally using {@link
+   *       com.google.devtools.build.lib.analysis.actions.StrippingPathMapper} can result in stale
+   *       action keys when an action is opted out of path mapping at execution time due to input
+   *       path collisions after stripping. See path_mapping_test for an example.
+   *   <li>Using {@link PathMapper#NOOP} does not distinguish between map_each results built from
+   *       strings and those built from {@link
+   *       com.google.devtools.build.lib.starlarkbuildapi.FileApi#getExecPathStringForStarlark}.
+   *       While the latter will be mapped at execution time, the former won't, resulting in the
+   *       same digest for actions that behave differently at execution time. This is covered by
+   *       tests in StarlarkRuleImplementationFunctionsTest.
+   * </ul>
+   *
+   * <p>Instead, we use a special path mapping instance that preserves the equality relations
+   * between the original config segments, but prepends a fixed string to distinguish hard-coded
+   * path strings from mapped paths. This relies on actions using path mapping to be "root
+   * agnostic": they must not contain logic that depends on any particular (output) root path.
+   */
+  static final PathMapper FOR_FINGERPRINTING =
+      execPath -> {
+        if (!execPath.startsWith(BAZEL_OUT) && !execPath.startsWith(BLAZE_OUT)) {
+          // This is not an output path.
+          return execPath;
+        }
+        String execPathString = execPath.getPathString();
+        int startOfConfigSegment = execPathString.indexOf('/') + 1;
+        return PathFragment.createAlreadyNormalized(
+            execPathString.substring(0, startOfConfigSegment)
+                + "pm-"
+                + execPathString.substring(startOfConfigSegment));
+      };
+
+  private PathMapperConstants() {}
 }

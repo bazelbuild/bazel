@@ -736,7 +736,7 @@ EOF
   bazel run \
     --verbose_failures \
     --experimental_output_paths=strip \
-    --modify_execution_info=CppCompile=+supports-path-mapping,CppModuleMap=+supports-path-mapping \
+    --modify_execution_info=CppCompile=+supports-path-mapping,CppModuleMap=+supports-path-mapping,CppArchive=+supports-path-mapping \
     --remote_executor=grpc://localhost:${worker_port} \
     --features=layering_check \
     "//$pkg:main" &>"$TEST_log" || fail "Expected success"
@@ -750,9 +750,10 @@ EOF
   bazel run \
     --verbose_failures \
     --experimental_output_paths=strip \
-    --modify_execution_info=CppCompile=+supports-path-mapping,CppModuleMap=+supports-path-mapping \
+    --modify_execution_info=CppCompile=+supports-path-mapping,CppModuleMap=+supports-path-mapping,CppArchive=+supports-path-mapping \
     --remote_executor=grpc://localhost:${worker_port} \
     --features=layering_check \
+    -s \
     "//$pkg:transitioned_main" &>"$TEST_log" || fail "Expected success"
 
   expect_log 'Hi there, lib1!'
@@ -761,7 +762,10 @@ EOF
   expect_log '42 43'
   # Compilation actions for lib1, lib2 and main should result in cache hits due
   # to path stripping, utils is legitimately different and should not.
-  expect_log ' 4 remote cache hit'
+  # Likewise, archive actions for lib1 and lib2 should result in cache hits, but
+  # the one for utils does not and the linking action for main doesn't support
+  # path mapping.
+  expect_log ' 6 remote cache hit'
 }
 
 function test_path_stripping_action_key_not_stale_for_path_collision() {
