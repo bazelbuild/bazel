@@ -26,9 +26,6 @@ class WorkspaceLayout {
  public:
   virtual ~WorkspaceLayout() = default;
 
-  // Returns the directory to use for storing outputs.
-  virtual std::string GetOutputRoot() const;
-
   // Given the working directory, returns the nearest enclosing directory with a
   // workspace boundary file in it.  If there is no such enclosing directory,
   // returns "".

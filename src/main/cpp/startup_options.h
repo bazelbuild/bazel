@@ -27,11 +27,9 @@
 #include <vector>
 
 #include "src/main/cpp/util/exit_code.h"
-#include "src/main/cpp/util/path.h"
+#include "src/main/cpp/util/path_platform.h"
 
 namespace blaze {
-
-class WorkspaceLayout;
 
 // A startup flag tagged with its origin, either an rc file or the empty
 // string for the ones specified in the command line.
@@ -139,21 +137,22 @@ class StartupOptions {
   // Otherwise a default path in the output base is used.
   blaze_util::Path failure_detail_out;
 
-  // Blaze's output base.  Everything is relative to this.  See
-  // the BlazeDirectories Java class for details.
+  // A directory suitable for storing cached files.
+  // This contains the default locations of the install and output bases, as
+  // well as the repository cache.
+  // Defaults to a system-dependent, user-specific directory.
+  // See UpdateConfiguration().
+  blaze_util::Path output_user_root;
+
+  // The directory where build outputs are placed.
+  // Defaults to a <md5(workspace)> subdirectory of output_user_root.
+  // See UpdateConfiguration().
   blaze_util::Path output_base;
 
-  // Installation base for a specific release installation.
+  // The directory where the decompressed Bazel server is installed.
+  // Defaults to an install/<md5(install)> subdirectory of output_user_root.
+  // See UpdateConfiguration().
   blaze_util::Path install_base;
-
-  // The toplevel directory containing Blaze's output.  When Blaze is
-  // run by a test, we use TEST_TMPDIR, simplifying the correct
-  // hermetic invocation of Blaze from tests.
-  blaze_util::Path output_root;
-
-  // Blaze's output_user_root. Used only for computing install_base and
-  // output_base.
-  blaze_util::Path output_user_root;
 
   // Override more finegrained rc file flags and ignore them all.
   bool ignore_all_rc_files;
@@ -228,6 +227,10 @@ class StartupOptions {
   // empty string if it was not specified on the command line.
   blaze_util::Path GetExplicitServerJavabase() const;
 
+  // Updates the parsed startup options to fill in defaults.
+  void UpdateConfiguration(const std::string &install_md5,
+                           const std::string &workspace, bool server_mode);
+
   // Port to start up the gRPC command server on. If 0, let the kernel choose.
   int command_port;
 
@@ -284,15 +287,17 @@ class StartupOptions {
 
  protected:
   // Constructor for subclasses only so that site-specific extensions of this
-  // class can override the product name.  The product_name must be the
-  // capitalized version of the name, as in "Bazel".
-  StartupOptions(const std::string &product_name,
-                 const WorkspaceLayout *workspace_layout);
+  // class can override the product name. The product_name must be capitalized,
+  // as in "Bazel".
+  StartupOptions(const std::string &product_name);
+
+  // Returns the default output root location.
+  virtual blaze_util::Path GetDefaultOutputRoot() const = 0;
 
   // Checks extra fields when processing arg.
   //
-  // Returns the exit code after processing the argument. "error" will contain
-  // a descriptive string for any return value other than
+  // Returns the exit code after processing the argument. "error" will
+  // contain a descriptive string for any return value other than
   // blaze_exit_code::SUCCESS.
   //
   // TODO(jmmv): Now that we support site-specific options via subclasses of

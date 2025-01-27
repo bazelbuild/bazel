@@ -33,7 +33,6 @@
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file_platform.h"
-#include "src/main/cpp/workspace_layout.h"
 #include "util/task/status_macros.h"
 
 using ::testing::Gt;
@@ -124,9 +123,7 @@ class BlazeArchiveTest : public ::testing::Test {
 };
 
 TEST_F(BlazeArchiveTest, TestZipExtractionAndFarOutMTimes) {
-  std::unique_ptr<blaze::WorkspaceLayout> workspace_layout(
-      new blaze::WorkspaceLayout());
-  BazelStartupOptions startup_options(workspace_layout.get());
+  BazelStartupOptions startup_options;
   set_startup_options(startup_options, blaze_path, output_dir);
   LoggingInfo logging_info(blaze_path, blaze::GetMillisecondsMonotonic());
 
@@ -161,9 +158,7 @@ has_value()
 }
 
 TEST_F(BlazeArchiveTest, TestNoDataExtractionIfInstallBaseExists) {
-  std::unique_ptr<blaze::WorkspaceLayout> workspace_layout(
-      new blaze::WorkspaceLayout());
-  BazelStartupOptions startup_options(workspace_layout.get());
+  BazelStartupOptions startup_options;
   set_startup_options(startup_options, blaze_path, output_dir);
   LoggingInfo logging_info(blaze_path, blaze::GetMillisecondsMonotonic());
 

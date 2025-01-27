@@ -91,9 +91,7 @@ class RcFileTest : public ::testing::Test {
 
     ASSERT_TRUE(blaze_util::MakeDirectories(binary_dir_, 0755));
     option_processor_.reset(new OptionProcessor(
-        workspace_layout_.get(),
-        std::unique_ptr<StartupOptions>(
-            new BazelStartupOptions(workspace_layout_.get())),
+        workspace_layout_.get(), std::make_unique<BazelStartupOptions>(),
         "bazel.bazelrc"));
   }
 

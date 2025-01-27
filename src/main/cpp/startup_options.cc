@@ -24,12 +24,11 @@
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/numbers.h"
-#include "src/main/cpp/util/path.h"
 #include "src/main/cpp/util/path_platform.h"
 #include "src/main/cpp/util/strings.h"
-#include "src/main/cpp/workspace_layout.h"
 
 namespace blaze {
 
@@ -65,8 +64,7 @@ void StartupOptions::OverrideOptionSourcesKey(const std::string &flag_name,
   option_sources_key_override_[flag_name] = new_name;
 }
 
-StartupOptions::StartupOptions(const string &product_name,
-                               const WorkspaceLayout *workspace_layout)
+StartupOptions::StartupOptions(const string &product_name)
     : product_name(product_name),
       ignore_all_rc_files(false),
       block_for_lock(true),
@@ -101,27 +99,6 @@ StartupOptions::StartupOptions(const string &product_name,
       cgroup_parent(),
 #endif
       windows_enable_symlinks(false) {
-  // To ensure predictable behavior from PathFragmentConverter in Java,
-  // output_root must be an absolute path. In particular, if we were to return a
-  // relative path starting with "~/", PathFragmentConverter would shell-expand
-  // it as a path relative to the home directory, and Bazel would crash.
-  if (blaze::IsRunningWithinTest()) {
-    output_root = blaze_util::Path(
-        blaze_util::MakeAbsolute(blaze::GetPathEnv("TEST_TMPDIR")));
-    max_idle_secs = 15;
-    BAZEL_LOG(USER) << "$TEST_TMPDIR defined: output root default is '"
-                    << output_root.AsPrintablePath()
-                    << "' and max_idle_secs default is '" << max_idle_secs
-                    << "'.";
-  } else {
-    output_root = blaze_util::Path(
-        blaze_util::MakeAbsolute(workspace_layout->GetOutputRoot()));
-    max_idle_secs = 3 * 3600;
-    BAZEL_LOG(INFO) << "output root is '" << output_root.AsPrintablePath()
-                    << "' and max_idle_secs default is '" << max_idle_secs
-                    << "'.";
-  }
-
 #if defined(_WIN32) || defined(__CYGWIN__)
   string windows_unix_root = DetectBashAndExportBazelSh();
   if (!windows_unix_root.empty()) {
@@ -130,9 +107,8 @@ StartupOptions::StartupOptions(const string &product_name,
   }
 #endif  // defined(_WIN32) || defined(__CYGWIN__)
 
-  const string product_name_lower = GetLowercaseProductName();
-  output_user_root =
-      output_root.GetRelative("_" + product_name_lower + "_" + GetUserName());
+  // Use a smaller default idle timer when in a test.
+  max_idle_secs = blaze::IsRunningWithinTest() ? 15 : 3 * 3600;
 
   // IMPORTANT: Before modifying the statements below please contact a Bazel
   // core team member that knows the internal procedure for adding/deprecating
@@ -180,9 +156,7 @@ StartupOptions::StartupOptions(const string &product_name,
 StartupOptions::~StartupOptions() {}
 
 string StartupOptions::GetLowercaseProductName() const {
-  string lowercase_product_name = product_name;
-  blaze_util::ToLower(&lowercase_product_name);
-  return lowercase_product_name;
+  return blaze_util::ToLower(product_name);
 }
 
 bool StartupOptions::IsUnary(const string &arg) const {
@@ -557,9 +531,9 @@ blaze_exit_code::ExitCode StartupOptions::SanityCheckJavabase(
       BAZEL_LOG(ERROR) << "Couldn't find java at '"
                        << java_program.AsPrintablePath() << "'.";
     } else {
-      string err = blaze_util::GetLastErrorString();
       BAZEL_LOG(ERROR) << "Java at '" << java_program.AsPrintablePath()
-                       << "' exists but is not executable: " << err;
+                       << "' exists but is not executable: "
+                       << blaze_util::GetLastErrorString();
     }
     return BadServerJavabaseError(javabase_type, option_sources);
   }
@@ -653,6 +627,48 @@ blaze_exit_code::ExitCode StartupOptions::AddJVMMemoryArguments(
     const blaze_util::Path &, std::vector<string> *, const vector<string> &,
     string *) const {
   return blaze_exit_code::SUCCESS;
+}
+
+void StartupOptions::UpdateConfiguration(const string &install_md5,
+                                         const string &workspace,
+                                         const bool server_mode) {
+  if (output_user_root.IsEmpty()) {
+    // The default production output_user_root is
+    // <default_output_root>/_<product_name>_<username>.
+    // In a test, use a subdirectory of TEST_TMPDIR to be hermetic.
+    blaze_util::Path output_root =
+        blaze::IsRunningWithinTest()
+            ? blaze_util::Path(blaze::GetPathEnv("TEST_TMPDIR"))
+            : GetDefaultOutputRoot();
+
+    output_user_root = output_root.GetRelative("_" + GetLowercaseProductName() +
+                                               "_" + GetUserName());
+  }
+
+  if (install_base.IsEmpty()) {
+    // The default install_base is <output_user_root>/install/<md5(blaze)>.
+    // However, exec-server requires it to be explicitly set.
+    if (server_mode) {
+      BAZEL_DIE(blaze_exit_code::BAD_ARGV)
+          << "exec-server requires --install_base";
+    }
+    install_base =
+        output_user_root.GetRelative("install").GetRelative(install_md5);
+  }
+
+  if (output_base.IsEmpty()) {
+    // The default output_base is <output_user_root>/<md5(workspace)>.
+    // However, exec-server requires it to be explicitly set.
+    if (server_mode) {
+      BAZEL_DIE(blaze_exit_code::BAD_ARGV)
+          << "exec-server requires --output_base";
+    }
+    output_base = blaze::GetHashedBaseDir(output_user_root, workspace);
+  }
+
+  if (failure_detail_out.IsEmpty()) {
+    failure_detail_out = output_base.GetRelative("failure_detail.rawproto");
+  }
 }
 
 }  // namespace blaze
