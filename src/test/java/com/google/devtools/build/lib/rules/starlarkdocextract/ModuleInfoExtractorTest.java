@@ -664,6 +664,7 @@ public final class ModuleInfoExtractorTest {
             "        'j': attr.string_list_dict(),",
             "        'k': attr.output(),",
             "        'l': attr.output_list(),",
+            "        'm': attr.string_keyed_label_dict(),",
             "    }",
             ")");
     ModuleInfo moduleInfo = getExtractor().extractFrom(module);
@@ -731,6 +732,11 @@ public final class ModuleInfoExtractorTest {
                 .setType(AttributeType.OUTPUT_LIST)
                 .setDefaultValue("[]")
                 .setNonconfigurable(true)
+                .build(),
+            AttributeInfo.newBuilder()
+                .setName("m")
+                .setType(AttributeType.LABEL_DICT_UNARY)
+                .setDefaultValue("{}")
                 .build());
   }
 
