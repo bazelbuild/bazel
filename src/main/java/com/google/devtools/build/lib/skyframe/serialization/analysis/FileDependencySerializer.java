@@ -19,6 +19,7 @@ import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.actions.FileStateType.SYMLINK;
+import static com.google.devtools.build.lib.skyframe.serialization.FutureHelpers.aggregateStatusFutures;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencyKeySupport.DIRECTORY_KEY_DELIMITER;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencyKeySupport.FILE_KEY_DELIMITER;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencyKeySupport.MAX_KEY_LENGTH;
@@ -250,7 +251,7 @@ final class FileDependencySerializer {
       byte[] dataBytes = data.build().toByteArray();
       writeStatuses.add(fingerprintValueService.put(keyBytes, dataBytes));
       return new FileInvalidationDataInfo(
-          cacheKey, combineWriteStatuses(writeStatuses), exists, mtsv, realRootedPath);
+          cacheKey, aggregateStatusFutures(writeStatuses), exists, mtsv, realRootedPath);
     }
 
     /**
@@ -558,7 +559,7 @@ final class FileDependencySerializer {
       KeyBytesProvider keyBytes = getKeyBytes(cacheKey, data::setOverflowKey);
       byte[] dataBytes = data.build().toByteArray();
       writeStatuses.add(fingerprintValueService.put(keyBytes, dataBytes));
-      return new ListingInvalidationDataInfo(cacheKey, combineWriteStatuses(writeStatuses));
+      return new ListingInvalidationDataInfo(cacheKey, aggregateStatusFutures(writeStatuses));
     }
   }
 
@@ -665,7 +666,7 @@ final class FileDependencySerializer {
       byte[] nodeBytes = computeNodeBytes();
       PackedFingerprint key = fingerprintValueService.fingerprint(nodeBytes);
       writeStatuses.add(fingerprintValueService.put(key, nodeBytes));
-      return new NodeInvalidationDataInfo(key, combineWriteStatuses(writeStatuses));
+      return new NodeInvalidationDataInfo(key, aggregateStatusFutures(writeStatuses));
     }
 
     private void addFileKey(FileKey fileKey) {
@@ -845,14 +846,6 @@ final class FileDependencySerializer {
     } catch (ExecutionException e) {
       writeStatuses.add(writeStatus);
     }
-  }
-
-  private static ListenableFuture<Void> combineWriteStatuses(
-      List<ListenableFuture<Void>> writeStatuses) {
-    if (writeStatuses.size() == 1) {
-      return writeStatuses.get(0);
-    }
-    return Futures.whenAllSucceed(writeStatuses).call(() -> null, directExecutor());
   }
 
   private KeyBytesProvider getKeyBytes(String cacheKey, Consumer<String> overflowConsumer) {
