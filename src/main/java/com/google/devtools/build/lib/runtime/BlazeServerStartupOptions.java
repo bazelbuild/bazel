@@ -107,7 +107,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
 
   @Option(
       name = "lock_install_base",
-      defaultValue = "true", // NOTE: only for documentation, value is always passed by the client.
+      defaultValue = "false", // NOTE: only for documentation, value is always passed by the client.
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       metadataTags = {OptionMetadataTag.HIDDEN},
