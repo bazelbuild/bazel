@@ -37,7 +37,8 @@ public interface ActionInputPrefetcher {
             ActionExecutionMetadata action,
             Iterable<? extends ActionInput> inputs,
             MetadataSupplier metadataSupplier,
-            Priority priority) {
+            Priority priority,
+            Reason reason) {
           // Do nothing.
           return immediateVoidFuture();
         }
@@ -72,6 +73,15 @@ public interface ActionInputPrefetcher {
     LOW,
   }
 
+  /** The reason for prefetching. */
+  enum Reason {
+    /** The requested files are needed as inputs to the given action. */
+    INPUTS,
+
+    /** The requested files are requested as outputs of the given action. */
+    OUTPUTS,
+  }
+
   /**
    * Initiates best-effort prefetching of all given inputs.
    *
@@ -83,7 +93,8 @@ public interface ActionInputPrefetcher {
       ActionExecutionMetadata action,
       Iterable<? extends ActionInput> inputs,
       MetadataSupplier metadataSupplier,
-      Priority priority);
+      Priority priority,
+      Reason reason);
 
   /**
    * Whether the prefetcher requires the metadata for a tree artifact to be available whenever one
