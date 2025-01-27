@@ -64,8 +64,10 @@ void StartupOptions::OverrideOptionSourcesKey(const std::string &flag_name,
   option_sources_key_override_[flag_name] = new_name;
 }
 
-StartupOptions::StartupOptions(const string &product_name)
+StartupOptions::StartupOptions(const string &product_name,
+                               bool lock_install_base)
     : product_name(product_name),
+      lock_install_base(lock_install_base),
       ignore_all_rc_files(false),
       block_for_lock(true),
       host_jvm_debug(false),

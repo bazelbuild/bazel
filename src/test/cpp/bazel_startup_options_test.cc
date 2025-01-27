@@ -347,4 +347,8 @@ TEST_F(BazelStartupOptionsTest, FinalValueOfIgnoreIsUsedForWarning) {
       "");
 }
 
+TEST_F(BazelStartupOptionsTest, LockInstallBase) {
+  EXPECT_TRUE(startup_options_->lock_install_base);
+}
+
 }  // namespace blaze

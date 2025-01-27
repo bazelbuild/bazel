@@ -27,7 +27,7 @@
 namespace blaze {
 
 BazelStartupOptions::BazelStartupOptions()
-    : StartupOptions("Bazel"),
+    : StartupOptions("Bazel", /* lock_install_base= */ true),
       user_bazelrc_(""),
       use_system_rc(true),
       use_workspace_rc(true),
