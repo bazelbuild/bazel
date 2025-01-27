@@ -408,7 +408,9 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
         treeFileArtifactsPaths,
         treeArtifactsPaths);
     verifyArguments(
-        linkConfig.arguments(expander, null), treeFileArtifactsPaths, treeArtifactsPaths);
+        linkConfig.arguments(expander, PathMapper.NOOP),
+        treeFileArtifactsPaths,
+        treeArtifactsPaths);
     verifyArguments(
         linkConfig.getParamCommandLine(expander, PathMapper.NOOP),
         treeFileArtifactsPaths,
