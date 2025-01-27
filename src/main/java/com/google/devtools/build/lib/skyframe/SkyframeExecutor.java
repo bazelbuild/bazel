@@ -522,7 +522,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider =
       DisabledDependenciesProvider.INSTANCE;
 
-  /** Non-null only when analysis caching mode is download. */
+  /** Non-null only when analysis caching mode is upload/download. */
   @Nullable private ModifiedFileSet diffFromEvaluatingVersion;
 
   public void setRemoteAnalysisCachingDependenciesProvider(
@@ -3471,7 +3471,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
           var remoteAnalysisCachingOptions = options.getOptions(RemoteAnalysisCachingOptions.class);
           if (remoteAnalysisCachingOptions != null
-              && remoteAnalysisCachingOptions.mode.downloadForAnalysis()) {
+              && remoteAnalysisCachingOptions.mode.requiresBackendConnectivity()) {
             handleDiffsForRemoteAnalysisCaching(
                 diffAwarenessManager.getDiffFromEvaluatingVersion(
                     fileSystem, getPathForModifiedFileSet(pathEntry), ignoredPaths, options));

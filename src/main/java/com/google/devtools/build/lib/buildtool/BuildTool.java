@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.evaluateProjectFile;
@@ -1105,6 +1104,7 @@ public class BuildTool {
           || activeDirectoriesMatcher.isEmpty()) {
         return DisabledDependenciesProvider.INSTANCE;
       }
+
       RemoteAnalysisCacheMode mode = options.mode;
       if (mode == RemoteAnalysisCacheMode.OFF) {
         return DisabledDependenciesProvider.INSTANCE;
@@ -1112,25 +1112,24 @@ public class BuildTool {
 
       var dependenciesProvider =
           new RemoteAnalysisCachingDependenciesProviderImpl(
-              env, activeDirectoriesMatcher.get(), mode, options.serializedFrontierProfile);
+              env, activeDirectoriesMatcher.get(), options.mode, options.serializedFrontierProfile);
 
-      // TODO: b/386406395 - FrontierViolationChecker currently fails for UPLOAD. It should fixed
-      // and enabled.
-      if (mode == RemoteAnalysisCacheMode.UPLOAD
-          || mode == RemoteAnalysisCacheMode.DUMP_UPLOAD_MANIFEST_ONLY) {
-        // Skips FrontierViolationChecker for manifest dump because it's useful for debugging how
-        // violations change the frontier.
-        return dependenciesProvider;
+      switch (options.mode) {
+        case RemoteAnalysisCacheMode.DUMP_UPLOAD_MANIFEST_ONLY:
+          // Skips FrontierViolationChecker for manifest dump because it's useful for debugging how
+          // violations change the frontier.
+          return dependenciesProvider;
+        case RemoteAnalysisCacheMode.UPLOAD:
+        case RemoteAnalysisCacheMode.DOWNLOAD:
+          return FrontierViolationChecker.check(
+              dependenciesProvider,
+              env.getOptions().getOptions(SkyfocusOptions.class).frontierViolationCheck,
+              env.getReporter(),
+              env.getSkyframeExecutor().getEvaluator(),
+              env.getRuntime().getProductName());
+        default:
+          throw new IllegalStateException("Unknown RemoteAnalysisCacheMode: " + options.mode);
       }
-
-      checkState(mode == RemoteAnalysisCacheMode.DOWNLOAD, "unexpected mode: %s", mode);
-
-      return FrontierViolationChecker.check(
-          dependenciesProvider,
-          env.getOptions().getOptions(SkyfocusOptions.class).frontierViolationCheck,
-          env.getReporter(),
-          env.getSkyframeExecutor().getEvaluator(),
-          env.getRuntime().getProductName());
     }
 
     private RemoteAnalysisCachingDependenciesProviderImpl(
@@ -1277,7 +1276,9 @@ public class BuildTool {
 
     @Override
     public ModifiedFileSet getDiffFromEvaluatingVersion() {
-      return diffFromEvaluatingVersion;
+      return checkNotNull(
+          diffFromEvaluatingVersion,
+          String.format("expected to be not null when the mode is upload or download: %s", mode));
     }
   }
 
