@@ -938,7 +938,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
 
     @Override
     public FileContentsProxy getContentsProxy() {
-      throw new UnsupportedOperationException();
+      return null;
     }
 
     @Override
