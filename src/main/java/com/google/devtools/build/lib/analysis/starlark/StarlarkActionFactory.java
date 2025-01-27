@@ -827,8 +827,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       builder.setShadowedAction(Optional.of((Action) shadowedActionUnchecked));
     }
 
-    if (getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_ACTION_RESOURCE_SET)
-        && resourceSetUnchecked != Starlark.NONE) {
+    if (resourceSetUnchecked != Starlark.NONE) {
       validateResourceSetBuilder(resourceSetUnchecked);
       builder.setResources(
           new StarlarkActionResourceSetBuilder(
