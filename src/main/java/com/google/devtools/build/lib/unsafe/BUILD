@@ -23,7 +23,6 @@ java_library(
         "java.base/java.lang",
     ],
     deps = [
-        ":unsafe-provider",
         "//third_party:guava",
     ],
 )

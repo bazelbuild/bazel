@@ -48,9 +48,9 @@ public class WorkerFilesHash {
     workerFilesMap.forEach(
         (execPath, digest) -> {
           String execPathString = execPath.getPathString();
-          hasher.putByte(StringUnsafe.getInstance().getCoder(execPathString));
+          hasher.putByte(StringUnsafe.getCoder(execPathString));
           hasher.putInt(execPathString.length());
-          hasher.putBytes(StringUnsafe.getInstance().getByteArray(execPathString));
+          hasher.putBytes(StringUnsafe.getByteArray(execPathString));
 
           hasher.putInt(digest.length);
           hasher.putBytes(digest);
