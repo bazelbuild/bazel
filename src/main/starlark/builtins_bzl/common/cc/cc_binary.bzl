@@ -41,11 +41,6 @@ _TVOS_DEVICE_TARGET_CPUS = ["tvos_arm64"]
 _CATALYST_TARGET_CPUS = ["catalyst_x86_64"]
 _MACOS_TARGET_CPUS = ["darwin_x86_64", "darwin_arm64", "darwin_arm64e"]
 
-def _strip_extension(file):
-    if file.extension == "":
-        return file.basename
-    return file.basename[:-(1 + len(file.extension))]
-
 def _get_non_data_deps(ctx):
     return ctx.attr.srcs + ctx.attr.deps
 
@@ -594,7 +589,7 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
     # then a pdb file will be built along with the executable.
     pdb_file = None
     if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "generate_pdb_file"):
-        pdb_file = ctx.actions.declare_file(_strip_extension(binary) + ".pdb", sibling = binary)
+        pdb_file = ctx.actions.declare_file(binary.basename + ".pdb", sibling = binary)
         additional_linker_outputs.append(pdb_file)
 
     linkmap = None
@@ -607,6 +602,10 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
     runtime_libraries_extra = depset()
     if extra_link_time_libraries != None:
         linker_inputs_extra, runtime_libraries_extra = extra_link_time_libraries.build_libraries(ctx = ctx, static_mode = linking_mode != linker_mode.LINKING_DYNAMIC, for_dynamic_library = _is_link_shared(ctx))
+
+    for suffix in cc_toolchain.additional_link_outputs:
+        outfile = ctx.actions.declare_file(binary.basename + suffix, sibling = binary)
+        additional_linker_outputs.append(outfile)
 
     cc_linking_outputs_binary, cc_launcher_info, deps_cc_linking_context = _create_transitive_linking_actions(
         ctx,
