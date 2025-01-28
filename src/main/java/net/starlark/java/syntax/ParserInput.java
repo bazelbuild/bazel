@@ -84,8 +84,9 @@ public final class ParserInput {
    * subsequently mutate the array.
    *
    * <p>This function exists to support legacy uses of Latin1 in Bazel. Do not use Latin1 in new
-   * applications. (Consider this deprecated, without the fussy warnings.)
+   * applications.
    */
+  @Deprecated
   public static ParserInput fromLatin1(byte[] bytes, String file) {
     char[] chars = new char[bytes.length];
     for (int i = 0; i < bytes.length; i++) {
