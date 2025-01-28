@@ -49,13 +49,28 @@ public final class InstallBaseGarbageCollector {
    * @param ownInstallBase the current server's install base
    * @param maxAge how long an install base must remain unused before it's eligible for collection
    */
-  public InstallBaseGarbageCollector(Path root, Path ownInstallBase, Duration maxAge) {
+  InstallBaseGarbageCollector(Path root, Path ownInstallBase, Duration maxAge) {
     this.root = root;
     this.ownInstallBase = ownInstallBase;
     this.maxAge = maxAge;
   }
 
-  public void run() throws IOException, InterruptedException {
+  @VisibleForTesting
+  public Path getRoot() {
+    return root;
+  }
+
+  @VisibleForTesting
+  public Path getOwnInstallBase() {
+    return ownInstallBase;
+  }
+
+  @VisibleForTesting
+  public Duration getMaxAge() {
+    return maxAge;
+  }
+
+  void run() throws IOException, InterruptedException {
     for (Dirent dirent : root.readdir(Symlinks.FOLLOW)) {
       if (Thread.interrupted()) {
         throw new InterruptedException();
