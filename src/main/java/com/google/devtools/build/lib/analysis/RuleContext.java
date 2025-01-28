@@ -926,7 +926,7 @@ public class RuleContext extends TargetContext
     return getOwningPrerequisitesCollection(attributeName).getExecutablePrerequisite(attributeName);
   }
 
-  private ImmutableList<TemplateVariableInfo> fromAttributes(Iterable<String> attributeNames) {
+  ImmutableList<TemplateVariableInfo> fromAttributes(Iterable<String> attributeNames) {
     // Get template variable providers from the attributes.
     ImmutableList<TemplateVariableInfo> fromAttributes =
         Streams.stream(attributeNames)
@@ -940,7 +940,7 @@ public class RuleContext extends TargetContext
     return fromAttributes;
   }
 
-  private ImmutableList<TemplateVariableInfo> fromToolchains() {
+  ImmutableList<TemplateVariableInfo> fromToolchains() {
     if (this.getToolchainContexts() == null) {
       return ImmutableList.of();
     }
@@ -968,20 +968,6 @@ public class RuleContext extends TargetContext
     return ruleTemplateVariableInfo;
   }
 
-  protected ConfigurationMakeVariableContext initConfigurationMakeVariableContext(
-      Iterable<? extends MakeVariableSupplier> additionalMakeVariableSuppliers) {
-    Preconditions.checkState(
-        configurationMakeVariableContext == null,
-        "Attempted to init an already initialized Make var context (did you call"
-            + " initConfigurationMakeVariableContext() after accessing ctx.var?)");
-
-    return new ConfigurationMakeVariableContext(
-        rule.getPackage(),
-        getConfiguration(),
-        getDefaultTemplateVariableProviders(),
-        additionalMakeVariableSuppliers);
-  }
-
   public Expander getExpander(TemplateContext templateContext) {
     Expander expander = new Expander(this, templateContext);
     makeVariableExpanders.add(expander);
@@ -1004,13 +990,13 @@ public class RuleContext extends TargetContext
    * Returns a cached context that maps Make variable names (string) to values (string) without any
    * extra {@link MakeVariableSupplier}.
    *
-   * <p>CAUTION: If there's no context, this will initialize the context with no
-   * MakeVariableSuppliers. Call {@link #initConfigurationMakeVariableContext} first if you want to
-   * register suppliers.
+   * <p>CAUTION: If there's no context, this will initialize the context.
    */
   public ConfigurationMakeVariableContext getConfigurationMakeVariableContext() {
     if (configurationMakeVariableContext == null) {
-      configurationMakeVariableContext = initConfigurationMakeVariableContext(ImmutableList.of());
+      configurationMakeVariableContext =
+          new ConfigurationMakeVariableContext(
+              rule.getPackage(), getConfiguration(), getDefaultTemplateVariableProviders());
     }
     return configurationMakeVariableContext;
   }
