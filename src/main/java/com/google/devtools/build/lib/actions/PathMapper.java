@@ -267,8 +267,8 @@ final class PathMapperConstants {
           .weakKeys()
           .build(sourceRoot -> new PathMapper.MappedArtifactRoot(sourceRoot.getExecPath()));
 
-  private static final PathFragment BAZEL_OUT = PathFragment.create("bazel-out/");
-  private static final PathFragment BLAZE_OUT = PathFragment.create("blaze-out/");
+  private static final PathFragment BAZEL_OUT = PathFragment.create("bazel-out");
+  private static final PathFragment BLAZE_OUT = PathFragment.create("blaze-out");
 
   /**
    * A special instance for use in {@link AbstractAction#computeKey} when path mapping is generally
@@ -306,6 +306,9 @@ final class PathMapperConstants {
         }
         String execPathString = execPath.getPathString();
         int startOfConfigSegment = execPathString.indexOf('/') + 1;
+        if (startOfConfigSegment == 0) {
+          return execPath;
+        }
         return PathFragment.createAlreadyNormalized(
             execPathString.substring(0, startOfConfigSegment)
                 + "pm-"
