@@ -21,7 +21,8 @@ import static com.google.devtools.build.lib.analysis.BaseRuleClasses.RUN_UNDER_E
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.RUN_UNDER_TARGET_CONFIG;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.TIMEOUT_DEFAULT;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.getTestRuntimeLabelList;
-import static com.google.devtools.build.lib.analysis.test.ExecutionInfo.DEFAULT_TEST_RUNNER_EXEC_GROUP;
+import static com.google.devtools.build.lib.packages.RuleClass.DEFAULT_TEST_RUNNER_EXEC_GROUP;
+import static com.google.devtools.build.lib.packages.RuleClass.DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
@@ -171,6 +172,14 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
                           + " actual dependency")
                   .value(ImmutableList.of()))
           .add(
+              attr(RuleClass.EXEC_GROUP_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST_DICT)
+                  .allowedFileTypes()
+                  .nonconfigurable("Used in toolchain resolution")
+                  .tool(
+                      "exec_group_compatible_with exists for constraint checking, not to create an"
+                          + " actual dependency")
+                  .value(ImmutableMap.of()))
+          .add(
               attr(RuleClass.TARGET_COMPATIBLE_WITH_ATTR, LABEL_LIST)
                   .mandatoryProviders(ConstraintValueInfo.PROVIDER.id())
                   // This should be configurable to allow for complex types of restrictions.
@@ -187,8 +196,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
           .removeAttribute(":action_listener")
           .removeAttribute("aspect_hints")
           .removeAttribute("toolchains")
-          .removeAttribute("exec_compatible_with")
-          .removeAttribute("target_compatible_with")
+          .removeAttribute(RuleClass.EXEC_COMPATIBLE_WITH_ATTR)
+          .removeAttribute(RuleClass.EXEC_GROUP_COMPATIBLE_WITH_ATTR)
+          .removeAttribute(RuleClass.TARGET_COMPATIBLE_WITH_ATTR)
           .removeAttribute("compatible_with")
           .removeAttribute("restricted_to")
           .removeAttribute("$config_dependencies")
@@ -928,8 +938,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       }
       builder.addExecGroups(execGroupDict);
     }
-    if (test && !builder.hasExecGroup(DEFAULT_TEST_RUNNER_EXEC_GROUP)) {
-      builder.addExecGroup(DEFAULT_TEST_RUNNER_EXEC_GROUP);
+    if (test && !builder.hasExecGroup(DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME)) {
+      builder.addExecGroups(
+          ImmutableMap.of(DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME, DEFAULT_TEST_RUNNER_EXEC_GROUP));
     }
 
     if (!buildSetting.equals(Starlark.NONE) && !cfg.equals(Starlark.NONE)) {

@@ -79,6 +79,10 @@ public record ExecGroup(
     return toolchainTypesMap().get(label);
   }
 
+  public Builder toBuilder() {
+    return new AutoBuilder_ExecGroup_Builder(this);
+  }
+
   /** A builder interface to create ExecGroup instances. */
   @AutoBuilder
   public interface Builder {

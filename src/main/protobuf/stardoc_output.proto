@@ -71,6 +71,7 @@ enum AttributeType {
   OUTPUT = 12;
   OUTPUT_LIST = 13;
   LABEL_DICT_UNARY = 14;
+  LABEL_LIST_DICT = 15;
 }
 
 // Representation of a Starlark rule definition.

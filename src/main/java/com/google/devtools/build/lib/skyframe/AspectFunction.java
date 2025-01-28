@@ -497,7 +497,7 @@ final class AspectFunction implements SkyFunction {
       throw new AspectFunctionException(e);
     } catch (ConfiguredValueCreationException e) {
       throw new AspectFunctionException(e);
-    } catch (ToolchainException e) {
+    } catch (ToolchainException | InvalidExecGroupException e) {
       throw new AspectFunctionException(
           new AspectCreationException(
               e.getMessage(), new LabelCause(key.getLabel(), e.getDetailedExitCode())));
@@ -571,7 +571,7 @@ final class AspectFunction implements SkyFunction {
           TargetAndConfiguration targetAndConfiguration,
           ConfiguredTargetKey configuredTargetKey,
           Environment env)
-          throws InterruptedException, ToolchainException {
+          throws InterruptedException, ToolchainException, InvalidExecGroupException {
 
     // if the base target's toolchain contexts are already evaluated, return them.
     if (state.baseTargetUnloadedToolchainContexts != null || state.baseTargetHasNoToolchains) {
@@ -833,6 +833,7 @@ final class AspectFunction implements SkyFunction {
         ExecGroupCollection.process(
             aspectDefinition.execGroups(),
             aspectDefinition.execCompatibleWith(),
+            /* perExecGroupExecutionPlatformConstraints= */ ImmutableMultimap.of(),
             aspectDefinition.getToolchainTypes(),
             useAutoExecGroups);
     // Note: `configuration.getOptions().hasNoConfig()` is handled early in #compute.

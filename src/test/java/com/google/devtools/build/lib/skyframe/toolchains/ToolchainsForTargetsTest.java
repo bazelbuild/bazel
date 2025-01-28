@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.ExecGroupCollection;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
@@ -150,7 +151,8 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
       } catch (ToolchainException
           | ConfiguredValueCreationException
           | IncompatibleTargetException
-          | DependencyEvaluationException e) {
+          | DependencyEvaluationException
+          | ExecGroupCollection.InvalidExecGroupException e) {
         throw new ComputeUnloadedToolchainContextsException(e);
       }
       if (!state.transitiveRootCauses().isEmpty()) {
