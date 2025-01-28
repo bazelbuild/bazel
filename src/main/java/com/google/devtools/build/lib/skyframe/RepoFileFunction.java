@@ -37,7 +37,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
-import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
@@ -114,17 +113,19 @@ public class RepoFileFunction implements SkyFunction {
       throw new RepoFileFunctionException(
           new IOException("error reading REPO.bazel file at " + path, e), Transience.TRANSIENT);
     }
-    Optional<ParserInput> parserInput =
-        SkyframeUtil.createParserInput(
-            contents,
-            path.getPathString(),
-            starlarkSemantics.get(BuildLanguageOptions.INCOMPATIBLE_ENFORCE_STARLARK_UTF8),
-            env.getListener());
-    if (parserInput.isEmpty()) {
+    ParserInput parserInput;
+    try {
+      parserInput =
+          StarlarkUtil.createParserInput(
+              contents,
+              path.getPathString(),
+              starlarkSemantics.get(BuildLanguageOptions.INCOMPATIBLE_ENFORCE_STARLARK_UTF8),
+              env.getListener());
+    } catch (StarlarkUtil.InvalidUtf8Exception e) {
       throw new RepoFileFunctionException(
           new BadRepoFileException("error reading REPO.bazel file at " + path));
     }
-    StarlarkFile starlarkFile = StarlarkFile.parse(parserInput.get());
+    StarlarkFile starlarkFile = StarlarkFile.parse(parserInput);
     if (!starlarkFile.ok()) {
       Event.replayEventsOn(env.getListener(), starlarkFile.errors());
       throw new RepoFileFunctionException(

@@ -32,7 +32,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
-import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -171,13 +170,15 @@ public class BzlCompileFunction implements SkyFunction {
     }
 
     // We have all deps. Parse, resolve, and return.
-    Optional<ParserInput> input =
-        SkyframeUtil.createParserInput(
-            bytes,
-            inputName,
-            semantics.get(BuildLanguageOptions.INCOMPATIBLE_ENFORCE_STARLARK_UTF8),
-            env.getListener());
-    if (input.isEmpty()) {
+    ParserInput input;
+    try {
+      input =
+          StarlarkUtil.createParserInput(
+              bytes,
+              inputName,
+              semantics.get(BuildLanguageOptions.INCOMPATIBLE_ENFORCE_STARLARK_UTF8),
+              env.getListener());
+    } catch (StarlarkUtil.InvalidUtf8Exception e) {
       return BzlCompileValue.noFile("compilation of '%s' failed", inputName);
     }
     FileOptions options =
@@ -195,7 +196,7 @@ public class BzlCompileFunction implements SkyFunction {
             // detail in errors (i.e. new fields or error subclasses).
             .stringLiteralsAreAsciiOnly(key.isSclDialect())
             .build();
-    StarlarkFile file = StarlarkFile.parse(input.get(), options);
+    StarlarkFile file = StarlarkFile.parse(input, options);
 
     // compile
     final Module module;

@@ -3345,7 +3345,7 @@ java_library(
 
 java_library(
     name = "skyframe_util",
-    srcs = ["SkyframeUtil.java"],
+    srcs = ["StarlarkUtil.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",

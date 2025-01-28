@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.packages.VendorThreadContext;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
-import com.google.devtools.build.lib.skyframe.SkyframeUtil;
+import com.google.devtools.build.lib.skyframe.StarlarkUtil;
 import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -38,7 +38,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
-import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
@@ -160,17 +159,19 @@ public class VendorFileFunction implements SkyFunction {
       throw new VendorFileFunctionException(
           new IOException("error reading VENDOR.bazel file", e), Transience.TRANSIENT);
     }
-    Optional<ParserInput> parserInput =
-        SkyframeUtil.createParserInput(
-            contents,
-            path.getPathString(),
-            starlarkSemantics.get(BuildLanguageOptions.INCOMPATIBLE_ENFORCE_STARLARK_UTF8),
-            env.getListener());
-    if (parserInput.isEmpty()) {
+    ParserInput parserInput;
+    try {
+      parserInput =
+          StarlarkUtil.createParserInput(
+              contents,
+              path.getPathString(),
+              starlarkSemantics.get(BuildLanguageOptions.INCOMPATIBLE_ENFORCE_STARLARK_UTF8),
+              env.getListener());
+    } catch (StarlarkUtil.InvalidUtf8Exception e) {
       throw new VendorFileFunctionException(
           new BadVendorFileException("error reading VENDOR.bazel file"), Transience.PERSISTENT);
     }
-    StarlarkFile starlarkFile = StarlarkFile.parse(parserInput.get());
+    StarlarkFile starlarkFile = StarlarkFile.parse(parserInput);
     if (!starlarkFile.ok()) {
       Event.replayEventsOn(env.getListener(), starlarkFile.errors());
       throw new VendorFileFunctionException(

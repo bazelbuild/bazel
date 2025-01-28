@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -88,7 +87,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -1273,17 +1271,23 @@ public abstract class PackageFunction implements SkyFunction {
       // See the javadoc for ActionOnIOExceptionReadingBuildFile.
     }
     StoredEventHandler handler = new StoredEventHandler();
-    Optional<ParserInput> input =
-        SkyframeUtil.createParserInput(
-            buildFileBytes,
-            inputFile.toString(),
-            semantics.get(BuildLanguageOptions.INCOMPATIBLE_ENFORCE_STARLARK_UTF8),
-            handler);
-    if (input.isEmpty()) {
-      return new CompiledBuildFile(
-          handler.getEvents().stream()
-              .map(event -> new SyntaxError(event.getLocation(), event.getMessage()))
-              .collect(toImmutableList()));
+    ParserInput input;
+    try {
+      input =
+          StarlarkUtil.createParserInput(
+              buildFileBytes,
+              inputFile.toString(),
+              semantics.get(BuildLanguageOptions.INCOMPATIBLE_ENFORCE_STARLARK_UTF8),
+              handler);
+    } catch (StarlarkUtil.InvalidUtf8Exception e) {
+      throw PackageFunctionException.builder()
+          .setType(PackageFunctionException.Type.BUILD_FILE_CONTAINS_ERRORS)
+          .setPackageIdentifier(packageId)
+          .setTransience(Transience.PERSISTENT)
+          .setException(e)
+          .setMessage("error reading " + inputFile.toString())
+          .setPackageLoadingCode(PackageLoading.Code.STARLARK_EVAL_ERROR)
+          .build();
     }
     handler.replayOn(reporter);
 
@@ -1300,7 +1304,7 @@ public abstract class PackageFunction implements SkyFunction {
             .build();
 
     // parse
-    StarlarkFile file = StarlarkFile.parse(input.get(), options);
+    StarlarkFile file = StarlarkFile.parse(input, options);
     if (!file.ok()) {
       return new CompiledBuildFile(file.errors());
     }

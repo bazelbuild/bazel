@@ -427,16 +427,18 @@ public class WorkspaceFileFunction implements SkyFunction {
     } catch (IOException ex) {
       throw new WorkspaceFileFunctionException(ex, Transience.TRANSIENT);
     }
-    Optional<ParserInput> parserInput =
-        SkyframeUtil.createParserInput(
-            bytes,
-            workspacePath.toString(),
-            starlarkSemantics.get(BuildLanguageOptions.INCOMPATIBLE_ENFORCE_STARLARK_UTF8),
-            env.getListener());
-    if (parserInput.isEmpty()) {
+    ParserInput parserInput;
+    try {
+      parserInput =
+          StarlarkUtil.createParserInput(
+              bytes,
+              workspacePath.toString(),
+              starlarkSemantics.get(BuildLanguageOptions.INCOMPATIBLE_ENFORCE_STARLARK_UTF8),
+              env.getListener());
+    } catch (StarlarkUtil.InvalidUtf8Exception e) {
       throw resolvedValueError("Failed to read WORKSPACE file");
     }
-    StarlarkFile file = StarlarkFile.parse(parserInput.get());
+    StarlarkFile file = StarlarkFile.parse(parserInput);
     if (!file.ok()) {
       Event.replayEventsOn(env.getListener(), file.errors());
       throw resolvedValueError("Failed to parse WORKSPACE file");

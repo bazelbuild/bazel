@@ -22,8 +22,7 @@ import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
 import com.google.devtools.build.lib.packages.DotBazelFileSyntaxChecker;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
-import com.google.devtools.build.lib.skyframe.SkyframeUtil;
-import java.util.Optional;
+import com.google.devtools.build.lib.skyframe.StarlarkUtil;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Starlark;
@@ -65,17 +64,19 @@ public record CompiledModuleFile(
       BazelStarlarkEnvironment starlarkEnv,
       ExtendedEventHandler eventHandler)
       throws ExternalDepsException {
-    Optional<ParserInput> parserInput =
-        SkyframeUtil.createParserInput(
-            moduleFile.getContent(),
-            moduleFile.getLocation(),
-            starlarkSemantics.get(BuildLanguageOptions.INCOMPATIBLE_ENFORCE_STARLARK_UTF8),
-            eventHandler);
-    if (parserInput.isEmpty()) {
+    ParserInput parserInput;
+    try {
+      parserInput =
+          StarlarkUtil.createParserInput(
+              moduleFile.getContent(),
+              moduleFile.getLocation(),
+              starlarkSemantics.get(BuildLanguageOptions.INCOMPATIBLE_ENFORCE_STARLARK_UTF8),
+              eventHandler);
+    } catch (StarlarkUtil.InvalidUtf8Exception e) {
       throw ExternalDepsException.withMessage(
           Code.BAD_MODULE, "error reading MODULE.bazel file for %s", moduleKey);
     }
-    StarlarkFile starlarkFile = StarlarkFile.parse(parserInput.get());
+    StarlarkFile starlarkFile = StarlarkFile.parse(parserInput);
     if (!starlarkFile.ok()) {
       Event.replayEventsOn(eventHandler, starlarkFile.errors());
       throw ExternalDepsException.withMessage(
