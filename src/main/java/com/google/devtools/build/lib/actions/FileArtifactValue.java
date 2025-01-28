@@ -21,13 +21,17 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.hash.HashFunction;
+import com.google.common.hash.HashingOutputStream;
 import com.google.common.io.BaseEncoding;
+import com.google.common.io.CountingOutputStream;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
+import com.google.devtools.build.lib.analysis.actions.DeterministicWriter;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.HashCodes;
+import com.google.devtools.build.lib.util.StreamWriter;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
@@ -39,6 +43,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Objects;
@@ -149,6 +154,14 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
   /** Returns whether the file contents exist remotely. */
   public boolean isRemote() {
     return false;
+  }
+
+  /**
+   * Returns whether the file contents are materialized lazily, for example because they exist
+   * remotely.
+   */
+  public boolean isLazy() {
+    return isRemote();
   }
 
   /** Returns the location index for remote files. For non-remote files, returns 0. */
@@ -877,6 +890,131 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       } catch (IOException e) {
         return true;
       }
+    }
+  }
+
+  public static final class FileWriteOutputArtifactValue extends FileArtifactValue
+      implements StreamWriter {
+    private final DeterministicWriter writer;
+    private final long size;
+    private final byte[] digest;
+    private final boolean isExecutable;
+    @Nullable private final PathFragment materializationExecPath;
+
+    public static FileWriteOutputArtifactValue hashAndCreate(
+        DeterministicWriter writer, HashFunction hashFunction, boolean isExecutable) {
+      long size;
+      byte[] digest;
+      try (CountingOutputStream countingOut =
+              new CountingOutputStream(OutputStream.nullOutputStream());
+          HashingOutputStream hashingOut = new HashingOutputStream(hashFunction, countingOut)) {
+        writer.writeOutputFile(hashingOut);
+        size = countingOut.getCount();
+        digest = hashingOut.hash().asBytes();
+      } catch (IOException e) {
+        // The output streams don't throw IOExceptions, so this should never happen.
+        throw new IllegalStateException(e);
+      }
+      return new FileWriteOutputArtifactValue(
+          writer, size, digest, isExecutable, /* materializationExecPath= */ null);
+    }
+
+    private FileWriteOutputArtifactValue(
+        DeterministicWriter writer,
+        long size,
+        byte[] digest,
+        boolean isExecutable,
+        @Nullable PathFragment materializationExecPath) {
+      this.writer = writer;
+      this.size = size;
+      this.digest = digest;
+      this.isExecutable = isExecutable;
+      this.materializationExecPath = materializationExecPath;
+    }
+
+    /**
+     * Returns a {@link FileWriteOutputArtifactValue} identical to the given one, except that its
+     * materialization path is set to the given value unless already present.
+     */
+    public static FileWriteOutputArtifactValue createFromExistingWithMaterializationPath(
+        FileWriteOutputArtifactValue metadata, PathFragment materializationExecPath) {
+      checkNotNull(materializationExecPath);
+      if (metadata.getMaterializationExecPath().isPresent()) {
+        return metadata;
+      }
+      return new FileWriteOutputArtifactValue(
+          metadata.writer,
+          metadata.size,
+          metadata.digest,
+          metadata.isExecutable,
+          materializationExecPath);
+    }
+
+    @Override
+    public FileStateType getType() {
+      return FileStateType.REGULAR_FILE;
+    }
+
+    @Override
+    public byte[] getDigest() {
+      return digest;
+    }
+
+    @Override
+    public long getSize() {
+      return size;
+    }
+
+    public boolean isExecutable() {
+      return isExecutable;
+    }
+
+    @Override
+    public void writeTo(OutputStream out) throws IOException {
+      writer.writeOutputFile(out);
+    }
+
+    @Override
+    public long getModifiedTime() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public FileContentsProxy getContentsProxy() {
+      return null;
+    }
+
+    @Override
+    public boolean wasModifiedSinceDigest(Path path) {
+      return false;
+    }
+
+    @Override
+    public Optional<PathFragment> getMaterializationExecPath() {
+      return Optional.ofNullable(materializationExecPath);
+    }
+
+    @Override
+    public boolean isLazy() {
+      return true;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof FileWriteOutputArtifactValue that)) {
+        return false;
+      }
+      return size == that.size
+          && Objects.equals(writer, that.writer)
+          && Arrays.equals(digest, that.digest);
+    }
+
+    @Override
+    public int hashCode() {
+      return HashCodes.hashObjects(writer, size, Arrays.hashCode(digest));
     }
   }
 

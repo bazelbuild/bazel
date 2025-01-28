@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -1030,6 +1031,46 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
+  public void downloadToplevel_symlinkToWrittenFile() throws Exception {
+    setDownloadToplevel();
+    writeSymlinkRule();
+    writeWriteFileRule();
+    write(
+        "BUILD",
+        "load(':symlink.bzl', 'symlink')",
+        "load(':write_file.bzl', 'write_file')",
+        "write_file(",
+        "  name = 'foo',",
+        "  content = 'hello',",
+        // assertValidOutputFile checks for the executable bit.
+        "  executable = True,",
+        ")",
+        "symlink(",
+        "  name = 'foo-link',",
+        "  target_artifact = ':foo',",
+        ")");
+
+    buildTarget("//:foo-link");
+
+    assertSymlink("foo-link", getOutputPath("foo").asFragment());
+    assertValidOutputFile("foo-link", "hello");
+
+    // Delete link, re-plant symlink
+    getOutputPath("foo-link").delete();
+    buildTarget("//:foo-link");
+
+    assertSymlink("foo-link", getOutputPath("foo").asFragment());
+    assertValidOutputFile("foo-link", "hello");
+
+    // Delete target, re-download it
+    getOutputPath("foo").delete();
+    buildTarget("//:foo-link");
+
+    assertSymlink("foo-link", getOutputPath("foo").asFragment());
+    assertValidOutputFile("foo-link", "hello");
+  }
+
+  @Test
   public void downloadToplevel_unresolvedSymlink() throws Exception {
     // Dangling symlink would require developer mode to be enabled in the CI environment.
     assumeFalse(OS.getCurrent() == OS.WINDOWS);
@@ -1053,6 +1094,68 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     buildTarget("//:foo-link");
 
     assertSymlink("foo-link", PathFragment.create("/some/path"));
+  }
+
+  @Test
+  public void downloadMinimal_fileWrite(@TestParameter boolean isExecutable) throws Exception {
+    writeWriteFileRule();
+    writeSymlinkRule();
+    // Remote execution stages all files as executable.
+    write(
+        "BUILD",
+        """
+        load(':write_file.bzl', 'write_file')
+        write_file(
+            name = 'foo',
+            content = 'hello',
+            executable = %s,
+        )
+        genrule(
+            name = 'gen',
+            srcs = [':foo'],
+            outs = ['out/gen.txt'],
+            cmd = \"""
+            [ -x $(location :foo) ] || { echo "unexpectedly not executable"; exit 1; }
+            cat $(location :foo) $(location :foo) > $@
+            \""",
+        )
+        """
+            .formatted(isExecutable ? "True" : "False"));
+
+    addOptions("--file_write_strategy=lazy");
+
+    buildTarget("//:gen");
+    buildTarget("//:foo");
+    assertOutputsDoNotExist("//:foo");
+    assertOutputsDoNotExist("//:gen");
+  }
+
+  @Test
+  public void downloadToplevel_fileWrite(@TestParameter boolean isExecutable) throws Exception {
+    setDownloadToplevel();
+    writeWriteFileRule();
+    write(
+        "BUILD",
+        """
+        load(':write_file.bzl', 'write_file')
+        write_file(
+          name = 'foo',
+          content = 'hello',
+          executable = %s,
+        )
+        """.formatted(isExecutable ? "True" : "False"));
+
+    addOptions("--file_write_strategy=lazy");
+
+    buildTarget("//:foo");
+    assertOnlyOutputContent("//:foo", "foo", "hello");
+    assertThat(getOutputPath("foo").isExecutable()).isEqualTo(isExecutable);
+
+    // Delete file, re-create it
+    getOutputPath("foo-link").delete();
+    buildTarget("//:foo");
+
+    assertOnlyOutputContent("//:foo", "foo", "hello");
   }
 
   @Test
@@ -1993,6 +2096,25 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
         "  attr_aspects = ['srcs'],",
         ")");
     write("rules.bzl", lines.build().toArray(new String[0]));
+  }
+
+  protected void writeWriteFileRule() throws IOException {
+    write(
+        "write_file.bzl",
+        """
+        def _write_file_impl(ctx):
+            out = ctx.actions.declare_file(ctx.label.name)
+            ctx.actions.write(output = out, content = ctx.attr.content, is_executable = ctx.attr.executable)
+            return DefaultInfo(files = depset([out]))
+
+        write_file = rule(
+            implementation = _write_file_impl,
+            attrs = {
+                "content": attr.string(),
+                "executable": attr.bool(default = False),
+            },
+        )
+        """);
   }
 
   protected static class ActionEventCollector {
