@@ -179,6 +179,8 @@ java_library(
     srcs = [
         "FileOpMatchMemoizingLookup.java",
         "FileOpMatchResultTypes.java",
+        "NestedMatchMemoizingLookup.java",
+        "NestedMatchResultTypes.java",
         "NoMatch.java",
     ],
     deps = [

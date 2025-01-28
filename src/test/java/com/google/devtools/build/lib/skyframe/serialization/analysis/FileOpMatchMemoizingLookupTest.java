@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.NoMatch.NO_MATCH_RESULT;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FileOpMatchResultTypes.FileOpMatch;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FileOpMatchResultTypes.FileOpMatchResult;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FileOpMatchResultTypes.FutureFileOpMatchResult;
@@ -25,7 +24,6 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.FileSystemD
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CountDownLatch;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -82,66 +80,6 @@ public final class FileOpMatchMemoizingLookupTest {
     assertThat(getLookupResult(key, validityHorizon)).isEqualTo(expectedResult);
   }
 
-  /**
-   * FileDependencies that waits for {@link #enable} inside {@link findEarliestMatch}.
-   *
-   * <p>This can be used to exercise certain concurrency conditions.
-   */
-  private static final class ControllableFileDependencies extends FileDependencies {
-    private final ImmutableList<String> resolvedPaths;
-    private final ImmutableList<FileDependencies> dependencies;
-    private final CountDownLatch findEarliestMatchEntered = new CountDownLatch(1);
-    private final CountDownLatch countDown = new CountDownLatch(1);
-
-    private ControllableFileDependencies(
-        ImmutableList<String> resolvedPaths, ImmutableList<FileDependencies> dependencies) {
-      this.resolvedPaths = resolvedPaths;
-      this.dependencies = dependencies;
-    }
-
-    private void enable() {
-      countDown.countDown();
-    }
-
-    @Override
-    int findEarliestMatch(VersionedChanges changes, int validityHorizon) {
-      findEarliestMatchEntered.countDown();
-      try {
-        countDown.await();
-      } catch (InterruptedException e) {
-        throw new AssertionError(e);
-      }
-      int minMatch = VersionedChanges.NO_MATCH;
-      for (String element : resolvedPaths) {
-        int result = changes.matchFileChange(element, validityHorizon);
-        if (result < minMatch) {
-          minMatch = result;
-        }
-      }
-      return minMatch;
-    }
-
-    @Override
-    int getDependencyCount() {
-      return dependencies.size();
-    }
-
-    @Override
-    FileDependencies getDependency(int index) {
-      return dependencies.get(index);
-    }
-
-    @Override
-    String resolvedPath() {
-      return Iterables.getLast(resolvedPaths);
-    }
-
-    @Override
-    ImmutableList<String> getAllResolvedPathsForTesting() {
-      return resolvedPaths;
-    }
-  }
-
   @Test
   @TestParameters("{validityHorizon: 98, expectedMatchVersion: 99}")
   @TestParameters("{validityHorizon: 99, expectedMatchVersion: 100}")
@@ -181,9 +119,9 @@ public final class FileOpMatchMemoizingLookupTest {
         .start();
 
     // Waits for all the dependency threads have taken ownership of their entries.
-    depA.findEarliestMatchEntered.await();
-    depB.findEarliestMatchEntered.await();
-    depC.findEarliestMatchEntered.await();
+    depA.awaitEarliestMatchEntered();
+    depB.awaitEarliestMatchEntered();
+    depC.awaitEarliestMatchEntered();
 
     var lookupResult = (FutureFileOpMatchResult) lookup.getValueOrFuture(key, validityHorizon);
     assertThat(lookupResult.isDone()).isFalse();
