@@ -312,6 +312,8 @@ public final class Starlark {
       return ((Sequence) x).size();
     } else if (x instanceof Dict) {
       return ((Dict) x).size();
+    } else if (x instanceof StarlarkSet) {
+      return ((StarlarkSet) x).size();
     } else if (x instanceof StarlarkIterable) {
       // Iterables.size runs in constant time if x implements Collection.
       return Iterables.size((Iterable<?>) x);
