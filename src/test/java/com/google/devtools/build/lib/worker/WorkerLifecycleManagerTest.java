@@ -16,8 +16,6 @@ package com.google.devtools.build.lib.worker;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.worker.WorkerTestUtils.createWorkerKey;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.spy;
 
 import com.google.common.collect.ImmutableList;
@@ -29,8 +27,6 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.lib.worker.WorkerProcessStatus.Status;
 import java.time.Instant;
 import java.util.Map.Entry;
-import org.apache.commons.pool2.PooledObject;
-import org.apache.commons.pool2.impl.DefaultPooledObject;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -61,48 +57,6 @@ public final class WorkerLifecycleManagerTest {
   @Before
   public void setUp() throws Exception {
     factoryMock = spy(new WorkerFactory(fileSystem.getPath("/outputbase/bazel-workers"), options));
-    WorkerOptions options = new WorkerOptions();
-    doAnswer(
-            args -> {
-              WorkerKey key = args.getArgument(0);
-              if (key.isMultiplex()) {
-                WorkerMultiplexer multiplexer =
-                    WorkerMultiplexerManager.getInstance(key, fileSystem.getPath("/logDir"));
-                return new DefaultPooledObject<>(
-                    new WorkerProxy(
-                        key,
-                        workerIds++,
-                        multiplexer.getLogFile(),
-                        multiplexer,
-                        key.getExecRoot()));
-              }
-              return new DefaultPooledObject<>(
-                  new SingleplexWorker(
-                      key,
-                      workerIds++,
-                      fileSystem.getPath("/workDir"),
-                      fileSystem.getPath("/logDir"),
-                      options,
-                      null));
-            })
-        .when(factoryMock)
-        .makeObject(any());
-    doAnswer(
-            args -> {
-              PooledObject<Worker> obj = args.getArgument(1);
-              return obj.getObject().getStatus().isValid();
-            })
-        .when(factoryMock)
-        .validateObject(any(), any());
-    doAnswer(
-            args -> {
-              PooledObject<Worker> obj = args.getArgument(1);
-              Worker worker = obj.getObject();
-              worker.destroy();
-              return null;
-            })
-        .when(factoryMock)
-        .destroyObject(any(), any());
   }
 
   @Test

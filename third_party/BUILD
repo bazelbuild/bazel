@@ -60,11 +60,6 @@ alias(
 )
 
 alias(
-    name = "apache_commons_pool2",
-    actual = "@maven//:org_apache_commons_commons_pool2",
-)
-
-alias(
     name = "apache_velocity",
     actual = "@maven//:org_apache_velocity_velocity",
 )
