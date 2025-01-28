@@ -2105,7 +2105,7 @@ def _symlink_rule_impl(ctx):
         outputs = [file],
         command = "echo 'Hello World!' > " + file.path,
     )
-    ctx.actions.write(executable, "[[ -L symlink.txt ]] && cat symlink.txt")
+    ctx.actions.write(executable, "[[ -L symlink.txt ]] && cat symlink.txt", is_executable = True)
     return [DefaultInfo(
         runfiles = ctx.runfiles(
             symlinks = {"symlink.txt": file},
@@ -2151,7 +2151,7 @@ def _symlink_rule_impl(ctx):
         outputs = [file],
         command = "echo 'Hello World!' > " + file.path,
     )
-    ctx.actions.write(executable, "[[ -L ../symlink.txt ]] && cat ../symlink.txt")
+    ctx.actions.write(executable, "[[ -L ../symlink.txt ]] && cat ../symlink.txt", is_executable = True)
     return [DefaultInfo(
         runfiles = ctx.runfiles(
             root_symlinks = {"symlink.txt": file},
