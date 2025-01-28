@@ -121,6 +121,15 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
   }
 
   /**
+   * Returns the unresolved symlink target path.
+   *
+   * @throws UnsupportedOperationException if the metadata is not of symlink file type.
+   */
+  public String getUnresolvedSymlinkTarget() {
+    throw new UnsupportedOperationException();
+  }
+
+  /**
    * Returns whether the file contents are inline, i.e., can be obtained directly from this {@link
    * FileArtifactValue} by calling {@link #getInputStream}.
    */
@@ -793,7 +802,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
   }
 
   /** A {@link FileArtifactValue} representing a symlink that is not to be resolved. */
-  public static final class UnresolvedSymlinkArtifactValue extends FileArtifactValue {
+  private static final class UnresolvedSymlinkArtifactValue extends FileArtifactValue {
     private final String symlinkTarget;
     private final byte[] digest;
 
@@ -818,7 +827,8 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       this.digest = digest;
     }
 
-    public String getSymlinkTarget() {
+    @Override
+    public String getUnresolvedSymlinkTarget() {
       return symlinkTarget;
     }
 

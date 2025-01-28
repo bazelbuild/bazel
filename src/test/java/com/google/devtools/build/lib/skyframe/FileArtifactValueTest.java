@@ -20,7 +20,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.io.BaseEncoding;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FileArtifactValue.UnresolvedSymlinkArtifactValue;
+import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -172,8 +172,8 @@ public final class FileArtifactValueTest {
     Path path = scratchSymlink("/sym", "/some/path");
     FileArtifactValue value = FileArtifactValue.createForUnresolvedSymlink(path);
     FileArtifactValue value2 = FileArtifactValue.createForUnresolvedSymlink(path);
-    assertThat(value).isInstanceOf(UnresolvedSymlinkArtifactValue.class);
-    assertThat(((UnresolvedSymlinkArtifactValue) value).getSymlinkTarget()).isEqualTo("/some/path");
+    assertThat(value.getType()).isEqualTo(FileStateType.SYMLINK);
+    assertThat(value.getUnresolvedSymlinkTarget()).isEqualTo("/some/path");
     new EqualsTester().addEqualityGroup(value, value2).testEquals();
   }
 

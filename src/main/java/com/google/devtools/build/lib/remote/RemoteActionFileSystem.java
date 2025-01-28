@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FileArtifactValue.UnresolvedSymlinkArtifactValue;
 import com.google.devtools.build.lib.actions.FileStatusWithMetadata;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.clock.Clock;
@@ -532,8 +531,8 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat
     if (path.startsWith(execRoot)) {
       var execPath = path.relativeTo(execRoot);
       var metadata = inputArtifactData.getMetadata(execPath);
-      if (metadata instanceof UnresolvedSymlinkArtifactValue unresolvedSymlinkArtifactValue) {
-        return PathFragment.create(unresolvedSymlinkArtifactValue.getSymlinkTarget());
+      if (metadata != null && metadata.getType().isSymlink()) {
+        return PathFragment.create(metadata.getUnresolvedSymlinkTarget());
       }
       if (metadata != null) {
         // Other input artifacts are never symlinks.
