@@ -37,6 +37,6 @@ public final class BasicHttpAuthenticationEncoder {
     return "Basic "
         + Base64.getEncoder()
             .encodeToString(
-                StringUnsafe.getInstance().getInternalStringBytes(username + ":" + password));
+                StringUnsafe.getInternalStringBytes(username + ":" + password));
   }
 }
