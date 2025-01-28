@@ -72,9 +72,9 @@ single_version_override(
 
 archive_override(
     module_name = "rules_java",
-    urls = ["https://github.com/bazelbuild/rules_java/archive/4cf53607eb143f1cef1a28d3a2718409f9d2c0d4.tar.gz"],
-    integrity = "sha256-hxA16xztY/dC6xg/tcwikFeS2oUULqO/23FmH2pG2ZQ=",
-    strip_prefix = "rules_java-4cf53607eb143f1cef1a28d3a2718409f9d2c0d4",
+    urls = ["https://github.com/bazelbuild/rules_java/archive/693cc4ded73d12cc09408d2db8f1a4be3d79a737.tar.gz"],
+    integrity = "sha256-eikA1v75joePNhXgrumxxNNo5RFq4wO/kttbB8Boeqc=",
+    strip_prefix = "rules_java-693cc4ded73d12cc09408d2db8f1a4be3d79a737",
 )
 
 local_path_override(
