@@ -427,7 +427,8 @@ class BazelVendorTest(test_base.TestBase):
         stderr,
     )
     self.assertIn(
-        "Vendored repository '+ext+venRepo' is out-of-date.",
+        "Vendored repository '+ext+venRepo' is out-of-date (repo hasn't been"
+        ' fetched yet).',
         '\n'.join(stderr),
     )
 
@@ -437,7 +438,7 @@ class BazelVendorTest(test_base.TestBase):
         ['build', '@venRepo//:all', '--vendor_dir=vendor'],
     )
     self.assertNotIn(
-        "Vendored repository '+ext+venRepo' is out-of-date.",
+        "Vendored repository '+ext+venRepo' is out-of-date",
         '\n'.join(stderr),
     )
 
@@ -470,13 +471,8 @@ class BazelVendorTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(
         ['build', '@justRepo//:all', '--vendor_dir=vendor']
     )
-    self.assertNotIn(
-        "WARNING: <builtin>: Vendored repository '+ext+justRepo' is"
-        ' out-of-date. The up-to-date version will be fetched into the external'
-        ' cache and used. To update the repo in the vendor directory, run'
-        ' the bazel vendor command',
-        stderr,
-    )
+    stderr = '\n'.join(stderr)
+    self.assertNotIn('out-of-date', stderr)
 
     # Make updates in repo definition
     self.ScratchFile(
@@ -501,10 +497,11 @@ class BazelVendorTest(test_base.TestBase):
     # Assert repo in vendor is out-of-date, and the new one is fetched into
     # external and not a symlink
     self.assertIn(
-        "WARNING: <builtin>: Vendored repository '+ext+justRepo' is"
-        ' out-of-date. The up-to-date version will be fetched into the external'
-        ' cache and used. To update the repo in the vendor directory, run'
-        ' the bazel vendor command',
+        "WARNING: <builtin>: Vendored repository '+ext+justRepo' is out-of-date"
+        ' (Bazel version, flags, repo rule definition or attributes changed).'
+        ' The up-to-date version will be fetched into the external cache and'
+        ' used. To update the repo in the vendor directory, run the bazel'
+        ' vendor command',
         stderr,
     )
     _, stdout, _ = self.RunBazel(['info', 'output_base'])
@@ -516,13 +513,8 @@ class BazelVendorTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(
         ['build', '@justRepo//:all', '--vendor_dir=vendor']
     )
-    self.assertNotIn(
-        "WARNING: <builtin>: Vendored repository '+ext+justRepo' is"
-        ' out-of-date. The up-to-date version will be fetched into the external'
-        ' cache and used. To update the repo in the vendor directory, run'
-        ' the bazel vendor command',
-        stderr,
-    )
+    stderr = '\n'.join(stderr)
+    self.assertNotIn('out-of-date', stderr)
 
   def testBuildingVendoredRepoWithNoFetch(self):
     self.ScratchFile(
@@ -593,9 +585,10 @@ class BazelVendorTest(test_base.TestBase):
         ['build', '@venRepo//:all', '--vendor_dir=vendor', '--nofetch'],
     )
     self.assertIn(
-        "WARNING: <builtin>: Vendored repository '+ext+venRepo' is"
-        ' out-of-date and fetching is disabled. Run build without the'
-        " '--nofetch' option or run the bazel vendor command to update it",
+        "WARNING: <builtin>: Vendored repository '+ext+venRepo' is out-of-date"
+        ' (Bazel version, flags, repo rule definition or attributes changed)'
+        " and fetching is disabled. Run build without the '--nofetch' option or"
+        ' run the bazel vendor command to update it',
         stderr,
     )
     # Assert the out-dated repo is the one built with
