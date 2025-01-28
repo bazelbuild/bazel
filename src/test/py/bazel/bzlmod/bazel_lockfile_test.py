@@ -1925,7 +1925,7 @@ class BazelLockfileTest(test_base.TestBase):
     )
 
     _, _, stderr = self.RunBazel(['build', ':lol'])
-    self.assertIn('STR=@@foo+//:lib_foo', '\n'.join(stderr))
+    self.assertIn('STR=@@foo~//:lib_foo', '\n'.join(stderr))
 
     # Shutdown bazel to make sure we rely on the lockfile and not skyframe
     self.RunBazel(['shutdown'])
@@ -1950,7 +1950,7 @@ class BazelLockfileTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['build', ':lol'])
     stderr = '\n'.join(stderr)
     self.assertIn('ran the extension!', stderr)
-    self.assertIn('STR=@@bar+//:lib_foo', stderr)
+    self.assertIn('STR=@@bar~//:lib_foo', stderr)
 
     # Shutdown bazel to make sure we rely on the lockfile and not skyframe
     self.RunBazel(['shutdown'])
@@ -1970,7 +1970,7 @@ class BazelLockfileTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['build', ':lol'])
     stderr = '\n'.join(stderr)
     self.assertNotIn('ran the extension!', stderr)
-    self.assertIn('STR=@@bar+//:lib_foo', stderr)
+    self.assertIn('STR=@@bar~//:lib_foo', stderr)
 
   def testExtensionRepoMappingChange_loadsAndRepoRelativeLabels(self):
     # Regression test for #20721; same test as above, except that the call to

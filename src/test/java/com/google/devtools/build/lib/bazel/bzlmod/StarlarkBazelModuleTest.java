@@ -129,7 +129,7 @@ public class StarlarkBazelModuleTest {
                 Label.parseCanonical("@@bar~//:pom.xml")));
 
     assertThat(repoMappingRecorder.recordedEntries())
-        .containsCell(RepositoryName.create("foo+"), "bar", RepositoryName.create("bar+"));
+        .containsCell(RepositoryName.create("foo~"), "bar", RepositoryName.create("bar~"));
   }
 
   @Test

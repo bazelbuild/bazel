@@ -898,7 +898,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     SkyKey extensionSkyKey =
         SingleExtensionValue.key(
             ModuleExtensionId.create(
-                Label.parseCanonicalUnchecked("@@ext+//:defs.bzl"), "ext", Optional.empty()));
+                Label.parseCanonicalUnchecked("@@ext~//:defs.bzl"), "ext", Optional.empty()));
     EvaluationResult<SingleExtensionValue> extensionResult =
         evaluator.evaluate(ImmutableList.of(extensionSkyKey), evaluationContext);
     if (extensionResult.hasError()) {
@@ -911,7 +911,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
                 .get()
                 .moduleExtension()
                 .getRecordedRepoMappingEntries())
-        .containsCell(RepositoryName.create("foo+"), "bar", RepositoryName.create("bar+"));
+        .containsCell(RepositoryName.create("foo~"), "bar", RepositoryName.create("bar~"));
   }
 
   @Test
