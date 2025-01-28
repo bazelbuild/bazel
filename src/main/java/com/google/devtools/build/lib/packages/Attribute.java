@@ -1411,10 +1411,6 @@ public final class Attribute implements Comparable<Attribute> {
         throws InterruptedException, CannotPrecomputeDefaultsException {
 
       final StarlarkComputedDefaultTemplate owner = StarlarkComputedDefaultTemplate.this;
-      final String msg =
-          String.format(
-              "Cannot compute default value of attribute '%s' in rule '%s': ",
-              attr.getPublicName(), rule.getLabel());
       final AtomicReference<EvalException> caughtEvalExceptionIfAny = new AtomicReference<>();
       ComputationStrategy<InterruptedException> strategy =
           new ComputationStrategy<>() {
@@ -1451,6 +1447,10 @@ public final class Attribute implements Comparable<Attribute> {
       } catch (AttributeNotFoundException
           | TooManyConfigurableAttributesException
           | EvalException ex) {
+        final String msg =
+            String.format(
+                "Cannot compute default value of attribute '%s' in rule '%s': ",
+                attr.getPublicName(), rule.getLabel());
         String error = msg + ex.getMessage();
         rule.reportError(error, eventHandler);
         throw new CannotPrecomputeDefaultsException(error);
