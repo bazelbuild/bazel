@@ -111,11 +111,14 @@ available during a build.
 
 ### Aquery options {:#aquery-options}
 
-#### `--output=(text|summary|proto|jsonproto|textproto), default=text` {:#output}
+#### `--output=(text|summary|commands|proto|jsonproto|textproto), default=text` {:#output}
 
 The default output format (`text`) is human-readable,
 use `proto`, `textproto`, or `jsonproto` for machine-readable format.
 The proto message is `analysis.ActionGraphContainer`.
+
+The `commands` output format prints a list of build commands with
+one command per line.
 
 #### `--include_commandline, default=true` {:#include-commandline}
 
