@@ -34,7 +34,7 @@ DIRS=$(echo src/{java_tools/singlejar/java/com/google/devtools/build/zip,main/ja
 EXCLUDE_FILES="src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/testing/* src/main/java/com/google/devtools/build/lib/collect/nestedset/NestedSetCodecTestUtils.java"
 # Exclude whole directories under the bazel src tree that bazel itself
 # doesn't depend on.
-EXCLUDE_DIRS="src/main/java/com/google/devtools/build/docgen tools/java/runfiles/testing src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils src/main/java/com/google/devtools/common/options/testing src/main/java/com/google/devtools/build/lib/testing"
+EXCLUDE_DIRS="src/main/java/com/google/devtools/build/docgen src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils src/main/java/com/google/devtools/common/options/testing src/main/java/com/google/devtools/build/lib/testing"
 for d in $EXCLUDE_DIRS ; do
   for f in $(find $d -type f) ; do
     EXCLUDE_FILES+=" $f"
@@ -294,8 +294,6 @@ EOF
 
   # Create @bazel_tools//tools/java/runfiles
   mkdir -p ${BAZEL_TOOLS_REPO}/tools/java/runfiles
-  link_file "${PWD}/tools/java/runfiles/Runfiles.java" "${BAZEL_TOOLS_REPO}/tools/java/runfiles/Runfiles.java"
-  link_file "${PWD}/tools/java/runfiles/Util.java" "${BAZEL_TOOLS_REPO}/tools/java/runfiles/Util.java"
   link_file "${PWD}/tools/java/runfiles/BUILD.tools" "${BAZEL_TOOLS_REPO}/tools/java/runfiles/BUILD"
 
   # Create @bazel_tools/tools/python/BUILD
