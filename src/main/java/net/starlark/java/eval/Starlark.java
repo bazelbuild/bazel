@@ -768,13 +768,14 @@ public final class Starlark {
   public static Object call(
       StarlarkThread thread, Object fn, List<Object> args, Map<String, Object> kwargs)
       throws EvalException, InterruptedException {
-    Object[] named = new Object[2 * kwargs.size()];
-    int i = 0;
-    for (Map.Entry<String, Object> e : kwargs.entrySet()) {
-      named[i++] = e.getKey();
-      named[i++] = Starlark.checkValid(e.getValue());
+    StarlarkCallable.ArgumentProcessor argumentProcessor = requestArgumentProcessor(thread, fn);
+    for (Object arg : args) {
+      argumentProcessor.addPositionalArg(arg);
     }
-    return fastcall(thread, fn, args.toArray(), named);
+    for (Map.Entry<String, Object> e : kwargs.entrySet()) {
+      argumentProcessor.addNamedArg(e.getKey(), Starlark.checkValid(e.getValue()));
+    }
+    return callViaArgumentProcessor(thread, argumentProcessor);
   }
 
   /**
