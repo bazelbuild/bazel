@@ -63,7 +63,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
                             && toolchain.execConstraints().get(setting).equals(linuxConstraint)
                             && toolchain.targetConstraints().get(setting).equals(macConstraint)
                             && toolchain
-                                .toolchainLabel()
+                                .resolvedToolchainLabel()
                                 .equals(
                                     Label.parseCanonicalUnchecked("//toolchain:toolchain_1_impl"))))
         .isTrue();
@@ -76,7 +76,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
                             && toolchain.execConstraints().get(setting).equals(macConstraint)
                             && toolchain.targetConstraints().get(setting).equals(linuxConstraint)
                             && toolchain
-                                .toolchainLabel()
+                                .resolvedToolchainLabel()
                                 .equals(
                                     Label.parseCanonicalUnchecked("//toolchain:toolchain_2_impl"))))
         .isTrue();
@@ -654,7 +654,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
     assertThat(registeredToolchainsValue.rejectedToolchains())
         .containsCell(
             testToolchainTypeLabel,
-            Label.parseCanonicalUnchecked("//extra:extra_toolchain_impl"),
+            Label.parseCanonicalUnchecked("//extra:extra_toolchain"),
             "mismatching config settings: optimized");
   }
 
@@ -715,7 +715,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
         .hasMessageThat()
         .contains(
             "Unrecoverable errors resolving config_setting associated with"
-                + " //extra:extra_toolchain_impl: For config_setting flagged, Feature flag"
+                + " //extra:extra_toolchain: For config_setting flagged, Feature flag"
                 + " //extra:flag was accessed in a configuration it is not present in.");
   }
 
@@ -727,7 +727,8 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
                 ToolchainTypeInfo.create(Label.parseCanonicalUnchecked("//test:toolchain")))
             .addExecConstraints(ImmutableList.of())
             .addTargetConstraints(ImmutableList.of())
-            .toolchainLabel(Label.parseCanonicalUnchecked("//test/toolchain_impl_1"))
+            .resolvedToolchainLabel(Label.parseCanonicalUnchecked("//test/toolchain_impl_1"))
+            .targetLabel(Label.parseCanonicalUnchecked("//test/toolchain_1"))
             .build();
     DeclaredToolchainInfo toolchain2 =
         DeclaredToolchainInfo.builder()
@@ -735,7 +736,8 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
                 ToolchainTypeInfo.create(Label.parseCanonicalUnchecked("//test:toolchain")))
             .addExecConstraints(ImmutableList.of())
             .addTargetConstraints(ImmutableList.of())
-            .toolchainLabel(Label.parseCanonicalUnchecked("//test/toolchain_impl_2"))
+            .resolvedToolchainLabel(Label.parseCanonicalUnchecked("//test/toolchain_impl_2"))
+            .targetLabel(Label.parseCanonicalUnchecked("//test/toolchain_2"))
             .build();
 
     new EqualsTester()
