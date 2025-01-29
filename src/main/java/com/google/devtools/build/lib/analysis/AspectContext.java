@@ -62,10 +62,6 @@ public final class AspectContext extends RuleContext {
   /** Whether the target uses auto exec groups. */
   private final boolean targetUsesAutoExecGroups;
 
-  /** The make variables for the base target. */
-  @Nullable
-  private ConfigurationMakeVariableContext baseTargetConfigurationMakeVariableContext = null;
-
   AspectContext(
       RuleContext.Builder builder,
       AspectAwareAttributeMapper aspectAwareAttributeMapper,
@@ -292,36 +288,6 @@ public final class AspectContext extends RuleContext {
         .collect(toImmutableList());
   }
 
-  ImmutableList<TemplateVariableInfo> getTemplateVariablesFromAspectAttributes(
-      Iterable<String> attributeNames) {
-    // Get template variable providers from the attributes.
-    return Streams.stream(attributeNames)
-        // Only process this attribute it if is present in the aspect directly.
-        .filter(attrName -> this.getMainAspectPrerequisitesCollection().has(attrName))
-        // Get the TemplateVariableInfo providers from this attribute.
-        .flatMap(
-            attrName ->
-                this.getMainAspectPrerequisitesCollection()
-                    .getPrerequisites(attrName, TemplateVariableInfo.PROVIDER)
-                    .stream())
-        .collect(toImmutableList());
-  }
-
-  ImmutableList<TemplateVariableInfo> getTemplateVariablesFromBaseRuleAttributes(
-      Iterable<String> attributeNames) {
-    // Get template variable providers from the attributes.
-    return Streams.stream(attributeNames)
-        // Only process this attribute it if is present in the target directly.
-        .filter(attrName -> this.getRulePrerequisitesCollection().has(attrName))
-        // Get the TemplateVariableInfo providers from this attribute.
-        .flatMap(
-            attrName ->
-                this.getRulePrerequisitesCollection()
-                    .getPrerequisites(attrName, TemplateVariableInfo.PROVIDER)
-                    .stream())
-        .collect(toImmutableList());
-  }
-
   private ImmutableList<TemplateVariableInfo> getTemplateVariablesFromBaseRuleToolchains() {
     if (this.getBaseTargetToolchainContexts() == null) {
       return ImmutableList.of();
@@ -335,36 +301,9 @@ public final class AspectContext extends RuleContext {
   @Override
   public ImmutableList<TemplateVariableInfo> getDefaultTemplateVariableProviders() {
     return new ImmutableList.Builder<TemplateVariableInfo>()
-        .addAll(getTemplateVariablesFromAspectAttributes(DEFAULT_MAKE_VARIABLE_ATTRIBUTES))
-        .addAll(fromToolchains())
+        .addAll(super.getDefaultTemplateVariableProviders())
+        // Add base rule toolchain data in addition to aspect attribute and toolchain data.
+        .addAll(getTemplateVariablesFromBaseRuleToolchains())
         .build();
-  }
-
-  /**
-   * Returns the {@link ConfigurationMakeVariableContext} for the aspect itself, including
-   * toolchains but not including the underlying target.
-   */
-  @Override
-  public ConfigurationMakeVariableContext getConfigurationMakeVariableContext() {
-    return super.getConfigurationMakeVariableContext();
-  }
-
-  /**
-   * Returns the {@link ConfigurationMakeVariableContext} for the base rule, but not including the
-   * aspect and its toolchains.
-   */
-  public ConfigurationMakeVariableContext getBaseTargetConfigurationMakeVariableContext() {
-    if (baseTargetConfigurationMakeVariableContext == null) {
-      ImmutableList<TemplateVariableInfo> templateVariableProviders =
-          new ImmutableList.Builder<TemplateVariableInfo>()
-              .addAll(getTemplateVariablesFromBaseRuleAttributes(DEFAULT_MAKE_VARIABLE_ATTRIBUTES))
-              .addAll(getTemplateVariablesFromBaseRuleToolchains())
-              .build();
-
-      baseTargetConfigurationMakeVariableContext =
-          new ConfigurationMakeVariableContext(
-              this.getRule().getPackage(), getConfiguration(), templateVariableProviders);
-    }
-    return baseTargetConfigurationMakeVariableContext;
   }
 }
