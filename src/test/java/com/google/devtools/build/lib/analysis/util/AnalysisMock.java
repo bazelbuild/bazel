@@ -174,9 +174,6 @@ public abstract class AnalysisMock extends LoadingMock {
     // Do nothing by default.
   }
 
-  @Override
-  public abstract ConfiguredRuleClassProvider createRuleClassProvider();
-
   public abstract boolean isThisBazel();
 
   public abstract MockCcSupport ccSupport();
