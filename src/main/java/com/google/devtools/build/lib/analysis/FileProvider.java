@@ -57,7 +57,7 @@ public final class FileProvider implements TransitiveInfoProvider, FileProviderA
 
   @Override
   public void debugPrint(Printer printer, StarlarkThread thread) {
-    printer.append("file_provider(files_to_build = ");
+    printer.append("FileProvider(files_to_build = ");
     printer.debugPrint(getFilesToBuildForStarlark(), thread);
     printer.append(")");
   }

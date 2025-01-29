@@ -1154,7 +1154,7 @@ public final class Runfiles implements RunfilesApi {
 
   @Override
   public void debugPrint(Printer printer, StarlarkThread thread) {
-    printer.append("runfiles(empty_files = ");
+    printer.append("Runfiles(empty_files = ");
     printer.debugPrint(getEmptyFilenamesForStarlark(), thread);
     printer.append(", files = ");
     printer.debugPrint(getArtifactsForStarlark(), thread);
