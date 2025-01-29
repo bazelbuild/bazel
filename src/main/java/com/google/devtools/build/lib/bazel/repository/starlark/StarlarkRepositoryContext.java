@@ -145,7 +145,11 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       name = "name",
       structField = true,
       doc =
-          "The canonical name of the external repository created by this rule. This name is guaranteed to be unique among all external repositories, but its exact format is not specified.")
+          "The canonical name of the external repository created by this rule. This name is"
+              + " guaranteed to be unique among all external repositories, but its exact format is"
+              + " not specified. Use <a href='#original_name'><code>original_name</code></a>"
+              + " instead to get the name that was originally specified as the <code>name</code>"
+              + " when this repository rule was instantiated.")
   public String getName() {
     return rule.getName();
   }
@@ -154,7 +158,10 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       name = "original_name",
       structField = true,
       doc =
-          "The name that was originally specified as the 'name' attribute when this repository rule was instantiated. This name is not necessarily unique among external repositories (see 'name').")
+          "The name that was originally specified as the <code>name</code> attribute when this"
+              + " repository rule was instantiated. This name is not necessarily unique among"
+              + " external repositories. Use <a href='#name'><code>name</code></a> instead to get"
+              + " the canonical name of the external repository.")
   public String getOriginalName() {
     String originalName = (String) rule.getAttr("$original_name", Type.STRING);
     // The original name isn't set for WORKSPACE-defined repositories as well as repositories
