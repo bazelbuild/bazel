@@ -275,12 +275,24 @@ static void ExecAsDaemon(const char* log_path, bool log_append,
   // the original exe.
   const char* systemd_run_path = "/usr/bin/systemd-run";
   if (systemd_wrapper_path != NULL && IsBinaryExecutable(systemd_run_path)) {
-    WriteSystemdWrapper(systemd_wrapper_path, exe, argv);
+    // Even if systemd-run is present and executable, we still need to run a
+    // command first to check if we can use it. There are some cases when the
+    // environment is not set up correctly, e.g. no DBUS available.
+    char* systemd_test_command;
+    asprintf(&systemd_test_command, "%s --user --scope -- /bin/true",
+             systemd_run_path);
+    int status = system(systemd_test_command);
+    free(systemd_test_command);
 
-    execl(systemd_run_path, systemd_run_path, "--user", "--scope", "--",
-          "/bin/bash", systemd_wrapper_path, NULL);
-    err(EXIT_FAILURE, "Failed to execute %s with systemd-run.", exe);
+    if (status == 0) {
+      WriteSystemdWrapper(systemd_wrapper_path, exe, argv);
+
+      execl(systemd_run_path, systemd_run_path, "--user", "--scope", "--",
+            "/bin/bash", systemd_wrapper_path, NULL);
+      err(EXIT_FAILURE, "Failed to execute %s with systemd-run.", exe);
+    }
   }
+
 #endif
 
   execv(exe, argv);
