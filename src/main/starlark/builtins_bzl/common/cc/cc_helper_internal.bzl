@@ -44,6 +44,8 @@ PRIVATE_STARLARKIFICATION_ALLOWLIST = [
     # Java rules
     ("", "third_party/bazel_rules/rules_java"),
     ("rules_java", ""),
+    # Objc rules
+    ("", "tools/build_defs/objc"),
     # Protobuf rules
     ("", "third_party/protobuf"),
     ("protobuf", ""),
