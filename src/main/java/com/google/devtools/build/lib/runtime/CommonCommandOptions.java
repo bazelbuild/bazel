@@ -108,7 +108,7 @@ public class CommonCommandOptions extends OptionsBase {
 
   @Option(
       name = "experimental_install_base_gc_max_age",
-      defaultValue = "0",
+      defaultValue = "30d",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       converter = DurationConverter.class,
