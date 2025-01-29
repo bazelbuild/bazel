@@ -478,7 +478,37 @@ use_toolchain(
 EOF
 
   bazel build "//${pkg}/demo:use" &> $TEST_log && fail "Build failure expected"
-  expect_log "While resolving toolchains for target //${pkg}/demo:use[^:]*: No matching toolchains found for types //${pkg}/toolchain:test_toolchain."
+  expect_log "While resolving toolchains for target //${pkg}/demo:use[^:]*: No matching toolchains found for types:$"
+  expect_log "  //${pkg}/toolchain:test_toolchain$"
+}
+
+function test_toolchain_use_in_rule_missing_with_custom_error {
+  local -r pkg="${FUNCNAME[0]}"
+  write_test_toolchain "${pkg}" test_toolchain_with_message
+  cat > "${pkg}/toolchain/BUILD" <<EOF
+toolchain_type(
+    name = 'test_toolchain_with_message',
+    no_match_error = 'Go register a toolchain!',
+)
+EOF
+  write_test_rule "${pkg}" use_toolchain test_toolchain_with_message
+  # Do not register test_toolchain_with_message to trigger the error.
+
+  mkdir -p "${pkg}/demo"
+  cat > "${pkg}/demo/BUILD" <<EOF
+load('//${pkg}/toolchain:rule_use_toolchain.bzl', 'use_toolchain')
+
+package(default_visibility = ["//visibility:public"])
+
+# Use the toolchain.
+use_toolchain(
+    name = 'use',
+    message = 'this is the rule')
+EOF
+
+  bazel build "//${pkg}/demo:use" &> $TEST_log && fail "Build failure expected"
+  expect_log "While resolving toolchains for target //${pkg}/demo:use[^:]*: No matching toolchains found for types:$"
+  expect_log "^  //${pkg}/toolchain:test_toolchain_with_message: Go register a toolchain!$"
 }
 
 function test_multiple_toolchain_use_in_rule {
@@ -621,7 +651,8 @@ use_toolchains(
 EOF
 
   bazel build "//${pkg}/demo:use" &> $TEST_log && fail "Build failure expected"
-  expect_log "While resolving toolchains for target //${pkg}/demo:use[^:]*: No matching toolchains found for types //${pkg}/toolchain:test_toolchain_2."
+  expect_log "While resolving toolchains for target //${pkg}/demo:use[^:]*: No matching toolchains found for types:$"
+  expect_log "^  //${pkg}/toolchain:test_toolchain_2$"
 }
 
 function test_toolchain_use_in_rule_non_required_toolchain {
@@ -961,7 +992,8 @@ EOF
     --host_platform="//${pkg}:platform1" \
     --platforms="//${pkg}:platform1" \
     "//${pkg}/demo:use" &> $TEST_log && fail "Build failure expected"
-  expect_log "While resolving toolchains for target //${pkg}/demo:use[^:]*: No matching toolchains found for types //${pkg}/toolchain:test_toolchain."
+  expect_log "While resolving toolchains for target //${pkg}/demo:use[^:]*: No matching toolchains found for types:$"
+  expect_log "^  //${pkg}/toolchain:test_toolchain$"
   expect_not_log 'Using toolchain: rule message:'
 }
 
