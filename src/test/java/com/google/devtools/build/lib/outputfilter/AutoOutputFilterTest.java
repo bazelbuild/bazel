@@ -24,6 +24,7 @@ import static com.google.devtools.build.lib.outputfilter.AutoOutputFilter.SUBPAC
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ListMultimap;
+import com.google.devtools.build.lib.analysis.platform.PlatformConstants;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.OutputFilter;
 import java.util.List;
@@ -160,7 +161,10 @@ public class AutoOutputFilterTest {
   private static void assertFilter(
       String extractedRegex, AutoOutputFilter autoFilter, List<Label> targetLabels) {
     OutputFilter filter = autoFilter.getFilter(targetLabels);
-    String extraRegex = (autoFilter == AutoOutputFilter.NONE) ? "" : "(unknown)|";
+    String extraRegex =
+        (autoFilter == AutoOutputFilter.NONE)
+            ? ""
+            : "(unknown)|" + PlatformConstants.INTERNAL_PLATFORM + "|";
     assertWithMessage("output filter " + autoFilter + " returned wrong filter:")
         .that(filter.toString())
         .isEqualTo(extraRegex + extractedRegex);

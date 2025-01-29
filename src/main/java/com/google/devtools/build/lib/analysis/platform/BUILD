@@ -32,6 +32,7 @@ java_library(
         "ToolchainTypeInfo.java",
     ],
     deps = [
+        ":constants",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/config_matching_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:resolved_toolchain_data",
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_provider",
