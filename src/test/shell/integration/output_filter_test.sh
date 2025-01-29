@@ -267,6 +267,12 @@ EOF
   chmod +x "$status_cmd" || fail "Failed to mark $status_cmd executable"
 
   bazel build --workspace_status_command="$status_cmd" \
+      --auto_output_filter=none \
+      "//$pkg:foo" >&"$TEST_log" \
+      || fail "Expected success"
+  expect_log STATUS_COMMAND_RAN
+
+  bazel build --workspace_status_command="$status_cmd" \
       --auto_output_filter=packages \
       "//$pkg:foo" >&"$TEST_log" \
       || fail "Expected success"
