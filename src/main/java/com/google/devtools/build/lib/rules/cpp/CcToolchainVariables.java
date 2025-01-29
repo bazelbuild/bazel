@@ -508,8 +508,6 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
      *
      * @param variableName name of the variable value at hand, for better exception message.
      */
-    VariableValue getFieldValue(String variableName, String field) throws ExpansionException;
-
     VariableValue getFieldValue(
         String variableName,
         String field,
@@ -517,6 +515,17 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
         PathMapper pathMapper,
         boolean throwOnMissingVariable)
         throws ExpansionException;
+
+    @VisibleForTesting
+    default VariableValue getFieldValue(String variableName, String field)
+        throws ExpansionException {
+      return getFieldValue(
+          variableName,
+          field,
+          /* expander= */ null,
+          PathMapper.NOOP,
+          /* throwOnMissingVariable= */ true);
+    }
 
     /** Returns true if the variable is truthy */
     boolean isTruthy();
@@ -536,18 +545,6 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
 
     @Override
     public abstract boolean isTruthy();
-
-    @VisibleForTesting
-    @Override
-    public VariableValue getFieldValue(String variableName, String field)
-        throws ExpansionException {
-      return getFieldValue(
-          variableName,
-          field,
-          /* expander= */ null,
-          PathMapper.NOOP,
-          /* throwOnMissingVariable= */ true);
-    }
 
     @Nullable
     @Override

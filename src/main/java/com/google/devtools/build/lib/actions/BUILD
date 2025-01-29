@@ -311,6 +311,7 @@ java_library(
         "ArtifactRoot.java",
         "Artifacts.java",
         "PathMapper.java",
+        "PathMapperConstants.java",
     ],
     deps = [
         ":action_lookup_data",
