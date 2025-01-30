@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.AnalysisRootCauseEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolutionHelpers;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection;
@@ -47,7 +46,6 @@ import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTr
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionCollector;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory.TransitionCreationException;
-import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker;
 import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker.IncompatibleTargetException;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.producers.DependencyContext;
@@ -59,7 +57,6 @@ import com.google.devtools.build.lib.analysis.producers.DependencyMapProducer;
 import com.google.devtools.build.lib.analysis.producers.DependencyMapProducer.MaterializerException;
 import com.google.devtools.build.lib.analysis.producers.MissingEdgeError;
 import com.google.devtools.build.lib.analysis.producers.PrerequisiteParameters;
-import com.google.devtools.build.lib.analysis.producers.TargetAndConfigurationProducer;
 import com.google.devtools.build.lib.analysis.producers.UnloadedToolchainContextsInputs;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
@@ -418,7 +415,8 @@ public final class DependencyResolver {
         | ConfiguredValueCreationException
         | AspectCreationException
         | StarlarkExecTransitionLoadingException
-        | ToolchainException e) {
+        | ToolchainException
+        | ExecGroupCollection.InvalidExecGroupException e) {
       // We handle exceptions in a dedicated method to keep this method concise and readable.
       handleException(listener, targetAndConfiguration.getTarget(), e);
     }
@@ -437,7 +435,8 @@ public final class DependencyResolver {
           ToolchainException,
           ConfiguredValueCreationException,
           IncompatibleTargetException,
-          DependencyEvaluationException {
+          DependencyEvaluationException,
+          ExecGroupCollection.InvalidExecGroupException {
     if (state.dependencyContext != null) {
       return state.dependencyContext;
     }
@@ -566,6 +565,16 @@ public final class DependencyResolver {
           // Report the error to the user.
           listener.handle(Event.error(null, e.getMessage()));
         }
+        yield new ReportedException(
+            new ConfiguredValueCreationException(
+                targetAndConfiguration.getTarget(),
+                configurationId(targetAndConfiguration.getConfiguration()),
+                e.getMessage(),
+                /* rootCauses= */ null,
+                /* detailedExitCode= */ null));
+      }
+      case ExecGroupCollection.InvalidExecGroupException e -> {
+        listener.handle(Event.error(target.getLocation(), e.getMessage()));
         yield new ReportedException(
             new ConfiguredValueCreationException(
                 targetAndConfiguration.getTarget(),
@@ -743,7 +752,7 @@ public final class DependencyResolver {
       @Nullable Label parentExecutionPlatformLabel,
       RuleClassProvider ruleClassProvider,
       ExtendedEventHandler listener)
-      throws InterruptedException {
+      throws InterruptedException, ExecGroupCollection.InvalidExecGroupException {
     if (targetAndConfiguration.getConfiguration() == null) {
       return UnloadedToolchainContextsInputs.empty();
     }
