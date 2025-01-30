@@ -277,7 +277,13 @@ EOF
   bazel aquery --incompatible_allow_tags_propagation=false '//test:test' > output1 2> $TEST_log \
       || fail "should have generated output successfully"
 
-  assert_contains_n "Command Line:" 3 output1
+  if is_darwin; then
+    # CppCompile, CppArchive
+    assert_contains_n "Command Line:" 2 output1
+  else
+    # CppCompile, CppArchive, CppLink
+    assert_contains_n "Command Line:" 3 output1
+  fi
   assert_not_contains "local:" output1
   assert_not_contains "no-cache:" output1
   assert_not_contains "no-remote:" output1
