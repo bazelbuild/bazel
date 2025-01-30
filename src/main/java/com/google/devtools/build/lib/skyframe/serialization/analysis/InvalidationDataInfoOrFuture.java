@@ -81,14 +81,25 @@ sealed interface InvalidationDataInfoOrFuture
   /** Information about transitive upload of invalidation data for a certain {@link FileKey}. */
   static final class FileInvalidationDataInfo extends BaseInvalidationDataInfo<String>
       implements FileDataInfo {
+    private final boolean exists;
     private final long mtsv;
     private final RootedPath realPath;
 
     FileInvalidationDataInfo(
-        String cacheKey, ListenableFuture<Void> writeStatus, long mtsv, RootedPath realPath) {
+        String cacheKey,
+        ListenableFuture<Void> writeStatus,
+        boolean exists,
+        long mtsv,
+        RootedPath realPath) {
       super(cacheKey, writeStatus);
+      this.exists = exists;
       this.mtsv = mtsv;
       this.realPath = realPath;
+    }
+
+    /** True if the file exists. */
+    boolean exists() {
+      return exists;
     }
 
     /**

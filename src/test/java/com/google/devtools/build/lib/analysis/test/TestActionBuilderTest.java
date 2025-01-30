@@ -249,6 +249,32 @@ public class TestActionBuilderTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testShardingForced_equalValue_equalChecksum() throws Exception {
+    useConfiguration("--test_sharding_strategy=forced=5");
+    var config1 = getTargetConfiguration();
+
+    initializeSkyframeExecutor();
+
+    useConfiguration("--test_sharding_strategy=forced=5");
+    var config2 = getTargetConfiguration();
+
+    assertThat(config2).isEqualTo(config1);
+  }
+
+  @Test
+  public void testShardingForced_differentValue_differentChecksum() throws Exception {
+    useConfiguration("--test_sharding_strategy=forced=5");
+    var config1 = getTargetConfiguration();
+
+    initializeSkyframeExecutor();
+
+    useConfiguration("--test_sharding_strategy=forced=6");
+    var config2 = getTargetConfiguration();
+
+    assertThat(config2).isNotEqualTo(config1);
+  }
+
+  @Test
   public void testFlakyAttributeValidation() throws Exception {
     scratch.file(
         "flaky/BUILD",

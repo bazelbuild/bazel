@@ -196,6 +196,16 @@ public abstract class PersistentMap<K, V> extends ForwardingConcurrentMap<K, V> 
     return previous;
   }
 
+  @Override
+  public V replace(K key, V value) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public boolean replace(K key, V oldValue, V newValue) {
+    throw new UnsupportedOperationException();
+  }
+
   /**
    * Updates the persistent journal by writing all entries to the {@link #journalOut} stream and
    * clearing the in memory journal.

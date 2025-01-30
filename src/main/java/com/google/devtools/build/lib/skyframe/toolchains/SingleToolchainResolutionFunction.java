@@ -166,11 +166,13 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
           toolchain.targetConstraints(),
           /* isTargetPlatform= */ true,
           targetPlatform,
-          toolchain.toolchainLabel())) {
+          toolchain.targetLabel(),
+          toolchain.resolvedToolchainLabel())) {
         continue;
       }
 
-      debugPrinter.reportCompatibleTargetPlatform(toolchain.toolchainLabel());
+      debugPrinter.reportCompatibleTargetPlatform(
+          toolchain.targetLabel(), toolchain.resolvedToolchainLabel());
 
       boolean done = true;
 
@@ -201,14 +203,15 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
             toolchain.execConstraints(),
             /* isTargetPlatform= */ false,
             executionPlatform,
-            toolchain.toolchainLabel())) {
+            toolchain.targetLabel(),
+            toolchain.resolvedToolchainLabel())) {
           // Keep looking for a valid toolchain for this exec platform
           done = false;
           continue;
         }
 
         debugPrinter.reportCompatibleExecutionPlatform(executionPlatformKey.getLabel());
-        builder.put(executionPlatformKey, toolchain.toolchainLabel());
+        builder.put(executionPlatformKey, toolchain.resolvedToolchainLabel());
         platformKeysSeen.add(executionPlatformKey);
       }
 
@@ -234,7 +237,8 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
       ConstraintCollection toolchainConstraints,
       boolean isTargetPlatform,
       PlatformInfo platform,
-      Label toolchainLabel) {
+      Label targetLabel,
+      Label resolvedToolchainLabel) {
 
     // Check every constraint_setting in either the toolchain or the platform.
     ImmutableSet<ConstraintSettingInfo> mismatchSettings =
@@ -257,7 +261,8 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
         toolchainConstraints,
         isTargetPlatform,
         platform,
-        toolchainLabel,
+        targetLabel,
+        resolvedToolchainLabel,
         mismatchSettingsWithDefault);
 
     return mismatchSettingsWithDefault.isEmpty();

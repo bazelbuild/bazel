@@ -706,8 +706,8 @@ EOF
     --platform_mappings= \
     "//${pkg}/demo:use" &> $TEST_log || fail "Build failed"
   expect_log "Performing resolution of //${pkg}/toolchain:test_toolchain for target platform ${default_host_platform}"
-  expect_log "Rejected toolchain //${pkg}/demo:toolchain_impl_invalid; mismatching config settings: optimized"
-  expect_log "Toolchain //register/${pkg}:test_toolchain_impl_1 is compatible with target platform, searching for execution platforms:"
+  expect_log "Rejected toolchain //${pkg}/demo:toolchain_invalid; mismatching config settings: optimized"
+  expect_log "Toolchain //register/${pkg}:test_toolchain_1 (resolves to //register/${pkg}:test_toolchain_impl_1) is compatible with target platform, searching for execution platforms:"
   expect_log "Compatible execution platform ${default_host_platform}"
   expect_log "Recap of selected //${pkg}/toolchain:test_toolchain toolchains for target platform ${default_host_platform}:"
   expect_log "Selected //register/${pkg}:test_toolchain_impl_1 to run on execution platform ${default_host_platform}"
@@ -738,7 +738,7 @@ EOF
     --platform_mappings= \
     "//${pkg}/demo:use" &> $TEST_log || fail "Build failed"
   expect_log "Performing resolution of //${pkg}/toolchain:test_toolchain for target platform ${default_host_platform}"
-  expect_log "Toolchain //register/${pkg}:test_toolchain_impl_1 is compatible with target platform, searching for execution platforms:"
+  expect_log "Toolchain //register/${pkg}:test_toolchain_1 (resolves to //register/${pkg}:test_toolchain_impl_1) is compatible with target platform, searching for execution platforms:"
   expect_log "Compatible execution platform ${default_host_platform}"
   expect_log "Recap of selected //${pkg}/toolchain:test_toolchain toolchains for target platform ${default_host_platform}:"
   expect_log "Selected //register/${pkg}:test_toolchain_impl_1 to run on execution platform ${default_host_platform}"
@@ -1495,6 +1495,17 @@ register_toolchains('//${pkg}:toolchain_2')
 EOF
 
   mkdir -p "{$pkg}"
+
+  cat > "${pkg}/flags.bzl" <<EOF
+def _impl(ctx):
+  pass
+
+string_flag = rule(
+    implementation = _impl,
+    build_setting = config.string(flag = True),
+)
+EOF
+
   cat > "${pkg}/BUILD" <<EOF
 load('//${pkg}/toolchain:toolchain_test_toolchain.bzl', 'test_toolchain')
 
@@ -1515,15 +1526,15 @@ test_toolchain(
 
 # Define config setting
 config_setting(
-    name = "optimized",
-    values = {"compilation_mode": "opt"}
+    name = "prod_version",
+    flag_values = {"//${pkg}/demo:version": "production"}
 )
 
 # Declare the toolchain.
 toolchain(
     name = 'toolchain_1',
     toolchain_type = '//${pkg}/toolchain:test_toolchain',
-    target_settings = [":optimized"],
+    target_settings = [":prod_version"],
     toolchain = ':toolchain_impl_1')
 toolchain(
     name = 'toolchain_2',
@@ -1546,6 +1557,7 @@ EOF
 
   cat > "${pkg}/demo/BUILD" <<EOF
 load('//${pkg}/toolchain:rule_use_toolchain.bzl', 'use_toolchain')
+load('//${pkg}:flags.bzl', 'string_flag')
 load(':rule.bzl', 'sample_rule')
 
 package(default_visibility = ["//visibility:public"])
@@ -1560,23 +1572,24 @@ sample_rule(
     name = 'sample',
     dep = ':use',
 )
+
+string_flag(
+  name = 'version',
+  build_setting_default = 'production'
+)
 EOF
 
-  # This should use toolchain_1 (because default host_compilation_mode = opt).
+  # This should use toolchain_1 (because default --//${pkg}/demo:version=production).
+  # Pass --experimental_propagate_custom_flag to make sure the flag is
+  # propagated to the exec configuration.
   bazel build \
-    "//${pkg}/demo:sample" &> $TEST_log || fail "Build failed"
+    "//${pkg}/demo:sample" "--experimental_propagate_custom_flag=//${pkg}/demo:version" &> $TEST_log || fail "Build failed"
   expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from 1"'
 
   # This should use toolchain_2.
   bazel build \
-    --compilation_mode=opt --host_compilation_mode=dbg \
-    "//${pkg}/demo:sample" &> $TEST_log || fail "Build failed"
-  expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from 2"'
-
-  # This should use toolchain_2.
-  bazel build \
-    --host_compilation_mode=dbg \
-    "//${pkg}/demo:sample" &> $TEST_log || fail "Build failed"
+    "//${pkg}/demo:sample" "--experimental_propagate_custom_flag=//${pkg}/demo:version" \
+    --//${pkg}/demo:version=dev &> $TEST_log || fail "Build failed"
   expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from 2"'
 }
 

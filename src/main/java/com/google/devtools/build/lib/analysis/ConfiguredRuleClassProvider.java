@@ -187,22 +187,8 @@ public /*final*/ class ConfiguredRuleClassProvider
     }
 
     @CanIgnoreReturnValue
-    @VisibleForTesting
-    public Builder clearWorkspaceFilePrefixForTesting() {
-      defaultWorkspaceFilePrefix.delete(0, defaultWorkspaceFilePrefix.length());
-      return this;
-    }
-
-    @CanIgnoreReturnValue
     public Builder addWorkspaceFileSuffix(String contents) {
       defaultWorkspaceFileSuffix.append(contents);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    @VisibleForTesting
-    public Builder clearWorkspaceFileSuffixForTesting() {
-      defaultWorkspaceFileSuffix.delete(0, defaultWorkspaceFileSuffix.length());
       return this;
     }
 

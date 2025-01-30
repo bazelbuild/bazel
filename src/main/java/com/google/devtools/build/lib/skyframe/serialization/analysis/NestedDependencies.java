@@ -50,7 +50,7 @@ final class NestedDependencies
     return analysisDependencies[index];
   }
 
-  int sourceCount() {
+  int sourcesCount() {
     return sources.length;
   }
 

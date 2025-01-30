@@ -18,12 +18,9 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static org.junit.Assert.assertThrows;
 
-import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
-import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import java.util.List;
 import org.junit.Test;
@@ -33,21 +30,6 @@ import org.junit.runners.JUnit4;
 /** Integration test for Starlark repository not as heavyweight than shell integration tests. */
 @RunWith(JUnit4.class)
 public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
-
-  // The RuleClassProvider loaded with the StarlarkRepositoryModule
-  private ConfiguredRuleClassProvider ruleProvider = null;
-
-  @Override
-  protected ConfiguredRuleClassProvider createRuleClassProvider() {
-    // We inject the repository module in our test rule class provider.
-    if (ruleProvider == null) {
-      ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
-      TestRuleClassProvider.addStandardRules(builder);
-      builder.addStarlarkBootstrap(new RepositoryBootstrap(new StarlarkRepositoryModule()));
-      ruleProvider = builder.build();
-    }
-    return ruleProvider;
-  }
 
   @Override
   protected void invalidatePackages() throws InterruptedException, AbruptExitException {

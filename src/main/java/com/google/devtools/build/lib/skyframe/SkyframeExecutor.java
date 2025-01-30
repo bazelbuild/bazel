@@ -80,8 +80,8 @@ import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.MapBasedActionGraph;
+import com.google.devtools.build.lib.actions.OutputChecker;
 import com.google.devtools.build.lib.actions.PackageRoots;
-import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.UserExecException;
@@ -522,7 +522,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider =
       DisabledDependenciesProvider.INSTANCE;
 
-  /** Non-null only when analysis caching mode is download. */
+  /** Non-null only when analysis caching mode is upload/download. */
   @Nullable private ModifiedFileSet diffFromEvaluatingVersion;
 
   public void setRemoteAnalysisCachingDependenciesProvider(
@@ -1732,7 +1732,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         evaluateSkyKeys(eventHandler, ImmutableList.of(mainRepositoryMappingKey));
     if (mainRepoMappingResult.hasError()) {
       throw new InvalidConfigurationException(
-          "Cannot find main repository mapping", Code.INVALID_BUILD_OPTIONS);
+          "Cannot find main repository mapping",
+          Code.INVALID_BUILD_OPTIONS,
+          mainRepoMappingResult.getError().getException());
     }
     RepositoryMappingValue mainRepositoryMappingValue =
         (RepositoryMappingValue) mainRepoMappingResult.get(mainRepositoryMappingKey);
@@ -2924,7 +2926,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   public abstract void detectModifiedOutputFiles(
       ModifiedFileSet modifiedOutputFiles,
       @Nullable Range<Long> lastExecutionTimeRange,
-      RemoteArtifactChecker remoteArtifactChecker,
+      OutputChecker outputChecker,
       int fsvcThreads)
       throws AbruptExitException, InterruptedException;
 
@@ -3471,7 +3473,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
           var remoteAnalysisCachingOptions = options.getOptions(RemoteAnalysisCachingOptions.class);
           if (remoteAnalysisCachingOptions != null
-              && remoteAnalysisCachingOptions.mode.downloadForAnalysis()) {
+              && remoteAnalysisCachingOptions.mode.requiresBackendConnectivity()) {
             handleDiffsForRemoteAnalysisCaching(
                 diffAwarenessManager.getDiffFromEvaluatingVersion(
                     fileSystem, getPathForModifiedFileSet(pathEntry), ignoredPaths, options));

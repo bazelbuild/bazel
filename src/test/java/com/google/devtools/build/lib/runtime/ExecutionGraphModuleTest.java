@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.runtime.ExecutionGraphModule.ActionDumpWrit
 import com.google.devtools.build.lib.runtime.ExecutionGraphModule.DependencyInfo;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -87,6 +88,7 @@ import org.mockito.ArgumentCaptor;
 /** Unit tests for {@link ExecutionGraphModule}. */
 @RunWith(TestParameterInjector.class)
 public class ExecutionGraphModuleTest extends FoundationTestCase {
+  protected final DigestHashFunction digestHashFunction = DigestHashFunction.SHA256;
   private ExecutionGraphModule module;
   private ArtifactRoot artifactRoot;
 
@@ -142,7 +144,12 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
     startLogging(eventBus, uuid, buffer, DependencyInfo.NONE);
     Instant startTimeInstant = Instant.now();
     module.spawnExecuted(
-        new SpawnExecutedEvent(spawn, new FakeActionInputFileCache(), result, startTimeInstant));
+        new SpawnExecutedEvent(
+            spawn,
+            new FakeActionInputFileCache(),
+            result,
+            startTimeInstant,
+            /* spawnIdentifier= */ "foo"));
     module.buildComplete(
         new BuildCompleteEvent(new BuildResult(startTimeInstant.toEpochMilli() + 1000)));
 
@@ -157,6 +164,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         .isEqualTo(startTimeInstant.toEpochMilli());
     assertThat(nodes.get(0).getIndex()).isEqualTo(0);
     assertThat(nodes.get(0).getDependentIndexList()).isEmpty();
+    assertThat(nodes.get(0).getIdentifier()).isEqualTo("foo");
   }
 
   @Test
@@ -194,7 +202,12 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
             new ActionsTestUtil.NullAction(createOutputArtifact("output/foo/out")),
             0));
     module.spawnExecuted(
-        new SpawnExecutedEvent(spawn, new FakeActionInputFileCache(), result, startTimeInstant));
+        new SpawnExecutedEvent(
+            spawn,
+            new FakeActionInputFileCache(),
+            result,
+            startTimeInstant,
+            /* spawnIdentifier= */ "foo"));
     module.buildComplete(
         new BuildCompleteEvent(new BuildResult(startTimeInstant.toEpochMilli() + 1000)));
 
@@ -206,6 +219,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
     assertThat(metrics.getProcessOutputsMillis()).isEqualTo(3456);
     assertThat(metrics.getParseMillis()).isEqualTo(2000);
     assertThat(metrics.getDiscoverInputsMillis()).isEqualTo(987);
+    assertThat(nodes.get(0).getIdentifier()).isEqualTo("foo");
   }
 
   @Test
@@ -263,12 +277,25 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
     Instant startTimeInstant = Instant.now();
     module.spawnExecuted(
         new SpawnExecutedEvent(
-            spawnOut1, new FakeActionInputFileCache(), result, startTimeInstant));
+            spawnOut1,
+            new FakeActionInputFileCache(),
+            result,
+            startTimeInstant,
+            /* spawnIdentifier= */ "out1"));
     module.spawnExecuted(
         new SpawnExecutedEvent(
-            spawnOut2, new FakeActionInputFileCache(), result, startTimeInstant));
+            spawnOut2,
+            new FakeActionInputFileCache(),
+            result,
+            startTimeInstant,
+            /* spawnIdentifier= */ "out2"));
     module.spawnExecuted(
-        new SpawnExecutedEvent(spawnTop, new FakeActionInputFileCache(), result, startTimeInstant));
+        new SpawnExecutedEvent(
+            spawnTop,
+            new FakeActionInputFileCache(),
+            result,
+            startTimeInstant,
+            /* spawnIdentifier= */ "top"));
     module.buildComplete(
         new BuildCompleteEvent(new BuildResult(startTimeInstant.plusMillis(1000).toEpochMilli())));
 
@@ -401,7 +428,11 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
     Instant startTimeInstant = Instant.now();
     module.spawnExecuted(
         new SpawnExecutedEvent(
-            spawnOut1, new FakeActionInputFileCache(), result, startTimeInstant));
+            spawnOut1,
+            new FakeActionInputFileCache(),
+            result,
+            startTimeInstant,
+            /* spawnIdentifier= */ "out1"));
     // spawnOut2 is change pruned.
     var unused = spawnOut2;
     module.actionChangePruned(
@@ -409,7 +440,11 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
             ActionsTestUtil.NULL_ACTION_LOOKUP_DATA, startTimeInstant.toEpochMilli() * 1_000_000));
     module.spawnExecuted(
         new SpawnExecutedEvent(
-            spawnOut3, new FakeActionInputFileCache(), result, startTimeInstant));
+            spawnOut3,
+            new FakeActionInputFileCache(),
+            result,
+            startTimeInstant,
+            /* spawnIdentifier= */ "out3"));
     module.buildComplete(
         new BuildCompleteEvent(new BuildResult(startTimeInstant.plusMillis(1000).toEpochMilli())));
 
@@ -556,7 +591,12 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
     startLogging(eventBus, uuid, buffer, DependencyInfo.NONE);
     Instant startTimeInstant = Instant.now();
     module.spawnExecuted(
-        new SpawnExecutedEvent(spawn, new FakeActionInputFileCache(), result, startTimeInstant));
+        new SpawnExecutedEvent(
+            spawn,
+            new FakeActionInputFileCache(),
+            result,
+            startTimeInstant,
+            /* spawnIdentifier= */ "foo"));
     module.buildComplete(
         new BuildCompleteEvent(new BuildResult(startTimeInstant.toEpochMilli() + 1000)));
 
@@ -575,7 +615,8 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
             new SpawnBuilder().withOwnerPrimaryOutput(createOutputArtifact("foo/out")).build(),
             new FakeActionInputFileCache(),
             createRemoteSpawnResult(200),
-            Instant.ofEpochMilli(100)));
+            Instant.ofEpochMilli(100),
+            /* spawnIdentifier= */ "foo"));
     module.actionComplete(
         new ActionCompletionEvent(
             0,
@@ -595,6 +636,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
                         .setDurationMillis(200)
                         .setOtherMillis(200))
                 .setRunner("remote")
+                .setIdentifier("foo")
                 .setRuleClass("dummy-target-kind")
                 .build());
   }
@@ -611,7 +653,8 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
             new SpawnBuilder().withOwnerPrimaryOutput(createOutputArtifact("foo/out")).build(),
             new FakeActionInputFileCache(),
             createRemoteSpawnResult(200),
-            Instant.ofEpochMilli(100)));
+            Instant.ofEpochMilli(100),
+            /* spawnIdentifier= */ "foo"));
     var action = new ActionsTestUtil.NullAction(createOutputArtifact("bar/out"));
     module.actionComplete(
         new ActionCompletionEvent(0, 0, action, new FakeActionInputFileCache(), null));
@@ -628,6 +671,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
                         .setOtherMillis(200))
                 .setRuleClass("dummy-target-kind")
                 .setRunner("remote")
+                .setIdentifier("foo")
                 .build(),
             executionGraphNodeBuilderForAction(action)
                 .setIndex(1)
@@ -672,10 +716,19 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnBuilder().withOwnerPrimaryOutput(createOutputArtifact("foo/out")).build();
 
     module.spawnExecuted(
-        new SpawnExecutedEvent(spawn, new FakeActionInputFileCache(), localResult, Instant.EPOCH));
+        new SpawnExecutedEvent(
+            spawn,
+            new FakeActionInputFileCache(),
+            localResult,
+            Instant.EPOCH,
+            /* spawnIdentifier= */ "foo1"));
     module.spawnExecuted(
         new SpawnExecutedEvent(
-            spawn, new FakeActionInputFileCache(), remoteResult, Instant.ofEpochMilli(100)));
+            spawn,
+            new FakeActionInputFileCache(),
+            remoteResult,
+            Instant.ofEpochMilli(100),
+            /* spawnIdentifier= */ "foo2"));
     module.buildComplete(new BuildCompleteEvent(new BuildResult(1000)));
 
     ImmutableList<ExecutionGraph.Node> nodes = parse(buffer);
@@ -689,6 +742,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
                         .setDurationMillis(100)
                         .setOtherMillis(100))
                 .setRunner("local")
+                .setIdentifier("foo1")
                 .build(),
             executionGraphNodeBuilderForSpawnBuilderSpawn()
                 .setIndex(1)
@@ -698,6 +752,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
                         .setDurationMillis(200)
                         .setOtherMillis(200))
                 .setRunner("remote")
+                .setIdentifier("foo2")
                 .setRetryOf(0)
                 .build())
         .inOrder();
@@ -749,10 +804,19 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnBuilder().withOwnerPrimaryOutput(createOutputArtifact("foo/out")).build();
 
     module.spawnExecuted(
-        new SpawnExecutedEvent(spawn, new FakeActionInputFileCache(), localResult, Instant.EPOCH));
+        new SpawnExecutedEvent(
+            spawn,
+            new FakeActionInputFileCache(),
+            localResult,
+            Instant.EPOCH,
+            /* spawnIdentifier= */ "foo1"));
     module.spawnExecuted(
         new SpawnExecutedEvent(
-            spawn, new FakeActionInputFileCache(), remoteResult, Instant.ofEpochMilli(10)));
+            spawn,
+            new FakeActionInputFileCache(),
+            remoteResult,
+            Instant.ofEpochMilli(10),
+            /* spawnIdentifier= */ "foo2"));
     module.buildComplete(new BuildCompleteEvent(new BuildResult(1000)));
 
     ImmutableList<ExecutionGraph.Node> nodes = parse(buffer);
@@ -766,6 +830,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
                         .setDurationMillis(100)
                         .setOtherMillis(100))
                 .setRunner("local")
+                .setIdentifier("foo1")
                 .build(),
             executionGraphNodeBuilderForSpawnBuilderSpawn()
                 .setIndex(1)
@@ -775,6 +840,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
                         .setDurationMillis(200)
                         .setOtherMillis(200))
                 .setRunner("remote")
+                .setIdentifier("foo2")
                 .build())
         .inOrder();
     localLockFreeOutput.assertBugReport(bugReporter);
@@ -804,16 +870,26 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
     SpawnResult dependentResult = createRemoteSpawnResult(300);
 
     module.spawnExecuted(
-        new SpawnExecutedEvent(spawn, new FakeActionInputFileCache(), localResult, Instant.EPOCH));
+        new SpawnExecutedEvent(
+            spawn,
+            new FakeActionInputFileCache(),
+            localResult,
+            Instant.EPOCH,
+            /* spawnIdentifier= */ "foo1"));
     module.spawnExecuted(
         new SpawnExecutedEvent(
-            spawn, new FakeActionInputFileCache(), remoteResult, Instant.ofEpochMilli(10)));
+            spawn,
+            new FakeActionInputFileCache(),
+            remoteResult,
+            Instant.ofEpochMilli(10),
+            /* spawnIdentifier= */ "foo2"));
     module.spawnExecuted(
         new SpawnExecutedEvent(
             dependentSpawn,
             new FakeActionInputFileCache(),
             dependentResult,
-            Instant.ofEpochMilli(300)));
+            Instant.ofEpochMilli(300),
+            /* spawnIdentifier= */ "foo3"));
     module.buildComplete(new BuildCompleteEvent(new BuildResult(1000)));
 
     ImmutableList<ExecutionGraph.Node> nodes = parse(buffer);
@@ -827,6 +903,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
                         .setDurationMillis(100)
                         .setOtherMillis(100))
                 .setRunner("local")
+                .setIdentifier("foo1")
                 .build(),
             executionGraphNodeBuilderForSpawnBuilderSpawn()
                 .setIndex(1)
@@ -836,6 +913,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
                         .setDurationMillis(200)
                         .setOtherMillis(200))
                 .setRunner("remote")
+                .setIdentifier("foo2")
                 .build(),
             executionGraphNodeBuilderForSpawnBuilderSpawn()
                 .setIndex(2)
@@ -845,6 +923,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
                         .setDurationMillis(300)
                         .setOtherMillis(300))
                 .setRunner("remote")
+                .setIdentifier("foo3")
                 .addDependentIndex(0)
                 .build())
         .inOrder();

@@ -101,6 +101,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe:filesystem_keys",
         "//src/main/java/com/google/devtools/build/lib/skyframe:rule_configured_target_value",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -157,6 +158,7 @@ java_library(
     deps = [
         ":file_dependency_key_support",
         ":value_or_future_map",
+        ":versioned_changes",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/concurrent:settable_future_keyed_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
@@ -169,6 +171,25 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "@com_google_protobuf//:protobuf_java",
+    ],
+)
+
+java_library(
+    name = "depot_delta_validator",
+    srcs = [
+        "FileOpMatchMemoizingLookup.java",
+        "FileOpMatchResultTypes.java",
+        "NestedMatchMemoizingLookup.java",
+        "NestedMatchResultTypes.java",
+        "NoMatch.java",
+    ],
+    deps = [
+        ":file_dependency_deserializer",
+        ":value_or_future_map",
+        ":versioned_changes",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:settable_future_keyed_value",
+        "//third_party:guava",
     ],
 )
 
@@ -206,6 +227,15 @@ java_library(
 java_library(
     name = "client_id",
     srcs = ["ClientId.java"],
+)
+
+java_library(
+    name = "versioned_changes",
+    srcs = ["VersionedChanges.java"],
+    deps = [
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
 )
 
 java_library(

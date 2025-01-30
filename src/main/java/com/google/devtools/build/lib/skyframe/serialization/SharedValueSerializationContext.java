@@ -15,16 +15,16 @@ package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.skyframe.serialization.FutureHelpers.aggregateStatusFutures;
-import static com.google.devtools.build.lib.skyframe.serialization.FutureHelpers.getDoneSerializationFuture;
 import static com.google.devtools.build.lib.skyframe.serialization.FutureHelpers.reportAnyFailures;
 import static com.google.devtools.build.lib.skyframe.serialization.FutureHelpers.waitForSerializationFuture;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableClassToInstanceMap;
-import com.google.common.collect.Lists;
+import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.concurrent.QuiescingFuture;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
@@ -176,8 +176,8 @@ abstract class SharedValueSerializationContext extends MemoizingSerializationCon
    * </ul>
    *
    * <p>When entries are added to {@link #futurePuts}, the caller must ensure that for every entry,
-   * {@link FuturePut#fillInPlaceholderAndReturnWriteStatus} is called to update placeholders
-   * present in the serialized bytes.
+   * the associated fingerprint must be written to the output bytes at {@link FuturePut#offset}. to
+   * update placeholders present in the serialized bytes.
    */
   private final <T> void putOwnedSharedValue(
       T child,
@@ -229,23 +229,32 @@ abstract class SharedValueSerializationContext extends MemoizingSerializationCon
 
     // Ensures enough space for the subvalues and one additional for the put of `child` itself.
     childWriteStatuses.ensureCapacity(childWriteStatuses.size() + childDeferredBytes.size() + 1);
+    var upload =
+        new UploadOnceChildBytesReady(fingerprintValueService, childWriteStatuses, childBytes);
+    upload.registerFuturePuts(childDeferredBytes);
 
-    // There are pending fingerprint sub-computations.
-    ListenableFuture<PutOperation> futureStore =
-        whenAllPutsStarted(childDeferredBytes)
-            .call(
-                () -> {
-                  fillPlaceholdersAndCollectWriteStatuses(
-                      childDeferredBytes, childBytes, childWriteStatuses);
-                  // All placeholders are filled-in. Starts the upload.
-                  PackedFingerprint fingerprint = fingerprintValueService.fingerprint(childBytes);
-                  childWriteStatuses.add(fingerprintValueService.put(fingerprint, childBytes));
-                  return new PutOperation(fingerprint, aggregateStatusFutures(childWriteStatuses));
-                },
-                directExecutor());
+    putOperation.setFuture(upload);
+    recordFuturePut(upload, codedOut);
+  }
 
-    putOperation.setFuture(futureStore);
-    recordFuturePut(futureStore, codedOut);
+  private static final class UploadOnceChildBytesReady extends WaitForChildBytes<PutOperation> {
+    private final FingerprintValueService fingerprintValueService;
+
+    private UploadOnceChildBytesReady(
+        FingerprintValueService fingerprintValueService,
+        List<ListenableFuture<Void>> childWriteStatuses,
+        byte[] childBytes) {
+      super(childWriteStatuses, childBytes);
+      this.fingerprintValueService = fingerprintValueService;
+    }
+
+    @Override
+    protected PutOperation getValue() {
+      // All placeholders are filled-in. Starts the upload.
+      PackedFingerprint fingerprint = fingerprintValueService.fingerprint(childBytes);
+      childWriteStatuses.add(fingerprintValueService.put(fingerprint, childBytes));
+      return new PutOperation(fingerprint, aggregateStatusFutures(childWriteStatuses));
+    }
   }
 
   @Override // to narrow the return type
@@ -304,7 +313,9 @@ abstract class SharedValueSerializationContext extends MemoizingSerializationCon
           : SerializationResult.create(finalBytes, aggregateStatusFutures(futuresToBlockWritingOn));
     }
 
-    List<ListenableFuture<Void>> writeStatuses = initializeCombinedWriteStatusesList();
+    List<ListenableFuture<Void>> childWriteStatuses = initializeCombinedWriteStatusesList();
+    var childBytesDone = new WaitForChildByteCompletion(childWriteStatuses, bytes);
+    childBytesDone.registerFuturePuts(futurePuts);
     // `futurePuts` are produced when multiple threads race to write the same value. This is
     // expected to be relatively rare and waiting here is for CPU bound serialization work only.
     //
@@ -312,14 +323,7 @@ abstract class SharedValueSerializationContext extends MemoizingSerializationCon
     // SerializationResult<ListenableFuture<byte[]>>. Do so if the contention outweighs the extra
     // complexity.
     try {
-      waitForSerializationFuture(
-          whenAllPutsStarted(futurePuts)
-              .call(
-                  () -> {
-                    fillPlaceholdersAndCollectWriteStatuses(futurePuts, bytes, writeStatuses);
-                    return null;
-                  },
-                  directExecutor()));
+      waitForSerializationFuture(childBytesDone);
     } catch (SerializationException e) {
       // An exception has occurred. Ensures that any additional errors from writing are handled
       // before throwing the exception.
@@ -329,7 +333,19 @@ abstract class SharedValueSerializationContext extends MemoizingSerializationCon
       throw e;
     }
     return SerializationResult.create(
-        ByteString.copyFrom(bytes), aggregateStatusFutures(writeStatuses));
+        ByteString.copyFrom(bytes), aggregateStatusFutures(childWriteStatuses));
+  }
+
+  private static final class WaitForChildByteCompletion extends WaitForChildBytes<Void> {
+    private WaitForChildByteCompletion(
+        List<ListenableFuture<Void>> childWriteStatuses, byte[] childBytes) {
+      super(childWriteStatuses, childBytes);
+    }
+
+    @Override
+    protected Void getValue() {
+      return null;
+    }
   }
 
   /**
@@ -348,30 +364,11 @@ abstract class SharedValueSerializationContext extends MemoizingSerializationCon
     return statuses;
   }
 
-  private static Futures.FutureCombiner<?> whenAllPutsStarted(List<FuturePut> stores) {
-    return Futures.whenAllSucceed(Lists.transform(stores, FuturePut::getFuturePut));
-  }
-
-  /**
-   * Fills placeholders in {@code bytes} from {@code futurePuts} and adds write statuses to {@code
-   * writeStatuses}.
-   *
-   * <p>The caller must ensure that all the {@link FuturePut#futurePut}s futures in {@code
-   * futurePuts} are done before calling this, that is, {@link #whenAllPutsStarted}.
-   */
-  private static void fillPlaceholdersAndCollectWriteStatuses(
-      List<FuturePut> futurePuts, byte[] bytes, List<ListenableFuture<Void>> writeStatuses)
-      throws SerializationException {
-    for (FuturePut put : futurePuts) {
-      writeStatuses.add(put.fillInPlaceholderAndReturnWriteStatus(bytes));
-    }
-  }
-
   /**
    * A tuple consisting of a stream offset and a pending {@link PutOperation}.
    *
-   * <p>When {@link PutOperation} becomes available, {@link
-   * FuturePut#fillInPlaceholderAndReturnWriteStatus} must be called.
+   * <p>When {@link PutOperation} becomes available, its {@link PutOperation#fingerprint} should be
+   * copied to the output bytes starting at {@link #offset}.
    */
   private static final class FuturePut {
     /** Where the fingerprint should be written when it becomes available. */
@@ -395,17 +392,54 @@ abstract class SharedValueSerializationContext extends MemoizingSerializationCon
     private ListenableFuture<PutOperation> getFuturePut() {
       return futurePut;
     }
+  }
 
-    /**
-     * Copies the fingerprint into {@code bytes} at {@link #offset}.
-     *
-     * <p>The caller must ensure that {@link #futurePut} is complete before calling this method.
-     */
-    private ListenableFuture<Void> fillInPlaceholderAndReturnWriteStatus(byte[] bytes)
-        throws SerializationException {
-      PutOperation put = getDoneSerializationFuture(futurePut);
-      put.fingerprint().copyTo(bytes, offset);
-      return put.writeStatus();
+  private abstract static class WaitForChildBytes<T> extends QuiescingFuture<T> {
+    final List<ListenableFuture<Void>> childWriteStatuses;
+    final byte[] childBytes;
+
+    private WaitForChildBytes(List<ListenableFuture<Void>> childWriteStatuses, byte[] childBytes) {
+      this.childWriteStatuses = childWriteStatuses;
+      this.childBytes = childBytes;
+    }
+
+    void registerFuturePuts(Iterable<FuturePut> futurePuts) {
+      for (FuturePut futurePut : futurePuts) {
+        increment();
+        Futures.addCallback(
+            futurePut.getFuturePut(), new PutStartedCallback(futurePut.offset), directExecutor());
+      }
+      decrement(); // everything is registered
+    }
+
+    private void acceptPutOperation(PutOperation put, int offset) {
+      put.fingerprint().copyTo(childBytes, offset);
+      synchronized (childWriteStatuses) {
+        childWriteStatuses.add(put.writeStatus());
+      }
+      decrement();
+    }
+
+    private void notifyFailedPutOperation(Throwable t) {
+      notifyException(t);
+    }
+
+    private final class PutStartedCallback implements FutureCallback<PutOperation> {
+      private final int offset;
+
+      private PutStartedCallback(int offset) {
+        this.offset = offset;
+      }
+
+      @Override
+      public void onSuccess(PutOperation put) {
+        acceptPutOperation(put, offset);
+      }
+
+      @Override
+      public void onFailure(Throwable t) {
+        notifyFailedPutOperation(t);
+      }
     }
   }
 

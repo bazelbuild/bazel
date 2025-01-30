@@ -497,80 +497,87 @@ public final class DependencyResolver {
   private void handleException(ExtendedEventHandler listener, Target target, Exception untyped)
       throws ReportedException {
 
-    if (untyped instanceof DependencyEvaluationException e) {
-      String errorMessage = e.getMessage();
-      if (!e.depReportedOwnError()) {
-        listener.handle(Event.error(e.getLocation(), e.getMessage()));
-      }
+    throw switch (untyped) {
+      case DependencyEvaluationException e -> {
+        String errorMessage = e.getMessage();
+        if (!e.depReportedOwnError()) {
+          listener.handle(Event.error(e.getLocation(), e.getMessage()));
+        }
 
-      ConfiguredValueCreationException cvce = null;
-      if (e.getCause() instanceof ConfiguredValueCreationException) {
-        cvce = (ConfiguredValueCreationException) e.getCause();
+        ConfiguredValueCreationException cvce = null;
+        if (e.getCause() instanceof ConfiguredValueCreationException) {
+          cvce = (ConfiguredValueCreationException) e.getCause();
 
-        // Check if this is caused by an unresolved toolchain, and report it as such.
-        if (unloadedToolchainContexts != null) {
-          ImmutableSet<Label> requiredToolchains =
-              unloadedToolchainContexts.getResolvedToolchains();
-          ImmutableSet<Label> toolchainDependencyErrors =
-              cvce.getRootCauses().toList().stream()
-                  .map(Cause::getLabel)
-                  .filter(requiredToolchains::contains)
-                  .collect(toImmutableSet());
+          // Check if this is caused by an unresolved toolchain, and report it as such.
+          if (unloadedToolchainContexts != null) {
+            ImmutableSet<Label> requiredToolchains =
+                unloadedToolchainContexts.getResolvedToolchains();
+            ImmutableSet<Label> toolchainDependencyErrors =
+                cvce.getRootCauses().toList().stream()
+                    .map(Cause::getLabel)
+                    .filter(requiredToolchains::contains)
+                    .collect(toImmutableSet());
 
-          if (!toolchainDependencyErrors.isEmpty()) {
-            errorMessage = "errors encountered resolving toolchains for " + target.getLabel();
-            listener.handle(Event.error(target.getLocation(), errorMessage));
+            if (!toolchainDependencyErrors.isEmpty()) {
+              errorMessage = "errors encountered resolving toolchains for " + target.getLabel();
+              listener.handle(Event.error(target.getLocation(), errorMessage));
+            }
           }
         }
-      }
 
-      throw new ReportedException(
-          cvce != null
-              ? cvce
-              : new ConfiguredValueCreationException(
-                  targetAndConfiguration.getTarget(),
-                  configurationId(targetAndConfiguration.getConfiguration()),
-                  errorMessage,
-                  null,
-                  e.getDetailedExitCode()));
-    } else if (untyped instanceof ConfiguredValueCreationException e) {
-      if (!e.getMessage().isEmpty()) {
-        // Report the error to the user.
-        listener.handle(Event.error(e.getLocation(), e.getMessage()));
+        yield new ReportedException(
+            cvce != null
+                ? cvce
+                : new ConfiguredValueCreationException(
+                    targetAndConfiguration.getTarget(),
+                    configurationId(targetAndConfiguration.getConfiguration()),
+                    errorMessage,
+                    null,
+                    e.getDetailedExitCode()));
       }
-      throw new ReportedException(e);
-    } else if (untyped instanceof AspectCreationException e) {
-      if (!e.getMessage().isEmpty()) {
-        // Report the error to the user.
-        listener.handle(Event.error(null, e.getMessage()));
+      case ConfiguredValueCreationException e -> {
+        if (!e.getMessage().isEmpty()) {
+          // Report the error to the user.
+          listener.handle(Event.error(e.getLocation(), e.getMessage()));
+        }
+        yield new ReportedException(e);
       }
-      throw new ReportedException(
-          new ConfiguredValueCreationException(
-              targetAndConfiguration.getTarget(),
-              configurationId(targetAndConfiguration.getConfiguration()),
-              e.getMessage(),
-              e.getCauses(),
-              e.getDetailedExitCode()));
-    } else if (untyped instanceof ToolchainException e) {
-      ConfiguredValueCreationException cvce =
-          e.asConfiguredValueCreationException(targetAndConfiguration);
-      listener.handle(Event.error(target.getLocation(), cvce.getMessage()));
-      throw new ReportedException(cvce);
-    } else if (untyped instanceof StarlarkExecTransitionLoadingException e) {
-      if (!e.getMessage().isEmpty()) {
-        // Report the error to the user.
-        listener.handle(Event.error(null, e.getMessage()));
+      case AspectCreationException e -> {
+        if (!e.getMessage().isEmpty()) {
+          // Report the error to the user.
+          listener.handle(Event.error(null, e.getMessage()));
+        }
+        yield new ReportedException(
+            new ConfiguredValueCreationException(
+                targetAndConfiguration.getTarget(),
+                configurationId(targetAndConfiguration.getConfiguration()),
+                e.getMessage(),
+                e.getCauses(),
+                e.getDetailedExitCode()));
       }
-      throw new ReportedException(
-          new ConfiguredValueCreationException(
-              targetAndConfiguration.getTarget(),
-              configurationId(targetAndConfiguration.getConfiguration()),
-              e.getMessage(),
-              /* rootCauses= */ null,
-              /* detailedExitCode= */ null));
-    } else {
-      throw new IllegalStateException("unexpected exception with no appropriate handler", untyped);
-    }
+      case ToolchainException e -> {
+        ConfiguredValueCreationException cvce =
+            e.asConfiguredValueCreationException(targetAndConfiguration);
+        listener.handle(Event.error(target.getLocation(), cvce.getMessage()));
+        yield new ReportedException(cvce);
+      }
+      case StarlarkExecTransitionLoadingException e -> {
+        if (!e.getMessage().isEmpty()) {
+          // Report the error to the user.
+          listener.handle(Event.error(null, e.getMessage()));
+        }
+        yield new ReportedException(
+            new ConfiguredValueCreationException(
+                targetAndConfiguration.getTarget(),
+                configurationId(targetAndConfiguration.getConfiguration()),
+                e.getMessage(),
+                /* rootCauses= */ null,
+                /* detailedExitCode= */ null));
+      }
+      default ->
+          throw new IllegalStateException(
+              "unexpected exception with no appropriate handler", untyped);
+    };
   }
 
   /**

@@ -20,6 +20,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.common.options.BoolOrEnumConverter;
 import com.google.devtools.common.options.Converters.CommaSeparatedNonEmptyOptionListConverter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionSetConverter;
@@ -769,6 +770,38 @@ public final class BuildLanguageOptions extends OptionsBase {
               + " number of files is not 1.")
   public boolean incompatibleLocationsPrefersExecutable;
 
+  /** An enum for specifying different modes for UTF-8 checking of Starlark files. */
+  public enum Utf8EnforcementMode {
+    OFF,
+    WARNING,
+    ERROR;
+
+    /** Converts to {@link Utf8EnforcementMode}. */
+    public static class Converter extends BoolOrEnumConverter<Utf8EnforcementMode> {
+      public Converter() {
+        super(
+            Utf8EnforcementMode.class,
+            "UTF-8 enforcement mode",
+            Utf8EnforcementMode.ERROR,
+            Utf8EnforcementMode.OFF);
+      }
+    }
+  }
+
+  @Option(
+      name = "incompatible_enforce_starlark_utf8",
+      defaultValue = "warning",
+      converter = Utf8EnforcementMode.Converter.class,
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If enabled (or set to 'error'), fail if Starlark files are not UTF-8 encoded. If set to"
+              + " 'warning', emit a warning instead. If set to 'off', Bazel assumes that Starlark"
+              + " files are UTF-8 encoded but does not verify this assumption. Note that Starlark"
+              + " files which are not UTF-8 encoded can cause Bazel to behave inconsistently.")
+  public Utf8EnforcementMode incompatibleEnforceStarlarkUtf8;
+
   /**
    * An interner to reduce the number of StarlarkSemantics instances. A single Blaze instance should
    * never accumulate a large number of these and being able to shortcut on object identity makes a
@@ -835,6 +868,7 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(StarlarkSemantics.PRINT_TEST_MARKER, internalStarlarkFlagTestCanary)
             .setBool(
                 INCOMPATIBLE_DO_NOT_SPLIT_LINKING_CMDLINE, incompatibleDoNotSplitLinkingCmdline)
+            .set(INCOMPATIBLE_ENFORCE_STARLARK_UTF8, incompatibleEnforceStarlarkUtf8)
             .setBool(
                 INCOMPATIBLE_USE_CC_CONFIGURE_FROM_RULES_CC, incompatibleUseCcConfigureFromRulesCc)
             .setBool(
@@ -948,8 +982,6 @@ public final class BuildLanguageOptions extends OptionsBase {
       "+incompatible_require_linker_input_cc_api";
   public static final String INCOMPATIBLE_RUN_SHELL_COMMAND_STRING =
       "+incompatible_run_shell_command_string";
-  public static final String INCOMPATIBLE_STRUCT_HAS_NO_METHODS =
-      "+incompatible_struct_has_no_methods";
   public static final String INCOMPATIBLE_USE_CC_CONFIGURE_FROM_RULES_CC =
       "-incompatible_use_cc_configure_from_rules";
   public static final String INCOMPATIBLE_UNAMBIGUOUS_LABEL_STRINGIFICATION =
@@ -999,6 +1031,10 @@ public final class BuildLanguageOptions extends OptionsBase {
       new StarlarkSemantics.Key<>("repositories_without_autoloads", ImmutableList.of());
   public static final StarlarkSemantics.Key<List<String>> EXPERIMENTAL_BUILTINS_INJECTION_OVERRIDE =
       new StarlarkSemantics.Key<>("experimental_builtins_injection_override", ImmutableList.of());
+  public static final StarlarkSemantics.Key<Utf8EnforcementMode>
+      INCOMPATIBLE_ENFORCE_STARLARK_UTF8 =
+          new StarlarkSemantics.Key<>(
+              "incompatible_enforce_starlark_utf8", Utf8EnforcementMode.WARNING);
   public static final StarlarkSemantics.Key<Long> MAX_COMPUTATION_STEPS =
       new StarlarkSemantics.Key<>("max_computation_steps", 0L);
   public static final StarlarkSemantics.Key<Integer> NESTED_SET_DEPTH_LIMIT =

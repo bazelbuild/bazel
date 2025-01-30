@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerializat
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.IORuntimeException;
@@ -246,7 +247,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
 
     @Override
     public int hashCode() {
-      return Objects.hash(Arrays.hashCode(digest), materializationExecPath);
+      return HashCodes.hashObjects(Arrays.hashCode(digest), materializationExecPath);
     }
 
     @Override

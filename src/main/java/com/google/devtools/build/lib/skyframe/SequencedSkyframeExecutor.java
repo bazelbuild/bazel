@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
-import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
+import com.google.devtools.build.lib.actions.OutputChecker;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
@@ -463,7 +464,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
   public void detectModifiedOutputFiles(
       ModifiedFileSet modifiedOutputFiles,
       @Nullable Range<Long> lastExecutionTimeRange,
-      RemoteArtifactChecker remoteArtifactChecker,
+      OutputChecker outputChecker,
       int fsvcThreads)
       throws InterruptedException {
     long startTime = System.nanoTime();
@@ -479,7 +480,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
             memoizingEvaluator.getValues(),
             batchStatter,
             modifiedOutputFiles,
-            remoteArtifactChecker,
+            outputChecker,
             (maybeModifiedTime, artifact) -> {
               modifiedFiles.incrementAndGet();
               int dirtyOutputsCount = outputDirtyFiles.incrementAndGet();
@@ -671,12 +672,15 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     }
     // Remove BuildConfigurationKeys except for the currently active key and the key for
     // EMPTY_OPTIONS, which is a constant and will be re-used frequently.
-    if (k instanceof BuildConfigurationKey key) {
-      if (isEmptyOptionsKey(key)) {
+    if (k instanceof BuildConfigurationKey buildConfigurationKey) {
+      if (isEmptyOptionsKey(buildConfigurationKey)) {
         return false;
       }
       if (getSkyframeBuildView().getBuildConfiguration() != null
           && k.equals(getSkyframeBuildView().getBuildConfiguration().getKey())) {
+        return false;
+      }
+      if (isExecConfig(buildConfigurationKey)) {
         return false;
       }
       return true;
@@ -688,9 +692,16 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
       if (isEmptyOptionsKey(lookupKey.getConfigurationKey())) {
         return false;
       }
+      if (isExecConfig(lookupKey.getConfigurationKey())) {
+        return false;
+      }
       return true;
     }
     return false;
+  }
+
+  private static boolean isExecConfig(@Nullable BuildConfigurationKey bck) {
+    return bck != null && bck.getOptions().get(CoreOptions.class).isExec;
   }
 
   /**

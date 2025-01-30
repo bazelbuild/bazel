@@ -189,9 +189,7 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
 
   @Override
   protected void initializeMockClient() throws IOException {
-    // Don't let the AnalysisMock sneak in any WORKSPACE file content, which may depend on
-    // repository rules that our minimal rule class provider doesn't have.
-    analysisMock.setupMockClient(mockToolsConfig, ImmutableList.of());
+    analysisMock.setupMockClient(mockToolsConfig);
     // Provide a trivial platform definition.
     mockToolsConfig.create(
         "minimal_buildenv/platforms/BUILD", //

@@ -287,4 +287,23 @@ public final class AspectContext extends RuleContext {
             getRulePrerequisitesCollection().getAllPrerequisites().stream())
         .collect(toImmutableList());
   }
+
+  private ImmutableList<TemplateVariableInfo> getTemplateVariablesFromBaseRuleToolchains() {
+    if (this.getBaseTargetToolchainContexts() == null) {
+      return ImmutableList.of();
+    }
+
+    return this.getBaseTargetToolchainContexts().contextMap().values().stream()
+        .flatMap(context -> context.templateVariableProviders().stream())
+        .collect(toImmutableList());
+  }
+
+  @Override
+  public ImmutableList<TemplateVariableInfo> getDefaultTemplateVariableProviders() {
+    return new ImmutableList.Builder<TemplateVariableInfo>()
+        .addAll(super.getDefaultTemplateVariableProviders())
+        // Add base rule toolchain data in addition to aspect attribute and toolchain data.
+        .addAll(getTemplateVariablesFromBaseRuleToolchains())
+        .build();
+  }
 }

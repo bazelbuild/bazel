@@ -343,7 +343,7 @@ public class BuildView {
         createTopLevelAspectKeys(
             aspects, aspectsParameters, labelToTargetMap.keySet(), topLevelConfig, eventHandler);
 
-    if (remoteAnalysisCachingDependenciesProvider.requiresBackendConnectivity()) {
+    if (remoteAnalysisCachingDependenciesProvider.mode().requiresBackendConnectivity()) {
       remoteAnalysisCachingDependenciesProvider.setTopLevelConfigChecksum(
           topLevelConfigurationTrimmedOfTestOptionsChecksum);
     }

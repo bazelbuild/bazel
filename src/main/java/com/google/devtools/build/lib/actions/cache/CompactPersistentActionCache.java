@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions.cache;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Preconditions;
@@ -20,7 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.ActionCache.Entry.SerializableTreeArtifactValue;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
@@ -498,8 +499,10 @@ public class CompactPersistentActionCache implements ActionCache {
   }
 
   private static void encodeRemoteMetadata(
-      RemoteFileArtifactValue value, StringIndexer indexer, ByteArrayOutputStream sink)
+      FileArtifactValue value, StringIndexer indexer, ByteArrayOutputStream sink)
       throws IOException {
+    checkArgument(value.isRemote(), "metadata is not remote: %s", value);
+
     MetadataDigestUtils.write(value.getDigest(), sink);
 
     VarInt.putVarLong(value.getSize(), sink);
@@ -525,8 +528,8 @@ public class CompactPersistentActionCache implements ActionCache {
           + VarInt.MAX_VARINT_SIZE // expireAtEpochMilli
           + VarInt.MAX_VARINT_SIZE; // materializationExecPath
 
-  private static RemoteFileArtifactValue decodeRemoteMetadata(
-      StringIndexer indexer, ByteBuffer source) throws IOException {
+  private static FileArtifactValue decodeRemoteMetadata(StringIndexer indexer, ByteBuffer source)
+      throws IOException {
     byte[] digest = MetadataDigestUtils.read(source);
 
     long size = VarInt.getVarLong(source);
@@ -546,10 +549,10 @@ public class CompactPersistentActionCache implements ActionCache {
     }
 
     if (expirationTimeEpochMilli < 0 && materializationExecPath == null) {
-      return RemoteFileArtifactValue.create(digest, size, locationIndex);
+      return FileArtifactValue.createForRemoteFile(digest, size, locationIndex);
     }
 
-    return RemoteFileArtifactValue.createWithMaterializationData(
+    return FileArtifactValue.createForRemoteFileWithMaterializationData(
         digest,
         size,
         locationIndex,
@@ -626,7 +629,7 @@ public class CompactPersistentActionCache implements ActionCache {
     MetadataDigestUtils.write(entry.getActionPropertiesDigest(), sink);
 
     VarInt.putVarInt(entry.getOutputFiles().size(), sink);
-    for (Map.Entry<String, RemoteFileArtifactValue> file : entry.getOutputFiles().entrySet()) {
+    for (Map.Entry<String, FileArtifactValue> file : entry.getOutputFiles().entrySet()) {
       VarInt.putVarInt(indexer.getOrCreateIndex(file.getKey()), sink);
       encodeRemoteMetadata(file.getValue(), indexer, sink);
     }
@@ -639,13 +642,13 @@ public class CompactPersistentActionCache implements ActionCache {
       SerializableTreeArtifactValue serializableTreeArtifactValue = tree.getValue();
 
       VarInt.putVarInt(serializableTreeArtifactValue.childValues().size(), sink);
-      for (Map.Entry<String, RemoteFileArtifactValue> child :
+      for (Map.Entry<String, FileArtifactValue> child :
           serializableTreeArtifactValue.childValues().entrySet()) {
         VarInt.putVarInt(indexer.getOrCreateIndex(child.getKey()), sink);
         encodeRemoteMetadata(child.getValue(), indexer, sink);
       }
 
-      Optional<RemoteFileArtifactValue> archivedFileValue =
+      Optional<FileArtifactValue> archivedFileValue =
           serializableTreeArtifactValue.archivedFileValue();
       if (archivedFileValue.isPresent()) {
         VarInt.putVarInt(1, sink);
@@ -707,11 +710,10 @@ public class CompactPersistentActionCache implements ActionCache {
       byte[] usedClientEnvDigest = MetadataDigestUtils.read(source);
 
       int numOutputFiles = VarInt.getVarInt(source);
-      Map<String, RemoteFileArtifactValue> outputFiles =
-          Maps.newHashMapWithExpectedSize(numOutputFiles);
+      Map<String, FileArtifactValue> outputFiles = Maps.newHashMapWithExpectedSize(numOutputFiles);
       for (int i = 0; i < numOutputFiles; i++) {
         String execPath = getStringForIndex(indexer, VarInt.getVarInt(source));
-        RemoteFileArtifactValue value = decodeRemoteMetadata(indexer, source);
+        FileArtifactValue value = decodeRemoteMetadata(indexer, source);
         outputFiles.put(execPath, value);
       }
 
@@ -721,15 +723,15 @@ public class CompactPersistentActionCache implements ActionCache {
       for (int i = 0; i < numOutputTrees; i++) {
         String treeKey = getStringForIndex(indexer, VarInt.getVarInt(source));
 
-        ImmutableMap.Builder<String, RemoteFileArtifactValue> childValues = ImmutableMap.builder();
+        ImmutableMap.Builder<String, FileArtifactValue> childValues = ImmutableMap.builder();
         int numChildValues = VarInt.getVarInt(source);
         for (int j = 0; j < numChildValues; ++j) {
           String childKey = getStringForIndex(indexer, VarInt.getVarInt(source));
-          RemoteFileArtifactValue value = decodeRemoteMetadata(indexer, source);
+          FileArtifactValue value = decodeRemoteMetadata(indexer, source);
           childValues.put(childKey, value);
         }
 
-        Optional<RemoteFileArtifactValue> archivedFileValue = Optional.empty();
+        Optional<FileArtifactValue> archivedFileValue = Optional.empty();
         int numArchivedFileValue = VarInt.getVarInt(source);
         if (numArchivedFileValue > 0) {
           if (numArchivedFileValue != 1) {

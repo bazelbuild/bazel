@@ -1148,7 +1148,12 @@ public class CriticalPathComputerTest extends FoundationTestCase {
             action.getOutputs(),
             ResourceSet.ZERO);
     computer.spawnExecuted(
-        new SpawnExecutedEvent(spawn, new FakeActionInputFileCache(), spawnResult, Instant.now()));
+        new SpawnExecutedEvent(
+            spawn,
+            new FakeActionInputFileCache(),
+            spawnResult,
+            Instant.now(),
+            /* spawnIdentifier= */ "1"));
     if (completeAction) {
       computer.actionComplete(
           new ActionCompletionEvent(

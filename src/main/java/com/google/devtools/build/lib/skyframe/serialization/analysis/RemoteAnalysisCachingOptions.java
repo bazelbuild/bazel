@@ -58,9 +58,9 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
     /** Disabled. */
     OFF;
 
-    /** Returns true if the selected mode should fetch remote SkyValues for the analysis phase. */
-    public boolean downloadForAnalysis() {
-      return this == DOWNLOAD;
+    /** Returns true if the selected mode needs to connect to a backend. */
+    public boolean requiresBackendConnectivity() {
+      return this == DOWNLOAD || this == UPLOAD;
     }
   }
 

@@ -480,6 +480,9 @@ public class ExecutionGraphModule extends BlazeModule {
           .setMnemonic(spawn.getMnemonic())
           .setRunner(spawnResult.getRunnerName())
           .setRunnerSubtype(spawnResult.getRunnerSubtype());
+      if (event.getSpawnIdentifier() != null) {
+        nodeBuilder.setIdentifier(event.getSpawnIdentifier());
+      }
 
       if (depType != DependencyInfo.NONE) {
         nodeBuilder.setIndex(index);

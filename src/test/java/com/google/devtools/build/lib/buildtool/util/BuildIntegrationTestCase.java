@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FileArtifactValue.InlineFileArtifactValue;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -665,6 +664,15 @@ public abstract class BuildIntegrationTestCase {
     runtimeWrapper.addOptions(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
     // TODO(rosica): Remove this once g3 is migrated.
     runtimeWrapper.addOptions("--noincompatible_use_specific_tool_files");
+
+    if (AnalysisMock.get().isThisBazel()) {
+      // We have to explicitly override @bazel_tools to the version in the workspace (which is where
+      // we usually set up mocks), instead of the install base, where it is normally looked up from.
+      // This needs to be done for all BuildIntegrationTestCase subclasses, because the setup here
+      // requires that the install base be separate from the workspace (unlike, say,
+      // BuildViewTestCase).
+      runtimeWrapper.addOptions("--override_repository=bazel_tools=embedded_tools");
+    }
   }
 
   protected void resetOptions() {
@@ -694,6 +702,7 @@ public abstract class BuildIntegrationTestCase {
       return null;
     }
   }
+
   /**
    * Returns the path to the executable that label "target" identifies.
    *
@@ -703,8 +712,12 @@ public abstract class BuildIntegrationTestCase {
    * @param target the label of the target whose executable location is requested.
    */
   protected Path getExecutableLocation(String target)
-      throws LabelSyntaxException, NoSuchPackageException, NoSuchTargetException,
-          InterruptedException, TransitionException, InvalidConfigurationException {
+      throws LabelSyntaxException,
+          NoSuchPackageException,
+          NoSuchTargetException,
+          InterruptedException,
+          TransitionException,
+          InvalidConfigurationException {
     return getExecutable(getConfiguredTarget(target)).getPath();
   }
 
@@ -1037,9 +1050,8 @@ public abstract class BuildIntegrationTestCase {
 
   protected String readInlineOutput(Artifact output) throws IOException, InterruptedException {
     FileArtifactValue metadata = getOutputMetadata(output);
-    assertThat(metadata).isInstanceOf(InlineFileArtifactValue.class);
-    return new String(
-        FileSystemUtils.readContentAsLatin1(((InlineFileArtifactValue) metadata).getInputStream()));
+    assertThat(metadata.isInline()).isTrue();
+    return new String(FileSystemUtils.readContentAsLatin1(metadata.getInputStream()));
   }
 
   protected FileArtifactValue getOutputMetadata(Artifact output)

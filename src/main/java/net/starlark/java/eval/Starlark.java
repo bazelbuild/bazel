@@ -768,13 +768,14 @@ public final class Starlark {
   public static Object call(
       StarlarkThread thread, Object fn, List<Object> args, Map<String, Object> kwargs)
       throws EvalException, InterruptedException {
-    Object[] named = new Object[2 * kwargs.size()];
-    int i = 0;
-    for (Map.Entry<String, Object> e : kwargs.entrySet()) {
-      named[i++] = e.getKey();
-      named[i++] = Starlark.checkValid(e.getValue());
+    StarlarkCallable.ArgumentProcessor argumentProcessor = requestArgumentProcessor(thread, fn);
+    for (Object arg : args) {
+      argumentProcessor.addPositionalArg(arg);
     }
-    return fastcall(thread, fn, args.toArray(), named);
+    for (Map.Entry<String, Object> e : kwargs.entrySet()) {
+      argumentProcessor.addNamedArg(e.getKey(), Starlark.checkValid(e.getValue()));
+    }
+    return callViaArgumentProcessor(thread, argumentProcessor);
   }
 
   /**
@@ -904,14 +905,8 @@ public final class Starlark {
 
   @Nullable
   public static StarlarkCallable.ArgumentProcessor requestArgumentProcessor(
-      StarlarkThread thread, Object fn) {
-    // Note: Once BuiltinFunction also implements requestArgumentProcessor, this method body should
-    // be replaced by
-    // return getStarlarkCallable(thread, fn).requestArgumentProcessor(thread);
-    if (fn instanceof StarlarkCallable starlarkCallable) {
-      return starlarkCallable.requestArgumentProcessor(thread);
-    }
-    return null;
+      StarlarkThread thread, Object fn) throws EvalException {
+    return getStarlarkCallable(thread, fn).requestArgumentProcessor(thread);
   }
 
   /**
