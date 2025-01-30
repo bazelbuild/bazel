@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
@@ -671,12 +672,15 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     }
     // Remove BuildConfigurationKeys except for the currently active key and the key for
     // EMPTY_OPTIONS, which is a constant and will be re-used frequently.
-    if (k instanceof BuildConfigurationKey key) {
-      if (isEmptyOptionsKey(key)) {
+    if (k instanceof BuildConfigurationKey buildConfigurationKey) {
+      if (isEmptyOptionsKey(buildConfigurationKey)) {
         return false;
       }
       if (getSkyframeBuildView().getBuildConfiguration() != null
           && k.equals(getSkyframeBuildView().getBuildConfiguration().getKey())) {
+        return false;
+      }
+      if (isExecConfig(buildConfigurationKey)) {
         return false;
       }
       return true;
@@ -688,9 +692,16 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
       if (isEmptyOptionsKey(lookupKey.getConfigurationKey())) {
         return false;
       }
+      if (isExecConfig(lookupKey.getConfigurationKey())) {
+        return false;
+      }
       return true;
     }
     return false;
+  }
+
+  private static boolean isExecConfig(@Nullable BuildConfigurationKey bck) {
+    return bck != null && bck.getOptions().get(CoreOptions.class).isExec;
   }
 
   /**
