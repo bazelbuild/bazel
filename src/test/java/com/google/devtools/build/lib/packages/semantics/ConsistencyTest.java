@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripp
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import java.util.Arrays;
+import java.util.Locale;
 import java.util.Random;
 import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Test;
@@ -142,6 +143,11 @@ public class ConsistencyTest {
         "--incompatible_do_not_split_linking_cmdline=" + rand.nextBoolean(),
         "--incompatible_enable_deprecated_label_apis=" + rand.nextBoolean(),
         "--incompatible_java_common_parameters=" + rand.nextBoolean(),
+        "--incompatible_enforce_starlark_utf8="
+            + BuildLanguageOptions.Utf8EnforcementMode.values()[
+                rand.nextInt(BuildLanguageOptions.Utf8EnforcementMode.values().length)]
+                .toString()
+                .toLowerCase(Locale.ROOT),
         "--incompatible_locations_prefers_executable=" + rand.nextBoolean(),
         "--incompatible_merge_fixed_and_default_shell_env=" + rand.nextBoolean(),
         "--incompatible_no_attr_license=" + rand.nextBoolean(),
@@ -194,6 +200,10 @@ public class ConsistencyTest {
         .setBool(BuildLanguageOptions.INCOMPATIBLE_DO_NOT_SPLIT_LINKING_CMDLINE, rand.nextBoolean())
         .setBool(BuildLanguageOptions.INCOMPATIBLE_ENABLE_DEPRECATED_LABEL_APIS, rand.nextBoolean())
         .setBool(BuildLanguageOptions.INCOMPATIBLE_JAVA_COMMON_PARAMETERS, rand.nextBoolean())
+        .set(
+            BuildLanguageOptions.INCOMPATIBLE_ENFORCE_STARLARK_UTF8,
+            BuildLanguageOptions.Utf8EnforcementMode.values()[
+                rand.nextInt(BuildLanguageOptions.Utf8EnforcementMode.values().length)])
         .setBool(BuildLanguageOptions.INCOMPATIBLE_LOCATIONS_PREFERS_EXECUTABLE, rand.nextBoolean())
         .setBool(
             BuildLanguageOptions.INCOMPATIBLE_MERGE_FIXED_AND_DEFAULT_SHELL_ENV, rand.nextBoolean())
