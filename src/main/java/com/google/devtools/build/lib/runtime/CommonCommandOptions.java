@@ -296,8 +296,9 @@ public class CommonCommandOptions extends OptionsBase {
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
       converter = OptionsUtils.PathFragmentConverter.class,
       help =
-          "If set, profile Bazel and write data to the specified "
-              + "file. Use bazel analyze-profile to analyze the profile.")
+          "If set, profile Bazel and write data to the specified file. See"
+              + " https://bazel.build/advanced/performance/json-trace-profile for more"
+              + " information.")
   public PathFragment profilePath;
 
   @Option(
