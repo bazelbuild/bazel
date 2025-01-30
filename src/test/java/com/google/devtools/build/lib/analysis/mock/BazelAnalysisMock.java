@@ -26,8 +26,6 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.BazelRepositoryModule;
 import com.google.devtools.build.lib.bazel.bzlmod.LocalPathRepoSpecs;
 import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
-import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformFunction;
-import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformRule;
 import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider;
 import com.google.devtools.build.lib.packages.util.BazelMockCcSupport;
 import com.google.devtools.build.lib.packages.util.BazelMockPythonSupport;
@@ -37,7 +35,6 @@ import com.google.devtools.build.lib.packages.util.MockPlatformSupport;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.packages.util.MockPythonSupport;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -682,8 +679,13 @@ launcher_flag_alias(
     config.create(
         "embedded_tools/tools/build_defs/repo/local.bzl",
         """
-        def local_repository(**kwargs):
-            pass
+        def _local_repository_impl(rctx):
+          path = rctx.workspace_root.get_child(rctx.attr.path)
+          rctx.symlink(path, ".")
+        local_repository = repository_rule(
+          implementation = _local_repository_impl,
+          attrs = {"path": attr.string()},
+        )
 
         def new_local_repository(**kwargs):
             pass
@@ -774,12 +776,6 @@ launcher_flag_alias(
   @Override
   public MockPythonSupport pySupport() {
     return BazelMockPythonSupport.INSTANCE;
-  }
-
-  @Override
-  public void addExtraRepositoryFunctions(
-      ImmutableMap.Builder<String, RepositoryFunction> repositoryHandlers) {
-    repositoryHandlers.put(LocalConfigPlatformRule.NAME, new LocalConfigPlatformFunction());
   }
 
   @Override

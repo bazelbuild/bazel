@@ -70,11 +70,23 @@ class BazelFetchTest(test_base.TestBase):
         'tools_mock/tools/build_defs/repo/http.bzl',
     )
     self.CopyFile(
+        self.Rlocation('io_bazel/tools/build_defs/repo/local.bzl'),
+        'tools_mock/tools/build_defs/repo/local.bzl',
+    )
+    self.CopyFile(
         self.Rlocation('io_bazel/tools/build_defs/repo/utils.bzl'),
         'tools_mock/tools/build_defs/repo/utils.bzl',
     )
 
+  def useMockBuiltinModules(self):
+    with open(self.Path('.bazelrc'), 'a', encoding='utf-8') as f:
+      f.write('common --override_repository=bazel_tools=tools_mock\n')
+      f.write(
+          'common --override_repository=local_config_platform=platforms_mock\n'
+      )
+
   def testFetchAll(self):
+    self.useMockBuiltinModules()
     self.main_registry.createCcModule('aaa', '1.0').createCcModule(
         'bbb', '1.0', {'aaa': '1.0'}
     )
@@ -111,6 +123,7 @@ class BazelFetchTest(test_base.TestBase):
     self.assertIn('+ext+hello', repos_fetched)
 
   def testFetchConfig(self):
+    self.useMockBuiltinModules()
     self.main_registry.createCcModule('aaa', '1.0').createCcModule(
         'bbb', '1.0', {'aaa': '1.0'}
     )
@@ -151,6 +164,7 @@ class BazelFetchTest(test_base.TestBase):
     self.assertIn('+ext+IamConfig', repos_fetched)
 
   def testFetchConfigForce(self):
+    self.useMockBuiltinModules()
     self.main_registry.createCcModule('aaa', '1.0').createCcModule(
         'bbb', '1.0', {'aaa': '1.0'}
     )
@@ -223,6 +237,7 @@ class BazelFetchTest(test_base.TestBase):
     )
 
   def testFetchRepo(self):
+    self.useMockBuiltinModules()
     self.main_registry.createCcModule('aaa', '1.0').createCcModule(
         'bbb', '1.0', {'aaa': '1.0'}
     ).createCcModule('ccc', '1.0')
@@ -246,6 +261,7 @@ class BazelFetchTest(test_base.TestBase):
     self.assertNotIn('aaa+', repos_fetched)
 
   def testFetchInvalidRepo(self):
+    self.useMockBuiltinModules()
     # Invalid repo name (not canonical or apparent)
     exit_code, _, stderr = self.RunBazel(
         ['fetch', '--repo=hello'], allow_failure=True
@@ -276,6 +292,7 @@ class BazelFetchTest(test_base.TestBase):
     )
 
   def testForceFetch(self):
+    self.useMockBuiltinModules()
     self.ScratchFile(
         'MODULE.bazel',
         [

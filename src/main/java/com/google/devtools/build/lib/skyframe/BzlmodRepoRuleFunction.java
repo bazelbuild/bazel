@@ -46,6 +46,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.Location;
@@ -243,9 +244,17 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
     Object object = bzlLoadValue.getModule().getGlobal(repoRuleId.ruleName());
     if (object instanceof RuleFunction ruleFunction) {
       return ruleFunction.getRuleClass();
+    } else if (object == null) {
+      throw new BzlmodRepoRuleFunctionException(
+          new InvalidRuleException(
+              "repository rule %s does not exist (no such symbol in that file)"
+                  .formatted(repoRuleId)),
+          Transience.PERSISTENT);
     } else {
       throw new BzlmodRepoRuleFunctionException(
-          new InvalidRuleException("Invalid repository rule: " + repoRuleId),
+          new InvalidRuleException(
+              "invalid repository rule: %s, expected type repository_rule, got type %s"
+                  .formatted(repoRuleId, Starlark.type(object))),
           Transience.PERSISTENT);
     }
   }

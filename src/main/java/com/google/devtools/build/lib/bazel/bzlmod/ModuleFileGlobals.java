@@ -1108,7 +1108,7 @@ public class ModuleFileGlobals {
           """
           Specifies that this dependency should come from a certain directory on local disk,
           instead of from a registry. Effectively, this dependency will be backed by a
-          <code>local_repository</code> rule.
+          <a href="../repo/local#local_repository"><code>local_repository</code></a> rule.
 
           <p>This directive only takes effect in the root module; in other words, if a module is
           used as a dependency by others, its own overrides are ignored.\

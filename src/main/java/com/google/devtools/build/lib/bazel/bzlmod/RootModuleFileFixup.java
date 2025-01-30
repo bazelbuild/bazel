@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
  *     its includes); the values are the buildozer commands required to bring the keyed file into
  *     the expected state.
  */
+@AutoCodec
 public record RootModuleFileFixup(
     ImmutableListMultimap<PathFragment, String> moduleFilePathToBuildozerCommands,
     ModuleExtensionUsage usage,

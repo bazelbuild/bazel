@@ -41,10 +41,7 @@ import com.google.devtools.build.lib.packages.util.LoadingMock;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.packages.util.MockPythonSupport;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
-import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
-import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.ClientEnvironmentFunction;
@@ -183,18 +180,11 @@ public abstract class AnalysisMock extends LoadingMock {
   public abstract MockPythonSupport pySupport();
 
   public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions(BlazeDirectories directories) {
-    // Some tests require the local_repository rule so we need the appropriate SkyFunctions.
-    ImmutableMap.Builder<String, RepositoryFunction> repositoryHandlers =
-        new ImmutableMap.Builder<String, RepositoryFunction>()
-            .put(LocalRepositoryRule.NAME, new LocalRepositoryFunction());
-
-    addExtraRepositoryFunctions(repositoryHandlers);
-
     return ImmutableMap.<SkyFunctionName, SkyFunction>builder()
         .put(
             SkyFunctions.REPOSITORY_DIRECTORY,
             new RepositoryDelegatorFunction(
-                repositoryHandlers.buildKeepingLast(),
+                ImmutableMap.of(),
                 new StarlarkRepositoryFunction(),
                 new AtomicBoolean(true),
                 ImmutableMap::of,
@@ -245,7 +235,6 @@ public abstract class AnalysisMock extends LoadingMock {
         PrecomputedValue.injected(ModuleFileFunction.REGISTRIES, ImmutableSet.of()),
         PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
         PrecomputedValue.injected(ModuleFileFunction.INJECTED_REPOSITORIES, ImmutableMap.of()),
-        PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),
         PrecomputedValue.injected(YankedVersionsUtil.ALLOWED_YANKED_VERSIONS, ImmutableList.of()),
         PrecomputedValue.injected(
             BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, CheckDirectDepsMode.WARNING),
@@ -253,10 +242,6 @@ public abstract class AnalysisMock extends LoadingMock {
             BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE, BazelCompatibilityMode.ERROR),
         PrecomputedValue.injected(BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.UPDATE));
   }
-
-  // Allow subclasses to add extra repository functions.
-  public abstract void addExtraRepositoryFunctions(
-      ImmutableMap.Builder<String, RepositoryFunction> repositoryHandlers);
 
   /** Returns the built-in modules. */
   public abstract ImmutableMap<String, NonRegistryOverride> getBuiltinModules(
@@ -339,12 +324,6 @@ public abstract class AnalysisMock extends LoadingMock {
     @Override
     public void setupPrelude(MockToolsConfig mockToolsConfig) throws IOException {
       delegate.setupPrelude(mockToolsConfig);
-    }
-
-    @Override
-    public void addExtraRepositoryFunctions(
-        ImmutableMap.Builder<String, RepositoryFunction> repositoryHandlers) {
-      delegate.addExtraRepositoryFunctions(repositoryHandlers);
     }
 
     @Override

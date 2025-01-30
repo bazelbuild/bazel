@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
+import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -50,6 +51,7 @@ import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.rules.config.ConfigRules;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
+import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.lang.reflect.Method;
 import java.util.Map;
@@ -70,6 +72,9 @@ public class TestRuleClassProvider {
       Method setupMethod =
           providerClass.getMethod("setup", ConfiguredRuleClassProvider.Builder.class);
       setupMethod.invoke(null, builder);
+
+      // Add the repository module for any unit tests that test local_repository behavior
+      builder.addStarlarkBootstrap(new RepositoryBootstrap(new StarlarkRepositoryModule()));
     } catch (Exception e) {
       throw new IllegalStateException(e);
     }

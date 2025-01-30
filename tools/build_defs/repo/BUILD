@@ -13,10 +13,11 @@ filegroup(
 )
 
 filegroup(
-    name = "http_src",
+    name = "mock_srcs",
     srcs = [
         "cache.bzl",
         "http.bzl",
+        "local.bzl",
         "utils.bzl",
     ],
     visibility = ["//src/test/py/bazel:__pkg__"],

@@ -197,8 +197,8 @@ public abstract class RepositoryFunction {
       throws RepositoryFunctionException, InterruptedException {
     if (!isWorkspaceRepo(rule)) {
       // If this native repo rule is used in a Bzlmod context, always allow it. This is because
-      // we're still using the native `local_repository` for `local_path_override`, and it's
-      // nontrivial to migrate that one to the Starlark version.
+      // we're still using the native repo rule `local_config_platform` for the builtin module with
+      // the same name. We should just get rid of that.
       return;
     }
     if (!RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES.get(env)) {

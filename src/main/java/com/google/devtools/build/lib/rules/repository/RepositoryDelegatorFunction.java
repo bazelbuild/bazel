@@ -159,6 +159,13 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       if (Preconditions.checkNotNull(overrides).containsKey(repositoryName)) {
         return setupOverride(overrides.get(repositoryName), env, repoRoot, repositoryName);
       }
+      if (repositoryName.equals(RepositoryName.BAZEL_TOOLS)) {
+        return setupOverride(
+            directories.getEmbeddedBinariesRoot().getRelative("embedded_tools").asFragment(),
+            env,
+            repoRoot,
+            repositoryName);
+      }
 
       Rule rule = getRepositoryRule(env, repositoryName, starlarkSemantics);
       if (env.valuesMissing()) {

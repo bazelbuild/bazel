@@ -73,11 +73,23 @@ class BazelVendorTest(test_base.TestBase):
         'tools_mock/tools/build_defs/repo/http.bzl',
     )
     self.CopyFile(
+        self.Rlocation('io_bazel/tools/build_defs/repo/local.bzl'),
+        'tools_mock/tools/build_defs/repo/local.bzl',
+    )
+    self.CopyFile(
         self.Rlocation('io_bazel/tools/build_defs/repo/utils.bzl'),
         'tools_mock/tools/build_defs/repo/utils.bzl',
     )
 
+  def useMockBuiltinModules(self):
+    with open(self.Path('.bazelrc'), 'a', encoding='utf-8') as f:
+      f.write('common --override_repository=bazel_tools=tools_mock\n')
+      f.write(
+          'common --override_repository=local_config_platform=platforms_mock\n'
+      )
+
   def testBasicVendoring(self):
+    self.useMockBuiltinModules()
     self.main_registry.createCcModule('aaa', '1.0').createCcModule(
         'bbb', '1.0', {'aaa': '1.0'}
     ).createCcModule('bbb', '2.0')
@@ -123,6 +135,7 @@ class BazelVendorTest(test_base.TestBase):
     )  # foo should be removed due to re-vendor
 
   def testVendorFailsWithNofetch(self):
+    self.useMockBuiltinModules()
     self.ScratchFile(
         'MODULE.bazel',
         [
@@ -143,6 +156,7 @@ class BazelVendorTest(test_base.TestBase):
     )
 
   def testVendorAfterFetch(self):
+    self.useMockBuiltinModules()
     self.main_registry.createCcModule('aaa', '1.0')
     self.ScratchFile(
         'MODULE.bazel',
@@ -162,6 +176,7 @@ class BazelVendorTest(test_base.TestBase):
     self.assertIn('aaa+', repos_vendored)
 
   def testVendoringMultipleTimes(self):
+    self.useMockBuiltinModules()
     self.main_registry.createCcModule('aaa', '1.0')
     self.ScratchFile(
         'MODULE.bazel',
@@ -187,6 +202,7 @@ class BazelVendorTest(test_base.TestBase):
     self.AssertPathIsSymlink(repo_path)
 
   def testVendorRepo(self):
+    self.useMockBuiltinModules()
     self.main_registry.createCcModule('aaa', '1.0').createCcModule(
         'bbb', '1.0', {'aaa': '1.0'}
     ).createCcModule('ccc', '1.0')
@@ -211,6 +227,7 @@ class BazelVendorTest(test_base.TestBase):
     self.assertNotIn('aaa+', repos_vendored)
 
   def testVendorExistingRepo(self):
+    self.useMockBuiltinModules()
     self.main_registry.createCcModule('aaa', '1.0')
     self.ScratchFile(
         'MODULE.bazel',
@@ -233,6 +250,7 @@ class BazelVendorTest(test_base.TestBase):
     self.RunBazel(['vendor', '--vendor_dir=vendor', '--repo=@my_repo'])
 
   def testVendorInvalidRepo(self):
+    self.useMockBuiltinModules()
     # Invalid repo name (not canonical or apparent)
     exit_code, _, stderr = self.RunBazel(
         ['vendor', '--vendor_dir=vendor', '--repo=hello'], allow_failure=True
@@ -265,6 +283,7 @@ class BazelVendorTest(test_base.TestBase):
     )
 
   def testIgnoreFromVendoring(self):
+    self.useMockBuiltinModules()
     # Repos should be excluded from vendoring:
     # 1.Local Repos, 2.Config Repos, 3.Repos declared in VENDOR.bazel file
     self.main_registry.createCcModule('aaa', '1.0').createCcModule(
@@ -726,6 +745,7 @@ class BazelVendorTest(test_base.TestBase):
       self.AssertPathIsSymlink(repo_path)
 
   def testVendorConflictRegistryFile(self):
+    self.useMockBuiltinModules()
     self.main_registry.createCcModule('aaa', '1.0').createCcModule(
         'bbb', '1.0', {'aaa': '1.0'}
     )

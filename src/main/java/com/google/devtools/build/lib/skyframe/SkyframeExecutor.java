@@ -1732,7 +1732,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         evaluateSkyKeys(eventHandler, ImmutableList.of(mainRepositoryMappingKey));
     if (mainRepoMappingResult.hasError()) {
       throw new InvalidConfigurationException(
-          "Cannot find main repository mapping", Code.INVALID_BUILD_OPTIONS);
+          "Cannot find main repository mapping",
+          Code.INVALID_BUILD_OPTIONS,
+          mainRepoMappingResult.getError().getException());
     }
     RepositoryMappingValue mainRepositoryMappingValue =
         (RepositoryMappingValue) mainRepoMappingResult.get(mainRepositoryMappingKey);
