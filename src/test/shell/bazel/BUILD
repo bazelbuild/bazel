@@ -1392,6 +1392,7 @@ sh_test(
     data = [
         ":test-deps",
         "//src/tools/remote:worker",
+        "@local_jdk//:jdk",  # for remote_helpers
     ],
     tags = [
         "no_windows",
