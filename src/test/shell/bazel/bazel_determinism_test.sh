@@ -76,7 +76,7 @@ function test_determinism()  {
     # Bazel supports this. Characters with a 4-byte UTF-8 encoding would cause
     # Java compilation to fail due to
     # https://bugs.openjdk.org/browse/JDK-8258246.
-    output_base_1="${TEST_TMPDIR}/ouäöüt 1"
+    output_base_1="${TEST_TMPDIR}/ouäöü€t 1"
     bazel \
       --output_base="${output_base_1}" \
       build \
@@ -95,10 +95,10 @@ function test_determinism()  {
     hash_outputs >"${TEST_TMPDIR}/sum1"
 
     # Build Bazel twice.
-    output_base_2="${TEST_TMPDIR}/ouäöüt 2"
+    output_base_2="${TEST_TMPDIR}/ouäöü€t 2"
     bazel-bin/src/bazel \
       --bazelrc="${TEST_TMPDIR}/bazelrc" \
-      --install_base="${TEST_TMPDIR}/install_baseäöüt 2" \
+      --install_base="${TEST_TMPDIR}/install_baseäöü€t 2" \
       --output_base="${output_base_2}" \
       build \
       --extra_toolchains=@rules_python//python:autodetecting_toolchain \
