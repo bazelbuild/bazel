@@ -548,7 +548,7 @@ public class RunCommand implements BlazeCommand {
 
   private static ImmutableList<PathToReplace> getPathsToReplace(
       CommandEnvironment env, String testLogDir, boolean isTestTarget) {
-    ImmutableList<PathToReplace> pathsToReplace = ExecRequestUtils.getPathsToReplace(env);
+    ImmutableList<PathToReplace> pathsToReplace = PathToReplaceUtils.getPathsToReplace(env);
     if (isTestTarget) {
       return ImmutableList.<PathToReplace>builder()
           .addAll(pathsToReplace)

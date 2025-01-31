@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.server.CommandProtos.PathToReplace;
 import com.google.protobuf.ByteString;
 
 /** Helpers for constructing {@link ExecRequest}s. */
-public class ExecRequestUtils {
+public class PathToReplaceUtils {
 
   /** Returns the common required {@link PathToReplace} list. */
   public static ImmutableList<PathToReplace> getPathsToReplace(CommandEnvironment env) {
@@ -45,5 +45,5 @@ public class ExecRequestUtils {
     return ByteString.copyFrom(string, ISO_8859_1);
   }
 
-  private ExecRequestUtils() {}
+  private PathToReplaceUtils() {}
 }
