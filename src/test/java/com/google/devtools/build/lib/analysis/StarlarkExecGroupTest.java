@@ -813,10 +813,6 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
             name = "gpu_platform",
             constraint_values = [
                 "CONSTRAINTS_PACKAGE_ROOTos:linux",
-                # TODO: This constraint should not be needed, it's only required
-                # because default exec constraints implicitly leak into the
-                # 'test' exec group.
-                ":has_fast_cpu",
                 ":has_gpu",
             ],
             exec_properties = {
