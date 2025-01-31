@@ -302,7 +302,7 @@ public class TestRunnerAction extends AbstractAction
             // Note that splitLogsPath points to a file inside the splitLogsDir so it's not
             // necessary to delete it explicitly.
             splitLogsDir,
-            getUndeclaredOutputsDir(),
+            undeclaredOutputsDir.getExecPath(),
             undeclaredOutputsAnnotationsDir,
             baseDir.getRelative("test_attempts"));
   }
@@ -756,7 +756,7 @@ public class TestRunnerAction extends AbstractAction
       env.put("TEST_UNDECLARED_OUTPUTS_ZIP", getUndeclaredOutputsZipPath().getPathString());
     }
 
-    env.put("TEST_UNDECLARED_OUTPUTS_DIR", getUndeclaredOutputsDir().getPathString());
+    env.put("TEST_UNDECLARED_OUTPUTS_DIR", undeclaredOutputsDir.getExecPathString());
     env.put("TEST_UNDECLARED_OUTPUTS_MANIFEST", getUndeclaredOutputsManifestPath().getPathString());
     env.put(
         "TEST_UNDECLARED_OUTPUTS_ANNOTATIONS",
@@ -857,13 +857,13 @@ public class TestRunnerAction extends AbstractAction
     return splitLogsPath;
   }
 
-  public PathFragment getUndeclaredOutputsDir() {
-    return undeclaredOutputsDir.getExecPath();
+  public Artifact getUndeclaredOutputsDir() {
+    return undeclaredOutputsDir;
   }
 
   /** Returns path to the optional zip file of undeclared test outputs. */
   public PathFragment getUndeclaredOutputsZipPath() {
-    return getUndeclaredOutputsDir().getChild(UNDECLARED_OUTPUTS_ZIP_NAME);
+    return undeclaredOutputsDir.getExecPath().getChild(UNDECLARED_OUTPUTS_ZIP_NAME);
   }
 
   /** Returns path to the undeclared output manifest file. */

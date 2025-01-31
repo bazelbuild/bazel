@@ -118,6 +118,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkymeldModule;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.standalone.StandaloneModule;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
@@ -1054,15 +1055,15 @@ public abstract class BuildIntegrationTestCase {
     return new String(FileSystemUtils.readContentAsLatin1(metadata.getInputStream()));
   }
 
-  protected FileArtifactValue getOutputMetadata(Artifact output)
-      throws IOException, InterruptedException {
-    assertThat(output).isInstanceOf(DerivedArtifact.class);
-    SkyValue actionExecutionValue =
-        getSkyframeExecutor()
-            .getEvaluator()
-            .getExistingValue(((DerivedArtifact) output).getGeneratingActionKey());
-    assertThat(actionExecutionValue).isInstanceOf(ActionExecutionValue.class);
-    return ((ActionExecutionValue) actionExecutionValue).getExistingFileArtifactValue(output);
+  protected FileArtifactValue getOutputMetadata(Artifact output) throws InterruptedException {
+    return getActionExecutionValue(output).getExistingFileArtifactValue(output);
+  }
+
+  protected TreeArtifactValue getTreeArtifactValue(Artifact treeArtifact)
+      throws InterruptedException {
+    return checkNotNull(
+        getActionExecutionValue(treeArtifact).getAllTreeArtifactValues().get(treeArtifact),
+        treeArtifact);
   }
 
   protected FileArtifactValue getSourceArtifactMetadata(Artifact sourceArtifact)
@@ -1072,6 +1073,17 @@ public abstract class BuildIntegrationTestCase {
         getSkyframeExecutor().getEvaluator().getExistingValue(sourceArtifact);
     assertThat(sourceArtifactValue).isInstanceOf(FileArtifactValue.class);
     return (FileArtifactValue) sourceArtifactValue;
+  }
+
+  private ActionExecutionValue getActionExecutionValue(Artifact output)
+      throws InterruptedException {
+    assertThat(output).isInstanceOf(DerivedArtifact.class);
+    SkyValue actionExecutionValue =
+        getSkyframeExecutor()
+            .getEvaluator()
+            .getExistingValue(((DerivedArtifact) output).getGeneratingActionKey());
+    assertThat(actionExecutionValue).isInstanceOf(ActionExecutionValue.class);
+    return (ActionExecutionValue) actionExecutionValue;
   }
 
   /**
