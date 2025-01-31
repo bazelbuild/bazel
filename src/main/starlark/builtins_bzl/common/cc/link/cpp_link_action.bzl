@@ -196,14 +196,14 @@ def link_action(
     build_variables = variables_extensions | setup_linking_variables(
         cc_toolchain,
         feature_configuration,
-        output,
+        output.path,
         cc_internal.dynamic_library_soname(
             actions,
             output.short_path,
             link_type != LINK_TARGET_TYPE.NODEPS_DYNAMIC_LIBRARY,
         ),
-        interface_output,
-        thinlto_param_file,
+        interface_output.path if interface_output else None,
+        thinlto_param_file.path if thinlto_param_file else None,
     )
 
     user_link_flags = linkopts + cc_toolchain._cpp_configuration.linkopts

@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
-import com.google.devtools.build.lib.analysis.actions.PathMappers;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -850,16 +849,16 @@ public class CppLinkActionBuilder {
 
     CcToolchainVariables.Builder buildVariables =
         LinkBuildVariables.setupLinkingVariables(
-            output,
+            output.getExecPathString(),
             SolibSymlinkAction.getDynamicLibrarySoname(
                 output.getRootRelativePath(),
                 /* preserveName= */ linkType != LinkTargetType.NODEPS_DYNAMIC_LIBRARY,
                 linkActionConstruction.getContext().getConfiguration().getMnemonic()),
-            thinltoParamFile,
+            thinltoParamFile != null ? thinltoParamFile.getExecPathString() : null,
             toolchain,
             featureConfiguration,
-            toolchain.getInterfaceSoBuilder(),
-            interfaceOutput,
+            toolchain.getInterfaceSoBuilder().getExecPathString(),
+            interfaceOutput != null ? interfaceOutput.getExecPathString() : null,
             fdoContext);
 
     ImmutableList<String> userLinkFlags =
@@ -1123,8 +1122,7 @@ public class CppLinkActionBuilder {
         linkCommandLine,
         linkActionConstruction.getConfig().getActionEnvironment(),
         toolchainEnv,
-        ImmutableMap.copyOf(executionInfo),
-        PathMappers.getOutputPathsMode(linkActionConstruction.getConfig()));
+        ImmutableMap.copyOf(executionInfo));
   }
 
   /** Returns the output of this action as a {@link LibraryInput} or null if it is an executable. */

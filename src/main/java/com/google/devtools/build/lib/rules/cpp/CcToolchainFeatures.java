@@ -412,18 +412,18 @@ public class CcToolchainFeatures implements StarlarkValue {
       }
       if (expandIfTrue != null
           && (!variables.isAvailable(expandIfTrue, expander)
-              || !variables.getVariable(expandIfTrue, pathMapper).isTruthy())) {
+              || !variables.getVariable(expandIfTrue).isTruthy())) {
         return false;
       }
       if (expandIfFalse != null
           && (!variables.isAvailable(expandIfFalse, expander)
-              || variables.getVariable(expandIfFalse, pathMapper).isTruthy())) {
+              || variables.getVariable(expandIfFalse).isTruthy())) {
         return false;
       }
       if (expandIfEqual != null
           && (!variables.isAvailable(expandIfEqual.variable, expander)
               || !variables
-                  .getVariable(expandIfEqual.variable, pathMapper)
+                  .getVariable(expandIfEqual.variable)
                   .getStringValue(expandIfEqual.variable, pathMapper)
                   .equals(expandIfEqual.value))) {
         return false;

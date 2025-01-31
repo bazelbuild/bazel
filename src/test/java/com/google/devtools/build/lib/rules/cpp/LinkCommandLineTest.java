@@ -272,7 +272,7 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
     assertThat(linkConfig.getCommandLines().unpack().get(0).commandLine.arguments())
         .containsExactly("foo/bar/ar");
     assertThat(linkConfig.getCommandLines().unpack().get(1).paramFileInfo.always()).isTrue();
-    assertThat(linkConfig.getParamCommandLine(null, PathMapper.NOOP))
+    assertThat(linkConfig.getParamCommandLine(null))
         .containsExactly("rcsD", "a/FakeOutput")
         .inOrder();
   }
@@ -295,7 +295,7 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
             .build();
     assertThat(linkConfig.getCommandLines().unpack().get(0).commandLine.arguments())
         .containsExactly("foo/bar/linker");
-    assertThat(linkConfig.getParamCommandLine(null, PathMapper.NOOP))
+    assertThat(linkConfig.getParamCommandLine(null))
         .containsExactly("-shared", "-o", "a/FakeOutput", "")
         .inOrder();
   }
@@ -339,7 +339,7 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
 
     assertThat(linkConfig.getCommandLines().unpack().get(0).commandLine.arguments())
         .containsExactly("foo/bar/ar");
-    assertThat(linkConfig.getParamCommandLine(null, PathMapper.NOOP))
+    assertThat(linkConfig.getParamCommandLine(null))
         .containsExactly("rcsD", "a/FakeOutput", "foo.o", "bar.o")
         .inOrder();
   }
@@ -398,9 +398,7 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
         linkConfig.arguments(null, PathMapper.NOOP), treeArtifactsPaths, treeFileArtifactsPaths);
     verifyArguments(linkConfig.arguments(), treeArtifactsPaths, treeFileArtifactsPaths);
     verifyArguments(
-        linkConfig.getParamCommandLine(null, PathMapper.NOOP),
-        treeArtifactsPaths,
-        treeFileArtifactsPaths);
+        linkConfig.getParamCommandLine(null), treeArtifactsPaths, treeFileArtifactsPaths);
 
     // Should only reference tree file artifacts.
     verifyArguments(
@@ -408,12 +406,8 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
         treeFileArtifactsPaths,
         treeArtifactsPaths);
     verifyArguments(
-        linkConfig.arguments(expander, PathMapper.NOOP),
-        treeFileArtifactsPaths,
-        treeArtifactsPaths);
+        linkConfig.arguments(expander, null), treeFileArtifactsPaths, treeArtifactsPaths);
     verifyArguments(
-        linkConfig.getParamCommandLine(expander, PathMapper.NOOP),
-        treeFileArtifactsPaths,
-        treeArtifactsPaths);
+        linkConfig.getParamCommandLine(expander), treeFileArtifactsPaths, treeArtifactsPaths);
   }
 }
