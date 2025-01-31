@@ -66,8 +66,7 @@ public final class CppLinkAction extends SpawnAction {
       LinkCommandLine linkCommandLine,
       ActionEnvironment env,
       ImmutableMap<String, String> toolchainEnv,
-      ImmutableMap<String, String> executionRequirements,
-      OutputPathsMode outputPathsMode)
+      ImmutableMap<String, String> executionRequirements)
       throws EvalException {
     super(
         owner,
@@ -80,7 +79,7 @@ public final class CppLinkAction extends SpawnAction {
         /* executionInfo= */ executionRequirements,
         /* progressMessage= */ progressMessage,
         /* mnemonic= */ mnemonic,
-        /* outputPathsMode= */ outputPathsMode);
+        /* outputPathsMode= */ OutputPathsMode.OFF);
 
     this.toolchainEnv = toolchainEnv;
   }
@@ -91,7 +90,6 @@ public final class CppLinkAction extends SpawnAction {
         Maps.newLinkedHashMapWithExpectedSize(getEnvironment().estimatedSize());
     getEnvironment().resolve(result, clientEnv);
 
-    // TODO(fmeum): The environment is not path mapped.
     result.putAll(toolchainEnv);
 
     if (!getExecutionInfo().containsKey(ExecutionRequirements.REQUIRES_DARWIN)) {

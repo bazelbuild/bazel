@@ -780,10 +780,7 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   }
 
   private static VariableValue booleanValue(boolean val) throws ExpansionException {
-    return CcToolchainVariables.builder()
-        .addBooleanValue("name", val)
-        .build()
-        .getVariable("name", PathMapper.NOOP);
+    return CcToolchainVariables.builder().addBooleanValue("name", val).build().getVariable("name");
   }
 
   @Test
