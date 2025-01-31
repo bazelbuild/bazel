@@ -32,6 +32,8 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.io.FileSymlinkException;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.AutoloadSymbols;
@@ -1050,7 +1052,8 @@ public abstract class PackageFunction implements SkyFunction {
                 buildFileRootedPath,
                 buildFileValue,
                 starlarkBuiltinsValue,
-                preludeBindings);
+                preludeBindings,
+                env.getListener());
         state.compiledBuildFile = compiled;
       }
 
@@ -1202,7 +1205,8 @@ public abstract class PackageFunction implements SkyFunction {
       RootedPath buildFilePath,
       FileValue buildFileValue,
       StarlarkBuiltinsValue starlarkBuiltinsValue,
-      @Nullable Map<String, Object> preludeBindings)
+      @Nullable Map<String, Object> preludeBindings,
+      ExtendedEventHandler reporter)
       throws PackageFunctionException {
     // Though it could be in principle, `cpuBoundSemaphore` is not held here as this method does
     // not show up in profiles as being significantly impacted by thrashing. It could be worth doing
@@ -1236,7 +1240,27 @@ public abstract class PackageFunction implements SkyFunction {
       // If control flow reaches here, we're in territory that is deliberately unsound.
       // See the javadoc for ActionOnIOExceptionReadingBuildFile.
     }
-    ParserInput input = ParserInput.fromLatin1(buildFileBytes, inputFile.toString());
+    StoredEventHandler handler = new StoredEventHandler();
+    ParserInput input;
+    try {
+      input =
+          StarlarkUtil.createParserInput(
+              buildFileBytes,
+              inputFile.toString(),
+              semantics.get(BuildLanguageOptions.INCOMPATIBLE_ENFORCE_STARLARK_UTF8),
+              handler);
+    } catch (StarlarkUtil.InvalidUtf8Exception e) {
+      handler.replayOn(reporter);
+      throw PackageFunctionException.builder()
+          .setType(PackageFunctionException.Type.BUILD_FILE_CONTAINS_ERRORS)
+          .setPackageIdentifier(packageId)
+          .setTransience(Transience.PERSISTENT)
+          .setException(e)
+          .setMessage("error reading " + inputFile.toString())
+          .setPackageLoadingCode(PackageLoading.Code.STARLARK_EVAL_ERROR)
+          .build();
+    }
+    handler.replayOn(reporter);
 
     // Options for processing BUILD files.
     FileOptions options =
