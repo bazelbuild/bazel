@@ -58,6 +58,7 @@ public final class FlagSetFunction implements SkyFunction {
 
   private static final String DEFAULT_CONFIG = "default_config";
   private static final String ENFORCEMENT_POLICY = "enforcement_policy";
+  private static final String ALWAYS_ALLOWED_CONFIGS = "always_allowed_configs";
 
   private enum EnforcementPolicy {
     WARN("warn"), // Default, enforced in getSclConfig().
@@ -213,8 +214,14 @@ public final class FlagSetFunction implements SkyFunction {
       return ImmutableSet.of();
     }
 
+    Collection<String> alwaysAllowedConfigs =
+        !sclContent.getProject().containsKey(ALWAYS_ALLOWED_CONFIGS)
+            ? ImmutableList.of()
+            : (Collection<String>) sclContent.getProject().get(ALWAYS_ALLOWED_CONFIGS);
+
     validateNoExtraFlagsSet(
         enforcementPolicy,
+        alwaysAllowedConfigs,
         buildOptionsAsStrings,
         key.getUserOptions(),
         optionsToApply,
@@ -362,9 +369,13 @@ public final class FlagSetFunction implements SkyFunction {
    *
    * <p>Conflicting output-affecting options may be set in global RC files (including the {@code
    * InvocationPolicy}). Flags that do not affect outputs are always allowed.
+   *
+   * @param userOptions the user options set in the command line or user bazelrc as a map from
+   *     option.getCanonicalForm()to option.getExpandedFrom(), {"--define=foo=bar": "--config=foo"}.
    */
   private static void validateNoExtraFlagsSet(
       EnforcementPolicy enforcementPolicy,
+      Collection<String> alwaysAllowedConfigs,
       ImmutableList<String> buildOptionsAsStrings,
       ImmutableMap<String, String> userOptions,
       ImmutableSet<String> flagsFromSelectedConfig,
@@ -383,6 +394,12 @@ public final class FlagSetFunction implements SkyFunction {
                             .replace("'", "")))
             .filter(option -> !option.startsWith("--scl_config"))
             .filter(option -> !flagsFromSelectedConfig.contains(option))
+            // Remove options that are expanded from always-allowed configs either defined in the
+            // project file...
+            .filter(option -> !alwaysAllowedConfigs.contains(userOptions.get(option)))
+            // ... or globally
+            .filter(
+                option -> !GlobalRcUtils.ALLOWED_GLOBAL_CONFIGS.contains(userOptions.get(option)))
             .map(
                 option ->
                     userOptions.get(option).isEmpty()
