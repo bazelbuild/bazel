@@ -482,9 +482,6 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
     features = ctx.features
     features.append(linking_mode)
     disabled_features = ctx.disabled_features
-    if ctx.attr._is_test and cpp_config.incompatible_enable_cc_test_feature:
-        features.append("is_cc_test")
-        disabled_features.append("legacy_is_cc_test")
 
     feature_configuration = cc_common.configure_features(
         ctx = ctx,

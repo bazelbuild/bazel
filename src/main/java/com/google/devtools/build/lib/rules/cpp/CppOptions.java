@@ -898,17 +898,6 @@ public class CppOptions extends FragmentOptions {
   public boolean disableNoCopts;
 
   @Option(
-      name = "incompatible_enable_cc_test_feature",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "When enabled, it switches Crosstool to use feature 'is_cc_test' rather than"
-              + " the link-time build variable of the same name.")
-  public boolean enableCcTestFeature;
-
-  @Option(
       name = "apple_generate_dsym",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,

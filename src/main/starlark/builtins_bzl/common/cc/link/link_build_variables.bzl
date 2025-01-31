@@ -228,8 +228,7 @@ def setup_common_linking_variables(
         should_create_per_object_debug_info(feature_configuration, cpp_config)):
         vars[LINK_BUILD_VARIABLES.IS_USING_FISSION] = ""
 
-    if not cpp_config.incompatible_enable_cc_test_feature():
-        vars[LINK_BUILD_VARIABLES.IS_CC_TEST] = use_test_only_flags
+    vars[LINK_BUILD_VARIABLES.IS_CC_TEST] = use_test_only_flags
 
     vars[LINK_BUILD_VARIABLES.RUNTIME_LIBRARY_SEARCH_DIRECTORIES] = runtime_library_search_directories
 

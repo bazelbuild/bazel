@@ -244,9 +244,7 @@ public enum LinkBuildVariables {
       buildVariables.addStringVariable(IS_USING_FISSION.getVariableName(), "");
     }
 
-    if (!cppConfiguration.useCcTestFeature()) {
-      buildVariables.addBooleanValue(IS_CC_TEST.getVariableName(), useTestOnlyFlags);
-    }
+    buildVariables.addBooleanValue(IS_CC_TEST.getVariableName(), useTestOnlyFlags);
 
     buildVariables.addStringSequenceVariable(
         RUNTIME_LIBRARY_SEARCH_DIRECTORIES.getVariableName(), runtimeLibrarySearchDirectories);

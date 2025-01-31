@@ -393,16 +393,6 @@ public final class CppConfiguration extends Fragment
     return cppOptions.useArgsParamsFile;
   }
 
-  public boolean useCcTestFeature() {
-    return cppOptions.enableCcTestFeature;
-  }
-
-  @Override
-  public boolean useCcTestFeatureStarlark(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return useCcTestFeature();
-  }
-
   /** Returns whether or not to strip the binaries. */
   public boolean shouldStripBinaries() {
     return stripBinaries;
