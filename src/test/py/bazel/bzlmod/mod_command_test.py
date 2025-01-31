@@ -452,7 +452,6 @@ class ModCommandTest(test_base.TestBase):
         ],
         rstrip=True,
     )
-    print("\n".join(stdout))
     self.assertRegex(stdout.pop(4), r'^  urls = \[".*"\],$')
     self.assertRegex(stdout.pop(4), r'^  integrity = ".*",$')
     self.assertRegex(stdout.pop(19), r'^  path = ".*",$')
@@ -461,11 +460,11 @@ class ModCommandTest(test_base.TestBase):
     # lines after '# Rule data_repo defined at (most recent call last):'
     stdout.pop(34)
     stdout.pop(45)
-    self.assertRegex(stdout.pop(49), r'^  urls = \[".*"\],$')
-    self.assertRegex(stdout.pop(49), r'^  integrity = ".*",$')
+    self.assertRegex(stdout.pop(50), r'^  urls = \[".*"\],$')
+    self.assertRegex(stdout.pop(50), r'^  integrity = ".*",$')
     # lines after '# Rule http_archive defined at (most recent call last):'
     stdout.pop(13)
-    stdout.pop(57)
+    stdout.pop(58)
     self.assertListEqual(
         stdout,
         [
@@ -507,7 +506,7 @@ class ModCommandTest(test_base.TestBase):
             '# Rule ext++ext+repo3 instantiated at (most recent call last):',
             '#   <builtin> in <toplevel>',
             '# Rule data_repo defined at (most recent call last):',
-            # pop(33)
+            # pop(34)
             '',
             '## @my_repo4:',
             '# <builtin>',
@@ -519,14 +518,14 @@ class ModCommandTest(test_base.TestBase):
             '# Rule ext++ext+repo4 instantiated at (most recent call last):',
             '#   <builtin> in <toplevel>',
             '# Rule data_repo defined at (most recent call last):',
-            # pop(44)
+            # pop(45)
             '',
             '## bar@2.0:',
             '# <builtin>',
             'http_archive(',
             '  name = "bar+",',
-            # pop(49) -- urls=[...]
-            # pop(49) -- integrity=...
+            # pop(50) -- urls=[...]
+            # pop(50) -- integrity=...
             '  strip_prefix = "",',
             '  remote_file_urls = {},',
             '  remote_file_integrity = {},',
@@ -536,7 +535,7 @@ class ModCommandTest(test_base.TestBase):
             '# Rule bar+ instantiated at (most recent call last):',
             '#   <builtin> in <toplevel>',
             '# Rule http_archive defined at (most recent call last):',
-            # pop(57)
+            # pop(58)
             '',
         ],
         'wrong output in the show query for module and extension-generated'

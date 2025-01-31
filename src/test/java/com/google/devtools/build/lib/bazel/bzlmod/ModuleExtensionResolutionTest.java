@@ -2664,7 +2664,7 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
         "load('@data2//:data.bzl',repo_data='data')",
         "data=repo_data");
     scratch.file(
-        modulesRoot.getRelative("foo+1.0/names.bzl").getPathString(),
+        moduleRoot.getRelative("foo+1.0/names.bzl").getPathString(),
         "load('@data2//:names.bzl',repo_names='names')",
         "names=repo_names");
     scratch.file(
