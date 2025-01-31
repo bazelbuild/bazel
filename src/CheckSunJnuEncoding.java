@@ -1,3 +1,6 @@
+/**
+ * Verify that sun.jnu.encoding is UTF-8.
+ */
 public class CheckSunJnuEncoding {
   public static void main(String[] args) {
     String sunJnuEncoding = System.getProperty("sun.jnu.encoding");
