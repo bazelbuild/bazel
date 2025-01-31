@@ -1430,6 +1430,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
     CustomExitCodePublisher.setAbruptExitStatusFileDir(
         serverDirectories.getOutputBase().getPathString());
+    // Delete the previous file, if any, in case this server is reusing an existing output base
+    // from a previous server that had an abrupt exit.
+    CustomExitCodePublisher.maybeDeleteAbruptExitStatusFile();
 
     BlazeDirectories directories =
         new BlazeDirectories(

@@ -1357,11 +1357,6 @@ static int GetExitCodeForAbruptExit(const blaze_util::Path &output_base) {
                     << "Exiting with an INTERNAL_ERROR.";
     return blaze_exit_code::INTERNAL_ERROR;
   }
-  if (!blaze_util::UnlinkPath(filename)) {
-    BAZEL_LOG(INFO) << "Unable to delete the custom exit-code file. "
-                    << "Exiting with an INTERNAL_ERROR.";
-    return blaze_exit_code::INTERNAL_ERROR;
-  }
   int custom_exit_code;
   if (!blaze_util::safe_strto32(content, &custom_exit_code)) {
     BAZEL_LOG(INFO) << "Content of custom exit-code file not an int: "
