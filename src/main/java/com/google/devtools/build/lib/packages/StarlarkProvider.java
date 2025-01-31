@@ -355,47 +355,6 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
     abstract void addNamedArg(String name, Object value) throws EvalException;
   }
 
-  private static Object[] toNamedArgs(Object value, String descriptionForError)
-      throws EvalException {
-    Dict<String, Object> kwargs = Dict.cast(value, String.class, Object.class, descriptionForError);
-    Object[] named = new Object[2 * kwargs.size()];
-    int i = 0;
-    for (Map.Entry<String, Object> e : kwargs.entrySet()) {
-      named[i++] = e.getKey();
-      named[i++] = e.getValue();
-    }
-    return named;
-  }
-
-  @Override
-  public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named)
-      throws InterruptedException, EvalException {
-    if (init == null) {
-      return fastcallRawConstructor(thread, positional, named);
-    }
-
-    Object initResult = Starlark.fastcall(thread, init, positional, named);
-    // The code-path for providers with schema could be optimised to skip the call to toNamedArgs.
-    // As it is, we copy the map to an alternating key-value Object array, and then extract just
-    // the values into another array.
-    return createFromNamedArgs(
-        toNamedArgs(initResult, "return value of provider init()"), thread.getCallerLocation());
-  }
-
-  private Object fastcallRawConstructor(StarlarkThread thread, Object[] positional, Object[] named)
-      throws EvalException {
-    if (positional.length > 0) {
-      throw Starlark.errorf("%s: unexpected positional arguments", getName());
-    }
-    return createFromNamedArgs(named, thread.getCallerLocation());
-  }
-
-  private StarlarkInfo createFromNamedArgs(Object[] named, Location loc) throws EvalException {
-    return schema != null
-        ? StarlarkInfoWithSchema.createFromNamedArgs(this, named, loc)
-        : StarlarkInfoNoSchema.createFromNamedArgs(this, named, loc);
-  }
-
   private static final class RawConstructor implements StarlarkCallable {
     private final StarlarkProvider provider;
 
@@ -406,12 +365,6 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
     @Override
     public StarlarkCallable.ArgumentProcessor requestArgumentProcessor(StarlarkThread thread) {
       return provider.requestRawArgumentProcessor(this, thread);
-    }
-
-    @Override
-    public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named)
-        throws EvalException {
-      return provider.fastcallRawConstructor(thread, positional, named);
     }
 
     @Override

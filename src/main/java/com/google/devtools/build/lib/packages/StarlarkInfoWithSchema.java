@@ -68,6 +68,11 @@ public class StarlarkInfoWithSchema extends StarlarkInfo {
     return new StarlarkInfoFactory(provider, thread);
   }
 
+  /**
+   * Constructs a StarlarkInfo with calls forwarded from one of the StarlarkInfo ArgumentProcessor
+   * implementations. Checks that each key is provided at most once, and is defined by the schema,
+   * which must be sorted. This class exists solely for the StarlarkInfo ArgumentProcessors.
+   */
   static class StarlarkInfoFactory extends StarlarkProvider.StarlarkInfoFactory {
     private final ImmutableList<String> fields;
     private final Object[] valueTable;
@@ -118,45 +123,6 @@ public class StarlarkInfoWithSchema extends StarlarkInfo {
       }
       return createFromArgs(thread);
     }
-  }
-
-  /**
-   * Constructs a StarlarkInfo from an array of alternating key/value pairs as provided by
-   * Starlark.fastcall. Checks that each key is provided at most once, and is defined by the schema,
-   * which must be sorted. This function exists solely for the StarlarkProvider constructor.
-   */
-  static StarlarkInfoWithSchema createFromNamedArgs(
-      StarlarkProvider provider, Object[] table, Location loc) throws EvalException {
-    ImmutableList<String> fields = provider.getFields();
-
-    Object[] valueTable = new Object[fields.size()];
-    List<String> unexpected = null;
-
-    for (int i = 0; i < table.length; i += 2) {
-      int pos = Collections.binarySearch(fields, (String) table[i]);
-      if (pos >= 0) {
-        if (valueTable[pos] != null) {
-          throw Starlark.errorf(
-              "got multiple values for parameter %s in call to instantiate provider %s",
-              table[i], provider.getPrintableName());
-        }
-        valueTable[pos] = provider.optimizeField(pos, table[i + 1]);
-      } else {
-        if (unexpected == null) {
-          unexpected = new ArrayList<>();
-        }
-        unexpected.add((String) table[i]);
-      }
-    }
-
-    if (unexpected != null) {
-      throw Starlark.errorf(
-          "got unexpected field%s '%s' in call to instantiate provider %s",
-          unexpected.size() > 1 ? "s" : "",
-          Joiner.on("', '").join(unexpected),
-          provider.getPrintableName());
-    }
-    return new StarlarkInfoWithSchema(provider, valueTable, loc);
   }
 
   @Override
