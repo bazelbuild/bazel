@@ -51,18 +51,17 @@ if [[ "$platform" == "windows" ]]; then
   reg add "HKLM\SYSTEM\CurrentControlSet\Control\Nls\CodePage" /v ACP /t REG_SZ /d 65001 /f
 elif [[ "$platform" == "linux" ]]; then
   # This locale is used by Java and GraalVM native image compilation actions.
-  locale-gen C.UTF-8
-  update-locale
+  localedef -v -c -i en_US -f UTF-8 C.UTF-8
 fi
-
-# Check that the build machine is set up for Unicode.
-bazel run ${RELEASE_BUILD_OPTS} //src:CheckSunJnuEncoding
 
 commit_hash=$(git rev-parse HEAD)
 timestamp=$(date +%s)
 bazel_version=$(bazel info release | cut -d' ' -f2)
 
 RELEASE_BUILD_OPTS="-c opt --tool_java_language_version=8 --java_language_version=8"
+
+# Check that the build machine is set up for Unicode.
+bazel run ${RELEASE_BUILD_OPTS} //src:CheckSunJnuEncoding
 
 # Passing the same commit_hash and timestamp to all targets to mark all the artifacts
 # uploaded on GCS with the same identifier.
