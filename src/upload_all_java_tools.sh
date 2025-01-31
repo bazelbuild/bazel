@@ -51,7 +51,7 @@ if [[ "$platform" == "windows" ]]; then
   reg add "HKLM\SYSTEM\CurrentControlSet\Control\Nls\CodePage" /v ACP /t REG_SZ /d 65001 /f
 elif [[ "$platform" == "linux" ]]; then
   # This locale is used by Java and GraalVM native image compilation actions.
-  echo "C.UTF-8         en_US.UTF-8" >> /usr/share/locale/locale.alias
+  echo "C.UTF-8         en_US.UTF-8" | sudo tee -a /usr/share/locale/locale.alias > /dev/null
 fi
 
 commit_hash=$(git rev-parse HEAD)
