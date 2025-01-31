@@ -45,7 +45,18 @@ echo Platform: $platform
 if [[ "$platform" == "windows" ]]; then
   export MSYS_NO_PATHCONV=1
   export MSYS2_ARG_CONV_EXCL="*"
+
+  # Enforce a UTF-8 code page for the JVM that runs GraalVM so that the
+  # resulting native image of Turbine can handle UTF-8 characters.
+  reg add "HKLM\SYSTEM\CurrentControlSet\Control\Nls\CodePage" /v ACP /t REG_SZ /d 65001 /f
+elif [[ "$platform" == "linux" ]]; then
+  # This locale is used by Java and GraalVM native image compilation actions.
+  locale-gen C.UTF-8
+  update-locale
 fi
+
+# Check that the build machine is set up for Unicode.
+bazel run ${RELEASE_BUILD_OPTS} //src:CheckSunJnuEncoding
 
 commit_hash=$(git rev-parse HEAD)
 timestamp=$(date +%s)
