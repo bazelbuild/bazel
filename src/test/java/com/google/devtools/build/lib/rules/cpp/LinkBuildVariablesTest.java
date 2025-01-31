@@ -513,7 +513,9 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
 
     assertThrows(
         ExpansionException.class,
-        () -> testVariables.getVariable(LinkBuildVariables.IS_CC_TEST.getVariableName()));
+        () ->
+            testVariables.getVariable(
+                LinkBuildVariables.IS_CC_TEST.getVariableName(), PathMapper.NOOP));
 
     ConfiguredTarget binaryTarget = getConfiguredTarget("//x:foo");
     CcToolchainVariables binaryVariables =
@@ -521,7 +523,9 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
 
     assertThrows(
         ExpansionException.class,
-        () -> binaryVariables.getVariable(LinkBuildVariables.IS_CC_TEST.getVariableName()));
+        () ->
+            binaryVariables.getVariable(
+                LinkBuildVariables.IS_CC_TEST.getVariableName(), PathMapper.NOOP));
   }
 
   @Test
