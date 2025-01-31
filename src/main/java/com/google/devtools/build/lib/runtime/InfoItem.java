@@ -75,6 +75,6 @@ public abstract class InfoItem {
     if (value instanceof byte[]) {
       return (byte[]) value;
     }
-    return StringUnsafe.getInstance().getInternalStringBytes(value.toString());
+    return StringUnsafe.getInstance().getInternalStringBytes(String.valueOf(value));
   }
 }
