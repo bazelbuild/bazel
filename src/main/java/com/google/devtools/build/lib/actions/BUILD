@@ -313,7 +313,6 @@ java_library(
         "ArtifactRoot.java",
         "Artifacts.java",
         "PathMapper.java",
-        "PathMapperConstants.java",
     ],
     deps = [
         ":action_lookup_data",
@@ -323,7 +322,6 @@ java_library(
         ":commandline_item",
         ":package_roots",
         "//src/main/java/com/google/devtools/build/docgen/annot",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/core_options",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset:fingerprint_cache",

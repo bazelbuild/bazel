@@ -17,7 +17,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.SequenceBuilder;
@@ -159,24 +158,24 @@ public enum LinkBuildVariables {
   }
 
   public static CcToolchainVariables.Builder setupLinkingVariables(
-      Artifact outputFile,
+      String outputFile,
       String runtimeSolibName,
-      Artifact thinltoParamFile,
+      String thinltoParamFile,
       CcToolchainProvider ccToolchainProvider,
       FeatureConfiguration featureConfiguration,
-      Artifact interfaceLibraryBuilder,
-      Artifact interfaceLibraryOutput,
+      String interfaceLibraryBuilder,
+      String interfaceLibraryOutput,
       FdoContext fdoContext)
       throws EvalException {
     CcToolchainVariables.Builder buildVariables = CcToolchainVariables.builder();
     if (thinltoParamFile != null) {
       // This is a normal link action and we need to use param file created by lto-indexing.
-      buildVariables.addArtifactVariable(
+      buildVariables.addStringVariable(
           LinkBuildVariables.THINLTO_PARAM_FILE.getVariableName(), thinltoParamFile);
     }
 
     // output exec path
-    buildVariables.addArtifactVariable(
+    buildVariables.addStringVariable(
         LinkBuildVariables.OUTPUT_EXECPATH.getVariableName(), outputFile);
 
     buildVariables.addStringVariable(
@@ -187,26 +186,25 @@ public enum LinkBuildVariables {
         && featureConfiguration.isEnabled(CppRuleClasses.PROPELLER_OPTIMIZE)
         && fdoContext.getPropellerOptimizeInputFile() != null
         && fdoContext.getPropellerOptimizeInputFile().getLdArtifact() != null) {
-      buildVariables.addArtifactVariable(
+      buildVariables.addStringVariable(
           LinkBuildVariables.PROPELLER_OPTIMIZE_LD_PATH.getVariableName(),
-          fdoContext.getPropellerOptimizeInputFile().getLdArtifact());
+          fdoContext.getPropellerOptimizeInputFile().getLdArtifact().getExecPathString());
     }
 
     boolean shouldGenerateInterfaceLibrary =
         outputFile != null && interfaceLibraryBuilder != null && interfaceLibraryOutput != null;
-    if (shouldGenerateInterfaceLibrary) {
-      buildVariables.addStringVariable(GENERATE_INTERFACE_LIBRARY.getVariableName(), "yes");
-      buildVariables.addArtifactVariable(
-          INTERFACE_LIBRARY_BUILDER.getVariableName(), interfaceLibraryBuilder);
-      buildVariables.addArtifactVariable(INTERFACE_LIBRARY_INPUT.getVariableName(), outputFile);
-      buildVariables.addArtifactVariable(
-          INTERFACE_LIBRARY_OUTPUT.getVariableName(), interfaceLibraryOutput);
-    } else {
-      buildVariables.addStringVariable(GENERATE_INTERFACE_LIBRARY.getVariableName(), "no");
-      buildVariables.addStringVariable(INTERFACE_LIBRARY_BUILDER.getVariableName(), "ignored");
-      buildVariables.addStringVariable(INTERFACE_LIBRARY_INPUT.getVariableName(), "ignored");
-      buildVariables.addStringVariable(INTERFACE_LIBRARY_OUTPUT.getVariableName(), "ignored");
-    }
+    buildVariables.addStringVariable(
+        GENERATE_INTERFACE_LIBRARY.getVariableName(),
+        shouldGenerateInterfaceLibrary ? "yes" : "no");
+    buildVariables.addStringVariable(
+        INTERFACE_LIBRARY_BUILDER.getVariableName(),
+        shouldGenerateInterfaceLibrary ? interfaceLibraryBuilder : "ignored");
+    buildVariables.addStringVariable(
+        INTERFACE_LIBRARY_INPUT.getVariableName(),
+        shouldGenerateInterfaceLibrary ? outputFile : "ignored");
+    buildVariables.addStringVariable(
+        INTERFACE_LIBRARY_OUTPUT.getVariableName(),
+        shouldGenerateInterfaceLibrary ? interfaceLibraryOutput : "ignored");
 
     return buildVariables;
   }

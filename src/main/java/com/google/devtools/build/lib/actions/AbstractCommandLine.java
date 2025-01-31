@@ -56,8 +56,7 @@ public abstract class AbstractCommandLine extends CommandLine {
       CoreOptions.OutputPathsMode outputPathsMode,
       Fingerprint fingerprint)
       throws CommandLineExpansionException, InterruptedException {
-    for (String s :
-        arguments(/* artifactExpander= */ null, PathMapper.forActionKey(outputPathsMode))) {
+    for (String s : arguments()) {
       fingerprint.addString(s);
     }
   }

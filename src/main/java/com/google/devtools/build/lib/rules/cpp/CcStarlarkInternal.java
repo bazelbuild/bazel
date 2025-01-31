@@ -105,40 +105,24 @@ public class CcStarlarkInternal implements StarlarkValue {
 
     CcToolchainVariables.Builder ccToolchainVariables = CcToolchainVariables.builder();
     for (var entry : buildVariables.entrySet()) {
-      String key = (String) entry.getKey();
-      Object value = entry.getValue();
-      switch (value) {
-        case String s -> ccToolchainVariables.addStringVariable(key, s);
-        case Artifact a -> ccToolchainVariables.addArtifactVariable(key, a);
-        case Boolean b -> ccToolchainVariables.addBooleanValue(key, b);
-        case Iterable<?> values -> {
-          if (key.equals("libraries_to_link")) {
-            SequenceBuilder sb = new SequenceBuilder();
-            for (var v : (Iterable<VariableValue>) values) {
-              sb.addValue(v);
-            }
-            ccToolchainVariables.addCustomBuiltVariable(key, sb);
-          } else {
-            ccToolchainVariables.addStringSequenceVariable(key, (Iterable<String>) values);
+      if (entry.getValue() instanceof String) {
+        ccToolchainVariables.addStringVariable((String) entry.getKey(), (String) entry.getValue());
+      } else if (entry.getValue() instanceof Boolean) {
+        ccToolchainVariables.addBooleanValue((String) entry.getKey(), (Boolean) entry.getValue());
+      } else if (entry.getValue() instanceof Iterable<?>) {
+        if (entry.getKey().equals("libraries_to_link")) {
+          SequenceBuilder sb = new SequenceBuilder();
+          for (var value : (Iterable<?>) entry.getValue()) {
+            sb.addValue((VariableValue) value);
           }
+          ccToolchainVariables.addCustomBuiltVariable((String) entry.getKey(), sb);
+        } else {
+          ccToolchainVariables.addStringSequenceVariable(
+              (String) entry.getKey(), (Iterable<String>) entry.getValue());
         }
-        case Depset depset -> {
-          Class<?> type = depset.getElementClass();
-          // Type doesn't matter for empty depsets.
-          if (type == String.class || type == null) {
-            ccToolchainVariables.addStringSequenceVariable(key, depset.getSet(String.class));
-          } else if (type == Artifact.class) {
-            ccToolchainVariables.addArtifactSequenceVariable(key, depset.getSet(Artifact.class));
-          } else if (type == PathFragment.class) {
-            ccToolchainVariables.addPathFragmentSequenceVariable(
-                key, depset.getSet(PathFragment.class));
-          } else {
-            throw new IllegalStateException("Unexpected depset element type: %s".formatted(type));
-          }
-        }
-        default ->
-            throw new IllegalStateException(
-                "Unexpected value: %s (%s)".formatted(value, value.getClass()));
+      } else if (entry.getValue() instanceof Depset) {
+        ccToolchainVariables.addStringSequenceVariable(
+            (String) entry.getKey(), ((Depset) entry.getValue()).getSet(String.class));
       }
     }
     return ccToolchainVariables.build();
