@@ -109,7 +109,7 @@ final class ActionInputMapHelper {
       // Actions resulting from the expansion of an ActionTemplate consume only one of the files
       // in a tree artifact. However, the input prefetcher and the Linux sandbox require access to
       // the tree metadata to determine the prefetch location of a tree artifact materialized as a
-      // symlink (cf. TreeArtifactValue#getMaterializationExecPath()).
+      // symlink to another (cf. TreeArtifactValue#getResolvedPath()).
       if (key.isChildOfDeclaredDirectory()) {
         SpecialArtifact treeArtifact = key.getParent();
         TreeArtifactValue treeArtifactValue =

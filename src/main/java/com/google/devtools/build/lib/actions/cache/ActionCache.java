@@ -117,19 +117,18 @@ public interface ActionCache {
     public record SerializableTreeArtifactValue(
         ImmutableMap<String, FileArtifactValue> childValues,
         Optional<FileArtifactValue> archivedFileValue,
-        Optional<PathFragment> materializationExecPath) {
+        Optional<PathFragment> resolvedPath) {
       public SerializableTreeArtifactValue {
         requireNonNull(childValues, "childValues");
         requireNonNull(archivedFileValue, "archivedFileValue");
-        requireNonNull(materializationExecPath, "materializationExecPath");
+        requireNonNull(resolvedPath, "resolvedPath");
       }
 
       public static SerializableTreeArtifactValue create(
           ImmutableMap<String, FileArtifactValue> childValues,
           Optional<FileArtifactValue> archivedFileValue,
-          Optional<PathFragment> materializationExecPath) {
-        return new SerializableTreeArtifactValue(
-            childValues, archivedFileValue, materializationExecPath);
+          Optional<PathFragment> resolvedPath) {
+        return new SerializableTreeArtifactValue(childValues, archivedFileValue, resolvedPath);
       }
 
       /**
@@ -154,17 +153,14 @@ public interface ActionCache {
                 .filter(ar -> ar.archivedFileValue().isRemote())
                 .map(ar -> ar.archivedFileValue());
 
-        Optional<PathFragment> materializationExecPath = treeMetadata.getMaterializationExecPath();
+        Optional<PathFragment> resolvedPath = treeMetadata.getResolvedPath();
 
-        if (childValues.isEmpty()
-            && archivedFileValue.isEmpty()
-            && materializationExecPath.isEmpty()) {
+        if (childValues.isEmpty() && archivedFileValue.isEmpty() && resolvedPath.isEmpty()) {
           return Optional.empty();
         }
 
         return Optional.of(
-            SerializableTreeArtifactValue.create(
-                childValues, archivedFileValue, materializationExecPath));
+            SerializableTreeArtifactValue.create(childValues, archivedFileValue, resolvedPath));
       }
     }
 

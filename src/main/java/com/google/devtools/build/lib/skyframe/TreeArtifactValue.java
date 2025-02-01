@@ -194,7 +194,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
           EMPTY_MAP,
           0L,
           /* archivedRepresentation= */ null,
-          /* materializationExecPath= */ null,
+          /* resolvedPath= */ null,
           /* entirelyRemote= */ false);
 
   private final byte[] digest;
@@ -208,15 +208,11 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
   @Nullable private final ArchivedRepresentation archivedRepresentation;
 
   /**
-   * Optional materialization path.
+   * Optional resolved path.
    *
-   * <p>If present, this artifact is a copy of another artifact. It is still tracked as a
-   * non-symlink by Bazel, but materialized in the local filesystem as a symlink to the original
-   * artifact, whose contents live at this location. This is used by {@link
-   * com.google.devtools.build.lib.remote.AbstractActionInputPrefetcher} to implement zero-cost
-   * copies of remotely stored artifacts.
+   * <p>See {@link FileArtifactValue#getResolvedPath} for semantics.
    */
-  @Nullable private final PathFragment materializationExecPath;
+  @Nullable private final PathFragment resolvedPath;
 
   private final boolean entirelyRemote;
 
@@ -224,13 +220,13 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
   private static final class TreeArtifactCompositeFileArtifactValue extends FileArtifactValue {
     private final byte[] digest;
     private final boolean isRemote;
-    @Nullable private final PathFragment materializationExecPath;
+    @Nullable private final PathFragment resolvedPath;
 
     TreeArtifactCompositeFileArtifactValue(
-        byte[] digest, boolean isRemote, @Nullable PathFragment materializationExecPath) {
+        byte[] digest, boolean isRemote, @Nullable PathFragment resolvedPath) {
       this.digest = digest;
       this.isRemote = isRemote;
-      this.materializationExecPath = materializationExecPath;
+      this.resolvedPath = resolvedPath;
     }
 
     @Override
@@ -241,13 +237,12 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
       if (!(o instanceof TreeArtifactCompositeFileArtifactValue that)) {
         return false;
       }
-      return Arrays.equals(digest, that.digest)
-          && Objects.equals(materializationExecPath, that.materializationExecPath);
+      return Arrays.equals(digest, that.digest) && Objects.equals(resolvedPath, that.resolvedPath);
     }
 
     @Override
     public int hashCode() {
-      return HashCodes.hashObjects(Arrays.hashCode(digest), materializationExecPath);
+      return HashCodes.hashObjects(Arrays.hashCode(digest), resolvedPath);
     }
 
     @Override
@@ -285,7 +280,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     public String toString() {
       return MoreObjects.toStringHelper(this)
           .add("digest", BaseEncoding.base16().lowerCase().encode(digest))
-          .add("materializationExecPath", materializationExecPath)
+          .add("resolvedPath", resolvedPath)
           .toString();
     }
 
@@ -300,8 +295,9 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     }
 
     @Override
-    public Optional<PathFragment> getMaterializationExecPath() {
-      return Optional.ofNullable(materializationExecPath);
+    @Nullable
+    public PathFragment getResolvedPath() {
+      return resolvedPath;
     }
   }
 
@@ -310,19 +306,18 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
       ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> childData,
       long totalChildSize,
       @Nullable ArchivedRepresentation archivedRepresentation,
-      @Nullable PathFragment materializationExecPath,
+      @Nullable PathFragment resolvedPath,
       boolean entirelyRemote) {
     this.digest = digest;
     this.childData = childData;
     this.totalChildSize = totalChildSize;
     this.archivedRepresentation = archivedRepresentation;
-    this.materializationExecPath = materializationExecPath;
+    this.resolvedPath = resolvedPath;
     this.entirelyRemote = entirelyRemote;
   }
 
   public FileArtifactValue getMetadata() {
-    return new TreeArtifactCompositeFileArtifactValue(
-        digest, entirelyRemote, materializationExecPath);
+    return new TreeArtifactCompositeFileArtifactValue(digest, entirelyRemote, resolvedPath);
   }
 
   ImmutableSet<PathFragment> getChildPaths() {
@@ -344,14 +339,18 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     return totalChildSize;
   }
 
-  /** Return archived representation of the tree artifact (if present). */
+  /** Returns the archived representation of the tree artifact, if present. */
   public Optional<ArchivedRepresentation> getArchivedRepresentation() {
     return Optional.ofNullable(archivedRepresentation);
   }
 
-  /** Return materialization path (if present). */
-  public Optional<PathFragment> getMaterializationExecPath() {
-    return Optional.ofNullable(materializationExecPath);
+  /**
+   * Returns the resolved path, if present.
+   *
+   * <p>See {@link FileArtifactValue#getResolvedPath} for semantics.
+   */
+  public Optional<PathFragment> getResolvedPath() {
+    return Optional.ofNullable(resolvedPath);
   }
 
   @Nullable
@@ -388,7 +387,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
 
   @Override
   public int hashCode() {
-    return Objects.hash(Arrays.hashCode(digest), archivedRepresentation, materializationExecPath);
+    return HashCodes.hashObjects(Arrays.hashCode(digest), archivedRepresentation, resolvedPath);
   }
 
   @Override
@@ -404,7 +403,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     return Arrays.equals(digest, that.digest)
         && childData.equals(that.childData)
         && Objects.equals(archivedRepresentation, that.archivedRepresentation)
-        && Objects.equals(materializationExecPath, that.materializationExecPath);
+        && Objects.equals(resolvedPath, that.resolvedPath);
   }
 
   @Override
@@ -413,7 +412,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
         .add("digest", digest)
         .add("childData", childData)
         .add("archivedRepresentation", archivedRepresentation)
-        .add("materializationExecPath", materializationExecPath)
+        .add("resolvedPath", resolvedPath)
         .toString();
   }
 
@@ -430,7 +429,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
         EMPTY_MAP,
         0L,
         /* archivedRepresentation= */ null,
-        /* materializationExecPath= */ null,
+        /* resolvedPath= */ null,
         /* entirelyRemote= */ false) {
       @Override
       public ImmutableSortedSet<TreeFileArtifact> getChildren() {
@@ -615,7 +614,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     private final ImmutableSortedMap.Builder<TreeFileArtifact, FileArtifactValue> childData =
         childDataBuilder();
     private ArchivedRepresentation archivedRepresentation;
-    private PathFragment materializationExecPath;
+    private PathFragment resolvedPath;
     private final SpecialArtifact parent;
 
     Builder(SpecialArtifact parent) {
@@ -646,6 +645,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setArchivedRepresentation(
         ArchivedTreeArtifact archivedTreeArtifact, FileArtifactValue metadata) {
       return setArchivedRepresentation(
@@ -654,6 +654,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
 
     @CanIgnoreReturnValue
     public Builder setArchivedRepresentation(ArchivedRepresentation archivedRepresentation) {
+      checkNotNull(archivedRepresentation);
       checkState(
           this.archivedRepresentation == null,
           "Tried to add 2 archived representations for: %s",
@@ -668,12 +669,11 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     }
 
     @CanIgnoreReturnValue
-    public Builder setMaterializationExecPath(PathFragment materializationExecPath) {
+    public Builder setResolvedPath(PathFragment resolvedPath) {
+      checkArgument(resolvedPath.isAbsolute(), resolvedPath);
       checkState(
-          this.materializationExecPath == null,
-          "Tried to set materialization exec path multiple times for: %s",
-          parent);
-      this.materializationExecPath = materializationExecPath;
+          this.resolvedPath == null, "Tried to set resolved path multiple times for: %s", parent);
+      this.resolvedPath = resolvedPath;
       return this;
     }
 
@@ -681,9 +681,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     public TreeArtifactValue build() {
       ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> finalChildData =
           childData.buildOrThrow();
-      if (finalChildData.isEmpty()
-          && archivedRepresentation == null
-          && materializationExecPath == null) {
+      if (finalChildData.isEmpty() && archivedRepresentation == null && resolvedPath == null) {
         return EMPTY;
       }
 
@@ -715,7 +713,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
           finalChildData,
           totalChildSize,
           archivedRepresentation,
-          materializationExecPath,
+          resolvedPath,
           entirelyRemote);
     }
   }

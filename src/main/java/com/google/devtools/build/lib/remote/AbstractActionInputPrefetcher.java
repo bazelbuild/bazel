@@ -420,7 +420,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    *
    * <p>Some artifacts (notably, those created by {@code ctx.actions.symlink}) are materialized in
    * the output tree as a symlink to another artifact, as indicated by the {@link
-   * FileArtifactValue#getMaterializationExecPath()} field in their metadata.
+   * FileArtifactValue#getResolvedPath()} field in their metadata.
    */
   @Nullable
   private PathFragment maybeGetTreeRoot(
@@ -441,7 +441,11 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       throw new IllegalStateException(
           String.format("input %s belongs to a tree artifact whose metadata is missing", treeFile));
     }
-    return treeMetadata.getMaterializationExecPath().orElse(treeArtifact.getExecPath());
+    PathFragment resolvedPath = treeMetadata.getResolvedPath();
+    if (resolvedPath != null) {
+      return resolvedPath.relativeTo(execRoot.asFragment());
+    }
+    return treeArtifact.getExecPath();
   }
 
   /**
@@ -450,8 +454,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    *
    * <p>Some artifacts (notably, those created by {@code ctx.actions.symlink}) are materialized in
    * the output tree as a symlink to another artifact, as indicated by the {@link
-   * FileArtifactValue#getMaterializationExecPath()} field in their (or their parent tree
-   * artifact's) metadata.
+   * FileArtifactValue#getResolvedPath()} field in their (or their parent tree artifact's) metadata.
    */
   @Nullable
   private Symlink maybeGetSymlink(
@@ -477,9 +480,12 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       return maybeGetSymlink(action, treeArtifact, treeMetadata, metadataSupplier);
     }
     PathFragment execPath = input.getExecPath();
-    PathFragment materializationExecPath = metadata.getMaterializationExecPath().orElse(execPath);
-    if (!materializationExecPath.equals(execPath)) {
-      return Symlink.of(execPath, materializationExecPath);
+    PathFragment resolvedExecPath = execPath;
+    if (metadata.getResolvedPath() != null) {
+      resolvedExecPath = metadata.getResolvedPath().relativeTo(execRoot.asFragment());
+    }
+    if (!resolvedExecPath.equals(execPath)) {
+      return Symlink.of(execPath, resolvedExecPath);
     }
     return null;
   }
@@ -526,7 +532,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     // If the path to be prefetched is a non-dangling symlink, prefetch its target path instead.
     // Note that this only applies to symlinks created by spawns (or, currently, with the internal
     // version of BwoB); symlinks created in-process through an ActionFileSystem should have already
-    // been resolved into their materializationExecPath in maybeGetSymlink.
+    // been canonicalized by maybeGetSymlink.
     try {
       if (treeRoot != null) {
         var treeRootRelativePath = path.relativeTo(treeRoot);

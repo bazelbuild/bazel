@@ -49,6 +49,7 @@ import org.junit.runners.JUnit4;
 public class CompactPersistentActionCacheTest {
 
   private final Scratch scratch = new Scratch();
+  private Path execRoot;
   private Path dataRoot;
   private Path mapFile;
   private Path journalFile;
@@ -58,13 +59,12 @@ public class CompactPersistentActionCacheTest {
 
   @Before
   public final void createFiles() throws Exception  {
+    execRoot = scratch.resolve("/output");
     dataRoot = scratch.resolve("/cache/test.dat");
     cache = CompactPersistentActionCache.create(dataRoot, clock, NullEventHandler.INSTANCE);
     mapFile = CompactPersistentActionCache.cacheFile(dataRoot);
     journalFile = CompactPersistentActionCache.journalFile(dataRoot);
-    artifactRoot =
-        ArtifactRoot.asDerivedRoot(
-            scratch.getFileSystem().getPath("/output"), ArtifactRoot.RootType.Output, "bin");
+    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, ArtifactRoot.RootType.Output, "bin");
   }
 
   @Test
@@ -220,7 +220,7 @@ public class CompactPersistentActionCacheTest {
       Artifact artifact,
       String content,
       @Nullable Instant expirationTime,
-      @Nullable PathFragment materializationExecPath) {
+      @Nullable PathFragment resolvedPath) {
     byte[] bytes = content.getBytes(StandardCharsets.UTF_8);
     byte[] digest =
         artifact
@@ -230,25 +230,29 @@ public class CompactPersistentActionCacheTest {
             .getHashFunction()
             .hashBytes(bytes)
             .asBytes();
-    return FileArtifactValue.createForRemoteFileWithMaterializationData(
-        digest, bytes.length, 1, expirationTime, materializationExecPath);
+    FileArtifactValue metadata =
+        FileArtifactValue.createForRemoteFileWithMaterializationData(
+            digest, bytes.length, 1, expirationTime);
+    if (resolvedPath != null) {
+      metadata = FileArtifactValue.createFromExistingWithResolvedPath(metadata, resolvedPath);
+    }
+    return metadata;
   }
 
   private FileArtifactValue createRemoteMetadata(
-      Artifact artifact, String content, @Nullable PathFragment materializationExecPath) {
-    return createRemoteMetadata(
-        artifact, content, /* expirationTime= */ null, materializationExecPath);
+      Artifact artifact, String content, @Nullable PathFragment resolvedPath) {
+    return createRemoteMetadata(artifact, content, /* expirationTime= */ null, resolvedPath);
   }
 
   private FileArtifactValue createRemoteMetadata(Artifact artifact, String content) {
-    return createRemoteMetadata(artifact, content, /* materializationExecPath= */ null);
+    return createRemoteMetadata(artifact, content, /* resolvedPath= */ null);
   }
 
   private TreeArtifactValue createTreeMetadata(
       SpecialArtifact parent,
       ImmutableMap<String, FileArtifactValue> children,
       Optional<FileArtifactValue> archivedArtifactValue,
-      Optional<PathFragment> materializationExecPath) {
+      Optional<PathFragment> resolvedPath) {
     TreeArtifactValue.Builder builder = TreeArtifactValue.newBuilder(parent);
     for (Map.Entry<String, FileArtifactValue> entry : children.entrySet()) {
       builder.putChild(
@@ -260,8 +264,8 @@ public class CompactPersistentActionCacheTest {
           builder.setArchivedRepresentation(
               TreeArtifactValue.ArchivedRepresentation.create(artifact, metadata));
         });
-    if (materializationExecPath.isPresent()) {
-      builder.setMaterializationExecPath(materializationExecPath.get());
+    if (resolvedPath.isPresent()) {
+      builder.setResolvedPath(resolvedPath.get());
     }
     return builder.build();
   }
@@ -289,8 +293,7 @@ public class CompactPersistentActionCacheTest {
     Artifact artifact = ActionsTestUtil.DUMMY_ARTIFACT;
     Instant expirationTime = Instant.now().truncatedTo(ChronoUnit.MILLIS);
     FileArtifactValue metadata =
-        createRemoteMetadata(
-            artifact, "content", expirationTime, /* materializationExecPath= */ null);
+        createRemoteMetadata(artifact, "content", expirationTime, /* resolvedPath= */ null);
     entry.addOutputFile(artifact, metadata, /* saveFileMetadata= */ true);
 
     cache.put(key, entry);
@@ -300,13 +303,13 @@ public class CompactPersistentActionCacheTest {
   }
 
   @Test
-  public void putAndGet_savesRemoteFileMetadata_withmaterializationExecPath() {
+  public void putAndGet_savesRemoteFileMetadata_withResolvedPath() {
     String key = "key";
     ActionCache.Entry entry =
         new ActionCache.Entry(key, ImmutableMap.of(), false, OutputPermissions.READONLY);
     Artifact artifact = ActionsTestUtil.DUMMY_ARTIFACT;
     FileArtifactValue metadata =
-        createRemoteMetadata(artifact, "content", PathFragment.create("/execroot/some/path"));
+        createRemoteMetadata(artifact, "content", execRoot.getRelative("some/path").asFragment());
     entry.addOutputFile(artifact, metadata, /*saveFileMetadata=*/ true);
 
     cache.put(key, entry);
@@ -353,7 +356,7 @@ public class CompactPersistentActionCacheTest {
                             artifact, PathFragment.create("file2")),
                         "content2")),
             /* archivedArtifactValue= */ Optional.empty(),
-            /* materializationExecPath= */ Optional.empty());
+            /* resolvedPath= */ Optional.empty());
     entry.addOutputTree(artifact, metadata, /* saveTreeMetadata= */ true);
 
     cache.put(key, entry);
@@ -369,7 +372,7 @@ public class CompactPersistentActionCacheTest {
                             artifact, PathFragment.create("file1")),
                         "content1")),
                 /* archivedFileValue= */ Optional.empty(),
-                /* materializationExecPath= */ Optional.empty()));
+                /* resolvedPath= */ Optional.empty()));
   }
 
   @Test
@@ -385,7 +388,7 @@ public class CompactPersistentActionCacheTest {
             artifact,
             ImmutableMap.of(),
             Optional.of(createRemoteMetadata(artifact, "content")),
-            /* materializationExecPath= */ Optional.empty());
+            /* resolvedPath= */ Optional.empty());
     entry.addOutputTree(artifact, metadata, /* saveTreeMetadata= */ true);
 
     cache.put(key, entry);
@@ -414,7 +417,7 @@ public class CompactPersistentActionCacheTest {
             Optional.of(
                 createLocalMetadata(
                     ActionsTestUtil.createArtifact(artifactRoot, "bin/archive"), "content")),
-            /* materializationExecPath= */ Optional.empty());
+            /* resolvedPath= */ Optional.empty());
     entry.addOutputTree(artifact, metadata, /* saveTreeMetadata= */ true);
 
     cache.put(key, entry);
@@ -424,9 +427,9 @@ public class CompactPersistentActionCacheTest {
   }
 
   @Test
-  public void putAndGet_treeMetadata_savesMaterializationExecPath() {
+  public void putAndGet_treeMetadata_savesResolvedPath() {
     String key = "key";
-    PathFragment materializationExecPath = PathFragment.create("/execroot/some/path");
+    PathFragment resolvedPath = execRoot.getRelative("some/path").asFragment();
     ActionCache.Entry entry =
         new ActionCache.Entry(key, ImmutableMap.of(), false, OutputPermissions.READONLY);
     SpecialArtifact artifact =
@@ -437,7 +440,7 @@ public class CompactPersistentActionCacheTest {
             artifact,
             ImmutableMap.of(),
             /* archivedArtifactValue= */ Optional.empty(),
-            Optional.of(materializationExecPath));
+            Optional.of(resolvedPath));
     entry.addOutputTree(artifact, metadata, /* saveTreeMetadata= */ true);
 
     cache.put(key, entry);
@@ -448,7 +451,7 @@ public class CompactPersistentActionCacheTest {
             SerializableTreeArtifactValue.create(
                 ImmutableMap.of(),
                 /* archivedFileValue= */ Optional.empty(),
-                Optional.of(materializationExecPath)));
+                Optional.of(resolvedPath)));
   }
 
   private static void assertKeyEquals(ActionCache cache1, ActionCache cache2, String key) {

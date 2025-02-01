@@ -123,15 +123,15 @@ public final class TreeArtifactValueTest {
   }
 
   @Test
-  public void createsCorrectValueWithmaterializationExecPath() {
-    PathFragment targetPath = PathFragment.create("some/target/path");
+  public void createsCorrectValueWithResolvedPath() {
+    PathFragment targetPath = PathFragment.create("/some/target/path");
     SpecialArtifact parent = createTreeArtifact("bin/tree");
 
     TreeArtifactValue tree =
-        TreeArtifactValue.newBuilder(parent).setMaterializationExecPath(targetPath).build();
+        TreeArtifactValue.newBuilder(parent).setResolvedPath(targetPath).build();
 
-    assertThat(tree.getMaterializationExecPath()).hasValue(targetPath);
-    assertThat(tree.getMetadata().getMaterializationExecPath()).hasValue(targetPath);
+    assertThat(tree.getResolvedPath()).hasValue(targetPath);
+    assertThat(tree.getMetadata().getResolvedPath()).isEqualTo(targetPath);
   }
 
   @Test

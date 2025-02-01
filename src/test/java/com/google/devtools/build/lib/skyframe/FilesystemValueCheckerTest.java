@@ -1399,7 +1399,7 @@ public final class FilesystemValueCheckerTest {
     DigestHashFunction hashFn = fs.getDigestFunction();
     HashCode hash = hashFn.getHashFunction().hashBytes(data);
     return FileArtifactValue.createForRemoteFileWithMaterializationData(
-        hash.asBytes(), data.length, -1, expirationTime, /* materializationExecPath= */ null);
+        hash.asBytes(), data.length, -1, expirationTime);
   }
 
   @Test

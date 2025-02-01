@@ -1332,11 +1332,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     ((RemoteActionFileSystem) actionFs)
         .injectRemoteFile(path, digest, size, /* expirationTime= */ null);
     return FileArtifactValue.createForRemoteFileWithMaterializationData(
-        digest,
-        size,
-        /* locationIndex= */ 1,
-        /* expirationTime= */ null,
-        /* materializationExecPath= */ null);
+        digest, size, /* locationIndex= */ 1, /* expirationTime= */ null);
   }
 
   @Override
@@ -1356,8 +1352,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
             getDigest(content),
             Utf8.encodedLength(content),
             /* locationIndex= */ 1,
-            /* expirationTime= */ null,
-            /* materializationExecPath= */ null);
+            /* expirationTime= */ null);
     inputs.putWithNoDepOwner(a, f);
     return a;
   }
@@ -1382,8 +1377,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
               getDigest(content),
               Utf8.encodedLength(content),
               /* locationIndex= */ 0,
-              /* expirationTime= */ null,
-              /* materializationExecPath= */ null);
+              /* expirationTime= */ null);
       builder.putChild(child, childMeta);
     }
     return builder.build();

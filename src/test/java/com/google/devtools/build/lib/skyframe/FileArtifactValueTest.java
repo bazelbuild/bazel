@@ -93,14 +93,12 @@ public final class FileArtifactValueTest {
                 toBytes("00112233445566778899AABBCCDDEEFF"),
                 /* size= */ 1,
                 /* locationIndex= */ 1,
-                /* expirationTime= */ Instant.ofEpochMilli(1),
-                /* materializationExecPath= */ null),
+                /* expirationTime= */ Instant.ofEpochMilli(1)),
             FileArtifactValue.createForRemoteFileWithMaterializationData(
                 toBytes("00112233445566778899AABBCCDDEEFF"),
                 /* size= */ 1,
                 /* locationIndex= */ 1,
-                /* expirationTime= */ Instant.ofEpochMilli(2),
-                /* materializationExecPath= */ null))
+                /* expirationTime= */ Instant.ofEpochMilli(2)))
         .addEqualityGroup(FileArtifactValue.MISSING_FILE_MARKER)
         .addEqualityGroup(FileArtifactValue.RUNFILES_TREE_MARKER)
         .addEqualityGroup("a string")

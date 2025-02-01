@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileStatusWithMetadata;
@@ -86,16 +85,14 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
       ImmutableSet<Artifact> outputs,
       XattrProvider xattrProvider,
       TimestampGranularityMonitor tsgm,
-      ArtifactPathResolver artifactPathResolver,
-      PathFragment execRoot) {
+      ArtifactPathResolver artifactPathResolver) {
     return new ActionOutputMetadataStore(
         archivedTreeArtifactsEnabled,
         outputPermissions,
         outputs,
         xattrProvider,
         tsgm,
-        artifactPathResolver,
-        execRoot);
+        artifactPathResolver);
   }
 
   private final boolean archivedTreeArtifactsEnabled;
@@ -104,7 +101,6 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
   private final XattrProvider xattrProvider;
   private final TimestampGranularityMonitor tsgm;
   private final ArtifactPathResolver artifactPathResolver;
-  private final PathFragment execRoot;
 
   private final AtomicBoolean executionMode = new AtomicBoolean(false);
 
@@ -120,15 +116,13 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
       ImmutableSet<Artifact> outputs,
       XattrProvider xattrProvider,
       TimestampGranularityMonitor tsgm,
-      ArtifactPathResolver artifactPathResolver,
-      PathFragment execRoot) {
+      ArtifactPathResolver artifactPathResolver) {
     this.archivedTreeArtifactsEnabled = archivedTreeArtifactsEnabled;
     this.outputPermissions = outputPermissions;
     this.outputs = checkNotNull(outputs);
     this.xattrProvider = xattrProvider;
     this.tsgm = checkNotNull(tsgm);
     this.artifactPathResolver = checkNotNull(artifactPathResolver);
-    this.execRoot = checkNotNull(execRoot);
   }
 
   private void putArtifactData(Artifact artifact, FileArtifactValue value) {
@@ -309,12 +303,16 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
     }
 
     // Same rationale as for constructFileArtifactValue.
-    if (anyRemote.get() && treeDir.isSymbolicLink() && stat instanceof FileStatusWithMetadata) {
-      FileArtifactValue metadata = ((FileStatusWithMetadata) stat).getMetadata();
-      tree.setMaterializationExecPath(
-          metadata
-              .getMaterializationExecPath()
-              .orElse(treeDir.resolveSymbolicLinks().asFragment().relativeTo(execRoot)));
+    if (anyRemote.get()
+        && treeDir.isSymbolicLink()
+        && stat instanceof FileStatusWithMetadata statWithMetadata) {
+      FileArtifactValue metadata = statWithMetadata.getMetadata();
+      PathFragment resolvedPath = metadata.getResolvedPath();
+      if (resolvedPath != null) {
+        tree.setResolvedPath(resolvedPath);
+      } else {
+        tree.setResolvedPath(treeDir.resolveSymbolicLinks().asFragment());
+      }
     }
 
     return tree.build();
@@ -418,11 +416,12 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
     // This only affects Bazel when building without the bytes. In Blaze, without an action
     // filesystem, metadata is always local (isRemote() is false); and with an action filesystem,
     // createSymbolicLink() is implemented as a file copy (isSymbolicLink() is false).
-    if (value.isRemote() && statAndValue.statNoFollow().isSymbolicLink()) {
+    if (value.isRemote()
+        && value.getResolvedPath() == null
+        && statAndValue.statNoFollow().isSymbolicLink()) {
       value =
-          RemoteFileArtifactValue.createFromExistingWithMaterializationPath(
-              (RemoteFileArtifactValue) value,
-              statAndValue.realPath().asFragment().relativeTo(execRoot));
+          FileArtifactValue.createFromExistingWithResolvedPath(
+              value, statAndValue.realPath().asFragment());
     }
 
     // Ensure that we don't have both an injected digest and a digest from the filesystem.

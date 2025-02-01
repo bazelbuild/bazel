@@ -77,7 +77,7 @@ public class CompactPersistentActionCache implements ActionCache {
 
   private static final int NO_INPUT_DISCOVERY_COUNT = -1;
 
-  private static final int VERSION = 17;
+  private static final int VERSION = 18;
 
   private static final class ActionMap extends PersistentMap<Integer, byte[]> {
     private final Clock clock;
@@ -357,9 +357,10 @@ public class CompactPersistentActionCache implements ActionCache {
     return get(data);
   }
 
+  @Nullable
   private ActionCache.Entry get(byte[] data) {
     try {
-      return data != null ? decode(indexer, data) : null;
+      return data != null ? decode(data) : null;
     } catch (IOException e) {
       // return entry marked as corrupted.
       return ActionCache.Entry.CORRUPTED;
@@ -372,7 +373,7 @@ public class CompactPersistentActionCache implements ActionCache {
     Integer index = indexer.getOrCreateIndex(key);
     byte[] content;
     try {
-      content = encode(indexer, entry);
+      content = encode(entry);
     } catch (IOException e) {
       logger.atWarning().withCause(e).log("Failed to save cache entry %s with key %s", entry, key);
       return;
@@ -441,7 +442,7 @@ public class CompactPersistentActionCache implements ActionCache {
       }
       String content;
       try {
-        content = decode(indexer, entry.getValue()).toString();
+        content = decode(entry.getValue()).toString();
       } catch (IOException e) {
         content = e + "\n";
       }
@@ -473,7 +474,7 @@ public class CompactPersistentActionCache implements ActionCache {
       }
       String content;
       try {
-        content = decode(indexer, entry.getValue()).toString();
+        content = decode(entry.getValue()).toString();
       } catch (IOException e) {
         content = e + "\n";
       }
@@ -498,8 +499,7 @@ public class CompactPersistentActionCache implements ActionCache {
     return map.size();
   }
 
-  private static void encodeRemoteMetadata(
-      FileArtifactValue value, StringIndexer indexer, ByteArrayOutputStream sink)
+  private void encodeRemoteMetadata(FileArtifactValue value, ByteArrayOutputStream sink)
       throws IOException {
     checkArgument(value.isRemote(), "metadata is not remote: %s", value);
 
@@ -512,10 +512,10 @@ public class CompactPersistentActionCache implements ActionCache {
     VarInt.putVarLong(
         value.getExpirationTime() != null ? value.getExpirationTime().toEpochMilli() : -1, sink);
 
-    Optional<PathFragment> materializationExecPath = value.getMaterializationExecPath();
-    if (materializationExecPath.isPresent()) {
+    PathFragment resolvedPath = value.getResolvedPath();
+    if (resolvedPath != null) {
       VarInt.putVarInt(1, sink);
-      VarInt.putVarInt(indexer.getOrCreateIndex(materializationExecPath.get().toString()), sink);
+      VarInt.putVarInt(indexer.getOrCreateIndex(resolvedPath.toString()), sink);
     } else {
       VarInt.putVarInt(0, sink);
     }
@@ -526,10 +526,9 @@ public class CompactPersistentActionCache implements ActionCache {
           + VarInt.MAX_VARLONG_SIZE // size
           + VarInt.MAX_VARINT_SIZE // locationIndex
           + VarInt.MAX_VARINT_SIZE // expireAtEpochMilli
-          + VarInt.MAX_VARINT_SIZE; // materializationExecPath
+          + VarInt.MAX_VARINT_SIZE; // resolvedPath
 
-  private static FileArtifactValue decodeRemoteMetadata(StringIndexer indexer, ByteBuffer source)
-      throws IOException {
+  private FileArtifactValue decodeRemoteMetadata(ByteBuffer source) throws IOException {
     byte[] digest = MetadataDigestUtils.read(source);
 
     long size = VarInt.getVarLong(source);
@@ -538,32 +537,35 @@ public class CompactPersistentActionCache implements ActionCache {
 
     long expirationTimeEpochMilli = VarInt.getVarLong(source);
 
-    PathFragment materializationExecPath = null;
-    int numMaterializationExecPath = VarInt.getVarInt(source);
-    if (numMaterializationExecPath > 0) {
-      if (numMaterializationExecPath != 1) {
-        throw new IOException("Invalid presence marker for materialization path");
+    PathFragment resolvedPath = null;
+    int numResolvedPath = VarInt.getVarInt(source);
+    if (numResolvedPath > 0) {
+      if (numResolvedPath != 1) {
+        throw new IOException("Invalid presence marker for resolved path");
       }
-      materializationExecPath =
-          PathFragment.create(getStringForIndex(indexer, VarInt.getVarInt(source)));
+      resolvedPath = PathFragment.create(getStringForIndex(indexer, VarInt.getVarInt(source)));
     }
 
-    if (expirationTimeEpochMilli < 0 && materializationExecPath == null) {
-      return FileArtifactValue.createForRemoteFile(digest, size, locationIndex);
+    FileArtifactValue metadata;
+    if (expirationTimeEpochMilli < 0) {
+      metadata = FileArtifactValue.createForRemoteFile(digest, size, locationIndex);
+    } else {
+      metadata =
+          FileArtifactValue.createForRemoteFileWithMaterializationData(
+              digest, size, locationIndex, Instant.ofEpochMilli(expirationTimeEpochMilli));
     }
 
-    return FileArtifactValue.createForRemoteFileWithMaterializationData(
-        digest,
-        size,
-        locationIndex,
-        Instant.ofEpochMilli(expirationTimeEpochMilli),
-        materializationExecPath);
+    if (resolvedPath != null) {
+      metadata = FileArtifactValue.createFromExistingWithResolvedPath(metadata, resolvedPath);
+    }
+
+    return metadata;
   }
 
   /**
    * @return action data encoded as a byte[] array.
    */
-  private static byte[] encode(StringIndexer indexer, ActionCache.Entry entry) throws IOException {
+  private byte[] encode(ActionCache.Entry entry) throws IOException {
     Preconditions.checkState(!entry.isCorrupted());
 
     byte[] actionKeyBytes = entry.getActionKey().getBytes(ISO_8859_1);
@@ -592,8 +594,8 @@ public class CompactPersistentActionCache implements ActionCache {
           (1 + VarInt.MAX_VARINT_SIZE) // value.archivedFileValue() optional
               + value.archivedFileValue().map(ignored -> MAX_REMOTE_METADATA_SIZE).orElse(0);
       maxOutputTreesSize +=
-          (1 + VarInt.MAX_VARINT_SIZE) // value.materializationExecPath() optional
-              + value.materializationExecPath().map(ignored -> MAX_REMOTE_METADATA_SIZE).orElse(0);
+          (1 + VarInt.MAX_VARINT_SIZE) // value.resolvedPath() optional
+              + value.resolvedPath().map(ignored -> MAX_REMOTE_METADATA_SIZE).orElse(0);
     }
 
     // Estimate the size of the buffer:
@@ -631,7 +633,7 @@ public class CompactPersistentActionCache implements ActionCache {
     VarInt.putVarInt(entry.getOutputFiles().size(), sink);
     for (Map.Entry<String, FileArtifactValue> file : entry.getOutputFiles().entrySet()) {
       VarInt.putVarInt(indexer.getOrCreateIndex(file.getKey()), sink);
-      encodeRemoteMetadata(file.getValue(), indexer, sink);
+      encodeRemoteMetadata(file.getValue(), sink);
     }
 
     VarInt.putVarInt(entry.getOutputTrees().size(), sink);
@@ -645,23 +647,22 @@ public class CompactPersistentActionCache implements ActionCache {
       for (Map.Entry<String, FileArtifactValue> child :
           serializableTreeArtifactValue.childValues().entrySet()) {
         VarInt.putVarInt(indexer.getOrCreateIndex(child.getKey()), sink);
-        encodeRemoteMetadata(child.getValue(), indexer, sink);
+        encodeRemoteMetadata(child.getValue(), sink);
       }
 
       Optional<FileArtifactValue> archivedFileValue =
           serializableTreeArtifactValue.archivedFileValue();
       if (archivedFileValue.isPresent()) {
         VarInt.putVarInt(1, sink);
-        encodeRemoteMetadata(archivedFileValue.get(), indexer, sink);
+        encodeRemoteMetadata(archivedFileValue.get(), sink);
       } else {
         VarInt.putVarInt(0, sink);
       }
 
-      Optional<PathFragment> materializationExecPath =
-          serializableTreeArtifactValue.materializationExecPath();
-      if (materializationExecPath.isPresent()) {
+      Optional<PathFragment> resolvedPath = serializableTreeArtifactValue.resolvedPath();
+      if (resolvedPath.isPresent()) {
         VarInt.putVarInt(1, sink);
-        VarInt.putVarInt(indexer.getOrCreateIndex(materializationExecPath.get().toString()), sink);
+        VarInt.putVarInt(indexer.getOrCreateIndex(resolvedPath.get().toString()), sink);
       } else {
         VarInt.putVarInt(0, sink);
       }
@@ -682,7 +683,7 @@ public class CompactPersistentActionCache implements ActionCache {
    * Creates new action cache entry using given compressed entry data. Data will stay in the
    * compressed format until entry is actually used by the dependency checker.
    */
-  private static ActionCache.Entry decode(StringIndexer indexer, byte[] data) throws IOException {
+  private ActionCache.Entry decode(byte[] data) throws IOException {
     try {
       ByteBuffer source = ByteBuffer.wrap(data);
 
@@ -713,7 +714,7 @@ public class CompactPersistentActionCache implements ActionCache {
       Map<String, FileArtifactValue> outputFiles = Maps.newHashMapWithExpectedSize(numOutputFiles);
       for (int i = 0; i < numOutputFiles; i++) {
         String execPath = getStringForIndex(indexer, VarInt.getVarInt(source));
-        FileArtifactValue value = decodeRemoteMetadata(indexer, source);
+        FileArtifactValue value = decodeRemoteMetadata(source);
         outputFiles.put(execPath, value);
       }
 
@@ -727,7 +728,7 @@ public class CompactPersistentActionCache implements ActionCache {
         int numChildValues = VarInt.getVarInt(source);
         for (int j = 0; j < numChildValues; ++j) {
           String childKey = getStringForIndex(indexer, VarInt.getVarInt(source));
-          FileArtifactValue value = decodeRemoteMetadata(indexer, source);
+          FileArtifactValue value = decodeRemoteMetadata(source);
           childValues.put(childKey, value);
         }
 
@@ -737,23 +738,23 @@ public class CompactPersistentActionCache implements ActionCache {
           if (numArchivedFileValue != 1) {
             throw new IOException("Invalid presence marker for archived representation");
           }
-          archivedFileValue = Optional.of(decodeRemoteMetadata(indexer, source));
+          archivedFileValue = Optional.of(decodeRemoteMetadata(source));
         }
 
-        Optional<PathFragment> materializationExecPath = Optional.empty();
-        int numMaterializationExecPath = VarInt.getVarInt(source);
-        if (numMaterializationExecPath > 0) {
-          if (numMaterializationExecPath != 1) {
-            throw new IOException("Invalid presence marker for materialization path");
+        Optional<PathFragment> resolvedPath = Optional.empty();
+        int numResolvedPath = VarInt.getVarInt(source);
+        if (numResolvedPath > 0) {
+          if (numResolvedPath != 1) {
+            throw new IOException("Invalid presence marker for resolved path");
           }
-          materializationExecPath =
+          resolvedPath =
               Optional.of(
                   PathFragment.create(getStringForIndex(indexer, VarInt.getVarInt(source))));
         }
 
         SerializableTreeArtifactValue value =
             SerializableTreeArtifactValue.create(
-                childValues.buildOrThrow(), archivedFileValue, materializationExecPath);
+                childValues.buildOrThrow(), archivedFileValue, resolvedPath);
         outputTrees.put(treeKey, value);
       }
 
