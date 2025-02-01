@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileArtifactValue.FileWriteOutputArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.FileStateValue;
@@ -423,6 +424,11 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
           RemoteFileArtifactValue.createFromExistingWithMaterializationPath(
               (RemoteFileArtifactValue) value,
               statAndValue.realPath().asFragment().relativeTo(execRoot));
+    } else if (value instanceof FileWriteOutputArtifactValue metadata
+        && statAndValue.statNoFollow().isSymbolicLink()) {
+      value =
+          FileWriteOutputArtifactValue.createFromExistingWithMaterializationPath(
+              metadata, statAndValue.realPath().asFragment().relativeTo(execRoot));
     }
 
     // Ensure that we don't have both an injected digest and a digest from the filesystem.
