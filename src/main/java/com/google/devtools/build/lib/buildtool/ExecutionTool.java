@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -272,11 +271,6 @@ public class ExecutionTool {
     SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
     boolean localActionsSupported =
         env.getOutputService().actionFileSystemType().shouldDoTopLevelOutputSetup();
-
-    // TODO: b/290617036 - Reconsider this for local action support with virtual roots.
-    checkState(
-        !localActionsSupported || env.getDirectories().getVirtualSourceRoot() == null,
-        "Local actions are incompatible with virtual roots");
 
     try (SilentCloseable c = Profiler.instance().profile("preparingExecroot")) {
       IncrementalPackageRoots incrementalPackageRoots =

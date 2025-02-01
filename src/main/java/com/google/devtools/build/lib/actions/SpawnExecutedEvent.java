@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.util.io.FileOutErr;
 import java.time.Instant;
 import javax.annotation.Nullable;
 
@@ -23,6 +24,7 @@ import javax.annotation.Nullable;
 public final class SpawnExecutedEvent implements ExtendedEventHandler.Postable {
   private final Spawn spawn;
   private final InputMetadataProvider inputMetadataProvider;
+  private final FileOutErr fileOutErr;
   private final SpawnResult result;
   private final Instant startTimeInstant;
   @Nullable private final String spawnIdentifier;
@@ -30,11 +32,13 @@ public final class SpawnExecutedEvent implements ExtendedEventHandler.Postable {
   public SpawnExecutedEvent(
       Spawn spawn,
       InputMetadataProvider inputMetadataProvider,
+      FileOutErr fileOutErr,
       SpawnResult result,
       Instant startTimeInstant,
       @Nullable String spawnIdentifier) {
     this.spawn = Preconditions.checkNotNull(spawn);
     this.inputMetadataProvider = inputMetadataProvider;
+    this.fileOutErr = fileOutErr;
     this.result = Preconditions.checkNotNull(result);
     this.startTimeInstant = startTimeInstant;
     this.spawnIdentifier = spawnIdentifier;
@@ -74,6 +78,11 @@ public final class SpawnExecutedEvent implements ExtendedEventHandler.Postable {
   @Nullable
   public String getSpawnIdentifier() {
     return spawnIdentifier;
+  }
+
+  /** Returns the FileOutErr used by the Spawn. */
+  public FileOutErr getFileOutErr() {
+    return fileOutErr;
   }
 
   /**

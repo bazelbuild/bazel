@@ -2303,16 +2303,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   private PackageRoots getPackageRoots() {
     Root virtualSourceRoot = directories.getVirtualSourceRoot();
-    if (virtualSourceRoot == null) {
-      return new MapAsPackageRoots(collectPackageRoots());
-    }
-
-    // No need to plant symlinks when using virtual roots.
-    // TODO: b/290617036 - Reconsider this for local action support with virtual roots.
-    checkState(
-        !outputService.actionFileSystemType().shouldDoTopLevelOutputSetup(),
-        "Local actions are incompatible with virtual roots");
-    return new PackageRootsNoSymlinkCreation(virtualSourceRoot);
+    return virtualSourceRoot == null
+            || outputService == null
+            || outputService.actionFileSystemType().shouldDoTopLevelOutputSetup()
+        ? new MapAsPackageRoots(collectPackageRoots())
+        : new PackageRootsNoSymlinkCreation(checkNotNull(virtualSourceRoot));
   }
 
   @Nullable

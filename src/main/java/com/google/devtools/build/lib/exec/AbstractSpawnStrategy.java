@@ -168,6 +168,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
                 new SpawnExecutedEvent(
                     spawn,
                     actionExecutionContext.getInputMetadataProvider(),
+                    actionExecutionContext.getFileOutErr(),
                     spawnResult,
                     startTime,
                     spawnIdentifier));

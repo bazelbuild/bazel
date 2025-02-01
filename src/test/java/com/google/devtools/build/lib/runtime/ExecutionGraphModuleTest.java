@@ -63,6 +63,7 @@ import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.runtime.ExecutionGraphModule.ActionDumpWriter;
 import com.google.devtools.build.lib.runtime.ExecutionGraphModule.DependencyInfo;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.devtools.build.lib.testutil.TestFileOutErr;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -147,6 +148,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             spawn,
             new FakeActionInputFileCache(),
+            new TestFileOutErr(),
             result,
             startTimeInstant,
             /* spawnIdentifier= */ "foo"));
@@ -205,6 +207,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             spawn,
             new FakeActionInputFileCache(),
+            new TestFileOutErr(),
             result,
             startTimeInstant,
             /* spawnIdentifier= */ "foo"));
@@ -279,6 +282,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             spawnOut1,
             new FakeActionInputFileCache(),
+            new TestFileOutErr(),
             result,
             startTimeInstant,
             /* spawnIdentifier= */ "out1"));
@@ -286,6 +290,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             spawnOut2,
             new FakeActionInputFileCache(),
+            new TestFileOutErr(),
             result,
             startTimeInstant,
             /* spawnIdentifier= */ "out2"));
@@ -293,6 +298,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             spawnTop,
             new FakeActionInputFileCache(),
+            new TestFileOutErr(),
             result,
             startTimeInstant,
             /* spawnIdentifier= */ "top"));
@@ -430,6 +436,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             spawnOut1,
             new FakeActionInputFileCache(),
+            new TestFileOutErr(),
             result,
             startTimeInstant,
             /* spawnIdentifier= */ "out1"));
@@ -442,6 +449,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             spawnOut3,
             new FakeActionInputFileCache(),
+            new TestFileOutErr(),
             result,
             startTimeInstant,
             /* spawnIdentifier= */ "out3"));
@@ -594,6 +602,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             spawn,
             new FakeActionInputFileCache(),
+            new TestFileOutErr(),
             result,
             startTimeInstant,
             /* spawnIdentifier= */ "foo"));
@@ -614,6 +623,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             new SpawnBuilder().withOwnerPrimaryOutput(createOutputArtifact("foo/out")).build(),
             new FakeActionInputFileCache(),
+            new TestFileOutErr(),
             createRemoteSpawnResult(200),
             Instant.ofEpochMilli(100),
             /* spawnIdentifier= */ "foo"));
@@ -652,6 +662,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             new SpawnBuilder().withOwnerPrimaryOutput(createOutputArtifact("foo/out")).build(),
             new FakeActionInputFileCache(),
+            new TestFileOutErr(),
             createRemoteSpawnResult(200),
             Instant.ofEpochMilli(100),
             /* spawnIdentifier= */ "foo"));
@@ -719,6 +730,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             spawn,
             new FakeActionInputFileCache(),
+            new TestFileOutErr(),
             localResult,
             Instant.EPOCH,
             /* spawnIdentifier= */ "foo1"));
@@ -726,6 +738,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             spawn,
             new FakeActionInputFileCache(),
+            new TestFileOutErr(),
             remoteResult,
             Instant.ofEpochMilli(100),
             /* spawnIdentifier= */ "foo2"));
@@ -807,6 +820,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             spawn,
             new FakeActionInputFileCache(),
+            new TestFileOutErr(),
             localResult,
             Instant.EPOCH,
             /* spawnIdentifier= */ "foo1"));
@@ -814,6 +828,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             spawn,
             new FakeActionInputFileCache(),
+            new TestFileOutErr(),
             remoteResult,
             Instant.ofEpochMilli(10),
             /* spawnIdentifier= */ "foo2"));
@@ -873,6 +888,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             spawn,
             new FakeActionInputFileCache(),
+            new TestFileOutErr(),
             localResult,
             Instant.EPOCH,
             /* spawnIdentifier= */ "foo1"));
@@ -880,6 +896,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             spawn,
             new FakeActionInputFileCache(),
+            new TestFileOutErr(),
             remoteResult,
             Instant.ofEpochMilli(10),
             /* spawnIdentifier= */ "foo2"));
@@ -887,6 +904,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             dependentSpawn,
             new FakeActionInputFileCache(),
+            new TestFileOutErr(),
             dependentResult,
             Instant.ofEpochMilli(300),
             /* spawnIdentifier= */ "foo3"));
