@@ -779,46 +779,6 @@ public final class Starlark {
   }
 
   /**
-   * Calls the function-like value {@code fn} in the specified thread, passing it the given
-   * positional and named arguments in the "fastcall" array representation.
-   *
-   * <p>The caller must not subsequently modify or even inspect the two arrays.
-   *
-   * <p>If the call throws an unchecked throwable, regardless of whether it originates in a
-   * user-defined built-in function or a bug in the interpreter itself, the throwable is wrapped by
-   * {@link UncheckedEvalException} (for {@link RuntimeException}) or {@link UncheckedEvalError}
-   * (for {@link Error}). The {@linkplain Throwable#getStackTrace stack trace} will reflect the
-   * Starlark call stack rather than the Java call stack. The original throwable (and the Java call
-   * stack) may be retrieved using {@link Throwable#getCause}.
-   */
-  // TODO(b/380824219): Remove this method once callWithArguments has been implemented on all
-  // StarlarkCallable implementations that currently implement fastcall, plus a default
-  // implementation in StarlarkCallable that forwards to StarlarkCallable.call().
-  public static Object fastcall(
-      StarlarkThread thread, Object fn, Object[] positional, Object[] named)
-      throws EvalException, InterruptedException {
-    StarlarkCallable callable = getStarlarkCallable(thread, fn);
-
-    // LINT.IfChange(fastcall)
-    thread.push(callable);
-    try {
-      return callable.fastcall(thread, positional, named);
-    } catch (UncheckedEvalException | UncheckedEvalError ex) {
-      throw ex; // already wrapped
-    } catch (RuntimeException ex) {
-      throw new UncheckedEvalException(ex, thread);
-    } catch (Error ex) {
-      throw new UncheckedEvalError(ex, thread);
-    } catch (EvalException ex) {
-      // If this exception was newly thrown, set its stack.
-      throw ex.ensureStack(thread);
-    } finally {
-      thread.pop();
-    }
-    // LINT.ThenChange(:positionalOnlyCall)
-  }
-
-  /**
    * Calls the a function-like value in the specified thread via the given ArgumentProcessor which
    * previously has been returned by {@link #requestArgumentProcessor} and has been populated with
    * the arguments.
@@ -867,7 +827,6 @@ public final class Starlark {
       throws EvalException, InterruptedException {
     StarlarkCallable callable = getStarlarkCallable(thread, fn);
 
-    // LINT.IfChange(positionalOnlyCall)
     thread.push(callable);
     try {
       return callable.positionalOnlyCall(thread, positional);
@@ -883,7 +842,6 @@ public final class Starlark {
     } finally {
       thread.pop();
     }
-    // LINT.ThenChange(:fastcall)
   }
 
   private static StarlarkCallable getStarlarkCallable(StarlarkThread thread, Object fn)
