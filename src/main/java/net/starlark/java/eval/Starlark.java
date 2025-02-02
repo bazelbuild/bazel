@@ -903,7 +903,6 @@ public final class Starlark {
     return callable;
   }
 
-  @Nullable
   public static StarlarkCallable.ArgumentProcessor requestArgumentProcessor(
       StarlarkThread thread, Object fn) throws EvalException {
     return getStarlarkCallable(thread, fn).requestArgumentProcessor(thread);

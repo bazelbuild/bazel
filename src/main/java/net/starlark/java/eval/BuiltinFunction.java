@@ -135,7 +135,7 @@ public final class BuiltinFunction implements StarlarkCallable {
    * (success) case. Flag-disabled parameters are skipped during argument matching, as if they do
    * not exist. They are instead assigned their flag-disabled values.
    */
-  static class ArgumentProcessor extends StarlarkCallable.ArgumentProcessor {
+  static final class ArgumentProcessor extends StarlarkCallable.ArgumentProcessor {
     private final BuiltinFunction owner;
     private final MethodDescriptor desc;
     private final ParamDescriptor[] parameters;

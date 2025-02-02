@@ -155,7 +155,7 @@ public interface StarlarkCallable extends StarlarkValue {
    * A default implementation of ArgumentProcessor that simply stores the arguments in a list and a
    * LinkedHashMap and then passes them to the StarlarkCallable.call() method.
    */
-  static class DefaultArgumentProcessor extends ArgumentProcessor {
+  static final class DefaultArgumentProcessor extends ArgumentProcessor {
     private final StarlarkCallable owner;
     private final ArrayList<Object> positional;
     private final LinkedHashMap<String, Object> named;
@@ -176,7 +176,7 @@ public interface StarlarkCallable extends StarlarkValue {
     public void addNamedArg(String name, Object value) throws EvalException {
       if (named.put(name, value) != null) {
         pushCallableAndThrow(
-            Starlark.errorf("%s got multiple values for parameter '%s'", this, name));
+            Starlark.errorf("%s got multiple values for parameter '%s'", owner, name));
       }
     }
 

@@ -273,7 +273,7 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
     }
   }
 
-  static class ArgumentProcessorWithInit extends RawArgumentProcessor {
+  static final class ArgumentProcessorWithInit extends RawArgumentProcessor {
     private final StarlarkCallable.ArgumentProcessor initArgumentProcessor;
 
     ArgumentProcessorWithInit(

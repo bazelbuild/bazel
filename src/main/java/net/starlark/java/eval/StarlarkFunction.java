@@ -314,7 +314,7 @@ public final class StarlarkFunction implements StarlarkCallable {
   // Newly allocated values (e.g. a **kwargs dict) use the Mutability mu.
   //
   // If the function has optional parameters, their default values are supplied by getDefaultValue.
-  private static class ArgumentProcessor extends StarlarkCallable.ArgumentProcessor {
+  private static final class ArgumentProcessor extends StarlarkCallable.ArgumentProcessor {
 
     // This is the general schema of a function:
     //
@@ -335,33 +335,33 @@ public final class StarlarkFunction implements StarlarkCallable {
     //   default values come from the tuple above.
     //   It is an error if the defaults tuple entry for an unset parameter is MANDATORY.
 
-    protected final StarlarkFunction owner;
+    private final StarlarkFunction owner;
     // Number of positional args that were set by the caller and bound to ordinary params (in other
     // words, not counting surplus positional args that were spilled to *args, and not counting
     // positional params that weren't set via args but were instead filled with defaults).
-    protected int numNonSurplusPositionalArgs;
+    private int numNonSurplusPositionalArgs;
     // Local variable array for the function's call frame. It has the following layout:
     //
     // * The first owner.getNumOrdinaryParameters() entries are values of ordinary parameters
     //   * The first numNonSurplusPositionalArgs entries contain positional args, set by
-    //     bindPositionalArgsToLocals()
-    //   * The remaining entries contain keyword args (set by bindNamedArgsToLocals()) or default
+    //     addPositionalArg()
+    //   * The remaining entries contain keyword args (set by addNamedArg()) or default
     //     values (set by applyDefaultsReportMissingArgs())
     // * The next owner.getNumKeywordOnlyParameters() entries are values of keyword-only parameters,
-    //   which may be either keyword args (set by bindNamedArgsToLocals()) or default values (set by
+    //   which may be either keyword args (set by addNamedArg()) or default values (set by
     //   applyDefaultsReportMissingArgs())
     // * An optional entry for *args - present if and only if the function takes varargs (set by
     //   bindSurplusPositionalArgsToVarArgs())
     // * An optional entry for **kwargs - present if and only if the function takes kwargs (set by
-    //   bindNamedArgsToLocals())
+    //   addNamedArg())
     // * The remaining entries hold values of the function body's variables - these are left
     //   uninitialized by ArgumentProcessor, and will be set in the process of evaluating the
     //   function body.
-    protected final Object[] locals;
+    private final Object[] locals;
     // unexpectedNamedArgs serves as accumulator for named arguments that can't be bound to any of
     // the function's parameters or to **kwargs. It is used to error-report all unexpected named
     // args, not just the first one that was encountered.
-    @Nullable protected List<String> unexpectedNamedArgs;
+    @Nullable private List<String> unexpectedNamedArgs;
     // varArgs and kwargs are used to collect the respective arguments before transforming them into
     // Starlark values and binding them to the right slots in the locals array.
     @Nullable private ArrayList<Object> varArgs;
@@ -371,6 +371,7 @@ public final class StarlarkFunction implements StarlarkCallable {
       super(thread);
       this.owner = owner;
       this.locals = new Object[owner.rfn.getLocals().size()];
+      this.numNonSurplusPositionalArgs = 0;
       this.unexpectedNamedArgs = null;
       this.varArgs = null;
       this.kwargs = null;
@@ -381,11 +382,11 @@ public final class StarlarkFunction implements StarlarkCallable {
       return owner;
     }
 
-    protected int getKwargsIndex() {
+    private int getKwargsIndex() {
       return owner.rfn.hasKwargs() ? owner.rfn.getParameters().size() - 1 : -1;
     }
 
-    protected int getVarArgsIndex() {
+    private int getVarArgsIndex() {
       if (owner.rfn.hasVarargs()) {
         int index = owner.rfn.getParameters().size();
         return owner.rfn.hasKwargs() ? index - 2 : index - 1;
@@ -398,14 +399,14 @@ public final class StarlarkFunction implements StarlarkCallable {
       return locals;
     }
 
-    protected void addUnexpectedNamedArg(String keyword) {
+    private void addUnexpectedNamedArg(String keyword) {
       if (unexpectedNamedArgs == null) {
         unexpectedNamedArgs = new ArrayList<>();
       }
       unexpectedNamedArgs.add(keyword);
     }
 
-    protected void checkUnexpectedNamedArgs() throws EvalException {
+    private void checkUnexpectedNamedArgs() throws EvalException {
       if (unexpectedNamedArgs != null) {
         // Give a spelling hint if there is exactly one.
         // More than that suggests the wrong function was called.
@@ -422,7 +423,7 @@ public final class StarlarkFunction implements StarlarkCallable {
       }
     }
 
-    protected void applyDefaultsReportMissingArgs() throws EvalException {
+    private void applyDefaultsReportMissingArgs() throws EvalException {
       // Apply defaults and report errors for missing required arguments.
       // Inv: all params below positionalCount were bound (by bindPositionalArgsToLocals()).
       int numParams = owner.getNumNonResidualParameters();
@@ -497,7 +498,7 @@ public final class StarlarkFunction implements StarlarkCallable {
       locals[index] = value;
     }
 
-    protected void throwDoubleDefinedKeywordArg(String name) throws EvalException {
+    private void throwDoubleDefinedKeywordArg(String name) throws EvalException {
       pushCallableAndThrow(
           Starlark.errorf("%s() got multiple values for parameter '%s'", owner.getName(), name));
     }
