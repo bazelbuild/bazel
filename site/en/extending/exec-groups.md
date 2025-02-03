@@ -130,7 +130,8 @@ settings override target-level settings.
 
 The following execution groups are available for actions defined by native rules:
 
-* `test`: Test runner actions.
+* `test`: Test runner actions (for more details, see
+  the [execution platform section of the Test Encylopedia](/reference/test-encyclopedia#execution-platform)).
 * `cpp_link`: C++ linking actions.
 
 ### Execution groups and platform execution properties {:#platform-execution-properties}
