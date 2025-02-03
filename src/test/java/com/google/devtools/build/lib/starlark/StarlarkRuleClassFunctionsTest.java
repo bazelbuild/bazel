@@ -3175,6 +3175,89 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testRuleOrderedRequirements() throws Exception {
+    registerDummyStarlarkFunction();
+    evalAndExport(
+        ev,
+        "plum = rule(",
+        "  implementation = impl,",
+        "  exec_compatible_with = [",
+        "    '//constraint:cv5',",
+        "    '//constraint:cv4',",
+        "    '//constraint:cv3',",
+        "    '//constraint:cv2',",
+        "    '//constraint:cv1',",
+        "  ],",
+        "  toolchains = [",
+        "    '//test:my_toolchain_type5',",
+        "    '//test:my_toolchain_type4',",
+        "    '//test:my_toolchain_type3',",
+        "    '//test:my_toolchain_type2',",
+        "    '//test:my_toolchain_type1',",
+        "  ],",
+        "  exec_groups = {",
+        "    'group5': exec_group(",
+        "      toolchains = [",
+        "        '//test:my_toolchain_type5',",
+        "        '//test:my_toolchain_type4',",
+        "        '//test:my_toolchain_type3',",
+        "        '//test:my_toolchain_type2',",
+        "        '//test:my_toolchain_type1',",
+        "      ],",
+        "    ),",
+        "    'group4': exec_group(",
+        "      exec_compatible_with = [",
+        "        '//constraint:cv5',",
+        "        '//constraint:cv4',",
+        "        '//constraint:cv3',",
+        "        '//constraint:cv2',",
+        "        '//constraint:cv1',",
+        "      ],",
+        "    ),",
+        "    'group3': exec_group(),",
+        "    'group2': exec_group(),",
+        "    'group1': exec_group(),",
+        "  },",
+        ")");
+    RuleClass plum = ((StarlarkRuleFunction) ev.lookup("plum")).getRuleClass();
+    assertThat(plum.getToolchainTypes().stream().map(ToolchainTypeRequirement::toolchainType))
+        .containsExactly(
+            Label.parseCanonicalUnchecked("//test:my_toolchain_type5"),
+            Label.parseCanonicalUnchecked("//test:my_toolchain_type4"),
+            Label.parseCanonicalUnchecked("//test:my_toolchain_type3"),
+            Label.parseCanonicalUnchecked("//test:my_toolchain_type2"),
+            Label.parseCanonicalUnchecked("//test:my_toolchain_type1"))
+        .inOrder();
+    assertThat(plum.getExecutionPlatformConstraints())
+        .containsExactly(
+            Label.parseCanonicalUnchecked("//constraint:cv5"),
+            Label.parseCanonicalUnchecked("//constraint:cv4"),
+            Label.parseCanonicalUnchecked("//constraint:cv3"),
+            Label.parseCanonicalUnchecked("//constraint:cv2"),
+            Label.parseCanonicalUnchecked("//constraint:cv1"))
+        .inOrder();
+    assertThat(plum.getExecGroups().keySet())
+        .containsExactly("group5", "group4", "group3", "group2", "group1")
+        .inOrder();
+    assertThat(plum.getExecGroups().get("group5").toolchainTypesMap().keySet())
+        .containsExactly(
+            Label.parseCanonicalUnchecked("//test:my_toolchain_type5"),
+            Label.parseCanonicalUnchecked("//test:my_toolchain_type4"),
+            Label.parseCanonicalUnchecked("//test:my_toolchain_type3"),
+            Label.parseCanonicalUnchecked("//test:my_toolchain_type2"),
+            Label.parseCanonicalUnchecked("//test:my_toolchain_type1"))
+        .inOrder();
+    assertThat(plum.getExecGroups().get("group4").execCompatibleWith())
+        .containsExactly(
+            Label.parseCanonicalUnchecked("//constraint:cv5"),
+            Label.parseCanonicalUnchecked("//constraint:cv4"),
+            Label.parseCanonicalUnchecked("//constraint:cv3"),
+            Label.parseCanonicalUnchecked("//constraint:cv2"),
+            Label.parseCanonicalUnchecked("//constraint:cv1"))
+        .inOrder();
+  }
+
+  @Test
   public void testRuleFunctionReturnsNone() throws Exception {
     scratch.file(
         "test/rule.bzl",
