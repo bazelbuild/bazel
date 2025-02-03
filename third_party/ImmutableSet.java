@@ -213,7 +213,10 @@ public abstract class ImmutableSet<E> extends ImmutableCollection<E> implements 
      */
     int expectedSize =
         elements instanceof Set ? array.length : estimatedSizeForUnknownDuplication(array.length);
-    return fromArrayWithExpectedSize(array, expectedSize, !isSequenced ? elements.getClass() : null);
+    return fromArrayWithExpectedSize(
+        array,
+        expectedSize,
+        !isSequenced ? new IllegalStateException(elements.getClass().getName()) : null);
   }
 
   private static <E> boolean isSequenced(Collection<? extends E> elements) {
@@ -272,7 +275,7 @@ public abstract class ImmutableSet<E> extends ImmutableCollection<E> implements 
   }
 
   private static <E> ImmutableSet<E> fromArrayWithExpectedSize(
-      E[] elements, int expectedSize, Class<?> isSequenced) {
+      E[] elements, int expectedSize, Throwable isSequenced) {
     switch (elements.length) {
       case 0:
         return of();
@@ -496,7 +499,7 @@ public abstract class ImmutableSet<E> extends ImmutableCollection<E> implements 
      */
     @CheckForNull private SetBuilderImpl<E> impl;
     boolean forceCopy;
-    @Nullable private Class<?> nonSequenced = null;
+    @Nullable private Throwable nonSequenced = null;
 
     public Builder() {
       this(0);
@@ -561,7 +564,7 @@ public abstract class ImmutableSet<E> extends ImmutableCollection<E> implements 
     @CanIgnoreReturnValue
     public Builder<E> addAll(Iterable<? extends E> elements) {
       if (elements instanceof Collection<? extends E> && !isSequenced((Collection<?>) elements)) {
-        nonSequenced = elements.getClass();
+        nonSequenced = new IllegalStateException(elements.getClass().getName());
       }
       super.addAll(elements);
       return this;
@@ -670,7 +673,7 @@ public abstract class ImmutableSet<E> extends ImmutableCollection<E> implements 
       return this;
     }
 
-    abstract ImmutableSet<E> build(Class<?> isSequenced);
+    abstract ImmutableSet<E> build(Throwable isSequenced);
   }
 
   private static final class EmptySetBuilderImpl<E> extends SetBuilderImpl<E> {
@@ -696,7 +699,7 @@ public abstract class ImmutableSet<E> extends ImmutableCollection<E> implements 
     }
 
     @Override
-    ImmutableSet<E> build(Class<?> isSequenced) {
+    ImmutableSet<E> build(Throwable isSequenced) {
       return ImmutableSet.of();
     }
   }
@@ -822,7 +825,7 @@ public abstract class ImmutableSet<E> extends ImmutableCollection<E> implements 
     }
 
     @Override
-    ImmutableSet<E> build(Class<?> isSequenced) {
+    ImmutableSet<E> build(Throwable isSequenced) {
       switch (distinct) {
         case 0:
           return of();
@@ -990,7 +993,7 @@ public abstract class ImmutableSet<E> extends ImmutableCollection<E> implements 
     }
 
     @Override
-    ImmutableSet<E> build(Class<?> isSequenced) {
+    ImmutableSet<E> build(Throwable isSequenced) {
       switch (distinct) {
         case 0:
           return of();

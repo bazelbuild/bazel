@@ -21,6 +21,7 @@ import com.google.common.annotations.GwtIncompatible;
 import com.google.common.annotations.J2ktIncompatible;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
 import java.util.Spliterator;
 import java.util.Spliterators;
 import javax.annotation.CheckForNull;
@@ -45,14 +46,10 @@ final class RegularImmutableSet<E> extends ImmutableSet.CachingAsList<E> {
   @VisibleForTesting final transient @Nullable Object[] table;
   // 'and' with an int to get a valid table index.
   private final transient int mask;
-  @Nullable private final Class<?> nonSequenced;
+  @Nullable private final Throwable nonSequenced;
 
   RegularImmutableSet(
-      Object[] elements,
-      int hashCode,
-      @Nullable Object[] table,
-      int mask,
-      @Nullable Class<?> nonSequenced) {
+      Object[] elements, int hashCode, @Nullable Object[] table, int mask, Throwable nonSequenced) {
     this.elements = elements;
     this.hashCode = hashCode;
     this.table = table;
@@ -88,14 +85,22 @@ final class RegularImmutableSet<E> extends ImmutableSet.CachingAsList<E> {
   @Override
   public UnmodifiableIterator<E> iterator() {
     Preconditions.checkState(
-        nonSequenced == null, "iterator() not supported for non-sequenced sets: " + nonSequenced);
+        nonSequenced == null,
+        "iterator() not supported for non-sequenced sets: "
+            + nonSequenced
+            + " "
+            + Throwables.getStackTraceAsString(nonSequenced));
     return (UnmodifiableIterator<E>) Iterators.forArray(elements);
   }
 
   @Override
   public Spliterator<E> spliterator() {
     Preconditions.checkState(
-        nonSequenced == null, "spliterator() not supported for non-sequenced sets: " + nonSequenced);
+        nonSequenced == null,
+        "spliterator() not supported for non-sequenced sets: "
+            + nonSequenced
+            + " "
+            + Throwables.getStackTraceAsString(nonSequenced));
     return Spliterators.spliterator(elements, SPLITERATOR_CHARACTERISTICS);
   }
 
@@ -123,7 +128,11 @@ final class RegularImmutableSet<E> extends ImmutableSet.CachingAsList<E> {
   @Override
   ImmutableList<E> createAsList() {
     Preconditions.checkState(
-        nonSequenced == null, "asList() not supported for non-sequenced sets: " + nonSequenced);
+        nonSequenced == null,
+        "asList() not supported for non-sequenced sets: "
+            + nonSequenced
+            + " "
+            + Throwables.getStackTraceAsString(nonSequenced));
     return (table.length == 0)
         ? ImmutableList.<E>of()
         : new RegularImmutableAsList<E>(this, elements);
