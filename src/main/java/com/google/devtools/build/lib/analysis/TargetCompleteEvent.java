@@ -352,7 +352,7 @@ public final class TargetCompleteEvent
         });
   }
 
-  private static Iterable<Artifact> filterFilesets(Iterable<Artifact> artifacts) {
+  static Iterable<Artifact> filterFilesets(Iterable<Artifact> artifacts) {
     return Iterables.filter(artifacts, artifact -> !artifact.isFileset());
   }
 

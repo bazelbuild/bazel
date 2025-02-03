@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.devtools.build.lib.analysis.TargetCompleteEvent.filterFilesets;
 import static com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil.configurationId;
 
 import com.google.common.base.Preconditions;
@@ -21,8 +22,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CompletionContext;
+import com.google.devtools.build.lib.actions.CompletionContext.ArtifactReceiver;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions.OutputGroupFileModes;
@@ -36,6 +40,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Collection;
 import javax.annotation.Nullable;
@@ -178,6 +184,35 @@ public final class AspectCompleteEvent
             completionContext,
             converters));
     return GenericBuildEvent.protoChaining(this).setCompleted(builder.build()).build();
+  }
+
+  @Override
+  public ImmutableList<LocalFile> referencedLocalFiles() {
+    ImmutableList.Builder<LocalFile> builder = ImmutableList.builder();
+    for (ArtifactsInOutputGroup group : artifactOutputGroups.values()) {
+      if (group.areImportant()) {
+        completionContext.visitArtifacts(
+            filterFilesets(group.getArtifacts().toList()),
+            new ArtifactReceiver() {
+              @Override
+              public void accept(Artifact artifact) {
+                FileArtifactValue metadata = completionContext.getFileArtifactValue(artifact);
+                builder.add(
+                    new LocalFile(
+                        completionContext.pathResolver().toPath(artifact),
+                        LocalFileType.forArtifact(artifact, metadata),
+                        metadata));
+              }
+
+              @Override
+              public void acceptFilesetMapping(
+                  Artifact fileset, PathFragment name, Path targetFile) {
+                throw new IllegalStateException(fileset + " should have been filtered out");
+              }
+            });
+      }
+    }
+    return builder.build();
   }
 
   @Override
