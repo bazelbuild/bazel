@@ -222,7 +222,8 @@ public abstract class ImmutableSet<E> extends ImmutableCollection<E> implements 
   private static <E> boolean isSequenced(Collection<? extends E> elements) {
     return elements instanceof SequencedSet<? extends E>
         || elements instanceof List<? extends E>
-        || elements.getClass().getPackage().getName().startsWith("com.google.common.");
+        || elements.getClass().getPackage().getName().startsWith("com.google.common.")
+        || elements.getClass().getName().equals("java.util.LinkedHashMap$LinkedValues");
   }
 
   /**
