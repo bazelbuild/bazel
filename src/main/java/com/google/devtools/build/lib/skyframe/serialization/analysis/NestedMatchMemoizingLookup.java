@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.devtools.build.lib.skyframe.serialization.analysis.NestedMatchResultTypes.createNestedMatchResult;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.NoMatch.NO_MATCH_RESULT;
 
 import com.google.common.util.concurrent.FutureCallback;
@@ -42,7 +43,7 @@ import java.util.concurrent.Executor;
  *
  * <p>The {@code validityHorizon} (VH) parameter of {@link #getValueOrFuture} has subtle semantics,
  * but works correctly, even in the presence of multiple overlapping nodes at different versions and
- * VH values. See {@link DepotDeltaValidator} and {@link VersionedChanges} for more details.
+ * VH values. See {@link VersionedChangesValidator} and {@link VersionedChanges} for more details.
  */
 final class NestedMatchMemoizingLookup
     extends AbstractValueOrFutureMap<
@@ -198,14 +199,7 @@ final class NestedMatchMemoizingLookup
 
     @Override
     protected NestedMatchResult getValue() {
-      if (earliestAnalysisMatch <= earliestSourceMatch) {
-        return earliestAnalysisMatch == VersionedChanges.NO_MATCH
-            ? NO_MATCH_RESULT
-            : new AnalysisMatch(earliestAnalysisMatch);
-      }
-      return earliestAnalysisMatch == VersionedChanges.NO_MATCH
-          ? new SourceMatch(earliestSourceMatch)
-          : new AnalysisAndSourceMatch(earliestAnalysisMatch, earliestSourceMatch);
+      return createNestedMatchResult(earliestAnalysisMatch, earliestSourceMatch);
     }
 
     private void updateAnalysisVersionIfEarlier(int version) {

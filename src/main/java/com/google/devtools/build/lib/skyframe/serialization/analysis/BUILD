@@ -175,13 +175,14 @@ java_library(
 )
 
 java_library(
-    name = "depot_delta_validator",
+    name = "versioned_changes_validator",
     srcs = [
         "FileOpMatchMemoizingLookup.java",
         "FileOpMatchResultTypes.java",
         "NestedMatchMemoizingLookup.java",
         "NestedMatchResultTypes.java",
         "NoMatch.java",
+        "VersionedChangesValidator.java",
     ],
     deps = [
         ":file_dependency_deserializer",

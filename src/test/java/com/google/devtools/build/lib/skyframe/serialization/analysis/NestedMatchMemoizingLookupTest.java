@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.skyframe.serialization.analysis.NestedMatchResultTypes.createNestedMatchResult;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.NoMatch.NO_MATCH_RESULT;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.VersionedChanges.NO_MATCH;
 
@@ -28,7 +29,6 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.NestedMatch
 import com.google.devtools.build.lib.skyframe.serialization.analysis.NestedMatchResultTypes.SourceMatch;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
-import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ForkJoinPool;
@@ -80,7 +80,7 @@ public final class NestedMatchMemoizingLookupTest {
     changes.registerFileChange("src/a", 98);
 
     var key =
-        createNestedDependencies(
+        new NestedDependencies(
             ImmutableList.of(
                 FileDependencies.builder("dep/a").build(),
                 FileDependencies.builder("dep/b").build(),
@@ -88,7 +88,7 @@ public final class NestedMatchMemoizingLookupTest {
             ImmutableList.of(FileDependencies.builder("src/a").build()));
 
     NestedMatchResult expectedResult =
-        createMatchResult(expectedAnalysisMatch, expectedSourceMatch);
+        createNestedMatchResult(expectedAnalysisMatch, expectedSourceMatch);
     assertThat(getLookupResult(key, validityHorizon)).isEqualTo(expectedResult);
   }
 
@@ -115,7 +115,7 @@ public final class NestedMatchMemoizingLookupTest {
     var depB = new ControllableFileDependencies(ImmutableList.of("dep/b"), ImmutableList.of());
     var depC = new ControllableFileDependencies(ImmutableList.of("dep/c"), ImmutableList.of());
     var srcA = new ControllableFileDependencies(ImmutableList.of("src/a"), ImmutableList.of());
-    var key = createNestedDependencies(ImmutableList.of(depA, depB, depC), ImmutableList.of(srcA));
+    var key = new NestedDependencies(ImmutableList.of(depA, depB, depC), ImmutableList.of(srcA));
 
     var pool = new ForkJoinPool(4); // one for each dependency and source
     pool.execute(
@@ -152,7 +152,7 @@ public final class NestedMatchMemoizingLookupTest {
     srcA.enable();
 
     NestedMatchResult expectedResult =
-        createMatchResult(expectedAnalysisMatch, expectedSourceMatch);
+        createNestedMatchResult(expectedAnalysisMatch, expectedSourceMatch);
     assertThat(lookupResult.get()).isEqualTo(expectedResult);
   }
 
@@ -173,19 +173,19 @@ public final class NestedMatchMemoizingLookupTest {
     changes.registerFileChange("src/a", 102);
 
     var nestedDep =
-        createNestedDependencies(
+        new NestedDependencies(
             ImmutableList.of(
                 FileDependencies.builder("dep/b").build(),
                 FileDependencies.builder("dep/c").build()),
             ImmutableList.of(FileDependencies.builder("src/a").build()));
 
     var key =
-        createNestedDependencies(
+        new NestedDependencies(
             ImmutableList.of(FileDependencies.builder("dep/a").build(), nestedDep),
             ImmutableList.of());
 
     NestedMatchResult expectedResult =
-        createMatchResult(expectedAnalysisMatch, expectedSourceMatch);
+        createNestedMatchResult(expectedAnalysisMatch, expectedSourceMatch);
     assertThat(getLookupResult(key, validityHorizon)).isEqualTo(expectedResult);
   }
 
@@ -208,19 +208,19 @@ public final class NestedMatchMemoizingLookupTest {
     changes.registerFileChange("src/a", 102);
 
     var nestedDep =
-        createNestedDependencies(
+        new NestedDependencies(
             ImmutableList.of(
                 FileDependencies.builder("dep/b").build(),
                 FileDependencies.builder("dep/c").build()),
             ImmutableList.of(FileDependencies.builder("src/a").build()));
 
     var key =
-        createNestedDependencies(
+        new NestedDependencies(
             ImmutableList.of(FileDependencies.builder("dep/a").build(), nestedDep),
             ImmutableList.of());
 
     NestedMatchResult expectedResult =
-        createMatchResult(expectedAnalysisMatch, expectedSourceMatch);
+        createNestedMatchResult(expectedAnalysisMatch, expectedSourceMatch);
 
     // Spawns THREAD_COUNT threads to test parallel nested dependency lookups.
     var executor = new ForkJoinPool(THREAD_COUNT);
@@ -248,13 +248,40 @@ public final class NestedMatchMemoizingLookupTest {
     latch.await();
   }
 
-  private static NestedMatchResult createMatchResult(int analysisVersion, int sourceVersion) {
-    if (analysisVersion == NO_MATCH) {
-      return sourceVersion == NO_MATCH ? NO_MATCH_RESULT : new SourceMatch(sourceVersion);
-    }
-    return sourceVersion == NO_MATCH
-        ? new AnalysisMatch(analysisVersion)
-        : new AnalysisAndSourceMatch(analysisVersion, sourceVersion);
+  @Test
+  public void createNestedMatchResult_analysisVersionNoMatch_sourceVersionPositive_sourceMatch() {
+    NestedMatchResult result = createNestedMatchResult(NO_MATCH, 5);
+    assertThat(result).isEqualTo(new SourceMatch(5));
+  }
+
+  @Test
+  public void createNestedMatchResult_analysisVersionLessEqualSourceVersion_analysisMatch() {
+    NestedMatchResult result = createNestedMatchResult(10, 20);
+    assertThat(result).isEqualTo(new AnalysisMatch(10));
+  }
+
+  @Test
+  public void createNestedMatchResult_analysisVersionGreaterSourceVersion_analysisNonNoMatch() {
+    NestedMatchResult result = createNestedMatchResult(20, 5);
+    assertThat(result).isEqualTo(new AnalysisAndSourceMatch(20, 5));
+  }
+
+  @Test
+  public void createNestedMatchResult_analysisVersionGreaterSourceVersion_analysisAndSourceMatch() {
+    NestedMatchResult result = createNestedMatchResult(20, 10);
+    assertThat(result).isEqualTo(new AnalysisAndSourceMatch(20, 10));
+  }
+
+  @Test
+  public void createNestedMatchResult_analysisVersionEqualSourceVersion_analysisMatch() {
+    NestedMatchResult result = createNestedMatchResult(10, 10);
+    assertThat(result).isEqualTo(new AnalysisMatch(10));
+  }
+
+  @Test
+  public void createNestedMatchResult_analysisVersionNoMatch_sourceVersionNoMatch_noMatchResult() {
+    NestedMatchResult result = createNestedMatchResult(NO_MATCH, NO_MATCH);
+    assertThat(result).isEqualTo(NO_MATCH_RESULT);
   }
 
   private NestedMatchResult getLookupResult(NestedDependencies key, int validityHorizon) {
@@ -292,12 +319,5 @@ public final class NestedMatchMemoizingLookupTest {
   private static NestedDependencies createNestedDependencies(FileDependencies fileDependency) {
     return new NestedDependencies(
         new FileSystemDependencies[] {fileDependency}, NestedDependencies.EMPTY_SOURCES);
-  }
-
-  private static NestedDependencies createNestedDependencies(
-      List<? extends FileSystemDependencies> analysisDependencies, List<FileDependencies> sources) {
-    return new NestedDependencies(
-        analysisDependencies.toArray(FileSystemDependencies[]::new),
-        sources.toArray(FileDependencies[]::new));
   }
 }

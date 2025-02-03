@@ -115,9 +115,9 @@ java_test(
     srcs = ["FileOpMatchMemoizingLookupTest.java"],
     deps = [
         ":controllable_file_dependencies",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:depot_delta_validator",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:file_dependency_deserializer",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:versioned_changes",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:versioned_changes_validator",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
@@ -130,9 +130,23 @@ java_test(
     srcs = ["NestedMatchMemoizingLookupTest.java"],
     deps = [
         ":controllable_file_dependencies",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:depot_delta_validator",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:file_dependency_deserializer",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:versioned_changes",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:versioned_changes_validator",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
+    ],
+)
+
+java_test(
+    name = "VersionedChangesValidatorTest",
+    srcs = ["VersionedChangesValidatorTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:file_dependency_deserializer",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:versioned_changes",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:versioned_changes_validator",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",

@@ -31,9 +31,9 @@ import java.util.concurrent.ConcurrentMap;
  * Matches {@link FileOpDependency} instances representing cached value dependencies against {@link
  * #changes}, containing file system content changes.
  *
- * <p>The {@code validityHorizon} (VH) has subtle semantics, but works correctly, even in the
- * presence of multiple overlapping nodes at different versions and VH values. See {@link
- * DepotDeltaValidator} and {@link VersionedChanges} for more details.
+ * <p>The {@code validityHorizon} (VH) parameter of {@link #getValueOrFuture} has subtle semantics,
+ * but works correctly, even in the presence of multiple overlapping nodes at different versions and
+ * VH values. See {@link VersionedChangesValidator} and {@link VersionedChanges} for more details.
  */
 final class FileOpMatchMemoizingLookup
     extends AbstractValueOrFutureMap<

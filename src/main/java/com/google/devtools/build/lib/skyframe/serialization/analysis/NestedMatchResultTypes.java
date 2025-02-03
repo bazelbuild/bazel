@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.devtools.build.lib.skyframe.serialization.analysis.NoMatch.NO_MATCH_RESULT;
 
 import com.google.devtools.build.lib.concurrent.SettableFutureKeyedValue;
 import java.util.function.BiConsumer;
@@ -26,6 +27,20 @@ final class NestedMatchResultTypes {
   /** An immediate match result. */
   sealed interface NestedMatchResult extends NestedMatchResultOrFuture
       permits AnalysisMatch, SourceMatch, AnalysisAndSourceMatch, NoMatch {}
+
+  static NestedMatchResult createNestedMatchResult(int analysisVersion, int sourceVersion) {
+    if (analysisVersion <= sourceVersion) {
+      // When checking for an analysis match, the source version is irrelevant. When checking for an
+      // execution match, the analysis version is included. If the analysis version is less than the
+      // source match, then it dominates. In both cases, the source version can be ignored.
+      return analysisVersion == VersionedChanges.NO_MATCH
+          ? NO_MATCH_RESULT
+          : new AnalysisMatch(analysisVersion);
+    }
+    return analysisVersion == VersionedChanges.NO_MATCH
+        ? new SourceMatch(sourceVersion)
+        : new AnalysisAndSourceMatch(analysisVersion, sourceVersion);
+  }
 
   /**
    * The delta matched the set of dependencies, meaning a <b>cache miss</b>.

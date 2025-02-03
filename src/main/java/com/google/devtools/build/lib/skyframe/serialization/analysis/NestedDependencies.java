@@ -17,6 +17,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import java.util.Arrays;
+import java.util.Collection;
 
 /**
  * A representation of a recursively composable set of {@link FileSystemDependencies}.
@@ -40,6 +41,14 @@ final class NestedDependencies
         "analysisDependencies and sources both empty");
     this.analysisDependencies = analysisDependencies;
     this.sources = sources;
+  }
+
+  NestedDependencies(
+      Collection<? extends FileSystemDependencies> analysisDependencies,
+      Collection<FileDependencies> sources) {
+    this(
+        analysisDependencies.toArray(FileSystemDependencies[]::new),
+        sources.toArray(FileDependencies[]::new));
   }
 
   int analysisDependenciesCount() {
