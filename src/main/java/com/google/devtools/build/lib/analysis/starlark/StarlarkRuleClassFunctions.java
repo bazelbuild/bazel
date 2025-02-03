@@ -118,7 +118,7 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.Keep;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -2040,7 +2040,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
 
   private static ImmutableSet<ToolchainTypeRequirement> parseToolchainTypes(
       Sequence<?> rawToolchains, LabelConverter labelConverter) throws EvalException {
-    Map<Label, ToolchainTypeRequirement> toolchainTypes = new HashMap<>();
+    Map<Label, ToolchainTypeRequirement> toolchainTypes = new LinkedHashMap<>();
 
     for (Object rawToolchain : rawToolchains) {
       ToolchainTypeRequirement toolchainType = parseToolchainType(rawToolchain, labelConverter);
