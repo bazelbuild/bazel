@@ -592,6 +592,10 @@ blaze_exit_code::ExitCode StartupOptions::AddJVMArguments(
 
   result->push_back("-Djava.lang.Thread.allowVirtualThreads=true");
 
+  result->push_back(
+      "-XX:OnOutOfMemoryError=touch " +
+      GetOOMFilePath(blaze_util::Path(output_base)).AsJvmArgument());
+
   return AddJVMMemoryArguments(server_javabase, result, user_options, error);
 }
 
