@@ -266,7 +266,12 @@ def _map_linkstamps_to_outputs(actions, linkstamps, output):
     map = {}
 
     stamp_output_dir = paths.join(paths.dirname(output.short_path), "_objs", output.basename)
+    linkstamps = set(linkstamps)
+    seen_linkstamp_sources = set()
     for linkstamp in linkstamps:
+        if linkstamp.file() in seen_linkstamp_sources:
+            continue
+        seen_linkstamp_sources.add(linkstamp.file())
         linkstamp_file = linkstamp.file()
         stamp_output_path = paths.join(
             stamp_output_dir,
