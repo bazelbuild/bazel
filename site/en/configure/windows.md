@@ -24,7 +24,7 @@ To avoid hitting this issue, you can specify a short output directory for Bazel 
 
 For example, add the following line to your bazelrc file:
 
-```posix-terminal
+```none
 startup --output_user_root=C:/tmp
 ```
 
@@ -49,7 +49,7 @@ This enables the following features:
 
 To make it easier, add the following lines to your bazelrc file:
 
-```posix-terminal
+```none
 startup --windows_enable_symlinks
 
 build --enable_runfiles
