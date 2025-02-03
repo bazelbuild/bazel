@@ -415,6 +415,7 @@ java_library(
     srcs = [
         "ImmutableMap.java",
         "ImmutableSet.java",
+        "RegularImmutableMap.java",
         "RegularImmutableSet.java",
     ],
     applicable_licenses = [":guava_license"],

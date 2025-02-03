@@ -39,8 +39,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Iterator;
-import java.util.List;
-import java.util.SequencedSet;
+import java.util.SequencedCollection;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.Spliterator;
@@ -220,10 +219,8 @@ public abstract class ImmutableSet<E> extends ImmutableCollection<E> implements 
   }
 
   private static <E> boolean isSequenced(Collection<? extends E> elements) {
-    return elements instanceof SequencedSet
-        || elements instanceof List
-        || elements.getClass().getPackage().getName().startsWith("com.google.common.")
-        || elements.getClass().getName().equals("java.util.LinkedHashMap$LinkedValues");
+    return elements instanceof SequencedCollection
+        || elements.getClass().getPackage().getName().startsWith("com.google.common.");
   }
 
   /**
