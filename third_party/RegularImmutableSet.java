@@ -84,23 +84,13 @@ final class RegularImmutableSet<E> extends ImmutableSet.CachingAsList<E> {
   @SuppressWarnings("unchecked")
   @Override
   public UnmodifiableIterator<E> iterator() {
-    Preconditions.checkState(
-        nonSequenced == null,
-        "iterator() not supported for non-sequenced sets: "
-            + nonSequenced
-            + " "
-            + Throwables.getStackTraceAsString(nonSequenced));
+    checkSequenced();
     return (UnmodifiableIterator<E>) Iterators.forArray(elements);
   }
 
   @Override
   public Spliterator<E> spliterator() {
-    Preconditions.checkState(
-        nonSequenced == null,
-        "spliterator() not supported for non-sequenced sets: "
-            + nonSequenced
-            + " "
-            + Throwables.getStackTraceAsString(nonSequenced));
+    checkSequenced();
     return Spliterators.spliterator(elements, SPLITERATOR_CHARACTERISTICS);
   }
 
@@ -121,21 +111,27 @@ final class RegularImmutableSet<E> extends ImmutableSet.CachingAsList<E> {
 
   @Override
   int copyIntoArray(@Nullable Object[] dst, int offset) {
+    checkSequenced();
     System.arraycopy(elements, 0, dst, offset, elements.length);
     return offset + elements.length;
   }
 
   @Override
   ImmutableList<E> createAsList() {
-    Preconditions.checkState(
-        nonSequenced == null,
-        "asList() not supported for non-sequenced sets: "
-            + nonSequenced
-            + " "
-            + Throwables.getStackTraceAsString(nonSequenced));
+    checkSequenced();
     return (table.length == 0)
         ? ImmutableList.<E>of()
         : new RegularImmutableAsList<E>(this, elements);
+  }
+
+  private void checkSequenced() {
+    if (nonSequenced != null) {
+      throw new UnsupportedOperationException(
+          "Set has non-sequenced elements, and as such, cannot be iterated in order: "
+              + nonSequenced
+              + " "
+              + Throwables.getStackTraceAsString(nonSequenced));
+    }
   }
 
   @Override
