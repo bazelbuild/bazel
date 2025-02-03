@@ -412,6 +412,24 @@ filegroup(
 
 java_library(
     name = "guava",
+    srcs = [
+        "ImmutableMap.java",
+        "ImmutableSet.java",
+        "RegularImmutableSet.java",
+    ],
+    applicable_licenses = [":guava_license"],
+    exports = [
+        ":guava_internal",
+    ],
+    deps = [
+        ":guava_internal",
+        "@maven//:com_google_j2objc_j2objc_annotations",
+        "@maven//:org_checkerframework_checker_qual",
+    ],
+)
+
+java_library(
+    name = "guava_internal",
     applicable_licenses = [":guava_license"],
     exports = [
         ":error_prone_annotations",
