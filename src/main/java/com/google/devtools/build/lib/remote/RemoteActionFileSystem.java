@@ -328,12 +328,13 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat
     // It's more efficient to stat unconditionally.
     //
     // The parent path has already been canonicalized, so FOLLOW_NONE is effectively the same as
-    // FOLLOW_PARENT, but much more efficient as it doesn't call stat recursively.
+    // FOLLOW_PARENT, but much more efficient as it doesn't call stat recursively. Likewise for
+    // readSymbolicLinkInternal instead of readSymbolicLink.
     var stat = statInternal(path, FollowMode.FOLLOW_NONE, StatSources.ALL);
     if (stat == null) {
       throw new FileNotFoundException(path.getPathString() + " (No such file or directory)");
     }
-    return stat.isSymbolicLink() ? readSymbolicLink(path) : null;
+    return stat.isSymbolicLink() ? readSymbolicLinkInternal(path) : null;
   }
 
   // Like resolveSymbolicLinks(), except that only the parent path is canonicalized.
@@ -522,8 +523,11 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat
 
   @Override
   protected PathFragment readSymbolicLink(PathFragment path) throws IOException {
-    path = resolveSymbolicLinksForParent(path);
+    return readSymbolicLinkInternal(resolveSymbolicLinksForParent(path));
+  }
 
+  // Like readSymbolicLink(), except that the parent path is assumed to be already canonical.
+  private PathFragment readSymbolicLinkInternal(PathFragment path) throws IOException {
     if (path.startsWith(execRoot)) {
       var execPath = path.relativeTo(execRoot);
       var metadata = inputArtifactData.getMetadata(execPath);
