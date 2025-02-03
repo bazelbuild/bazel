@@ -306,7 +306,7 @@ public class BaseRuleClasses {
           // RunCommand.java to self-transition --run_under to the exec configuration.
           .add(
               attr(":run_under_exec_config", LABEL)
-                  .cfg(ExecutionTransitionFactory.createFactory())
+                  .cfg(ExecutionTransitionFactory.createFactory("test"))
                   .value(RUN_UNDER_EXEC_CONFIG)
                   .skipPrereqValidatorCheck())
           .add(
