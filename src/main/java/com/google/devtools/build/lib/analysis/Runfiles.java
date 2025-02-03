@@ -55,6 +55,7 @@ import java.util.Set;
 import java.util.UUID;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -1103,5 +1104,18 @@ public final class Runfiles implements RunfilesApi {
                     : RUNFILES_AND_EXEC_PATH_MAP_FN,
                 artifacts))
         + String.format("emptyFilesSupplier: %s\n", emptyFilesSupplier.getClass().getName());
+  }
+
+  @Override
+  public void debugPrint(Printer printer, StarlarkThread thread) {
+    printer.append("Runfiles(empty_files = ");
+    printer.debugPrint(getEmptyFilenamesForStarlark(), thread);
+    printer.append(", files = ");
+    printer.debugPrint(getArtifactsForStarlark(), thread);
+    printer.append(", root_symlinks = ");
+    printer.debugPrint(getRootSymlinksForStarlark(), thread);
+    printer.append(", symlinks = ");
+    printer.debugPrint(getSymlinksForStarlark(), thread);
+    printer.append(")");
   }
 }
