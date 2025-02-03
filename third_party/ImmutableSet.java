@@ -220,8 +220,8 @@ public abstract class ImmutableSet<E> extends ImmutableCollection<E> implements 
   }
 
   private static <E> boolean isSequenced(Collection<? extends E> elements) {
-    return elements instanceof SequencedSet<? extends E>
-        || elements instanceof List<? extends E>
+    return elements instanceof SequencedSet
+        || elements instanceof List
         || elements.getClass().getPackage().getName().startsWith("com.google.common.")
         || elements.getClass().getName().equals("java.util.LinkedHashMap$LinkedValues");
   }
@@ -564,7 +564,7 @@ public abstract class ImmutableSet<E> extends ImmutableCollection<E> implements 
     @Override
     @CanIgnoreReturnValue
     public Builder<E> addAll(Iterable<? extends E> elements) {
-      if (elements instanceof Collection<? extends E> && !isSequenced((Collection<?>) elements)) {
+      if (elements instanceof Collection && !isSequenced((Collection<?>) elements)) {
         nonSequenced = new IllegalStateException(elements.getClass().getName());
       }
       super.addAll(elements);
