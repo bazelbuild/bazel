@@ -754,7 +754,9 @@ public abstract class ImmutableMap<K, V> implements Map<K, V>, Serializable {
             .equals("java.util.Collections$UnmodifiableMap$UnmodifiableEntrySet")
         || Throwables.getStackTraceAsString(new Throwable())
             .contains(
-                "com.google.common.reflect.TypeResolver$TypeMappingIntrospector.getTypeMappings")) {
+                "com.google.common.reflect.TypeResolver$TypeMappingIntrospector.getTypeMappings")
+        || Throwables.getStackTraceAsString(new Throwable())
+            .contains("com.google.devtools.build.docgen.SourceUrlMapper.<init>")) {
       return null;
     }
     return new IllegalStateException("Unsequenced map is not supported: " + elements.getClass());
