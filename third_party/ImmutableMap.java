@@ -745,7 +745,12 @@ public abstract class ImmutableMap<K, V> implements Map<K, V>, Serializable {
   private static <K, V> Throwable getNonSequenced(
       Iterable<? extends Entry<? extends K, ? extends V>> elements) {
     if (elements instanceof SequencedCollection
-        || elements.getClass().getPackage().getName().startsWith("com.google.common.")) {
+        || elements.getClass().getPackage().getName().startsWith("com.google.common.")
+        || elements.getClass().getName().equals("java.util.TreeMap$EntrySet")
+        || elements
+            .getClass()
+            .getName()
+            .equals("java.util.Collections$UnmodifiableMap$UnmodifiableEntrySet")) {
       return null;
     }
     return new IllegalStateException("Unsequenced map is not supported: " + elements.getClass());
