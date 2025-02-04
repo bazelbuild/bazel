@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
-import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.Uninterruptibles.getUninterruptibly;
 
@@ -22,11 +21,9 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.bugreport.BugReporter;
-import com.google.devtools.build.lib.concurrent.QuiescingFuture;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore.MissingFingerprintValueException;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
-import java.util.List;
 import java.util.concurrent.ExecutionException;
 
 /** Helpers for serialization futures. */
@@ -124,71 +121,6 @@ public final class FutureHelpers {
           BugReporter.defaultInstance().sendBugReport(t);
         }
       };
-
-  /** Combines a list of {@code Void} futures into a single future. */
-  public static ListenableFuture<Void> aggregateStatusFutures(
-      List<ListenableFuture<Void>> futures) {
-    if (futures.isEmpty()) {
-      return immediateVoidFuture();
-    }
-    if (futures.size() == 1) {
-      return futures.get(0);
-    }
-
-    var aggregator = new StatusAggregator();
-    aggregator.addStatusFutures(futures);
-    aggregator.notifyAllAdded();
-    return aggregator;
-  }
-
-  /**
-   * Uses less memory in-flight than {@link Futures#whenAllSucceed} because it does not retain the
-   * list.
-   */
-  static final class StatusAggregator extends QuiescingFuture<Void>
-      implements FutureCallback<Void> {
-    void addStatusFuture(ListenableFuture<Void> statusFuture) {
-      increment();
-      Futures.addCallback(statusFuture, (FutureCallback<Void>) this, directExecutor());
-    }
-
-    void addStatusFutures(Iterable<ListenableFuture<Void>> statusFutures) {
-      for (ListenableFuture<Void> future : statusFutures) {
-        addStatusFuture(future);
-      }
-    }
-
-    void notifyAllAdded() {
-      decrement();
-    }
-
-    @Override
-    protected Void getValue() {
-      return null;
-    }
-
-    /**
-     * Implementation of {@link FutureCallback<Void>}.
-     *
-     * @deprecated only used by {@link #addStatusFuture} for callback processing
-     */
-    @Deprecated
-    @Override
-    public void onSuccess(Void unused) {
-      decrement();
-    }
-
-    /**
-     * Implementation of {@link FutureCallback<Void>}.
-     *
-     * @deprecated only used by {@link #addStatusFuture} for callback processing
-     */
-    @Deprecated
-    @Override
-    public void onFailure(Throwable t) {
-      notifyException(t);
-    }
-  }
 
   private static SerializationException asDeserializationException(Throwable cause) {
     if (cause instanceof MissingFingerprintValueException) {

@@ -14,9 +14,10 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static com.google.devtools.build.lib.skyframe.serialization.FutureHelpers.aggregateStatusFutures;
 import static com.google.devtools.build.lib.skyframe.serialization.FutureHelpers.reportAnyFailures;
 import static com.google.devtools.build.lib.skyframe.serialization.FutureHelpers.waitForSerializationFuture;
+import static com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.aggregateWriteStatuses;
+import static com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.sparselyAggregateWriteStatuses;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableClassToInstanceMap;
@@ -25,6 +26,8 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.concurrent.QuiescingFuture;
+import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.SettableWriteStatus;
+import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
@@ -50,7 +53,7 @@ abstract class SharedValueSerializationContext extends MemoizingSerializationCon
    * these writes complete.
    */
   @Nullable // lazily initialized
-  private ArrayList<ListenableFuture<Void>> futuresToBlockWritingOn;
+  private ArrayList<WriteStatus> futuresToBlockWritingOn;
 
   /**
    * Futures that mark deferred data bytes when using {@link #putSharedValue}.
@@ -188,7 +191,7 @@ abstract class SharedValueSerializationContext extends MemoizingSerializationCon
     byte[] childBytes; // bytes of serialized child, maybe containing placeholders
     // This is initially populated with the `futuresToWriteBlockingOn` of the child. If the child
     // has `FuturePut`s, the write statuses of those puts will be added to this list.
-    ArrayList<ListenableFuture<Void>> childWriteStatuses;
+    ArrayList<WriteStatus> childWriteStatuses;
     // Each entry of the following list corresponds to a `putSharedValue` call made by serialization
     // of `child`. Used to fill-in `childBytes` placeholders.
     ArrayList<FuturePut> childDeferredBytes;
@@ -221,7 +224,7 @@ abstract class SharedValueSerializationContext extends MemoizingSerializationCon
       fingerprint.writeTo(codedOut); // Writes only the fingerprint to the stream.
       childWriteStatuses.add(fingerprintValueService.put(fingerprint, childBytes));
 
-      ListenableFuture<Void> writeStatus = aggregateStatusFutures(childWriteStatuses);
+      WriteStatus writeStatus = sparselyAggregateWriteStatuses(childWriteStatuses);
       putOperation.set(new PutOperation(fingerprint, writeStatus));
       addFutureToBlockWritingOn(writeStatus);
       return;
@@ -242,7 +245,7 @@ abstract class SharedValueSerializationContext extends MemoizingSerializationCon
 
     private UploadOnceChildBytesReady(
         FingerprintValueService fingerprintValueService,
-        List<ListenableFuture<Void>> childWriteStatuses,
+        List<WriteStatus> childWriteStatuses,
         byte[] childBytes) {
       super(childWriteStatuses, childBytes);
       this.fingerprintValueService = fingerprintValueService;
@@ -253,7 +256,7 @@ abstract class SharedValueSerializationContext extends MemoizingSerializationCon
       // All placeholders are filled-in. Starts the upload.
       PackedFingerprint fingerprint = fingerprintValueService.fingerprint(childBytes);
       childWriteStatuses.add(fingerprintValueService.put(fingerprint, childBytes));
-      return new PutOperation(fingerprint, aggregateStatusFutures(childWriteStatuses));
+      return new PutOperation(fingerprint, sparselyAggregateWriteStatuses(childWriteStatuses));
     }
   }
 
@@ -261,7 +264,7 @@ abstract class SharedValueSerializationContext extends MemoizingSerializationCon
   public abstract SharedValueSerializationContext getFreshContext();
 
   @Override
-  public final void addFutureToBlockWritingOn(ListenableFuture<Void> future) {
+  public final void addFutureToBlockWritingOn(WriteStatus future) {
     if (futuresToBlockWritingOn == null) {
       futuresToBlockWritingOn = new ArrayList<>();
     }
@@ -270,21 +273,40 @@ abstract class SharedValueSerializationContext extends MemoizingSerializationCon
 
   @Override
   @Nullable
-  public final ListenableFuture<Void> createFutureToBlockWritingOn() {
+  public final WriteStatus createFutureToBlockWritingOn() {
     if (futurePuts == null) {
       if (futuresToBlockWritingOn == null) {
         return null;
       }
-      return aggregateStatusFutures(futuresToBlockWritingOn);
+      return aggregateWriteStatuses(futuresToBlockWritingOn);
     }
 
-    List<ListenableFuture<Void>> writeStatuses = initializeCombinedWriteStatusesList();
+    List<WriteStatus> writeStatuses = initializeCombinedWriteStatusesList();
     for (FuturePut futurePut : futurePuts) {
-      writeStatuses.add(
-          Futures.transformAsync(
-              futurePut.getFuturePut(), PutOperation::writeStatus, directExecutor()));
+      var putStatus = new SettableWriteStatus();
+      Futures.addCallback(
+          futurePut.getFuturePut(), new PutOperationCallback(putStatus), directExecutor());
+      writeStatuses.add(putStatus);
     }
-    return aggregateStatusFutures(writeStatuses);
+    return aggregateWriteStatuses(writeStatuses);
+  }
+
+  private static final class PutOperationCallback implements FutureCallback<PutOperation> {
+    private final SettableWriteStatus putStatus;
+
+    private PutOperationCallback(SettableWriteStatus putStatus) {
+      this.putStatus = putStatus;
+    }
+
+    @Override
+    public void onSuccess(PutOperation put) {
+      putStatus.completeWith(put.writeStatus());
+    }
+
+    @Override
+    public void onFailure(Throwable t) {
+      putStatus.failWith(t);
+    }
   }
 
   /**
@@ -310,10 +332,10 @@ abstract class SharedValueSerializationContext extends MemoizingSerializationCon
       ByteString finalBytes = ByteString.copyFrom(bytes);
       return futuresToBlockWritingOn == null
           ? SerializationResult.createWithoutFuture(finalBytes)
-          : SerializationResult.create(finalBytes, aggregateStatusFutures(futuresToBlockWritingOn));
+          : SerializationResult.create(finalBytes, aggregateWriteStatuses(futuresToBlockWritingOn));
     }
 
-    List<ListenableFuture<Void>> childWriteStatuses = initializeCombinedWriteStatusesList();
+    List<WriteStatus> childWriteStatuses = initializeCombinedWriteStatusesList();
     var childBytesDone = new WaitForChildByteCompletion(childWriteStatuses, bytes);
     childBytesDone.registerFuturePuts(futurePuts);
     // `futurePuts` are produced when multiple threads race to write the same value. This is
@@ -333,12 +355,11 @@ abstract class SharedValueSerializationContext extends MemoizingSerializationCon
       throw e;
     }
     return SerializationResult.create(
-        ByteString.copyFrom(bytes), aggregateStatusFutures(childWriteStatuses));
+        ByteString.copyFrom(bytes), aggregateWriteStatuses(childWriteStatuses));
   }
 
   private static final class WaitForChildByteCompletion extends WaitForChildBytes<Void> {
-    private WaitForChildByteCompletion(
-        List<ListenableFuture<Void>> childWriteStatuses, byte[] childBytes) {
+    private WaitForChildByteCompletion(List<WriteStatus> childWriteStatuses, byte[] childBytes) {
       super(childWriteStatuses, childBytes);
     }
 
@@ -354,11 +375,11 @@ abstract class SharedValueSerializationContext extends MemoizingSerializationCon
    *
    * <p>The caller must ensure that {@link #futurePuts} is non-null.
    */
-  private List<ListenableFuture<Void>> initializeCombinedWriteStatusesList() {
+  private List<WriteStatus> initializeCombinedWriteStatusesList() {
     if (futuresToBlockWritingOn == null) {
       return new ArrayList<>(futurePuts.size());
     }
-    ArrayList<ListenableFuture<Void>> statuses =
+    ArrayList<WriteStatus> statuses =
         new ArrayList<>(futurePuts.size() + futuresToBlockWritingOn.size());
     statuses.addAll(futuresToBlockWritingOn);
     return statuses;
@@ -395,10 +416,10 @@ abstract class SharedValueSerializationContext extends MemoizingSerializationCon
   }
 
   private abstract static class WaitForChildBytes<T> extends QuiescingFuture<T> {
-    final List<ListenableFuture<Void>> childWriteStatuses;
+    final List<WriteStatus> childWriteStatuses;
     final byte[] childBytes;
 
-    private WaitForChildBytes(List<ListenableFuture<Void>> childWriteStatuses, byte[] childBytes) {
+    private WaitForChildBytes(List<WriteStatus> childWriteStatuses, byte[] childBytes) {
       this.childWriteStatuses = childWriteStatuses;
       this.childBytes = childBytes;
     }

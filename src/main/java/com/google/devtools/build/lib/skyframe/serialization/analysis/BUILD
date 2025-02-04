@@ -142,7 +142,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:filesystem_keys",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//third_party:guava",
     ],
 )
 
