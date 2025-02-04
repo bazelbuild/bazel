@@ -20,6 +20,7 @@ FILES = [
     "extra_actions_base",
     "java_compilation",
     "memory_pressure",
+    "rule_src_doc",
     "strategy_policy",
     "test_status",
     "worker_protocol",
