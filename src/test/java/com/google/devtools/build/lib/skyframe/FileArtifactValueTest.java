@@ -99,6 +99,12 @@ public final class FileArtifactValueTest {
                 /* size= */ 1,
                 /* locationIndex= */ 1,
                 /* expirationTime= */ Instant.ofEpochMilli(2)))
+        .addEqualityGroup(
+            // A ResolvedSymlinkArtifactValue is not equal to the FileArtifactValue it wraps.
+            FileArtifactValue.createFromExistingWithResolvedPath(
+                FileArtifactValue.createForNormalFile(
+                    toBytes("00112233445566778899AABBCCDDEEFF"), /* proxy= */ null, 1L),
+                PathFragment.create("/some/path")))
         .addEqualityGroup(FileArtifactValue.MISSING_FILE_MARKER)
         .addEqualityGroup(FileArtifactValue.RUNFILES_TREE_MARKER)
         .addEqualityGroup("a string")
@@ -132,6 +138,10 @@ public final class FileArtifactValueTest {
         // We check for mtime equality for directories.
         .addEqualityGroup(createForTesting(dir1))
         .addEqualityGroup(createForTesting(dir2), createForTesting(dir3))
+        // A ResolvedSymlinkArtifactValue is not equal to the FileArtifactValue it wraps.
+        .addEqualityGroup(
+            FileArtifactValue.createFromExistingWithResolvedPath(
+                createForTesting(path1), PathFragment.create("/some/path")))
         .testEquals();
   }
 
@@ -173,6 +183,31 @@ public final class FileArtifactValueTest {
     assertThat(value.getType()).isEqualTo(FileStateType.SYMLINK);
     assertThat(value.getUnresolvedSymlinkTarget()).isEqualTo("/some/path");
     new EqualsTester().addEqualityGroup(value, value2).testEquals();
+  }
+
+  @Test
+  public void testResolvedSymlinkToFile() throws Exception {
+    Path path = scratchFile("/file", /* mtime= */ 1L, "content");
+    FileArtifactValue delegate = FileArtifactValue.createForTesting(path);
+    FileArtifactValue value =
+        FileArtifactValue.createFromExistingWithResolvedPath(
+            delegate, PathFragment.create("/file"));
+    assertThat(value.getType()).isEqualTo(FileStateType.REGULAR_FILE);
+    assertThat(value.getResolvedPath()).isEqualTo(PathFragment.create("/file"));
+    assertThat(value.getDigest()).isEqualTo(delegate.getDigest());
+    assertThat(value.getSize()).isEqualTo(delegate.getSize());
+  }
+
+  @Test
+  public void testResolvedSymlinkToDirectory() throws Exception {
+    Path path = scratchDir("/dir", /* mtime= */ 1L);
+    FileArtifactValue delegate = FileArtifactValue.createForTesting(path);
+    FileArtifactValue value =
+        FileArtifactValue.createFromExistingWithResolvedPath(
+            delegate, PathFragment.create("/file"));
+    assertThat(value.getType()).isEqualTo(FileStateType.DIRECTORY);
+    assertThat(value.getResolvedPath()).isEqualTo(PathFragment.create("/file"));
+    assertThat(value.getModifiedTime()).isEqualTo(delegate.getModifiedTime());
   }
 
   // Empty files are the same as normal files -- mtime is not stored.
