@@ -26,6 +26,7 @@ import com.google.common.annotations.GwtCompatible;
 import com.google.common.annotations.GwtIncompatible;
 import com.google.common.annotations.J2ktIncompatible;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Throwables;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.DoNotCall;
 import com.google.errorprone.annotations.DoNotMock;
@@ -750,7 +751,10 @@ public abstract class ImmutableMap<K, V> implements Map<K, V>, Serializable {
         || elements
             .getClass()
             .getName()
-            .equals("java.util.Collections$UnmodifiableMap$UnmodifiableEntrySet")) {
+            .equals("java.util.Collections$UnmodifiableMap$UnmodifiableEntrySet")
+        || Throwables.getStackTraceAsString(new Throwable())
+            .contains(
+                "com.google.common.reflect.TypeResolver$TypeMappingIntrospector.getTypeMappings")) {
       return null;
     }
     return new IllegalStateException("Unsequenced map is not supported: " + elements.getClass());
