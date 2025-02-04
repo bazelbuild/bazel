@@ -68,8 +68,6 @@ import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -749,11 +747,11 @@ public class RuleClass implements RuleClassData {
     private boolean supportsConstraintChecking = true;
 
     private final Map<String, Attribute> attributes = new LinkedHashMap<>();
-    private final Set<ToolchainTypeRequirement> toolchainTypes = new HashSet<>();
+    private final Set<ToolchainTypeRequirement> toolchainTypes = new LinkedHashSet<>();
     private ToolchainResolutionMode toolchainResolutionMode = ToolchainResolutionMode.ENABLED;
-    private final Set<Label> executionPlatformConstraints = new HashSet<>();
+    private final Set<Label> executionPlatformConstraints = new LinkedHashSet<>();
     private OutputFile.Kind outputFileKind = OutputFile.Kind.FILE;
-    private final Map<String, ExecGroup> execGroups = new HashMap<>();
+    private final Map<String, ExecGroup> execGroups = new LinkedHashMap<>();
     private AutoExecGroupsMode autoExecGroupsMode = AutoExecGroupsMode.DYNAMIC;
 
     /**
