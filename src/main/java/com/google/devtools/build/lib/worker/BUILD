@@ -239,7 +239,6 @@ java_library(
         ":worker",
         ":worker_factory",
         ":worker_key",
-        ":worker_options",
         ":worker_pool",
         ":worker_pool_config",
         ":worker_process_status",

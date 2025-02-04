@@ -37,6 +37,8 @@ import javax.annotation.Nullable;
 /**
  * Implementation of the WorkerPool.
  *
+ * <p>TODO(b/323880131): Remove documentation once we completely remove the legacy implementation.
+ *
  * <p>This implementation flattens this to have a single {@code WorkerKeyPool} for each worker key
  * (we don't need the indirection in referencing both mnemonic and worker key since the mnemonic is
  * part of the key). Additionally, it bakes in pool shrinking logic so that we can handle concurrent
@@ -56,18 +58,14 @@ public class WorkerPoolImpl implements WorkerPool {
 
   private final ImmutableMap<String, Integer> singleplexMaxInstances;
   private final ImmutableMap<String, Integer> multiplexMaxInstances;
-
-  private final WorkerOptions options;
-
   private final ConcurrentHashMap<WorkerKey, WorkerKeyPool> pools = new ConcurrentHashMap<>();
 
-  public WorkerPoolImpl(WorkerFactory factory, WorkerPoolConfig config, WorkerOptions options) {
+  public WorkerPoolImpl(WorkerFactory factory, WorkerPoolConfig config) {
     this.factory = factory;
     this.singleplexMaxInstances =
         getMaxInstances(config.getWorkerMaxInstances(), DEFAULT_MAX_SINGLEPLEX_WORKERS);
     this.multiplexMaxInstances =
         getMaxInstances(config.getWorkerMaxMultiplexInstances(), DEFAULT_MAX_MULTIPLEX_WORKERS);
-    this.options = options;
   }
 
   private static ImmutableMap<String, Integer> getMaxInstances(
@@ -242,11 +240,10 @@ public class WorkerPoolImpl implements WorkerPool {
               worker.getWorkerKey().getMnemonic(),
               worker.getWorkerId(),
               worker.getWorkerKey().hashCode());
-        } else if (options.shrinkWorkerPool) {
-          String msg = String.format("Postponing eviction of worker id: %s", worker.getWorkerId());
-          logger.atInfo().log("%s", msg);
-          worker.getStatus().maybeUpdateStatus(Status.PENDING_KILL_DUE_TO_MEMORY_PRESSURE);
         }
+        // TODO(b/323880131): Move postponing of invalidation from {@code WorkerLifecycleManager}
+        // here, since all we need to do is to update the statuses. We keep it like this for now
+        // to preserve the existing behavior.
       }
       return evictedWorkerIds;
     }
