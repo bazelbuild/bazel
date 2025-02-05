@@ -96,7 +96,13 @@ static string DescriptionFromCFError(CFErrorRef cf_err) {
   return UTF8StringFromCFStringRef(cf_err_string);
 }
 
-string GetCacheDir() { return "/var/tmp"; }
+string GetCacheDir() {
+  string xdg_cache_home = GetPathEnv("XDG_CACHE_HOME");
+  if (!xdg_cache_home.empty()) {
+    return blaze_util::JoinPath(xdg_cache_home, "bazel");
+  }
+  return "/var/tmp";
+}
 
 void WarnFilesystemType(const blaze_util::Path &output_base) {
   // Check to see if we are on a non-local drive.

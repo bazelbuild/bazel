@@ -187,6 +187,69 @@ TEST_F(BazelStartupOptionsTest, UpdateConfigurationOnDarwin) {
                              "1629dee48cc4e53161f9b2be8614e062"),
             startup_options_->output_base);
 }
+
+TEST_F(BazelStartupOptionsTest, UpdateConfigurationOnDarwinWithTestTmpdir) {
+  SetEnv("USER", "gandalf");
+  SetEnv("HOME", "/nonexistent/home");
+  SetEnv("XDG_CACHE_HOME", "/nonexistent/cache");
+  SetEnv("TEST_TMPDIR", "/nonexistent/tmpdir");
+  ReinitStartupOptions();
+  UpdateConfiguration();
+
+  ASSERT_EQ(blaze_util::Path("/nonexistent/tmpdir/_bazel_gandalf"),
+            startup_options_->output_user_root);
+  ASSERT_EQ(blaze_util::Path("/nonexistent/tmpdir/_bazel_gandalf/install/deadbeef"),
+            startup_options_->install_base);
+  ASSERT_EQ(blaze_util::Path("/nonexistent/tmpdir/_bazel_gandalf/"
+                             "1629dee48cc4e53161f9b2be8614e062"),
+            startup_options_->output_base);
+}
+
+TEST_F(BazelStartupOptionsTest, UpdateConfigurationOnDarwinWithXdgCacheHome) {
+  SetEnv("USER", "gandalf");
+  SetEnv("HOME", "/nonexistent/home");
+  SetEnv("XDG_CACHE_HOME", "/nonexistent/cache");
+  UnsetEnv("TEST_TMPDIR");
+  ReinitStartupOptions();
+  UpdateConfiguration();
+
+  ASSERT_EQ(blaze_util::Path("/nonexistent/cache/bazel/_bazel_gandalf"),
+            startup_options_->output_user_root);
+  ASSERT_EQ(blaze_util::Path("/nonexistent/cache/bazel/_bazel_gandalf/install/deadbeef"),
+            startup_options_->install_base);
+  ASSERT_EQ(blaze_util::Path("/nonexistent/cache/bazel/_bazel_gandalf/"
+                             "1629dee48cc4e53161f9b2be8614e062"),
+            startup_options_->output_base);
+}
+
+TEST_F(BazelStartupOptionsTest, UpdateConfigurationOnDarwinNoShellExpansion) {
+  SetEnv("USER", "gandalf");
+  SetEnv("TEST_TMPDIR", "~/\"$foo/test\"");
+  SetEnv("XDG_CACHE_HOME", "~/cache${bar}");
+  SetEnv("HOME", "~/home$(echo baz)");
+
+  ReinitStartupOptions();
+  UpdateConfiguration();
+
+  ASSERT_EQ(blaze_util::Path(blaze_util::GetCwd() + "/~/\"$foo/test\"" +
+                             "/_bazel_gandalf"),
+            startup_options_->output_user_root);
+
+  UnsetEnv("TEST_TMPDIR");
+  ReinitStartupOptions();
+  UpdateConfiguration();
+
+  ASSERT_EQ(blaze_util::Path(blaze_util::GetCwd() +
+                             "/~/cache${bar}/bazel/_bazel_gandalf"),
+            startup_options_->output_user_root);
+
+  UnsetEnv("XDG_CACHE_HOME");
+  ReinitStartupOptions();
+  UpdateConfiguration();
+
+  ASSERT_EQ(blaze_util::Path("/var/tmp/_bazel_gandalf"),
+            startup_options_->output_user_root);
+}
 #endif  // __APPLE__
 
 #if defined(__WIN32__) || defined(__CYGWIN__)
