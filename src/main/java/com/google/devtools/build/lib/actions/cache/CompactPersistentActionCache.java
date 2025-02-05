@@ -525,8 +525,8 @@ public class CompactPersistentActionCache implements ActionCache {
       DigestUtils.ESTIMATED_SIZE // digest
           + VarInt.MAX_VARLONG_SIZE // size
           + VarInt.MAX_VARINT_SIZE // locationIndex
-          + VarInt.MAX_VARINT_SIZE // expireAtEpochMilli
-          + VarInt.MAX_VARINT_SIZE; // resolvedPath
+          + VarInt.MAX_VARLONG_SIZE // expirationTime
+          + (1 + VarInt.MAX_VARINT_SIZE); // resolvedPath
 
   private FileArtifactValue decodeRemoteMetadata(ByteBuffer source) throws IOException {
     byte[] digest = MetadataDigestUtils.read(source);
@@ -591,11 +591,11 @@ public class CompactPersistentActionCache implements ActionCache {
               * value.childValues().size();
 
       maxOutputTreesSize +=
-          (1 + VarInt.MAX_VARINT_SIZE) // value.archivedFileValue() optional
-              + value.archivedFileValue().map(ignored -> MAX_REMOTE_METADATA_SIZE).orElse(0);
+          // value.archivedFileValue() optional
+          1 + value.archivedFileValue().map(ignored -> MAX_REMOTE_METADATA_SIZE).orElse(0);
       maxOutputTreesSize +=
-          (1 + VarInt.MAX_VARINT_SIZE) // value.resolvedPath() optional
-              + value.resolvedPath().map(ignored -> MAX_REMOTE_METADATA_SIZE).orElse(0);
+          // value.resolvedPath() optional
+          1 + value.resolvedPath().map(ignored -> VarInt.MAX_VARINT_SIZE).orElse(0);
     }
 
     // Estimate the size of the buffer:
