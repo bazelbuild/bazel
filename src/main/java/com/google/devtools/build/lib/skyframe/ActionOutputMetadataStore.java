@@ -302,10 +302,12 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
       }
     }
 
-    // Same rationale as for constructFileArtifactValue.
-    if (anyRemote.get()
-        && treeDir.isSymbolicLink()
-        && stat instanceof FileStatusWithMetadata statWithMetadata) {
+    // If the artifact was materialized in the filesystem as as symlink to another artifact, record
+    // the real path in the metadata so that it can be recreated as such later.
+    // See {@link FileArtifactValue#getResolvedPath} for why this is useful.
+    // TODO(tjgq): Actually check whether the path matches one of the action inputs. The presence
+    // of a FileStatusWithMetadata happens to coincide, but seems a little brittle.
+    if (stat instanceof FileStatusWithMetadata statWithMetadata && treeDir.isSymbolicLink()) {
       FileArtifactValue metadata = statWithMetadata.getMetadata();
       PathFragment resolvedPath = metadata.getResolvedPath();
       if (resolvedPath != null) {
@@ -408,21 +410,6 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
             // and potentially delaying the build for no reason.
             artifact.isConstantMetadata() ? null : tsgm);
     var value = statAndValue.fileArtifactValue();
-
-    // If the artifact is stored remotely but it was materialized in the filesystem as a symlink,
-    // store the original path in the metadata so it can later be recreated as such to avoid
-    // downloading multiple copies.
-    //
-    // This only affects Bazel when building without the bytes. In Blaze, without an action
-    // filesystem, metadata is always local (isRemote() is false); and with an action filesystem,
-    // createSymbolicLink() is implemented as a file copy (isSymbolicLink() is false).
-    if (value.isRemote()
-        && value.getResolvedPath() == null
-        && statAndValue.statNoFollow().isSymbolicLink()) {
-      value =
-          FileArtifactValue.createFromExistingWithResolvedPath(
-              value, statAndValue.realPath().asFragment());
-    }
 
     // Ensure that we don't have both an injected digest and a digest from the filesystem.
     byte[] fileDigest = value.getDigest();
@@ -556,6 +543,18 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
     FileStatusWithDigest realStatWithDigest = FileStatusWithDigestAdapter.maybeAdapt(realStat);
     var fileArtifactValue =
         fileArtifactValueFromStat(realRootedPath, realStatWithDigest, xattrProvider, tsgm);
+
+    // If the artifact was materialized in the filesystem as as symlink to another artifact, record
+    // the real path in the metadata so that it can be recreated as such later.
+    // See {@link FileArtifactValue#getResolvedPath} for why this is useful.
+    // TODO(tjgq): Actually check whether the path matches one of the action inputs. The presence
+    // of a FileStatusWithMetadata happens to coincide, but seems a little brittle.
+    if (realStat instanceof FileStatusWithMetadata && fileArtifactValue.getResolvedPath() == null) {
+      fileArtifactValue =
+          FileArtifactValue.createFromExistingWithResolvedPath(
+              fileArtifactValue, realRootedPath.asPath().asFragment());
+    }
+
     return FileArtifactStatAndValue.create(pathNoFollow, realPath, statNoFollow, fileArtifactValue);
   }
 
