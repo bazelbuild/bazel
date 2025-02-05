@@ -331,6 +331,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     assertThat(result.isCached()).isFalse();
     assertThat(result.getTestAction()).isSameInstanceAs(testRunnerAction);
     assertThat(result.getData().getTestPassed()).isTrue();
+    assertThat(result.getData().getExitCode()).isEqualTo(0);
     assertThat(result.getData().getRemotelyCached()).isFalse();
     assertThat(result.getData().getIsRemoteStrategy()).isFalse();
     assertThat(result.getData().getRunDurationMillis()).isEqualTo(10);
@@ -411,6 +412,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     assertThat(result.getTestAction()).isSameInstanceAs(testRunnerAction);
     assertThat(result.getData().getStatus()).isEqualTo(BlazeTestStatus.FLAKY);
     assertThat(result.getData().getTestPassed()).isTrue();
+    assertThat(result.getData().getExitCode()).isEqualTo(0);
     assertThat(result.getData().getRemotelyCached()).isFalse();
     assertThat(result.getData().getIsRemoteStrategy()).isFalse();
     assertThat(result.getData().getRunDurationMillis()).isEqualTo(15L);
@@ -425,9 +427,11 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     assertThat(failedAttempt.getExecutionInfo().getStrategy()).isEqualTo("test");
     assertThat(failedAttempt.getExecutionInfo().getHostname()).isEqualTo("");
     assertThat(failedAttempt.getStatus()).isEqualTo(TestStatus.FAILED);
+    assertThat(failedAttempt.getExecutionInfo().getExitCode()).isEqualTo(1);
     assertThat(failedAttempt.getExecutionInfo().getCachedRemotely()).isFalse();
     TestAttempt okAttempt = attempts.get(1);
     assertThat(okAttempt.getStatus()).isEqualTo(TestStatus.PASSED);
+    assertThat(okAttempt.getExecutionInfo().getExitCode()).isEqualTo(0);
     assertThat(okAttempt.getExecutionInfo().getStrategy()).isEqualTo("test");
     assertThat(okAttempt.getExecutionInfo().getHostname()).isEqualTo("");
   }
@@ -483,6 +487,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     assertThat(result.isCached()).isFalse();
     assertThat(result.getTestAction()).isSameInstanceAs(testRunnerAction);
     assertThat(result.getData().getTestPassed()).isTrue();
+    assertThat(result.getData().getExitCode()).isEqualTo(0);
     assertThat(result.getData().getRemotelyCached()).isFalse();
     assertThat(result.getData().getIsRemoteStrategy()).isTrue();
     assertThat(result.getData().getRunDurationMillis()).isEqualTo(10);
@@ -495,6 +500,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
             .map(TestAttempt.class::cast)
             .collect(MoreCollectors.onlyElement());
     assertThat(attempt.getStatus()).isEqualTo(TestStatus.PASSED);
+    assertThat(attempt.getExecutionInfo().getExitCode()).isEqualTo(0);
     assertThat(attempt.getExecutionInfo().getStrategy()).isEqualTo("remote");
     assertThat(attempt.getExecutionInfo().getHostname()).isEqualTo("a-remote-host");
   }
@@ -551,6 +557,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     assertThat(result.isCached()).isFalse();
     assertThat(result.getTestAction()).isSameInstanceAs(testRunnerAction);
     assertThat(result.getData().getTestPassed()).isTrue();
+    assertThat(result.getData().getExitCode()).isEqualTo(0);
     assertThat(result.getData().getRemotelyCached()).isTrue();
     assertThat(result.getData().getIsRemoteStrategy()).isFalse();
     assertThat(result.getData().getRunDurationMillis()).isEqualTo(10);
@@ -911,6 +918,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     assertThat(standaloneTestStrategy.postedResult).isNotNull();
     assertThat(standaloneTestStrategy.postedResult.getData().getStatus())
         .isEqualTo(BlazeTestStatus.PASSED);
+    assertThat(standaloneTestStrategy.postedResult.getData().getExitCode())
+        .isEqualTo(0);
     assertThat(storedEvents.getEvents())
         .contains(Event.of(EventKind.PASS, null, "//standalone:empty_test (run 1 of 2)"));
     // Reset postedResult.
@@ -1010,6 +1019,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     assertThat(standaloneTestStrategy.postedResult).isNotNull();
     assertThat(standaloneTestStrategy.postedResult.getData().getStatus())
         .isEqualTo(BlazeTestStatus.FAILED);
+    assertThat(standaloneTestStrategy.postedResult.getData().getExitCode())
+        .isEqualTo(1);
     assertContainsPrefixedEvent(
         storedEvents.getEvents(),
         Event.of(EventKind.FAIL, null, "//standalone:empty_test (run 1 of 2)"));
@@ -1030,6 +1041,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     assertThat(standaloneTestStrategy.postedResult).isNotNull();
     assertThat(standaloneTestStrategy.postedResult.getData().getStatus())
         .isEqualTo(BlazeTestStatus.PASSED);
+    assertThat(standaloneTestStrategy.postedResult.getData().getExitCode())
+        .isEqualTo(0);
     assertThat(storedEvents.getEvents())
         .contains(Event.of(EventKind.PASS, null, "//standalone:empty_test (run 2 of 2)"));
   }
@@ -1116,6 +1129,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     assertThat(standaloneTestStrategy.postedResult).isNotNull();
     assertThat(standaloneTestStrategy.postedResult.getData().getStatus())
         .isEqualTo(BlazeTestStatus.FAILED);
+    assertThat(standaloneTestStrategy.postedResult.getData().getExitCode())
+        .isEqualTo(1);
     assertContainsPrefixedEvent(
         storedEvents.getEvents(),
         Event.of(EventKind.FAIL, null, "//standalone:empty_test (run 1 of 2)"));
@@ -1179,5 +1194,6 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     assertThat(failedResult).isInstanceOf(StandaloneProcessedAttemptResult.class);
     TestResultData data = ((StandaloneProcessedAttemptResult) failedResult).testResultData();
     assertThat(data.getStatus()).isEqualTo(BlazeTestStatus.INCOMPLETE);
+    assertThat(data.getExitCode()).isEqualTo(0);
   }
 }

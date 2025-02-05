@@ -366,6 +366,8 @@ public class StandaloneTestStrategy extends TestStrategy {
     BuildEventStreamProtos.TestResult.ExecutionInfo.Builder executionInfo =
         BuildEventStreamProtos.TestResult.ExecutionInfo.newBuilder();
 
+    executionInfo.setExitCode(spawnResult.exitCode());
+
     if (spawnResult.isCacheHit()) {
       result.setRemotelyCached(true);
       executionInfo.setCachedRemotely(true);
