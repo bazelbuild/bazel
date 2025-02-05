@@ -64,7 +64,7 @@ final class Eval {
   static Object execFunctionBody(StarlarkThread.Frame fr, List<Statement> statements)
       throws EvalException, InterruptedException {
     fr.thread.checkInterrupt();
-    execStatements(fr, statements, /*indented=*/ false);
+    execStatements(fr, statements, /* indented= */ false);
     return fr.result;
   }
 
@@ -135,7 +135,7 @@ final class Eval {
       for (Object it : seq) {
         assign(fr, node.getVars(), it);
 
-        switch (execStatements(fr, node.getBody(), /*indented=*/ true)) {
+        switch (execStatements(fr, node.getBody(), /* indented= */ true)) {
           case PASS:
           case CONTINUE:
             // Stay in loop.
@@ -219,9 +219,9 @@ final class Eval {
       throws EvalException, InterruptedException {
     boolean cond = Starlark.truth(eval(fr, node.getCondition()));
     if (cond) {
-      return execStatements(fr, node.getThenBlock(), /*indented=*/ true);
+      return execStatements(fr, node.getThenBlock(), /* indented= */ true);
     } else if (node.getElseBlock() != null) {
-      return execStatements(fr, node.getElseBlock(), /*indented=*/ true);
+      return execStatements(fr, node.getElseBlock(), /* indented= */ true);
     }
     return TokenKind.PASS;
   }
@@ -441,7 +441,7 @@ final class Eval {
                 fr.thread.getSemantics(),
                 object,
                 field,
-                /*defaultValue=*/ null);
+                /* defaultValue= */ null);
         Object y = eval(fr, rhs);
         Object z;
         try {
@@ -630,7 +630,7 @@ final class Eval {
     String name = dot.getField().getName();
     try {
       return Starlark.getattr(
-          fr.thread.mutability(), fr.thread.getSemantics(), object, name, /*defaultValue=*/ null);
+          fr.thread.mutability(), fr.thread.getSemantics(), object, name, /* defaultValue= */ null);
     } catch (EvalException ex) {
       fr.setErrorLocation(dot.getDotLocation());
       throw ex;
@@ -669,11 +669,15 @@ final class Eval {
     }
     // Inv: n = |positional| + |named|
 
-    StarlarkCallable.ArgumentProcessor argumentProcessor =
-        Starlark.requestArgumentProcessor(fr.thread, fn);
-    if (argumentProcessor != null) {
-      return evalCallWithArgumentProcessor(
-          fr, call, argumentProcessor, arguments, star, starstar, n);
+    // Temporarily prevent use of BuiltinFunction.ArgumentProcessor which caused performance
+    // regression b/392290938, until the root cause of that regression is fixed.
+    if (fn instanceof StarlarkCallable && !(fn instanceof BuiltinFunction)) {
+      StarlarkCallable.ArgumentProcessor argumentProcessor =
+          Starlark.requestArgumentProcessor(fr.thread, fn);
+      if (argumentProcessor != null) {
+        return evalCallWithArgumentProcessor(
+            fr, call, argumentProcessor, arguments, star, starstar, n);
+      }
     }
     return evalFastcall(fr, fn, call, arguments, star, starstar, n);
   }
