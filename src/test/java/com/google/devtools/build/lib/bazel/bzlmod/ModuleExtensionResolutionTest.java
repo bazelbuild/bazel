@@ -317,6 +317,13 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         "  ctx.file('WORKSPACE')",
         "  ctx.file('BUILD')",
         "  ctx.file('data.bzl', 'data = '+json.encode(ctx.attr.data))",
+        "  ctx.file(",
+        "    'names.bzl',",
+        "    'names='+json.encode({",
+        "      'name': ctx.name,",
+        "      'original_name': ctx.original_name,",
+        "    })",
+        "  )",
         "data_repo = repository_rule(",
         "  implementation=_data_repo_impl,",
         "  attrs={'data':attr.string()})");
@@ -345,8 +352,12 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     scratch.file(
         workspaceRoot.getRelative("data.bzl").getPathString(),
         "load('@foo//:data.bzl', foo_data='data')",
+        "load('@foo//:names.bzl', foo_names='names')",
         "load('@bar//:data.bzl', bar_data='data')",
-        "data = 'foo:'+foo_data+' bar:'+bar_data");
+        "load('@bar//:names.bzl', bar_names='names')",
+        "data = 'foo:'+foo_data+' bar:'+bar_data",
+        "names = 'foo:'+foo_names['name']+' bar:'+bar_names['name']",
+        "original_names = 'foo:'+foo_names['original_name']+' bar:'+bar_names['original_name']");
 
     SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
     EvaluationResult<BzlLoadValue> result =
@@ -355,6 +366,10 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
       throw result.getError().getException();
     }
     assertThat(result.get(skyKey).getModule().getGlobal("data")).isEqualTo("foo:fu bar:ba");
+    assertThat(result.get(skyKey).getModule().getGlobal("names"))
+        .isEqualTo("foo:+ext+foo bar:+ext+bar");
+    assertThat(result.get(skyKey).getModule().getGlobal("original_names"))
+        .isEqualTo("foo:foo bar:bar");
   }
 
   @Test
@@ -2905,19 +2920,23 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         workspaceRoot.getRelative("MODULE.bazel").getPathString(),
         "bazel_dep(name='foo',version='1.0')",
         "data_repo = use_repo_rule('@foo//:repo.bzl', 'data_repo')",
-        "data_repo(name='data', data='get up at 6am.')");
+        "data_repo(name='data1', data='get up at 6am.')");
     scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
     scratch.file(
         workspaceRoot.getRelative("data.bzl").getPathString(),
-        "load('@data//:data.bzl', self_data='data')",
+        "load('@data1//:data.bzl', self_data='data')",
+        "load('@data1//:names.bzl', self_names='names')",
         "load('@foo//:data.bzl', foo_data='data')",
-        "data=self_data+' '+foo_data");
+        "load('@foo//:names.bzl', foo_names='names')",
+        "data=self_data+' '+foo_data",
+        "names=self_names['name']+' '+foo_names['name']",
+        "original_names=self_names['original_name']+' '+foo_names['original_name']");
 
     registry.addModule(
         createModuleKey("foo", "1.0"),
         "module(name='foo',version='1.0')",
         "data_repo = use_repo_rule('//:repo.bzl', 'data_repo')",
-        "data_repo(name='data', data='go to bed at 11pm.')");
+        "data_repo(name='data2', data='go to bed at 11pm.')");
     scratch.file(modulesRoot.getRelative("foo~v1.0/WORKSPACE").getPathString());
     scratch.file(modulesRoot.getRelative("foo~v1.0/BUILD").getPathString());
     scratch.file(
@@ -2925,10 +2944,21 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         "load('@data//:data.bzl',repo_data='data')",
         "data=repo_data");
     scratch.file(
+        modulesRoot.getRelative("foo+1.0/names.bzl").getPathString(),
+        "load('@data2//:names.bzl',repo_names='names')",
+        "names=repo_names");
+    scratch.file(
         modulesRoot.getRelative("foo~v1.0/repo.bzl").getPathString(),
         "def _data_repo_impl(ctx):",
         "  ctx.file('BUILD.bazel')",
         "  ctx.file('data.bzl', 'data='+json.encode(ctx.attr.data))",
+        "  ctx.file(",
+        "    'names.bzl',",
+        "    'names='+json.encode({",
+        "      'name': ctx.name,",
+        "      'original_name': ctx.original_name,",
+        "    })",
+        "  )",
         "data_repo = repository_rule(",
         "  implementation=_data_repo_impl, attrs={'data':attr.string()})");
 
@@ -2940,6 +2970,9 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     }
     assertThat(result.get(skyKey).getModule().getGlobal("data"))
         .isEqualTo("get up at 6am. go to bed at 11pm.");
+    assertThat(result.get(skyKey).getModule().getGlobal("names"))
+        .isEqualTo("+_repo_rules+data1 foo++_repo_rules+data2");
+    assertThat(result.get(skyKey).getModule().getGlobal("original_names")).isEqualTo("data1 data2");
   }
 
   @Test
