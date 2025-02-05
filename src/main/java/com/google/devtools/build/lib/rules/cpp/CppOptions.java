@@ -1078,6 +1078,17 @@ public class CppOptions extends FragmentOptions {
               + " toolchain() resolution to choose a test runner.")
   public boolean experimentalPlatformCcTest;
 
+  @Option(
+      name = "experimental_starlark_linking",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+      },
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "If enabled, a Starlark version of linking is used.")
+  public boolean experimentalStarlarkLinking;
+
   /** See {@link #targetLibcTopLabel} documentation. * */
   @Override
   public FragmentOptions getNormalized() {

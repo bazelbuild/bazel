@@ -1011,4 +1011,13 @@ public final class CppConfiguration extends Fragment
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return cppOptions.protoProfile;
   }
+
+  @StarlarkMethod(
+      name = "experimental_starlark_linking",
+      documented = false,
+      useStarlarkThread = true)
+  public boolean experimentalStarlarkLinking(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return cppOptions.experimentalStarlarkLinking;
+  }
 }
