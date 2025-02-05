@@ -52,6 +52,42 @@ public interface StarlarkCallable extends StarlarkValue {
   }
 
   /**
+   * Defines the "fast" implementation of function calling for a callable value.
+   *
+   * <p>Do not call this function directly. Use the {@link Starlark#call} or {@link
+   * Starlark#fastcall} function to make a call, as it handles necessary book-keeping such as
+   * maintenance of the call stack, exception handling, and so on.
+   *
+   * <p>The fastcall implementation takes ownership of the two arrays, and may retain them
+   * indefinitely or modify them. The caller must not modify or even access the two arrays after
+   * making the call.
+   *
+   * <p>This method defines the low-level or "fast" calling convention. A more convenient interface
+   * is provided by the {@link #call} method, which provides a signature analogous to {@code def
+   * f(*args, **kwargs)}, or possibly the "self-call" feature of the {@link StarlarkMethod#selfCall}
+   * annotation mechanism.
+   *
+   * <p>The default implementation forwards the call to {@code call}, after rejecting any duplicate
+   * named arguments. Other implementations of this method should similarly reject duplicates.
+   *
+   * <p>See {@link Starlark#fastcall} for basic information about function calls.
+   *
+   * @param thread the StarlarkThread in which the function is called
+   * @param positional a list of positional arguments
+   * @param named a list of named arguments, as alternating Strings/Objects. May contain dups.
+   */
+  default Object fastcall(StarlarkThread thread, Object[] positional, Object[] named)
+      throws EvalException, InterruptedException {
+    LinkedHashMap<String, Object> kwargs = Maps.newLinkedHashMapWithExpectedSize(named.length >> 1);
+    for (int i = 0; i < named.length; i += 2) {
+      if (kwargs.put((String) named[i], named[i + 1]) != null) {
+        throw Starlark.errorf("%s got multiple values for parameter '%s'", this, named[i]);
+      }
+    }
+    return call(thread, Tuple.of(positional), Dict.wrap(thread.mutability(), kwargs));
+  }
+
+  /**
    * Defines the "fast" implementation variant of function calling with only positional arguments.
    *
    * <p>Do not call this function directly. Use the {@link Starlark#easycall} function to make a
