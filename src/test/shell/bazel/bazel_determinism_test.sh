@@ -46,6 +46,15 @@ else
   fail "Could not find sha1sum or shasum on the PATH"
 fi
 
+case "$(uname -s | tr [:upper:] [:lower:])" in
+msys*|mingw*|cygwin*|darwin)
+  declare -r is_linux=false
+  ;;
+*)
+  declare -r is_linux=true
+  ;;
+esac
+
 function hash_outputs() {
   # runfiles/MANIFEST & runfiles_manifest contain absolute path, ignore.
   # ar on OS-X is non-deterministic, ignore .a files.
@@ -72,11 +81,18 @@ function test_determinism()  {
     cp derived/maven/BUILD.vendor derived/maven/BUILD
 
     # Build Bazel once.
+    #
     # Use an output base with spaces and non-ASCII characters to verify that
     # Bazel supports this. Characters with a 4-byte UTF-8 encoding would cause
     # Java compilation to fail due to
     # https://bugs.openjdk.org/browse/JDK-8258246.
-    output_base_1="${TEST_TMPDIR}/ouäöü€t 1"
+    # On Linux, the host needs to provide the C.UTF-8 locale for this to work,
+    # otherwise the DumpPlatformClasspath action will fail.
+    if [[ $is_linux && "$(LC_CTYPE=C.UTF-8 locale charmap)" != "UTF-8" ]]; then
+      output_base_1="${TEST_TMPDIR}/out 1"
+    else
+      output_base_1="${TEST_TMPDIR}/ouäöü€t 1"
+    fi
     bazel \
       --output_base="${output_base_1}" \
       build \
@@ -86,7 +102,6 @@ function test_determinism()  {
       --lockfile_mode=update \
       --override_repository=$(cat derived/maven/MAVEN_CANONICAL_REPO_NAME)=derived/maven \
       --nostamp \
-      --verbose_failures \
       //src:bazel &> $TEST_log || fail "First build failed"
     assert_exists "${output_base_1}/java.log"
     expect_not_log ERROR
@@ -95,7 +110,11 @@ function test_determinism()  {
     hash_outputs >"${TEST_TMPDIR}/sum1"
 
     # Build Bazel twice.
-    output_base_2="${TEST_TMPDIR}/ouäöü€t 2"
+    if [[ $is_linux && "$(LC_CTYPE=C.UTF-8 locale charmap)" != "UTF-8" ]]; then
+      output_base_2="${TEST_TMPDIR}/out 2"
+    else
+      output_base_2="${TEST_TMPDIR}/ouäöü€t 2"
+    fi
     bazel-bin/src/bazel \
       --bazelrc="${TEST_TMPDIR}/bazelrc" \
       --install_base="${TEST_TMPDIR}/install_baseäöü€t 2" \
@@ -107,7 +126,6 @@ function test_determinism()  {
       --lockfile_mode=update \
       --override_repository=$(cat derived/maven/MAVEN_CANONICAL_REPO_NAME)=derived/maven \
       --nostamp \
-      --verbose_failures \
       //src:bazel &> $TEST_log || fail "Second build failed"
     assert_exists "${output_base_2}/java.log"
     expect_not_log ERROR
