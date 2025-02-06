@@ -70,7 +70,6 @@ single_version_override(
     ],
 )
 
-
 local_path_override(
     module_name = "remoteapis",
     path = "./third_party/remoteapis",
