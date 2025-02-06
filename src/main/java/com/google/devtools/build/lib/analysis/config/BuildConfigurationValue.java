@@ -604,7 +604,7 @@ public class BuildConfigurationValue
     ImmutableMap.Builder<String, String> makeEnvironment = ImmutableMap.builder();
     makeEnvironment.putAll(globalMakeEnv);
     makeEnvironment.putAll(commandLineBuildVariables);
-    return makeEnvironment.build();
+    return makeEnvironment.buildKeepingLast();
   }
 
   /**
