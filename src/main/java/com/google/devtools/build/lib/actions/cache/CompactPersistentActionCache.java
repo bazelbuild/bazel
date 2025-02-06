@@ -403,7 +403,13 @@ public class CompactPersistentActionCache implements ActionCache {
 
   @Override
   public void removeIf(Predicate<Entry> predicate) {
-    map.entrySet().removeIf(entry -> predicate.test(get(entry.getValue())));
+    for (Map.Entry<Integer, byte[]> entry : map.entrySet()) {
+      if (predicate.test(get(entry.getValue()))) {
+        // Although this is racy (the key might be concurrently set to a different value), we don't
+        // care because it's a very small window and it only impacts performance, not correctness.
+        map.remove(entry.getKey());
+      }
+    }
   }
 
   @ThreadSafety.ThreadHostile

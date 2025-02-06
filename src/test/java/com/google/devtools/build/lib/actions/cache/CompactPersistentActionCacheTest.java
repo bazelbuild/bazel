@@ -175,6 +175,41 @@ public class CompactPersistentActionCacheTest {
     assertFullSave();
   }
 
+  @Test
+  public void testRemoveIf() throws IOException {
+    // Add 100 entries, 5 of which discover inputs, and do a full save.
+    for (int i = 0; i < 100; i++) {
+      putKey(Integer.toString(i), i % 20 == 0);
+    }
+    assertFullSave();
+
+    // Remove entries that discover inputs and flush the journal.
+    cache.removeIf(e -> e.discoversInputs());
+    assertIncrementalSave(cache);
+
+    // Check that the entries that discover inputs are gone, and the rest are still there.
+    for (int i = 0; i < 100; i++) {
+      ActionCache.Entry entry = cache.get(Integer.toString(i));
+      if (i % 20 == 0) {
+        assertThat(entry).isNull();
+      } else {
+        assertThat(entry).isNotNull();
+      }
+    }
+
+    // Make sure we get the same result after deserializing into a new cache.
+    CompactPersistentActionCache newerCache =
+        CompactPersistentActionCache.create(dataRoot, clock, NullEventHandler.INSTANCE);
+    for (int i = 0; i < 100; i++) {
+      ActionCache.Entry entry = newerCache.get(Integer.toString(i));
+      if (i % 20 == 0) {
+        assertThat(entry).isNull();
+      } else {
+        assertThat(entry).isNotNull();
+      }
+    }
+  }
+
   // Regression test to check that CompactActionCacheEntry.toString does not mutate the object.
   // Mutations may result in IllegalStateException.
   @SuppressWarnings("ReturnValueIgnored")
