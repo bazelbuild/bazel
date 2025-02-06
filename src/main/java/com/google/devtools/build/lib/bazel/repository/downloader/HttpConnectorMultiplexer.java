@@ -138,16 +138,18 @@ final class HttpConnectorMultiplexer {
     Preconditions.checkNotNull(credentials);
 
     return url -> {
+      ImmutableMap.Builder<String, List<String>> headers = new ImmutableMap.Builder<>();
+      headers.putAll(baseHeaders);
       try {
-        return ImmutableMap.copyOf(credentials.getRequestMetadata(url.toURI()));
+        headers.putAll(credentials.getRequestMetadata(url.toURI()));
       } catch (URISyntaxException | IOException e) {
         // If we can't convert the URL to a URI (because it is syntactically malformed), or fetching
         // credentials fails for any other reason, still try to do the connection, not adding
         // authentication information as we cannot look it up.
         eventHandler.handle(
             Event.warn("Error retrieving auth headers, continuing without: " + e.getMessage()));
-        return ImmutableMap.of();
       }
+      return headers.buildKeepingLast();
     };
   }
 }
