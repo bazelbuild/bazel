@@ -18,6 +18,9 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Comparators.max;
 import static com.google.common.collect.Comparators.min;
+import static com.google.devtools.build.lib.buildtool.BuildRequestOptions.MAX_JOBS;
+import static java.lang.Math.max;
+import static java.lang.Math.min;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -140,10 +143,6 @@ import javax.annotation.Nullable;
 public final class SkyframeActionExecutor {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
-
-  // Maximum concurrent actions for async execution.
-  // TODO(chiwang): Add a flag for this.
-  private static final int MAX_CONCURRENT_ACTIONS = 5000;
 
   private static final OutputMetadataStore THROWING_OUTPUT_METADATA_STORE_FOR_ACTIONFS =
       new OutputMetadataStore() {
@@ -343,10 +342,13 @@ public final class SkyframeActionExecutor {
             : null;
 
     if (buildRequestOptions.useSemaphoreForJobs || this.useAsyncExecution) {
+      var minActiveAction = buildRequestOptions.jobs;
+      var maxActiveAction =
+          this.useAsyncExecution
+              ? min(MAX_JOBS, buildRequestOptions.asyncExecutionMaxConcurrentActions)
+              : buildRequestOptions.jobs;
       this.actionConcurrencyMeter =
-          new ActionConcurrencyMeter(
-              buildRequestOptions.jobs,
-              this.useAsyncExecution ? MAX_CONCURRENT_ACTIONS : buildRequestOptions.jobs);
+          new ActionConcurrencyMeter(minActiveAction, max(minActiveAction, maxActiveAction));
     }
   }
 
