@@ -53,7 +53,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
@@ -65,10 +64,9 @@ import javax.annotation.Nullable;
 @ConditionallyThreadSafe // condition: each instance must be instantiated with different cache root
 public class CompactPersistentActionCache implements ActionCache {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
-  private static final int SAVE_INTERVAL_SECONDS = 3;
+  private static final Duration SAVE_INTERVAL = Duration.ofSeconds(3);
   // Log if periodically saving the action cache incurs more than 5% overhead.
-  private static final Duration MIN_TIME_FOR_LOGGING =
-      Duration.ofSeconds(SAVE_INTERVAL_SECONDS).dividedBy(20);
+  private static final Duration MIN_TIME_FOR_LOGGING = SAVE_INTERVAL.dividedBy(20);
 
   // Key of the action cache record that holds information used to verify referential integrity
   // between action cache and string indexer. Must be < 0 to avoid conflict with real action
@@ -82,7 +80,7 @@ public class CompactPersistentActionCache implements ActionCache {
   private static final class ActionMap extends PersistentMap<Integer, byte[]> {
     private final Clock clock;
     private final PersistentStringIndexer indexer;
-    private long nextUpdateSecs;
+    private long nextUpdateNanos;
 
     ActionMap(
         ConcurrentMap<Integer, byte[]> map,
@@ -94,17 +92,17 @@ public class CompactPersistentActionCache implements ActionCache {
       super(VERSION, map, mapFile, journalFile);
       this.indexer = indexer;
       this.clock = clock;
-      // Using nanoTime. currentTimeMillis may not provide enough granularity.
-      nextUpdateSecs = TimeUnit.NANOSECONDS.toSeconds(clock.nanoTime()) + SAVE_INTERVAL_SECONDS;
+      // Use nanoTime() instead of currentTimeMillis() to get monotonic time, not wall time.
+      nextUpdateNanos = clock.nanoTime() + SAVE_INTERVAL.toNanos();
       load();
     }
 
     @Override
     protected boolean updateJournal() {
-      // Using nanoTime. currentTimeMillis may not provide enough granularity.
-      long timeSecs = TimeUnit.NANOSECONDS.toSeconds(clock.nanoTime());
-      if (SAVE_INTERVAL_SECONDS == 0 || timeSecs > nextUpdateSecs) {
-        nextUpdateSecs = timeSecs + SAVE_INTERVAL_SECONDS;
+      // Use nanoTime() instead of currentTimeMillis() to get monotonic time, not wall time.
+      long currentTimeNanos = clock.nanoTime();
+      if (currentTimeNanos > nextUpdateNanos) {
+        nextUpdateNanos = currentTimeNanos + SAVE_INTERVAL.toNanos();
         // Force flushing of the PersistentStringIndexer instance. This is needed to ensure
         // that filename index data on disk is always up-to-date when we save action cache
         // data.
