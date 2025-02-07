@@ -263,7 +263,7 @@ public final class SkyValueRetriever {
                       var unusedKey = codedIn.readString();
                       break;
                     }
-                  case DATA_TYPE_NODE:
+                  case DATA_TYPE_ANALYSIS_NODE, DATA_TYPE_EXECUTION_NODE:
                     {
                       var unusedKey = PackedFingerprint.readFrom(codedIn);
                       break;
