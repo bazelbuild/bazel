@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.runtime.commands;
 
 import static com.google.devtools.build.lib.runtime.Command.BuildPhase.NONE;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -70,7 +71,6 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
-import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -81,6 +81,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /** Implementation of 'blaze info'. */
@@ -131,13 +132,23 @@ public class InfoCommand implements BlazeCommand {
     }
   }
 
+  private final Function<CommandEnvironment, InfoItemHandler> infoItemHandlerFactory;
+
+  @VisibleForTesting
+  public InfoCommand(Function<CommandEnvironment, InfoItemHandler> infoItemHandlerFactory) {
+    this.infoItemHandlerFactory = infoItemHandlerFactory;
+  }
+
+  public InfoCommand() {
+    this.infoItemHandlerFactory = InfoItemHandler::create;
+  }
+
   @Override
   public BlazeCommandResult exec(
       final CommandEnvironment env, final OptionsParsingResult optionsParsingResult) {
     final BlazeRuntime runtime = env.getRuntime();
     env.getReporter().switchToAnsiAllowingHandler();
     Options infoOptions = optionsParsingResult.getOptions(Options.class);
-    OutErr outErr = env.getReporter().getOutErr();
     // Creating a BuildConfigurationValue is expensive and often unnecessary. Delay the creation
     // until
     // it is needed. We memoize so that it's cached intra-command (it's still created freshly on
@@ -171,7 +182,7 @@ public class InfoCommand implements BlazeCommand {
 
     Map<String, InfoItem> items = getInfoItemMap(env, optionsParsingResult);
 
-    try (InfoItemHandler infoItemHandler = InfoItemHandler.create(outErr)) {
+    try (InfoItemHandler infoItemHandler = infoItemHandlerFactory.apply(env)) {
       if (infoOptions.showMakeEnvironment) {
         Map<String, String> makeEnv = configurationSupplier.get().getMakeEnvironment();
         for (Map.Entry<String, String> entry : makeEnv.entrySet()) {

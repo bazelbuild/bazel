@@ -15,8 +15,10 @@ package com.google.devtools.build.lib.runtime.commands.info;
 
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
-import com.google.devtools.build.lib.util.io.OutErr;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -26,26 +28,29 @@ import org.junit.runners.JUnit4;
 public class InfoItemHandlerTest {
   @Test
   public void testStdOutputItem_addOneItemWithoutPrintingKey() throws Exception {
-    OutErr outErr = new RecordingOutErr();
+    RecordingOutErr outErr = new RecordingOutErr();
+    CommandEnvironment mockEnv = mock(CommandEnvironment.class);
+    when(mockEnv.getReporterOutErr()).thenReturn(outErr);
     try (StdoutInfoItemHandler stdoutInfoItemHandler =
-        (StdoutInfoItemHandler) InfoItemHandler.create(outErr)) {
+        (StdoutInfoItemHandler) InfoItemHandler.create(mockEnv)) {
       stdoutInfoItemHandler.addInfoItem(
           "info-1", "value-1\n".getBytes(UTF_8), /* printKey= */ false);
     }
 
-    assertThat(outErr.getOutputStream().toString()).isEqualTo("value-1\n");
+    assertThat(outErr.outAsLatin1()).isEqualTo("value-1\n");
   }
 
   @Test
   public void testStdOutputItem_addTwoItemWithPrintingKey() throws Exception {
-    OutErr outErr = new RecordingOutErr();
+    RecordingOutErr outErr = new RecordingOutErr();
+    CommandEnvironment mockEnv = mock(CommandEnvironment.class);
+    when(mockEnv.getReporterOutErr()).thenReturn(outErr);
     try (StdoutInfoItemHandler stdoutInfoItemHandler =
-        (StdoutInfoItemHandler) InfoItemHandler.create(outErr)) {
-
+        (StdoutInfoItemHandler) InfoItemHandler.create(mockEnv)) {
       stdoutInfoItemHandler.addInfoItem("foo", "value-foo\n".getBytes(UTF_8), /* printKey= */ true);
       stdoutInfoItemHandler.addInfoItem("bar", "value-bar\n".getBytes(UTF_8), /* printKey= */ true);
     }
 
-    assertThat(outErr.getOutputStream().toString()).isEqualTo("foo: value-foo\nbar: value-bar\n");
+    assertThat(outErr.outAsLatin1()).isEqualTo("foo: value-foo\nbar: value-bar\n");
   }
 }

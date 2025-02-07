@@ -443,6 +443,11 @@ public class CommandEnvironment {
     return reporter;
   }
 
+  // TODO: b/395157821 - Replace env.getReporter().getOutErr() with env.getReporterOutErr().
+  public OutErr getReporterOutErr() {
+    return reporter.getOutErr();
+  }
+
   public EventBus getEventBus() {
     return eventBus;
   }

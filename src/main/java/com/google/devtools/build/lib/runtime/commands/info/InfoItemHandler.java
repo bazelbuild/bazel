@@ -13,9 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands.info;
 
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.InfoItem;
 import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.lib.util.io.OutErr;
 import java.io.IOException;
 
 /** Handles how {@link InfoItem}s are outputted. */
@@ -29,7 +29,7 @@ public interface InfoItemHandler extends AutoCloseable {
   @Override
   void close() throws IOException;
 
-  static InfoItemHandler create(OutErr outErr) {
-    return new StdoutInfoItemHandler(outErr);
+  static InfoItemHandler create(CommandEnvironment env) {
+    return new StdoutInfoItemHandler(env.getReporterOutErr());
   }
 }

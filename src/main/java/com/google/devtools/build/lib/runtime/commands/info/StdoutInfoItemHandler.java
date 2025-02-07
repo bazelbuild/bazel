@@ -20,10 +20,10 @@ import com.google.devtools.build.lib.util.io.OutErr;
 import java.io.IOException;
 
 /** Prints {@link InfoItem}s to the console. */
-class StdoutInfoItemHandler implements InfoItemHandler {
+public class StdoutInfoItemHandler implements InfoItemHandler {
   private final OutErr outErr;
 
-  StdoutInfoItemHandler(OutErr outErr) {
+  public StdoutInfoItemHandler(OutErr outErr) {
     this.outErr = outErr;
   }
 
