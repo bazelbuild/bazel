@@ -518,9 +518,6 @@ sh_test(
         ":gen_rules_java_repo_name",
         ":test-deps",
     ],
-    tags = [
-        "no_windows",
-    ],
 )
 
 # Test java coverage with the java_toolchain in the released java_tools versions.
@@ -541,9 +538,6 @@ sh_test(
         data = [
             ":gen_rules_java_repo_name",
             ":test-deps",
-        ],
-        tags = [
-            "no_windows",
         ],
     )
     for java_version in JAVA_VERSIONS_COVERAGE
@@ -572,7 +566,6 @@ sh_test(
             "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_empty_workspace",
             "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator_repo%s" % ("" if java_version == "21" else "_java8"),
         ],
-        tags = ["no_windows"],
     )
     for java_version in JAVA_VERSIONS_COVERAGE
 ]
