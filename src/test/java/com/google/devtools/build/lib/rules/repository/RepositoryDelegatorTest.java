@@ -364,7 +364,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
 
     StoredEventHandler eventHandler = new StoredEventHandler();
     SkyKey key =
-        RepositoryDirectoryValue.key(RepositoryName.createUnvalidated("+_repo_rules+broken"));
+        RepositoryDirectoryValue.key(RepositoryName.createUnvalidated("+_repo_rule_broken_repo+broken"));
     // Make it be evaluated every time, as we are testing evaluation.
     differencer.invalidate(ImmutableSet.of(key));
     EvaluationContext evaluationContext =

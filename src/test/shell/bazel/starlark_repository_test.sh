@@ -185,7 +185,7 @@ EOF
 
   bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
   expect_log "foo"
-  cat bazel-bin/external/+_repo_rules+foo/bar.txt >$TEST_log
+  cat bazel-bin/external/+_repo_rule_foo+foo/bar.txt >$TEST_log
   expect_log "foo"
 }
 
@@ -386,9 +386,9 @@ EOF
   bazel build "--repo_env=INPUT_$unicode=${input_file}" @foo//:bar >& $TEST_log || fail "Failed to build"
   expect_log "UNICODE = $unicode"
   output_base="$(bazel info output_base)"
-  assert_contains "$unicode" "$output_base/external/+_repo_rules+foo/direct${unicode}.txt"
-  assert_contains "$unicode" "$output_base/external/+_repo_rules+foo/indirect${unicode}.txt"
-  assert_contains "${unicode}_replaced_${unicode}" "$output_base/external/+_repo_rules+foo/template${unicode}.txt"
+  assert_contains "$unicode" "$output_base/external/+_repo_rule_repo+foo/direct${unicode}.txt"
+  assert_contains "$unicode" "$output_base/external/+_repo_rule_repo+foo/indirect${unicode}.txt"
+  assert_contains "${unicode}_replaced_${unicode}" "$output_base/external/+_repo_rule_repo+foo/template${unicode}.txt"
 
   # The repo rule should not be re-run on server restart
   bazel shutdown
@@ -995,10 +995,10 @@ EOF
 
   bazel run @foo//:bar >& $TEST_log || fail "Execution of @foo//:bar failed"
   output_base=$(bazel info output_base)
-  test -x "${output_base}/external/+_repo_rules+foo/test.sh" || fail "test.sh is not executable"
-  test -x "${output_base}/external/+_repo_rules+foo/test2.sh" || fail "test2.sh is not executable"
-  test ! -x "${output_base}/external/+_repo_rules+foo/BUILD" || fail "BUILD is executable"
-  test ! -x "${output_base}/external/+_repo_rules+foo/test2" || fail "test2 is executable"
+  test -x "${output_base}/external/+_repo_rule_repo+foo/test.sh" || fail "test.sh is not executable"
+  test -x "${output_base}/external/+_repo_rule_repo+foo/test2.sh" || fail "test2.sh is not executable"
+  test ! -x "${output_base}/external/+_repo_rule_repo+foo/BUILD" || fail "BUILD is executable"
+  test ! -x "${output_base}/external/+_repo_rule_repo+foo/test2" || fail "test2 is executable"
 }
 
 function test_starlark_repository_download() {
@@ -1034,15 +1034,15 @@ EOF
 
   output_base="$(bazel info output_base)"
   # Test download
-  test -e "${output_base}/external/+_repo_rules+foo/download_with_sha256.txt" \
+  test -e "${output_base}/external/+_repo_rule_repo+foo/download_with_sha256.txt" \
     || fail "download_with_sha256.txt is not downloaded"
-  test -e "${output_base}/external/+_repo_rules+foo/download_executable_file.sh" \
+  test -e "${output_base}/external/+_repo_rule_repo+foo/download_executable_file.sh" \
     || fail "download_executable_file.sh is not downloaded"
   # Test download
-  diff "${output_base}/external/+_repo_rules+foo/download_with_sha256.txt" \
+  diff "${output_base}/external/+_repo_rule_repo+foo/download_with_sha256.txt" \
     "${download_with_sha256}" >/dev/null \
     || fail "download_with_sha256.txt is not downloaded successfully"
-  diff "${output_base}/external/+_repo_rules+foo/download_executable_file.sh" \
+  diff "${output_base}/external/+_repo_rule_repo+foo/download_executable_file.sh" \
     "${download_executable_file}" >/dev/null \
     || fail "download_executable_file.sh is not downloaded successfully"
 
@@ -1052,9 +1052,9 @@ EOF
   fi
 
   # Test executable
-  test ! -x "${output_base}/external/+_repo_rules+foo/download_with_sha256.txt" \
+  test ! -x "${output_base}/external/+_repo_rule_repo+foo/download_with_sha256.txt" \
     || fail "download_with_sha256.txt is executable"
-  test -x "${output_base}/external/+_repo_rules+foo/download_executable_file.sh" \
+  test -x "${output_base}/external/+_repo_rule_repo+foo/download_executable_file.sh" \
     || fail "download_executable_file.sh is not executable"
 }
 
@@ -1123,13 +1123,13 @@ EOF
         >& $TEST_log && shutdown_server || fail "Execution of @foo//:all failed"
 
   output_base="$(bazel info output_base)"
-  grep "no_sha_return $not_provided_sha256" $output_base/external/+_repo_rules+foo/returned_shas.txt \
+  grep "no_sha_return $not_provided_sha256" $output_base/external/+_repo_rule_foo+foo/returned_shas.txt \
       || fail "expected calculated sha256 $not_provided_sha256"
-  grep "with_sha_return $provided_sha256" $output_base/external/+_repo_rules+foo/returned_shas.txt \
+  grep "with_sha_return $provided_sha256" $output_base/external/+_repo_rule_foo+foo/returned_shas.txt \
       || fail "expected provided sha256 $provided_sha256"
-  grep "compressed_with_sha_return $compressed_provided_sha256" $output_base/external/+_repo_rules+foo/returned_shas.txt \
+  grep "compressed_with_sha_return $compressed_provided_sha256" $output_base/external/+_repo_rule_foo+foo/returned_shas.txt \
       || fail "expected provided sha256 $compressed_provided_sha256"
-  grep "compressed_no_sha_return $compressed_not_provided_sha256" $output_base/external/+_repo_rules+foo/returned_shas.txt \
+  grep "compressed_no_sha_return $compressed_not_provided_sha256" $output_base/external/+_repo_rule_foo+foo/returned_shas.txt \
       || fail "expected compressed calculated sha256 $compressed_not_provided_sha256"
 }
 
@@ -1189,7 +1189,7 @@ EOF
 
   output_base="$(bazel info output_base)"
   # Test download
-  test -e "${output_base}/external/+_repo_rules+foo/whatever.txt" \
+  test -e "${output_base}/external/+_repo_rule_repo+foo/whatever.txt" \
     || fail "whatever.txt is not downloaded"
 }
 
@@ -1242,26 +1242,26 @@ EOF
 
   output_base="$(bazel info output_base)"
   # Test cleanup
-  test -e "${output_base}/external/+_repo_rules+foo/server_dir/download_and_extract1.tar.gz" \
+  test -e "${output_base}/external/+_repo_rule_repo+foo/server_dir/download_and_extract1.tar.gz" \
     && fail "temp file was not deleted successfully" || true
-  test -e "${output_base}/external/+_repo_rules+foo/server_dir/download_and_extract2.zip" \
+  test -e "${output_base}/external/+_repo_rule_repo+foo/server_dir/download_and_extract2.zip" \
     && fail "temp file was not deleted successfully" || true
-  test -e "${output_base}/external/+_repo_rules+foo/server_dir/download_and_extract3.zip" \
+  test -e "${output_base}/external/+_repo_rule_repo+foo/server_dir/download_and_extract3.zip" \
     && fail "temp file was not deleted successfully" || true
   # Test download_and_extract
-  diff "${output_base}/external/+_repo_rules+foo/server_dir/download_and_extract1.txt" \
+  diff "${output_base}/external/+_repo_rule_repo+foo/server_dir/download_and_extract1.txt" \
     "${file_prefix}1.txt" >/dev/null \
     || fail "download_and_extract1.tar.gz was not extracted successfully"
-  diff "${output_base}/external/+_repo_rules+foo/some/path/server_dir/download_and_extract1.txt" \
+  diff "${output_base}/external/+_repo_rule_repo+foo/some/path/server_dir/download_and_extract1.txt" \
     "${file_prefix}1.txt" >/dev/null \
     || fail "download_and_extract1.tar.gz was not extracted successfully in some/path"
-  diff "${output_base}/external/+_repo_rules+foo/server_dir/download_and_extract2.txt" \
+  diff "${output_base}/external/+_repo_rule_repo+foo/server_dir/download_and_extract2.txt" \
     "${file_prefix}2.txt" >/dev/null \
     || fail "download_and_extract2.zip was not extracted successfully"
-  diff "${output_base}/external/+_repo_rules+foo/server_dir/download_and_extract3.txt" \
+  diff "${output_base}/external/+_repo_rule_repo+foo/server_dir/download_and_extract3.txt" \
     "${file_prefix}3.txt" >/dev/null \
     || fail "download_and_extract3.zip was not extracted successfully"
-  diff "${output_base}/external/+_repo_rules+foo/other/path/server_dir/download_and_extract3.txt" \
+  diff "${output_base}/external/+_repo_rule_repo+foo/other/path/server_dir/download_and_extract3.txt" \
     "${file_prefix}3.txt" >/dev/null \
     || fail "download_and_extract3.tar.gz was not extracted successfully"
 }
@@ -2477,9 +2477,9 @@ EOF
   bazel build @foo >& $TEST_log || fail "expected bazel to succeed"
   expect_log "I see: nothing"
 
-  local marker_file=$(bazel info output_base)/external/@+_repo_rules+foo.marker
-  # the marker file for this repo should contain a reference to "@@+_repo_rules2+bar". Mangle that.
-  sed -i'' -e 's/@@+_repo_rules2+bar/@@LOL@@LOL/g' ${marker_file}
+  local marker_file=$(bazel info output_base)/external/@+_repo_rule_foo+foo.marker
+  # the marker file for this repo should contain a reference to "@@+_repo_rule_bar+bar". Mangle that.
+  sed -i'' -e 's/@@+_repo_rule_bar+bar/@@LOL@@LOL/g' ${marker_file}
 
   # Running Bazel again shouldn't crash, and should result in a refetch.
   bazel shutdown
@@ -2506,7 +2506,7 @@ EOF
 def _foo(rctx):
   rctx.file("BUILD", "filegroup(name='foo')")
   # this repo might not have been defined yet
-  rctx.watch("../+_repo_rules2+bar/BUILD")
+  rctx.watch("../+_repo_rule_bar+bar/BUILD")
   print("I see something!")
 foo=repository_rule(_foo)
 EOF
@@ -2919,8 +2919,8 @@ filegroup(
 EOF
     bazel build //:foo >& $TEST_log || fail "expected bazel to succeed"
     expect_log "main repo: //:foo @@//:foo"
-    expect_log "my_first_repo: @my_first_repo//:foo @@+_repo_rules+my_first_repo//:foo"
-    expect_log "my_second_repo: @my_first_repo//:foo @@+_repo_rules+my_first_repo//:foo"
+    expect_log "my_first_repo: @my_first_repo//:foo @@+_repo_rule_my_repository_rule+my_first_repo//:foo"
+    expect_log "my_second_repo: @my_first_repo//:foo @@+_repo_rule_my_repository_rule+my_first_repo//:foo"
 }
 
 function test_execute_environment_remove_vars() {

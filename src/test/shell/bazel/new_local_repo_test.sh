@@ -91,13 +91,13 @@ eof
 
   echo "dummy" >$pkg/B/a.txt
 
-  # Build 1: g.txt should contain external/+_repo_rules+B/a.txt
+  # Build 1: g.txt should contain external/+_repo_rule_new_local_repository+B/a.txt
   ( cd $pkg/A
     bazel build //:G
     cat bazel-genfiles/g.txt >$TEST_log
   )
-  expect_log "external/+_repo_rules+B/a.txt"
-  expect_not_log "external/+_repo_rules+B/b.txt"
+  expect_log "external/+_repo_rule_new_local_repository+B/a.txt"
+  expect_not_log "external/+_repo_rule_new_local_repository+B/b.txt"
 
   # Build 2: add B/b.txt and see if the glob picks it up.
   # Shut down the server afterwards so the test cleanup can remove $pkg/A.
@@ -107,8 +107,8 @@ eof
     cat bazel-genfiles/g.txt >$TEST_log
     bazel shutdown >& /dev/null
   )
-  expect_log "external/+_repo_rules+B/a.txt"
-  expect_log "external/+_repo_rules+B/b.txt"
+  expect_log "external/+_repo_rule_new_local_repository+B/a.txt"
+  expect_log "external/+_repo_rule_new_local_repository+B/b.txt"
 }
 
 # Regression test for https://github.com/bazelbuild/bazel/issues/9176

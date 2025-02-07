@@ -62,7 +62,7 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
         "repo = use_repo_rule('//:def.bzl', 'repo')",
         "repo(name='foo', path='/repo2')");
     invalidatePackages();
-    getConfiguredTargetAndData("@@+_repo_rules+foo//:bar");
+    getConfiguredTargetAndData("@@+_repo_rule_repo+foo//:bar");
   }
 
   @Test
@@ -91,7 +91,7 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
         "repo = use_repo_rule('//:def.bzl', 'repo')",
         "repo(name='foo', path='/repo2')");
     invalidatePackages();
-    getConfiguredTargetAndData("@@+_repo_rules+foo//:bar");
+    getConfiguredTargetAndData("@@+_repo_rule_repo+foo//:bar");
   }
 
   @Test
@@ -120,7 +120,7 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
         "repo = use_repo_rule('//:def.bzl', 'repo')",
         "repo(name='foo')");
     invalidatePackages();
-    getConfiguredTargetAndData("@@+_repo_rules+foo//:bar");
+    getConfiguredTargetAndData("@@+_repo_rule_repo+foo//:bar");
   }
 
   @Test
@@ -146,11 +146,11 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
         "repo = use_repo_rule('//:def.bzl', 'repo')",
         "repo(name='foo')");
     invalidatePackages();
-    ConfiguredTargetAndData target = getConfiguredTargetAndData("@@+_repo_rules+foo//:bar");
+    ConfiguredTargetAndData target = getConfiguredTargetAndData("@@+_repo_rule_repo+foo//:bar");
     @SuppressWarnings("unchecked")
     List<Label> srcs =
         (List<Label>) target.getTargetForTesting().getAssociatedRule().getAttr("srcs", LABEL_LIST);
-    assertThat(srcs).containsExactly(Label.parseCanonical("@@+_repo_rules+foo//:foo"));
+    assertThat(srcs).containsExactly(Label.parseCanonical("@@+_repo_rule_repo+foo//:foo"));
   }
 
   @Test
@@ -177,12 +177,13 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
         "repo = use_repo_rule('//:def.bzl', 'repo')",
         "repo(name='foobar')");
     invalidatePackages();
-    ConfiguredTargetAndData target = getConfiguredTargetAndData("@@+_repo_rules+foobar//:bar");
+    ConfiguredTargetAndData target = getConfiguredTargetAndData("@@+_repo_rule_repo+foobar//:bar");
     @SuppressWarnings("unchecked")
     List<Label> srcs =
         (List<Label>) target.getTargetForTesting().getAssociatedRule().getAttr("srcs", LABEL_LIST);
     assertThat(srcs)
-        .containsExactly(Label.parseCanonical("@@+_repo_rules+foobar//:+_repo_rules+foobar"));
+        .containsExactly(
+            Label.parseCanonical("@@+_repo_rule_repo+foobar//:+_repo_rule_repo+foobar"));
   }
 
   @Test
@@ -206,7 +207,8 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
 
     invalidatePackages();
     AssertionError e =
-        assertThrows(AssertionError.class, () -> getConfiguredTarget("@@+_repo_rules+foo//:bar"));
+        assertThrows(
+            AssertionError.class, () -> getConfiguredTarget("@@+_repo_rule_repo+foo//:bar"));
     assertThat(e)
         .hasMessageThat()
         .contains("There is already a built-in attribute 'name' " + "which cannot be overridden");

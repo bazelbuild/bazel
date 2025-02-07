@@ -187,9 +187,12 @@ public class BazelDepGraphFunction implements SkyFunction {
   private static String makeUniqueNameCandidate(ModuleExtensionId id, int attempt) {
     Preconditions.checkArgument(attempt >= 1);
     String extensionNameDisambiguator = attempt == 1 ? "" : String.valueOf(attempt);
-    // An innate extension name is of the form @repo//path/to/defs.bzl%repo_rule_name, which cannot
-    // be part of a valid repo name.
-    String extensionName = id.isInnate() ? "_repo_rules" : id.extensionName();
+    // An innate extension name is of the form "@repo//path/to/defs.bzl repo_rule_name", which
+    // cannot be part of a valid repo name.
+    String extensionName =
+        id.isInnate()
+            ? "_repo_rule_" + id.extensionName().substring(id.extensionName().indexOf(' ') + 1)
+            : id.extensionName();
     return id.isolationKey()
         .map(
             isolationKey ->

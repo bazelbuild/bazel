@@ -324,7 +324,7 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     )
     self.AssertExitCode(exit_code, 1, stderr)
     self.assertIn(
-        "'@@+_repo_rules+other_repo//pkg/ignore' is a subpackage",
+        "'@@+_repo_rule_local_repository+other_repo//pkg/ignore' is a subpackage",
         ''.join(stderr),
     )
 
@@ -333,7 +333,7 @@ class BazelExternalRepositoryTest(test_base.TestBase):
             'build',
             '@other_repo//pkg:file',
             # TODO(bzlmod): support apparent repo name for --deleted_packages
-            '--deleted_packages=@@+_repo_rules+other_repo//pkg/ignore',
+            '--deleted_packages=@@+_repo_rule_local_repository+other_repo//pkg/ignore',
         ],
         cwd=work_dir,
     )
@@ -362,7 +362,7 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     )
     self.AssertExitCode(exit_code, 1, stderr)
     self.assertIn(
-        "'@@+_repo_rules+other_repo//pkg/ignore' is a subpackage",
+        "'@@+_repo_rule_local_repository+other_repo//pkg/ignore' is a subpackage",
         ''.join(stderr),
     )
 
@@ -383,7 +383,7 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     )
     self.AssertExitCode(exit_code, 1, stderr)
     self.assertIn(
-        "no such package '@@+_repo_rules+other_repo//pkg/ignore'",
+        "no such package '@@+_repo_rule_local_repository+other_repo//pkg/ignore'",
         ''.join(stderr),
     )
 

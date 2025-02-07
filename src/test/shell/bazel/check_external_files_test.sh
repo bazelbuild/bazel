@@ -109,12 +109,12 @@ test_check_external_files() {
   setup_remote
   bazel build @remote//:g >& "$TEST_log" || fail "Expected build to succeed"
 
-  echo "broken file" > bazel-main/external/+_repo_rules+remote/BUILD
+  echo "broken file" > bazel-main/external/+_repo_rule_http_archive+remote/BUILD
   # The --noexperimental_check_external_repository_files flag doesn't notice the file is broken
   bazel build --noexperimental_check_external_repository_files @remote//:g >& "$TEST_log" || fail "Expected build to succeed"
 
   bazel build @remote//:g >& "$TEST_log" && fail "Expected build to fail" || true
-  expect_log "no such target '@@+_repo_rules+remote//:g'"
+  expect_log "no such target '@@+_repo_rule_http_archive+remote//:g'"
 }
 
 test_check_all_flags_fast() {
@@ -125,7 +125,7 @@ test_check_all_flags_fast() {
   instances=$(grep -c "$msg" "$(bazel info server_log)")
   [[ $instances -eq 1 ]] || fail "Should have only been 1 instance, got $instances"
 
-  echo "broken file" > bazel-main/external/+_repo_rules+remote/BUILD
+  echo "broken file" > bazel-main/external/+_repo_rule_http_archive+remote/BUILD
 
   bazel build \
     --noexperimental_check_external_repository_files \
@@ -151,7 +151,7 @@ run_local_repository_isnt_affected() {
     $extra_args \
     @local_rep//:g >& "$TEST_log" && fail "Expected build to fail" || true
   bazel build --noexperimental_check_external_repository_files @local_rep//:g >& "$TEST_log" && fail "Expected build to fail" || true
-  expect_log "no such target '@@+_repo_rules+local_rep//:g'"
+  expect_log "no such target '@@+_repo_rule_local_repository+local_rep//:g'"
 }
 
 test_local_repository_isnt_affected() {
@@ -178,7 +178,7 @@ EOF
   bazel build @local_rep//:g >& "$TEST_log" && fail "Expected build to fail" || true
   expect_log "but it does not exist or is not a directory"
 
-  argv="--override_repository=+_repo_rules+local_rep=$(pwd)/../local_rep"
+  argv="--override_repository=+_repo_rule_local_repository+local_rep=$(pwd)/../local_rep"
   bazel build "$argv" $extra_args @local_rep//:g >& "$TEST_log" || fail "Expected build to succeed"
 
   echo "broken file" > ../local_rep/BUILD
@@ -188,7 +188,7 @@ EOF
     "$argv" \
     $extra_args \
     @local_rep//:g >& "$TEST_log" && fail "Expected build to fail" || true
-  expect_log "no such target '@@+_repo_rules+local_rep//:g'"
+  expect_log "no such target '@@+_repo_rule_local_repository+local_rep//:g'"
 }
 
 test_override_repository_isnt_affected() {
@@ -223,7 +223,7 @@ test_no_build_doesnt_break_the_cache() {
     --noexperimental_check_output_files \
     --watchfs \
     @remote//:g >& "$TEST_log" || fail "Expected build to pass"
-  [[ ! -f bazel-main/external/+_repo_rules+remote/BUILD ]] || fail "external files shouldn't have been made"
+  [[ ! -f bazel-main/external/+_repo_rule_http_archive+remote/BUILD ]] || fail "external files shouldn't have been made"
   bazel build \
     --noexperimental_check_external_repository_files \
     --noexperimental_check_output_files \
