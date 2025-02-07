@@ -393,7 +393,7 @@ public class LocalSpawnRunner implements SpawnRunner {
                   .addExecutionInfo(spawn.getExecutionInfo())
                   .setTimeout(context.getTimeout());
           statisticsPath = tmpDir.getRelative("stats.out");
-          commandLineBuilder.setStatisticsPath(statisticsPath);
+          commandLineBuilder.setStatisticsPath(statisticsPath.asFragment());
           args = ImmutableList.copyOf(commandLineBuilder.build());
         } else {
           subprocessBuilder.setTimeoutMillis(context.getTimeout().toMillis());
@@ -494,7 +494,7 @@ public class LocalSpawnRunner implements SpawnRunner {
       }
     }
 
-    private boolean wasTimeout(Duration timeout, Duration wallTime) {
+    private static boolean wasTimeout(Duration timeout, Duration wallTime) {
       return !timeout.isZero() && wallTime.compareTo(timeout) > 0;
     }
 
@@ -569,6 +569,6 @@ public class LocalSpawnRunner implements SpawnRunner {
     PREFETCHING_LOCAL_INPUTS,
     LOCAL_ACTION_RUNNING,
     PERMANENT_ERROR,
-    SUCCESS;
+    SUCCESS
   }
 }
