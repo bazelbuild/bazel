@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.config.RunUnder.LabelRunUnder;
-import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.analysis.test.TestStrategy;
@@ -102,7 +101,6 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
-import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -598,7 +596,7 @@ public class RunCommand implements BlazeCommand {
     return args.stream().map(s -> ByteString.copyFrom(s, ISO_8859_1)).collect(toImmutableList());
   }
 
-  private BlazeCommandResult handleScriptPath(
+  private static BlazeCommandResult handleScriptPath(
       RunOptions runOptions,
       ExecRequest.Builder execRequest,
       RunCommandLine runCommandLine,
@@ -725,18 +723,11 @@ public class RunCommand implements BlazeCommand {
         tmpDirRoot.startsWith(env.getExecRoot())
             ? tmpDirRoot.relativeTo(env.getExecRoot())
             : tmpDirRoot.asFragment();
-    Duration timeout =
-        builtTargets
-            .configuration
-            .getFragment(TestConfiguration.class)
-            .getTestTimeout()
-            .get(testAction.getTestProperties().getTimeout());
     TreeMap<String, String> runEnvironment = makeMutableRunEnvironment(env);
     runEnvironment.putAll(
         testPolicy.computeTestEnvironment(
             testAction,
             env.getClientEnv(),
-            timeout,
             settings.getRunfilesDir().relativeTo(env.getExecRoot()),
             maybeRelativeTmpDir.getRelative(TestStrategy.getTmpDirName(testAction))));
 

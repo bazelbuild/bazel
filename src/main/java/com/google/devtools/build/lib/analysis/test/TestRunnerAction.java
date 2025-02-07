@@ -712,10 +712,10 @@ public class TestRunnerAction extends AbstractAction
     }
   }
 
-  public void setupEnvVariables(Map<String, String> env, Duration timeout) {
+  public void setupEnvVariables(Map<String, String> env) {
     env.put("TEST_TARGET", Label.print(getOwner().getLabel()));
     env.put("TEST_SIZE", getTestProperties().getSize().toString());
-    env.put("TEST_TIMEOUT", Long.toString(timeout.toSeconds()));
+    env.put("TEST_TIMEOUT", Long.toString(getTimeout().toSeconds()));
     env.put("TEST_WORKSPACE", getRunfilesPrefix());
     env.put(
         "TEST_BINARY",
@@ -823,6 +823,11 @@ public class TestRunnerAction extends AbstractAction
     }
   }
 
+  /** Returns the timeout for this test action, respecting the value of {@code --test_timeout}. */
+  public Duration getTimeout() {
+    return testConfiguration.getTestTimeout().get(testProperties.getTimeout());
+  }
+
   public Artifact getTestLog() {
     return testLog;
   }
@@ -843,6 +848,10 @@ public class TestRunnerAction extends AbstractAction
 
   public Artifact getCacheStatusArtifact() {
     return cacheStatus;
+  }
+
+  public PathFragment getTestStderrPath() {
+    return testStderr;
   }
 
   public PathFragment getTestWarningsPath() {
