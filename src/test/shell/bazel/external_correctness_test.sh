@@ -319,11 +319,11 @@ EOF
   touch ../r/three
   bazel "$batch_flag" build @r//:fg &> $TEST_log || \
     fail "Expected build to succeed"
-  assert_contains "external/+_repo_rule_local_repository+r/three" bazel-genfiles/external/+_repo_rule_new_local_repository+r/fg.out
+  assert_contains "external/+_repo_rule_new_local_repository+r/three" bazel-genfiles/external/+_repo_rule_new_local_repository+r/fg.out
   touch ../r/subdir/four
   bazel "$batch_flag" build @r//:fg &> $TEST_log || \
     fail "Expected build to succeed"
-  assert_contains "external/+_repo_rule_local_repository+r/subdir/four" bazel-genfiles/external/+_repo_rule_new_local_repository+r/fg.out
+  assert_contains "external/+_repo_rule_new_local_repository+r/subdir/four" bazel-genfiles/external/+_repo_rule_new_local_repository+r/fg.out
 }
 
 function test_top_level_dir_changes_batch() {

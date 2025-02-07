@@ -284,7 +284,7 @@ EOF
 
   cat > planets/planet_info.sh <<EOF
 #!/bin/sh
-cat ../+_repo_rule_git_repository+pluto/info
+cat ../+_repo_rule_new_git_repository+pluto/info
 EOF
   chmod +x planets/planet_info.sh
 
@@ -296,7 +296,7 @@ EOF
       expect_log "Pluto is a dwarf planet"
   fi
 
-  git_repos_count=$(find $(bazel info output_base)/external/+_repo_rule_git_repository+pluto -type d -name .git | wc -l)
+  git_repos_count=$(find $(bazel info output_base)/external/+_repo_rule_new_git_repository+pluto -type d -name .git | wc -l)
   assert_equals $git_repos_count 0
 }
 
@@ -465,7 +465,7 @@ EOF
 
   bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
-  assert_contains "GIT 2" bazel-genfiles/external/+_repo_rule_new_git_repository+g/go
+  assert_contains "GIT 2" bazel-genfiles/external/+_repo_rule_git_repository+g/go
 
   # Change the MODULE.bazel but not the commit id, which should not cause the checkout to be re-cloned.
   rm MODULE.bazel

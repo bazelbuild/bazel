@@ -185,7 +185,7 @@ EOF
 
   bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
   expect_log "foo"
-  cat bazel-bin/external/+_repo_rule_foo+foo/bar.txt >$TEST_log
+  cat bazel-bin/external/+_repo_rule_repo+foo/bar.txt >$TEST_log
   expect_log "foo"
 }
 
@@ -1123,13 +1123,13 @@ EOF
         >& $TEST_log && shutdown_server || fail "Execution of @foo//:all failed"
 
   output_base="$(bazel info output_base)"
-  grep "no_sha_return $not_provided_sha256" $output_base/external/+_repo_rule_foo+foo/returned_shas.txt \
+  grep "no_sha_return $not_provided_sha256" $output_base/external/+_repo_rule_repo+foo/returned_shas.txt \
       || fail "expected calculated sha256 $not_provided_sha256"
-  grep "with_sha_return $provided_sha256" $output_base/external/+_repo_rule_foo+foo/returned_shas.txt \
+  grep "with_sha_return $provided_sha256" $output_base/external/+_repo_rule_repo+foo/returned_shas.txt \
       || fail "expected provided sha256 $provided_sha256"
-  grep "compressed_with_sha_return $compressed_provided_sha256" $output_base/external/+_repo_rule_foo+foo/returned_shas.txt \
+  grep "compressed_with_sha_return $compressed_provided_sha256" $output_base/external/+_repo_rule_repo+foo/returned_shas.txt \
       || fail "expected provided sha256 $compressed_provided_sha256"
-  grep "compressed_no_sha_return $compressed_not_provided_sha256" $output_base/external/+_repo_rule_foo+foo/returned_shas.txt \
+  grep "compressed_no_sha_return $compressed_not_provided_sha256" $output_base/external/+_repo_rule_repo+foo/returned_shas.txt \
       || fail "expected compressed calculated sha256 $compressed_not_provided_sha256"
 }
 
