@@ -460,14 +460,14 @@ EOF
   fi
 
   cp bazel-bin/py/foo$exe.runfiles_manifest runfiles_manifest
-  assert_contains _main/external/+_repo_rule_local_repository+repo2/r2.txt runfiles_manifest \
+  assert_contains _main/external/+local_repository+repo2/r2.txt runfiles_manifest \
     "runfiles manifest didn't have external path mapping"
 
   # By default, Python binaries are put into zip files on Windows and don't
   # have a real runfiles tree.
   if ! "$is_windows"; then
     find bazel-bin/py/foo.runfiles > runfiles_listing
-    assert_contains bazel-bin/py/foo.runfiles/_main/external/+_repo_rule_local_repository+repo2/r2.txt \
+    assert_contains bazel-bin/py/foo.runfiles/_main/external/+local_repository+repo2/r2.txt \
       runfiles_listing \
       "runfiles didn't have external links"
   fi

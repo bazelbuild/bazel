@@ -78,7 +78,7 @@ EOF
   bazel aquery --output=textproto --include_file_write_contents \
      "//:foo" >output 2> "$TEST_log" || fail "Expected success"
   cat output >> "$TEST_log"
-  assert_contains "^file_contents:.*pkg2,+_repo_rule_local_repository+pkg2" output
+  assert_contains "^file_contents:.*pkg2,+local_repository+pkg2" output
 
   bazel aquery --output=text --include_file_write_contents "//:foo" | \
     sed -nr '/Mnemonic: RepoMappingManifest/,/^ *$/p' >output \
@@ -88,7 +88,7 @@ EOF
   # Verify file contents if we can decode base64-encoded data.
   if which base64 >/dev/null; then
     sed -nr 's/^ *FileWriteContents: \[(.*)\]/echo \1 | base64 -d/p' output | \
-       sh | tee -a "$TEST_log"  | assert_contains "pkg2,+_repo_rule_local_repository+pkg2" -
+       sh | tee -a "$TEST_log"  | assert_contains "pkg2,+local_repository+pkg2" -
   fi
 }
 

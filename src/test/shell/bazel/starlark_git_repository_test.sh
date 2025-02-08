@@ -158,7 +158,7 @@ EOF
 
   cat > planets/planet_info.sh <<EOF
 #!/bin/sh
-cat ../+_repo_rule_git_repository+pluto/info
+cat ../+git_repository+pluto/info
 EOF
   chmod +x planets/planet_info.sh
 
@@ -166,7 +166,7 @@ EOF
     || echo "Expected build/run to succeed"
   expect_log "Pluto is a dwarf planet"
 
-  git_repos_count=$(find $(bazel info output_base)/external/+_repo_rule_git_repository+pluto -type d -name .git | wc -l)
+  git_repos_count=$(find $(bazel info output_base)/external/+git_repository+pluto -type d -name .git | wc -l)
   assert_equals $git_repos_count 0
 }
 
@@ -284,7 +284,7 @@ EOF
 
   cat > planets/planet_info.sh <<EOF
 #!/bin/sh
-cat ../+_repo_rule_new_git_repository+pluto/info
+cat ../+new_git_repository+pluto/info
 EOF
   chmod +x planets/planet_info.sh
 
@@ -296,7 +296,7 @@ EOF
       expect_log "Pluto is a dwarf planet"
   fi
 
-  git_repos_count=$(find $(bazel info output_base)/external/+_repo_rule_new_git_repository+pluto -type d -name .git | wc -l)
+  git_repos_count=$(find $(bazel info output_base)/external/+new_git_repository+pluto -type d -name .git | wc -l)
   assert_equals $git_repos_count 0
 }
 
@@ -369,8 +369,8 @@ EOF
 
   cat > planets/planet_info.sh <<EOF
 #!/bin/sh
-cat ../+_repo_rule_new_git_repository+outer_planets/neptune/info
-cat ../+_repo_rule_new_git_repository+outer_planets/pluto/info
+cat ../+new_git_repository+outer_planets/neptune/info
+cat ../+new_git_repository+outer_planets/pluto/info
 EOF
   chmod +x planets/planet_info.sh
 
@@ -426,8 +426,8 @@ EOF
 
   cat > planets/planet_info.sh <<EOF
 #!/bin/sh
-cat ../+_repo_rule_new_git_repository+outer_planets/neptune/info
-cat ../+_repo_rule_new_git_repository+outer_planets/pluto/info
+cat ../+new_git_repository+outer_planets/neptune/info
+cat ../+new_git_repository+outer_planets/pluto/info
 EOF
   chmod +x planets/planet_info.sh
 
@@ -449,12 +449,12 @@ EOF
   # Use batch to force server restarts.
   bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
-  assert_contains "GIT 1" bazel-genfiles/external/+_repo_rule_git_repository+g/go
+  assert_contains "GIT 1" bazel-genfiles/external/+git_repository+g/go
 
   # Without changing anything, restart the server, which should not cause the checkout to be re-cloned.
   bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
   expect_not_log "Cloning"
-  assert_contains "GIT 1" bazel-genfiles/external/+_repo_rule_git_repository+g/go
+  assert_contains "GIT 1" bazel-genfiles/external/+git_repository+g/go
 
   # Change the commit id, which should cause the checkout to be re-cloned.
   rm MODULE.bazel
@@ -465,7 +465,7 @@ EOF
 
   bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
-  assert_contains "GIT 2" bazel-genfiles/external/+_repo_rule_git_repository+g/go
+  assert_contains "GIT 2" bazel-genfiles/external/+git_repository+g/go
 
   # Change the MODULE.bazel but not the commit id, which should not cause the checkout to be re-cloned.
   rm MODULE.bazel
@@ -478,7 +478,7 @@ EOF
 
   bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
   expect_not_log "Cloning"
-  assert_contains "GIT 2" bazel-genfiles/external/+_repo_rule_git_repository+g/go
+  assert_contains "GIT 2" bazel-genfiles/external/+git_repository+g/go
 }
 
 function test_git_repository_not_refetched_on_server_restart_strip_prefix() {
@@ -491,7 +491,7 @@ git_repository(name='g', remote='$repo_dir', commit='17ea13b242e4cbcc27a6ef74593
 EOF
   bazel --batch build @g//gdir:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
-  assert_contains "GIT 2" bazel-genfiles/external/+_repo_rule_git_repository+g/gdir/go
+  assert_contains "GIT 2" bazel-genfiles/external/+git_repository+g/gdir/go
 
   rm MODULE.bazel
   cat >> MODULE.bazel <<EOF
@@ -500,7 +500,7 @@ git_repository(name='g', remote='$repo_dir', commit='17ea13b242e4cbcc27a6ef74593
 EOF
   bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
-  assert_contains "GIT 2" bazel-genfiles/external/+_repo_rule_git_repository+g/go
+  assert_contains "GIT 2" bazel-genfiles/external/+git_repository+g/go
 }
 
 
@@ -515,7 +515,7 @@ EOF
 
   bazel build @g//:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
-  assert_contains "GIT 1" bazel-genfiles/external/+_repo_rule_git_repository+g/go
+  assert_contains "GIT 1" bazel-genfiles/external/+git_repository+g/go
 
   # Change the commit id, which should cause the checkout to be re-cloned.
   rm MODULE.bazel
@@ -526,7 +526,7 @@ EOF
 
   bazel build @g//:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
-  assert_contains "GIT 2" bazel-genfiles/external/+_repo_rule_git_repository+g/go
+  assert_contains "GIT 2" bazel-genfiles/external/+git_repository+g/go
 }
 
 function test_git_repository_and_nofetch() {
@@ -541,7 +541,7 @@ EOF
   bazel build --nofetch @g//:g >& $TEST_log && fail "Build succeeded"
   expect_log "fetching repositories is disabled"
   bazel build @g//:g >& $TEST_log || fail "Build failed"
-  assert_contains "GIT 1" bazel-genfiles/external/+_repo_rule_git_repository+g/go
+  assert_contains "GIT 1" bazel-genfiles/external/+git_repository+g/go
 
   rm MODULE.bazel
   cat >> MODULE.bazel <<EOF
@@ -550,10 +550,10 @@ git_repository(name='g', remote='$repo_dir', commit='db134ae9b644d8237954a8e6f1e
 EOF
 
   bazel build --nofetch @g//:g >& $TEST_log || fail "Build failed"
-  expect_log "External repository '+_repo_rule_git_repository+g' is not up-to-date"
-  assert_contains "GIT 1" bazel-genfiles/external/+_repo_rule_git_repository+g/go
+  expect_log "External repository '+git_repository+g' is not up-to-date"
+  assert_contains "GIT 1" bazel-genfiles/external/+git_repository+g/go
   bazel build  @g//:g >& $TEST_log || fail "Build failed"
-  assert_contains "GIT 2" bazel-genfiles/external/+_repo_rule_git_repository+g/go
+  assert_contains "GIT 2" bazel-genfiles/external/+git_repository+g/go
 
   rm MODULE.bazel
   cat >> MODULE.bazel <<EOF
@@ -562,9 +562,9 @@ git_repository(name='g', remote='$repo_dir', commit='17ea13b242e4cbcc27a6ef74593
 EOF
 
   bazel build --nofetch @g//:g >& $TEST_log || fail "Build failed"
-  expect_log "External repository '+_repo_rule_git_repository+g' is not up-to-date"
+  expect_log "External repository '+git_repository+g' is not up-to-date"
   bazel build  @g//:g >& $TEST_log || fail "Build failed"
-  assert_contains "GIT 2" bazel-genfiles/external/+_repo_rule_git_repository+g/go
+  assert_contains "GIT 2" bazel-genfiles/external/+git_repository+g/go
 
 }
 
@@ -579,7 +579,7 @@ function setup_error_test() {
   mkdir -p planets
   cat > planets/planet_info.sh <<EOF
 #!/bin/sh
-cat external/+_repo_rule_git_repository+pluto/info
+cat external/+git_repository+pluto/info
 EOF
 
   cat > planets/BUILD <<EOF

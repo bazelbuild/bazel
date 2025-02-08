@@ -197,22 +197,22 @@ EOF
     --platforms=@//:foo3_platform \
     --build_event_text_file="${TEST_log}".build.json \
     @test_repo//:bin &> "${TEST_log}" && fail "Bazel passed unexpectedly."
-  expect_log 'ERROR:.*Target @@+_repo_rule_local_repository+test_repo//:bin is incompatible and cannot be built'
+  expect_log 'ERROR:.*Target @@+local_repository+test_repo//:bin is incompatible and cannot be built'
   expect_log '^ERROR: Build did NOT complete successfully'
   # Now look at the build event log.
   mv "${TEST_log}".build.json "${TEST_log}"
   expect_log '^    name: "PARSING_FAILURE"$'
-  expect_log 'Target @@+_repo_rule_local_repository+test_repo//:bin is incompatible and cannot be built.'
+  expect_log 'Target @@+local_repository+test_repo//:bin is incompatible and cannot be built.'
 }
 
 # Regression test for https://github.com/bazelbuild/bazel/issues/12374
 function test_repository_defines_target_compatible_with() {
   cat > repo.bzl <<EOF
-def _repo_rule_impl(repo_ctx):
+def impl(repo_ctx):
     pass
 
 repo_rule = repository_rule(
-    implementation = _repo_rule_impl,
+    implementation = impl,
     attrs = {
         "target_compatible_with": attr.label_list(),
     },

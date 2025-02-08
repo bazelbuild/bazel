@@ -179,9 +179,9 @@ EOF
 
   # TODO: https://github.com/bazelbuild/bazel/issues/23240
   # Create a new event id type that doesn't use "//external"
-  expect_log 'label: "//external:+_repo_rule_failing+remote"'
+  expect_log 'label: "//external:+failing+remote"'
   expect_log 'description:.*This is the error message'
-  expect_not_log 'label.*@+_repo_rule_failing+remote//file'
+  expect_not_log 'label.*@+failing+remote//file'
 }
 
 function test_residue_in_run_bep(){

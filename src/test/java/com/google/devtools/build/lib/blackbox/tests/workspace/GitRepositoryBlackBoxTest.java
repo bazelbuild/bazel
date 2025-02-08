@@ -85,7 +85,7 @@ public class GitRepositoryBlackBoxTest extends AbstractBlackBoxTest {
     BuilderRunner bazel = WorkspaceTestUtils.bazel(context());
     bazel.build("@ext//:call_write_text");
     Path outPath =
-        context().resolveBinPath(bazel, "external/+_repo_rule_new_git_repository+ext/out.txt");
+        context().resolveBinPath(bazel, "external/+new_git_repository+ext/out.txt");
     WorkspaceTestUtils.assertLinesExactly(outPath, HELLO_FROM_EXTERNAL_REPOSITORY);
   }
 
@@ -118,7 +118,7 @@ public class GitRepositoryBlackBoxTest extends AbstractBlackBoxTest {
     BuilderRunner bazel = WorkspaceTestUtils.bazel(context());
     bazel.build("@ext//:call_write_text");
     Path outPath =
-        context().resolveBinPath(bazel, "external/+_repo_rule_new_git_repository+ext/out.txt");
+        context().resolveBinPath(bazel, "external/+new_git_repository+ext/out.txt");
     WorkspaceTestUtils.assertLinesExactly(outPath, HELLO_FROM_EXTERNAL_REPOSITORY);
   }
 
@@ -151,7 +151,7 @@ public class GitRepositoryBlackBoxTest extends AbstractBlackBoxTest {
     BuilderRunner bazel = WorkspaceTestUtils.bazel(context());
     bazel.build("@ext//:call_write_text");
     Path outPath =
-        context().resolveBinPath(bazel, "external/+_repo_rule_new_git_repository+ext/out.txt");
+        context().resolveBinPath(bazel, "external/+new_git_repository+ext/out.txt");
     WorkspaceTestUtils.assertLinesExactly(outPath, HELLO_FROM_EXTERNAL_REPOSITORY);
   }
 
@@ -196,7 +196,7 @@ public class GitRepositoryBlackBoxTest extends AbstractBlackBoxTest {
     // This creates Bazel without MSYS, see implementation for details.
     BuilderRunner bazel = WorkspaceTestUtils.bazel(context());
     bazel.build("@ext//:write_text");
-    Path outPath = context().resolveBinPath(bazel, "external/+_repo_rule_git_repository+ext/out");
+    Path outPath = context().resolveBinPath(bazel, "external/+git_repository+ext/out");
     WorkspaceTestUtils.assertLinesExactly(outPath, HELLO_FROM_BRANCH);
   }
 
@@ -247,7 +247,7 @@ public class GitRepositoryBlackBoxTest extends AbstractBlackBoxTest {
     // This creates Bazel without MSYS, see implementation for details.
     BuilderRunner bazel = WorkspaceTestUtils.bazel(context());
     bazel.build("@ext//:write_text");
-    Path outPath = context().resolveBinPath(bazel, "external/+_repo_rule_git_repository+ext/out");
+    Path outPath = context().resolveBinPath(bazel, "external/+git_repository+ext/out");
     WorkspaceTestUtils.assertLinesExactly(outPath, HELLO_FROM_BRANCH);
   }
 

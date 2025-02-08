@@ -191,7 +191,7 @@ public class BazelDepGraphFunction implements SkyFunction {
     // cannot be part of a valid repo name.
     String extensionName =
         id.isInnate()
-            ? "_repo_rule_" + id.extensionName().substring(id.extensionName().indexOf(' ') + 1)
+            ? id.extensionName().substring(id.extensionName().indexOf(' ') + 1)
             : id.extensionName();
     return id.isolationKey()
         .map(
