@@ -267,7 +267,8 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
             ? StarlarkInfoWithSchema.newStarlarkInfoFactory(this, thread)
             : StarlarkInfoNoSchema.newStarlarkInfoFactory(this, thread);
     if (initArgumentProcessor != null) {
-      return new ArgumentProcessorWithInit(owner, factory, initArgumentProcessor, thread);
+      return new ArgumentProcessorWithInit(
+          (StarlarkProvider) owner, factory, initArgumentProcessor, thread);
     } else {
       return new RawArgumentProcessor(owner, factory, thread);
     }
@@ -277,7 +278,7 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
     private final StarlarkCallable.ArgumentProcessor initArgumentProcessor;
 
     ArgumentProcessorWithInit(
-        StarlarkCallable owner,
+        StarlarkProvider owner,
         StarlarkProvider.StarlarkInfoFactory factory,
         StarlarkCallable.ArgumentProcessor initArgumentProcessor,
         StarlarkThread thread) {
@@ -297,7 +298,9 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
 
     @Override
     public Object call(StarlarkThread thread) throws EvalException, InterruptedException {
-      Object initResult = Starlark.callViaArgumentProcessor(thread, initArgumentProcessor);
+      Object initResult =
+          Starlark.callViaArgumentProcessor(
+              thread, ((StarlarkProvider) owner).init, initArgumentProcessor);
       Dict<String, Object> kwargs =
           Dict.cast(initResult, String.class, Object.class, "return value of provider init()");
       return factory.createFromMap(kwargs, thread);
