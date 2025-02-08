@@ -173,6 +173,9 @@ filegroup(
         "//src/conditions:linux_s390x": [
             "@openjdk_linux_s390x_vanilla//file",
         ],
+        "//src/conditions:linux_riscv64": [
+            "@openjdk_linux_riscv64_vanilla//file",
+        ],
         "//conditions:default": [
             "@openjdk_linux_vanilla//file",
         ],
