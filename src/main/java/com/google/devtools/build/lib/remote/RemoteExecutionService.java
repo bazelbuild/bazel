@@ -1808,8 +1808,7 @@ public class RemoteExecutionService {
                               manifest.uploadAsync(
                                   action.getRemoteActionExecutionContext(),
                                   combinedCache,
-                                  reporter))
-                      .doOnError(this::reportUploadError),
+                                  reporter)),
               cacheResource -> {
                 Profiler.instance()
                     .completeTask(startTime.get(), ProfilerTask.UPLOAD_TIME, "upload outputs");
@@ -1819,7 +1818,7 @@ public class RemoteExecutionService {
               },
               /* eager= */ false)
           .subscribeOn(scheduler)
-          .subscribe(result -> {}, error -> {});
+          .subscribe(result -> {}, this::reportUploadError);
     } else {
       try (SilentCloseable c =
           Profiler.instance().profile(ProfilerTask.UPLOAD_TIME, "upload outputs")) {
