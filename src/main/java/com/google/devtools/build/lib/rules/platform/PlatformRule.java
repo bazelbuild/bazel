@@ -132,7 +132,7 @@ public class PlatformRule implements RuleDefinition {
                 .allowedRuleClasses("config_setting")
                 .allowedFileTypes(FileTypeSet.NO_FILE))
         /* <!-- #BLAZE_RULE(platform).ATTRIBUTE(no_toolchain_error) -->
-        A custom error message that is displayed when a required toolchain type cannot be found for this platform. Intended to point to relevant documentation users can read to understand why their toolchains are misconfigured.
+        A custom error message that is displayed when a mandatory toolchain requirement cannot be satisfied for this target platform. Intended to point to relevant documentation users can read to understand why their toolchains are misconfigured.
 
         Not inherited from parent platforms.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
