@@ -291,11 +291,13 @@ public class WorkerPoolImpl implements WorkerPool {
         while (!idleWorkers.isEmpty()) {
           // LIFO: It's better to re-use a worker as often as possible and keep it hot, in order to
           // profit from JIT optimizations as much as possible.
-          worker = idleWorkers.takeLast();
+          // This cannot be null because we already checked that the queue is not empty.
+          worker = idleWorkers.peekLast();
           // We need to validate with the passed in `key` rather than `worker.getWorkerKey()`
           // because the former can contain a different combined files hash if the files changed.
           if (factory.validateWorker(key, worker)) {
             acquired.incrementAndGet();
+            idleWorkers.remove(worker);
             break;
           }
           invalidateWorker(worker, /* shouldShrinkPool= */ false);
@@ -335,7 +337,14 @@ public class WorkerPoolImpl implements WorkerPool {
         return;
       }
 
-      activeSet.remove(worker);
+      if (activeSet.contains(worker)) {
+        activeSet.remove(worker);
+      } else {
+        throw new IllegalStateException(
+            String.format(
+                "Worker %s (id %d) is not in the active set",
+                worker.getWorkerKey().getMnemonic(), worker.getWorkerId()));
+      }
 
       PendingWorkerRequest pendingReq = waitingQueue.poll();
       if (pendingReq != null) {
@@ -356,7 +365,14 @@ public class WorkerPoolImpl implements WorkerPool {
       }
 
       // If it isn't idle, then we're destroying an active worker.
-      activeSet.remove(worker);
+      if (activeSet.contains(worker)) {
+        activeSet.remove(worker);
+      } else {
+        throw new IllegalStateException(
+            String.format(
+                "Worker %s (id %d) is not in the active set",
+                worker.getWorkerKey().getMnemonic(), worker.getWorkerId()));
+      }
 
       // We don't want to shrink the pool to 0.
       if (shouldShrinkPool && getEffectiveMax() > 1) {
