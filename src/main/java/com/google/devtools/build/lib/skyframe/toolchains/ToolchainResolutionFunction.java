@@ -57,10 +57,6 @@ import javax.annotation.Nullable;
  * selecting the execution platform.
  */
 public class ToolchainResolutionFunction implements SkyFunction {
-  public static final String DEFAULT_PLATFORM_MESSAGE =
-      "For more information on platforms or toolchains see"
-          + " https://bazel.build/concepts/platforms-intro.";
-
   @Nullable
   @Override
   public UnloadedToolchainContext compute(SkyKey skyKey, Environment env)
@@ -410,7 +406,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
                           type.typeLabel(),
                           type.noneFoundError() != null ? ": " + type.noneFoundError() : ""))
               .collect(toImmutableList());
-      String platformSpecificMessage = DEFAULT_PLATFORM_MESSAGE;
+      String platformSpecificMessage = "";
       if (targetPlatformInfo.getMissingToolchainErrorMessage() != null) {
         platformSpecificMessage = targetPlatformInfo.getMissingToolchainErrorMessage();
       }

@@ -32,6 +32,10 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 
 /** Rule definition for {@link Platform}. */
 public class PlatformRule implements RuleDefinition {
+  public static final String DEFAULT_MISSING_TOOLCHAIN_ERROR =
+      "For more information on platforms or toolchains see"
+          + " https://bazel.build/concepts/platforms-intro.";
+
   public static final String RULE_NAME = "platform";
   public static final String CONSTRAINT_VALUES_ATTR = "constraint_values";
   public static final String PARENTS_PLATFORM_ATTR = "parents";
@@ -138,6 +142,7 @@ public class PlatformRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr(MISSING_TOOLCHAIN_ERROR_ATTR, Type.STRING)
+                .value(DEFAULT_MISSING_TOOLCHAIN_ERROR)
                 .nonconfigurable("Part of the configuration"))
         // Undocumented, used for exec platform migrations.
         .add(attr("check_toolchain_types", Type.BOOLEAN).value(false))

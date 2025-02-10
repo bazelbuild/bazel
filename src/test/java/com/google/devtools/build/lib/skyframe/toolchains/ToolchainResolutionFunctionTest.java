@@ -423,6 +423,11 @@ For more information on platforms or toolchains see https://bazel.build/concepts
         .hasExceptionThat()
         .hasMessageThat()
         .contains("Check custom docs for setup instructions");
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(key)
+        .hasExceptionThat()
+        .hasMessageThat()
+        .doesNotContain("see https://bazel.build/concepts/platforms-intro");
   }
 
   @Test
