@@ -411,8 +411,8 @@ public class ToolchainResolutionFunction implements SkyFunction {
                           type.noneFoundError() != null ? ": " + type.noneFoundError() : ""))
               .collect(toImmutableList());
       String platformSpecificMessage = DEFAULT_PLATFORM_MESSAGE;
-      if (targetPlatformInfo.getNoToolchainErrorMessage() != null) {
-        platformSpecificMessage = targetPlatformInfo.getNoToolchainErrorMessage();
+      if (targetPlatformInfo.getMissingToolchainErrorMessage() != null) {
+        platformSpecificMessage = targetPlatformInfo.getMissingToolchainErrorMessage();
       }
       return String.format(
           """

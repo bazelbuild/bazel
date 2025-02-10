@@ -505,7 +505,7 @@ public class PlatformInfoTest extends BuildViewTestCase {
                 .setLabel(Label.parseCanonicalUnchecked("//platform/plat1"))
                 .addConstraint(value1)
                 .addConstraint(value2)
-                .setNoToolchainErrorMessage("Check docs for plat1 at http://example.com/plat1")
+                .setMissingToolchainErrorMessage("Check docs for plat1 at http://example.com/plat1")
                 .build())
         .testEquals();
   }

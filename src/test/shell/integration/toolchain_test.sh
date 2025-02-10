@@ -523,7 +523,7 @@ function test_toolchain_use_in_rule_missing_with_custom_platform_error {
   cat > "${pkg}/platforms/BUILD" <<EOF
 platform(
     name = "custom_message",
-    no_toolchain_error = "Check custom docs for setup instructions",
+    missing_toolchain_error = "Check custom docs for setup instructions",
 )
 EOF
 

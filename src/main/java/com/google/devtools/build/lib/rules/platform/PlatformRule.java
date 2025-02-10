@@ -39,7 +39,7 @@ public class PlatformRule implements RuleDefinition {
   public static final String EXEC_PROPS_ATTR = "exec_properties";
   public static final String FLAGS_ATTR = "flags";
   public static final String REQUIRED_SETTINGS_ATTR = "required_settings";
-  public static final String NO_TOOLCHAIN_ERROR_ATTR = "no_toolchain_error";
+  public static final String MISSING_TOOLCHAIN_ERROR_ATTR = "missing_toolchain_error";
 
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
@@ -131,13 +131,14 @@ public class PlatformRule implements RuleDefinition {
             attr(REQUIRED_SETTINGS_ATTR, BuildType.LABEL_LIST)
                 .allowedRuleClasses("config_setting")
                 .allowedFileTypes(FileTypeSet.NO_FILE))
-        /* <!-- #BLAZE_RULE(platform).ATTRIBUTE(no_toolchain_error) -->
+        /* <!-- #BLAZE_RULE(platform).ATTRIBUTE(missing_toolchain_error) -->
         A custom error message that is displayed when a mandatory toolchain requirement cannot be satisfied for this target platform. Intended to point to relevant documentation users can read to understand why their toolchains are misconfigured.
 
         Not inherited from parent platforms.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
-            attr(NO_TOOLCHAIN_ERROR_ATTR, Type.STRING).nonconfigurable("Part of the configuration"))
+            attr(MISSING_TOOLCHAIN_ERROR_ATTR, Type.STRING)
+                .nonconfigurable("Part of the configuration"))
         // Undocumented, used for exec platform migrations.
         .add(attr("check_toolchain_types", Type.BOOLEAN).value(false))
         .add(attr("allowed_toolchain_types", BuildType.NODEP_LABEL_LIST))

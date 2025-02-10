@@ -404,7 +404,7 @@ For more information on platforms or toolchains see https://bazel.build/concepts
         platform(
             name = "linux_custom_message",
             parents = [":linux"],
-            no_toolchain_error = "Check custom docs for setup instructions",
+            missing_toolchain_error = "Check custom docs for setup instructions",
         )
         """);
 
