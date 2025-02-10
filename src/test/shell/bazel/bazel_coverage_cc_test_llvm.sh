@@ -363,7 +363,7 @@ LH:5
 LF:7
 end_of_record'
 
-  local expected_a_cc='SF:external/+_repo_rules+other_repo/a.cc
+  local expected_a_cc='SF:external/+local_repository+other_repo/a.cc
 FN:4,_Z1ab
 FNDA:1,_Z1ab
 FNF:1

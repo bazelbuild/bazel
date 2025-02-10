@@ -603,13 +603,13 @@ class BazelOverridesTest(test_base.TestBase):
         '',
     ])
     main_repo_mapping = json.loads('\n'.join(stdout))
-    self.assertEqual(main_repo_mapping['my_repo'], '+_repo_rules+my_repo')
+    self.assertEqual(main_repo_mapping['my_repo'], '+local_repository+my_repo')
 
     _, stdout, _ = self.RunBazel([
         'mod',
         'dump_repo_mapping',
         '--inject_repository=my_repo=%workspace%/other_repo',
-        '+_repo_rules+my_repo',
+        '+local_repository+my_repo',
     ])
     my_repo_mapping = json.loads('\n'.join(stdout))
     self.assertEqual(main_repo_mapping, my_repo_mapping)

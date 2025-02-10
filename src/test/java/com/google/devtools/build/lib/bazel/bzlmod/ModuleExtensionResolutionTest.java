@@ -2692,7 +2692,7 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
     assertThat(result.get(skyKey).getModule().getGlobal("data"))
         .isEqualTo("get up at 6am. go to bed at 11pm.");
     assertThat(result.get(skyKey).getModule().getGlobal("names"))
-        .isEqualTo("+_repo_rules+data1 foo++_repo_rules+data2");
+        .isEqualTo("+data_repo+data1 foo++data_repo+data2");
     assertThat(result.get(skyKey).getModule().getGlobal("original_names")).isEqualTo("data1 data2");
   }
 
@@ -2824,7 +2824,7 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
     assertThat(result.hasError()).isTrue();
     assertContainsEvent(
         """
-        ERROR /workspace/MODULE.bazel:3:10: //:+_repo_rules+data: expected value of type 'string' \
+        ERROR /workspace/MODULE.bazel:3:10: //:+data_repo+data: expected value of type 'string' \
         for attribute 'data' of 'data_repo', but got 5 (int)\
         """);
     assertThat(result.getError().getException())
@@ -3000,10 +3000,10 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
     }
     assertThat((List<?>) result.get(skyKey).getModule().getGlobal("bar_list"))
         .containsExactly(
-            "@@+_repo_rules+override//:target1",
-            "@@+_repo_rules+override//:target2",
-            "@@+_repo_rules+override//:target3",
-            "@@+_repo_rules+override//:target4")
+            "@@+data_repo+override//:target1",
+            "@@+data_repo+override//:target2",
+            "@@+data_repo+override//:target3",
+            "@@+data_repo+override//:target4")
         .inOrder();
     Object overrideData = result.get(skyKey).getModule().getGlobal("override_data");
     assertThat(overrideData).isInstanceOf(String.class);
@@ -3133,10 +3133,10 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
     }
     assertThat((List<?>) result.get(skyKey).getModule().getGlobal("bar_list"))
         .containsExactly(
-            "@@+_repo_rules+foo//:target1",
-            "@@+_repo_rules+foo//:target2",
-            "@@+_repo_rules+foo//:target3",
-            "@@+_repo_rules+foo//:target4")
+            "@@+data_repo+foo//:target1",
+            "@@+data_repo+foo//:target2",
+            "@@+data_repo+foo//:target3",
+            "@@+data_repo+foo//:target4")
         .inOrder();
     Object fooData = result.get(skyKey).getModule().getGlobal("foo_data");
     assertThat(fooData).isInstanceOf(String.class);

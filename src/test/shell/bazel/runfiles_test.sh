@@ -72,17 +72,17 @@ int main() { return 0; }
 EOF
   bazel build --legacy_external_runfiles //:thing &> $TEST_log \
     || fail "Build failed"
-  [[ -d bazel-bin/thing.runfiles/_main/external/+_repo_rules+bar ]] \
+  [[ -d bazel-bin/thing.runfiles/_main/external/+new_local_repository+bar ]] \
     || fail "bar not found"
 
   bazel build --nolegacy_external_runfiles //:thing &> $TEST_log \
     || fail "Build failed"
-  [[ ! -d bazel-bin/thing.runfiles/_main/external/+_repo_rules+bar ]] \
+  [[ ! -d bazel-bin/thing.runfiles/_main/external/+new_local_repository+bar ]] \
     || fail "Old bar still found"
 
   bazel build --legacy_external_runfiles //:thing &> $TEST_log \
     || fail "Build failed"
-  [[ -d bazel-bin/thing.runfiles/_main/external/+_repo_rules+bar ]] \
+  [[ -d bazel-bin/thing.runfiles/_main/external/+new_local_repository+bar ]] \
     || fail "bar not recreated"
 }
 

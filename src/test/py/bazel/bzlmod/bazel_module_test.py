@@ -352,9 +352,9 @@ class BazelModuleTest(test_base.TestBase):
     self.ScratchFile(
         'pkg/rules.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    pass',
-            'repo_rule = repository_rule(implementation = _repo_rule_impl)',
+            'repo_rule = repository_rule(implementation = impl)',
         ],
     )
     self.ScratchFile('pkg/extension.bzl', [

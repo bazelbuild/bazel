@@ -105,9 +105,9 @@ class BazelFetchTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("BUILD")',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _ext_impl(ctx):',
             '    repo_rule(name="hello")',
@@ -143,10 +143,10 @@ class BazelFetchTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("BUILD")',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
-            'repo_rule2 = repository_rule(implementation=_repo_rule_impl, ',
+            'repo_rule = repository_rule(implementation=impl)',
+            'repo_rule2 = repository_rule(implementation=impl, ',
             'configure=True)',
             '',
             'def _ext_impl(ctx):',
@@ -184,7 +184,7 @@ class BazelFetchTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    print("Fetching {}".format(ctx.attr.name))',
             '    if ctx.attr.name.endswith("IamConfig"):',
             (
@@ -192,8 +192,8 @@ class BazelFetchTest(test_base.TestBase):
                 ' ctx.path(Label("@notConfig//:whatever")).dirname.readdir()'
             ),
             '    ctx.file("BUILD")',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
-            'repo_rule2 = repository_rule(implementation=_repo_rule_impl, ',
+            'repo_rule = repository_rule(implementation=impl)',
+            'repo_rule2 = repository_rule(implementation=impl, ',
             'configure=True)',
             '',
             'def _ext_impl(ctx):',
@@ -309,11 +309,11 @@ class BazelFetchTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    file_content = ctx.read("' + file_path + '", watch="no")',
             '    print(file_content)',
             '    ctx.file("BUILD")',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _ext_impl(ctx):',
             '    repo_rule(name="hello")',
