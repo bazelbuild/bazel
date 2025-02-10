@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccess
 import com.google.devtools.build.lib.skyframe.RuleConfiguredTargetValue;
 import com.google.devtools.build.lib.util.CommandDescriptionForm;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
+import com.google.devtools.build.lib.util.ScriptUtil;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -58,8 +59,19 @@ import net.starlark.java.eval.EvalException;
 
 /** Output callback for aquery, prints human readable output. */
 class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
+  public enum OutputType {
+    TEXT("text"),
+    COMMANDS("commands");
+
+    final String formatName;
+
+    OutputType(String formatName) {
+      this.formatName = formatName;
+    }
+  }
 
   private final ActionKeyContext actionKeyContext = new ActionKeyContext();
+  private final OutputType outputType;
   private final AqueryActionFilter actionFilters;
   private final LabelPrinter labelPrinter;
   private Map<String, String> paramFileNameToContentMap;
@@ -69,16 +81,18 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
       AqueryOptions options,
       OutputStream out,
       TargetAccessor<ConfiguredTargetValue> accessor,
+      OutputType outputType,
       AqueryActionFilter actionFilters,
       LabelPrinter labelPrinter) {
     super(eventHandler, options, out, accessor);
+    this.outputType = outputType;
     this.actionFilters = actionFilters;
     this.labelPrinter = labelPrinter;
   }
 
   @Override
   public String getName() {
-    return "text";
+    return outputType.formatName;
   }
 
   @Override
@@ -128,8 +142,17 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
       return;
     }
 
-    ActionOwner actionOwner = action.getOwner();
     StringBuilder stringBuilder = new StringBuilder();
+    switch (outputType) {
+      case TEXT -> writeText(action, stringBuilder);
+      case COMMANDS -> writeCommand(action, stringBuilder);
+    }
+    printStream.write(stringBuilder.toString().getBytes(UTF_8));
+  }
+
+  private void writeText(ActionAnalysisMetadata action, StringBuilder stringBuilder)
+      throws IOException, CommandLineExpansionException, InterruptedException, EvalException {
+    ActionOwner actionOwner = action.getOwner();
     stringBuilder
         .append(action.prettyPrint())
         .append('\n')
@@ -339,8 +362,28 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
     }
 
     stringBuilder.append('\n');
+  }
 
-    printStream.write(stringBuilder.toString().getBytes(UTF_8));
+  private void writeCommand(ActionAnalysisMetadata action, StringBuilder stringBuilder)
+      throws IOException, CommandLineExpansionException, InterruptedException, EvalException {
+    if (!(action instanceof CommandAction)) {
+      return;
+    }
+
+    boolean first = true;
+    for (String arg :
+        ((CommandAction) action)
+            .getArguments().stream()
+                .map(a -> internalToEscapedUnicode(a))
+                .collect(toImmutableList())) {
+      if (!first) {
+        stringBuilder.append(' ');
+      }
+      ScriptUtil.emitCommandElement(
+          /* message= */ stringBuilder, /* commandElement= */ arg, /* isBinary= */ first);
+      first = false;
+    }
+    stringBuilder.append('\n');
   }
 
   /** Lazy initialization of paramFileNameToContentMap. */
