@@ -13,19 +13,21 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Collections.reverse;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.AspectCollection.AspectCycleOnPathException;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectClass;
+import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
 import java.util.ArrayList;
 import javax.annotation.Nullable;
+import net.starlark.java.syntax.Location;
 
 /** Helpers for aspect resolution. */
 public final class AspectResolutionHelpers {
@@ -115,30 +117,20 @@ public final class AspectResolutionHelpers {
    * propagating aspects.
    */
   public static AspectCollection computeAspectCollection(
-      ConfiguredTargetAndData prerequisite, ImmutableList<Aspect> propagatingAspects)
+      ImmutableList<Aspect> aspects,
+      AdvertisedProviderSet advertisedProviders,
+      Label targetLabel,
+      Location targetLocation)
       throws InconsistentAspectOrderException {
-    var aspects = propagatingAspects;
-    if (prerequisite.isTargetOutputFile()) {
-      // If `applyToGeneratingRules` holds, the aspect has no required providers so some of the
-      // filtering logic below may be skipped, but it doesn't seem to be worth added complexity.
-      aspects =
-          aspects.stream()
-              .filter(aspect -> aspect.getDefinition().applyToGeneratingRules())
-              .collect(toImmutableList());
-    }
-
-    if (aspects.isEmpty() || (!prerequisite.isTargetOutputFile() && !prerequisite.isTargetRule())) {
-      return AspectCollection.EMPTY;
-    }
 
     var filteredAspectPath = new ArrayList<Aspect>();
 
     int aspectsCount = aspects.size();
     for (int i = aspectsCount - 1; i >= 0; i--) {
       Aspect aspect = aspects.get(i);
-      if (prerequisite.satisfies(aspect.getDefinition().getRequiredProviders())
+      if (AspectDefinition.satisfies(aspect, advertisedProviders)
           || isAspectRequired(aspect, filteredAspectPath)) {
-        // Adds the aspect if the configured target satisfies its required providers or it is
+        // Adds the aspect if the target satisfies its required providers or it is
         // required by an aspect already in the {@code filteredAspectPath}.
         filteredAspectPath.add(aspect);
       }
@@ -147,8 +139,7 @@ public final class AspectResolutionHelpers {
     try {
       return AspectCollection.create(filteredAspectPath);
     } catch (AspectCycleOnPathException e) {
-      throw new InconsistentAspectOrderException(
-          prerequisite.getTargetLabel(), prerequisite.getLocation(), e);
+      throw new InconsistentAspectOrderException(targetLabel, targetLocation, e);
     }
   }
 

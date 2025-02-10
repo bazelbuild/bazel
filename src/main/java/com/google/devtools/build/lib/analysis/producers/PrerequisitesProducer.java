@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis.producers;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.analysis.AspectResolutionHelpers.computeAspectCollection;
 import static com.google.devtools.build.lib.analysis.producers.AttributeConfiguration.Kind.VISIBILITY;
 import static com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData.SPLIT_DEP_ORDERING;
@@ -211,7 +212,17 @@ final class PrerequisitesProducer
     try {
       // All configured targets in the set have the same underlying target so using an arbitrary one
       // for aspect filtering is safe.
-      aspects = computeAspectCollection(configuredTargets[0], propagatingAspects);
+      var filteredAspects = filterAspectsBasedOnTarget(propagatingAspects, configuredTargets[0]);
+      if (filteredAspects.isEmpty()) {
+        aspects = AspectCollection.EMPTY;
+      } else {
+        aspects =
+            computeAspectCollection(
+                filteredAspects,
+                configuredTargets[0].getTargetAdvertisedProviders(),
+                configuredTargets[0].getTargetLabel(),
+                configuredTargets[0].getLocation());
+      }
     } catch (InconsistentAspectOrderException e) {
       sink.acceptPrerequisitesAspectError(new DependencyEvaluationException(e));
       return DONE;
@@ -234,6 +245,21 @@ final class PrerequisitesProducer
               parameters.transitiveState()));
     }
     return this::emitMergedTargets;
+  }
+
+  private static ImmutableList<Aspect> filterAspectsBasedOnTarget(
+      ImmutableList<Aspect> propagatingAspects, ConfiguredTargetAndData prerequisite) {
+    if (prerequisite.isTargetOutputFile()) {
+      return propagatingAspects.stream()
+          .filter(aspect -> aspect.getDefinition().applyToGeneratingRules())
+          .collect(toImmutableList());
+    }
+
+    if (!prerequisite.isTargetRule()) {
+      return ImmutableList.of();
+    }
+
+    return propagatingAspects;
   }
 
   @Override

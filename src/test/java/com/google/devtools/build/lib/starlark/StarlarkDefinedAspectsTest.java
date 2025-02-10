@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.TopLevelAspectsKey;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
@@ -9802,7 +9803,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     var unused = update(ImmutableList.of("//test:defs.bzl%a"), "//test:t1");
     var topLevelAspectsNode =
         skyframeExecutor.getEvaluator().getInMemoryGraph().getAllNodeEntries().stream()
-            .filter(n -> n.getKey().getCanonicalName().contains("TopLevelAspectsKey"))
+            .filter(n -> n.getKey() instanceof TopLevelAspectsKey)
             .findFirst()
             .orElse(null);
     assertThat(topLevelAspectsNode).isNotNull();
@@ -9827,6 +9828,152 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
             .map(k -> k.getLabel().toString())
             .collect(toImmutableList());
     assertThat(aspectsDeps).containsExactly("//test:t1");
+  }
+
+  @Test
+  public void topLevelAspectRequiredProviderNotSatisfied_aspectKeyNotCreated() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        """
+        p1 = provider()
+        def _a_impl(target, ctx):
+          return []
+        a = aspect(
+          implementation = _a_impl,
+          attr_aspects = ['dep'],
+          required_providers = [p1],
+        )
+
+        def _rule_impl(ctx):
+          pass
+        r1 = rule(
+          implementation = _rule_impl,
+          attrs = {
+            'dep': attr.label(),
+          },
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load('//test:defs.bzl', 'r1')
+        r1(name = 't1', dep = ':t2')
+        r1(name = 't2')
+        """);
+
+    var unused = update(ImmutableList.of("//test:defs.bzl%a"), "//test:t1");
+
+    var topLevelAspectsNode =
+        skyframeExecutor.getEvaluator().getInMemoryGraph().getAllNodeEntries().stream()
+            .filter(n -> n.getKey() instanceof AspectKey)
+            .map(n -> (AspectKey) n.getKey())
+            .collect(toImmutableList());
+
+    // no aspect key should be requested since the aspect's required provider is not satisfied.
+    assertThat(topLevelAspectsNode).isEmpty();
+  }
+
+  private void writeAspectOnAliasTestFiles() throws Exception {
+    scratch.file(
+        "test/config_setting/BUILD", "config_setting(name='defines', values={'define': 'foo=1'})");
+
+    scratch.file(
+        "test/defs.bzl",
+        """
+        p1 = provider()
+        AspectInfo = provider()
+
+        def _a_impl(target, ctx):
+          return [AspectInfo(aspect_a_result = 'target {}, p1.val = {}'.format(target.label,
+              target[p1].val))]
+
+        a = aspect(
+          implementation = _a_impl,
+          attr_aspects = ['dep'],
+          required_providers = [p1],
+        )
+
+        def _rule_impl(ctx):
+          return [p1(val = 'v1')]
+
+        rule_with_p1 = rule(
+          implementation = _rule_impl,
+          attrs = {
+            'dep': attr.label(),
+          },
+          provides = [p1],
+        )
+
+        rule_without_p1 = rule(
+          implementation = _rule_impl,
+          attrs = {
+            'dep': attr.label(),
+          },
+        )
+        """);
+
+    scratch.file(
+        "test/BUILD",
+        """
+        load('//test:defs.bzl', 'rule_with_p1', 'rule_without_p1')
+        alias(
+            name = 'alias_target',
+            actual = select({
+                              "//test/config_setting:defines": ":t1",
+                              "//conditions:default": ":t2",
+                              })
+                )
+        rule_with_p1(name = 't1')
+        rule_without_p1(name = 't2')
+        """);
+  }
+
+  @Test
+  public void topLevelAspectOnAliasTarget_requiredProviderSatisfied() throws Exception {
+    writeAspectOnAliasTestFiles();
+
+    // this will select //test:t1 as the alias's actual target.
+    useConfiguration("--define=foo=1");
+    var analysisResult = update(ImmutableList.of("//test:defs.bzl%a"), "//test:alias_target");
+
+    var topLevelAspectsNode =
+        skyframeExecutor.getEvaluator().getInMemoryGraph().getAllNodeEntries().stream()
+            .filter(n -> n.getKey() instanceof AspectKey)
+            .map(n -> (AspectKey) n.getKey())
+            .map(k -> k.getAspectName() + " on " + k.getLabel())
+            .collect(toImmutableList());
+
+    // aspect required provider is satisfied by the alias's actual target.
+    assertThat(topLevelAspectsNode)
+        .containsExactly(
+            "//test:defs.bzl%a on //test:t1", "//test:defs.bzl%a on //test:alias_target");
+
+    ImmutableMap<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ConfiguredAspect aspectA = getConfiguredAspect(configuredAspects, "a");
+    assertThat(aspectA).isNotNull();
+    String aspectAResult =
+        (String)
+            getStarlarkProvider(aspectA, "//test:defs.bzl", "AspectInfo")
+                .getValue("aspect_a_result");
+    assertThat(aspectAResult).isEqualTo("target @@//test:t1, p1.val = v1");
+  }
+
+  @Test
+  public void topLevelAspectOnAliasTarget_requiredProviderNotSatisfied() throws Exception {
+    writeAspectOnAliasTestFiles();
+
+    // this will select the default //test:t2 as the alias's actual target.
+    var unused = update(ImmutableList.of("//test:defs.bzl%a"), "//test:alias_target");
+
+    var topLevelAspectsNode =
+        skyframeExecutor.getEvaluator().getInMemoryGraph().getAllNodeEntries().stream()
+            .filter(n -> n.getKey() instanceof AspectKey)
+            .map(n -> (AspectKey) n.getKey())
+            .collect(toImmutableList());
+
+    // no aspect key should be requested since the aspect's required provider is not satisfied by
+    // the alias's actual target.
+    assertThat(topLevelAspectsNode).isEmpty();
   }
 
   private ImmutableList<AspectKey> getAspectKeys(String targetLabel, String aspectLabel) {

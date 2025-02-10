@@ -24,11 +24,11 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.OutputFile;
-import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetData;
@@ -262,19 +262,11 @@ public class ConfiguredTargetAndData {
     return target.isTestOnly();
   }
 
-  /**
-   * True if the underlying target advertises the required providers.
-   *
-   * <p>This is used to determine whether an aspect should propagate to this configured target.
-   */
-  public boolean satisfies(RequiredProviders required) {
+  public AdvertisedProviderSet getTargetAdvertisedProviders() {
     // TODO(shahan): If this is an output file, refers to the providers of the generating rule.
     // However, in such cases, aspects are not permitted to have required providers. Consider
     // short-circuiting the logic for that case.
-
-    // NOTE: it is tempting to use providers of `configuredTarget` instead, however, it may contain
-    // providers that are not advertised and can lead to illegal aspect propagation.
-    return target.satisfies(required);
+    return target.getAdvertisedProviders();
   }
 
   @Nullable
