@@ -23,8 +23,6 @@ public interface LongVersionGetter {
    * Indicates the item was affected in currently evaluated versions. Outside of tests, it can only
    * be returned for changes in current client snapshot.
    */
-  // TODO(b/151473808): Do not request xattrs for paths without it outside of client snapshots in
-  //  tests. Rename the constant accordingly once we do so.
   long CURRENT_VERSION = Long.MAX_VALUE;
 
   /**
