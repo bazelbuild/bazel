@@ -19,6 +19,7 @@ import com.google.devtools.build.docgen.annot.GlobalMethods;
 import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import java.util.List;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -235,6 +236,15 @@ public interface StarlarkNativeModuleApi extends StarlarkValue {
               + "<code>package_name()</code> will match the caller BUILD file package.",
       useStarlarkThread = true)
   String packageName(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "package_default_visibility",
+      doc =
+          "Returns the default visibility of the package being evaluated. This is the value of the"
+              + " <code>default_visibility</code> parameter of <code>package()</code>, extended to"
+              + " include the package itself.",
+      useStarlarkThread = true)
+  List<Label> packageDefaultVisibility(StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
       name = "repository_name",

@@ -600,6 +600,19 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
   }
 
   @Override
+  public List<Label> packageDefaultVisibility(StarlarkThread thread) throws EvalException {
+    Package.Builder pkgBuilder =
+        Package.Builder.fromOrFailDisallowWorkspace(thread, "package_default_visibility()");
+    return pkgBuilder
+        .getPartialPackageArgs()
+        .defaultVisibility()
+        // Add the package itself to the returned value. This matches the semantics that anything
+        // that implicitly uses the default_visibility is also visible to the package.
+        .concatWithPackage(pkgBuilder.getPackageIdentifier())
+        .getDeclaredLabels();
+  }
+
+  @Override
   public String repositoryName(StarlarkThread thread) throws EvalException {
     // for legacy reasons, this is prefixed with a single '@'.
     Package.Builder.fromOrFailDisallowWorkspace(thread, "repository_name()");
