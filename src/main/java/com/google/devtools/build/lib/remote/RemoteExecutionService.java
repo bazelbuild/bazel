@@ -129,11 +129,8 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.ExtensionRegistry;
 import com.google.protobuf.Message;
 import io.grpc.Status.Code;
-import io.reactivex.rxjava3.annotations.NonNull;
 import io.reactivex.rxjava3.core.Scheduler;
 import io.reactivex.rxjava3.core.Single;
-import io.reactivex.rxjava3.core.SingleObserver;
-import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.schedulers.Schedulers;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -160,6 +157,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -1794,45 +1792,33 @@ public class RemoteExecutionService {
 
     if (remoteOptions.remoteCacheAsync
         && !action.getSpawn().getResourceOwner().mayModifySpawnOutputsAfterExecution()) {
-      Single.using(
-              combinedCache::retain,
-              combinedCache ->
-                  buildUploadManifestAsync(action, spawnResult)
-                      .flatMap(
-                          manifest ->
-                              manifest.uploadAsync(
-                                  action.getRemoteActionExecutionContext(),
-                                  combinedCache,
-                                  reporter)),
-              CombinedCache::release)
-          .subscribeOn(scheduler)
-          .subscribe(
-              new SingleObserver<ActionResult>() {
-                long startTime = 0;
-
-                @Override
-                public void onSubscribe(@NonNull Disposable d) {
-                  backgroundTaskPhaser.register();
-                  startTime = Profiler.nanoTimeMaybe();
-                }
-
-                @Override
-                public void onSuccess(@NonNull ActionResult actionResult) {
-                  Profiler.instance()
-                      .completeTask(startTime, ProfilerTask.UPLOAD_TIME, "upload outputs");
-                  backgroundTaskPhaser.arriveAndDeregister();
-                  onUploadComplete.run();
-                }
-
-                @Override
-                public void onError(@NonNull Throwable e) {
-                  Profiler.instance()
-                      .completeTask(startTime, ProfilerTask.UPLOAD_TIME, "upload outputs");
-                  backgroundTaskPhaser.arriveAndDeregister();
-                  reportUploadError(e);
-                  onUploadComplete.run();
-                }
-              });
+      AtomicLong startTime = new AtomicLong();
+      var unused =
+          Single.using(
+                  () -> {
+                    backgroundTaskPhaser.register();
+                    CombinedCache cache = combinedCache.retain();
+                    startTime.set(Profiler.nanoTimeMaybe());
+                    return cache;
+                  },
+                  combinedCache ->
+                      buildUploadManifestAsync(action, spawnResult)
+                          .flatMap(
+                              manifest ->
+                                  manifest.uploadAsync(
+                                      action.getRemoteActionExecutionContext(),
+                                      combinedCache,
+                                      reporter)),
+                  cacheResource -> {
+                    Profiler.instance()
+                        .completeTask(startTime.get(), ProfilerTask.UPLOAD_TIME, "upload outputs");
+                    backgroundTaskPhaser.arriveAndDeregister();
+                    onUploadComplete.run();
+                    cacheResource.release();
+                  },
+                  /* eager= */ false)
+              .subscribeOn(scheduler)
+              .subscribe(result -> {}, this::reportUploadError);
     } else {
       try (SilentCloseable c =
           Profiler.instance().profile(ProfilerTask.UPLOAD_TIME, "upload outputs")) {
