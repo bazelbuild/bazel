@@ -65,6 +65,8 @@ import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.util.Timestamps;
+import com.google.rpc.Code;
+import com.google.rpc.Status;
 import io.grpc.CallCredentials;
 import io.grpc.ManagedChannel;
 import io.grpc.Server;
@@ -275,6 +277,50 @@ public class GrpcRemoteDownloaderTest {
             downloader, new URL("http://example.com/content.txt"), Optional.<Checksum>empty());
 
     assertThat(downloaded).isEqualTo(content);
+  }
+
+  @Test
+  public void testStatusHandling() throws Exception {
+    final byte[] content = "example content".getBytes(UTF_8);
+    serviceRegistry.addService(
+        new FetchImplBase() {
+          @Override
+          public void fetchBlob(
+              FetchBlobRequest request, StreamObserver<FetchBlobResponse> responseObserver) {
+            assertThat(request)
+                .isEqualTo(
+                    FetchBlobRequest.newBuilder()
+                        .setDigestFunction(DIGEST_UTIL.getDigestFunction())
+                        .setOldestContentAccepted(
+                            Timestamps.fromMillis(clock.advance(Duration.ofHours(1))))
+                        .addUris("http://example.com/content.txt")
+                        .build());
+            responseObserver.onNext(
+                FetchBlobResponse.newBuilder()
+                    .setStatus(
+                        Status.newBuilder()
+                            .setCode(Code.PERMISSION_DENIED_VALUE)
+                            .setMessage("permission denied")
+                            .build())
+                    .setUri("http://example.com/content.txt")
+                    .build());
+            responseObserver.onCompleted();
+          }
+        });
+    final RemoteCacheClient cacheClient = new InMemoryCacheClient();
+    final GrpcRemoteDownloader downloader =
+        newDownloader(cacheClient, /* fallbackDownloader= */ null);
+    // Add a cache entry for the empty Digest to verify that the implementation checks the status
+    // before fetching the digest.
+    getFromFuture(cacheClient.uploadBlob(context, Digest.getDefaultInstance(), ByteString.EMPTY));
+
+    var exception =
+        assertThrows(
+            IOException.class,
+            () ->
+                downloadBlob(
+                    downloader, new URL("http://example.com/content.txt"), Optional.empty()));
+    assertThat(exception).hasMessageThat().contains("permission denied");
   }
 
   @Test
