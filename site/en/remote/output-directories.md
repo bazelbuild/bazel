@@ -30,13 +30,14 @@ The solution that's currently implemented:
   subdirectory thereof. In other words, Bazel must be invoked from inside a
   [repository](../external/overview#repository). Otherwise, an error is
   reported.
-* The _outputRoot_ directory defaults to `${XDG_CACHE_HOME}/bazel` (or
-  `~/.cache/bazel`, if the `XDG_CACHE_HOME` environment variable is not set) on
-  Linux, `/private/var/tmp` on macOS, and on Windows it defaults to `%HOME%` if
+* The _outputRoot_ directory defaults to `~/.cache/bazel` on Linux,
+  `/private/var/tmp` on macOS, and on Windows it defaults to `%HOME%` if
   set, else `%USERPROFILE%` if set, else the result of calling
   `SHGetKnownFolderPath()` with the `FOLDERID_Profile` flag set. If the
-  environment variable `$TEST_TMPDIR` is set, as in a test of Bazel itself,
-  then that value overrides the default.
+  environment variable `$XDG_CACHE_HOME` is set on either Linux or
+  macOS, the value `${XDG_CACHE_HOME}/bazel` will override the default.
+  If the environment variable `$TEST_TMPDIR` is set, as in a test of Bazel
+  itself, then that value overrides any defaults.
 * The Bazel user's build state is located beneath `outputRoot/_bazel_$USER`.
   This is called the _outputUserRoot_ directory.
 * Beneath the `outputUserRoot` directory there is an `install` directory, and in
