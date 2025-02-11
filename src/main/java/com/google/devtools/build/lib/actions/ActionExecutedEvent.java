@@ -67,8 +67,8 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
       Path primaryOutput,
       Artifact outputArtifact,
       @Nullable FileArtifactValue primaryOutputMetadata,
-      Path stdout,
-      Path stderr,
+      @Nullable Path stdout,
+      @Nullable Path stderr,
       ErrorTiming timing,
       @Nullable Instant startTime,
       @Nullable Instant endTime) {
@@ -103,19 +103,19 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
   }
 
   @Nullable
-  public String getStdout() {
+  public Path getStdout() {
     if (stdout == null) {
       return null;
     }
-    return stdout.toString();
+    return stdout;
   }
 
   @Nullable
-  public String getStderr() {
+  public Path getStderr() {
     if (stderr == null) {
       return null;
     }
-    return stderr.toString();
+    return stderr;
   }
 
   @Nullable
