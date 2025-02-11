@@ -1,3 +1,23 @@
+## Release 9.0.0-pre.20250128.3 (2025-02-11)
+
+```
+Baseline: 8de78b93433fc855fc57a17b7a6c9aee8361367f
+
+Cherry picks:
+
+   + 6303349da6989db35d6d1456d275a0a8ea6d7903:
+     Automated rollback of commit
+     01cb3cd6e05034bcb5616d1850d9aa04424731b3.
+   + e6e8ffaa6dadf45f7b668dc887d7cc81af6a49ff:
+     Automated rollback of commit
+     56bf54716094bf6b687366d20b577435213681d5.
+   + ee12906c5d9a48924db6fc3aba36ccd6d5c7f69e:
+     Prevent use of BuiltinFunction.ArgumentProcessor in
+     Eval.evalCall.
+```
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Boleyn Su, dependabot[bot], Fabian Meumertzheim, Kiron, PikachuHy, sarad.
+
 ## Release 7.5.0 (2025-01-30)
 
 ```
