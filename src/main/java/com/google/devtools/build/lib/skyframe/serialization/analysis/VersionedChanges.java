@@ -92,6 +92,16 @@ final class VersionedChanges {
     }
   }
 
+  @VisibleForTesting
+  ConcurrentHashMap<String, int[]> getFileChangesForTesting() {
+    return fileChanges;
+  }
+
+  @VisibleForTesting
+  ConcurrentHashMap<String, int[]> getListingChangesForTesting() {
+    return listingChanges;
+  }
+
   /**
    * Checks for a change to {@code path} with at least version {@code validityHorizon}.
    *
