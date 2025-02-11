@@ -408,8 +408,10 @@ class CmdLineDifferTest(unittest.TestCase):
             "direct_artifact_ids": [1]
         }, {
             "id": 2,
+            # Note: Artifact 1 which is both a direct and transitive input
+            # should be deduplicated in the aquery_differ output.
             "transitive_dep_set_ids": [1],
-            "direct_artifact_ids": [2]
+            "direct_artifact_ids": [1, 2]
         }])
     second = make_aquery_output_with_dep_set(
         action_objs=[
