@@ -455,9 +455,8 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
   }
 
   /**
-   * Returns the path of a new temporary directory with the given prefix created under this path.
-   * This method is only supported by file system implementations that are backed by the local file
-   * system.
+   * Returns the path of a new temporary directory with the given prefix created under the given
+   * parent path, but <b>not</b> necessarily with secure permissions.
    */
   public Path createTempDirectory(String prefix) throws IOException {
     return fileSystem.getPath(fileSystem.createTempDirectory(asFragment(), prefix));
