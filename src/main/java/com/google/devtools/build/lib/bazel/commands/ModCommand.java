@@ -603,9 +603,11 @@ public final class ModCommand implements BlazeCommand {
       for (RootModuleFileFixup fixupEvent : modTidyValue.fixups()) {
         env.getReporter().handle(Event.info(fixupEvent.getSuccessMessage()));
       }
+
+      return BlazeCommandResult.success();
     }
 
-    return BlazeCommandResult.success();
+    return allCommandsPerFile.isEmpty() ? BlazeCommandResult.success() : createFailureResult("Dry run reported needed fixes", Code.MODULE_NEEDS_TIDY);
   }
 
   /** Collects a list of {@link ModuleArg} into a set of {@link ModuleKey}s. */
