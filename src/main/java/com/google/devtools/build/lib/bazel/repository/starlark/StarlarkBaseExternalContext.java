@@ -1389,7 +1389,7 @@ the same path on case-insensitive filesystems.
       makeDirectories(p.getPath());
       p.getPath().delete();
       try (OutputStream stream = p.getPath().getOutputStream()) {
-        stream.write(StringUnsafe.getInstance().getInternalStringBytes(content));
+        stream.write(StringUnsafe.getInternalStringBytes(content));
       }
       if (executable) {
         p.getPath().setExecutable(true);

@@ -224,7 +224,7 @@ public abstract class FileWriteAction extends AbstractFileWriteAction
 
     @Override
     public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx) {
-      return out -> out.write(StringUnsafe.getInstance().getInternalStringBytes(getFileContents()));
+      return out -> out.write(StringUnsafe.getInternalStringBytes(getFileContents()));
     }
 
     @Override
@@ -254,7 +254,7 @@ public abstract class FileWriteAction extends AbstractFileWriteAction
 
       // Grab the string's internal byte array. Calling getBytes() makes a copy, which can cause
       // memory spikes resulting in OOMs (b/290807073). Do not mutate this!
-      byte[] dataToCompress = StringUnsafe.getInstance().getByteArray(fileContents);
+      byte[] dataToCompress = StringUnsafe.getByteArray(fileContents);
 
       // Empirically, compressed sizes range from roughly 1/100 to 3/4 of the uncompressed size.
       // Presize on the small end to avoid over-allocating memory.
@@ -269,7 +269,7 @@ public abstract class FileWriteAction extends AbstractFileWriteAction
 
       this.compressedBytes = byteStream.toByteArray();
       this.uncompressedSize = dataToCompress.length;
-      this.coder = StringUnsafe.getInstance().getCoder(fileContents);
+      this.coder = StringUnsafe.getCoder(fileContents);
     }
 
     @Override
@@ -290,7 +290,7 @@ public abstract class FileWriteAction extends AbstractFileWriteAction
         throw new IllegalStateException(e);
       }
 
-      return StringUnsafe.getInstance().newInstance(uncompressedBytes, coder);
+      return StringUnsafe.newInstance(uncompressedBytes, coder);
     }
 
     @Override
