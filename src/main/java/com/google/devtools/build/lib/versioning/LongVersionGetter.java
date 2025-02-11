@@ -19,10 +19,7 @@ import java.io.IOException;
 /** Strategy for retrieving the version number for paths. */
 public interface LongVersionGetter {
 
-  /**
-   * Indicates the item was affected in currently evaluated versions. Outside of tests, it can only
-   * be returned for changes in current client snapshot.
-   */
+  /** Indicates the item was affected in currently evaluated version. */
   long CURRENT_VERSION = Long.MAX_VALUE;
 
   /**
