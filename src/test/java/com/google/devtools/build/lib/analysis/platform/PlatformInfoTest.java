@@ -499,6 +499,14 @@ public class PlatformInfoTest extends BuildViewTestCase {
                 .addConstraint(value2)
                 .setRemoteExecutionProperties("foo")
                 .build())
+        .addEqualityGroup(
+            // Different no toolchain error message.
+            PlatformInfo.builder()
+                .setLabel(Label.parseCanonicalUnchecked("//platform/plat1"))
+                .addConstraint(value1)
+                .addConstraint(value2)
+                .setMissingToolchainErrorMessage("Check docs for plat1 at http://example.com/plat1")
+                .build())
         .testEquals();
   }
 

@@ -89,6 +89,8 @@ public class PlatformInfo extends NativeInfo
   private final boolean checkToolchainTypes;
   private final ImmutableList<Label> allowedToolchainTypes;
 
+  @Nullable private final String missingToolchainErrorMessage;
+
   private PlatformInfo(
       Label label,
       ConstraintCollection constraints,
@@ -98,6 +100,7 @@ public class PlatformInfo extends NativeInfo
       ImmutableList<ConfigMatchingProvider> requiredSettings,
       boolean checkToolchainTypes,
       ImmutableList<Label> allowedToolchainTypes,
+      String missingToolchainErrorMessage,
       Location creationLocation) {
     super(creationLocation);
     this.label = label;
@@ -108,6 +111,7 @@ public class PlatformInfo extends NativeInfo
     this.requiredSettings = requiredSettings;
     this.checkToolchainTypes = checkToolchainTypes;
     this.allowedToolchainTypes = allowedToolchainTypes;
+    this.missingToolchainErrorMessage = missingToolchainErrorMessage;
   }
 
   @Override
@@ -149,6 +153,11 @@ public class PlatformInfo extends NativeInfo
     return allowedToolchainTypes;
   }
 
+  @Nullable
+  public String getMissingToolchainErrorMessage() {
+    return missingToolchainErrorMessage;
+  }
+
   @Override
   public void repr(Printer printer) {
     printer.append(String.format("PlatformInfo(%s, constraints=%s)", label, constraints));
@@ -168,6 +177,7 @@ public class PlatformInfo extends NativeInfo
             .collect(toImmutableList()));
     fp.addStrings(allowedToolchainTypes.stream().map(Label::toString).collect(toImmutableList()));
     fp.addBoolean(checkToolchainTypes);
+    fp.addNullableString(missingToolchainErrorMessage);
   }
 
   @Override
@@ -182,7 +192,8 @@ public class PlatformInfo extends NativeInfo
         && Objects.equals(flags, that.flags)
         && Objects.equals(requiredSettings, that.requiredSettings)
         && (checkToolchainTypes == that.checkToolchainTypes)
-        && Objects.equals(allowedToolchainTypes, that.allowedToolchainTypes);
+        && Objects.equals(allowedToolchainTypes, that.allowedToolchainTypes)
+        && Objects.equals(missingToolchainErrorMessage, that.missingToolchainErrorMessage);
   }
 
   @Override
@@ -195,7 +206,8 @@ public class PlatformInfo extends NativeInfo
         flags,
         requiredSettings,
         checkToolchainTypes,
-        allowedToolchainTypes);
+        allowedToolchainTypes,
+        missingToolchainErrorMessage);
   }
 
   /** Returns a new {@link Builder} for creating a fresh {@link PlatformInfo} instance. */
@@ -217,6 +229,7 @@ public class PlatformInfo extends NativeInfo
     private boolean checkToolchainTypes = false;
     private final ImmutableList.Builder<Label> allowedToolchainTypes =
         new ImmutableList.Builder<>();
+    @Nullable private String missingToolchainErrorMessage = null;
     private Location creationLocation = Location.BUILTIN;
 
     /**
@@ -344,6 +357,20 @@ public class PlatformInfo extends NativeInfo
       return this;
     }
 
+    /**
+     * Sets an error message to display when a required toolchain cannot be resolved for this
+     * platform.
+     */
+    @CanIgnoreReturnValue
+    public Builder setMissingToolchainErrorMessage(@Nullable String message) {
+      if (message == null || message.isEmpty()) {
+        this.missingToolchainErrorMessage = null;
+      } else {
+        this.missingToolchainErrorMessage = message;
+      }
+      return this;
+    }
+
     private static void checkRemoteExecutionProperties(
         PlatformInfo parent,
         String remoteExecutionProperties,
@@ -407,6 +434,7 @@ public class PlatformInfo extends NativeInfo
           settings,
           checkToolchainTypes,
           allowedToolchainTypes.build(),
+          missingToolchainErrorMessage,
           creationLocation);
     }
 
