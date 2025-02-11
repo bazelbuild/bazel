@@ -380,6 +380,40 @@ For more information on platforms or toolchains see https://bazel.build/concepts
   }
 
   @Test
+  public void resolve_mandatory_missing_customPlatformMessage() throws Exception {
+    scratch.appendFile(
+        "platforms/BUILD",
+        """
+        platform(
+            name = "linux_custom_message",
+            parents = [":linux"],
+            missing_toolchain_error = "Check custom docs for setup instructions",
+        )
+        """);
+
+    // There is no toolchain for the requested type.
+    useConfiguration("--platforms=//platforms:linux_custom_message");
+    ToolchainContextKey key =
+        ToolchainContextKey.key()
+            .configurationKey(targetConfigKey)
+            .toolchainTypes(testToolchainType)
+            .build();
+
+    EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
+
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(key)
+        .hasExceptionThat()
+        .hasMessageThat()
+        .contains("Check custom docs for setup instructions");
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(key)
+        .hasExceptionThat()
+        .hasMessageThat()
+        .doesNotContain("see https://bazel.build/concepts/platforms-intro");
+  }
+
+  @Test
   public void resolve_multiple_optional() throws Exception {
     Label secondToolchainTypeLabel = Label.parseCanonicalUnchecked("//second:toolchain_type");
     ToolchainTypeRequirement secondToolchainTypeRequirement =
