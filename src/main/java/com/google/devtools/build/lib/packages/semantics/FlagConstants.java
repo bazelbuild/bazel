@@ -32,7 +32,8 @@ class FlagConstants {
       "java_runtime,java_toolchain,java_package_configuration," +
       "@com_google_protobuf," +
       "@rules_shell," +
-      "@rules_android";
+      "@rules_android," +
+      "+@rules_cc";
 
   public static final String DEFAULT_EXPERIMENTAL_STARLARK_TYPES = "false";
   // If enabled with --experimental_starlark_type, the annotations may be used in main and external repos.

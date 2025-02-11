@@ -41,11 +41,18 @@ starlark_doc_extract(
 starlark_doc_extract(
     name = "gen_be_cpp_stardoc_proto",
     src = "cpp.bzl",
+    deps = [
+        "@rules_cc//cc:core_rules",
+        "@rules_cc//cc/toolchains:toolchain_rules",
+    ],
 )
 
 starlark_doc_extract(
     name = "gen_be_objc_stardoc_proto",
     src = "objc.bzl",
+    deps = [
+        "@rules_cc//cc:core_rules",
+    ],
 )
 
 starlark_doc_extract(
