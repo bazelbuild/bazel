@@ -89,8 +89,10 @@ public class PlatformLookupUtilTest extends ToolchainTestCase {
     assertThatEvaluationResult(result).hasEntryThat(key).isNotNull();
 
     Map<ConfiguredTargetKey, PlatformInfo> platforms = result.get(key).platforms();
-    assertThat(platforms).containsEntry(linuxKey, linuxPlatform);
-    assertThat(platforms).containsEntry(macKey, macPlatform);
+    assertThat(platforms).containsKey(linuxKey);
+    assertThat(platforms.get(linuxKey).label()).isEqualTo(linuxPlatform.label());
+    assertThat(platforms).containsKey(macKey);
+    assertThat(platforms.get(macKey).label()).isEqualTo(macPlatform.label());
     assertThat(platforms).hasSize(2);
   }
 
