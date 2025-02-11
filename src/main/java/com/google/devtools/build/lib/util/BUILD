@@ -462,3 +462,8 @@ java_library(
         "//third_party:jsr305",
     ],
 )
+
+java_library(
+    name = "cleaner",
+    srcs = ["BazelCleaner.java"],
+)
