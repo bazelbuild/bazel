@@ -20,16 +20,34 @@ import java.io.IOException;
 
 /** Handles how {@link InfoItem}s are outputted. */
 public interface InfoItemHandler extends AutoCloseable {
-
   /** Stores {@link InfoItem} information. */
-  void addInfoItem(String key, byte[] value, boolean printKey)
+  void addInfoItem(String key, byte[] value, boolean printKeys)
       throws AbruptExitException, InterruptedException, IOException;
 
   /** Flushes any internal state. */
   @Override
   void close() throws IOException;
 
-  static InfoItemHandler create(CommandEnvironment env) {
-    return new StdoutInfoItemHandler(env.getReporterOutErr());
+  /** Defines the way to output {@link InfoItem} information. */
+  enum InfoItemOutputType {
+    /**
+     * Info information is directly printed to the console. {@link StdoutInfoItemHandler} is created
+     * if this type is passed in.
+     */
+    STDOUT,
+
+    /**
+     * Info information is packed in response extensions for downstream service processing. {@link
+     * RemoteRequestedInfoItemHandler} is created if this type is passed in.
+     */
+    RESPONSE_PROTO
+  }
+
+  /** Creates {@link InfoItemHandler} based on the passed in {@link InfoItemOutputType}. */
+  static InfoItemHandler create(CommandEnvironment env, InfoItemOutputType infoItemOutputType) {
+    return switch (infoItemOutputType) {
+      case STDOUT -> new StdoutInfoItemHandler(env.getReporterOutErr());
+      case RESPONSE_PROTO -> new RemoteRequestedInfoItemHandler(env);
+    };
   }
 }

@@ -28,8 +28,8 @@ public class StdoutInfoItemHandler implements InfoItemHandler {
   }
 
   @Override
-  public void addInfoItem(String key, byte[] value, boolean printKey) throws IOException {
-    if (printKey) {
+  public void addInfoItem(String key, byte[] value, boolean printKeys) throws IOException {
+    if (printKeys) {
       outErr.getOutputStream().write((key + ": ").getBytes(UTF_8));
     }
     outErr.getOutputStream().write(value);

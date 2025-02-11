@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.runtime.commands.info.ExecutionRootInfoItem
 import com.google.devtools.build.lib.runtime.commands.info.GcCountInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.GcTimeInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.InfoItemHandler;
+import com.google.devtools.build.lib.runtime.commands.info.InfoItemHandler.InfoItemOutputType;
 import com.google.devtools.build.lib.runtime.commands.info.InstallBaseInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.JavaHomeInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.JavaRuntimeInfoItem;
@@ -71,6 +72,7 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
+import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -81,7 +83,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
-import java.util.function.Function;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 /** Implementation of 'blaze info'. */
@@ -113,6 +115,23 @@ public class InfoCommand implements BlazeCommand {
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.TERMINAL_OUTPUT},
         help = "Include the \"Make\" environment in the output.")
     public boolean showMakeEnvironment;
+
+    @Option(
+        name = "info_output_type",
+        defaultValue = "stdout",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.TERMINAL_OUTPUT},
+        converter = InfoItemOutputTypeConverter.class,
+        help =
+            "If stdout, results are directly printed to the console. If response_proto, the info"
+                + " command results are packed in response extensions.")
+    public InfoItemOutputType infoOutputType;
+  }
+
+  private static class InfoItemOutputTypeConverter extends EnumConverter<InfoItemOutputType> {
+    protected InfoItemOutputTypeConverter() {
+      super(InfoItemOutputType.class, "InfoItem output type");
+    }
   }
 
   /**
@@ -132,10 +151,12 @@ public class InfoCommand implements BlazeCommand {
     }
   }
 
-  private final Function<CommandEnvironment, InfoItemHandler> infoItemHandlerFactory;
+  private final BiFunction<CommandEnvironment, InfoItemOutputType, InfoItemHandler>
+      infoItemHandlerFactory;
 
   @VisibleForTesting
-  public InfoCommand(Function<CommandEnvironment, InfoItemHandler> infoItemHandlerFactory) {
+  public InfoCommand(
+      BiFunction<CommandEnvironment, InfoItemOutputType, InfoItemHandler> infoItemHandlerFactory) {
     this.infoItemHandlerFactory = infoItemHandlerFactory;
   }
 
@@ -150,9 +171,8 @@ public class InfoCommand implements BlazeCommand {
     env.getReporter().switchToAnsiAllowingHandler();
     Options infoOptions = optionsParsingResult.getOptions(Options.class);
     // Creating a BuildConfigurationValue is expensive and often unnecessary. Delay the creation
-    // until
-    // it is needed. We memoize so that it's cached intra-command (it's still created freshly on
-    // every command since the configuration can change across commands).
+    // until it is needed. We memoize so that it's cached intra-command (it's still created freshly
+    // on every command since the configuration can change across commands).
     Supplier<BuildConfigurationValue> configurationSupplier =
         Suppliers.memoize(
             () -> {
@@ -182,7 +202,8 @@ public class InfoCommand implements BlazeCommand {
 
     Map<String, InfoItem> items = getInfoItemMap(env, optionsParsingResult);
 
-    try (InfoItemHandler infoItemHandler = infoItemHandlerFactory.apply(env)) {
+    try (InfoItemHandler infoItemHandler =
+        infoItemHandlerFactory.apply(env, infoOptions.infoOutputType)) {
       if (infoOptions.showMakeEnvironment) {
         Map<String, String> makeEnv = configurationSupplier.get().getMakeEnvironment();
         for (Map.Entry<String, String> entry : makeEnv.entrySet()) {
@@ -203,7 +224,7 @@ public class InfoCommand implements BlazeCommand {
                 ensureSyncPackageLoading(env, optionsParsingResult);
               }
               byte[] value = infoItem.get(configurationSupplier, env);
-              infoItemHandler.addInfoItem(key, value, /* printKey= */ residue.size() > 1);
+              infoItemHandler.addInfoItem(key, value, /* printKeys= */ residue.size() > 1);
             }
           } else {
             unknownKeysBuilder.add(key);
@@ -233,7 +254,9 @@ public class InfoCommand implements BlazeCommand {
           }
           try (SilentCloseable c = Profiler.instance().profile(infoItem.getName() + ".infoItem")) {
             infoItemHandler.addInfoItem(
-                infoItem.getName(), infoItem.get(configurationSupplier, env), /* printKey= */ true);
+                infoItem.getName(),
+                infoItem.get(configurationSupplier, env),
+                /* printKeys= */ true);
           }
         }
       }

@@ -16,39 +16,42 @@ package com.google.devtools.build.lib.runtime.commands.info;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.commands.info.InfoItemHandler.InfoItemOutputType;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
-public class InfoItemHandlerTest {
+public class StdoutInfoItemHandlerTest {
   @Test
-  public void testStdOutputItem_addOneItemWithoutPrintingKey() throws Exception {
+  public void testStdOutputItemHandlerCreation() {
+    InfoItemHandler infoItemHandler =
+        InfoItemHandler.create(mock(CommandEnvironment.class), InfoItemOutputType.STDOUT);
+    assertThat(infoItemHandler).isInstanceOf(StdoutInfoItemHandler.class);
+  }
+
+  @Test
+  public void testStdOutputItemHandler_addOneItemWithoutPrintingKey() throws Exception {
     RecordingOutErr outErr = new RecordingOutErr();
-    CommandEnvironment mockEnv = mock(CommandEnvironment.class);
-    when(mockEnv.getReporterOutErr()).thenReturn(outErr);
-    try (StdoutInfoItemHandler stdoutInfoItemHandler =
-        (StdoutInfoItemHandler) InfoItemHandler.create(mockEnv)) {
+    try (StdoutInfoItemHandler stdoutInfoItemHandler = new StdoutInfoItemHandler(outErr)) {
       stdoutInfoItemHandler.addInfoItem(
-          "info-1", "value-1\n".getBytes(UTF_8), /* printKey= */ false);
+          "info-1", "value-1\n".getBytes(UTF_8), /* printKeys= */ false);
     }
 
     assertThat(outErr.outAsLatin1()).isEqualTo("value-1\n");
   }
 
   @Test
-  public void testStdOutputItem_addTwoItemWithPrintingKey() throws Exception {
+  public void testStdOutputItemHandler_addTwoItemWithPrintingKey() throws Exception {
     RecordingOutErr outErr = new RecordingOutErr();
-    CommandEnvironment mockEnv = mock(CommandEnvironment.class);
-    when(mockEnv.getReporterOutErr()).thenReturn(outErr);
-    try (StdoutInfoItemHandler stdoutInfoItemHandler =
-        (StdoutInfoItemHandler) InfoItemHandler.create(mockEnv)) {
-      stdoutInfoItemHandler.addInfoItem("foo", "value-foo\n".getBytes(UTF_8), /* printKey= */ true);
-      stdoutInfoItemHandler.addInfoItem("bar", "value-bar\n".getBytes(UTF_8), /* printKey= */ true);
+    try (StdoutInfoItemHandler stdoutInfoItemHandler = new StdoutInfoItemHandler(outErr)) {
+      stdoutInfoItemHandler.addInfoItem(
+          "foo", "value-foo\n".getBytes(UTF_8), /* printKeys= */ true);
+      stdoutInfoItemHandler.addInfoItem(
+          "bar", "value-bar\n".getBytes(UTF_8), /* printKeys= */ true);
     }
 
     assertThat(outErr.outAsLatin1()).isEqualTo("foo: value-foo\nbar: value-bar\n");
