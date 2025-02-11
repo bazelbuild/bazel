@@ -851,8 +851,7 @@ public abstract class FileSystem {
    * parent path.
    *
    * <p>On file systems that don't override getNioPath, the created directory will <b>not</b> be
-   * created atomically with restricted permissions. Don't use this method on multi-user systems in
-   * this case.
+   * created atomically with restricted permissions. Don't use this method if that is a requirement.
    */
   protected PathFragment createTempDirectory(PathFragment parent, String prefix)
       throws IOException {
