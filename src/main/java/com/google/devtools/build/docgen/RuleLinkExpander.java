@@ -55,7 +55,7 @@ public class RuleLinkExpander {
   private final Map<String, String> ruleIndex = new HashMap<>();
   private final boolean singlePage;
 
-  RuleLinkExpander(Map<String, String> ruleIndex, boolean singlePage, DocLinkMap linkMap) {
+  public RuleLinkExpander(Map<String, String> ruleIndex, boolean singlePage, DocLinkMap linkMap) {
     this.ruleIndex.putAll(ruleIndex);
     this.ruleIndex.putAll(FUNCTIONS);
     this.singlePage = singlePage;

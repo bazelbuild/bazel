@@ -282,6 +282,11 @@ public class RuleDocumentationAttribute
     return mandatory;
   }
 
+  /** Returns string representation of default value, if any. */
+  public @Nullable String getDefaultValue() {
+    return this.defaultValue;
+  }
+
   /** Returns a string containing the synopsis for this attribute. */
   public String getSynopsis() throws BuildEncyclopediaDocException {
     if (type == null) {

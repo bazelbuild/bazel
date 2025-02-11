@@ -48,9 +48,17 @@ public class DocLinkMap {
 
   public static DocLinkMap createFromFile(String filePath) {
     try {
-      return new Gson().fromJson(Files.readString(Paths.get(filePath)), DocLinkMap.class);
-    } catch (IOException | JsonSyntaxException ex) {
+      return createFromString(Files.readString(Paths.get(filePath)));
+    } catch (IOException ex) {
       throw new IllegalArgumentException("Failed to read link map from " + filePath, ex);
+    }
+  }
+
+  public static DocLinkMap createFromString(String content) {
+    try {
+      return new Gson().fromJson(content, DocLinkMap.class);
+    } catch (JsonSyntaxException ex) {
+      throw new IllegalArgumentException("Failed to parse link map", ex);
     }
   }
 }
