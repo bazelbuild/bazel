@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.producers;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.analysis.AspectResolutionHelpers.computeAspectCollection;
+import static com.google.devtools.build.lib.analysis.AspectResolutionHelpers.computeAspectCollectionNoAspectsFiltering;
 import static com.google.devtools.build.lib.analysis.producers.AttributeConfiguration.Kind.VISIBILITY;
 import static com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData.SPLIT_DEP_ORDERING;
 import static java.util.Arrays.copyOfRange;
@@ -216,12 +217,20 @@ final class PrerequisitesProducer
       if (filteredAspects.isEmpty()) {
         aspects = AspectCollection.EMPTY;
       } else {
-        aspects =
-            computeAspectCollection(
-                filteredAspects,
-                configuredTargets[0].getTargetAdvertisedProviders(),
-                configuredTargets[0].getTargetLabel(),
-                configuredTargets[0].getLocation());
+        if (configuredTargets[0].isTargetRule()) {
+          aspects =
+              computeAspectCollection(
+                  filteredAspects,
+                  configuredTargets[0].getTargetAdvertisedProviders(),
+                  configuredTargets[0].getTargetLabel(),
+                  configuredTargets[0].getLocation());
+        } else {
+          aspects =
+              computeAspectCollectionNoAspectsFiltering(
+                  filteredAspects,
+                  configuredTargets[0].getTargetLabel(),
+                  configuredTargets[0].getLocation());
+        }
       }
     } catch (InconsistentAspectOrderException e) {
       sink.acceptPrerequisitesAspectError(new DependencyEvaluationException(e));

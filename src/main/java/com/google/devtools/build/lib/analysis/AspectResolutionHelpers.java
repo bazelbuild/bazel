@@ -136,8 +136,15 @@ public final class AspectResolutionHelpers {
       }
     }
     reverse(filteredAspectPath);
+    return computeAspectCollectionNoAspectsFiltering(
+        ImmutableList.copyOf(filteredAspectPath), targetLabel, targetLocation);
+  }
+
+  public static AspectCollection computeAspectCollectionNoAspectsFiltering(
+      ImmutableList<Aspect> aspects, Label targetLabel, Location targetLocation)
+      throws InconsistentAspectOrderException {
     try {
-      return AspectCollection.create(filteredAspectPath);
+      return AspectCollection.create(aspects);
     } catch (AspectCycleOnPathException e) {
       throw new InconsistentAspectOrderException(targetLabel, targetLocation, e);
     }

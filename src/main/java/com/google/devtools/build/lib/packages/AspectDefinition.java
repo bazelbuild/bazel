@@ -568,6 +568,11 @@ public final class AspectDefinition {
                 + "and apply to generating rules.");
       }
 
+      if (applyToFiles && !requiredProviders.acceptsAny()) {
+        throw new IllegalStateException(
+            "An aspect cannot simultaneously have required providers and apply to files.");
+      }
+
       return new AspectDefinition(
           aspectClass,
           advertisedProviders.build(),

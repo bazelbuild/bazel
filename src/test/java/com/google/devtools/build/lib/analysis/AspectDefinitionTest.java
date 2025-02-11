@@ -338,6 +338,38 @@ public class AspectDefinitionTest {
         .isTrue();
   }
 
+  @Test
+  public void testAspectWithApplyToFiles_requiresProviders_fails() {
+    var throwable =
+        assertThrows(
+            IllegalStateException.class,
+            () ->
+                new AspectDefinition.Builder(TEST_ASPECT_CLASS)
+                    .applyToFiles(true)
+                    .requireStarlarkProviders(STARLARK_P1, STARLARK_P2)
+                    .build());
+    assertThat(throwable)
+        .hasMessageThat()
+        .contains("An aspect cannot simultaneously have required providers and apply to files.");
+  }
+
+  @Test
+  public void testAspectWithApplyToGeneratingRules_requiresProviders_fails() {
+    var throwable =
+        assertThrows(
+            IllegalStateException.class,
+            () ->
+                new AspectDefinition.Builder(TEST_ASPECT_CLASS)
+                    .applyToGeneratingRules(true)
+                    .requireStarlarkProviders(STARLARK_P1, STARLARK_P2)
+                    .build());
+    assertThat(throwable)
+        .hasMessageThat()
+        .contains(
+            "An aspect cannot simultaneously have required providers and apply to generating"
+                + " rules.");
+  }
+
   @StarlarkBuiltin(name = "test_fragment", doc = "test fragment")
   private static final class TestFragment implements StarlarkValue {}
 }

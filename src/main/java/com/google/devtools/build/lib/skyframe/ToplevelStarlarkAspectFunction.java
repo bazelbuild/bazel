@@ -211,9 +211,15 @@ final class ToplevelStarlarkAspectFunction implements SkyFunction {
       // not be created for a file target if the aspect does not apply to files or their generating
       // rules. Currently, some tests depend on such keys being created, so they need to be modified
       // first.
-      aspectCollection =
-          AspectResolutionHelpers.computeAspectCollection(
-              aspects, target.getAdvertisedProviders(), target.getLabel(), target.getLocation());
+      if (target.isRule()) {
+        aspectCollection =
+            AspectResolutionHelpers.computeAspectCollection(
+                aspects, target.getAdvertisedProviders(), target.getLabel(), target.getLocation());
+      } else {
+        aspectCollection =
+            AspectResolutionHelpers.computeAspectCollectionNoAspectsFiltering(
+                aspects, target.getLabel(), target.getLocation());
+      }
     } catch (InconsistentAspectOrderException e) {
       // This exception should never happen because aspects duplicates are not allowed in top-level
       // aspects and their existence should have been caught and reported by
