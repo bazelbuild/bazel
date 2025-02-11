@@ -366,6 +366,10 @@ public class StandaloneTestStrategy extends TestStrategy {
     BuildEventStreamProtos.TestResult.ExecutionInfo.Builder executionInfo =
         BuildEventStreamProtos.TestResult.ExecutionInfo.newBuilder();
 
+    // The return of `SpawnResult#exitCode()` is noted to only be meaningful if the subprocess
+    // actually executed. In this position, `spawnResult.exitCode()` is always meaningful,
+    // because the code only runs if `spawnResult.setupSuccess()` is previously verified to
+    // be `true`.
     executionInfo.setExitCode(spawnResult.exitCode());
 
     if (spawnResult.isCacheHit()) {
