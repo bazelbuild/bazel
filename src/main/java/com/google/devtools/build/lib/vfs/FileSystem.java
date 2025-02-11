@@ -32,7 +32,6 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.file.FileAlreadyExistsException;
-import java.nio.file.Files;
 import java.security.SecureRandom;
 import java.util.Collection;
 import java.util.Iterator;
@@ -848,33 +847,19 @@ public abstract class FileSystem {
 
   /**
    * Returns the path of a new temporary directory with the given prefix created under the given
-   * parent path.
-   *
-   * <p>On file systems that don't override getNioPath, the created directory will <b>not</b> be
-   * created atomically with restricted permissions. Don't use this method if that is a requirement.
+   * parent path, but <b>not</b> necessarily with secure permissions.
    */
   protected PathFragment createTempDirectory(PathFragment parent, String prefix)
       throws IOException {
-    java.nio.file.Path javaParent;
-    try {
-      javaParent = getNioPath(parent);
-    } catch (UnsupportedOperationException e) {
-      // The current file system isn't backed by a file system that supports NIO, fall back to
-      // imitating the behavior of Files.createTempDirectory().
-      SecureRandom rand = new SecureRandom();
-      while (true) {
-        PathFragment candidate =
-            parent.getRelative(prefix + Long.toUnsignedString(rand.nextLong()));
-        if (createDirectory(candidate)) {
-          chmod(candidate, 0700);
-          return candidate;
-        }
+    SecureRandom rand = new SecureRandom();
+    while (true) {
+      PathFragment candidate =
+          parent.getRelative(prefix + Long.toUnsignedString(rand.nextLong()));
+      if (createDirectory(candidate)) {
+        chmod(candidate, 0700);
+        return candidate;
       }
     }
-    java.nio.file.Path javaTmp =
-        Files.createTempDirectory(javaParent, StringEncoding.internalToPlatform(prefix));
-    return PathFragment.create(
-        StringEncoding.platformToInternal(javaTmp.toAbsolutePath().toString()));
   }
 
   /** Represents an arbitrary transform on a Path. */
