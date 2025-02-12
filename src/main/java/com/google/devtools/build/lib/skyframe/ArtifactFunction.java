@@ -133,6 +133,12 @@ public final class ArtifactFunction implements SkyFunction {
       throws ArtifactFunctionException, InterruptedException {
     Artifact artifact = (Artifact) skyKey;
 
+    if (!artifact.hasKnownGeneratingAction()) {
+      // If the artifact has no known generating action, it is a source artifact and is never cached
+      // remotely.
+      return createSourceValue(artifact, env);
+    }
+
     if (artifact.getArtifactOwner().getLabel() != null) {
       RetrievalResult retrievalResult =
           maybeFetchSkyValueRemotely(artifact, env, cachingDependenciesSupplier.get(), State::new);
@@ -146,10 +152,6 @@ public final class ArtifactFunction implements SkyFunction {
       }
     }
 
-    if (!artifact.hasKnownGeneratingAction()) {
-      // If the artifact has no known generating action, it is a source artifact.
-      return createSourceValue(artifact, env);
-    }
     Artifact.DerivedArtifact derivedArtifact = (DerivedArtifact) artifact;
 
     ArtifactDependencies artifactDependencies =
