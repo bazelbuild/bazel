@@ -108,7 +108,6 @@ JAVA_TOOLS = [
                "//third_party/grpc/bazel:embedded_tools_srcs",
                "//third_party/ijar:embedded_zipper_sources",
                "//third_party/ijar:zipper",
-               "//third_party/java/j2objc:embedded_tools_srcs",
                "//third_party/py/abseil:srcs",
                "//third_party/zlib:embedded_tools",
                "//tools:embedded_tools_srcs",

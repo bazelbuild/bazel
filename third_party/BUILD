@@ -18,8 +18,6 @@ filegroup(
         "//third_party/jarjar:srcs",
         "//third_party/java/android_databinding:srcs",
         "//third_party/java/aosp_gradle_core:srcs",
-        "//third_party/java/j2objc:srcs",
-        "//third_party/java/j2objc-annotations:srcs",
         "//third_party/java/jacoco:srcs",
         "//third_party/java/javapoet:srcs",
         "//third_party/java/jcommander:srcs",
