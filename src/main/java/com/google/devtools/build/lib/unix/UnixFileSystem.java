@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.unix;
 
+import static com.google.devtools.build.lib.util.BazelCleaner.CLEANER;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -35,6 +37,8 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.UncheckedIOException;
+import java.lang.ref.Cleaner;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -489,32 +493,44 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
     }
   }
 
-  private static class NativeFileOutputStream extends OutputStream {
-    private final int fd;
-    private boolean closed = false;
+  private static final class FdHolder implements Runnable {
+    private int fd;
 
-    NativeFileOutputStream(int fd) {
+    private FdHolder(int fd) {
       this.fd = fd;
     }
 
     @Override
-    protected void finalize() throws Throwable {
-      close();
-      super.finalize();
+    public void run() {
+      try {
+        NativePosixFiles.close(fd, this);
+      } catch (IOException e) {
+        throw new UncheckedIOException(e);
+      } finally {
+        fd = -1;
+      }
+    }
+  }
+
+  private static class NativeFileOutputStream extends OutputStream {
+    private final FdHolder fdHolder;
+    private final Cleaner.Cleanable cleanable;
+
+    private NativeFileOutputStream(int fd) {
+      this.fdHolder = new FdHolder(fd);
+      this.cleanable = CLEANER.register(this, fdHolder);
     }
 
     @Override
-    public synchronized void close() throws IOException {
-      if (!closed) {
-        var comp = Blocker.begin();
-        try {
-          NativePosixFiles.close(fd, this);
-          closed = true;
-        } finally {
-          Blocker.end(comp);
-        }
+    public void close() throws IOException {
+      var comp = Blocker.begin();
+      try {
+        cleanable.clean();
+      } catch (UncheckedIOException e) {
+        throw e.getCause();
+      } finally {
+        Blocker.end(comp);
       }
-      super.close();
     }
 
     @Override
@@ -528,10 +544,9 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
     }
 
     @Override
-    @SuppressWarnings(
-        "UnsafeFinalization") // Finalizer invokes close; close and write are synchronized.
-    public synchronized void write(byte[] b, int off, int len) throws IOException {
-      if (closed) {
+    public void write(byte[] b, int off, int len) throws IOException {
+      var fd = fdHolder.fd;
+      if (fd < 0) {
         throw new IOException("attempt to write to a closed Outputstream backed by a native file");
       }
       var comp = Blocker.begin();
@@ -546,13 +561,13 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
   private static final class ProfiledNativeFileOutputStream extends NativeFileOutputStream {
     private final String name;
 
-    public ProfiledNativeFileOutputStream(int fd, String name) {
+    private ProfiledNativeFileOutputStream(int fd, String name) {
       super(fd);
       this.name = name;
     }
 
     @Override
-    public synchronized void write(byte[] b, int off, int len) throws IOException {
+    public void write(byte[] b, int off, int len) throws IOException {
       long startTime = Profiler.nanoTimeMaybe();
       try {
         super.write(b, off, len);
