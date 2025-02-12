@@ -695,6 +695,9 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
       if (isExecConfig(lookupKey.getConfigurationKey())) {
         return false;
       }
+      if (lookupKey.getConfigurationKey() == null) {
+        return false;
+      }
       return true;
     }
     return false;
