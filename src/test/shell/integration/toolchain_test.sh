@@ -482,7 +482,7 @@ EOF
   expect_log "  //${pkg}/toolchain:test_toolchain$"
 }
 
-function test_toolchain_use_in_rule_missing_with_custom_error {
+function test_toolchain_use_in_rule_missing_with_custom_toolchain_type_error {
   local -r pkg="${FUNCNAME[0]}"
   write_test_toolchain "${pkg}" test_toolchain_with_message
   cat > "${pkg}/toolchain/BUILD" <<EOF
@@ -509,6 +509,41 @@ EOF
   bazel build "//${pkg}/demo:use" &> $TEST_log && fail "Build failure expected"
   expect_log "While resolving toolchains for target //${pkg}/demo:use[^:]*: No matching toolchains found for types:$"
   expect_log "^  //${pkg}/toolchain:test_toolchain_with_message: Go register a toolchain!$"
+}
+
+function test_toolchain_use_in_rule_missing_with_custom_platform_error {
+  local -r pkg="${FUNCNAME[0]}"
+  write_test_toolchain "${pkg}"
+  write_test_rule "${pkg}"
+  #rite_register_toolchain
+  # Do not register test_toolchain to trigger the error.
+
+  # Use a custom platform.
+  mkdir -p "${pkg}/platforms"
+  cat > "${pkg}/platforms/BUILD" <<EOF
+platform(
+    name = "custom_message",
+    missing_toolchain_error = "Check custom docs for setup instructions",
+)
+EOF
+
+  mkdir -p "${pkg}/demo"
+  cat > "${pkg}/demo/BUILD" <<EOF
+load('//${pkg}/toolchain:rule_use_toolchain.bzl', 'use_toolchain')
+
+package(default_visibility = ["//visibility:public"])
+
+# Use the toolchain.
+use_toolchain(
+    name = 'use',
+    message = 'this is the rule')
+EOF
+
+  bazel build \
+    --platforms="//${pkg}/platforms:custom_message" \
+    "//${pkg}/demo:use" &> $TEST_log && fail "Build failure expected"
+  expect_log "Check custom docs for setup instructions"
+  expect_not_log "see https://bazel.build/concepts/platforms-intro"
 }
 
 function test_multiple_toolchain_use_in_rule {
