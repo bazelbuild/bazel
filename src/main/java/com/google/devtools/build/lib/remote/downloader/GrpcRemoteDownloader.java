@@ -40,9 +40,11 @@ import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.util.Timestamps;
+import com.google.rpc.Code;
 import io.grpc.CallCredentials;
 import io.grpc.Channel;
 import io.grpc.StatusRuntimeException;
+import io.grpc.protobuf.StatusProto;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URISyntaxException;
@@ -160,6 +162,9 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
                       channel ->
                           fetchBlockingStub(remoteActionExecutionContext, channel)
                               .fetchBlob(request)));
+      if (response.getStatus().getCode() != Code.OK_VALUE) {
+        throw StatusProto.toStatusRuntimeException(response.getStatus());
+      }
       final Digest blobDigest = response.getBlobDigest();
 
       retrier.execute(
