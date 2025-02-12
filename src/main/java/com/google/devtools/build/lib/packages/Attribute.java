@@ -2447,7 +2447,7 @@ public final class Attribute implements Comparable<Attribute> {
       return StarlarkList.immutableCopyOf(set);
     } else if (x instanceof TriState triState) {
       // Convert TriState to integer (same as in query output and native.existing_rules())
-      return triState.toInt();
+      return Starlark.fromJava(triState.toInt(), /* mutability= */ null);
     }
 
     // For all other attribute values, shallow conversion is safe.
