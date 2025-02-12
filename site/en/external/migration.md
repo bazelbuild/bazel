@@ -7,11 +7,77 @@ keywords: bzlmod
 {% include "_buttons.html" %}
 
 Due to the [shortcomings of
-WORKSPACE](/external/overview#workspace-shortcomings), Bzlmod is going to
-replace the legacy WORKSPACE system. The WORKSPACE file will be disabled by
-default in Bazel 8 (late 2024) and will be removed in Bazel 9 (late 2025).
-This guide helps you migrate your project to Bzlmod and drop WORKSPACE for
-fetching external dependencies.
+WORKSPACE](/external/overview#workspace-shortcomings), Bzlmod is replacing the
+legacy WORKSPACE system. The WORKSPACE file is already disabled in Bazel 8 (late
+2024) and will be removed in Bazel 9 (late 2025). This guide helps you migrate
+your project to Bzlmod and drop WORKSPACE for managing external dependencies.
+
+## Why migrate to Bzlmod? {:#why-migrate-to-bzlmod}
+
+*   There are many [advantages](#benefits-of-bzlmod) compared to the legacy
+    WORKSPACE system, which helps to ensure a healthy growth of the Bazel
+    ecosystem.
+
+*   If your project is a dependency of other projects, migrating to Bzlmod will
+   unblock their migration and make it easier for them to depend on your
+    project.
+
+*   Migration to Bzlmod is a necessary step in order to use future Bazel
+    versions (mandatory in Bazel 9).
+
+### Benefits of Bzlmod {:#benefits-of-bzlmod}
+
+This section outlines the key advantages of using Bzlmod.
+
+#### Automatic Dependency Resolution
+
+-   **Deterministic Version Resolution**: Bzlmod adopts the deterministic
+    [MVS](/external/module#version-selection) version resolution algorithm,
+    minimizing conflicts and addressing diamond dependency issues.
+-   **Simplified Dependency Management**: `MODULE.bazel` declares only direct
+    dependencies, while transitive dependencies are automatically resolved,
+    providing a clearer overview of the project's dependencies.
+-   **[Strict Dependency
+    Visibility](/external/module#repository_names_and_strict_deps)**: Only
+    direct dependencies are visible, ensuring correctness and predictability.
+
+#### Ecosystem Integration
+
+-   **[Bazel Central Registry](https://registry.bazel.build/)**: A centralized
+    repository for discovering and managing common dependencies as Bazel
+    modules.
+-   **Adoption of Non-Bazel Projects**: When a non-Bazel project (usually a C++
+    library) is adapted for Bazel and made available in BCR, it streamlines its
+    integration for the whole community and eliminates duplicated effort and
+    conflicts of custom BUILD files.
+-   **Unified Integration with Language-Specific Package Managers**: Rulesets
+    streamline integration with external package managers for non-Bazel
+    dependencies, including:
+    *   [rules_jvm_external](https://github.com/bazel-contrib/rules_jvm_external/blob/master/docs/bzlmod.md)
+        for Maven,
+    *   [rules_python](https://rules-python.readthedocs.io/en/latest/pypi-dependencies.html#using-bzlmod)
+        for PyPi,
+    *   [bazel-gazelle](https://github.com/bazel-contrib/rules_go/blob/master/docs/go/core/bzlmod.md#external-dependencies)
+        for Go Modules,
+    *   [rules_rust](https://bazelbuild.github.io/rules_rust/crate_universe_bzlmod.html)
+        for Cargo.
+
+#### Advanced Features
+
+-   **[Module Extensions](/external/extension)**: The module extension and
+    [`use_repo_rule`](/rules/lib/globals/module#use_repo_rule) features allow
+    continued use of repository rules and custom resolution logic.
+-   **[`bazel mod` Command](/external/mod-command)**: The sub-command offers
+    powerful ways to inspect external dependencies. You know exactly how an
+    external dependency is defined and where it comes from.
+-   **[Vendor Mode](/external/vendor)**: Pre-fetch the exact external
+    dependencies you need to facilitate offline builds.
+-   **[Lockfile](/external/lockfile)**: The Bzlmod lockfile feature improves
+    build reproducibility and accelerates dependency resolution.
+-   **(Upcoming) [BCR Provenance
+    Attestations](https://github.com/bazelbuild/bazel-central-registry/discussions/2721)**:
+    Strengthen supply chain security by ensuring verified provenance of
+    dependencies.
 
 ## WORKSPACE vs Bzlmod {:#workspace-vs-bzlmod}
 

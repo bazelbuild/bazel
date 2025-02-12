@@ -182,6 +182,11 @@ requests. Among other things, they allow Bazel to interact with other package
 management systems while also respecting the dependency graph built out of Bazel
 modules.
 
+### Advantages of Bzlmod {:#advantages-bzlmod}
+
+Bzlmod improves dependency resolution, ecosystem integration, build reliability
+and security ([see details](/external/migration#benefits-of-bzlmod)).
+
 ### External links on Bzlmod {:#external-links}
 
 *   [Bzlmod usage examples in bazelbuild/examples](https://github.com/bazelbuild/examples/tree/main/bzlmod){:.external}
