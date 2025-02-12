@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.proto;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
-import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.truth.Correspondence;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -24,10 +23,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.StarlarkInfo;
-import com.google.devtools.build.lib.packages.StarlarkProvider;
-import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.OS;
@@ -44,12 +39,6 @@ import org.junit.runner.RunWith;
 public class BazelProtoCommonTest extends BuildViewTestCase {
   private static final Correspondence<String, String> MATCHES_REGEX =
       Correspondence.from((a, b) -> Pattern.matches(b, a), "matches");
-
-  private static final StarlarkProviderIdentifier boolProviderId =
-      StarlarkProviderIdentifier.forKey(
-          new StarlarkProvider.Key(
-              keyForBuild(Label.parseCanonicalUnchecked("//foo:should_generate.bzl")),
-              "BoolProvider"));
 
   @Before
   public final void setup() throws Exception {
@@ -317,57 +306,6 @@ check_collocated = rule(_impl,
         .inOrder();
     assertThat(spawnAction.getMnemonic()).isEqualTo("MyMnemonic");
     assertThat(spawnAction.getProgressMessage()).isEqualTo("My //bar:simple");
-  }
-
-  /** Verifies <code>proto_common.should_generate_code</code> call. */
-  @Test
-  public void shouldprotoCommonCompile_basic() throws Exception {
-    scratch.file(
-        "bar/BUILD",
-        "load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')",
-        "load('//foo:should_generate.bzl', 'should_compile_rule')",
-        "proto_library(name = 'proto', srcs = ['A.proto'])",
-        "should_compile_rule(name = 'simple', proto_dep = ':proto')");
-
-    ConfiguredTarget target = getConfiguredTarget("//bar:simple");
-
-    StarlarkInfo boolProvider = (StarlarkInfo) target.get(boolProviderId);
-    assertThat(boolProvider.getValue("value", Boolean.class)).isTrue();
-  }
-
-  /** Verifies <code>proto_common.should_generate_code</code> call. */
-  @Test
-  public void shouldprotoCommonCompile_dontGenerate() throws Exception {
-    scratch.file(
-        "bar/BUILD",
-        "load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')",
-        "load('//foo:should_generate.bzl', 'should_compile_rule')",
-        "should_compile_rule(name = 'simple', proto_dep = '//third_party/x:denied')");
-
-    ConfiguredTarget target = getConfiguredTarget("//bar:simple");
-
-    StarlarkInfo boolProvider = (StarlarkInfo) target.get(boolProviderId);
-    assertThat(boolProvider.getValue("value", Boolean.class)).isFalse();
-  }
-
-  /** Verifies <code>proto_common.should_generate_code</code> call. */
-  @Test
-  public void shouldprotoCommonCompile_mixed() throws Exception {
-    scratch.file(
-        "bar/BUILD",
-        "load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')",
-        "load('//foo:should_generate.bzl', 'should_compile_rule')",
-        "should_compile_rule(name = 'simple', proto_dep = '//third_party/x:mixed')");
-
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//bar:simple");
-
-    assertContainsEvent(
-        "The 'srcs' attribute of '@@//third_party/x:mixed' contains protos for which 'MyRule'"
-            + " shouldn't generate code (third_party/x/metadata.proto,"
-            + " third_party/x/descriptor.proto), in addition to protos for which it should"
-            + " (third_party/x/something.proto).\n"
-            + "Separate '@@//third_party/x:mixed' into 2 proto_library rules.");
   }
 
   /** Verifies <code>proto_common.declare_generated_files</code> call. */
