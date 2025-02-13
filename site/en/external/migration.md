@@ -25,7 +25,7 @@ your project to Bzlmod and drop WORKSPACE for managing external dependencies.
 *   Migration to Bzlmod is a necessary step in order to use future Bazel
     versions (mandatory in Bazel 9).
 
-### Benefits of Bzlmod {:#benefits-of-bzlmod}
+## Benefits of Bzlmod {:#benefits-of-bzlmod}
 
 This section outlines the key advantages of using Bzlmod.
 
@@ -64,9 +64,10 @@ This section outlines the key advantages of using Bzlmod.
 
 #### Advanced Features
 
--   **[Module Extensions](/external/extension)**: The module extension and
-    [`use_repo_rule`](/rules/lib/globals/module#use_repo_rule) features allow
-    continued use of repository rules and custom resolution logic.
+-   **[Module Extensions](/external/extension)**: The
+    [`use_repo_rule`](/rules/lib/globals/module#use_repo_rule) and module
+    extension features allow flexible use of custom repository rules and
+    resolution logic to introduce any non-Bazel dependencies.
 -   **[`bazel mod` Command](/external/mod-command)**: The sub-command offers
     powerful ways to inspect external dependencies. You know exactly how an
     external dependency is defined and where it comes from.
