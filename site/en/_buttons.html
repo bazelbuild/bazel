@@ -21,6 +21,12 @@
 {% dynamic endif %}
 <!-- The lines below are updated by //scripts/docs:gen_new_toc -->
 <!-- BEGIN_VERSION_INDICATOR -->
+
+{% dynamic if setvar.version == "8.1.0" %}
+<strong>8.1</strong>
+{% dynamic else %}
+<a href="/versions/8.1.0{% dynamic print setvar.original_path %}">8.1</a>
+{% dynamic endif %}
 ·
 {% dynamic if setvar.version == "8.0.0" %}
 <strong>8.0</strong>
