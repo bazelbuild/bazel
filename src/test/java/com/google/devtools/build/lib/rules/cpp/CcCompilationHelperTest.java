@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.SourceCategory;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
+import net.starlark.java.eval.Tuple;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -59,8 +60,10 @@ public final class CcCompilationHelperTest extends BuildViewTestCase {
             target.getLabel(),
             MockCppSemantics.INSTANCE,
             FeatureConfiguration.EMPTY,
+            SourceCategory.CC,
             ccToolchain,
             fdoContext,
+            ruleContext.getConfiguration(),
             /* executionInfo= */ ImmutableMap.of(),
             /* shouldProcessHeaders= */ true));
   }
@@ -79,11 +82,13 @@ public final class CcCompilationHelperTest extends BuildViewTestCase {
                 ruleContext.getLabel(),
                 MockCppSemantics.INSTANCE,
                 FeatureConfiguration.EMPTY,
+                SourceCategory.CC,
                 ccToolchain,
                 fdoContext,
+                ruleContext.getConfiguration(),
                 /* executionInfo= */ ImmutableMap.of(),
                 /* shouldProcessHeaders= */ true)
-            .addSources(objcSrc);
+            .addSources(Tuple.of(objcSrc));
 
     ImmutableList.Builder<Artifact> helperArtifacts = ImmutableList.builder();
     for (CppSource source : helper.getCompilationUnitSources()) {
@@ -113,7 +118,7 @@ public final class CcCompilationHelperTest extends BuildViewTestCase {
                 ruleContext.getConfiguration(),
                 ImmutableMap.of(),
                 /* shouldProcessHeaders= */ true)
-            .addSources(objcSrc);
+            .addSources(Tuple.of(objcSrc));
 
     ImmutableList.Builder<Artifact> helperArtifacts = ImmutableList.builder();
     for (CppSource source : helper.getCompilationUnitSources()) {
