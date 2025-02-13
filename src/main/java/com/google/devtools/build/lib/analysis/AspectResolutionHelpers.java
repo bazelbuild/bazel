@@ -130,11 +130,15 @@ public final class AspectResolutionHelpers {
       Aspect aspect = aspects.get(i);
       if (AspectDefinition.satisfies(aspect, advertisedProviders)
           || isAspectRequired(aspect, filteredAspectPath)) {
-        // Adds the aspect if the target satisfies its required providers or it is
+        // Considers the aspect if the target satisfies its required providers or it is
         // required by an aspect already in the {@code filteredAspectPath}.
-        filteredAspectPath.add(aspect);
+        if (evaluatePropagationPredicate(aspect)) {
+          // Only add the aspect if its propagation predicate is satisfied by the target.
+          filteredAspectPath.add(aspect);
+        }
       }
     }
+
     reverse(filteredAspectPath);
     return computeAspectCollectionNoAspectsFiltering(
         ImmutableList.copyOf(filteredAspectPath), targetLabel, targetLocation);
@@ -148,6 +152,13 @@ public final class AspectResolutionHelpers {
     } catch (AspectCycleOnPathException e) {
       throw new InconsistentAspectOrderException(targetLabel, targetLocation, e);
     }
+  }
+
+  private static boolean evaluatePropagationPredicate(Aspect aspect) {
+    if (aspect.getDefinition().getPropagationPredicate() == null) {
+      return true;
+    }
+    return aspect.getDefinition().getPropagationPredicate().evaluate();
   }
 
   /**

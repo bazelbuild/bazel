@@ -62,6 +62,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
   private final ImmutableSet<String> paramAttributes;
 
   private final ImmutableSet<StarlarkAspect> requiredAspects;
+  @Nullable private final AspectPropagationPredicate propagationPredicate;
   private final ImmutableSet<String> fragments;
   private final ImmutableSet<ToolchainTypeRequirement> toolchainTypes;
   private final boolean applyToGeneratingRules;
@@ -89,6 +90,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
       ImmutableSet<StarlarkProviderIdentifier> provides,
       ImmutableSet<String> paramAttributes,
       ImmutableSet<StarlarkAspect> requiredAspects,
+      @Nullable AspectPropagationPredicate propagationPredicate,
       ImmutableSet<String> fragments,
       ImmutableSet<ToolchainTypeRequirement> toolchainTypes,
       boolean applyToGeneratingRules,
@@ -106,6 +108,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     this.provides = provides;
     this.paramAttributes = paramAttributes;
     this.requiredAspects = requiredAspects;
+    this.propagationPredicate = propagationPredicate;
     this.fragments = fragments;
     this.toolchainTypes = toolchainTypes;
     this.applyToGeneratingRules = applyToGeneratingRules;
@@ -250,6 +253,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
       requiredAspectsClasses.add(requiredAspect.getAspectClass());
     }
     builder.requiredAspectClasses(requiredAspectsClasses.build());
+    builder.propagationPredicate(propagationPredicate);
     builder.execCompatibleWith(execCompatibleWith);
     builder.execGroups(execGroups);
     builder.subrules(subrules);
@@ -419,6 +423,11 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     return requiredAspects;
   }
 
+  @Nullable
+  public AspectPropagationPredicate getPropagationPredicate() {
+    return propagationPredicate;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) {
@@ -437,6 +446,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
         && Objects.equals(provides, that.provides)
         && Objects.equals(paramAttributes, that.paramAttributes)
         && Objects.equals(requiredAspects, that.requiredAspects)
+        && Objects.equals(propagationPredicate, that.propagationPredicate)
         && Objects.equals(fragments, that.fragments)
         && Objects.equals(toolchainTypes, that.toolchainTypes)
         && Objects.equals(aspectClassOrIdentityToken, that.aspectClassOrIdentityToken);
@@ -454,6 +464,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
         provides,
         paramAttributes,
         requiredAspects,
+        propagationPredicate,
         fragments,
         toolchainTypes,
         aspectClassOrIdentityToken);

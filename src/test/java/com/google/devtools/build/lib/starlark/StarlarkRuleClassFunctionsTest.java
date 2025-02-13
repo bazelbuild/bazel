@@ -6732,6 +6732,32 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     assertThat(myRule).isSameInstanceAs(deserialized);
   }
 
+  @Test
+  public void aspectPropagationPredicateNotFunction_fails() throws Exception {
+    ev.checkEvalErrorContains(
+        "parameter 'propagation_predicate' got value of type 'string', want 'function or NoneType'",
+        "def _impl(target, ctx):",
+        "   pass",
+        "my_aspect = aspect(_impl,",
+        "   propagation_predicate = 'not_a_function'",
+        ")");
+  }
+
+  @Test
+  public void aspectApplyToGeneratingRules_hasPropagationPredicate_fails() throws Exception {
+    ev.checkEvalErrorContains(
+        "An aspect cannot simultaneously have a propagation predicate and apply to generating"
+            + " rules.",
+        "def _impl(target, ctx):",
+        "   pass",
+        "def _function():",
+        "  return True",
+        "my_aspect = aspect(_impl,",
+        "   propagation_predicate = _function,",
+        "   apply_to_generating_rules = True",
+        ")");
+  }
+
   private SkyValue getDoneValue(SkyKey key) {
     try {
       return skyframeExecutor.getDoneSkyValueForIntrospection(key);

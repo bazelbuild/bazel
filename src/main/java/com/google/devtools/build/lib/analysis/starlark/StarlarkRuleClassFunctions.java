@@ -68,6 +68,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AllowlistChecker;
 import com.google.devtools.build.lib.packages.AllowlistChecker.LocationCheck;
+import com.google.devtools.build.lib.packages.AspectPropagationPredicate;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
@@ -1193,6 +1194,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       Sequence<?> requiredAspectProvidersArg,
       Sequence<?> providesArg,
       Sequence<?> requiredAspects,
+      Object rawPropagationPredicate,
       Sequence<?> fragments,
       Sequence<?> hostFragments,
       Sequence<?> toolchains,
@@ -1341,6 +1343,24 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
           "An aspect cannot simultaneously have required providers and apply to generating rules.");
     }
 
+    AspectPropagationPredicate propagationPredicate = null;
+    if (!Starlark.isNullOrNone(rawPropagationPredicate)) {
+      if (!(rawPropagationPredicate instanceof StarlarkFunction starlarkFunction)) {
+        throw Starlark.errorf(
+            "Expected a function in 'propagation_predicate' parameter, got '%s'.",
+            Starlark.type(propagationPredicate));
+      }
+
+      propagationPredicate =
+          new AspectPropagationPredicate(starlarkFunction, thread.getSemantics());
+    }
+
+    if (applyToGeneratingRules && propagationPredicate != null) {
+      throw Starlark.errorf(
+          "An aspect cannot simultaneously have a propagation predicate and apply to generating"
+              + " rules.");
+    }
+
     ImmutableSet<Label> execCompatibleWith =
         parseLabels(rawExecCompatibleWith, labelConverter, "exec_compatible_with");
 
@@ -1378,6 +1398,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         StarlarkAttrModule.getStarlarkProviderIdentifiers(providesArg),
         requiredParams.build(),
         ImmutableSet.copyOf(Sequence.cast(requiredAspects, StarlarkAspect.class, "requires")),
+        propagationPredicate,
         ImmutableSet.copyOf(Sequence.cast(fragments, String.class, "fragments")),
         toolchainTypes,
         applyToGeneratingRules,

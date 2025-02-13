@@ -84,6 +84,8 @@ public final class AspectDefinition {
 
   private final ImmutableSet<AspectClass> requiredAspectClasses;
 
+  @Nullable private final AspectPropagationPredicate propagationPredicate;
+
   private final ImmutableSet<Label> execCompatibleWith;
   private final ImmutableMap<String, ExecGroup> execGroups;
   private final ImmutableSet<? extends StarlarkSubruleApi> subrules;
@@ -105,6 +107,7 @@ public final class AspectDefinition {
       boolean applyToFiles,
       boolean applyToGeneratingRules,
       ImmutableSet<AspectClass> requiredAspectClasses,
+      @Nullable AspectPropagationPredicate propagationPredicate,
       ImmutableSet<Label> execCompatibleWith,
       ImmutableMap<String, ExecGroup> execGroups,
       ImmutableSet<? extends StarlarkSubruleApi> subrules) {
@@ -120,6 +123,7 @@ public final class AspectDefinition {
     this.applyToFiles = applyToFiles;
     this.applyToGeneratingRules = applyToGeneratingRules;
     this.requiredAspectClasses = requiredAspectClasses;
+    this.propagationPredicate = propagationPredicate;
     this.execCompatibleWith = execCompatibleWith;
     this.execGroups = execGroups;
     this.subrules = subrules;
@@ -228,6 +232,11 @@ public final class AspectDefinition {
     return requiredAspectClasses.contains(maybeRequiredAspect.getAspectClass());
   }
 
+  @Nullable
+  public AspectPropagationPredicate getPropagationPredicate() {
+    return propagationPredicate;
+  }
+
   /** Collects all attribute labels from the specified aspectDefinition. */
   public static void addAllAttributesOfAspect(
       Multimap<Attribute, Label> labelBuilder, Aspect aspect, DependencyFilter dependencyFilter) {
@@ -284,6 +293,7 @@ public final class AspectDefinition {
     private boolean applyToGeneratingRules = false;
     private final Set<ToolchainTypeRequirement> toolchainTypes = new HashSet<>();
     private ImmutableSet<AspectClass> requiredAspectClasses = ImmutableSet.of();
+    private AspectPropagationPredicate propagationPredicate = null;
     private ImmutableSet<Label> execCompatibleWith = ImmutableSet.of();
     private ImmutableMap<String, ExecGroup> execGroups = ImmutableMap.of();
     private ImmutableSet<? extends StarlarkSubruleApi> subrules = ImmutableSet.of();
@@ -330,6 +340,12 @@ public final class AspectDefinition {
     @CanIgnoreReturnValue
     public Builder requiredAspectClasses(ImmutableSet<AspectClass> requiredAspectClasses) {
       this.requiredAspectClasses = requiredAspectClasses;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder propagationPredicate(AspectPropagationPredicate propagationPredicate) {
+      this.propagationPredicate = propagationPredicate;
       return this;
     }
 
@@ -562,10 +578,29 @@ public final class AspectDefinition {
      */
     public AspectDefinition build() {
       RequiredProviders requiredProviders = this.requiredProviders.build();
-      if (applyToGeneratingRules && !requiredProviders.acceptsAny()) {
-        throw new IllegalStateException(
-            "An aspect cannot simultaneously have required providers "
-                + "and apply to generating rules.");
+      if (applyToGeneratingRules) {
+        if (!requiredProviders.acceptsAny()) {
+          throw new IllegalStateException(
+              "An aspect cannot simultaneously have required providers "
+                  + "and apply to generating rules.");
+        }
+
+        if (propagationPredicate != null) {
+          throw new IllegalStateException(
+              "An aspect cannot simultaneously have a propagation predicate and apply to generating"
+                  + " rules.");
+        }
+      }
+
+      if (applyToFiles) {
+        if (!requiredProviders.acceptsAny()) {
+          throw new IllegalStateException(
+              "An aspect cannot simultaneously have required providers and apply to files.");
+        }
+        if (propagationPredicate != null) {
+          throw new IllegalStateException(
+              "An aspect cannot simultaneously have a propagation predicate and apply to files.");
+        }
       }
 
       if (applyToFiles && !requiredProviders.acceptsAny()) {
@@ -586,6 +621,7 @@ public final class AspectDefinition {
           applyToFiles,
           applyToGeneratingRules,
           requiredAspectClasses,
+          propagationPredicate,
           execCompatibleWith,
           execGroups,
           subrules);

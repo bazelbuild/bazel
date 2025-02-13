@@ -910,6 +910,17 @@ declared.
             defaultValue = "[]",
             doc = "List of aspects required to be propagated before this aspect."),
         @Param(
+            name = "propagation_predicate",
+            allowedTypes = {
+              @ParamType(type = StarlarkFunction.class),
+              @ParamType(type = NoneType.class),
+            },
+            named = true,
+            defaultValue = "None",
+            doc =
+                "Experimental: a function that returns a boolean value indicating whether the"
+                    + " aspect should be propagated to a target."),
+        @Param(
             name = "fragments",
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
             named = true,
@@ -1010,6 +1021,7 @@ declared.
       Sequence<?> requiredAspectProvidersArg,
       Sequence<?> providesArg,
       Sequence<?> requiredAspects,
+      Object propagationPredicate,
       Sequence<?> fragments,
       Sequence<?> hostFragments,
       Sequence<?> toolchains,
