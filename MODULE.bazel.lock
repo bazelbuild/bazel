@@ -1,5 +1,5 @@
 {
-  "lockFileVersion": 16,
+  "lockFileVersion": 18,
   "registryFileHashes": {
     "https://bcr.bazel.build/bazel_registry.json": "8a28e4aff06ee60aed2a8c281907fb8bcbf3b753c91fb5a5c57da3215d5b3497",
     "https://bcr.bazel.build/modules/abseil-cpp/20210324.2/MODULE.bazel": "7cd0312e064fde87c8d1cd79ba06c876bd23630c83466e9500321be55c96ace2",
@@ -236,7 +236,7 @@
     "//:repositories.bzl%async_profiler_repos": {
       "general": {
         "bzlTransitiveDigest": "sZP+1R6WWs3AtxwigiCKw4QSdhIWK8m+woUU1R+KxKo=",
-        "usagesDigest": "TXv7fmbUVOyIQ5kVlYwPPOzzUid/9pKSra0heQ5IW1o=",
+        "usagesDigest": "5A28PwAsOZuSAXZ8vWJpTa+ii7fTnFSfd1ujDdf5xBg=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -468,7 +468,7 @@
     "@@googleapis+//:extensions.bzl%switched_rules": {
       "general": {
         "bzlTransitiveDigest": "vG6fuTzXD8MMvHWZEQud0MMH7eoC4GXY0va7VrFFh04=",
-        "usagesDigest": "E6SDNEKXAdTu1CuAlw5WECrQzHWGpv0BSK1AkMQ82Zo=",
+        "usagesDigest": "ncs9XVkIpwIXvb7iwYMGmCWOe7EE34XxNy447LPtyIQ=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -1407,7 +1407,7 @@
     "@@rules_graalvm+//:extensions.bzl%graalvm": {
       "general": {
         "bzlTransitiveDigest": "h5NoLe6qf+ziboLGAdcXrD+fgwCizx5PmMd0VH19SXY=",
-        "usagesDigest": "xXLw3y7USr8EWiLxMkqWum7yQHPYllJ7sH67MLDGLMk=",
+        "usagesDigest": "2CXe+oMjOEG0j3DSYnVk3pIwhaYclCeman3A0E3biKU=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -1465,7 +1465,7 @@
     "@@rules_jvm_external+//:extensions.bzl%maven": {
       "general": {
         "bzlTransitiveDigest": "eFWAf0xs060wNpmZkersPexZt4+6p4VdZCCQb2swjng=",
-        "usagesDigest": "py7jXfS8AsTIhFnv9mbvsH0nUPz7R+s9AM99E/SyWJ0=",
+        "usagesDigest": "DaLL7qumTwMUVNApj7tFy8PqcY9x8XExxKVbEflkjvc=",
         "recordedFileInputs": {
           "@@//maven_install.json": "4d8d58f84eed568d0bde5e57ee60ddaea7ce406306011a2694883445f9df66a9",
           "@@rules_jvm_external+//rules_jvm_external_deps_install.json": "cafb5d2d8119391eb2b322ce3840d3352ea82d496bdb8cbd4b6779ec4d044dda",
@@ -5057,6 +5057,16 @@
         },
         "recordedRepoMappingEntries": [
           [
+            "grpc-java+",
+            "com_google_protobuf",
+            "protobuf+"
+          ],
+          [
+            "grpc-java+",
+            "io_grpc_grpc_java",
+            "grpc-java+"
+          ],
+          [
             "rules_jvm_external+",
             "bazel_tools",
             "bazel_tools"
@@ -5130,7 +5140,7 @@
     },
     "@@rules_python+//python/private/pypi:pip.bzl%pip_internal": {
       "general": {
-        "bzlTransitiveDigest": "+zEWYyNfKsf13xNoIs5u4bH4EEgN37u2T/f35J7yWKI=",
+        "bzlTransitiveDigest": "gI+deLdiN3HoT5y7LcbvZLpdyCTx17lAymkg9ZvugLE=",
         "usagesDigest": "OLoIStnzNObNalKEMRq99FqenhPGLFZ5utVLV4sz7OI=",
         "recordedFileInputs": {
           "@@rules_python+//tools/publish/requirements_darwin.txt": "2994136eab7e57b083c3de76faf46f70fad130bc8e7360a7fed2b288b69e79dc",
