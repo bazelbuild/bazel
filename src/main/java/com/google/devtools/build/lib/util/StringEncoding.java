@@ -29,12 +29,12 @@ import java.nio.charset.Charset;
  * <p>Bazel needs to support the following two setups:
  *
  * <ul>
- *   <li>File paths, command-line arguments, environment variables, BUILD and .bzl files are all
- *       encoded in UTF-8, on Linux, macOS or Windows.
- *   <li>File paths, command-line arguments, environment variables, BUILD and .bzl files are all
- *       encoded in <i>some</i> consistent encoding, on Linux and with the en_US.ISO-8859-1 locale
- *       available on the host (legacy setup). In particular, this setup allows any byte sequence to
- *       appear in a file path and be referenced in a BUILD file.
+ *   <li>Standard setup: file paths, command-line arguments, environment variables, BUILD and .bzl
+ *       files are all encoded in UTF-8, on Linux, macOS or Windows.
+ *   <li>Legacy setup: file paths, command-line arguments, environment variables, BUILD and .bzl
+ *       files are all encoded in <i>some</i> consistent superset of ASCII, on Linux, with the
+ *       en_US.ISO-8859-1 locale available on the host. In particular, this setup allows any byte
+ *       sequence to appear in a file path and be referenced in a BUILD file.
  * </ul>
  *
  * <p>Bazel achieves this by forcing an en_US.ISO-8859-1 locale on Unix when available, which due to
