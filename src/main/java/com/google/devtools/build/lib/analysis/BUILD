@@ -2545,6 +2545,7 @@ java_library(
     srcs = ["starlark/FunctionTransitionUtil.java"],
     deps = [
         ":config/build_options",
+        ":config/core_option_converters",
         ":config/core_options",
         ":config/fragment_options",
         ":config/optioninfo",
