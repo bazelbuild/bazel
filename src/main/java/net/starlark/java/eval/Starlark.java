@@ -866,10 +866,9 @@ public final class Starlark {
    * Starlark call stack rather than the Java call stack. The original throwable (and the Java call
    * stack) may be retrieved using {@link Throwable#getCause}.
    */
-  public static Object positionalOnlyCall(StarlarkThread thread, Object fn, Object... positional)
+  public static Object positionalOnlyCall(
+      StarlarkThread thread, StarlarkCallable callable, Object... positional)
       throws EvalException, InterruptedException {
-    StarlarkCallable callable = getStarlarkCallable(thread, fn);
-
     // LINT.IfChange(positionalOnlyCall)
     thread.push(callable);
     try {
