@@ -17,7 +17,7 @@ import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
-import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -239,14 +239,12 @@ class DirectoryTreeBuilder {
         continue;
       }
 
-      if (input instanceof DerivedArtifact && ((DerivedArtifact) input).isTreeArtifact()) {
+      if (input instanceof Artifact artifact && artifact.isTreeArtifact()) {
         // SpawnInputExpander has already expanded non-empty tree artifacts into a collection of
         // TreeFileArtifacts. Thus, at this point, tree artifacts represent empty directories, which
-        // we create together with their parents.
-        // Note: This also handles output directories of actions, which are explicitly included as
-        // inputs so that they are created by the executor before the action executes. Since such a
-        // directory must remain writeable, MetadataProvider#getMetadata must not be called on the
-        // tree artifact here as it would have the side effect of making it read only.
+        // we create together with their parents. Note that this includes both empty input *and*
+        // output tree artifacts (the latter are included so that their root directory is created
+        // before the action executes).
         DirectoryNode emptyDir = new DirectoryNode(path.getBaseName());
         tree.put(path, emptyDir);
         createParentDirectoriesIfNotExist(path, emptyDir, tree);
