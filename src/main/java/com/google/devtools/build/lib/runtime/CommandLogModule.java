@@ -57,7 +57,7 @@ public class CommandLogModule extends BlazeModule {
     }
 
     try {
-      if (writeCommandLog(env.getRuntime()) && !"clean".equals(env.getCommandName())) {
+      if (writeCommandLog(env) && !"clean".equals(env.getCommandName())) {
         logOutputStream = commandLog.getOutputStream(/* append= */ false, /* internal= */ true);
         return OutErr.create(logOutputStream, logOutputStream);
       }
@@ -68,9 +68,14 @@ public class CommandLogModule extends BlazeModule {
     return null;
   }
 
-  static boolean writeCommandLog(BlazeRuntime runtime) {
-    OptionsParsingResult startupOptionsProvider = runtime.getStartupOptionsProvider();
-    return startupOptionsProvider.getOptions(BlazeServerStartupOptions.class).writeCommandLog;
+  static boolean writeCommandLog(CommandEnvironment env) {
+    // We are migrating --write_command_log from a startup option to a command option. In the
+    // progress of this process, both values are respected.
+    // TODO: b/231429363 - Remove respecting the startup flag.
+    OptionsParsingResult startupOptionsProvider = env.getRuntime().getStartupOptionsProvider();
+    CommonCommandOptions commandOptions = env.getOptions().getOptions(CommonCommandOptions.class);
+    return startupOptionsProvider.getOptions(BlazeServerStartupOptions.class).writeCommandLog
+        || commandOptions.writeCommandLog;
   }
 
   /**

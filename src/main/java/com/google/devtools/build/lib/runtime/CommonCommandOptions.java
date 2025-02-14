@@ -609,4 +609,12 @@ public class CommonCommandOptions extends OptionsBase {
           "If true and supported, instrumentation output is redirected to be written locally on a"
               + " different machine than where bazel is running on.")
   public boolean redirectLocalInstrumentationOutputWrites;
+
+  @Option(
+      name = "write_command_log",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
+      help = "Whether or not to write the command.log file")
+  public boolean writeCommandLog;
 }
