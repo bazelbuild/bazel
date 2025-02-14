@@ -58,7 +58,6 @@ import javax.annotation.Nullable;
  * selecting the execution platform.
  */
 public class ToolchainResolutionFunction implements SkyFunction {
-
   @Nullable
   @Override
   public UnloadedToolchainContext compute(SkyKey skyKey, Environment env)
@@ -257,8 +256,15 @@ public class ToolchainResolutionFunction implements SkyFunction {
     }
 
     // Verify that all mandatory toolchain types have a toolchain.
+    Map<ConfiguredTargetKey, PlatformInfo> targetPlatformInfo =
+        PlatformLookupUtil.getPlatformInfo(
+            ImmutableList.of(platformKeys.targetPlatformKey()), environment);
+    if (targetPlatformInfo == null) {
+      throw new ValueMissingException();
+    }
     if (!missingMandatoryToolchains.isEmpty()) {
-      throw new UnresolvedToolchainsException(missingMandatoryToolchains);
+      throw new UnresolvedToolchainsException(
+          targetPlatformInfo.get(platformKeys.targetPlatformKey()), missingMandatoryToolchains);
     }
 
     if (valuesMissing) {
@@ -397,8 +403,10 @@ public class ToolchainResolutionFunction implements SkyFunction {
 
   /** Exception used when a toolchain type is required but no matching toolchain is found. */
   static final class UnresolvedToolchainsException extends ToolchainException {
-    UnresolvedToolchainsException(SequencedSet<ToolchainTypeInfo> missingToolchainTypes) {
-      super(getMessage(missingToolchainTypes));
+
+    UnresolvedToolchainsException(
+        PlatformInfo targetPlatformInfo, SequencedSet<ToolchainTypeInfo> missingToolchainTypes) {
+      super(getMessage(targetPlatformInfo, missingToolchainTypes));
     }
 
     @Override
@@ -406,7 +414,8 @@ public class ToolchainResolutionFunction implements SkyFunction {
       return Code.NO_MATCHING_TOOLCHAIN;
     }
 
-    private static String getMessage(SequencedSet<ToolchainTypeInfo> missingToolchainTypes) {
+    private static String getMessage(
+        PlatformInfo targetPlatformInfo, SequencedSet<ToolchainTypeInfo> missingToolchainTypes) {
       ImmutableList<String> labelStrings =
           missingToolchainTypes.stream()
               .map(ToolchainTypeInfo::typeLabel)
@@ -421,14 +430,20 @@ public class ToolchainResolutionFunction implements SkyFunction {
                           type.typeLabel(),
                           type.noneFoundError() != null ? ": " + type.noneFoundError() : ""))
               .collect(toImmutableList());
+      String platformSpecificMessage = "";
+      if (targetPlatformInfo.getMissingToolchainErrorMessage() != null) {
+        platformSpecificMessage = targetPlatformInfo.getMissingToolchainErrorMessage();
+      }
       return String.format(
           """
-No matching toolchains found for types:
-%s
-To debug, rerun with --toolchain_resolution_debug='%s'
-For more information on platforms or toolchains see https://bazel.build/concepts/platforms-intro.\
-""",
-          String.join("\n", missingToolchainRows), String.join("|", labelStrings));
+          No matching toolchains found for types:
+          %s
+          To debug, rerun with --toolchain_resolution_debug='%s'
+          %s\
+          """,
+          String.join("\n", missingToolchainRows),
+          String.join("|", labelStrings),
+          platformSpecificMessage);
     }
   }
 
