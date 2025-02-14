@@ -279,9 +279,14 @@ public final class RequiredProviders {
     return builder.build();
   }
 
-  /** Returns true if this {@code RequiredProviders} instance accept any set of providers. */
+  /** Returns true if this {@code RequiredProviders} instance accepts any set of providers. */
   public boolean acceptsAny() {
     return constraint.equals(Constraint.ANY);
+  }
+
+  /** Returns true if this {@code RequiredProviders} instance never accepts a set of providers. */
+  public boolean acceptsNone() {
+    return constraint.equals(Constraint.NONE);
   }
 
   @VisibleForSerialization
