@@ -607,7 +607,15 @@ public final class ModCommand implements BlazeCommand {
       return BlazeCommandResult.success();
     }
 
-    return allCommandsPerFile.isEmpty() ? BlazeCommandResult.success() : createFailureResult("Dry run reported needed fixes", Code.MODULE_NEEDS_TIDY);
+    if (allCommandsPerFile.isEmpty()) {
+      return BlazeCommandResult.success();
+    }
+
+    String lintErrors = String.format("Files with errors:\n%s",
+        modTidyValue.fixups().stream().map(fixup -> fixup.usage().getProxies().toString())
+            .collect(joining("\n"))).stripTrailing();
+    modTidyValue.fixups().stream().map(fixup -> fixup.warning()).forEach(env.getReporter()::handle);
+    return createFailureResult(lintErrors, Code.MODULE_NEEDS_TIDY);
   }
 
   /** Collects a list of {@link ModuleArg} into a set of {@link ModuleKey}s. */
