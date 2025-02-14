@@ -106,7 +106,11 @@ final class WindowsSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   }
 
   private static Path createActionTemp(Path execRoot) throws IOException {
-    return execRoot.createTempDirectory("windows-sandbox.");
+    return execRoot.getRelative(
+        java.nio.file.Files.createTempDirectory(
+                java.nio.file.Paths.get(execRoot.getPathString()), "windows-sandbox.")
+            .getFileName()
+            .toString());
   }
 
   @Override

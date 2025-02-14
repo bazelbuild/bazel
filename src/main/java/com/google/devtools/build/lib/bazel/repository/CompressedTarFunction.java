@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -57,9 +56,7 @@ import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
  * representation of raw bytes stored as latin-1 strings.
  */
 public abstract class CompressedTarFunction implements Decompressor {
-  private static final int BUFFER_SIZE = 32 * 1024;
-
-  protected abstract InputStream getDecompressorStream(BufferedInputStream compressedInputStream)
+  protected abstract InputStream getDecompressorStream(DecompressorDescriptor descriptor)
       throws IOException;
 
   @Override
@@ -75,9 +72,7 @@ public abstract class CompressedTarFunction implements Decompressor {
     // Store link, target info of symlinks, we create them after regular files are extracted.
     Map<Path, PathFragment> symlinks = new HashMap<>();
 
-    try (InputStream compressedInputStream = descriptor.archivePath().getInputStream();
-        InputStream decompressorStream =
-            getDecompressorStream(new BufferedInputStream(compressedInputStream, BUFFER_SIZE))) {
+    try (InputStream decompressorStream = getDecompressorStream(descriptor)) {
       // USTAR tar headers use an unspecified encoding whereas PAX tar headers always use UTF-8.
       // We can specify the encoding to use for USTAR headers, but the Charset used for PAX headers
       // is fixed to UTF-8. We thus specify a custom Charset for the former so that we can
