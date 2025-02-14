@@ -691,7 +691,11 @@ public class CompactPersistentActionCache implements ActionCache {
     try {
       ByteBuffer source = ByteBuffer.wrap(data);
 
-      byte[] actionKeyBytes = new byte[VarInt.getVarInt(source)];
+      int actionKeySize = VarInt.getVarInt(source);
+      if (actionKeySize < 0) {
+        throw new IOException("Negative action key size: " + actionKeySize);
+      }
+      byte[] actionKeyBytes = new byte[actionKeySize];
       source.get(actionKeyBytes);
       String actionKey = new String(actionKeyBytes, ISO_8859_1);
 
