@@ -34,7 +34,6 @@ public class StdoutInfoItemHandler implements InfoItemHandler {
       outErr.getOutputStream().write(' ');
     }
     outErr.getOutputStream().write(value);
-    outErr.getOutputStream().write('\n');
   }
 
   @Override
