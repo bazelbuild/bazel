@@ -843,8 +843,12 @@ public abstract class FileSystem {
         "getNioPath() not supported for " + getClass().getName());
   }
 
-  /** Represents an arbitrary transform on a Path. */
-  public interface PathTransformer {
-    Path transformPath(Path original);
+  /**
+   * Represents a devirtualizer that undoes the virtualization of {@link Path}s established by
+   * {@link
+   * com.google.devtools.build.lib.runtime.BlazeModule.ModuleFileSystem#createWithVirtualization}.
+   */
+  public interface PathDevirtualizer {
+    Path devirtualizePath(Path original);
   }
 }

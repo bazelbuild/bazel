@@ -22,7 +22,7 @@ import com.google.common.hash.Hasher;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.FileType;
-import com.google.devtools.build.lib.vfs.FileSystem.PathTransformer;
+import com.google.devtools.build.lib.vfs.FileSystem.PathDevirtualizer;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -84,10 +84,10 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
     return pathFragment.getPathString();
   }
 
-  public String getMaybeTransformedPathString() {
-    return fileSystem instanceof PathTransformer pathTransformer
-        ? pathTransformer.transformPath(this).getPathString()
-        : getPathString();
+  public Path devirtualize() {
+    return (this.getFileSystem() instanceof PathDevirtualizer pathDevirtualizer)
+        ? pathDevirtualizer.devirtualizePath(this)
+        : this;
   }
 
   @Override
