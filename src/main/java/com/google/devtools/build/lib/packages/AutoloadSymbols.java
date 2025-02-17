@@ -359,10 +359,13 @@ public class AutoloadSymbols {
       ImmutableMap<String, Object> originalEnv,
       ImmutableMap<String, Object> newSymbols) {
     final ImmutableMap<String, Object> add;
+    final ImmutableList<String> remove;
     if (isWithAutoloads) {
       add = newSymbols;
+      remove = removedSymbols;
     } else {
       add = ImmutableMap.of();
+      remove = partiallyRemovedSymbols;
     }
     Map<String, Object> envBuilder = new LinkedHashMap<>(originalEnv);
     for (Map.Entry<String, Object> symbol : add.entrySet()) {
@@ -370,7 +373,7 @@ public class AutoloadSymbols {
         envBuilder.put(symbol.getKey(), symbol.getValue());
       }
     }
-    for (String symbol : removedSymbols) {
+    for (String symbol : remove) {
       if (AUTOLOAD_CONFIG.get(symbol).rule()) {
         envBuilder.remove(symbol);
       }
