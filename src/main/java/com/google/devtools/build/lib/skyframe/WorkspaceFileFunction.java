@@ -360,7 +360,7 @@ public class WorkspaceFileFunction implements SkyFunction {
               keys.build(),
               starlarkSemantics,
               bzlLoadFunctionForInlining,
-              /* checkVisibility= */ true);
+              /* checkVisibility= */ !useWorkspaceResolvedFile,);
     } catch (NoSuchPackageException e) {
       throw new WorkspaceFileFunctionException(e, Transience.PERSISTENT);
     }
