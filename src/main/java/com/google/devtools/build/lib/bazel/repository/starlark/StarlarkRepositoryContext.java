@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.repository.starlark;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.github.difflib.patch.PatchFailedException;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -168,7 +169,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
     // backing Bazel modules. In case of the former, the original name is the same as the name, in
     // the latter the original name doesn't matter as the restricted set of rules that can back
     // Bazel modules do not use the name.
-    return originalName != null ? originalName : rule.getName();
+    return Strings.isNullOrEmpty(originalName) ? rule.getName() : originalName;
   }
 
   @StarlarkMethod(
