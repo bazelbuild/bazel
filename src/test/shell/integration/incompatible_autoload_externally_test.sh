@@ -335,38 +335,22 @@ EOF
 
 function test_removing_existing_rule() {
   cat > BUILD << EOF
-android_binary(
+cc_binary(
     name = "bin",
-    srcs = [
-        "MainActivity.java",
-        "Jni.java",
-    ],
-    manifest = "AndroidManifest.xml",
-    deps = [
-        ":lib",
-        ":jni"
-    ],
+    srcs = ["a.cc"]
 )
 EOF
 
-  bazel build --incompatible_autoload_externally=-android_binary :bin >&$TEST_log 2>&1 && fail "build unexpectedly succeeded"
-  expect_log "name 'android_binary' is not defined"
+  bazel build --incompatible_autoload_externally=-cc_binary :bin >&$TEST_log 2>&1 && fail "build unexpectedly succeeded"
+  expect_log "name 'cc_binary' is not defined"
 }
 
 function test_removing_existing_rule_in_bzl() {
   cat > macro.bzl << EOF
 def macro():
-    native.android_binary(
+    native.cc_binary(
         name = "bin",
-        srcs = [
-            "MainActivity.java",
-            "Jni.java",
-        ],
-        manifest = "AndroidManifest.xml",
-        deps = [
-            ":lib",
-            ":jni"
-        ],
+        srcs = ["a.cc"],
     )
 EOF
 
@@ -375,8 +359,8 @@ load(":macro.bzl", "macro")
 macro()
 EOF
 
-  bazel build --incompatible_autoload_externally=-android_binary :bin >&$TEST_log 2>&1 && fail "build unexpectedly succeeded"
-  expect_log "no native function or rule 'android_binary'"
+  bazel build --incompatible_autoload_externally=-cc_binary :bin >&$TEST_log 2>&1 && fail "build unexpectedly succeeded"
+  expect_log "no native function or rule 'cc_binary'"
 }
 
 function test_removing_symbol_incompletely() {
