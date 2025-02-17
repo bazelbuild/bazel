@@ -135,7 +135,6 @@ java_library(
         ":exclusive_test_build_driver_value",
         ":execution_finished_event",
         ":file_function",
-        ":fileset_entry_function",
         ":filesystem_keys",
         ":filesystem_value_checker",
         ":glob_descriptor",
@@ -1496,59 +1495,6 @@ java_library(
 )
 
 java_library(
-    name = "fileset_entry_function",
-    srcs = ["FilesetEntryFunction.java"],
-    deps = [
-        ":fileset_entry_key",
-        ":fileset_entry_value",
-        ":fileset_traversal_request",
-        ":recursive_filesystem_traversal",
-        ":workspace_name_value",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_symlink",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "fileset_traversal_request",
-    srcs = ["FilesetTraversalRequest.java"],
-    deps = [
-        ":recursive_filesystem_traversal",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
-    name = "fileset_entry_key",
-    srcs = ["FilesetEntryKey.java"],
-    deps = [
-        ":sky_functions",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:auto_value",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
-    name = "fileset_entry_value",
-    srcs = ["FilesetEntryValue.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_symlink",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
     name = "filesystem_keys",
     srcs = [
         "AbstractNestedFileOpNodes.java",
@@ -2260,7 +2206,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/io:file_symlink_exception",
         "//src/main/java/com/google/devtools/build/lib/io:file_symlink_infinite_expansion_exception",
         "//src/main/java/com/google/devtools/build/lib/io:file_symlink_infinite_expansion_uniqueness_function",
@@ -2268,6 +2213,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -2275,6 +2221,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:auto_value",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",

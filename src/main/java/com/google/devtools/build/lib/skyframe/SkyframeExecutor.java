@@ -856,7 +856,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(
         SkyFunctions.RECURSIVE_FILESYSTEM_TRAVERSAL,
         new RecursiveFilesystemTraversalFunction(syscallCache));
-    map.put(SkyFunctions.FILESET_ENTRY, new FilesetEntryFunction(directories::getExecRoot));
     map.put(
         SkyFunctions.ACTION_TEMPLATE_EXPANSION,
         new ActionTemplateExpansionFunction(actionKeyContext));
