@@ -47,7 +47,7 @@ public final class JavaConfiguredTargetsTest extends BuildViewTestCase {
   @Parameter(2)
   public String targetCpu;
 
-  @Parameters
+  @Parameters(name = "{0}")
   public static List<Object[]> platformParameters() {
     return Arrays.asList(
         new Object[][] {
