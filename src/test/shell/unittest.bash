@@ -333,7 +333,7 @@ function expect_log_n() {
     local message=${3:-"Expected regexp '$pattern' not found exactly $expectednum times"}
     local count=$(grep -sc -- "$pattern" $TEST_log)
     (( count == expectednum )) && return 0
-    fail "$message"
+    fail "$message (found $count times instead)"
     return 1
 }
 
