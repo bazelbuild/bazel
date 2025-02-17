@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.remote.ReferenceCountedChannel;
 import com.google.devtools.build.lib.remote.RemoteRetrier;
+import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -172,6 +173,9 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
             try (OutputStream out = newOutputStream(destination, checksum)) {
               Utils.getFromFuture(
                   cacheClient.downloadBlob(remoteActionExecutionContext, blobDigest, out));
+            } catch (OutputDigestMismatchException e) {
+              e.setOutputPath(destination.getPathString());
+              throw e;
             }
             return null;
           });
