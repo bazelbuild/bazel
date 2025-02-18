@@ -230,7 +230,7 @@ public class CommandEnvironment {
       Consumer<String> shutdownReasonConsumer,
       CommandExtensionReporter commandExtensionReporter,
       int attemptNumber,
-      @Nullable String buildIdOverride,
+      @Nullable String buildRequestIdOverride,
       ConfigFlagDefinitions configFlagDefinitions) {
     checkArgument(attemptNumber >= 1);
 
@@ -318,11 +318,12 @@ public class CommandEnvironment {
 
     this.clientEnv = makeMapFromMapEntries(clientOptions.clientEnv);
     this.commandId = computeCommandId(commandOptions.invocationId, warnings, attemptNumber);
-    // Use a fixed ID across cache eviction retries.
     this.buildRequestId =
         commandOptions.buildRequestId != null
             ? commandOptions.buildRequestId
-            : buildIdOverride != null ? buildIdOverride : UUID.randomUUID().toString();
+            : buildRequestIdOverride != null
+                ? buildRequestIdOverride
+                : UUID.randomUUID().toString();
 
     this.repoEnv.putAll(clientEnv);
     if (command.buildPhase().analyzes() || command.name().equals("info")) {

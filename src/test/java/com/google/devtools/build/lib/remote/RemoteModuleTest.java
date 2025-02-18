@@ -192,7 +192,7 @@ public final class RemoteModuleTest {
         /* shutdownReasonConsumer= */ s -> {},
         NO_OP_COMMAND_EXTENSION_REPORTER,
         /* attemptNumber= */ 1,
-        /* buildIdOverride= */ null,
+        /* buildRequestIdOverride= */ null,
         ConfigFlagDefinitions.NONE);
   }
 

@@ -247,7 +247,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       BlazeCommandResult result;
       int attemptNumber = 0;
       Set<UUID> attemptedCommandIds = new HashSet<>();
-      String buildIdOverride = null;
+      String buildRequestIdOverride = null;
       while (true) {
         attemptNumber += 1;
         try {
@@ -265,12 +265,14 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
                   commandExtensions,
                   attemptNumber,
                   attemptedCommandIds,
-                  buildIdOverride,
+                  buildRequestIdOverride,
                   commandExtensionReporter);
           break;
         } catch (RemoteCacheTransientErrorException e) {
           attemptedCommandIds.add(e.getCommandId());
-          buildIdOverride = e.getBuildId();
+          // Use a fixed build request ID across cache eviction retries to tie together the
+          // individual invocations, which all have different invocation IDs.
+          buildRequestIdOverride = e.getBuildRequestId();
         }
       }
       if (result.shutdown()) {
@@ -326,7 +328,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       List<Any> commandExtensions,
       int attemptNumber,
       Set<UUID> attemptedCommandIds,
-      @Nullable String buildIdOverride,
+      @Nullable String buildRequestIdOverride,
       CommandExtensionReporter commandExtensionReporter)
       throws RemoteCacheTransientErrorException {
     // Record the start time for the profiler. Do not put anything before this!
@@ -363,7 +365,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
             this::setShutdownReason,
             commandExtensionReporter,
             attemptNumber,
-            buildIdOverride,
+            buildRequestIdOverride,
             parseResults.configFlagDefinitions());
 
     if (attemptNumber > 1) {
@@ -776,20 +778,20 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
 
   private static class RemoteCacheTransientErrorException extends IOException {
     // Remains constant across retries.
-    private final String buildId;
+    private final String buildRequestId;
     // Changes across retries.
     private final UUID commandId;
     private final BlazeCommandResult result;
 
     private RemoteCacheTransientErrorException(
-        String buildId, UUID commandId, BlazeCommandResult result) {
-      this.buildId = buildId;
+        String buildRequestId, UUID commandId, BlazeCommandResult result) {
+      this.buildRequestId = buildRequestId;
       this.commandId = commandId;
       this.result = result;
     }
 
-    public String getBuildId() {
-      return buildId;
+    public String getBuildRequestId() {
+      return buildRequestId;
     }
 
     public UUID getCommandId() {
