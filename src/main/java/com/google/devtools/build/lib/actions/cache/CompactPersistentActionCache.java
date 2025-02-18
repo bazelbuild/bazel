@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
+import com.google.devtools.build.lib.util.MapCodec;
 import com.google.devtools.build.lib.util.PersistentMap;
 import com.google.devtools.build.lib.util.StringIndexer;
 import com.google.devtools.build.lib.util.VarInt;
@@ -77,6 +78,36 @@ public class CompactPersistentActionCache implements ActionCache {
 
   private static final int VERSION = 18;
 
+  private static final MapCodec<Integer, byte[]> CODEC =
+      new MapCodec<Integer, byte[]>() {
+        @Override
+        protected Integer readKey(DataInputStream in) throws IOException {
+          return in.readInt();
+        }
+
+        @Override
+        protected byte[] readValue(DataInputStream in) throws IOException {
+          int size = in.readInt();
+          if (size < 0) {
+            throw new IOException("found negative array size: " + size);
+          }
+          byte[] data = new byte[size];
+          in.readFully(data);
+          return data;
+        }
+
+        @Override
+        protected void writeKey(Integer key, DataOutputStream out) throws IOException {
+          out.writeInt(key);
+        }
+
+        @Override
+        protected void writeValue(byte[] value, DataOutputStream out) throws IOException {
+          out.writeInt(value.length);
+          out.write(value);
+        }
+      };
+
   private static final class ActionMap extends PersistentMap<Integer, byte[]> {
     private final Clock clock;
     private final PersistentStringIndexer indexer;
@@ -89,7 +120,7 @@ public class CompactPersistentActionCache implements ActionCache {
         Path mapFile,
         Path journalFile)
         throws IOException {
-      super(VERSION, map, mapFile, journalFile);
+      super(VERSION, CODEC, map, mapFile, journalFile);
       this.indexer = indexer;
       this.clock = clock;
       // Use nanoTime() instead of currentTimeMillis() to get monotonic time, not wall time.
@@ -130,39 +161,6 @@ public class CompactPersistentActionCache implements ActionCache {
         return false;
       }
     }
-
-    @Override
-    protected Integer readKey(DataInputStream in) throws IOException {
-      return in.readInt();
-    }
-
-    @Override
-    protected byte[] readValue(DataInputStream in) throws IOException {
-      int size = in.readInt();
-      if (size < 0) {
-        throw new IOException("found negative array size: " + size);
-      }
-      byte[] data = new byte[size];
-      in.readFully(data);
-      return data;
-    }
-
-    @Override
-    protected void writeKey(Integer key, DataOutputStream out) throws IOException {
-      out.writeInt(key);
-    }
-
-    @Override
-    // TODO(bazel-team): (2010) This method, writeKey() and related Metadata methods
-    // should really use protocol messages. Doing so would allow easy inspection
-    // of the action cache content and, more importantly, would cut down on the
-    // need to change VERSION to different number every time we touch those
-    // methods. Especially when we'll start to add stuff like statistics for
-    // each action.
-    protected void writeValue(byte[] value, DataOutputStream out) throws IOException {
-      out.writeInt(value.length);
-      out.write(value);
-    }
   }
 
   private final PersistentStringIndexer indexer;
@@ -199,6 +197,8 @@ public class CompactPersistentActionCache implements ActionCache {
       EventHandler reporterForInitializationErrors,
       boolean alreadyFoundCorruption)
       throws IOException {
+    cacheRoot.createDirectoryAndParents();
+
     PersistentMap<Integer, byte[]> map;
     Path cacheFile = cacheFile(cacheRoot);
     Path journalFile = journalFile(cacheRoot);
@@ -264,7 +264,7 @@ public class CompactPersistentActionCache implements ActionCache {
       throws IOException {
     renameCorruptedFiles(cacheRoot);
     if (message != null) {
-      e = new IOException(message, e);
+      e = new IOException("%s: %s".formatted(message, e.getMessage()), e);
     }
     logger.atWarning().withCause(e).log(
         "Failed to load action cache, preexisting files kept as %s/*.bad", cacheRoot);
@@ -272,7 +272,7 @@ public class CompactPersistentActionCache implements ActionCache {
         Event.error(
             "Error during action cache initialization: "
                 + e.getMessage()
-                + ". Data will be reset, potentially causing target rebuilds"));
+                + ". Data may be incomplete, potentially causing rebuilds"));
     if (alreadyFoundCorruption) {
       throw e;
     }

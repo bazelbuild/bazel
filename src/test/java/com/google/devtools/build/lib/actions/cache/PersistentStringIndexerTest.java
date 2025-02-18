@@ -62,13 +62,16 @@ public final class PersistentStringIndexerTest {
   private final Map<Integer, String> mappings = new ConcurrentHashMap<>();
   private final Scratch scratch = new Scratch();
   private final ManualClock clock = new ManualClock();
-  private final Path dataPath = scratch.resolve("/cache/test.dat");
-  private final Path journalPath = scratch.resolve("/cache/test.journal");
+  private Path dataPath;
+  private Path journalPath;
 
   private PersistentStringIndexer indexer;
 
   @Before
   public void createIndexer() throws Exception {
+    Path cacheRoot = scratch.dir("/cache");
+    dataPath = cacheRoot.getChild("test.dat");
+    journalPath = cacheRoot.getChild("test.journal");
     indexer = PersistentStringIndexer.create(dataPath, journalPath, clock);
   }
 
@@ -270,7 +273,7 @@ public final class PersistentStringIndexerTest {
         assertThrows(
             IOException.class,
             () -> indexer = PersistentStringIndexer.create(dataPath, journalPath, clock));
-    assertThat(e).hasMessageThat().contains("too short: Only 13 bytes");
+    assertThat(e).hasMessageThat().contains("too short: 13 bytes");
 
     journalPath.delete();
     setupTestContent();

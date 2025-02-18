@@ -227,6 +227,7 @@ java_library(
         "LogHandlerQuerier.java",
         "LoggingUtil.java",
         "LongArrayList.java",
+        "MapCodec.java",
         "NetUtil.java",
         "OnDemandString.java",
         "OptionsUtils.java",
