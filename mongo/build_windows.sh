@@ -8,4 +8,4 @@ pacman-key --populate
 pacman --noconfirm -S zip unzip patch
 
 # build
-bash mongo/generic_build.sh "$1" "$2" ".exe"
+bash mongo/generic_build.sh "$1" "$2" "$3" ".exe"

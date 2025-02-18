@@ -4,12 +4,12 @@ parameters:
     description: bazel version
 
 functions:
-  "fetch source" :
+  "fetch source":
     - command: git.get_project
       params:
         directory: src
 
-  "update bazel version expansions" :
+  "update bazel version expansions":
     - command: subprocess.exec
       display_name: "build"
       type: test
@@ -30,7 +30,7 @@ functions:
       params:
         aws_key: ${aws_key}
         aws_secret: ${aws_secret}
-        local_file: src/mongo_bazel${ext|}
+        local_file: src/${bazel_file_name}
         remote_file: bazel_binary_patch_builds/${version_id}/${bazel_version}/${bazel_file_name}
         bucket: mdb-build-public 
         permissions: public-read
@@ -41,7 +41,7 @@ functions:
       params:
         aws_key: ${aws_key}
         aws_secret: ${aws_secret}
-        local_file: src/mongo_bazel${ext|}.sha256
+        local_file: src/${bazel_file_name}.sha256
         remote_file: bazel_binary_patch_builds/${version_id}/${bazel_version}/${bazel_file_name}.sha256
         bucket: mdb-build-public 
         permissions: public-read
@@ -49,7 +49,7 @@ functions:
         display_name: Bazel Binary SHA sig
   
 tasks:
-- name: build_linux
+- name: build
   commands:
     - func: "fetch source"
     - func: "update bazel version expansions"
@@ -59,71 +59,69 @@ tasks:
       params:
         binary: bash
         working_dir: src
-        args:
-          - "mongo/build_linux.sh"
-          - "${bazel_url}"
-          - "${bazel_version}"
-    - func: "upload binary"
-
-- name: build_win32
-  commands:
-    - func: "fetch source"
-    - func: "update bazel version expansions"
-    - command: subprocess.exec
-      display_name: "get msys"
-      params:
-        binary: bash
-        working_dir: src
-        args:
-          - "mongo/setup_msys.sh"
-    - command: subprocess.exec
-      display_name: "build"
-      type: test
-      params:
         add_to_path:
           - "C:/python/Python310"
           - ${workdir}/src/msys/msys64/usr/bin
-        binary: ${workdir}\src\msys\msys64\usr\bin\bash.exe
-        working_dir: src
         args:
-          - "mongo/build_win32.sh"
-          - "${bazel_url}" 
-          - "${bazel_version}"
-    - func: "upload binary"
-
-- name: build_macos
-  commands:
-    - func: "fetch source"
-    - func: "update bazel version expansions"
-    - command: subprocess.exec
-      display_name: "build"
-      type: test
-      params:
-        binary: bash
-        working_dir: src
-        args:
-          - "mongo/build_macos.sh"
+          - "mongo/build.sh"
           - "${bazel_url}"
           - "${bazel_version}"
+          - "${bazel_file_name}"
     - func: "upload binary"
 
 - name: push
   patchable: false
+  depends_on: 
+    - name: build
   commands:
+    - func: "fetch source"
+    - func: "update bazel version expansions"
+    - command: s3.get
+      display_name: "download binary"
+      params:
+        aws_key: ${aws_key}
+        aws_secret: ${aws_secret}
+        local_file: ${bazel_file_name}
+        remote_file: bazel_binary_patch_builds/${version_id}/${bazel_version}/${bazel_file_name}
+        bucket: mdb-build-public 
+    - command: s3.get
+      display_name: "download sha"
+      params:
+        aws_key: ${aws_key}
+        aws_secret: ${aws_secret}
+        local_file: ${bazel_file_name}.sha256
+        remote_file: bazel_binary_patch_builds/${version_id}/${bazel_version}/${bazel_file_name}.sha256
+        bucket: mdb-build-public 
+    - command: subprocess.exec
+      display_name: "build"
+      type: test
+      params:
+        binary: sha256sum
+        args:
+          - "${bazel_file_name}.sha256"
     - command: s3.put
       display_name: "upload binary"
       params:
         aws_key: ${aws_key}
         aws_secret: ${aws_secret}
-        local_file: src/mongo_bazel${ext|}
+        local_file: ${bazel_file_name}
         remote_file: bazel_binary_waterfall_builds/${revision}/${bazel_version}/${bazel_file_name}
         bucket: mdb-build-public 
         permissions: public-read
         content_type: application/octet-stream
         display_name: Bazel Binary
+    - command: s3.put
+      display_name: "upload binary"
+      params:
+        aws_key: ${aws_key}
+        aws_secret: ${aws_secret}
+        local_file: ${bazel_file_name}.sha256
+        remote_file: bazel_binary_waterfall_builds/${revision}/${bazel_version}/${bazel_file_name}.sha256
+        bucket: mdb-build-public 
+        permissions: public-read
+        content_type: text/plain
+        display_name: Bazel Binary SHA sig
   
-
-
 buildvariants:
 
 - name: linux_x86_64
@@ -133,7 +131,8 @@ buildvariants:
   expansions:
     bazel_url: https://github.com/bazelbuild/bazel/releases/download/7.5.0/bazel-7.5.0-linux-x86_64
   tasks:
-  - name: build_linux
+  - name: build
+  - name: push
 
 - name: linux_arm64
   display_name: Linux arm64
@@ -142,7 +141,8 @@ buildvariants:
   expansions:
     bazel_url: https://github.com/bazelbuild/bazel/releases/download/7.5.0/bazel-7.5.0-linux-arm64
   tasks:
-  - name: build_linux
+  - name: build
+  - name: push
 
 - name: linux_s390x
   display_name: Linux s390x
@@ -151,7 +151,8 @@ buildvariants:
   expansions:
     bazel_url: https://mdb-build-public.s3.amazonaws.com/bazel-binaries/7.5.0/bazel-7.5.0-linux-s390x
   tasks:
-  - name: build_linux
+  - name: build
+  - name: push
 
 - name: linux_ppc
   display_name: Linux PPC
@@ -160,7 +161,8 @@ buildvariants:
   expansions:
     bazel_url: https://mdb-build-public.s3.amazonaws.com/bazel-binaries/7.5.0/bazel-7.5.0-linux-ppc64le
   tasks:
-  - name: build_linux
+  - name: build
+  - name: push
 
 - name: windows_x86_64
   display_name: Windows x86_64
@@ -170,9 +172,9 @@ buildvariants:
     bazel_url: https://mdb-build-public.s3.amazonaws.com/bazelisk-binaries/v1.19.0/bazelisk-windows-amd64.exe
     ext: ".exe"
   tasks:
-  - name: build_win32
+  - name: build
+  - name: push
     
-
 - name: macos_x86_64
   display_name: Macos x86_64
   run_on:
@@ -180,7 +182,8 @@ buildvariants:
   expansions:
     bazel_url: https://mdb-build-public.s3.amazonaws.com/bazelisk-binaries/v1.19.0/bazelisk-darwin-amd64
   tasks:
-  - name: build_macos
+  - name: build
+  - name: push
 
 - name: macos_arm64
   display_name: Macos arm64
@@ -189,4 +192,5 @@ buildvariants:
   expansions:
     bazel_url: https://mdb-build-public.s3.amazonaws.com/bazelisk-binaries/v1.19.0/bazelisk-darwin-amd64
   tasks:
-  - name: build_macos
+  - name: build
+  - name: push
