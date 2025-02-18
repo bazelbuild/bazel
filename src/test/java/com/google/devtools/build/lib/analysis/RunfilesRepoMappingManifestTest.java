@@ -41,20 +41,6 @@ import org.junit.runner.RunWith;
 @RunWith(TestParameterInjector.class)
 public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
 
-  private ConfiguredRuleClassProvider ruleProvider = null;
-
-  @Override
-  protected ConfiguredRuleClassProvider createRuleClassProvider() {
-    // We inject the repository module in our test rule class provider.
-    if (ruleProvider == null) {
-      ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
-      TestRuleClassProvider.addStandardRules(builder);
-      builder.addStarlarkBootstrap(new RepositoryBootstrap(new StarlarkRepositoryModule()));
-      ruleProvider = builder.build();
-    }
-    return ruleProvider;
-  }
-
   @Override
   protected SkyframeExecutorRepositoryHelpersHolder getRepositoryHelpersHolder() {
     // Transitive packages are needed for RepoMappingManifestAction and are only stored when
@@ -414,9 +400,9 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
   @Test
   public void runfilesFromExtension(@TestParameter boolean compactRepoMapping) throws Exception {
     if (compactRepoMapping) {
-      useConfiguration("--incompatible_compact_repo_mapping");
+      useConfiguration("--incompatible_compact_repo_mapping_manifest");
     } else {
-      useConfiguration("--noincompatible_compact_repo_mapping");
+      useConfiguration("--noincompatible_compact_repo_mapping_manifest");
     }
 
     scratch.overwriteFile(
