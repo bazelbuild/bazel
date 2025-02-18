@@ -546,7 +546,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public boolean alwaysIncludeFilesToBuildInData;
 
   @Option(
-      name = "incompatible_compact_repo_mapping",
+      name = "incompatible_compact_repo_mapping_manifest",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
