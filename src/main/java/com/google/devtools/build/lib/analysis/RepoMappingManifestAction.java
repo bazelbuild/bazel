@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -46,7 +47,6 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.AbstractMap;
 import java.util.IdentityHashMap;
 import java.util.Map.Entry;
 import java.util.UUID;
@@ -201,7 +201,7 @@ public final class RepoMappingManifestAction extends AbstractFileWriteAction
         boolean reused = false;
         ImmutableSet<Entry<RepositoryName, RepositoryMapping>> sentinel =
             ImmutableSet.of(
-                new AbstractMap.SimpleImmutableEntry<>(
+                Maps.immutableEntry(
                     RepositoryName.MAIN,
                     // The entries of this repo mapping never equal any real repo mapping's entries
                     // (never empty).
