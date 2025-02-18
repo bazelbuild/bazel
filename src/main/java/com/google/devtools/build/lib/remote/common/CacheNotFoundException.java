@@ -44,6 +44,10 @@ public final class CacheNotFoundException extends IOException {
     return missingDigest;
   }
 
+  public String getFilename() {
+    return filename;
+  }
+
   @Override
   public String getMessage() {
     String message =

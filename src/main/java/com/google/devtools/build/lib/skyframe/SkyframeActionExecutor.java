@@ -93,6 +93,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -243,13 +244,12 @@ public final class SkyframeActionExecutor {
   private OutputService outputService;
   private boolean finalizeActions;
   private boolean rewindingEnabled;
+  private boolean invocationRetriesEnabled;
   private final Supplier<ImmutableList<Root>> sourceRootSupplier;
 
   private DiscoveredModulesPruner discoveredModulesPruner;
 
   @Nullable private Semaphore cacheHitSemaphore;
-
-  private boolean useAsyncExecution;
 
   /**
    * If not null, we use this meter to limit the number of concurrent actions.
@@ -326,6 +326,8 @@ public final class SkyframeActionExecutor {
     // Cache some option values for performance, since we consult them on every action.
     this.finalizeActions = buildRequestOptions.finalizeActions;
     this.rewindingEnabled = buildRequestOptions.rewindLostInputs;
+    this.invocationRetriesEnabled =
+        options.getOptions(ExecutionOptions.class).remoteRetryOnTransientCacheError > 0;
     this.outputService = checkNotNull(outputService);
     this.outputDirectoryHelper = outputDirectoryHelper;
 
@@ -334,17 +336,17 @@ public final class SkyframeActionExecutor {
     freeDiscoveredInputsAfterExecution =
         !trackIncrementalState && options.getOptions(CoreOptions.class).actionListeners.isEmpty();
 
-    this.useAsyncExecution = buildRequestOptions.useAsyncExecution;
+    boolean useAsyncExecution = buildRequestOptions.useAsyncExecution;
 
     this.cacheHitSemaphore =
-        (!this.useAsyncExecution && options.getOptions(CoreOptions.class).throttleActionCacheCheck)
+        (!useAsyncExecution && options.getOptions(CoreOptions.class).throttleActionCacheCheck)
             ? new Semaphore(ResourceUsage.getAvailableProcessors())
             : null;
 
-    if (buildRequestOptions.useSemaphoreForJobs || this.useAsyncExecution) {
+    if (buildRequestOptions.useSemaphoreForJobs || useAsyncExecution) {
       var minActiveAction = buildRequestOptions.jobs;
       var maxActiveAction =
-          this.useAsyncExecution
+          useAsyncExecution
               ? min(MAX_JOBS, buildRequestOptions.asyncExecutionMaxConcurrentActions)
               : buildRequestOptions.jobs;
       this.actionConcurrencyMeter =
@@ -396,6 +398,10 @@ public final class SkyframeActionExecutor {
 
   public boolean rewindingEnabled() {
     return rewindingEnabled;
+  }
+
+  public boolean invocationRetriesEnabled() {
+    return invocationRetriesEnabled;
   }
 
   OutputPermissions getOutputPermissions() {

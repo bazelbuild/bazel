@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
-import com.google.devtools.build.lib.remote.common.LostInputsEvent;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
@@ -230,7 +229,6 @@ public class RemoteExecutionCache extends CombinedCache {
               // cache at some point before action execution, but reported to be missing when
               // querying the remote for missing action inputs; possibly because it was evicted in
               // the interim.
-              reporter.post(new LostInputsEvent(digest));
               throw new CacheNotFoundException(digest, path.getPathString());
             }
           } catch (IOException e) {

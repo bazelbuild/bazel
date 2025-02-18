@@ -26,8 +26,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputDepOwnerMap;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
@@ -38,7 +41,10 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStatusWithMetadata;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
+import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.AbstractFileSystemWithCustomStat;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -111,6 +117,7 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat
   private final RemoteInMemoryFileSystem remoteOutputTree;
 
   @Nullable private ActionExecutionMetadata action = null;
+  @Nullable private ImmutableMap.Builder<String, ActionInput> lostInputs = null;
 
   /** Describes how to handle symlinks when calling {@link #statInternal}. */
   private enum FollowMode {
@@ -369,7 +376,19 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat
 
   @Override
   protected InputStream getInputStream(PathFragment path) throws IOException {
-    downloadFileIfRemote(path);
+    try {
+      downloadFileIfRemote(path);
+    } catch (BulkTransferException e) {
+      ImmutableMap<String, ActionInput> newlyLostInputs =
+          e.getLostInputs(inputArtifactData::getInput);
+      if (!newlyLostInputs.isEmpty()) {
+        if (lostInputs == null) {
+          lostInputs = ImmutableMap.builder();
+        }
+        lostInputs.putAll(newlyLostInputs);
+      }
+      throw e;
+    }
     // TODO(tjgq): Consider only falling back to the local filesystem for source (non-output) files.
     // See getMetadata() for why this isn't currently possible.
     return localFs.getPath(path).getInputStream();
@@ -919,6 +938,18 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat
   protected void createHardLink(PathFragment linkPath, PathFragment originalPath)
       throws IOException {
     localFs.getPath(linkPath).createHardLink(getPath(originalPath));
+  }
+
+  public void checkForLostInputs(Action action) throws LostInputsActionExecutionException {
+    if (lostInputs == null) {
+      return;
+    }
+    var builtLostInputs = lostInputs.buildKeepingLast();
+    throw (LostInputsActionExecutionException)
+        ActionExecutionException.fromExecException(
+            new LostInputsExecException(
+                builtLostInputs, new ActionInputDepOwnerMap(builtLostInputs.values())),
+            action);
   }
 
   static class RemoteInMemoryFileSystem extends InMemoryFileSystem {

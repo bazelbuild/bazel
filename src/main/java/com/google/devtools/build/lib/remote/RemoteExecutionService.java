@@ -1984,7 +1984,7 @@ public class RemoteExecutionService {
 
   @Subscribe
   public void onLostInputs(LostInputsEvent event) {
-    knownMissingCasDigests.add(event.getMissingDigest());
+    knownMissingCasDigests.addAll(event.missingDigests());
   }
 
   /**
