@@ -2015,7 +2015,7 @@ EOF
       --experimental_remote_cache_eviction_retries=1 \
       //a:bar >& $TEST_log || fail "Failed to build"
 
-  expect_log 'Failed to fetch blobs because they do not exist remotely.'
+  expect_log 'lost inputs with digests:'
   expect_log "Found transient remote cache error, retrying the build..."
 
   local invocation_ids=$(grep "Invocation ID:" $TEST_log)
@@ -2083,7 +2083,7 @@ EOF
       --build_event_text_file=bes.txt \
       //a:bar >& $TEST_log || fail "Failed to build"
 
-  expect_log 'Failed to fetch blobs because they do not exist remotely.'
+  expect_log 'lost inputs with digests:'
   expect_log "Found transient remote cache error, retrying the build..."
 
   local invocation_ids=$(grep "Invocation ID:" $TEST_log)

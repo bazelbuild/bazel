@@ -47,8 +47,6 @@ import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
-import com.google.devtools.build.lib.remote.common.LostInputsEvent;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
@@ -581,13 +579,6 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                           finalizeDownload(
                               metadata, tempPath, finalPath, dirsWithOutputPermissions);
                           alreadyDeleted.set(true);
-                        })
-                    .doOnError(
-                        error -> {
-                          if (error instanceof CacheNotFoundException cacheNotFoundException) {
-                            reporter.post(
-                                new LostInputsEvent(cacheNotFoundException.getMissingDigest()));
-                          }
                         }));
 
     return downloadCache.executeIfNot(
