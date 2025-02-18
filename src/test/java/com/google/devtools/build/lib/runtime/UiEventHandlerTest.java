@@ -19,17 +19,30 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.mockito.Mockito.mock;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.actions.RunningActionEvent;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
+import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.MainRepoMappingComputationStartingEvent;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
+import com.google.devtools.build.lib.runtime.UiOptions.UseCurses;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.OutErr;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
@@ -52,10 +65,20 @@ public sealed class UiEventHandlerTest {
   private static final String BUILD_DID_NOT_COMPLETE_MESSAGE =
       "\033[31m\033[1mERROR: \033[0mBuild did NOT complete successfully" + System.lineSeparator();
 
+  /** The escape sequence that clears the progress bar when curses is enabled. */
+  private static final String CLEAR_PROGRESS_BAR = "\033[1A\033[K";
+
+  private static final ArtifactRoot OUTPUT_ROOT =
+      ArtifactRoot.asDerivedRoot(
+          new InMemoryFileSystem(DigestHashFunction.SHA256).getPath("/base/exec"),
+          RootType.Output,
+          "out");
+
   @TestParameter private boolean skymeldMode;
 
   final UiOptions uiOptions = new UiOptions();
   final FlushCollectingOutputStream output = new FlushCollectingOutputStream();
+  final ManualClock clock = new ManualClock();
 
   UiEventHandler uiEventHandler;
 
@@ -76,7 +99,7 @@ public sealed class UiEventHandlerTest {
             outErr,
             uiOptions,
             /* quiet= */ false,
-            new ManualClock(),
+            clock,
             new EventBus(),
             /* workspacePathFragment= */ null,
             skymeldMode,
@@ -211,7 +234,7 @@ public sealed class UiEventHandlerTest {
     @Test
     public void noChangeOnUnflushedWrite() {
       uiOptions.showProgress = true;
-      uiOptions.useCursesEnum = UiOptions.UseCurses.YES;
+      uiOptions.useCursesEnum = UseCurses.YES;
       createUiEventHandler();
       if (outputKind == EventKind.STDERR) {
         assertThat(output.flushed).hasSize(2);
@@ -257,7 +280,7 @@ public sealed class UiEventHandlerTest {
     @Test
     public void buildCompleteMessageDoesntOverrideError() {
       uiOptions.showProgress = true;
-      uiOptions.useCursesEnum = UiOptions.UseCurses.YES;
+      uiOptions.useCursesEnum = UseCurses.YES;
       createUiEventHandler();
 
       uiEventHandler.buildComplete(BUILD_COMPLETE_EVENT);
@@ -266,7 +289,71 @@ public sealed class UiEventHandlerTest {
 
       assertThat(output.flushed).hasSize(5);
       assertThat(output.flushed.get(3)).contains("Show me this!");
-      assertThat(output.flushed.get(4)).doesNotContain("\033[1A\033[K");
+      assertThat(output.flushed.get(4)).doesNotContain(CLEAR_PROGRESS_BAR);
+    }
+
+    @Test
+    public void temporarilyDisableProgress() throws Exception {
+      uiOptions.showProgress = true;
+      uiOptions.useCursesEnum = UseCurses.YES;
+      uiOptions.showProgressRateLimit = 1;
+      uiOptions.uiActionsShown = 2;
+      createUiEventHandler();
+      NullAction action1 = actionWithProgressMessage("Executing action 1", "action1.out");
+      NullAction action2 = actionWithProgressMessage("Executing action 2", "action2.out");
+      uiEventHandler.loadingComplete(
+          new LoadingPhaseCompleteEvent(
+              ImmutableSet.of(), ImmutableSet.of(), RepositoryMapping.ALWAYS_FALLBACK));
+      uiEventHandler.analysisComplete(mock(AnalysisPhaseCompleteEvent.class));
+      output.flushed.clear();
+
+      // Showing progress, running actions shown.
+      clock.advanceMillis(2000);
+      uiEventHandler.runningAction(new RunningActionEvent(action1, "local"));
+      assertThat(output.flushed).hasSize(1);
+      assertThat(output.flushed.getFirst()).contains("Executing action 1;");
+
+      // Disable progress, progress bar cleared.
+      assertThat(uiEventHandler.disableProgress()).isTrue();
+      assertThat(output.flushed).hasSize(2);
+      assertThat(output.flushed.getLast()).endsWith(CLEAR_PROGRESS_BAR);
+
+      // Another action starts running, still no progress updates.
+      clock.advanceMillis(2000);
+      uiEventHandler.runningAction(new RunningActionEvent(action2, "local"));
+      assertThat(output.flushed).hasSize(2);
+
+      // Enable progress again, progress bar written with both running actions.
+      uiEventHandler.enableProgress();
+      assertThat(output.flushed).hasSize(3);
+      assertThat(output.flushed.getLast()).contains("2 actions running");
+      assertThat(output.flushed.getLast()).contains("Executing action 1;");
+      assertThat(output.flushed.getLast()).contains("Executing action 2;");
+    }
+
+    @Test
+    public void progressOff_disableProgressReturnsFalse() throws Exception {
+      uiOptions.showProgress = false;
+      createUiEventHandler();
+      assertThat(uiEventHandler.disableProgress()).isFalse();
+    }
+
+    @Test
+    public void progressAlreadyDisabled_disableProgressReturnsFalse() throws Exception {
+      uiOptions.showProgress = true;
+      createUiEventHandler();
+      assertThat(uiEventHandler.disableProgress()).isTrue();
+      assertThat(uiEventHandler.disableProgress()).isFalse();
+    }
+
+    private static NullAction actionWithProgressMessage(String progressMessage, String outputPath) {
+      Artifact output = ActionsTestUtil.createArtifact(OUTPUT_ROOT, outputPath);
+      return new NullAction(output) {
+        @Override
+        protected String getRawProgressMessage() {
+          return progressMessage;
+        }
+      };
     }
   }
 

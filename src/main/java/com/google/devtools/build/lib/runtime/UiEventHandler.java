@@ -108,7 +108,7 @@ public final class UiEventHandler implements EventHandler {
   private final boolean debugAllEvents;
   private final UiStateTracker stateTracker;
   private final LocationPrinter locationPrinter;
-  private final boolean showProgress;
+  private volatile boolean showProgress;
   private final boolean progressInTermTitle;
   private final boolean showTimestamp;
   private final OutErr outErr;
@@ -227,6 +227,39 @@ public final class UiEventHandler implements EventHandler {
     this.filteredEventKinds = options.getFilteredEventKinds();
     // The progress bar has not been updated yet.
     ignoreRefreshLimitOnce();
+  }
+
+  /**
+   * Disables progress, clearing the progress bar if it is currently shown.
+   *
+   * <p>This can be used to temporarily suppress progress. Call {@link #enableProgress} to show
+   * progress again.
+   *
+   * <p>If {@link UiOptions#showProgress} is false, or progress is already suppressed, returns
+   * false. If progress was enabled before this call, returns true.
+   */
+  public synchronized boolean disableProgress() throws IOException {
+    if (!showProgress) {
+      return false;
+    }
+    clearProgressBar();
+    terminal.flush();
+    showProgress = false;
+    return true;
+  }
+
+  /**
+   * Enables progress and writes the progress bar.
+   *
+   * <p>This is a no-op if progress is already enabled.
+   */
+  public synchronized void enableProgress() throws IOException {
+    if (showProgress) {
+      return;
+    }
+    showProgress = true;
+    addProgressBar();
+    terminal.flush();
   }
 
   /**
