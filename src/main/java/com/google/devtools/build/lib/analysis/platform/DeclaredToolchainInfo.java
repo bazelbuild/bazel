@@ -58,6 +58,8 @@ public record DeclaredToolchainInfo(
   }
 
   public boolean hasTargetToExecConstraints() {
+    // This needs to check identity as the special ConstraintCollection is otherwise equal to the
+    // empty one. This avoids adding a new field or making ConstraintCollection more complex.
     return execConstraints == USE_TARGET_PLATFORM_CONSTRAINTS
         && targetConstraints == USE_TARGET_PLATFORM_CONSTRAINTS;
   }

@@ -944,9 +944,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION},
-      help =
-          "If true, then Bazel will use the target platform for running tests rather than "
-              + "the test exec group.")
+      help = "If true, use the target platform for running tests rather than the test exec group.")
   public boolean useTargetPlatformForTests;
 
   /** Ways configured targets may provide the {@link Fragment}s they require. */

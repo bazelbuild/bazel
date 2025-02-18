@@ -302,30 +302,18 @@ launcher_flag_alias(
     config.create(
         "embedded_tools/tools/BUILD",
         "alias(name='host_platform',actual='" + TestConstants.PLATFORM_LABEL + "')");
+    // Contains a stripped down version of @bazel_tools//tools/test.
     config.create(
         "embedded_tools/tools/test/BUILD",
         """
         load(":default_test_toolchain.bzl", "bool_flag", "empty_toolchain")
 
-        # The mandatory toolchain requirement of the default "test" exec group defined
-        # on every test rule.
-        # Register a toolchain for this type to influence the selection of the
-        # execution platform based on the target platform. ToolchainInfo provided by
-        # toolchain implementations is generally ignored, but test rules are free to
-        # define their own test toolchain types and specify different behavior.
         toolchain_type(
             name = "default_test_toolchain_type",
         )
 
-        # A target that provides an empty platform_common.ToolchainInfo for use
-        # in test toolchains that do not need to carry any data, just
-        # constraints.
         empty_toolchain(name = "empty_toolchain")
 
-        # Whether to register a default test toolchain for all test rules without
-        # an explicitly defined "test" exec group. This toolchain forces the
-        # execution platform to satisfy all constraints specified by the target
-        # platform.
         bool_flag(
             name = "incompatible_use_default_test_toolchain",
             build_setting_default = False,
@@ -359,8 +347,6 @@ launcher_flag_alias(
             visibility = ["//visibility:private"],
         )
 
-        # A toolchain that forces the execution platform to satisfy all constraints
-        # specified by the target platform.
         toolchain(
             name = "default_test_toolchain",
             toolchain_type = ":default_test_toolchain_type",
@@ -370,9 +356,6 @@ launcher_flag_alias(
             visibility = ["//visibility:private"],
         )
 
-        # A toolchain that allows a test action to run on any execution platform, which
-        # matches the behavior of Bazel before the introduction of the default test
-        # toolchain.
         toolchain(
             name = "legacy_test_toolchain",
             toolchain_type = ":default_test_toolchain_type",
