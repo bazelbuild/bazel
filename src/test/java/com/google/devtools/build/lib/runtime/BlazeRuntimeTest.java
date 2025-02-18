@@ -258,6 +258,7 @@ public class BlazeRuntimeTest {
         /* shutdownReasonConsumer= */ shutdownReason::set,
         NO_OP_COMMAND_EXTENSION_REPORTER,
         /* attemptNumber= */ 1,
+        /* buildIdOverride= */ null,
         ConfigFlagDefinitions.NONE);
   }
 
