@@ -100,4 +100,63 @@ function test_scl_config_plus_expanded_command_line_flag_fails(){
   expect_log "--compilation_mode=opt"
 }
 
+
+function test_scl_config_plus_test_suite_tests_outside_project_passes(){
+  mkdir -p test
+  # Make the project file warn mode so we don't fail due to our fake global rc
+  # file in tests
+  cat > test/PROJECT.scl <<EOF
+project = {
+  "configs" : {"default": []},
+  "default_config" : "default",
+  "enforcement_policy" : "warn"
+}
+EOF
+  cat >> test/BUILD <<EOF
+test_suite(name='test_suite', tests=['//other:other'])
+EOF
+
+    mkdir -p other
+  cat > other/BUILD <<EOF
+sh_test(name='other', srcs=['other.sh'])
+EOF
+
+  touch other/other.sh
+  cat > other/other.sh <<EOF
+#!/bin/bash
+echo hi
+EOF
+
+  bazel build --nobuild  //test:test_suite  &> "$TEST_log" || \
+    fail "expected success"
+}
+
+function test_scl_config_plus_external_target_in_test_suite_fails(){
+  mkdir -p test
+  # This failure kicks in as soon as there's a valid project file, even if it
+  # doesn't contain any configs.
+  cat > test/PROJECT.scl <<EOF
+project = {}
+EOF
+  cat >> test/BUILD <<EOF
+test_suite(name='test_suite', tests=['//other:other'])
+EOF
+
+    mkdir -p other
+  cat > other/BUILD <<EOF
+sh_test(name='other', srcs=['other.sh'])
+EOF
+
+  touch other/other.sh
+  cat > other/other.sh <<EOF
+#!/bin/bash
+echo hi
+EOF
+
+  bazel build --nobuild //test:test_suite //other:other &> "$TEST_log" && \
+    fail "expected build to fail"
+
+  expect_log "This build doesn't support automatic project resolution"
+}
+
 run_suite "Integration tests for flagsets/scl_config"

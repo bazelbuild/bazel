@@ -240,7 +240,7 @@ public final class AnalysisPhaseRunner {
     try {
       projectFile =
           Project.getProjectFile(
-              targetPatternPhaseValue.getTargetLabels(),
+              targetPatternPhaseValue.getNonExpandedLabels(),
               env.getSkyframeExecutor(),
               env.getReporter());
     } catch (ProjectResolutionException e) {
