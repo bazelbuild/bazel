@@ -35,14 +35,13 @@ import com.google.common.collect.Iterables;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
-import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
-import com.google.devtools.build.lib.remote.common.LostInputsEvent;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
+import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree.ContentSource;
@@ -135,7 +134,7 @@ public class RemoteExecutionCache extends CombinedCache {
       MerkleTree merkleTree,
       Map<Digest, Message> additionalInputs,
       boolean force,
-      Reporter reporter)
+      @Nullable RemotePathResolver remotePathResolver)
       throws IOException, InterruptedException {
     Iterable<Digest> merkleTreeAllDigests;
     try (SilentCloseable s = Profiler.instance().profile("merkleTree.getAllDigests()")) {
@@ -148,7 +147,8 @@ public class RemoteExecutionCache extends CombinedCache {
     }
 
     Flowable<TransferResult> uploads =
-        createUploadTasks(context, merkleTree, additionalInputs, allDigests, force, reporter)
+        createUploadTasks(
+                context, merkleTree, additionalInputs, allDigests, force, remotePathResolver)
             .flatMapPublisher(
                 result ->
                     Flowable.using(
@@ -211,7 +211,7 @@ public class RemoteExecutionCache extends CombinedCache {
       Digest digest,
       MerkleTree merkleTree,
       Map<Digest, Message> additionalInputs,
-      Reporter reporter) {
+      @Nullable RemotePathResolver remotePathResolver) {
     Directory node = merkleTree.getDirectoryByDigest(digest);
     if (node != null) {
       return remoteCacheClient.uploadBlob(context, digest, node.toByteString());
@@ -230,8 +230,16 @@ public class RemoteExecutionCache extends CombinedCache {
               // cache at some point before action execution, but reported to be missing when
               // querying the remote for missing action inputs; possibly because it was evicted in
               // the interim.
-              reporter.post(new LostInputsEvent(digest));
-              throw new CacheNotFoundException(digest, path.getPathString());
+              if (remotePathResolver != null) {
+                throw new CacheNotFoundException(
+                    digest, remotePathResolver.localPathToExecPath(path.asFragment()));
+              } else {
+                // This path should only be taken for RemoteRepositoryRemoteExecutor, which has no
+                // way to handle lost inputs.
+                var e = new CacheNotFoundException(digest);
+                e.setFilename(path.getPathString());
+                throw e;
+              }
             }
           } catch (IOException e) {
             yield immediateFailedFuture(e);
@@ -266,7 +274,7 @@ public class RemoteExecutionCache extends CombinedCache {
       Map<Digest, Message> additionalInputs,
       Iterable<Digest> allDigests,
       boolean force,
-      Reporter reporter) {
+      @Nullable RemotePathResolver remotePathResolver) {
     return Single.using(
         () -> Profiler.instance().profile("collect digests"),
         ignored ->
@@ -274,7 +282,12 @@ public class RemoteExecutionCache extends CombinedCache {
                 .flatMapMaybe(
                     digest ->
                         maybeCreateUploadTask(
-                            context, merkleTree, additionalInputs, digest, force, reporter))
+                            context,
+                            merkleTree,
+                            additionalInputs,
+                            digest,
+                            force,
+                            remotePathResolver))
                 .collect(toImmutableList()),
         SilentCloseable::close);
   }
@@ -285,7 +298,7 @@ public class RemoteExecutionCache extends CombinedCache {
       Map<Digest, Message> additionalInputs,
       Digest digest,
       boolean force,
-      Reporter reporter) {
+      @Nullable RemotePathResolver remotePathResolver) {
     return Maybe.create(
         emitter -> {
           AsyncSubject<Void> completion = AsyncSubject.create();
@@ -314,7 +327,7 @@ public class RemoteExecutionCache extends CombinedCache {
                                         uploadTask.digest,
                                         merkleTree,
                                         additionalInputs,
-                                        reporter),
+                                        remotePathResolver),
                                 directExecutor());
                           }),
                   /* onAlreadyRunning= */ () -> emitter.onSuccess(uploadTask),

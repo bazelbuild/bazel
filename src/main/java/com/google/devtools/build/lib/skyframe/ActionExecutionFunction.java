@@ -82,6 +82,8 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.remote.common.LostInputsEvent;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -532,19 +534,43 @@ public final class ActionExecutionFunction implements SkyFunction {
               env,
               actionStartTimeNanos);
     } catch (ActionRewindException rewindingFailedException) {
-      throw new ActionExecutionFunctionException(
-          new AlreadyReportedActionExecutionException(
-              skyframeActionExecutor.processAndGetExceptionToThrow(
-                  env.getListener(),
-                  e.getPrimaryOutputPath(),
-                  action,
-                  new ActionExecutionException(
-                      e,
-                      action,
-                      /* catastrophe= */ false,
-                      rewindingFailedException.getDetailedExitCode()),
-                  e.getFileOutErr(),
-                  ActionExecutedEvent.ErrorTiming.AFTER_EXECUTION)));
+      // If rewinding failed, Bazel may still be able to recover by retrying the invocation in
+      // BlazeCommandDispatcher if retries are enabled.
+      if (skyframeActionExecutor.invocationRetriesEnabled()) {
+        env.getListener().post(LostInputsEvent.create(e.getLostInputs().keySet()));
+        throw new ActionExecutionFunctionException(
+            skyframeActionExecutor.processAndGetExceptionToThrow(
+                env.getListener(),
+                e.getPrimaryOutputPath(),
+                action,
+                new ActionExecutionException(
+                    e,
+                    action,
+                    /* catastrophe= */ false,
+                    DetailedExitCode.of(
+                        FailureDetail.newBuilder()
+                            .setMessage("Failed to fetch blobs because they do not exist remotely.")
+                            .setSpawn(
+                                FailureDetails.Spawn.newBuilder()
+                                    .setCode(FailureDetails.Spawn.Code.REMOTE_CACHE_EVICTED))
+                            .build())),
+                e.getFileOutErr(),
+                ActionExecutedEvent.ErrorTiming.AFTER_EXECUTION));
+      } else {
+        throw new ActionExecutionFunctionException(
+            new AlreadyReportedActionExecutionException(
+                skyframeActionExecutor.processAndGetExceptionToThrow(
+                    env.getListener(),
+                    e.getPrimaryOutputPath(),
+                    action,
+                    new ActionExecutionException(
+                        e,
+                        action,
+                        /* catastrophe= */ false,
+                        rewindingFailedException.getDetailedExitCode()),
+                    e.getFileOutErr(),
+                    ActionExecutedEvent.ErrorTiming.AFTER_EXECUTION)));
+      }
     } finally {
       if (e.isActionStartedEventAlreadyEmitted() && rewindPlan == null) {
         // Rewinding was unsuccessful. SkyframeActionExecutor's ActionRunner didn't emit an

@@ -22,12 +22,14 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputDepOwnerMap;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Reason;
 import com.google.devtools.build.lib.actions.ArtifactExpander;
@@ -302,17 +304,20 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
                     Reason.INPUTS),
             BulkTransferException.class,
             (BulkTransferException e) -> {
-              var message =
-                  BulkTransferException.allCausedByCacheNotFoundException(e)
-                      ? "Failed to fetch blobs because they do not exist remotely."
-                      : "Failed to fetch blobs because of a remote cache error.";
-              throw new EnvironmentalExecException(
-                  e,
-                  FailureDetail.newBuilder()
-                      .setMessage(message)
-                      .setSpawn(
-                          FailureDetails.Spawn.newBuilder().setCode(Code.REMOTE_CACHE_EVICTED))
-                      .build());
+              ImmutableMap<String, ActionInput> lostInputs =
+                  e.getLostInputs(actionExecutionContext.getInputMetadataProvider()::getInput);
+              if (!lostInputs.isEmpty()) {
+                throw new LostInputsExecException(
+                    lostInputs, new ActionInputDepOwnerMap(lostInputs.values()));
+              } else {
+                throw new EnvironmentalExecException(
+                    e,
+                    FailureDetail.newBuilder()
+                        .setMessage("Failed to fetch blobs because of a remote cache error.")
+                        .setSpawn(
+                            FailureDetails.Spawn.newBuilder().setCode(Code.REMOTE_CACHE_EVICTED))
+                        .build());
+              }
             },
             directExecutor());
       }

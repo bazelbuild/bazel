@@ -164,6 +164,11 @@ public class DigestUtil {
     return digest.getHash() + "/" + digest.getSizeBytes();
   }
 
+  public static Digest fromString(String digest) {
+    String[] parts = digest.split("/");
+    return buildDigest(parts[0], Long.parseUnsignedLong(parts[1]));
+  }
+
   public static byte[] toBinaryDigest(Digest digest) {
     return HashCode.fromString(digest.getHash()).asBytes();
   }
