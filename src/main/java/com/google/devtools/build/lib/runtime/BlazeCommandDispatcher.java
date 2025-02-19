@@ -247,7 +247,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       BlazeCommandResult result;
       int attemptNumber = 0;
       Set<UUID> attemptedCommandIds = new HashSet<>();
-      BlazeCommandResult lastResult = null;
+      String buildRequestIdOverride = null;
       while (true) {
         attemptNumber += 1;
         try {
@@ -265,12 +265,14 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
                   commandExtensions,
                   attemptNumber,
                   attemptedCommandIds,
-                  lastResult,
+                  buildRequestIdOverride,
                   commandExtensionReporter);
           break;
         } catch (RemoteCacheTransientErrorException e) {
           attemptedCommandIds.add(e.getCommandId());
-          lastResult = e.getResult();
+          // Use a fixed build request ID across cache eviction retries to tie together the
+          // individual invocations, which all have different invocation IDs.
+          buildRequestIdOverride = e.getBuildRequestId();
         }
       }
       if (result.shutdown()) {
@@ -326,7 +328,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       List<Any> commandExtensions,
       int attemptNumber,
       Set<UUID> attemptedCommandIds,
-      @Nullable BlazeCommandResult lastResult,
+      @Nullable String buildRequestIdOverride,
       CommandExtensionReporter commandExtensionReporter)
       throws RemoteCacheTransientErrorException {
     // Record the start time for the profiler. Do not put anything before this!
@@ -363,18 +365,11 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
             this::setShutdownReason,
             commandExtensionReporter,
             attemptNumber,
+            buildRequestIdOverride,
             parseResults.configFlagDefinitions());
 
-    if (!attemptedCommandIds.isEmpty()) {
-      if (attemptedCommandIds.contains(env.getCommandId())) {
-        outErr.printErrLn(
-            String.format(
-                "Failed to retry the build: invocation id `%s` has already been used.",
-                env.getCommandId()));
-        return Preconditions.checkNotNull(lastResult);
-      } else {
-        outErr.printErrLn("Found transient remote cache error, retrying the build...");
-      }
+    if (attemptNumber > 1) {
+      outErr.printErrLn("Found transient remote cache error, retrying the build...");
     }
 
     CommonCommandOptions commonOptions = options.getOptions(CommonCommandOptions.class);
@@ -732,7 +727,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         var executionOptions =
             Preconditions.checkNotNull(options.getOptions(ExecutionOptions.class));
         if (attemptedCommandIds.size() < executionOptions.remoteRetryOnTransientCacheError) {
-          throw new RemoteCacheTransientErrorException(env.getCommandId(), newResult);
+          throw new RemoteCacheTransientErrorException(env.getBuildRequestId(), env.getCommandId());
         }
       }
 
@@ -781,20 +776,22 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
   }
 
   private static class RemoteCacheTransientErrorException extends IOException {
+    // Remains constant across retries.
+    private final String buildRequestId;
+    // Changes across retries.
     private final UUID commandId;
-    private final BlazeCommandResult result;
 
-    private RemoteCacheTransientErrorException(UUID commandId, BlazeCommandResult result) {
+    private RemoteCacheTransientErrorException(String buildRequestId, UUID commandId) {
+      this.buildRequestId = buildRequestId;
       this.commandId = commandId;
-      this.result = result;
+    }
+
+    public String getBuildRequestId() {
+      return buildRequestId;
     }
 
     public UUID getCommandId() {
       return commandId;
-    }
-
-    public BlazeCommandResult getResult() {
-      return result;
     }
   }
 

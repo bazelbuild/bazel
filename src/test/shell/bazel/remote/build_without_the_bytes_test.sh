@@ -2068,17 +2068,31 @@ EOF
 
   echo "updated bar" > a/bar.in
 
-  # Incremental build triggers remote cache eviction error and Bazel tries to
-  # retry the build but failed because the invocation id is the same.
+  # Incremental build triggers remote cache eviction error and Bazel retries
+  # the build with a new invocation ID
   bazel build \
       --invocation_id=91648f28-6081-4af7-9374-cdfd3cd36ef2 \
       --remote_executor=grpc://localhost:${worker_port} \
       --remote_download_minimal \
       --experimental_remote_cache_eviction_retries=1 \
-      //a:bar >& $TEST_log && fail "Expected build to fail"
+      --build_event_text_file=bes.txt \
+      //a:bar >& $TEST_log || fail "Failed to build"
 
   expect_log 'Failed to fetch blobs because they do not exist remotely.'
-  expect_log 'Failed to retry the build: invocation id `91648f28-6081-4af7-9374-cdfd3cd36ef2` has already been used.'
+  expect_log "Found transient remote cache error, retrying the build..."
+
+  local invocation_ids=$(grep "Invocation ID:" $TEST_log)
+  local first_id=$(echo "$invocation_ids" | head -n 1)
+  if [[ "$first_id" != *"Invocation ID: 91648f28-6081-4af7-9374-cdfd3cd36ef2" ]]; then
+    fail "Expected fixed invocation ID to be preserved for the first invocation, got: $first_id"
+  fi
+  local second_id=$(echo "$invocation_ids" | tail -n 1)
+  if [[ "$second_id" == "$first_id" ]]; then
+    fail "Expected second invocation ID to be different from the fixed invocation ID"
+  fi
+
+  cat bes.txt | tr '\n' ' ' > $TEST_log
+  expect_log "uuid: \"${second_id#INFO: Invocation ID: }\""
 }
 
 function test_download_toplevel_symlinks_runfiles() {

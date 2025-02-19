@@ -230,6 +230,7 @@ public class CommandEnvironment {
       Consumer<String> shutdownReasonConsumer,
       CommandExtensionReporter commandExtensionReporter,
       int attemptNumber,
+      @Nullable String buildRequestIdOverride,
       ConfigFlagDefinitions configFlagDefinitions) {
     checkArgument(attemptNumber >= 1);
 
@@ -316,11 +317,13 @@ public class CommandEnvironment {
             "CommandEnvironment needs its options provider to have ClientOptions loaded.");
 
     this.clientEnv = makeMapFromMapEntries(clientOptions.clientEnv);
-    this.commandId = computeCommandId(commandOptions.invocationId, warnings);
+    this.commandId = computeCommandId(commandOptions.invocationId, warnings, attemptNumber);
     this.buildRequestId =
         commandOptions.buildRequestId != null
             ? commandOptions.buildRequestId
-            : UUID.randomUUID().toString();
+            : buildRequestIdOverride != null
+                ? buildRequestIdOverride
+                : UUID.randomUUID().toString();
 
     this.repoEnv.putAll(clientEnv);
     if (command.buildPhase().analyzes() || command.name().equals("info")) {
@@ -544,7 +547,7 @@ public class CommandEnvironment {
     return ImmutableMap.copyOf(result);
   }
 
-  private UUID computeCommandId(UUID idFromOptions, List<String> warnings) {
+  private UUID computeCommandId(UUID idFromOptions, List<String> warnings, int attemptNumber) {
     // TODO(b/67895628): Stop reading ids from the environment after the compatibility window has
     // passed.
     UUID commandId = idFromOptions;
@@ -558,11 +561,17 @@ public class CommandEnvironment {
                   + "--invocation_id. Please switch to using the flag.");
         } catch (IllegalArgumentException e) {
           // String was malformed, so we will resort to generating a random UUID
-          commandId = UUID.randomUUID();
+          return UUID.randomUUID();
         }
       } else {
-        commandId = UUID.randomUUID();
+        return UUID.randomUUID();
       }
+    }
+    // When retrying a command, the retry has to use a different command ID. BES backends can still
+    // link the invocations since their build ID will be the same and the attempt number will be
+    // increased.
+    if (attemptNumber > 1) {
+      return UUID.randomUUID();
     }
     return commandId;
   }
