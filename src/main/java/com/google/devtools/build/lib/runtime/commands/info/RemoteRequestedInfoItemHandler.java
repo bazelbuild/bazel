@@ -14,15 +14,19 @@
 package com.google.devtools.build.lib.runtime.commands.info;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.commands.PathToReplaceUtils;
 import com.google.devtools.build.lib.server.CommandProtos.InfoItem;
 import com.google.devtools.build.lib.server.CommandProtos.InfoResponse;
 import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.TextFormat;
 import java.io.IOException;
 
 class RemoteRequestedInfoItemHandler implements InfoItemHandler {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   private final CommandEnvironment env;
   private final ImmutableList.Builder<InfoItem> infoItemsBuilder;
 
@@ -45,6 +49,11 @@ class RemoteRequestedInfoItemHandler implements InfoItemHandler {
             .addAllPathToReplace(PathToReplaceUtils.getPathsToReplace(env))
             .addAllInfoItem(infoItems)
             .build();
+
+    logger.atFine().log(
+        "Blaze info is invoked by a remote client. InfoResponse = %s",
+        TextFormat.printer().emittingSingleLine(true).printToString(infoResponse));
+
     env.addResponseExtensions(ImmutableList.of(Any.pack(infoResponse)));
   }
 }
