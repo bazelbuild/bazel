@@ -26,13 +26,15 @@ cd "$BUILD_WORKSPACE_DIRECTORY"
 echo "===== Building turbine with PGO instrumentation ====="
 bazel build \
   -c opt \
-  --//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_direct_graal_pgo_instrument \
+  --//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:pgo_instrument \
+  --//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:use_oracle_graalvm \
   //src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_direct_graal
 TURBINE_PATH="$(
   bazel cquery \
     --output=files \
     -c opt \
-    --//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_direct_graal_pgo_instrument \
+    --//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:pgo_instrument \
+    --//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:use_oracle_graalvm \
     //src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_direct_graal
 )"
 

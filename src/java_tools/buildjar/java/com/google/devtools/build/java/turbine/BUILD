@@ -27,16 +27,31 @@ java_binary(
     runtime_deps = [":turbine_deps"],
 )
 
-# If enabled, build Turbine with PGO instrumentation and without a PGO profile.
-# This is used by :update_turbine_pgo.
+# If enabled, build Turbine with Oracle GraalVM rather than GraalVM Community.
+# See https://www.graalvm.org/downloads/ for licensing restrictions.
 bool_flag(
-    name = "turbine_direct_graal_pgo_instrument",
+    name = "use_oracle_graalvm",
     build_setting_default = False,
 )
 
 config_setting(
-    name = "turbine_direct_graal_do_pgo_instrument",
-    flag_values = {"turbine_direct_graal_pgo_instrument": str(True)},
+    name = "do_use_oracle_graalvm",
+    flag_values = {"use_oracle_graalvm": str(True)},
+)
+
+# If enabled, build Turbine with PGO instrumentation and without a PGO profile.
+# This is used by :update_turbine_pgo. Requires the use of Oracle GraalVM.
+bool_flag(
+    name = "pgo_instrument",
+    build_setting_default = False,
+)
+
+config_setting(
+    name = "do_pgo_instrument",
+    flag_values = {
+        "pgo_instrument": str(True),
+        "use_oracle_graalvm": str(True),
+    },
 )
 
 native_image(
@@ -79,13 +94,18 @@ native_image(
         ],
         "//conditions:default": [],
     }) + select({
-        ":turbine_direct_graal_do_pgo_instrument": ["--pgo-instrument"],
+        ":do_pgo_instrument": ["--pgo-instrument"],
         "//conditions:default": [],
     }),
     main_class = _TURBINE_MAIN_CLASS,
+    native_image_tool = select({
+        ":do_use_oracle_graalvm": "@graalvm_oracle//:native-image",
+        "//conditions:default": None,
+    }),
     profiles = select({
-        ":turbine_direct_graal_do_pgo_instrument": [],
-        "//conditions:default": ["profile.iprof"],
+        ":do_pgo_instrument": [],
+        ":do_use_oracle_graalvm": ["profile.iprof"],
+        "//conditions:default": [],
     }),
     # This provides libz.a on Linux instead of the host system.
     static_zlib = "//third_party/zlib",

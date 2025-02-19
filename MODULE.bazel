@@ -292,10 +292,12 @@ use_repo(
     "debian_cc_deps",
     "debian_java_deps",
     "debian_proto_deps",
+    "graalvm_ce_toolchains",
+    "graalvm_oracle",
     "openjdk_linux_aarch64_vanilla",
     "openjdk_linux_ppc64le_vanilla",
-    "openjdk_linux_s390x_vanilla",
     "openjdk_linux_riscv64_vanilla",
+    "openjdk_linux_s390x_vanilla",
     "openjdk_linux_vanilla",
     "openjdk_macos_aarch64_vanilla",
     "openjdk_macos_x86_64_vanilla",
@@ -307,15 +309,6 @@ use_repo(
 # Required only by `--extra_toolchains=@local_config_cc//:cc-toolchain-arm64_windows` from .bazelrc
 cc_configure = use_extension("@rules_cc//cc:extensions.bzl", "cc_configure_extension")
 use_repo(cc_configure, "local_config_cc")
-
-gvm = use_extension("@rules_graalvm//:extensions.bzl", "graalvm")
-gvm.graalvm(
-    name = "graalvm",
-    distribution = "oracle",
-    java_version = "21",
-    version = "21.0.2",
-)
-use_repo(gvm, "graalvm_toolchains")
 
 http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 
@@ -415,4 +408,4 @@ register_toolchains("@local_config_winsdk//:all")
 
 register_toolchains("//src/main/res:empty_rc_toolchain")
 
-register_toolchains("@graalvm_toolchains//:gvm")
+register_toolchains("@graalvm_ce_toolchains//:gvm")
