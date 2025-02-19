@@ -28,6 +28,10 @@
 #include "src/main/native/windows/process.h"
 #include "src/tools/launcher/util/launcher_util.h"
 
+#if (__cplusplus >= 201703L)
+#include <filesystem>  // NOLINT
+#endif
+
 namespace bazel {
 namespace launcher {
 
