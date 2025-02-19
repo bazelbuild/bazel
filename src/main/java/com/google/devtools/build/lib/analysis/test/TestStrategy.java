@@ -391,7 +391,7 @@ public abstract class TestStrategy implements TestActionContext {
               testSummaryOptions.printRelativeTestLogPaths
                   ? testLog
                       .asFragment()
-                      .relativeTo(actionExecutionContext.getExecRoot().asFragment())
+                      .relativeTo(actionExecutionContext.getExecRoot().devirtualize().asFragment())
                   : testLog.asFragment();
         }
         if (testResultData.hasStatusDetails()) {
