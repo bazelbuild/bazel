@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.CPP_LINK_EXEC_GROUP;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -400,7 +401,7 @@ public class CppLinkActionBuilder {
         .filter(perLabelOptions -> perLabelOptions.isIncluded(objectFile))
         .map(PerLabelOptions::getOptions)
         .flatMap(options -> options.stream())
-        .collect(ImmutableList.toImmutableList());
+        .collect(toImmutableList());
   }
 
   private static List<String> getLtoBackendUserCompileFlags(
@@ -533,6 +534,49 @@ public class CppLinkActionBuilder {
   public static ImmutableMap<Artifact, LtoBackendArtifacts> createSharedNonLtoArtifacts(
       LinkActionConstruction linkActionConstruction,
       LtoCompilationContext ltoCompilationContext,
+      FeatureConfiguration featureConfiguration,
+      CcToolchainProvider toolchain,
+      boolean usePicForLtoBackendActions,
+      ImmutableList<Artifact> objectFiles)
+      throws EvalException {
+    PathFragment ltoOutputRootPrefix = CppHelper.SHARED_NONLTO_BACKEND_ROOT_PREFIX;
+    PathFragment ltoObjRootPrefix =
+        featureConfiguration.isEnabled(CppRuleClasses.USE_LTO_NATIVE_OBJECT_DIRECTORY)
+            ? CppHelper.getThinLtoNativeObjectDirectoryFromLtoOutputRoot(ltoOutputRootPrefix)
+            : ltoOutputRootPrefix;
+
+    ImmutableMap.Builder<Artifact, LtoBackendArtifacts> sharedNonLtoBackends =
+        ImmutableMap.builder();
+
+    for (Artifact inputArtifact : objectFiles) {
+      if (ltoCompilationContext.containsBitcodeFile(inputArtifact)) {
+        List<String> backendUserCompileFlags =
+            getLtoBackendUserCompileFlags(
+                toolchain.getCppConfiguration(),
+                inputArtifact,
+                ltoCompilationContext.getCopts(inputArtifact));
+        LtoBackendArtifacts ltoArtifacts =
+            createLtoArtifact(
+                linkActionConstruction,
+                featureConfiguration,
+                toolchain,
+                usePicForLtoBackendActions,
+                inputArtifact,
+                /* allBitcode= */ null,
+                ltoOutputRootPrefix,
+                ltoObjRootPrefix,
+                /* createSharedNonLto= */ true,
+                backendUserCompileFlags);
+        sharedNonLtoBackends.put(inputArtifact, ltoArtifacts);
+      }
+    }
+
+    return sharedNonLtoBackends.buildOrThrow();
+  }
+
+  public static ImmutableMap<Artifact, LtoBackendArtifacts> createSharedNonLtoArtifacts(
+      LinkActionConstruction linkActionConstruction,
+      LtoCompilationContext ltoCompilationContext,
       boolean isLinker,
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider toolchain,
@@ -544,39 +588,13 @@ public class CppLinkActionBuilder {
       return ImmutableMap.<Artifact, LtoBackendArtifacts>of();
     }
 
-    PathFragment ltoOutputRootPrefix = CppHelper.SHARED_NONLTO_BACKEND_ROOT_PREFIX;
-    PathFragment ltoObjRootPrefix =
-        featureConfiguration.isEnabled(CppRuleClasses.USE_LTO_NATIVE_OBJECT_DIRECTORY)
-            ? CppHelper.getThinLtoNativeObjectDirectoryFromLtoOutputRoot(ltoOutputRootPrefix)
-            : ltoOutputRootPrefix;
-
-    ImmutableMap.Builder<Artifact, LtoBackendArtifacts> sharedNonLtoBackends =
-        ImmutableMap.builder();
-
-    for (LegacyLinkerInput input : objectFiles) {
-      if (ltoCompilationContext.containsBitcodeFile(input.getArtifact())) {
-        List<String> backendUserCompileFlags =
-            getLtoBackendUserCompileFlags(
-                toolchain.getCppConfiguration(),
-                input.getArtifact(),
-                ltoCompilationContext.getCopts(input.getArtifact()));
-        LtoBackendArtifacts ltoArtifacts =
-            createLtoArtifact(
-                linkActionConstruction,
-                featureConfiguration,
-                toolchain,
-                usePicForLtoBackendActions,
-                input.getArtifact(),
-                /* allBitcode= */ null,
-                ltoOutputRootPrefix,
-                ltoObjRootPrefix,
-                /* createSharedNonLto= */ true,
-                backendUserCompileFlags);
-        sharedNonLtoBackends.put(input.getArtifact(), ltoArtifacts);
-      }
-    }
-
-    return sharedNonLtoBackends.buildOrThrow();
+    return createSharedNonLtoArtifacts(
+        linkActionConstruction,
+        ltoCompilationContext,
+        featureConfiguration,
+        toolchain,
+        usePicForLtoBackendActions,
+        objectFiles.stream().map(LegacyLinkerInput::getArtifact).collect(toImmutableList()));
   }
 
   @VisibleForTesting

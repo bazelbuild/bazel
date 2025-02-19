@@ -666,20 +666,35 @@ public abstract class CcModule
           "Must pass at least one of the following parameters: static_library, pic_static_library, "
               + "dynamic_library and interface_library.");
     }
-    return LibraryToLink.builder()
-        .setLibraryIdentifier(CcLinkingOutputs.libraryIdentifierOf(notNullArtifactForIdentifier))
-        .setStaticLibrary(staticLibrary)
-        .setPicStaticLibrary(picStaticLibrary)
-        .setDynamicLibrary(dynamicLibrary)
-        .setResolvedSymlinkDynamicLibrary(resolvedSymlinkDynamicLibrary)
-        .setInterfaceLibrary(interfaceLibrary)
-        .setResolvedSymlinkInterfaceLibrary(resolvedSymlinkInterfaceLibrary)
-        .setObjectFiles(nopicObjects)
-        .setPicObjectFiles(picObjects)
-        .setAlwayslink(alwayslink)
-        .setMustKeepDebug(mustKeepDebug)
-        .setLtoCompilationContext(ltoCompilationContext)
-        .build();
+    var libraryToLinkBuilder =
+        LibraryToLink.builder()
+            .setLibraryIdentifier(
+                CcLinkingOutputs.libraryIdentifierOf(notNullArtifactForIdentifier))
+            .setStaticLibrary(staticLibrary)
+            .setPicStaticLibrary(picStaticLibrary)
+            .setDynamicLibrary(dynamicLibrary)
+            .setResolvedSymlinkDynamicLibrary(resolvedSymlinkDynamicLibrary)
+            .setInterfaceLibrary(interfaceLibrary)
+            .setResolvedSymlinkInterfaceLibrary(resolvedSymlinkInterfaceLibrary)
+            .setObjectFiles(nopicObjects)
+            .setPicObjectFiles(picObjects)
+            .setAlwayslink(alwayslink)
+            .setMustKeepDebug(mustKeepDebug)
+            .setLtoCompilationContext(ltoCompilationContext);
+
+    // When LTO is enabled, archives of static libraries with nopic objects need
+    // non-LTO backends.
+    if (ltoCompilationContext != null && staticLibrary != null && nopicObjects != null) {
+      libraryToLinkBuilder.setSharedNonLtoBackends(
+          CppLinkActionBuilder.createSharedNonLtoArtifacts(
+              CppLinkActionBuilder.newActionConstruction(starlarkActionFactory.getRuleContext()),
+              ltoCompilationContext,
+              featureConfiguration.getFeatureConfiguration(),
+              ccToolchainProvider,
+              /* usePicForLtoBackendActions= */ false,
+              nopicObjects));
+    }
+    return libraryToLinkBuilder.build();
   }
 
   private static void validateSymlinkPath(
