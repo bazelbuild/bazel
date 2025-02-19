@@ -188,13 +188,16 @@ final class StringModule implements StarlarkValue {
   // whitespace, matching Python 3.
   private static final CharMatcher LATIN1_WHITESPACE =
       CharMatcher.anyOf(
-          "\u0009" + "\n" + "\u000B" + "\u000C" + "\r" + "\u001C" + "\u001D" + "\u001E" + "\u001F "
-              + "\u0085" + "\u00A0");
+          "\u0009" + "\n" + "\u000B" + "\u000C" + "\r" + "\u001C" + "\u001D" + "\u001E" + "\u001F"
+              + "\u0020" + "\u0085" + "\u00A0");
 
+  // This is used instead of LATIN1_WHITESPACE when strings are represented as raw UTF-8 byte
+  // arrays. In that case, we should not strip any bytes that are not ASCII whitespace, but part of
+  // a multibyte UTF-8 character.
   private static final CharMatcher ASCII_WHITESPACE =
       CharMatcher.anyOf(
-          "\u0009" + "\n" + "\u000B" + "\u000C" + "\r" + "\u001C" + "\u001D" + "\u001E"
-              + "\u001F ");
+          "\u0009" + "\n" + "\u000B" + "\u000C" + "\r" + "\u001C" + "\u001D" + "\u001E" + "\u001F"
+              + "\u0020");
 
   private static String stringLStrip(String self, CharMatcher matcher) {
     for (int i = 0; i < self.length(); i++) {
@@ -311,8 +314,9 @@ final class StringModule implements StarlarkValue {
 
   private static CharMatcher matcher(Object charsOrNone, StarlarkSemantics starlarkSemantics) {
     return charsOrNone != Starlark.NONE
-        // TODO: This doesn't work correctly for non-ASCII characters in charsOrNone if using UTF-8
-        // byte strings.
+        // When using the latin-1 hack, each utf-8 code unit is stored as a distinct string element.
+        // To avoid matching an element that doesn't correspond to a whole code point, we exclude
+        // anything that's not in the ASCII range.
         ? CharMatcher.anyOf((String) charsOrNone)
         : (starlarkSemantics.getBool(StarlarkSemantics.INTERNAL_BAZEL_ONLY_UTF_8_BYTE_STRINGS)
             ? ASCII_WHITESPACE

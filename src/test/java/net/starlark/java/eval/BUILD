@@ -1,4 +1,4 @@
-load("@rules_java//java:defs.bzl", "java_binary", "java_test")
+load("@rules_java//java:defs.bzl", "java_binary", "java_library", "java_test")
 
 package(default_testonly = 1)
 
