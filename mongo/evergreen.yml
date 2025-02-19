@@ -190,7 +190,7 @@ buildvariants:
   run_on:
   - macos-14-arm64
   expansions:
-    bazel_url: https://mdb-build-public.s3.amazonaws.com/bazelisk-binaries/v1.19.0/bazelisk-darwin-amd64
+    bazel_url: https://mdb-build-public.s3.amazonaws.com/bazelisk-binaries/v1.19.0/bazelisk-darwin-arm64
   tasks:
   - name: build
   - name: push
