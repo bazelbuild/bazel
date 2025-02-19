@@ -166,24 +166,24 @@ class DirectoryTreeBuilder {
                   inputMetadataProvider.getInputMetadata(input),
                   "missing metadata for '%s'",
                   input.getExecPathString());
-          if (metadata.isInline()) {
-            boolean childAdded =
-                currDir.addChild(
-                    FileNode.createExecutable(
-                        path.getBaseName(),
-                        metadata,
-                        DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize()),
-                        toolInputs.contains(path)));
-            return childAdded ? 1 : 0;
-          }
           switch (metadata.getType()) {
             case REGULAR_FILE -> {
               Digest d = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
-              Path inputPath = artifactPathResolver.toPath(input);
-              boolean childAdded =
-                  currDir.addChild(
-                      FileNode.createExecutable(
-                          path.getBaseName(), inputPath, d, toolInputs.contains(path)));
+              boolean childAdded;
+              if (metadata.isInline()) {
+                childAdded =
+                    currDir.addChild(
+                        FileNode.createExecutable(
+                            path.getBaseName(), metadata, d, toolInputs.contains(path)));
+              } else {
+                childAdded =
+                    currDir.addChild(
+                        FileNode.createExecutable(
+                            path.getBaseName(),
+                            artifactPathResolver.toPath(input),
+                            d,
+                            toolInputs.contains(path)));
+              }
               return childAdded ? 1 : 0;
             }
             case DIRECTORY -> {

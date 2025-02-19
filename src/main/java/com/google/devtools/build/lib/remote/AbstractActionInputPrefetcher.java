@@ -26,6 +26,7 @@ import static com.google.devtools.build.lib.remote.util.Utils.mergeBulkTransfer;
 import static java.util.Objects.requireNonNull;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
@@ -581,6 +582,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                 }
               });
     } else {
+      Preconditions.checkState(metadata.isRemote());
       download =
           usingTempPath(
               (tempPath, alreadyDeleted) ->

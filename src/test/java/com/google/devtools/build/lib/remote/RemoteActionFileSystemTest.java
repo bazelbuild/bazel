@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testing.vfs.SpiedFileSystem;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
@@ -271,6 +272,23 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     // assert
     assertThat(actionFsPath.getFileSystem()).isSameInstanceAs(actionFs);
     assertThat(contents).isEqualTo("local contents");
+  }
+
+  @Test
+  public void testGetInputStream_fromInlineMetadata() throws Exception {
+    // arrange
+    ActionInputMap inputs = new ActionInputMap(1);
+    Artifact artifact = createInlineArtifact("inline-file", "inline contents", inputs);
+    FileSystem actionFs = createActionFileSystem(inputs);
+
+    // act
+    Path actionFsPath = actionFs.getPath(artifact.getPath().asFragment());
+    String contents = FileSystemUtils.readContent(actionFsPath, UTF_8);
+
+    // assert
+    assertThat(actionFsPath.getFileSystem()).isSameInstanceAs(actionFs);
+    assertThat(contents).isEqualTo("inline contents");
+    verifyNoMoreInteractions(inputFetcher);
   }
 
   @Test
@@ -1428,6 +1446,17 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
       builder.putChild(child, childMeta);
     }
     return builder.build();
+  }
+
+  /** Returns an inline artifact and puts its metadata into the action input map. */
+  private Artifact createInlineArtifact(
+      String pathFragment, String content, ActionInputMap inputs) {
+    Artifact a = ActionsTestUtil.createArtifact(outputRoot, pathFragment);
+    FileArtifactValue f =
+        FileArtifactValue.createForFileWriteActionOutput(
+            out -> out.write(content.getBytes(UTF_8)), DigestHashFunction.SHA256.getHashFunction());
+    inputs.putWithNoDepOwner(a, f);
+    return a;
   }
 
   private byte[] getDigest(String content) {

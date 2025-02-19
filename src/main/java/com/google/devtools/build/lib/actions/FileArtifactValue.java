@@ -44,7 +44,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.UncheckedIOException;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Objects;
@@ -161,7 +160,9 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest, StreamWr
    * @throws UnsupportedOperationException if the file contents are not inline.
    */
   public void writeTo(OutputStream out) throws IOException {
-    getInputStream().transferTo(out);
+    try (var in = getInputStream()) {
+      in.transferTo(out);
+    }
   }
 
   /** Returns whether the file contents exist remotely. */
@@ -1045,8 +1046,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest, StreamWr
     }
   }
 
-  private static final class FileWriteOutputArtifactValue extends FileArtifactValue
-      implements StreamWriter {
+  private static final class FileWriteOutputArtifactValue extends FileArtifactValue {
     private final DeterministicWriter writer;
     private final long size;
     private final byte[] digest;
