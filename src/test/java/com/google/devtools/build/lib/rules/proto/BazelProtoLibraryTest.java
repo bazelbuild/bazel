@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
+import com.google.devtools.build.lib.rules.proto.ProtoInfo.ProtoInfoProvider;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
 import org.junit.Before;
@@ -171,7 +172,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "proto_library(name='no_srcs')");
 
     {
-      ProtoInfo provider = getConfiguredTarget("//x:alias").get(ProtoInfo.PROVIDER);
+      ProtoInfo provider = getProtoInfoFromTarget("//x:alias");
       assertThat(provider.getDirectDescriptorSet().getRootRelativePathString())
           .isEqualTo("x/alias-descriptor-set.proto.bin");
       assertThat(prettyArtifactNames(provider.getTransitiveDescriptorSets()))
@@ -182,7 +183,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     }
 
     {
-      ProtoInfo provider = getConfiguredTarget("//x:foo").get(ProtoInfo.PROVIDER);
+      ProtoInfo provider = getProtoInfoFromTarget("//x:foo");
       assertThat(provider.getDirectDescriptorSet().getRootRelativePathString())
           .isEqualTo("x/foo-descriptor-set.proto.bin");
       assertThat(prettyArtifactNames(provider.getTransitiveDescriptorSets()))
@@ -190,7 +191,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     }
 
     {
-      ProtoInfo provider = getConfiguredTarget("//x:bar").get(ProtoInfo.PROVIDER);
+      ProtoInfo provider = getProtoInfoFromTarget("//x:bar");
       assertThat(provider.getDirectDescriptorSet().getRootRelativePathString())
           .isEqualTo("x/bar-descriptor-set.proto.bin");
       assertThat(prettyArtifactNames(provider.getTransitiveDescriptorSets()))
@@ -198,7 +199,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     }
 
     {
-      ProtoInfo provider = getConfiguredTarget("//x:alias_to_no_srcs").get(ProtoInfo.PROVIDER);
+      ProtoInfo provider = getProtoInfoFromTarget("//x:alias_to_no_srcs");
       assertThat(provider.getDirectDescriptorSet().getRootRelativePathString())
           .isEqualTo("x/alias_to_no_srcs-descriptor-set.proto.bin");
       assertThat(prettyArtifactNames(provider.getTransitiveDescriptorSets()))
@@ -207,7 +208,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     }
 
     {
-      ProtoInfo provider = getConfiguredTarget("//x:no_srcs").get(ProtoInfo.PROVIDER);
+      ProtoInfo provider = getProtoInfoFromTarget("//x:no_srcs");
       assertThat(provider.getDirectDescriptorSet().getRootRelativePathString())
           .isEqualTo("x/no_srcs-descriptor-set.proto.bin");
       assertThat(prettyArtifactNames(provider.getTransitiveDescriptorSets()))
@@ -331,8 +332,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "    srcs = ['foo/nodeps.proto'],",
         "    strip_import_prefix = '/third_party/x/foo',",
         ")");
-    ConfiguredTarget protoTarget = getConfiguredTarget("//third_party/x/foo:nodeps");
-    ProtoInfo sourcesProvider = protoTarget.get(ProtoInfo.PROVIDER);
+    ProtoInfo sourcesProvider = getProtoInfoFromTarget("//third_party/x/foo:nodeps");
     String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
 
     assertThat(sourcesProvider.getTransitiveProtoSourceRoots().toList())
@@ -445,8 +445,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "    srcs = ['foo/dep.proto'],",
         "    strip_import_prefix = '/third_party/x/foo',",
         ")");
-    ConfiguredTarget protoTarget = getConfiguredTarget("//third_party/x/foo:withdeps");
-    ProtoInfo sourcesProvider = protoTarget.get(ProtoInfo.PROVIDER);
+    ProtoInfo sourcesProvider = getProtoInfoFromTarget("//third_party/x/foo:withdeps");
     String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
     assertThat(sourcesProvider.getTransitiveProtoSourceRoots().toList())
         .containsExactly(
@@ -486,8 +485,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "    srcs = ['foo/dep.proto'],",
         "    strip_import_prefix = '/third_party/x/bar',",
         ")");
-    ConfiguredTarget protoTarget = getConfiguredTarget("//third_party/x/foo:withdeps");
-    ProtoInfo sourcesProvider = protoTarget.get(ProtoInfo.PROVIDER);
+    ProtoInfo sourcesProvider = getProtoInfoFromTarget("//third_party/x/foo:withdeps");
     String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
     assertThat(sourcesProvider.getTransitiveProtoSourceRoots().toList())
         .containsExactly(
@@ -1194,7 +1192,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')",
         "proto_library(name='foo', srcs=['a.proto', 'b.proto', 'c.proto'])");
 
-    ProtoInfo provider = getConfiguredTarget("//x:foo").get(ProtoInfo.PROVIDER);
+    ProtoInfo provider = getProtoInfoFromTarget("//x:foo");
     assertThat(Iterables.transform(provider.getDirectSources(), s -> s.getExecPathString()))
         .containsExactly("x/a.proto", "x/b.proto", "x/c.proto");
   }
@@ -1206,7 +1204,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')",
         "proto_library(name='foo')");
 
-    ProtoInfo provider = getConfiguredTarget("//x:foo").get(ProtoInfo.PROVIDER);
+    ProtoInfo provider = getProtoInfoFromTarget("//x:foo");
     assertThat(provider.getDirectSources()).isEmpty();
   }
 
@@ -1381,5 +1379,21 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     getConfiguredTarget("//notallowed:test");
 
     assertContainsEvent("proto_library '@@//x:foo' can't be reexported in package '//notallowed'");
+  }
+
+  private ProtoInfo getProtoInfoFromTarget(String label) throws Exception {
+    ConfiguredTarget target = getConfiguredTarget(label);
+    ProtoInfo provider = target.get(ProtoInfo.PROVIDER);
+    if (provider != null) {
+      return provider;
+    }
+    for (var key : ProtoConstants.EXTERNAL_PROTO_INFO_KEYS) {
+      ProtoInfoProvider providerClass = new ProtoInfoProvider(key);
+      provider = target.get(providerClass);
+      if (provider != null) {
+        return provider;
+      }
+    }
+    throw new IllegalStateException("ProtoInfo not found in " + label);
   }
 }
