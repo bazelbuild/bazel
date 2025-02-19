@@ -59,12 +59,11 @@ public class LocalTemplateExpansionStrategy implements TemplateExpansionContext 
             out -> {
               try {
                 out.write(
-                    StringUnsafe.getInstance()
-                        .getInternalStringBytes(
-                            getExpandedTemplateUnsafe(
-                                templateMetadata.template(),
-                                templateMetadata.substitutions(),
-                                pathResolver)));
+                    StringUnsafe.getInternalStringBytes(
+                        getExpandedTemplateUnsafe(
+                            templateMetadata.template(),
+                            templateMetadata.substitutions(),
+                            pathResolver)));
               } catch (EvalException e) {
                 throw new IllegalStateException(
                     "Template expansion is not deterministic, first succeeded and then failed with: "
@@ -74,7 +73,7 @@ public class LocalTemplateExpansionStrategy implements TemplateExpansionContext 
             };
       } else {
         deterministicWriter =
-            out -> out.write(StringUnsafe.getInstance().getInternalStringBytes(expandedTemplate));
+            out -> out.write(StringUnsafe.getInternalStringBytes(expandedTemplate));
       }
       return fileWriteActionContext.writeOutputToFile(
           action,

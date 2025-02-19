@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.FileArtifactValue.FileWriteOutputArtifactValue;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.actions.DeterministicWriter;
@@ -58,7 +58,7 @@ public final class LazyFileWriteStrategy extends EagerFileWriteStrategy {
           .getOutputMetadataStore()
           .injectFile(
               output,
-              FileWriteOutputArtifactValue.hashAndCreate(
+              FileArtifactValue.createForFileWriteActionOutput(
                   deterministicWriter,
                   actionExecutionContext
                       .getActionFileSystem()

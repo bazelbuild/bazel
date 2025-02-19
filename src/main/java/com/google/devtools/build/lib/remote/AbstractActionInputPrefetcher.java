@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FileArtifactValue.FileWriteOutputArtifactValue;
 import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
@@ -565,17 +564,16 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     Path finalPath = path;
 
     Completable download;
-    if (metadata instanceof FileWriteOutputArtifactValue fileWriteOutputArtifactValue) {
+    if (metadata.isInline()) {
       download =
           usingTempPath(
               (tempPath, alreadyDeleted) -> {
                 try {
                   tempPath.getParentDirectory().createDirectoryAndParents();
                   try (OutputStream out = tempPath.getOutputStream()) {
-                    fileWriteOutputArtifactValue.writeTo(out);
+                    metadata.writeTo(out);
                   }
-                  finalizeDownload(
-                      fileWriteOutputArtifactValue, tempPath, finalPath, dirsWithOutputPermissions);
+                  finalizeDownload(metadata, tempPath, finalPath, dirsWithOutputPermissions);
                   alreadyDeleted.set(true);
                   return Completable.complete();
                 } catch (IOException e) {

@@ -40,9 +40,11 @@ import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.UncheckedIOException;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Objects;
@@ -72,7 +74,7 @@ import javax.annotation.Nullable;
  */
 @Immutable
 @ThreadSafe
-public abstract class FileArtifactValue implements SkyValue, HasDigest {
+public abstract class FileArtifactValue implements SkyValue, HasDigest, StreamWriter {
   /**
    * The type of the underlying file system object. If it is a regular file, then it is guaranteed
    * to have a digest. Otherwise it does not have a digest.
@@ -153,6 +155,15 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     throw new UnsupportedOperationException();
   }
 
+  /**
+   * Writes the inline file contents to the given {@link OutputStream}.
+   *
+   * @throws UnsupportedOperationException if the file contents are not inline.
+   */
+  public void writeTo(OutputStream out) throws IOException {
+    getInputStream().transferTo(out);
+  }
+
   /** Returns whether the file contents exist remotely. */
   public boolean isRemote() {
     return false;
@@ -162,8 +173,8 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
    * Returns whether the file contents are materialized lazily, for example because they exist
    * remotely.
    */
-  public boolean isLazy() {
-    return isRemote();
+  public final boolean isLazy() {
+    return isRemote() || isInline();
   }
 
   /** Returns the location index for remote files. For non-remote files, returns 0. */
@@ -409,6 +420,23 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       byte[] digest, long size, int locationIndex, @Nullable Instant expirationTime) {
     return new RemoteFileArtifactValueWithMaterializationData(
         digest, size, locationIndex, expirationTime);
+  }
+
+  public static FileArtifactValue createForFileWriteActionOutput(
+      DeterministicWriter writer, HashFunction hashFunction) {
+    long size;
+    byte[] digest;
+    try (CountingOutputStream countingOut =
+            new CountingOutputStream(OutputStream.nullOutputStream());
+        HashingOutputStream hashingOut = new HashingOutputStream(hashFunction, countingOut)) {
+      writer.writeOutputFile(hashingOut);
+      size = countingOut.getCount();
+      digest = hashingOut.hash().asBytes();
+    } catch (IOException e) {
+      // The output streams don't throw IOExceptions, so this should never happen.
+      throw new IllegalStateException(e);
+    }
+    return new FileWriteOutputArtifactValue(writer, size, digest);
   }
 
   public static FileArtifactValue createFromExistingWithResolvedPath(
@@ -1017,29 +1045,12 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     }
   }
 
-  public static final class FileWriteOutputArtifactValue extends FileArtifactValue
+  private static final class FileWriteOutputArtifactValue extends FileArtifactValue
       implements StreamWriter {
     private final DeterministicWriter writer;
     private final long size;
     private final byte[] digest;
     @Nullable private FileContentsProxy proxy;
-
-    public static FileWriteOutputArtifactValue hashAndCreate(
-        DeterministicWriter writer, HashFunction hashFunction) {
-      long size;
-      byte[] digest;
-      try (CountingOutputStream countingOut =
-              new CountingOutputStream(OutputStream.nullOutputStream());
-          HashingOutputStream hashingOut = new HashingOutputStream(hashFunction, countingOut)) {
-        writer.writeOutputFile(hashingOut);
-        size = countingOut.getCount();
-        digest = hashingOut.hash().asBytes();
-      } catch (IOException e) {
-        // The output streams don't throw IOExceptions, so this should never happen.
-        throw new IllegalStateException(e);
-      }
-      return new FileWriteOutputArtifactValue(writer, size, digest);
-    }
 
     private FileWriteOutputArtifactValue(DeterministicWriter writer, long size, byte[] digest) {
       this.writer = writer;
@@ -1060,6 +1071,23 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     @Override
     public long getSize() {
       return size;
+    }
+
+    @Override
+    public boolean isInline() {
+      return true;
+    }
+
+    @Override
+    public InputStream getInputStream() {
+      var out = new ByteArrayOutputStream(Math.clamp(getSize(), 0, Integer.MAX_VALUE));
+      try {
+        writeTo(out);
+      } catch (IOException e) {
+        // writer is not expected to throw if out doesn't.
+        throw new IllegalStateException(e);
+      }
+      return new ByteArrayInputStream(out.toByteArray());
     }
 
     @Override
@@ -1094,11 +1122,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     @Override
     public boolean wasModifiedSinceDigest(Path path) {
       return false;
-    }
-
-    @Override
-    public boolean isLazy() {
-      return true;
     }
 
     @Override
