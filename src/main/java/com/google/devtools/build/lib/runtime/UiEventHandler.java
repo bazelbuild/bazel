@@ -162,7 +162,7 @@ public final class UiEventHandler implements EventHandler {
     }
   }
 
-  UiEventHandler(
+  public UiEventHandler(
       OutErr outErr,
       UiOptions options,
       boolean quiet,

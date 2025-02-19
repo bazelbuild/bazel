@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.buildtool.buildevent.ProfilerStartedEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
@@ -503,10 +502,9 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         boolean newStatsSummary =
             options.getOptions(ExecutionOptions.class) != null
                 && options.getOptions(ExecutionOptions.class).statsSummary;
-        EventHandler handler =
+        UiEventHandler handler =
             createEventHandler(outErr, eventHandlerOptions, quiet, env, newStatsSummary);
-        reporter.addHandler(handler);
-        env.getEventBus().register(handler);
+        env.setUiEventHandler(handler);
 
         // We register an ANSI-allowing handler associated with {@code handler} so that ANSI control
         // codes can be re-introduced later even if blaze is invoked with --color=no. This is useful

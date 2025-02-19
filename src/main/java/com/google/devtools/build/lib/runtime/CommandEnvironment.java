@@ -171,6 +171,8 @@ public class CommandEnvironment {
   @Nullable // Optionally set in `beforeCommand` phase.
   private LongVersionGetter versionGetter;
 
+  private UiEventHandler uiEventHandler;
+
   /**
    * Gets the {@link RemoteAnalysisCachingEventListener} for this invocation.
    *
@@ -1079,5 +1081,16 @@ public class CommandEnvironment {
   @Nullable
   public LongVersionGetter getVersionGetter() {
     return versionGetter;
+  }
+
+  public void setUiEventHandler(UiEventHandler uiEventHandler) {
+    checkState(this.uiEventHandler == null, "UiEventHandler already set");
+    this.uiEventHandler = checkNotNull(uiEventHandler);
+    eventBus.register(uiEventHandler);
+    reporter.addHandler(uiEventHandler);
+  }
+
+  public UiEventHandler getUiEventHandler() {
+    return checkNotNull(uiEventHandler, "UiEventHandler was not set");
   }
 }
