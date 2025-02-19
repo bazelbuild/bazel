@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.skyframe.SkyfocusOptions.FrontierVio
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
+import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Skyfocus;
 import com.google.devtools.build.lib.server.FailureDetails.Skyfocus.Code;
 import com.google.devtools.build.lib.skyframe.SkyfocusOptions.FrontierViolationCheck;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierViolationEvent.Level;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider.DisabledDependenciesProvider;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -74,7 +76,8 @@ public final class FrontierViolationChecker {
       FrontierViolationCheck check,
       EventHandler eventHandler,
       MemoizingEvaluator evaluator,
-      String productName)
+      String productName,
+      EventBus eventBus)
       throws AbruptExitException {
     Preconditions.checkArgument(provider.mode().requiresBackendConnectivity());
 
@@ -119,11 +122,13 @@ public final class FrontierViolationChecker {
     }
     return switch (check) {
       case WARN -> {
+        eventBus.post(new FrontierViolationEvent(Level.WARN));
         eventHandler.handle(Event.warn(WARNING_MESSAGE + violationsString));
         markSerializableAnalysisAndExecutionPhaseKeysForDeletion(evaluator, eventHandler);
         yield DisabledDependenciesProvider.INSTANCE;
       }
       case STRICT -> {
+        eventBus.post(new FrontierViolationEvent(Level.ERROR));
         throw new AbruptExitException(
             DetailedExitCode.of(
                 FailureDetail.newBuilder()

@@ -1126,7 +1126,8 @@ public class BuildTool {
               env.getOptions().getOptions(SkyfocusOptions.class).frontierViolationCheck,
               env.getReporter(),
               env.getSkyframeExecutor().getEvaluator(),
-              env.getRuntime().getProductName());
+              env.getRuntime().getProductName(),
+              env.getEventBus());
         default:
           throw new IllegalStateException("Unknown RemoteAnalysisCacheMode: " + options.mode);
       }

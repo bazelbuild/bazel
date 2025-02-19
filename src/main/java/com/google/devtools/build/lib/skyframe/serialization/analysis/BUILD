@@ -36,11 +36,21 @@ java_library(
 )
 
 java_library(
+    name = "frontier_violation_event",
+    srcs = [
+        "FrontierViolationEvent.java",
+    ],
+)
+
+java_library(
     name = "frontier_violation_checker",
-    srcs = ["FrontierViolationChecker.java"],
+    srcs = [
+        "FrontierViolationChecker.java",
+    ],
     deps = [
         ":dependencies_provider",
         ":event_listener",
+        ":frontier_violation_event",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
