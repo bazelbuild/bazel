@@ -1013,6 +1013,15 @@ public final class CppConfiguration extends Fragment
   }
 
   @StarlarkMethod(
+      name = "experimental_starlark_compiling",
+      documented = false,
+      useStarlarkThread = true)
+  public boolean experimentalStarlarkCompiling(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return cppOptions.experimentalStarlarkCompiling;
+  }
+
+  @StarlarkMethod(
       name = "experimental_starlark_linking",
       documented = false,
       useStarlarkThread = true)

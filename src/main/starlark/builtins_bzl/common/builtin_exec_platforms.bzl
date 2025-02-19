@@ -326,6 +326,7 @@ bazel_fragments["CppOptions"] = fragment(
         "//command_line_option:experimental_platform_cc_test",
         "//command_line_option:experimental_save_feature_state",
         "//command_line_option:experimental_use_llvm_covmap",
+        "//command_line_option:experimental_starlark_compiling",
         "//command_line_option:experimental_starlark_linking",
     ],
     outputs = [

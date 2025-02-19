@@ -1079,6 +1079,17 @@ public class CppOptions extends FragmentOptions {
   public boolean experimentalPlatformCcTest;
 
   @Option(
+      name = "experimental_starlark_compiling",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+      },
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "If enabled, a Starlark version of compiling is used.")
+  public boolean experimentalStarlarkCompiling;
+
+  @Option(
       name = "experimental_starlark_linking",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
