@@ -585,6 +585,7 @@ public final class Starlark {
    * processors interpreting indented parts of the original string as special formatting (e.g. code
    * blocks in the case of Markdown).
    */
+  // TODO: Pass in StarlarkSemantics as an argument rather than using StarlarkSemantics.DEFAULT.
   public static String trimDocString(String docString) {
     ImmutableList<String> lines = expandTabs(docString, 8).lines().collect(toImmutableList());
     if (lines.isEmpty()) {

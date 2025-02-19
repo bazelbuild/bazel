@@ -775,7 +775,10 @@ public final class BuildLanguageOptions extends OptionsBase {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {OptionMetadataTag.HIDDEN})
+      metadataTags = {OptionMetadataTag.HIDDEN},
+      help =
+          "Internal use only. Forces the Starlark implementation to operate on strings as raw"
+              + " UTF-8 byte arrays, matching Bazel's internal string encoding.")
   public boolean internalStarlarkUtf8ByteStrings;
 
   /** An enum for specifying different modes for UTF-8 checking of Starlark files. */
