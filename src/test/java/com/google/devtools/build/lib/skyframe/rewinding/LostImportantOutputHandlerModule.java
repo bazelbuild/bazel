@@ -118,7 +118,8 @@ public class LostImportantOutputHandlerModule extends BlazeModule {
         PathFragment runfilesDir,
         Map<PathFragment, Artifact> runfiles,
         ArtifactExpander expander,
-        InputMetadataProvider metadataProvider) {
+        InputMetadataProvider metadataProvider,
+        String inputManifestExtension) {
       return getLostOutputs(runfiles.values(), expander, metadataProvider);
     }
 

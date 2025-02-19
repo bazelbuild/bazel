@@ -60,6 +60,7 @@ public interface ImportantOutputHandler extends ActionContext {
    *     runfiles}
    * @param metadataProvider provides metadata for artifacts in {@code runfiles} and their
    *     expansions
+   * @param inputManifestExtension the file extension of the input manifest
    * @return any artifacts that need to be regenerated via action rewinding
    * @throws ImportantOutputException for an issue processing the runfiles, not including lost
    *     outputs which are reported in the returned {@link LostArtifacts}
@@ -68,7 +69,8 @@ public interface ImportantOutputHandler extends ActionContext {
       PathFragment runfilesDir,
       Map<PathFragment, Artifact> runfiles,
       ArtifactExpander expander,
-      InputMetadataProvider metadataProvider)
+      InputMetadataProvider metadataProvider,
+      String inputManifestExtension)
       throws ImportantOutputException, InterruptedException;
 
   /**
