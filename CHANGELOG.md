@@ -1,3 +1,41 @@
+## Release 9.0.0-pre.20250210.1 (2025-02-19)
+
+```
+Baseline: f6cb2fb25c1deee9776eda976be151c598597b35
+```
+
+Incompatible changes:
+
+  - Constraints and toolchain requirements added to the default exec
+    group, for example via the toolchains parameter of the rule
+    function or the exec_compatible_with attribute on all rules, no
+    longer apply to the test exec group, which contains the test
+    action on test rules. Instead, use exec_group_compatible_with to
+    apply constraints and/or define an explicit test exec group with
+    toolchain requirements on test rules that require it.
+
+Important changes:
+
+  - The new exec_group_compatible_with attribute on all rules accepts
+    a dictionary mapping exec group names to lists of additional
+    constraints to request from the exec group's execution platform.
+  - Removes the `--incompatible_enable_cc_test_feature` flag.  The
+    functionality this was intended for was never completed, and is
+    no longer needed.
+  - Added `repository_ctx.original_name`, which contains the original
+    value of the `name` attribute as specified at the repo rule call
+    site.
+  - The new `no_match_error` attribute on `toolchain_type` can be
+    used to show a custom message when no matching toolchain is found
+    for that type, but one is required.
+  - Adds `ctx.rule.var` to allow aspects to get rule-specific
+    variables, and removes rule-specific variables from an aspect's
+    `ctx.var` dict.
+  - LCOV parsing does not break on FN lines including an end line
+    number.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, dependabot[bot], Fabian Meumertzheim, Jordan Mele, Jordan Mele, Keith Smiley, Spencer Putt.
+
 ## Release 8.1.0 (2025-02-13)
 
 ```
