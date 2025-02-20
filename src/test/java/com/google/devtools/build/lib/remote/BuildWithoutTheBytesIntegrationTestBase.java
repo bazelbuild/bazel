@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.testing.junit.testparameterinjector.TestParameter;
@@ -2206,7 +2207,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
             out = ctx.actions.declare_file(ctx.label.name)
             substitutions = ctx.actions.template_dict()
             substitutions.add_joined(
-                "%CONTENT%\\n",
+                "%CONTENT%",
                 depset([ctx.attr.content]),
                 join_with = "",
                 map_each = identity)
@@ -2235,7 +2236,8 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
         """
         exports_files(["template.txt"])
         """);
-    write("rules/template.txt", "%CONTENT%");
+    FileSystemUtils.writeContentAsLatin1(
+        getWorkspace().getRelative("rules/template.txt"), "%CONTENT%");
   }
 
   protected static class ActionEventCollector {
