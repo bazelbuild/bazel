@@ -470,9 +470,7 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
         .isEqualTo(
             ArtifactMetrics.newBuilder()
                 .setSourceArtifactsRead(
-                    ArtifactMetrics.FilesMetric.newBuilder()
-                        .setSizeInBytes(OS.getCurrent() == OS.WINDOWS ? 6 : 10)
-                        .setCount(OS.getCurrent() == OS.WINDOWS ? 1 : 2))
+                    ArtifactMetrics.FilesMetric.newBuilder().setSizeInBytes(10).setCount(2))
                 .setOutputArtifactsSeen(
                     ArtifactMetrics.FilesMetric.newBuilder()
                         .setSizeInBytes(42L)
