@@ -19,9 +19,11 @@ import com.google.common.base.Supplier;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.runtime.InstrumentationOutputFactory.DestinationRelativeTo;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -47,18 +49,34 @@ public class CommandLogModule extends BlazeModule {
   @Override
   @Nullable
   public OutErr getOutputListener() {
-    Path commandLog = getCommandLogPath(env.getOutputBase());
-    // Unlink old command log from previous build, if present.
-    try {
-      commandLog.delete();
-    } catch (IOException ioException) {
-      env.getReporter()
-          .handle(Event.warn("Unable to delete command log: " + ioException.getMessage()));
+    if (!env.getOptions()
+        .getOptions(CommonCommandOptions.class)
+        .redirectLocalInstrumentationOutputWrites) {
+      // When instrumentation output are locally written, we need to unlink old local command log
+      // from previous build, if present.
+      Path commandLog = getCommandLogPath(env.getOutputBase());
+      try {
+        commandLog.delete();
+      } catch (IOException ioException) {
+        env.getReporter()
+            .handle(Event.warn("Unable to delete command log: " + ioException.getMessage()));
+      }
     }
 
     try {
       if (writeCommandLog(env) && !"clean".equals(env.getCommandName())) {
-        logOutputStream = commandLog.getOutputStream(/* append= */ false, /* internal= */ true);
+        InstrumentationOutput commandLogOutput =
+            env.getRuntime()
+                .getInstrumentationOutputFactory()
+                .createInstrumentationOutput(
+                    "command_log",
+                    PathFragment.create("command.log"),
+                    DestinationRelativeTo.OUTPUT_BASE,
+                    env,
+                    env.getReporter(),
+                    /* append= */ false,
+                    /* internal= */ true);
+        logOutputStream = commandLogOutput.createOutputStream();
         return OutErr.create(logOutputStream, logOutputStream);
       }
     } catch (IOException ioException) {
@@ -78,9 +96,7 @@ public class CommandLogModule extends BlazeModule {
         || commandOptions.writeCommandLog;
   }
 
-  /**
-   * For a given output_base directory, returns the command log file path.
-   */
+  /** For a given output_base directory, returns the command log file path. */
   static Path getCommandLogPath(Path outputBase) {
     return outputBase.getRelative("command.log");
   }
@@ -107,9 +123,7 @@ public class CommandLogModule extends BlazeModule {
     }
   }
 
-  /**
-   * Info item for the command log
-   */
+  /** Info item for the command log */
   public static final class CommandLogInfoItem extends InfoItem {
     public CommandLogInfoItem() {
       super(
