@@ -499,15 +499,17 @@ extern "C" JNIEXPORT void JNICALL
 Java_com_google_devtools_build_lib_unix_NativePosixFiles_utimensat(
     JNIEnv *env, jclass clazz, jstring path, jboolean now, jlong millis) {
   const char *path_chars = GetStringLatin1Chars(env, path);
+  // If `now` is true use the current time, otherwise use `millis`.
+  // On Linux, if the current user has write permission but isn't the owner of
+  // the file, atime and mtime may be simultaneously set to UTIME_NOW, but any
+  // other combination is forbidden. For simplicity, always set both.
   int64_t sec = millis / 1000;
   int32_t nsec = (millis % 1000) * 1000000;
-  struct timespec spec[2] = {
-      // Do not set atime.
-      {0, UTIME_OMIT},
-      // Set mtime to now if `now` is true, otherwise to the specified time.
+  struct timespec times[2] = {
+      {sec, now ? UTIME_NOW : nsec},
       {sec, now ? UTIME_NOW : nsec},
   };
-  if (::utimensat(AT_FDCWD, path_chars, spec, 0) == -1) {
+  if (::utimensat(AT_FDCWD, path_chars, times, 0) == -1) {
     PostException(env, errno, path_chars);
   }
   ReleaseStringLatin1Chars(path_chars);
