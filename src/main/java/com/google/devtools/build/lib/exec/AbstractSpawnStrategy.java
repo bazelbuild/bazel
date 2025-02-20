@@ -302,30 +302,17 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
                     Reason.INPUTS),
             BulkTransferException.class,
             (BulkTransferException e) -> {
-              if (executionOptions.useNewExitCodeForLostInputs
-                  || executionOptions.remoteRetryOnTransientCacheError > 0) {
-                var message =
-                    BulkTransferException.allCausedByCacheNotFoundException(e)
-                        ? "Failed to fetch blobs because they do not exist remotely."
-                        : "Failed to fetch blobs because of a remote cache error.";
-                throw new EnvironmentalExecException(
-                    e,
-                    FailureDetail.newBuilder()
-                        .setMessage(message)
-                        .setSpawn(
-                            FailureDetails.Spawn.newBuilder().setCode(Code.REMOTE_CACHE_EVICTED))
-                        .build());
-              } else if (BulkTransferException.allCausedByCacheNotFoundException(e)) {
-                throw new EnvironmentalExecException(
-                    e,
-                    FailureDetail.newBuilder()
-                        .setMessage("Failed to fetch blobs because they do not exist remotely.")
-                        .setSpawn(
-                            FailureDetails.Spawn.newBuilder().setCode(Code.REMOTE_CACHE_FAILED))
-                        .build());
-              } else {
-                throw e;
-              }
+              var message =
+                  BulkTransferException.allCausedByCacheNotFoundException(e)
+                      ? "Failed to fetch blobs because they do not exist remotely."
+                      : "Failed to fetch blobs because of a remote cache error.";
+              throw new EnvironmentalExecException(
+                  e,
+                  FailureDetail.newBuilder()
+                      .setMessage(message)
+                      .setSpawn(
+                          FailureDetails.Spawn.newBuilder().setCode(Code.REMOTE_CACHE_EVICTED))
+                      .build());
             },
             directExecutor());
       }
