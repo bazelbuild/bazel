@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <jni.h>
+#include "src/main/native/jni.h"
 
 namespace blaze_jni {
 
