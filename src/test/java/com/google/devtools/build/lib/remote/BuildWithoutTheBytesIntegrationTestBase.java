@@ -1032,24 +1032,32 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
-  public void downloadToplevel_symlinkToWrittenFile() throws Exception {
+  public void downloadToplevel_symlinkToWrittenFile(
+      @TestParameter FileWriteStrategy fileWriteStrategy,
+      @TestParameter({"expand_template", "write_file"}) String fileWriteRule)
+      throws Exception {
     setDownloadToplevel();
     writeSymlinkRule();
-    writeWriteFileRule();
+    writeFileWriteRules();
     write(
         "BUILD",
-        "load(':symlink.bzl', 'symlink')",
-        "load(':write_file.bzl', 'write_file')",
-        "write_file(",
-        "  name = 'foo',",
-        "  content = 'hello',",
-        // assertValidOutputFile checks for the executable bit.
-        "  executable = True,",
-        ")",
-        "symlink(",
-        "  name = 'foo-link',",
-        "  target_artifact = ':foo',",
-        ")");
+        """
+        load(':symlink.bzl', 'symlink')
+        load('//rules:%1$s.bzl', '%1$s')
+        %1$s(
+          name = 'foo',
+          content = 'hello',
+          # assertValidOutputFile checks for the executable bit.
+          executable = True,
+        )
+        symlink(
+          name = 'foo-link',
+          target_artifact = ':foo',
+        )
+        """
+            .formatted(fileWriteRule));
+
+    addOptions("--file_write_strategy=" + fileWriteStrategy);
 
     buildTarget("//:foo-link");
 
@@ -1099,31 +1107,34 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
   @Test
   public void downloadMinimal_fileWrite(
-      @TestParameter boolean isExecutable, @TestParameter FileWriteStrategy fileWriteStrategy)
+      @TestParameter boolean isExecutable,
+      @TestParameter FileWriteStrategy fileWriteStrategy,
+      @TestParameter({"expand_template", "write_file"}) String fileWriteRule)
       throws Exception {
-    writeWriteFileRule();
+    writeFileWriteRules();
     writeSymlinkRule();
     // Remote execution stages all files as executable.
     write(
         "BUILD",
         """
-        load(':write_file.bzl', 'write_file')
-        write_file(
+        load('//rules:%1$s.bzl', '%1$s')
+        %1$s(
             name = 'foo',
             content = 'hello',
-            executable = %s,
+            executable = %2$s,
         )
         genrule(
             name = 'gen',
             srcs = [':foo'],
             outs = ['out/gen.txt'],
             cmd = \"""
-            %s
+            %3$s
             cat $(location :foo) $(location :foo) > $@
             \""",
         )
         """
             .formatted(
+                fileWriteRule,
                 isExecutable ? "True" : "False",
                 OS.getCurrent() == OS.WINDOWS
                     ? ""
@@ -1144,20 +1155,23 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
   @Test
   public void downloadToplevel_fileWrite(
-      @TestParameter boolean isExecutable, @TestParameter FileWriteStrategy fileWriteStrategy)
+      @TestParameter boolean isExecutable,
+      @TestParameter FileWriteStrategy fileWriteStrategy,
+      @TestParameter({"expand_template", "write_file"}) String fileWriteRule)
       throws Exception {
     setDownloadToplevel();
-    writeWriteFileRule();
+    writeFileWriteRules();
     write(
         "BUILD",
         """
-        load(':write_file.bzl', 'write_file')
-        write_file(
+        load('//rules:%1$s.bzl', '%1$s')
+        %1$s(
           name = 'foo',
           content = 'hello',
-          executable = %s,
+          executable = %2$s,
         )
-        """.formatted(isExecutable ? "True" : "False"));
+        """
+            .formatted(fileWriteRule, isExecutable ? "True" : "False"));
 
     addOptions("--file_write_strategy=" + fileWriteStrategy);
 
@@ -1492,29 +1506,33 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
-  public void incrementalBuild_writeFileOutputIsPrefetched_noRuns() throws Exception {
+  public void incrementalBuild_writeFileOutputIsPrefetched_noRuns(
+      @TestParameter({"expand_template", "write_file"}) String fileWriteRule) throws Exception {
     // We need to download the intermediate output
     if (!hasAccessToRemoteOutputs()) {
       return;
     }
 
     // Arrange: Prepare workspace and run a clean build
-    writeWriteFileRule();
+    writeFileWriteRules();
     write(
         "BUILD",
-        "load(':write_file.bzl', 'write_file')",
-        "write_file(",
-        "  name = 'foo',",
-        "  content = 'foo',",
-        "  executable = True,",
-        ")",
-        "genrule(",
-        "  name = 'foobar',",
-        "  srcs = [':foo'],",
-        "  outs = ['out/foobar.txt'],",
-        "  cmd = 'cat $(location :foo) > $@ && echo bar >> $@',",
-        "  tags = ['no-remote'],",
-        ")");
+        """
+        load('//rules:%1$s.bzl', '%1$s')
+        %1$s(
+          name = 'foo',
+          content = 'foo',
+          executable = True,
+        )
+        genrule(
+          name = 'foobar',
+          srcs = [':foo'],
+          outs = ['out/foobar.txt'],
+          cmd = 'cat $(location :foo) > $@ && echo bar >> $@',
+          tags = ['no-remote'],
+        )
+        """
+            .formatted(fileWriteRule));
 
     addOptions("--file_write_strategy=lazy");
 
@@ -2161,9 +2179,9 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     write("rules.bzl", lines.build().toArray(new String[0]));
   }
 
-  protected void writeWriteFileRule() throws IOException {
+  protected void writeFileWriteRules() throws IOException {
     write(
-        "write_file.bzl",
+        "rules/write_file.bzl",
         """
         def _write_file_impl(ctx):
             out = ctx.actions.declare_file(ctx.label.name)
@@ -2178,6 +2196,46 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
             },
         )
         """);
+    write(
+        "rules/expand_template.bzl",
+        """
+        def identity(x):
+            return x
+
+        def _expand_template_impl(ctx):
+            out = ctx.actions.declare_file(ctx.label.name)
+            substitutions = ctx.actions.template_dict()
+            substitutions.add_joined(
+                "%CONTENT%\\n",
+                depset([ctx.attr.content]),
+                join_with = "",
+                map_each = identity)
+            ctx.actions.expand_template(
+                output = out,
+                template = ctx.file._template,
+                computed_substitutions = substitutions,
+                is_executable = ctx.attr.executable,
+            )
+            return DefaultInfo(files = depset([out]))
+
+        expand_template = rule(
+            implementation = _expand_template_impl,
+            attrs = {
+                "content": attr.string(),
+                "executable": attr.bool(default = False),
+                "_template": attr.label(
+                    default = "template.txt",
+                    allow_single_file = True,
+                ),
+            },
+        )
+        """);
+    write(
+        "rules/BUILD",
+        """
+        exports_files(["template.txt"])
+        """);
+    write("rules/template.txt", "%CONTENT%");
   }
 
   protected static class ActionEventCollector {
