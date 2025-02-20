@@ -15,8 +15,14 @@
 package net.starlark.java.lib.json;
 
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.nio.charset.StandardCharsets.UTF_16;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CharsetEncoder;
+import java.nio.charset.CodingErrorAction;
 import java.util.Arrays;
 import java.util.Map;
 import net.starlark.java.annot.Param;
@@ -449,6 +455,22 @@ public final class Json implements StarlarkValue {
       throw Starlark.errorf("unexpected character %s", quoteChar(c));
     }
 
+    // The default encoding behavior for Java's UTF-8 encoder is to replace with '?', not the
+    // Unicode replacement character U+FFFD. This also applies to String#getBytes(...).
+    private static final CharsetEncoder UTF_8_ENCODER =
+        UTF_8
+            .newEncoder()
+            .onMalformedInput(CodingErrorAction.REPLACE)
+            .onUnmappableCharacter(CodingErrorAction.REPLACE)
+            .replaceWith("\uFFFD".getBytes(UTF_8));
+    // The default encoding behavior for Java's UTF-16 encoder is to replace with the Unicode
+    // replacement character U+FFFD, but this doesn't apply to String#getBytes(...).
+    private static final CharsetEncoder UTF_16_ENCODER =
+        UTF_16
+            .newEncoder()
+            .onMalformedInput(CodingErrorAction.REPLACE)
+            .onUnmappableCharacter(CodingErrorAction.REPLACE);
+
     private String parseString() throws EvalException {
       i++; // '"'
       StringBuilder str = new StringBuilder();
@@ -480,46 +502,43 @@ public final class Json implements StarlarkValue {
         c = s.charAt(i);
         i++; // consume c
         switch (c) {
-          case '\\':
-          case '/':
-          case '"':
-            str.append(c);
-            break;
-          case 'b':
-            str.append('\b');
-            break;
-          case 'f':
-            str.append('\f');
-            break;
-          case 'n':
-            str.append('\n');
-            break;
-          case 'r':
-            str.append('\r');
-            break;
-          case 't':
-            str.append('\t');
-            break;
-          case 'u': // \ uXXXX
+          case '\\', '/', '"' -> str.append(c);
+          case 'b' -> str.append('\b');
+          case 'f' -> str.append('\f');
+          case 'n' -> str.append('\n');
+          case 'r' -> str.append('\r');
+          case 't' -> str.append('\t');
+          case 'u' -> {
             if (i + 4 >= s.length()) {
               throw Starlark.errorf("incomplete \\uXXXX escape");
             }
-            if (utf8ByteStrings) {
-              StringBuilder utf16String = new StringBuilder();
+            StringBuilder utf16String = new StringBuilder();
+            utf16String.append(parseUnicodeEscape());
+            // Parse any additional \\uXXXX escapes so that surrogate pairs are decoded correctly.
+            while (i + 6 < s.length() && s.charAt(i) == '\\' && s.charAt(i + 1) == 'u') {
+              i += 2;
               utf16String.append(parseUnicodeEscape());
-              // Parse any additional \\uXXXX escapes so that surrogate pairs are decoded correctly.
-              while (i + 6 < s.length() && s.charAt(i) == '\\' && s.charAt(i + 1) == 'u') {
-                i += 2;
-                utf16String.append(parseUnicodeEscape());
-              }
-              // Append the unescaped Unicode string as raw UTF-8 bytes.
-              str.append(new String(utf16String.toString().getBytes(UTF_8), ISO_8859_1));
-            } else {
-              str.append(parseUnicodeEscape());
             }
-            break;
-          default:
-            throw Starlark.errorf("invalid escape '\\%s'", c);
+            // Append the unescaped Unicode string as raw UTF-{8,16} bytes. See the comment on the
+            // CharsetEncoder instances above for why we can't use String#getBytes(...).
+            ByteBuffer byteBuffer;
+            try {
+              byteBuffer =
+                  (utf8ByteStrings ? UTF_8_ENCODER : UTF_16_ENCODER)
+                      .encode(CharBuffer.wrap(utf16String));
+            } catch (CharacterCodingException e) {
+              // Cannot happen because we replace with U+FFFD.
+              throw new IllegalStateException(e);
+            }
+            byte[] bytes = new byte[byteBuffer.remaining()];
+            byteBuffer.get(bytes);
+            if (utf8ByteStrings) {
+              str.append(new String(bytes, ISO_8859_1));
+            } else {
+              str.append(new String(bytes, UTF_16));
+            }
+          }
+          default -> throw Starlark.errorf("invalid escape '\\%s'", c);
         }
       }
       throw Starlark.errorf("unclosed string literal");
