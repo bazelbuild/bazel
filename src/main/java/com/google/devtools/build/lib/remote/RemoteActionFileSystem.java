@@ -723,12 +723,17 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat
 
       @Override
       public long getLastModifiedTime() {
-        return m.getModifiedTime();
+        try {
+          return m.getModifiedTime();
+        } catch (UnsupportedOperationException e) {
+          // Not every FileArtifactValue supports getModifiedTime.
+          return 0;
+        }
       }
 
       @Override
       public long getLastChangeTime() {
-        return m.getModifiedTime();
+        return getLastModifiedTime();
       }
 
       @Override
