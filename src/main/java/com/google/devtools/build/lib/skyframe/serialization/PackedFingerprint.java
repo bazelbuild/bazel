@@ -38,7 +38,8 @@ import java.nio.ByteOrder;
  */
 public record PackedFingerprint(long lo, long hi)
     implements KeyBytesProvider, Comparable<PackedFingerprint> {
-  @VisibleForTesting static final int BYTES = 16;
+  /** Number of bytes in the serialized representation of a fingerprint. */
+  public static final int BYTES = 16;
 
   /**
    * Constructs a fingerprint directly from {@code bytes}.
