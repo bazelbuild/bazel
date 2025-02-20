@@ -110,7 +110,7 @@ public class TextFormatFileTransportTest {
     transport.close().get();
     String contents =
         trimLines(
-            Joiner.on(System.lineSeparator())
+            Joiner.on("\n")
                 .join(Files.readLines(output, StandardCharsets.UTF_8)));
 
     assertThat(contents).contains(trimLines(TextFormat.printer().printToString(started)));

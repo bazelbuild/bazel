@@ -88,7 +88,7 @@ public class BuildOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
             env.getAccessor(),
             LabelPrinter.legacy());
     env.evaluateQuery(expression, callback);
-    return Arrays.asList(output.toString().split(System.lineSeparator()));
+    return Arrays.asList(output.toString().split("\n"));
   }
 
   @Test
