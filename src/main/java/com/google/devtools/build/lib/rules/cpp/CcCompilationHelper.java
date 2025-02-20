@@ -1972,6 +1972,7 @@ public final class CcCompilationHelper {
     return directOutputs.build();
   }
 
+  @CanIgnoreReturnValue
   private Artifact createSourceActionHelper(
       Label sourceLabel,
       String outputName,
