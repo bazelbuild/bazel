@@ -590,6 +590,10 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
     result.push_back("--experimental_cgroup_parent=" +
                      startup_options.cgroup_parent);
   }
+
+  if (startup_options.run_in_user_cgroup) {
+    result.push_back("--experimental_run_in_user_cgroup");
+  }
 #endif
 
   startup_options.AddExtraOptions(&result);
@@ -710,7 +714,12 @@ static void RunServerMode(
 
   {
     WithEnvVars env_obj(PrepareEnvironmentForJvm());
-    ExecuteServerJvm(server_exe, server_exe_args);
+#ifdef __linux__
+    bool run_in_user_cgroup = startup_options.run_in_user_cgroup;
+#else
+    bool run_in_user_cgroup = false;
+#endif
+    ExecuteServerJvm(server_exe, server_exe_args, run_in_user_cgroup);
   }
 }
 
@@ -768,7 +777,12 @@ static void RunBatchMode(
 
   {
     WithEnvVars env_obj(PrepareEnvironmentForJvm());
-    ExecuteServerJvm(server_exe, jvm_args_vector);
+#ifdef __linux__
+    bool run_in_user_cgroup = startup_options.run_in_user_cgroup;
+#else
+    bool run_in_user_cgroup = false;
+#endif
+    ExecuteServerJvm(server_exe, jvm_args_vector, run_in_user_cgroup);
   }
 }
 
