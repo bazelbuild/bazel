@@ -161,9 +161,7 @@ project = {
         assertThrows(LoadingFailedException.class, () -> buildTarget("//foo:empty", "//bar:empty"));
     assertThat(exception)
         .hasMessageThat()
-        .contains(
-            "This build doesn't support automatic project resolution. Targets have different"
-                + " project settings:");
+        .contains("Skycache only works on single-project builds. This is a multi-project build");
   }
 
   @Test

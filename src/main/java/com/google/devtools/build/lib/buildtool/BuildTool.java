@@ -29,7 +29,6 @@ import com.google.common.base.Suppliers;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.hash.HashCode;
@@ -41,7 +40,6 @@ import com.google.devtools.build.lib.analysis.AnalysisAndExecutionResult;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.Project;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -78,7 +76,6 @@ import com.google.devtools.build.lib.runtime.BlazeOptionHandler.SkyframeExecutor
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.CommandLineEvent.CanonicalCommandLineEvent;
-import com.google.devtools.build.lib.runtime.ConfigFlagDefinitions;
 import com.google.devtools.build.lib.runtime.StarlarkOptionsParser;
 import com.google.devtools.build.lib.runtime.StarlarkOptionsParser.BuildSettingLoader;
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
@@ -97,7 +94,6 @@ import com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler.OutputType;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.InvalidAqueryOutputFormatException;
-import com.google.devtools.build.lib.skyframe.config.FlagSetValue;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
@@ -1025,31 +1021,6 @@ public class BuildTool {
     }
 
     return PathFragmentPrefixTrie.of(((ProjectValue) result.get(key)).getDefaultActiveDirectory());
-  }
-
-  /** Returns the set of options from the selected {@code projectFile} in command line format. */
-  public static ImmutableSet<String> applySclConfigs(
-      BuildOptions buildOptionsBeforeFlagSets,
-      ImmutableMap<String, String> userOptions,
-      ConfigFlagDefinitions configFlagDefinitions,
-      Label projectFile,
-      boolean enforceCanonicalConfigs,
-      SkyframeExecutor skyframeExecutor,
-      ExtendedEventHandler eventHandler)
-      throws InvalidConfigurationException {
-
-    FlagSetValue flagSetValue =
-        Project.modifyBuildOptionsWithFlagSets(
-            projectFile,
-            buildOptionsBeforeFlagSets,
-            userOptions,
-            configFlagDefinitions,
-            enforceCanonicalConfigs,
-            eventHandler,
-            skyframeExecutor);
-
-    // Options from the selected project config.
-    return flagSetValue.getOptionsFromFlagset();
   }
 
   private Reporter getReporter() {

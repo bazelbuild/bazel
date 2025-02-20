@@ -33,7 +33,6 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",
-        "//third_party:mockito",
         "//third_party:truth",
         "//third_party/pprof:profile_java_proto",
         "@com_google_protobuf//:protobuf_java",

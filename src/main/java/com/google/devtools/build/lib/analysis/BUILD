@@ -607,7 +607,6 @@ java_library(
     srcs = ["Project.java"],
     deps = [
         ":config/build_options",
-        ":config/core_options",
         ":config/invalid_configuration_exception",
         ":project_resolution_exception",
         "//src/main/java/com/google/devtools/build/lib:runtime/config_flag_definitions",
