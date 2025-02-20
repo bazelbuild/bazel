@@ -65,11 +65,11 @@ public class LostImportantOutputHandlerModule extends BlazeModule {
     outputHandlerEnabled = enabled;
   }
 
-  final void addLostOutput(String execPath) {
+  public final void addLostOutput(String execPath) {
     pathsToConsiderLost.add(execPath);
   }
 
-  final void verifyAllLostOutputsConsumed() {
+  public final void verifyAllLostOutputsConsumed() {
     assertThat(pathsToConsiderLost).isEmpty();
   }
 
