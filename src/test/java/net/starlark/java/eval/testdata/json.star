@@ -27,6 +27,10 @@ assert_eq(json.encode("\\"), r'"\\"')
 assert_eq(json.encode(""), '""')
 # TODO: Invalid UTF-8 byte sequences are not replaced with U+FFFD.
 assert_eq(json.encode("😹"[:1]), '"�"') if not _utf8_byte_strings else None # invalid UTF-16 -> replacement char U+FFFD
+# 2 byte UTF-8 encoding, single UTF-16 character
+assert_eq(json.encode("¼Δ"), "\"¼Δ\"")
+# 4 byte UTF-8 encoding, two UTF-16 characters (surrogate pair)
+assert_eq(json.encode("😹"), "\"😹\"")
 
 assert_eq(json.encode([1, 2, 3]), "[1,2,3]")
 assert_eq(json.encode((1, 2, 3)), "[1,2,3]")
@@ -86,6 +90,8 @@ assert_eq(json.decode('{"one": 1, "two": 2}'), dict(one = 1, two = 2))
 assert_eq(json.decode('{"foo\\u0000bar": 42}'), {"foo\0bar": 42})
 assert_eq(json.decode('"\\ud83d\\ude39\\ud83d\\udc8d"'), "😹💍")
 assert_eq(json.decode('"\\u0123"'), "ģ")
+# Low surrogate followed by high surrogate (illegal)
+assert_eq(json.decode('"\\udc8d\\ud83d"'), "��")
 
 #assert_eq(json.decode('"\x7f"'), "\x7f")
 assert_eq(json.decode("\t[\t1,\r2,\n3]\n"), [1, 2, 3])  # whitespace other than ' '

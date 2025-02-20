@@ -504,32 +504,25 @@ public final class Json implements StarlarkValue {
             if (i + 4 >= s.length()) {
               throw Starlark.errorf("incomplete \\uXXXX escape");
             }
-            int hex = parseUnicodeEscape();
+            char hex = parseUnicodeEscape();
             if (utf8ByteStrings) {
-              String unicodeString;
-              try {
-                unicodeString = Character.toString(hex);
-              } catch (IllegalArgumentException unused) {
-                unicodeString = Character.toString(0xFFFD);
-              }
-              if (Character.MIN_SURROGATE <= hex && hex <= Character.MAX_SURROGATE) {
-                // If the code point is a surrogate, consume the next \\uXXXX escape.
-                if (i + 6 >= s.length() || s.charAt(i) != '\\' || s.charAt(i + 1) != 'u') {
-                  unicodeString = Character.toString(0xFFFD);
-                } else {
+              String unicodeString = Character.toString(hex);
+              if (Character.MIN_HIGH_SURROGATE <= hex && hex <= Character.MAX_HIGH_SURROGATE) {
+                // If the code point is a high surrogate, consume the next character if it is also
+                // a Unicode escape sequence. The only valid case is that it is an escaped low
+                // surrogate. Any other case will be invalid and be replaced with U+FFFD by the
+                // decoding below. Note that we do not support unescaped surrogates, which are not
+                // valid UTF-8.
+                if (i + 6 < s.length() && s.charAt(i) == '\\' && s.charAt(i + 1) == 'u') {
                   i += 2;
-                  int hex2 = parseUnicodeEscape();
-                  if (Character.MIN_SURROGATE <= hex2 && hex2 <= Character.MAX_SURROGATE) {
-                    unicodeString += Character.toString(hex2);
-                  } else {
-                    unicodeString += Character.toString(0xFFFD);
-                  }
+                  char hex2 = parseUnicodeEscape();
+                  unicodeString = new String(new char[] {hex, hex2});
                 }
               }
               // Append the escaped Unicode code point as a UTF-8 byte sequence.
               str.append(new String(unicodeString.getBytes(UTF_8), ISO_8859_1));
             } else {
-              str.append((char) hex);
+              str.append(hex);
             }
             break;
           default:
@@ -539,11 +532,11 @@ public final class Json implements StarlarkValue {
       throw Starlark.errorf("unclosed string literal");
     }
 
-    private int parseUnicodeEscape() throws EvalException {
+    private char parseUnicodeEscape() throws EvalException {
       int hex = 0;
       for (int j = 0; j < 4; j++) {
         char c = s.charAt(i + j);
-        int nybble = 0;
+        int nybble;
         if (isdigit(c)) {
           nybble = c - '0';
         } else if ('a' <= c && c <= 'f') {
@@ -556,7 +549,8 @@ public final class Json implements StarlarkValue {
         hex = (hex << 4) | nybble;
       }
       i += 4;
-      return hex;
+      // 4 hex bytes -> 1 UTF-16 code unit
+      return (char) hex;
     }
 
     private Object parseNumber(char c) throws EvalException {

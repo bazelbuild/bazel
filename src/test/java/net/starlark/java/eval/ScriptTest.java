@@ -23,7 +23,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
 import com.google.errorprone.annotations.FormatMethod;
 import java.io.File;
+import java.nio.charset.Charset;
 import java.util.HashMap;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -90,7 +92,21 @@ public final class ScriptTest {
       useStarlarkThread = true)
   public Object assertEq(Object x, Object y, StarlarkThread thread) throws EvalException {
     if (!x.equals(y)) {
-      reportErrorf(thread, "assert_eq: %s != %s", Starlark.repr(x), Starlark.repr(y));
+      if (x instanceof String xStr && y instanceof String yStr) {
+        Charset encoding =
+            thread.getSemantics().getBool(StarlarkSemantics.INTERNAL_BAZEL_ONLY_UTF_8_BYTE_STRINGS)
+                ? ISO_8859_1
+                : UTF_8;
+        reportErrorf(
+            thread,
+            "assert_eq: %s (%s) != %s (%s)",
+            Starlark.repr(x),
+            HexFormat.of().formatHex(xStr.getBytes(encoding)),
+            Starlark.repr(y),
+            HexFormat.of().formatHex(yStr.getBytes(encoding)));
+      } else {
+        reportErrorf(thread, "assert_eq: %s != %s", Starlark.repr(x), Starlark.repr(y));
+      }
     }
     return Starlark.NONE;
   }
