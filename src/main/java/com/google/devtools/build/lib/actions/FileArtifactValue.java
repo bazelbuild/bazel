@@ -424,7 +424,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest, StreamWr
   }
 
   public static FileArtifactValue createForFileWriteActionOutput(
-      DeterministicWriter writer, HashFunction hashFunction) {
+      DeterministicWriter writer, HashFunction hashFunction) throws IOException {
     long size;
     byte[] digest;
     try (CountingOutputStream countingOut =
@@ -433,9 +433,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest, StreamWr
       writer.writeOutputFile(hashingOut);
       size = countingOut.getCount();
       digest = hashingOut.hash().asBytes();
-    } catch (IOException e) {
-      // The output streams don't throw IOExceptions, so this should never happen.
-      throw new IllegalStateException(e);
     }
     return new FileWriteOutputArtifactValue(writer, size, digest);
   }
@@ -1080,6 +1077,8 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest, StreamWr
 
     @Override
     public InputStream getInputStream() {
+      // TODO: Avoid materializing the full content in memory by using a variant of
+      //  Piped{Input,Output}Stream that works well with virtual threads.
       var out = new ByteArrayOutputStream(Math.clamp(getSize(), 0, Integer.MAX_VALUE));
       try {
         writeTo(out);

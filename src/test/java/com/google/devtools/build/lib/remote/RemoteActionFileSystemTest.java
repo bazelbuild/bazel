@@ -1449,8 +1449,8 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   }
 
   /** Returns an inline artifact and puts its metadata into the action input map. */
-  private Artifact createInlineArtifact(
-      String pathFragment, String content, ActionInputMap inputs) {
+  private Artifact createInlineArtifact(String pathFragment, String content, ActionInputMap inputs)
+      throws IOException {
     Artifact a = ActionsTestUtil.createArtifact(outputRoot, pathFragment);
     FileArtifactValue f =
         FileArtifactValue.createForFileWriteActionOutput(

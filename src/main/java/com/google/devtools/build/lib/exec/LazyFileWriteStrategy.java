@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
@@ -25,6 +26,8 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.actions.DeterministicWriter;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
+import com.google.devtools.build.lib.server.FailureDetails;
+import java.io.IOException;
 import java.time.Duration;
 
 /**
@@ -54,16 +57,21 @@ public final class LazyFileWriteStrategy extends EagerFileWriteStrategy {
       // TODO: Bazel currently marks all output files as executable after local execution and stages
       // all files as executable for remote execution, so we don't keep track of the executable
       // bit yet.
-      actionExecutionContext
-          .getOutputMetadataStore()
-          .injectFile(
-              output,
-              FileArtifactValue.createForFileWriteActionOutput(
-                  deterministicWriter,
-                  actionExecutionContext
-                      .getActionFileSystem()
-                      .getDigestFunction()
-                      .getHashFunction()));
+      try {
+        actionExecutionContext
+            .getOutputMetadataStore()
+            .injectFile(
+                output,
+                FileArtifactValue.createForFileWriteActionOutput(
+                    deterministicWriter,
+                    actionExecutionContext
+                        .getActionFileSystem()
+                        .getDigestFunction()
+                        .getHashFunction()));
+      } catch (IOException e) {
+        throw new EnvironmentalExecException(
+            e, FailureDetails.Execution.Code.FILE_WRITE_IO_EXCEPTION);
+      }
     }
     return ImmutableList.of();
   }
