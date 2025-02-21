@@ -332,7 +332,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
       throws ActionExecutionException, InterruptedException {
     LocalResourcesEstimator localResourcesEstimator =
         new LocalResourcesEstimator(
-            actionExecutionContext, OS.getCurrent(), linkCommandLine.getLinkerInputArtifacts());
+            actionExecutionContext, OS.getCurrent(), linkCommandLine.getLinkerInputArtifacts(), getExecutionInfo());
 
     Spawn spawn = createSpawn(actionExecutionContext, localResourcesEstimator);
     try {
@@ -492,6 +492,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
     private final ActionExecutionContext actionExecutionContext;
     private final OS os;
     private final NestedSet<Artifact> inputs;
+    private final ImmutableMap<String, String> executionInfo;
 
     /** Container for all lazily-initialized details. */
     private static class LazyData {
@@ -509,10 +510,11 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
     private LazyData lazyData = null;
 
     public LocalResourcesEstimator(
-        ActionExecutionContext actionExecutionContext, OS os, NestedSet<Artifact> inputs) {
+        ActionExecutionContext actionExecutionContext, OS os, NestedSet<Artifact> inputs, ImmutableMap<String, String> executionInfo) {
       this.actionExecutionContext = actionExecutionContext;
       this.os = os;
       this.inputs = inputs;
+      this.executionInfo = executionInfo;
     }
 
     /** Performs costly computations required to predict linker resources consumption. */
@@ -538,9 +540,18 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
       }
 
       // TODO(https://github.com/bazelbuild/bazel/issues/17368): Use inputBytes in the computations.
-
-      double ramUsageMbs = 100.0 + 2.4 * (inputsBytes / 1024.0 / 1024.0);
+      double coefficient = 2.4;
+      if (executionInfo.containsKey("coefficient")){
+        coefficient = Double.valueOf(executionInfo.get("coefficient"));
+      }
+      double ramUsageMbs = 100.0 + coefficient * (inputsBytes / 1024.0 / 1024.0);
       int cpuUsage = 1 + (int)(ramUsageMbs / (3.5 * 1024.0));
+      if (executionInfo.containsKey("cpus")){
+        cpuUsage = Integer.valueOf(executionInfo.get("cpus"));
+      }
+      if (executionInfo.containsKey("mem")){
+        ramUsageMbs = Double.valueOf(executionInfo.get("mem"));
+      }
       ResourceSet resourceSet =
               ResourceSet.createWithRamCpu(/* memoryMb= */ ramUsageMbs, /* cpu= */ cpuUsage);
 
