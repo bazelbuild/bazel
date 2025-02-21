@@ -166,7 +166,9 @@ public class BzlCompileFunction implements SkyFunction {
       if (autoloadSymbols == null) {
         return null;
       }
-      predeclared = autoloadSymbols.getUninjectedBuildBzlEnv(key.getLabel());
+      predeclared =
+          autoloadSymbols.getUninjectedBuildBzlEnv(
+              key.getLabel() == null ? null : key.getLabel().getRepository());
     }
 
     // We have all deps. Parse, resolve, and return.

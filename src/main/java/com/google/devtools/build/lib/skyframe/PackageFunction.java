@@ -498,21 +498,22 @@ public abstract class PackageFunction implements SkyFunction {
 
     StarlarkBuiltinsValue starlarkBuiltinsValue;
     try {
-      // Bazel: we do autoloads for all BUILD files if enabled
       AutoloadSymbols autoloadSymbols = AutoloadSymbols.AUTOLOAD_SYMBOLS.get(env);
       if (autoloadSymbols == null) {
         return null;
       }
+      boolean requiresAutoloads =
+          !autoloadSymbols.autoloadsDisabledInBuildForRepo(packageId.getRepository());
       if (bzlLoadFunctionForInlining == null) {
         starlarkBuiltinsValue =
             (StarlarkBuiltinsValue)
                 env.getValueOrThrow(
-                    StarlarkBuiltinsValue.key(/* withAutoloads= */ autoloadSymbols.isEnabled()),
+                    StarlarkBuiltinsValue.key(/* withAutoloads= */ requiresAutoloads),
                     BuiltinsFailedException.class);
       } else {
         starlarkBuiltinsValue =
             StarlarkBuiltinsFunction.computeInline(
-                StarlarkBuiltinsValue.key(/* withAutoloads= */ autoloadSymbols.isEnabled()),
+                StarlarkBuiltinsValue.key(/* withAutoloads= */ requiresAutoloads),
                 BzlLoadFunction.InliningState.create(env),
                 packageFactory.getRuleClassProvider().getBazelStarlarkEnvironment(),
                 bzlLoadFunctionForInlining);

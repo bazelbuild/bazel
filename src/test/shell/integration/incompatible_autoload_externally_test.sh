@@ -541,4 +541,37 @@ EOF
   expect_log "Starlark provider"
 }
 
+function test_incompatible_disable_autoloads_in_main_repo() {
+  setup_module_dot_bazel
+
+  mkdir foo
+  cat > foo/BUILD << EOF
+java_library(
+  name = "foo",
+  srcs = ["A.java"]
+)
+EOF
+
+  mkdir bar
+  cat > bar/a.bzl << EOF
+def my_java_library(**kwargs):
+  native.java_library(**kwargs)
+EOF
+  cat > bar/BUILD << EOF
+load(":a.bzl", "my_java_library")
+my_java_library(
+  name = "bar",
+  srcs = ["A.java"]
+)
+EOF
+
+  bazel query --noincompatible_disable_autoloads_in_main_repo //foo >&$TEST_log 2>&1 || fail "build failed"
+  bazel query --incompatible_disable_autoloads_in_main_repo //foo >&$TEST_log 2>&1 && fail "build unexpectedly succeeded"
+  expect_log "name 'java_library' is not defined"
+  bazel query --noincompatible_disable_autoloads_in_main_repo //bar >&$TEST_log 2>&1 || fail "build failed"
+  bazel query --incompatible_disable_autoloads_in_main_repo //bar >&$TEST_log 2>&1 && fail "build unexpectedly succeeded"
+  expect_log "Error: no native function or rule 'java_library'"
+}
+
+
 run_suite "Tests for incompatible_autoload_externally flag"
