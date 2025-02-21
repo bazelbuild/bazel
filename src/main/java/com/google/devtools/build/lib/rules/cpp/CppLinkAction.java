@@ -538,22 +538,11 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
       }
 
       // TODO(https://github.com/bazelbuild/bazel/issues/17368): Use inputBytes in the computations.
-      ResourceSet resourceSet;
-      switch (os) {
-        case DARWIN:
-          resourceSet =
-              ResourceSet.createWithRamCpu(/* memoryMb= */ 100 + 2.4 * (inputsBytes / 1024.0 / 1024.0), /* cpu= */ 1);
-          break;
-        case LINUX:
-          resourceSet =
-              ResourceSet.createWithRamCpu(
-                  /* memoryMb= */ 100 + 2.4 * (inputsBytes / 1024.0 / 1024.0), /* cpu= */ 1);
-          break;
-        default:
-          resourceSet =
-              ResourceSet.createWithRamCpu(/* memoryMb= */ 100 + 2.4 * (inputsBytes / 1024.0 / 1024.0), /* cpu= */ 1);
-          break;
-      }
+
+      double ramUsageMbs = 100.0 + 2.4 * (inputsBytes / 1024.0 / 1024.0);
+      int cpuUsage = 1 + (int)(ramUsageMbs / (3.5 * 1024.0));
+      ResourceSet resourceSet =
+              ResourceSet.createWithRamCpu(/* memoryMb= */ ramUsageMbs, /* cpu= */ cpuUsage);
 
       return new LazyData(inputsCount, inputsBytes, resourceSet);
     }
