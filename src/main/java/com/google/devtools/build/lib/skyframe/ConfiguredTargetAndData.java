@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetData;
 import com.google.devtools.build.lib.packages.TestTimeout;
@@ -216,6 +217,24 @@ public class ConfiguredTargetAndData {
   /** Returns the rule class name if the target is a rule and "" otherwise. */
   public String getRuleClass() {
     return target.getRuleClass();
+  }
+
+  /** Returns the rule class object if the target is a rule and null otherwise. */
+  @Nullable
+  public RuleClass getRuleClassObject() {
+    if (target instanceof Rule rule) {
+      return rule.getRuleClassObject();
+    }
+    return null;
+  }
+
+  /** Returns the rule tags attribute value if the target is a rule and null otherwise. */
+  @Nullable
+  public ImmutableList<String> getOnlyTagsAttribute() {
+    if (target instanceof Rule rule) {
+      return rule.getOnlyTagsAttribute();
+    }
+    return null;
   }
 
   /** Returns the rule tags if the target is a rule and an empty set otherwise. */

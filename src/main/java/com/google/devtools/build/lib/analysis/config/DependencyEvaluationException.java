@@ -17,6 +17,7 @@ import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -60,6 +61,12 @@ public class DependencyEvaluationException extends Exception {
     // Calling logic doesn't provide an opportunity for this dependency to report its own error.
     // TODO(bazel-team): clean up the calling logic to eliminate this distinction.
     this(cause, /*detailedExitCode=*/ null, cause.getLocation(), /*depReportedOwnError=*/ false);
+  }
+
+  public DependencyEvaluationException(EvalException cause, Location location) {
+    // Calling logic doesn't provide an opportunity for this dependency to report its own error.
+    // TODO(bazel-team): clean up the calling logic to eliminate this distinction.
+    this(cause, /* detailedExitCode= */ null, location, /* depReportedOwnError= */ false);
   }
 
   /** Returns the cause's {@link DetailedExitCode}. If null, the caller should choose a default. */

@@ -45,6 +45,7 @@ import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
 import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.Sequence;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -2463,6 +2464,73 @@ var_supplier(
     }
   }
 
+  @Test
+  public void propagationPredicateAppliedOnToolchain_aspectPropagatedToSatisfyingToolchain(
+      @TestParameter boolean autoExecGroups) throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        """
+        AspectInfo = provider()
+
+        def _propagation_predicate(ctx):
+          if ctx.rule.label == Label('//toolchain:foo'):
+            return False
+          return True
+
+        def _impl(target, ctx):
+          res = ['my_aspect on ' + str(target.label)]
+          toolchains_types = ['//rule:toolchain_type_1', '//rule:toolchain_type_2']
+
+          for toolchain_type in toolchains_types:
+            if toolchain_type in ctx.rule.toolchains:
+              if AspectInfo in ctx.rule.toolchains[toolchain_type]:
+                res.extend(ctx.rule.toolchains[toolchain_type][AspectInfo].res)
+
+          return [AspectInfo(res = res)]
+
+        toolchain_aspect = aspect(
+          implementation = _impl,
+          toolchains_aspects = ['//rule:toolchain_type_1', '//rule:toolchain_type_2'],
+          propagation_predicate = _propagation_predicate,
+        )
+
+        def _rule_impl(ctx):
+          pass
+
+        r1 = rule(
+          implementation = _rule_impl,
+          toolchains = ['//rule:toolchain_type_1', '//rule:toolchain_type_2'],
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load('//test:defs.bzl', 'r1')
+        r1(name = 't1')
+        """);
+    useConfiguration(
+        "--extra_toolchains=//toolchain:foo_toolchain,//toolchain:foo_toolchain_with_provider",
+        "--incompatible_auto_exec_groups=" + autoExecGroups);
+
+    var analysisResult = update(ImmutableList.of("//test:defs.bzl%toolchain_aspect"), "//test:t1");
+
+    var aspectKeys = getAspectKeys("//test:defs.bzl%toolchain_aspect");
+    // Only the keys to the targets that satisfy the aspect's propagation predicate are present.
+    assertThat(aspectKeys)
+        .containsExactly(
+            "//test:defs.bzl%toolchain_aspect on //test:t1",
+            "//test:defs.bzl%toolchain_aspect on //toolchain:foo_with_provider");
+
+    ConfiguredAspect configuredAspect =
+        Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
+
+    assertThat(
+            getStarlarkProvider(configuredAspect, "//test:defs.bzl", "AspectInfo")
+                .getValue("res", Sequence.class))
+        .containsExactly(
+            "my_aspect on @@//test:t1", "my_aspect on @@//toolchain:foo_with_provider");
+  }
+
   private ImmutableList<ConfiguredTargetKey> getConfiguredTargetKey(String targetLabel) {
     return skyframeExecutor.getEvaluator().getInMemoryGraph().getAllNodeEntries().stream()
         .filter(n -> isConfiguredTarget(n.getKey(), targetLabel))
@@ -2479,6 +2547,17 @@ var_supplier(
 
   private static boolean isConfiguredTarget(SkyKey key, String label) {
     return key instanceof ConfiguredTargetKey ctKey && ctKey.getLabel().toString().equals(label);
+  }
+
+  private ImmutableList<String> getAspectKeys(String aspectLabel) {
+    return skyframeExecutor.getEvaluator().getDoneValues().entrySet().stream()
+        .filter(
+            entry ->
+                entry.getKey() instanceof AspectKey
+                    && ((AspectKey) entry.getKey()).getAspectClass().getName().equals(aspectLabel))
+        .map(e -> (AspectKey) e.getKey())
+        .map(k -> k.getAspectClass().getName() + " on " + k.getLabel())
+        .collect(toImmutableList());
   }
 
   private ImmutableList<AspectKey> getAspectKeys(String targetLabel, String aspectLabel) {

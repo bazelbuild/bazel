@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.Target;
@@ -69,6 +70,7 @@ import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import com.google.devtools.build.skyframe.state.Driver;
 import com.google.devtools.build.skyframe.state.StateMachine;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -131,19 +133,22 @@ final class ToplevelStarlarkAspectFunction implements SkyFunction {
     Target target =
         getTarget(packageValue, topLevelAspectsKey.getBaseConfiguredTargetKey().getLabel());
 
+    State state = env.getState(() -> new State(storeTransitivePackages, prerequisitePackages));
+
     // Configuration of top level target could change during the analysis phase with rule
     // transitions. In order not to wait for the complete configuration of the assigned target,
     // {@link RuleTransitionApplier} is used to apply potentially requested rule transitions
     // upfront. Configuration can be `null` if the target is not configurable, in which case the
     // Skyframe restart is needed.
     ConfiguredTargetKey baseConfiguredTargetKey =
-        getConfiguredTargetKey(topLevelAspectsKey.getBaseConfiguredTargetKey(), target, env);
+        getConfiguredTargetKey(state, topLevelAspectsKey.getBaseConfiguredTargetKey(), target, env);
     if (baseConfiguredTargetKey == null) {
       return null;
     }
 
     ImmutableList<AspectKey> aspectsKeys =
-        createAspectsKeys(target, loadAspectsValue.getAspects(), baseConfiguredTargetKey, env);
+        createAspectsKeys(
+            state, target, loadAspectsValue.getAspects(), baseConfiguredTargetKey, env);
     if (aspectsKeys == null) {
       return null; // alias target needs to be resolved
     }
@@ -183,11 +188,16 @@ final class ToplevelStarlarkAspectFunction implements SkyFunction {
 
   @Nullable
   private static ImmutableList<AspectKey> createAspectsKeys(
+      State state,
       Target target,
       ImmutableList<Aspect> aspects,
       ConfiguredTargetKey baseConfiguredTargetKey,
       Environment env)
       throws InterruptedException, DependencyException, TopLevelStarlarkAspectFunctionException {
+
+    if (state.aspectKeys != null) {
+      return state.aspectKeys;
+    }
 
     // In case the target is an alias, we need to resolve its actual target.
     if (AliasProvider.mayBeAlias(target)) {
@@ -212,9 +222,16 @@ final class ToplevelStarlarkAspectFunction implements SkyFunction {
       // rules. Currently, some tests depend on such keys being created, so they need to be modified
       // first.
       if (target.isRule()) {
+        Rule ruleTarget = (Rule) target;
         aspectCollection =
             AspectResolutionHelpers.computeAspectCollection(
-                aspects, target.getAdvertisedProviders(), target.getLabel(), target.getLocation());
+                aspects,
+                ruleTarget.getAdvertisedProviders(),
+                ruleTarget.getLabel(),
+                ruleTarget.getRuleClassObject(),
+                ruleTarget.getOnlyTagsAttribute(),
+                ruleTarget.getLocation(),
+                env.getListener());
       } else {
         aspectCollection =
             AspectResolutionHelpers.computeAspectCollectionNoAspectsFiltering(
@@ -228,9 +245,15 @@ final class ToplevelStarlarkAspectFunction implements SkyFunction {
       throw new TopLevelStarlarkAspectFunctionException(
           new TopLevelAspectsDetailsBuildFailedException(
               e.getMessage(), Code.ASPECT_CREATION_FAILED));
+    } catch (EvalException e) {
+      env.getListener().handle(Event.error(e.getMessageWithStack()));
+      throw new TopLevelStarlarkAspectFunctionException(
+          new TopLevelAspectsDetailsBuildFailedException(
+              e.getMessage(), Code.ASPECT_CREATION_FAILED));
     }
 
-    return aspectCollection.createAspectKeys(baseConfiguredTargetKey);
+    state.aspectKeys = aspectCollection.createAspectKeys(baseConfiguredTargetKey);
+    return state.aspectKeys;
   }
 
   /**
@@ -293,13 +316,12 @@ final class ToplevelStarlarkAspectFunction implements SkyFunction {
   // restart is needed.
   @Nullable
   private ConfiguredTargetKey getConfiguredTargetKey(
-      ConfiguredTargetKey baseConfiguredTargetKey, Target target, Environment env)
+      State state, ConfiguredTargetKey baseConfiguredTargetKey, Target target, Environment env)
       throws InterruptedException, ReportedException {
     if (!target.isConfigurable()) {
       return baseConfiguredTargetKey.toBuilder().setConfigurationKey(null).build();
     }
 
-    State state = env.getState(() -> new State(storeTransitivePackages, prerequisitePackages));
     computeConfiguration(
         env,
         state,
@@ -414,6 +436,9 @@ final class ToplevelStarlarkAspectFunction implements SkyFunction {
     // --------------- Configuration fields ------------------
     private BuildConfigurationKey configurationKey;
     private IdempotencyState idempotencyState;
+
+    // --------------- Aspect fields ------------------
+    @Nullable private ImmutableList<AspectKey> aspectKeys;
 
     // --------------- Error handling fields ------------------
     @Nullable private String message = null;

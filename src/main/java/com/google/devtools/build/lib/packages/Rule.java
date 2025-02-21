@@ -1192,6 +1192,16 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     return ruleTags;
   }
 
+  /** Returns only the `tags` attribute value. */
+  public ImmutableList<String> getOnlyTagsAttribute() {
+    Attribute tagsAttribute = ruleClass.getAttributeByName("tags");
+    Type<?> attrType = tagsAttribute.getType();
+    String name = tagsAttribute.getName();
+    // This enforces the expectation that taggable attributes are non-configurable.
+    Object value = NonconfigurableAttributeMapper.of(this).get(name, attrType);
+    return ImmutableList.copyOf(attrType.toTagSet(value, name));
+  }
+
   @Override
   public boolean isRule() {
     return true;
