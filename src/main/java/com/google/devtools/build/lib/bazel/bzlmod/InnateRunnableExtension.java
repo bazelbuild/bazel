@@ -116,6 +116,14 @@ final class InnateRunnableExtension implements RunnableExtension {
       throw ExternalDepsException.withCauseAndMessage(
           Code.BAD_MODULE, e, "bad repo rule .bzl file label at %s", location);
     }
+    if (ruleName.startsWith("_")) {
+      throw ExternalDepsException.withMessage(
+          Code.BAD_MODULE,
+          "%s does not export a repository_rule called %s, yet its use is requested at %s",
+          bzlLabel,
+          ruleName,
+          tags.getFirst().getLocation());
+    }
 
     // Load the .bzl file.
     BzlLoadValue loadedBzl;
@@ -171,7 +179,7 @@ final class InnateRunnableExtension implements RunnableExtension {
               .collect(toImmutableSet());
       throw ExternalDepsException.withMessage(
           Code.BAD_MODULE,
-          "%s does not export a repository_rule called %s, yet its use is requested at" + " %s%s",
+          "%s does not export a repository_rule called %s, yet its use is requested at %s%s",
           bzlLabel,
           ruleName,
           tags.getFirst().getLocation(),
@@ -179,7 +187,7 @@ final class InnateRunnableExtension implements RunnableExtension {
     } else if (!(exported instanceof RepositoryRuleFunction)) {
       throw ExternalDepsException.withMessage(
           Code.BAD_MODULE,
-          "%s exports a value called %s of type %s, yet a repository_rule is requested" + " at %s",
+          "%s exports a value called %s of type %s, yet a repository_rule is requested at %s",
           bzlLabel,
           ruleName,
           Starlark.type(exported),
