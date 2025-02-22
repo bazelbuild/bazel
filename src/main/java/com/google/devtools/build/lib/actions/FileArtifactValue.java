@@ -21,12 +21,16 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.hash.HashFunction;
+import com.google.common.hash.HashingOutputStream;
 import com.google.common.io.BaseEncoding;
+import com.google.common.io.CountingOutputStream;
+import com.google.devtools.build.lib.analysis.actions.DeterministicWriter;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.HashCodes;
+import com.google.devtools.build.lib.util.StreamWriter;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
@@ -36,8 +40,10 @@ import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Objects;
@@ -67,7 +73,7 @@ import javax.annotation.Nullable;
  */
 @Immutable
 @ThreadSafe
-public abstract class FileArtifactValue implements SkyValue, HasDigest {
+public abstract class FileArtifactValue implements SkyValue, HasDigest, StreamWriter {
   /**
    * The type of the underlying file system object. If it is a regular file, then it is guaranteed
    * to have a digest. Otherwise it does not have a digest.
@@ -148,9 +154,28 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     throw new UnsupportedOperationException();
   }
 
+  /**
+   * Writes the inline file contents to the given {@link OutputStream}.
+   *
+   * @throws UnsupportedOperationException if the file contents are not inline.
+   */
+  public void writeTo(OutputStream out) throws IOException {
+    try (var in = getInputStream()) {
+      in.transferTo(out);
+    }
+  }
+
   /** Returns whether the file contents exist remotely. */
   public boolean isRemote() {
     return false;
+  }
+
+  /**
+   * Returns whether the file contents are materialized lazily, for example because they exist
+   * remotely.
+   */
+  public final boolean isLazy() {
+    return isRemote() || isInline();
   }
 
   /** Returns the location index for remote files. For non-remote files, returns 0. */
@@ -396,6 +421,20 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       byte[] digest, long size, int locationIndex, @Nullable Instant expirationTime) {
     return new RemoteFileArtifactValueWithMaterializationData(
         digest, size, locationIndex, expirationTime);
+  }
+
+  public static FileArtifactValue createForFileWriteActionOutput(
+      DeterministicWriter writer, HashFunction hashFunction) throws IOException {
+    long size;
+    byte[] digest;
+    try (CountingOutputStream countingOut =
+            new CountingOutputStream(OutputStream.nullOutputStream());
+        HashingOutputStream hashingOut = new HashingOutputStream(hashFunction, countingOut)) {
+      writer.writeOutputFile(hashingOut);
+      size = countingOut.getCount();
+      digest = hashingOut.hash().asBytes();
+    }
+    return new FileWriteOutputArtifactValue(writer, size, digest);
   }
 
   public static FileArtifactValue createFromExistingWithResolvedPath(
@@ -1001,6 +1040,105 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       } catch (IOException e) {
         return true;
       }
+    }
+  }
+
+  private static final class FileWriteOutputArtifactValue extends FileArtifactValue {
+    private final DeterministicWriter writer;
+    private final long size;
+    private final byte[] digest;
+    @Nullable private FileContentsProxy proxy;
+
+    private FileWriteOutputArtifactValue(DeterministicWriter writer, long size, byte[] digest) {
+      this.writer = writer;
+      this.size = size;
+      this.digest = digest;
+    }
+
+    @Override
+    public FileStateType getType() {
+      return FileStateType.REGULAR_FILE;
+    }
+
+    @Override
+    public byte[] getDigest() {
+      return digest;
+    }
+
+    @Override
+    public long getSize() {
+      return size;
+    }
+
+    @Override
+    public boolean isInline() {
+      return true;
+    }
+
+    @Override
+    public InputStream getInputStream() {
+      // TODO: Avoid materializing the full content in memory by using a variant of
+      //  Piped{Input,Output}Stream that works well with virtual threads.
+      var out = new ByteArrayOutputStream(Math.clamp(getSize(), 0, Integer.MAX_VALUE));
+      try {
+        writeTo(out);
+      } catch (IOException e) {
+        // writer is not expected to throw if out doesn't.
+        throw new IllegalStateException(e);
+      }
+      return new ByteArrayInputStream(out.toByteArray());
+    }
+
+    @Override
+    public void writeTo(OutputStream out) throws IOException {
+      writer.writeOutputFile(out);
+    }
+
+    @Override
+    public long getModifiedTime() {
+      throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Sets the {@link FileContentsProxy} if the output backed by this metadata is materialized
+     * later.
+     */
+    @Override
+    public void setContentsProxy(FileContentsProxy proxy) {
+      this.proxy = proxy;
+    }
+
+    /**
+     * Returns a non-null {@link FileContentsProxy} if this metadata is backed by a local file, e.g.
+     * the file is materialized after action execution.
+     */
+    @Override
+    @Nullable
+    public FileContentsProxy getContentsProxy() {
+      return proxy;
+    }
+
+    @Override
+    public boolean wasModifiedSinceDigest(Path path) {
+      return false;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof FileWriteOutputArtifactValue that)) {
+        return false;
+      }
+      return Objects.equals(writer, that.writer)
+          && size == that.size
+          && Arrays.equals(digest, that.digest);
+    }
+
+    @Override
+    public int hashCode() {
+      return HashCodes.hashObjects(writer, size, Arrays.hashCode(digest));
     }
   }
 
