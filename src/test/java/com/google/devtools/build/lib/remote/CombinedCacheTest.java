@@ -375,7 +375,7 @@ public class CombinedCacheTest {
         IOException.class,
         () -> {
           remoteCache.ensureInputsPresent(
-              remoteActionExecutionContext, merkleTree, ImmutableMap.of(), false, reporter);
+              remoteActionExecutionContext, merkleTree, ImmutableMap.of(), false);
         });
 
     assertThat(lostInputsEvents).hasSize(1);
@@ -421,7 +421,7 @@ public class CombinedCacheTest {
             () -> {
               try {
                 remoteCache.ensureInputsPresent(
-                    remoteActionExecutionContext, merkleTree, ImmutableMap.of(), false, reporter);
+                    remoteActionExecutionContext, merkleTree, ImmutableMap.of(), false);
               } catch (IOException | InterruptedException ignored) {
                 // ignored
               } finally {
@@ -496,7 +496,7 @@ public class CombinedCacheTest {
         () -> {
           try {
             remoteCache.ensureInputsPresent(
-                remoteActionExecutionContext, merkleTree, ImmutableMap.of(), false, reporter);
+                remoteActionExecutionContext, merkleTree, ImmutableMap.of(), false);
           } catch (IOException ignored) {
             // ignored
           } catch (InterruptedException e) {
@@ -590,7 +590,7 @@ public class CombinedCacheTest {
             () -> {
               try {
                 remoteCache.ensureInputsPresent(
-                    remoteActionExecutionContext, merkleTree1, ImmutableMap.of(), false, reporter);
+                    remoteActionExecutionContext, merkleTree1, ImmutableMap.of(), false);
               } catch (IOException ignored) {
                 // ignored
               } catch (InterruptedException e) {
@@ -604,7 +604,7 @@ public class CombinedCacheTest {
             () -> {
               try {
                 remoteCache.ensureInputsPresent(
-                    remoteActionExecutionContext, merkleTree2, ImmutableMap.of(), false, reporter);
+                    remoteActionExecutionContext, merkleTree2, ImmutableMap.of(), false);
               } catch (InterruptedException | IOException ignored) {
                 // ignored
               } finally {
@@ -668,7 +668,7 @@ public class CombinedCacheTest {
             IOException.class,
             () ->
                 remoteCache.ensureInputsPresent(
-                    remoteActionExecutionContext, merkleTree, ImmutableMap.of(), false, reporter));
+                    remoteActionExecutionContext, merkleTree, ImmutableMap.of(), false));
 
     assertThat(e).hasMessageThat().contains("upload failed");
   }

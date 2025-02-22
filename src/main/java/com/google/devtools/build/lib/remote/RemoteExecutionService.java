@@ -1886,8 +1886,7 @@ public class RemoteExecutionService {
               .withWriteCachePolicy(CachePolicy.REMOTE_CACHE_ONLY), // Only upload to remote cache
           merkleTree,
           additionalInputs,
-          force,
-          reporter);
+          force);
     } finally {
       maybeReleaseRemoteActionBuildingSemaphore();
     }
@@ -1984,7 +1983,7 @@ public class RemoteExecutionService {
 
   @Subscribe
   public void onLostInputs(LostInputsEvent event) {
-    knownMissingCasDigests.add(event.getMissingDigest());
+    knownMissingCasDigests.addAll(event.missingDigests());
   }
 
   /**

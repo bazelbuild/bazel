@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.remote.common;
 
 import build.bazel.remote.execution.v2.Digest;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import java.io.IOException;
 import javax.annotation.Nullable;
@@ -25,31 +26,36 @@ import javax.annotation.Nullable;
  */
 public final class CacheNotFoundException extends IOException {
   private final Digest missingDigest;
-  @Nullable private String filename;
+  @Nullable private String execPathString;
 
   public CacheNotFoundException(Digest missingDigest) {
     this.missingDigest = missingDigest;
   }
 
-  public CacheNotFoundException(Digest missingDigest, String filename) {
+  public CacheNotFoundException(Digest missingDigest, String execPathString) {
     this.missingDigest = missingDigest;
-    this.filename = filename;
+    this.execPathString = Preconditions.checkNotNull(execPathString);
   }
 
-  public void setFilename(@Nullable String filename) {
-    this.filename = filename;
+  public void setExecPathString(@Nullable String execPathString) {
+    this.execPathString = execPathString;
   }
 
   public Digest getMissingDigest() {
     return missingDigest;
   }
 
+  @Nullable
+  public String getExecPathString() {
+    return execPathString;
+  }
+
   @Override
   public String getMessage() {
     String message =
         "Missing digest: " + missingDigest.getHash() + "/" + missingDigest.getSizeBytes();
-    if (!Strings.isNullOrEmpty(filename)) {
-      message += " for " + filename;
+    if (!Strings.isNullOrEmpty(execPathString)) {
+      message += " for " + execPathString;
     }
     return message;
   }

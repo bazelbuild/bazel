@@ -401,7 +401,7 @@ public class CombinedCache extends AbstractReferenceCounted {
         future,
         CacheNotFoundException.class,
         (cacheNotFoundException) -> {
-          cacheNotFoundException.setFilename(blobName);
+          cacheNotFoundException.setExecPathString(blobName);
           return immediateFailedFuture(cacheNotFoundException);
         },
         directExecutor());
@@ -553,7 +553,7 @@ public class CombinedCache extends AbstractReferenceCounted {
         Throwable.class,
         (throwable) -> {
           if (throwable instanceof CacheNotFoundException cacheNotFoundException) {
-            cacheNotFoundException.setFilename(outputPath);
+            cacheNotFoundException.setExecPathString(outputPath);
           } else if (throwable instanceof OutputDigestMismatchException e) {
             e.setOutputPath(outputPath);
             e.setLocalPath(localPath);
