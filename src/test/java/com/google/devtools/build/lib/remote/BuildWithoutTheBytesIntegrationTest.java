@@ -472,7 +472,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     waitDownloads();
 
     // Assert: target was successfully built
-    assertValidOutputFile("a/bar.out", "foo" + lineSeparator() + "updated bar" + lineSeparator());
+    assertValidOutputFile("a/bar.out", "foo\nupdated bar\n");
   }
 
   @Test
@@ -528,7 +528,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     waitDownloads();
 
     // Assert: target was successfully built
-    assertValidOutputFile("a/bar.out", "file-inside\nupdated bar" + lineSeparator());
+    assertValidOutputFile("a/bar.out", "file-inside\nupdated bar\n");
   }
 
   @Test
