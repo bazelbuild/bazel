@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import javax.annotation.Nullable;
 
@@ -39,6 +40,11 @@ public interface ArtifactPathResolver {
 
   /** @return a resolved {@link Root} corresponding to the given Root. */
   Root transformRoot(Root root);
+
+  /**
+   * @return the relative path of the given path from the exec root.
+   */
+  PathFragment relativeToExecRoot(Path path);
 
   ArtifactPathResolver IDENTITY = new IdentityResolver(null);
 
@@ -88,6 +94,11 @@ public interface ArtifactPathResolver {
     public Path convertPath(Path path) {
       return path;
     }
+
+    @Override
+    public PathFragment relativeToExecRoot(Path path) {
+      return path.relativeTo(execRoot);
+    }
   };
 
   /**
@@ -118,6 +129,11 @@ public interface ArtifactPathResolver {
     @Override
     public Path convertPath(Path path) {
       return fileSystem.getPath(path.asFragment());
+    }
+
+    @Override
+    public PathFragment relativeToExecRoot(Path path) {
+      return path.relativeTo(execRoot);
     }
   }
 }

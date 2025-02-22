@@ -85,11 +85,11 @@ public class BulkTransferException extends IOException {
             toImmutableMap(
                 e -> DigestUtil.toString(e.getMissingDigest()),
                 e -> {
-                  ActionInput actionInput = actionInputResolver.apply(e.getFilename());
+                  ActionInput actionInput = actionInputResolver.apply(e.getExecPathString());
                   Preconditions.checkNotNull(
                       actionInput,
                       "ActionInput not found for filename %s in CacheNotFoundException",
-                      e.getFilename());
+                      e.getExecPathString());
                   return actionInput;
                 },
                 (a, b) -> b));
