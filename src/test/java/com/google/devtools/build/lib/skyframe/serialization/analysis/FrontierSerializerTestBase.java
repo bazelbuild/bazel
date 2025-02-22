@@ -736,7 +736,10 @@ ACTIVE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//foo:G,
             .collect(toImmutableList());
 
     expected.forEach(line -> assertThat(outErr.outAsLatin1()).contains(line));
-    assertThat(outErr.outAsLatin1().lines()).hasSize(expected.size());
+
+    // The additional line is from the additional --host_platforms analysis node, which has a
+    // different label internally and externally.
+    assertThat(outErr.outAsLatin1().lines()).hasSize(expected.size() + 1);
 
     // Nothing serialized
     assertThat(
