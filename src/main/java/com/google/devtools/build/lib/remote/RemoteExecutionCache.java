@@ -226,7 +226,13 @@ public class RemoteExecutionCache extends CombinedCache {
               // cache at some point before action execution, but reported to be missing when
               // querying the remote for missing action inputs; possibly because it was evicted in
               // the interim.
-              throw new CacheNotFoundException(digest, path.getPathString());
+              throw new CacheNotFoundException(
+                  digest,
+                  context
+                      .getSpawnExecutionContext()
+                      .getPathResolver()
+                      .relativeToExecRoot(path)
+                      .getPathString());
             }
           } catch (IOException e) {
             yield immediateFailedFuture(e);
