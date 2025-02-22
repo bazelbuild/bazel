@@ -34,13 +34,6 @@ public final class ProcessUtils {
   public static native int getgid();
 
   /**
-   * Native wrapper around POSIX getpid(2) syscall.
-   *
-   * @return the process ID of this process.
-   */
-  public static native int getpid();
-
-  /**
    * Native wrapper around POSIX getuid(2).
    *
    * @return the real user ID of the current process.
