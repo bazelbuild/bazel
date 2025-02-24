@@ -834,7 +834,7 @@ public abstract class FileSystem {
     throw new UnsupportedOperationException(
         "getIoFile() not supported for " + getClass().getName());
   }
-
+  
   /**
    * Returns a {@link java.nio.file.Path} object for the given path. This method is only supported
    * by file system implementations that are backed by the local file system.
@@ -860,12 +860,7 @@ public abstract class FileSystem {
     }
   }
 
-  /**
-   * Represents a devirtualizer that undoes the virtualization of {@link Path}s established by
-   * {@link
-   * com.google.devtools.build.lib.runtime.BlazeModule.ModuleFileSystem#createWithVirtualization}.
-   */
-  public interface PathDevirtualizer {
-    Path devirtualizePath(Path original);
+  public interface PathTransformer {
+    Path transformPath(Path original);
   }
 }
