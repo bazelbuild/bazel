@@ -46,13 +46,13 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
-import com.google.devtools.build.lib.vfs.IORuntimeException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -535,8 +535,8 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
                   /* traversedSymlink= */ false));
       try {
         awaitQuiescence(true);
-      } catch (IORuntimeException e) {
-        throw e.getCauseIOException();
+      } catch (UncheckedIOException e) {
+        throw e.getCause();
       }
     }
 
@@ -581,7 +581,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
         }
       } catch (IOException e) {
         // We can't throw checked exceptions here since AQV expects Runnables
-        throw new IORuntimeException(e);
+        throw new UncheckedIOException(e);
       }
     }
   }

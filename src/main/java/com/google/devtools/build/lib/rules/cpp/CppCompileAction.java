@@ -88,7 +88,6 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.lib.vfs.IORuntimeException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -98,6 +97,7 @@ import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -472,9 +472,9 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
         Collections.sort(includes, Artifact.EXEC_PATH_COMPARATOR);
         return NestedSetBuilder.wrap(Order.STABLE_ORDER, includes);
-      } catch (IORuntimeException e) {
+      } catch (UncheckedIOException e) {
         throw new EnvironmentalExecException(
-            e.getCauseIOException(),
+            e.getCause(),
             createFailureDetail("Find used headers failure", Code.FIND_USED_HEADERS_IO_EXCEPTION));
       }
     } catch (ExecException e) {

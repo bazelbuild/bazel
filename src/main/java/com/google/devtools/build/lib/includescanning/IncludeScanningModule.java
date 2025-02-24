@@ -58,12 +58,12 @@ import com.google.devtools.build.lib.skyframe.EphemeralCheckIfOutputConsumed;
 import com.google.devtools.build.lib.skyframe.MutableSupplier;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.vfs.IORuntimeException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.common.options.OptionsBase;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -232,8 +232,8 @@ public class IncludeScanningModule extends BlazeModule {
             actionExecutionMetadata,
             actionExecContext,
             grepIncludes);
-      } catch (IORuntimeException e) {
-        throw e.getCauseIOException();
+      } catch (UncheckedIOException e) {
+        throw e.getCause();
       } catch (NoSuchPackageException e) {
         throw new IllegalStateException("Swig has no hints! For " + source, e);
       }

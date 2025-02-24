@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.util.io.MessageOutputStream;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.IORuntimeException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
@@ -58,6 +57,7 @@ import com.google.errorprone.annotations.CheckReturnValue;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -102,8 +102,8 @@ public class CompactSpawnLogContext extends SpawnLogContext {
       execute(() -> visitSubdirectory(rootDir));
       try {
         awaitQuiescence(true);
-      } catch (IORuntimeException e) {
-        throw e.getCauseIOException();
+      } catch (UncheckedIOException e) {
+        throw e.getCause();
       }
     }
 
@@ -118,7 +118,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
           childVisitor.visit(child);
         }
       } catch (IOException e) {
-        throw new IORuntimeException(e);
+        throw new UncheckedIOException(e);
       }
     }
   }

@@ -37,12 +37,12 @@ import com.google.devtools.build.lib.includescanning.IncludeParser.Inclusion.Kin
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner;
-import com.google.devtools.build.lib.vfs.IORuntimeException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyFunction;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -747,8 +747,8 @@ public class LegacyIncludeScanner implements IncludeScanner {
         super.awaitQuiescence(true);
       } catch (InterruptedException e) {
         throw new InterruptedException("Interrupted during include visitation");
-      } catch (IORuntimeException e) {
-        throw e.getCauseIOException();
+      } catch (UncheckedIOException e) {
+        throw e.getCause();
       } catch (ExecRuntimeException e) {
         throw e.getRealCause();
       } catch (InterruptedRuntimeException e) {
@@ -846,7 +846,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
                   actionExecutionContext.getThreadStateReceiverForMetrics().started()) {
                 process(source, contextPathPos, contextKind, visited);
               } catch (IOException e) {
-                throw new IORuntimeException(e);
+                throw new UncheckedIOException(e);
               } catch (ExecException e) {
                 throw new ExecRuntimeException(e);
               } catch (InterruptedException e) {
@@ -942,7 +942,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
                 actionExecutionContext.getThreadStateReceiverForMetrics().started()) {
               processBulkAsync(sources, alsoVisited);
             } catch (IOException e) {
-              throw new IORuntimeException(e);
+              throw new UncheckedIOException(e);
             } catch (ExecException e) {
               throw new ExecRuntimeException(e);
             } catch (InterruptedException e) {
