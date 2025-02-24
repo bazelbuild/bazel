@@ -126,8 +126,9 @@ public class WorkerFactory {
 
     String msg =
         String.format(
-            "Created new %s %s %s (id %d, key hash %d), logging to %s",
+            "Created new %s %s %s %s (id %d, key hash %d), logging to %s",
             key.isSandboxed() ? "sandboxed" : "non-sandboxed",
+            key.isMultiplex() ? "multiplex" : "singleplex",
             key.getMnemonic(),
             workTypeName,
             workerId,
