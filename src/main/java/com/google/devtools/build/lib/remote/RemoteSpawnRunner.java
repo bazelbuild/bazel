@@ -580,7 +580,9 @@ public class RemoteSpawnRunner implements SpawnRunner {
   }
 
   private enum FailureReason {
+    // The failure occurred during the upload of the action's input for remote execution.
     UPLOAD,
+    // The failure occurred during the download of the action's output from the remote cache.
     DOWNLOAD,
   }
 
@@ -597,6 +599,9 @@ public class RemoteSpawnRunner implements SpawnRunner {
     if (Thread.currentThread().isInterrupted()) {
       throw new InterruptedException();
     }
+    // If the failure is caused by eviction of inputs to the current action that are only available
+    // remotely, try to regenerate the lost inputs. This doesn't make sense for outputs of the
+    // current action.
     if (reason == FailureReason.UPLOAD && cause instanceof BulkTransferException e) {
       ImmutableMap<String, ActionInput> lostInputs =
           e.getLostInputs(context.getInputMetadataProvider()::getInput);
@@ -670,8 +675,12 @@ public class RemoteSpawnRunner implements SpawnRunner {
       detailedCode = FailureDetails.Spawn.Code.EXECUTION_FAILED;
       catastrophe = true;
     } else if (BulkTransferException.allCausedByCacheNotFoundException(exception)) {
+      // At this point, cache evictions that affect uploaded inputs have already been handled.
+      // Cache evictions that affect the outputs of the current actions have also been retried with
+      // a request that disallows reusing cached results. This means that there is no point in
+      // retrying the entire build.
       status = Status.REMOTE_CACHE_FAILED;
-      detailedCode = FailureDetails.Spawn.Code.REMOTE_CACHE_EVICTED;
+      detailedCode = FailureDetails.Spawn.Code.REMOTE_CACHE_FAILED;
       catastrophe = false;
     } else {
       status = Status.EXECUTION_FAILED;
