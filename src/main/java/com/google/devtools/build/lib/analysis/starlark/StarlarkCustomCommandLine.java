@@ -124,10 +124,6 @@ import net.starlark.java.syntax.Location;
  * not yet applied, so no new strings are created. {@link SingleStringArgFormatter#format} is only
  * called during iteration over the {@link PreprocessedCommandLine#arguments}.
  */
-// TODO: b/327187486 - PathMapper is currently invoked during the preprocessing step. If path
-//  stripping is enabled, this means that the lazy approach to string formatted described above is
-//  defeated. Ideally, PathMapper should be invoked lazily during iteration over a
-//  PreprocessedCommandLine.
 public class StarlarkCustomCommandLine extends CommandLine {
 
   private static final Joiner LINE_JOINER = Joiner.on("\n").skipNulls();
@@ -359,16 +355,18 @@ public class StarlarkCustomCommandLine extends CommandLine {
       // will ensure continued uniqueness of the values
       if ((features & UNIQUIFY) != 0) {
         int count = values.size();
-        HashSet<Object> seen = Sets.newHashSetWithExpectedSize(count);
+        HashSet<String> seen = Sets.newHashSetWithExpectedSize(count);
         int addIndex = 0;
         for (int i = 0; i < count; ++i) {
-          Object val = values.get(i);
-          // Different artifact instances may path map to the same exec path string, and if the
-          // mapper is a no-op, an artifact behaves just like its exec path string.
-          Object valToDeduplicateBy =
+          Object /* String | DerivedArtifact */ val = values.get(i);
+          // If the path mapper is a no-op, an artifact behaves just like its (trivially mapped)
+          // exec path string.If the path mapper is not a no-op, mapped paths are always distinct
+          // from unmapped paths. We can thus uniquify based on the mapped exec path string in each
+          // case.
+          String valToDeduplicateBy =
               val instanceof DerivedArtifact artifact
                   ? pathMapper.getMappedExecPathString(artifact)
-                  : val;
+                  : (String) val;
           if (seen.add(valToDeduplicateBy)) {
             values.set(addIndex++, val);
           }
@@ -799,7 +797,6 @@ public class StarlarkCustomCommandLine extends CommandLine {
      *     be directly preceded by {@link #MARKER}
      * @param builder the {@link PreprocessedCommandLine.Builder} in which to add a preprocessed
      *     representation of this arg
-     * @param pathMapper mapper for exec paths
      * @param mainRepoMapping the repository mapping to use for formatting labels if needed
      * @return index in {@code arguments} where the next arg begins, or {@code arguments.size()} if
      *     there are no more arguments
@@ -808,7 +805,6 @@ public class StarlarkCustomCommandLine extends CommandLine {
         List<Object> arguments,
         int argi,
         PreprocessedCommandLine.Builder builder,
-        PathMapper pathMapper,
         @Nullable RepositoryMapping mainRepoMapping) {
       Object object = arguments.get(argi++);
       String formatStr = (String) arguments.get(argi++);
@@ -935,7 +931,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
                 .preprocess(
                     arguments, argi, builder, inputMetadataProvider, pathMapper, mainRepoMapping);
       } else if (arg == SingleFormattedArg.MARKER) {
-        argi = SingleFormattedArg.preprocess(arguments, argi, builder, pathMapper, mainRepoMapping);
+        argi = SingleFormattedArg.preprocess(arguments, argi, builder, mainRepoMapping);
       } else {
         builder.addArg(expandToCommandLine(arg, mainRepoMapping));
       }
@@ -1026,8 +1022,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
                     .preprocess(
                         arguments, argi, line, inputMetadataProvider, pathMapper, mainRepoMapping);
           } else if (arg == SingleFormattedArg.MARKER) {
-            argi =
-                SingleFormattedArg.preprocess(arguments, argi, line, pathMapper, mainRepoMapping);
+            argi = SingleFormattedArg.preprocess(arguments, argi, line, mainRepoMapping);
           } else {
             line.addArg(expandToCommandLine(arg, mainRepoMapping));
           }

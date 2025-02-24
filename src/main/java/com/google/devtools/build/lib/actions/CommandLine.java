@@ -62,7 +62,7 @@ public abstract class CommandLine {
     }
 
     @Override
-    public int totalArgLength() {
+    public int totalArgLength(PathMapper pathMapper) {
       int total = 0;
       for (String arg : args) {
         total += arg.length() + 1;
