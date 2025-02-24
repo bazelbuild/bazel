@@ -228,11 +228,7 @@ public class RemoteExecutionCache extends CombinedCache {
               // the interim.
               throw new CacheNotFoundException(
                   digest,
-                  context
-                      .getSpawnExecutionContext()
-                      .getPathResolver()
-                      .relativeToExecRoot(path)
-                      .getPathString());
+                  context.getSpawnExecutionContext().getPathResolver().relativeToExecRoot(path));
             }
           } catch (IOException e) {
             yield immediateFailedFuture(e);

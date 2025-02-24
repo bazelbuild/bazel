@@ -15,8 +15,7 @@
 package com.google.devtools.build.lib.remote.common;
 
 import build.bazel.remote.execution.v2.Digest;
-import com.google.common.base.Preconditions;
-import com.google.common.base.Strings;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import javax.annotation.Nullable;
 
@@ -26,19 +25,27 @@ import javax.annotation.Nullable;
  */
 public final class CacheNotFoundException extends IOException {
   private final Digest missingDigest;
-  @Nullable private String execPathString;
+  @Nullable private PathFragment execPath;
+  @Nullable private String filename;
 
   public CacheNotFoundException(Digest missingDigest) {
     this.missingDigest = missingDigest;
   }
 
-  public CacheNotFoundException(Digest missingDigest, String execPathString) {
+  public CacheNotFoundException(Digest missingDigest, PathFragment execPath) {
     this.missingDigest = missingDigest;
-    this.execPathString = Preconditions.checkNotNull(execPathString);
+    this.execPath = execPath;
   }
 
-  public void setExecPathString(@Nullable String execPathString) {
-    this.execPathString = execPathString;
+  // The exec path of the artifact that was not found in the cache if the missing cache entry
+  // corresponds to one.
+  public void setExecPath(PathFragment execPath) {
+    this.execPath = execPath;
+  }
+
+  // A human-readable filename only used in error messages.
+  public void setFilename(String filename) {
+    this.filename = filename;
   }
 
   public Digest getMissingDigest() {
@@ -46,16 +53,17 @@ public final class CacheNotFoundException extends IOException {
   }
 
   @Nullable
-  public String getExecPathString() {
-    return execPathString;
+  public PathFragment getExecPath() {
+    return execPath;
   }
 
   @Override
   public String getMessage() {
     String message =
         "Missing digest: " + missingDigest.getHash() + "/" + missingDigest.getSizeBytes();
-    if (!Strings.isNullOrEmpty(execPathString)) {
-      message += " for " + execPathString;
+    if (execPath != null || filename != null) {
+      // Prefer filename over execPath as it contains strictly more information.
+      message += " for " + (filename != null ? filename : execPath);
     }
     return message;
   }

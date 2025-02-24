@@ -928,6 +928,7 @@ public class RemoteExecutionService {
           combinedCache.downloadFile(
               context,
               internalToUnicode(remotePathResolver.localPathToOutputPath(file.path())),
+              remotePathResolver.localPathToExecPath(file.path()),
               tmpPath,
               file.digest(),
               new CombinedCache.DownloadProgressReporter(
@@ -1171,10 +1172,15 @@ public class RemoteExecutionService {
         Maps.newHashMapWithExpectedSize(result.getOutputDirectoriesCount());
     for (OutputDirectory dir : result.getOutputDirectoriesList()) {
       var outputPath = dir.getPath();
+      var localPath = remotePathResolver.outputPathToLocalPath(unicodeToInternal(outputPath));
       dirMetadataDownloads.put(
-          remotePathResolver.outputPathToLocalPath(unicodeToInternal(outputPath)),
+          localPath,
           Futures.transformAsync(
-              combinedCache.downloadBlob(context, outputPath, dir.getTreeDigest()),
+              combinedCache.downloadBlob(
+                  context,
+                  outputPath,
+                  remotePathResolver.localPathToExecPath(localPath),
+                  dir.getTreeDigest()),
               (treeBytes) ->
                   immediateFuture(Tree.parseFrom(treeBytes, ExtensionRegistry.getEmptyRegistry())),
               directExecutor()));
@@ -1336,7 +1342,10 @@ public class RemoteExecutionService {
               downloadsBuilder.add(
                   transform(
                       combinedCache.downloadBlob(
-                          context, inMemoryOutputPath.getPathString(), file.digest()),
+                          context,
+                          inMemoryOutputPath.getPathString(),
+                          inMemoryOutputPath,
+                          file.digest()),
                       data -> {
                         inMemoryOutputData.set(ByteString.copyFrom(data));
                         return null;
