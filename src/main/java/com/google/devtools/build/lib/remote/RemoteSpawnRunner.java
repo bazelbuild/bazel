@@ -34,11 +34,14 @@ import build.bazel.remote.execution.v2.ExecutionStage.Value;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputDepOwnerMap;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
+import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -248,7 +251,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
     } catch (CredentialHelperException e) {
       throw createExecExceptionForCredentialHelperException(e);
     } catch (IOException e) {
-      return execLocallyAndUploadOrFail(action, spawn, context, uploadLocalResults, e);
+      return execLocallyAndUploadOrFail(
+          action, spawn, context, uploadLocalResults, e, FailureReason.DOWNLOAD);
     }
 
     if (remoteOptions.remoteRequireCached) {
@@ -269,16 +273,23 @@ public class RemoteSpawnRunner implements SpawnRunner {
 
     AtomicBoolean useCachedResult = new AtomicBoolean(acceptCachedResult);
     AtomicBoolean forceUploadInput = new AtomicBoolean(false);
+    AtomicBoolean ioExceptionCausedByUpload = new AtomicBoolean(false);
     try {
       return retrier.execute(
           () -> {
+            ioExceptionCausedByUpload.set(false);
             // Upload the command and all the inputs into the remote cache.
             try (SilentCloseable c = prof.profile(UPLOAD_TIME, "upload missing inputs")) {
               Duration networkTimeStart = action.getNetworkTime().getDuration();
               Stopwatch uploadTime = Stopwatch.createStarted();
               // Upon retry, we force upload inputs
-              remoteExecutionService.uploadInputsIfNotPresent(
-                  action, forceUploadInput.getAndSet(true));
+              try {
+                remoteExecutionService.uploadInputsIfNotPresent(
+                    action, forceUploadInput.getAndSet(true));
+              } catch (IOException e) {
+                ioExceptionCausedByUpload.set(true);
+                throw e;
+              }
 
               // subtract network time consumed here to ensure wall clock during upload is not
               // double
@@ -337,7 +348,13 @@ public class RemoteSpawnRunner implements SpawnRunner {
     } catch (CredentialHelperException e) {
       throw createExecExceptionForCredentialHelperException(e);
     } catch (IOException e) {
-      return execLocallyAndUploadOrFail(action, spawn, context, uploadLocalResults, e);
+      return execLocallyAndUploadOrFail(
+          action,
+          spawn,
+          context,
+          uploadLocalResults,
+          e,
+          ioExceptionCausedByUpload.get() ? FailureReason.UPLOAD : FailureReason.DOWNLOAD);
     }
   }
 
@@ -562,17 +579,31 @@ public class RemoteSpawnRunner implements SpawnRunner {
     return remoteLocalFallbackStrategy.getSpawnRunner().exec(spawn, context);
   }
 
+  private enum FailureReason {
+    UPLOAD,
+    DOWNLOAD,
+  }
+
   private SpawnResult execLocallyAndUploadOrFail(
       RemoteAction action,
       Spawn spawn,
       SpawnExecutionContext context,
       boolean uploadLocalResults,
-      IOException cause)
+      IOException cause,
+      FailureReason reason)
       throws ExecException, InterruptedException, IOException, ForbiddenActionInputException {
     // Regardless of cause, if we are interrupted, we should stop without displaying a user-visible
     // failure/stack trace.
     if (Thread.currentThread().isInterrupted()) {
       throw new InterruptedException();
+    }
+    if (reason == FailureReason.UPLOAD && cause instanceof BulkTransferException e) {
+      ImmutableMap<String, ActionInput> lostInputs =
+          e.getLostInputs(context.getInputMetadataProvider()::getInput);
+      if (!lostInputs.isEmpty()) {
+        throw new LostInputsExecException(
+            lostInputs, new ActionInputDepOwnerMap(lostInputs.values()));
+      }
     }
     if (remoteOptions.remoteLocalFallback && !RemoteRetrierUtils.causedByExecTimeout(cause)) {
       return execLocallyAndUpload(action, spawn, context, uploadLocalResults);
