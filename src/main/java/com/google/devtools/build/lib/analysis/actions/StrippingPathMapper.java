@@ -27,9 +27,9 @@ import com.google.devtools.build.lib.actions.CommandLine.SimpleArgChunk;
 import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.actions.CommandLineItem.ExceptionlessMapFn;
 import com.google.devtools.build.lib.actions.CommandLineItem.MapFn;
-import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.starlarkbuildapi.FileRootApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.HashMap;
@@ -145,7 +145,9 @@ public final class StrippingPathMapper implements PathMapper {
 
   @Override
   public String getMappedExecPathString(ActionInput artifact) {
-    if (isSupportedInputType(artifact) && isOutputPath(artifact, outputRoot)) {
+    if (artifact instanceof DerivedArtifact
+        || ((artifact instanceof BasicActionInput || artifact instanceof VirtualActionInput)
+            && isOutputPath(artifact, outputRoot))) {
       return strip(artifact.getExecPath()).getPathString();
     } else {
       return artifact.getExecPathString();
@@ -211,12 +213,6 @@ public final class StrippingPathMapper implements PathMapper {
     }
     // Fall back for source roots as well as runfiles tree artifacts, which should be very rare.
     return PathMapper.super.mapRoot(artifact);
-  }
-
-  private boolean isSupportedInputType(ActionInput artifact) {
-    return artifact instanceof DerivedArtifact
-        || artifact instanceof ParamFileActionInput
-        || artifact instanceof BasicActionInput;
   }
 
   private static final class CustomStarlarkArgsIterator implements Iterator<String> {

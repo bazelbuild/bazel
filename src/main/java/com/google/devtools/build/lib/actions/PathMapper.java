@@ -204,6 +204,16 @@ public interface PathMapper {
         }
 
         @Override
+        public String getMappedExecPathString(ActionInput artifact) {
+          return artifact.getExecPathString();
+        }
+
+        @Override
+        public int computeExecPathLengthDiff(Artifact.DerivedArtifact artifact) {
+          return 0;
+        }
+
+        @Override
         public FileRootApi mapRoot(Artifact artifact) {
           return artifact.getRoot();
         }
