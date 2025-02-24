@@ -37,13 +37,16 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -355,6 +358,13 @@ public class CombinedCacheTest {
     doAnswer(invocationOnMock -> ArtifactPathResolver.forExecRoot(execRoot))
         .when(remoteActionExecutionContext.getSpawnExecutionContext())
         .getPathResolver();
+    InputMetadataProvider inputMetadataProvider =
+        new ActionsTestUtil.FakeInputMetadataHandlerBase() {
+          @Override
+          public ActionInput getInput(String execPath) {
+            return ActionInputHelper.fromPath(execPath);
+          }
+        };
 
     Path path = execRoot.getRelative("foo");
     FileSystemUtils.writeContentAsLatin1(path, "bar");
@@ -370,7 +380,7 @@ public class CombinedCacheTest {
               remoteCache.ensureInputsPresent(
                   remoteActionExecutionContext, merkleTree, ImmutableMap.of(), false);
             });
-    assertThat(e.getLostInputs(ActionInputHelper::fromPath))
+    assertThat(e.getLostInputs(inputMetadataProvider))
         .containsExactly(
             DigestUtil.toString(digestUtil.computeAsUtf8("bar")),
             ActionInputHelper.fromPath("foo"));

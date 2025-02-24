@@ -305,7 +305,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
             BulkTransferException.class,
             (BulkTransferException e) -> {
               ImmutableMap<String, ActionInput> lostInputs =
-                  e.getLostInputs(actionExecutionContext.getInputMetadataProvider()::getInput);
+                  e.getLostInputs(actionExecutionContext.getInputMetadataProvider());
               if (!lostInputs.isEmpty()) {
                 throw new LostInputsExecException(
                     lostInputs, new ActionInputDepOwnerMap(lostInputs.values()));

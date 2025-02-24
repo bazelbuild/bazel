@@ -379,8 +379,7 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat
     try {
       downloadFileIfRemote(path);
     } catch (BulkTransferException e) {
-      ImmutableMap<String, ActionInput> newlyLostInputs =
-          e.getLostInputs(inputArtifactData::getInput);
+      ImmutableMap<String, ActionInput> newlyLostInputs = e.getLostInputs(inputArtifactData);
       if (!newlyLostInputs.isEmpty()) {
         if (lostInputs == null) {
           lostInputs = ImmutableMap.builder();
