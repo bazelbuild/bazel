@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -55,14 +54,11 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
 
   private final OutputService outputService;
   private final Path execRoot;
-  private final BinTools binTools;
   private final String workspaceName;
 
-  public SymlinkTreeStrategy(
-      OutputService outputService, Path execRoot, BinTools binTools, String workspaceName) {
+  public SymlinkTreeStrategy(OutputService outputService, Path execRoot, String workspaceName) {
     this.outputService = outputService;
     this.execRoot = execRoot;
-    this.binTools = binTools;
     this.workspaceName = workspaceName;
   }
 
@@ -96,13 +92,13 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
           // This is required because only the output manifest is considered an action output, so
           // Skyframe does not clear the directory for us.
           createSymlinkTreeHelper(action).clearRunfilesDirectory();
-        } else if (action.getRunfileSymlinksMode() == RunfileSymlinksMode.INTERNAL) {
+        } else {
           try {
             SymlinkTreeHelper helper = createSymlinkTreeHelper(action);
             if (action.isFilesetTree()) {
-              helper.createFilesetSymlinksDirectly(getFilesetMap(action, actionExecutionContext));
+              helper.createFilesetSymlinks(getFilesetMap(action, actionExecutionContext));
             } else {
-              helper.createRunfilesSymlinksDirectly(getRunfilesMap(action));
+              helper.createRunfilesSymlinks(getRunfilesMap(action));
             }
           } catch (IOException e) {
             throw ActionExecutionException.fromExecException(
@@ -111,12 +107,6 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
 
           Path inputManifest = actionExecutionContext.getInputPath(action.getInputManifest());
           createOutput(action, actionExecutionContext, inputManifest);
-        } else {
-          Map<String, String> resolvedEnv = new LinkedHashMap<>();
-          action.getEnvironment().resolve(resolvedEnv, actionExecutionContext.getClientEnv());
-          createSymlinkTreeHelper(action)
-              .createSymlinksUsingCommand(
-                  binTools, resolvedEnv, actionExecutionContext.getFileOutErr());
         }
       } catch (ExecException e) {
         throw ActionExecutionException.fromExecException(e, action);
@@ -170,11 +160,9 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
     //     might occur in an incremental build when the parent directory of a symlink exists on disk
     //     but not in memory (see https://github.com/bazelbuild/bazel/issues/24867).
     return new SymlinkTreeHelper(
-        execRoot,
         action.getInputManifest().getPath(),
         action.getOutputManifest().getPath(),
         action.getOutputManifest().getPath().getParentDirectory(),
-        action.isFilesetTree(),
         workspaceName);
   }
 

@@ -135,10 +135,9 @@ public final class SymlinkTreeAction extends AbstractAction {
       @Nullable Artifact repoMappingManifest) {
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.stableOrder();
     inputs.add(inputManifest);
-    // All current strategies (in-process and build-runfiles-windows) for
-    // making symlink trees on Windows depend on the target files
-    // existing, so directory or file links can be made as appropriate.
-    if (runfileSymlinksMode != RunfileSymlinksMode.SKIP
+    // On Windows, we need to know whether the target artifact is a file or a directory in order to
+    // correctly create a symlink or junction to it.
+    if (runfileSymlinksMode == RunfileSymlinksMode.CREATE
         && runfiles != null
         && OS.getCurrent() == OS.WINDOWS) {
       inputs.addTransitive(runfiles.getAllArtifacts());

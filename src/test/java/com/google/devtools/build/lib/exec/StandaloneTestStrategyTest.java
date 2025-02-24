@@ -103,11 +103,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     TestResult postedResult = null;
 
     TestedStandaloneTestStrategy(
-        ExecutionOptions executionOptions,
-        TestSummaryOptions testSummaryOptions,
-        BinTools binTools,
-        Path tmpDirRoot) {
-      super(executionOptions, testSummaryOptions, binTools, tmpDirRoot);
+        ExecutionOptions executionOptions, TestSummaryOptions testSummaryOptions, Path tmpDirRoot) {
+      super(executionOptions, testSummaryOptions, tmpDirRoot);
     }
 
     @Override
@@ -118,12 +115,9 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
   }
 
   private static ActionContext.ActionContextRegistry toContextRegistry(
-      SpawnStrategy spawnStrategy,
-      BinTools binTools,
-      FileSystem fileSystem,
-      BlazeDirectories directories) {
+      SpawnStrategy spawnStrategy, FileSystem fileSystem, BlazeDirectories directories) {
     try {
-      return new TestExecutorBuilder(fileSystem, directories, binTools)
+      return new TestExecutorBuilder(fileSystem, directories)
           .addStrategy(spawnStrategy, "mock")
           .setDefaultStrategies("mock")
           .build();
@@ -138,11 +132,10 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     FakeActionExecutionContext(
         FileOutErr fileOutErr,
         InputMetadataProvider inputMetadataProvider,
-        SpawnStrategy spawnStrategy,
-        BinTools binTools) {
+        SpawnStrategy spawnStrategy) {
       this(
           fileOutErr,
-          toContextRegistry(spawnStrategy, binTools, fileSystem, directories),
+          toContextRegistry(spawnStrategy, fileSystem, directories),
           inputMetadataProvider,
           null);
     }
@@ -287,10 +280,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     ExecutionOptions executionOptions = ExecutionOptions.DEFAULTS;
     TestSummaryOptions testSummaryOptions = TestSummaryOptions.DEFAULTS;
     Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
-    BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
     TestedStandaloneTestStrategy standaloneTestStrategy =
-        new TestedStandaloneTestStrategy(
-            executionOptions, testSummaryOptions, binTools, tmpDirRoot);
+        new TestedStandaloneTestStrategy(executionOptions, testSummaryOptions, tmpDirRoot);
 
     // setup a test action
     scratch.file("standalone/simple_test.sh", "this does not get executed, it is mocked out");
@@ -316,10 +307,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
     ActionExecutionContext actionExecutionContext =
         new FakeActionExecutionContext(
-            createTempOutErr(tmpDirRoot),
-            inputMetadataFor(testRunnerAction),
-            spawnStrategy,
-            binTools);
+            createTempOutErr(tmpDirRoot), inputMetadataFor(testRunnerAction), spawnStrategy);
 
     // actual StandaloneTestStrategy execution
     ImmutableList<SpawnResult> spawnResults =
@@ -355,10 +343,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     executionOptions.splitXmlGeneration = false;
 
     Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
-    BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
     TestedStandaloneTestStrategy standaloneTestStrategy =
-        new TestedStandaloneTestStrategy(
-            executionOptions, testSummaryOptions, binTools, tmpDirRoot);
+        new TestedStandaloneTestStrategy(executionOptions, testSummaryOptions, tmpDirRoot);
 
     // setup a test action
     scratch.file("standalone/simple_test.sh", "this does not get executed, it is mocked out");
@@ -395,10 +381,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
     ActionExecutionContext actionExecutionContext =
         new FakeActionExecutionContext(
-            createTempOutErr(tmpDirRoot),
-            inputMetadataFor(testRunnerAction),
-            spawnStrategy,
-            binTools);
+            createTempOutErr(tmpDirRoot), inputMetadataFor(testRunnerAction), spawnStrategy);
 
     // actual StandaloneTestStrategy execution
     ImmutableList<SpawnResult> spawnResults =
@@ -441,10 +424,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     ExecutionOptions executionOptions = ExecutionOptions.DEFAULTS;
     TestSummaryOptions testSummaryOptions = TestSummaryOptions.DEFAULTS;
     Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
-    BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
     TestedStandaloneTestStrategy standaloneTestStrategy =
-        new TestedStandaloneTestStrategy(
-            executionOptions, testSummaryOptions, binTools, tmpDirRoot);
+        new TestedStandaloneTestStrategy(executionOptions, testSummaryOptions, tmpDirRoot);
 
     // setup a test action
     scratch.file("standalone/simple_test.sh", "this does not get executed, it is mocked out");
@@ -471,10 +452,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
     ActionExecutionContext actionExecutionContext =
         new FakeActionExecutionContext(
-            createTempOutErr(tmpDirRoot),
-            inputMetadataFor(testRunnerAction),
-            spawnStrategy,
-            binTools);
+            createTempOutErr(tmpDirRoot), inputMetadataFor(testRunnerAction), spawnStrategy);
 
     // actual StandaloneTestStrategy execution
     ImmutableList<SpawnResult> spawnResults =
@@ -510,10 +488,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     ExecutionOptions executionOptions = ExecutionOptions.DEFAULTS;
     TestSummaryOptions testSummaryOptions = TestSummaryOptions.DEFAULTS;
     Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
-    BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
     TestedStandaloneTestStrategy standaloneTestStrategy =
-        new TestedStandaloneTestStrategy(
-            executionOptions, testSummaryOptions, binTools, tmpDirRoot);
+        new TestedStandaloneTestStrategy(executionOptions, testSummaryOptions, tmpDirRoot);
 
     // setup a test action
     scratch.file("standalone/simple_test.sh", "this does not get executed, it is mocked out");
@@ -540,10 +516,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
     ActionExecutionContext actionExecutionContext =
         new FakeActionExecutionContext(
-            createTempOutErr(tmpDirRoot),
-            inputMetadataFor(testRunnerAction),
-            spawnStrategy,
-            binTools);
+            createTempOutErr(tmpDirRoot), inputMetadataFor(testRunnerAction), spawnStrategy);
 
     // actual StandaloneTestStrategy execution
     ImmutableList<SpawnResult> spawnResults =
@@ -579,10 +552,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     TestSummaryOptions testSummaryOptions = Options.getDefaults(TestSummaryOptions.class);
     executionOptions.testOutput = ExecutionOptions.TestOutputFormat.ERRORS;
     Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
-    BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
     TestedStandaloneTestStrategy standaloneTestStrategy =
-        new TestedStandaloneTestStrategy(
-            executionOptions, testSummaryOptions, binTools, tmpDirRoot);
+        new TestedStandaloneTestStrategy(executionOptions, testSummaryOptions, tmpDirRoot);
 
     // setup a test action
     scratch.file("standalone/failing_test.sh", "this does not get executed, it is mocked out");
@@ -633,8 +604,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
     FileOutErr outErr = createTempOutErr(tmpDirRoot);
     ActionExecutionContext actionExecutionContext =
-        new FakeActionExecutionContext(
-            outErr, inputMetadataFor(testRunnerAction), spawnStrategy, binTools);
+        new FakeActionExecutionContext(outErr, inputMetadataFor(testRunnerAction), spawnStrategy);
 
     // actual StandaloneTestStrategy execution
     ImmutableList<SpawnResult> spawnResults =
@@ -668,10 +638,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     executionOptions.testOutput = ExecutionOptions.TestOutputFormat.ERRORS;
     executionOptions.splitXmlGeneration = true;
     Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
-    BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
     TestedStandaloneTestStrategy standaloneTestStrategy =
-        new TestedStandaloneTestStrategy(
-            executionOptions, testSummaryOptions, binTools, tmpDirRoot);
+        new TestedStandaloneTestStrategy(executionOptions, testSummaryOptions, tmpDirRoot);
 
     // setup a test action
     scratch.file("standalone/failing_test.sh", "this does not get executed, it is mocked out");
@@ -727,8 +695,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
     FileOutErr outErr = createTempOutErr(tmpDirRoot);
     ActionExecutionContext actionExecutionContext =
-        new FakeActionExecutionContext(
-            outErr, inputMetadataFor(testRunnerAction), spawnStrategy, binTools);
+        new FakeActionExecutionContext(outErr, inputMetadataFor(testRunnerAction), spawnStrategy);
 
     // actual StandaloneTestStrategy execution
     ImmutableList<SpawnResult> spawnResults =
@@ -763,10 +730,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     TestSummaryOptions testSummaryOptions = Options.getDefaults(TestSummaryOptions.class);
     executionOptions.testOutput = ExecutionOptions.TestOutputFormat.ALL;
     Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
-    BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
     TestedStandaloneTestStrategy standaloneTestStrategy =
-        new TestedStandaloneTestStrategy(
-            executionOptions, testSummaryOptions, binTools, tmpDirRoot);
+        new TestedStandaloneTestStrategy(executionOptions, testSummaryOptions, tmpDirRoot);
 
     // setup a test action
     scratch.file("standalone/empty_test.sh", "this does not get executed, it is mocked out");
@@ -788,8 +753,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
     FileOutErr outErr = createTempOutErr(tmpDirRoot);
     ActionExecutionContext actionExecutionContext =
-        new FakeActionExecutionContext(
-            outErr, inputMetadataFor(testRunnerAction), spawnStrategy, binTools);
+        new FakeActionExecutionContext(outErr, inputMetadataFor(testRunnerAction), spawnStrategy);
 
     // actual StandaloneTestStrategy execution
     ImmutableList<SpawnResult> spawnResults =
@@ -816,10 +780,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     TestSummaryOptions testSummaryOptions = Options.getDefaults(TestSummaryOptions.class);
     executionOptions.testOutput = ExecutionOptions.TestOutputFormat.ALL;
     Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
-    BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
     TestedStandaloneTestStrategy standaloneTestStrategy =
-        new TestedStandaloneTestStrategy(
-            executionOptions, testSummaryOptions, binTools, tmpDirRoot);
+        new TestedStandaloneTestStrategy(executionOptions, testSummaryOptions, tmpDirRoot);
 
     // setup a test action
     scratch.file("standalone/empty_test.sh", "this does not get executed, it is mocked out");
@@ -846,8 +808,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
     FileOutErr outErr = createTempOutErr(tmpDirRoot);
     ActionExecutionContext actionExecutionContext =
-        new FakeActionExecutionContext(
-            outErr, inputMetadataFor(testRunnerAction), spawnStrategy, binTools);
+        new FakeActionExecutionContext(outErr, inputMetadataFor(testRunnerAction), spawnStrategy);
 
     // actual StandaloneTestStrategy execution
     execute(testRunnerAction, actionExecutionContext, standaloneTestStrategy);
@@ -866,10 +827,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
     TestSummaryOptions testSummaryOptions = Options.getDefaults(TestSummaryOptions.class);
     Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
-    BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
     TestedStandaloneTestStrategy standaloneTestStrategy =
-        new TestedStandaloneTestStrategy(
-            executionOptions, testSummaryOptions, binTools, tmpDirRoot);
+        new TestedStandaloneTestStrategy(executionOptions, testSummaryOptions, tmpDirRoot);
 
     scratch.file("standalone/empty_test.sh", "this does not get executed, it is mocked out");
     scratch.file(
@@ -909,7 +868,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
     ActionExecutionContext actionExecutionContext =
         new FakeActionExecutionContext(
-            createTempOutErr(tmpDirRoot), inputMetadataProvider, spawnStrategy, binTools);
+            createTempOutErr(tmpDirRoot), inputMetadataProvider, spawnStrategy);
     ImmutableList<SpawnResult> resultA =
         execute(actionA, actionExecutionContext, standaloneTestStrategy);
     assertThat(attemptGroup.cancelled()).isTrue();
@@ -951,10 +910,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
     TestSummaryOptions testSummaryOptions = Options.getDefaults(TestSummaryOptions.class);
     Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
-    BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
     TestedStandaloneTestStrategy standaloneTestStrategy =
-        new TestedStandaloneTestStrategy(
-            executionOptions, testSummaryOptions, binTools, tmpDirRoot);
+        new TestedStandaloneTestStrategy(executionOptions, testSummaryOptions, tmpDirRoot);
 
     scratch.file("standalone/empty_test.sh", "this does not get executed, it is mocked out");
     scratch.file(
@@ -1009,7 +966,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
     ActionExecutionContext actionExecutionContext =
         new FakeActionExecutionContext(
-            createTempOutErr(tmpDirRoot), inputMetadataProvider, spawnStrategy, binTools);
+            createTempOutErr(tmpDirRoot), inputMetadataProvider, spawnStrategy);
     ImmutableList<SpawnResult> resultA =
         execute(actionA, actionExecutionContext, standaloneTestStrategy);
     assertThat(attemptGroup.cancelled()).isFalse();
@@ -1062,10 +1019,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
     TestSummaryOptions testSummaryOptions = Options.getDefaults(TestSummaryOptions.class);
     Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
-    BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
     TestedStandaloneTestStrategy standaloneTestStrategy =
-        new TestedStandaloneTestStrategy(
-            executionOptions, testSummaryOptions, binTools, tmpDirRoot);
+        new TestedStandaloneTestStrategy(executionOptions, testSummaryOptions, tmpDirRoot);
 
     scratch.file("standalone/empty_test.sh", "this does not get executed, it is mocked out");
     scratch.file(
@@ -1117,7 +1072,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
     ActionExecutionContext actionExecutionContext =
         new FakeActionExecutionContext(
-            createTempOutErr(tmpDirRoot), inputMetadataProvider, spawnStrategy, binTools);
+            createTempOutErr(tmpDirRoot), inputMetadataProvider, spawnStrategy);
     ImmutableList<SpawnResult> resultA =
         execute(actionA, actionExecutionContext, standaloneTestStrategy);
     assertThat(attemptGroup.cancelled()).isFalse();
@@ -1150,10 +1105,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     ExecutionOptions executionOptions = ExecutionOptions.DEFAULTS;
     TestSummaryOptions testSummaryOptions = TestSummaryOptions.DEFAULTS;
     Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
-    BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
     TestedStandaloneTestStrategy standaloneTestStrategy =
-        new TestedStandaloneTestStrategy(
-            executionOptions, testSummaryOptions, binTools, tmpDirRoot);
+        new TestedStandaloneTestStrategy(executionOptions, testSummaryOptions, tmpDirRoot);
 
     // setup a test action
     scratch.file("standalone/simple_test.sh", "this does not get executed, it is mocked out");
@@ -1170,10 +1123,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     TestRunnerAction testRunnerAction = getTestAction("//standalone:simple_test");
     ActionExecutionContext actionExecutionContext =
         new FakeActionExecutionContext(
-            createTempOutErr(tmpDirRoot),
-            inputMetadataFor(testRunnerAction),
-            spawnStrategy,
-            binTools);
+            createTempOutErr(tmpDirRoot), inputMetadataFor(testRunnerAction), spawnStrategy);
     TestRunnerSpawn spawn =
         standaloneTestStrategy.createTestRunnerSpawn(testRunnerAction, actionExecutionContext);
 

@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -84,8 +83,7 @@ public class LtoBackendActionTest extends BuildViewTestCase {
 
   @Before
   public final void createExecutorAndContext() throws Exception {
-    BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
-    Executor executor = new TestExecutorBuilder(fileSystem, directories, binTools).build();
+    Executor executor = new TestExecutorBuilder(fileSystem, directories).build();
     context =
         new ActionExecutionContext(
             executor,

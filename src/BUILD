@@ -26,7 +26,6 @@ md5_cmd = "set -e -o pipefail && %s $(SRCS) | %s | %s > $@"
         "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
         "//src/main/java/net/starlark/java/eval:cpu_profiler",
         "//src/main/cpp:client",
-        "//src/main/tools:build-runfiles",
         "//src/main/tools:process-wrapper",
         "//src/main/tools:linux-sandbox",
         "//tools/osx:xcode-locator",
@@ -278,7 +277,6 @@ genrule(
         "//:platforms-srcs",
         # Non-ordered items follow:
         "//src/main/java/net/starlark/java/eval:cpu_profiler",
-        "//src/main/tools:build-runfiles",
         "//src/main/tools:process-wrapper",
         "//src/main/tools:linux-sandbox",
         "//tools/osx:xcode-locator",

@@ -183,8 +183,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
                 context.getInputMetadataProvider().getRunfilesMetadata(toolFile).getRunfilesTree());
           }
         }
-        runfilesTreeUpdater.updateRunfiles(
-            runfilesTrees, spawn.getEnvironment(), context.getFileOutErr());
+        runfilesTreeUpdater.updateRunfiles(runfilesTrees);
       }
 
       InputMetadataProvider inputFileCache = context.getInputMetadataProvider();

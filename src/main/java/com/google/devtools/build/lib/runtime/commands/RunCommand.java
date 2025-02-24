@@ -952,10 +952,7 @@ public class RunCommand implements BlazeCommand {
     }
 
     try {
-      runfilesTreeUpdater.updateRunfiles(
-          ImmutableList.of(runfilesSupport.getRunfilesTree()),
-          /* env= */ ImmutableMap.of(),
-          /* outErr= */ null);
+      runfilesTreeUpdater.updateRunfiles(ImmutableList.of(runfilesSupport.getRunfilesTree()));
     } catch (ExecException | IOException e) {
       throw new RunfilesException(
           "Failed to create runfiles symlinks: " + e.getMessage(),

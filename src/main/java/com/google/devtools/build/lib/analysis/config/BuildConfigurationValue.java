@@ -850,18 +850,14 @@ public class BuildConfigurationValue
   }
 
   /**
-   * Describes how to create runfile symlink trees.
+   * Describes whether to create runfile symlink trees.
    *
    * <p>May be overridden if an {@link com.google.devtools.build.lib.vfs.OutputService} capable of
    * creating symlink trees is available.
    */
   public enum RunfileSymlinksMode {
-    /** Do not create. */
     SKIP,
-    /** Use the out-of-process implementation. */
-    EXTERNAL,
-    /** Use the in-process implementation. */
-    INTERNAL
+    CREATE
   }
 
   @VisibleForTesting
@@ -869,9 +865,7 @@ public class BuildConfigurationValue
     // TODO(buchgr): Revisit naming and functionality of this flag. See #9248 for details.
     if (options.enableRunfiles == TriState.YES
         || (options.enableRunfiles == TriState.AUTO && OS.getCurrent() != OS.WINDOWS)) {
-      return options.inProcessSymlinkCreation
-          ? RunfileSymlinksMode.INTERNAL
-          : RunfileSymlinksMode.EXTERNAL;
+      return RunfileSymlinksMode.CREATE;
     }
     return RunfileSymlinksMode.SKIP;
   }
@@ -881,7 +875,7 @@ public class BuildConfigurationValue
   }
 
   public static boolean runfilesEnabled(CoreOptions options) {
-    return getRunfileSymlinksMode(options) != RunfileSymlinksMode.SKIP;
+    return getRunfileSymlinksMode(options) == RunfileSymlinksMode.CREATE;
   }
 
   public boolean runfilesEnabled() {
