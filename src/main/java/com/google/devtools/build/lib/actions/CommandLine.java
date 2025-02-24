@@ -57,7 +57,7 @@ public abstract class CommandLine {
     }
 
     @Override
-    public Iterable<String> arguments() {
+    public Iterable<String> arguments(PathMapper pathMapper) {
       return args;
     }
 

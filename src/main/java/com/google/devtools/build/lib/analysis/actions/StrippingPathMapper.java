@@ -158,6 +158,15 @@ public final class StrippingPathMapper implements PathMapper {
   }
 
   @Override
+  public int computeExecPathLengthDiff(DerivedArtifact artifact) {
+    String unmappedPath = artifact.getExecPathString();
+    // bazel-out/k8-fastbuild/... is mapped to bazel-out/${FIXED_CONFIG_SEGMENT}/...
+    int firstSlash = unmappedPath.indexOf('/');
+    int secondSlash = unmappedPath.indexOf('/', firstSlash + 1);
+    return FIXED_CONFIG_SEGMENT.length() - (secondSlash - firstSlash);
+  }
+
+  @Override
   public ArgChunk mapCustomStarlarkArgs(ArgChunk chunk) {
     if (!isStarlarkAction) {
       return chunk;
@@ -174,7 +183,7 @@ public final class StrippingPathMapper implements PathMapper {
 
     // TODO: b/327187486 - This materializes strings when totalArgLength() is called. Can it
     //  compute the total arg length without creating garbage strings?
-    Iterable<String> args = chunk.arguments();
+    Iterable<String> args = chunk.arguments(this);
     return new SimpleArgChunk(() -> new CustomStarlarkArgsIterator(args.iterator(), argStripper));
   }
 
@@ -339,12 +348,6 @@ public final class StrippingPathMapper implements PathMapper {
    * Strips the configuration prefix from an output artifact's exec path.
    */
   private static PathFragment strip(PathFragment execPath) {
-    if (execPath.subFragment(1, 2).getPathString().equals("tmp")) {
-      return execPath
-          .subFragment(0, 2)
-          .getRelative(FIXED_CONFIG_SEGMENT)
-          .getRelative(execPath.subFragment(3));
-    }
     return execPath
         .subFragment(0, 1)
         // Keep the config segment, but replace it with a fixed string to improve cacheability while

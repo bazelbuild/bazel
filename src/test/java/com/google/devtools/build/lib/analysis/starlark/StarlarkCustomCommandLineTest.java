@@ -385,7 +385,7 @@ public final class StarlarkCustomCommandLineTest {
     // Check consistency of the total argument length calculation with SimpleArgChunk, which
     // materializes strings and adds up their lengths.
     assertThat(chunk.totalArgLength())
-        .isEqualTo(new SimpleArgChunk(chunk.arguments()).totalArgLength());
+        .isEqualTo(new SimpleArgChunk(chunk.arguments(PathMapper.NOOP)).totalArgLength());
   }
 
   private SpecialArtifact createFileset(String relativePath) {
