@@ -106,6 +106,19 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
     return pathFragment.getBaseName();
   }
 
+  /**
+   * Returns a {@link Path} formed by appending {@code newName} to this {@link Path}'s parent
+   * directory. If this {@link Path} has zero segments, returns {@code null}. If {@code newName} is
+   * absolute, the value of {@code this} will be ignored and a {@link Path} corresponding to {@code
+   * newName} will be returned. This is consistent with the behavior of {@link
+   * #getRelative(String)}.
+   */
+  @Nullable
+  public Path replaceName(String newName) {
+    Path parent = getParentDirectory();
+    return parent != null ? parent.getRelative(newName) : null;
+  }
+
   /** Synonymous with {@link Path#getRelative(String)}. */
   public Path getChild(String child) {
     FileSystemUtils.checkBaseName(child);
