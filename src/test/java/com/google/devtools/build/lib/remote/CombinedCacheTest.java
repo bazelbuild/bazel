@@ -365,13 +365,12 @@ public class CombinedCacheTest {
 
     var e =
         assertThrows(
-            IOException.class,
+            BulkTransferException.class,
             () -> {
               remoteCache.ensureInputsPresent(
                   remoteActionExecutionContext, merkleTree, ImmutableMap.of(), false);
             });
-    assertThat(e).isInstanceOf(BulkTransferException.class);
-    assertThat(((BulkTransferException) e).getLostInputs(ActionInputHelper::fromPath))
+    assertThat(e.getLostInputs(ActionInputHelper::fromPath))
         .containsExactly(
             DigestUtil.toString(digestUtil.computeAsUtf8("bar")),
             ActionInputHelper.fromPath("foo"));
