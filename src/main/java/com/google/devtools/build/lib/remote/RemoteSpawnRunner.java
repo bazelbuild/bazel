@@ -34,14 +34,11 @@ import build.bazel.remote.execution.v2.ExecutionStage.Value;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputDepOwnerMap;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
-import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -577,14 +574,6 @@ public class RemoteSpawnRunner implements SpawnRunner {
     if (Thread.currentThread().isInterrupted()) {
       throw new InterruptedException();
     }
-    if (cause instanceof BulkTransferException e) {
-      ImmutableMap<String, ActionInput> lostInputs =
-          e.getLostInputs(context.getInputMetadataProvider()::getInput);
-      if (!lostInputs.isEmpty()) {
-        throw new LostInputsExecException(
-            lostInputs, new ActionInputDepOwnerMap(lostInputs.values()));
-      }
-    }
     if (remoteOptions.remoteLocalFallback && !RemoteRetrierUtils.causedByExecTimeout(cause)) {
       return execLocallyAndUpload(action, spawn, context, uploadLocalResults);
     }
@@ -649,6 +638,10 @@ public class RemoteSpawnRunner implements SpawnRunner {
       status = Status.EXECUTION_FAILED_CATASTROPHICALLY;
       detailedCode = FailureDetails.Spawn.Code.EXECUTION_FAILED;
       catastrophe = true;
+    } else if (BulkTransferException.allCausedByCacheNotFoundException(exception)) {
+      status = Status.REMOTE_CACHE_FAILED;
+      detailedCode = FailureDetails.Spawn.Code.REMOTE_CACHE_EVICTED;
+      catastrophe = false;
     } else {
       status = Status.EXECUTION_FAILED;
       detailedCode = FailureDetails.Spawn.Code.EXECUTION_FAILED;
