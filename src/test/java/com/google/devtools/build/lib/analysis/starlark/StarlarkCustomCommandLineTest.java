@@ -381,11 +381,12 @@ public final class StarlarkCustomCommandLineTest {
   private static void verifyCommandLine(CommandLine commandLine, String... expected)
       throws CommandLineExpansionException, InterruptedException {
     ArgChunk chunk = commandLine.expand(new FakeActionInputFileCache(), PathMapper.NOOP);
-    assertThat(chunk.arguments()).containsExactlyElementsIn(expected).inOrder();
+    assertThat(chunk.arguments(PathMapper.NOOP)).containsExactlyElementsIn(expected).inOrder();
     // Check consistency of the total argument length calculation with SimpleArgChunk, which
     // materializes strings and adds up their lengths.
-    assertThat(chunk.totalArgLength())
-        .isEqualTo(new SimpleArgChunk(chunk.arguments(PathMapper.NOOP)).totalArgLength());
+    assertThat(chunk.totalArgLength(PathMapper.NOOP))
+        .isEqualTo(
+            new SimpleArgChunk(chunk.arguments(PathMapper.NOOP)).totalArgLength(PathMapper.NOOP));
   }
 
   private SpecialArtifact createFileset(String relativePath) {

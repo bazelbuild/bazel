@@ -214,11 +214,6 @@ java_library(
 )
 
 java_library(
-    name = "arg_chunk",
-    srcs = ["ArgChunk.java"],
-)
-
-java_library(
     name = "action_environment",
     srcs = ["ActionEnvironment.java"],
     deps = [
@@ -299,6 +294,7 @@ java_library(
     srcs = [
         "ActionInput.java",
         "ActionKeyContext.java",
+        "ArgChunk.java",
         "Artifact.java",
         "ArtifactCodecs.java",
         "ArtifactFactory.java",
@@ -312,7 +308,6 @@ java_library(
     deps = [
         ":action_lookup_data",
         ":action_lookup_key",
-        ":arg_chunk",
         ":artifact_owner",
         ":commandline_item",
         ":package_roots",

@@ -163,7 +163,7 @@ public final class StrippingPathMapper implements PathMapper {
   public int computeExecPathLengthDiff(DerivedArtifact artifact) {
     String unmappedPath = artifact.getExecPathString();
     // bazel-out/k8-fastbuild/... is mapped to bazel-out/${FIXED_CONFIG_SEGMENT}/...
-    int firstSlash = unmappedPath.indexOf('/');
+    int firstSlash = outputRoot.getPathString().length() + 1;
     int secondSlash = unmappedPath.indexOf('/', firstSlash + 1);
     return FIXED_CONFIG_SEGMENT.length() - (secondSlash - firstSlash);
   }
