@@ -74,6 +74,8 @@ public class BulkTransferException extends IOException {
         && bulkTransferException.allCausedByCacheNotFoundException();
   }
 
+  // Avoid the heavy dependency on InputMetadataProvider, whose getInput method provides the
+  // argument to this method.
   public ImmutableMap<String, ActionInput> getLostInputs(
       Function<String, ActionInput> actionInputResolver) {
     if (!allCausedByCacheNotFoundException(this)) {
