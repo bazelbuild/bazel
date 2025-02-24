@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.remote.AbstractActionInputPrefetcher.MetadataSupplier;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
@@ -869,13 +868,6 @@ public abstract class ActionInputPrefetcherTestBase {
     Map<HashCode, byte[]> cas = new HashMap<>();
     var input = createRemoteArtifact("file", "hello world", metadata, /* cas= */ null);
     AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
-    InputMetadataProvider inputMetadataProvider =
-        new ActionsTestUtil.FakeInputMetadataHandlerBase() {
-          @Override
-          public ActionInput getInput(String execPath) {
-            return execPath.equals(input.getExecPathString()) ? input : null;
-          }
-        };
 
     var e =
         assertThrows(
@@ -884,7 +876,9 @@ public abstract class ActionInputPrefetcherTestBase {
                 wait(
                     prefetcher.prefetchFilesInterruptibly(
                         action, metadata.keySet(), metadata::get, Priority.MEDIUM, Reason.INPUTS)));
-    assertThat(e.getLostInputs(inputMetadataProvider))
+    assertThat(
+            e.getLostInputs(
+                inputPath -> inputPath.equals(input.getExecPathString()) ? input : null))
         .containsExactly(
             DigestUtil.toString(
                 new DigestUtil(SyscallCache.NO_CACHE, HASH_FUNCTION).computeAsUtf8("hello world")),

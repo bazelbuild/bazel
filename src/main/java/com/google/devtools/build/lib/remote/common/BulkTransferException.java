@@ -20,12 +20,12 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -75,7 +75,7 @@ public class BulkTransferException extends IOException {
   }
 
   public ImmutableMap<String, ActionInput> getLostInputs(
-      InputMetadataProvider inputMetadataProvider) {
+      Function<String, ActionInput> actionInputResolver) {
     if (!allCausedByCacheNotFoundException(this)) {
       return ImmutableMap.of();
     }
@@ -90,7 +90,7 @@ public class BulkTransferException extends IOException {
                       "exec path not known for action input with digest %s",
                       e.getMissingDigest());
                   ActionInput actionInput =
-                      inputMetadataProvider.getInput(e.getExecPath().getPathString());
+                      actionInputResolver.apply(e.getExecPath().getPathString());
                   Preconditions.checkNotNull(
                       actionInput,
                       "ActionInput not found for filename %s in CacheNotFoundException",

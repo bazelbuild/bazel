@@ -604,7 +604,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     // current action.
     if (reason == FailureReason.UPLOAD && cause instanceof BulkTransferException e) {
       ImmutableMap<String, ActionInput> lostInputs =
-          e.getLostInputs(context.getInputMetadataProvider());
+          e.getLostInputs(context.getInputMetadataProvider()::getInput);
       if (!lostInputs.isEmpty()) {
         throw new LostInputsExecException(
             lostInputs, new ActionInputDepOwnerMap(lostInputs.values()));
