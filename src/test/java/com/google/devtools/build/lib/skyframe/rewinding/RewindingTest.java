@@ -78,6 +78,7 @@ public final class RewindingTest extends BuildIntegrationTestCase {
         "--rewind_lost_inputs",
         "--features=cc_include_scanning",
         "--experimental_remote_include_extraction_size_threshold=0",
+        "--experimental_remote_cache_eviction_retries=0",
         "--track_incremental_state=" + trackIncrementalState,
         "--keep_going=" + keepGoing,
         "--experimental_merged_skyframe_analysis_execution=" + skymeld);
