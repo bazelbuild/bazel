@@ -437,7 +437,6 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
   // https://bugs.openjdk.org/browse/JDK-6942632
   result.push_back("-XX:+IgnoreUnrecognizedVMOptions");
   result.push_back("-XX:+UseAllWindowsProcessorGroups");
-  result.push_back("-XX:-IgnoreUnrecognizedVMOptions");
 #endif
 
   if (startup_options.host_jvm_debug) {
