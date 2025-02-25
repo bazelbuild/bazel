@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -51,13 +52,14 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
-import com.google.devtools.build.lib.packages.util.MockCcSupport;
+import com.google.devtools.build.lib.packages.util.ResourceLoader;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction.LinkResourceSetBuilder;
 import com.google.devtools.build.lib.rules.cpp.LegacyLinkerInputs.LibraryInput;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -69,6 +71,7 @@ import java.io.IOException;
 import java.util.List;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkSemantics;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -76,6 +79,15 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link CppLinkAction}. */
 @RunWith(JUnit4.class)
 public final class CppLinkActionTest extends BuildViewTestCase {
+
+  @Before
+  public void setupCcToolchainConfig() throws IOException {
+    scratch.overwriteFile(
+        "tools/cpp/cc_toolchain_config_lib.bzl",
+        ResourceLoader.readFromResources(
+            TestConstants.RULES_CC_REPOSITORY_EXECROOT + "cc/cc_toolchain_config_lib.bzl"));
+    scratch.appendFile("tools/cpp/BUILD");
+  }
 
   private RuleContext createDummyRuleContext() throws Exception {
     return view.getRuleContextForTesting(
@@ -181,60 +193,99 @@ public final class CppLinkActionTest extends BuildViewTestCase {
     }
   }
 
+  public void registerToolchainWithConfig(String... config) throws IOException {
+    scratch.file(
+        "toolchain/crosstool_rule.bzl",
+        """
+        load(
+            "//tools/cpp:cc_toolchain_config_lib.bzl",
+            "action_config",
+            "env_entry",
+            "env_set",
+            "feature",
+            "feature_set",
+            "flag_group",
+            "flag_set",
+            "tool",
+            "tool_path",
+        )
+
+        def _impl(ctx):
+            return cc_common.create_cc_toolchain_config_info(
+                ctx = ctx,
+                toolchain_identifier = "",
+                compiler = "",
+        """,
+        String.join("\\n", config),
+        """
+            )
+
+        cc_toolchain_config_rule = rule(
+            implementation = _impl,
+            attrs = {},
+            provides = [CcToolchainConfigInfo],
+            fragments = ["cpp"],
+        )
+        """);
+    scratch.file(
+        "toolchain/BUILD",
+        """
+load(":crosstool_rule.bzl", "cc_toolchain_config_rule")
+cc_toolchain_config_rule(name = "toolchain_config")
+filegroup(name = "empty")
+cc_toolchain(
+    name = "cc_toolchain",
+    all_files = ":empty",
+    ar_files = ":empty",
+    as_files = ":empty",
+    compiler_files = ":empty",
+    dwp_files = ":empty",
+    linker_files = ":empty",
+    objcopy_files = ":empty",
+    strip_files = ":empty",
+    toolchain_config = ":toolchain_config",
+)
+toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
+"""
+            + TestConstants.TOOLS_REPOSITORY
+            + "//tools/cpp:toolchain_type')");
+  }
+
   @Test
   public void testToolchainFeatureFlags() throws Exception {
-    RuleContext ruleContext = createDummyRuleContext();
+    registerToolchainWithConfig(
+        """
+        features = [feature(
+            name = "a",
+            flag_sets = [flag_set(
+                actions = ["c++-link-executable"],
+                flag_groups = [flag_group(flags = ["some_flag"])],
+            )],
+        )]
+        """);
+    useConfiguration("--features=a", "--extra_toolchains=//toolchain");
+    scratch.file("foo/BUILD", "cc_binary(name = 'foo')");
 
-    FeatureConfiguration featureConfiguration =
-        CcToolchainTestHelper.buildFeatures(
-                MockCcSupport.EMPTY_EXECUTABLE_ACTION_CONFIG,
-                "feature {",
-                "   name: 'a'",
-                "   flag_set {",
-                "      action: '" + Link.LinkTargetType.EXECUTABLE.getActionName() + "'",
-                "      flag_group { flag: 'some_flag' }",
-                "   }",
-                "}")
-            .getFeatureConfiguration(
-                ImmutableSet.of("a", Link.LinkTargetType.EXECUTABLE.getActionName()));
-
-    SpawnAction linkAction =
-        createLinkBuilder(
-                ruleContext,
-                Link.LinkTargetType.EXECUTABLE,
-                "dummyRuleContext/out",
-                ImmutableList.of(),
-                ImmutableList.of(),
-                featureConfiguration)
-            .build();
+    SpawnAction linkAction = (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppLink"));
     assertThat(linkAction.getArguments()).contains("some_flag");
   }
 
   @Test
   public void testExecutionRequirementsFromCrosstool() throws Exception {
-    RuleContext ruleContext = createDummyRuleContext();
+    registerToolchainWithConfig(
+        """
+        action_configs = [action_config(
+            action_name = "c++-link-executable",
+            tools = [tool(
+                path = "DUMMY_TOOL",
+                execution_requirements = ["dummy-exec-requirement"],
+            )],
+        )]
+        """);
+    useConfiguration("--extra_toolchains=//toolchain");
+    scratch.file("foo/BUILD", "cc_binary(name = 'foo')");
 
-    FeatureConfiguration featureConfiguration =
-        CcToolchainTestHelper.buildFeatures(
-                "action_config {",
-                "   config_name: '" + LinkTargetType.EXECUTABLE.getActionName() + "'",
-                "   action_name: '" + LinkTargetType.EXECUTABLE.getActionName() + "'",
-                "   tool {",
-                "      tool_path: 'DUMMY_TOOL'",
-                "      execution_requirement: 'dummy-exec-requirement'",
-                "   }",
-                "}")
-            .getFeatureConfiguration(ImmutableSet.of(LinkTargetType.EXECUTABLE.getActionName()));
-
-    SpawnAction linkAction =
-        createLinkBuilder(
-                ruleContext,
-                LinkTargetType.EXECUTABLE,
-                "dummyRuleContext/out",
-                ImmutableList.of(),
-                ImmutableList.of(),
-                featureConfiguration)
-            .build();
+    SpawnAction linkAction = (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppLink"));
     assertThat(linkAction.getExecutionInfo()).containsEntry("dummy-exec-requirement", "");
   }
 
@@ -419,30 +470,20 @@ public final class CppLinkActionTest extends BuildViewTestCase {
 
   @Test
   public void testToolchainFeatureEnv() throws Exception {
-    RuleContext ruleContext = createDummyRuleContext();
+    registerToolchainWithConfig(
+        """
+        features = [feature(
+            name = "a",
+            env_sets = [env_set(
+                actions = ["c++-link-executable"],
+                env_entries = [env_entry(key = "foo", value = "bar")],
+            )],
+        )]
+        """);
+    useConfiguration("--features=a", "--extra_toolchains=//toolchain");
+    scratch.file("foo/BUILD", "cc_binary(name = 'foo')");
 
-    FeatureConfiguration featureConfiguration =
-        CcToolchainTestHelper.buildFeatures(
-                MockCcSupport.EMPTY_EXECUTABLE_ACTION_CONFIG,
-                "feature {",
-                "   name: 'a'",
-                "   env_set {",
-                "      action: '" + Link.LinkTargetType.EXECUTABLE.getActionName() + "'",
-                "      env_entry { key: 'foo', value: 'bar' }",
-                "   }",
-                "}")
-            .getFeatureConfiguration(
-                ImmutableSet.of(Link.LinkTargetType.EXECUTABLE.getActionName(), "a"));
-
-    SpawnAction linkAction =
-        createLinkBuilder(
-                ruleContext,
-                Link.LinkTargetType.EXECUTABLE,
-                "dummyRuleContext/out",
-                ImmutableList.of(),
-                ImmutableList.of(),
-                featureConfiguration)
-            .build();
+    SpawnAction linkAction = (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppLink"));
     assertThat(linkAction.getEffectiveEnvironment(ImmutableMap.of())).containsEntry("foo", "bar");
   }
 
@@ -847,69 +888,55 @@ public final class CppLinkActionTest extends BuildViewTestCase {
 
   @Test
   public void testInterfaceOutputForDynamicLibraryLegacy() throws Exception {
-    RuleContext ruleContext = createDummyRuleContext();
+    registerToolchainWithConfig(
+        """
+features = [
+    feature(name = "supports_dynamic_linker", enabled = True),
+    feature(name = "supports_interface_shared_libraries", enabled = True),
+    feature(
+        name = "build_interface_libraries",
+        flag_sets = [flag_set(
+            actions = ["c++-link-nodeps-dynamic-library"],
+            flag_groups = [flag_group(flags = [
+                "%{generate_interface_library}",
+                "%{interface_library_builder_path}",
+                "%{interface_library_input_path}",
+                "%{interface_library_output_path}",
+            ])],
+        )],
+    ),
+    feature(
+        name = "dynamic_library_linker_tool",
+        flag_sets = [flag_set(
+            actions = ["c++-link-nodeps-dynamic-library"],
+            flag_groups = [flag_group(flags = ["dynamic_library_linker_tool"])],
+        )],
+    ),
+    feature(name = "has_configured_linker_path"),
+],
+action_configs = [action_config(
+    action_name = "c++-link-nodeps-dynamic-library",
+    tools = [tool(
+        path = "custom/crosstool/scripts/link_dynamic_library.sh",
+    )],
+    implies = ["has_configured_linker_path", "build_interface_libraries", "dynamic_library_linker_tool"],
+)]
+""");
+    useConfiguration(
+        "--extra_toolchains=//toolchain",
+        "--features=build_interface_libraries,dynamic_library_linker_tool");
+    scratch.file("foo/BUILD", "cc_library(name = 'foo', srcs = ['a.c'])");
 
-    FeatureConfiguration featureConfiguration =
-        CcToolchainTestHelper.buildFeatures(
-                MockCcSupport.SUPPORTS_INTERFACE_SHARED_LIBRARIES_FEATURE,
-                "feature {",
-                "   name: 'build_interface_libraries'",
-                "   flag_set {",
-                "       action: '" + LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName() + "',",
-                "       flag_group {",
-                "           flag: '%{generate_interface_library}'",
-                "           flag: '%{interface_library_builder_path}'",
-                "           flag: '%{interface_library_input_path}'",
-                "           flag: '%{interface_library_output_path}'",
-                "       }",
-                "   }",
-                "}",
-                "feature {",
-                "   name: 'dynamic_library_linker_tool'",
-                "   flag_set {",
-                "       action: 'c++-link-nodeps-dynamic-library'",
-                "       flag_group {",
-                "           flag: 'dynamic_library_linker_tool'",
-                "       }",
-                "   }",
-                "}",
-                "feature {",
-                "    name: 'has_configured_linker_path'",
-                "}",
-                "action_config {",
-                "   config_name: '" + LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName() + "'",
-                "   action_name: '" + LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName() + "'",
-                "   tool {",
-                "       tool_path: 'custom/crosstool/scripts/link_dynamic_library.sh'",
-                "   }",
-                "   implies: 'has_configured_linker_path'",
-                "   implies: 'build_interface_libraries'",
-                "   implies: 'dynamic_library_linker_tool'",
-                "}")
-            .getFeatureConfiguration(
-                ImmutableSet.of(
-                    "build_interface_libraries",
-                    "dynamic_library_linker_tool",
-                    LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName()));
-    CppLinkActionBuilder builder =
-        createLinkBuilder(
-                ruleContext,
-                LinkTargetType.NODEPS_DYNAMIC_LIBRARY,
-                "foo.so",
-                ImmutableList.of(),
-                ImmutableList.of(),
-                featureConfiguration)
-            .setLibraryIdentifier("foo")
-            .setInterfaceOutput(scratchArtifact("FakeInterfaceOutput.ifso"));
+    SpawnAction linkAction = (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppLink"));
 
-    List<String> commandLine = builder.build().getArguments();
-    assertThat(commandLine).hasSize(6);
+    List<String> commandLine = linkAction.getArguments();
+    assertThat(commandLine).hasSize(12);
     assertThat(commandLine.get(0)).endsWith("custom/crosstool/scripts/link_dynamic_library.sh");
-    assertThat(commandLine.get(1)).isEqualTo("yes");
-    assertThat(commandLine.get(2)).endsWith("tools/cpp/build_interface_so");
-    assertThat(commandLine.get(3)).endsWith("foo.so");
-    assertThat(commandLine.get(4)).isEqualTo("out/FakeInterfaceOutput.ifso");
-    assertThat(commandLine.get(5)).isEqualTo("dynamic_library_linker_tool");
+    assertThat(commandLine.get(7)).isEqualTo("yes");
+    assertThat(commandLine.get(8)).endsWith("tools/cpp/build_interface_so");
+    assertThat(commandLine.get(9)).endsWith("foo.so");
+    assertThat(commandLine.get(10)).endsWith("bin/foo/libfoo.ifso");
+    assertThat(commandLine.get(11)).isEqualTo("dynamic_library_linker_tool");
   }
 
   @Test
