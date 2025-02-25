@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import io.netty.util.AbstractReferenceCounted;
@@ -370,9 +371,10 @@ public class CombinedCache extends AbstractReferenceCounted {
         .call(() -> null, directExecutor());
   }
 
+  // Only for use by tests and the remote executor implementation.
   public ListenableFuture<byte[]> downloadBlob(
       RemoteActionExecutionContext context, Digest digest) {
-    return downloadBlob(context, /* blobName= */ "", digest);
+    return downloadBlob(context, /* blobName= */ "", /* execPath= */ null, digest);
   }
 
   /**
@@ -382,17 +384,24 @@ public class CombinedCache extends AbstractReferenceCounted {
    *     the content is stored in the future's {@code byte[]}.
    */
   public ListenableFuture<byte[]> downloadBlob(
-      RemoteActionExecutionContext context, String blobName, Digest digest) {
+      RemoteActionExecutionContext context,
+      String blobName,
+      @Nullable PathFragment execPath,
+      Digest digest) {
     if (digest.getSizeBytes() == 0) {
       return EMPTY_BYTES;
     }
     ByteArrayOutputStream bOut = new ByteArrayOutputStream((int) digest.getSizeBytes());
-    var download = downloadBlob(context, blobName, digest, bOut);
+    var download = downloadBlob(context, blobName, execPath, digest, bOut);
     return Futures.transform(download, (v) -> bOut.toByteArray(), directExecutor());
   }
 
   private ListenableFuture<Void> downloadBlob(
-      RemoteActionExecutionContext context, String blobName, Digest digest, OutputStream out) {
+      RemoteActionExecutionContext context,
+      String blobName,
+      @Nullable PathFragment execPath,
+      Digest digest,
+      OutputStream out) {
     if (digest.getSizeBytes() == 0) {
       return COMPLETED_SUCCESS;
     }
@@ -401,6 +410,7 @@ public class CombinedCache extends AbstractReferenceCounted {
         future,
         CacheNotFoundException.class,
         (cacheNotFoundException) -> {
+          cacheNotFoundException.setExecPath(execPath);
           cacheNotFoundException.setFilename(blobName);
           return immediateFailedFuture(cacheNotFoundException);
         },
@@ -543,6 +553,7 @@ public class CombinedCache extends AbstractReferenceCounted {
   public ListenableFuture<Void> downloadFile(
       RemoteActionExecutionContext context,
       String outputPath,
+      @Nullable PathFragment execPath,
       Path localPath,
       Digest digest,
       DownloadProgressReporter reporter)
@@ -553,6 +564,7 @@ public class CombinedCache extends AbstractReferenceCounted {
         Throwable.class,
         (throwable) -> {
           if (throwable instanceof CacheNotFoundException cacheNotFoundException) {
+            cacheNotFoundException.setExecPath(execPath);
             cacheNotFoundException.setFilename(outputPath);
           } else if (throwable instanceof OutputDigestMismatchException e) {
             e.setOutputPath(outputPath);
@@ -563,12 +575,19 @@ public class CombinedCache extends AbstractReferenceCounted {
         directExecutor());
   }
 
-  /** Downloads a file (that is not a directory). The content is fetched from the digest. */
+  /**
+   * Downloads a file (that is not a directory). The content is fetched from the digest.
+   *
+   * <p>Use {@link #downloadFile(RemoteActionExecutionContext, String, PathFragment, Path, Digest,
+   * DownloadProgressReporter)} instead for build outputs as it provides progress information and
+   * correctly handles unexpected cache misses.
+   */
   public ListenableFuture<Void> downloadFile(
       RemoteActionExecutionContext context, Path path, Digest digest) throws IOException {
     return downloadFile(
         context,
         path.getPathString(),
+        /* execPath= */ null,
         path,
         digest,
         new DownloadProgressReporter(NO_ACTION, "", 0));
@@ -643,6 +662,7 @@ public class CombinedCache extends AbstractReferenceCounted {
           downloadBlob(
               context,
               /* blobName= */ "<stdout>",
+              /* execPath= */ null,
               result.getStdoutDigest(),
               outErr.getOutputStream()));
     }
@@ -658,6 +678,7 @@ public class CombinedCache extends AbstractReferenceCounted {
           downloadBlob(
               context,
               /* blobName= */ "<stderr>",
+              /* execPath= */ null,
               result.getStderrDigest(),
               outErr.getErrorStream()));
     }

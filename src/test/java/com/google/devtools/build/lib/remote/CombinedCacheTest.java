@@ -31,15 +31,14 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
-import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.EventBus;
-import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -52,7 +51,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
-import com.google.devtools.build.lib.remote.common.LostInputsEvent;
+import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
@@ -82,7 +81,6 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -349,20 +347,14 @@ public class CombinedCacheTest {
   }
 
   @Test
-  public void ensureInputsPresent_missingInputs_sendLostInputsEvent() throws Exception {
+  public void ensureInputsPresent_missingInputs_exceptionHasLostInputs() throws Exception {
     RemoteCacheClient cacheProtocol = spy(new InMemoryCacheClient());
     RemoteExecutionCache remoteCache = spy(newRemoteExecutionCache(cacheProtocol));
     remoteCache.setRemotePathChecker(
         (context, path) -> path.relativeTo(execRoot).equals(PathFragment.create("foo")));
-    var lostInputsEvents = new ConcurrentLinkedQueue<LostInputsEvent>();
-    eventBus.register(
-        new Object() {
-          @Subscribe
-          @AllowConcurrentEvents
-          public void onLostInputs(LostInputsEvent event) {
-            lostInputsEvents.add(event);
-          }
-        });
+    doAnswer(invocationOnMock -> ArtifactPathResolver.forExecRoot(execRoot))
+        .when(remoteActionExecutionContext.getSpawnExecutionContext())
+        .getPathResolver();
 
     Path path = execRoot.getRelative("foo");
     FileSystemUtils.writeContentAsLatin1(path, "bar");
@@ -371,14 +363,17 @@ public class CombinedCacheTest {
     MerkleTree merkleTree = MerkleTree.build(inputs, digestUtil);
     path.delete();
 
-    assertThrows(
-        IOException.class,
-        () -> {
-          remoteCache.ensureInputsPresent(
-              remoteActionExecutionContext, merkleTree, ImmutableMap.of(), false, reporter);
-        });
-
-    assertThat(lostInputsEvents).hasSize(1);
+    var e =
+        assertThrows(
+            BulkTransferException.class,
+            () -> {
+              remoteCache.ensureInputsPresent(
+                  remoteActionExecutionContext, merkleTree, ImmutableMap.of(), false);
+            });
+    assertThat(e.getLostInputs(ActionInputHelper::fromPath))
+        .containsExactly(
+            DigestUtil.toString(digestUtil.computeAsUtf8("bar")),
+            ActionInputHelper.fromPath("foo"));
   }
 
   @Test
@@ -421,7 +416,7 @@ public class CombinedCacheTest {
             () -> {
               try {
                 remoteCache.ensureInputsPresent(
-                    remoteActionExecutionContext, merkleTree, ImmutableMap.of(), false, reporter);
+                    remoteActionExecutionContext, merkleTree, ImmutableMap.of(), false);
               } catch (IOException | InterruptedException ignored) {
                 // ignored
               } finally {
@@ -496,7 +491,7 @@ public class CombinedCacheTest {
         () -> {
           try {
             remoteCache.ensureInputsPresent(
-                remoteActionExecutionContext, merkleTree, ImmutableMap.of(), false, reporter);
+                remoteActionExecutionContext, merkleTree, ImmutableMap.of(), false);
           } catch (IOException ignored) {
             // ignored
           } catch (InterruptedException e) {
@@ -590,7 +585,7 @@ public class CombinedCacheTest {
             () -> {
               try {
                 remoteCache.ensureInputsPresent(
-                    remoteActionExecutionContext, merkleTree1, ImmutableMap.of(), false, reporter);
+                    remoteActionExecutionContext, merkleTree1, ImmutableMap.of(), false);
               } catch (IOException ignored) {
                 // ignored
               } catch (InterruptedException e) {
@@ -604,7 +599,7 @@ public class CombinedCacheTest {
             () -> {
               try {
                 remoteCache.ensureInputsPresent(
-                    remoteActionExecutionContext, merkleTree2, ImmutableMap.of(), false, reporter);
+                    remoteActionExecutionContext, merkleTree2, ImmutableMap.of(), false);
               } catch (InterruptedException | IOException ignored) {
                 // ignored
               } finally {
@@ -668,7 +663,7 @@ public class CombinedCacheTest {
             IOException.class,
             () ->
                 remoteCache.ensureInputsPresent(
-                    remoteActionExecutionContext, merkleTree, ImmutableMap.of(), false, reporter));
+                    remoteActionExecutionContext, merkleTree, ImmutableMap.of(), false));
 
     assertThat(e).hasMessageThat().contains("upload failed");
   }

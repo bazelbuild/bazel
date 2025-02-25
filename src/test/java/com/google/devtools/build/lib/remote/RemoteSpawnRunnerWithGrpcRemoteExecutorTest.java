@@ -91,6 +91,7 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
 import com.google.devtools.build.lib.remote.util.TestUtils;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -1189,6 +1190,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
     SpawnResult result = client.exec(simpleSpawn, context);
 
     assertThat(result.status()).isEqualTo(SpawnResult.Status.REMOTE_CACHE_FAILED);
+    assertThat(result.failureDetail().getSpawn().getCode())
+        .isEqualTo(FailureDetails.Spawn.Code.REMOTE_CACHE_FAILED);
     assertThat(result.getFailureMessage()).contains(DigestUtil.toString(stdOutDigest));
     // Ensure we also got back the stack trace because verboseFailures=true
     assertThat(result.getFailureMessage())
