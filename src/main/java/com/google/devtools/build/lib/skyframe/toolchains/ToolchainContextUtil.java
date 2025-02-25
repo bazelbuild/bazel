@@ -185,7 +185,8 @@ public final class ToolchainContextUtil {
 
     var packageContext =
         Label.PackageContext.of(
-            rule.getPackage().getPackageIdentifier(), rule.getPackage().getRepositoryMapping());
+            rule.getPackageMetadata().packageIdentifier(),
+            rule.getPackageMetadata().repositoryMapping());
     for (var entry :
         mapper
             .get(RuleClass.EXEC_GROUP_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST_DICT)
@@ -220,7 +221,7 @@ public final class ToolchainContextUtil {
             suggestedLabels =
                 toolchainTypes.stream()
                     .map(ToolchainTypeRequirement::toolchainType)
-                    .map(type -> type.getDisplayForm(rule.getPackage().getRepositoryMapping()))
+                    .map(type -> type.getDisplayForm(rule.getPackageMetadata().repositoryMapping()))
                     .collect(toImmutableSet());
           }
           throw new ExecGroupCollection.InvalidExecGroupException(

@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.auto.value.AutoBuilder;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -145,8 +146,6 @@ public class Package {
 
   private final Metadata metadata;
 
-  private final Optional<Root> sourceRoot;
-
   // For BUILD files, this is initialized immediately. For WORKSPACE files, it is known only after
   // Starlark evaluation of the WORKSPACE file has finished.
   private String workspaceName;
@@ -276,7 +275,6 @@ public class Package {
   // BUILD evaluation.
   private Package(Metadata metadata) {
     this.metadata = metadata;
-    this.sourceRoot = computeSourceRoot(metadata);
   }
 
   // ==== General package metadata accessors ====
@@ -395,7 +393,7 @@ public class Package {
    * getSourceRoot().get().getRelative(packageId.getSourceRoot()).equals(getPackageDirectory())}
    */
   public Optional<Root> getSourceRoot() {
-    return sourceRoot;
+    return metadata.sourceRoot();
   }
 
   /**
@@ -733,49 +731,6 @@ public class Package {
 
   // ==== Initialization ====
 
-  private static Optional<Root> computeSourceRoot(Metadata metadata) {
-    if (metadata.isRepoRulePackage()) {
-      return Optional.empty();
-    }
-
-    RootedPath buildFileRootedPath = metadata.buildFilename();
-    Root buildFileRoot = buildFileRootedPath.getRoot();
-    PathFragment pkgIdFragment = metadata.packageIdentifier().getSourceRoot();
-    PathFragment pkgDirFragment = buildFileRootedPath.getRootRelativePath().getParentDirectory();
-
-    Root sourceRoot;
-    if (pkgIdFragment.equals(pkgDirFragment)) {
-      // Fast path: BUILD file path and package name are the same, don't create an extra root.
-      sourceRoot = buildFileRoot;
-    } else {
-      // TODO(bazel-team): Can this expr be simplified to just pkgDirFragment?
-      PathFragment current = buildFileRootedPath.asPath().asFragment().getParentDirectory();
-      for (int i = 0, len = pkgIdFragment.segmentCount(); i < len && current != null; i++) {
-        current = current.getParentDirectory();
-      }
-      if (current == null || current.isEmpty()) {
-        // This is never really expected to work. The below check should fail.
-        sourceRoot = buildFileRoot;
-      } else {
-        // Note that current is an absolute path.
-        sourceRoot = Root.fromPath(buildFileRoot.getRelative(current));
-      }
-    }
-
-    Preconditions.checkArgument(
-        sourceRoot.asPath() != null
-            && sourceRoot.getRelative(pkgIdFragment).equals(metadata.getPackageDirectory()),
-        "Invalid BUILD file name for package '%s': %s (in source %s with packageDirectory %s and"
-            + " package identifier source root %s)",
-        metadata.packageIdentifier(),
-        metadata.buildFilename(),
-        sourceRoot,
-        metadata.getPackageDirectory(),
-        metadata.packageIdentifier().getSourceRoot());
-
-    return Optional.of(sourceRoot);
-  }
-
   /**
    * Completes the initialization of this package. Only after this method may a package by shared
    * publicly.
@@ -970,15 +925,16 @@ public class Package {
             || workspaceName.equals(DUMMY_WORKSPACE_NAME_FOR_BZLMOD_PACKAGES);
 
     return new Builder(
-        new Metadata(
-            /* packageIdentifier= */ id,
-            /* buildFilename= */ filename,
-            /* isRepoRulePackage= */ isRepoRulePackage,
-            /* repositoryMapping= */ repositoryMapping,
-            /* associatedModuleName= */ associatedModuleName,
-            /* associatedModuleVersion= */ associatedModuleVersion,
-            /* configSettingVisibilityPolicy= */ configSettingVisibilityPolicy,
-            /* succinctTargetNotFoundErrors= */ packageSettings.succinctTargetNotFoundErrors()),
+        Metadata.builder()
+            .packageIdentifier(id)
+            .buildFilename(filename)
+            .isRepoRulePackage(isRepoRulePackage)
+            .repositoryMapping(repositoryMapping)
+            .associatedModuleName(associatedModuleName)
+            .associatedModuleVersion(associatedModuleVersion)
+            .configSettingVisibilityPolicy(configSettingVisibilityPolicy)
+            .succinctTargetNotFoundErrors(packageSettings.succinctTargetNotFoundErrors())
+            .build(),
         SymbolGenerator.create(id),
         packageSettings.precomputeTransitiveLoads(),
         noImplicitFileExport,
@@ -1002,15 +958,13 @@ public class Package {
       boolean simplifyUnconditionalSelectsInRuleAttrs,
       PackageOverheadEstimator packageOverheadEstimator) {
     return new Builder(
-        new Metadata(
-            /* packageIdentifier= */ LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
-            /* buildFilename= */ workspaceFileKey.getPath(),
-            /* isRepoRulePackage= */ true,
-            /* repositoryMapping= */ mainRepoMapping,
-            /* associatedModuleName= */ Optional.empty(),
-            /* associatedModuleVersion= */ Optional.empty(),
-            /* configSettingVisibilityPolicy= */ null,
-            /* succinctTargetNotFoundErrors= */ packageSettings.succinctTargetNotFoundErrors()),
+        Metadata.builder()
+            .packageIdentifier(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)
+            .buildFilename(workspaceFileKey.getPath())
+            .isRepoRulePackage(true)
+            .repositoryMapping(mainRepoMapping)
+            .succinctTargetNotFoundErrors(packageSettings.succinctTargetNotFoundErrors())
+            .build(),
         // The SymbolGenerator is based on workspaceFileKey rather than a package id or path,
         // in order to distinguish different chunks of the same WORKSPACE file.
         SymbolGenerator.create(workspaceFileKey),
@@ -1034,16 +988,14 @@ public class Package {
       PackageIdentifier basePackageId,
       RepositoryMapping repoMapping) {
     return new Builder(
-            new Metadata(
-                /* packageIdentifier= */ basePackageId,
-                /* buildFilename= */ moduleFilePath,
-                /* isRepoRulePackage= */ true,
-                /* repositoryMapping= */ repoMapping,
-                /* associatedModuleName= */ Optional.empty(),
-                /* associatedModuleVersion= */ Optional.empty(),
-                /* configSettingVisibilityPolicy= */ null,
-                /* succinctTargetNotFoundErrors= */ PackageSettings.DEFAULTS
-                    .succinctTargetNotFoundErrors()),
+            Metadata.builder()
+                .packageIdentifier(basePackageId)
+                .buildFilename(moduleFilePath)
+                .isRepoRulePackage(true)
+                .repositoryMapping(repoMapping)
+                .succinctTargetNotFoundErrors(
+                    PackageSettings.DEFAULTS.succinctTargetNotFoundErrors())
+                .build(),
             SymbolGenerator.create(basePackageId),
             PackageSettings.DEFAULTS.precomputeTransitiveLoads(),
             noImplicitFileExport,
@@ -1725,7 +1677,7 @@ public class Package {
       // until now to obtain the current instance from the targets map.
       pkg.buildFile =
           Preconditions.checkNotNull(
-              (InputFile) recorder.getTargetMap().get(buildFileLabel.getName()));
+              (InputFile) recorder.getTargetMap().get(metadata.buildFileLabel().getName()));
 
       // TODO(bazel-team): We run testSuiteImplicitTestsAccumulator here in beforeBuild(), but what
       // if one of the accumulated tests is later removed in PackageFunction, between the call to
@@ -1820,19 +1772,83 @@ public class Package {
   public record Metadata(
       PackageIdentifier packageIdentifier,
       RootedPath buildFilename,
+      Label buildFileLabel,
       boolean isRepoRulePackage,
       RepositoryMapping repositoryMapping,
       Optional<String> associatedModuleName,
       Optional<String> associatedModuleVersion,
       @Nullable ConfigSettingVisibilityPolicy configSettingVisibilityPolicy,
-      boolean succinctTargetNotFoundErrors) {
+      boolean succinctTargetNotFoundErrors,
+      Optional<Root> sourceRoot) {
 
+    public static Builder builder() {
+      return new AutoBuilder_Package_Metadata_Builder();
+    }
+
+    /** Builder for {@link Metadata}. */
+    @AutoBuilder(callMethod = "of")
+    public interface Builder {
+      Builder packageIdentifier(PackageIdentifier packageIdentifier);
+
+      Builder buildFilename(RootedPath buildFilename);
+
+      Builder isRepoRulePackage(boolean isRepoRulePackage);
+
+      Builder repositoryMapping(RepositoryMapping repositoryMapping);
+
+      Builder associatedModuleName(Optional<String> associatedModuleName);
+
+      Builder associatedModuleVersion(Optional<String> associatedModuleVersion);
+
+      Builder configSettingVisibilityPolicy(
+          @Nullable ConfigSettingVisibilityPolicy configSettingVisibilityPolicy);
+
+      Builder succinctTargetNotFoundErrors(boolean succinctTargetNotFoundErrors);
+
+      Metadata build();
+    }
+
+    static Metadata of(
+        PackageIdentifier packageIdentifier,
+        RootedPath buildFilename,
+        boolean isRepoRulePackage,
+        RepositoryMapping repositoryMapping,
+        Optional<String> associatedModuleName,
+        Optional<String> associatedModuleVersion,
+        @Nullable ConfigSettingVisibilityPolicy configSettingVisibilityPolicy,
+        boolean succinctTargetNotFoundErrors) {
+      Label buildFileLabel;
+      try {
+        buildFileLabel =
+            Label.create(packageIdentifier, buildFilename.getRootRelativePath().getBaseName());
+      } catch (LabelSyntaxException e) {
+        // This can't actually happen.
+        throw new AssertionError("Package BUILD file has an illegal name: " + buildFilename, e);
+      }
+      return new Metadata(
+          packageIdentifier,
+          buildFilename,
+          buildFileLabel,
+          isRepoRulePackage,
+          repositoryMapping,
+          associatedModuleName,
+          associatedModuleVersion,
+          configSettingVisibilityPolicy,
+          succinctTargetNotFoundErrors,
+          computeSourceRoot(packageIdentifier, buildFilename, isRepoRulePackage));
+    }
+
+    /**
+     * @deprecated Use {@link #builder()} instead.
+     */
+    @Deprecated
     public Metadata {
       Preconditions.checkNotNull(packageIdentifier);
       Preconditions.checkNotNull(buildFilename);
       Preconditions.checkNotNull(repositoryMapping);
       Preconditions.checkNotNull(associatedModuleName);
       Preconditions.checkNotNull(associatedModuleVersion);
+      Preconditions.checkNotNull(sourceRoot);
 
       // Check for consistency between isRepoRulePackage and whether the buildFilename is a
       // WORKSPACE / MODULE.bazel file.
@@ -1856,7 +1872,57 @@ public class Package {
      * <p>All InputFile members of the packages are located relative to this directory.
      */
     public Path getPackageDirectory() {
+      return getPackageDirectory(buildFilename);
+    }
+
+    private static Path getPackageDirectory(RootedPath buildFilename) {
       return buildFilename.asPath().getParentDirectory();
+    }
+
+    private static Optional<Root> computeSourceRoot(
+        PackageIdentifier packageIdentifier, RootedPath buildFilename, boolean isRepoRulePackage) {
+      Preconditions.checkNotNull(packageIdentifier);
+      Preconditions.checkNotNull(buildFilename);
+      if (isRepoRulePackage) {
+        return Optional.empty();
+      }
+
+      RootedPath buildFileRootedPath = buildFilename;
+      Root buildFileRoot = buildFileRootedPath.getRoot();
+      PathFragment pkgIdFragment = packageIdentifier.getSourceRoot();
+      PathFragment pkgDirFragment = buildFileRootedPath.getRootRelativePath().getParentDirectory();
+
+      Root sourceRoot;
+      if (pkgIdFragment.equals(pkgDirFragment)) {
+        // Fast path: BUILD file path and package name are the same, don't create an extra root.
+        sourceRoot = buildFileRoot;
+      } else {
+        // TODO(bazel-team): Can this expr be simplified to just pkgDirFragment?
+        PathFragment current = buildFileRootedPath.asPath().asFragment().getParentDirectory();
+        for (int i = 0, len = pkgIdFragment.segmentCount(); i < len && current != null; i++) {
+          current = current.getParentDirectory();
+        }
+        if (current == null || current.isEmpty()) {
+          // This is never really expected to work. The below check should fail.
+          sourceRoot = buildFileRoot;
+        } else {
+          // Note that current is an absolute path.
+          sourceRoot = Root.fromPath(buildFileRoot.getRelative(current));
+        }
+      }
+
+      Preconditions.checkArgument(
+          sourceRoot.asPath() != null
+              && sourceRoot.getRelative(pkgIdFragment).equals(getPackageDirectory(buildFilename)),
+          "Invalid BUILD file name for package '%s': %s (in source %s with packageDirectory %s and"
+              + " package identifier source root %s)",
+          packageIdentifier,
+          buildFilename,
+          sourceRoot,
+          getPackageDirectory(buildFilename),
+          packageIdentifier.getSourceRoot());
+
+      return Optional.of(sourceRoot);
     }
   }
 

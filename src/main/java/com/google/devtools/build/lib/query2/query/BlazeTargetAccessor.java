@@ -60,7 +60,7 @@ public final class BlazeTargetAccessor implements TargetAccessor<Target> {
 
   @Override
   public String getPackage(Target target) {
-    return target.getPackage().getNameFragment().toString();
+    return target.getPackageMetadata().getName();
   }
 
   @Override

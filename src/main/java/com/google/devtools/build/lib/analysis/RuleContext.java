@@ -2085,7 +2085,7 @@ public class RuleContext extends TargetContext
       // to unconditionally check visibility. See
       // https://github.com/bazelbuild/bazel/issues/12669.
       ConfigSettingVisibilityPolicy configSettingVisibilityPolicy =
-          target.getPackage().getConfigSettingVisibilityPolicy();
+          target.getPackageMetadata().configSettingVisibilityPolicy();
       if (configSettingVisibilityPolicy != ConfigSettingVisibilityPolicy.LEGACY_OFF) {
 
         // Validate config conditions.

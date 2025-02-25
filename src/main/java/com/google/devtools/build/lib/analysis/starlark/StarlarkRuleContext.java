@@ -991,8 +991,12 @@ public final class StarlarkRuleContext
     checkMutable("build_file_path");
     checkDeprecated("ctx.label.package + '/BUILD'", "ctx.build_file_path", getStarlarkSemantics());
 
-    Package pkg = ruleContext.getRule().getPackage();
-    return pkg.getSourceRoot().get().relativize(pkg.getBuildFile().getPath()).getPathString();
+    Package.Metadata pkgMetadata = ruleContext.getRule().getPackageMetadata();
+    return pkgMetadata
+        .sourceRoot()
+        .get()
+        .relativize(pkgMetadata.buildFilename().asPath())
+        .getPathString();
   }
 
   private static void checkDeprecated(String newApi, String oldApi, StarlarkSemantics semantics)

@@ -202,6 +202,11 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     return pkg;
   }
 
+  @Override
+  public Package.Metadata getPackageMetadata() {
+    return pkg.getMetadata();
+  }
+
   public RuleClass getRuleClassObject() {
     return ruleClass;
   }
