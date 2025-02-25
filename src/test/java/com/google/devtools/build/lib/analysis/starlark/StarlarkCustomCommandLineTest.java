@@ -18,11 +18,14 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ArgChunk;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
@@ -32,10 +35,12 @@ import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLine.SimpleArgChunk;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.analysis.actions.PathMappers;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkCustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
@@ -74,13 +79,34 @@ public final class StarlarkCustomCommandLineTest {
   private Path execRoot;
   private ArtifactRoot derivedRoot;
 
+  private DerivedArtifact artifact1;
+  private DerivedArtifact artifact2;
+  private DerivedArtifact artifact3;
+  private AbstractAction action;
+
   private final StarlarkCustomCommandLine.Builder builder =
       new StarlarkCustomCommandLine.Builder(StarlarkSemantics.DEFAULT);
 
   @Before
-  public void createArtifactRoot() throws IOException {
+  public void createArtifacts() throws IOException {
     execRoot = scratch.dir("execroot");
     derivedRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "bin");
+
+    ArtifactRoot derivedRoot2 =
+        ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "bazel-out", "k8-fastbuild", "bin");
+    ArtifactRoot derivedRoot3 =
+        ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "bazel-out", "k8-opt", "bin");
+    artifact1 = (DerivedArtifact) ActionsTestUtil.createArtifact(derivedRoot2, "pkg/artifact1");
+    artifact2 = (DerivedArtifact) ActionsTestUtil.createArtifact(derivedRoot3, "pkg/artifact2");
+    artifact3 = (DerivedArtifact) ActionsTestUtil.createArtifact(derivedRoot3, "artifact3");
+    action =
+        new ActionsTestUtil.MockAction(
+            ImmutableList.of(artifact1, artifact2), ImmutableSet.of(artifact3)) {
+          @Override
+          public ImmutableMap<String, String> getExecutionInfo() {
+            return ImmutableMap.of(ExecutionRequirements.SUPPORTS_PATH_MAPPING, "");
+          }
+        };
   }
 
   @Test
@@ -95,6 +121,26 @@ public final class StarlarkCustomCommandLineTest {
   }
 
   @Test
+  public void addPathMapped() throws Exception {
+    CommandLine commandLine =
+        builder
+            .add(artifact1)
+            .add(artifact2)
+            .add(artifact3)
+            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
+    verifyCommandLine(
+        commandLine,
+        "bazel-out/k8-fastbuild/bin/pkg/artifact1",
+        "bazel-out/k8-opt/bin/pkg/artifact2",
+        "bazel-out/k8-opt/bin/artifact3");
+    verifyStrippedCommandLine(
+        commandLine,
+        "bazel-out/cfg/bin/pkg/artifact1",
+        "bazel-out/cfg/bin/pkg/artifact2",
+        "bazel-out/cfg/bin/artifact3");
+  }
+
+  @Test
   public void addFormatted() throws Exception {
     CommandLine commandLine =
         builder
@@ -103,6 +149,26 @@ public final class StarlarkCustomCommandLineTest {
             .addFormatted("three", "--arg3=%s")
             .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
     verifyCommandLine(commandLine, "--arg1=one", "--arg2=two", "--arg3=three");
+  }
+
+  @Test
+  public void addFormattedPathMapped() throws Exception {
+    CommandLine commandLine =
+        builder
+            .addFormatted(artifact1, "--arg1=%s")
+            .addFormatted(artifact2, "--arg2=%s")
+            .addFormatted(artifact3, "--arg3=%s")
+            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
+    verifyCommandLine(
+        commandLine,
+        "--arg1=bazel-out/k8-fastbuild/bin/pkg/artifact1",
+        "--arg2=bazel-out/k8-opt/bin/pkg/artifact2",
+        "--arg3=bazel-out/k8-opt/bin/artifact3");
+    verifyStrippedCommandLine(
+        commandLine,
+        "--arg1=bazel-out/cfg/bin/pkg/artifact1",
+        "--arg2=bazel-out/cfg/bin/pkg/artifact2",
+        "--arg3=bazel-out/cfg/bin/artifact3");
   }
 
   @Test
@@ -136,6 +202,24 @@ public final class StarlarkCustomCommandLineTest {
   }
 
   @Test
+  public void formatEachPathMapped() throws Exception {
+    CommandLine commandLine =
+        builder
+            .add(vectorArg(artifact1, artifact2, artifact3).setFormatEach("--arg=%s"))
+            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
+    verifyCommandLine(
+        commandLine,
+        "--arg=bazel-out/k8-fastbuild/bin/pkg/artifact1",
+        "--arg=bazel-out/k8-opt/bin/pkg/artifact2",
+        "--arg=bazel-out/k8-opt/bin/artifact3");
+    verifyStrippedCommandLine(
+        commandLine,
+        "--arg=bazel-out/cfg/bin/pkg/artifact1",
+        "--arg=bazel-out/cfg/bin/pkg/artifact2",
+        "--arg=bazel-out/cfg/bin/artifact3");
+  }
+
+  @Test
   public void beforeEach() throws Exception {
     CommandLine commandLine =
         builder
@@ -143,6 +227,35 @@ public final class StarlarkCustomCommandLineTest {
             .add(vectorArg("four").setBeforeEach("and"))
             .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
     verifyCommandLine(commandLine, "b4", "one", "b4", "two", "b4", "three", "and", "four");
+  }
+
+  @Test
+  public void beforeEachPathMapped() throws Exception {
+    CommandLine commandLine =
+        builder
+            .add(vectorArg(artifact1, artifact2, artifact3).setBeforeEach("b4"))
+            .add(vectorArg(artifact3).setBeforeEach("and"))
+            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
+    verifyCommandLine(
+        commandLine,
+        "b4",
+        "bazel-out/k8-fastbuild/bin/pkg/artifact1",
+        "b4",
+        "bazel-out/k8-opt/bin/pkg/artifact2",
+        "b4",
+        "bazel-out/k8-opt/bin/artifact3",
+        "and",
+        "bazel-out/k8-opt/bin/artifact3");
+    verifyStrippedCommandLine(
+        commandLine,
+        "b4",
+        "bazel-out/cfg/bin/pkg/artifact1",
+        "b4",
+        "bazel-out/cfg/bin/pkg/artifact2",
+        "b4",
+        "bazel-out/cfg/bin/artifact3",
+        "and",
+        "bazel-out/cfg/bin/artifact3");
   }
 
   @Test
@@ -156,6 +269,23 @@ public final class StarlarkCustomCommandLineTest {
   }
 
   @Test
+  public void joinWithPathMapped() throws Exception {
+    CommandLine commandLine =
+        builder
+            .add(vectorArg(artifact1, artifact2, artifact3).setJoinWith("..."))
+            .add(vectorArg(artifact3).setJoinWith("..."))
+            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
+    verifyCommandLine(
+        commandLine,
+        "bazel-out/k8-fastbuild/bin/pkg/artifact1...bazel-out/k8-opt/bin/pkg/artifact2...bazel-out/k8-opt/bin/artifact3",
+        "bazel-out/k8-opt/bin/artifact3");
+    verifyStrippedCommandLine(
+        commandLine,
+        "bazel-out/cfg/bin/pkg/artifact1...bazel-out/cfg/bin/pkg/artifact2...bazel-out/cfg/bin/artifact3",
+        "bazel-out/cfg/bin/artifact3");
+  }
+
+  @Test
   public void formatJoined() throws Exception {
     CommandLine commandLine =
         builder
@@ -163,6 +293,26 @@ public final class StarlarkCustomCommandLineTest {
             .add(vectorArg("four").setJoinWith("n/a").setFormatJoined("--other_arg=%s"))
             .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
     verifyCommandLine(commandLine, "--arg=one...two...three", "--other_arg=four");
+  }
+
+  @Test
+  public void formatJoinedPathMapped() throws Exception {
+    CommandLine commandLine =
+        builder
+            .add(
+                vectorArg(artifact1, artifact2, artifact3)
+                    .setJoinWith("...")
+                    .setFormatJoined("--arg=%s"))
+            .add(vectorArg(artifact3).setJoinWith("...").setFormatJoined("--other_arg=%s"))
+            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
+    verifyCommandLine(
+        commandLine,
+        "--arg=bazel-out/k8-fastbuild/bin/pkg/artifact1...bazel-out/k8-opt/bin/pkg/artifact2...bazel-out/k8-opt/bin/artifact3",
+        "--other_arg=bazel-out/k8-opt/bin/artifact3");
+    verifyStrippedCommandLine(
+        commandLine,
+        "--arg=bazel-out/cfg/bin/pkg/artifact1...bazel-out/cfg/bin/pkg/artifact2...bazel-out/cfg/bin/artifact3",
+        "--other_arg=bazel-out/cfg/bin/artifact3");
   }
 
   @Test
@@ -188,6 +338,37 @@ public final class StarlarkCustomCommandLineTest {
   }
 
   @Test
+  public void uniquifyPathMapped() throws Exception {
+    CommandLine commandLine =
+        builder
+            .add(
+                vectorArg(
+                        artifact1,
+                        artifact1,
+                        artifact2,
+                        artifact3,
+                        artifact1.getExecPathString(),
+                        artifact1.getExecPathString(),
+                        artifact2.getExecPathString(),
+                        artifact3.getExecPathString())
+                    .uniquify(true))
+            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
+    verifyCommandLine(
+        commandLine,
+        "bazel-out/k8-fastbuild/bin/pkg/artifact1",
+        "bazel-out/k8-opt/bin/pkg/artifact2",
+        "bazel-out/k8-opt/bin/artifact3");
+    verifyStrippedCommandLine(
+        commandLine,
+        "bazel-out/cfg/bin/pkg/artifact1",
+        "bazel-out/cfg/bin/pkg/artifact2",
+        "bazel-out/cfg/bin/artifact3",
+        "bazel-out/k8-fastbuild/bin/pkg/artifact1",
+        "bazel-out/k8-opt/bin/pkg/artifact2",
+        "bazel-out/k8-opt/bin/artifact3");
+  }
+
+  @Test
   public void flagPerLine() throws Exception {
     CommandLine commandLine =
         builder
@@ -207,6 +388,34 @@ public final class StarlarkCustomCommandLineTest {
         "--and=this is line two",
         "--line_three=single_arg",
         "line four has no flag");
+  }
+
+  @Test
+  public void flagPerLinePathMapped() throws Exception {
+    CommandLine commandLine =
+        builder
+            .recordArgStart()
+            .add(vectorArg(artifact1, artifact2, artifact3).setArgName("--this"))
+            .recordArgStart()
+            .add(vectorArg(artifact3, artifact2, artifact1).setArgName("--and"))
+            .recordArgStart()
+            .add("--line_three")
+            .add("single_arg")
+            .recordArgStart()
+            .add(vectorArg("", artifact1, artifact2, artifact3).setTerminateWith("flag"))
+            .build(/* flagPerLine= */ true, RepositoryMapping.ALWAYS_FALLBACK);
+    verifyCommandLine(
+        commandLine,
+        "--this=bazel-out/k8-fastbuild/bin/pkg/artifact1 bazel-out/k8-opt/bin/pkg/artifact2 bazel-out/k8-opt/bin/artifact3",
+        "--and=bazel-out/k8-opt/bin/artifact3 bazel-out/k8-opt/bin/pkg/artifact2 bazel-out/k8-fastbuild/bin/pkg/artifact1",
+        "--line_three=single_arg",
+        "bazel-out/k8-fastbuild/bin/pkg/artifact1 bazel-out/k8-opt/bin/pkg/artifact2 bazel-out/k8-opt/bin/artifact3 flag");
+    verifyStrippedCommandLine(
+        commandLine,
+        "--this=bazel-out/cfg/bin/pkg/artifact1 bazel-out/cfg/bin/pkg/artifact2 bazel-out/cfg/bin/artifact3",
+        "--and=bazel-out/cfg/bin/artifact3 bazel-out/cfg/bin/pkg/artifact2 bazel-out/cfg/bin/pkg/artifact1",
+        "--line_three=single_arg",
+        "bazel-out/cfg/bin/pkg/artifact1 bazel-out/cfg/bin/pkg/artifact2 bazel-out/cfg/bin/artifact3 flag");
   }
 
   @Test
@@ -382,12 +591,26 @@ public final class StarlarkCustomCommandLineTest {
 
   private static void verifyCommandLine(CommandLine commandLine, String... expected)
       throws CommandLineExpansionException, InterruptedException {
-    ArgChunk chunk = commandLine.expand(EMPTY_EXPANDER, PathMapper.NOOP);
-    assertThat(chunk.arguments()).containsExactlyElementsIn(expected).inOrder();
+    verifyCommandLine(PathMapper.NOOP, commandLine, expected);
+  }
+
+  private void verifyStrippedCommandLine(CommandLine commandLine, String... expected)
+      throws CommandLineExpansionException, InterruptedException {
+    verifyCommandLine(
+        PathMappers.create(action, CoreOptions.OutputPathsMode.STRIP, /* isStarlarkAction= */ true),
+        commandLine,
+        expected);
+  }
+
+  private static void verifyCommandLine(
+      PathMapper pathMapper, CommandLine commandLine, String... expected)
+      throws CommandLineExpansionException, InterruptedException {
+    ArgChunk chunk = commandLine.expand(EMPTY_EXPANDER, pathMapper);
+    assertThat(chunk.arguments(pathMapper)).containsExactlyElementsIn(expected).inOrder();
     // Check consistency of the total argument length calculation with SimpleArgChunk, which
     // materializes strings and adds up their lengths.
-    assertThat(chunk.totalArgLength())
-        .isEqualTo(new SimpleArgChunk(chunk.arguments()).totalArgLength());
+    assertThat(chunk.totalArgLength(pathMapper))
+        .isEqualTo(new SimpleArgChunk(chunk.arguments(pathMapper)).totalArgLength(pathMapper));
   }
 
   private SpecialArtifact createFileset(String relativePath) {
