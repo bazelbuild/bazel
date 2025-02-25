@@ -113,7 +113,7 @@ public class BazelModuleResolutionFunction implements SkyFunction {
     SequencedMap<String, Optional<Checksum>> registryFileHashes =
         new LinkedHashMap<>(state.discoverAndSelectResult.registryFileHashes);
     ImmutableSet<RepoSpecKey> repoSpecKeys =
-        state.discoverAndSelectResult.selectionResult.getResolvedDepGraph().values().stream()
+        state.discoverAndSelectResult.selectionResult.resolvedDepGraph().values().stream()
             // Modules with a null registry have a non-registry override. We don't need to
             // fetch or store the repo spec in this case.
             .filter(module -> module.getRegistry() != null)
@@ -135,14 +135,14 @@ public class BazelModuleResolutionFunction implements SkyFunction {
         Profiler.instance().profile(ProfilerTask.BZLMOD, "compute final dep graph")) {
       finalDepGraph =
           computeFinalDepGraph(
-              state.discoverAndSelectResult.selectionResult.getResolvedDepGraph(),
-              root.getOverrides(),
+              state.discoverAndSelectResult.selectionResult.resolvedDepGraph(),
+              root.overrides(),
               remoteRepoSpecs.buildOrThrow());
     }
 
     return BazelModuleResolutionValue.create(
         finalDepGraph,
-        state.discoverAndSelectResult.selectionResult.getUnprunedDepGraph(),
+        state.discoverAndSelectResult.selectionResult.unprunedDepGraph(),
         ImmutableMap.copyOf(registryFileHashes),
         state.discoverAndSelectResult.selectedYankedVersions);
   }
@@ -163,15 +163,15 @@ public class BazelModuleResolutionFunction implements SkyFunction {
       return null;
     }
 
-    verifyAllOverridesAreOnExistentModules(discoveryResult.depGraph(), root.getOverrides());
+    verifyAllOverridesAreOnExistentModules(discoveryResult.depGraph(), root.overrides());
 
     Selection.Result selectionResult;
     try (SilentCloseable c = Profiler.instance().profile(ProfilerTask.BZLMOD, "selection")) {
-      selectionResult = Selection.run(discoveryResult.depGraph(), root.getOverrides());
+      selectionResult = Selection.run(discoveryResult.depGraph(), root.overrides());
     } catch (ExternalDepsException e) {
       throw new BazelModuleResolutionFunctionException(e, Transience.PERSISTENT);
     }
-    ImmutableMap<ModuleKey, InterimModule> resolvedDepGraph = selectionResult.getResolvedDepGraph();
+    ImmutableMap<ModuleKey, InterimModule> resolvedDepGraph = selectionResult.resolvedDepGraph();
 
     ImmutableMap<ModuleKey, YankedVersionsValue> yankedVersionsValues;
     try (SilentCloseable c =

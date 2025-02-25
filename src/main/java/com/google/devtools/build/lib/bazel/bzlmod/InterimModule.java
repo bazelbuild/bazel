@@ -85,6 +85,13 @@ public abstract class InterimModule extends ModuleBase {
   public abstract ImmutableMap<String, DepSpec> getOriginalDeps();
 
   /**
+   * The "nodep" dependencies of this module: these don't actually add a dependency on the specified
+   * module, but if specified module is somehow in the dependency graph, it'll be at least at this
+   * version.
+   */
+  public abstract ImmutableList<DepSpec> getNodepDeps();
+
+  /**
    * The registry where this module came from. Must be null iff the module has a {@link
    * NonRegistryOverride}.
    */
@@ -159,6 +166,16 @@ public abstract class InterimModule extends ModuleBase {
 
     public abstract Builder setDeps(ImmutableMap<String, DepSpec> value);
 
+    abstract ImmutableList.Builder<DepSpec> nodepDepsBuilder();
+
+    @CanIgnoreReturnValue
+    public final Builder addNodepDep(DepSpec value) {
+      nodepDepsBuilder().add(value);
+      return this;
+    }
+
+    public abstract Builder setNodepDeps(ImmutableList<DepSpec> value);
+
     public abstract Builder setRegistry(Registry value);
 
     public abstract Builder setExtensionUsages(ImmutableList<ModuleExtensionUsage> value);
@@ -228,27 +245,5 @@ public abstract class InterimModule extends ModuleBase {
         .setRuleClassName(repoSpec.ruleClassName())
         .setAttributes(AttributeValues.create(attrBuilder.buildOrThrow()))
         .build();
-  }
-
-  static UnaryOperator<DepSpec> applyOverrides(
-      ImmutableMap<String, ModuleOverride> overrides, String rootModuleName) {
-    return depSpec -> {
-      if (rootModuleName.equals(depSpec.getName())) {
-        return DepSpec.fromModuleKey(ModuleKey.ROOT);
-      }
-
-      Version newVersion = depSpec.getVersion();
-      @Nullable ModuleOverride override = overrides.get(depSpec.getName());
-      if (override instanceof NonRegistryOverride) {
-        newVersion = Version.EMPTY;
-      } else if (override instanceof SingleVersionOverride) {
-        Version overrideVersion = ((SingleVersionOverride) override).getVersion();
-        if (!overrideVersion.isEmpty()) {
-          newVersion = overrideVersion;
-        }
-      }
-
-      return DepSpec.create(depSpec.getName(), newVersion, depSpec.getMaxCompatibilityLevel());
-    };
   }
 }
