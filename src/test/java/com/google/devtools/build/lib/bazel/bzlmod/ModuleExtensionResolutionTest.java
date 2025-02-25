@@ -2784,6 +2784,29 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void innate_noSuchValueIfPrivate() throws Exception {
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        "data_repo = use_repo_rule('//:repo.bzl', '_data_repo')",
+        "data_repo(name='data', data='get up at 6am.')");
+    scratch.overwriteFile("BUILD");
+    scratch.file("data.bzl", "load('@data//:data.bzl', self_data='data')", "data=self_data");
+    scratch.file("repo.bzl", "_data_repo = repository_rule(lambda _: None)");
+    invalidatePackages(false);
+
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<BzlLoadValue> result =
+        SkyframeExecutorTestUtils.evaluate(skyframeExecutor, skyKey, false, reporter);
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError().getException())
+        .hasMessageThat()
+        .contains(
+            "//:repo.bzl does not export a repository_rule called _data_repo, yet its use is"
+                + " requested at /workspace/MODULE.bazel");
+  }
+
+  @Test
   public void innate_invalidAttributeValue() throws Exception {
     scratch.overwriteFile(
         "MODULE.bazel",
