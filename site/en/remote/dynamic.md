@@ -54,9 +54,11 @@ cache hits take.
 Dynamic execution can be used with local sandboxed strategy as well as with
 [persistent workers](/remote/persistent). Persistent workers will automatically
 run with sandboxing when used with dynamic execution, and cannot use [multiplex
-workers](/remote/multiplex). On Darwin and Windows systems, the sandboxed
-strategy can be slow; you can pass `--reuse_sandbox_directories` to reduce
-overhead of creating sandboxes on these systems.
+workers](/remote/multiplex) unless the worker supports [multiplex
+sandboxing](/remote/multiplex#multiplex_sandboxing). On Darwin and Windows
+systems, the sandboxed strategy can be slow; you can pass
+`--reuse_sandbox_directories` to reduce overhead of creating sandboxes on these
+systems.
 
 Dynamic execution can also run with the `standalone` strategy, though since the
 `standalone` strategy must take the output lock when it starts executing, it
