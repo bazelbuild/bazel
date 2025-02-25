@@ -74,7 +74,7 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
 
   @Override
   protected boolean canDownloadFile(Path path, FileArtifactValue metadata) {
-    return metadata.isRemote();
+    return metadata.isLazy();
   }
 
   @Override
