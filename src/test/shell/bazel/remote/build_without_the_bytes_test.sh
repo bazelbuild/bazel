@@ -2021,12 +2021,8 @@ EOF
   fi
 }
 
+# This test documents the current behavior, not the desired behavior.
 function test_remote_cache_eviction_retries_toplevel_artifact() {
-  # TODO: This test documents the desired behavior, but at the moment cache
-  #  eviction of top-level artifacts causes the build to fail without any
-  #  error message and no retry.
-  return
-
   mkdir -p a
 
   cat > a/BUILD <<'EOF'
@@ -2063,27 +2059,14 @@ EOF
   start_worker
 
   # Incremental build in toplevel build triggers remote cache eviction error
-  # but Bazel automatically retries the build and reruns the generating
-  # actions for missing blobs
+  # but Bazel doesn't automatically retry the build yet.
+  # TODO: This documents the current behavior, but it's not intended.
   bazel build \
       --remote_executor=grpc://localhost:${worker_port} \
       --remote_download_toplevel \
       --experimental_remote_cache_eviction_retries=1 \
-      //a:foo >& $TEST_log || fail "Failed to build"
-
-  expect_log 'lost inputs with digests:'
-  expect_log "Found transient remote cache error, retrying the build..."
-
-  if [[ ! -f bazel-bin/a/foo.out ]]; then
-    fail "Expected top-level output bazel-bin/a/foo.out to be downloaded"
-  fi
-
-  local invocation_ids=$(grep "Invocation ID:" $TEST_log)
-  local first_id=$(echo "$invocation_ids" | head -n 1)
-  local second_id=$(echo "$invocation_ids" | tail -n 1)
-  if [ "$first_id" == "$second_id" ]; then
-    fail "Invocation IDs are the same"
-  fi
+      //a:foo >& $TEST_log && fail "Unexpectedly failed to build"
+  expect_not_log "Found transient remote cache error, retrying the build..."
 }
 
 function test_remote_cache_eviction_retries_jdeps() {
