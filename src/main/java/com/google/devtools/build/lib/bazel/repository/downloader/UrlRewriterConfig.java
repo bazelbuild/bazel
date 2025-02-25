@@ -125,11 +125,18 @@ class UrlRewriterConfig {
           case "rewrite" -> {
             if (parts.size() != 3) {
               throw new UrlRewriterParseException(
-                  "Only the matching pattern and rewrite pattern is allowed after `rewrite`: "
-                      + line,
-                  location);
-            }
-            rewrites.put(Pattern.compile(parts.get(1)), parts.get(2));
+                  "Only the matching pattern and rewrite pattern is allowed after `rewrite`: " + line,
+                  location
+              );
+          }
+          try {
+              rewrites.put(Pattern.compile(parts.get(1)), parts.get(2));
+          } catch (PatternSyntaxException e) {
+              throw new UrlRewriterParseException(
+                  "Invalid regex in `rewrite`: " + e.getDescription() + " at index " + e.getIndex() + " in `" + parts.get(1) + "`",
+                  location
+              );
+          }
           }
           case ALL_BLOCKED_MESSAGE_DIRECTIVE -> {
             if (parts.size() == 1) {
