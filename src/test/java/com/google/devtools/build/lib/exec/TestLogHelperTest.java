@@ -44,7 +44,7 @@ public final class TestLogHelperTest extends FoundationTestCase {
   public void testFormatEmptyTestLog() throws IOException {
     Path logPath = scratch.file("/test.log", "");
     String result = getTestLog(logPath, "testFormatEmptyTestLog");
-    assertThat(result.replaceAll(System.lineSeparator(), "\n"))
+    assertThat(result)
         .isEqualTo(
             "==================== Test output for testFormatEmptyTestLog:\n"
                 + "\n"
@@ -56,7 +56,7 @@ public final class TestLogHelperTest extends FoundationTestCase {
     Path logPath =
         scratch.file("/test.log", "Header", TestLogHelper.HEADER_DELIMITER, "Empty line");
     String result = getTestLog(logPath, "testFormatTestLogWithHeader");
-    assertThat(result.replaceAll(System.lineSeparator(), "\n"))
+    assertThat(result)
         .isEqualTo(
             "==================== Test output for testFormatTestLogWithHeader:\n"
                 + "Empty line\n"
@@ -67,7 +67,7 @@ public final class TestLogHelperTest extends FoundationTestCase {
   public void testFormatTestLogWithNoHeader() throws IOException {
     Path logPath = scratch.file("/test.log", "Line 1", "Line 2");
     String result = getTestLog(logPath, "testFormatTestLogWithNoHeader");
-    assertThat(result.replaceAll(System.lineSeparator(), "\n"))
+    assertThat(result)
         .isEqualTo(
             "==================== Test output for testFormatTestLogWithNoHeader:\n"
                 + "Line 1\n"
@@ -81,8 +81,7 @@ public final class TestLogHelperTest extends FoundationTestCase {
 
     ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
     TestLogHelper.writeTestLog(logPath, "myTest", bytesOut, /*maxTestOutputBytes=*/ 10);
-    assertThat(
-            new String(bytesOut.toByteArray(), ISO_8859_1).replaceAll(System.lineSeparator(), "\n"))
+    assertThat(bytesOut.toString(ISO_8859_1))
         .isEqualTo(
             "==================== Test output for myTest:\n"
                 + "Test log too large (1000 > 10), skipping...\n"
@@ -95,8 +94,7 @@ public final class TestLogHelperTest extends FoundationTestCase {
 
     ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
     TestLogHelper.writeTestLog(logPath, "myTest", bytesOut, /*maxTestOutputBytes=*/ 0);
-    assertThat(
-            new String(bytesOut.toByteArray(), ISO_8859_1).replaceAll(System.lineSeparator(), "\n"))
+    assertThat(bytesOut.toString(ISO_8859_1))
         .isEqualTo(
             "==================== Test output for myTest:\n"
                 + "================================================================================\n");
@@ -110,8 +108,7 @@ public final class TestLogHelperTest extends FoundationTestCase {
     ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
     TestLogHelper.writeTestLog(
         logPath, "myTest", bytesOut, /*maxTestOutputBytes=*/ testLogHeaderLength - 1);
-    assertThat(
-            new String(bytesOut.toByteArray(), ISO_8859_1).replaceAll(System.lineSeparator(), "\n"))
+    assertThat(bytesOut.toString(ISO_8859_1))
         .isEqualTo(
             "==================== Test output for myTest:\n"
                 + String.format(
@@ -123,6 +120,6 @@ public final class TestLogHelperTest extends FoundationTestCase {
   private String getTestLog(Path path, String name) throws IOException {
     ByteArrayOutputStream output = new ByteArrayOutputStream();
     TestLogHelper.writeTestLog(path, name, output, /*maxTestOutputBytes=*/ -1);
-    return new String(output.toByteArray(), ISO_8859_1);
+    return output.toString(ISO_8859_1);
   }
 }
