@@ -28,16 +28,6 @@ Java_com_google_devtools_build_lib_unix_ProcessUtils_getgid(JNIEnv *env, jclass 
 
 /*
  * Class:     com.google.devtools.build.lib.unix.ProcessUtils
- * Method:    getpid
- * Signature: ()I
- */
-extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_unix_ProcessUtils_getpid(JNIEnv *env, jclass clazz) {
-  return getpid();
-}
-
-/*
- * Class:     com.google.devtools.build.lib.unix.ProcessUtils
  * Method:    getuid
  * Signature: ()I
  */

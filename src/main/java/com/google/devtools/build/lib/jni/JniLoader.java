@@ -124,6 +124,12 @@ public final class JniLoader {
         }
       } catch (IOException e2) {
         // Nothing else we can do. Rely on "delete on exit" to try clean things up later on.
+        if (dir != null) {
+          dir.toFile().deleteOnExit();
+        }
+        if (tempFile != null) {
+          tempFile.toFile().deleteOnExit();
+        }
       }
       throw e;
     }
@@ -152,5 +158,21 @@ public final class JniLoader {
   @Nullable
   public static Throwable getJniLoadError() {
     return JNI_LOAD_ERROR;
+  }
+
+  /**
+   * Forcibly link a native method to eagerly trigger an {@link UnsatisfiedLinkError} in case of
+   * issues with the JNI library.
+   */
+  public static void forceLinking() throws UnsatisfiedLinkError {
+    if (isJniAvailable()) {
+      ForceLinkingHelper.link();
+    }
+  }
+
+  private static final class ForceLinkingHelper {
+    private static native void link();
+
+    private ForceLinkingHelper() {}
   }
 }
