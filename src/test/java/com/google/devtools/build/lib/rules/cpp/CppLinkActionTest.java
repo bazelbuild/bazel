@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -828,12 +827,6 @@ toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
         getMockFeatureConfiguration(/* envVars= */ ImmutableMap.of()));
   }
 
-  private Artifact getOutputArtifact(String relpath) {
-    return ActionsTestUtil.createArtifactWithExecPath(
-        getTargetConfiguration().getBinDirectory(RepositoryName.MAIN),
-        getTargetConfiguration().getBinFragment(RepositoryName.MAIN).getRelative(relpath));
-  }
-
   private Artifact scratchArtifact(String s) {
     Path execRoot = outputBase.getRelative("exec");
     String outSegment = "out";
@@ -1129,34 +1122,31 @@ action_configs = [action_config(
 
   @Test
   public void testLinkoptsComeAfterLinkerInputs() throws Exception {
-    RuleContext ruleContext = createDummyRuleContext();
+    scratch.file(
+        "foo/BUILD",
+        "cc_library(name = 'bar1', srcs = ['bar.cc'])",
+        "cc_library(name = 'bar2', srcs = ['bar.cc'])",
+        "cc_binary(name = 'foo', srcs = ['foo.cc'], deps = [':bar1', ':bar2'], linkopts ="
+            + " ['FakeLinkopt1', 'FakeLinkopt2'])");
 
-    String solibPrefix = "_solib_k8";
-    Iterable<LibraryInput> linkerInputs =
-        LegacyLinkerInputs.opaqueLibrariesToLink(
-            ArtifactCategory.DYNAMIC_LIBRARY,
-            ImmutableList.of(
-                getOutputArtifact(solibPrefix + "/FakeLinkerInput1.so"),
-                getOutputArtifact(solibPrefix + "/FakeLinkerInput2.so"),
-                getOutputArtifact(solibPrefix + "/FakeLinkerInput3.so"),
-                getOutputArtifact(solibPrefix + "/FakeLinkerInput4.so")));
+    SpawnAction linkAction = (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppLink"));
 
-    SpawnAction linkAction =
-        createLinkBuilder(
-                ruleContext,
-                LinkTargetType.EXECUTABLE,
-                "dummyRuleContext/out",
-                ImmutableList.of(),
-                ImmutableList.copyOf(linkerInputs),
-                getMockFeatureConfiguration(/* envVars= */ ImmutableMap.of()))
-            .addLinkopts(ImmutableList.of("FakeLinkopt1", "FakeLinkopt2"))
-            .build();
-
+    Artifact linkerInput1 = linkAction.getInputs().toList().get(0);
+    Artifact linkerInput2 = linkAction.getInputs().toList().get(1);
+    Artifact linkerInput3 = linkAction.getInputs().toList().get(2);
     List<String> argv = linkAction.getArguments();
+    assertThat(argv)
+        .containsAtLeast(
+            linkerInput1.getExecPathString(),
+            linkerInput2.getExecPathString(),
+            linkerInput3.getExecPathString(),
+            "FakeLinkopt1",
+            "FakeLinkopt2");
     int lastLinkerInputIndex =
         Ints.max(
-            argv.indexOf("FakeLinkerInput1"), argv.indexOf("FakeLinkerInput2"),
-            argv.indexOf("FakeLinkerInput3"), argv.indexOf("FakeLinkerInput4"));
+            argv.indexOf(linkerInput1.getExecPathString()),
+            argv.indexOf(linkerInput2.getExecPathString()),
+            argv.indexOf(linkerInput3.getExecPathString()));
     int firstLinkoptIndex = Math.min(argv.indexOf("FakeLinkopt1"), argv.indexOf("FakeLinkopt2"));
     assertThat(lastLinkerInputIndex).isLessThan(firstLinkoptIndex);
   }
