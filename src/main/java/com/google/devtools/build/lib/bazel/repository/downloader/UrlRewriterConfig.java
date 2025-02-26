@@ -27,6 +27,8 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
+import java.util.regex.PatternSyntaxException;
+
 
 /**
  * Models the downloader config file. This file has a line-based format, with each line starting
