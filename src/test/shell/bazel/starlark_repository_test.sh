@@ -1579,6 +1579,21 @@ expected = {
       "pattern" : "Bearer <password>",
       "password" : "TOKEN",
     },
+    "https://foo.example.org" : {
+      "type" : "basic",
+      "login": "foousername",
+      "password" : "foopass",
+    },
+    "https://bar.example.org" : {
+      "type" : "basic",
+      "login": "barusername",
+      "password" : "passbar🌱",
+    },
+    "https://oauthlife.com": {
+      "type" : "pattern",
+      "pattern" : "Bearer <password>",
+      "password" : "TOKEN",
+    },
 }
 EOF
   cat > verify.bzl <<'EOF'

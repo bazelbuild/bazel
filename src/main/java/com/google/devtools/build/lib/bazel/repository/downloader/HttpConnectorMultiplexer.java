@@ -141,7 +141,13 @@ final class HttpConnectorMultiplexer {
       ImmutableMap.Builder<String, List<String>> headers = new ImmutableMap.Builder<>();
       headers.putAll(baseHeaders);
       try {
-        headers.putAll(credentials.getRequestMetadata(url.toURI()));
+        URI originalUri = url.toURI();
+        // Check against the host as a fallback.
+        // Needs protocol as well due to input data path using URL->URI.
+        URI hostUri = new URI(url.getProtocol() + "://" + url.getHost());
+        // Put more-general host headers first, allowing the more-specific url headers to override.
+        headers.putAll(credentials.getRequestMetadata(hostUri));
+        headers.putAll(credentials.getRequestMetadata(originalUri));
       } catch (URISyntaxException | IOException e) {
         // If we can't convert the URL to a URI (because it is syntactically malformed), or fetching
         // credentials fails for any other reason, still try to do the connection, not adding

@@ -392,7 +392,7 @@ def use_netrc(netrc, urls, patterns):
 
     Returns:
       dict suitable as auth argument for ctx.download; more precisely, the dict
-      will map all URLs where the netrc file provides login and password to a
+      will map all URLs or pattern hosts where the netrc file provides login and password to a
       dict containing the corresponding login, password and optional authorization pattern,
       as well as the mapping of "type" to "basic" or "pattern".
     """
@@ -424,14 +424,24 @@ def use_netrc(netrc, urls, patterns):
 
             if "password" in authforhost:
                 auth_dict["password"] = authforhost["password"]
-
-            auth[url] = auth_dict
         elif "login" in authforhost and "password" in authforhost:
-            auth[url] = {
+            auth_dict = {
                 "type": "basic",
                 "login": authforhost["login"],
                 "password": authforhost["password"],
             }
+        else:
+            continue
+
+        auth[url] = auth_dict
+
+        # Add the base url (protocol + host) as keys to the result dict to allow for URI-matching fallback.
+        # This keeps auth headers compatible with HTTP redirects (so long as the redirect host is present in patterns and netrc).
+        # This is a fallback match (not replacement functionality) to stay backwards compatible (passing exact URIs as keys).
+        # This must include the protocol as well because the Java runtime uses both URL and URI back and forth (URL requires protocol).
+        base_url = schemerest[0] + "://" + host
+        if base_url not in auth:
+            auth[base_url] = auth_dict
 
     return auth
 
