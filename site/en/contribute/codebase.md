@@ -911,7 +911,7 @@ Artifacts come in two kinds: source artifacts (ones that are available
 before Bazel starts executing) and derived artifacts (ones that need to be
 built). Derived artifacts can themselves be multiple kinds:
 
-1.  **Regular artifacts. **These are checked for up-to-dateness by computing
+1.  **Regular artifacts.** These are checked for up-to-dateness by computing
     their checksum, with mtime as a shortcut; we don't checksum the file if its
     ctime hasn't changed.
 2.  **Unresolved symlink artifacts.** These are checked for up-to-dateness by
