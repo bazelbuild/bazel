@@ -105,9 +105,8 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
         package_group(name = "empty")
         """);
     addOptions("--experimental_remote_analysis_cache_mode=upload");
-    LoadingFailedException exception =
-        assertThrows(LoadingFailedException.class, () -> buildTarget("//foo:empty"));
-    assertThat(exception).hasMessageThat().contains("Failed to find PROJECT.scl file");
+    buildTarget("//foo:empty");
+    events.assertContainsInfo("Disabling Skycache due to missing PROJECT.scl: [//foo:empty]");
   }
 
   @Test
