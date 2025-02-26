@@ -86,5 +86,6 @@ public final class MockCppSemantics implements CppSemantics {
       StarlarkThread thread,
       String includePrefix,
       String stripIncludePrefix,
-      Sequence<?> additionalIncludeScanningRoots) {}
+      Sequence<?> additionalIncludeScanningRoots,
+      int stackDepth) {}
 }
