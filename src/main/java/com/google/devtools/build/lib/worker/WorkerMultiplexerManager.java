@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Worker.Code;
 import com.google.devtools.build.lib.vfs.Path;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -41,6 +42,16 @@ public class WorkerMultiplexerManager {
   private WorkerMultiplexerManager() {}
 
   /**
+   * A counter used to provide unique IDs across sandboxed multiplexer instances. It is used in
+   * determining the workdir for the multiplexer process. This is analogous to the
+   * {@code pidCounter} in {@code WorkerFactory}. It is ok to use an {@code AtomicInteger} here
+   * for the same reasons as it is there: the counter is only incremented when spawning a new
+   * multiplexer, so even in the worst case of workers quitting after each action it shouldn't
+   * overflow.
+   */
+  private static final AtomicInteger multiplexerIdCounter = new AtomicInteger(1);
+
+  /**
    * Returns a {@code WorkerMultiplexer} instance to {@code WorkerProxy}. {@code WorkerProxy}
    * objects with the same {@code WorkerKey} talk to the same {@code WorkerMultiplexer}. Also,
    * record how many {@code WorkerProxy} objects are talking to this {@code WorkerMultiplexer}.
@@ -48,7 +59,8 @@ public class WorkerMultiplexerManager {
   public static synchronized WorkerMultiplexer getInstance(WorkerKey key, Path logFile) {
     InstanceInfo instanceInfo =
         multiplexerInstance.computeIfAbsent(
-            key, k -> new InstanceInfo(new WorkerMultiplexer(logFile, k)));
+            key, k -> new InstanceInfo(new WorkerMultiplexer(
+                logFile, k, multiplexerIdCounter.getAndIncrement())));
     instanceInfo.increaseRefCount();
     return instanceInfo.getWorkerMultiplexer();
   }

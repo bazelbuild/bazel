@@ -61,6 +61,14 @@ public class WorkerMultiplexer {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /**
+   * An ID for this multiplexer that can be used by sandboxed multiplex workers to generate their
+   * workdir. The workdir needs to be the same for all {@code SandboxedWorkerProxy} instances
+   * associated with a {@code WorkerMultiplexer}, but needs to be unique across multiplexers for the
+   * same mnemonic. This is analogous to the @{code workerId} created in {@code WorkerFactory}.
+   */
+  private final int multiplexerId;
+
+  /**
    * A queue of {@link WorkRequest} instances that need to be sent to the worker. {@link
    * WorkerProxy} instances add to this queue, while the requestSender subthread remove requests and
    * send them to the worker. This prevents dynamic execution interrupts from corrupting the {@code
@@ -125,10 +133,11 @@ public class WorkerMultiplexer {
    */
   private Thread shutdownHook;
 
-  WorkerMultiplexer(Path logFile, WorkerKey workerKey) {
+  WorkerMultiplexer(Path logFile, WorkerKey workerKey, int multiplexerId) {
     this.status = new WorkerProcessStatus();
     this.logFile = logFile;
     this.workerKey = workerKey;
+    this.multiplexerId = multiplexerId;
   }
 
   /** Sets or clears the reporter for outputting verbose info. */
@@ -484,5 +493,9 @@ public class WorkerMultiplexer {
       return -1;
     }
     return process.getProcessId();
+  }
+
+  public int getMultiplexerId() {
+    return this.multiplexerId;
   }
 }

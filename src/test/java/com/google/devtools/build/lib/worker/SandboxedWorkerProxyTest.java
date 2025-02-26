@@ -21,7 +21,9 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -31,6 +33,7 @@ import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerTestUtils.FakeSubprocess;
 import java.io.IOException;
 import java.io.PipedInputStream;
+import java.util.ArrayList;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -58,8 +61,12 @@ public class SandboxedWorkerProxyTest {
 
   @Test
   public void prepareExecution_createsFilesInSandbox() throws IOException, InterruptedException {
-    SandboxedWorkerProxy proxy = createSandboxedWorkerProxy();
-    Path workDir = workerBaseDir.getChild("Mnem-multiplex-worker-workdir").getChild("execroot");
+    SandboxedWorkerProxy proxy = createSandboxedWorkerProxies("Mnem", 1).get(0);
+    int multiplexerId = proxy.workerMultiplexer.getMultiplexerId();
+    Path workDir =
+        workerBaseDir
+            .getChild("Mnem-multiplex-worker-" + multiplexerId + "-workdir")
+            .getChild("execroot");
     Path sandboxDir =
         workDir
             .getChild("__sandbox")
@@ -94,7 +101,11 @@ public class SandboxedWorkerProxyTest {
   @Test
   public void putRequest_setsSandboxDir() throws IOException, InterruptedException {
     SandboxedWorkerProxy worker = createFakedSandboxedWorkerProxy();
-    Path workDir = workerBaseDir.getChild("Mnem-multiplex-worker-workdir").getChild("execroot");
+    int multiplexerId = worker.workerMultiplexer.getMultiplexerId();
+    Path workDir =
+        workerBaseDir
+            .getChild("Mnem-multiplex-worker-" + multiplexerId + "-workdir")
+            .getChild("execroot");
     SandboxHelper sandboxHelper =
         new SandboxHelper(globalExecRoot, workDir)
             .addAndCreateInputFile("anInputFile", "anInputFile", "Just stuff")
@@ -115,7 +126,11 @@ public class SandboxedWorkerProxyTest {
   @Test
   public void finishExecution_copiesOutputs() throws IOException, InterruptedException {
     SandboxedWorkerProxy worker = createFakedSandboxedWorkerProxy();
-    Path workDir = workerBaseDir.getChild("Mnem-multiplex-worker-workdir").getChild("execroot");
+    int multiplexerId = worker.workerMultiplexer.getMultiplexerId();
+    Path workDir =
+        workerBaseDir
+            .getChild("Mnem-multiplex-worker-" + multiplexerId + "-workdir")
+            .getChild("execroot");
     SandboxHelper sandboxHelper =
         new SandboxHelper(globalExecRoot, workDir)
             .addAndCreateInputFile("anInputFile", "anInputFile", "Just stuff")
@@ -150,8 +165,84 @@ public class SandboxedWorkerProxyTest {
         .isEqualTo("some output");
   }
 
-  private SandboxedWorkerProxy createSandboxedWorkerProxy() throws IOException {
-    ImmutableMap.Builder<String, String> req = WorkerTestUtils.execRequirementsBuilder("Mnem");
+  @Test
+  public void differentProxiesSameMultiplexerHaveSameWorkDir()
+      throws IOException, InterruptedException {
+    ArrayList<SandboxedWorkerProxy> proxies = createSandboxedWorkerProxies("Mnem", 2);
+    SandboxedWorkerProxy proxyOne = proxies.get(0);
+    SandboxedWorkerProxy proxyTwo = proxies.get(1);
+
+    int multiplexerIdProxyOne = proxyOne.workerMultiplexer.getMultiplexerId();
+    Path expectedWorkDirProxyOne =
+        workerBaseDir
+            .getChild("Mnem-multiplex-worker-" + multiplexerIdProxyOne + "-workdir")
+            .getChild("execroot");
+
+    int multiplexerIdProxyTwo = proxyTwo.workerMultiplexer.getMultiplexerId();
+    Path expectedWorkDirProxyTwo =
+        workerBaseDir
+            .getChild("Mnem-multiplex-worker-" + multiplexerIdProxyTwo + "-workdir")
+            .getChild("execroot");
+
+    assertThat(proxyOne.workDir).isEqualTo(proxyTwo.workDir);
+    assertThat(proxyOne.workDir).isEqualTo(expectedWorkDirProxyOne);
+    assertThat(proxyTwo.workDir).isEqualTo(expectedWorkDirProxyTwo);
+  }
+
+  @Test
+  public void differentProxiesDifferentMultiplexerSameMnemHaveDifferentWorkDirs()
+      throws IOException, InterruptedException, UserExecException {
+    String sharedMnemonic = "Mnem";
+
+    // Create a proxy on the first multiplexer
+    ImmutableMap.Builder<String, String> req =
+        WorkerTestUtils.execRequirementsBuilder(sharedMnemonic);
+    req.put(SUPPORTS_MULTIPLEX_SANDBOXING, "1");
+    Spawn spawn = WorkerTestUtils.createSpawn(req.buildOrThrow());
+
+    WorkerOptions options = new WorkerOptions();
+    options.workerMultiplex = true;
+    options.multiplexSandboxing = true;
+
+    WorkerKey key =
+        WorkerTestUtils
+            .createWorkerKeyFromOptions(
+                PROTO,
+                globalOutputBase,
+                options,
+                true,
+                spawn,
+                "worker.sh");
+    WorkerFactory factory = new WorkerFactory(workerBaseDir, options);
+
+    SandboxedWorkerProxy proxyOneMultiplexerOne = (SandboxedWorkerProxy) factory.create(key);
+    int multiplexerIdOne = proxyOneMultiplexerOne.workerMultiplexer.getMultiplexerId();
+    Path expectedWorkDirOne =
+        workerBaseDir
+            .getChild(sharedMnemonic + "-multiplex-worker-" + multiplexerIdOne + "-workdir")
+            .getChild("execroot");
+
+    // Shut down the first multiplexer, so we get a different multiplexer for the next proxy
+    WorkerMultiplexerManager.removeInstance(key);
+
+    // Create a proxy on the second multiplexer
+    SandboxedWorkerProxy proxyOneMultiplexerTwo = (SandboxedWorkerProxy) factory.create(key);
+    int multiplexerIdTwo = proxyOneMultiplexerTwo.workerMultiplexer.getMultiplexerId();
+    Path expectedWorkDirTwo =
+        workerBaseDir
+            .getChild(sharedMnemonic + "-multiplex-worker-" + multiplexerIdTwo + "-workdir")
+            .getChild("execroot");
+
+    assertThat(proxyOneMultiplexerOne.workDir).isNotEqualTo(proxyOneMultiplexerTwo.workDir);
+    assertThat(proxyOneMultiplexerOne.workDir).isEqualTo(expectedWorkDirOne);
+    assertThat(proxyOneMultiplexerTwo.workDir).isEqualTo(expectedWorkDirTwo);
+  }
+
+  private ArrayList<SandboxedWorkerProxy> createSandboxedWorkerProxies(
+      String mnemonic,
+      int numProxiesToCreate)
+      throws IOException {
+    ImmutableMap.Builder<String, String> req = WorkerTestUtils.execRequirementsBuilder(mnemonic);
     req.put(SUPPORTS_MULTIPLEX_SANDBOXING, "1");
     Spawn spawn = WorkerTestUtils.createSpawn(req.buildOrThrow());
 
@@ -163,7 +254,13 @@ public class SandboxedWorkerProxyTest {
         WorkerTestUtils.createWorkerKeyFromOptions(
             PROTO, globalOutputBase, options, true, spawn, "worker.sh");
     WorkerFactory factory = new WorkerFactory(workerBaseDir, options);
-    return (SandboxedWorkerProxy) factory.create(key);
+
+    assertThat(numProxiesToCreate).isGreaterThan(0);
+    ArrayList<SandboxedWorkerProxy> proxies = Lists.newArrayListWithCapacity(numProxiesToCreate);
+    for (int i = 0; i < numProxiesToCreate; i++) {
+      proxies.add((SandboxedWorkerProxy) factory.create(key));
+    }
+    return proxies;
   }
 
   private SandboxedWorkerProxy createFakedSandboxedWorkerProxy() throws IOException {
@@ -180,7 +277,7 @@ public class SandboxedWorkerProxyTest {
             PROTO, globalOutputBase, options, true, spawn, "worker.sh");
     WorkerMultiplexerManager.injectForTesting(
         key,
-        new WorkerMultiplexer(globalExecRoot.getChild("testWorker.log"), key) {
+        new WorkerMultiplexer(globalExecRoot.getChild("testWorker.log"), key, 0) {
           @Override
           public synchronized void createProcess(Path workDir) throws IOException {
             PipedInputStream serverInputStream = new PipedInputStream();
