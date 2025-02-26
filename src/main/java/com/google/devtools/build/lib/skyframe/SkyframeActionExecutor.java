@@ -1332,13 +1332,6 @@ public final class SkyframeActionExecutor {
           ErrorTiming.NO_ERROR);
 
       FilesetOutputTree filesetOutput = actionExecutionContext.getFilesetOutput();
-      checkState(
-          filesetOutput.isEmpty() || action instanceof SkyframeAwareAction,
-          "Unexpected to find outputSymlinks set in an action which is not a SkyframeAwareAction."
-              + "\nAction: %s"
-              + "\nSymlinks: %s",
-          action,
-          filesetOutput);
       return ActionExecutionValue.createFromOutputMetadataStore(
           this.outputMetadataStore, filesetOutput, action);
     }
@@ -1584,7 +1577,13 @@ public final class SkyframeActionExecutor {
                 output,
                 metadata,
                 outputMetadataStore,
-                filesetOutputForMetrics,
+                // Actions implementing the mechanics of Fileset
+                // (SymlinkTreeAction and SymlinkAction) also have the fileset output tree in their
+                // ActionExecutionValue because they represent the fileset, but we want to count
+                // files in each Fileset only once. This check for checking whether this is the
+                // actual Fileset manifest action (SkyframeFilesetManifestAction) is the best I
+                // could come up with that doesn't cause too much collateral damage.
+                action instanceof SkyframeAwareAction ? filesetOutputForMetrics : null,
                 isActionCacheHitForMetrics,
                 action);
           } catch (IOException e) {

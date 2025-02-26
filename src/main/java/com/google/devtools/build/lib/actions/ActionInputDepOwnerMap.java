@@ -42,6 +42,7 @@ public class ActionInputDepOwnerMap implements ActionInputMapSink, ActionInputDe
   public void putRunfilesMetadata(
       Artifact input, RunfilesArtifactValue metadata, @Nullable Artifact depOwner) {
     addOwner(input, depOwner);
+    metadata.forEachFileset((artifact, outputTree) -> addOwner(artifact, depOwner));
   }
 
   @Override

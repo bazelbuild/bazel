@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -215,6 +216,22 @@ public final class FilesetOutputTree {
     RESOLVE,
     /** Fully resolve all relative paths, even those pointing to internal directories. */
     RESOLVE_FULLY
+  }
+
+  public void addTo(Fingerprint fp) {
+    for (var symlink : symlinks) {
+      fp.addBoolean(symlink.relativeToExecRoot());
+      fp.addPath(symlink.name());
+      fp.addPath(symlink.targetPath());
+      if (symlink.enclosingTreeArtifactExecPath() != null) {
+        fp.addBoolean(true);
+        fp.addPath(symlink.enclosingTreeArtifactExecPath());
+      } else {
+        fp.addBoolean(false);
+      }
+
+      fp.addBytes(symlink.metadata().getDigest());
+    }
   }
 
   private static boolean isRelativeSymlink(FilesetOutputSymlink symlink) {

@@ -30,7 +30,7 @@ public final class RunfilesArtifactValue implements SkyValue {
   /** A callback for consuming artifacts in a runfiles tree. */
   @FunctionalInterface
   public interface RunfilesConsumer<T> {
-    void accept(Artifact artifact, T metadata) throws InterruptedException;
+    void accept(Artifact artifact, T metadata);
   }
 
   private final FileArtifactValue metadata;
@@ -44,19 +44,29 @@ public final class RunfilesArtifactValue implements SkyValue {
   private final ImmutableList<Artifact> trees;
   private final ImmutableList<TreeArtifactValue> treeValues;
 
+  // Parallel lists
+  private final ImmutableList<Artifact> filesets;
+  private final ImmutableList<FilesetOutputTree> filesetValues;
+
   public RunfilesArtifactValue(
       RunfilesTree runfilesTree,
       ImmutableList<Artifact> files,
       ImmutableList<FileArtifactValue> fileValues,
       ImmutableList<Artifact> trees,
-      ImmutableList<TreeArtifactValue> treeValues) {
+      ImmutableList<TreeArtifactValue> treeValues,
+      ImmutableList<Artifact> filesets,
+      ImmutableList<FilesetOutputTree> filesetValues) {
     this.runfilesTree = checkNotNull(runfilesTree);
     this.files = checkNotNull(files);
     this.fileValues = checkNotNull(fileValues);
     this.trees = checkNotNull(trees);
     this.treeValues = checkNotNull(treeValues);
+    this.filesets = checkNotNull(filesets);
+    this.filesetValues = checkNotNull(filesetValues);
     checkArgument(
-        files.size() == fileValues.size() && trees.size() == treeValues.size(),
+        files.size() == fileValues.size()
+            && trees.size() == treeValues.size()
+            && filesets.size() == filesetValues.size(),
         "Size mismatch: %s",
         this);
 
@@ -89,11 +99,17 @@ public final class RunfilesArtifactValue implements SkyValue {
       result.addBytes(treeValues.get(i).getDigest());
     }
 
+    for (int i = 0; i < filesets.size(); i++) {
+      FilesetOutputTree fileset = filesetValues.get(i);
+      fileset.addTo(result);
+    }
+
     return result.digestAndReset();
   }
 
   public RunfilesArtifactValue withOverriddenRunfilesTree(RunfilesTree overrideTree) {
-    return new RunfilesArtifactValue(overrideTree, files, fileValues, trees, treeValues);
+    return new RunfilesArtifactValue(
+        overrideTree, files, fileValues, trees, treeValues, filesets, filesetValues);
   }
 
   /** Returns the data of the artifact for this value, as computed by the action cache checker. */
@@ -107,18 +123,22 @@ public final class RunfilesArtifactValue implements SkyValue {
   }
 
   /** Visits the file artifacts that this runfiles artifact expands to, together with their data. */
-  public void forEachFile(RunfilesConsumer<FileArtifactValue> consumer)
-      throws InterruptedException {
+  public void forEachFile(RunfilesConsumer<FileArtifactValue> consumer) {
     for (int i = 0; i < files.size(); i++) {
       consumer.accept(files.get(i), fileValues.get(i));
     }
   }
 
   /** Visits the tree artifacts that this runfiles artifact expands to, together with their data. */
-  public void forEachTree(RunfilesConsumer<TreeArtifactValue> consumer)
-      throws InterruptedException {
+  public void forEachTree(RunfilesConsumer<TreeArtifactValue> consumer) {
     for (int i = 0; i < trees.size(); i++) {
       consumer.accept(trees.get(i), treeValues.get(i));
+    }
+  }
+
+  public void forEachFileset(RunfilesConsumer<FilesetOutputTree> consumer) {
+    for (int i = 0; i < filesets.size(); i++) {
+      consumer.accept(filesets.get(i), filesetValues.get(i));
     }
   }
 
@@ -140,12 +160,15 @@ public final class RunfilesArtifactValue implements SkyValue {
         && files.equals(that.files)
         && fileValues.equals(that.fileValues)
         && trees.equals(that.trees)
-        && treeValues.equals(that.treeValues);
+        && treeValues.equals(that.treeValues)
+        && filesets.equals(that.filesets)
+        && filesetValues.equals(that.filesetValues);
   }
 
   @Override
   public int hashCode() {
-    return HashCodes.hashObjects(metadata, files, fileValues, trees, treeValues);
+    return HashCodes.hashObjects(
+        metadata, files, fileValues, trees, treeValues, filesets, filesetValues);
   }
 
   @Override
@@ -156,6 +179,8 @@ public final class RunfilesArtifactValue implements SkyValue {
         .add("fileValues", fileValues)
         .add("trees", trees)
         .add("treeValues", treeValues)
+        .add("filesets", filesets)
+        .add("filesetValues", fileValues)
         .toString();
   }
 }

@@ -837,13 +837,33 @@ public final class ActionExecutionFunction implements SkyFunction {
 
     if (state.token == null) {
       // We got a hit from the action cache -- no need to execute.
+      // Filesets are a special case: the actual "fileset artifact" can be the fileset output
+      // manifest or its output symlink tree. In the latter case, the symlink tree is created
+      // by a SymlinkTreeAction, then symlinked at the appropriate location using a SymlinkAction.
+      // In case of an action cache hit but a Skyframe miss, the resulting SkyValue needs to be
+      // populated with the pertinent FilesetOutputTree. SkyframeFilesetManifestAction cannot be
+      // cached in the action cache because if it was, the ActionExecutionValue would be created
+      // from metadata stored in the action cache and thus the associated FilesetOutputTree would
+      // not be present there. So that action is marked as "execute unconditionally" so that the
+      // FilesetOutputTree is always created, but we need to take special care for the other two
+      // actions: if they are action cache hits, the FilesetOutputTree needs to be forwarded from
+      // their inputs to their outputs.
+      //
+      // This is an awkward way to check whether this mechanism is necessary, but in practice,
+      // Filesets are only created by Fileset() so this is good enough.
+      FilesetOutputTree forwardedFilesetOutputTree = null;
+      if (action.getOutputs().size() == 1
+          && Iterables.getOnlyElement(action.getOutputs()).isFileset()) {
+        forwardedFilesetOutputTree = state.topLevelFilesets.values().iterator().next();
+      }
+
       checkState(
           !(action instanceof SkyframeAwareAction),
           "Error, we're not re-executing a "
               + "SkyframeAwareAction which should be re-executed unconditionally. Action: %s",
           action);
       return ActionExecutionValue.createFromOutputMetadataStore(
-          outputMetadataStore, /* filesetOutput= */ FilesetOutputTree.EMPTY, action);
+          outputMetadataStore, forwardedFilesetOutputTree, action);
     }
 
     outputMetadataStore.prepareForActionExecution();
@@ -1298,7 +1318,7 @@ public final class ActionExecutionFunction implements SkyFunction {
             topLevelFilesets,
             input,
             value,
-            env);
+            MetadataConsumerForMetrics.NO_OP);
       } else if (!hasMissingInputs && input.hasKnownGeneratingAction()) {
         // Derived inputs are mandatory, but we did not detect any missing inputs. This is only
         // possible for indirect inputs (beneath an ArtifactNestedSetKey) when, between the time the
