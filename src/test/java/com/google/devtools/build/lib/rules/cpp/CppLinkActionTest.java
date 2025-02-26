@@ -1100,42 +1100,27 @@ action_configs = [action_config(
   /** Tests that -pie is removed when -shared is also present (http://b/5611891#). */
   @Test
   public void testPieOptionDisabledForSharedLibraries() throws Exception {
-    RuleContext ruleContext = createDummyRuleContext();
+    scratch.file(
+        "foo/BUILD",
+        "cc_binary(name = 'foo', srcs = ['foo.cc'], linkopts = ['-pie', '-other', '-pie'],"
+            + " linkshared = True)");
 
-    SpawnAction linkAction =
-        createLinkBuilder(
-                ruleContext,
-                LinkTargetType.DYNAMIC_LIBRARY,
-                "dummyRuleContext/out.so",
-                ImmutableList.of(),
-                ImmutableList.of(),
-                getMockFeatureConfiguration(/* envVars= */ ImmutableMap.of()))
-            .setLinkingMode(Link.LinkingMode.STATIC)
-            .addLinkopts(ImmutableList.of("-pie", "-other", "-pie"))
-            .setLibraryIdentifier("foo")
-            .build();
+    SpawnAction linkAction = (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppLink"));
 
     List<String> argv = linkAction.getArguments();
     assertThat(argv).doesNotContain("-pie");
     assertThat(argv).contains("-other");
   }
 
-  /** Tests that -pie is removed when -shared is also present (http://b/5611891#). */
+  /** Tests that -pie is kept when -shared is not present (http://b/5611891#). */
   @Test
   public void testPieOptionKeptForExecutables() throws Exception {
-    RuleContext ruleContext = createDummyRuleContext();
+    scratch.file(
+        "foo/BUILD",
+        "cc_binary(name = 'foo', srcs = ['foo.cc'], linkopts = ['-pie', '-other', '-pie'],"
+            + " linkshared = False)");
 
-    SpawnAction linkAction =
-        createLinkBuilder(
-                ruleContext,
-                LinkTargetType.EXECUTABLE,
-                "dummyRuleContext/out",
-                ImmutableList.of(),
-                ImmutableList.of(),
-                getMockFeatureConfiguration(/* envVars= */ ImmutableMap.of()))
-            .setLinkingMode(Link.LinkingMode.STATIC)
-            .addLinkopts(ImmutableList.of("-pie", "-other", "-pie"))
-            .build();
+    SpawnAction linkAction = (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppLink"));
 
     List<String> argv = linkAction.getArguments();
     assertThat(argv).contains("-pie");
@@ -1178,13 +1163,11 @@ action_configs = [action_config(
 
   @Test
   public void testLinkoptsAreOmittedForStaticLibrary() throws Exception {
-    RuleContext ruleContext = createDummyRuleContext();
+    scratch.file(
+        "foo/BUILD", "cc_library(name = 'foo', srcs = ['foo.cc'], linkopts = ['FakeLinkopt1'])");
 
     SpawnAction linkAction =
-        createLinkBuilder(ruleContext, LinkTargetType.STATIC_LIBRARY)
-            .addLinkopt("FakeLinkopt1")
-            .setLibraryIdentifier("foo")
-            .build();
+        (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppArchive"));
 
     assertThat(linkAction.getArguments()).doesNotContain("FakeLinkopt1");
   }
