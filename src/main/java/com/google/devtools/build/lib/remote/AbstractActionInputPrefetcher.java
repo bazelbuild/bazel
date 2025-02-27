@@ -724,15 +724,17 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       }
 
       if (output.isTreeArtifact()) {
-        var children =
-            outputMetadataStore.getTreeArtifactValue((SpecialArtifact) output).getChildren();
-        for (var file : children) {
-          if (remoteOutputChecker.shouldDownloadOutput(file)) {
-            outputsToDownload.add(file);
-          }
-        }
+        outputMetadataStore
+            .getTreeArtifactValue((SpecialArtifact) output)
+            .getChildValues()
+            .forEach(
+                (child, childMetadata) -> {
+                  if (remoteOutputChecker.shouldDownloadOutput(child, childMetadata)) {
+                    outputsToDownload.add(child);
+                  }
+                });
       } else {
-        if (remoteOutputChecker.shouldDownloadOutput(output)) {
+        if (remoteOutputChecker.shouldDownloadOutput(output, metadata)) {
           outputsToDownload.add(output);
         }
       }

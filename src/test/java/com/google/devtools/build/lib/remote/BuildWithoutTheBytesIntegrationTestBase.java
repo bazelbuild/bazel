@@ -23,6 +23,7 @@ import static org.junit.Assume.assumeFalse;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -1663,7 +1664,70 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
-  public void remoteTreeFilesExpiredBetweenBuilds_rerunGeneratingActions() throws Exception {
+  public void remoteFilesExpiredBetweenBuilds_rerunGeneratingActions_notDownloadedWithMinimal()
+      throws Exception {
+    // Arrange: Prepare workspace and populate remote cache
+    addOptions("--experimental_remote_cache_eviction_retries=0");
+    write(
+        "a/BUILD",
+        """
+        genrule(
+            name = "foo",
+            srcs = ["foo.in"],
+            outs = ["foo.out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+
+        genrule(
+            name = "bar",
+            srcs = [
+                "foo.out",
+                "bar.in",
+            ],
+            outs = ["bar.out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+    write("a/foo.in", "foo");
+    write("a/bar.in", "bar");
+
+    // Populate remote cache
+    buildTarget("//a:bar");
+    assertOutputDoesNotExist("a/foo.out");
+    assertOutputDoesNotExist("a/bar.out");
+    getOutputBase().getRelative("action_cache").deleteTreesBelow();
+    restartServer();
+
+    // Clean build, foo.out and bar.out aren't downloaded
+    addOptions("--experimental_remote_cache_ttl=0s");
+    buildTarget("//a:bar");
+    assertOutputDoesNotExist("a/foo.out");
+    assertOutputDoesNotExist("a/bar.out");
+
+    // Evict blobs from remote cache
+    evictAllBlobs();
+
+    // Act: Do an incremental build
+    write("a/bar.in", "updated bar");
+    buildTarget("//a:bar");
+    waitDownloads();
+
+    // Assert: target was successfully built
+    assertOutputDoesNotExist("a/foo.out");
+    assertOutputDoesNotExist("a/bar.out");
+    var metadata = Iterables.getOnlyElement(getMetadata("//a:bar").values());
+    assertThat(metadata.isRemote()).isTrue();
+    assertThat(metadata.getDigest())
+        .isEqualTo(
+            getDigestHashFunction()
+                .getHashFunction()
+                .hashString("foo" + lineSeparator() + "updated bar" + lineSeparator(), UTF_8)
+                .asBytes());
+  }
+
+  @Test
+  public void remoteTreeFilesExpiredBetweenBuilds_rerunGeneratingActions_notDownloadedWithMinimal()
+      throws Exception {
     // Arrange: Prepare workspace and populate remote cache
     write("BUILD");
     writeOutputDirRule();
@@ -1713,6 +1777,69 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
     // Assert: target was successfully built
     assertValidOutputFile("a/bar.out", "file-inside\nupdated bar" + lineSeparator());
+  }
+
+  @Test
+  public void remoteTreeFilesExpiredBetweenBuilds_rerunGeneratingActions() throws Exception {
+    // Arrange: Prepare workspace and populate remote cache
+    addOptions("--experimental_remote_cache_eviction_retries=0");
+    write("BUILD");
+    writeOutputDirRule();
+    write(
+        "a/BUILD",
+        """
+        load("//:output_dir.bzl", "output_dir")
+
+        output_dir(
+            name = "foo.out",
+            content_map = {"file-inside": "hello world"},
+        )
+
+        genrule(
+            name = "bar",
+            srcs = [
+                "foo.out",
+                "bar.in",
+            ],
+            outs = ["bar.out"],
+            cmd = "( ls $(location :foo.out); cat $(location :bar.in) ) > $@",
+        )
+        """);
+    write("a/bar.in", "bar");
+
+    // Populate remote cache
+    buildTarget("//a:bar");
+    assertThat(getOutputPath("a/foo.out").getDirectoryEntries()).isEmpty();
+    assertOutputDoesNotExist("a/bar.out");
+    getOutputBase().getRelative("action_cache").deleteTreesBelow();
+    restartServer();
+
+    // Clean build, foo.out and bar.out aren't downloaded
+    addOptions("--experimental_remote_cache_ttl=0s");
+    buildTarget("//a:bar");
+    assertOutputDoesNotExist("a/foo.out/file-inside");
+    assertOutputDoesNotExist("a/bar.out");
+
+    // Evict blobs from remote cache
+    evictAllBlobs();
+
+    // Act: Do an incremental build
+    write("a/bar.in", "updated bar");
+    // Also request foo.out to verify that it's files aren't downloaded.
+    buildTarget("//a:bar", "//a:foo.out");
+    waitDownloads();
+
+    // Assert: target was successfully built
+    assertOutputDoesNotExist("a/foo.out/file-inside");
+    assertOutputDoesNotExist("a/bar.out");
+    var metadata = Iterables.getOnlyElement(getMetadata("//a:bar").values());
+    assertThat(metadata.isRemote()).isTrue();
+    assertThat(metadata.getDigest())
+        .isEqualTo(
+            getDigestHashFunction()
+                .getHashFunction()
+                .hashString("file-inside\nupdated bar" + lineSeparator(), UTF_8)
+                .asBytes());
   }
 
   @Test

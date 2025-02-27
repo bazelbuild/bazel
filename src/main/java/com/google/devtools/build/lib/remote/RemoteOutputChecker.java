@@ -44,7 +44,10 @@ import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
-/** An {@link OutputChecker} that checks the TTL of remote metadata. */
+/**
+ * An {@link OutputChecker} that checks the TTL of remote metadata and decides which outputs to
+ * download.
+ */
 public class RemoteOutputChecker implements OutputChecker {
   private enum CommandMode {
     UNKNOWN,
@@ -272,14 +275,15 @@ public class RemoteOutputChecker implements OutputChecker {
   }
 
   /** Returns whether this {@link ActionInput} should be downloaded. */
-  public boolean shouldDownloadOutput(ActionInput output) {
+  @Override
+  public boolean shouldDownloadOutput(ActionInput output, FileArtifactValue metadata) {
     checkState(
         !(output instanceof Artifact && ((Artifact) output).isTreeArtifact()),
         "shouldDownloadOutput should not be called on a tree artifact");
-    return shouldDownloadOutput(output.getExecPath());
+    return metadata.isRemote() && shouldDownloadOutput(output.getExecPath());
   }
 
-  /** Returns whether an {@link ActionInput} with the given path should be downloaded. */
+  /** Returns whether a remote {@link ActionInput} with the given path should be downloaded. */
   public boolean shouldDownloadOutput(PathFragment execPath) {
     return outputsMode == RemoteOutputsMode.ALL
         || pathsToDownload.contains(execPath)
@@ -287,7 +291,7 @@ public class RemoteOutputChecker implements OutputChecker {
   }
 
   @Override
-  public boolean shouldTrustArtifact(ActionInput file, FileArtifactValue metadata) {
+  public boolean shouldTrustMetadata(ActionInput file, FileArtifactValue metadata) {
     // Local metadata is always trusted.
     if (!metadata.isRemote()) {
       return true;
@@ -300,12 +304,12 @@ public class RemoteOutputChecker implements OutputChecker {
     if (lastRemoteOutputChecker != null) {
       // This is an incremental build. If the file was downloaded by previous build and is now
       // missing, invalidate the action.
-      if (lastRemoteOutputChecker.shouldDownloadOutput(file)) {
+      if (lastRemoteOutputChecker.shouldDownloadOutput(file, metadata)) {
         return false;
       }
     }
 
-    if (shouldDownloadOutput(file)) {
+    if (shouldDownloadOutput(file, metadata)) {
       return false;
     }
 
