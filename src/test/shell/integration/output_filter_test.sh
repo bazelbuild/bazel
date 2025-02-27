@@ -84,10 +84,10 @@ int main(void)
 #ifdef _WIN32
   // MSVC does not support the #warning directive.
   int unused_variable__triggers_a_warning;  // triggers C4101
-#else  // not COMPILER_MSVC
+#else  // not _WIN32
   // GCC/Clang support #warning.
 #warning("triggers_a_warning")
-#endif  // COMPILER_MSVC
+#endif  // _WIN32
   printf("%s", "Hello, World!\n");
   return 0;
 }
