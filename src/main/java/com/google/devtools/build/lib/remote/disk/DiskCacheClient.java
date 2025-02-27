@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
-import com.google.protobuf.ExtensionRegistryLite;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -207,9 +206,10 @@ public class DiskCacheClient {
       var treeDigest = outputDirectory.getTreeDigest();
       checkDigestExists(treeDigest);
 
-      var treePath = toPath(treeDigest, Store.CAS);
-      var tree =
-          Tree.parseFrom(treePath.getInputStream(), ExtensionRegistryLite.getEmptyRegistry());
+      Tree tree;
+      try (var in = toPath(treeDigest, Store.CAS).getInputStream()) {
+        tree = Tree.parseFrom(in);
+      }
       checkOutputDirectory(tree.getRoot());
       for (var dir : tree.getChildrenList()) {
         checkOutputDirectory(dir);
