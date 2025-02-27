@@ -49,6 +49,8 @@ _BAZEL_ARGS="--spawn_strategy=standalone \
       --java_language_version=${JAVA_VERSION} \
       --tool_java_runtime_version=${JAVA_VERSION} \
       --tool_java_language_version=${JAVA_VERSION} \
+      --cxxopt=-std=c++17 \
+      --host_cxxopt=-std=c++17 \
       ${DIST_BOOTSTRAP_ARGS:-} \
       ${EXTRA_BAZEL_ARGS:-}"
 
