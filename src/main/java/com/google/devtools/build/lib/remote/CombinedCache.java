@@ -152,10 +152,7 @@ public class CombinedCache extends AbstractReferenceCounted {
   }
 
   public CachedActionResult downloadActionResult(
-      RemoteActionExecutionContext context,
-      ActionKey actionKey,
-      boolean inlineOutErr,
-      Set<String> inlineOutputFiles)
+      RemoteActionExecutionContext context, ActionKey actionKey, Set<String> inlineOutputFiles)
       throws IOException, InterruptedException {
     var spawnExecutionContext = context.getSpawnExecutionContext();
 
@@ -189,8 +186,7 @@ public class CombinedCache extends AbstractReferenceCounted {
                     spawnExecutionContext.report(SPAWN_CHECKING_REMOTE_CACHE_EVENT);
                   }
                   return Futures.transform(
-                      downloadActionResultFromRemote(
-                          context, actionKey, inlineOutErr, inlineOutputFiles),
+                      downloadActionResultFromRemote(context, actionKey, inlineOutputFiles),
                       CachedActionResult::remote,
                       directExecutor());
                 } else {
@@ -204,13 +200,10 @@ public class CombinedCache extends AbstractReferenceCounted {
   }
 
   private ListenableFuture<ActionResult> downloadActionResultFromRemote(
-      RemoteActionExecutionContext context,
-      ActionKey actionKey,
-      boolean inlineOutErr,
-      Set<String> inlineOutputFiles) {
+      RemoteActionExecutionContext context, ActionKey actionKey, Set<String> inlineOutputFiles) {
     checkState(remoteCacheClient != null && context.getReadCachePolicy().allowRemoteCache());
     return Futures.transformAsync(
-        remoteCacheClient.downloadActionResult(context, actionKey, inlineOutErr, inlineOutputFiles),
+        remoteCacheClient.downloadActionResult(context, actionKey, inlineOutputFiles),
         (actionResult) -> {
           if (actionResult == null) {
             return immediateFuture(null);

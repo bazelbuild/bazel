@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.starlarkbuildapi.repository;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.docgen.annot.GlobalMethods;
 import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -104,14 +103,6 @@ public interface RepositoryModuleApi {
             named = true,
             positional = false),
         @Param(
-            name = "remotable",
-            defaultValue = "False",
-            doc = "Compatible with remote execution",
-            named = true,
-            positional = false,
-            enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_REPO_REMOTE_EXEC,
-            valueWhenDisabled = "False"),
-        @Param(
             name = "doc",
             allowedTypes = {
               @ParamType(type = String.class),
@@ -131,7 +122,6 @@ public interface RepositoryModuleApi {
       Boolean local,
       Sequence<?> environ, // <String> expected
       Boolean configure,
-      Boolean remotable,
       Object doc,
       StarlarkThread thread)
       throws EvalException;

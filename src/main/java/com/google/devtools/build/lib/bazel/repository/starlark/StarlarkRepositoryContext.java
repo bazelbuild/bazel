@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.RepoCach
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
-import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.skyframe.DirectoryTreeDigestValue;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -100,7 +99,6 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       double timeoutScaling,
       @Nullable ProcessWrapper processWrapper,
       StarlarkSemantics starlarkSemantics,
-      @Nullable RepositoryRemoteExecutor remoteExecutor,
       SyscallCache syscallCache,
       BlazeDirectories directories)
       throws EvalException {
@@ -115,7 +113,6 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
         starlarkSemantics,
         RepositoryFetchProgress.repositoryFetchContextString(
             RepositoryName.createUnvalidated(rule.getName())),
-        remoteExecutor,
         /* allowWatchingPathsOutsideWorkspace= */ true);
     this.rule = rule;
     this.packageLocator = packageLocator;
@@ -367,22 +364,6 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       throw new RepositoryFunctionException(
           Starlark.errorf("Could not create %s: %s", p, e.getMessage()), Transience.PERSISTENT);
     }
-  }
-
-  @Override
-  protected boolean isRemotable() {
-    Object remotable = rule.getAttr("$remotable");
-    if (remotable != null) {
-      return (Boolean) remotable;
-    }
-    return false;
-  }
-
-  @Override
-  protected ImmutableMap<String, String> getRemoteExecProperties() throws EvalException {
-    return ImmutableMap.copyOf(
-        Dict.cast(
-            getAttr().getValue("exec_properties"), String.class, String.class, "exec_properties"));
   }
 
   @StarlarkMethod(

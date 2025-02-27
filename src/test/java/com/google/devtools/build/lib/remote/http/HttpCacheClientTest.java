@@ -708,7 +708,6 @@ public class HttpCacheClientTest {
               blobStore.downloadActionResult(
                   remoteActionExecutionContext,
                   new RemoteCacheClient.ActionKey(DIGEST),
-                  /* inlineOutErr= */ false,
                   /* inlineOutputFiles= */ ImmutableSet.of()));
       assertThat(actionResult).isEqualTo(action2);
     } finally {

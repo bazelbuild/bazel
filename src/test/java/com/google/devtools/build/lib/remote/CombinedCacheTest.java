@@ -175,7 +175,7 @@ public class CombinedCacheTest {
         combinedCache.downloadActionResult(
             remoteActionExecutionContext,
             digestUtil.asActionKey(digestUtil.computeAsUtf8("key")),
-            /* inlineOutErr= */ false,
+            /* inlineOutErr= */
             /* inlineOutputFiles= */ ImmutableSet.of());
 
     verify(remoteActionExecutionContext.getSpawnExecutionContext())

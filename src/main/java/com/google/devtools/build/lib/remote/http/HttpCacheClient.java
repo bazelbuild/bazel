@@ -619,10 +619,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
 
   @Override
   public ListenableFuture<ActionResult> downloadActionResult(
-      RemoteActionExecutionContext context,
-      ActionKey actionKey,
-      boolean inlineOutErr,
-      Set<String> inlineOutputFiles) {
+      RemoteActionExecutionContext context, ActionKey actionKey, Set<String> inlineOutputFiles) {
     return retrier.executeAsync(
         () ->
             Utils.downloadAsActionResult(

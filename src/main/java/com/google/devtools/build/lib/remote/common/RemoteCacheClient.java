@@ -77,18 +77,13 @@ public interface RemoteCacheClient extends MissingDigestsFinder {
    *
    * @param context the context for the action.
    * @param actionKey The digest of the {@link Action} that generated the action result.
-   * @param inlineOutErr A hint to the server to inline the stdout and stderr in the {@code
-   *     ActionResult} message.
    * @param inlineOutputFiles A hint to the server to inline the specified output files in the
    *     {@code ActionResult} message.
    * @return A Future representing pending download of an action result. If an action result for
    *     {@code actionKey} cannot be found the result of the Future is {@code null}.
    */
   ListenableFuture<ActionResult> downloadActionResult(
-      RemoteActionExecutionContext context,
-      ActionKey actionKey,
-      boolean inlineOutErr,
-      Set<String> inlineOutputFiles);
+      RemoteActionExecutionContext context, ActionKey actionKey, Set<String> inlineOutputFiles);
 
   /**
    * Uploads an action result for the {@code actionKey}.

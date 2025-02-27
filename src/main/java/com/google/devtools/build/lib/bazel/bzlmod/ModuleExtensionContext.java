@@ -14,13 +14,11 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkBaseExternalContext;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
-import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import java.util.Map;
@@ -58,7 +56,6 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
       double timeoutScaling,
       @Nullable ProcessWrapper processWrapper,
       StarlarkSemantics starlarkSemantics,
-      @Nullable RepositoryRemoteExecutor remoteExecutor,
       ModuleExtensionId extensionId,
       StarlarkList<StarlarkBazelModule> modules,
       boolean rootModuleHasNonDevDependency) {
@@ -72,7 +69,6 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
         processWrapper,
         starlarkSemantics,
         ModuleExtensionEvaluationProgress.moduleExtensionEvaluationContextString(extensionId),
-        remoteExecutor,
         /* allowWatchingPathsOutsideWorkspace= */ false);
     this.extensionId = extensionId;
     this.modules = modules;
@@ -88,17 +84,6 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
     // The contents of the working directory are purely ephemeral, only the repos instantiated by
     // the extension are considered its results.
     return true;
-  }
-
-  @Override
-  protected boolean isRemotable() {
-    // Maybe we can some day support remote execution, but not today.
-    return false;
-  }
-
-  @Override
-  protected ImmutableMap<String, String> getRemoteExecProperties() throws EvalException {
-    return ImmutableMap.of();
   }
 
   @StarlarkMethod(

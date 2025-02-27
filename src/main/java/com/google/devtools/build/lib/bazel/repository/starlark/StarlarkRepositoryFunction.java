@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.WorkspaceFileHelper;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
-import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.skyframe.IgnoredSubdirectoriesValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
@@ -78,7 +77,6 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
   private boolean useWorkers;
   @Nullable private DownloadManager downloadManager;
   @Nullable private ProcessWrapper processWrapper = null;
-  @Nullable private RepositoryRemoteExecutor repositoryRemoteExecutor;
   @Nullable private SyscallCache syscallCache;
 
   public StarlarkRepositoryFunction() {}
@@ -236,7 +234,6 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
                 timeoutScaling,
                 processWrapper,
                 starlarkSemantics,
-                repositoryRemoteExecutor,
                 syscallCache,
                 directories)) {
       StarlarkThread thread =
@@ -256,11 +253,6 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
       // We sort of want a starlark thread context here, but no extra info is needed. So we just
       // use an anonymous class.
       new StarlarkThreadContext(() -> mainRepoMapping) {}.storeInThread(thread);
-      if (starlarkRepositoryContext.isRemotable()) {
-        // If a rule is declared remotable then invalidate it if remote execution gets
-        // enabled or disabled.
-        PrecomputedValue.REMOTE_EXECUTION_ENABLED.get(env);
-      }
 
       // This rule is mainly executed for its side effect. Nevertheless, the return value is
       // of importance, as it provides information on how the call has to be modified to be a
@@ -386,9 +378,5 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
   @Override
   public Class<? extends RuleDefinition> getRuleDefinition() {
     return null; // unused so safe to return null
-  }
-
-  public void setRepositoryRemoteExecutor(RepositoryRemoteExecutor repositoryRemoteExecutor) {
-    this.repositoryRemoteExecutor = repositoryRemoteExecutor;
   }
 }

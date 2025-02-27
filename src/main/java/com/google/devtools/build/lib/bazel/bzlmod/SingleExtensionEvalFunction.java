@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.rules.repository.NeedsSkyframeRestartException;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
-import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
@@ -66,7 +65,6 @@ public class SingleExtensionEvalFunction implements SkyFunction {
 
   private double timeoutScaling = 1.0;
   @Nullable private ProcessWrapper processWrapper = null;
-  @Nullable private RepositoryRemoteExecutor repositoryRemoteExecutor = null;
   @Nullable private DownloadManager downloadManager = null;
 
   public SingleExtensionEvalFunction(
@@ -85,10 +83,6 @@ public class SingleExtensionEvalFunction implements SkyFunction {
 
   public void setProcessWrapper(ProcessWrapper processWrapper) {
     this.processWrapper = processWrapper;
-  }
-
-  public void setRepositoryRemoteExecutor(RepositoryRemoteExecutor repositoryRemoteExecutor) {
-    this.repositoryRemoteExecutor = repositoryRemoteExecutor;
   }
 
   @Nullable
@@ -129,7 +123,6 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                 clientEnvironmentSupplier,
                 timeoutScaling,
                 processWrapper,
-                repositoryRemoteExecutor,
                 downloadManager);
       }
     } catch (ExternalDepsException e) {

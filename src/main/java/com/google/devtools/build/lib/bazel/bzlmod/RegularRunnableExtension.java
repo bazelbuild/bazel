@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.rules.repository.NeedsSkyframeRestartException;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
-import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
 import com.google.devtools.build.lib.skyframe.BzlLoadFailedException;
@@ -76,7 +75,6 @@ final class RegularRunnableExtension implements RunnableExtension {
   private final Supplier<Map<String, String>> clientEnvironmentSupplier;
   private final double timeoutScaling;
   @Nullable private final ProcessWrapper processWrapper;
-  @Nullable private final RepositoryRemoteExecutor repositoryRemoteExecutor;
   @Nullable private final DownloadManager downloadManager;
 
   RegularRunnableExtension(
@@ -87,7 +85,6 @@ final class RegularRunnableExtension implements RunnableExtension {
       Supplier<Map<String, String>> clientEnvironmentSupplier,
       double timeoutScaling,
       @Nullable ProcessWrapper processWrapper,
-      @Nullable RepositoryRemoteExecutor repositoryRemoteExecutor,
       @Nullable DownloadManager downloadManager) {
     this.bzlLoadValue = bzlLoadValue;
     this.extension = extension;
@@ -96,7 +93,6 @@ final class RegularRunnableExtension implements RunnableExtension {
     this.clientEnvironmentSupplier = clientEnvironmentSupplier;
     this.timeoutScaling = timeoutScaling;
     this.processWrapper = processWrapper;
-    this.repositoryRemoteExecutor = repositoryRemoteExecutor;
     this.downloadManager = downloadManager;
   }
 
@@ -144,7 +140,6 @@ final class RegularRunnableExtension implements RunnableExtension {
       Supplier<Map<String, String>> clientEnvironmentSupplier,
       double timeoutScaling,
       @Nullable ProcessWrapper processWrapper,
-      @Nullable RepositoryRemoteExecutor repositoryRemoteExecutor,
       @Nullable DownloadManager downloadManager)
       throws InterruptedException, ExternalDepsException {
     ModuleExtensionUsage sampleUsage = usagesValue.getExtensionUsages().values().iterator().next();
@@ -189,7 +184,6 @@ final class RegularRunnableExtension implements RunnableExtension {
         clientEnvironmentSupplier,
         timeoutScaling,
         processWrapper,
-        repositoryRemoteExecutor,
         downloadManager);
   }
 
@@ -356,7 +350,6 @@ final class RegularRunnableExtension implements RunnableExtension {
         timeoutScaling,
         processWrapper,
         starlarkSemantics,
-        repositoryRemoteExecutor,
         extensionId,
         StarlarkList.immutableCopyOf(modules),
         rootModuleHasNonDevDependency);

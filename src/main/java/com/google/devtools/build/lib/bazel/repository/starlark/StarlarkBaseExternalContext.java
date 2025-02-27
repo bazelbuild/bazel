@@ -18,7 +18,6 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Ascii;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -56,12 +55,9 @@ import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.RepoCach
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
-import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
-import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionResult;
 import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.OsUtils;
-import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -77,7 +73,6 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.InvalidPathException;
 import java.time.Duration;
 import java.time.Instant;
@@ -168,7 +163,6 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
   private final HashMap<RepoRecordedInput.File, String> recordedFileInputs = new HashMap<>();
   private final HashMap<RepoRecordedInput.Dirents, String> recordedDirentsInputs = new HashMap<>();
   private final HashSet<String> accumulatedEnvKeys = new HashSet<>();
-  private final RepositoryRemoteExecutor remoteExecutor;
   private final List<AsyncTask> asyncTasks;
   private final boolean allowWatchingPathsOutsideWorkspace;
   private final ExecutorService executorService;
@@ -186,7 +180,6 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
       @Nullable ProcessWrapper processWrapper,
       StarlarkSemantics starlarkSemantics,
       String identifyingStringForLogging,
-      @Nullable RepositoryRemoteExecutor remoteExecutor,
       boolean allowWatchingPathsOutsideWorkspace) {
     this.workingDirectory = workingDirectory;
     this.directories = directories;
@@ -198,7 +191,6 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     this.processWrapper = processWrapper;
     this.starlarkSemantics = starlarkSemantics;
     this.identifyingStringForLogging = identifyingStringForLogging;
-    this.remoteExecutor = remoteExecutor;
     this.asyncTasks = new ArrayList<>();
     this.allowWatchingPathsOutsideWorkspace = allowWatchingPathsOutsideWorkspace;
     this.executorService =
@@ -374,8 +366,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
 
   private static ImmutableMap<String, List<String>> getHeaderContents(Dict<?, ?> x, String what)
       throws EvalException {
-    Dict<String, Object> headersUnchecked =
-        (Dict<String, Object>) Dict.cast(x, String.class, Object.class, what);
+    Dict<String, Object> headersUnchecked = Dict.cast(x, String.class, Object.class, what);
     ImmutableMap.Builder<String, List<String>> headers = new ImmutableMap.Builder<>();
 
     for (Map.Entry<String, Object> entry : headersUnchecked.entrySet()) {
@@ -775,12 +766,12 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
             /* ensureNonEmpty= */ !allowFail,
             /* checksumGiven= */ !Strings.isNullOrEmpty(sha256)
                 || !Strings.isNullOrEmpty(integrity));
-    Optional<Checksum> checksum = null;
+    Optional<Checksum> checksum;
     RepositoryFunctionException checksumValidation = null;
     try {
       checksum = validateChecksum(sha256, integrity, urls);
     } catch (RepositoryFunctionException e) {
-      checksum = Optional.<Checksum>empty();
+      checksum = Optional.empty();
       checksumValidation = e;
     }
 
@@ -822,7 +813,7 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
               authHeaders,
               checksum,
               canonicalId,
-              Optional.<String>empty(),
+              Optional.empty(),
               outputPath.getPath(),
               env.getListener(),
               envVariables,
@@ -1736,98 +1727,19 @@ the same path on case-insensitive filesystems.
     }
   }
 
-  /** Whether this context supports remote execution. */
-  protected abstract boolean isRemotable();
-
-  private boolean canExecuteRemote() {
-    boolean featureEnabled =
-        starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_REPO_REMOTE_EXEC);
-    boolean remoteExecEnabled = remoteExecutor != null;
-    return featureEnabled && isRemotable() && remoteExecEnabled;
-  }
-
-  protected abstract ImmutableMap<String, String> getRemoteExecProperties() throws EvalException;
-
-  private Map.Entry<PathFragment, Path> getRemotePathFromLabel(Label label)
-      throws EvalException, InterruptedException {
-    Path localPath = getPathFromLabel(label).getPath();
-    PathFragment remotePath =
-        label.getPackageIdentifier().getSourceRoot().getRelative(label.getName());
-    return Maps.immutableEntry(remotePath, localPath);
-  }
-
-  private StarlarkExecutionResult executeRemote(
-      Sequence<?> argumentsUnchecked, // <String> or <Label> expected
-      int timeout,
-      Map<String, String> environment,
-      boolean quiet,
-      String workingDirectory)
-      throws EvalException, InterruptedException {
-    Preconditions.checkState(canExecuteRemote());
-
-    ImmutableSortedMap.Builder<PathFragment, Path> inputsBuilder =
-        ImmutableSortedMap.naturalOrder();
-    ImmutableList.Builder<String> argumentsBuilder = ImmutableList.builder();
-    for (Object argumentUnchecked : argumentsUnchecked) {
-      if (argumentUnchecked instanceof Label label) {
-        Map.Entry<PathFragment, Path> remotePath = getRemotePathFromLabel(label);
-        argumentsBuilder.add(remotePath.getKey().toString());
-        inputsBuilder.put(remotePath);
-      } else {
-        argumentsBuilder.add(argumentUnchecked.toString());
-      }
-    }
-
-    ImmutableList<String> arguments = argumentsBuilder.build();
-
-    try (SilentCloseable c =
-        Profiler.instance()
-            .profile(
-                ProfilerTask.STARLARK_REPOSITORY_FN, () -> profileArgsDesc("remote", arguments))) {
-      ExecutionResult result =
-          remoteExecutor.execute(
-              arguments,
-              inputsBuilder.buildOrThrow(),
-              getRemoteExecProperties(),
-              ImmutableMap.copyOf(environment),
-              workingDirectory,
-              Duration.ofSeconds(timeout));
-
-      String stdout = new String(result.stdout(), StandardCharsets.US_ASCII);
-      String stderr = new String(result.stderr(), StandardCharsets.US_ASCII);
-
-      if (!quiet) {
-        OutErr outErr = OutErr.SYSTEM_OUT_ERR;
-        outErr.printOut(stdout);
-        outErr.printErr(stderr);
-      }
-
-      return new StarlarkExecutionResult(result.exitCode(), stdout, stderr);
-    } catch (IOException e) {
-      throw Starlark.errorf("remote_execute failed: %s", e.getMessage());
-    }
-  }
-
   private void validateExecuteArguments(Sequence<?> arguments) throws EvalException {
-    boolean isRemotable = isRemotable();
     for (int i = 0; i < arguments.size(); i++) {
       Object arg = arguments.get(i);
-      if (isRemotable) {
-        if (!(arg instanceof String || arg instanceof Label)) {
-          throw Starlark.errorf("Argument %d of execute is neither a label nor a string.", i);
-        }
-      } else {
-        if (!(arg instanceof String || arg instanceof Label || arg instanceof StarlarkPath)) {
-          throw Starlark.errorf("Argument %d of execute is neither a path, label, nor string.", i);
-        }
+      if (!(arg instanceof String || arg instanceof Label || arg instanceof StarlarkPath)) {
+        throw Starlark.errorf("Argument %d of execute is neither a path, label, nor string.", i);
       }
     }
   }
 
   /** Returns the command line arguments as a string for display in the profiler. */
-  private static String profileArgsDesc(String method, List<String> args) {
+  private static String profileArgsDesc(List<String> args) {
     StringBuilder b = new StringBuilder();
-    b.append(method).append(":");
+    b.append("local").append(":");
 
     final String sep = " ";
     for (String arg : args) {
@@ -1924,14 +1836,6 @@ the same path on case-insensitive filesystems.
       }
     }
 
-    if (canExecuteRemote()) {
-      // Remote execution only sees the explicitly set environment variables, so removing env vars
-      // isn't necessary.
-      return executeRemote(arguments, timeout, forceEnvVariables, quiet, overrideWorkingDirectory);
-    }
-
-    // Execute on the local/host machine
-
     List<String> args = new ArrayList<>(arguments.size());
     for (Object arg : arguments) {
       if (arg instanceof Label label) {
@@ -1975,7 +1879,7 @@ the same path on case-insensitive filesystems.
     final List<String> fargs = args;
     try (SilentCloseable c =
         Profiler.instance()
-            .profile(ProfilerTask.STARLARK_REPOSITORY_FN, () -> profileArgsDesc("local", fargs))) {
+            .profile(ProfilerTask.STARLARK_REPOSITORY_FN, () -> profileArgsDesc(fargs))) {
       return StarlarkExecutionResult.builder(osObject.getEnvironmentVariables())
           .addArguments(args)
           .setDirectory(workingDirectoryPath.getPathFile())

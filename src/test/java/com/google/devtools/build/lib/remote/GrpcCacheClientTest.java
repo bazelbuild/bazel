@@ -785,7 +785,7 @@ public class GrpcCacheClientTest {
         combinedCache.downloadActionResult(
             context,
             DIGEST_UTIL.asActionKey(DIGEST_UTIL.computeAsUtf8("key")),
-            /* inlineOutErr= */ false,
+            /* inlineOutErr= */
             /* inlineOutputFiles= */ ImmutableSet.of());
   }
 
@@ -1105,10 +1105,7 @@ public class GrpcCacheClientTest {
     assertThat(
             getFromFuture(
                 client.downloadActionResult(
-                    context,
-                    actionKey,
-                    /* inlineOutErr= */ false,
-                    /* inlineOutputFiles= */ ImmutableSet.of())))
+                    context, actionKey, /* inlineOutputFiles= */ ImmutableSet.of())))
         .isNull();
   }
 

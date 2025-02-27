@@ -124,10 +124,7 @@ public class InMemoryCacheClient implements RemoteCacheClient {
 
   @Override
   public ListenableFuture<ActionResult> downloadActionResult(
-      RemoteActionExecutionContext context,
-      ActionKey actionKey,
-      boolean inlineOutErr,
-      Set<String> inlineOutputFiles) {
+      RemoteActionExecutionContext context, ActionKey actionKey, Set<String> inlineOutputFiles) {
     ActionResult actionResult = ac.get(actionKey);
     return Futures.immediateFuture(actionResult);
   }

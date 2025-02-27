@@ -58,7 +58,7 @@ final class ActionCacheServer extends ActionCacheImplBase {
       var inlineOutputFiles = ImmutableSet.copyOf(request.getInlineOutputFilesList());
       var result =
           cache.downloadActionResult(
-              context, actionKey, /* inlineOutErr= */ false, inlineOutputFiles);
+              context, actionKey, /* inlineOutErr= */  inlineOutputFiles);
 
       if (result == null) {
         responseObserver.onError(StatusUtils.notFoundError(request.getActionDigest()));

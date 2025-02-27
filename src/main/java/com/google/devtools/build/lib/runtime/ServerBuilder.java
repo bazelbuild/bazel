@@ -37,7 +37,6 @@ public final class ServerBuilder {
       ImmutableList.builder();
   private final BuildEventArtifactUploaderFactoryMap.Builder buildEventArtifactUploaderFactories =
       new BuildEventArtifactUploaderFactoryMap.Builder();
-  private RepositoryRemoteExecutorFactory repositoryRemoteExecutorFactory;
   private final InstrumentationOutputFactory.Builder instrumentationOutputFactoryBuilder =
       new InstrumentationOutputFactory.Builder();
 
@@ -73,10 +72,6 @@ public final class ServerBuilder {
 
   public BuildEventArtifactUploaderFactoryMap getBuildEventArtifactUploaderMap() {
     return buildEventArtifactUploaderFactories.build();
-  }
-
-  public RepositoryRemoteExecutorFactory getRepositoryRemoteExecutorFactory() {
-    return repositoryRemoteExecutorFactory;
   }
 
   /**
@@ -160,13 +155,6 @@ public final class ServerBuilder {
   public ServerBuilder addBuildEventArtifactUploaderFactory(
       BuildEventArtifactUploaderFactory uploaderFactory, String name) {
     buildEventArtifactUploaderFactories.add(name, uploaderFactory);
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  public ServerBuilder setRepositoryRemoteExecutorFactory(
-      RepositoryRemoteExecutorFactory repositoryRemoteExecutorFactory) {
-    this.repositoryRemoteExecutorFactory = repositoryRemoteExecutorFactory;
     return this;
   }
 

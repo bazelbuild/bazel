@@ -18,13 +18,11 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.io.CharStreams;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -44,14 +42,11 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.packages.WorkspaceFactoryHelper;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
-import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
-import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionResult;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -65,17 +60,13 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.Map;
-import javax.annotation.Nullable;
-import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkInt;
-import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.FileOptions;
@@ -145,7 +136,6 @@ public final class StarlarkRepositoryContextTest {
       IgnoredSubdirectories ignoredSubdirectories,
       ImmutableMap<String, String> envVariables,
       StarlarkSemantics starlarkSemantics,
-      @Nullable RepositoryRemoteExecutor repoRemoteExecutor,
       Attribute... attributes)
       throws Exception {
     Package.Builder packageBuilder =
@@ -161,10 +151,7 @@ public final class StarlarkRepositoryContextTest {
     ExtendedEventHandler listener = Mockito.mock(ExtendedEventHandler.class);
     Rule rule =
         WorkspaceFactoryHelper.createAndAddRepositoryRule(
-            packageBuilder,
-            buildRuleClass(attributes),
-            kwargs,
-            DUMMY_STACK);
+            packageBuilder, buildRuleClass(attributes), kwargs, DUMMY_STACK);
     DownloadManager downloader = Mockito.mock(DownloadManager.class);
     SkyFunction.Environment environment = Mockito.mock(SkyFunction.Environment.class);
     when(environment.getListener()).thenReturn(listener);
@@ -198,7 +185,6 @@ public final class StarlarkRepositoryContextTest {
             1.0,
             /* processWrapper= */ null,
             starlarkSemantics,
-            repoRemoteExecutor,
             SyscallCache.NO_CACHE,
             directories);
   }
@@ -213,8 +199,7 @@ public final class StarlarkRepositoryContextTest {
         ImmutableMap.of("name", name),
         IgnoredSubdirectories.EMPTY,
         ImmutableMap.of("FOO", "BAR"),
-        starlarkSemantics,
-        /* repoRemoteExecutor= */ null);
+        starlarkSemantics);
   }
 
   @Test
@@ -224,7 +209,6 @@ public final class StarlarkRepositoryContextTest {
         IgnoredSubdirectories.EMPTY,
         ImmutableMap.of("FOO", "BAR"),
         StarlarkSemantics.DEFAULT,
-        /* repoRemoteExecutor= */ null,
         Attribute.attr("foo", Type.STRING).build());
 
     assertThat(context.getAttr().getFieldNames()).contains("foo");
@@ -237,8 +221,7 @@ public final class StarlarkRepositoryContextTest {
         ImmutableMap.of("name", "test"),
         IgnoredSubdirectories.EMPTY,
         ImmutableMap.of("PATH", String.join(File.pathSeparator, "/bin", "/path/sbin", ".")),
-        StarlarkSemantics.DEFAULT,
-        /* repoRemoteExecutor= */ null);
+        StarlarkSemantics.DEFAULT);
     scratch.file("/bin/true").setExecutable(true);
     scratch.file("/path/sbin/true").setExecutable(true);
     scratch.file("/path/sbin/false").setExecutable(true);
@@ -328,8 +311,7 @@ public final class StarlarkRepositoryContextTest {
         ImmutableMap.of("name", "test"),
         IgnoredSubdirectories.of(ImmutableSet.of(PathFragment.create("under_workspace"))),
         ImmutableMap.of("FOO", "BAR"),
-        StarlarkSemantics.DEFAULT,
-        /* repoRemoteExecutor= */ null);
+        StarlarkSemantics.DEFAULT);
     assertThat(context.delete(underWorkspace.toString(), thread)).isTrue();
   }
 
@@ -416,65 +398,6 @@ public final class StarlarkRepositoryContextTest {
                   + "/outputDir/foo: could not apply patch due to"
                   + " CONTENT_DOES_NOT_MATCH_TARGET, error applying change near line 1");
     }
-  }
-
-  @Test
-  public void testRemoteExec() throws Exception {
-    // Test that context.execute() can call out to remote execution and correctly forward
-    // execution properties.
-
-    // Prepare mocked remote repository and corresponding repository rule.
-    ImmutableMap<String, Object> attrValues =
-        ImmutableMap.of(
-            "name",
-            "configure",
-            "$remotable",
-            true,
-            "exec_properties",
-            Dict.builder().put("OSFamily", "Linux").buildImmutable());
-
-    RepositoryRemoteExecutor repoRemoteExecutor = Mockito.mock(RepositoryRemoteExecutor.class);
-    ExecutionResult executionResult =
-        new ExecutionResult(
-            0,
-            "test-stdout".getBytes(StandardCharsets.US_ASCII),
-            "test-stderr".getBytes(StandardCharsets.US_ASCII));
-    when(repoRemoteExecutor.execute(any(), any(), any(), any(), any(), any()))
-        .thenReturn(executionResult);
-
-    setUpContextForRule(
-        attrValues,
-        IgnoredSubdirectories.EMPTY,
-        ImmutableMap.of("FOO", "BAR"),
-        StarlarkSemantics.builder()
-            .setBool(BuildLanguageOptions.EXPERIMENTAL_REPO_REMOTE_EXEC, true)
-            .build(),
-        repoRemoteExecutor,
-        Attribute.attr("$remotable", Type.BOOLEAN).build(),
-        Attribute.attr("exec_properties", Types.STRING_DICT).build());
-
-    // Execute the `StarlarkRepositoryContext`.
-    StarlarkExecutionResult starlarkExecutionResult =
-        context.execute(
-            StarlarkList.of(/* mutability= */ null, "/bin/cmd", "arg1"),
-            /* timeoutI= */ StarlarkInt.of(10),
-            /* uncheckedEnvironment= */ Dict.empty(),
-            /* quiet= */ true,
-            /* overrideWorkingDirectory= */ "",
-            thread);
-
-    // Verify the remote repository rule was run and its response returned.
-    verify(repoRemoteExecutor)
-        .execute(
-            /* arguments= */ ImmutableList.of("/bin/cmd", "arg1"),
-            /* inputFiles= */ ImmutableSortedMap.of(),
-            /* executionProperties= */ ImmutableMap.of("OSFamily", "Linux"),
-            /* environment= */ ImmutableMap.of(),
-            /* workingDirectory= */ "",
-            /* timeout= */ Duration.ofSeconds(10));
-    assertThat(starlarkExecutionResult.getReturnCode()).isEqualTo(0);
-    assertThat(starlarkExecutionResult.getStdout()).isEqualTo("test-stdout");
-    assertThat(starlarkExecutionResult.getStderr()).isEqualTo("test-stderr");
   }
 
   @Test

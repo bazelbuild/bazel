@@ -70,7 +70,6 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
       Boolean local,
       Sequence<?> environ, // <String> expected
       Boolean configure,
-      Boolean remotable,
       Object doc, // <String> or Starlark.NONE
       StarlarkThread thread)
       throws EvalException {
@@ -84,10 +83,6 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
     builder.addAttribute(attr("$original_name", STRING).defaultValue("").build());
     builder.addAttribute(attr("$local", BOOLEAN).defaultValue(local).build());
     builder.addAttribute(attr("$configure", BOOLEAN).defaultValue(configure).build());
-    if (thread.getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_REPO_REMOTE_EXEC)) {
-      builder.addAttribute(attr("$remotable", BOOLEAN).defaultValue(remotable).build());
-      BaseRuleClasses.execPropertiesAttribute(builder);
-    }
     builder.addAttribute(attr("$environ", STRING_LIST).defaultValue(environ).build());
     BaseRuleClasses.commonCoreAndStarlarkAttributes(builder);
     builder.add(attr("expect_failure", STRING));

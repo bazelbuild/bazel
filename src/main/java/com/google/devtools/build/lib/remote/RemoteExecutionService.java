@@ -859,7 +859,7 @@ public class RemoteExecutionService {
         combinedCache.downloadActionResult(
             action.getRemoteActionExecutionContext(),
             action.getActionKey(),
-            /* inlineOutErr= */ false,
+            /* inlineOutErr= */
             inlineOutputFiles);
 
     if (cachedActionResult == null) {

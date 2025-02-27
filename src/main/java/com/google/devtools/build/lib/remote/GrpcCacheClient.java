@@ -270,17 +270,12 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
 
   @Override
   public ListenableFuture<ActionResult> downloadActionResult(
-      RemoteActionExecutionContext context,
-      ActionKey actionKey,
-      boolean inlineOutErr,
-      Set<String> inlineOutputFiles) {
+      RemoteActionExecutionContext context, ActionKey actionKey, Set<String> inlineOutputFiles) {
     GetActionResultRequest request =
         GetActionResultRequest.newBuilder()
             .setInstanceName(options.remoteInstanceName)
             .setDigestFunction(digestUtil.getDigestFunction())
             .setActionDigest(actionKey.getDigest())
-            .setInlineStderr(inlineOutErr)
-            .setInlineStdout(inlineOutErr)
             .addAllInlineOutputFiles(inlineOutputFiles)
             .build();
     return Utils.refreshIfUnauthenticatedAsync(
