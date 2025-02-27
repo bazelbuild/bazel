@@ -791,14 +791,13 @@ public class RewindingTestsHelper {
     // build. The build should stop with an interrupt normally (and not crash).
     writeTwoGenrulePackage(testCase);
 
-    Thread mainThread = Thread.currentThread();
     addSpawnShim(
         "Executing genrule //test:rule2",
         (spawn, context) -> {
           addSpawnShim(
               "Executing genrule //test:rule1",
               (ignoredSpawn, ignoredContext) -> {
-                mainThread.interrupt();
+                Thread.currentThread().interrupt();
                 return ExecResult.delegate();
               });
 
