@@ -176,11 +176,24 @@ _common_attrs = {
             "Either `workspace_file` or `workspace_file_content` can be " +
             "specified, or neither, but not both.",
     ),
+    "sparse_checkout_patterns": attr.string_list(
+        default = [],
+        doc = "Sequence of patterns for a sparse checkout of files in this repository.",
+    ),
+    "sparse_checkout_file": attr.label(
+        doc =
+            "File containing .gitignore-style patterns for a sparse checkout of files " +
+            "in this repository. Either `sparse_checkout_patterns` or `sparse_checkout_file` " +
+            "may be specified, or neither, but not both.",
+    ),
 }
 
 def _git_repository_implementation(ctx):
     if ctx.attr.build_file and ctx.attr.build_file_content:
         fail("Only one of build_file and build_file_content can be provided.")
+    if ctx.attr.sparse_checkout_patterns and ctx.attr.sparse_checkout_file:
+        fail("Only one of sparse_checkout_patterns and sparse_checkout_file can be provided.")
+
     update = _clone_or_update_repo(ctx)
     workspace_and_buildfile(ctx)
     patch(ctx)
