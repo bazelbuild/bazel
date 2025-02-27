@@ -1106,6 +1106,15 @@ public class RemoteExecutionService {
     return new DirectoryMetadata(filesBuilder.build(), symlinksBuilder.build());
   }
 
+  // The Tree message representing an empty directory.
+  private static final Tree EMPTY_DIRECTORY =
+      Tree.newBuilder().setRoot(Directory.getDefaultInstance()).build();
+
+  static {
+    // See logic in parseActionResultMetadata below.
+    Preconditions.checkState(EMPTY_DIRECTORY.toByteString().size() == 2);
+  }
+
   static ActionResultMetadata parseActionResultMetadata(
       RemoteCache remoteCache,
       DigestUtil digestUtil,
@@ -1119,13 +1128,25 @@ public class RemoteExecutionService {
         Maps.newHashMapWithExpectedSize(result.getOutputDirectoriesCount());
     for (OutputDirectory dir : result.getOutputDirectoriesList()) {
       var outputPath = encodeBytestringUtf8(dir.getPath());
-      dirMetadataDownloads.put(
-          remotePathResolver.outputPathToLocalPath(outputPath),
-          Futures.transformAsync(
-              remoteCache.downloadBlob(context, outputPath, dir.getTreeDigest()),
-              (treeBytes) ->
-                  immediateFuture(Tree.parseFrom(treeBytes, ExtensionRegistry.getEmptyRegistry())),
-              directExecutor()));
+      var localPath = remotePathResolver.outputPathToLocalPath(outputPath);
+      if (dir.getTreeDigest().getSizeBytes() == 2) {
+        // A valid Tree message contains at least a non-empty root field. The only way for a Tree
+        // message to have a size of 2 bytes is if the root field is the only non-empty field and
+        // the Directory message in the root field is empty, which corresponds to one byte for the
+        // LEN tag and field number and one byte for the zero-length varint. Since empty tree
+        // artifacts are relatively common (e.g., as the undeclared test output directory), we avoid
+        // downloading these messages here.
+        dirMetadataDownloads.put(localPath, immediateFuture(EMPTY_DIRECTORY));
+      } else {
+        dirMetadataDownloads.put(
+            localPath,
+            Futures.transformAsync(
+                remoteCache.downloadBlob(context, outputPath, dir.getTreeDigest()),
+                (treeBytes) ->
+                    immediateFuture(
+                        Tree.parseFrom(treeBytes, ExtensionRegistry.getEmptyRegistry())),
+                directExecutor()));
+      }
     }
 
     waitForBulkTransfer(dirMetadataDownloads.values(), /* cancelRemainingOnInterrupt= */ true);
