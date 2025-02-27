@@ -66,14 +66,14 @@ public final class TopLevelStatusEvents {
    * consistency.
    */
   public record TopLevelTargetReadyForSymlinkPlanting(
-      NestedSet<Package> transitivePackagesForSymlinkPlanting)
+      NestedSet<Package.Metadata> transitivePackagesForSymlinkPlanting)
       implements TopLevelStatusEventWithType {
     public TopLevelTargetReadyForSymlinkPlanting {
       requireNonNull(transitivePackagesForSymlinkPlanting, "transitivePackagesForSymlinkPlanting");
     }
 
     public static TopLevelTargetReadyForSymlinkPlanting create(
-        NestedSet<Package> transitivePackagesForSymlinkPlanting) {
+        NestedSet<Package.Metadata> transitivePackagesForSymlinkPlanting) {
       return new TopLevelTargetReadyForSymlinkPlanting(transitivePackagesForSymlinkPlanting);
     }
 

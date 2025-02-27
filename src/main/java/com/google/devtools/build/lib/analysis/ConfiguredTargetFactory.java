@@ -189,7 +189,7 @@ public final class ConfiguredTargetFactory {
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
       ConfigConditions configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
-      @Nullable NestedSet<Package> transitivePackages,
+      @Nullable NestedSet<Package.Metadata> transitivePackages,
       ExecGroupCollection.Builder execGroupCollectionBuilder,
       @Nullable StarlarkAttributeTransitionProvider starlarkExecTransition)
       throws InterruptedException,
@@ -309,7 +309,7 @@ public final class ConfiguredTargetFactory {
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
       ConfigConditions configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
-      @Nullable NestedSet<Package> transitivePackages,
+      @Nullable NestedSet<Package.Metadata> transitivePackages,
       ExecGroupCollection.Builder execGroupCollectionBuilder,
       @Nullable StarlarkAttributeTransitionProvider starlarkExecTransition)
       throws InterruptedException,
@@ -624,7 +624,7 @@ public final class ConfiguredTargetFactory {
           ToolchainCollection<AspectBaseTargetResolvedToolchainContext> baseTargetToolchainContexts,
       @Nullable ExecGroupCollection.Builder execGroupCollectionBuilder,
       BuildConfigurationValue aspectConfiguration,
-      @Nullable NestedSet<Package> transitivePackages,
+      @Nullable NestedSet<Package.Metadata> transitivePackages,
       AspectKeyCreator.AspectKey aspectKey,
       StarlarkAttributeTransitionProvider starlarkExecTransition)
       throws InterruptedException,

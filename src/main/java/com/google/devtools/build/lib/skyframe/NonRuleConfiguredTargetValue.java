@@ -43,7 +43,7 @@ public final class NonRuleConfiguredTargetValue
   }
 
   NonRuleConfiguredTargetValue(
-      ConfiguredTarget configuredTarget, @Nullable NestedSet<Package> transitivePackages) {
+      ConfiguredTarget configuredTarget, @Nullable NestedSet<Package.Metadata> transitivePackages) {
     super(configuredTarget, transitivePackages);
   }
 

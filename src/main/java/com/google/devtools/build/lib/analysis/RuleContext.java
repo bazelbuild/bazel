@@ -168,7 +168,10 @@ public class RuleContext extends TargetContext
   @Nullable private final ToolchainCollection<ResolvedToolchainContext> toolchainContexts;
   private final ExecGroupCollection execGroupCollection;
   @Nullable private final RequiredConfigFragmentsProvider requiredConfigFragments;
-  @Nullable private final NestedSet<Package> transitivePackagesForRunfileRepoMappingManifest;
+
+  @Nullable
+  private final NestedSet<Package.Metadata> transitivePackagesForRunfileRepoMappingManifest;
+
   private final List<Expander> makeVariableExpanders = new ArrayList<>();
 
   /** Map of exec group names to ActionOwners. */
@@ -1220,13 +1223,13 @@ public class RuleContext extends TargetContext
   }
 
   /**
-   * Returns the set of transitive packages. This is only intended to be used to create the repo
-   * mapping manifest for the runfiles tree. Can be null if transitive packages are not tracked (see
-   * {@link
+   * Returns the set of transitive package metadata. This is only intended to be used to create the
+   * repo mapping manifest for the runfiles tree. Can be null if transitive packages are not tracked
+   * (see {@link
    * com.google.devtools.build.lib.skyframe.SkyframeExecutor#shouldStoreTransitivePackagesInLoadingAndAnalysis}).
    */
   @Nullable
-  public NestedSet<Package> getTransitivePackagesForRunfileRepoMappingManifest() {
+  public NestedSet<Package.Metadata> getTransitivePackagesForRunfileRepoMappingManifest() {
     return transitivePackagesForRunfileRepoMappingManifest;
   }
 
@@ -1484,7 +1487,8 @@ public class RuleContext extends TargetContext
 
     private Supplier<IncrementalArtifactConflictFinder> conflictFinder = () -> null;
     @Nullable private RequiredConfigFragmentsProvider requiredConfigFragments;
-    @Nullable private NestedSet<Package> transitivePackagesForRunfileRepoMappingManifest;
+
+    @Nullable private NestedSet<Package.Metadata> transitivePackagesForRunfileRepoMappingManifest;
 
     @VisibleForTesting
     public Builder(
@@ -1701,7 +1705,7 @@ public class RuleContext extends TargetContext
 
     @CanIgnoreReturnValue
     public Builder setTransitivePackagesForRunfileRepoMappingManifest(
-        @Nullable NestedSet<Package> packages) {
+        @Nullable NestedSet<Package.Metadata> packages) {
       this.transitivePackagesForRunfileRepoMappingManifest = packages;
       return this;
     }

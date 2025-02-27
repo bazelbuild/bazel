@@ -921,10 +921,10 @@ final class AspectFunction implements SkyFunction {
       return null;
     }
 
-    NestedSet<Package> transitivePackages =
+    NestedSet<Package.Metadata> transitivePackages =
         storeTransitivePackages
-            ? NestedSetBuilder.<Package>stableOrder()
-                .add(originalTarget.getPackage())
+            ? NestedSetBuilder.<Package.Metadata>stableOrder()
+                .add(originalTarget.getPackageMetadata())
                 .addTransitive(transitiveState.transitivePackages())
                 .addTransitive(real.getTransitivePackages())
                 .build()
