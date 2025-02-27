@@ -785,7 +785,6 @@ public class GrpcCacheClientTest {
         combinedCache.downloadActionResult(
             context,
             DIGEST_UTIL.asActionKey(DIGEST_UTIL.computeAsUtf8("key")),
-            /* inlineOutErr= */
             /* inlineOutputFiles= */ ImmutableSet.of());
   }
 

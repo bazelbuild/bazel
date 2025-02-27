@@ -857,10 +857,7 @@ public class RemoteExecutionService {
 
     CachedActionResult cachedActionResult =
         combinedCache.downloadActionResult(
-            action.getRemoteActionExecutionContext(),
-            action.getActionKey(),
-            /* inlineOutErr= */
-            inlineOutputFiles);
+            action.getRemoteActionExecutionContext(), action.getActionKey(), inlineOutputFiles);
 
     if (cachedActionResult == null) {
       return null;
