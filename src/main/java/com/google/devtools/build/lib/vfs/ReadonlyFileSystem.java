@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.vfs;
 import java.io.IOException;
 import java.io.OutputStream;
 
-/** Functionally like a read-only {@link AbstractFileSystemWithCustomStat}. */
-public abstract class ReadonlyFileSystemWithCustomStat extends AbstractFileSystemWithCustomStat {
-  public ReadonlyFileSystemWithCustomStat(DigestHashFunction hashFunction) {
+/** Functionally like a read-only {@link AbstractFileSystem}. */
+public abstract class ReadonlyFileSystem extends AbstractFileSystem {
+  public ReadonlyFileSystem(DigestHashFunction hashFunction) {
     super(hashFunction);
   }
 
