@@ -76,6 +76,7 @@ import com.google.devtools.build.lib.runtime.BlazeOptionHandler.SkyframeExecutor
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.CommandLineEvent.CanonicalCommandLineEvent;
+import com.google.devtools.build.lib.runtime.CommandLineEvent.OriginalCommandLineEvent;
 import com.google.devtools.build.lib.runtime.StarlarkOptionsParser;
 import com.google.devtools.build.lib.runtime.StarlarkOptionsParser.BuildSettingLoader;
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
@@ -276,7 +277,17 @@ public class BuildTool {
                     .collect(toImmutableList())));
 
         env.getEventBus()
-            .post(new CanonicalCommandLineEvent(runtime, request.getCommandName(), optionsParser));
+            .post(
+                new CanonicalCommandLineEvent(
+                    runtime,
+                    request.getCommandName(),
+                    optionsParser.getResidue(),
+                    optionsParser.getOptions(BuildEventProtocolOptions.class)
+                        .includeResidueInRunBepEvent,
+                    optionsParser.getExplicitStarlarkOptions(
+                        OriginalCommandLineEvent::commandLinePriority),
+                    optionsParser.getStarlarkOptions(),
+                    optionsParser.asListOfCanonicalOptions()));
         env.getEventBus().post(new UpdateOptionsEvent(optionsParser));
       }
       buildOptions = runtime.createBuildOptions(optionsParser);
