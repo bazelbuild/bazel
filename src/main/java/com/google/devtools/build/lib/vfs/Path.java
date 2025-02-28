@@ -555,7 +555,12 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
    * <p>Files cannot be atomically renamed across devices; copying is required. Use {@link
    * FileSystemUtils#moveFile(Path, Path)} instead.
    *
-   * @throws IOException if the rename failed for any reason
+   * <p>A non-directory cannot be renamed into an existing directory, or vice-versa. A directory can
+   * be renamed into an existing directory if and only if the latter is empty.
+   *
+   * @throws FileNotFoundException if the file denoted by the current path does not exist, or the
+   *     parent directory of the target path does not exist
+   * @throws IOException if the rename failed for any other reason
    */
   public void renameTo(Path target) throws IOException {
     checkSameFileSystem(target);
