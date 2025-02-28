@@ -60,18 +60,28 @@ public class WorkerMultiplexer {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /**
+   * An ID for this multiplexer that can be used by sandboxed multiplex workers to generate their
+   * workdir. The workdir needs to be the same for all {@code SandboxedWorkerProxy} instances
+   * associated with a {@code WorkerMultiplexer}, but needs to be unique across multiplexers for the
+   * same mnemonic. This is analogous to the @{code workerId} created in {@code WorkerFactory}.
+   */
+  private final int multiplexerId;
+
+  /**
    * A queue of {@link WorkRequest} instances that need to be sent to the worker. {@link
    * WorkerProxy} instances add to this queue, while the requestSender subthread remove requests and
    * send them to the worker. This prevents dynamic execution interrupts from corrupting the {@code
    * stdin} of the worker process.
    */
   @VisibleForTesting final BlockingQueue<WorkRequest> pendingRequests = new LinkedBlockingQueue<>();
+
   /**
    * A map of {@code WorkResponse}s received from the worker process. They are stored in this map
    * keyed by the request id until the corresponding {@code WorkerProxy} picks them up.
    */
   private final ConcurrentMap<Integer, WorkResponse> workerProcessResponse =
       new ConcurrentHashMap<>();
+
   /**
    * A map of semaphores corresponding to {@code WorkRequest}s. After sending the {@code
    * WorkRequest}, {@code WorkerProxy} will wait on a semaphore to be released. {@code
@@ -79,14 +89,17 @@ public class WorkerMultiplexer {
    * {@code WorkerProxy} that the {@code WorkerResponse} has been received.
    */
   private final ConcurrentMap<Integer, Semaphore> responseChecker = new ConcurrentHashMap<>();
+
   /**
    * The worker process that this WorkerMultiplexer should be talking to. This should only be set
    * once, when creating a new process. If the process dies or its stdio streams get corrupted, the
    * {@code WorkerMultiplexer} gets discarded as well and a new one gets created as needed.
    */
   @VisibleForTesting Subprocess process;
+
   /** The implementation of the worker protocol (JSON or Proto). */
   private WorkerProtocolImpl workerProtocol;
+
   /** InputStream from the worker process. */
   @LazyInit private RecordingInputStream recordingStream;
 
@@ -124,10 +137,11 @@ public class WorkerMultiplexer {
    */
   private Thread shutdownHook;
 
-  WorkerMultiplexer(Path logFile, WorkerKey workerKey) {
+  WorkerMultiplexer(Path logFile, WorkerKey workerKey, int multiplexerId) {
     this.status = new WorkerProcessStatus();
     this.logFile = logFile;
     this.workerKey = workerKey;
+    this.multiplexerId = multiplexerId;
   }
 
   /** Sets or clears the reporter for outputting verbose info. */
@@ -177,7 +191,7 @@ public class WorkerMultiplexer {
           dirsToCreate,
           workDir,
           treeDeleter);
-      SandboxHelpers.createDirectories(dirsToCreate, workDir, /* strict=*/ false);
+      SandboxHelpers.createDirectories(dirsToCreate, workDir, /* strict= */ false);
       WorkerExecRoot.createInputs(inputsToCreate, inputFiles.limitedCopy(workerFiles), workDir);
       createProcess(workDir);
     }
@@ -479,5 +493,9 @@ public class WorkerMultiplexer {
       return -1;
     }
     return process.getProcessId();
+  }
+
+  public int getMultiplexerId() {
+    return this.multiplexerId;
   }
 }
