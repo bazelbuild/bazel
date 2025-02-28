@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -49,17 +48,13 @@ import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
-import com.google.devtools.build.lib.rules.cpp.LegacyLinkerInputs.LibraryInput;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
-import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.OS;
@@ -784,70 +779,6 @@ toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
         .isEqualTo(ResourceSet.createWithRamCpu(2500, 1));
   }
 
-  private static CppLinkActionBuilder createLinkBuilder(
-      RuleContext ruleContext,
-      Link.LinkTargetType type,
-      String outputPath,
-      Iterable<Artifact> nonLibraryInputs,
-      ImmutableList<LibraryInput> libraryInputs,
-      FeatureConfiguration featureConfiguration)
-      throws RuleErrorException, EvalException {
-    CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
-    return new CppLinkActionBuilder(
-            CppLinkActionBuilder.newActionConstruction(ruleContext),
-            ActionsTestUtil.createArtifact(ruleContext.getBinDirectory(), outputPath),
-            toolchain,
-            toolchain.getFdoContext(),
-            featureConfiguration,
-            MockCppSemantics.INSTANCE)
-        .addObjectFiles(nonLibraryInputs)
-        .addLibraries(libraryInputs)
-        .setLinkType(type)
-        .setLinkerFiles(NestedSetBuilder.emptySet(Order.STABLE_ORDER))
-        .setLinkingMode(LinkingMode.STATIC);
-  }
-
-  private static CppLinkActionBuilder createLinkBuilder(
-      RuleContext ruleContext, Link.LinkTargetType type) throws Exception {
-    PathFragment output = PathFragment.create("dummyRuleContext/output/path.a");
-    return createLinkBuilder(
-        ruleContext,
-        type,
-        output.getPathString(),
-        ImmutableList.of(),
-        ImmutableList.of(),
-        getMockFeatureConfiguration(/* envVars= */ ImmutableMap.of()));
-  }
-
-  private Artifact scratchArtifact(String s) {
-    Path execRoot = outputBase.getRelative("exec");
-    String outSegment = "out";
-    Path outputRoot = execRoot.getRelative(outSegment);
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, outSegment);
-    try {
-      return ActionsTestUtil.createArtifact(
-          root, scratch.overwriteFile(outputRoot.getRelative(s).toString()));
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  private static void assertError(String expectedSubstring, CppLinkActionBuilder builder) {
-    Exception e = assertThrows(Exception.class, builder::build);
-    assertThat(e).hasMessageThat().contains(expectedSubstring);
-  }
-
-  @Test
-  public void testInterfaceOutputWithoutBuildingDynamicLibraryIsError() throws Exception {
-    RuleContext ruleContext = createDummyRuleContext();
-
-    CppLinkActionBuilder builder =
-        createLinkBuilder(ruleContext, LinkTargetType.EXECUTABLE)
-            .setInterfaceOutput(scratchArtifact("FakeInterfaceOutput"));
-
-    assertError("Interface output can only be used with DYNAMIC_LIBRARY targets", builder);
-  }
-
   @Test
   public void testInterfaceOutputForDynamicLibrary() throws Exception {
     getAnalysisMock()
@@ -925,41 +856,95 @@ action_configs = [action_config(
   }
 
   @Test
-  public void testStaticLinkWithDynamicIsError() throws Exception {
-    RuleContext ruleContext = createDummyRuleContext();
-
-    CppLinkActionBuilder builder =
-        createLinkBuilder(ruleContext, LinkTargetType.STATIC_LIBRARY)
-            .setLinkingMode(Link.LinkingMode.DYNAMIC)
-            .setLibraryIdentifier("foo");
-
-    assertError("static library link must be static", builder);
-  }
-
-  @Test
   public void testStaticLinkWithNativeDepsIsError() throws Exception {
-    RuleContext ruleContext = createDummyRuleContext();
+    getAnalysisMock()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withActionConfigs(CppActionNames.OBJC_FULLY_LINK));
+    useConfiguration("--experimental_starlark_linking");
+    scratch.file("bazel_internal/test_rules/cc/BUILD");
+    scratch.file(
+        "bazel_internal/test_rules/cc/link_rule.bzl",
+        """
+load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cc_toolchain", "use_cc_toolchain")
+def _impl(ctx):
+    cc_toolchain = find_cc_toolchain(ctx)
+    feature_configuration = cc_common.configure_features(
+        ctx = ctx,
+        cc_toolchain = cc_toolchain,
+    )
+    cc_linking_outputs = cc_common.link(
+        actions = ctx.actions,
+        feature_configuration = feature_configuration,
+        cc_toolchain = cc_toolchain,
+        name = ctx.label.name,
+        native_deps = True,
+        language = "objc",
+        output_type = "archive",
+    )
+    cc_linking_outputs.all_lto_artifacts()
+    return []
 
-    CppLinkActionBuilder builder =
-        createLinkBuilder(ruleContext, LinkTargetType.STATIC_LIBRARY)
-            .setLinkingMode(LinkingMode.STATIC)
-            .setLibraryIdentifier("foo")
-            .setNativeDeps(true);
+cc_link_rule = rule(
+    implementation = _impl,
+    fragments = ["cpp"],
+    toolchains = use_cc_toolchain(),
+)
+""");
 
-    assertError("the native deps flag must be false for static links", builder);
+    scratch.file(
+        "foo/BUILD",
+        "load('//bazel_internal/test_rules/cc:link_rule.bzl', 'cc_link_rule')",
+        "cc_link_rule(name = 'foo')");
+
+    checkError("//foo", "the native deps flag must be false for static links");
   }
 
   @Test
   public void testStaticLinkWithWholeArchiveIsError() throws Exception {
-    RuleContext ruleContext = createDummyRuleContext();
+    getAnalysisMock()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withActionConfigs(CppActionNames.OBJC_FULLY_LINK));
+    useConfiguration("--experimental_starlark_linking");
+    scratch.file("bazel_internal/test_rules/cc/BUILD");
+    scratch.file(
+        "bazel_internal/test_rules/cc/link_rule.bzl",
+        """
+load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cc_toolchain", "use_cc_toolchain")
+def _impl(ctx):
+    cc_toolchain = find_cc_toolchain(ctx)
+    feature_configuration = cc_common.configure_features(
+        ctx = ctx,
+        cc_toolchain = cc_toolchain,
+    )
+    cc_linking_outputs = cc_common.link(
+        actions = ctx.actions,
+        feature_configuration = feature_configuration,
+        cc_toolchain = cc_toolchain,
+        name = ctx.label.name,
+        whole_archive = True,
+        language = "objc",
+        output_type = "archive",
+    )
+    cc_linking_outputs.all_lto_artifacts()
+    return []
 
-    CppLinkActionBuilder builder =
-        createLinkBuilder(ruleContext, LinkTargetType.STATIC_LIBRARY)
-            .setLinkingMode(LinkingMode.STATIC)
-            .setLibraryIdentifier("foo")
-            .setWholeArchive(true);
+cc_link_rule = rule(
+    implementation = _impl,
+    fragments = ["cpp"],
+    toolchains = use_cc_toolchain(),
+)
+""");
 
-    assertError("the need whole archive flag must be false for static links", builder);
+    scratch.file(
+        "foo/BUILD",
+        "load('//bazel_internal/test_rules/cc:link_rule.bzl', 'cc_link_rule')",
+        "cc_link_rule(name = 'foo')");
+
+    checkError("//foo", "the need whole archive flag must be false for static links");
   }
 
   private SpecialArtifact createTreeArtifact(PathFragment execPath) {
