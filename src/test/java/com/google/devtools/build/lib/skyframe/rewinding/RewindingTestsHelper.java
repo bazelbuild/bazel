@@ -190,7 +190,7 @@ public class RewindingTestsHelper {
       hex.append(String.format("%02x", b));
     }
     hex.append('/');
-    hex.append(Long.toUnsignedString(size));
+    hex.append(size);
     return hex.toString();
   }
 
