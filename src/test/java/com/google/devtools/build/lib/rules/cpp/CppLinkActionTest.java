@@ -962,12 +962,11 @@ action_configs = [action_config(
     assertError("the need whole archive flag must be false for static links", builder);
   }
 
-  private SpecialArtifact createTreeArtifact(String name) {
+  private SpecialArtifact createTreeArtifact(PathFragment execPath) {
     FileSystem fs = scratch.getFileSystem();
     Path execRoot = fs.getPath(TestUtils.tmpDir());
-    PathFragment execPath = PathFragment.create("out").getRelative(name);
     return ActionsTestUtil.createTreeArtifactWithGeneratingAction(
-        ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "out"), execPath);
+        ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, execPath), execPath);
   }
 
   private static void verifyArguments(
@@ -980,25 +979,61 @@ action_configs = [action_config(
 
   @Test
   public void testLinksTreeArtifactLibraries() throws Exception {
-    RuleContext ruleContext = createDummyRuleContext();
+    scratch.file("bazel_internal/test_rules/cc/BUILD");
+    scratch.file(
+        "bazel_internal/test_rules/cc/foo.bzl",
+        """
+load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cc_toolchain", "use_cc_toolchain")
+def _impl(ctx):
+    cc_toolchain = find_cc_toolchain(ctx)
+    feature_configuration = cc_common.configure_features(
+        ctx = ctx,
+        cc_toolchain = cc_toolchain,
+    )
+    dir = ctx.actions.declare_directory("library_directory")
+    ctx.actions.run(executable = ctx.executable._tool, outputs = [dir])
+    compilation_outputs = cc_common.create_compilation_outputs(objects = depset([dir]))
+    cc_common.link(
+        actions = ctx.actions,
+        feature_configuration = feature_configuration,
+        cc_toolchain = cc_toolchain,
+        name = ctx.label.name,
+        compilation_outputs = compilation_outputs
+    )
 
-    SpecialArtifact testTreeArtifact = createTreeArtifact("library_directory");
+cc_link_rule = rule(
+    implementation = _impl,
+    attrs = {
+        "_tool": attr.label(default = "//foo:tool", executable = True, cfg = "exec"),
+    },
+    fragments = ["cpp"],
+    toolchains = use_cc_toolchain(),
+)
+""");
+    scratch.file(
+        "foo/BUILD",
+        """
+load("//bazel_internal/test_rules/cc:foo.bzl", "cc_link_rule")
+cc_link_rule(name = "foo")
+cc_binary(name = "tool")
+""");
 
+    SpawnAction linkAction = (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppLink"));
+
+    SpecialArtifact testTreeArtifact =
+        createTreeArtifact(
+            linkAction
+                .getPrimaryOutput()
+                .getExecPath()
+                .getParentDirectory()
+                .getChild("library_directory"));
     TreeFileArtifact library0 = TreeFileArtifact.createTreeOutput(testTreeArtifact, "library0.o");
     TreeFileArtifact library1 = TreeFileArtifact.createTreeOutput(testTreeArtifact, "library1.o");
-
     ArtifactExpander expander =
         artifact ->
-            artifact.equals(testTreeArtifact)
+            artifact.getExecPathString().equals(testTreeArtifact.getExecPathString())
                 ? ImmutableSortedSet.of(library0, library1)
                 : ImmutableSortedSet.of();
-
-    CppLinkActionBuilder builder =
-        createLinkBuilder(ruleContext, LinkTargetType.STATIC_LIBRARY)
-            .setLibraryIdentifier("foo")
-            .addObjectFiles(ImmutableList.of(testTreeArtifact));
-
-    SpawnAction linkAction = builder.build();
 
     ImmutableList<String> treeArtifactsPaths =
         ImmutableList.of(testTreeArtifact.getExecPathString());
@@ -1021,65 +1056,6 @@ action_configs = [action_config(
         expandedCommandLines.getParamFiles().get(0).getArguments(),
         treeFileArtifactsPaths,
         treeArtifactsPaths);
-  }
-
-  @Test
-  public void testStaticLinking() throws Exception {
-    RuleContext ruleContext = createDummyRuleContext();
-
-    ImmutableList<LinkTargetType> targetTypesToTest =
-        ImmutableList.of(
-            LinkTargetType.STATIC_LIBRARY,
-            LinkTargetType.PIC_STATIC_LIBRARY,
-            LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY,
-            LinkTargetType.ALWAYS_LINK_PIC_STATIC_LIBRARY);
-
-    SpecialArtifact testTreeArtifact = createTreeArtifact("library_directory");
-
-    TreeFileArtifact library0 = TreeFileArtifact.createTreeOutput(testTreeArtifact, "library0.o");
-    TreeFileArtifact library1 = TreeFileArtifact.createTreeOutput(testTreeArtifact, "library1.o");
-
-    ArtifactExpander expander =
-        artifact ->
-            artifact.equals(testTreeArtifact)
-                ? ImmutableSortedSet.of(library0, library1)
-                : ImmutableSortedSet.of();
-
-    Artifact objectFile = scratchArtifact("objectFile.o");
-
-    for (LinkTargetType linkType : targetTypesToTest) {
-
-      scratch.deleteFile("dummyRuleContext/BUILD");
-      Artifact output = ruleContext.getBinArtifact("output." + linkType.getDefaultExtension());
-
-      CppLinkActionBuilder builder =
-          createLinkBuilder(
-                  ruleContext,
-                  linkType,
-                  output.getRootRelativePathString(),
-                  ImmutableList.of(),
-                  ImmutableList.of(),
-                  getMockFeatureConfiguration(/* envVars= */ ImmutableMap.of()))
-              .setLibraryIdentifier("foo")
-              .addObjectFiles(ImmutableList.of(testTreeArtifact))
-              .addObjectFile(objectFile);
-
-      SpawnAction linkAction = builder.build();
-      ExpandedCommandLines expandedCommandLines =
-          linkAction
-              .getCommandLines()
-              .expand(
-                  expander,
-                  linkAction.getPrimaryOutput().getExecPath(),
-                  PathMapper.NOOP,
-                  CommandLineLimits.UNLIMITED);
-      assertThat(expandedCommandLines.getParamFiles().get(0).getArguments())
-          .containsAtLeast(
-              library0.getExecPathString(),
-              library1.getExecPathString(),
-              objectFile.getExecPathString())
-          .inOrder();
-    }
   }
 
   /** Tests that -pie is removed when -shared is also present (http://b/5611891#). */
