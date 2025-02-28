@@ -97,7 +97,7 @@ public enum AutoOutputFilter {
   };
 
   private static final String SYSTEM_ACTION_REGEX =
-      "(unknown)|" + PlatformConstants.INTERNAL_PLATFORM;
+      "(unknown)|" + PlatformConstants.INTERNAL_PLATFORM.getCanonicalForm();
 
   /** Returns an output filter regex for a set of requested targets. */
   public abstract OutputFilter getFilter(Iterable<Label> targets);
