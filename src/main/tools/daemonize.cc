@@ -112,6 +112,7 @@ static void WritePidFile(pid_t pid, const char* pid_path, int pid_done_fd) {
   close(pid_done_fd);
 }
 
+#ifdef __linux__
 static bool ShellEscapeNeeded(const char* arg) {
   static const char kDontNeedShellEscapeChars[] =
       "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -232,6 +233,7 @@ static void WriteSystemdWrapper(const char* systemd_wrapper_path,
 static bool IsBinaryExecutable(const char* binary_path) {
   return access(binary_path, X_OK) == 0;
 }
+#endif
 
 static void ExecAsDaemon(const char* log_path, bool log_append,
                          const char* systemd_wrapper_path, int pid_done_fd,
