@@ -354,7 +354,6 @@ def _create_action(
         progress_message = progress_message,
         resource_set = _resource_set,
         env = env,
-        use_default_shell_env = True,
         execution_requirements = execution_info,
         toolchain = toolchain,
         exec_group = exec_group,
