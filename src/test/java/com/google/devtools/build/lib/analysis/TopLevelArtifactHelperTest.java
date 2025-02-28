@@ -107,7 +107,7 @@ public class TopLevelArtifactHelperTest {
   }
 
   private NestedSetBuilder<Artifact> newArtifacts(int num) {
-    NestedSetBuilder<Artifact> builder = new NestedSetBuilder<>(Order.STABLE_ORDER);
+    NestedSetBuilder<Artifact> builder = NestedSetBuilder.newBuilder(Order.STABLE_ORDER);
     for (int i = 0; i < num; i++) {
       builder.add(newArtifact());
     }

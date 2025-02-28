@@ -674,7 +674,7 @@ public final class ActionExecutionFunction implements SkyFunction {
      *     from all derived inputs to know if they are remote or not during input discovery.
      */
     NestedSet<Artifact> getAllInputs(boolean prune) {
-      NestedSetBuilder<Artifact> builder = new NestedSetBuilder<>(Order.STABLE_ORDER);
+      NestedSetBuilder<Artifact> builder = NestedSetBuilder.newBuilder(Order.STABLE_ORDER);
       builder.addTransitive(defaultInputs);
 
       if (actionCacheInputs == null) {

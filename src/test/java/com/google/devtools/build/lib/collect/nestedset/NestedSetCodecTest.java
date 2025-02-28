@@ -331,7 +331,7 @@ public final class NestedSetCodecTest {
 
     ObjectCodecs objectCodecs = createCodecs(mockNestedSetStore);
     NestedSet<String> singletonNestedSet =
-        new NestedSetBuilder<String>(Order.STABLE_ORDER).add("a").build();
+        NestedSet.<String>builder(Order.STABLE_ORDER).add("a").build();
     objectCodecs.serialize(singletonNestedSet);
   }
 
@@ -364,13 +364,13 @@ public final class NestedSetCodecTest {
     ObjectCodecs objectCodecs = createCodecs(nestedSetStore);
 
     NestedSet<String> subset1 =
-        new NestedSetBuilder<String>(Order.STABLE_ORDER).add("a").add("b").build();
+        NestedSet.<String>builder(Order.STABLE_ORDER).add("a").add("b").build();
     SettableFuture<byte[]> subset1Future = SettableFuture.create();
     NestedSet<String> subset2 =
-        new NestedSetBuilder<String>(Order.STABLE_ORDER).add("c").add("d").build();
+        NestedSet.<String>builder(Order.STABLE_ORDER).add("c").add("d").build();
     SettableFuture<byte[]> subset2Future = SettableFuture.create();
     NestedSet<String> set =
-        new NestedSetBuilder<String>(Order.STABLE_ORDER)
+        NestedSet.<String>builder(Order.STABLE_ORDER)
             .addTransitive(subset1)
             .addTransitive(subset2)
             .build();

@@ -2228,7 +2228,7 @@ public class RemoteExecutionServiceTest {
     ActionInput runfilesArtifact = ActionsTestUtil.createRunfilesArtifact(artifactRoot, "runfiles");
 
     NestedSet<ActionInput> nodeRoot1 =
-        new NestedSetBuilder<ActionInput>(Order.STABLE_ORDER)
+        NestedSet.<ActionInput>builder(Order.STABLE_ORDER)
             .add(dummyFile)
             .add(runfilesArtifact)
             .add(tree)
@@ -2236,7 +2236,7 @@ public class RemoteExecutionServiceTest {
             .addTransitive(nodeFoo1)
             .build();
     NestedSet<ActionInput> nodeRoot2 =
-        new NestedSetBuilder<ActionInput>(Order.STABLE_ORDER)
+        NestedSet.<ActionInput>builder(Order.STABLE_ORDER)
             .add(dummyFile)
             .add(runfilesArtifact)
             .add(tree)

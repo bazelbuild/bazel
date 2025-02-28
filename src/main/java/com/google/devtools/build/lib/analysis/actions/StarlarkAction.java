@@ -108,7 +108,7 @@ public class StarlarkAction extends SpawnAction {
 
   @SafeVarargs
   private static NestedSet<Artifact> createInputs(NestedSet<Artifact>... inputsLists) {
-    NestedSetBuilder<Artifact> nestedSetBuilder = new NestedSetBuilder<>(Order.STABLE_ORDER);
+    NestedSetBuilder<Artifact> nestedSetBuilder = NestedSetBuilder.newBuilder(Order.STABLE_ORDER);
     for (NestedSet<Artifact> inputs : inputsLists) {
       nestedSetBuilder.addTransitive(inputs);
     }

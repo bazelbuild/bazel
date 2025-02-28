@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.StoredEventHandler;
@@ -233,7 +234,7 @@ public class LtoBackendActionTest extends BuildViewTestCase {
         new LtoBackendAction.Builder()
             .addImportsInfo(
                 new BitcodeFiles(
-                    new NestedSetBuilder<Artifact>(Order.STABLE_ORDER)
+                    NestedSet.<Artifact>builder(Order.STABLE_ORDER)
                         .add(getSourceArtifact("file2.o"))
                         .build()),
                 imports1Artifact)
