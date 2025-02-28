@@ -433,8 +433,7 @@ public final class ActionExecutionFunction implements SkyFunction {
       ConsumedArtifactsTracker consumedArtifactsTracker,
       NestedSet<Artifact> allInputs,
       NestedSet<Artifact> schedulingDependencies,
-      InputDiscoveryState state)
-      throws InterruptedException {
+      InputDiscoveryState state) {
     ImmutableSet.Builder<SkyKey> result = ImmutableSet.builder();
 
     // Register the action's inputs and scheduling deps as "consumed" in the build.
@@ -912,8 +911,8 @@ public final class ActionExecutionFunction implements SkyFunction {
           .post(
               new DiscoveredInputsEvent(
                   SpawnMetrics.Builder.forOtherExec()
-                      .setParseTimeInMs((int) discoveredInputsDuration.toMillis())
-                      .setTotalTimeInMs((int) discoveredInputsDuration.toMillis())
+                      .setParseTime(discoveredInputsDuration)
+                      .setTotalTime(discoveredInputsDuration)
                       .build(),
                   action,
                   actionStartTime));
