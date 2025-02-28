@@ -217,8 +217,9 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
 
   private void addTargetUnderTest(ProviderCollection target) {
     TestProvider testProvider = checkNotNull(target.getProvider(TestProvider.class));
-    if (outputsMode != RemoteOutputsMode.MINIMAL && commandMode == CommandMode.TEST) {
-      // In test mode, download the outputs of the test runner action.
+    if (outputsMode != RemoteOutputsMode.MINIMAL
+        && (commandMode == CommandMode.TEST || commandMode == CommandMode.COVERAGE)) {
+      // In test or coverage mode, download the outputs of the test runner action.
       addOutputsToDownload(testProvider.getTestParams().getOutputs());
     }
     if (commandMode == CommandMode.COVERAGE) {
