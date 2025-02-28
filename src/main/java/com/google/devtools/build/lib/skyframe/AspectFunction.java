@@ -72,6 +72,7 @@ import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
+import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
@@ -830,7 +831,7 @@ final class AspectFunction implements SkyFunction {
 
     boolean useAutoExecGroups = shouldUseAutoExecGroups(aspectDefinition, configuration);
     var processedExecGroups =
-        ExecGroupCollection.process(
+        ExecGroup.process(
             aspectDefinition.execGroups(),
             aspectDefinition.execCompatibleWith(),
             /* execGroupExecWith= */ ImmutableMultimap.of(),

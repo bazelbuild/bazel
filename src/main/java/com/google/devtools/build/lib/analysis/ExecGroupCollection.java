@@ -18,16 +18,12 @@ import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROU
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.HashBasedTable;
-import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableTable;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Table;
-import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
@@ -47,69 +43,6 @@ import net.starlark.java.spelling.SpellChecker;
  */
 @AutoValue
 public abstract class ExecGroupCollection {
-  /**
-   * Prepares the input exec groups to serve as {@link Builder#execGroups}.
-   *
-   * <p>Adds auto exec groups when {@code useAutoExecGroups} is true.
-   */
-  public static ImmutableMap<String, ExecGroup> process(
-      ImmutableMap<String, ExecGroup> execGroups,
-      ImmutableSet<Label> defaultExecWith,
-      ImmutableMultimap<String, Label> execGroupExecWith,
-      ImmutableSet<ToolchainTypeRequirement> defaultToolchainTypes,
-      boolean useAutoExecGroups) {
-    var processedGroups =
-        ImmutableMap.<String, ExecGroup>builderWithExpectedSize(
-            useAutoExecGroups
-                ? (execGroups.size() + defaultToolchainTypes.size())
-                : execGroups.size());
-    for (Map.Entry<String, ExecGroup> entry : execGroups.entrySet()) {
-      String name = entry.getKey();
-      ExecGroup execGroup = entry.getValue();
-
-      if (execGroup.copyFromDefault()) {
-          execGroup =
-              ExecGroup.builder()
-                  .execCompatibleWith(defaultExecWith)
-                  .toolchainTypes(defaultToolchainTypes)
-                  .build();
-      }
-      ImmutableCollection<Label> extraExecWith = execGroupExecWith.get(name);
-      if (!extraExecWith.isEmpty()) {
-        execGroup =
-            execGroup.toBuilder()
-                .execCompatibleWith(
-                    ImmutableSet.<Label>builder()
-                        .addAll(execGroup.execCompatibleWith())
-                        .addAll(extraExecWith)
-                        .build())
-                .build();
-      }
-
-      processedGroups.put(name, execGroup);
-    }
-
-    if (useAutoExecGroups) {
-      // Creates one exec group for each toolchain (automatic exec groups).
-      for (ToolchainTypeRequirement toolchainType : defaultToolchainTypes) {
-        ImmutableSet<Label> execCompatibleWith = defaultExecWith;
-        ImmutableCollection<Label> extraExecWith =
-            execGroupExecWith.get(toolchainType.toolchainType().getUnambiguousCanonicalForm());
-        if (!extraExecWith.isEmpty()) {
-          execCompatibleWith =
-              ImmutableSet.<Label>builder().addAll(defaultExecWith).addAll(extraExecWith).build();
-        }
-        processedGroups.put(
-            toolchainType.toolchainType().toString(),
-            ExecGroup.builder()
-                .addToolchainType(toolchainType)
-                .execCompatibleWith(execCompatibleWith)
-                .build());
-      }
-    }
-    return processedGroups.buildOrThrow();
-  }
-
   /** Builder class for correctly constructing ExecGroupCollection instances. */
   // Note that this is _not_ an actual @AutoValue.Builder: it provides more logic and has different
   // fields.

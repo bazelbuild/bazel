@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkExecGroupCollecti
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
@@ -68,7 +69,7 @@ public final class ToolchainContextUtil {
             rule, platformConfig, toolchainTypes, useAutoExecGroups);
 
     var processedExecGroups =
-        ExecGroupCollection.process(
+        ExecGroup.process(
             ruleClass.getExecGroups(),
             defaultExecConstraintLabels,
             perExecGroupExecConstraintLabels,
