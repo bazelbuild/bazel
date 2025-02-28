@@ -607,15 +607,6 @@ public class CppOptions extends FragmentOptions {
   public List<PerLabelOptions> perFileLtoBackendOpts;
 
   @Option(
-      name = "host_crosstool_top",
-      defaultValue = "null",
-      converter = LabelConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.NO_OP},
-      help = "No-op flag. Will be removed in a future release.")
-  public Label hostCrosstoolTop;
-
-  @Option(
       name = "host_copt",
       allowMultiple = true,
       defaultValue = "null",
