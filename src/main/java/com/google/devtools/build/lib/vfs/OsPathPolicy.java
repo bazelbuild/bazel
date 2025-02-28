@@ -95,7 +95,7 @@ public interface OsPathPolicy {
     return os == OS.WINDOWS ? WindowsOsPathPolicy.INSTANCE : UnixOsPathPolicy.INSTANCE;
   }
 
-  // We *should* use a case-insensitive policy for OS.DARWIN, but we currently don't handle this.
+  /** The policy for the OS of the machine running the Bazel server's JVM. */
   OsPathPolicy HOST_POLICY = getFilePathOs(OS.getCurrent());
 
   static OsPathPolicy getFilePathOs() {
@@ -159,8 +159,7 @@ public interface OsPathPolicy {
    * Unchecked exception thrown by {@link OsPathPolicy} implementations when a path cannot be
    * normalized on the current host OS.
    */
-  final class UncheckedPathUnsupportedOnThisOsException
-      extends UnsupportedOperationException {
+  final class UncheckedPathUnsupportedOnThisOsException extends UnsupportedOperationException {
     UncheckedPathUnsupportedOnThisOsException(String message) {
       super(message);
     }
