@@ -87,7 +87,7 @@ public final class AspectDefinition {
   @Nullable private final AspectPropagationPredicate propagationPredicate;
 
   private final ImmutableSet<Label> execCompatibleWith;
-  private final ImmutableMap<String, ExecGroup> execGroups;
+  private final ImmutableMap<String, DeclaredExecGroup> execGroups;
   private final ImmutableSet<? extends StarlarkSubruleApi> subrules;
 
   public AdvertisedProviderSet getAdvertisedProviders() {
@@ -109,7 +109,7 @@ public final class AspectDefinition {
       ImmutableSet<AspectClass> requiredAspectClasses,
       @Nullable AspectPropagationPredicate propagationPredicate,
       ImmutableSet<Label> execCompatibleWith,
-      ImmutableMap<String, ExecGroup> execGroups,
+      ImmutableMap<String, DeclaredExecGroup> execGroups,
       ImmutableSet<? extends StarlarkSubruleApi> subrules) {
     this.aspectClass = aspectClass;
     this.advertisedProviders = advertisedProviders;
@@ -155,7 +155,7 @@ public final class AspectDefinition {
   }
 
   /** Returns the execution groups that this aspect can use when creating actions. */
-  public ImmutableMap<String, ExecGroup> execGroups() {
+  public ImmutableMap<String, DeclaredExecGroup> execGroups() {
     return execGroups;
   }
 
@@ -295,7 +295,7 @@ public final class AspectDefinition {
     private ImmutableSet<AspectClass> requiredAspectClasses = ImmutableSet.of();
     private AspectPropagationPredicate propagationPredicate = null;
     private ImmutableSet<Label> execCompatibleWith = ImmutableSet.of();
-    private ImmutableMap<String, ExecGroup> execGroups = ImmutableMap.of();
+    private ImmutableMap<String, DeclaredExecGroup> execGroups = ImmutableMap.of();
     private ImmutableSet<? extends StarlarkSubruleApi> subrules = ImmutableSet.of();
 
     public Builder(AspectClass aspectClass) {
@@ -558,7 +558,7 @@ public final class AspectDefinition {
 
     /** Sets the execution groups that are available for actions created by this aspect. */
     @CanIgnoreReturnValue
-    public Builder execGroups(ImmutableMap<String, ExecGroup> execGroups) {
+    public Builder execGroups(ImmutableMap<String, DeclaredExecGroup> execGroups) {
       // TODO(b/230337573): validate names
       // TODO(b/230337573): handle copy_from_default
       this.execGroups = execGroups;

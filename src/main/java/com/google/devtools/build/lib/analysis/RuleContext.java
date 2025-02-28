@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.OS_TO_CONSTRAINTS;
-import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
+import static com.google.devtools.build.lib.packages.DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME;
 import static com.google.devtools.build.lib.packages.RuleClass.DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -68,7 +68,7 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
-import com.google.devtools.build.lib.packages.ExecGroup;
+import com.google.devtools.build.lib.packages.DeclaredExecGroup;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.OutputFile;
@@ -1130,7 +1130,7 @@ public class RuleContext extends TargetContext
     // type in its ResolvedToolchainContext (AEGs are created before toolchain context is resolved).
     String aliasName =
         toolchainContexts.getExecGroupNames().stream()
-            .filter(ExecGroup::isAutomatic)
+            .filter(DeclaredExecGroup::isAutomatic)
             .filter(
                 name -> {
                   ResolvedToolchainContext context = toolchainContexts.getToolchainContext(name);

@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.starlark;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.analysis.testing.ExecGroupSubject.assertThat;
+import static com.google.devtools.build.lib.analysis.testing.DeclaredExecGroupSubject.assertThat;
 import static com.google.devtools.build.lib.analysis.testing.RuleClassSubject.assertThat;
 import static com.google.devtools.build.lib.analysis.testing.StarlarkDefinedAspectSubject.assertThat;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
@@ -59,7 +59,7 @@ import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.ExecGroup;
+import com.google.devtools.build.lib.packages.DeclaredExecGroup;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.MacroClass;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -3159,19 +3159,19 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         ")");
     RuleClass plum = ((StarlarkRuleFunction) ev.lookup("plum")).getRuleClass();
     assertThat(plum.getToolchainTypes()).isEmpty();
-    ExecGroup execGroup = plum.getExecGroups().get("group");
-    assertThat(execGroup).hasToolchainType("//test:my_toolchain_type1");
-    assertThat(execGroup).toolchainType("//test:my_toolchain_type1").isMandatory();
-    assertThat(execGroup).hasToolchainType("//test:my_toolchain_type2");
-    assertThat(execGroup).toolchainType("//test:my_toolchain_type2").isMandatory();
-    assertThat(execGroup).hasToolchainType("//test:my_toolchain_type3");
-    assertThat(execGroup).toolchainType("//test:my_toolchain_type3").isOptional();
-    assertThat(execGroup).hasToolchainType("//test:my_toolchain_type4");
-    assertThat(execGroup).toolchainType("//test:my_toolchain_type4").isMandatory();
+    DeclaredExecGroup declaredExecGroup = plum.getDeclaredExecGroups().get("group");
+    assertThat(declaredExecGroup).hasToolchainType("//test:my_toolchain_type1");
+    assertThat(declaredExecGroup).toolchainType("//test:my_toolchain_type1").isMandatory();
+    assertThat(declaredExecGroup).hasToolchainType("//test:my_toolchain_type2");
+    assertThat(declaredExecGroup).toolchainType("//test:my_toolchain_type2").isMandatory();
+    assertThat(declaredExecGroup).hasToolchainType("//test:my_toolchain_type3");
+    assertThat(declaredExecGroup).toolchainType("//test:my_toolchain_type3").isOptional();
+    assertThat(declaredExecGroup).hasToolchainType("//test:my_toolchain_type4");
+    assertThat(declaredExecGroup).toolchainType("//test:my_toolchain_type4").isMandatory();
 
     assertThat(plum.getExecutionPlatformConstraints()).isEmpty();
-    assertThat(execGroup).hasExecCompatibleWith("//constraint:cv1");
-    assertThat(execGroup).hasExecCompatibleWith("//constraint:cv2");
+    assertThat(declaredExecGroup).hasExecCompatibleWith("//constraint:cv1");
+    assertThat(declaredExecGroup).hasExecCompatibleWith("//constraint:cv2");
   }
 
   @Test
@@ -3236,10 +3236,10 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
             Label.parseCanonicalUnchecked("//constraint:cv2"),
             Label.parseCanonicalUnchecked("//constraint:cv1"))
         .inOrder();
-    assertThat(plum.getExecGroups().keySet())
+    assertThat(plum.getDeclaredExecGroups().keySet())
         .containsExactly("group5", "group4", "group3", "group2", "group1")
         .inOrder();
-    assertThat(plum.getExecGroups().get("group5").toolchainTypesMap().keySet())
+    assertThat(plum.getDeclaredExecGroups().get("group5").toolchainTypesMap().keySet())
         .containsExactly(
             Label.parseCanonicalUnchecked("//test:my_toolchain_type5"),
             Label.parseCanonicalUnchecked("//test:my_toolchain_type4"),
@@ -3247,7 +3247,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
             Label.parseCanonicalUnchecked("//test:my_toolchain_type2"),
             Label.parseCanonicalUnchecked("//test:my_toolchain_type1"))
         .inOrder();
-    assertThat(plum.getExecGroups().get("group4").execCompatibleWith())
+    assertThat(plum.getDeclaredExecGroups().get("group4").execCompatibleWith())
         .containsExactly(
             Label.parseCanonicalUnchecked("//constraint:cv5"),
             Label.parseCanonicalUnchecked("//constraint:cv4"),
@@ -3318,7 +3318,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "  ],",
         "  exec_compatible_with=['//constraint:cv1', '//constraint:cv2'],",
         ")");
-    ExecGroup group = ((ExecGroup) ev.lookup("group"));
+    DeclaredExecGroup group = ((DeclaredExecGroup) ev.lookup("group"));
     assertThat(group).hasToolchainType("//test:my_toolchain_type1");
     assertThat(group).toolchainType("//test:my_toolchain_type1").isMandatory();
     assertThat(group).hasToolchainType("//test:my_toolchain_type2");
@@ -6067,7 +6067,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     Rule rule = getRuleContext(myTarget).getRule();
 
     assertNoEvents();
-    assertThat(rule.getRuleClassObject().getExecGroups().keySet())
+    assertThat(rule.getRuleClassObject().getDeclaredExecGroups().keySet())
         .containsExactly("parent_exec_group", "child_exec_group");
   }
 

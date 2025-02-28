@@ -50,7 +50,7 @@ java_library(
             "BuilderFactoryForTesting.java",  # see builder_factory_for_testing
             "BzlVisibility.java",
             "ConfiguredAttributeMapper.java",
-            "ExecGroup.java",
+            "DeclaredExecGroup.java",
             "Globber.java",
             "GlobberUtils.java",
             "LabelPrinter.java",
@@ -60,7 +60,7 @@ java_library(
     ),
     deps = [
         ":bzl_visibility",
-        ":exec_group",
+        ":declared_exec_group",
         ":globber",
         ":globber_utils",
         ":label_printer",
@@ -157,8 +157,8 @@ java_library(
 )
 
 java_library(
-    name = "exec_group",
-    srcs = ["ExecGroup.java"],
+    name = "declared_exec_group",
+    srcs = ["DeclaredExecGroup.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:config/toolchain_type_requirement",
         "//src/main/java/com/google/devtools/build/lib/cmdline",

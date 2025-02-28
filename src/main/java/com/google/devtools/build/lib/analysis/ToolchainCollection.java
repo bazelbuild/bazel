@@ -22,7 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.ExecGroup;
+import com.google.devtools.build.lib.packages.DeclaredExecGroup;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.LinkedHashMap;
@@ -42,7 +42,7 @@ public record ToolchainCollection<T extends ToolchainContext>(ImmutableMap<Strin
   }
 
   public T getDefaultToolchainContext() {
-    return contextMap().get(ExecGroup.DEFAULT_EXEC_GROUP_NAME);
+    return contextMap().get(DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME);
   }
 
   public boolean hasToolchainContext(String execGroup) {
@@ -99,7 +99,8 @@ public record ToolchainCollection<T extends ToolchainContext>(ImmutableMap<Strin
     }
 
     public ToolchainCollection<T> build() {
-      Preconditions.checkArgument(toolchainContexts.containsKey(ExecGroup.DEFAULT_EXEC_GROUP_NAME));
+      Preconditions.checkArgument(
+          toolchainContexts.containsKey(DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME));
       return new ToolchainCollection<T>(ImmutableMap.copyOf(toolchainContexts));
     }
 
@@ -113,7 +114,7 @@ public record ToolchainCollection<T extends ToolchainContext>(ImmutableMap<Strin
 
     @CanIgnoreReturnValue
     public Builder<T> addDefaultContext(T context) {
-      addContext(ExecGroup.DEFAULT_EXEC_GROUP_NAME, context);
+      addContext(DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME, context);
       return this;
     }
   }

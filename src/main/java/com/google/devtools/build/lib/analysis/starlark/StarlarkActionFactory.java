@@ -59,7 +59,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.BuiltinRestriction;
-import com.google.devtools.build.lib.packages.ExecGroup;
+import com.google.devtools.build.lib.packages.DeclaredExecGroup;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails;
@@ -543,7 +543,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   private static PlatformInfo getExecutionPlatform(Object execGroupUnchecked, RuleContext ctx)
       throws EvalException {
     if (execGroupUnchecked == Starlark.NONE) {
-      return ctx.getExecutionPlatform(ExecGroup.DEFAULT_EXEC_GROUP_NAME);
+      return ctx.getExecutionPlatform(DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME);
     } else {
       String execGroup = (String) execGroupUnchecked;
       verifyExecGroupExists(execGroup, ctx);
@@ -828,7 +828,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       verifyAutomaticExecGroupExists(toolchainLabel.toString(), ruleContext);
       builder.setExecGroup(toolchainLabel.toString());
     } else {
-      builder.setExecGroup(ExecGroup.DEFAULT_EXEC_GROUP_NAME);
+      builder.setExecGroup(DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME);
     }
 
     if (shadowedActionUnchecked != Starlark.NONE) {

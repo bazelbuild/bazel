@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.packages.ExecGroup;
+import com.google.devtools.build.lib.packages.DeclaredExecGroup;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -99,7 +99,7 @@ public final class AspectContext extends RuleContext {
   public ImmutableSet<Label> getRequestedToolchainTypesLabels() {
     if (targetUsesAutoExecGroups) {
       return baseTargetToolchainContexts.contextMap().entrySet().stream()
-          .filter(e -> ExecGroup.isAutomatic(e.getKey()))
+          .filter(e -> DeclaredExecGroup.isAutomatic(e.getKey()))
           .flatMap(e -> e.getValue().requestedToolchainTypeLabels().keySet().stream())
           .collect(toImmutableSet());
     } else {
@@ -123,7 +123,7 @@ public final class AspectContext extends RuleContext {
           baseTargetToolchainContexts.contextMap().entrySet().stream()
               .filter(
                   e ->
-                      ExecGroup.isAutomatic(e.getKey())
+                      DeclaredExecGroup.isAutomatic(e.getKey())
                           && e.getValue().requestedToolchainTypeLabels().containsKey(toolchainType))
               .findFirst()
               .map(e -> e.getValue())

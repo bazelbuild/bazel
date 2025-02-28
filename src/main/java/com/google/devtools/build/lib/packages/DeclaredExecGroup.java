@@ -40,12 +40,12 @@ import net.starlark.java.syntax.Identifier;
  *     in the same rule.
  */
 @AutoCodec
-public record ExecGroup(
+public record DeclaredExecGroup(
     ImmutableMap<Label, ToolchainTypeRequirement> toolchainTypesMap,
     ImmutableSet<Label> execCompatibleWith,
     boolean copyFromDefault)
     implements ExecGroupApi {
-  public ExecGroup {
+  public DeclaredExecGroup {
     requireNonNull(toolchainTypesMap, "toolchainTypesMap");
     requireNonNull(execCompatibleWith, "execCompatibleWith");
     checkArgument(
@@ -57,11 +57,11 @@ public record ExecGroup(
   public static final String DEFAULT_EXEC_GROUP_NAME = "default-exec-group";
 
   /** An exec group that copies all data from the default exec group. */
-  public static final ExecGroup COPY_FROM_DEFAULT = builder().copyFromDefault(true).build();
+  public static final DeclaredExecGroup COPY_FROM_DEFAULT = builder().copyFromDefault(true).build();
 
-  /** Returns a builder for a new ExecGroup. */
+  /** Returns a builder for a new DeclaredExecGroup. */
   public static Builder builder() {
-    return new AutoBuilder_ExecGroup_Builder()
+    return new AutoBuilder_DeclaredExecGroup_Builder()
         .copyFromDefault(false)
         .toolchainTypes(ImmutableSet.of())
         .execCompatibleWith(ImmutableSet.of());
@@ -83,7 +83,7 @@ public record ExecGroup(
   }
 
   public Builder toBuilder() {
-    return new AutoBuilder_ExecGroup_Builder(this);
+    return new AutoBuilder_DeclaredExecGroup_Builder(this);
   }
 
   /**
@@ -91,41 +91,41 @@ public record ExecGroup(
    *
    * <p>Adds auto exec groups when {@code useAutoExecGroups} is true.
    */
-  public static ImmutableMap<String, ExecGroup> process(
-      ImmutableMap<String, ExecGroup> execGroups,
+  public static ImmutableMap<String, DeclaredExecGroup> process(
+      ImmutableMap<String, DeclaredExecGroup> execGroups,
       ImmutableSet<Label> defaultExecWith,
       ImmutableMultimap<String, Label> execGroupExecWith,
       ImmutableSet<ToolchainTypeRequirement> defaultToolchainTypes,
       boolean useAutoExecGroups) {
     var processedGroups =
-        ImmutableMap.<String, ExecGroup>builderWithExpectedSize(
+        ImmutableMap.<String, DeclaredExecGroup>builderWithExpectedSize(
             useAutoExecGroups
                 ? (execGroups.size() + defaultToolchainTypes.size())
                 : execGroups.size());
-    for (Map.Entry<String, ExecGroup> entry : execGroups.entrySet()) {
+    for (Map.Entry<String, DeclaredExecGroup> entry : execGroups.entrySet()) {
       String name = entry.getKey();
-      ExecGroup execGroup = entry.getValue();
+      DeclaredExecGroup declaredExecGroup = entry.getValue();
 
-      if (execGroup.copyFromDefault()) {
-        execGroup =
-            ExecGroup.builder()
+      if (declaredExecGroup.copyFromDefault()) {
+        declaredExecGroup =
+            DeclaredExecGroup.builder()
                 .execCompatibleWith(defaultExecWith)
                 .toolchainTypes(defaultToolchainTypes)
                 .build();
       }
       ImmutableCollection<Label> extraExecWith = execGroupExecWith.get(name);
       if (!extraExecWith.isEmpty()) {
-        execGroup =
-            execGroup.toBuilder()
+        declaredExecGroup =
+            declaredExecGroup.toBuilder()
                 .execCompatibleWith(
                     ImmutableSet.<Label>builder()
-                        .addAll(execGroup.execCompatibleWith())
+                        .addAll(declaredExecGroup.execCompatibleWith())
                         .addAll(extraExecWith)
                         .build())
                 .build();
       }
 
-      processedGroups.put(name, execGroup);
+      processedGroups.put(name, declaredExecGroup);
     }
 
     if (useAutoExecGroups) {
@@ -140,7 +140,7 @@ public record ExecGroup(
         }
         processedGroups.put(
             toolchainType.toolchainType().toString(),
-            ExecGroup.builder()
+            DeclaredExecGroup.builder()
                 .addToolchainType(toolchainType)
                 .execCompatibleWith(execCompatibleWith)
                 .build());
@@ -149,7 +149,7 @@ public record ExecGroup(
     return processedGroups.buildOrThrow();
   }
 
-  /** A builder interface to create ExecGroup instances. */
+  /** A builder interface to create DeclaredExecGroup instances. */
   @AutoBuilder
   public interface Builder {
 
@@ -175,7 +175,7 @@ public record ExecGroup(
     /** Do not call, internal usage only. */
     Builder copyFromDefault(boolean copyFromDefault);
 
-    /** Returns the new ExecGroup instance. */
-    ExecGroup build();
+    /** Returns the new DeclaredExecGroup instance. */
+    DeclaredExecGroup build();
   }
 }

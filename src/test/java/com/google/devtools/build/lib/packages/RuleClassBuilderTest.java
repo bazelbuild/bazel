@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.analysis.testing.ExecGroupSubject.assertThat;
+import static com.google.devtools.build.lib.analysis.testing.DeclaredExecGroupSubject.assertThat;
 import static com.google.devtools.build.lib.analysis.testing.RuleClassSubject.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
@@ -201,13 +201,13 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
   public void testExecGroupsAreInherited() throws Exception {
     Label mockToolchainType = Label.parseCanonicalUnchecked("//mock_toolchain_type");
     Label mockConstraint = Label.parseCanonicalUnchecked("//mock_constraint");
-    ExecGroup parentGroup =
-        ExecGroup.builder()
+    DeclaredExecGroup parentGroup =
+        DeclaredExecGroup.builder()
             .addToolchainType(ToolchainTypeRequirement.create(mockToolchainType))
             .execCompatibleWith(ImmutableSet.of(mockConstraint))
             .build();
-    ExecGroup childGroup =
-        ExecGroup.builder()
+    DeclaredExecGroup childGroup =
+        DeclaredExecGroup.builder()
             .toolchainTypes(ImmutableSet.of())
             .execCompatibleWith(ImmutableSet.of())
             .build();
@@ -222,8 +222,8 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
             .add(attr("attr", STRING))
             .addExecGroups(ImmutableMap.of("child-group", childGroup))
             .build();
-    assertThat(child.getExecGroups().get("group")).isEqualTo(parentGroup);
-    assertThat(child.getExecGroups().get("child-group")).isEqualTo(childGroup);
+    assertThat(child.getDeclaredExecGroups().get("group")).isEqualTo(parentGroup);
+    assertThat(child.getDeclaredExecGroups().get("child-group")).isEqualTo(childGroup);
   }
 
   @Test
@@ -231,7 +231,7 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
     RuleClass a =
         new RuleClass.Builder("ruleA", RuleClassType.NORMAL, false)
             .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
-            .addExecGroups(ImmutableMap.of("blueberry", ExecGroup.COPY_FROM_DEFAULT))
+            .addExecGroups(ImmutableMap.of("blueberry", DeclaredExecGroup.COPY_FROM_DEFAULT))
             .add(attr("tags", STRING_LIST))
             .addToolchainTypes(
                 ToolchainTypeRequirement.create(Label.parseCanonicalUnchecked("//some/toolchain")))
@@ -239,7 +239,7 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
     RuleClass b =
         new RuleClass.Builder("ruleB", RuleClassType.NORMAL, false)
             .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
-            .addExecGroups(ImmutableMap.of("blueberry", ExecGroup.COPY_FROM_DEFAULT))
+            .addExecGroups(ImmutableMap.of("blueberry", DeclaredExecGroup.COPY_FROM_DEFAULT))
             .add(attr("tags", STRING_LIST))
             .addToolchainTypes(
                 ToolchainTypeRequirement.create(
@@ -251,8 +251,8 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
                 ToolchainTypeRequirement.create(
                     Label.parseCanonicalUnchecked("//actual/toolchain/we/care/about")))
             .build();
-    assertThat(c.getExecGroups()).containsKey("blueberry");
-    ExecGroup blueberry = c.getExecGroups().get("blueberry");
+    assertThat(c.getDeclaredExecGroups()).containsKey("blueberry");
+    DeclaredExecGroup blueberry = c.getDeclaredExecGroups().get("blueberry");
     assertThat(blueberry).copiesFromDefault();
   }
 
@@ -264,7 +264,7 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
             .addExecGroups(
                 ImmutableMap.of(
                     "blueberry",
-                    ExecGroup.builder()
+                    DeclaredExecGroup.builder()
                         .addToolchainType(
                             ToolchainTypeRequirement.create(
                                 Label.parseCanonicalUnchecked("//some/toolchain")))
@@ -278,7 +278,7 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
             .addExecGroups(
                 ImmutableMap.of(
                     "blueberry",
-                    ExecGroup.builder()
+                    DeclaredExecGroup.builder()
                         .toolchainTypes(ImmutableSet.of())
                         .execCompatibleWith(ImmutableSet.of())
                         .build()))

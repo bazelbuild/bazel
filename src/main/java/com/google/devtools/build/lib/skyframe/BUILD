@@ -323,7 +323,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages:autoload_symbols",
         "//src/main/java/com/google/devtools/build/lib/packages:bzl_visibility",
-        "//src/main/java/com/google/devtools/build/lib/packages:exec_group",
+        "//src/main/java/com/google/devtools/build/lib/packages:declared_exec_group",
         "//src/main/java/com/google/devtools/build/lib/packages:globber",
         "//src/main/java/com/google/devtools/build/lib/packages:globber_utils",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",

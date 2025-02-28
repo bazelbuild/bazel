@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
+import static com.google.devtools.build.lib.packages.DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.HashBasedTable;
@@ -24,7 +24,7 @@ import com.google.common.collect.ImmutableTable;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Table;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
-import com.google.devtools.build.lib.packages.ExecGroup;
+import com.google.devtools.build.lib.packages.DeclaredExecGroup;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -37,9 +37,9 @@ import javax.annotation.Nullable;
 import net.starlark.java.spelling.SpellChecker;
 
 /**
- * A container class for groups of {@link ExecGroup} instances. This correctly handles exec group
- * inheritance between rules and targets. See https://bazel.build/reference/exec-groups for further
- * details.
+ * A container class for groups of {@link DeclaredExecGroup} instances. This correctly handles exec
+ * group inheritance between rules and targets. See https://bazel.build/reference/exec-groups for
+ * further details.
  */
 @AutoValue
 public abstract class ExecGroupCollection {
@@ -47,7 +47,7 @@ public abstract class ExecGroupCollection {
   // Note that this is _not_ an actual @AutoValue.Builder: it provides more logic and has different
   // fields.
   public abstract static class Builder {
-    public abstract ImmutableMap<String, ExecGroup> execGroups();
+    public abstract ImmutableMap<String, DeclaredExecGroup> execGroups();
 
     public ExecGroupCollection build(
         @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
@@ -180,11 +180,11 @@ public abstract class ExecGroupCollection {
     return ImmutableMap.copyOf(combined);
   }
 
-  protected abstract ImmutableMap<String, ExecGroup> execGroups();
+  protected abstract ImmutableMap<String, DeclaredExecGroup> execGroups();
 
   protected abstract ImmutableTable<String, String, String> execProperties();
 
-  public ExecGroup getExecGroup(String execGroupName) {
+  public DeclaredExecGroup getExecGroup(String execGroupName) {
     return execGroups().get(execGroupName);
   }
 

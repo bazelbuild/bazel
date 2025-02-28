@@ -308,7 +308,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/producers:unloaded_toolchain_contexts_inputs",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/packages:exec_group",
+        "//src/main/java/com/google/devtools/build/lib/packages:declared_exec_group",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",
         "//third_party:guava",
         "//third_party:jsr305",

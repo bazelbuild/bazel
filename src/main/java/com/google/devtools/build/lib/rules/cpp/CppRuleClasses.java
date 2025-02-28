@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
-import com.google.devtools.build.lib.packages.ExecGroup;
+import com.google.devtools.build.lib.packages.DeclaredExecGroup;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -541,7 +541,9 @@ public class CppRuleClasses {
           .addExecGroups(
               ImmutableMap.of(
                   CPP_LINK_EXEC_GROUP,
-                  ExecGroup.builder().addToolchainType(ccToolchainTypeRequirement(env)).build()))
+                  DeclaredExecGroup.builder()
+                      .addToolchainType(ccToolchainTypeRequirement(env))
+                      .build()))
           .build();
     }
 

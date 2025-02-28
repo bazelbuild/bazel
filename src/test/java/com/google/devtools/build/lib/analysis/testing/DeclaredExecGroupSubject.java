@@ -19,23 +19,23 @@ import com.google.common.truth.FailureMetadata;
 import com.google.common.truth.IterableSubject;
 import com.google.common.truth.Subject;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.ExecGroup;
+import com.google.devtools.build.lib.packages.DeclaredExecGroup;
 import java.util.stream.Collectors;
 
-/** A Truth {@link Subject} for {@link ExecGroup}. */
-public class ExecGroupSubject extends Subject {
+/** A Truth {@link Subject} for {@link DeclaredExecGroup}. */
+public class DeclaredExecGroupSubject extends Subject {
   // Static data.
 
-  /** Entry point for test assertions related to {@link ExecGroup}. */
-  public static ExecGroupSubject assertThat(ExecGroup execGroup) {
-    return assertAbout(ExecGroupSubject::new).that(execGroup);
+  /** Entry point for test assertions related to {@link DeclaredExecGroup}. */
+  public static DeclaredExecGroupSubject assertThat(DeclaredExecGroup declaredExecGroup) {
+    return assertAbout(DeclaredExecGroupSubject::new).that(declaredExecGroup);
   }
 
   // Instance fields.
 
-  private final ExecGroup actual;
+  private final DeclaredExecGroup actual;
 
-  protected ExecGroupSubject(FailureMetadata failureMetadata, ExecGroup subject) {
+  protected DeclaredExecGroupSubject(FailureMetadata failureMetadata, DeclaredExecGroup subject) {
     super(failureMetadata, subject);
     this.actual = subject;
   }
