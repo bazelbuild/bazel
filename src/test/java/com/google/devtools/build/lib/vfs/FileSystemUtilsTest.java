@@ -40,14 +40,18 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * This class tests the file system utilities.
- */
+/** This class tests the file system utilities. */
 @RunWith(JUnit4.class)
 public class FileSystemUtilsTest {
   private ManualClock clock;
   private FileSystem fileSystem;
   private Path workingDir;
+
+  enum FileType {
+    FILE,
+    DIRECTORY,
+    SYMLINK
+  }
 
   @Before
   public final void initializeFileSystem() throws Exception  {
@@ -107,7 +111,7 @@ public class FileSystemUtilsTest {
     FileSystemUtils.createEmptyFile(file5);
   }
 
-  private Path checkTestDirectoryTreesBelowExceptSymlinks(Path toPath) throws IOException {
+  private void checkTestDirectoryTreesBelow(Path toPath) throws IOException {
     Path copiedFile1 = toPath.getChild("file-1");
     assertThat(copiedFile1.exists()).isTrue();
     assertThat(copiedFile1.isFile()).isTrue();
@@ -129,19 +133,14 @@ public class FileSystemUtilsTest {
     Path copiedInnerDir = copiedADir.getChild("inner-dir");
     assertThat(copiedInnerDir.exists()).isTrue();
     assertThat(copiedInnerDir.isDirectory()).isTrue();
-    return copiedInnerDir;
-  }
 
-  private void checkTestDirectoryTreesBelow(Path toPath) throws IOException {
-    Path copiedInnerDir = checkTestDirectoryTreesBelowExceptSymlinks(toPath);
     Path copiedLink1 = copiedInnerDir.getChild("link-1");
     assertThat(copiedLink1.exists()).isTrue();
-    assertThat(copiedLink1.isSymbolicLink()).isFalse();
+    assertThat(copiedLink1.isSymbolicLink()).isTrue();
 
     Path copiedDirLink = copiedInnerDir.getChild("dir-link");
     assertThat(copiedDirLink.exists()).isTrue();
-    assertThat(copiedDirLink.isDirectory()).isTrue();
-    assertThat(copiedDirLink.getChild("file-5").exists()).isTrue();
+    assertThat(copiedDirLink.isSymbolicLink()).isTrue();
   }
 
   // tests
@@ -493,18 +492,7 @@ public class FileSystemUtilsTest {
     Path toPath = fileSystem.getPath("/copy-here");
     toPath.createDirectory();
 
-    FileSystemUtils.copyTreesBelow(topDir, toPath, Symlinks.FOLLOW);
-    checkTestDirectoryTreesBelow(toPath);
-  }
-
-  @Test
-  public void testCopyTreesBelowWithOverriding() throws IOException {
-    createTestDirectoryTree();
-    Path toPath = fileSystem.getPath("/copy-here");
-    toPath.createDirectory();
-    toPath.getChild("file-2");
-
-    FileSystemUtils.copyTreesBelow(topDir, toPath, Symlinks.FOLLOW);
+    FileSystemUtils.copyTreesBelow(topDir, toPath);
     checkTestDirectoryTreesBelow(toPath);
   }
 
@@ -513,8 +501,7 @@ public class FileSystemUtilsTest {
     createTestDirectoryTree();
     IllegalArgumentException expected =
         assertThrows(
-            IllegalArgumentException.class,
-            () -> FileSystemUtils.copyTreesBelow(topDir, aDir, Symlinks.FOLLOW));
+            IllegalArgumentException.class, () -> FileSystemUtils.copyTreesBelow(topDir, aDir));
     assertThat(expected).hasMessageThat().isEqualTo("/top-dir/a-dir is a subdirectory of /top-dir");
   }
 
@@ -522,8 +509,7 @@ public class FileSystemUtilsTest {
   public void testCopyFileAsDirectoryTree() throws IOException {
     createTestDirectoryTree();
     IOException expected =
-        assertThrows(
-            IOException.class, () -> FileSystemUtils.copyTreesBelow(file1, aDir, Symlinks.FOLLOW));
+        assertThrows(IOException.class, () -> FileSystemUtils.copyTreesBelow(file1, aDir));
     assertThat(expected).hasMessageThat().isEqualTo("/top-dir/file-1 (Not a directory)");
   }
 
@@ -534,9 +520,7 @@ public class FileSystemUtilsTest {
     Path copySubDir = fileSystem.getPath("/my-dir/subdir");
     copySubDir.createDirectoryAndParents();
     IOException expected =
-        assertThrows(
-            IOException.class,
-            () -> FileSystemUtils.copyTreesBelow(copyDir, file4, Symlinks.FOLLOW));
+        assertThrows(IOException.class, () -> FileSystemUtils.copyTreesBelow(copyDir, file4));
     assertThat(expected).hasMessageThat().isEqualTo("/file-4 (Not a directory)");
   }
 
@@ -547,43 +531,8 @@ public class FileSystemUtilsTest {
     Path unexistingDir = fileSystem.getPath("/unexisting-dir");
     FileNotFoundException expected =
         assertThrows(
-            FileNotFoundException.class,
-            () -> FileSystemUtils.copyTreesBelow(unexistingDir, aDir, Symlinks.FOLLOW));
+            FileNotFoundException.class, () -> FileSystemUtils.copyTreesBelow(unexistingDir, aDir));
     assertThat(expected).hasMessageThat().isEqualTo("/unexisting-dir (No such file or directory)");
-  }
-
-  @Test
-  public void testCopyTreesBelowNoFollowSymlinks() throws IOException {
-    createTestDirectoryTree();
-    PathFragment relative1 = file1.relativeTo(topDir);
-    topDir.getRelative("relative-link").createSymbolicLink(relative1);
-    PathFragment relativeInner = PathFragment.create("..").getRelative(relative1);
-    bDir.getRelative("relative-inner-link").createSymbolicLink(relativeInner);
-    PathFragment rootDirectory = PathFragment.create("/");
-    topDir.getRelative("absolute-link").createSymbolicLink(rootDirectory);
-    Path toPath = fileSystem.getPath("/copy-here");
-    toPath.createDirectory();
-
-    FileSystemUtils.copyTreesBelow(topDir, toPath, Symlinks.NOFOLLOW);
-    Path copiedInnerDir = checkTestDirectoryTreesBelowExceptSymlinks(toPath);
-    Path copiedLink1 = copiedInnerDir.getChild("link-1");
-    assertThat(copiedLink1.exists()).isTrue();
-    assertThat(copiedLink1.isSymbolicLink()).isTrue();
-    assertThat(copiedLink1.readSymbolicLink()).isEqualTo(file4.asFragment());
-
-    Path copiedDirLink = copiedInnerDir.getChild("dir-link");
-    assertThat(copiedDirLink.exists()).isTrue();
-    assertThat(copiedDirLink.isDirectory()).isTrue();
-    assertThat(copiedDirLink.readSymbolicLink()).isEqualTo(bDir.asFragment());
-
-    assertThat(toPath.getRelative("relative-link").readSymbolicLink()).isEqualTo(relative1);
-    assertThat(
-            toPath
-                .getRelative(bDir.relativeTo(topDir))
-                .getRelative("relative-inner-link")
-                .readSymbolicLink())
-        .isEqualTo(relativeInner);
-    assertThat(toPath.getRelative("absolute-link").readSymbolicLink()).isEqualTo(rootDirectory);
   }
 
   @Test

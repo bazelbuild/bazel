@@ -1664,7 +1664,7 @@ public class RemoteExecutionService {
         try {
           if (outputArtifact.isDirectory()) {
             tmpPath.createDirectory();
-            FileSystemUtils.copyTreesBelow(sourcePath, tmpPath, Symlinks.NOFOLLOW);
+            FileSystemUtils.copyTreesBelow(sourcePath, tmpPath);
           } else if (outputArtifact.isSymlink()) {
             FileSystemUtils.ensureSymbolicLink(tmpPath, sourcePath.readSymbolicLink());
           } else {
