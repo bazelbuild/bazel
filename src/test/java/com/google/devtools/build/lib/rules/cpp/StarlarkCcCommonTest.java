@@ -3647,7 +3647,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCustomTool_windowsShortPath_failsOnNonWindowsHostOs() throws Exception {
+  public void testCustomTool_windowsShortPath_preservedOnNonWindowsHostOs() throws Exception {
     assume().that(OS.getCurrent()).isNotEqualTo(OS.WINDOWS);
 
     loadCcToolchainConfigLib();
@@ -3661,14 +3661,10 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     ConfiguredTarget t = getConfiguredTarget("//seven:a");
     StarlarkInfo toolStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("tool");
     assertThat(toolStruct).isNotNull();
-    var e =
-        assertThrows(EvalException.class, () -> CcModule.toolFromStarlark(toolStruct, OS.WINDOWS));
-    assertThat(e)
-        .hasMessageThat()
-        .contains(
-            "The 'path' field of tool is not a valid path: Windows short paths can only be resolved"
-                + " on a Windows host:"
-                + " C:\\PROGRA~1\\MICROS~1\\2022\\COMMUN~1\\VC\\TOOLS\\MSVC\\14.39.33519\\BIN\\HOSTX64\\X64\\CL.EXE");
+    Tool tool = CcModule.toolFromStarlark(toolStruct, OS.WINDOWS);
+    assertThat(tool.getToolPathString(PathFragment.create("external/my_toolchain")))
+        .isEqualTo(
+            "C:/PROGRA~1/MICROS~1/2022/COMMUN~1/VC/TOOLS/MSVC/14.39.33519/BIN/HOSTX64/X64/CL.EXE");
   }
 
   @Test

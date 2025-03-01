@@ -37,7 +37,7 @@ class WindowsOsPathPolicy implements OsPathPolicy {
   private final ShortPathResolver shortPathResolver;
 
   interface ShortPathResolver {
-    String resolveShortPath(String path) throws UncheckedPathUnsupportedOnThisOsException;
+    String resolveShortPath(String path);
   }
 
   static class DefaultShortPathResolver implements ShortPathResolver {
@@ -58,8 +58,14 @@ class WindowsOsPathPolicy implements OsPathPolicy {
   static class CrossPlatformShortPathResolver implements ShortPathResolver {
     @Override
     public String resolveShortPath(String path) {
-      throw new UncheckedPathUnsupportedOnThisOsException(
-          "Windows short paths can only be resolved on a Windows host: " + path);
+      // Short paths can only be resolved on a Windows host.
+      // Skipping short path resolution when running on a non-Windows host can
+      // result in paths considered different that are actually the same.
+      // TODO: Consider failing when a short path is detected on a non-Windows
+      //  host. Since short path segments can arise from most operations on
+      //  PathFragment, this would however require exception handling in many
+      //  places.
+      return path;
     }
   }
 

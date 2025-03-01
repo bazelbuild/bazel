@@ -1391,12 +1391,7 @@ public abstract class CcModule
         throw infoError(toolStruct, "\"tool\" and \"path\" cannot be set at the same time.");
       }
 
-      try {
-        toolPath = PathFragment.createForOs(toolPathString, execOs);
-      } catch (PathFragment.PathUnsupportedOnThisOs e) {
-        throw infoError(
-            toolStruct, "The 'path' field of tool is not a valid path: %s", e.getMessage());
-      }
+      toolPath = PathFragment.createForOs(toolPathString, execOs);
       if (toolPath.isEmpty()) {
         throw infoError(toolStruct, "The 'path' field of tool must be a nonempty string.");
       }
