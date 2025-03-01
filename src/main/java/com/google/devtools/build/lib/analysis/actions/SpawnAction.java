@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactExpander;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLine;
@@ -79,6 +80,8 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OnDemandString;
 import com.google.devtools.build.lib.util.ShellEscaper;
+import com.google.devtools.build.lib.vfs.BulkDeleter;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.CheckReturnValue;
@@ -86,6 +89,7 @@ import com.google.errorprone.annotations.CompileTimeConstant;
 import com.google.errorprone.annotations.ForOverride;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.FormatString;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -158,6 +162,14 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     this.mnemonic = mnemonic;
     this.outputPathsMode = outputPathsMode;
   }
+
+  @Override
+  public void prepare(
+      Path execRoot,
+      ArtifactPathResolver pathResolver,
+      @Nullable BulkDeleter bulkDeleter,
+      boolean cleanupArchivedArtifacts)
+      throws IOException, InterruptedException {}
 
   @Override
   public final NestedSet<Artifact> getTools() {
@@ -271,7 +283,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
                 .setSpawn(
                     FailureDetails.Spawn.newBuilder().setCode(Code.COMMAND_LINE_EXPANSION_FAILURE))
                 .build());
-    return new ActionExecutionException(e, this, /*catastrophe=*/ false, detailedExitCode);
+    return new ActionExecutionException(e, this, /* catastrophe= */ false, detailedExitCode);
   }
 
   @VisibleForTesting
@@ -589,9 +601,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     }
   }
 
-  /**
-   * Builder class to construct {@link SpawnAction} instances.
-   */
+  /** Builder class to construct {@link SpawnAction} instances. */
   public static class Builder {
 
     private final NestedSetBuilder<Artifact> toolsBuilder = NestedSetBuilder.stableOrder();
