@@ -131,17 +131,7 @@ public class WorkerParser {
       boolean dynamic,
       WorkerProtocolFormat protocolFormat) {
     String workerKeyMnemonic = Spawns.getWorkerKeyMnemonic(spawn);
-    boolean multiplex = options.workerMultiplex && Spawns.supportsMultiplexWorkers(spawn);
-    if (dynamic && !(Spawns.supportsMultiplexSandboxing(spawn) && options.multiplexSandboxing)) {
-      multiplex = false;
-    }
-    boolean sandboxed;
-    if (multiplex) {
-      sandboxed =
-          Spawns.supportsMultiplexSandboxing(spawn) && (options.multiplexSandboxing || dynamic);
-    } else {
-      sandboxed = options.workerSandboxing || dynamic;
-    }
+    boolean sandboxed = isSandboxed(spawn, options, dynamic);
     boolean useInMemoryTracking = false;
     if (sandboxed) {
       List<String> mnemonics = options.workerSandboxInMemoryTracking;
@@ -156,9 +146,24 @@ public class WorkerParser {
         workerFiles,
         sandboxed,
         useInMemoryTracking,
-        multiplex,
+        isMultiplexed(spawn, options, dynamic),
         Spawns.supportsWorkerCancellation(spawn),
         protocolFormat);
+  }
+
+  static boolean isMultiplexed(Spawn spawn, WorkerOptions options, boolean dynamic) {
+    return options.workerMultiplex
+        && Spawns.supportsMultiplexWorkers(spawn)
+        && !(dynamic
+            && !(Spawns.supportsMultiplexSandboxing(spawn) && options.multiplexSandboxing));
+  }
+
+  static boolean isSandboxed(Spawn spawn, WorkerOptions options, boolean dynamic) {
+    if (isMultiplexed(spawn, options, dynamic)) {
+      return Spawns.supportsMultiplexSandboxing(spawn) && (options.multiplexSandboxing || dynamic);
+    } else {
+      return options.workerSandboxing || dynamic;
+    }
   }
 
   private static boolean isFlagFileArg(String arg) {

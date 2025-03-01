@@ -67,6 +67,14 @@ public final class Spawns {
         && !spawn.getExecutionInfo().containsKey(ExecutionRequirements.LOCAL);
   }
 
+  /**
+   * Returns whether a Spawn must be executed on a separate exec root, for exampke, because it
+   * expects output paths to be rewritten or may not arbitrarily write its outputs.
+   */
+  public static boolean requiresSandboxing(Spawn spawn) {
+    return !spawn.getPathMapper().isNoop();
+  }
+
   /** Returns whether a Spawn needs network access in order to run successfully. */
   public static boolean requiresNetwork(Spawn spawn, boolean defaultSandboxDisallowNetwork) {
     if (spawn.getExecutionInfo().containsKey(ExecutionRequirements.BLOCK_NETWORK)) {
