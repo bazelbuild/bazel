@@ -92,7 +92,7 @@ public interface OutputService {
      * files. If false, the output service must handle such tasks itself as needed.
      */
     public boolean shouldDoEagerActionPrep() {
-      return this != IN_MEMORY_ONLY_FILE_SYSTEM && this != STAGE_REMOTE_FILES_ON_DEMAND_FILE_SYSTEM;
+      return this != REMOTE_FILE_SYSTEM && this != IN_MEMORY_ONLY_FILE_SYSTEM && this != STAGE_REMOTE_FILES_ON_DEMAND_FILE_SYSTEM;
     }
 
     /**
