@@ -154,14 +154,4 @@ public interface OsPathPolicy {
       return segmentCount;
     }
   }
-
-  /**
-   * Unchecked exception thrown by {@link OsPathPolicy} implementations when a path cannot be
-   * normalized on the current host OS.
-   */
-  final class UncheckedPathUnsupportedOnThisOsException extends UnsupportedOperationException {
-    UncheckedPathUnsupportedOnThisOsException(String message) {
-      super(message);
-    }
-  }
 }
