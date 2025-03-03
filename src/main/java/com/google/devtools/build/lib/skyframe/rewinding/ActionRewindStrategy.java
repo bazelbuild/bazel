@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.remote.common.LostInputsEvent;
 import com.google.devtools.build.lib.server.FailureDetails.ActionRewinding;
 import com.google.devtools.build.lib.server.FailureDetails.ActionRewinding.Code;
 import com.google.devtools.build.lib.skyframe.ActionUtils;
@@ -57,6 +58,8 @@ import com.google.devtools.build.lib.skyframe.TopLevelActionLookupKeyWrapper;
 import com.google.devtools.build.lib.skyframe.proto.ActionRewind.ActionDescription;
 import com.google.devtools.build.lib.skyframe.proto.ActionRewind.ActionRewindEvent;
 import com.google.devtools.build.lib.skyframe.proto.ActionRewind.LostInput;
+import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindException.FallbackToBuildRewindingException;
+import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindException.GenericActionRewindException;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunction.Reset;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -116,12 +119,7 @@ public final class ActionRewindStrategy {
       ActionInputDepOwners depOwners,
       Environment env)
       throws ActionRewindException, InterruptedException {
-    if (!skyframeActionExecutor.rewindingEnabled()) {
-      throw new ActionRewindException(
-          "Unexpected lost outputs (pass --rewind_lost_inputs to enable recovery): "
-              + prettyPrint(lostOutputsByDigest.values()),
-          Code.LOST_OUTPUT_REWINDING_DISABLED);
-    }
+    checkRewindingEnabled(lostOutputsByDigest, LostType.OUTPUT, env.getListener());
 
     ImmutableList<LostInputRecord> lostOutputRecords =
         checkIfTopLevelOutputLostTooManyTimes(failedKey, lostOutputsByDigest);
@@ -168,12 +166,7 @@ public final class ActionRewindStrategy {
       long actionStartTimeNanos)
       throws ActionRewindException, InterruptedException {
     ImmutableMap<String, ActionInput> lostInputsByDigest = lostInputsException.getLostInputs();
-    if (!skyframeActionExecutor.rewindingEnabled()) {
-      throw new ActionRewindException(
-          "Unexpected lost inputs (pass --rewind_lost_inputs to enable recovery): "
-              + prettyPrint(lostInputsByDigest.values()),
-          Code.LOST_INPUT_REWINDING_DISABLED);
-    }
+    checkRewindingEnabled(lostInputsByDigest, LostType.INPUT, env.getListener());
 
     ImmutableList<LostInputRecord> lostInputRecords =
         checkIfActionLostInputTooManyTimes(failedKey, failedAction, lostInputsByDigest);
@@ -203,6 +196,48 @@ public final class ActionRewindStrategy {
     }
     skyframeActionExecutor.prepareForRewinding(failedKey, failedAction, depsToRewind.build());
     return rewindPlan;
+  }
+
+  private enum LostType {
+    INPUT("inputs", Code.LOST_INPUT_REWINDING_DISABLED),
+    OUTPUT("outputs", Code.LOST_OUTPUT_REWINDING_DISABLED);
+
+    private final String description;
+    private final Code codeWhenDisabled;
+
+    LostType(String description, Code codeWhenDisabled) {
+      this.description = description;
+      this.codeWhenDisabled = codeWhenDisabled;
+    }
+  }
+
+  private void checkRewindingEnabled(
+      ImmutableMap<String, ActionInput> lostArtifacts,
+      LostType lostType,
+      ExtendedEventHandler listener)
+      throws ActionRewindException {
+    if (skyframeActionExecutor.rewindingEnabled()) {
+      return;
+    }
+    if (skyframeActionExecutor.invocationRetriesEnabled()) {
+      // If rewinding failed, Bazel may still be able to recover by retrying the invocation in
+      // BlazeCommandDispatcher if retries are enabled. This requires emitting an event to inform
+      // Bazel's remote module of the lost inputs.
+      listener.post(new LostInputsEvent(lostArtifacts.keySet()));
+      throw new FallbackToBuildRewindingException(
+          lostArtifacts.entrySet().stream()
+              .limit(MAX_LOST_INPUTS_RECORDED)
+              .map(lost -> "%s (%s)".formatted(prettyPrint(lost.getValue()), lost.getKey()))
+              .collect(
+                  joining(
+                      ", ",
+                      "Lost %s no longer available remotely: ".formatted(lostType.description),
+                      "")));
+    }
+    throw new GenericActionRewindException(
+        "Unexpected lost %s (pass --rewind_lost_inputs to enable recovery): %s"
+            .formatted(lostType.description, prettyPrint(lostArtifacts.values())),
+        lostType.codeWhenDisabled);
   }
 
   private Reset prepareRewindPlan(
@@ -345,7 +380,7 @@ public final class ActionRewindStrategy {
       if (losses > MAX_REPEATED_LOST_INPUTS) {
         ActionInput output = lostOutputsByDigest.get(digest);
         ActionRewindException e =
-            new ActionRewindException(
+            new GenericActionRewindException(
                 String.format(
                     "Lost output %s (digest %s), and rewinding was ineffective after %d attempts.",
                     prettyPrint(output), digest, MAX_REPEATED_LOST_INPUTS),
@@ -404,7 +439,8 @@ public final class ActionRewindStrategy {
                     + "lostInput digest: %s, failedAction: %.10000s",
                 losses, lostInputsByDigest.get(digest), digest, failedAction);
         ActionRewindException e =
-            new ActionRewindException(message, ActionRewinding.Code.LOST_INPUT_TOO_MANY_TIMES);
+            new GenericActionRewindException(
+                message, ActionRewinding.Code.LOST_INPUT_TOO_MANY_TIMES);
         bugReporter.sendBugReport(e);
         throw e;
       } else if (losses > 1) {

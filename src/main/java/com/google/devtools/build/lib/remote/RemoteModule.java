@@ -26,12 +26,18 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputDepOwnerMap;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
+import com.google.devtools.build.lib.actions.ImportantOutputHandler;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
@@ -99,6 +105,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
@@ -113,7 +120,9 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.channels.ClosedChannelException;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -979,6 +988,7 @@ public final class RemoteModule extends BlazeModule {
       return;
     }
     actionContextProvider.registerSpawnCache(registryBuilder);
+    registryBuilder.register(ImportantOutputHandler.class, new RemoteImportantOutputHandler());
   }
 
   private TempPathGenerator getTempPathGenerator(CommandEnvironment env)
@@ -1208,5 +1218,37 @@ public final class RemoteModule extends BlazeModule {
   @VisibleForTesting
   Downloader getRemoteDownloader() {
     return remoteDownloader;
+  }
+
+  private static final class RemoteImportantOutputHandler implements ImportantOutputHandler {
+    @Override
+    public LostArtifacts processOutputsAndGetLostArtifacts(
+        Iterable<Artifact> outputs,
+        ArtifactExpander expander,
+        InputMetadataProvider metadataProvider,
+        ImmutableMap<String, ActionInput> knownLostOutputs) {
+      return new LostArtifacts(
+          knownLostOutputs, new ActionInputDepOwnerMap(knownLostOutputs.values()));
+    }
+
+    @Override
+    public LostArtifacts processRunfilesAndGetLostArtifacts(
+        PathFragment runfilesDir,
+        Map<PathFragment, Artifact> runfiles,
+        ArtifactExpander expander,
+        InputMetadataProvider metadataProvider,
+        String inputManifestExtension) {
+      throw new UnsupportedOperationException("TODO: Rewind lost runfiles.");
+    }
+
+    @Override
+    public void processTestOutputs(Collection<Path> testOutputs) {
+      // TODO: Either ensure that test outputs are never lost or implement a way to rewind them.
+    }
+
+    @Override
+    public void processWorkspaceStatusOutputs(Path stableOutput, Path volatileOutput) {
+      // Workspace status outputs are considered cheap and can be regenerated locally.
+    }
   }
 }
