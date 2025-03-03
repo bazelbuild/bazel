@@ -61,6 +61,7 @@ import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
+import com.google.devtools.build.lib.actions.RichArtifactData;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -850,10 +851,12 @@ public final class ActionExecutionFunction implements SkyFunction {
       //
       // This is an awkward way to check whether this mechanism is necessary, but in practice,
       // Filesets are only created by Fileset() so this is good enough.
-      FilesetOutputTree forwardedFilesetOutputTree = null;
+      RichArtifactData forwardedRichArtifactData;
       if (action.getOutputs().size() == 1
           && Iterables.getOnlyElement(action.getOutputs()).isFileset()) {
-        forwardedFilesetOutputTree = state.topLevelFilesets.values().iterator().next();
+        forwardedRichArtifactData = Iterables.getOnlyElement(state.topLevelFilesets.values());
+      } else {
+        forwardedRichArtifactData = null;
       }
 
       checkState(
@@ -861,8 +864,7 @@ public final class ActionExecutionFunction implements SkyFunction {
           "Error, we're not re-executing a "
               + "SkyframeAwareAction which should be re-executed unconditionally. Action: %s",
           action);
-      return ActionExecutionValue.createFromOutputMetadataStore(
-          outputMetadataStore, forwardedFilesetOutputTree, action);
+      return ActionExecutionValue.create(outputMetadataStore, forwardedRichArtifactData, action);
     }
 
     outputMetadataStore.prepareForActionExecution();

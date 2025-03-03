@@ -251,7 +251,7 @@ public final class SymlinkAction extends AbstractAction {
       // on the inputs of actions that have the Fileset as an input. The Fileset metadata must be
       // attached to that artifact so that the execution strategies of actions that take it as an
       // input can recreate the Fileset.
-      actionExecutionContext.setFilesetOutput(
+      actionExecutionContext.setRichArtifactData(
           actionExecutionContext.getTopLevelFilesets().get(getPrimaryInput()));
     } else {
       maybeInjectMetadata(this, actionExecutionContext);

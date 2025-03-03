@@ -406,12 +406,10 @@ public final class ArtifactFunction implements SkyFunction {
         files.add(input);
         fileValues.add(fileArtifactValue);
       } else if (inputValue instanceof ActionExecutionValue actionExecutionValue) {
-        if (actionExecutionValue.getFilesetOutput() != null) {
-          Preconditions.checkState(input.isFileset());
+        if (input.isFileset()) {
           filesets.add(input);
-          filesetValues.add(actionExecutionValue.getFilesetOutput());
+          filesetValues.add((FilesetOutputTree) actionExecutionValue.getRichArtifactData());
         } else {
-          Preconditions.checkState(!input.isFileset());
           files.add(input);
           fileValues.add(actionExecutionValue.getExistingFileArtifactValue(input));
         }

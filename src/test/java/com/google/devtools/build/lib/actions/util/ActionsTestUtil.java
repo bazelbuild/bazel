@@ -236,10 +236,10 @@ public final class ActionsTestUtil {
   public static ActionExecutionValue createActionExecutionValue(
       ImmutableMap<Artifact, FileArtifactValue> artifactData,
       ImmutableMap<Artifact, TreeArtifactValue> treeArtifactData) {
-    return ActionExecutionValue.createFromOutputMetadataStore(
+    return ActionExecutionValue.create(
         artifactData,
         treeArtifactData,
-        null,
+        /* richArtifactData= */ null,
         /* discoveredModules= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
 

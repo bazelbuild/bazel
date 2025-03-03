@@ -376,7 +376,7 @@ public final class ActionOutputMetadataStoreTest {
     // Make sure that all children are transferred properly into the ActionExecutionValue. If any
     // child is missing, getExistingFileArtifactValue will throw.
     ActionExecutionValue actionExecutionValue =
-        ActionExecutionValue.createFromOutputMetadataStore(store, null, new NullAction());
+        ActionExecutionValue.create(store, null, new NullAction());
     tree.getChildren().forEach(actionExecutionValue::getExistingFileArtifactValue);
   }
 

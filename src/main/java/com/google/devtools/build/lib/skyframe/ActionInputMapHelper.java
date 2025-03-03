@@ -88,7 +88,8 @@ final class ActionInputMapHelper {
       FileArtifactValue metadata = actionExecutionValue.getExistingFileArtifactValue(key);
       inputMap.put(key, metadata, key);
       if (key.isFileset()) {
-        FilesetOutputTree filesetOutput = actionExecutionValue.getFilesetOutput();
+        FilesetOutputTree filesetOutput =
+            (FilesetOutputTree) actionExecutionValue.getRichArtifactData();
         topLevelFilesets.put(key, filesetOutput);
         consumer.accumulate(filesetOutput);
       } else {

@@ -258,10 +258,10 @@ public final class ActionExecutionValueTransformSharedTreeArtifactsTest {
   private static ActionExecutionValue createActionExecutionValue(
       ImmutableMap<Artifact, FileArtifactValue> fileArtifacts,
       ImmutableMap<Artifact, TreeArtifactValue> treeArtifacts) {
-    return ActionExecutionValue.createFromOutputMetadataStore(
+    return ActionExecutionValue.create(
         fileArtifacts,
         treeArtifacts,
-        null,
+        /* richArtifactData= */ null,
         /* discoveredModules= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
 

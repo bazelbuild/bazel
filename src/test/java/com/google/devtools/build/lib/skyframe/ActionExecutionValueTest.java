@@ -163,10 +163,10 @@ public final class ActionExecutionValueTest {
                     tree("tree2"),
                     TreeArtifactValue.empty())),
             // Mixed file and tree
-            ActionExecutionValue.createFromOutputMetadataStore(
+            ActionExecutionValue.create(
                 ImmutableMap.of(output("file"), VALUE_1_REMOTE),
                 ImmutableMap.of(tree("tree"), TreeArtifactValue.empty()),
-                null,
+                /* richArtifactData= */ null,
                 /* discoveredModules= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER)))
         .addDependency(FileSystem.class, OUTPUT_ROOT.getRoot().getFileSystem())
         .addDependency(
@@ -177,24 +177,24 @@ public final class ActionExecutionValueTest {
 
   private static ActionExecutionValue createWithArtifactData(
       ImmutableMap<Artifact, FileArtifactValue> artifactData) {
-    return ActionExecutionValue.createFromOutputMetadataStore(
+    return ActionExecutionValue.create(
         /* artifactData= */ artifactData,
         /* treeArtifactData= */ ImmutableMap.of(),
-        null,
+        /* richArtifactData= */ null,
         /* discoveredModules= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
 
   private static ActionExecutionValue createWithTreeArtifactData(
       ImmutableMap<Artifact, TreeArtifactValue> treeArtifactData) {
-    return ActionExecutionValue.createFromOutputMetadataStore(
+    return ActionExecutionValue.create(
         /* artifactData= */ ImmutableMap.of(),
         treeArtifactData,
-        null,
+        /* richArtifactData= */ null,
         /* discoveredModules= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
 
   private static ActionExecutionValue createWithFilesetOutput(FilesetOutputTree filesetOutput) {
-    return ActionExecutionValue.createFromOutputMetadataStore(
+    return ActionExecutionValue.create(
         ImmutableMap.of(output("fileset.manifest"), VALUE_1_REMOTE),
         /* treeArtifactData= */ ImmutableMap.of(),
         filesetOutput,
@@ -208,10 +208,10 @@ public final class ActionExecutionValueTest {
 
   private static ActionExecutionValue createWithDiscoveredModules(
       NestedSet<Artifact> discoveredModules) {
-    return ActionExecutionValue.createFromOutputMetadataStore(
+    return ActionExecutionValue.create(
         /* artifactData= */ ImmutableMap.of(output("modules.pcm"), VALUE_1_REMOTE),
         /* treeArtifactData= */ ImmutableMap.of(),
-        null,
+        /* richArtifactData= */ null,
         discoveredModules);
   }
 

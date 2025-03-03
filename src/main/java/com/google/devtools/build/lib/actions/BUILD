@@ -455,6 +455,7 @@ java_library(
         "FileStatusWithMetadata.java",
         "FileValue.java",
         "OutputChecker.java",
+        "RichArtifactData.java",
         "cache/MetadataDigestUtils.java",
     ],
     deps = [

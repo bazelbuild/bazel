@@ -228,7 +228,7 @@ public final class SymlinkTreeAction extends AbstractAction {
         .getContext(SymlinkTreeActionContext.class)
         .createSymlinks(this, actionExecutionContext);
     if (getPrimaryOutput().isFileset()) {
-      actionExecutionContext.setFilesetOutput(
+      actionExecutionContext.setRichArtifactData(
           actionExecutionContext.getTopLevelFilesets().get(getPrimaryInput()));
     }
     return ActionResult.EMPTY;

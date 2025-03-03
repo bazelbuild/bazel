@@ -33,7 +33,7 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 /** A collection of {@link FilesetOutputSymlink}s comprising the output tree of a fileset. */
-public final class FilesetOutputTree {
+public final class FilesetOutputTree implements RichArtifactData {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
