@@ -38,12 +38,16 @@ public interface ImportantOutputHandler extends ActionContext {
    * @param expander used to expand {@linkplain Artifact#isDirectory directory artifacts} in {@code
    *     outputs}
    * @param metadataProvider provides metadata for artifacts in {@code outputs} and their expansions
+   * @param knownLostOutputs outputs that are already known to be lost
    * @return any artifacts that need to be regenerated via action rewinding
    * @throws ImportantOutputException for an issue processing the outputs, not including lost
    *     outputs which are reported in the returned {@link LostArtifacts}
    */
   LostArtifacts processOutputsAndGetLostArtifacts(
-      Iterable<Artifact> outputs, ArtifactExpander expander, InputMetadataProvider metadataProvider)
+      Iterable<Artifact> outputs,
+      ArtifactExpander expander,
+      InputMetadataProvider metadataProvider,
+      ImmutableMap<String, ActionInput> knownLostOutputs)
       throws ImportantOutputException, InterruptedException;
 
   /**

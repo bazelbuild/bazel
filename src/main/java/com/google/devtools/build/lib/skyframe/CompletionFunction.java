@@ -15,14 +15,13 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -61,6 +60,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
+import com.google.devtools.build.lib.remote.common.BulkTransferException;
+import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.MissingArtifactValue;
@@ -75,6 +76,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -303,6 +305,28 @@ public final class CompletionFunction<
             skyframeActionExecutor.getExecRoot(),
             workspaceNameValue.getName());
 
+    ImmutableMap<String, ActionInput> knownLostOutputs = ImmutableMap.of();
+    try {
+      ensureToplevelArtifacts(env, importantArtifacts, inputMap);
+    } catch (IOException e) {
+      if (e instanceof BulkTransferException bulkTransferException) {
+        knownLostOutputs = bulkTransferException.getLostInputs(inputMap::getInput);
+      }
+      if (knownLostOutputs.isEmpty()) {
+        throw new CompletionFunctionException(
+            new TopLevelOutputException(
+                e.getMessage(),
+                DetailedExitCode.of(
+                    FailureDetail.newBuilder()
+                        .setMessage(e.getMessage())
+                        .setRemoteExecution(
+                            RemoteExecution.newBuilder()
+                                .setCode(RemoteExecution.Code.TOPLEVEL_OUTPUTS_DOWNLOAD_FAILURE)
+                                .build())
+                        .build())));
+      }
+    }
+
     NestedSet<Cause> rootCauses = rootCausesBuilder.build();
     if (!rootCauses.isEmpty()) {
       Reset reset = null;
@@ -320,6 +344,7 @@ public final class CompletionFunction<
                       allArtifactsAreImportant
                           ? builtArtifacts
                           : Iterables.filter(builtArtifacts, importantArtifacts::contains)),
+                  knownLostOutputs,
                   rootCauses,
                   ctx,
                   artifactsToBuild,
@@ -366,12 +391,18 @@ public final class CompletionFunction<
 
     Reset reset =
         informImportantOutputHandler(
-            key, value, env, importantArtifacts, rootCauses, ctx, artifactsToBuild, builtArtifacts);
+            key,
+            value,
+            env,
+            importantArtifacts,
+            knownLostOutputs,
+            rootCauses,
+            ctx,
+            artifactsToBuild,
+            builtArtifacts);
     if (reset != null) {
       return reset; // Initiate action rewinding to regenerate lost outputs.
     }
-
-    ensureToplevelArtifacts(env, importantArtifacts, inputMap);
 
     Postable event = completor.createSucceeded(key, value, ctx, artifactsToBuild, env);
     checkStored(event, key);
@@ -383,7 +414,7 @@ public final class CompletionFunction<
 
   private void ensureToplevelArtifacts(
       Environment env, ImmutableCollection<Artifact> importantArtifacts, ActionInputMap inputMap)
-      throws CompletionFunctionException, InterruptedException {
+      throws IOException, InterruptedException {
     // For skymeld, a non-toplevel target might become a toplevel after it has been executed. This
     // is the last chance to download the missing toplevel outputs in this case before sending out
     // TargetCompleteEvent. See https://github.com/bazelbuild/bazel/issues/20737.
@@ -414,20 +445,15 @@ public final class CompletionFunction<
       }
     }
 
+    // TODO: Only wait for failed futures to complete as long as they can all be explained by
+    // lost outputs.
     try {
-      var unused = Futures.whenAllSucceed(futures).call(() -> null, directExecutor()).get();
+      var unused = Utils.mergeBulkTransfer(futures).get();
     } catch (ExecutionException e) {
-      throw new CompletionFunctionException(
-          new TopLevelOutputException(
-              e.getMessage(),
-              DetailedExitCode.of(
-                  FailureDetail.newBuilder()
-                      .setMessage(e.getMessage())
-                      .setRemoteExecution(
-                          RemoteExecution.newBuilder()
-                              .setCode(RemoteExecution.Code.TOPLEVEL_OUTPUTS_DOWNLOAD_FAILURE)
-                              .build())
-                      .build())));
+      Throwables.throwIfInstanceOf(e.getCause(), IOException.class);
+      Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
+      Throwables.throwIfUnchecked(e.getCause());
+      throw new IllegalStateException(e.getCause());
     }
   }
 
@@ -545,6 +571,7 @@ public final class CompletionFunction<
       ValueT value,
       Environment env,
       ImmutableCollection<Artifact> importantArtifacts,
+      ImmutableMap<String, ActionInput> knownLostOutputs,
       NestedSet<Cause> rootCauses,
       CompletionContext ctx,
       ArtifactsToBuild artifactsToBuild,
@@ -574,7 +601,8 @@ public final class CompletionFunction<
                     ? importantArtifacts
                     : Iterables.filter(importantArtifacts, artifact -> !artifact.isFileset()),
                 ctx,
-                metadataProvider);
+                metadataProvider,
+                knownLostOutputs);
       }
       if (lostOutputs.isEmpty()) {
         return null;
