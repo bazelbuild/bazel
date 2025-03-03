@@ -20,7 +20,6 @@ import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
 import com.google.devtools.build.lib.util.CommandDescriptionForm;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
-import com.google.devtools.build.lib.vfs.FileSystem.PathTransformer;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Objects;
@@ -91,7 +90,7 @@ public final class WorkerKey {
       WorkerProtocolFormat protocolFormat) {
     this.args = Preconditions.checkNotNull(args);
     this.env = Preconditions.checkNotNull(env);
-    this.execRoot = Preconditions.checkNotNull(maybeTransform(execRoot));
+    this.execRoot = Preconditions.checkNotNull(execRoot.devirtualize());
     this.mnemonic = Preconditions.checkNotNull(mnemonic);
     this.workerFilesCombinedHash = Preconditions.checkNotNull(workerFilesCombinedHash);
     this.workerFilesWithDigests = Preconditions.checkNotNull(workerFilesWithDigests);
@@ -103,11 +102,6 @@ public final class WorkerKey {
     hash = calculateHashCode();
   }
 
-  private static Path maybeTransform(Path path) {
-    return (path.getFileSystem() instanceof PathTransformer pathTransformer)
-        ? pathTransformer.transformPath(path)
-        : path;
-  }
 
   public ImmutableList<String> getArgs() {
     return args;
