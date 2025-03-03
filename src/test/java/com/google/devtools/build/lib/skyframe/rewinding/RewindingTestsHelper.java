@@ -791,7 +791,8 @@ public class RewindingTestsHelper {
           addSpawnShim(
               "Executing genrule //test:rule1",
               (ignoredSpawn, ignoredContext) -> {
-                throw new InterruptedException();
+                Thread.currentThread().interrupt();
+                return ExecResult.delegate();
               });
 
           ImmutableList<ActionInput> lostInputs =
