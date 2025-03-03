@@ -370,16 +370,6 @@ public abstract class CcModule
     return (T) obj; // totally unsafe
   }
 
-  /** Converts an object that can be ether Depset or None into NestedSet. */
-  protected NestedSet<String> asStringNestedSet(Object o) throws Depset.TypeException {
-    Depset starlarkNestedSet = convertFromNoneable(o, /* defaultValue= */ (Depset) null);
-    if (starlarkNestedSet != null) {
-      return starlarkNestedSet.getSet(String.class);
-    } else {
-      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    }
-  }
-
   /** Converts an object that can be either Sequence, or None into ImmutableList. */
   protected ImmutableList<String> asStringImmutableList(Object o) {
     Sequence<String> starlarkList =
