@@ -39,10 +39,10 @@ public final class QueryUtil {
 
   private QueryUtil() { }
 
-  /** A {@link Callback} that can aggregate all the partial results into one set. */
-  public interface AggregateAllCallback<T, S extends Set<T>> extends Callback<T> {
-    /** Returns a {@link Set} of all the results. */
-    S getResult();
+  /** A {@link Callback} that can aggregate all the partial results into a single value. */
+  public interface AggregateAllCallback<T, V> extends Callback<T> {
+    /** Returns a value representing a combination of all the partial results. */
+    V getResult();
   }
 
   /** A {@link OutputFormatterCallback} that is also a {@link AggregateAllCallback}. */
