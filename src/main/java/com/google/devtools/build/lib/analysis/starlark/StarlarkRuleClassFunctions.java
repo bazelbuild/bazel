@@ -79,7 +79,7 @@ import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.BuiltinRestriction.AllowlistEntry;
 import com.google.devtools.build.lib.packages.BzlInitThreadContext;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
-import com.google.devtools.build.lib.packages.ExecGroup;
+import com.google.devtools.build.lib.packages.DeclaredExecGroup;
 import com.google.devtools.build.lib.packages.FunctionSplitTransitionAllowlist;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunctionWithCallback;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunctionWithMap;
@@ -929,8 +929,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     builder.addToolchainTypes(parseToolchainTypes(toolchains, labelConverter));
 
     if (execGroups != Starlark.NONE) {
-      Map<String, ExecGroup> execGroupDict =
-          Dict.cast(execGroups, String.class, ExecGroup.class, "exec_group");
+      Map<String, DeclaredExecGroup> execGroupDict =
+          Dict.cast(execGroups, String.class, DeclaredExecGroup.class, "exec_group");
       for (String group : execGroupDict.keySet()) {
         // TODO(b/151742236): document this in the param documentation.
         if (!StarlarkExecGroupCollection.isValidGroupName(group)) {
@@ -1367,11 +1367,11 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     ImmutableSet<Label> toolchainsAspects =
         parseLabels(rawToolchainsAspects, labelConverter, "toolchains_aspects");
 
-    ImmutableMap<String, ExecGroup> execGroups = ImmutableMap.of();
+    ImmutableMap<String, DeclaredExecGroup> execGroups = ImmutableMap.of();
     if (rawExecGroups != Starlark.NONE) {
       execGroups =
           ImmutableMap.copyOf(
-              Dict.cast(rawExecGroups, String.class, ExecGroup.class, "exec_group"));
+              Dict.cast(rawExecGroups, String.class, DeclaredExecGroup.class, "exec_group"));
       for (String group : execGroups.keySet()) {
         // TODO(b/151742236): document this in the param documentation.
         if (!StarlarkExecGroupCollection.isValidGroupName(group)) {
@@ -2011,7 +2011,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
   }
 
   @Override
-  public ExecGroup execGroup(
+  public DeclaredExecGroup execGroup(
       Sequence<?> toolchains, Sequence<?> execCompatibleWith, StarlarkThread thread)
       throws EvalException {
     LabelConverter labelConverter = LabelConverter.forBzlEvaluatingThread(thread);
@@ -2019,7 +2019,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         parseToolchainTypes(toolchains, labelConverter);
     ImmutableSet<Label> constraints =
         parseLabels(execCompatibleWith, labelConverter, "exec_compatible_with");
-    return ExecGroup.builder()
+    return DeclaredExecGroup.builder()
         .toolchainTypes(toolchainTypes)
         .execCompatibleWith(constraints)
         .build();

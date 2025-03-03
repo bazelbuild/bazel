@@ -156,7 +156,8 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
       StarlarkThread thread,
       String includePrefix,
       String stripIncludePrefix,
-      Sequence<?> additionalIncludeScanningRoots)
+      Sequence<?> additionalIncludeScanningRoots,
+      int stackDepth)
       throws EvalException {
     if (!additionalIncludeScanningRoots.isEmpty()) {
       throw Starlark.errorf(

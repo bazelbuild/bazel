@@ -42,7 +42,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SortedSetMultimap;
 import com.google.common.collect.TreeMultimap;
@@ -80,7 +79,6 @@ import com.google.protobuf.Timestamp;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.core.Single;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -428,8 +426,8 @@ public class UploadManifest {
       // order (children before parents). In addition, the contents of each Directory message must
       // be sorted, which is already ensured by the use of sorted maps.
 
-      HashMap<Path, Digest> dirToDigest = new HashMap<>();
-      LinkedHashSet<ByteString> dirBlobs = new LinkedHashSet<>();
+      HashMap<Path, Digest> dirToDigest = HashMap.newHashMap(dirs.size());
+      LinkedHashSet<ByteString> dirBlobs = LinkedHashSet.newLinkedHashSet(dirs.size());
 
       for (Path dir : dirs) {
         Directory.Builder builder = Directory.newBuilder();
@@ -453,16 +451,16 @@ public class UploadManifest {
       // insertion order. We construct the message through direct byte manipulation to ensure that
       // the strict requirements on the encoding are observed.
 
-      ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-      CodedOutputStream codedOutputStream = CodedOutputStream.newInstance(byteArrayOutputStream);
+      ByteString.Output out = ByteString.newOutput();
+      CodedOutputStream codedOutputStream = CodedOutputStream.newInstance(out);
       int fieldNumber = TREE_ROOT_FIELD_NUMBER;
-      for (ByteString directory : Lists.reverse(new ArrayList<>(dirBlobs))) {
+      for (ByteString directory : dirBlobs.reversed()) {
         codedOutputStream.writeBytes(fieldNumber, directory);
         fieldNumber = TREE_CHILDREN_FIELD_NUMBER;
       }
       codedOutputStream.flush();
 
-      return ByteString.copyFrom(byteArrayOutputStream.toByteArray());
+      return out.toByteString();
     }
 
     private void visit(Path path, Dirent.Type type) {

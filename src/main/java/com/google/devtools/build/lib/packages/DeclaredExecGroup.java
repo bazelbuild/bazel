@@ -18,13 +18,16 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 import com.google.auto.value.AutoBuilder;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.ExecGroupApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Identifier;
 
@@ -37,12 +40,12 @@ import net.starlark.java.syntax.Identifier;
  *     in the same rule.
  */
 @AutoCodec
-public record ExecGroup(
+public record DeclaredExecGroup(
     ImmutableMap<Label, ToolchainTypeRequirement> toolchainTypesMap,
     ImmutableSet<Label> execCompatibleWith,
     boolean copyFromDefault)
     implements ExecGroupApi {
-  public ExecGroup {
+  public DeclaredExecGroup {
     requireNonNull(toolchainTypesMap, "toolchainTypesMap");
     requireNonNull(execCompatibleWith, "execCompatibleWith");
     checkArgument(
@@ -54,11 +57,11 @@ public record ExecGroup(
   public static final String DEFAULT_EXEC_GROUP_NAME = "default-exec-group";
 
   /** An exec group that copies all data from the default exec group. */
-  public static final ExecGroup COPY_FROM_DEFAULT = builder().copyFromDefault(true).build();
+  public static final DeclaredExecGroup COPY_FROM_DEFAULT = builder().copyFromDefault(true).build();
 
-  /** Returns a builder for a new ExecGroup. */
+  /** Returns a builder for a new DeclaredExecGroup. */
   public static Builder builder() {
-    return new AutoBuilder_ExecGroup_Builder()
+    return new AutoBuilder_DeclaredExecGroup_Builder()
         .copyFromDefault(false)
         .toolchainTypes(ImmutableSet.of())
         .execCompatibleWith(ImmutableSet.of());
@@ -80,10 +83,73 @@ public record ExecGroup(
   }
 
   public Builder toBuilder() {
-    return new AutoBuilder_ExecGroup_Builder(this);
+    return new AutoBuilder_DeclaredExecGroup_Builder(this);
   }
 
-  /** A builder interface to create ExecGroup instances. */
+  /**
+   * Prepares the input exec groups.
+   *
+   * <p>Adds auto exec groups when {@code useAutoExecGroups} is true.
+   */
+  public static ImmutableMap<String, DeclaredExecGroup> process(
+      ImmutableMap<String, DeclaredExecGroup> execGroups,
+      ImmutableSet<Label> defaultExecWith,
+      ImmutableMultimap<String, Label> execGroupExecWith,
+      ImmutableSet<ToolchainTypeRequirement> defaultToolchainTypes,
+      boolean useAutoExecGroups) {
+    var processedGroups =
+        ImmutableMap.<String, DeclaredExecGroup>builderWithExpectedSize(
+            useAutoExecGroups
+                ? (execGroups.size() + defaultToolchainTypes.size())
+                : execGroups.size());
+    for (Map.Entry<String, DeclaredExecGroup> entry : execGroups.entrySet()) {
+      String name = entry.getKey();
+      DeclaredExecGroup declaredExecGroup = entry.getValue();
+
+      if (declaredExecGroup.copyFromDefault()) {
+        declaredExecGroup =
+            DeclaredExecGroup.builder()
+                .execCompatibleWith(defaultExecWith)
+                .toolchainTypes(defaultToolchainTypes)
+                .build();
+      }
+      ImmutableCollection<Label> extraExecWith = execGroupExecWith.get(name);
+      if (!extraExecWith.isEmpty()) {
+        declaredExecGroup =
+            declaredExecGroup.toBuilder()
+                .execCompatibleWith(
+                    ImmutableSet.<Label>builder()
+                        .addAll(declaredExecGroup.execCompatibleWith())
+                        .addAll(extraExecWith)
+                        .build())
+                .build();
+      }
+
+      processedGroups.put(name, declaredExecGroup);
+    }
+
+    if (useAutoExecGroups) {
+      // Creates one exec group for each toolchain (automatic exec groups).
+      for (ToolchainTypeRequirement toolchainType : defaultToolchainTypes) {
+        ImmutableSet<Label> execCompatibleWith = defaultExecWith;
+        ImmutableCollection<Label> extraExecWith =
+            execGroupExecWith.get(toolchainType.toolchainType().getUnambiguousCanonicalForm());
+        if (!extraExecWith.isEmpty()) {
+          execCompatibleWith =
+              ImmutableSet.<Label>builder().addAll(defaultExecWith).addAll(extraExecWith).build();
+        }
+        processedGroups.put(
+            toolchainType.toolchainType().toString(),
+            DeclaredExecGroup.builder()
+                .addToolchainType(toolchainType)
+                .execCompatibleWith(execCompatibleWith)
+                .build());
+      }
+    }
+    return processedGroups.buildOrThrow();
+  }
+
+  /** A builder interface to create DeclaredExecGroup instances. */
   @AutoBuilder
   public interface Builder {
 
@@ -109,7 +175,7 @@ public record ExecGroup(
     /** Do not call, internal usage only. */
     Builder copyFromDefault(boolean copyFromDefault);
 
-    /** Returns the new ExecGroup instance. */
-    ExecGroup build();
+    /** Returns the new DeclaredExecGroup instance. */
+    DeclaredExecGroup build();
   }
 }

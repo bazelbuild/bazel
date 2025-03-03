@@ -13,33 +13,24 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 
-import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionInputMapSink;
-import com.google.devtools.build.lib.actions.ActionLookupData;
-import com.google.devtools.build.lib.actions.ActionLookupKey;
-import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
-import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue.ArchivedRepresentation;
-import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Map;
 import java.util.function.BiConsumer;
-import javax.annotation.Nullable;
 
 /** Static utilities for working with action inputs. */
 final class ActionInputMapHelper {
 
   private ActionInputMapHelper() {}
 
+  /** Adds a value obtained by an Artifact SkyValue lookup to the action input map. */
   static void addToMap(
       ActionInputMapSink inputMap,
       BiConsumer<Artifact, TreeArtifactValue> treeArtifactConsumer,
@@ -47,33 +38,7 @@ final class ActionInputMapHelper {
       Map<Artifact, FilesetOutputTree> topLevelFilesets,
       Artifact key,
       SkyValue value,
-      Environment env)
-      throws InterruptedException {
-    addToMap(
-        inputMap,
-        treeArtifactConsumer,
-        filesetsInsideRunfiles,
-        topLevelFilesets,
-        key,
-        value,
-        env,
-        MetadataConsumerForMetrics.NO_OP);
-  }
-
-  /**
-   * Adds a value obtained by an Artifact skyvalue lookup to the action input map. May do Skyframe
-   * lookups.
-   */
-  static void addToMap(
-      ActionInputMapSink inputMap,
-      BiConsumer<Artifact, TreeArtifactValue> treeArtifactConsumer,
-      Map<Artifact, FilesetOutputTree> filesetsInsideRunfiles,
-      Map<Artifact, FilesetOutputTree> topLevelFilesets,
-      Artifact key,
-      SkyValue value,
-      Environment env,
-      MetadataConsumerForMetrics consumer)
-      throws InterruptedException {
+      MetadataConsumerForMetrics consumer) {
     if (value instanceof RunfilesArtifactValue runfilesArtifactValue) {
       // Note: we don't expand the .runfiles/MANIFEST file into the inputs. The reason for that
       // being that the MANIFEST file contains absolute paths that don't work with remote execution.
@@ -82,15 +47,7 @@ final class ActionInputMapHelper {
       runfilesArtifactValue.forEachFile(
           (artifact, metadata) -> {
             inputMap.put(artifact, metadata, /* depOwner= */ key);
-            if (artifact.isFileset()) {
-              FilesetOutputTree filesetOutput = getFilesetOutput(env, (SpecialArtifact) artifact);
-              if (filesetOutput != null) {
-                filesetsInsideRunfiles.put(artifact, filesetOutput);
-                consumer.accumulate(filesetOutput);
-              }
-            } else {
-              consumer.accumulate(metadata);
-            }
+            consumer.accumulate(metadata);
           });
       runfilesArtifactValue.forEachTree(
           (treeArtifact, metadata) -> {
@@ -98,14 +55,24 @@ final class ActionInputMapHelper {
                 treeArtifact, metadata, treeArtifactConsumer, inputMap, /* depOwner= */ key);
             consumer.accumulate(metadata);
           });
-      // We have to cache the "digest" of the aggregating value itself, because the action cache
-      // checker may want it.
+
+      runfilesArtifactValue.forEachFileset(
+          (fileset, filesetOutputTree) -> {
+            filesetsInsideRunfiles.put(fileset, filesetOutputTree);
+            consumer.accumulate(filesetOutputTree);
+          });
+      // This is used for three purposes:
+      // - To collect the RunfilesTree objects which the execution strategies need to expand the
+      //   runfiles trees
+      // - The action cache checker may want the digest of the aggregated runfiles tree
+      // - Input rewinding needs to know the owners of artifacts in the runfiles tree
+      //   (this is definitely necessary for Filesets; dunno how that works for other artifacts)
       inputMap.putRunfilesMetadata(key, runfilesArtifactValue, /* depOwner= */ key);
     } else if (value instanceof TreeArtifactValue treeArtifactValue) {
       expandTreeArtifactAndPopulateArtifactData(
           key, treeArtifactValue, treeArtifactConsumer, inputMap, /* depOwner= */ key);
       consumer.accumulate(treeArtifactValue);
-    } else if (value instanceof ActionExecutionValue) {
+    } else if (value instanceof ActionExecutionValue actionExecutionValue) {
       // Actions resulting from the expansion of an ActionTemplate consume only one of the files
       // in a tree artifact. However, the input prefetcher and the Linux sandbox require access to
       // the tree metadata to determine the prefetch location of a tree artifact materialized as a
@@ -113,105 +80,26 @@ final class ActionInputMapHelper {
       if (key.isChildOfDeclaredDirectory()) {
         SpecialArtifact treeArtifact = key.getParent();
         TreeArtifactValue treeArtifactValue =
-            ((ActionExecutionValue) value).getTreeArtifactValue(treeArtifact);
+            actionExecutionValue.getTreeArtifactValue(treeArtifact);
         expandTreeArtifactAndPopulateArtifactData(
             treeArtifact, treeArtifactValue, treeArtifactConsumer, inputMap, treeArtifact);
         consumer.accumulate(treeArtifactValue);
       }
-      FileArtifactValue metadata = ((ActionExecutionValue) value).getExistingFileArtifactValue(key);
+      FileArtifactValue metadata = actionExecutionValue.getExistingFileArtifactValue(key);
       inputMap.put(key, metadata, key);
       if (key.isFileset()) {
-        FilesetOutputTree filesetOutput = getFilesetOutput(env, (SpecialArtifact) key);
-        if (filesetOutput != null) {
-          topLevelFilesets.put(key, filesetOutput);
-          consumer.accumulate(filesetOutput);
-        }
+        FilesetOutputTree filesetOutput = actionExecutionValue.getFilesetOutput();
+        topLevelFilesets.put(key, filesetOutput);
+        consumer.accumulate(filesetOutput);
       } else {
         consumer.accumulate(metadata);
       }
+    } else if (value instanceof FileArtifactValue fileArtifactValue) {
+      inputMap.put(key, fileArtifactValue, /* depOwner= */ key);
+      consumer.accumulate(fileArtifactValue);
     } else {
-      checkArgument(value instanceof FileArtifactValue, "Unexpected value %s", value);
-      FileArtifactValue metadata = (FileArtifactValue) value;
-      inputMap.put(key, metadata, /*depOwner=*/ key);
-      consumer.accumulate(metadata);
+      throw new IllegalStateException(String.format("Unexpected value %s", value));
     }
-  }
-
-  @Nullable
-  private static FilesetOutputTree getFilesetOutput(Environment env, SpecialArtifact actionInput)
-      throws InterruptedException {
-    checkState(actionInput.isFileset(), actionInput);
-    ActionLookupData generatingActionKey = actionInput.getGeneratingActionKey();
-    ActionLookupKey filesetActionLookupKey = generatingActionKey.getActionLookupKey();
-
-    SkyValue maybeActionLookupValue = env.getValue(filesetActionLookupKey);
-
-    // With Frontier-based Skycache, the SkyValue for the fileset analysis object may be a
-    // RemoteConfiguredTargetValue if it's not in the active set, and the remote fileset CT value
-    // doesn't contain actions for lookup. That is OK because we're only interested in the fileset
-    // output, which is not stored in the actions, but in the (potentially Skycache-cached)
-    // ActionExecutionValue.
-    //
-    // Additionally, `if (generatingAction instanceof SymlinkAction)` block below is also only
-    // triggered when building fileset symlinks, which is disabled in a Skycache build.
-    //
-    // So, for a Skycache build, we can skip the transitive action lookups below and obtain the
-    // FilesetOutputTree directory from the Fileset ActionExecutionValue immediately (which should
-    // be a Skycache cache hit anyway).
-    if (maybeActionLookupValue instanceof RemoteConfiguredTargetValue) {
-      return getFilesetOutputFromKey(generatingActionKey, env);
-    }
-
-    // Non-Skycache builds from here.
-    ActionLookupValue filesetActionLookupValue = (ActionLookupValue) maybeActionLookupValue;
-    ActionAnalysisMetadata generatingAction =
-        filesetActionLookupValue.getAction(generatingActionKey.getActionIndex());
-    ActionLookupData filesetActionKey;
-
-    if (generatingAction instanceof SymlinkAction) {
-      DerivedArtifact outputManifest =
-          (DerivedArtifact) generatingAction.getInputs().getSingleton();
-      ActionLookupData manifestGeneratingKey = outputManifest.getGeneratingActionKey();
-      checkState(
-          manifestGeneratingKey.getActionLookupKey().equals(filesetActionLookupKey),
-          "Mismatched actions and artifacts: %s %s %s %s",
-          actionInput,
-          outputManifest,
-          filesetActionLookupKey,
-          manifestGeneratingKey);
-      ActionAnalysisMetadata symlinkTreeAction =
-          filesetActionLookupValue.getAction(manifestGeneratingKey.getActionIndex());
-      DerivedArtifact inputManifest =
-          (DerivedArtifact) symlinkTreeAction.getInputs().getSingleton();
-      ActionLookupData inputManifestGeneratingKey = inputManifest.getGeneratingActionKey();
-      checkState(
-          inputManifestGeneratingKey.getActionLookupKey().equals(filesetActionLookupKey),
-          "Mismatched actions and artifacts: %s %s %s %s",
-          actionInput,
-          inputManifest,
-          filesetActionLookupKey,
-          inputManifestGeneratingKey);
-      filesetActionKey = inputManifestGeneratingKey;
-    } else {
-      filesetActionKey = generatingActionKey;
-    }
-
-    return getFilesetOutputFromKey(filesetActionKey, env);
-  }
-
-  private static FilesetOutputTree getFilesetOutputFromKey(
-      ActionLookupData filesetActionKey, Environment env) throws InterruptedException {
-    // TODO: properly handle exceptions coming from here, or prove they can never happen in
-    // practice.
-    ActionExecutionValue filesetValue = (ActionExecutionValue) env.getValue(filesetActionKey);
-    if (filesetValue == null) {
-      // At this point skyframe does not guarantee that the filesetValue will be ready, since
-      // the current action does not directly depend on the outputs of the
-      // SkyframeFilesetManifestAction whose ActionExecutionValue
-      // (com.google.devtools.build.lib.skyframe.Fileset) is needed here.
-      return null;
-    }
-    return filesetValue.getFilesetOutput();
   }
 
   private static void expandTreeArtifactAndPopulateArtifactData(
@@ -222,13 +110,6 @@ final class ActionInputMapHelper {
       Artifact depOwner) {
     treeArtifactConsumer.accept(treeArtifact, value);
     inputMap.putTreeArtifact((SpecialArtifact) treeArtifact, value, depOwner);
-    addArchivedTreeArtifactMaybe(value, inputMap, depOwner);
-  }
-
-  private static void addArchivedTreeArtifactMaybe(
-      TreeArtifactValue value,
-      ActionInputMapSink inputMap,
-      Artifact depOwner) {
     if (value.getArchivedRepresentation().isEmpty()) {
       return;
     }

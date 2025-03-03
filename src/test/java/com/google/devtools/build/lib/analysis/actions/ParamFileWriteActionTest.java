@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -117,7 +116,8 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
             """
             --flag1
             out/artifact/myTreeFileArtifact/artifacts/treeFileArtifact1
-            out/artifact/myTreeFileArtifact/artifacts/treeFileArtifact2""");
+            out/artifact/myTreeFileArtifact/artifacts/treeFileArtifact2\
+            """);
   }
 
   private SpecialArtifact createTreeArtifact(String rootRelativePath) {
@@ -162,8 +162,7 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
                 .filter(child -> child.getParent().equals(treeArtifact))
                 .collect(toImmutableSortedSet(naturalOrder()));
 
-    BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
-    Executor executor = new TestExecutorBuilder(fileSystem, directories, binTools).build();
+    Executor executor = new TestExecutorBuilder(fileSystem, directories).build();
     return new ActionExecutionContext(
         executor,
         /* inputMetadataProvider= */ null,

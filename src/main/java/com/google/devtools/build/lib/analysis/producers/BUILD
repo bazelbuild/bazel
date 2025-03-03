@@ -68,7 +68,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages:configured_attribute_mapper",
-        "//src/main/java/com/google/devtools/build/lib/packages:exec_group",
+        "//src/main/java/com/google/devtools/build/lib/packages:declared_exec_group",
         "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_creation_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",
         "//src/main/java/com/google/devtools/build/lib/skyframe:base_target_prerequisites_supplier",
@@ -147,7 +147,7 @@ java_library(
     srcs = ["UnloadedToolchainContextsInputs.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:exec_group_collection",
-        "//src/main/java/com/google/devtools/build/lib/packages:exec_group",
+        "//src/main/java/com/google/devtools/build/lib/packages:declared_exec_group",
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:toolchain_context_key",
         "//third_party:auto_value",
         "//third_party:guava",

@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.analysis.test.TestRunnerAction.ResolvedPath
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.StreamedTestOutput;
 import com.google.devtools.build.lib.exec.TestLogHelper;
@@ -157,13 +156,10 @@ public abstract class TestStrategy implements TestActionContext {
   private final Map<String, Integer> tmpIndex = new HashMap<>();
   protected final ExecutionOptions executionOptions;
   protected final TestSummaryOptions testSummaryOptions;
-  protected final BinTools binTools;
 
-  public TestStrategy(
-      ExecutionOptions executionOptions, TestSummaryOptions testSummaryOptions, BinTools binTools) {
+  public TestStrategy(ExecutionOptions executionOptions, TestSummaryOptions testSummaryOptions) {
     this.executionOptions = executionOptions;
     this.testSummaryOptions = testSummaryOptions;
-    this.binTools = binTools;
   }
 
   @Override
@@ -391,7 +387,7 @@ public abstract class TestStrategy implements TestActionContext {
               testSummaryOptions.printRelativeTestLogPaths
                   ? testLog
                       .asFragment()
-                      .relativeTo(actionExecutionContext.getExecRoot().devirtualize().asFragment())
+                      .relativeTo(actionExecutionContext.getExecRoot().asFragment())
                   : testLog.asFragment();
         }
         if (testResultData.hasStatusDetails()) {

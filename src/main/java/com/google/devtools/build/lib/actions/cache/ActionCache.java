@@ -67,9 +67,10 @@ public interface ActionCache {
   void put(String key, ActionCache.Entry entry);
 
   /**
-   * Returns the corresponding cache entry for the specified key, if any, or
-   * null if not found.
+   * Returns the cache entry for the specified key, or null if not found. If an entry exists but is
+   * corrupted, returns {@link ActionCache.Entry.CORRUPTED}.
    */
+  @Nullable
   ActionCache.Entry get(String key);
 
   /**
@@ -95,13 +96,15 @@ public interface ActionCache {
     public static final ActionCache.Entry CORRUPTED =
         new ActionCache.Entry(null, ImmutableMap.of(), false, OutputPermissions.READONLY);
 
-    private final String actionKey;
-    @Nullable
-    // Null iff the corresponding action does not do input discovery.
-    private final List<String> files;
+    // If null, the entry is corrupted.
+    @Nullable private final String actionKey;
+
+    // If null, the corresponding action does not discover inputs.
+    @Nullable private final List<String> files;
+
     // If null, digest is non-null and the entry is immutable.
-    private Map<String, FileArtifactValue> mdMap;
-    private byte[] digest;
+    @Nullable private Map<String, FileArtifactValue> mdMap;
+    @Nullable private byte[] digest;
     private final byte[] actionPropertiesDigest;
     private final Map<String, FileArtifactValue> outputFileMetadata;
     private final Map<String, SerializableTreeArtifactValue> outputTreeMetadata;
@@ -352,6 +355,9 @@ public interface ActionCache {
 
     @Override
     public String toString() {
+      if (isCorrupted()) {
+        return "      CORRUPTED\n";
+      }
       StringBuilder builder = new StringBuilder();
       builder.append("      actionKey = ").append(actionKey).append("\n");
       builder

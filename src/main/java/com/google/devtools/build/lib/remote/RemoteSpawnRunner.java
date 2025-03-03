@@ -206,7 +206,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
 
     maybeWriteParamFilesLocally(spawn);
 
-    spawnMetrics.setParseTimeInMs((int) totalTime.elapsed().toMillis());
+    spawnMetrics.setParseTime(totalTime.elapsed());
 
     Profiler prof = Profiler.instance();
     try {
@@ -283,12 +283,10 @@ public class RemoteSpawnRunner implements SpawnRunner {
               // subtract network time consumed here to ensure wall clock during upload is not
               // double
               // counted, and metrics time computation does not exceed total time
-              spawnMetrics.setUploadTimeInMs(
-                  (int)
-                      uploadTime
-                          .elapsed()
-                          .minus(action.getNetworkTime().getDuration().minus(networkTimeStart))
-                          .toMillis());
+              spawnMetrics.setUploadTime(
+                  uploadTime
+                      .elapsed()
+                      .minus(action.getNetworkTime().getDuration().minus(networkTimeStart)));
             }
 
             context.report(SPAWN_SCHEDULING_EVENT);
@@ -432,32 +430,28 @@ public class RemoteSpawnRunner implements SpawnRunner {
     // contributions for a phase or phases.
     if (!executionMetadata.getWorker().isEmpty()) {
       // Accumulate queueTime from any previous attempts
-      int remoteQueueTimeInMs =
-          spawnMetrics.build().queueTimeInMs()
-              + (int)
-                  between(
-                          executionMetadata.getQueuedTimestamp(),
-                          executionMetadata.getWorkerStartTimestamp())
-                      .toMillis();
-      spawnMetrics.setQueueTimeInMs(remoteQueueTimeInMs);
+      Duration remoteQueueTime =
+          between(
+              executionMetadata.getQueuedTimestamp(), executionMetadata.getWorkerStartTimestamp());
+      spawnMetrics.addQueueTime(remoteQueueTime);
       // setup time does not include failed attempts
       Duration setupTime =
           between(
               executionMetadata.getWorkerStartTimestamp(),
               executionMetadata.getExecutionStartTimestamp());
-      spawnMetrics.setSetupTimeInMs((int) setupTime.toMillis());
+      spawnMetrics.setSetupTime(setupTime);
       // execution time is unspecified for failures
       Duration executionWallTime =
           between(
               executionMetadata.getExecutionStartTimestamp(),
               executionMetadata.getExecutionCompletedTimestamp());
-      spawnMetrics.setExecutionWallTimeInMs((int) executionWallTime.toMillis());
+      spawnMetrics.setExecutionWallTime(executionWallTime);
       // remoteProcessOutputs time is unspecified for failures
       Duration remoteProcessOutputsTime =
           between(
               executionMetadata.getOutputUploadStartTimestamp(),
               executionMetadata.getOutputUploadCompletedTimestamp());
-      spawnMetrics.setProcessOutputsTimeInMs((int) remoteProcessOutputsTime.toMillis());
+      spawnMetrics.setProcessOutputsTime(remoteProcessOutputsTime);
     }
   }
 

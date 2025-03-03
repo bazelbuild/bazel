@@ -91,11 +91,8 @@ public class StandaloneTestStrategy extends TestStrategy {
   private final Path tmpDirRoot;
 
   public StandaloneTestStrategy(
-      ExecutionOptions executionOptions,
-      TestSummaryOptions testSummaryOptions,
-      BinTools binTools,
-      Path tmpDirRoot) {
-    super(executionOptions, testSummaryOptions, binTools);
+      ExecutionOptions executionOptions, TestSummaryOptions testSummaryOptions, Path tmpDirRoot) {
+    super(executionOptions, testSummaryOptions);
     this.tmpDirRoot = tmpDirRoot;
   }
 

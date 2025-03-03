@@ -17,16 +17,20 @@ import static java.util.Collections.reverse;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.AspectCollection.AspectCycleOnPathException;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkAspectPropagationContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
 import java.util.ArrayList;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.syntax.Location;
 
 /** Helpers for aspect resolution. */
@@ -120,8 +124,11 @@ public final class AspectResolutionHelpers {
       ImmutableList<Aspect> aspects,
       AdvertisedProviderSet advertisedProviders,
       Label targetLabel,
-      Location targetLocation)
-      throws InconsistentAspectOrderException {
+      RuleClass ruleClass,
+      ImmutableList<String> tags,
+      Location targetLocation,
+      ExtendedEventHandler eventHandler)
+      throws InconsistentAspectOrderException, InterruptedException, EvalException {
 
     var filteredAspectPath = new ArrayList<Aspect>();
 
@@ -132,7 +139,7 @@ public final class AspectResolutionHelpers {
           || isAspectRequired(aspect, filteredAspectPath)) {
         // Considers the aspect if the target satisfies its required providers or it is
         // required by an aspect already in the {@code filteredAspectPath}.
-        if (evaluatePropagationPredicate(aspect)) {
+        if (evaluatePropagationPredicate(aspect, targetLabel, ruleClass, tags, eventHandler)) {
           // Only add the aspect if its propagation predicate is satisfied by the target.
           filteredAspectPath.add(aspect);
         }
@@ -154,11 +161,23 @@ public final class AspectResolutionHelpers {
     }
   }
 
-  private static boolean evaluatePropagationPredicate(Aspect aspect) {
+  private static boolean evaluatePropagationPredicate(
+      Aspect aspect,
+      Label label,
+      RuleClass ruleClass,
+      ImmutableList<String> tags,
+      ExtendedEventHandler eventHandler)
+      throws InterruptedException, EvalException {
     if (aspect.getDefinition().getPropagationPredicate() == null) {
       return true;
     }
-    return aspect.getDefinition().getPropagationPredicate().evaluate();
+    return aspect
+        .getDefinition()
+        .getPropagationPredicate()
+        .evaluate(
+            StarlarkAspectPropagationContext.createForPropagationPredicate(
+                aspect, label, ruleClass, tags),
+            eventHandler);
   }
 
   /**

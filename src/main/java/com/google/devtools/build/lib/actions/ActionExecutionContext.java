@@ -221,7 +221,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
   @Nullable private final FileSystem actionFileSystem;
   @Nullable private final Object skyframeDepsResult;
 
-  private FilesetOutputTree filesetOutput = FilesetOutputTree.EMPTY;
+  private FilesetOutputTree filesetOutput = null;
 
   private final ArtifactPathResolver pathResolver;
   private final DiscoveredModulesPruner discoveredModulesPruner;
@@ -438,7 +438,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
 
   public void setFilesetOutput(FilesetOutputTree filesetOutput) {
     checkState(
-        this.filesetOutput.isEmpty(),
+        this.filesetOutput == null,
         "Unexpected reassignment of Fileset output from\n:%s to:\n%s",
         this.filesetOutput,
         filesetOutput);

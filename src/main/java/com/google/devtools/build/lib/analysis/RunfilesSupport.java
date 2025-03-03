@@ -136,7 +136,7 @@ public final class RunfilesSupport {
           /* repoMappingManifest= */ null,
           /* buildRunfileLinks= */ false,
           /* cacheMapping= */ false,
-          RunfileSymlinksMode.EXTERNAL);
+          RunfileSymlinksMode.CREATE);
     }
 
     @Override

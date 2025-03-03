@@ -183,8 +183,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
                 context.getInputMetadataProvider().getRunfilesMetadata(toolFile).getRunfilesTree());
           }
         }
-        runfilesTreeUpdater.updateRunfiles(
-            runfilesTrees, spawn.getEnvironment(), context.getFileOutErr());
+        runfilesTreeUpdater.updateRunfiles(runfilesTrees);
       }
 
       InputMetadataProvider inputFileCache = context.getInputMetadataProvider();
@@ -223,7 +222,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
             .setStatus(exitCode == 0 ? Status.SUCCESS : Status.NON_ZERO_EXIT)
             .setStartTime(startTime)
             .setWallTimeInMs((int) wallTime.toMillis())
-            .setSpawnMetrics(spawnMetrics.setTotalTimeInMs((int) wallTime.toMillis()).build());
+            .setSpawnMetrics(spawnMetrics.setTotalTime(wallTime).build());
     if (exitCode != 0) {
       builder.setFailureDetail(
           FailureDetail.newBuilder()
@@ -256,7 +255,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
             spawn.getInputFiles(),
             context.getArtifactExpander(),
             /* keepEmptyTreeArtifacts= */ false,
-            /* keepRunfilesTreeArtifacts= */ false);
+            /* keepRunfilesTrees= */ false);
 
     for (ActionInput input : inputs) {
       byte[] digestBytes;
@@ -392,7 +391,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       context.prefetchInputsAndWait();
     }
     Duration setupInputsTime = setupInputsStopwatch.elapsed();
-    spawnMetrics.setSetupTimeInMs((int) setupInputsTime.toMillis());
+    spawnMetrics.setSetupTime(setupInputsTime);
 
     Stopwatch queueStopwatch = Stopwatch.createStarted();
     ResourceSet resourceSet =
@@ -416,7 +415,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
               spawn, context, inputFiles, flagFiles, virtualInputDigests, inputFileCache, key);
 
       // We acquired a worker and resources -- mark that as queuing time.
-      spawnMetrics.setQueueTimeInMs((int) queueStopwatch.elapsed().toMillis());
+      spawnMetrics.setQueueTime(queueStopwatch.elapsed());
       response =
           executeRequest(
               spawn, context, inputFiles, outputs, workerOwner, key, request, spawnMetrics, handle);
@@ -444,8 +443,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
           workerOwner.getWorker().finishExecution(execRoot, outputs);
           WorkerProcessMetricsCollector.instance()
               .onWorkerFinishExecution(workerOwner.getWorker().getProcessId());
-          spawnMetrics.setProcessOutputsTimeInMs(
-              (int) processOutputsStopwatch.elapsed().toMillis());
+          spawnMetrics.setProcessOutputsTime(processOutputsStopwatch.elapsed());
         } else {
           throw createUserExecException(
               "The response finished successfully, but worker is taken by finishAsync",
@@ -536,7 +534,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       Stopwatch prepareExecutionStopwatch = Stopwatch.createStarted();
       worker.prepareExecution(inputFiles, outputs, key.getWorkerFilesWithDigests().keySet());
       initializeMetrics(key, worker);
-      spawnMetrics.addSetupTimeInMs((int) prepareExecutionStopwatch.elapsed().toMillis());
+      spawnMetrics.addSetupTime(prepareExecutionStopwatch.elapsed());
     } catch (IOException e) {
       restoreInterrupt(e);
       String message =
@@ -598,7 +596,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       }
     }
 
-    spawnMetrics.setExecutionWallTimeInMs((int) executionStopwatch.elapsed().toMillis());
+    spawnMetrics.setExecutionWallTime(executionStopwatch.elapsed());
 
     return response;
   }

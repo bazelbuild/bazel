@@ -44,7 +44,6 @@ final class CounterSeriesTraceData implements TraceData {
    * map. However, colors the remaining series are picked arbitrarily by the Trace renderer.
    */
   CounterSeriesTraceData(
-      long threadId,
       Map<CounterSeriesTask, double[]> counterSeriesMap,
       Duration profileStart,
       Duration bucketDuration) {
@@ -64,7 +63,7 @@ final class CounterSeriesTraceData implements TraceData {
       }
     }
     this.len = len;
-    this.threadId = threadId;
+    this.threadId = Thread.currentThread().getId();
     this.counterSeriesMap = counterSeriesMap;
     this.profileStart = profileStart;
     this.bucketDuration = bucketDuration;

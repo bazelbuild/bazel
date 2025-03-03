@@ -76,6 +76,7 @@ import com.google.devtools.build.lib.runtime.BlazeOptionHandler.SkyframeExecutor
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.CommandLineEvent.CanonicalCommandLineEvent;
+import com.google.devtools.build.lib.runtime.CommandLineEvent.OriginalCommandLineEvent;
 import com.google.devtools.build.lib.runtime.StarlarkOptionsParser;
 import com.google.devtools.build.lib.runtime.StarlarkOptionsParser.BuildSettingLoader;
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
@@ -104,6 +105,7 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierViolationChecker;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider.DisabledDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingEventListener;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
@@ -253,7 +255,7 @@ public class BuildTool {
           evaluateProjectFile(
               request, buildOptions, request.getUserOptions(), targetPatternPhaseValue, env);
 
-      if (!projectEvaluationResult.buildOptions().isEmpty()) {
+      if (projectEvaluationResult != null && !projectEvaluationResult.buildOptions().isEmpty()) {
         // First parse the native options from the project file.
         optionsParser.parse(
             PriorityCategory.COMMAND_LINE,
@@ -275,13 +277,25 @@ public class BuildTool {
                     .collect(toImmutableList())));
 
         env.getEventBus()
-            .post(new CanonicalCommandLineEvent(runtime, request.getCommandName(), optionsParser));
+            .post(
+                new CanonicalCommandLineEvent(
+                    runtime,
+                    request.getCommandName(),
+                    optionsParser.getResidue(),
+                    optionsParser.getOptions(BuildEventProtocolOptions.class)
+                        .includeResidueInRunBepEvent,
+                    optionsParser.getExplicitStarlarkOptions(
+                        OriginalCommandLineEvent::commandLinePriority),
+                    optionsParser.getStarlarkOptions(),
+                    optionsParser.asListOfCanonicalOptions()));
         env.getEventBus().post(new UpdateOptionsEvent(optionsParser));
       }
       buildOptions = runtime.createBuildOptions(optionsParser);
       var analysisCachingDeps =
-          RemoteAnalysisCachingDependenciesProviderImpl.forAnalysis(
-              env, projectEvaluationResult.activeDirectoriesMatcher());
+          projectEvaluationResult == null
+              ? DisabledDependenciesProvider.INSTANCE
+              : RemoteAnalysisCachingDependenciesProviderImpl.forAnalysis(
+                  env, projectEvaluationResult.activeDirectoriesMatcher());
 
       if (env.withMergedAnalysisAndExecutionSourceOfTruth()) {
         // a.k.a. Skymeld.

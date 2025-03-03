@@ -9,6 +9,7 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//src/main/java/com/google/devtools/build/lib/sandbox/cgroups/controller:srcs",
+        "//src/main/java/com/google/devtools/build/lib/sandbox/cgroups/proto:srcs",
     ],
     visibility = ["//src:__subpackages__"],
 )
@@ -26,6 +27,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/sandbox/cgroups/controller",
         "//src/main/java/com/google/devtools/build/lib/sandbox/cgroups/controller:v1",
         "//src/main/java/com/google/devtools/build/lib/sandbox/cgroups/controller:v2",
+        "//src/main/java/com/google/devtools/build/lib/sandbox/cgroups/proto:cgroups_info_java_proto",
         "//third_party:auto_value",
         "//third_party:flogger",
         "//third_party:guava",

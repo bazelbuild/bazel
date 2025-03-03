@@ -16,8 +16,10 @@ package com.google.devtools.build.lib.analysis.starlark;
 import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Interner;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -55,8 +57,9 @@ import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.BuiltinRestriction;
-import com.google.devtools.build.lib.packages.ExecGroup;
+import com.google.devtools.build.lib.packages.DeclaredExecGroup;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails;
@@ -540,7 +543,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   private static PlatformInfo getExecutionPlatform(Object execGroupUnchecked, RuleContext ctx)
       throws EvalException {
     if (execGroupUnchecked == Starlark.NONE) {
-      return ctx.getExecutionPlatform(ExecGroup.DEFAULT_EXEC_GROUP_NAME);
+      return ctx.getExecutionPlatform(DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME);
     } else {
       String execGroup = (String) execGroupUnchecked;
       verifyExecGroupExists(execGroup, ctx);
@@ -825,7 +828,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       verifyAutomaticExecGroupExists(toolchainLabel.toString(), ruleContext);
       builder.setExecGroup(toolchainLabel.toString());
     } else {
-      builder.setExecGroup(ExecGroup.DEFAULT_EXEC_GROUP_NAME);
+      builder.setExecGroup(DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME);
     }
 
     if (shadowedActionUnchecked != Starlark.NONE) {
@@ -835,7 +838,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     if (resourceSetUnchecked != Starlark.NONE) {
       validateResourceSetBuilder(resourceSetUnchecked);
       builder.setResources(
-          new StarlarkActionResourceSetBuilder(
+          StarlarkActionResourceSetBuilder.create(
               (StarlarkCallable) resourceSetUnchecked, mnemonic, getSemantics()));
     }
 
@@ -844,15 +847,23 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   }
 
   private static class StarlarkActionResourceSetBuilder implements ResourceSetOrBuilder {
+    private static final Interner<StarlarkActionResourceSetBuilder> resourceSetBuilderInterner =
+        BlazeInterners.newWeakInterner();
     private final StarlarkCallable fn;
     private final String mnemonic;
     private final StarlarkSemantics semantics;
 
-    StarlarkActionResourceSetBuilder(
+    private StarlarkActionResourceSetBuilder(
         StarlarkCallable fn, String mnemonic, StarlarkSemantics semantics) {
       this.fn = fn;
       this.mnemonic = mnemonic;
       this.semantics = semantics;
+    }
+
+    public static StarlarkActionResourceSetBuilder create(
+        StarlarkCallable fn, String mnemonic, StarlarkSemantics semantics) {
+      return resourceSetBuilderInterner.intern(
+          new StarlarkActionResourceSetBuilder(fn, mnemonic, semantics));
     }
 
     @Override
@@ -923,6 +934,24 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
           String.format(
               "Illegal resource value type for key %s: got %s, want int or float",
               key, Starlark.type(value)));
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof StarlarkActionResourceSetBuilder that)) {
+        return false;
+      }
+      return Objects.equal(fn, that.fn)
+          && Objects.equal(mnemonic, that.mnemonic)
+          && Objects.equal(semantics, that.semantics);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hashCode(fn, mnemonic, semantics);
     }
   }
 

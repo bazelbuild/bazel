@@ -589,8 +589,9 @@ public class RemoteExecutionServiceTest {
 
     // arrange
     Tree barTreeMessage = Tree.newBuilder().setRoot(Directory.getDefaultInstance()).build();
-    Digest barTreeDigest =
-        cache.addContents(remoteActionExecutionContext, barTreeMessage.toByteArray());
+    // Don't add barTreeMessage to the cache, the Tree proto for an empty output directory is
+    // recognized by its digest.
+    Digest barTreeDigest = digestUtil.compute(barTreeMessage);
     ActionResult.Builder builder = ActionResult.newBuilder();
     builder.addOutputDirectoriesBuilder().setPath("outputs/a/bar").setTreeDigest(barTreeDigest);
     RemoteActionResult result =
@@ -2227,7 +2228,7 @@ public class RemoteExecutionServiceTest {
     ActionInput runfilesArtifact = ActionsTestUtil.createRunfilesArtifact(artifactRoot, "runfiles");
 
     NestedSet<ActionInput> nodeRoot1 =
-        new NestedSetBuilder<ActionInput>(Order.STABLE_ORDER)
+        NestedSet.<ActionInput>builder(Order.STABLE_ORDER)
             .add(dummyFile)
             .add(runfilesArtifact)
             .add(tree)
@@ -2235,7 +2236,7 @@ public class RemoteExecutionServiceTest {
             .addTransitive(nodeFoo1)
             .build();
     NestedSet<ActionInput> nodeRoot2 =
-        new NestedSetBuilder<ActionInput>(Order.STABLE_ORDER)
+        NestedSet.<ActionInput>builder(Order.STABLE_ORDER)
             .add(dummyFile)
             .add(runfilesArtifact)
             .add(tree)

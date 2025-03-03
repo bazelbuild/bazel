@@ -46,6 +46,7 @@ import com.google.errorprone.annotations.FormatString;
 import java.util.Collection;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.function.BiFunction;
 import javax.annotation.Nullable;
 
@@ -88,7 +89,7 @@ public abstract class ActionExecutionValue implements SkyValue {
                           tree));
         });
 
-    if (!filesetOutput.isEmpty()) {
+    if (filesetOutput != null) {
       checkArgument(
           artifactData.size() == 1,
           "Fileset actions should have a single output file (the manifest): %s",
@@ -198,8 +199,9 @@ public abstract class ActionExecutionValue implements SkyValue {
     return ImmutableMap.of();
   }
 
+  @Nullable
   public FilesetOutputTree getFilesetOutput() {
-    return FilesetOutputTree.EMPTY;
+    return null;
   }
 
   public NestedSet<Artifact> getDiscoveredModules() {
@@ -224,7 +226,7 @@ public abstract class ActionExecutionValue implements SkyValue {
     }
     return getAllFileValues().equals(o.getAllFileValues())
         && getAllTreeArtifactValues().equals(o.getAllTreeArtifactValues())
-        && getFilesetOutput().equals(o.getFilesetOutput())
+        && Objects.equals(getFilesetOutput(), o.getFilesetOutput())
         // We use shallowEquals to avoid materializing the nested sets just for change-pruning. This
         // makes change-pruning potentially less effective, but never incorrect.
         && getDiscoveredModules().shallowEquals(o.getDiscoveredModules());

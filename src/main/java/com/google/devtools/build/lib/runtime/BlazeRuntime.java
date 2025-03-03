@@ -77,6 +77,8 @@ import com.google.devtools.build.lib.runtime.CommandDispatcher.LockingMode;
 import com.google.devtools.build.lib.runtime.CommandDispatcher.UiVerbosity;
 import com.google.devtools.build.lib.runtime.InstrumentationOutputFactory.DestinationRelativeTo;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
+import com.google.devtools.build.lib.sandbox.cgroups.VirtualCgroup;
+import com.google.devtools.build.lib.sandbox.cgroups.proto.CgroupsInfoProtos.CgroupsInfo;
 import com.google.devtools.build.lib.server.CommandProtos.EnvironmentVariable;
 import com.google.devtools.build.lib.server.CommandProtos.ExecRequest;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -206,6 +208,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   @Nullable
   private final FileSystemLock installBaseLock;
 
+  private final CgroupsInfo cgroupsInfo;
+
   private BlazeRuntime(
       FileSystem fileSystem,
       QueryEnvironmentFactory queryEnvironmentFactory,
@@ -259,6 +263,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     this.repositoryRemoteExecutorFactory = repositoryRemoteExecutorFactory;
     this.instrumentationOutputFactory = instrumentationOutputFactory;
     this.installBaseLock = installBaseLock;
+    this.cgroupsInfo = VirtualCgroup.getInstance().cgroupsInfo();
   }
 
   public BlazeWorkspace initWorkspace(BlazeDirectories directories, BinTools binTools)
@@ -1570,6 +1575,10 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
   public InstrumentationOutputFactory getInstrumentationOutputFactory() {
     return instrumentationOutputFactory;
+  }
+
+  public CgroupsInfo getCgroupsInfo() {
+    return cgroupsInfo;
   }
 
   /**

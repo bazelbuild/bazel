@@ -21,6 +21,7 @@ load(
 )
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/cc_shared_library_hint_info.bzl", "CcSharedLibraryHintInfo")
+load(":common/cc/compile/compile.bzl", "compile")
 load(":common/cc/link/create_linking_context_from_compilation_outputs.bzl", "create_linking_context_from_compilation_outputs")
 load(":common/cc/link/link.bzl", "link")
 load(":common/cc/link/link_build_variables.bzl", "create_link_variables")
@@ -752,7 +753,11 @@ def _compile(
     if has_tuple:
         cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
 
-    return cc_common_internal.compile(
+    if cc_toolchain._cpp_configuration.experimental_starlark_compiling():
+        compile_func = compile
+    else:
+        compile_func = cc_common_internal.compile
+    return compile_func(
         actions = actions,
         feature_configuration = feature_configuration,
         cc_toolchain = cc_toolchain,

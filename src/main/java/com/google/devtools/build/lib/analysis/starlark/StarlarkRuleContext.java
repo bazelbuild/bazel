@@ -68,7 +68,7 @@ import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinRestriction;
-import com.google.devtools.build.lib.packages.ExecGroup;
+import com.google.devtools.build.lib.packages.DeclaredExecGroup;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.OutputFile;
@@ -846,7 +846,7 @@ public final class StarlarkRuleContext
         ruleContext.getToolchainContexts();
 
     return toolchainContexts.getExecGroupNames().stream()
-        .filter(ExecGroup::isAutomatic)
+        .filter(DeclaredExecGroup::isAutomatic)
         .flatMap(
             execGroupName ->
                 toolchainContexts
@@ -991,8 +991,12 @@ public final class StarlarkRuleContext
     checkMutable("build_file_path");
     checkDeprecated("ctx.label.package + '/BUILD'", "ctx.build_file_path", getStarlarkSemantics());
 
-    Package pkg = ruleContext.getRule().getPackage();
-    return pkg.getSourceRoot().get().relativize(pkg.getBuildFile().getPath()).getPathString();
+    Package.Metadata pkgMetadata = ruleContext.getRule().getPackageMetadata();
+    return pkgMetadata
+        .sourceRoot()
+        .get()
+        .relativize(pkgMetadata.buildFilename().asPath())
+        .getPathString();
   }
 
   private static void checkDeprecated(String newApi, String oldApi, StarlarkSemantics semantics)

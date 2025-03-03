@@ -258,7 +258,6 @@ public final class CompletionFunction<
               topLevelFilesets,
               input,
               artifactValue,
-              env,
               currentConsumer);
           if (!allArtifactsAreImportant && importantArtifacts.contains(input)) {
             // Calling #addToMap a second time with `input` and `artifactValue` will perform no-op
@@ -271,7 +270,7 @@ public final class CompletionFunction<
                 topLevelFilesets,
                 input,
                 artifactValue,
-                env);
+                MetadataConsumerForMetrics.NO_OP);
           }
         }
       } catch (ActionExecutionException e) {

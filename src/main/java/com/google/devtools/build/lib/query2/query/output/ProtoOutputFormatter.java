@@ -285,7 +285,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
           // (New fields needn't honor relativeLocations.)
           rulePb.addInstantiationStack(
               internalToUnicode(
-                  FormatUtils.getRootRelativeLocation(fr.location, rule.getPackage())
+                  FormatUtils.getRootRelativeLocation(fr.location, rule.getPackageMetadata())
                       + ": "
                       + fr.name));
         }
@@ -297,7 +297,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
           // (New fields needn't honor relativeLocations.)
           rulePb.addDefinitionStack(
               internalToUnicode(
-                  FormatUtils.getRootRelativeLocation(fr.location, rule.getPackage())
+                  FormatUtils.getRootRelativeLocation(fr.location, rule.getPackageMetadata())
                       + ": "
                       + fr.name));
         }

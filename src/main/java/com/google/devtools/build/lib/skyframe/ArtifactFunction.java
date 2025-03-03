@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileValue;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.RunfilesTreeAction;
 import com.google.devtools.build.lib.bugreport.BugReport;
@@ -390,6 +391,8 @@ public final class ArtifactFunction implements SkyFunction {
     ImmutableList.Builder<FileArtifactValue> fileValues = ImmutableList.builder();
     ImmutableList.Builder<Artifact> trees = ImmutableList.builder();
     ImmutableList.Builder<TreeArtifactValue> treeValues = ImmutableList.builder();
+    ImmutableList.Builder<Artifact> filesets = ImmutableList.builder();
+    ImmutableList.Builder<FilesetOutputTree> filesetValues = ImmutableList.builder();
 
     // Sort for better equality in RunfilesArtifactValue.
     ImmutableList<Artifact> sortedInputs =
@@ -399,15 +402,22 @@ public final class ArtifactFunction implements SkyFunction {
       if (inputValue == null) {
         return null;
       }
-      if (inputValue instanceof FileArtifactValue) {
+      if (inputValue instanceof FileArtifactValue fileArtifactValue) {
         files.add(input);
-        fileValues.add((FileArtifactValue) inputValue);
-      } else if (inputValue instanceof ActionExecutionValue) {
-        files.add(input);
-        fileValues.add(((ActionExecutionValue) inputValue).getExistingFileArtifactValue(input));
-      } else if (inputValue instanceof TreeArtifactValue) {
+        fileValues.add(fileArtifactValue);
+      } else if (inputValue instanceof ActionExecutionValue actionExecutionValue) {
+        if (actionExecutionValue.getFilesetOutput() != null) {
+          Preconditions.checkState(input.isFileset());
+          filesets.add(input);
+          filesetValues.add(actionExecutionValue.getFilesetOutput());
+        } else {
+          Preconditions.checkState(!input.isFileset());
+          files.add(input);
+          fileValues.add(actionExecutionValue.getExistingFileArtifactValue(input));
+        }
+      } else if (inputValue instanceof TreeArtifactValue treeArtifactValue) {
         trees.add(input);
-        treeValues.add((TreeArtifactValue) inputValue);
+        treeValues.add(treeArtifactValue);
       } else {
         // We do not recurse into runfiles tree artifacts.
         Preconditions.checkState(
@@ -424,7 +434,9 @@ public final class ArtifactFunction implements SkyFunction {
         files.build(),
         fileValues.build(),
         trees.build(),
-        treeValues.build());
+        treeValues.build(),
+        filesets.build(),
+        filesetValues.build());
   }
 
   @Override

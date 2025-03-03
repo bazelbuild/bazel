@@ -336,7 +336,8 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       if (!isPotentiallyExportableAttribute(rule.getRuleClassObject(), attributeName)) {
         return null;
       }
-      return starlarkifyValue(null /* immutable */, rule.getAttr(attributeName), rule.getPackage());
+      return starlarkifyValue(
+          null /* immutable */, rule.getAttr(attributeName), rule.getPackageMetadata());
     }
 
     @Override
@@ -726,7 +727,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
    * @return the value, or null if we don't want to export it to the user.
    */
   @Nullable
-  private static Object starlarkifyValue(Mutability mu, Object val, Package pkg) {
+  private static Object starlarkifyValue(Mutability mu, Object val, Package.Metadata pkgMetadata) {
     // easy cases
     if (!isPotentiallyStarlarkifiableValue(val)) {
       return null;
@@ -744,7 +745,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     }
 
     if (val instanceof Label l) {
-      if (l.getPackageName().equals(pkg.getName())) {
+      if (l.getPackageName().equals(pkgMetadata.getName())) {
         // TODO(https://github.com/bazelbuild/bazel/issues/13828): do not ignore the repo component
         // of the label.
         return ":" + l.getName();
@@ -755,7 +756,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     if (val instanceof List) {
       List<Object> l = new ArrayList<>();
       for (Object o : (List<?>) val) {
-        Object elt = starlarkifyValue(mu, o, pkg);
+        Object elt = starlarkifyValue(mu, o, pkgMetadata);
         if (elt == null) {
           continue;
         }
@@ -768,8 +769,8 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     if (val instanceof Map) {
       Dict.Builder<Object, Object> m = Dict.builder();
       for (Map.Entry<?, ?> e : ((Map<?, ?>) val).entrySet()) {
-        Object key = starlarkifyValue(mu, e.getKey(), pkg);
-        Object mapVal = starlarkifyValue(mu, e.getValue(), pkg);
+        Object key = starlarkifyValue(mu, e.getKey(), pkgMetadata);
+        Object mapVal = starlarkifyValue(mu, e.getValue(), pkgMetadata);
 
         if (key == null || mapVal == null) {
           continue;
@@ -786,14 +787,14 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
         Dict.Builder<Object, Object> m = Dict.builder();
         selector.forEach(
             (rawKey, rawValue) -> {
-              Object key = starlarkifyValue(mu, rawKey, pkg);
+              Object key = starlarkifyValue(mu, rawKey, pkgMetadata);
               // BuildType.Selector constructor transforms `None` values of selector branches into
               // Java nulls if the selector original type's default value is null. We need to
               // reverse this transformation.
               Object mapVal =
                   rawValue == null && selector.getOriginalType().getDefaultValue() == null
                       ? Starlark.NONE
-                      : starlarkifyValue(mu, rawValue, pkg);
+                      : starlarkifyValue(mu, rawValue, pkgMetadata);
               if (key != null && mapVal != null) {
                 m.put(key, mapVal);
               }

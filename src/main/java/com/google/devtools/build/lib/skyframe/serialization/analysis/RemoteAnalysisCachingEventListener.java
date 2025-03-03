@@ -87,6 +87,10 @@ public class RemoteAnalysisCachingEventListener {
     return ImmutableSet.copyOf(cacheHits);
   }
 
+  public Set<SkyKey> getCacheMisses() {
+    return ImmutableSet.copyOf(cacheMisses);
+  }
+
   @ThreadSafe
   public void recordRetrievalResult(RetrievalResult result, SkyKey key) {
     if (result instanceof Restart) {

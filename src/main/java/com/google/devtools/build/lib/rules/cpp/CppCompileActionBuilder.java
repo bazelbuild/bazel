@@ -276,7 +276,7 @@ public final class CppCompileActionBuilder {
 
     NestedSet<Artifact> realMandatorySpawnInputs = buildMandatoryInputs();
     NestedSet<Artifact> realMandatoryInputs =
-        new NestedSetBuilder<Artifact>(Order.STABLE_ORDER)
+        NestedSet.<Artifact>builder(Order.STABLE_ORDER)
             .addTransitive(realMandatorySpawnInputs)
             .addTransitive(cacheKeyInputs)
             .build();

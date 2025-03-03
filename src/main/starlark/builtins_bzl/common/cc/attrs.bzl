@@ -145,13 +145,14 @@ files in the source tree.
 </p>
 """),
     "defines": attr.string_list(doc = """
-List of defines to add to the compile line.
+List of defines to add to the compile line of this and all dependent targets.
 Subject to <a href="${link make-variables}">"Make" variable</a> substitution and
 <a href="${link common-definitions#sh-tokenization}">Bourne shell tokenization</a>.
 Each string, which must consist of a single Bourne shell token,
 is prepended with <code>-D</code> and added to the compile command line to this target,
 as well as to every rule that depends on it. Be very careful, since this may have
-far-reaching effects.  When in doubt, add define values to
+far-reaching effects -- the defines are added to every target that depends on
+this target.  When in doubt, add define values to
 <a href="#cc_binary.local_defines"><code>local_defines</code></a> instead.
 """),
     "local_defines": attr.string_list(doc = """
@@ -160,7 +161,8 @@ Subject to <a href="${link make-variables}">"Make" variable</a> substitution and
 <a href="${link common-definitions#sh-tokenization}">Bourne shell tokenization</a>.
 Each string, which must consist of a single Bourne shell token,
 is prepended with <code>-D</code> and added to the compile command line for this target,
-but not to its dependents.
+but not to its dependents. Unlike <code>defines</code>, the defines are only added to the
+compile command line for this target.
 """),
     "copts": attr.string_list(doc = """
 Add these options to the C/C++ compilation command.

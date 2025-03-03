@@ -67,7 +67,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
   private final ImmutableSet<ToolchainTypeRequirement> toolchainTypes;
   private final boolean applyToGeneratingRules;
   private final ImmutableSet<Label> execCompatibleWith;
-  private final ImmutableMap<String, ExecGroup> execGroups;
+  private final ImmutableMap<String, DeclaredExecGroup> execGroups;
   private final ImmutableSet<? extends StarlarkSubruleApi> subrules;
 
   /** {@link Symbol} before {@link #export} and a {@link StarlarkAspectClass} after. */
@@ -95,7 +95,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
       ImmutableSet<ToolchainTypeRequirement> toolchainTypes,
       boolean applyToGeneratingRules,
       ImmutableSet<Label> execCompatibleWith,
-      ImmutableMap<String, ExecGroup> execGroups,
+      ImmutableMap<String, DeclaredExecGroup> execGroups,
       ImmutableSet<? extends StarlarkSubruleApi> subrules,
       Symbol<BzlLoadValue.Key> identityToken) {
     this.implementation = implementation;

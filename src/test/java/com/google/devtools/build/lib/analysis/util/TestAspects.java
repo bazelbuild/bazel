@@ -152,7 +152,7 @@ public class TestAspects {
       StarlarkProvider.builder(Location.BUILTIN).buildExported(REQUIRED_PROVIDER2_KEY);
 
   private static NestedSet<String> collectAspectData(String me, RuleContext ruleContext) {
-    NestedSetBuilder<String> result = new NestedSetBuilder<>(Order.STABLE_ORDER);
+    NestedSetBuilder<String> result = NestedSetBuilder.newBuilder(Order.STABLE_ORDER);
     result.add(me);
 
     Iterable<String> attributeNames = ruleContext.attributes().getAttributeNames();

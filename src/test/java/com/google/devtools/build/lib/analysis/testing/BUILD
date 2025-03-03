@@ -17,7 +17,7 @@ java_library(
     name = "testing",
     testonly = 1,
     srcs = [
-        "ExecGroupSubject.java",
+        "DeclaredExecGroupSubject.java",
         "ResolvedToolchainContextSubject.java",
         "RuleClassSubject.java",
         "StarlarkDefinedAspectSubject.java",
@@ -34,7 +34,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/packages:exec_group",
+        "//src/main/java/com/google/devtools/build/lib/packages:declared_exec_group",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
         "//third_party:truth",

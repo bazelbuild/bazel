@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateCancelledFuture;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.devtools.build.lib.collect.nestedset.Order.LINK_ORDER;
 import static com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint.getFingerprintForTesting;
 import static org.junit.Assert.assertThrows;
 
@@ -306,13 +307,13 @@ public final class NestedSetTest {
 
   private static NestedSet<Integer> createNestedSet(
       Order order, int numDirects, int numTransitives, Order transitiveOrder) {
-    NestedSetBuilder<Integer> builder = new NestedSetBuilder<>(order);
+    NestedSetBuilder<Integer> builder = NestedSetBuilder.newBuilder(order);
 
     for (int direct = 0; direct < numDirects; direct++) {
       builder.add(direct);
     }
     for (int transitive = 0; transitive < numTransitives; transitive++) {
-      builder.addTransitive(new NestedSetBuilder<Integer>(transitiveOrder).add(transitive).build());
+      builder.addTransitive(NestedSet.<Integer>builder(transitiveOrder).add(transitive).build());
     }
     return builder.build();
   }
@@ -561,5 +562,37 @@ public final class NestedSetTest {
                 .build()
                 .getApproxDepth())
         .isEqualTo(3);
+  }
+
+  @Test
+  public void linkOrder_toList_withTransitiveInputAliases_areConsistent() {
+    NestedSet<String> inputA = NestedSetBuilder.create(LINK_ORDER, "A");
+    NestedSet<String> inputB = NestedSetBuilder.create(LINK_ORDER, "B");
+    NestedSet<String> inputC = NestedSetBuilder.create(LINK_ORDER, "C");
+    NestedSet<String> inputB2 = NestedSetBuilder.create(LINK_ORDER, "B");
+
+    NestedSet<String> withDuplicates =
+        NestedSet.<String>builder(LINK_ORDER)
+            .addTransitive(inputA)
+            .addTransitive(inputB)
+            .addTransitive(inputC)
+            .addTransitive(inputB)
+            .build();
+
+    NestedSet<String> withAlias =
+        NestedSet.<String>builder(LINK_ORDER)
+            .addTransitive(inputA)
+            .addTransitive(inputB)
+            .addTransitive(inputC)
+            .addTransitive(inputB2)
+            .build();
+
+    assertThat(withAlias.toList()).isEqualTo(withDuplicates.toList());
+  }
+
+  @Test
+  public void linkOrder_toList_withDuplicateDirectInputs_keepsFirst() {
+    NestedSet<String> duplicateInputs = NestedSetBuilder.create(LINK_ORDER, "A", "B", "C", "A");
+    assertThat(duplicateInputs.toList()).containsExactly("A", "B", "C").inOrder();
   }
 }

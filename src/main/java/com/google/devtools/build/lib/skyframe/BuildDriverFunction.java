@@ -234,7 +234,7 @@ public class BuildDriverFunction implements SkyFunction {
       // It's possible that this code path is triggered AFTER the analysis cache clean up and the
       // transitive packages for package root resolution is already cleared. In such a case, the
       // symlinks should have already been planted.
-      NestedSet<Package> transitivePackagesForSymlinkPlanting =
+      NestedSet<Package.Metadata> transitivePackagesForSymlinkPlanting =
           configuredTargetValue.getTransitivePackages();
       if (transitivePackagesForSymlinkPlanting != null) {
         postEventIfNecessary(
@@ -337,7 +337,7 @@ public class BuildDriverFunction implements SkyFunction {
         // It's possible that this code path is triggered AFTER the analysis cache clean up and the
         // transitive packages for package root resolution is already cleared. In such a case, the
         // symlinks should have already been planted.
-        NestedSet<Package> transitivePackagesForSymlinkPlanting =
+        NestedSet<Package.Metadata> transitivePackagesForSymlinkPlanting =
             aspectValue.getTransitivePackages();
         if (transitivePackagesForSymlinkPlanting != null) {
           // This event should be sent out exactly once per aspect in this BuildDriverKey, even with

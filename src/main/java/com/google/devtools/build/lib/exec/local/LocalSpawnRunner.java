@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.shell.TerminationStatus;
 import com.google.devtools.build.lib.util.NetUtil;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.FileSystem.PathTransformer;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.FormatString;
@@ -106,7 +107,7 @@ public class LocalSpawnRunner implements SpawnRunner {
       BinTools binTools,
       ProcessWrapper processWrapper,
       RunfilesTreeUpdater runfilesTreeUpdater) {
-    this.execRoot = execRoot.devirtualize();
+    this.execRoot = maybeTransform(execRoot);
     this.processWrapper = processWrapper;
     this.localExecutionOptions = Preconditions.checkNotNull(localExecutionOptions);
     this.hostName = NetUtil.getCachedShortHostName();
@@ -147,7 +148,7 @@ public class LocalSpawnRunner implements SpawnRunner {
               context.speculating()
                   ? ResourcePriority.DYNAMIC_STANDALONE
                   : ResourcePriority.LOCAL)) {
-        spawnMetrics.setQueueTimeInMs((int) queueStopwatch.elapsed().toMillis());
+        spawnMetrics.setQueueTime(queueStopwatch.elapsed());
         context.report(SpawnExecutingEvent.create(getName()));
         if (!localExecutionOptions.localLockfreeOutput) {
           // Without local-lockfree, we grab the lock before running the action, so we can't
@@ -201,7 +202,7 @@ public class LocalSpawnRunner implements SpawnRunner {
 
     private final int id;
 
-    public SubprocessHandler(
+    SubprocessHandler(
         Spawn spawn,
         SpawnExecutionContext context,
         SpawnMetrics.Builder spawnMetrics,
@@ -215,7 +216,7 @@ public class LocalSpawnRunner implements SpawnRunner {
       setState(State.PARSING);
     }
 
-    public SpawnResult run() throws InterruptedException, ExecException, IOException {
+    SpawnResult run() throws InterruptedException, ExecException, IOException {
       if (localExecutionOptions.localRetriesOnCrash == 0) {
         return runOnce();
       } else {
@@ -331,7 +332,7 @@ public class LocalSpawnRunner implements SpawnRunner {
                         + localExecutionOptions.allowedLocalAction.regexPattern()
                         + "\n")
                     .getBytes(UTF_8));
-        spawnMetrics.setTotalTimeInMs((int) totalTimeStopwatch.elapsed().toMillis());
+        spawnMetrics.setTotalTime(totalTimeStopwatch.elapsed());
         return spawnResultBuilder
             .setStatus(Status.EXECUTION_DENIED)
             .setExitCode(LOCAL_EXEC_ERROR)
@@ -355,8 +356,7 @@ public class LocalSpawnRunner implements SpawnRunner {
       }
 
       try (var s = Profiler.instance().profile("updateRunfiles")) {
-        runfilesTreeUpdater.updateRunfiles(
-            runfilesTrees, spawn.getEnvironment(), context.getFileOutErr());
+        runfilesTreeUpdater.updateRunfiles(runfilesTrees);
       }
 
       stepLog(INFO, "running locally");
@@ -373,8 +373,8 @@ public class LocalSpawnRunner implements SpawnRunner {
 
         SubprocessBuilder subprocessBuilder = new SubprocessBuilder();
         subprocessBuilder.setWorkingDirectory(execRoot.getPathFile());
-        subprocessBuilder.setStdout(outErr.getOutputPath().devirtualize().getPathFile());
-        subprocessBuilder.setStderr(outErr.getErrorPath().devirtualize().getPathFile());
+        subprocessBuilder.setStdout(maybeTransform(outErr.getOutputPath()).getPathFile());
+        subprocessBuilder.setStderr(maybeTransform(outErr.getErrorPath()).getPathFile());
         subprocessBuilder.setEnv(environment);
         ImmutableList<String> args;
         if (processWrapper != null) {
@@ -402,7 +402,7 @@ public class LocalSpawnRunner implements SpawnRunner {
           args = ImmutableList.copyOf(newArgs);
         }
         subprocessBuilder.setArgv(args);
-        spawnMetrics.addSetupTimeInMs((int) setupTimeStopwatch.elapsed().toMillis());
+        spawnMetrics.addSetupTime(setupTimeStopwatch.elapsed());
 
         spawnResultBuilder.setStartTime(Instant.now());
         Stopwatch executionStopwatch = Stopwatch.createStarted();
@@ -435,7 +435,7 @@ public class LocalSpawnRunner implements SpawnRunner {
               .write(
                   ("Action failed to execute: java.io.IOException: " + msg + "\n").getBytes(UTF_8));
           outErr.getErrorStream().flush();
-          spawnMetrics.setTotalTimeInMs((int) totalTimeStopwatch.elapsed().toMillis());
+          spawnMetrics.setTotalTime(totalTimeStopwatch.elapsed());
           return spawnResultBuilder
               .setStatus(Status.EXECUTION_FAILED)
               .setExitCode(LOCAL_EXEC_ERROR)
@@ -447,7 +447,7 @@ public class LocalSpawnRunner implements SpawnRunner {
         setState(State.SUCCESS);
         // TODO(b/62588075): Calculate wall time inside commands instead?
         Duration wallTime = executionStopwatch.elapsed();
-        spawnMetrics.setExecutionWallTimeInMs((int) wallTime.toMillis());
+        spawnMetrics.setExecutionWallTime(wallTime);
 
         boolean wasTimeout =
             terminationStatus.timedOut()
@@ -466,7 +466,7 @@ public class LocalSpawnRunner implements SpawnRunner {
         if (statisticsPath != null) {
           spawnResultBuilder.setResourceUsageFromProto(statisticsPath);
         }
-        spawnMetrics.setTotalTimeInMs((int) totalTimeStopwatch.elapsed().toMillis());
+        spawnMetrics.setTotalTime(totalTimeStopwatch.elapsed());
         spawnResultBuilder.setSpawnMetrics(spawnMetrics.build());
         return spawnResultBuilder.build();
       } finally {
@@ -528,6 +528,12 @@ public class LocalSpawnRunner implements SpawnRunner {
         }
       }
     }
+  }
+
+  private static Path maybeTransform(Path path) {
+    return (path.getFileSystem() instanceof PathTransformer pathTransformer)
+        ? pathTransformer.transformPath(path)
+        : path;
   }
 
   private static FailureDetail makeFailureDetail(int exitCode, Status status, String actionType) {

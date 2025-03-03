@@ -163,7 +163,8 @@ public class RuleClass implements RuleClassData {
   // The test exec group should not inherit any exec constraints or toolchains from the default exec
   // group since the execution platform for a test is generally independent (and often different)
   // from the execution platform of the actions that produce the test executable.
-  public static final ExecGroup DEFAULT_TEST_RUNNER_EXEC_GROUP = ExecGroup.builder().build();
+  public static final DeclaredExecGroup DEFAULT_TEST_RUNNER_EXEC_GROUP =
+      DeclaredExecGroup.builder().build();
 
   /** Interface for determining whether a rule needs toolchain resolution or not. */
   @FunctionalInterface
@@ -763,7 +764,7 @@ public class RuleClass implements RuleClassData {
     private ToolchainResolutionMode toolchainResolutionMode = ToolchainResolutionMode.ENABLED;
     private final Set<Label> executionPlatformConstraints = new LinkedHashSet<>();
     private OutputFile.Kind outputFileKind = OutputFile.Kind.FILE;
-    private final Map<String, ExecGroup> execGroups = new LinkedHashMap<>();
+    private final Map<String, DeclaredExecGroup> execGroups = new LinkedHashMap<>();
     private AutoExecGroupsMode autoExecGroupsMode = AutoExecGroupsMode.DYNAMIC;
 
     /**
@@ -811,7 +812,7 @@ public class RuleClass implements RuleClassData {
         addToolchainTypes(parent.getToolchainTypes());
         addExecutionPlatformConstraints(parent.getExecutionPlatformConstraints());
         try {
-          addExecGroups(parent.getExecGroups());
+          addExecGroups(parent.getDeclaredExecGroups());
         } catch (DuplicateExecGroupError e) {
           throw new IllegalArgumentException(
               String.format(
@@ -1614,14 +1615,14 @@ public class RuleClass implements RuleClassData {
      * same name are added.
      */
     @CanIgnoreReturnValue
-    public Builder addExecGroups(Map<String, ExecGroup> execGroups) {
-      for (Map.Entry<String, ExecGroup> group : execGroups.entrySet()) {
+    public Builder addExecGroups(Map<String, DeclaredExecGroup> execGroups) {
+      for (Map.Entry<String, DeclaredExecGroup> group : execGroups.entrySet()) {
         String name = group.getKey();
         if (this.execGroups.containsKey(name)) {
           // If trying to add a new execution group with the same name as a execution group that
           // already exists, check if they are equivalent and error out if not.
-          ExecGroup existingGroup = this.execGroups.get(name);
-          ExecGroup newGroup = group.getValue();
+          DeclaredExecGroup existingGroup = this.execGroups.get(name);
+          DeclaredExecGroup newGroup = group.getValue();
           if (!existingGroup.equals(newGroup)) {
             throw new DuplicateExecGroupError(name);
           }
@@ -1632,7 +1633,7 @@ public class RuleClass implements RuleClassData {
       return this;
     }
 
-    /** An error to help report {@link ExecGroup}s with the same name */
+    /** An error to help report {@link DeclaredExecGroup}s with the same name */
     static class DuplicateExecGroupError extends RuntimeException {
       private final String duplicateGroup;
 
@@ -1816,7 +1817,7 @@ public class RuleClass implements RuleClassData {
   private final ImmutableSet<ToolchainTypeRequirement> toolchainTypes;
   private final ToolchainResolutionMode toolchainResolutionMode;
   private final ImmutableSet<Label> executionPlatformConstraints;
-  private final ImmutableMap<String, ExecGroup> execGroups;
+  private final ImmutableMap<String, DeclaredExecGroup> declaredExecGroups;
   private final AutoExecGroupsMode autoExecGroupsMode;
 
   /**
@@ -1879,7 +1880,7 @@ public class RuleClass implements RuleClassData {
       Set<ToolchainTypeRequirement> toolchainTypes,
       ToolchainResolutionMode toolchainResolutionMode,
       Set<Label> executionPlatformConstraints,
-      Map<String, ExecGroup> execGroups,
+      Map<String, DeclaredExecGroup> declaredExecGroups,
       AutoExecGroupsMode autoExecGroupsMode,
       OutputFile.Kind outputFileKind,
       ImmutableList<Attribute> attributes,
@@ -1923,7 +1924,7 @@ public class RuleClass implements RuleClassData {
     this.toolchainTypes = ImmutableSet.copyOf(toolchainTypes);
     this.toolchainResolutionMode = toolchainResolutionMode;
     this.executionPlatformConstraints = ImmutableSet.copyOf(executionPlatformConstraints);
-    this.execGroups = ImmutableMap.copyOf(execGroups);
+    this.declaredExecGroups = ImmutableMap.copyOf(declaredExecGroups);
     this.autoExecGroupsMode = autoExecGroupsMode;
     this.buildSetting = buildSetting;
     this.subrules = ImmutableSet.copyOf(subrules);
@@ -2770,8 +2771,8 @@ public class RuleClass implements RuleClassData {
     return executionPlatformConstraints;
   }
 
-  public ImmutableMap<String, ExecGroup> getExecGroups() {
-    return execGroups;
+  public ImmutableMap<String, DeclaredExecGroup> getDeclaredExecGroups() {
+    return declaredExecGroups;
   }
 
   public AutoExecGroupsMode getAutoExecGroupsMode() {

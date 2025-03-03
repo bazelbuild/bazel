@@ -150,7 +150,7 @@ public final class ExtraAction extends SpawnAction {
       NestedSet<Artifact> shadowedActionInputs,
       NestedSet<Artifact> inputFilesForExtraAction,
       NestedSet<Artifact> extraActionInputs) {
-    return new NestedSetBuilder<Artifact>(Order.STABLE_ORDER)
+    return NestedSet.<Artifact>builder(Order.STABLE_ORDER)
         .addTransitive(shadowedActionInputs)
         .addTransitive(inputFilesForExtraAction)
         .addTransitive(extraActionInputs)

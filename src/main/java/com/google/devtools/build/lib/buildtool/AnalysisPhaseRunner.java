@@ -87,6 +87,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
+import javax.annotation.Nullable;
 
 /** Performs target pattern eval, configuration creation, loading and analysis. */
 public final class AnalysisPhaseRunner {
@@ -204,6 +205,7 @@ public final class AnalysisPhaseRunner {
    *
    * <p>Shared by both Skymeld and non-Skymeld analysis.
    */
+  @Nullable
   static ProjectEvaluationResult evaluateProjectFile(
       BuildRequest request,
       BuildOptions buildOptions,
@@ -248,18 +250,12 @@ public final class AnalysisPhaseRunner {
     }
 
     if (featureFlags.contains(ANALYSIS_CACHING) && activeProjects.isEmpty()) {
-      // TODO: b/353233779 - consider falling back on full serialization when there is no
-      // project matcher.
-      String message =
-          "Failed to find PROJECT.scl file for: " + targetPatternPhaseValue.getTargetLabels();
-      throw new LoadingFailedException(
-          message,
-          DetailedExitCode.of(
-              FailureDetail.newBuilder()
-                  .setMessage(message)
-                  .setRemoteAnalysisCaching(
-                      RemoteAnalysisCaching.newBuilder().setCode(PROJECT_FILE_NOT_FOUND))
-                  .build()));
+      env.getReporter()
+          .handle(
+              Event.info(
+                  "Disabling Skycache due to missing PROJECT.scl: "
+                      + targetPatternPhaseValue.getTargetLabels()));
+      return null;
     }
 
     PathFragmentPrefixTrie projectMatcher = null;

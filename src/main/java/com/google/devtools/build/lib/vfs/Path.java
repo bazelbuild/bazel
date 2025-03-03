@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.StringEncoding;
-import com.google.devtools.build.lib.vfs.FileSystem.PathDevirtualizer;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -85,12 +84,6 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
     return pathFragment.getPathString();
   }
 
-  public Path devirtualize() {
-    return (this.getFileSystem() instanceof PathDevirtualizer pathDevirtualizer)
-        ? pathDevirtualizer.devirtualizePath(this)
-        : this;
-  }
-
   @Override
   public String filePathForFileTypeMatcher() {
     return pathFragment.getPathString();
@@ -104,6 +97,19 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
    */
   public String getBaseName() {
     return pathFragment.getBaseName();
+  }
+
+  /**
+   * Returns a {@link Path} formed by appending {@code newName} to this {@link Path}'s parent
+   * directory. If this {@link Path} has zero segments, returns {@code null}. If {@code newName} is
+   * absolute, the value of {@code this} will be ignored and a {@link Path} corresponding to {@code
+   * newName} will be returned. This is consistent with the behavior of {@link
+   * #getRelative(String)}.
+   */
+  @Nullable
+  public Path replaceName(String newName) {
+    Path parent = getParentDirectory();
+    return parent != null ? parent.getRelative(newName) : null;
   }
 
   /** Synonymous with {@link Path#getRelative(String)}. */
@@ -549,7 +555,12 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
    * <p>Files cannot be atomically renamed across devices; copying is required. Use {@link
    * FileSystemUtils#moveFile(Path, Path)} instead.
    *
-   * @throws IOException if the rename failed for any reason
+   * <p>A non-directory cannot be renamed into an existing directory, or vice-versa. A directory can
+   * be renamed into an existing directory if and only if the latter is empty.
+   *
+   * @throws FileNotFoundException if the file denoted by the current path does not exist, or the
+   *     parent directory of the target path does not exist
+   * @throws IOException if the rename failed for any other reason
    */
   public void renameTo(Path target) throws IOException {
     checkSameFileSystem(target);

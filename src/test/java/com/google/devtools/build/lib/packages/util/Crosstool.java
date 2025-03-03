@@ -692,7 +692,6 @@ public final class Crosstool {
           "    linker_files = ':link',",
           "    objcopy_files = ':empty',",
           "    strip_files = ':empty',",
-          "    supports_param_files = 0,",
           supportsHeaderParsing ? "    supports_header_parsing = 1," : "",
           dynamicRuntimeLabel == null
               ? ""

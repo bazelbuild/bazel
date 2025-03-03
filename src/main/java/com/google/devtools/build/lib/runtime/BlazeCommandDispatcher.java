@@ -671,20 +671,38 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       }
       options = optionHandler.getOptionsResult();
 
+      boolean includeResidueInRunBepEvent =
+          env.getOptions().getOptions(BuildEventProtocolOptions.class) != null
+              && env.getOptions()
+                  .getOptions(BuildEventProtocolOptions.class)
+                  .includeResidueInRunBepEvent;
       // Log the command line now that the modules have all had a change to register their listeners
       // to the event bus, and the flags have been re-parsed.
       CommandLineEvent originalCommandLineEvent =
           new CommandLineEvent.OriginalCommandLineEvent(
-              runtime, commandName, options, startupOptionsTaggedWithBazelRc);
+              runtime,
+              commandName,
+              options.getResidue(),
+              includeResidueInRunBepEvent,
+              options.asListOfExplicitOptions(),
+              options.getExplicitStarlarkOptions(
+                  CommandLineEvent.OriginalCommandLineEvent::commandLinePriority),
+              startupOptionsTaggedWithBazelRc);
       // If flagsets are applied, a CanonicalCommandLineEvent is also emitted by
       // BuildTool.buildTargets(). This is a duplicate event, and consumers are expected to
       // handle it correctly, by accepting the last event.
       CommandLineEvent canonicalCommandLineEvent =
-          new CommandLineEvent.CanonicalCommandLineEvent(runtime, commandName, options);
-      BuildEventProtocolOptions bepOptions =
-          env.getOptions().getOptions(BuildEventProtocolOptions.class);
+          new CommandLineEvent.CanonicalCommandLineEvent(
+              runtime,
+              commandName,
+              options.getResidue(),
+              includeResidueInRunBepEvent,
+              options.getExplicitStarlarkOptions(
+                  CommandLineEvent.OriginalCommandLineEvent::commandLinePriority),
+              options.getStarlarkOptions(),
+              options.asListOfCanonicalOptions());
       OriginalUnstructuredCommandLineEvent unstructuredServerCommandLineEvent;
-      if (commandName.equals("run") && !bepOptions.includeResidueInRunBepEvent) {
+      if (commandName.equals("run") && !includeResidueInRunBepEvent) {
         unstructuredServerCommandLineEvent =
             OriginalUnstructuredCommandLineEvent.REDACTED_UNSTRUCTURED_COMMAND_LINE_EVENT;
       } else {

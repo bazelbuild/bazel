@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.view.proto.Deps;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.UncheckedIOException;
 import java.util.concurrent.ConcurrentHashMap;
 
 /** Context for compiling Java files. */
@@ -30,26 +29,18 @@ public class JavaCompileActionContext implements ActionContext {
   Deps.Dependencies getDependencies(
       Artifact jdepsFile, ActionExecutionContext actionExecutionContext) throws IOException {
     // TODO(djasper): Investigate caching across builds.
-    try {
-      // The cache value computation is potentially expensive, e.g. when we have
-      // to download an input with actionFS, so we are explicitly not using
-      // computeIfAbsent here.
-      // The downside is that potentially we parse the same jdepsFile twice, but
-      // at least we are not blocking all other threads on the lock for the
-      // cache.
-      Deps.Dependencies deps = cache.get(jdepsFile);
-      if (deps != null) {
-        return deps;
-      }
-      try (InputStream input = actionExecutionContext.getInputPath(jdepsFile).getInputStream()) {
-        deps = Deps.Dependencies.parseFrom(input);
-        cache.putIfAbsent(jdepsFile, deps);
-        return deps;
-      } catch (IOException e) {
-        throw new UncheckedIOException(e);
-      }
-    } catch (UncheckedIOException e) {
-      throw e.getCause();
+    // The cache value computation is potentially expensive, e.g. when we have to download an input
+    // with actionFS, so we are explicitly not using computeIfAbsent here. The downside is that
+    // potentially we parse the same jdepsFile twice, but at least we are not blocking all other
+    // threads on the lock for the cache.
+    Deps.Dependencies deps = cache.get(jdepsFile);
+    if (deps != null) {
+      return deps;
+    }
+    try (InputStream input = actionExecutionContext.getInputPath(jdepsFile).getInputStream()) {
+      deps = Deps.Dependencies.parseFrom(input);
+      cache.putIfAbsent(jdepsFile, deps);
+      return deps;
     }
   }
 

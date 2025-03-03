@@ -547,7 +547,7 @@ EOF
   assert_contains '/link_two$' *-bin/a/go
 }
 
-function setup_special_chars_in_runfiles_source_paths() {
+function test_special_chars_in_runfiles_source_paths() {
   mkdir -p pkg
   if "$is_windows"; then
     cat > pkg/constants.bzl <<'EOF'
@@ -601,23 +601,12 @@ fi
 EOF
   fi
   chmod +x pkg/foo.sh
-}
 
-function test_special_chars_in_runfiles_source_paths_out_of_process() {
-  setup_special_chars_in_runfiles_source_paths
-  bazel test --noexperimental_inprocess_symlink_creation \
-    --test_output=errors \
+  bazel test --test_output=errors \
     //pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "test failed"
 }
 
-function test_special_chars_in_runfiles_source_paths_in_process() {
-  setup_special_chars_in_runfiles_source_paths
-  bazel test --experimental_inprocess_symlink_creation \
-    --test_output=errors \
-    //pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "test failed"
-}
-
-function setup_special_chars_in_runfiles_target_paths() {
+function test_special_chars_in_runfiles_target_paths() {
   mkdir -p pkg
   if "$is_windows"; then
     cat > pkg/constants.bzl <<'EOF'
@@ -661,23 +650,12 @@ if [[ "$(cat pkg/data.txt)" != "my content" ]]; then
 fi
 EOF
   chmod +x pkg/foo.sh
-}
 
-function test_special_chars_in_runfiles_target_paths_out_of_process() {
-  setup_special_chars_in_runfiles_target_paths
-  bazel test --noexperimental_inprocess_symlink_creation \
-    --test_output=errors \
+  bazel test --test_output=errors \
     //pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "test failed"
 }
 
-function test_special_chars_in_runfiles_target_paths_in_process() {
-  setup_special_chars_in_runfiles_target_paths
-  bazel test --experimental_inprocess_symlink_creation \
-    --test_output=errors \
-    //pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "test failed"
-}
-
-function setup_special_chars_in_runfiles_source_and_target_paths() {
+function test_special_chars_in_runfiles_source_and_target_paths() {
   mkdir -p pkg
   if "$is_windows"; then
     cat > pkg/constants.bzl <<'EOF'
@@ -726,19 +704,8 @@ fi
 EOF
   fi
   chmod +x pkg/foo.sh
-}
 
-function test_special_chars_in_runfiles_source_and_target_paths_out_of_process() {
-  setup_special_chars_in_runfiles_source_and_target_paths
-  bazel test --noexperimental_inprocess_symlink_creation \
-    --test_output=errors \
-    //pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "test failed"
-}
-
-function test_special_chars_in_runfiles_source_and_target_paths_in_process() {
-  setup_special_chars_in_runfiles_source_and_target_paths
-  bazel test --experimental_inprocess_symlink_creation \
-    --test_output=errors \
+  bazel test --test_output=errors \
     //pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "test failed"
 }
 

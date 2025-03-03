@@ -166,7 +166,7 @@ public final class ActionExecutionValueTest {
             ActionExecutionValue.createFromOutputMetadataStore(
                 ImmutableMap.of(output("file"), VALUE_1_REMOTE),
                 ImmutableMap.of(tree("tree"), TreeArtifactValue.empty()),
-                FilesetOutputTree.EMPTY,
+                null,
                 /* discoveredModules= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER)))
         .addDependency(FileSystem.class, OUTPUT_ROOT.getRoot().getFileSystem())
         .addDependency(
@@ -180,7 +180,7 @@ public final class ActionExecutionValueTest {
     return ActionExecutionValue.createFromOutputMetadataStore(
         /* artifactData= */ artifactData,
         /* treeArtifactData= */ ImmutableMap.of(),
-        FilesetOutputTree.EMPTY,
+        null,
         /* discoveredModules= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
 
@@ -189,7 +189,7 @@ public final class ActionExecutionValueTest {
     return ActionExecutionValue.createFromOutputMetadataStore(
         /* artifactData= */ ImmutableMap.of(),
         treeArtifactData,
-        FilesetOutputTree.EMPTY,
+        null,
         /* discoveredModules= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
 
@@ -211,7 +211,7 @@ public final class ActionExecutionValueTest {
     return ActionExecutionValue.createFromOutputMetadataStore(
         /* artifactData= */ ImmutableMap.of(output("modules.pcm"), VALUE_1_REMOTE),
         /* treeArtifactData= */ ImmutableMap.of(),
-        FilesetOutputTree.EMPTY,
+        null,
         discoveredModules);
   }
 

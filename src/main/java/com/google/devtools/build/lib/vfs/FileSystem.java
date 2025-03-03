@@ -359,12 +359,6 @@ public abstract class FileSystem {
   }
 
   /**
-   * Returns true if "path" denotes an existing symbolic link. See {@link Path#isSymbolicLink} for
-   * specification.
-   */
-  protected abstract boolean isSymbolicLink(PathFragment path);
-
-  /**
    * Appends a single regular path segment 'child' to 'dir', recursively resolving symbolic links in
    * 'child'. 'dir' must be canonical. 'maxLinks' is the maximum number of symbolic links that may
    * be traversed before it gives up.
@@ -452,78 +446,8 @@ public abstract class FileSystem {
                 resolveSymbolicLinks(parentNode).asFragment(), path.getBaseName(), MAX_SYMLINKS));
   }
 
-  /**
-   * Returns the status of a file. See {@link Path#stat(Symlinks)} for specification.
-   *
-   * <p>The default implementation of this method is a "lazy" one, based on other accessor methods
-   * such as {@link #isFile}, etc. Subclasses may provide more efficient specializations. However,
-   * we still try to follow Unix-like semantics of failing fast in case of non-existent files (or in
-   * case of permission issues).
-   */
-  protected FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
-    FileStatus status = new FileStatus() {
-      volatile Boolean isFile;
-      volatile Boolean isDirectory;
-      volatile Boolean isSymbolicLink;
-      volatile Boolean isSpecial;
-      volatile long size = -1;
-      volatile long mtime = -1;
-
-      @Override
-      public boolean isFile() {
-        if (isFile == null) { isFile = FileSystem.this.isFile(path, followSymlinks); }
-        return isFile;
-      }
-
-      @Override
-      public boolean isDirectory() {
-        if (isDirectory == null) {
-          isDirectory = FileSystem.this.isDirectory(path, followSymlinks);
-        }
-        return isDirectory;
-      }
-
-      @Override
-      public boolean isSymbolicLink() {
-        if (isSymbolicLink == null)  { isSymbolicLink = FileSystem.this.isSymbolicLink(path); }
-        return isSymbolicLink;
-      }
-
-      @Override
-      public boolean isSpecialFile() {
-        if (isSpecial == null)  { isSpecial = FileSystem.this.isSpecialFile(path, followSymlinks); }
-        return isSpecial;
-      }
-
-      @Override
-      public long getSize() throws IOException {
-        if (size == -1) { size = getFileSize(path, followSymlinks); }
-        return size;
-      }
-
-      @Override
-      public long getLastModifiedTime() throws IOException {
-        if (mtime == -1) { mtime = FileSystem.this.getLastModifiedTime(path, followSymlinks); }
-        return mtime;
-      }
-
-      @Override
-      public long getLastChangeTime() {
-        throw new UnsupportedOperationException();
-      }
-
-      @Override
-      public long getNodeId() {
-        throw new UnsupportedOperationException();
-      }
-    };
-
-    // Fail fast in case if some operations will actually fail, since stat() call sometimes used
-    // to verify file existence as well. We will use getLastModifiedTime() method for that purpose.
-    status.getLastModifiedTime();
-
-    return status;
-  }
+  /** Returns the status of a file. See {@link Path#stat(Symlinks)} for specification. */
+  protected abstract FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException;
 
   /** Like stat(), but returns null on failures instead of throwing. */
   @Nullable
@@ -551,22 +475,40 @@ public abstract class FileSystem {
   }
 
   /**
-   * Returns true iff {@code path} denotes an existing directory. See {@link
-   * Path#isDirectory(Symlinks)} for specification.
-   */
-  protected abstract boolean isDirectory(PathFragment path, boolean followSymlinks);
-
-  /**
    * Returns true iff {@code path} denotes an existing regular or special file. See {@link
    * Path#isFile(Symlinks)} for specification.
    */
-  protected abstract boolean isFile(PathFragment path, boolean followSymlinks);
+  protected boolean isFile(PathFragment path, boolean followSymlinks) {
+    FileStatus stat = statNullable(path, followSymlinks);
+    return stat != null && stat.isFile();
+  }
 
   /**
-   * Returns true iff {@code path} denotes a special file. See {@link Path#isSpecialFile(Symlinks)}
-   * for specification.
+   * Returns true iff {@code path} denotes an existing special file. See {@link
+   * Path#isSpecialFile(Symlinks)} for specification.
    */
-  protected abstract boolean isSpecialFile(PathFragment path, boolean followSymlinks);
+  protected boolean isSpecialFile(PathFragment path, boolean followSymlinks) {
+    FileStatus stat = statNullable(path, followSymlinks);
+    return stat != null && stat.isSpecialFile();
+  }
+
+  /**
+   * Returns true iff {@code path} denotes an existing symbolic link. See {@link
+   * Path#isSymbolicLink()} for specification.
+   */
+  protected boolean isSymbolicLink(PathFragment path) {
+    FileStatus stat = statNullable(path, false);
+    return stat != null && stat.isSymbolicLink();
+  }
+
+  /**
+   * Returns true iff {@code path} denotes an existing directory. See {@link
+   * Path#isDirectory(Symlinks)} for specification.
+   */
+  protected boolean isDirectory(PathFragment path, boolean followSymlinks) {
+    FileStatus stat = statNullable(path, followSymlinks);
+    return stat != null && stat.isDirectory();
+  }
 
   /**
    * Creates a symbolic link. See {@link Path#createSymbolicLink(Path)} for specification.
@@ -834,7 +776,7 @@ public abstract class FileSystem {
     throw new UnsupportedOperationException(
         "getIoFile() not supported for " + getClass().getName());
   }
-
+  
   /**
    * Returns a {@link java.nio.file.Path} object for the given path. This method is only supported
    * by file system implementations that are backed by the local file system.
@@ -860,12 +802,7 @@ public abstract class FileSystem {
     }
   }
 
-  /**
-   * Represents a devirtualizer that undoes the virtualization of {@link Path}s established by
-   * {@link
-   * com.google.devtools.build.lib.runtime.BlazeModule.ModuleFileSystem#createWithVirtualization}.
-   */
-  public interface PathDevirtualizer {
-    Path devirtualizePath(Path original);
+  public interface PathTransformer {
+    Path transformPath(Path original);
   }
 }

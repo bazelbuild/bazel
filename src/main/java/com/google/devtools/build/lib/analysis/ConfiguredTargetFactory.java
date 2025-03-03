@@ -189,7 +189,7 @@ public final class ConfiguredTargetFactory {
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
       ConfigConditions configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
-      @Nullable NestedSet<Package> transitivePackages,
+      @Nullable NestedSet<Package.Metadata> transitivePackages,
       ExecGroupCollection.Builder execGroupCollectionBuilder,
       @Nullable StarlarkAttributeTransitionProvider starlarkExecTransition)
       throws InterruptedException,
@@ -274,7 +274,7 @@ public final class ConfiguredTargetFactory {
                   analysisEnvironment
                       .getStarlarkSemantics()
                       .getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT)),
-              inputFile.getPackage().getSourceRoot().get(),
+              inputFile.getPackageMetadata().sourceRoot().get(),
               ConfiguredTargetKey.builder()
                   .setLabel(target.getLabel())
                   .setConfiguration(config)
@@ -309,7 +309,7 @@ public final class ConfiguredTargetFactory {
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
       ConfigConditions configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
-      @Nullable NestedSet<Package> transitivePackages,
+      @Nullable NestedSet<Package.Metadata> transitivePackages,
       ExecGroupCollection.Builder execGroupCollectionBuilder,
       @Nullable StarlarkAttributeTransitionProvider starlarkExecTransition)
       throws InterruptedException,
@@ -624,7 +624,7 @@ public final class ConfiguredTargetFactory {
           ToolchainCollection<AspectBaseTargetResolvedToolchainContext> baseTargetToolchainContexts,
       @Nullable ExecGroupCollection.Builder execGroupCollectionBuilder,
       BuildConfigurationValue aspectConfiguration,
-      @Nullable NestedSet<Package> transitivePackages,
+      @Nullable NestedSet<Package.Metadata> transitivePackages,
       AspectKeyCreator.AspectKey aspectKey,
       StarlarkAttributeTransitionProvider starlarkExecTransition)
       throws InterruptedException,

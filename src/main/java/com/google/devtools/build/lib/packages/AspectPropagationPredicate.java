@@ -14,17 +14,22 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.devtools.build.lib.cmdline.StarlarkThreadContext;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAspectPropagationContextApi;
 import java.util.Objects;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Mutability;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
 
 /** Starlark function that determines whether aspect should be propagated to the target. */
 public final class AspectPropagationPredicate {
 
-  @SuppressWarnings("unused")
   private final StarlarkFunction predicate;
-
-  @SuppressWarnings("unused")
   private final StarlarkSemantics semantics;
 
   public AspectPropagationPredicate(StarlarkFunction predicate, StarlarkSemantics semantics) {
@@ -32,9 +37,34 @@ public final class AspectPropagationPredicate {
     this.semantics = semantics;
   }
 
-  public boolean evaluate() {
-    // TODO(b/394400334): Add implementation depending on a given target and the starlark function.
-    return true;
+  public boolean evaluate(
+      StarlarkAspectPropagationContextApi context, ExtendedEventHandler eventHandler)
+      throws InterruptedException, EvalException {
+
+    Object starlarkResult = runPropagationPredicate(context, eventHandler);
+
+    if (starlarkResult instanceof Boolean booleanResult) {
+      return booleanResult;
+    }
+    throw new EvalException("Expected a boolean");
+  }
+
+  private Object runPropagationPredicate(
+      StarlarkAspectPropagationContextApi context, ExtendedEventHandler eventHandler)
+      throws InterruptedException, EvalException {
+    try (Mutability mu = Mutability.create("aspect_propagation_predicate")) {
+      StarlarkThread thread = StarlarkThread.createTransient(mu, semantics);
+      thread.setPrintHandler(Event.makeDebugPrintHandler(eventHandler));
+
+      new AspectPropagationThreadContext().storeInThread(thread);
+      return Starlark.positionalOnlyCall(thread, predicate, context);
+    }
+  }
+
+  private static class AspectPropagationThreadContext extends StarlarkThreadContext {
+    public AspectPropagationThreadContext() {
+      super(null);
+    }
   }
 
   @Override

@@ -29,8 +29,16 @@ import javax.annotation.Nullable;
  */
 public interface Target extends TargetData {
 
-  /** Returns the Package to which this target belongs. */
+  /**
+   * Returns the Package to which this target belongs.
+   *
+   * <p>Avoid adding new uses of this method; it is incompatible with lazy symbolic macro
+   * evaluation.
+   */
   Package getPackage();
+
+  /** Returns the Package.Metadata of the package to which this target belongs. */
+  Package.Metadata getPackageMetadata();
 
   /**
    * Returns the innermost symbolic macro that declared this target, or null if it was declared
@@ -56,7 +64,7 @@ public interface Target extends TargetData {
    */
   default PackageIdentifier getDeclaringPackage() {
     PackageIdentifier pkgId = getPackage().getDeclaringPackageForTargetIfInMacro(getName());
-    return pkgId != null ? pkgId : getPackage().getPackageIdentifier();
+    return pkgId != null ? pkgId : getPackageMetadata().packageIdentifier();
   }
 
   /**
@@ -178,7 +186,7 @@ public interface Target extends TargetData {
     MacroInstance declaringMacro = getDeclaringMacro();
     PackageIdentifier instantiatingLoc =
         declaringMacro == null
-            ? getPackage().getPackageIdentifier()
+            ? getPackageMetadata().packageIdentifier()
             : declaringMacro.getDefinitionPackage();
     return visibility.concatWithPackage(instantiatingLoc);
   }
@@ -195,6 +203,6 @@ public interface Target extends TargetData {
   default String getDisplayFormLabel() {
     return getLabel()
         .getDisplayForm(
-            getLabel().getRepository().isMain() ? getPackage().getRepositoryMapping() : null);
+            getLabel().getRepository().isMain() ? getPackageMetadata().repositoryMapping() : null);
   }
 }

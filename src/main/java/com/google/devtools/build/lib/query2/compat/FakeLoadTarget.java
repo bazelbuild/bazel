@@ -50,6 +50,11 @@ public class FakeLoadTarget implements Target {
   }
 
   @Override
+  public Package.Metadata getPackageMetadata() {
+    return pkg.getMetadata();
+  }
+
+  @Override
   public String getTargetKind() {
     return targetKind();
   }
