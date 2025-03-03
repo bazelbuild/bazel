@@ -1990,22 +1990,7 @@ EOF
 }
 
 function test_header_compiler_direct_supports_unicode() {
-  if [[ "${JAVA_TOOLS_ZIP}" == released ]]; then
-      # TODO: Enable test after the next java_tools release.
-      return 0
-  fi
-
-  if "$is_windows"; then
-    # GraalVM native images on Windows use the same active code page they have been built
-    # with, which in the case of Bazel CI is 1252 (not UTF-8). Even with -H:+AddAllCharsets
-    # InvalidPathExceptions are still thrown when accessing a Unicode file path, indicating a
-    # problem within GraalVM's path encoding handling.
-    # https://github.com/oracle/graal/issues/10237
-    # TODO: Fix this by building java_tools binaries on a machine with system code page set to
-    #  UTF-8.
-    echo "Skipping test on Windows"
-    return 0
-  elif [[ "$(uname -s)" == "Linux" ]]; then
+  if [[ "$(uname -s)" == "Linux" ]]; then
     export LC_ALL=C.UTF-8
     if [[ $(locale charmap) != "UTF-8" ]]; then
       echo "Skipping test due to missing UTF-8 locale"
@@ -2014,6 +1999,7 @@ function test_header_compiler_direct_supports_unicode() {
     local -r unicode="äöüÄÖÜß🌱"
   else
     # JVMs on macOS always support UTF-8 since JEP 400.
+    # Windows builds of Turbine are created on a machine with system code page set to UTF-8.
     local -r unicode="äöüÄÖÜß🌱"
   fi
   mkdir -p pkg
