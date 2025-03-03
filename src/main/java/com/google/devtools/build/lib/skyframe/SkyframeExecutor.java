@@ -3655,7 +3655,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   @Nullable
-  private Package getExistingPackage(PackageIdentifier id) throws InterruptedException {
+  public Package getExistingPackage(PackageIdentifier id) throws InterruptedException {
     var value = (PackageValue) memoizingEvaluator.getExistingValue(id);
     if (value == null) {
       return null;
