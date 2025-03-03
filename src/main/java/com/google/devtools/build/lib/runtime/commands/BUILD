@@ -83,6 +83,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules/cpp:header_info_codec",
         "//src/main/java/com/google/devtools/build/lib/runtime/commands/events",
         "//src/main/java/com/google/devtools/build/lib/runtime/commands/info",
+        "//src/main/java/com/google/devtools/build/lib/runtime/events",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
