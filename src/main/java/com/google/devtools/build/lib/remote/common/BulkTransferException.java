@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.common;
 
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 import com.google.common.base.Joiner;
@@ -56,8 +55,11 @@ public class BulkTransferException extends IOException {
   public void add(IOException e) {
     if (e instanceof BulkTransferException bulkTransferException) {
       for (Throwable t : bulkTransferException.getSuppressed()) {
-        checkState(t instanceof IOException);
-        add(bulkTransferException);
+        if (t instanceof IOException ioException) {
+          add(ioException);
+        } else {
+          throw new IllegalStateException("BulkTransferException contains non-IOException", t);
+        }
       }
       return;
     }
