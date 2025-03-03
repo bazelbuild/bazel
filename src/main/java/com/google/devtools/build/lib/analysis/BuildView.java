@@ -13,11 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -64,6 +65,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
+import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.StarlarkAspectClass;
 import com.google.devtools.build.lib.packages.Target;
@@ -173,7 +175,7 @@ public class BuildView {
     this.directories = directories;
     this.coverageReportActionFactory = coverageReportActionFactory;
     this.ruleClassProvider = ruleClassProvider;
-    this.skyframeExecutor = Preconditions.checkNotNull(skyframeExecutor);
+    this.skyframeExecutor = checkNotNull(skyframeExecutor);
     this.skyframeBuildView = skyframeExecutor.getSkyframeBuildView();
   }
 
@@ -245,13 +247,7 @@ public class BuildView {
     skyframeBuildView.resetProgressReceiver();
     skyframeExecutor.setBaselineConfiguration(targetOptions, eventHandler);
 
-    ImmutableMap.Builder<Label, Target> labelToTargetsMapBuilder =
-        ImmutableMap.builderWithExpectedSize(loadingResult.getTargetLabels().size());
-    loadingResult
-        .getTargets(eventHandler, skyframeExecutor.getPackageManager())
-        .forEach(target -> labelToTargetsMapBuilder.put(target.getLabel(), target));
-    ImmutableMap<Label, Target> labelToTargetMap = labelToTargetsMapBuilder.buildOrThrow();
-
+    ImmutableMap<Label, Target> labelToTargetMap = constructLabelToTargetMap(loadingResult);
     eventBus.post(new AnalysisPhaseStartedEvent(labelToTargetMap.values()));
 
     // Prepare the analysis phase
@@ -360,7 +356,7 @@ public class BuildView {
         // We wait until now to setup for execution, in case the artifact factory was reset
         // due to a config change.
         try (SilentCloseable c = Profiler.instance().profile("prepareForExecution")) {
-          Preconditions.checkNotNull(executionSetupCallback).prepareForExecution();
+          checkNotNull(executionSetupCallback).prepareForExecution();
         }
         skyframeAnalysisResult =
             skyframeBuildView.analyzeAndExecuteTargets(
@@ -373,8 +369,8 @@ public class BuildView {
                 explicitTargetPatterns,
                 eventBus,
                 bugReporter,
-                Preconditions.checkNotNull(resourceManager), // non-null for skymeld.
-                Preconditions.checkNotNull(buildResultListener), // non-null for skymeld.
+                checkNotNull(resourceManager), // non-null for skymeld.
+                checkNotNull(buildResultListener), // non-null for skymeld.
                 (configuredTargets, allTargetsToTest) ->
                     memoizedGetCoverageArtifactsHelper(
                         configuredTargets, allTargetsToTest, eventHandler, eventBus, loadingResult),
@@ -484,6 +480,20 @@ public class BuildView {
     }
     logger.atInfo().log("Finished analysis");
     return result;
+  }
+
+  private ImmutableMap<Label, Target> constructLabelToTargetMap(
+      TargetPatternPhaseValue loadingResult) throws InterruptedException {
+    ImmutableSet<Label> labels = loadingResult.getTargetLabels();
+    ImmutableMap.Builder<Label, Target> builder =
+        ImmutableMap.builderWithExpectedSize(labels.size());
+    for (Label label : labels) {
+      Package pkg =
+          checkNotNull(skyframeExecutor.getExistingPackage(label.getPackageIdentifier()), label);
+      Target target = checkNotNull(pkg.getTargets().get(label.getName()), label);
+      builder.put(label, target);
+    }
+    return builder.buildOrThrow();
   }
 
   private ImmutableList<TopLevelAspectsKey> createTopLevelAspectKeys(
@@ -606,7 +616,7 @@ public class BuildView {
     // build-info and build-changelist.
     ImmutableList<Artifact> buildInfoArtifacts =
         skyframeExecutor.getWorkspaceStatusArtifacts(eventHandler);
-    Preconditions.checkState(buildInfoArtifacts.size() == 2, buildInfoArtifacts);
+    checkState(buildInfoArtifacts.size() == 2, buildInfoArtifacts);
 
     // Extra actions
     addExtraActionsIfRequested(
