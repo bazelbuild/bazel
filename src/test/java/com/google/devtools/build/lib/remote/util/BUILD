@@ -72,6 +72,7 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//third_party:guava",
         "//third_party:jsr305",
+        "//third_party:junit4",
         "@rules_java//java/runfiles",
     ],
 )
