@@ -73,7 +73,8 @@ command line. Specifically, `deps` becomes:
 targets. By using `select()` in a configurable attribute, the attribute
 effectively adopts different values when different conditions hold.
 
-Matches must be unambiguous: if multiple conditions match then either
+Matches must be unambiguous: if multiple conditions match then either:
+
 *  They all resolve to the same value. For example, when running on linux x86, this is unambiguous
    `{"@platforms//os:linux": "Hello", "@platforms//cpu:x86_64": "Hello"}` because both branches resolve to "hello".
 *  One's `values` is a strict superset of all others'. For example, `values = {"cpu": "x86", "compilation_mode": "dbg"}`
