@@ -330,6 +330,11 @@ function test_build_reduced_classpath_fallback() {
 }
 
 function test_build_reduced_classpath_no_fallback() {
+  if [[ "${JAVA_TOOLS_ZIP}" == released ]]; then
+      # TODO: Enable test after the next java_tools release.
+      return 0
+  fi
+
   local -r pkg="${FUNCNAME[0]}"
   write_java_classpath_reduction_files "$pkg"
 
