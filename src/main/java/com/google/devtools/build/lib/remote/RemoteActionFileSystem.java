@@ -285,12 +285,8 @@ public class RemoteActionFileSystem extends AbstractFileSystem
 
   /** Returns whether a path is stored remotely. Follows symlinks. */
   boolean isRemote(Path path) throws IOException {
-    return isRemote(path.asFragment());
-  }
-
-  private boolean isRemote(PathFragment path) throws IOException {
     // Files in the local filesystem are non-remote by definition, so stat only in-memory sources.
-    var status = statInternal(path, FollowMode.FOLLOW_ALL, StatSources.IN_MEMORY_ONLY);
+    var status = statInternal(path.asFragment(), FollowMode.FOLLOW_ALL, StatSources.IN_MEMORY_ONLY);
     return status instanceof FileStatusWithMetadata fileStatusWithMetadata
         && fileStatusWithMetadata.getMetadata().isRemote();
   }
@@ -369,7 +365,15 @@ public class RemoteActionFileSystem extends AbstractFileSystem
 
   @Override
   protected InputStream getInputStream(PathFragment path) throws IOException {
-    downloadFileIfRemote(path);
+    var inMemoryStatus = statInternal(path, FollowMode.FOLLOW_ALL, StatSources.IN_MEMORY_ONLY);
+    if (inMemoryStatus instanceof FileStatusWithMetadata fileStatusWithMetadata) {
+      if (fileStatusWithMetadata.getMetadata().isInline()) {
+        return fileStatusWithMetadata.getMetadata().getInputStream();
+      }
+      if (fileStatusWithMetadata.getMetadata().isRemote()) {
+        downloadRemoteFile(path);
+      }
+    }
     // TODO(tjgq): Consider only falling back to the local filesystem for source (non-output) files.
     // See getMetadata() for why this isn't currently possible.
     return localFs.getPath(path).getInputStream();
@@ -748,10 +752,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
     return inputArtifactData.getInputMetadata(input);
   }
 
-  private void downloadFileIfRemote(PathFragment path) throws IOException {
-    if (!isRemote(path)) {
-      return;
-    }
+  private void downloadRemoteFile(PathFragment path) throws IOException {
     PathFragment execPath = path.relativeTo(execRoot);
     try {
       ActionInput input = getInput(execPath.getPathString());

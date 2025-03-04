@@ -280,7 +280,6 @@ public class RemoteOutputChecker implements OutputChecker {
     return shouldDownloadOutput(output.getExecPath());
   }
 
-  /** Returns whether an {@link ActionInput} with the given path should be downloaded. */
   public boolean shouldDownloadOutput(PathFragment execPath) {
     return outputsMode == RemoteOutputsMode.ALL
         || pathsToDownload.contains(execPath)
@@ -289,8 +288,8 @@ public class RemoteOutputChecker implements OutputChecker {
 
   @Override
   public boolean shouldTrustArtifact(ActionInput file, FileArtifactValue metadata) {
-    // Local metadata is always trusted.
-    if (!metadata.isRemote()) {
+    // Eager metadata is always trusted.
+    if (!metadata.isLazy()) {
       return true;
     }
 
