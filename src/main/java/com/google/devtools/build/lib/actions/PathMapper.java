@@ -106,6 +106,16 @@ public interface PathMapper {
   }
 
   /**
+   * Returns the length of the mapped path minus the length of the unmapped path.
+   *
+   * <p>Implementations should provide a more efficient implementation that avoids allocations.
+   */
+  default int computeExecPathLengthDiff(Artifact.DerivedArtifact artifact) {
+    return map(artifact.getExecPath()).getPathString().length()
+        - artifact.getExecPath().getPathString().length();
+  }
+
+  /**
    * We don't yet have a Starlark API for mapping paths in command lines. Simple Starlark calls like
    * {@code args.add(arg_name, file_path} are automatically handled. But calls that involve custom
    * Starlark code require deeper API support that remains a TODO.
@@ -191,6 +201,16 @@ public interface PathMapper {
         @Override
         public PathFragment map(PathFragment execPath) {
           return execPath;
+        }
+
+        @Override
+        public String getMappedExecPathString(ActionInput artifact) {
+          return artifact.getExecPathString();
+        }
+
+        @Override
+        public int computeExecPathLengthDiff(Artifact.DerivedArtifact artifact) {
+          return 0;
         }
 
         @Override

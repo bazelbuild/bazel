@@ -28,7 +28,7 @@ public interface ArgChunk {
    * <p>The returned {@link Iterable} may lazily materialize strings during iteration, so consumers
    * should attempt to avoid iterating more times than necessary.
    */
-  Iterable<String> arguments();
+  Iterable<String> arguments(PathMapper pathMapper);
 
   /**
    * Counts the total length of all arguments in this chunk.
@@ -36,5 +36,5 @@ public interface ArgChunk {
    * <p>Implementations that lazily materialize strings may be able to compute the total argument
    * length without actually materializing the arguments.
    */
-  int totalArgLength();
+  int totalArgLength(PathMapper pathMapper);
 }
