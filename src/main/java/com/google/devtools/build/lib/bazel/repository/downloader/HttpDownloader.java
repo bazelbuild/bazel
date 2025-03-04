@@ -81,7 +81,8 @@ public class HttpDownloader implements Downloader {
       Path destination,
       ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv,
-      Optional<String> type)
+      Optional<String> type,
+      String context)
       throws IOException, InterruptedException {
     HttpConnectorMultiplexer multiplexer = setUpConnectorMultiplexer(eventHandler, clientEnv);
 
