@@ -14,14 +14,18 @@
 package com.google.devtools.build.lib.actions;
 
 /**
- * An interface used to check whether the metadata for an output should be trusted.
- *
- * <p>Used to invalidate metadata when the respective contents are stored with a bounded lifetime.
+ * An interface used to check whether an output should be downloaded or its metadata revalidated
+ * when it is stored with a bounded lifetime.
  */
 public interface OutputChecker {
   static final OutputChecker TRUST_ALL = (file, metadata) -> true;
   static final OutputChecker TRUST_LOCAL_ONLY = (file, metadata) -> !metadata.isRemote();
 
+  /** Returns whether the given output should be downloaded. */
+  default boolean shouldDownloadOutput(ActionInput output, FileArtifactValue metadata) {
+    return !shouldTrustMetadata(output, metadata);
+  }
+
   /** Returns whether the given metadata should be trusted. */
-  boolean shouldTrustArtifact(ActionInput file, FileArtifactValue metadata);
+  boolean shouldTrustMetadata(ActionInput file, FileArtifactValue metadata);
 }

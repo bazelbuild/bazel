@@ -240,7 +240,7 @@ public class ActionCacheChecker {
     if (outputChecker == null || metadata == null) {
       return true;
     }
-    return outputChecker.shouldTrustArtifact(artifact, metadata);
+    return outputChecker.shouldTrustMetadata(artifact, metadata);
   }
 
   private static boolean shouldTrustTreeMetadata(
@@ -262,7 +262,7 @@ public class ActionCacheChecker {
               .getArchivedRepresentation()
               .map(ArchivedRepresentation::archivedFileValue)
               .orElseThrow();
-      if (!outputChecker.shouldTrustArtifact(archivedArtifact, archivedMetadata)) {
+      if (!outputChecker.shouldTrustMetadata(archivedArtifact, archivedMetadata)) {
         return false;
       }
     }
@@ -270,7 +270,7 @@ public class ActionCacheChecker {
         treeMetadata.getChildValues().entrySet()) {
       TreeFileArtifact child = entry.getKey();
       FileArtifactValue childMetadata = entry.getValue();
-      if (!outputChecker.shouldTrustArtifact(child, childMetadata)) {
+      if (!outputChecker.shouldTrustMetadata(child, childMetadata)) {
         return false;
       }
     }

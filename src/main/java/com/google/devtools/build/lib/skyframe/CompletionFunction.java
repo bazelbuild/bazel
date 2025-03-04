@@ -455,7 +455,7 @@ public final class CompletionFunction<
       for (var child : treeMetadata.getChildValues().entrySet()) {
         var treeFile = child.getKey();
         var metadata = child.getValue();
-        if (!outputChecker.shouldTrustArtifact(treeFile, metadata)) {
+        if (outputChecker.shouldDownloadOutput(treeFile, metadata)) {
           filesToDownload.add(treeFile);
         }
       }
@@ -473,7 +473,7 @@ public final class CompletionFunction<
         return;
       }
 
-      if (!outputChecker.shouldTrustArtifact(artifact, metadata)) {
+      if (outputChecker.shouldDownloadOutput(artifact, metadata)) {
         var action =
             ActionUtils.getActionForLookupData(env, derivedArtifact.getGeneratingActionKey());
         var future =
