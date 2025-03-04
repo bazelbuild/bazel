@@ -17,8 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.windows.WindowsFileOperations;
-import com.google.devtools.build.lib.windows.WindowsShortPath;
+import com.google.devtools.build.lib.windows.WindowsPathOperations;
 import java.io.IOException;
 
 @VisibleForTesting
@@ -49,7 +48,7 @@ class WindowsOsPathPolicy implements OsPathPolicy {
         return path;
       }
       try {
-        return WindowsFileOperations.getLongPath(path);
+        return WindowsPathOperations.getLongPath(path);
       } catch (IOException e) {
         return path;
       }
@@ -97,7 +96,7 @@ class WindowsOsPathPolicy implements OsPathPolicy {
           normalizationLevel = Math.max(normalizationLevel, NEEDS_NORMALIZE);
         }
         if (segmentHasShortPathChar) {
-          if (WindowsShortPath.isShortPath(path.substring(segmentBeginIndex, i))) {
+          if (WindowsPathOperations.isShortPath(path.substring(segmentBeginIndex, i))) {
             normalizationLevel = Math.max(normalizationLevel, NEEDS_SHORT_PATH_NORMALIZATION);
           }
         }
@@ -111,7 +110,7 @@ class WindowsOsPathPolicy implements OsPathPolicy {
       prevChar = c;
     }
     if (segmentHasShortPathChar) {
-      if (WindowsShortPath.isShortPath(path.substring(segmentBeginIndex))) {
+      if (WindowsPathOperations.isShortPath(path.substring(segmentBeginIndex))) {
         normalizationLevel = Math.max(normalizationLevel, NEEDS_SHORT_PATH_NORMALIZATION);
       }
     }

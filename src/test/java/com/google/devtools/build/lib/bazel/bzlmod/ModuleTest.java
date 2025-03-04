@@ -21,7 +21,7 @@ import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.buildMod
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createRepositoryMapping;
 
-import com.google.devtools.build.lib.windows.WindowsShortPath;
+import com.google.devtools.build.lib.windows.WindowsPathOperations;
 import java.util.stream.Stream;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -97,6 +97,6 @@ public class ModuleTest {
   }
 
   private static void assertNotAShortPath(String name) {
-    assertWithMessage("For %s", name).that(WindowsShortPath.isShortPath(name)).isFalse();
+    assertWithMessage("For %s", name).that(WindowsPathOperations.isShortPath(name)).isFalse();
   }
 }

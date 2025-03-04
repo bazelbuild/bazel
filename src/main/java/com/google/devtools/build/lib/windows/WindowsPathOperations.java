@@ -13,11 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.windows;
 
+import com.google.devtools.build.lib.jni.JniLoader;
+import java.io.IOException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /** Support functions for Windows short paths (eg. "C:/progra~1") */
-public final class WindowsShortPath {
+public final class WindowsPathOperations {
+
+  private WindowsPathOperations() {}
+
+  static {
+    JniLoader.loadJni();
+  }
 
   // Properties of 8dot3 (DOS-style) short file names:
   // - they are at most 11 characters long
@@ -41,4 +49,46 @@ public final class WindowsShortPath {
         && m.groupCount() >= 2
         && (m.group(1).length() + m.group(2).length()) < 8; // the "~" makes it at most 8
   }
+
+  /**
+   * Returns the long path associated with the input `path`.
+   *
+   * <p>This method resolves all 8dot3 style components of the path and returns the long format. For
+   * example, if the input is "C:/progra~1/micros~1" the result may be "C:\Program Files\Microsoft
+   * Visual Studio 14.0". The returned path is Windows-style in that it uses backslashes, even if
+   * the input uses forward slashes.
+   *
+   * <p>May return an UNC path if `path` or its resolution is sufficiently long.
+   *
+   * @throws IOException if the `path` is not found or some other I/O error occurs
+   */
+  public static String getLongPath(String path) throws IOException {
+    String[] result = new String[] {null};
+    String[] error = new String[] {null};
+    if (nativeGetLongPath(asLongPath(path), result, error)) {
+      return removeUncPrefixAndUseSlashes(result[0]);
+    } else {
+      throw new IOException(error[0]);
+    }
+  }
+
+  /** Returns a Windows-style path suitable to pass to unicode WinAPI functions. */
+  static String asLongPath(String path) {
+    return !path.startsWith("\\\\?\\")
+        ? ("\\\\?\\" + path.replace('/', '\\'))
+        : path.replace('/', '\\');
+  }
+
+  static String removeUncPrefixAndUseSlashes(String p) {
+    if (p.length() >= 4
+        && p.charAt(0) == '\\'
+        && (p.charAt(1) == '\\' || p.charAt(1) == '?')
+        && p.charAt(2) == '?'
+        && p.charAt(3) == '\\') {
+      p = p.substring(4);
+    }
+    return p.replace('\\', '/');
+  }
+
+  private static native boolean nativeGetLongPath(String path, String[] result, String[] error);
 }
