@@ -38,7 +38,6 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCacheChecker.Token;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
-import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent.ErrorTiming;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -539,12 +538,12 @@ public final class ActionExecutionFunction implements SkyFunction {
                   e.getPrimaryOutputPath(),
                   action,
                   new ActionExecutionException(
-                      e,
+                      rewindingFailedException,
                       action,
                       /* catastrophe= */ false,
                       rewindingFailedException.getDetailedExitCode()),
                   e.getFileOutErr(),
-                  ActionExecutedEvent.ErrorTiming.AFTER_EXECUTION)));
+                  ErrorTiming.AFTER_EXECUTION)));
     } finally {
       if (e.isActionStartedEventAlreadyEmitted() && rewindPlan == null) {
         // Rewinding was unsuccessful. SkyframeActionExecutor's ActionRunner didn't emit an

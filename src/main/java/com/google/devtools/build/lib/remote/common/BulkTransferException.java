@@ -13,13 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.common;
 
-import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.remote.util.DigestUtil;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -31,7 +36,6 @@ import java.util.stream.Collectors;
 public class BulkTransferException extends IOException {
   // No empty BulkTransferException is ever thrown.
   private boolean allCacheNotFoundException = true;
-  private boolean anyCacheNotFoundException = false;
 
   public BulkTransferException() {}
 
@@ -51,23 +55,16 @@ public class BulkTransferException extends IOException {
   public void add(IOException e) {
     if (e instanceof BulkTransferException bulkTransferException) {
       for (Throwable t : bulkTransferException.getSuppressed()) {
-        checkState(t instanceof IOException);
-        add(bulkTransferException);
+        if (t instanceof IOException ioException) {
+          add(ioException);
+        } else {
+          throw new IllegalStateException("BulkTransferException contains non-IOException", t);
+        }
       }
       return;
     }
     allCacheNotFoundException &= e instanceof CacheNotFoundException;
-    anyCacheNotFoundException |= e instanceof CacheNotFoundException;
     super.addSuppressed(e);
-  }
-
-  public boolean anyCausedByCacheNotFoundException() {
-    return anyCacheNotFoundException;
-  }
-
-  public static boolean anyCausedByCacheNotFoundException(Throwable e) {
-    return e instanceof BulkTransferException bulkTransferException
-        && bulkTransferException.anyCausedByCacheNotFoundException();
   }
 
   public boolean allCausedByCacheNotFoundException() {
@@ -77,6 +74,34 @@ public class BulkTransferException extends IOException {
   public static boolean allCausedByCacheNotFoundException(Throwable e) {
     return e instanceof BulkTransferException bulkTransferException
         && bulkTransferException.allCausedByCacheNotFoundException();
+  }
+
+  // Avoid the heavy dependency on InputMetadataProvider, whose getInput method provides the
+  // argument to this method.
+  public ImmutableMap<String, ActionInput> getLostInputs(
+      Function<String, ActionInput> actionInputResolver) {
+    if (!allCausedByCacheNotFoundException(this)) {
+      return ImmutableMap.of();
+    }
+    return Arrays.stream(getSuppressed())
+        .map(CacheNotFoundException.class::cast)
+        .collect(
+            toImmutableMap(
+                e -> DigestUtil.toString(e.getMissingDigest()),
+                e -> {
+                  Preconditions.checkNotNull(
+                      e.getExecPath(),
+                      "exec path not known for action input with digest %s",
+                      e.getMissingDigest());
+                  ActionInput actionInput =
+                      actionInputResolver.apply(e.getExecPath().getPathString());
+                  Preconditions.checkNotNull(
+                      actionInput,
+                      "ActionInput not found for filename %s in CacheNotFoundException",
+                      e.getExecPath());
+                  return actionInput;
+                },
+                (a, b) -> b));
   }
 
   @Override
