@@ -21,6 +21,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 
@@ -389,7 +390,8 @@ public class HttpDownloaderTest {
           destination,
           eventHandler,
           Collections.emptyMap(),
-          Optional.empty());
+          Optional.empty(),
+          "context");
 
       assertThat(new String(readFile(destination), UTF_8)).isEqualTo("hello");
     }
@@ -429,7 +431,8 @@ public class HttpDownloaderTest {
                   fs.getPath(workingDir.newFile().getAbsolutePath()),
                   eventHandler,
                   Collections.emptyMap(),
-                  Optional.empty()));
+                  Optional.empty(),
+                  "context"));
     }
   }
 
@@ -490,7 +493,8 @@ public class HttpDownloaderTest {
           destination,
           eventHandler,
           Collections.emptyMap(),
-          Optional.empty());
+          Optional.empty(),
+          "context");
 
       assertThat(new String(readFile(destination), UTF_8)).isEqualTo("content2");
     }
@@ -660,7 +664,7 @@ public class HttpDownloaderTest {
                   throw new ContentLengthMismatchException(0, data.length);
                 })
         .when(downloader)
-        .download(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        .download(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("testRepo"));
 
     assertThrows(
         ContentLengthMismatchException.class,
@@ -705,7 +709,7 @@ public class HttpDownloaderTest {
                   return null;
                 })
         .when(downloader)
-        .download(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        .download(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("testRepo"));
 
     Path result =
         download(
@@ -753,7 +757,7 @@ public class HttpDownloaderTest {
                   return null;
                 })
         .when(downloader)
-        .download(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        .download(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("testRepo"));
 
     Path result =
         download(
@@ -798,7 +802,7 @@ public class HttpDownloaderTest {
                   return null;
                 })
         .when(downloader)
-        .download(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        .download(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("testRepo"));
 
     Path result =
         download(
@@ -846,7 +850,7 @@ public class HttpDownloaderTest {
                   return null;
                 })
         .when(downloader)
-        .download(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        .download(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("testRepo"));
 
     Path result =
         download(

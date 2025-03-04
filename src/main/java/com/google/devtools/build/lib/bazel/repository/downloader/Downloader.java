@@ -37,6 +37,7 @@ public interface Downloader {
    * @param checksum valid checksum which is checked, or absent to disable
    * @param output path to the destination file to write
    * @param type extension, e.g. "tar.gz" to force on downloaded filename, or empty to not do this
+   * @param context free-form string that describes the origin of the download for logging
    * @throws IOException if download was attempted and ended up failing
    * @throws InterruptedException if this thread is being cast into oblivion
    */
@@ -49,6 +50,7 @@ public interface Downloader {
       Path output,
       ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv,
-      Optional<String> type)
+      Optional<String> type,
+      String context)
       throws IOException, InterruptedException;
 }

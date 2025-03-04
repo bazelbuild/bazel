@@ -20,6 +20,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.singletonList;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -204,7 +205,8 @@ public class GrpcRemoteDownloaderTest {
         destination,
         eventHandler,
         clientEnv,
-        Optional.<String>empty());
+        Optional.<String>empty(),
+        "context");
 
     try (InputStream in = destination.getInputStream()) {
       return ByteStreams.toByteArray(in);
@@ -269,7 +271,7 @@ public class GrpcRemoteDownloaderTest {
               return null;
             })
         .when(fallbackDownloader)
-        .download(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        .download(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("context"));
     final GrpcRemoteDownloader downloader = newDownloader(cacheClient, fallbackDownloader);
 
     final byte[] downloaded =
