@@ -2015,7 +2015,138 @@ EOF
       --experimental_remote_cache_eviction_retries=1 \
       //a:bar >& $TEST_log || fail "Failed to build"
 
-  expect_log 'Failed to fetch blobs because they do not exist remotely.'
+  expect_log 'lost inputs with digests:'
+  expect_log "Found transient remote cache error, retrying the build..."
+
+  local invocation_ids=$(grep "Invocation ID:" $TEST_log)
+  local first_id=$(echo "$invocation_ids" | head -n 1)
+  local second_id=$(echo "$invocation_ids" | tail -n 1)
+  if [ "$first_id" == "$second_id" ]; then
+    fail "Invocation IDs are the same"
+  fi
+}
+
+# This test documents the current behavior, not the desired behavior.
+function test_remote_cache_eviction_retries_toplevel_artifact() {
+  mkdir -p a
+
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = 'foo',
+  srcs = ['foo.in'],
+  outs = ['foo.out'],
+  cmd = 'cat $(SRCS) > $@',
+)
+EOF
+
+  echo foo > a/foo.in
+
+  # Populate remote cache
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      //a:foo >& $TEST_log || fail "Failed to build"
+
+  bazel clean
+
+  # Clean build, foo.out isn't downloaded
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      //a:foo >& $TEST_log || fail "Failed to build"
+
+  if [[ -f bazel-bin/a/foo.out ]]; then
+    fail "Expected top-level output bazel-bin/a/foo.out to not be downloaded"
+  fi
+
+  # Evict blobs from remote cache
+  stop_worker
+  start_worker
+
+  # Incremental build in toplevel build triggers remote cache eviction error
+  # but Bazel doesn't automatically retry the build yet.
+  # TODO: This documents the current behavior, but it's not intended.
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_toplevel \
+      --experimental_remote_cache_eviction_retries=1 \
+      //a:foo >& $TEST_log && fail "Unexpectedly failed to build"
+  expect_not_log "Found transient remote cache error, retrying the build..."
+}
+
+function test_remote_cache_eviction_retries_jdeps() {
+  mkdir -p a
+
+  cat > a/BUILD <<'EOF'
+java_library(
+  name = "lib",
+  srcs = ["Library.java"],
+)
+
+java_binary(
+  name = "bin",
+  srcs = ["Binary.java"],
+  main_class = "Binary",
+  deps = [":lib"],
+  tags = ['no-remote-exec'],
+)
+EOF
+  cat > a/Library.java <<'EOF'
+public class Library {
+  public static boolean TEST = true;
+}
+EOF
+  cat > a/Binary.java <<'EOF'
+public class Binary {
+  public static void main(String[] args) {
+    System.out.println(Library.TEST);
+  }
+}
+EOF
+
+  # Populate remote cache
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      --experimental_java_classpath=bazel \
+      //a:bin >& $TEST_log || fail "Failed to build"
+
+  bazel clean
+
+  # Clean build, the jdeps file for lib isn't downloaded
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      --experimental_java_classpath=bazel \
+      //a:bin >& $TEST_log || fail "Failed to build"
+
+  if [[ -f bazel-bin/a/liblib-hjar.jdeps ]]; then
+    fail "Expected intermediate output bazel-bin/a/liblib-hjar.jdeps to not be downloaded"
+  fi
+
+  # Evict blobs from remote cache
+  stop_worker
+  start_worker
+
+  cat > a/Binary.java <<'EOF'
+public class Binary {
+  public static void main(String[] args) {
+    System.out.println(!Library.TEST);
+  }
+}
+EOF
+
+  # Incremental build triggers remote cache eviction error but Bazel
+  # automatically retries the build and reruns the generating actions for
+  # missing blobs
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      --experimental_remote_cache_eviction_retries=1 \
+      --experimental_java_classpath=bazel \
+      //a:bin >& $TEST_log || fail "Failed to build"
+
+  expect_log 'lost inputs with digests:'
   expect_log "Found transient remote cache error, retrying the build..."
 
   local invocation_ids=$(grep "Invocation ID:" $TEST_log)
@@ -2083,7 +2214,7 @@ EOF
       --build_event_text_file=bes.txt \
       //a:bar >& $TEST_log || fail "Failed to build"
 
-  expect_log 'Failed to fetch blobs because they do not exist remotely.'
+  expect_log 'lost inputs with digests:'
   expect_log "Found transient remote cache error, retrying the build..."
 
   local invocation_ids=$(grep "Invocation ID:" $TEST_log)

@@ -184,11 +184,13 @@ public class RewindingTestsHelper {
    * com.google.devtools.build.lib.vfs.DigestHashFunction}.
    */
   @ForOverride
-  String toHex(byte[] digest) {
+  String toHex(byte[] digest, long size) {
     StringBuilder hex = new StringBuilder();
     for (byte b : digest) {
       hex.append(String.format("%02x", b));
     }
+    hex.append('/');
+    hex.append(Long.toUnsignedString(size));
     return hex.toString();
   }
 
@@ -232,7 +234,8 @@ public class RewindingTestsHelper {
 
   private String getHexDigest(ActionInput input, ActionExecutionContext context)
       throws IOException {
-    return toHex(context.getInputMetadataProvider().getInputMetadata(input).getDigest());
+    var metadata = context.getInputMetadataProvider().getInputMetadata(input);
+    return toHex(metadata.getDigest(), metadata.getSize());
   }
 
   static ActionInputDepOwners getInputOwners(Multimap<ActionInput, Artifact> mappings) {
@@ -641,7 +644,7 @@ public class RewindingTestsHelper {
             intermediate.set(SpawnInputUtils.getInputWithName(spawn, "intermediate.txt"));
             return ExecResult.ofException(
                 new LostInputsExecException(
-                    ImmutableMap.of("fakedigest", intermediate.get()),
+                    ImmutableMap.of("fakedigest/10", intermediate.get()),
                     new ActionInputDepOwnerMap(ImmutableList.of(intermediate.get()))));
           });
     }
@@ -656,7 +659,7 @@ public class RewindingTestsHelper {
     String errorDetail =
         String.format(
             "lost input too many times (#%s) for the same action. lostInput: %s, "
-                + "lostInput digest: fakedigest, "
+                + "lostInput digest: fakedigest/10, "
                 + "failedAction: action 'Executing genrule //test:rule2'",
             ActionRewindStrategy.MAX_REPEATED_LOST_INPUTS + 1, intermediate.get());
     assertThat(e.getDetailedExitCode().getFailureDetail().getMessage()).contains(errorDetail);
@@ -3279,16 +3282,17 @@ public class RewindingTestsHelper {
     ActionExecutionValue actionExecutionValue =
         (ActionExecutionValue)
             testCase.getSkyframeExecutor().getEvaluator().getExistingValue(rewoundKeys.get(0));
-    byte[] lostDigest =
+    var lostInput =
         actionExecutionValue.getAllFileValues().entrySet().stream()
             .filter(entry -> entry.getKey().getRootRelativePathString().equals("foo/lost.out"))
-            .map(entry -> entry.getValue().getDigest())
+            .map(Map.Entry::getValue)
             .collect(onlyElement());
     String expectedError =
         String.format(
             "Lost output foo/lost.out (digest %s), and rewinding was ineffective after %d"
                 + " attempts.",
-            toHex(lostDigest), ActionRewindStrategy.MAX_REPEATED_LOST_INPUTS);
+            toHex(lostInput.getDigest(), lostInput.getSize()),
+            ActionRewindStrategy.MAX_REPEATED_LOST_INPUTS);
     testCase.assertContainsError(expectedError);
     assertThat(e.getDetailedExitCode().getFailureDetail().getMessage()).contains(expectedError);
     assertThat(Iterables.getOnlyElement(bugReporter.getExceptions()))

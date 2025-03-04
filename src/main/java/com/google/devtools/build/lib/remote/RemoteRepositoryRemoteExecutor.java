@@ -93,7 +93,8 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
       } else if (result.hasStdoutDigest()) {
         stdout =
             Utils.getFromFuture(
-                remoteCache.downloadBlob(context, "<stdout>", result.getStdoutDigest()));
+                remoteCache.downloadBlob(
+                    context, "<stdout>", /* execPath= */ null, result.getStdoutDigest()));
       }
 
       byte[] stderr = new byte[0];
@@ -102,7 +103,8 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
       } else if (result.hasStderrDigest()) {
         stderr =
             Utils.getFromFuture(
-                remoteCache.downloadBlob(context, "<stderr>", result.getStderrDigest()));
+                remoteCache.downloadBlob(
+                    context, "<stderr>", /* execPath= */ null, result.getStderrDigest()));
       }
 
       return new ExecutionResult(result.getExitCode(), stdout, stderr);
@@ -172,7 +174,11 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
         additionalInputs.put(commandHash, command);
 
         remoteCache.ensureInputsPresent(
-            context, merkleTree, additionalInputs, /* force= */ true, reporter);
+            context,
+            merkleTree,
+            additionalInputs,
+            /* force= */ true,
+            /* remotePathResolver= */ null);
       }
 
       try (SilentCloseable c =
