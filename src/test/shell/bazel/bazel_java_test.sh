@@ -1990,18 +1990,17 @@ EOF
 }
 
 function test_header_compiler_direct_supports_unicode() {
+  # JVMs on macOS always support UTF-8 since JEP 400.
+  # Windows releases of Turbine are built on a machine with system code page set
+  # to UTF-8.
   if [[ "$(uname -s)" == "Linux" ]]; then
     export LC_ALL=C.UTF-8
     if [[ $(locale charmap) != "UTF-8" ]]; then
       echo "Skipping test due to missing UTF-8 locale"
       return 0
     fi
-    local -r unicode="äöüÄÖÜß🌱"
-  else
-    # JVMs on macOS always support UTF-8 since JEP 400.
-    # Windows builds of Turbine are created on a machine with system code page set to UTF-8.
-    local -r unicode="äöüÄÖÜß🌱"
   fi
+  local -r unicode="äöüÄÖÜß🌱"
   mkdir -p pkg
   cat << EOF > pkg/BUILD
 java_library(name = "a", srcs = ["A.java"], deps = [":b"])
