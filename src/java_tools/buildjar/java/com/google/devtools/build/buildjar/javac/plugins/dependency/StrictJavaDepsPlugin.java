@@ -46,6 +46,7 @@ import com.sun.tools.javac.util.Log;
 import com.sun.tools.javac.util.Log.WriterKind;
 import com.sun.tools.javac.util.Name;
 import com.sun.tools.javac.util.Names;
+import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.UncheckedIOException;
@@ -337,13 +338,11 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
         // Also update the dependency proto
         Dependency dep =
             Dependency.newBuilder()
-                // Path.toString uses the platform separator (`\` on Windows) which may not
-                // match the format in params files (which currently always use `/`, see
-                // bazelbuild/bazel#4108). JavaBuilder should always parse Path strings into
-                // java.nio.file.Paths before comparing them.
+                // Path.toString uses the platform separator (`\` on Windows), but the proto must
+                // use the same separator as in the arguments.
                 //
                 // An empty path is OK in the cases we produce it. See readJarOwnerFromManifest.
-                .setPath(jar.pathOrEmpty().toString())
+                .setPath(jar.pathOrEmpty().toString().replace(File.separatorChar, '/'))
                 .setKind(Dependency.Kind.EXPLICIT)
                 .build();
         directDependenciesMap.put(jar.pathOrEmpty(), dep);
