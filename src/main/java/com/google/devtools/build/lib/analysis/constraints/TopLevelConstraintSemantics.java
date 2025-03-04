@@ -172,6 +172,13 @@ public class TopLevelConstraintSemantics {
       TargetLookup targetLookup,
       ExtendedEventHandler eventHandler)
       throws InterruptedException, TargetCompatibilityCheckException {
+    // TODO(bazel-team): support file targets (they should apply package-default constraints).
+    if (buildConfigurationValue == null
+        || !buildConfigurationValue.enforceConstraints()
+        || buildConfigurationValue.getTargetEnvironments().isEmpty()) {
+      return EnvironmentCompatibility.compatible();
+    }
+
     Target target;
     try {
       target = Preconditions.checkNotNull(targetLookup.getTarget(configuredTarget.getLabel()));
@@ -181,16 +188,9 @@ public class TopLevelConstraintSemantics {
               "Unable to get target from package when checking environment restrictions. " + e));
       return EnvironmentCompatibility.compatible();
     }
-    // TODO(bazel-team): support file targets (they should apply package-default constraints.
-    if (buildConfigurationValue == null
-        || !buildConfigurationValue
-            .enforceConstraints() // Constraint checking is disabled for all targets.
-        || target.getAssociatedRule() == null
-        || !target
-            .getAssociatedRule()
-            .getRuleClassObject()
-            .supportsConstraintChecking() // This target doesn't participate in constraints.
-    ) {
+
+    if (target.getAssociatedRule() == null
+        || !target.getAssociatedRule().getRuleClassObject().supportsConstraintChecking()) {
       return EnvironmentCompatibility.compatible();
     }
 
@@ -398,17 +398,9 @@ public class TopLevelConstraintSemantics {
   @Nullable
   private static ImmutableSet<MissingEnvironment> getMissingEnvironments(
       ConfiguredTarget topLevelTarget,
-      @Nullable Collection<Label> expectedEnvironmentLabels,
+      List<Label> expectedEnvironmentLabels,
       TargetLookup targetLookup)
       throws InterruptedException, TargetCompatibilityCheckException {
-    // Missing value.
-    if (expectedEnvironmentLabels == null) {
-      return null;
-    }
-    if (expectedEnvironmentLabels.isEmpty()) {
-      return ImmutableSet.of();
-    }
-
     // Convert expected environment labels to actual environments.
     EnvironmentCollection.Builder expectedEnvironmentsBuilder = new EnvironmentCollection.Builder();
     for (Label envLabel : expectedEnvironmentLabels) {
